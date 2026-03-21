@@ -48,6 +48,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.
 
 Built on [Effect](https://effect.website).
 
+## Status
+
+Early alpha. These packages are being ported from [Scene Systems](https://github.com/scenesystems)' internal research infrastructure into standalone open-source packages. APIs may change.
+
 ## License
 
 [MIT](./LICENSE) — Copyright © 2026 Scene Systems
