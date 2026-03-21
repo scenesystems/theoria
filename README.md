@@ -1,0 +1,49 @@
+# Theoria
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
+
+Effect-native scientific computing for TypeScript. Optimization, prompt programming, and mathematics — built on [Effect](https://effect.website), no native dependencies.
+
+## Packages
+
+| Package | Description | |
+|---|---|---|
+| `effect-search` | Bayesian optimization for TypeScript. TPE, MOTPE, HyperBand/BOHB, constrained c-TPE, typed search spaces, snapshot/resume, streaming events. Verified against [Optuna](https://github.com/optuna/optuna). | [README](./packages/effect-search/README.md) |
+| `effect-dsp` | Programming — not prompting — language models. A ground-up Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm. Typed signatures, learnable modules, fiber-scoped traces, six prompt optimizers. | [README](./packages/effect-dsp/README.md) |
+| `effect-math` | Mathematical and statistical foundations — an independent mathematical substrate organized by domain, not an extraction from existing packages. | *planned* |
+
+`effect-dsp` depends on `effect-search` for optimizer orchestration. `effect-math` will provide shared mathematical primitives for both.
+
+## Development
+
+Requires [bun](https://bun.sh) ≥ 1.3.
+
+```sh
+bun install
+bun run check
+bun run test
+bun run lint
+bun run build
+```
+
+Per-package:
+
+```sh
+bun --filter effect-search run check
+bun --filter effect-search run test
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.
+
+## Acknowledgments
+
+`effect-search` builds on [Bergstra et al. (2011)](https://papers.nips.cc/paper/2011/hash/86e8f7ab32cfd12577bc2619bc635690-Abstract.html), [Watanabe (2023)](https://arxiv.org/abs/2304.11127), [Ozaki et al. (2022)](https://doi.org/10.1613/jair.1.13188), [Li et al. (2017)](https://jmlr.org/papers/v18/16-558.html), and [Falkner et al. (2018)](https://proceedings.mlr.press/v80/falkner18a.html), verified against [Optuna](https://github.com/optuna/optuna).
+
+`effect-dsp` implements [DSPy (Khattab et al., 2023)](https://arxiv.org/abs/2310.03714) with optimizers from [MIPROv2 (Opsahl-Ong et al., 2024)](https://arxiv.org/abs/2406.11695) and [GEPA (Agrawal et al., 2025)](https://arxiv.org/abs/2507.19457).
+
+Built on [Effect](https://effect.website).
+
+## License
+
+[MIT](./LICENSE) — Copyright © 2026 Scene Systems

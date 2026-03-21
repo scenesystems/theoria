@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+build/
+dist/
+out/
+*.tgz
+
+# TypeScript incremental build
+.tsbuildinfo/
+*.tsbuildinfo
+
+# Generated documentation (@effect/docgen output)
+**/docs/
+
+# Code coverage
+coverage/
+*.lcov
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python (uv fixture generation)
+__pycache__/
+.venv/
+
+# Caches
+.eslintcache
+.cache
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+
+# Scratch files
+.tmp/
