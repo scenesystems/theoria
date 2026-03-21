@@ -3,7 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Effect-native scientific computing for TypeScript. Optimization, prompt programming, and mathematics — built on [Effect](https://effect.website), no native dependencies.
+Effect-native scientific computing for TypeScript.
+
+*Theoria* (θεωρία) — the disciplined act of observation that produces knowledge. These packages implement that discipline computationally: search algorithms that learn from what they observe, programs that optimize themselves through structured evaluation, and the mathematical foundations both depend on.
+
+Everything here is built on [Effect](https://effect.website). Pure TypeScript — no compiled binaries, no native modules.
 
 ## Packages
 
