@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {},
+  "files": [],
+  "references": [
+    // Add per-package tsconfig.src.json references as packages are created
+    // e.g. { "path": "./packages/effect-search/tsconfig.src.json" }
+  ]
+}

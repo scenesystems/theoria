@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo "═══════════════════════════════════════════"
+echo "  Theoria Pre-commit Quality Checks"
+echo "═══════════════════════════════════════════"
+
+# 1. Lint & Format staged files
+echo ""
+echo "[1/2] Linting and formatting staged files..."
+bunx lint-staged
+echo "Lint and format passed"
+
+# 2. Type checking
+echo ""
+echo "[2/2] Type checking..."
+if ! bun run check; then
+  echo "FAILED: Type errors found. Fix before committing."
+  exit 1
+fi
+echo "Type check passed"
+
+echo ""
+echo "═══════════════════════════════════════════"
+echo "  All pre-commit checks passed!"
+echo "═══════════════════════════════════════════"

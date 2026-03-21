@@ -1,0 +1,14 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# IMPORTANT: This project uses vitest, NOT bun's built-in test runner.
+#
+#   ✅ CORRECT:  bun run test
+#   ✅ CORRECT:  bun vitest run <path>
+#   ❌ WRONG:    bun test        ← uses Bun's runner, breaks @effect/vitest
+#
+# The config below neuters `bun test` so it finds nothing and exits 0.
+# ══════════════════════════════════════════════════════════════════════════════
+
+[test]
+# Point bun's built-in test runner at a non-existent directory so it
+# finds zero test files and exits cleanly instead of misrunning vitest tests.
+root = ".bun-test-disabled"

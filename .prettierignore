@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+bun.lock
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# Coverage
+coverage
+
+# Git
+.git
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+logs
+
+# Environment
+.env
+.env.*
+
+# Generated files
+*.min.js
+*.min.css
+
+# TypeScript (formatter handles these via eslint)
+*.ts
+*.tsx
+*.mts
+*.cts

@@ -5,17 +5,17 @@
 
 Effect-native scientific computing for TypeScript.
 
-*Theoria* (θεωρία) — the disciplined act of observation that produces knowledge. These packages implement that discipline computationally: search algorithms that learn from what they observe, programs that optimize themselves through structured evaluation, and the mathematical foundations both depend on.
+_Theoria_ (θεωρία) — the disciplined act of observation that produces knowledge. These packages implement that discipline computationally: search algorithms that learn from what they observe, programs that optimize themselves through structured evaluation, and the mathematical foundations both depend on.
 
 Built on [Effect](https://effect.website).
 
 ## Packages
 
-| Package | Description | |
-|---|---|---|
-| `effect-search` | Bayesian optimization for TypeScript. TPE, MOTPE, HyperBand/BOHB, constrained c-TPE, typed search spaces, snapshot/resume, streaming events. Verified against [Optuna](https://github.com/optuna/optuna). | [README](./packages/effect-search/README.md) |
-| `effect-dsp` | Programming — not prompting — language models. A ground-up Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm. Typed signatures, learnable modules, fiber-scoped traces, six prompt optimizers. | [README](./packages/effect-dsp/README.md) |
-| `effect-math` | Mathematical and statistical foundations — an independent mathematical substrate organized by domain, not an extraction from existing packages. | *planned* |
+| Package         | Description                                                                                                                                                                                                        |                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `effect-search` | Bayesian optimization for TypeScript. TPE, MOTPE, HyperBand/BOHB, constrained c-TPE, typed search spaces, snapshot/resume, streaming events. Verified against [Optuna](https://github.com/optuna/optuna).          | [README](./packages/effect-search/README.md) |
+| `effect-dsp`    | Programming — not prompting — language models. A ground-up Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm. Typed signatures, learnable modules, fiber-scoped traces, six prompt optimizers. | [README](./packages/effect-dsp/README.md)    |
+| `effect-math`   | Mathematical and statistical foundations — an independent mathematical substrate organized by domain, not an extraction from existing packages.                                                                    | _planned_                                    |
 
 `effect-dsp` depends on `effect-search` for optimizer orchestration. `effect-math` will provide shared mathematical primitives for both.
 

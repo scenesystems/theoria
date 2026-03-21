@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Enable JS + declaration output for package builds
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "emitDeclarationOnly": false,
+    // NodeNext is inherited from base — preserves .js extension semantics
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    // Environment & language settings
+    "lib": ["ES2022"],
+    "types": [],
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
+    "allowJs": true,
+
+    // Module handling
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+
+    // CRITICAL: Default is ALWAYS noEmit to prevent accidental emissions
+    // Only tsconfig.build.base.json enables emit with proper outDir
+    "noEmit": true,
+
+    // Strict type-checking (Effect-recommended)
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Relaxed flags
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Build caching (in base so tsserver benefits too)
+    "composite": true,
+    "incremental": true,
+
+    // Effect language service
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }
+}
