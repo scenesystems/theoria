@@ -1,13 +1,15 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["packages/*/test/**/*"],
-  "exclude": ["node_modules", "**/node_modules/**", "**/dist/**", "**/.tsbuild/**"],
   "compilerOptions": {
-    // Tests are type-check only, no emit
     "noEmit": true,
     "composite": false,
     "incremental": false,
     "declaration": false,
     "types": ["@types/node", "@effect/vitest", "vitest/globals"]
-  }
+  },
+  "files": [],
+  "references": [
+    // Add per-package tsconfig.test.json references as packages are created
+    // e.g. { "path": "./packages/effect-search/tsconfig.test.json" }
+  ]
 }

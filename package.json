@@ -18,8 +18,9 @@
     "check:all": "bun run check && bun run check:tests",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "echo 'No packages to lint yet — add per-package eslint targets as packages are created'",
-    "build": "echo 'No packages to build yet — add per-package build targets as packages are created'",
+    "lint": "eslint --max-warnings=0",
+    "lint:fix": "eslint --max-warnings=0 --fix",
+    "build": "tsc -b tsconfig.build.json",
     "clean": "rm -rf packages/*/build packages/*/dist packages/*/.tsbuildinfo *.tsbuildinfo",
     "changeset": "changeset",
     "changeset:version": "changeset version",
@@ -28,12 +29,24 @@
     "prettier:fix": "prettier --cache --cache-location node_modules/.cache/.prettiercache --write \"**/*.{md,json,yml,yaml}\""
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.6",
+    "@babel/core": "^7.29.0",
+    "@babel/plugin-transform-export-namespace-from": "^7.27.1",
+    "@babel/plugin-transform-modules-commonjs": "^7.28.6",
     "@changesets/changelog-github": "^0.6.0",
     "@changesets/cli": "^2.30.0",
+    "@effect/build-utils": "^0.8.9",
+    "@effect/docgen": "^0.5.2",
+    "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "^0.81.0",
     "@effect/vitest": "^0.29.0",
+    "@eslint/js": "^9.39.1",
     "@types/node": "^25.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.49.0",
+    "@typescript-eslint/parser": "^8.49.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "babel-plugin-annotate-pure-calls": "^0.5.0",
+    "eslint": "^9.39.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
@@ -49,6 +62,9 @@
     "@effect/platform-bun": "0.89.0"
   },
   "lint-staged": {
+    "*.{ts,mts}": [
+      "eslint --max-warnings=0 --fix"
+    ],
     "*.{md,json,yml,yaml}": [
       "prettier --write"
     ]

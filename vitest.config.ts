@@ -13,7 +13,8 @@ export default defineConfig({
     maxConcurrency: 10,
 
     include: ["packages/*/test/**/*.test.ts"],
-    passWithNoTests: true
+    passWithNoTests: true,
+    setupFiles: ["@effect/vitest/setup"]
   },
   coverage: {
     provider: "v8",
