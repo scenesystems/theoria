@@ -5,8 +5,5 @@
     "noEmit": true
   },
   "files": [],
-  "references": [
-    // Add per-package tsconfig.build.json references as packages are created
-    // e.g. { "path": "./packages/effect-search/tsconfig.build.json" }
-  ]
+  "references": [{ "path": "./packages/digest/tsconfig.build.json" }]
 }

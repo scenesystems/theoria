@@ -184,7 +184,8 @@ export default [
       "**/node_modules/**",
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",
-      "*.config.mjs"
+      "*.config.mjs",
+      ".vendor/**"
     ]
   },
 

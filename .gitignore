@@ -39,3 +39,6 @@ __pycache__/
 
 # Scratch files
 .tmp/
+
+# Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
+.vendor/effect/

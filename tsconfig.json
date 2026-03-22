@@ -3,8 +3,5 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {},
   "files": [],
-  "references": [
-    // Add per-package tsconfig.src.json references as packages are created
-    // e.g. { "path": "./packages/effect-search/tsconfig.src.json" }
-  ]
+  "references": [{ "path": "./packages/digest/tsconfig.src.json" }]
 }

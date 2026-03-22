@@ -7,8 +7,13 @@
     "declarationMap": true,
     "sourceMap": true,
     "emitDeclarationOnly": false,
+
+    // Per-package tsconfig.build.json sets rootDir and outDir relative to itself.
+    // Convention: rootDir = "src", outDir = "dist"
+
     // NodeNext is inherited from base — preserves .js extension semantics
     "module": "NodeNext",
     "moduleResolution": "NodeNext"
-  }
+  },
+  "exclude": ["test", "**/*.test.ts", "examples"]
 }

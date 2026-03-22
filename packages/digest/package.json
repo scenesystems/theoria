@@ -1,0 +1,62 @@
+{
+  "name": "@scenesystems/digest",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Cryptographic content hashing and canonicalization for Effect",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/digest",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/digest"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "blake3",
+    "sha256",
+    "digest",
+    "content-addressing",
+    "canonicalization",
+    "jcs",
+    "rfc8785",
+    "fingerprint",
+    "hashing"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
+  },
+  "peerDependencies": {
+    "effect": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
+  }
+}

@@ -29,6 +29,9 @@ logs
 *.min.js
 *.min.css
 
+# Vendored source
+.vendor
+
 # TypeScript (formatter handles these via eslint)
 *.ts
 *.tsx

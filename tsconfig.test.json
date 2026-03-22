@@ -2,14 +2,11 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "composite": false,
-    "incremental": false,
+    "composite": true,
+    "incremental": true,
     "declaration": false,
     "types": ["@types/node", "@effect/vitest", "vitest/globals"]
   },
   "files": [],
-  "references": [
-    // Add per-package tsconfig.test.json references as packages are created
-    // e.g. { "path": "./packages/effect-search/tsconfig.test.json" }
-  ]
+  "references": [{ "path": "./packages/digest/tsconfig.test.json" }]
 }
