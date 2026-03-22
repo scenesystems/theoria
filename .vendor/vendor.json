@@ -1,0 +1,14 @@
+{
+  "description": "Vendored source repos for agent reference. Shallow-cloned, gitignored, version-pinned.",
+  "subtrees": {
+    "effect": {
+      "remote": "https://github.com/Effect-TS/effect.git",
+      "prefix": ".vendor/effect",
+      "tagTemplate": "effect@${version}",
+      "versionSource": "node_modules/effect/package.json",
+      "currentVersion": "3.21.0",
+      "currentTag": "effect@3.21.0",
+      "description": "Effect-TS monorepo \u2014 all @effect/* packages. Tag anchored to core effect version."
+    }
+  }
+}
