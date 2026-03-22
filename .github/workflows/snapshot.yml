@@ -1,0 +1,31 @@
+name: Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  snapshot:
+    name: Snapshot
+    if: github.repository_owner == 'scenesystems'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Publish snapshot
+        run: bunx pkg-pr-new publish ./packages/*

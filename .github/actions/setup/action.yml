@@ -1,0 +1,30 @@
+name: Setup
+description: Install bun and project dependencies
+
+inputs:
+  bun-version-file:
+    description: File to read bun version from
+    default: ".bun-version"
+  registry-url:
+    description: Optional npm registry URL for publishing
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Install bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: ${{ inputs.bun-version-file }}
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
+
+    - name: Set npm registry (for publishing)
+      if: inputs.registry-url != ''
+      shell: bash
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+      env:
+        NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}

@@ -1,0 +1,70 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build docs
+    if: github.repository_owner == 'scenesystems'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Build packages (docgen needs declarations)
+        run: bun run build
+
+      - name: Generate API docs
+        run: |
+          for pkg in packages/*/; do
+            if [ -f "$pkg/package.json" ]; then
+              name=$(basename "$pkg")
+              echo "Generating docs for $name"
+              (cd "$pkg" && bunx @effect/docgen) || true
+            fi
+          done
+
+      - name: Build site
+        run: |
+          mkdir -p _site
+          # Collect per-package docs into unified site
+          for pkg in packages/*/; do
+            name=$(basename "$pkg")
+            if [ -d "$pkg/docs" ]; then
+              cp -r "$pkg/docs" "_site/$name"
+            fi
+          done
+          # Copy root README as index
+          cp README.md _site/index.md
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
