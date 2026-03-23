@@ -45,9 +45,19 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.
 
 ## Acknowledgments
 
-`effect-search` builds on [Bergstra et al. (2011)](https://papers.nips.cc/paper/2011/hash/86e8f7ab32cfd12577bc2619bc635690-Abstract.html), [Watanabe (2023)](https://arxiv.org/abs/2304.11127), [Ozaki et al. (2022)](https://doi.org/10.1613/jair.1.13188), [Li et al. (2017)](https://jmlr.org/papers/v18/16-558.html), and [Falkner et al. (2018)](https://proceedings.mlr.press/v80/falkner18a.html), verified against [Optuna](https://github.com/optuna/optuna).
+### Optimization — `effect-search`
 
-`effect-dsp` implements [DSPy (Khattab et al., 2023)](https://arxiv.org/abs/2310.03714) with optimizers from [MIPROv2 (Opsahl-Ong et al., 2024)](https://arxiv.org/abs/2406.11695) and [GEPA (Agrawal et al., 2025)](https://arxiv.org/abs/2507.19457).
+The TPE sampler implements [Bergstra et al. (2011)](https://papers.nips.cc/paper/2011/hash/86e8f7ab32cfd12577bc2619bc635690-Abstract.html) with bandwidth selection and weighting from [Watanabe (2023)](https://arxiv.org/abs/2304.11127). Multi-objective MOTPE follows [Ozaki et al. (2022)](https://doi.org/10.1613/jair.1.13188) with hypervolume contribution weighting from [Guerreiro et al. (2021)](https://doi.org/10.1145/3453474). Constrained c-TPE follows [Watanabe & Hutter (2023)](https://doi.org/10.24963/ijcai.2023/486). HyperBand scheduling follows [Li et al. (2017)](https://jmlr.org/papers/v18/16-558.html), with BOHB combining it with TPE per [Falkner et al. (2018)](https://proceedings.mlr.press/v80/falkner18a.html). Verified against [Optuna](https://github.com/optuna/optuna).
+
+### Language model programming — `effect-dsp`
+
+Implements the [DSPy](https://github.com/stanfordnlp/dspy) paradigm introduced by [Khattab et al. (2023)](https://arxiv.org/abs/2310.03714), building on the original DSP framework [(Khattab et al., 2022)](https://arxiv.org/abs/2212.14024). Optimizers from [MIPROv2 (Opsahl-Ong et al., 2024)](https://arxiv.org/abs/2406.11695), [GEPA (Agrawal et al., 2025)](https://arxiv.org/abs/2507.19457), and [BootstrapFinetune / BetterTogether (Khattab et al., 2024)](https://arxiv.org/abs/2407.10930).
+
+### Cryptography — `@scenesystems/*`
+
+Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by [Cure53](https://cure53.de/) and [Trail of Bits](https://www.trailofbits.com/)): [@noble/hashes](https://github.com/paulmillr/noble-hashes), [@noble/ciphers](https://github.com/paulmillr/noble-ciphers), [@noble/curves](https://github.com/paulmillr/noble-curves), [@noble/post-quantum](https://github.com/paulmillr/noble-post-quantum).
+
+### Foundation
 
 Built on [Effect](https://effect.website).
 
