@@ -33,10 +33,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "default": "./dist/schema.js"
     }
   },
   "scripts": {
@@ -49,14 +45,10 @@
     "clean": "rm -rf dist .tsbuildinfo"
   },
   "dependencies": {
-    "@noble/hashes": "^1.8.0"
+    "@noble/hashes": "^2.0.0",
+    "@scure/base": "^2.0.0"
   },
   "peerDependencies": {
     "effect": "^3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "effect": {
-      "optional": true
-    }
   }
 }

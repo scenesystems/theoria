@@ -1,8 +1,12 @@
 /**
  * Low-level byte manipulation utilities.
  *
- * UTF-8 encoding, byte-to-base64url conversion, and buffer handling.
- * Private to the package — consumers use the public API in `encoding.ts`.
+ * Wraps `@noble/hashes/utils.js` utilities (`bytesToHex`,
+ * `hexToBytes`, `concatBytes`) and provides UTF-8 string-to-bytes
+ * conversion via `TextEncoder`. Noble v2 requires `Uint8Array`
+ * input for all hash functions — strings must be converted first.
+ *
+ * Private to the package — consumers use the public API.
  *
  * @internal
  */

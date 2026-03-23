@@ -17,6 +17,7 @@
     "check:tests": "tsc -b tsconfig.test.json",
     "check:all": "bun run check && bun run check:tests",
     "test": "vitest run",
+    "test:target-state": "vitest run --config vitest.target-state.config.ts",
     "test:watch": "vitest",
     "lint": "eslint --max-warnings=0",
     "lint:fix": "eslint --max-warnings=0 --fix",
