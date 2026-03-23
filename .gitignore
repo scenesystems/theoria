@@ -47,5 +47,8 @@ __pycache__/
 # Scratch files
 .tmp/
 
+# PR-scoped specs (ephemeral tracking — not committed)
+.specs/
+
 # Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
 .vendor/effect/
