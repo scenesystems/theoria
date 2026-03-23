@@ -8,21 +8,23 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                 | npm                    | Deps                                  |
-| -------------------- | ------------------------- | ---------------------- | ------------------------------------- |
-| effect-search        | `packages/effect-search/` | `effect-search`        | effect, @scenesystems/digest          |
-| effect-dsp           | `packages/effect-dsp/`    | `effect-dsp`           | effect-search, @effect/ai (peer)      |
-| effect-math          | `packages/effect-math/`   | `effect-math`          | effect                                |
-| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes (core), effect (schema) |
+| Package              | Directory                 | npm                    | Deps                                                      |
+| -------------------- | ------------------------- | ---------------------- | --------------------------------------------------------- |
+| effect-search        | `packages/effect-search/` | `effect-search`        | effect, @scenesystems/digest                              |
+| effect-dsp           | `packages/effect-dsp/`    | `effect-dsp`           | effect-search, @effect/ai (peer)                          |
+| effect-math          | `packages/effect-math/`   | `effect-math`          | effect                                                    |
+| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes, @scure/base, effect                        |
+| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`   | @noble/ciphers, @scure/base, effect                       |
+| @scenesystems/sign   | `packages/sign/`          | `@scenesystems/sign`   | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-`@scenesystems/digest` has two entrypoints: `.` (pure core, zero Effect) and `./schema` (Effect Schema layer). Theoria packages consume it through `./schema`. Published under `@scenesystems/` scope for cross-ecosystem use.
+All `@scenesystems/*` packages have a single entrypoint (`.`). Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
 ## Rules
 
-1. **USE `bun` ONLY.** Never `npm`, `npx`, `yarn`, `pnpm`.
-2. **FOUR GATES.** `bun run check && bun run lint && bun run test && bun run build` — all green before work is complete.
+1. **USE `bun` ONLY.** Never `npm`, `npx`, `yarn`, `pnpm`. Use `bunx` for CLI tools.
+2. **FIVE GATES.** `bun run check && bun run check:tests && bun run lint && bun run test && bun run build` — all green before work is complete.
 3. **YOU OWN ALL ERRORS.** You see it, you own it, you fix it.
 4. **NEVER USE `git stash`.** Ask the user how to proceed.
 5. **RUN CLI COMMANDS.** VS Code diagnostics are insufficient.
@@ -31,17 +33,18 @@ Effect-native scientific computing monorepo.
 
 ## Commands
 
-| Task       | Command         |
-| ---------- | --------------- |
-| Type check | `bun run check` |
-| Lint       | `bun run lint`  |
-| Test       | `bun run test`  |
-| Build      | `bun run build` |
-| Clean      | `bun run clean` |
+| Task              | Command               |
+| ----------------- | --------------------- |
+| Type check (src)  | `bun run check`       |
+| Type check (test) | `bun run check:tests` |
+| Lint              | `bun run lint`        |
+| Test              | `bun run test`        |
+| Build             | `bun run build`       |
+| Clean             | `bun run clean`       |
 
 Per-package: `bun --filter effect-search run check`
 
-Before committing: `bun run check && bun run lint && bun run test`
+Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
 
 ---
 
@@ -55,22 +58,6 @@ bun run vendor:sync    # sync to installed versions
 ```
 
 See `.vendor/AGENTS.md` for the full package→directory map.
-
----
-
-## Reference Architecture — The Oracle Pattern
-
-The packages in theoria were originally developed in `scenesystems/eva`. When you need to understand how a module works, what tests cover it, or what governance constraints apply, use the `librarian` tool to read from `github.com/scenesystems/eva` — specifically `effect-search/` and `effect-dsp/`.
-
-**Never `cp` a file from eva to theoria. Always reconstruct from understanding.**
-
-The reconstruction process is the code review. Structure code for improvements found during review, write tests first or alongside, ensure every file passes lint from the start.
-
-### Workflow per module
-
-1. **Read**: Use `librarian` to read the relevant source files in eva. Understand the logic, tests, and governance constraints.
-2. **Implement**: Write the module from understanding in theoria. Fix past design mistakes with hindsight.
-3. **Verify**: All four gates pass. Golden fixtures match reference implementations.
 
 ---
 
@@ -117,20 +104,23 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - All randomness through Effect `Random` with seeded generators.
+- `@scenesystems/*` packages: single entrypoint (`.`), Effect required, Schema is sole type source.
 
 ---
 
 ## Structure
 
-| Directory                 | Purpose                                                        |
-| ------------------------- | -------------------------------------------------------------- |
-| `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE      |
-| `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect      |
-| `packages/effect-math/`   | Mathematical and statistical foundations                       |
-| `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`) |
-| `.agents/skills/`         | Portable Effect-native skills                                  |
-| `.changeset/`             | Independent versioning per package                             |
-| `packages/*/AGENTS.md`    | Package-specific governance                                    |
+| Directory                 | Purpose                                                                     |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
+| `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
+| `packages/effect-math/`   | Mathematical and statistical foundations                                    |
+| `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
+| `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
+| `packages/sign/`          | Digital signatures, key agreement, key encapsulation (`@scenesystems/sign`) |
+| `.agents/skills/`         | Portable Effect-native skills                                               |
+| `.changeset/`             | Independent versioning per package                                          |
+| `packages/*/AGENTS.md`    | Package-specific governance                                                 |
 
 ---
 
@@ -152,7 +142,7 @@ Each package runs `publish:check` before release to enforce repository metadata,
 
 **Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`
 
-**Scopes:** `effect-search`, `effect-dsp`, `effect-math`, `digest`, `root`
+**Scopes:** `effect-search`, `effect-dsp`, `effect-math`, `digest`, `seal`, `sign`, `root`
 
 ```bash
 git commit -m "feat(effect-search): add TPE categorical sampler"
