@@ -48,7 +48,7 @@ Private implementation. Blocked from consumers via exports map.
 
 ## Conventions
 
-- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.*, let, for/while, switch
+- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
 - **Tests always use `@effect/vitest`** with `it.effect()` for schema tests
 - **Schema is the single source of truth** — types are defined as Schema in `src/schemas/`, extracted via `Schema.Type` and `import type`
 - **256-bit keys only** — all three algorithms use 32-byte keys

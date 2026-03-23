@@ -52,7 +52,7 @@ Private implementation. Blocked from consumers via exports map.
 
 ## Conventions
 
-- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.*, let, for/while, switch
+- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
 - **Tests always use `@effect/vitest`** with `it.effect()` for schema tests
 - **Golden test vectors** from RFC 8785, NIST FIPS 180-4, and BLAKE3 reference
 - **Schema is the single source of truth** — types are defined as Schema in `src/schemas/`, extracted via `Schema.Type` and `import type`
