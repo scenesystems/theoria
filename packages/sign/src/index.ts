@@ -139,3 +139,9 @@ export * from "./schemas/signEffect.js"
  * @category errors
  */
 export * from "./schemas/errors.js"
+
+/**
+ * @since 0.1.0
+ * @category encoding
+ */
+export * from "./encoding.js"
