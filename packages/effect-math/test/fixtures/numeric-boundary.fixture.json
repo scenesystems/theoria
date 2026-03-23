@@ -1,0 +1,11 @@
+{
+  "name": "numeric-boundary-stable",
+  "input": {
+    "values": [0.1, 0.2, 0.3, 0.4],
+    "tolerance": 1e-9,
+    "budget": 64
+  },
+  "expected": {
+    "ok": true
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Record as EffectRecord } from "effect"
+import { Effect, Match, Record as EffectRecord } from "effect"
 import packageJson from "../../package.json" with { type: "json" }
 
 const exportsMap = packageJson.exports
@@ -51,8 +51,24 @@ describe("effect-math governance", () => {
         "./Geometry/internal/*"
       ]
 
-      internalBlocks.forEach((path) => {
-        expect(exportsRecord[path]).toBeNull()
-      })
+      yield* Effect.forEach(internalBlocks, (path) =>
+        Effect.sync(() => {
+          expect(exportsRecord[path]).toBeNull()
+        }))
+    }))
+
+  it.effect("keeps unstable experimental lane explicit and stable root free of experimental seams", () =>
+    Effect.gen(function*() {
+      const rootExport = exportsRecord["."]
+      const experimentalExport = exportsRecord["./experimental"]
+
+      expect(experimentalExport).toBe("./src/experimental/index.ts")
+
+      expect(
+        Match.value(rootExport).pipe(
+          Match.when(Match.string, (value) => value.includes("experimental")),
+          Match.orElse(() => false)
+        )
+      ).toBe(false)
     }))
 })

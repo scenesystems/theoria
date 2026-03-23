@@ -3,31 +3,43 @@ import { Effect, Schema } from "effect"
 
 import { AlgebraDomainContract } from "../../src/Algebra/contract.js"
 import { AlgebraDomainModel } from "../../src/Algebra/model.js"
-import { AlgebraDomainSchema } from "../../src/Algebra/schema.js"
+import { AlgebraDomainSchema, decodeAlgebraDomain, encodeAlgebraDomain } from "../../src/Algebra/schema.js"
 import { CalculusDomainContract } from "../../src/Calculus/contract.js"
 import { CalculusDomainModel } from "../../src/Calculus/model.js"
-import { CalculusDomainSchema } from "../../src/Calculus/schema.js"
+import { CalculusDomainSchema, decodeCalculusDomain, encodeCalculusDomain } from "../../src/Calculus/schema.js"
 import { GeometryDomainContract } from "../../src/Geometry/contract.js"
 import { GeometryDomainModel } from "../../src/Geometry/model.js"
-import { GeometryDomainSchema } from "../../src/Geometry/schema.js"
+import { decodeGeometryDomain, encodeGeometryDomain, GeometryDomainSchema } from "../../src/Geometry/schema.js"
 import { LinearAlgebraDomainContract } from "../../src/LinearAlgebra/contract.js"
 import { LinearAlgebraDomainModel } from "../../src/LinearAlgebra/model.js"
-import { LinearAlgebraDomainSchema } from "../../src/LinearAlgebra/schema.js"
+import {
+  decodeLinearAlgebraDomain,
+  encodeLinearAlgebraDomain,
+  LinearAlgebraDomainSchema
+} from "../../src/LinearAlgebra/schema.js"
 import { NumericDomainContract } from "../../src/Numeric/contract.js"
 import { NumericDomainModel } from "../../src/Numeric/model.js"
 import { NumericDomainSchema } from "../../src/Numeric/schema.js"
 import { OptimizationDomainContract } from "../../src/Optimization/contract.js"
 import { OptimizationDomainModel } from "../../src/Optimization/model.js"
-import { OptimizationDomainSchema } from "../../src/Optimization/schema.js"
+import {
+  decodeOptimizationDomain,
+  encodeOptimizationDomain,
+  OptimizationDomainSchema
+} from "../../src/Optimization/schema.js"
 import { ProbabilityDomainContract } from "../../src/Probability/contract.js"
 import { ProbabilityDomainModel } from "../../src/Probability/model.js"
-import { ProbabilityDomainSchema } from "../../src/Probability/schema.js"
+import {
+  decodeProbabilityDomain,
+  encodeProbabilityDomain,
+  ProbabilityDomainSchema
+} from "../../src/Probability/schema.js"
 import { SpecialDomainContract } from "../../src/Special/contract.js"
 import { SpecialDomainModel } from "../../src/Special/model.js"
-import { SpecialDomainSchema } from "../../src/Special/schema.js"
+import { decodeSpecialDomain, encodeSpecialDomain, SpecialDomainSchema } from "../../src/Special/schema.js"
 import { StatisticsDomainContract } from "../../src/Statistics/contract.js"
 import { StatisticsDomainModel } from "../../src/Statistics/model.js"
-import { StatisticsDomainSchema } from "../../src/Statistics/schema.js"
+import { decodeStatisticsDomain, encodeStatisticsDomain, StatisticsDomainSchema } from "../../src/Statistics/schema.js"
 
 describe("effect-math model-contract parity", () => {
   it.effect("keeps model.domain aligned with contract authority", () =>
@@ -81,5 +93,32 @@ describe("effect-math model-contract parity", () => {
         _tag: "Right",
         right: GeometryDomainModel
       })
+    }))
+
+  it.effect("keeps decode and encode boundary helpers round-tripping for all non-numeric domains", () =>
+    Effect.gen(function*() {
+      const algebra = yield* decodeAlgebraDomain(AlgebraDomainModel)
+      expect(yield* encodeAlgebraDomain(algebra)).toEqual(AlgebraDomainModel)
+
+      const linearAlgebra = yield* decodeLinearAlgebraDomain(LinearAlgebraDomainModel)
+      expect(yield* encodeLinearAlgebraDomain(linearAlgebra)).toEqual(LinearAlgebraDomainModel)
+
+      const calculus = yield* decodeCalculusDomain(CalculusDomainModel)
+      expect(yield* encodeCalculusDomain(calculus)).toEqual(CalculusDomainModel)
+
+      const special = yield* decodeSpecialDomain(SpecialDomainModel)
+      expect(yield* encodeSpecialDomain(special)).toEqual(SpecialDomainModel)
+
+      const probability = yield* decodeProbabilityDomain(ProbabilityDomainModel)
+      expect(yield* encodeProbabilityDomain(probability)).toEqual(ProbabilityDomainModel)
+
+      const statistics = yield* decodeStatisticsDomain(StatisticsDomainModel)
+      expect(yield* encodeStatisticsDomain(statistics)).toEqual(StatisticsDomainModel)
+
+      const optimization = yield* decodeOptimizationDomain(OptimizationDomainModel)
+      expect(yield* encodeOptimizationDomain(optimization)).toEqual(OptimizationDomainModel)
+
+      const geometry = yield* decodeGeometryDomain(GeometryDomainModel)
+      expect(yield* encodeGeometryDomain(geometry)).toEqual(GeometryDomainModel)
     }))
 })

@@ -36,6 +36,8 @@ describe("effect-math domain structure", () => {
         "AlgebraDomainContract",
         "AlgebraDomainModel",
         "AlgebraDomainSchema",
+        "decodeAlgebraDomain",
+        "encodeAlgebraDomain",
         "loadAlgebraDomain"
       ])
       expect(ownKeys(LinearAlgebraDomain)).toEqual([
@@ -43,6 +45,8 @@ describe("effect-math domain structure", () => {
         "LinearAlgebraDomainContract",
         "LinearAlgebraDomainModel",
         "LinearAlgebraDomainSchema",
+        "decodeLinearAlgebraDomain",
+        "encodeLinearAlgebraDomain",
         "loadLinearAlgebraDomain"
       ])
       expect(ownKeys(CalculusDomain)).toEqual([
@@ -50,6 +54,8 @@ describe("effect-math domain structure", () => {
         "CalculusDomainContract",
         "CalculusDomainModel",
         "CalculusDomainSchema",
+        "decodeCalculusDomain",
+        "encodeCalculusDomain",
         "loadCalculusDomain"
       ])
       expect(ownKeys(SpecialDomain)).toEqual([
@@ -57,6 +63,8 @@ describe("effect-math domain structure", () => {
         "SpecialDomainContract",
         "SpecialDomainModel",
         "SpecialDomainSchema",
+        "decodeSpecialDomain",
+        "encodeSpecialDomain",
         "loadSpecialDomain"
       ])
       expect(ownKeys(ProbabilityDomain)).toEqual([
@@ -64,6 +72,8 @@ describe("effect-math domain structure", () => {
         "ProbabilityDomainContract",
         "ProbabilityDomainModel",
         "ProbabilityDomainSchema",
+        "decodeProbabilityDomain",
+        "encodeProbabilityDomain",
         "loadProbabilityDomain"
       ])
       expect(ownKeys(StatisticsDomain)).toEqual([
@@ -71,6 +81,8 @@ describe("effect-math domain structure", () => {
         "StatisticsDomainContract",
         "StatisticsDomainModel",
         "StatisticsDomainSchema",
+        "decodeStatisticsDomain",
+        "encodeStatisticsDomain",
         "loadStatisticsDomain"
       ])
       expect(ownKeys(OptimizationDomain)).toEqual([
@@ -78,6 +90,8 @@ describe("effect-math domain structure", () => {
         "OptimizationDomainContract",
         "OptimizationDomainModel",
         "OptimizationDomainSchema",
+        "decodeOptimizationDomain",
+        "encodeOptimizationDomain",
         "loadOptimizationDomain"
       ])
       expect(ownKeys(GeometryDomain)).toEqual([
@@ -85,6 +99,8 @@ describe("effect-math domain structure", () => {
         "GeometryDomainContract",
         "GeometryDomainModel",
         "GeometryDomainSchema",
+        "decodeGeometryDomain",
+        "encodeGeometryDomain",
         "loadGeometryDomain"
       ])
     }))

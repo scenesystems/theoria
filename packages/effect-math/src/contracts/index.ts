@@ -28,3 +28,9 @@ export * from "./shared/BoundaryErrors.js"
  * @category contracts
  */
 export * from "./shared/RuntimePolicies.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/DomainOwnership.js"

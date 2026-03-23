@@ -1,12 +1,11 @@
 import { Effect, Schema } from "effect"
 
+import { collectRuntimePolicies, RuntimePolicies } from "../contracts/shared/RuntimePolicies.js"
 import {
-  BackendPolicyService,
-  DiagnosticsPolicyService,
-  PrecisionPolicyService,
-  RngPolicyService
-} from "../contracts/shared/RuntimePolicies.js"
-import { NumericBoundaryValidationInput, NumericDomainBoundaryError } from "./errors.js"
+  NumericBoundaryValidationInput,
+  NumericBoundaryValidationResult,
+  NumericDomainBoundaryError
+} from "./errors.js"
 import { NumericDomainModel } from "./model.js"
 
 /**
@@ -25,10 +24,17 @@ export const loadNumericDomain = Effect.succeed(NumericDomainModel)
  */
 export const validateNumericBoundary = (input: unknown) =>
   Effect.gen(function*() {
-    yield* RngPolicyService
-    yield* PrecisionPolicyService
-    yield* BackendPolicyService
-    yield* DiagnosticsPolicyService
+    const runtimePolicies = yield* collectRuntimePolicies
+
+    yield* Effect.catchAll(
+      Schema.decodeUnknown(RuntimePolicies)(runtimePolicies),
+      (error) =>
+        Effect.fail(
+          new NumericDomainBoundaryError({
+            message: error.message
+          })
+        )
+    )
 
     yield* Effect.catchAll(
       Schema.decodeUnknown(NumericBoundaryValidationInput)(input),
@@ -40,7 +46,15 @@ export const validateNumericBoundary = (input: unknown) =>
         )
     )
 
-    return {
-      ok: true
-    }
+    return yield* Effect.catchAll(
+      Schema.decodeUnknown(NumericBoundaryValidationResult)({
+        ok: true
+      }),
+      (error) =>
+        Effect.fail(
+          new NumericDomainBoundaryError({
+            message: error.message
+          })
+        )
+    )
   })

@@ -12,10 +12,14 @@ import {
 } from "../../src/contracts/shared/BrandedScalars.js"
 import {
   BackendPolicyService,
+  collectRuntimePolicies,
   DiagnosticsPolicyService,
   makeDeterministicRuntimePoliciesLayer,
+  makeNondeterministicRuntimePoliciesLayer,
   PrecisionPolicyService,
-  RngPolicyService
+  RngPolicySchema,
+  RngPolicyService,
+  RuntimePolicies
 } from "../../src/contracts/shared/RuntimePolicies.js"
 import { validateNumericBoundary } from "../../src/Numeric/operations.js"
 import { decodeNumericDomain, encodeNumericDomain, NumericDomainSchema } from "../../src/Numeric/schema.js"
@@ -129,4 +133,67 @@ describe("target-state foundation contracts", () => {
         })
       )
     ))
+
+  it.effect("RNG policy schema enforces deterministic/nondeterministic union semantics", () =>
+    Effect.gen(function*() {
+      expect(
+        Schema.decodeUnknownEither(RngPolicySchema)({
+          policy: "deterministic",
+          seed: Schema.decodeUnknownSync(Seed)(7)
+        })
+      ).toMatchObject({
+        _tag: "Right",
+        right: { policy: "deterministic", seed: 7 }
+      })
+
+      expect(Schema.decodeUnknownEither(RngPolicySchema)({ policy: "nondeterministic" })).toMatchObject({
+        _tag: "Right",
+        right: { policy: "nondeterministic" }
+      })
+
+      expect(
+        Schema.decodeUnknownEither(RngPolicySchema)({
+          policy: "nondeterministic",
+          seed: Schema.decodeUnknownSync(Seed)(7)
+        }, {
+          onExcessProperty: "error"
+        })
+      ).toMatchObject({
+        _tag: "Left"
+      })
+    }))
+
+  it.effect("runtime policies collect into runtime contract authority for deterministic and nondeterministic layers", () =>
+    Effect.gen(function*() {
+      const deterministic = yield* collectRuntimePolicies.pipe(
+        Effect.provide(
+          makeDeterministicRuntimePoliciesLayer({
+            seed: Schema.decodeUnknownSync(Seed)(21),
+            precision: "strict",
+            backend: "typed-array",
+            diagnostics: "enabled"
+          })
+        )
+      )
+
+      expect(Schema.decodeUnknownEither(RuntimePolicies)(deterministic)).toMatchObject({
+        _tag: "Right"
+      })
+
+      const nondeterministic = yield* collectRuntimePolicies.pipe(
+        Effect.provide(
+          makeNondeterministicRuntimePoliciesLayer({
+            precision: "relaxed",
+            backend: "scalar",
+            diagnostics: "disabled"
+          })
+        )
+      )
+
+      expect(Schema.decodeUnknownEither(RuntimePolicies)(nondeterministic)).toMatchObject({
+        _tag: "Right"
+      })
+      expect(nondeterministic.rngPolicy).toMatchObject({ policy: "nondeterministic" })
+      expect("seed" in nondeterministic.rngPolicy).toBe(false)
+    }))
 })

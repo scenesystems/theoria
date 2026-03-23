@@ -66,9 +66,3 @@ export * from "./Geometry/index.js"
  * @category contracts
  */
 export * from "./contracts/index.js"
-
-/**
- * @since 0.1.0
- * @category experimental
- */
-export * from "./experimental/index.js"

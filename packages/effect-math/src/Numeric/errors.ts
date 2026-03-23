@@ -38,6 +38,14 @@ export const NumericBoundaryValidationResult = Schema.Struct({
 })
 
 /**
+ * Numeric boundary validation result model.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type NumericBoundaryValidation = typeof NumericBoundaryValidationResult.Type
+
+/**
  * Numeric operation boundary errors.
  *
  * @since 0.1.0
