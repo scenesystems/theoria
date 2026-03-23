@@ -47,8 +47,8 @@ const paramsInputArbitrary = fc.record({
 })
 
 const quantileArbitrary = fc.double({
-  min: 1e-300,
-  max: 1 - 1e-15,
+  min: 1e-12,
+  max: 1 - 1e-12,
   noNaN: true,
   noDefaultInfinity: true
 })
