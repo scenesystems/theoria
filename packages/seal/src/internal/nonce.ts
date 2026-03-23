@@ -1,20 +1,28 @@
 /**
- * Nonce generation and management.
+ * Nonce size constants per algorithm.
  *
- * Generates cryptographically secure random nonces via
- * `crypto.getRandomValues`. Nonce size is algorithm-dependent —
- * see each algorithm module for the specific nonce length.
+ * Used by the encoding module to split `managedNonce` output into
+ * nonce and ciphertext components. Nonce generation itself is
+ * handled by `@noble/ciphers` `managedNonce` wrapper — no manual
+ * nonce management needed.
  *
- * When using `@noble/ciphers` `managedNonce` wrapper, nonce
- * generation is handled automatically — this module provides
- * standalone nonce utilities for cases where manual nonce
- * management is needed (e.g. deterministic testing).
- *
- * Private to the package — consumers use the public API.
- *
- * @see {@link xchacha20} — 24-byte nonce (192-bit)
- * @see {@link aesgcmsiv} — 12-byte nonce (96-bit)
- * @see {@link aesgcm} — 12-byte nonce (96-bit)
+ * @see {@link xchacha20Encrypt} — 24-byte nonce (192-bit)
+ * @see {@link aesgcmsivEncrypt} — 12-byte nonce (96-bit)
+ * @see {@link aesgcmEncrypt} — 12-byte nonce (96-bit)
  *
  * @internal
  */
+
+/**
+ * XChaCha20-Poly1305 nonce size in bytes (192-bit).
+ *
+ * @internal
+ */
+export const XCHACHA20_NONCE_BYTES = 24
+
+/**
+ * AES-GCM and AES-GCM-SIV nonce size in bytes (96-bit).
+ *
+ * @internal
+ */
+export const AES_GCM_NONCE_BYTES = 12

@@ -45,10 +45,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@noble/hashes": "^2.0.0",
-        "@scure/base": "^2.0.0",
       },
       "peerDependencies": {
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
     },
     "packages/effect-dsp": {
@@ -61,14 +60,14 @@
       },
       "peerDependencies": {
         "@effect/ai": ">=0.35.0",
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
     },
     "packages/effect-math": {
       "name": "effect-math",
       "version": "0.0.0",
       "peerDependencies": {
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
     },
     "packages/effect-search": {
@@ -83,7 +82,7 @@
         "@effect/platform": "^0.96.0",
         "@effect/sql": ">=0.51.0",
         "@effect/sql-sqlite-node": ">=0.52.0",
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
       "optionalPeers": [
         "@effect/sql",
@@ -95,10 +94,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@noble/ciphers": "^2.0.0",
-        "@scure/base": "^2.0.0",
       },
       "peerDependencies": {
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
     },
     "packages/sign": {
@@ -108,9 +106,10 @@
         "@noble/curves": "^2.0.0",
         "@noble/hashes": "^2.0.0",
         "@noble/post-quantum": "^0.5.0",
+        "@scure/base": "^2.0.0",
       },
       "peerDependencies": {
-        "effect": "^3.0.0",
+        "effect": "^3.20.0",
       },
     },
   },
