@@ -1,0 +1,38 @@
+{
+  "fixture": "dspy.trace.fiber-isolation.seed-0",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "seed": 0,
+    "scopeRuns": [
+      {
+        "scope": "scope-a",
+        "question": "What is the capital of France?",
+        "expectedAnswer": "Paris",
+        "observedAnswer": "Paris",
+        "traceLength": 1,
+        "traceInputQuestion": "What is the capital of France?",
+        "tracePredictionKeys": ["answer"]
+      },
+      {
+        "scope": "scope-b",
+        "question": "What is the capital of Japan?",
+        "expectedAnswer": "Tokyo",
+        "observedAnswer": "Tokyo",
+        "traceLength": 1,
+        "traceInputQuestion": "What is the capital of Japan?",
+        "tracePredictionKeys": ["answer"]
+      }
+    ],
+    "crossScopeTraceLeakDetected": false
+  }
+}

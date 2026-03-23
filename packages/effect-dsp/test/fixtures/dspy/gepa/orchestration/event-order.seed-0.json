@@ -1,0 +1,86 @@
+{
+  "fixture": "dspy.gepa.orchestration.event-order.seed-0",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "seed": 0,
+    "maxIterations": 3,
+    "timeline": [
+      {
+        "_tag": "IterationStarted",
+        "iteration": 1,
+        "frontierSize": 1
+      },
+      {
+        "_tag": "MergeChecked",
+        "iteration": 1,
+        "attempted": false,
+        "accepted": false,
+        "mergeBudgetRemaining": 5
+      },
+      {
+        "_tag": "MutationProposed",
+        "iteration": 1,
+        "parentId": "candidate-0",
+        "mutatedCandidateId": "mut-1",
+        "predictorName": "qa",
+        "instruction": "Answer with concise factual responses. [GEPA iteration 1]"
+      },
+      {
+        "_tag": "AcceptanceEvaluated",
+        "iteration": 1,
+        "accepted": true,
+        "gate1Passed": true,
+        "fullValsetEvaluated": true,
+        "previousSubsampleSum": 0.5,
+        "mutatedSubsampleSum": 0.7
+      },
+      {
+        "_tag": "ParetoUpdated",
+        "iteration": 1,
+        "frontierIndices": [0, 1],
+        "dominatedIndices": [],
+        "parentWeights": [
+          {
+            "candidateIndex": 0,
+            "weight": 1
+          },
+          {
+            "candidateIndex": 1,
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "_tag": "IterationCompleted",
+        "iteration": 1,
+        "acceptedCandidate": true,
+        "frontierSize": 2
+      },
+      {
+        "_tag": "OptimizationCompleted",
+        "iterations": 1,
+        "bestCandidateId": "mut-1",
+        "frontierSize": 2
+      }
+    ],
+    "expectedWithinIterationOrder": [
+      "IterationStarted",
+      "MergeChecked",
+      "MutationProposed",
+      "AcceptanceEvaluated",
+      "ParetoUpdated",
+      "IterationCompleted"
+    ],
+    "expectedTerminalTag": "OptimizationCompleted"
+  }
+}

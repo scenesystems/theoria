@@ -40,6 +40,7 @@
     "./Cache": "./src/Cache/index.ts",
     "./contracts": "./src/contracts/index.ts",
     "./test": "./src/testing/index.ts",
+    "./experimental": "./src/experimental/index.ts",
     "./internal/*": null,
     "./optimizers/*": null
   },

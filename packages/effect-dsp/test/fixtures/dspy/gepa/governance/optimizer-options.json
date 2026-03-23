@@ -1,0 +1,28 @@
+{
+  "fixture": "dspy.gepa.governance.optimizer-options",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "requiredOptionKeys": ["module", "trainset", "metric", "maxIterations"],
+    "optionalOptionKeys": ["valset", "maxMergeInvocations", "seed"],
+    "defaultMaxMergeInvocations": 5,
+    "eventTags": [
+      "IterationStarted",
+      "MergeChecked",
+      "MutationProposed",
+      "AcceptanceEvaluated",
+      "ParetoUpdated",
+      "IterationCompleted",
+      "OptimizationCompleted"
+    ]
+  }
+}

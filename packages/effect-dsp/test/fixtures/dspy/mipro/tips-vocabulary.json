@@ -1,0 +1,20 @@
+{
+  "fixture": "dspy.mipro.tips-vocabulary",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "defaultTips": ["none", "creative", "simple", "description", "high_stakes", "persona"],
+    "baselineTip": "baseline",
+    "proposalMarkerTemplate": "[miprov2-proposal:{predictorName}:{proposalIndex}:seed:{seed}]",
+    "diversityTemperatureDefault": 1
+  }
+}

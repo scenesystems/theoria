@@ -1,0 +1,59 @@
+{
+  "fixture": "dspy.mipro.trial-budget-cases",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "formula": "max(ceil(max(2*M*log(N), 3*N/2)), minimum)",
+    "cases": [
+      {
+        "name": "baseline-no-minimum",
+        "predictorCount": 2,
+        "demoCandidateCount": 4,
+        "instructionCandidateCount": 3,
+        "minimum": null,
+        "expectedBudget": 6
+      },
+      {
+        "name": "baseline-with-minimum",
+        "predictorCount": 2,
+        "demoCandidateCount": 4,
+        "instructionCandidateCount": 3,
+        "minimum": 8,
+        "expectedBudget": 8
+      },
+      {
+        "name": "logarithmic-dominant",
+        "predictorCount": 5,
+        "demoCandidateCount": 3,
+        "instructionCandidateCount": 3,
+        "minimum": null,
+        "expectedBudget": 11
+      },
+      {
+        "name": "exploration-dominant",
+        "predictorCount": 1,
+        "demoCandidateCount": 8,
+        "instructionCandidateCount": 5,
+        "minimum": null,
+        "expectedBudget": 12
+      },
+      {
+        "name": "zero-input-normalization",
+        "predictorCount": 0,
+        "demoCandidateCount": 0,
+        "instructionCandidateCount": 0,
+        "minimum": null,
+        "expectedBudget": 2
+      }
+    ]
+  }
+}

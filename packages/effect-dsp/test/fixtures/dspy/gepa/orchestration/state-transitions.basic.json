@@ -1,0 +1,44 @@
+{
+  "fixture": "dspy.gepa.orchestration.state-transitions.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "transitions": [
+      {
+        "name": "initial-state",
+        "iteration": 0,
+        "candidateCount": 1,
+        "mergeBudgetRemaining": 5,
+        "lastIterationFoundNew": false,
+        "expectedShouldAttemptMerge": false
+      },
+      {
+        "name": "post-accepted-mutation",
+        "iteration": 1,
+        "candidateCount": 2,
+        "mergeBudgetRemaining": 5,
+        "lastIterationFoundNew": true,
+        "expectedShouldAttemptMerge": true
+      },
+      {
+        "name": "budget-exhausted",
+        "iteration": 2,
+        "candidateCount": 2,
+        "mergeBudgetRemaining": 0,
+        "lastIterationFoundNew": true,
+        "expectedShouldAttemptMerge": false
+      }
+    ],
+    "expectedCandidateCountProgression": [1, 2, 2],
+    "expectedLastIterationFoundNew": [false, true, true]
+  }
+}

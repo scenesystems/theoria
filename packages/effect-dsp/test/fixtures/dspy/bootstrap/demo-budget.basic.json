@@ -1,0 +1,39 @@
+{
+  "fixture": "dspy.bootstrap.demo-budget.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "maxBootstrappedDemos": 2,
+    "threshold": 1.0,
+    "maxRounds": 4,
+    "trainset": [
+      {
+        "question": "What is the capital of France?",
+        "expectedAnswer": "Paris",
+        "teacherAnswer": "Paris"
+      },
+      {
+        "question": "What is the capital of Japan?",
+        "expectedAnswer": "Tokyo",
+        "teacherAnswer": "Tokyo"
+      },
+      {
+        "question": "What is the capital of Italy?",
+        "expectedAnswer": "Rome",
+        "teacherAnswer": "Rome"
+      }
+    ],
+    "expectedAcceptedQuestions": ["What is the capital of France?", "What is the capital of Japan?"],
+    "expectedFinalDemoCount": 2,
+    "expectedCallCount": 3
+  }
+}

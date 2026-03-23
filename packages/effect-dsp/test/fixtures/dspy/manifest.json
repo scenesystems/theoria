@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "1.0.0",
+  "generator": {
+    "script": "scripts/generate-dspy-fixtures.py",
+    "generatorVersion": "0.2.0",
+    "upstream": "dspy",
+    "upstreamVersion": "3.1.3",
+    "pythonVersion": "3.11",
+    "generatedAt": "2026-03-18T00:00:00Z"
+  },
+  "fixtures": [
+    {
+      "name": "dspy.bootstrap.demo-budget.basic",
+      "file": "bootstrap/demo-budget.basic.json"
+    },
+    {
+      "name": "dspy.bootstrap.threshold-filtering.basic",
+      "file": "bootstrap/threshold-filtering.basic.json"
+    },
+    {
+      "name": "dspy.bootstraprs.candidate-catalog.seed-9",
+      "file": "bootstraprs/candidate-catalog.seed-9.json"
+    },
+    {
+      "name": "dspy.chat.output-requirements.basic",
+      "file": "chat/output-requirements.basic.json"
+    },
+    {
+      "name": "dspy.chat.parse-fallback.contract",
+      "file": "chat/parse-fallback.contract.json"
+    },
+    {
+      "name": "dspy.chat.parse-sections.basic",
+      "file": "chat/parse-sections.basic.json"
+    },
+    {
+      "name": "dspy.chat.qa-basic",
+      "file": "chat/qa-basic.json"
+    },
+    {
+      "name": "dspy.chat.qa-output-requirements",
+      "file": "chat/qa-output-requirements.json"
+    },
+    {
+      "name": "dspy.chat.qa-with-demo",
+      "file": "chat/qa-with-demo.json"
+    },
+    {
+      "name": "dspy.chat.system-message.basic",
+      "file": "chat/system-message.basic.json"
+    },
+    {
+      "name": "dspy.cot.reasoning-field.basic",
+      "file": "cot/reasoning-field.basic.json"
+    },
+    {
+      "name": "dspy.ensemble.majority-vote.basic",
+      "file": "ensemble/majority-vote.basic.json"
+    },
+    {
+      "name": "dspy.evaluate.event-order.basic",
+      "file": "evaluate/event-order.basic.json"
+    },
+    {
+      "name": "dspy.evaluate.report-shape.basic",
+      "file": "evaluate/report-shape.basic.json"
+    },
+    {
+      "name": "dspy.gepa.accept.merge-non-strict",
+      "file": "gepa/accept/merge-non-strict.json"
+    },
+    {
+      "name": "dspy.gepa.accept.mutation-strict-greater",
+      "file": "gepa/accept/mutation-strict-greater.json"
+    },
+    {
+      "name": "dspy.gepa.catalog.versioned-fixtures",
+      "file": "gepa/catalog/versioned-fixtures.json"
+    },
+    {
+      "name": "dspy.gepa.governance.optimizer-options",
+      "file": "gepa/governance/optimizer-options.json"
+    },
+    {
+      "name": "dspy.gepa.governance.public-seams",
+      "file": "gepa/governance/public-seams.json"
+    },
+    {
+      "name": "dspy.gepa.merge.common-ancestor-cases",
+      "file": "gepa/merge/common-ancestor-cases.json"
+    },
+    {
+      "name": "dspy.gepa.merge.schedule.max-merge-invocations",
+      "file": "gepa/merge/schedule.max-merge-invocations.json"
+    },
+    {
+      "name": "dspy.gepa.orchestration.event-order.seed-0",
+      "file": "gepa/orchestration/event-order.seed-0.json"
+    },
+    {
+      "name": "dspy.gepa.orchestration.state-transitions.basic",
+      "file": "gepa/orchestration/state-transitions.basic.json"
+    },
+    {
+      "name": "dspy.gepa.pareto.score-matrix.basic",
+      "file": "gepa/pareto/score-matrix.basic.json"
+    },
+    {
+      "name": "dspy.gepa.pareto.score-matrix.ties",
+      "file": "gepa/pareto/score-matrix.ties.json"
+    },
+    {
+      "name": "dspy.gepa.reflect.dataset-shape",
+      "file": "gepa/reflect/dataset-shape.json"
+    },
+    {
+      "name": "dspy.gepa.reflect.format-failure-feedback",
+      "file": "gepa/reflect/format-failure-feedback.json"
+    },
+    {
+      "name": "dspy.gepa.reflect.prompt-template.basic",
+      "file": "gepa/reflect/prompt-template.basic.json"
+    },
+    {
+      "name": "dspy.gepa.replay.frontier-snapshots.seed-0",
+      "file": "gepa/replay/frontier-snapshots.seed-0.json"
+    },
+    {
+      "name": "dspy.gepa.replay.params.seed-0",
+      "file": "gepa/replay/params.seed-0.json"
+    },
+    {
+      "name": "dspy.gepa.replay.seed-0.contract",
+      "file": "gepa/replay/seed-0.contract.json"
+    },
+    {
+      "name": "dspy.gepa.selection.weights.seed-42",
+      "file": "gepa/selection/weights.seed-42.json"
+    },
+    {
+      "name": "dspy.labeledfewshot.sample-k.seed-9",
+      "file": "labeledfewshot/sample-k.seed-9.json"
+    },
+    {
+      "name": "dspy.metric.score-feedback.contract",
+      "file": "metric/score-feedback.contract.json"
+    },
+    {
+      "name": "dspy.mipro.phase-config",
+      "file": "mipro/phase-config.json"
+    },
+    {
+      "name": "dspy.mipro.tips-vocabulary",
+      "file": "mipro/tips-vocabulary.json"
+    },
+    {
+      "name": "dspy.mipro.trial-budget-cases",
+      "file": "mipro/trial-budget-cases.json"
+    },
+    {
+      "name": "dspy.trace.entry-shape.basic",
+      "file": "trace/entry-shape.basic.json"
+    },
+    {
+      "name": "dspy.trace.fiber-isolation.seed-0",
+      "file": "trace/fiber-isolation.seed-0.json"
+    }
+  ]
+}
