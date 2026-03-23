@@ -68,6 +68,6 @@
     "docgen": "docgen"
   },
   "peerDependencies": {
-    "effect": "^3.0.0"
+    "effect": "^3.20.0"
   }
 }

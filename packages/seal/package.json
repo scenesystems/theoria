@@ -51,6 +51,6 @@
     "@scure/base": "^2.0.0"
   },
   "peerDependencies": {
-    "effect": "^3.0.0"
+    "effect": "^3.20.0"
   }
 }

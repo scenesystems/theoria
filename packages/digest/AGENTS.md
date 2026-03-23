@@ -29,9 +29,11 @@ peer dependency. Schema is the single source of truth for all types.
 - `src/algorithms/blake3.ts` — BLAKE3 multi-mode: hash, keyed MAC, derive_key KDF
 - `src/algorithms/sha256.ts` — SHA-256 digest
 - `src/canonicalize.ts` — RFC 8785 JCS canonicalization
-- `src/encoding.ts` — base64url encode/decode
+- `src/encoding.ts` — base64url encode/decode, hex encode/decode, utf8ToBytes
 - `src/digest.ts` — unified canonicalize → hash → encode pipeline
-- `src/hmac.ts` — HMAC-SHA256 and HMAC-SHA1 message authentication
+- `src/convenience.ts` — algorithm-parameterized digest functions (digestBytes, digestUtf8, base64url/hex variants, canonicalJsonBytes)
+- `src/digestSchemaValue.ts` — Schema.encode → JCS → hash pipeline
+- `src/hmac.ts` — HMAC-SHA256, HMAC-SHA1, hmacSha256Base64Url, hmacSha1Hex
 - `src/kdf.ts` — HKDF-SHA256 and HKDF-SHA512 key derivation (RFC 5869)
 
 ### Schemas (`src/schemas/`)
