@@ -48,7 +48,8 @@ __pycache__/
 .tmp/
 
 # PR-scoped specs (ephemeral tracking — not committed)
-.specs/
+.specs/*
+!.specs/AGENTS.md
 
 # Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
 .vendor/effect/
