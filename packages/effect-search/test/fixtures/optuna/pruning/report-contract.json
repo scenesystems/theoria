@@ -1,0 +1,107 @@
+{
+  "fixture": "pruning.report-contract",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expectedOutcome": "accepted",
+        "expectedReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          }
+        ],
+        "id": "accepts-first-report",
+        "initialReports": [],
+        "reportAttempt": {
+          "step": 0,
+          "value": 0.81
+        }
+      },
+      {
+        "expectedOutcome": "accepted",
+        "expectedReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          },
+          {
+            "step": 1,
+            "value": 0.72
+          }
+        ],
+        "id": "accepts-ascending-step",
+        "initialReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          }
+        ],
+        "reportAttempt": {
+          "step": 1,
+          "value": 0.72
+        }
+      },
+      {
+        "expectedErrorTag": "InvalidReportStep",
+        "expectedOutcome": "error",
+        "expectedReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          }
+        ],
+        "id": "rejects-duplicate-step",
+        "initialReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          }
+        ],
+        "reportAttempt": {
+          "step": 0,
+          "value": 0.55
+        }
+      },
+      {
+        "expectedErrorTag": "InvalidReportStep",
+        "expectedOutcome": "error",
+        "expectedReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          },
+          {
+            "step": 2,
+            "value": 0.72
+          }
+        ],
+        "id": "rejects-decreasing-step",
+        "initialReports": [
+          {
+            "step": 0,
+            "value": 0.81
+          },
+          {
+            "step": 2,
+            "value": 0.72
+          }
+        ],
+        "reportAttempt": {
+          "step": 1,
+          "value": 0.6
+        }
+      }
+    ]
+  }
+}

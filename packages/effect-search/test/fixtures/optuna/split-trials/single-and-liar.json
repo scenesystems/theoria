@@ -1,0 +1,102 @@
+{
+  "fixture": "split-trials.single-and-liar",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "direction": "minimize",
+        "expectedAbove": [1, 3],
+        "expectedBelow": [0, 2],
+        "id": "single-objective-minimize",
+        "nBelow": 2,
+        "trials": [
+          {
+            "intermediateValues": [],
+            "state": "complete",
+            "trialNumber": 0,
+            "value": 0.21
+          },
+          {
+            "intermediateValues": [],
+            "state": "complete",
+            "trialNumber": 1,
+            "value": 0.74
+          },
+          {
+            "intermediateValues": [
+              {
+                "step": 0,
+                "value": 0.9
+              },
+              {
+                "step": 1,
+                "value": 0.42
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 2,
+            "value": 0.42
+          },
+          {
+            "intermediateValues": [],
+            "liarValue": 0.5,
+            "state": "running",
+            "trialNumber": 3
+          }
+        ]
+      },
+      {
+        "direction": "maximize",
+        "expectedAbove": [10, 13],
+        "expectedBelow": [11, 12],
+        "id": "single-objective-maximize",
+        "nBelow": 2,
+        "trials": [
+          {
+            "intermediateValues": [],
+            "state": "complete",
+            "trialNumber": 10,
+            "value": 0.2
+          },
+          {
+            "intermediateValues": [],
+            "state": "complete",
+            "trialNumber": 11,
+            "value": 0.88
+          },
+          {
+            "intermediateValues": [
+              {
+                "step": 0,
+                "value": 0.31
+              },
+              {
+                "step": 2,
+                "value": 0.69
+              }
+            ],
+            "state": "pruned",
+            "trialNumber": 12,
+            "value": 0.69
+          },
+          {
+            "intermediateValues": [],
+            "liarValue": 0.4,
+            "state": "running",
+            "trialNumber": 13
+          }
+        ]
+      }
+    ]
+  }
+}

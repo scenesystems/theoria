@@ -1,0 +1,17 @@
+{
+  "fixtures": [
+    {
+      "file": "schema-incompatible.json",
+      "name": "categorical-parzen.basic"
+    }
+  ],
+  "generator": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generatorVersion": "1.0.0",
+    "pythonVersion": "3.11",
+    "script": "scripts/generate-optuna-fixtures.py",
+    "upstream": "optuna",
+    "upstreamVersion": "4.3.0"
+  },
+  "schemaVersion": "1.0.0"
+}

@@ -1,0 +1,203 @@
+{
+  "fixture": "pruning.percentile-pruner",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "currentValue": 0.1,
+        "expectedShouldPrune": false,
+        "history": [
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.5
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 0
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.9
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 1
+          }
+        ],
+        "id": "startup-trials-disable-pruning",
+        "settings": {
+          "intervalSteps": 1,
+          "nMinTrials": 1,
+          "percentile": 25,
+          "startupTrials": 3,
+          "warmupSteps": 0
+        },
+        "step": 0,
+        "trialNumber": 2
+      },
+      {
+        "currentValue": 0.1,
+        "expectedShouldPrune": false,
+        "history": [
+          {
+            "reports": [
+              {
+                "step": 3,
+                "value": 0.8
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 0
+          },
+          {
+            "reports": [
+              {
+                "step": 3,
+                "value": 0.7
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 1
+          }
+        ],
+        "id": "warmup-steps-disable-pruning",
+        "settings": {
+          "intervalSteps": 1,
+          "nMinTrials": 1,
+          "percentile": 25,
+          "startupTrials": 0,
+          "warmupSteps": 5
+        },
+        "step": 3,
+        "trialNumber": 5
+      },
+      {
+        "currentValue": 0.1,
+        "expectedShouldPrune": true,
+        "history": [
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.5
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 0
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.7
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 1
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.9
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 2
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.8
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 3
+          }
+        ],
+        "id": "prunes-below-percentile",
+        "settings": {
+          "intervalSteps": 1,
+          "nMinTrials": 1,
+          "percentile": 25,
+          "startupTrials": 0,
+          "warmupSteps": 0
+        },
+        "step": 0,
+        "trialNumber": 5
+      },
+      {
+        "currentValue": 0.85,
+        "expectedShouldPrune": false,
+        "history": [
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.5
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 0
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.7
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 1
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.9
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 2
+          },
+          {
+            "reports": [
+              {
+                "step": 0,
+                "value": 0.8
+              }
+            ],
+            "state": "complete",
+            "trialNumber": 3
+          }
+        ],
+        "id": "keeps-above-percentile",
+        "settings": {
+          "intervalSteps": 1,
+          "nMinTrials": 1,
+          "percentile": 25,
+          "startupTrials": 0,
+          "warmupSteps": 0
+        },
+        "step": 0,
+        "trialNumber": 5
+      }
+    ],
+    "direction": "maximize"
+  }
+}

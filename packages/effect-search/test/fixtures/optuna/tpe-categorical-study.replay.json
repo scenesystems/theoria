@@ -1,0 +1,117 @@
+{
+  "fixture": "tpe-categorical-study.replay",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "expected": {
+      "bestValue": -0.25,
+      "configTrace": [
+        {
+          "demos": "few",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "none",
+          "instruction": "socratic",
+          "scoring": "strict"
+        },
+        {
+          "demos": "few",
+          "instruction": "socratic",
+          "scoring": "recall"
+        },
+        {
+          "demos": "curated",
+          "instruction": "socratic",
+          "scoring": "recall"
+        },
+        {
+          "demos": "none",
+          "instruction": "counterexample",
+          "scoring": "recall"
+        },
+        {
+          "demos": "none",
+          "instruction": "baseline",
+          "scoring": "recall"
+        },
+        {
+          "demos": "curated",
+          "instruction": "counterexample",
+          "scoring": "strict"
+        },
+        {
+          "demos": "curated",
+          "instruction": "baseline",
+          "scoring": "recall"
+        },
+        {
+          "demos": "few",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "none",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "few",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "few",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "curated",
+          "instruction": "socratic",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "few",
+          "instruction": "counterexample",
+          "scoring": "strict"
+        },
+        {
+          "demos": "none",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "few",
+          "instruction": "rewrite",
+          "scoring": "recall"
+        },
+        {
+          "demos": "curated",
+          "instruction": "baseline",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        }
+      ]
+    },
+    "sampler": {
+      "nEiCandidates": 48,
+      "nStartupTrials": 8,
+      "seed": 73,
+      "trials": 18
+    }
+  }
+}

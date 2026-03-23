@@ -1,0 +1,55 @@
+{
+  "fixture": "pruned-score.pruned-ordering",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expectedScore": "Infinity",
+        "expectedStep": -1,
+        "id": "no-intermediate-values",
+        "intermediateValues": [],
+        "trialNumber": 20
+      },
+      {
+        "expectedScore": "Infinity",
+        "expectedStep": 0,
+        "id": "nan-intermediate-values",
+        "intermediateValues": [
+          {
+            "step": 0,
+            "value": "NaN"
+          }
+        ],
+        "trialNumber": 21
+      },
+      {
+        "expectedScore": 0.39,
+        "expectedStep": 3,
+        "id": "step-tie-break",
+        "intermediateValues": [
+          {
+            "step": 0,
+            "value": 0.71
+          },
+          {
+            "step": 3,
+            "value": 0.39
+          }
+        ],
+        "trialNumber": 22
+      }
+    ],
+    "direction": "minimize",
+    "expectedOrder": [22, 20, 21]
+  }
+}

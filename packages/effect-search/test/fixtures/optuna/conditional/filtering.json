@@ -1,0 +1,80 @@
+{
+  "fixture": "conditional.filtering",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expectedExcluded": [41],
+        "expectedIncluded": [40, 42],
+        "id": "adam-branch-filtering",
+        "requiredParams": ["optimizer", "beta1", "beta2"],
+        "trials": [
+          {
+            "params": {
+              "beta1": 0.9,
+              "beta2": 0.999,
+              "optimizer": "adam"
+            },
+            "trialNumber": 40
+          },
+          {
+            "params": {
+              "momentum": 0.9,
+              "optimizer": "sgd"
+            },
+            "trialNumber": 41
+          },
+          {
+            "params": {
+              "beta1": 0.85,
+              "beta2": 0.98,
+              "optimizer": "adam"
+            },
+            "trialNumber": 42
+          }
+        ]
+      },
+      {
+        "expectedExcluded": [40, 42],
+        "expectedIncluded": [41],
+        "id": "sgd-branch-filtering",
+        "requiredParams": ["optimizer", "momentum"],
+        "trials": [
+          {
+            "params": {
+              "beta1": 0.9,
+              "beta2": 0.999,
+              "optimizer": "adam"
+            },
+            "trialNumber": 40
+          },
+          {
+            "params": {
+              "momentum": 0.9,
+              "optimizer": "sgd"
+            },
+            "trialNumber": 41
+          },
+          {
+            "params": {
+              "beta1": 0.85,
+              "beta2": 0.98,
+              "optimizer": "adam"
+            },
+            "trialNumber": 42
+          }
+        ]
+      }
+    ]
+  }
+}

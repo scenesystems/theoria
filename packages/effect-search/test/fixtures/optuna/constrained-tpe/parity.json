@@ -1,0 +1,70 @@
+{
+  "fixture": "constrained-tpe.parity",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "densityCases": [
+      {
+        "expectedOrder": [0, 1, 2],
+        "expectedRatioProducts": [1.1305783946922394, 0.9807668449746284, 0.752506808012796],
+        "id": "single-constraint",
+        "observations": [[-0.6], [-0.1], [0.05], [0.35], [1.2]],
+        "probes": [[-0.25], [0.1], [0.8]]
+      },
+      {
+        "expectedOrder": [0, 1, 2],
+        "expectedRatioProducts": [1.3471343219460463, 0.8441922451249798, 0.44365634332560455],
+        "id": "two-constraints",
+        "observations": [
+          [-0.5, -0.2],
+          [-0.2, 0.4],
+          [0.2, 0.1],
+          [0.8, 1.1],
+          [1.3, 0.6]
+        ],
+        "probes": [
+          [-0.3, -0.1],
+          [0.1, 0.2],
+          [0.9, 0.9]
+        ]
+      }
+    ],
+    "splitCase": {
+      "direction": "minimize",
+      "expectedAbove": [1, 2, 3],
+      "expectedBelow": [0],
+      "nBelow": 1,
+      "trials": [
+        {
+          "constraints": [-0.4],
+          "trialNumber": 0,
+          "value": 0.2
+        },
+        {
+          "constraints": [0.15],
+          "trialNumber": 1,
+          "value": 0.1
+        },
+        {
+          "constraints": [-0.2],
+          "trialNumber": 2,
+          "value": 0.3
+        },
+        {
+          "constraints": [0.7],
+          "trialNumber": 3,
+          "value": 0.05
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/dts/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./Cache": {
+      "types": "./dist/dts/Cache/index.d.ts",
+      "import": "./dist/esm/Cache/index.js",
+      "default": "./dist/cjs/Cache/index.js"
+    },
+    "./Contracts": {
+      "types": "./dist/dts/contracts/index.d.ts",
+      "import": "./dist/esm/contracts/index.js",
+      "default": "./dist/cjs/contracts/index.js"
+    },
+    "./Errors": {
+      "types": "./dist/dts/Errors/index.d.ts",
+      "import": "./dist/esm/Errors/index.js",
+      "default": "./dist/cjs/Errors/index.js"
+    },
+    "./Experimental": {
+      "types": "./dist/dts/experimental/index.d.ts",
+      "import": "./dist/esm/experimental/index.js",
+      "default": "./dist/cjs/experimental/index.js"
+    },
+    "./Pareto": {
+      "types": "./dist/dts/Pareto/index.d.ts",
+      "import": "./dist/esm/Pareto/index.js",
+      "default": "./dist/cjs/Pareto/index.js"
+    },
+    "./Sampler": {
+      "types": "./dist/dts/Sampler/index.d.ts",
+      "import": "./dist/esm/Sampler/index.js",
+      "default": "./dist/cjs/Sampler/index.js"
+    },
+    "./Scheduler": {
+      "types": "./dist/dts/Scheduler/index.d.ts",
+      "import": "./dist/esm/Scheduler/index.js",
+      "default": "./dist/cjs/Scheduler/index.js"
+    },
+    "./SearchSpace": {
+      "types": "./dist/dts/SearchSpace/index.d.ts",
+      "import": "./dist/esm/SearchSpace/index.js",
+      "default": "./dist/cjs/SearchSpace/index.js"
+    },
+    "./Study": {
+      "types": "./dist/dts/Study/index.d.ts",
+      "import": "./dist/esm/Study/index.js",
+      "default": "./dist/cjs/Study/index.js"
+    },
+    "./StudyEvent": {
+      "types": "./dist/dts/StudyEvent/index.d.ts",
+      "import": "./dist/esm/StudyEvent/index.js",
+      "default": "./dist/cjs/StudyEvent/index.js"
+    },
+    "./Trial": {
+      "types": "./dist/dts/Trial/index.d.ts",
+      "import": "./dist/esm/Trial/index.js",
+      "default": "./dist/cjs/Trial/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/dts/contracts/index.d.ts",
+      "import": "./dist/esm/contracts/index.js",
+      "default": "./dist/cjs/contracts/index.js"
+    },
+    "./experimental": {
+      "types": "./dist/dts/experimental/index.d.ts",
+      "import": "./dist/esm/experimental/index.js",
+      "default": "./dist/cjs/experimental/index.js"
+    },
+    "./internal/*": null
+  }
+}
