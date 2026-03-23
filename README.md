@@ -3,9 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Effect-native scientific computing for TypeScript.
+Open-source Effect-native infrastructure for TypeScript.
 
-_Theoria_ (θεωρία) — the disciplined act of observation that produces knowledge. These packages implement that discipline computationally: search algorithms that learn from what they observe, programs that optimize themselves through structured evaluation, and the mathematical foundations both depend on.
+_Theoria_ (θεωρία) — the disciplined act of observation that produces knowledge. These packages provide the computational foundations for systems that learn, optimize, reason, and verify: search algorithms that improve from what they observe, programs that optimize themselves through structured evaluation, cryptographic primitives that establish trust, and the mathematical substrate everything builds on.
 
 Built on [Effect](https://effect.website).
 
@@ -15,12 +15,12 @@ Built on [Effect](https://effect.website).
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
 | `effect-search`        | Bayesian optimization for TypeScript. TPE, MOTPE, HyperBand/BOHB, constrained c-TPE, typed search spaces, snapshot/resume, streaming events. Verified against [Optuna](https://github.com/optuna/optuna).          | [README](./packages/effect-search/README.md) |
 | `effect-dsp`           | Programming — not prompting — language models. A ground-up Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm. Typed signatures, learnable modules, fiber-scoped traces, six prompt optimizers. | [README](./packages/effect-dsp/README.md)    |
-| `effect-math`          | Mathematical and statistical foundations — an independent mathematical substrate organized by domain, not an extraction from existing packages.                                                                    | [README](./packages/effect-math/README.md)   |
-| `@scenesystems/digest` | Content hashing and JCS canonicalization. BLAKE3-256, SHA-256, RFC 8785. Schema-typed, branded types, typed errors.                                                                                                | [README](./packages/digest/README.md)        |
+| `effect-math`          | Mathematical and statistical foundations — numerics, linear algebra, probability, optimization, and more. Organized by domain with branded scalars, typed errors, and configurable runtime policies.               | [README](./packages/effect-math/README.md)   |
+| `@scenesystems/digest` | Content hashing and JCS canonicalization. BLAKE3-256, SHA-256, HMAC, HKDF, RFC 8785. Schema-typed, branded types, typed errors.                                                                                    | [README](./packages/digest/README.md)        |
 | `@scenesystems/seal`   | Authenticated encryption. XChaCha20-Poly1305, AES-256-GCM-SIV, AES-256-GCM. Schema-typed sealed envelopes, typed errors.                                                                                           | [README](./packages/seal/README.md)          |
 | `@scenesystems/sign`   | Digital signatures, key agreement, and key encapsulation. Ed25519, secp256k1, X25519, ML-DSA, SLH-DSA, XWing hybrid post-quantum. Schema-typed, typed errors.                                                      | [README](./packages/sign/README.md)          |
 
-`effect-dsp` depends on `effect-search` for optimizer orchestration. `effect-math` provides shared mathematical primitives for both. The `@scenesystems/*` cryptographic packages provide content hashing, authenticated encryption, and digital signatures — built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits). All packages are Effect-native with Schema as the single source of truth for types.
+`effect-dsp` depends on `effect-search` for optimizer orchestration. `effect-math` provides shared mathematical primitives. The `@scenesystems/*` cryptographic packages provide content hashing, authenticated encryption, and digital signatures — built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits). All packages are Effect-native with Schema as the single source of truth for types.
 
 ## Development
 
