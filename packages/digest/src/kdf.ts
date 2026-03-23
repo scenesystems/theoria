@@ -1,0 +1,43 @@
+/**
+ * HKDF key derivation functions (RFC 5869).
+ *
+ * Extract-then-expand key derivation using `@noble/hashes/hkdf.js`.
+ * Converts raw key material (e.g., X25519 shared secret) into
+ * cryptographically strong symmetric keys of any length.
+ *
+ * Two variants matching the signing package's needs:
+ *
+ * - **HKDF-SHA256** — standard key derivation for symmetric keys.
+ *   Used after X25519 key agreement in `@scenesystems/sign` to
+ *   produce AES-256 keys from raw Diffie-Hellman output.
+ * - **HKDF-SHA512** — extended output for deriving multiple keys
+ *   from a single shared secret, or when 512-bit intermediate
+ *   strength is required.
+ *
+ * Parameters follow RFC 5869 naming:
+ * - `ikm` — input keying material (raw secret bytes)
+ * - `salt` — optional non-secret random value (improves
+ *   extraction; defaults to hash-length zero bytes per RFC)
+ * - `info` — context/application-specific info string for domain
+ *   separation (e.g., `"effect-search/trial-key"`)
+ * - `dkLen` — desired output length in bytes (e.g., 32 for
+ *   AES-256)
+ *
+ * Pure `Uint8Array` in/out. The `info` parameter provides domain
+ * separation analogous to BLAKE3's context mode but using the
+ * standard HMAC-based construction.
+ *
+ * @example
+ * ```ts
+ * import { hkdfSha256 } from "@scenesystems/digest"
+ *
+ * const sharedSecret: Uint8Array = x25519Agreement(myKey, theirKey)
+ * const aesKey = hkdfSha256(sharedSecret, salt, "aes-256-key", 32)
+ * ```
+ *
+ * @see {@link hmacSha256} — HMAC primitive used internally by HKDF
+ * @see {@link blake3DeriveKey} — BLAKE3 native KDF alternative
+ *
+ * @since 0.1.0
+ * @category key-derivation
+ */
