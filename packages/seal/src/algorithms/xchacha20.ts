@@ -26,3 +26,53 @@
  * @since 0.1.0
  * @category algorithms
  */
+
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"
+import { managedNonce } from "@noble/ciphers/utils.js"
+import { Effect } from "effect"
+import { validateKey } from "../internal/keyValidation.js"
+import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
+
+/**
+ * Encrypt `plaintext` using XChaCha20-Poly1305.
+ *
+ * Returns `nonce ‖ ciphertext ‖ tag` via `managedNonce` — the
+ * 24-byte nonce is prepended automatically.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const xchacha20Encrypt = (
+  key: Uint8Array,
+  plaintext: Uint8Array
+): Effect.Effect<Uint8Array, InvalidKey> =>
+  Effect.gen(function*() {
+    yield* validateKey(key)
+    return yield* Effect.sync(() => managedNonce(xchacha20poly1305)(key).encrypt(plaintext))
+  })
+
+/**
+ * Decrypt `ciphertext` using XChaCha20-Poly1305.
+ *
+ * Expects `nonce ‖ ciphertext ‖ tag` as produced by
+ * {@link xchacha20Encrypt}. The 24-byte nonce is extracted
+ * automatically by `managedNonce`.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const xchacha20Decrypt = (
+  key: Uint8Array,
+  ciphertext: Uint8Array
+): Effect.Effect<Uint8Array, DecryptionFailed | InvalidKey> =>
+  Effect.gen(function*() {
+    yield* validateKey(key)
+    return yield* Effect.try({
+      try: () => managedNonce(xchacha20poly1305)(key).decrypt(ciphertext),
+      catch: () =>
+        new DecryptionFailed({
+          algorithm: "xchacha20-poly1305",
+          reason: "authentication failed"
+        })
+    })
+  })

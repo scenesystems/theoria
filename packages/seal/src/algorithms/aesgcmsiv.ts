@@ -7,8 +7,8 @@
  * management cannot be guaranteed (e.g. distributed systems).
  *
  * Wraps `@noble/ciphers/aes` — audited, zero-dependency. Uses
- * `managedNonce(siv(aes_256_gcm))` for automatic 12-byte nonce
- * prepending on encrypt and extraction on decrypt.
+ * `managedNonce(gcmsiv)` for automatic 12-byte nonce prepending
+ * on encrypt and extraction on decrypt.
  *
  * Security properties:
  * - **Nonce-misuse resistance**: SIV construction derives the tag
@@ -27,3 +27,53 @@
  * @since 0.1.0
  * @category algorithms
  */
+
+import { gcmsiv } from "@noble/ciphers/aes.js"
+import { managedNonce } from "@noble/ciphers/utils.js"
+import { Effect } from "effect"
+import { validateKey } from "../internal/keyValidation.js"
+import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
+
+/**
+ * Encrypt `plaintext` using AES-256-GCM-SIV.
+ *
+ * Returns `nonce ‖ ciphertext ‖ tag` via `managedNonce` — the
+ * 12-byte nonce is prepended automatically.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const aesgcmsivEncrypt = (
+  key: Uint8Array,
+  plaintext: Uint8Array
+): Effect.Effect<Uint8Array, InvalidKey> =>
+  Effect.gen(function*() {
+    yield* validateKey(key)
+    return yield* Effect.sync(() => managedNonce(gcmsiv)(key).encrypt(plaintext))
+  })
+
+/**
+ * Decrypt `ciphertext` using AES-256-GCM-SIV.
+ *
+ * Expects `nonce ‖ ciphertext ‖ tag` as produced by
+ * {@link aesgcmsivEncrypt}. The 12-byte nonce is extracted
+ * automatically by `managedNonce`.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const aesgcmsivDecrypt = (
+  key: Uint8Array,
+  ciphertext: Uint8Array
+): Effect.Effect<Uint8Array, DecryptionFailed | InvalidKey> =>
+  Effect.gen(function*() {
+    yield* validateKey(key)
+    return yield* Effect.try({
+      try: () => managedNonce(gcmsiv)(key).decrypt(ciphertext),
+      catch: () =>
+        new DecryptionFailed({
+          algorithm: "aes-256-gcm-siv",
+          reason: "authentication failed"
+        })
+    })
+  })

@@ -40,3 +40,30 @@
  * @since 0.1.0
  * @category seal
  */
+
+import type { Effect } from "effect"
+import { seal, unseal } from "../seal.js"
+import type { DecryptionFailed, InvalidKey } from "./errors.js"
+import type { SealAlgorithm } from "./SealAlgorithm.js"
+import type { SealedEnvelope } from "./SealedEnvelope.js"
+
+/**
+ * Effect-wrapped seal/unseal operations.
+ *
+ * @since 0.1.0
+ * @category seal
+ */
+export const sealEffect: {
+  readonly encrypt: (
+    algorithm: typeof SealAlgorithm.Type,
+    key: Uint8Array,
+    plaintext: Uint8Array
+  ) => Effect.Effect<SealedEnvelope, InvalidKey>
+  readonly decrypt: (
+    key: Uint8Array,
+    envelope: SealedEnvelope
+  ) => Effect.Effect<Uint8Array, DecryptionFailed | InvalidKey>
+} = {
+  encrypt: seal,
+  decrypt: unseal
+}
