@@ -80,3 +80,9 @@ export * from "./schemas/errors.js"
  * @category seal
  */
 export * from "./schemas/sealEffect.js"
+
+/**
+ * @since 0.1.0
+ * @category encoding
+ */
+export * from "./utf8.js"
