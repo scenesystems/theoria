@@ -60,6 +60,7 @@
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/effect-math/test",
+    "publish:check": "bun run scripts/verify-publish-readiness.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
     "fixtures:lock": "uv lock --script scripts/generate-scipy-fixtures.py",
