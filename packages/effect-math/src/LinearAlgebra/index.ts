@@ -1,5 +1,9 @@
 /**
- * LinearAlgebra domain public surface.
+ * Dense linear algebra over immutable `Chunk` carriers — dot products,
+ * norms (L1/L2/L∞), matrix-vector multiplication, transposition, and
+ * Frobenius norm. Provides three tiers: pure kernel functions, Effect-wrapped
+ * operations with Schema-validated boundary input, and policy-aware variants
+ * that respect precision, backend, and diagnostics runtime services.
  *
  * @since 0.1.0
  * @module
