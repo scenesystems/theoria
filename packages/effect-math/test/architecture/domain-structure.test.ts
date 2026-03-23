@@ -20,11 +20,16 @@ describe("effect-math domain structure", () => {
   it.effect("exposes the exact standard domain barrel surface for all nine domains", () =>
     Effect.gen(function*() {
       expect(ownKeys(NumericDomain)).toEqual([
+        "NumericBoundaryValidationInput",
+        "NumericBoundaryValidationResult",
         "NumericDomainBoundaryError",
         "NumericDomainContract",
         "NumericDomainModel",
         "NumericDomainSchema",
-        "loadNumericDomain"
+        "decodeNumericDomain",
+        "encodeNumericDomain",
+        "loadNumericDomain",
+        "validateNumericBoundary"
       ])
       expect(ownKeys(AlgebraDomain)).toEqual([
         "AlgebraDomainBoundaryError",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
+import * as SchemaAST from "effect/SchemaAST"
 
 import {
   AbsoluteTolerance,
@@ -20,16 +21,30 @@ import { validateNumericBoundary } from "../../src/Numeric/operations.js"
 import { decodeNumericDomain, encodeNumericDomain, NumericDomainSchema } from "../../src/Numeric/schema.js"
 
 /**
- * Target-state red tests for foundation requirements.
+ * Target-state tests for foundation requirements.
  *
- * These tests are intentionally written against APIs that SHOULD exist:
+ * These tests define the merged API contract for:
  * - Branded numeric identities with decode/encode boundary helpers
  * - Runtime service seams with deterministic layers and typed boundary errors
- *
- * They are expected to fail until those APIs are implemented.
  */
 describe("target-state foundation contracts", () => {
   it("branded scalar contracts enforce nominal numeric semantics", () => {
+    expect(SchemaAST.getBrandAnnotation(Dimension.ast)).toMatchObject({ _tag: "Some", value: ["Dimension"] })
+    expect(SchemaAST.getBrandAnnotation(Axis.ast)).toMatchObject({ _tag: "Some", value: ["Axis"] })
+    expect(SchemaAST.getBrandAnnotation(AbsoluteTolerance.ast)).toMatchObject({
+      _tag: "Some",
+      value: ["AbsoluteTolerance"]
+    })
+    expect(SchemaAST.getBrandAnnotation(RelativeTolerance.ast)).toMatchObject({
+      _tag: "Some",
+      value: ["RelativeTolerance"]
+    })
+    expect(SchemaAST.getBrandAnnotation(Seed.ast)).toMatchObject({ _tag: "Some", value: ["Seed"] })
+    expect(SchemaAST.getBrandAnnotation(IterationBudget.ast)).toMatchObject({
+      _tag: "Some",
+      value: ["IterationBudget"]
+    })
+
     expect(Schema.decodeUnknownEither(Dimension)(3)).toMatchObject({ _tag: "Right", right: 3 })
     expect(Schema.decodeUnknownEither(Axis)(0)).toMatchObject({ _tag: "Right", right: 0 })
     expect(Schema.decodeUnknownEither(AbsoluteTolerance)(1e-9)).toMatchObject({ _tag: "Right", right: 1e-9 })
@@ -85,22 +100,29 @@ describe("target-state foundation contracts", () => {
         budget: 64
       })
 
-      const invalid = yield* validateNumericBoundary({
-        values: [0.1, Number.NaN],
-        tolerance: 1e-9,
-        budget: 64
-      })
+      const invalid = yield* Effect.either(
+        validateNumericBoundary({
+          values: [0.1, Number.NaN],
+          tolerance: 1e-9,
+          budget: 64
+        })
+      )
 
       expect(rng).toMatchObject({ policy: "deterministic", seed: 42 })
       expect(precision).toMatchObject({ policy: "strict" })
       expect(backend).toMatchObject({ policy: "typed-array" })
       expect(diagnostics).toMatchObject({ policy: "enabled" })
       expect(valid).toMatchObject({ ok: true })
-      expect(invalid).toMatchObject({ ok: false })
+      expect(invalid).toMatchObject({
+        _tag: "Left",
+        left: {
+          _tag: "NumericDomainBoundaryError"
+        }
+      })
     }).pipe(
       Effect.provide(
         makeDeterministicRuntimePoliciesLayer({
-          seed: 42,
+          seed: Schema.decodeUnknownSync(Seed)(42),
           precision: "strict",
           backend: "typed-array",
           diagnostics: "enabled"

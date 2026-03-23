@@ -27,57 +27,22 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": true,
+    "directory": "dist"
   },
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./contracts": {
-      "types": "./dist/contracts/index.d.ts",
-      "default": "./dist/contracts/index.js"
-    },
-    "./experimental": {
-      "types": "./dist/experimental/index.d.ts",
-      "default": "./dist/experimental/index.js"
-    },
-    "./Numeric": {
-      "types": "./dist/Numeric/index.d.ts",
-      "default": "./dist/Numeric/index.js"
-    },
-    "./Algebra": {
-      "types": "./dist/Algebra/index.d.ts",
-      "default": "./dist/Algebra/index.js"
-    },
-    "./LinearAlgebra": {
-      "types": "./dist/LinearAlgebra/index.d.ts",
-      "default": "./dist/LinearAlgebra/index.js"
-    },
-    "./Calculus": {
-      "types": "./dist/Calculus/index.d.ts",
-      "default": "./dist/Calculus/index.js"
-    },
-    "./Special": {
-      "types": "./dist/Special/index.d.ts",
-      "default": "./dist/Special/index.js"
-    },
-    "./Probability": {
-      "types": "./dist/Probability/index.d.ts",
-      "default": "./dist/Probability/index.js"
-    },
-    "./Statistics": {
-      "types": "./dist/Statistics/index.d.ts",
-      "default": "./dist/Statistics/index.js"
-    },
-    "./Optimization": {
-      "types": "./dist/Optimization/index.d.ts",
-      "default": "./dist/Optimization/index.js"
-    },
-    "./Geometry": {
-      "types": "./dist/Geometry/index.d.ts",
-      "default": "./dist/Geometry/index.js"
-    },
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./experimental": "./src/experimental/index.ts",
+    "./Numeric": "./src/Numeric/index.ts",
+    "./Algebra": "./src/Algebra/index.ts",
+    "./LinearAlgebra": "./src/LinearAlgebra/index.ts",
+    "./Calculus": "./src/Calculus/index.ts",
+    "./Special": "./src/Special/index.ts",
+    "./Probability": "./src/Probability/index.ts",
+    "./Statistics": "./src/Statistics/index.ts",
+    "./Optimization": "./src/Optimization/index.ts",
+    "./Geometry": "./src/Geometry/index.ts",
     "./internal/*": null,
     "./Numeric/internal/*": null,
     "./Algebra/internal/*": null,
@@ -92,13 +57,15 @@
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
-    "check:tests:target-state": "tsc -b tsconfig.test.target-state.json",
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
-    "test": "vitest run --root ../.. packages/effect-math/test/architecture packages/effect-math/test/contracts packages/effect-math/test/smoke",
-    "test:target-state": "bun run --cwd ../.. test:target-state",
-    "build": "tsc -b tsconfig.build.json",
-    "clean": "rm -rf dist .tsbuildinfo"
+    "test": "vitest run --root ../.. packages/effect-math/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
   },
   "peerDependencies": {
     "effect": "^3.0.0"

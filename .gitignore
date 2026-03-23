@@ -7,6 +7,9 @@ dist/
 out/
 *.tgz
 
+# Generated documentation (@effect/docgen output)
+**/docs/
+
 # Emitted JS in source/test directories (build output goes to dist/)
 packages/*/src/**/*.js
 packages/*/test/**/*.js

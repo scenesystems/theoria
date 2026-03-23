@@ -5,6 +5,6 @@
     "types": ["@effect/vitest", "vitest/globals"],
     "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
   },
-  "include": ["test/architecture", "test/contracts", "test/smoke"],
+  "include": ["test"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

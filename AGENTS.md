@@ -42,7 +42,9 @@ All `@scenesystems/*` packages have a single entrypoint (`.`). Effect is a requi
 | Build             | `bun run build`       |
 | Clean             | `bun run clean`       |
 
-Per-package: `bun --filter effect-search run check`
+Per-package: `bun run --filter 'effect-math' check`
+
+**CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 
 Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
 

@@ -1,25 +1,64 @@
 import { Schema } from "effect"
 
+const ScalarFiniteNumber = Schema.Number.pipe(Schema.finite())
+const ScalarFiniteInteger = Schema.Number.pipe(Schema.finite(), Schema.int())
+
 /**
- * Shared branded scalar vocabulary for cross-domain nominal numeric identities.
- *
- * The vocabulary names the scalar contracts that M3 hardening promotes into
- * concrete branded schemas (for example: `Dimension`, `Axis`, and tolerances).
+ * Positive, finite integer dimensionality.
  *
  * @since 0.1.0
  * @category contracts
  */
-export const BrandedScalarVocabulary = Schema.Struct({
-  absoluteTolerance: Schema.String,
-  relativeTolerance: Schema.String,
-  dimension: Schema.String,
-  iterationBudget: Schema.String
-})
+export const Dimension = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+  identifier: "Dimension"
+}).pipe(Schema.brand("Dimension"))
 
 /**
- * Shared branded scalar vocabulary type.
+ * Non-negative, finite integer axis index.
  *
  * @since 0.1.0
- * @category models
+ * @category contracts
  */
-export type BrandedScalarVocabularyType = typeof BrandedScalarVocabulary.Type
+export const Axis = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).annotations({ identifier: "Axis" }).pipe(
+  Schema.brand("Axis")
+)
+
+/**
+ * Strictly positive finite absolute tolerance.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const AbsoluteTolerance = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).annotations({
+  identifier: "AbsoluteTolerance"
+}).pipe(Schema.brand("AbsoluteTolerance"))
+
+/**
+ * Strictly positive finite relative tolerance.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const RelativeTolerance = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).annotations({
+  identifier: "RelativeTolerance"
+}).pipe(Schema.brand("RelativeTolerance"))
+
+/**
+ * Non-negative finite integer seed.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const Seed = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).annotations({ identifier: "Seed" }).pipe(
+  Schema.brand("Seed")
+)
+
+/**
+ * Positive finite integer iteration budget.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const IterationBudget = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+  identifier: "IterationBudget"
+}).pipe(Schema.brand("IterationBudget"))

@@ -1,3 +1,6 @@
 {
-  "references": [{ "path": "./tsconfig.src.json" }]
+  "extends": "./tsconfig.src.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": ".tsbuildinfo/build.tsbuildinfo"
+  }
 }

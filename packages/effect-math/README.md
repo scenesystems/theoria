@@ -35,22 +35,17 @@ const domain = Effect.runSync(loadNumericDomain)
 
 ## Test Architecture
 
-1. Green suites (`test/architecture`, `test/contracts`, `test/smoke`) are part of default package gates.
-2. North-star red specs (`test/target-state`) are intentionally isolated behind dedicated commands.
+1. Target-state contract tests live alongside architecture and parity suites.
+2. Merge readiness requires all suites green, including `test/target-state`.
 
 ### Commands
 
 ```sh
-# Green verification suites
 bun run check
 bun run check:tests
 bun run lint
 bun run test
 bun run build
-
-# Target-state north-star RED specs (expected to fail until implemented)
-bun run check:tests:target-state
-bun run test:target-state
 ```
 
 ## License
