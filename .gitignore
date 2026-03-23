@@ -7,6 +7,10 @@ dist/
 out/
 *.tgz
 
+# Emitted JS in source/test directories (build output goes to dist/)
+packages/*/src/**/*.js
+packages/*/test/**/*.js
+
 # TypeScript incremental build
 .tsbuildinfo/
 *.tsbuildinfo
