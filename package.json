@@ -55,13 +55,17 @@
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@effect/ai": "0.35.0",
+    "@effect/rpc": "0.75.0"
   },
   "overrides": {
     "effect": "3.21.0",
     "@effect/experimental": "0.60.0",
     "@effect/platform": "0.96.0",
-    "@effect/platform-bun": "0.89.0"
+    "@effect/platform-bun": "0.89.0",
+    "@effect/ai": "0.35.0",
+    "@effect/rpc": "0.75.0"
   },
   "lint-staged": {
     "*.{ts,mts}": [
