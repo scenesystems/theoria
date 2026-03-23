@@ -89,112 +89,116 @@ const comparableFirstLegSlice = (
     }))
 
 describe("constant-liar + pruning determinism", () => {
-  it.effect("keeps constant-liar pruning behavior deterministic under bounded concurrency", () =>
-    Effect.gen(function*() {
-      const leftResult = yield* optimizeWithPruning(runOptions.trials)
-      const rightResult = yield* optimizeWithPruning(runOptions.trials)
+  it.effect(
+    "keeps constant-liar pruning behavior deterministic under bounded concurrency",
+    () =>
+      Effect.gen(function*() {
+        const leftResult = yield* optimizeWithPruning(runOptions.trials)
+        const rightResult = yield* optimizeWithPruning(runOptions.trials)
 
-      const leftOption = asSingleObjective(leftResult)
-      const rightOption = asSingleObjective(rightResult)
-      expect(Option.isSome(leftOption)).toBe(true)
-      expect(Option.isSome(rightOption)).toBe(true)
+        const leftOption = asSingleObjective(leftResult)
+        const rightOption = asSingleObjective(rightResult)
+        expect(Option.isSome(leftOption)).toBe(true)
+        expect(Option.isSome(rightOption)).toBe(true)
 
-      if (Option.isNone(leftOption) || Option.isNone(rightOption)) {
-        return
-      }
+        if (Option.isNone(leftOption) || Option.isNone(rightOption)) {
+          return
+        }
 
-      const left = leftOption.value
-      const right = rightOption.value
-      const leftPrunedCount = left.trials.filter((trial) => trial.state._tag === "Pruned").length
-      const rightPrunedCount = right.trials.filter((trial) => trial.state._tag === "Pruned").length
+        const left = leftOption.value
+        const right = rightOption.value
+        const leftPrunedCount = left.trials.filter((trial) => trial.state._tag === "Pruned").length
+        const rightPrunedCount = right.trials.filter((trial) => trial.state._tag === "Pruned").length
 
-      expect(encodeTrialConfigTrace(left.trials)).toBe(encodeTrialConfigTrace(right.trials))
-      expect(traceState(left)).toEqual(traceState(right))
-      expect(leftPrunedCount).toBeGreaterThan(0)
-      expect(rightPrunedCount).toBe(leftPrunedCount)
-      expect(left.bestTrial.trialNumber).toBe(right.bestTrial.trialNumber)
-      expect(left.bestTrial.state.value).toBe(right.bestTrial.state.value)
-    }),
+        expect(encodeTrialConfigTrace(left.trials)).toBe(encodeTrialConfigTrace(right.trials))
+        expect(traceState(left)).toEqual(traceState(right))
+        expect(leftPrunedCount).toBeGreaterThan(0)
+        expect(rightPrunedCount).toBe(leftPrunedCount)
+        expect(left.bestTrial.trialNumber).toBe(right.bestTrial.trialNumber)
+        expect(left.bestTrial.state.value).toBe(right.bestTrial.state.value)
+      }),
     15_000
   )
 
-  it.effect("preserves prune/report/liar semantics across uninterrupted and resumed runs", () =>
-    Effect.gen(function*() {
-      const totalTrials = runOptions.trials
-      const firstLegTrials = 11
-      const secondLegTrials = totalTrials - firstLegTrials
+  it.effect(
+    "preserves prune/report/liar semantics across uninterrupted and resumed runs",
+    () =>
+      Effect.gen(function*() {
+        const totalTrials = runOptions.trials
+        const firstLegTrials = 11
+        const secondLegTrials = totalTrials - firstLegTrials
 
-      const baselineResult = yield* optimizeWithPruning(totalTrials)
-      const firstLegResult = yield* optimizeWithPruning(firstLegTrials)
+        const baselineResult = yield* optimizeWithPruning(totalTrials)
+        const firstLegResult = yield* optimizeWithPruning(firstLegTrials)
 
-      const baselineOption = asSingleObjective(baselineResult)
-      const firstLegOption = asSingleObjective(firstLegResult)
-      expect(Option.isSome(baselineOption)).toBe(true)
-      expect(Option.isSome(firstLegOption)).toBe(true)
+        const baselineOption = asSingleObjective(baselineResult)
+        const firstLegOption = asSingleObjective(firstLegResult)
+        expect(Option.isSome(baselineOption)).toBe(true)
+        expect(Option.isSome(firstLegOption)).toBe(true)
 
-      if (Option.isNone(baselineOption) || Option.isNone(firstLegOption)) {
-        return
-      }
+        if (Option.isNone(baselineOption) || Option.isNone(firstLegOption)) {
+          return
+        }
 
-      const snapshot = yield* Study.snapshot(firstLegOption.value)
-      const resumedResultA = yield* Study.resume({
-        space,
-        sampler: Sampler.tpe({
-          seed: runOptions.seed,
-          nStartupTrials: runOptions.nStartupTrials,
-          nEiCandidates: runOptions.nEiCandidates
-        }),
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        concurrency: runOptions.concurrency,
-        pruningPolicy,
-        objective
-      })
-      const resumedResultB = yield* Study.resume({
-        space,
-        sampler: Sampler.tpe({
-          seed: runOptions.seed,
-          nStartupTrials: runOptions.nStartupTrials,
-          nEiCandidates: runOptions.nEiCandidates
-        }),
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        concurrency: runOptions.concurrency,
-        pruningPolicy,
-        objective
-      })
+        const snapshot = yield* Study.snapshot(firstLegOption.value)
+        const resumedResultA = yield* Study.resume({
+          space,
+          sampler: Sampler.tpe({
+            seed: runOptions.seed,
+            nStartupTrials: runOptions.nStartupTrials,
+            nEiCandidates: runOptions.nEiCandidates
+          }),
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          concurrency: runOptions.concurrency,
+          pruningPolicy,
+          objective
+        })
+        const resumedResultB = yield* Study.resume({
+          space,
+          sampler: Sampler.tpe({
+            seed: runOptions.seed,
+            nStartupTrials: runOptions.nStartupTrials,
+            nEiCandidates: runOptions.nEiCandidates
+          }),
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          concurrency: runOptions.concurrency,
+          pruningPolicy,
+          objective
+        })
 
-      const resumedOptionA = asSingleObjective(resumedResultA)
-      const resumedOptionB = asSingleObjective(resumedResultB)
-      expect(Option.isSome(resumedOptionA)).toBe(true)
-      expect(Option.isSome(resumedOptionB)).toBe(true)
+        const resumedOptionA = asSingleObjective(resumedResultA)
+        const resumedOptionB = asSingleObjective(resumedResultB)
+        expect(Option.isSome(resumedOptionA)).toBe(true)
+        expect(Option.isSome(resumedOptionB)).toBe(true)
 
-      if (Option.isNone(resumedOptionA) || Option.isNone(resumedOptionB)) {
-        return
-      }
+        if (Option.isNone(resumedOptionA) || Option.isNone(resumedOptionB)) {
+          return
+        }
 
-      const baseline = baselineOption.value
-      const resumedA = resumedOptionA.value
-      const resumedB = resumedOptionB.value
-      const firstLegComparable = comparableFirstLegSlice(firstLegOption.value.trials, firstLegTrials)
+        const baseline = baselineOption.value
+        const resumedA = resumedOptionA.value
+        const resumedB = resumedOptionB.value
+        const firstLegComparable = comparableFirstLegSlice(firstLegOption.value.trials, firstLegTrials)
 
-      expect(firstLegComparable).toHaveLength(firstLegTrials)
-      expect(encodeTrialConfigTrace(resumedA.trials)).toBe(encodeTrialConfigTrace(resumedB.trials))
-      expect(traceState(resumedA)).toEqual(traceState(resumedB))
-      expect(resumedA.bestTrial.trialNumber).toBe(resumedB.bestTrial.trialNumber)
-      expect(resumedA.bestTrial.state.value).toBe(resumedB.bestTrial.state.value)
+        expect(firstLegComparable).toHaveLength(firstLegTrials)
+        expect(encodeTrialConfigTrace(resumedA.trials)).toBe(encodeTrialConfigTrace(resumedB.trials))
+        expect(traceState(resumedA)).toEqual(traceState(resumedB))
+        expect(resumedA.bestTrial.trialNumber).toBe(resumedB.bestTrial.trialNumber)
+        expect(resumedA.bestTrial.state.value).toBe(resumedB.bestTrial.state.value)
 
-      expect(resumedA.trials).toHaveLength(totalTrials)
-      expect(baseline.trials).toHaveLength(totalTrials)
-      expect(comparableFirstLegSlice(resumedA.trials, firstLegTrials)).toEqual(firstLegComparable)
-      expect(resumedA.completionReason).toBe("budgetExhausted")
-      expect(baseline.completionReason).toBe("budgetExhausted")
-      expect(resumedA.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
-      expect(baseline.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
-      expect(resumedA.trials.every((trial) => trial.state._tag !== "Running")).toBe(true)
-    }),
+        expect(resumedA.trials).toHaveLength(totalTrials)
+        expect(baseline.trials).toHaveLength(totalTrials)
+        expect(comparableFirstLegSlice(resumedA.trials, firstLegTrials)).toEqual(firstLegComparable)
+        expect(resumedA.completionReason).toBe("budgetExhausted")
+        expect(baseline.completionReason).toBe("budgetExhausted")
+        expect(resumedA.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
+        expect(baseline.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
+        expect(resumedA.trials.every((trial) => trial.state._tag !== "Running")).toBe(true)
+      }),
     20_000
   )
 })

@@ -53,58 +53,60 @@ describe("tpe acquisition SPI", () => {
       expect(custom).toBeCloseTo(70, 12)
     }))
 
-  it.effect("keeps constrained and multi-objective study paths compatible with acquisition selection", () =>
-    Effect.gen(function*() {
-      const space = makeSpiSpace()
-      const objective = objectiveForSpace(space)
+  it.effect(
+    "keeps constrained and multi-objective study paths compatible with acquisition selection",
+    () =>
+      Effect.gen(function*() {
+        const space = makeSpiSpace()
+        const objective = objectiveForSpace(space)
 
-      const constrained = yield* Study.optimize({
-        space,
-        sampler: Sampler.tpe({
-          seed: 19,
-          nStartupTrials: 4,
-          nEiCandidates: 28,
-          acquisition: "pi",
-          constraints: [
-            (raw) =>
-              Effect.sync(() => {
-                const decode = Schema.decodeUnknownSync(space.schema)
-                const config = decode(raw)
+        const constrained = yield* Study.optimize({
+          space,
+          sampler: Sampler.tpe({
+            seed: 19,
+            nStartupTrials: 4,
+            nEiCandidates: 28,
+            acquisition: "pi",
+            constraints: [
+              (raw) =>
+                Effect.sync(() => {
+                  const decode = Schema.decodeUnknownSync(space.schema)
+                  const config = decode(raw)
 
-                return config.x - 1.2
-              })
-          ]
-        }),
-        direction: "minimize",
-        trials: 14,
-        objective
-      })
+                  return config.x - 1.2
+                })
+            ]
+          }),
+          direction: "minimize",
+          trials: 14,
+          objective
+        })
 
-      const constrainedOption = asSingleObjective(constrained)
-      expect(Option.isSome(constrainedOption)).toBe(true)
+        const constrainedOption = asSingleObjective(constrained)
+        expect(Option.isSome(constrainedOption)).toBe(true)
 
-      const multiObjective = yield* Study.optimize({
-        space,
-        sampler: Sampler.tpe({
-          seed: 19,
-          nStartupTrials: 4,
-          nEiCandidates: 28,
-          acquisition: "thompson"
-        }),
-        directions: ["minimize", "minimize"],
-        trials: 12,
-        objective: (raw) =>
-          objective(raw).pipe(
-            Effect.map((distance) => [distance, Float64.abs(distance - 0.2)])
-          )
-      })
+        const multiObjective = yield* Study.optimize({
+          space,
+          sampler: Sampler.tpe({
+            seed: 19,
+            nStartupTrials: 4,
+            nEiCandidates: 28,
+            acquisition: "thompson"
+          }),
+          directions: ["minimize", "minimize"],
+          trials: 12,
+          objective: (raw) =>
+            objective(raw).pipe(
+              Effect.map((distance) => [distance, Float64.abs(distance - 0.2)])
+            )
+        })
 
-      expect(multiObjective._tag).toBe("MultiObjective")
+        expect(multiObjective._tag).toBe("MultiObjective")
 
-      if (multiObjective._tag === "MultiObjective") {
-        expect(multiObjective.paretoFront.length).toBeGreaterThan(0)
-      }
-    }),
+        if (multiObjective._tag === "MultiObjective") {
+          expect(multiObjective.paretoFront.length).toBeGreaterThan(0)
+        }
+      }),
     15_000
   )
 })

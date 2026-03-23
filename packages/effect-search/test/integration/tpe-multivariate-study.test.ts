@@ -142,7 +142,5 @@ describe("integration correlated-space TPE baseline", () => {
       })
 
       expect(bestSingleObjectiveValue(multivariate)).toBe(bestSingleObjectiveValue(univariate))
-    }),
-    15_000
-  )
+    }), 15_000)
 })
