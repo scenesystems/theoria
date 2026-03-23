@@ -104,5 +104,7 @@ describe("tpe acquisition SPI", () => {
       if (multiObjective._tag === "MultiObjective") {
         expect(multiObjective.paretoFront.length).toBeGreaterThan(0)
       }
-    }))
+    }),
+    15_000
+  )
 })

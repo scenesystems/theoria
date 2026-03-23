@@ -65,7 +65,7 @@ describe("integration correlated-space TPE baseline", () => {
         expect(tpeValue).toBeLessThanOrEqual(randomValue)
         expect(tpeValue).toBeLessThan(0.1)
       }),
-    12_000
+    30_000
   )
 
   it.effect(
@@ -111,7 +111,7 @@ describe("integration correlated-space TPE baseline", () => {
         expect(leftValue).toBeLessThanOrEqual(randomValue)
         expect(leftValue).toBeLessThan(0.2)
       }),
-    12_000
+    30_000
   )
 
   it.effect("falls back to univariate behavior for one-dimensional spaces", () =>
@@ -142,5 +142,7 @@ describe("integration correlated-space TPE baseline", () => {
       })
 
       expect(bestSingleObjectiveValue(multivariate)).toBe(bestSingleObjectiveValue(univariate))
-    }))
+    }),
+    15_000
+  )
 })

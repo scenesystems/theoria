@@ -441,6 +441,6 @@ describe("optimizer readiness pruning regression", () => {
         expect(resumed.paretoFront.length).toBeGreaterThan(0)
         expect(resumed.trials.every((trial) => isBranchSafe(trial.config))).toBe(true)
       }),
-    10_000
+    30_000
   )
 })

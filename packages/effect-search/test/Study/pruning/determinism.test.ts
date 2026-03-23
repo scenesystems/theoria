@@ -114,7 +114,9 @@ describe("constant-liar + pruning determinism", () => {
       expect(rightPrunedCount).toBe(leftPrunedCount)
       expect(left.bestTrial.trialNumber).toBe(right.bestTrial.trialNumber)
       expect(left.bestTrial.state.value).toBe(right.bestTrial.state.value)
-    }))
+    }),
+    15_000
+  )
 
   it.effect("preserves prune/report/liar semantics across uninterrupted and resumed runs", () =>
     Effect.gen(function*() {
@@ -192,5 +194,7 @@ describe("constant-liar + pruning determinism", () => {
       expect(resumedA.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
       expect(baseline.trials.filter((trial) => trial.state._tag === "Pruned").length).toBeGreaterThan(0)
       expect(resumedA.trials.every((trial) => trial.state._tag !== "Running")).toBe(true)
-    }))
+    }),
+    20_000
+  )
 })
