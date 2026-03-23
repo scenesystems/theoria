@@ -5,7 +5,9 @@
   "files": [],
   "references": [
     { "path": "./packages/digest/tsconfig.src.json" },
+    { "path": "./packages/effect-dsp/tsconfig.src.json" },
     { "path": "./packages/effect-math/tsconfig.src.json" },
+    { "path": "./packages/effect-search/tsconfig.src.json" },
     { "path": "./packages/seal/tsconfig.src.json" },
     { "path": "./packages/sign/tsconfig.src.json" }
   ]
