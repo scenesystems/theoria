@@ -16,6 +16,11 @@ Requires `effect` ≥ 3.20.0 as a peer dependency.
 
 Digital signatures prove who sent a message. Key agreement lets two parties derive a shared secret. Key encapsulation does the same thing but with quantum resistance. `@scenesystems/sign` provides all three families through a single Effect-native API with typed errors, self-describing output types, and exhaustive algorithm dispatch — from Ed25519 to post-quantum ML-DSA and the XWing hybrid KEM.
 
+- **Ed25519 + secp256k1** — classical signatures for general use and blockchain compatibility
+- **ML-DSA + SLH-DSA** — NIST post-quantum signatures (FIPS 204/205) at multiple security levels
+- **X25519** — elliptic-curve Diffie–Hellman key agreement
+- **XWing** — hybrid KEM combining X25519 + ML-KEM-768 for quantum-resistant key transport
+
 ## Algorithms
 
 ### Signatures

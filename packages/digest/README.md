@@ -229,7 +229,6 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 | Dependency      | Audits   | Purpose                     |
 | --------------- | -------- | --------------------------- |
 | `@noble/hashes` | 6 audits | BLAKE3, SHA-256, HMAC, HKDF |
-| `@scure/base`   | 2 audits | base64url encoding          |
 
 ## License
 

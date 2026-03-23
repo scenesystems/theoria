@@ -160,7 +160,7 @@ See the [`examples/`](./examples) directory for complete runnable programs.
 
 ## Cryptographic foundations
 
-All primitives wrap [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) — independently audited, zero-dependency, high-performance pure JavaScript AEAD implementations.
+All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
 
 | Dependency       | Audits   | Purpose                               |
 | ---------------- | -------- | ------------------------------------- |
