@@ -22,7 +22,7 @@
     "lint:fix": "eslint --max-warnings=0 --fix",
     "build": "tsc -b tsconfig.build.json && bun run --filter '*' build",
     "clean": "rm -rf packages/*/build packages/*/dist packages/*/.tsbuildinfo *.tsbuildinfo",
-    "docgen": "bun run --filter '*' exec docgen",
+    "docgen": "bun run --filter '*' docgen",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",

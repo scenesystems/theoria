@@ -23,31 +23,20 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - name: Build packages (docgen needs declarations)
-        run: bun run build
-
       - name: Generate API docs
-        run: |
-          for pkg in packages/*/; do
-            if [ -f "$pkg/package.json" ]; then
-              name=$(basename "$pkg")
-              echo "Generating docs for $name"
-              (cd "$pkg" && bunx @effect/docgen) || true
-            fi
-          done
+        run: bun run docgen
 
-      - name: Build site
+      - name: Assemble site
         run: |
           mkdir -p _site
-          # Collect per-package docs into unified site
           for pkg in packages/*/; do
             name=$(basename "$pkg")
             if [ -d "$pkg/docs" ]; then
               cp -r "$pkg/docs" "_site/$name"
             fi
           done
-          # Copy root README as index
           cp README.md _site/index.md
+          echo "theoria.scenesystems.io" > _site/CNAME
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
