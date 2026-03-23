@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["@effect/vitest", "vitest/globals"],
+    "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
+  },
+  "include": ["test/architecture", "test/contracts", "test/smoke"],
+  "references": [{ "path": "./tsconfig.src.json" }]
+}
