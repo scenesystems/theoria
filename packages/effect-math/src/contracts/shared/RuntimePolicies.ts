@@ -1,4 +1,4 @@
-import { Context, Layer, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import { Seed } from "./BrandedScalars.js"
 
@@ -9,16 +9,31 @@ const DiagnosticsPolicy = Schema.Literal("enabled", "disabled")
 /**
  * Shared runtime policy declarations for cross-domain effectful orchestration.
  *
- * M4 runtime services (RNG, backend, precision, diagnostics) derive from this
+ * Runtime services (RNG, backend, precision, diagnostics) derive from this
  * contract so deterministic layers can be composed in tests and integrations.
  *
  * @since 0.1.0
  * @category contracts
  */
 export const RuntimePolicies = Schema.Struct({
-  precisionPolicy: PrecisionPolicy,
-  backendPolicy: BackendPolicy,
-  diagnosticsPolicy: DiagnosticsPolicy
+  rngPolicy: Schema.Union(
+    Schema.Struct({
+      policy: Schema.Literal("deterministic"),
+      seed: Seed
+    }),
+    Schema.Struct({
+      policy: Schema.Literal("nondeterministic")
+    })
+  ),
+  precisionPolicy: Schema.Struct({
+    policy: PrecisionPolicy
+  }),
+  backendPolicy: Schema.Struct({
+    policy: BackendPolicy
+  }),
+  diagnosticsPolicy: Schema.Struct({
+    policy: DiagnosticsPolicy
+  })
 })
 
 /**
@@ -27,10 +42,15 @@ export const RuntimePolicies = Schema.Struct({
  * @since 0.1.0
  * @category contracts
  */
-export const RngPolicySchema = Schema.Struct({
-  policy: Schema.Literal("deterministic", "nondeterministic"),
-  seed: Seed
-})
+export const RngPolicySchema = Schema.Union(
+  Schema.Struct({
+    policy: Schema.Literal("deterministic"),
+    seed: Seed
+  }),
+  Schema.Struct({
+    policy: Schema.Literal("nondeterministic")
+  })
+)
 
 /**
  * Precision runtime policy contract.
@@ -122,6 +142,20 @@ export const DeterministicRuntimePoliciesInputSchema = Schema.Struct({
 type DeterministicRuntimePoliciesInputType = typeof DeterministicRuntimePoliciesInputSchema.Type
 
 /**
+ * Nondeterministic runtime policy input schema.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const NondeterministicRuntimePoliciesInputSchema = Schema.Struct({
+  precision: PrecisionPolicy,
+  backend: BackendPolicy,
+  diagnostics: DiagnosticsPolicy
+})
+
+type NondeterministicRuntimePoliciesInputType = typeof NondeterministicRuntimePoliciesInputSchema.Type
+
+/**
  * Deterministic runtime policy layer constructor for tests and reproducible execution.
  *
  * @since 0.1.0
@@ -148,7 +182,52 @@ export const makeDeterministicRuntimePoliciesLayer = (
 }
 
 /**
- * Shared runtime policy service type.
+ * Nondeterministic runtime policy layer constructor.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const makeNondeterministicRuntimePoliciesLayer = (
+  input: NondeterministicRuntimePoliciesInputType
+) => {
+  return Layer.mergeAll(
+    Layer.succeed(RngPolicyService, {
+      policy: "nondeterministic"
+    }),
+    Layer.succeed(PrecisionPolicyService, {
+      policy: input.precision
+    }),
+    Layer.succeed(BackendPolicyService, {
+      policy: input.backend
+    }),
+    Layer.succeed(DiagnosticsPolicyService, {
+      policy: input.diagnostics
+    })
+  )
+}
+
+/**
+ * Resolves all runtime policy services into a single typed object.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const collectRuntimePolicies = Effect.gen(function*() {
+  const rngPolicy = yield* RngPolicyService
+  const precisionPolicy = yield* PrecisionPolicyService
+  const backendPolicy = yield* BackendPolicyService
+  const diagnosticsPolicy = yield* DiagnosticsPolicyService
+
+  return {
+    rngPolicy,
+    precisionPolicy,
+    backendPolicy,
+    diagnosticsPolicy
+  }
+})
+
+/**
+ * RNG policy configuration — deterministic (with seed) or nondeterministic.
  *
  * @since 0.1.0
  * @category models
@@ -156,7 +235,7 @@ export const makeDeterministicRuntimePoliciesLayer = (
 export type RngPolicy = typeof RngPolicySchema.Type
 
 /**
- * Shared runtime policy service type.
+ * Precision policy configuration — strict or relaxed floating-point semantics.
  *
  * @since 0.1.0
  * @category models
@@ -164,7 +243,7 @@ export type RngPolicy = typeof RngPolicySchema.Type
 export type PrecisionPolicyType = typeof PrecisionPolicySchema.Type
 
 /**
- * Shared runtime policy service type.
+ * Backend policy configuration — typed-array or scalar execution strategy.
  *
  * @since 0.1.0
  * @category models
@@ -172,7 +251,7 @@ export type PrecisionPolicyType = typeof PrecisionPolicySchema.Type
 export type BackendPolicyType = typeof BackendPolicySchema.Type
 
 /**
- * Shared runtime policy service type.
+ * Diagnostics policy configuration — enabled or disabled runtime tracing.
  *
  * @since 0.1.0
  * @category models
