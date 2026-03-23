@@ -27,7 +27,9 @@ export const validateNumericBoundary = (input: unknown) =>
     const runtimePolicies = yield* collectRuntimePolicies
 
     yield* Effect.catchAll(
-      Schema.decodeUnknown(RuntimePolicies)(runtimePolicies),
+      Schema.decodeUnknown(RuntimePolicies)(runtimePolicies, {
+        onExcessProperty: "error"
+      }),
       (error) =>
         Effect.fail(
           new NumericDomainBoundaryError({
