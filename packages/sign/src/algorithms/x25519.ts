@@ -1,30 +1,43 @@
 /**
  * X25519 ECDH key agreement.
  *
- * Elliptic-curve Diffie–Hellman on Curve25519 for deriving shared
- * secrets between two parties. Used for encrypted multi-party
- * optimization channels and secure key exchange.
- *
- * Wraps `@noble/curves/ed25519` (X25519 is the Montgomery form of
- * Curve25519) — audited (Trail of Bits, Cure53), zero-dependency.
- *
- * Implements RFC 7748 (Elliptic Curves for Security). Given two
- * parties' key pairs, produces a 32-byte shared secret that only
- * those two parties can compute.
- *
- * Key sizes:
- * - Secret key: 32 bytes (256 bits)
- * - Public key: 32 bytes (256 bits, u-coordinate)
- * - Shared secret: 32 bytes (256 bits)
- *
- * Security property: Computational Diffie–Hellman (CDH) assumption
- * on Curve25519. 128-bit classical security. The shared secret
- * should be passed through a KDF (e.g., HKDF-BLAKE3) before use
- * as a symmetric key.
- *
- * @see {@link ed25519} — signing on the same curve family
- * @see {@link hybrid} — post-quantum key agreement via XWing
+ * Wraps `@noble/curves/ed25519` (X25519 is the Montgomery form
+ * of Curve25519) — audited (Trail of Bits, Cure53). RFC 7748.
+ * 32-byte keys, 32-byte shared secret.
  *
  * @since 0.1.0
  * @category algorithms
  */
+import { x25519 } from "@noble/curves/ed25519.js"
+import { Effect } from "effect"
+import { KeyPair } from "../schemas/KeyPair.js"
+import { SharedSecret } from "../schemas/SharedSecret.js"
+
+/**
+ * Derive a shared secret via X25519 ECDH.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const x25519SharedSecret = (
+  secretKey: Uint8Array,
+  publicKey: Uint8Array
+): Effect.Effect<SharedSecret> =>
+  Effect.sync(() =>
+    new SharedSecret({
+      algorithm: "x25519",
+      sharedSecret: x25519.getSharedSecret(secretKey, publicKey)
+    })
+  )
+
+/**
+ * Generate an X25519 key pair.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const x25519Keygen = (): Effect.Effect<KeyPair> =>
+  Effect.sync(() => {
+    const { secretKey, publicKey } = x25519.keygen()
+    return new KeyPair({ algorithm: "x25519", publicKey, secretKey })
+  })
