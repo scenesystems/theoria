@@ -1,0 +1,59 @@
+{
+  "name": "@scenesystems/sign",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Digital signatures, key agreement, and key encapsulation for Effect",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/sign",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/sign"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "ed25519",
+    "secp256k1",
+    "x25519",
+    "ecdsa",
+    "ecdh",
+    "ml-dsa",
+    "slh-dsa",
+    "post-quantum",
+    "digital-signature",
+    "key-agreement",
+    "key-encapsulation",
+    "xwing",
+    "ml-kem"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.0",
+    "@noble/hashes": "^2.0.0",
+    "@noble/post-quantum": "^0.5.0"
+  },
+  "peerDependencies": {
+    "effect": "^3.0.0"
+  }
+}
