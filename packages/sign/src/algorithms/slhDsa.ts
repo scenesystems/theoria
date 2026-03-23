@@ -40,14 +40,12 @@ import {
   slh_dsa_sha2_192f,
   slh_dsa_sha2_256f
 } from "@noble/post-quantum/slh-dsa.js"
-import { Effect } from "effect"
-import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
-import { KeyPair } from "../schemas/KeyPair.js"
-import { Signature } from "../schemas/Signature.js"
+import { makePqOps } from "../internal/pqSignatureOps.js"
 
-// ---------------------------------------------------------------------------
-// SLH-DSA-SHA2-128f
-// ---------------------------------------------------------------------------
+const sha2128f = makePqOps("slh-dsa-sha2-128f", slh_dsa_sha2_128f)
+const sha2128s = makePqOps("slh-dsa-sha2-128s", slh_dsa_sha2_128s)
+const sha2192f = makePqOps("slh-dsa-sha2-192f", slh_dsa_sha2_192f)
+const sha2256f = makePqOps("slh-dsa-sha2-256f", slh_dsa_sha2_256f)
 
 /**
  * Sign a message with SLH-DSA-SHA2-128f.
@@ -55,20 +53,7 @@ import { Signature } from "../schemas/Signature.js"
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128fSign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "slh-dsa-sha2-128f",
-        signature: slh_dsa_sha2_128f.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "slh-dsa-sha2-128f", reason: String(error) })
-  })
+export const slhDsaSha2128fSign = sha2128f.sign
 
 /**
  * Verify an SLH-DSA-SHA2-128f signature against a message and public key.
@@ -76,15 +61,7 @@ export const slhDsaSha2128fSign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128fVerify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => slh_dsa_sha2_128f.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "slh-dsa-sha2-128f", reason: String(error) })
-  })
+export const slhDsaSha2128fVerify = sha2128f.verify
 
 /**
  * Generate an SLH-DSA-SHA2-128f key pair.
@@ -92,15 +69,7 @@ export const slhDsaSha2128fVerify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128fKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = slh_dsa_sha2_128f.keygen()
-    return new KeyPair({ algorithm: "slh-dsa-sha2-128f", publicKey, secretKey })
-  })
-
-// ---------------------------------------------------------------------------
-// SLH-DSA-SHA2-128s
-// ---------------------------------------------------------------------------
+export const slhDsaSha2128fKeygen = sha2128f.keygen
 
 /**
  * Sign a message with SLH-DSA-SHA2-128s.
@@ -108,20 +77,7 @@ export const slhDsaSha2128fKeygen = (): Effect.Effect<KeyPair> =>
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128sSign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "slh-dsa-sha2-128s",
-        signature: slh_dsa_sha2_128s.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "slh-dsa-sha2-128s", reason: String(error) })
-  })
+export const slhDsaSha2128sSign = sha2128s.sign
 
 /**
  * Verify an SLH-DSA-SHA2-128s signature against a message and public key.
@@ -129,15 +85,7 @@ export const slhDsaSha2128sSign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128sVerify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => slh_dsa_sha2_128s.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "slh-dsa-sha2-128s", reason: String(error) })
-  })
+export const slhDsaSha2128sVerify = sha2128s.verify
 
 /**
  * Generate an SLH-DSA-SHA2-128s key pair.
@@ -145,15 +93,7 @@ export const slhDsaSha2128sVerify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2128sKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = slh_dsa_sha2_128s.keygen()
-    return new KeyPair({ algorithm: "slh-dsa-sha2-128s", publicKey, secretKey })
-  })
-
-// ---------------------------------------------------------------------------
-// SLH-DSA-SHA2-192f
-// ---------------------------------------------------------------------------
+export const slhDsaSha2128sKeygen = sha2128s.keygen
 
 /**
  * Sign a message with SLH-DSA-SHA2-192f.
@@ -161,20 +101,7 @@ export const slhDsaSha2128sKeygen = (): Effect.Effect<KeyPair> =>
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2192fSign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "slh-dsa-sha2-192f",
-        signature: slh_dsa_sha2_192f.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "slh-dsa-sha2-192f", reason: String(error) })
-  })
+export const slhDsaSha2192fSign = sha2192f.sign
 
 /**
  * Verify an SLH-DSA-SHA2-192f signature against a message and public key.
@@ -182,15 +109,7 @@ export const slhDsaSha2192fSign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2192fVerify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => slh_dsa_sha2_192f.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "slh-dsa-sha2-192f", reason: String(error) })
-  })
+export const slhDsaSha2192fVerify = sha2192f.verify
 
 /**
  * Generate an SLH-DSA-SHA2-192f key pair.
@@ -198,15 +117,7 @@ export const slhDsaSha2192fVerify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2192fKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = slh_dsa_sha2_192f.keygen()
-    return new KeyPair({ algorithm: "slh-dsa-sha2-192f", publicKey, secretKey })
-  })
-
-// ---------------------------------------------------------------------------
-// SLH-DSA-SHA2-256f
-// ---------------------------------------------------------------------------
+export const slhDsaSha2192fKeygen = sha2192f.keygen
 
 /**
  * Sign a message with SLH-DSA-SHA2-256f.
@@ -214,20 +125,7 @@ export const slhDsaSha2192fKeygen = (): Effect.Effect<KeyPair> =>
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2256fSign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "slh-dsa-sha2-256f",
-        signature: slh_dsa_sha2_256f.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "slh-dsa-sha2-256f", reason: String(error) })
-  })
+export const slhDsaSha2256fSign = sha2256f.sign
 
 /**
  * Verify an SLH-DSA-SHA2-256f signature against a message and public key.
@@ -235,15 +133,7 @@ export const slhDsaSha2256fSign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2256fVerify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => slh_dsa_sha2_256f.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "slh-dsa-sha2-256f", reason: String(error) })
-  })
+export const slhDsaSha2256fVerify = sha2256f.verify
 
 /**
  * Generate an SLH-DSA-SHA2-256f key pair.
@@ -251,8 +141,4 @@ export const slhDsaSha2256fVerify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const slhDsaSha2256fKeygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = slh_dsa_sha2_256f.keygen()
-    return new KeyPair({ algorithm: "slh-dsa-sha2-256f", publicKey, secretKey })
-  })
+export const slhDsaSha2256fKeygen = sha2256f.keygen

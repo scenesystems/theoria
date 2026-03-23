@@ -30,14 +30,11 @@
  * @category algorithms
  */
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from "@noble/post-quantum/ml-dsa.js"
-import { Effect } from "effect"
-import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
-import { KeyPair } from "../schemas/KeyPair.js"
-import { Signature } from "../schemas/Signature.js"
+import { makePqOps } from "../internal/pqSignatureOps.js"
 
-// ---------------------------------------------------------------------------
-// ML-DSA-44 (NIST Level 2)
-// ---------------------------------------------------------------------------
+const dsa44 = makePqOps("ml-dsa-44", ml_dsa44)
+const dsa65 = makePqOps("ml-dsa-65", ml_dsa65)
+const dsa87 = makePqOps("ml-dsa-87", ml_dsa87)
 
 /**
  * Sign a message with ML-DSA-44.
@@ -45,20 +42,7 @@ import { Signature } from "../schemas/Signature.js"
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa44Sign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "ml-dsa-44",
-        signature: ml_dsa44.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "ml-dsa-44", reason: String(error) })
-  })
+export const mlDsa44Sign = dsa44.sign
 
 /**
  * Verify an ML-DSA-44 signature against a message and public key.
@@ -66,15 +50,7 @@ export const mlDsa44Sign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa44Verify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => ml_dsa44.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "ml-dsa-44", reason: String(error) })
-  })
+export const mlDsa44Verify = dsa44.verify
 
 /**
  * Generate an ML-DSA-44 key pair.
@@ -82,15 +58,7 @@ export const mlDsa44Verify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa44Keygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = ml_dsa44.keygen()
-    return new KeyPair({ algorithm: "ml-dsa-44", publicKey, secretKey })
-  })
-
-// ---------------------------------------------------------------------------
-// ML-DSA-65 (NIST Level 3)
-// ---------------------------------------------------------------------------
+export const mlDsa44Keygen = dsa44.keygen
 
 /**
  * Sign a message with ML-DSA-65.
@@ -98,20 +66,7 @@ export const mlDsa44Keygen = (): Effect.Effect<KeyPair> =>
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa65Sign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "ml-dsa-65",
-        signature: ml_dsa65.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "ml-dsa-65", reason: String(error) })
-  })
+export const mlDsa65Sign = dsa65.sign
 
 /**
  * Verify an ML-DSA-65 signature against a message and public key.
@@ -119,15 +74,7 @@ export const mlDsa65Sign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa65Verify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => ml_dsa65.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "ml-dsa-65", reason: String(error) })
-  })
+export const mlDsa65Verify = dsa65.verify
 
 /**
  * Generate an ML-DSA-65 key pair.
@@ -135,15 +82,7 @@ export const mlDsa65Verify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa65Keygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = ml_dsa65.keygen()
-    return new KeyPair({ algorithm: "ml-dsa-65", publicKey, secretKey })
-  })
-
-// ---------------------------------------------------------------------------
-// ML-DSA-87 (NIST Level 5)
-// ---------------------------------------------------------------------------
+export const mlDsa65Keygen = dsa65.keygen
 
 /**
  * Sign a message with ML-DSA-87.
@@ -151,20 +90,7 @@ export const mlDsa65Keygen = (): Effect.Effect<KeyPair> =>
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa87Sign = (
-  message: Uint8Array,
-  secretKey: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<Signature, SigningFailed> =>
-  Effect.try({
-    try: () =>
-      new Signature({
-        algorithm: "ml-dsa-87",
-        signature: ml_dsa87.sign(message, secretKey),
-        publicKey
-      }),
-    catch: (error) => new SigningFailed({ algorithm: "ml-dsa-87", reason: String(error) })
-  })
+export const mlDsa87Sign = dsa87.sign
 
 /**
  * Verify an ML-DSA-87 signature against a message and public key.
@@ -172,15 +98,7 @@ export const mlDsa87Sign = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa87Verify = (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => ml_dsa87.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "ml-dsa-87", reason: String(error) })
-  })
+export const mlDsa87Verify = dsa87.verify
 
 /**
  * Generate an ML-DSA-87 key pair.
@@ -188,8 +106,4 @@ export const mlDsa87Verify = (
  * @since 0.1.0
  * @category algorithms
  */
-export const mlDsa87Keygen = (): Effect.Effect<KeyPair> =>
-  Effect.sync(() => {
-    const { secretKey, publicKey } = ml_dsa87.keygen()
-    return new KeyPair({ algorithm: "ml-dsa-87", publicKey, secretKey })
-  })
+export const mlDsa87Keygen = dsa87.keygen
