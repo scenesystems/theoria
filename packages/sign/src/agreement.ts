@@ -2,7 +2,7 @@
  * Key agreement pipeline.
  *
  * Derives shared secrets using elliptic-curve Diffie–Hellman key
- * agreement. Currently supports X25519 (RFC 7748).
+ * agreement. Supports X25519 (RFC 7748).
  *
  * ```
  * Party A's secret key + Party B's public key
