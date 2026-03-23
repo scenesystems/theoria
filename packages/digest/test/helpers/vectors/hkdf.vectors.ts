@@ -8,6 +8,8 @@
  * @category test-helpers
  */
 
+import { Option } from "effect"
+
 /**
  * RFC 5869 HKDF-SHA256 test cases.
  *
@@ -18,7 +20,7 @@ export const hkdfSha256Vectors = {
   /** Case 1: basic test case */
   case1: {
     ikm: new Uint8Array(22).fill(0x0b),
-    salt: Uint8Array.from({ length: 13 }, (_, i) => i),
+    salt: Option.some(Uint8Array.from({ length: 13 }, (_, i) => i)),
     info: Uint8Array.from({ length: 10 }, (_, i) => 0xf0 + i),
     length: 42,
     prk: "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
@@ -27,7 +29,7 @@ export const hkdfSha256Vectors = {
   /** Case 2: longer inputs */
   case2: {
     ikm: Uint8Array.from({ length: 80 }, (_, i) => i),
-    salt: Uint8Array.from({ length: 80 }, (_, i) => 0x60 + i),
+    salt: Option.some(Uint8Array.from({ length: 80 }, (_, i) => 0x60 + i)),
     info: Uint8Array.from({ length: 80 }, (_, i) => 0xb0 + i),
     length: 82,
     okm:
@@ -36,7 +38,7 @@ export const hkdfSha256Vectors = {
   /** Case 3: zero-length salt and info */
   case3: {
     ikm: new Uint8Array(22).fill(0x0b),
-    salt: undefined,
+    salt: Option.none<Uint8Array>(),
     info: new Uint8Array(0),
     length: 42,
     okm: "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8"

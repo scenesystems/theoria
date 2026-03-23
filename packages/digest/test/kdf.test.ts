@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { hkdfSha256 } from "../src/kdf.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
 import { hkdfSha256Vectors } from "./helpers/vectors/hkdf.vectors.js"
@@ -67,7 +67,7 @@ describe("hkdfSha256 — behavioral contracts", () => {
   it.effect("absent salt matches zero-bytes salt per RFC", () =>
     Effect.gen(function*() {
       const { ikm, info, length, okm } = hkdfSha256Vectors.case3
-      const result = yield* hkdfSha256(ikm, undefined, info, length)
+      const result = yield* hkdfSha256(ikm, Option.none(), info, length)
       expectDigest(result, okm)
     }))
 

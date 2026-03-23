@@ -41,3 +41,36 @@
  * @since 0.1.0
  * @category key-derivation
  */
+
+import { hkdf } from "@noble/hashes/hkdf.js"
+import { sha256 } from "@noble/hashes/sha2.js"
+import { sha512 } from "@noble/hashes/sha2.js"
+import { Effect, Option } from "effect"
+
+/**
+ * Derive key material using HKDF-SHA256 (RFC 5869).
+ *
+ * @since 0.1.0
+ * @category key-derivation
+ */
+export const hkdfSha256 = (
+  ikm: Uint8Array,
+  salt: Option.Option<Uint8Array>,
+  info: Uint8Array,
+  dkLen: number
+): Effect.Effect<Uint8Array> =>
+  Effect.sync(() => hkdf(sha256, ikm, Option.getOrElse(salt, () => new Uint8Array(sha256.outputLen)), info, dkLen))
+
+/**
+ * Derive key material using HKDF-SHA512 (RFC 5869).
+ *
+ * @since 0.1.0
+ * @category key-derivation
+ */
+export const hkdfSha512 = (
+  ikm: Uint8Array,
+  salt: Option.Option<Uint8Array>,
+  info: Uint8Array,
+  dkLen: number
+): Effect.Effect<Uint8Array> =>
+  Effect.sync(() => hkdf(sha512, ikm, Option.getOrElse(salt, () => new Uint8Array(sha512.outputLen)), info, dkLen))
