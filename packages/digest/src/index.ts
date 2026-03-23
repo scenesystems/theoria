@@ -16,13 +16,15 @@
  *
  * @example
  * ```ts
- * import { blake3Hash, canonicalize, digest, durableFingerprint } from "@scenesystems/digest"
+ * import { blake3Hash, canonicalize, digest, durableFingerprint, utf8ToBytes } from "@scenesystems/digest"
  * import { Effect } from "effect"
  *
- * const hash = blake3Hash(canonicalize({ key: "value" }))
- * const tagged = digest("blake3-256", { key: "value" })
- * const key = durableFingerprint({ question: "What is 2+2?" })
- * // Effect<string, FingerprintUnsupportedValue>
+ * const program = Effect.gen(function*() {
+ *   const canonical = yield* canonicalize({ key: "value" })
+ *   const hash = yield* blake3Hash(utf8ToBytes(canonical))
+ *   const tagged = yield* digest("blake3-256", { key: "value" })
+ *   const key = yield* durableFingerprint({ question: "What is 2+2?" })
+ * })
  * ```
  *
  * @since 0.1.0
@@ -58,6 +60,18 @@ export * from "./encoding.js"
  * @category digest
  */
 export * from "./digest.js"
+
+/**
+ * @since 0.1.0
+ * @category digest
+ */
+export * from "./convenience.js"
+
+/**
+ * @since 0.1.0
+ * @category digest
+ */
+export * from "./digestSchemaValue.js"
 
 /**
  * @since 0.1.0

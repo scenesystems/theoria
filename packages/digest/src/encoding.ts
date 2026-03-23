@@ -17,9 +17,17 @@
  * @category encoding
  */
 
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js"
+import { bytesToHex, hexToBytes, utf8ToBytes as _utf8ToBytes } from "@noble/hashes/utils.js"
 import { base64urlnopad } from "@scure/base"
 import { Effect } from "effect"
+
+/**
+ * Convert a UTF-8 string to bytes.
+ *
+ * @since 0.1.0
+ * @category encoding
+ */
+export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
 
 /**
  * Encode bytes to base64url string (no padding).

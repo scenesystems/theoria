@@ -15,10 +15,10 @@
  * import { blake3Hash, blake3Mac, blake3DeriveKey } from "@scenesystems/digest"
  * import { Effect } from "effect"
  *
- * const program = Effect.gen(function* () {
+ * const program = Effect.gen(function*() {
  *   const hash = yield* blake3Hash(new Uint8Array([1, 2, 3]))
- *   const mac = yield* blake3Mac(key32, message)
- *   const derived = yield* blake3DeriveKey("my-app/cache", input)
+ *   const mac = yield* blake3Mac(new Uint8Array(32), new Uint8Array([4, 5, 6]))
+ *   const derived = yield* blake3DeriveKey("my-app/cache", new Uint8Array([7, 8, 9]))
  * })
  * ```
  *
