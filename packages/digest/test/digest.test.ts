@@ -53,7 +53,7 @@ describe("digest — pipeline composition", () => {
       const canonical = yield* canonicalize(input)
       const bytes = utf8ToBytes(canonical)
       const hash = yield* blake3Hash(bytes)
-      const encoded = yield* toBase64Url(hash)
+      const encoded = toBase64Url(hash)
       const manual = `blake3-256:${encoded}`
       const pipeline = yield* digest("blake3-256", input)
       expect(pipeline).toBe(manual)

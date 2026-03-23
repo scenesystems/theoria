@@ -47,8 +47,7 @@
     "docgen": "docgen"
   },
   "dependencies": {
-    "@noble/hashes": "^2.0.0",
-    "@scure/base": "^2.0.0"
+    "@noble/hashes": "^2.0.0"
   },
   "peerDependencies": {
     "effect": "^3.20.0"

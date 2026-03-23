@@ -53,6 +53,6 @@ export const digest = (
     const canonical = yield* canonicalize(value)
     const bytes = utf8ToBytes(canonical)
     const hash = yield* hashBytes(algorithm, bytes)
-    const encoded = yield* toBase64Url(hash)
+    const encoded = toBase64Url(hash)
     return `${algorithm}:${encoded}`
   })

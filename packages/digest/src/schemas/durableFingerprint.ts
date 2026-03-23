@@ -6,7 +6,7 @@
  *
  * 1. **Canonicalize**: RFC 8785 JCS — sorted keys, ES2015 numbers
  * 2. **Hash**: BLAKE3-256 (via `@noble/hashes/blake3.js`)
- * 3. **Encode**: base64url, no padding (via `@scure/base`)
+ * 3. **Encode**: base64url, no padding (via Effect `Encoding`)
  *
  * Returns algorithm-tagged strings: `"blake3-256:<base64url>"`.
  *

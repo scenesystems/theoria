@@ -74,7 +74,7 @@ export const digestUtf8 = (
 export const digestBytesBase64Url = (
   algorithm: "blake3-256" | "sha256",
   bytes: Uint8Array
-): Effect.Effect<string> => Effect.flatMap(hashBytes(algorithm, bytes), toBase64Url)
+): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toBase64Url)
 
 /**
  * Hash a UTF-8 string and encode the digest as base64url (no padding).
@@ -87,7 +87,7 @@ export const digestBytesBase64Url = (
 export const digestUtf8Base64Url = (
   algorithm: "blake3-256" | "sha256",
   text: string
-): Effect.Effect<string> => Effect.flatMap(hashBytes(algorithm, utf8ToBytes(text)), toBase64Url)
+): Effect.Effect<string> => Effect.map(hashBytes(algorithm, utf8ToBytes(text)), toBase64Url)
 
 /**
  * Hash raw bytes and encode the digest as lowercase hex.
@@ -100,7 +100,7 @@ export const digestUtf8Base64Url = (
 export const digestBytesHex = (
   algorithm: "blake3-256" | "sha256",
   bytes: Uint8Array
-): Effect.Effect<string> => Effect.flatMap(hashBytes(algorithm, bytes), toHex)
+): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toHex)
 
 /**
  * Canonicalize a structured value to UTF-8 bytes via RFC 8785 JCS.

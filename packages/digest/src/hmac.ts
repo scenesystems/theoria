@@ -27,7 +27,7 @@
  *   const key = utf8ToBytes("webhook-secret")
  *   const message = utf8ToBytes('{"event":"charge.succeeded"}')
  *   const mac = yield* hmacSha256(key, message)
- *   const encoded = yield* toBase64Url(mac)
+ *   const encoded = toBase64Url(mac)
  * })
  * ```
  *
@@ -87,7 +87,7 @@ export const hmacSha1 = (
 export const hmacSha256Base64Url = (
   key: Uint8Array,
   message: Uint8Array
-): Effect.Effect<string> => Effect.flatMap(hmacSha256(key, message), toBase64Url)
+): Effect.Effect<string> => Effect.map(hmacSha256(key, message), toBase64Url)
 
 /**
  * Compute HMAC-SHA1 and encode as lowercase hex.
@@ -101,4 +101,4 @@ export const hmacSha256Base64Url = (
 export const hmacSha1Hex = (
   key: Uint8Array,
   message: Uint8Array
-): Effect.Effect<string> => Effect.flatMap(hmacSha1(key, message), toHex)
+): Effect.Effect<string> => Effect.map(hmacSha1(key, message), toHex)
