@@ -10,6 +10,7 @@ Foundational mathematics and statistics for the [Theoria](https://github.com/sce
 - Model-contract-schema parity per domain
 - Pure kernel and Effect boundary separation
 - Public subpath exports by domain
+- Dedicated `effect-math/experimental` consumer-facing unstable lane with explicit boundary semantics
 - Internal implementation boundaries blocked via exports policy
 
 ## Install
@@ -28,15 +29,21 @@ const contract = NumericDomainContract
 const domain = Effect.runSync(loadNumericDomain)
 ```
 
-## M1–M2 Status
+### Experimental Lane
 
-1. Package bootstrap and governance baseline
-2. Canonical domain file-system skeleton and boundary scaffolding
+```ts
+import { ExperimentalSeams } from "effect-math/experimental"
+
+const unstableSurfaces = ExperimentalSeams
+```
+
+The experimental lane is intentionally unstable and consumer-facing; it is preserved as a separate subpath and does not leak through the stable root entrypoint.
 
 ## Test Architecture
 
 1. Target-state contract tests live alongside architecture and parity suites.
 2. Merge readiness requires all suites green, including `test/target-state`.
+3. Property, fixture, benchmark-guard, and stability-surface governance suites run in normal verification.
 
 ### Commands
 
