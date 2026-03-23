@@ -114,16 +114,12 @@ export class ArtifactId extends Schema.Class<ArtifactId>("ArtifactId")({
 }) {}
 
 /**
- * Content-addressable integrity check. Pairs a hash algorithm with
- * its output digest so consumers can verify artifact contents
- * independently of transport or storage layer.
+ * Re-export from `@scenesystems/digest` — algorithm-tagged digest pair
+ * for content-addressable integrity checks.
  *
  * @see {@link ArtifactLineage} — optional integrity field for content verification
  *
  * @since 0.1.0
  * @category models
  */
-export class ContentDigest extends Schema.Class<ContentDigest>("ContentDigest")({
-  algorithm: Schema.Literal("blake3-256", "sha256"),
-  digest: Schema.NonEmptyString
-}) {}
+export { ContentDigest } from "@scenesystems/digest"

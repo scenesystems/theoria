@@ -7,7 +7,7 @@ import { blake3Hash, toBase64Url, utf8ToBytes } from "@scenesystems/digest"
 
 import { Array as Arr, Chunk, Effect, Match, Option, Order, Predicate, Record as Rec } from "effect"
 
-import { FingerprintUnsupportedValue } from "./fingerprintError.js"
+import { FingerprintUnsupportedValue } from "@scenesystems/digest"
 
 const RUNTIME_DIGEST_PREFIX = "runtime-blake3-256"
 const DIGEST_PATTERN = /^[A-Za-z0-9_-]{43}$/

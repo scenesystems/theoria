@@ -54,14 +54,15 @@ describe("contracts/identity", () => {
       expect(sourceRef.segments).toEqual(["trial", "log"])
     }))
 
-  it.effect("ContentDigest constructs with algorithm and digest", () =>
+  it.effect("ContentDigest decodes with algorithm and branded Digest256", () =>
     Effect.gen(function*() {
-      const digest = new Contracts.ContentDigest({
+      const validDigest = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq"
+      const contentDigest = yield* Schema.decodeUnknown(Contracts.ContentDigest)({
         algorithm: "blake3-256",
-        digest: "abc123def456"
+        digest: validDigest
       })
-      expect(digest.algorithm).toBe("blake3-256")
-      expect(digest.digest).toBe("abc123def456")
+      expect(contentDigest.algorithm).toBe("blake3-256")
+      expect(contentDigest.digest).toBe(validDigest)
     }))
 
   it.effect("ComponentPath accepts non-empty array of non-empty strings", () =>
