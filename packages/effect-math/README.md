@@ -1,10 +1,26 @@
-# effect-math
+# `effect-math`
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Foundational mathematics for the [Effect](https://effect.website) ecosystem — numerics, linear algebra, statistics, and optimization with typed errors, schema-validated inputs, and configurable runtime policies.
+Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, and statistics — with typed errors, immutable carriers, and configurable runtime policies.
 
-## Install
+[Quick start](#quick-start) · [Domains](#domains) · [Runtime policies](#runtime-policies) · [Error handling](#error-handling) · [API at a glance](#api-at-a-glance)
+
+---
+
+## Why effect-math?
+
+Most math libraries give you raw functions that throw on bad input, mutate buffers in place, and offer no way to control precision behavior or trace what happened. `effect-math` is different:
+
+- **Immutable `Chunk<number>` carriers** — no hidden mutation, structurally shareable, persistent
+- **Typed errors** — every failure has a `_tag` you can match on. No `NaN` surprises, no silent infinities
+- **Runtime policies via `Layer`** — inject precision enforcement, backend selection, and diagnostics tracing without changing call sites
+- **Schema-validated boundaries** — `onExcessProperty: "error"` at every public decode edge
+- **Pure kernels** — hot-path functions are synchronous with no Effect overhead. Wrap them in Effect only when you need policies or typed error channels
+- **No native deps** — pure TypeScript. Just `effect` as a peer dependency
+
+## Installation
 
 ```sh
 npm install effect-math
@@ -14,185 +30,165 @@ bun add effect-math
 
 Peer dependency: `effect >= 3.20.0`
 
-## Quick Start
+## Quick start
+
+Pure kernels work directly — no Effect runtime needed:
 
 ```ts
-import { Chunk, Effect } from "effect"
-import { dot, normL2, vectorAdd, vectorScale } from "effect-math/LinearAlgebra"
+import { Chunk } from "effect"
+import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
+import { euclideanDistance } from "effect-math/Geometry"
+import { mean, variance } from "effect-math/Statistics"
+import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
 
-// Pure kernel — no Effect wrapper needed
-const dotProduct = dot(a, b) // 32
-const magnitude = normL2(a) // √14
-const sum = vectorAdd(a, b) // Chunk(5, 7, 9)
-const scaled = vectorScale(2, a) // Chunk(2, 4, 6)
+dot(a, b) // 32
+normL2(a) // √14
+vectorAdd(a, b) // Chunk(5, 7, 9)
+
+euclideanDistance(Chunk.fromIterable([0, 0]), Chunk.fromIterable([3, 4])) // 5
+
+mean(Chunk.fromIterable([2, 4, 6])) // 4
+variance(Chunk.fromIterable([2, 4, 6])) // 4
+
+normalPdf(0, 0, 1) // ≈ 0.3989
+standardNormalCdf(0) // 0.5
 ```
+
+When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
 
 ```ts
-import { Effect } from "effect"
-import { normEffect } from "effect-math/LinearAlgebra"
-
-// Effect-wrapped with schema validation and typed errors
-const program = Effect.gen(function* () {
-  const result = yield* normEffect({ values: [3, 4], kind: "L2" })
-  console.log(result) // 5
-})
-
-Effect.runSync(program)
-```
-
-```ts
-import { Chunk } from "effect"
-import { euclideanDistance, manhattanDistance } from "effect-math/Geometry"
-
-const a = Chunk.fromIterable([0, 0])
-const b = Chunk.fromIterable([3, 4])
-
-euclideanDistance(a, b) // 5
-manhattanDistance(a, b) // 7
-```
-
-## Domains
-
-Each domain is a self-contained subpath export with its own schemas, errors, and operations.
-
-| Domain            | Import                      | Description                                                                                                                      |
-| ----------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — `safeDivide`, `log1p`, `expm1`, `sum`, `argmax`, `clamp`, `between`                                          |
-| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix operations — `dot`, `normL1`/`L2`/`Linf`, `vectorAdd`, `vectorScale`, `matvec`, `transpose`, `frobeniusNorm` |
-| **Geometry**      | `effect-math/Geometry`      | Metric-space distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                     |
-| **Probability**   | `effect-math/Probability`   | Distribution evaluation (normal, uniform PDF/CDF), Shannon entropy                                                               |
-| **Statistics**    | `effect-math/Statistics`    | Estimators (mean, variance, standard deviation), summary statistics, covariance                                                  |
-| **Algebra**       | `effect-math/Algebra`       | Abstract algebraic structures                                                                                                    |
-| **Calculus**      | `effect-math/Calculus`      | Differentiation and integration                                                                                                  |
-| **Special**       | `effect-math/Special`       | Special mathematical functions                                                                                                   |
-| **Optimization**  | `effect-math/Optimization`  | Numerical optimization and solvers                                                                                               |
-
-> Numeric, LinearAlgebra, Geometry, Probability, and Statistics are implemented with full three-tier operation surfaces. Algebra, Calculus, Special, and Optimization are scaffolded for future implementation.
-
-## Architecture
-
-Every domain follows the same file structure:
-
-```
-src/Numeric/
-├── contract.ts     # Domain identity and metadata
-├── model.ts        # Domain model instance
-├── schema.ts       # Schema definitions and branded types
-├── errors.ts       # Typed error taxonomy
-├── operations.ts   # Public operations (pure + effectful)
-├── internal/       # Implementation kernels (not exported)
-└── index.ts        # Public surface re-exports
-```
-
-Internal modules are blocked from import via the package `exports` map — consumers only access the public surface through domain subpaths.
-
-## Effect-Native Design
-
-Every API is built on Effect primitives:
-
-- **`Chunk<number>`** as the vector/matrix carrier — immutable, structurally shareable, persistent
-- **`Number` module** for arithmetic (`Number.divide`, `Number.sumAll`, `Number.clamp`, `Number.between`)
-- **`Schema.TaggedClass`** for data types like `DenseVector` and `DenseMatrix`
-- **`Schema.TaggedError`** for all failure types — every error carries a `_tag` for pattern matching
-- **`Match.exhaustive`** for dispatch — norm kind selection, policy branching, backend strategy
-- **`Context.Tag`** services for runtime policies — injected via `Layer` composition
-
-Operations come in three tiers:
-
-1. **Pure kernel** — synchronous functions on `Chunk<number>`, no Effect wrapper (`dot`, `normL2`, `vectorAdd`)
-2. **Effect-wrapped** — schema-validated input with typed errors (`dotEffect`, `normEffect`, `matvecEffect`)
-3. **Policy-aware** — additionally require runtime policy services (`dotWithPolicies`, `sumWithPolicies`)
-
-## Typed Errors
-
-Each domain defines a typed error taxonomy using `Schema.TaggedError`. Errors are discriminated by `_tag` and carry structured context:
-
-```ts
-import { Effect } from "effect"
-import { matvecEffect } from "effect-math/LinearAlgebra"
-import type { ShapeMismatchError, LinearAlgebraDecodeError } from "effect-math/LinearAlgebra"
-
-const program = matvecEffect({
-  rows: 2,
-  cols: 3,
-  data: [1, 2, 3, 4, 5, 6],
-  x: [1, 2] // wrong length — cols is 3
-})
-
-// Error channel is ShapeMismatchError | LinearAlgebraDecodeError
-const handled = program.pipe(
-  Effect.catchTag("ShapeMismatchError", (e) => Effect.succeed(`Shape error: expected ${e.expected}, got ${e.actual}`))
-)
-```
-
-Error types by domain:
-
-| Domain        | Error                               | When                                       |
-| ------------- | ----------------------------------- | ------------------------------------------ |
-| LinearAlgebra | `LinearAlgebraDecodeError`          | Schema validation fails on input           |
-|               | `ShapeMismatchError`                | Dimension incompatibility between operands |
-|               | `SingularMatrixError`               | Operation requires a non-singular matrix   |
-|               | `DecompositionError`                | Matrix factorization cannot be completed   |
-|               | `LinearAlgebraDomainViolationError` | Non-finite or otherwise invalid result     |
-| Geometry      | `GeometryDecodeError`               | Schema validation fails on input           |
-|               | `DimensionMismatchError`            | Point dimensions are incompatible          |
-|               | `GeometryDomainViolationError`      | Non-finite or otherwise invalid result     |
-| Probability   | `ProbabilityDecodeError`            | Schema validation fails on input           |
-|               | `InvalidParameterError`             | Distribution parameter out of valid range  |
-|               | `ProbabilityDomainViolationError`   | Non-finite or otherwise invalid result     |
-| Statistics    | `StatisticsDecodeError`             | Schema validation fails on input           |
-|               | `InsufficientDataError`             | Too few observations for the estimator     |
-|               | `StatisticsDomainViolationError`    | Non-finite or otherwise invalid result     |
-
-## Runtime Policies
-
-Policy-aware operations read configuration from Effect services via `Context.Tag`. Compose the policies you need using `Layer`:
-
-```ts
-import { Effect, Layer } from "effect"
-import { PrecisionPolicyService, BackendPolicyService, DiagnosticsPolicyService } from "effect-math/contracts"
+import { Chunk, Effect, Layer } from "effect"
 import { dotWithPolicies } from "effect-math/LinearAlgebra"
-import { Chunk } from "effect"
-
-const policies = Layer.mergeAll(
-  Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
-  Layer.succeed(BackendPolicyService, { policy: "typed-array" }),
-  Layer.succeed(DiagnosticsPolicyService, { policy: "enabled" })
-)
+import { BackendPolicyService, DiagnosticsPolicyService, PrecisionPolicyService } from "effect-math/contracts"
 
 const program = Effect.gen(function* () {
   const a = Chunk.fromIterable([1, 2, 3])
   const b = Chunk.fromIterable([4, 5, 6])
-  return yield* dotWithPolicies(a, b)
+  return yield* dotWithPolicies(a, b) // 32
 })
+
+const policies = Layer.mergeAll(
+  Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+  Layer.succeed(BackendPolicyService, { policy: "scalar" }),
+  Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+)
 
 Effect.runSync(program.pipe(Effect.provide(policies)))
 ```
 
-| Policy                     | Values                       | Effect                                                     |
-| -------------------------- | ---------------------------- | ---------------------------------------------------------- |
-| `PrecisionPolicyService`   | `"strict"` / `"relaxed"`     | Strict rejects non-finite results; relaxed permits them    |
-| `BackendPolicyService`     | `"typed-array"` / `"scalar"` | Selects between `Float64Array` and plain scalar execution  |
-| `DiagnosticsPolicyService` | `"enabled"` / `"disabled"`   | Emits `Effect.logDebug` with operation timing and metadata |
+Under `"strict"` precision, non-finite results fail with a typed error instead of silently returning `NaN` or `Infinity`.
 
-A convenience constructor `makeDeterministicRuntimePoliciesLayer` builds all four policy layers (including RNG) from a single config object — useful for reproducible test fixtures.
+## Domains
+
+Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
+
+| Domain            | Import                      | What it does                                                    |
+| ----------------- | --------------------------- | --------------------------------------------------------------- |
+| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`    |
+| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose             |
+| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid |
+| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                     |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance                  |
+| Algebra           | `effect-math/Algebra`       | Planned — algebraic structures                                  |
+| Calculus          | `effect-math/Calculus`      | Planned — differentiation and integration                       |
+| Special           | `effect-math/Special`       | Planned — special mathematical functions                        |
+| Optimization      | `effect-math/Optimization`  | Planned — numerical optimization                                |
+
+Internal modules are blocked from import via the package `exports` map.
+
+## Runtime policies
+
+Policy-aware operations read configuration from Effect services. Compose the policies you need using `Layer`:
+
+| Service                    | Values                                   | What it controls                                    |
+| -------------------------- | ---------------------------------------- | --------------------------------------------------- |
+| `PrecisionPolicyService`   | `"strict"` / `"relaxed"`                 | Strict rejects non-finite results as typed errors   |
+| `BackendPolicyService`     | `"typed-array"` / `"scalar"`             | Execution strategy for dense operations             |
+| `DiagnosticsPolicyService` | `"enabled"` / `"disabled"`               | `Effect.logDebug` with timing and metadata          |
+| `RngPolicyService`         | `"deterministic"` / `"nondeterministic"` | Deterministic requires a `Seed` for reproducibility |
+
+`makeDeterministicRuntimePoliciesLayer` builds all four from a single config object — useful for reproducible test fixtures.
+
+## Error handling
+
+Every domain defines typed errors using `Schema.TaggedError`. Match on `_tag` to handle specific failures:
+
+```ts
+import { Chunk, Effect, Layer } from "effect"
+import { normWithPolicies } from "effect-math/LinearAlgebra"
+import { DiagnosticsPolicyService, PrecisionPolicyService } from "effect-math/contracts"
+
+const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
+  Effect.catchTag("LinearAlgebraDomainViolationError", (e) => Effect.succeed(`caught: ${e.message}`)),
+  Effect.provide(
+    Layer.mergeAll(
+      Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+      Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+    )
+  )
+)
+```
+
+| Domain        | Error                        | Raised when                                |
+| ------------- | ---------------------------- | ------------------------------------------ |
+| LinearAlgebra | `ShapeMismatchError`         | Dimension incompatibility between operands |
+|               | `SingularMatrixError`        | Matrix is rank-deficient                   |
+|               | `DecompositionError`         | Factorization cannot complete              |
+| Geometry      | `GeometryShapeMismatchError` | Point dimensions don't match               |
+|               | `GeometryDegenerateError`    | Degenerate geometric configuration         |
+| Probability   | `ProbabilityParameterError`  | Invalid distribution parameters            |
+| Statistics    | `StatisticsShapeError`       | Too few observations for the estimator     |
+
+Each domain also defines a `DomainViolationError` raised under `"strict"` precision when an operation produces a non-finite result.
+
+## API at a glance
+
+```ts
+// Pure kernels — no Effect wrapper
+import { dot, normL2, vectorAdd, vectorScale, matvec, transpose, frobeniusNorm } from "effect-math/LinearAlgebra"
+import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "effect-math/Geometry"
+import { mean, variance, standardDeviation, covariance } from "effect-math/Statistics"
+import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
+import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
+
+// Policy-aware — read runtime services from Effect context
+import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
+import { distanceWithPolicies } from "effect-math/Geometry"
+import { summaryStatisticsWithPolicies } from "effect-math/Statistics"
+import { normalPdfWithPolicies } from "effect-math/Probability"
+import { sumWithPolicies } from "effect-math/Numeric"
+
+// Runtime policy services and layer constructors
+import {
+  PrecisionPolicyService,
+  BackendPolicyService,
+  DiagnosticsPolicyService,
+  RngPolicyService,
+  makeDeterministicRuntimePoliciesLayer
+} from "effect-math/contracts"
+```
 
 ## Status
 
-| Tier             | Domains                                         | Meaning                                              |
-| ---------------- | ----------------------------------------------- | ---------------------------------------------------- |
-| **Stable**       | Geometry                                        | API surface is fixed; breaking changes follow semver |
-| **Provisional**  | Numeric, LinearAlgebra, Probability, Statistics | API is functional but may evolve                     |
-| **Experimental** | Algebra, Calculus, Special, Optimization        | Scaffolded; not yet implemented                      |
-
-Experimental surfaces are available under `effect-math/experimental` and are excluded from stability guarantees.
+| Tier             | Domains                                         | Meaning                                      |
+| ---------------- | ----------------------------------------------- | -------------------------------------------- |
+| **Stable**       | Geometry                                        | API is fixed; breaking changes follow semver |
+| **Provisional**  | Numeric, LinearAlgebra, Probability, Statistics | Functional and tested, may evolve            |
+| **Experimental** | Algebra, Calculus, Special, Optimization        | Scaffolded — not yet implemented             |
 
 ## Contributing
 
 See the [repository](https://github.com/scenesystems/theoria) for contribution guidelines.
+
+```sh
+bun run check    # Type check
+bun run test     # 222 tests across 24 suites
+bun run lint     # ESLint with Effect rules
+bun run build    # ESM + CJS + annotate-pure-calls
+```
 
 ## License
 
