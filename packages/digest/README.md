@@ -33,7 +33,7 @@ Use **SHA-256** when interacting with external systems that expect it: webhook s
 import { digest, durableFingerprint } from "@scenesystems/digest"
 import { Effect } from "effect"
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   // Full pipeline: canonicalize → hash → base64url → algorithm tag
   const tagged = yield* digest("blake3-256", { user: "alice", score: 42 })
   // "blake3-256:eT9Imnjd2CADODvozkIZQ3Cyt0k9yWL5A5rk3HlVTxo"
@@ -48,77 +48,77 @@ const program = Effect.gen(function*() {
 
 ### Algorithms
 
-| Function | Description |
-|---|---|
-| `blake3Hash(bytes)` | BLAKE3-256 hash → `Effect<Uint8Array>` |
-| `blake3Mac(key, message)` | BLAKE3 keyed MAC (32-byte key) → `Effect<Uint8Array, InvalidKeyLength>` |
-| `blake3DeriveKey(context, input, dkLen?)` | BLAKE3 KDF with domain separation → `Effect<Uint8Array>` |
-| `sha256(bytes)` | SHA-256 hash → `Effect<Uint8Array>` |
+| Function                                  | Description                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| `blake3Hash(bytes)`                       | BLAKE3-256 hash → `Effect<Uint8Array>`                                  |
+| `blake3Mac(key, message)`                 | BLAKE3 keyed MAC (32-byte key) → `Effect<Uint8Array, InvalidKeyLength>` |
+| `blake3DeriveKey(context, input, dkLen?)` | BLAKE3 KDF with domain separation → `Effect<Uint8Array>`                |
+| `sha256(bytes)`                           | SHA-256 hash → `Effect<Uint8Array>`                                     |
 
 ### Convenience digest functions
 
-| Function | Description |
-|---|---|
-| `digestBytes(algorithm, bytes)` | Hash raw bytes → `Effect<Uint8Array>` |
-| `digestUtf8(algorithm, text)` | Hash a UTF-8 string → `Effect<Uint8Array>` |
+| Function                                 | Description                                |
+| ---------------------------------------- | ------------------------------------------ |
+| `digestBytes(algorithm, bytes)`          | Hash raw bytes → `Effect<Uint8Array>`      |
+| `digestUtf8(algorithm, text)`            | Hash a UTF-8 string → `Effect<Uint8Array>` |
 | `digestBytesBase64Url(algorithm, bytes)` | Hash + base64url encode → `Effect<string>` |
-| `digestUtf8Base64Url(algorithm, text)` | Hash string + base64url → `Effect<string>` |
-| `digestBytesHex(algorithm, bytes)` | Hash + hex encode → `Effect<string>` |
+| `digestUtf8Base64Url(algorithm, text)`   | Hash string + base64url → `Effect<string>` |
+| `digestBytesHex(algorithm, bytes)`       | Hash + hex encode → `Effect<string>`       |
 
 ### Canonicalization
 
-| Function | Description |
-|---|---|
-| `canonicalize(value)` | RFC 8785 JCS → canonical JSON string |
+| Function                    | Description                           |
+| --------------------------- | ------------------------------------- |
+| `canonicalize(value)`       | RFC 8785 JCS → canonical JSON string  |
 | `canonicalJsonBytes(value)` | JCS → UTF-8 bytes (ready for hashing) |
 
 ### Content-addressing pipelines
 
-| Function | Description |
-|---|---|
-| `digest(algorithm, value)` | Canonicalize → hash → base64url → `"algorithm:digest"` |
-| `digestSchemaValue(schema, value, algorithm?)` | Schema.encode → JCS → hash (default BLAKE3-256) |
-| `durableFingerprint(value)` | Canonical BLAKE3-256 fingerprint for cache keys |
+| Function                                       | Description                                            |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| `digest(algorithm, value)`                     | Canonicalize → hash → base64url → `"algorithm:digest"` |
+| `digestSchemaValue(schema, value, algorithm?)` | Schema.encode → JCS → hash (default BLAKE3-256)        |
+| `durableFingerprint(value)`                    | Canonical BLAKE3-256 fingerprint for cache keys        |
 
 ### Message authentication (HMAC)
 
-| Function | Description |
-|---|---|
-| `hmacSha256(key, message)` | HMAC-SHA256 → `Effect<Uint8Array>` |
-| `hmacSha1(key, message)` | HMAC-SHA1 (legacy) → `Effect<Uint8Array>` |
-| `hmacSha256Base64Url(key, message)` | HMAC-SHA256 + base64url → `Effect<string>` |
-| `hmacSha1Hex(key, message)` | HMAC-SHA1 + hex (legacy) → `Effect<string>` |
+| Function                            | Description                                 |
+| ----------------------------------- | ------------------------------------------- |
+| `hmacSha256(key, message)`          | HMAC-SHA256 → `Effect<Uint8Array>`          |
+| `hmacSha1(key, message)`            | HMAC-SHA1 (legacy) → `Effect<Uint8Array>`   |
+| `hmacSha256Base64Url(key, message)` | HMAC-SHA256 + base64url → `Effect<string>`  |
+| `hmacSha1Hex(key, message)`         | HMAC-SHA1 + hex (legacy) → `Effect<string>` |
 
 ### Key derivation (HKDF)
 
-| Function | Description |
-|---|---|
+| Function                             | Description                                   |
+| ------------------------------------ | --------------------------------------------- |
 | `hkdfSha256(ikm, salt, info, dkLen)` | HKDF-SHA256 (RFC 5869) → `Effect<Uint8Array>` |
 | `hkdfSha512(ikm, salt, info, dkLen)` | HKDF-SHA512 (RFC 5869) → `Effect<Uint8Array>` |
 
 ### Encoding
 
-| Function | Description |
-|---|---|
-| `utf8ToBytes(str)` | UTF-8 string → `Uint8Array` |
+| Function             | Description                           |
+| -------------------- | ------------------------------------- |
+| `utf8ToBytes(str)`   | UTF-8 string → `Uint8Array`           |
 | `toBase64Url(bytes)` | Bytes → base64url string (no padding) |
-| `fromBase64Url(str)` | Base64url string → bytes |
-| `toHex(bytes)` | Bytes → lowercase hex string |
-| `fromHex(hex)` | Hex string → bytes |
+| `fromBase64Url(str)` | Base64url string → bytes              |
+| `toHex(bytes)`       | Bytes → lowercase hex string          |
+| `fromHex(hex)`       | Hex string → bytes                    |
 
 ### Schema types
 
-| Type | Description |
-|---|---|
-| `DigestAlgorithm` | `Schema.Literal("blake3-256", "sha256")` |
-| `Digest256` | Branded 43-char base64url string |
-| `ContentDigest` | Schema.Class with `algorithm` + `digest` fields |
+| Type              | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `DigestAlgorithm` | `Schema.Literal("blake3-256", "sha256")`        |
+| `Digest256`       | Branded 43-char base64url string                |
+| `ContentDigest`   | Schema.Class with `algorithm` + `digest` fields |
 
 ### Errors
 
-| Error | Raised by |
-|---|---|
-| `InvalidKeyLength` | `blake3Mac` when key ≠ 32 bytes |
+| Error                         | Raised by                                                               |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `InvalidKeyLength`            | `blake3Mac` when key ≠ 32 bytes                                         |
 | `FingerprintUnsupportedValue` | `canonicalize`, `digest`, `durableFingerprint` for non-JSON-safe values |
 
 ## Examples
@@ -129,7 +129,7 @@ const program = Effect.gen(function*() {
 import { blake3Hash, digestUtf8, toBase64Url, utf8ToBytes } from "@scenesystems/digest"
 import { Effect } from "effect"
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   // Raw BLAKE3 hash with manual encoding
   const hash = yield* blake3Hash(utf8ToBytes("hello"))
   const encoded = yield* toBase64Url(hash) // 43-char base64url
@@ -146,11 +146,8 @@ import { hmacSha256Base64Url, utf8ToBytes } from "@scenesystems/digest"
 import { Effect } from "effect"
 
 const verifyWebhook = (secret: string, payload: string, expectedSig: string) =>
-  Effect.gen(function*() {
-    const computed = yield* hmacSha256Base64Url(
-      utf8ToBytes(secret),
-      utf8ToBytes(payload)
-    )
+  Effect.gen(function* () {
+    const computed = yield* hmacSha256Base64Url(utf8ToBytes(secret), utf8ToBytes(payload))
     return computed === expectedSig
   })
 ```
@@ -166,12 +163,9 @@ const Event = Schema.Struct({
   createdAt: Schema.DateFromString
 })
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   // Date is encoded to ISO string before hashing
-  const fingerprint = yield* digestSchemaValue(
-    Event,
-    { action: "deploy", createdAt: new Date("2025-01-15T12:00:00Z") }
-  )
+  const fingerprint = yield* digestSchemaValue(Event, { action: "deploy", createdAt: new Date("2025-01-15T12:00:00Z") })
   // "blake3-256:<base64url>" — deterministic across runs
 })
 ```
@@ -182,7 +176,7 @@ const program = Effect.gen(function*() {
 import { blake3DeriveKey, blake3Mac } from "@scenesystems/digest"
 import { Effect } from "effect"
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   // Derive a key from context string + input (no salt needed)
   const derived = yield* blake3DeriveKey("myapp/cache-v1", new Uint8Array(32))
 
@@ -197,7 +191,7 @@ const program = Effect.gen(function*() {
 import { hkdfSha256, utf8ToBytes } from "@scenesystems/digest"
 import { Effect, Option } from "effect"
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const sharedSecret = new Uint8Array(32) // e.g., from X25519 key agreement
   const salt = Option.some(crypto.getRandomValues(new Uint8Array(32)))
   const info = utf8ToBytes("aes-256-gcm-key")
@@ -213,19 +207,15 @@ const program = Effect.gen(function*() {
 import { blake3Mac, canonicalize, FingerprintUnsupportedValue, InvalidKeyLength } from "@scenesystems/digest"
 import { Effect } from "effect"
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   // canonicalize rejects non-JSON-safe values with a typed error
   const result = yield* canonicalize({ key: "value" }).pipe(
-    Effect.catchTag("FingerprintUnsupportedValue", (e) =>
-      Effect.succeed(`rejected: ${e.valueType} — ${e.reason}`)
-    )
+    Effect.catchTag("FingerprintUnsupportedValue", (e) => Effect.succeed(`rejected: ${e.valueType} — ${e.reason}`))
   )
 
   // blake3Mac rejects wrong-length keys
   const mac = yield* blake3Mac(new Uint8Array(16), new Uint8Array(0)).pipe(
-    Effect.catchTag("InvalidKeyLength", (e) =>
-      Effect.succeed(`expected ${e.expected} bytes, got ${e.actual}`)
-    )
+    Effect.catchTag("InvalidKeyLength", (e) => Effect.succeed(`expected ${e.expected} bytes, got ${e.actual}`))
   )
 })
 ```
@@ -236,10 +226,10 @@ See the [`examples/`](./examples) directory for complete runnable programs.
 
 All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
 
-| Dependency | Audits | Purpose |
-|---|---|---|
+| Dependency      | Audits   | Purpose                     |
+| --------------- | -------- | --------------------------- |
 | `@noble/hashes` | 6 audits | BLAKE3, SHA-256, HMAC, HKDF |
-| `@scure/base` | 2 audits | base64url encoding |
+| `@scure/base`   | 2 audits | base64url encoding          |
 
 ## License
 
