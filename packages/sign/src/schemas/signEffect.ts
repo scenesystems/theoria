@@ -36,3 +36,7 @@
  * @since 0.1.0
  * @category operations
  */
+export { deriveSharedSecret } from "../agreement.js"
+export { decapsulate, encapsulate } from "../kem.js"
+export { generateKeyPair } from "../keyPair.js"
+export { sign, verify } from "../sign.js"

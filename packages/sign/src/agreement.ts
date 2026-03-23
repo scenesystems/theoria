@@ -20,3 +20,26 @@
  * @since 0.1.0
  * @category agreement
  */
+import type { Effect } from "effect"
+import { Match } from "effect"
+import { x25519SharedSecret } from "./algorithms/x25519.js"
+import type { AgreementAlgorithm } from "./schemas/AgreementAlgorithm.js"
+import type { SharedSecret } from "./schemas/SharedSecret.js"
+
+type AgreementAlgorithmType = typeof AgreementAlgorithm.Type
+
+/**
+ * Derive a shared secret via key agreement.
+ *
+ * @since 0.1.0
+ * @category agreement
+ */
+export const deriveSharedSecret = (
+  algorithm: AgreementAlgorithmType,
+  secretKey: Uint8Array,
+  publicKey: Uint8Array
+): Effect.Effect<SharedSecret> =>
+  Match.value(algorithm).pipe(
+    Match.when("x25519", () => x25519SharedSecret(secretKey, publicKey)),
+    Match.exhaustive
+  )

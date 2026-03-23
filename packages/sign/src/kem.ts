@@ -28,3 +28,42 @@
  * @since 0.1.0
  * @category kem
  */
+import type { Effect } from "effect"
+import { Match } from "effect"
+import { xwingDecapsulate, xwingEncapsulate } from "./algorithms/hybrid.js"
+import type { SigningFailed } from "./schemas/errors.js"
+import type { KemAlgorithm } from "./schemas/KemAlgorithm.js"
+import type { KemCiphertext } from "./schemas/KemCiphertext.js"
+
+type KemAlgorithmType = typeof KemAlgorithm.Type
+
+/**
+ * Encapsulate a shared secret for a recipient's public key.
+ *
+ * @since 0.1.0
+ * @category kem
+ */
+export const encapsulate = (
+  algorithm: KemAlgorithmType,
+  publicKey: Uint8Array
+): Effect.Effect<KemCiphertext, SigningFailed> =>
+  Match.value(algorithm).pipe(
+    Match.when("xwing", () => xwingEncapsulate(publicKey)),
+    Match.exhaustive
+  )
+
+/**
+ * Decapsulate a ciphertext with the recipient's secret key.
+ *
+ * @since 0.1.0
+ * @category kem
+ */
+export const decapsulate = (
+  algorithm: KemAlgorithmType,
+  cipherText: Uint8Array,
+  secretKey: Uint8Array
+): Effect.Effect<Uint8Array, SigningFailed> =>
+  Match.value(algorithm).pipe(
+    Match.when("xwing", () => xwingDecapsulate(cipherText, secretKey)),
+    Match.exhaustive
+  )

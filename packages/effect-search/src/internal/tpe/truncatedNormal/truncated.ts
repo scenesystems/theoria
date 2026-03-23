@@ -30,17 +30,29 @@ const logGaussMass = (a: number, b: number): number => {
   )
 }
 
+const LOG_MACHINE_EPSILON = Float64.log(Number.EPSILON)
+
 const ppfFinite = (q: number, a: number, b: number): number => {
   const logMass = logGaussMass(a, b)
 
   return Match.value(a).pipe(
     Match.when((left) => left < 0, (left) => {
-      const logPhiX = logSum(logNdtr(left), Float64.log(q) + logMass)
-      return ndtriExp(logPhiX)
+      const logBase = logNdtr(left)
+      const logIncrement = Float64.log(q) + logMass
+      const gap = logIncrement - logBase
+      return Match.value(gap < LOG_MACHINE_EPSILON).pipe(
+        Match.when(true, () => left),
+        Match.orElse(() => ndtriExp(logSum(logBase, logIncrement)))
+      )
     }),
     Match.orElse(() => {
-      const logPhiX = logSum(logNdtr(-b), Float64.log1p(-q) + logMass)
-      return -ndtriExp(logPhiX)
+      const logBase = logNdtr(-b)
+      const logIncrement = Float64.log1p(-q) + logMass
+      const gap = logIncrement - logBase
+      return Match.value(gap < LOG_MACHINE_EPSILON).pipe(
+        Match.when(true, () => -(-b)),
+        Match.orElse(() => -ndtriExp(logSum(logBase, logIncrement)))
+      )
     })
   )
 }

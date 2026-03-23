@@ -30,3 +30,56 @@
  * @since 0.1.0
  * @category algorithms
  */
+import { XWing } from "@noble/post-quantum/hybrid.js"
+import { Effect } from "effect"
+import { SigningFailed } from "../schemas/errors.js"
+import { KemCiphertext } from "../schemas/KemCiphertext.js"
+import { KeyPair } from "../schemas/KeyPair.js"
+
+/**
+ * Encapsulate a shared secret for a recipient's XWing public key.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const xwingEncapsulate = (
+  publicKey: Uint8Array
+): Effect.Effect<KemCiphertext, SigningFailed> =>
+  Effect.try({
+    try: () => {
+      const result = XWing.encapsulate(publicKey)
+      return new KemCiphertext({
+        algorithm: "xwing",
+        ciphertext: result.cipherText,
+        sharedSecret: result.sharedSecret
+      })
+    },
+    catch: (error) => new SigningFailed({ algorithm: "xwing", reason: String(error) })
+  })
+
+/**
+ * Decapsulate a ciphertext with the recipient's XWing secret key.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const xwingDecapsulate = (
+  cipherText: Uint8Array,
+  secretKey: Uint8Array
+): Effect.Effect<Uint8Array, SigningFailed> =>
+  Effect.try({
+    try: () => XWing.decapsulate(cipherText, secretKey),
+    catch: (error) => new SigningFailed({ algorithm: "xwing", reason: String(error) })
+  })
+
+/**
+ * Generate an XWing key pair.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const xwingKeygen = (): Effect.Effect<KeyPair> =>
+  Effect.sync(() => {
+    const { secretKey, publicKey } = XWing.keygen()
+    return new KeyPair({ algorithm: "xwing", publicKey, secretKey })
+  })
