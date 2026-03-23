@@ -47,8 +47,8 @@ const paramsInputArbitrary = fc.record({
 })
 
 const quantileArbitrary = fc.double({
-  min: 1e-12,
-  max: 1 - 1e-12,
+  min: 1e-300,
+  max: 1 - 1e-15,
   noNaN: true,
   noDefaultInfinity: true
 })
@@ -73,6 +73,7 @@ const supportPoint = (params: TruncatedNormalParams, quantile: number): number =
 
 const CDF_EPSILON = 1e-8
 const ROUNDTRIP_QUANTILE_TOLERANCE = 1e-7
+const PPF_MONOTONE_RESOLUTION = 134 * Number.EPSILON
 
 const deterministicTailCases: ReadonlyArray<DeterministicTailCase> = [
   {
@@ -210,7 +211,7 @@ describe("truncated normal invariants", () => {
           (input, quantiles) => {
             const params = toParams(input)
             const orderedQuantiles = Arr.sort(quantiles, Num.Order)
-            const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => Float64.abs(a - b) < 1e-10)
+            const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => Float64.abs(a - b) < PPF_MONOTONE_RESOLUTION)
             const draws = Arr.map(deduped, (quantile) => sample(quantile, params))
 
             expect(cdfTraceIsMonotone(draws)).toBe(true)
