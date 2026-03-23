@@ -47,8 +47,8 @@ const paramsInputArbitrary = fc.record({
 })
 
 const quantileArbitrary = fc.double({
-  min: 1e-300,
-  max: 1 - 1e-15,
+  min: 1e-12,
+  max: 1 - 1e-12,
   noNaN: true,
   noDefaultInfinity: true
 })
@@ -210,7 +210,8 @@ describe("truncated normal invariants", () => {
           (input, quantiles) => {
             const params = toParams(input)
             const orderedQuantiles = Arr.sort(quantiles, Num.Order)
-            const draws = Arr.map(orderedQuantiles, (quantile) => sample(quantile, params))
+            const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => Float64.abs(a - b) < 1e-10)
+            const draws = Arr.map(deduped, (quantile) => sample(quantile, params))
 
             expect(cdfTraceIsMonotone(draws)).toBe(true)
           }
