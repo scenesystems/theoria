@@ -1,16 +1,13 @@
 /**
  * Content Addressing — deterministic digest pipelines with @scenesystems/digest.
  *
- * Demonstrates:
- * - `canonicalize` for RFC 8785 JCS canonicalization (key ordering)
- * - `digest` for the full canonicalize → hash → encode → tag pipeline
- * - `durableFingerprint` for cache key identity
- * - `digestSchemaValue` with a Schema.Struct showing Date encoding
- * - Key order doesn't affect output (JCS guarantee)
+ * What this shows: JCS canonicalization makes key order irrelevant, so two objects
+ * with the same keys and values always hash identically. The `digest` function
+ * chains canonicalize → hash → encode → tag into a single pipeline. Use
+ * `durableFingerprint` for cache keys and `digestSchemaValue` for Schema-aware
+ * hashing that respects encoding (e.g. Date → ISO string before hashing).
  *
- * Run: bun run examples/content-addressing.ts
- *
- * @since 0.1.0
+ * Run: bun run examples/03-content-addressing.ts
  */
 
 import { BunRuntime } from "@effect/platform-bun"

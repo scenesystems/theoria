@@ -1,15 +1,12 @@
 /**
  * Webhook Verification — HMAC signatures with @scenesystems/digest.
  *
- * Demonstrates:
- * - `hmacSha256Base64Url` for modern webhook verification (Stripe-style)
- * - `hmacSha1Hex` for legacy webhook verification (Shopify-style)
- * - A realistic scenario: receive a payload, compute expected signature, compare
- * - `utf8ToBytes` conversion for string keys and messages
+ * What this shows: a realistic webhook verification flow. Compute HMAC-SHA256
+ * (Stripe-style) and HMAC-SHA1 (Shopify-style) signatures over a payload, then
+ * confirm that recomputing over the same bytes produces an identical signature
+ * while tampered payloads produce a different one.
  *
- * Run: bun run examples/webhook-verification.ts
- *
- * @since 0.1.0
+ * Run: bun run examples/02-webhook-verification.ts
  */
 
 import { BunRuntime } from "@effect/platform-bun"

@@ -1,16 +1,12 @@
 /**
  * Content Hashing — core hashing workflows with @scenesystems/digest.
  *
- * Demonstrates:
- * - `blake3Hash` with `utf8ToBytes` for raw byte hashing
- * - `sha256` for FIPS compatibility
- * - `digestUtf8` as a convenience shortcut
- * - `toBase64Url` and `toHex` for encoding output
- * - Different algorithms produce different output
+ * What this shows: hash the same message with BLAKE3 and SHA-256, encode the output
+ * as base64url and hex, then verify that `digestUtf8` produces identical results as
+ * the manual bytes → hash → encode path. Different algorithms produce different
+ * digests — this is expected and visible in the log output.
  *
- * Run: bun run examples/content-hashing.ts
- *
- * @since 0.1.0
+ * Run: bun run examples/01-content-hashing.ts
  */
 
 import { BunRuntime } from "@effect/platform-bun"
@@ -22,23 +18,23 @@ const program = Effect.gen(function*() {
   const bytes = utf8ToBytes(message)
 
   const blake3Digest = yield* blake3Hash(bytes)
-  const blake3B64 = yield* toBase64Url(blake3Digest)
-  const blake3HexStr = yield* toHex(blake3Digest)
+  const blake3B64 = toBase64Url(blake3Digest)
+  const blake3HexStr = toHex(blake3Digest)
   yield* Effect.log("BLAKE3", { base64url: blake3B64, hex: blake3HexStr })
 
   const sha256Digest = yield* sha256(bytes)
-  const sha256B64 = yield* toBase64Url(sha256Digest)
-  const sha256HexStr = yield* toHex(sha256Digest)
+  const sha256B64 = toBase64Url(sha256Digest)
+  const sha256HexStr = toHex(sha256Digest)
   yield* Effect.log("SHA-256", { base64url: sha256B64, hex: sha256HexStr })
 
   yield* Effect.log("Algorithm comparison", { sameOutput: blake3B64 === sha256B64 })
 
   const shortcutBlake3 = yield* digestUtf8("blake3-256", message)
-  const shortcutB64 = yield* toBase64Url(shortcutBlake3)
+  const shortcutB64 = toBase64Url(shortcutBlake3)
   yield* Effect.log("digestUtf8 BLAKE3 parity", { matches: shortcutB64 === blake3B64 })
 
   const shortcutSha256 = yield* digestUtf8("sha256", message)
-  const shortcutSha256B64 = yield* toBase64Url(shortcutSha256)
+  const shortcutSha256B64 = toBase64Url(shortcutSha256)
   yield* Effect.log("digestUtf8 SHA-256 parity", { matches: shortcutSha256B64 === sha256B64 })
 })
 
