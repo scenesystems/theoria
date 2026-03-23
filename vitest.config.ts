@@ -13,6 +13,7 @@ export default defineConfig({
     maxConcurrency: 10,
 
     include: ["packages/*/test/**/*.test.ts"],
+    exclude: ["packages/*/test/target-state/**/*.test.ts"],
     passWithNoTests: true
   },
   coverage: {
