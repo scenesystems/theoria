@@ -14,8 +14,8 @@
  * study snapshots, encrypted cache entries, encrypted DSP modules).
  *
  * @see {@link SealAlgorithm} — the algorithm field schema
- * @see {@link sealEffect} — produces and consumes envelopes
- * @see {@link seal} in `seal.ts` — core pipeline equivalent
+ * @see {@link seal} — produces envelopes
+ * @see {@link unseal} — consumes envelopes
  *
  * @since 0.1.0
  * @category schemas

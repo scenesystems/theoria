@@ -37,7 +37,6 @@ peer dependency. Schema is the single source of truth for all types.
 - `src/schemas/SealAlgorithm.ts` — `Schema.Literal("xchacha20-poly1305", "aes-256-gcm-siv", "aes-256-gcm")`
 - `src/schemas/SealedEnvelope.ts` — `Schema.Class` with algorithm, nonce, ciphertext
 - `src/schemas/errors.ts` — `Schema.TaggedError` types (DecryptionFailed, InvalidKey)
-- `src/schemas/sealEffect.ts` — Effect-wrapped encrypt/decrypt operations
 
 ### Internal (`src/internal/`)
 

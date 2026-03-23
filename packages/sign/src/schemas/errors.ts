@@ -4,7 +4,8 @@
  * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
  * catchable via `Effect.catchTag`, serializable via Schema.
  *
- * @see {@link signEffect} — the operations that produce these errors
+ * @see {@link sign} — signing operations that produce these errors
+ * @see {@link verify} — verification operations that produce these errors
  *
  * @since 0.1.0
  * @category errors

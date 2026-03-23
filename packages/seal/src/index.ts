@@ -7,20 +7,23 @@
  * @see {@link xchacha20} — recommended default
  * @see {@link aesgcmsiv} — nonce-misuse resistant alternative
  * @see {@link aesgcm} — compatibility alternative
- * @see {@link sealEffect} — Effect-wrapped encrypt/decrypt
+ * @see {@link seal} — encrypt pipeline
+ * @see {@link unseal} — decrypt pipeline
  * @see {@link SealedEnvelope} — encrypted payload schema
  * @see {@link SealAlgorithm} — algorithm literal union
  *
  * @example
  * ```ts
- * import { sealEffect, SealedEnvelope } from "@scenesystems/seal"
+ * import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
  * import { Effect } from "effect"
  *
- * const encrypted = sealEffect.encrypt("xchacha20-poly1305", key, data)
- * // Effect<SealedEnvelope, InvalidKey>
- *
- * const decrypted = sealEffect.decrypt(key, envelope)
- * // Effect<Uint8Array, DecryptionFailed | InvalidKey>
+ * const program = Effect.gen(function* () {
+ *   const key = yield* generateKey()
+ *   const plaintext = utf8ToBytes("hello, world")
+ *   const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
+ *   const recovered = yield* unseal(key, envelope)
+ *   return recovered
+ * })
  * ```
  *
  * @since 0.1.0
@@ -74,12 +77,6 @@ export * from "./schemas/SealedEnvelope.js"
  * @category errors
  */
 export * from "./schemas/errors.js"
-
-/**
- * @since 0.1.0
- * @category seal
- */
-export * from "./schemas/sealEffect.js"
 
 /**
  * @since 0.1.0

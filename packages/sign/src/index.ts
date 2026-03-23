@@ -7,17 +7,17 @@
  *
  * @example
  * ```ts
- * import { signEffect, Signature, generateKeyPairEffect } from "@scenesystems/sign"
+ * import { generateKeyPair, sign, utf8ToBytes } from "@scenesystems/sign"
  * import { Effect } from "effect"
  *
  * const program = Effect.gen(function* () {
- *   const keys = yield* generateKeyPairEffect("ed25519")
- *   const sig = yield* signEffect("ed25519", message, keys.secretKey)
+ *   const keys = yield* generateKeyPair("ed25519")
+ *   const message = utf8ToBytes("hello")
+ *   const sig = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
  *   return sig
  * })
  * ```
  *
- * @see {@link signEffect} — Effect-wrapped signing operations
  * @see {@link sign} — digital signature pipeline
  * @see {@link agreement} — key agreement pipeline
  * @see {@link kem} — key encapsulation pipeline
@@ -127,12 +127,6 @@ export * from "./schemas/SharedSecret.js"
  * @category schemas
  */
 export * from "./schemas/KemCiphertext.js"
-
-/**
- * @since 0.1.0
- * @category operations
- */
-export * from "./schemas/signEffect.js"
 
 /**
  * @since 0.1.0

@@ -7,7 +7,7 @@
  *
  * @see {@link SignatureAlgorithm} — algorithm discriminant
  * @see {@link KeyPair} — what produced this signature
- * @see {@link signEffect} — Effect-wrapped operation producing this type
+ * @see {@link sign} — signing operation producing this type
  *
  * @since 0.1.0
  * @category schemas

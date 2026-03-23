@@ -80,7 +80,6 @@ or `verify()` an XWing output.
 **Shared schemas:**
 
 - `src/schemas/errors.ts` — `Schema.TaggedError` types
-- `src/schemas/signEffect.ts` — Effect-wrapped operations
 
 ### Internal (`src/internal/`)
 

@@ -14,7 +14,8 @@
  * encryption or decryption is attempted. Carries expected and
  * received key lengths for diagnostics.
  *
- * @see {@link sealEffect} — the operations that produce these errors
+ * @see {@link seal} — encrypt operation that produces these errors
+ * @see {@link unseal} — decrypt operation that produces these errors
  * @see {@link SealAlgorithm} — algorithm field on DecryptionFailed
  *
  * @since 0.1.0

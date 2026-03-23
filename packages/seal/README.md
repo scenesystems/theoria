@@ -50,46 +50,44 @@ const program = Effect.gen(function* () {
 
 ### Core pipeline
 
-| Function                          | Description                                          |
-| --------------------------------- | ---------------------------------------------------- |
-| `seal(algorithm, key, plaintext)` | Encrypt and wrap in a `SealedEnvelope`               |
-| `unseal(key, envelope)`           | Decrypt a `SealedEnvelope` (algorithm read from it)  |
-| `sealEffect.encrypt(...)`         | Same as `seal` (namespace form)                      |
-| `sealEffect.decrypt(...)`         | Same as `unseal` (namespace form)                    |
+| Function                          | Description                                         |
+| --------------------------------- | --------------------------------------------------- |
+| `seal(algorithm, key, plaintext)` | Encrypt and wrap in a `SealedEnvelope`              |
+| `unseal(key, envelope)`           | Decrypt a `SealedEnvelope` (algorithm read from it) |
 
 ### Direct algorithm access
 
-| Function                              | Description                                |
-| ------------------------------------- | ------------------------------------------ |
-| `xchacha20Encrypt(key, plaintext)`    | XChaCha20-Poly1305 — recommended           |
-| `xchacha20Decrypt(key, ciphertext)`   | Decrypt XChaCha20-Poly1305                 |
-| `aesgcmsivEncrypt(key, plaintext)`    | AES-256-GCM-SIV — nonce-misuse resistant   |
-| `aesgcmsivDecrypt(key, ciphertext)`   | Decrypt AES-256-GCM-SIV                    |
-| `aesgcmEncrypt(key, plaintext)`       | AES-256-GCM — compatibility                |
-| `aesgcmDecrypt(key, ciphertext)`      | Decrypt AES-256-GCM                        |
+| Function                            | Description                              |
+| ----------------------------------- | ---------------------------------------- |
+| `xchacha20Encrypt(key, plaintext)`  | XChaCha20-Poly1305 — recommended         |
+| `xchacha20Decrypt(key, ciphertext)` | Decrypt XChaCha20-Poly1305               |
+| `aesgcmsivEncrypt(key, plaintext)`  | AES-256-GCM-SIV — nonce-misuse resistant |
+| `aesgcmsivDecrypt(key, ciphertext)` | Decrypt AES-256-GCM-SIV                  |
+| `aesgcmEncrypt(key, plaintext)`     | AES-256-GCM — compatibility              |
+| `aesgcmDecrypt(key, ciphertext)`    | Decrypt AES-256-GCM                      |
 
 ### Encoding and key generation
 
-| Function                   | Description                                           |
-| -------------------------- | ----------------------------------------------------- |
-| `generateKey(length?)`     | CSPRNG key generation → `Effect<Uint8Array>`          |
-| `utf8ToBytes(str)`         | Convert a UTF-8 string to `Uint8Array`                |
-| `utf8FromBytes(bytes)`     | Convert `Uint8Array` to a UTF-8 string                |
-| `equalBytes(a, b)`         | Constant-time byte array comparison                   |
+| Function               | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `generateKey(length?)` | CSPRNG key generation → `Effect<Uint8Array>` |
+| `utf8ToBytes(str)`     | Convert a UTF-8 string to `Uint8Array`       |
+| `utf8FromBytes(bytes)` | Convert `Uint8Array` to a UTF-8 string       |
+| `equalBytes(a, b)`     | Constant-time byte array comparison          |
 
 ### Schema types
 
-| Type             | Description                                                          |
-| ---------------- | -------------------------------------------------------------------- |
-| `SealAlgorithm`  | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`        |
-| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext`     |
+| Type             | Description                                                      |
+| ---------------- | ---------------------------------------------------------------- |
+| `SealAlgorithm`  | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`     |
+| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext` |
 
 ### Errors
 
-| Error              | Raised by          | Description                                        |
-| ------------------ | ------------------ | -------------------------------------------------- |
-| `InvalidKey`       | `seal`, `unseal`   | Key is wrong length (expected 32 bytes)             |
-| `DecryptionFailed` | `unseal`           | Authentication failed — wrong key or tampered data  |
+| Error              | Raised by        | Description                                        |
+| ------------------ | ---------------- | -------------------------------------------------- |
+| `InvalidKey`       | `seal`, `unseal` | Key is wrong length (expected 32 bytes)            |
+| `DecryptionFailed` | `unseal`         | Authentication failed — wrong key or tampered data |
 
 ## Examples
 
@@ -123,8 +121,8 @@ const program = Effect.gen(function* () {
 
   // All three algorithms produce interchangeable envelopes
   const xchacha = yield* seal("xchacha20-poly1305", key, data)
-  const gcmsiv  = yield* seal("aes-256-gcm-siv", key, data)
-  const gcm     = yield* seal("aes-256-gcm", key, data)
+  const gcmsiv = yield* seal("aes-256-gcm-siv", key, data)
+  const gcm = yield* seal("aes-256-gcm", key, data)
 
   // unseal reads the algorithm from the envelope — no dispatch needed
   const r1 = yield* unseal(key, xchacha)
@@ -148,16 +146,12 @@ const program = Effect.gen(function* () {
 
   // Wrong key → DecryptionFailed
   const result = yield* unseal(wrongKey, envelope).pipe(
-    Effect.catchTag("DecryptionFailed", (e) =>
-      Effect.succeed(`decryption failed: ${e.reason}`)
-    )
+    Effect.catchTag("DecryptionFailed", (e) => Effect.succeed(`decryption failed: ${e.reason}`))
   )
 
   // Wrong key length → InvalidKey
   const bad = yield* seal("xchacha20-poly1305", new Uint8Array(16), data).pipe(
-    Effect.catchTag("InvalidKey", (e) =>
-      Effect.succeed(`expected ${e.expected} bytes, got ${e.received}`)
-    )
+    Effect.catchTag("InvalidKey", (e) => Effect.succeed(`expected ${e.expected} bytes, got ${e.received}`))
   )
 })
 ```
@@ -168,9 +162,9 @@ See the [`examples/`](./examples) directory for complete runnable programs.
 
 All primitives wrap [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) — independently audited, zero-dependency, high-performance pure JavaScript AEAD implementations.
 
-| Dependency        | Audits   | Purpose                                  |
-| ----------------- | -------- | ---------------------------------------- |
-| `@noble/ciphers`  | 2 audits | XChaCha20-Poly1305, AES-256-GCM(-SIV)   |
+| Dependency       | Audits   | Purpose                               |
+| ---------------- | -------- | ------------------------------------- |
+| `@noble/ciphers` | 2 audits | XChaCha20-Poly1305, AES-256-GCM(-SIV) |
 
 ## License
 

@@ -13,7 +13,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit } from "effect"
 import { DecryptionFailed, InvalidKey } from "../src/schemas/errors.js"
-import { sealEffect } from "../src/schemas/sealEffect.js"
 import { seal, unseal } from "../src/seal.js"
 import { longKey, plaintext, shortKey, validKey, wrongKey } from "./helpers/keys.js"
 
@@ -91,22 +90,5 @@ describe("unseal — wrong key rejection", () => {
           })
         )
       )
-    }))
-})
-
-describe("sealEffect — thin wrapper", () => {
-  it.effect("encrypt → decrypt round-trip via sealEffect", () =>
-    Effect.gen(function*() {
-      const envelope = yield* sealEffect.encrypt("xchacha20-poly1305", validKey, plaintext)
-      const recovered = yield* sealEffect.decrypt(validKey, envelope)
-      expect(recovered).toEqual(plaintext)
-    }))
-
-  it.effect("sealEffect.encrypt is identical to seal", () =>
-    Effect.gen(function*() {
-      const envelope = yield* sealEffect.encrypt("aes-256-gcm-siv", validKey, plaintext)
-      expect(envelope.algorithm).toBe("aes-256-gcm-siv")
-      const recovered = yield* sealEffect.decrypt(validKey, envelope)
-      expect(recovered).toEqual(plaintext)
     }))
 })
