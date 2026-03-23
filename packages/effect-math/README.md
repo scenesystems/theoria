@@ -43,6 +43,17 @@ const program = Effect.gen(function* () {
 Effect.runSync(program)
 ```
 
+```ts
+import { Chunk } from "effect"
+import { euclideanDistance, manhattanDistance } from "effect-math/Geometry"
+
+const a = Chunk.fromIterable([0, 0])
+const b = Chunk.fromIterable([3, 4])
+
+euclideanDistance(a, b) // 5
+manhattanDistance(a, b) // 7
+```
+
 ## Domains
 
 Each domain is a self-contained subpath export with its own schemas, errors, and operations.
@@ -51,15 +62,15 @@ Each domain is a self-contained subpath export with its own schemas, errors, and
 | ----------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **Numeric**       | `effect-math/Numeric`       | Scalar transforms — `safeDivide`, `log1p`, `expm1`, `sum`, `argmax`, `clamp`, `between`                                          |
 | **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix operations — `dot`, `normL1`/`L2`/`Linf`, `vectorAdd`, `vectorScale`, `matvec`, `transpose`, `frobeniusNorm` |
+| **Geometry**      | `effect-math/Geometry`      | Metric-space distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                     |
+| **Probability**   | `effect-math/Probability`   | Distribution evaluation (normal, uniform PDF/CDF), Shannon entropy                                                               |
+| **Statistics**    | `effect-math/Statistics`    | Estimators (mean, variance, standard deviation), summary statistics, covariance                                                  |
 | **Algebra**       | `effect-math/Algebra`       | Abstract algebraic structures                                                                                                    |
 | **Calculus**      | `effect-math/Calculus`      | Differentiation and integration                                                                                                  |
 | **Special**       | `effect-math/Special`       | Special mathematical functions                                                                                                   |
-| **Probability**   | `effect-math/Probability`   | Probability distributions and sampling                                                                                           |
-| **Statistics**    | `effect-math/Statistics`    | Descriptive and inferential statistics                                                                                           |
 | **Optimization**  | `effect-math/Optimization`  | Numerical optimization and solvers                                                                                               |
-| **Geometry**      | `effect-math/Geometry`      | Geometric primitives and transforms                                                                                              |
 
-> Numeric and LinearAlgebra are implemented. Other domains are planned.
+> Numeric, LinearAlgebra, Geometry, Probability, and Statistics are implemented with full three-tier operation surfaces. Algebra, Calculus, Special, and Optimization are scaffolded for future implementation.
 
 ## Architecture
 
@@ -117,15 +128,24 @@ const handled = program.pipe(
 )
 ```
 
-LinearAlgebra error types:
+Error types by domain:
 
-| Error                               | When                                       |
-| ----------------------------------- | ------------------------------------------ |
-| `LinearAlgebraDecodeError`          | Schema validation fails on input           |
-| `ShapeMismatchError`                | Dimension incompatibility between operands |
-| `SingularMatrixError`               | Operation requires a non-singular matrix   |
-| `DecompositionError`                | Matrix factorization cannot be completed   |
-| `LinearAlgebraDomainViolationError` | Non-finite or otherwise invalid result     |
+| Domain        | Error                               | When                                       |
+| ------------- | ----------------------------------- | ------------------------------------------ |
+| LinearAlgebra | `LinearAlgebraDecodeError`          | Schema validation fails on input           |
+|               | `ShapeMismatchError`                | Dimension incompatibility between operands |
+|               | `SingularMatrixError`               | Operation requires a non-singular matrix   |
+|               | `DecompositionError`                | Matrix factorization cannot be completed   |
+|               | `LinearAlgebraDomainViolationError` | Non-finite or otherwise invalid result     |
+| Geometry      | `GeometryDecodeError`               | Schema validation fails on input           |
+|               | `DimensionMismatchError`            | Point dimensions are incompatible          |
+|               | `GeometryDomainViolationError`      | Non-finite or otherwise invalid result     |
+| Probability   | `ProbabilityDecodeError`            | Schema validation fails on input           |
+|               | `InvalidParameterError`             | Distribution parameter out of valid range  |
+|               | `ProbabilityDomainViolationError`   | Non-finite or otherwise invalid result     |
+| Statistics    | `StatisticsDecodeError`             | Schema validation fails on input           |
+|               | `InsufficientDataError`             | Too few observations for the estimator     |
+|               | `StatisticsDomainViolationError`    | Non-finite or otherwise invalid result     |
 
 ## Runtime Policies
 
@@ -162,11 +182,11 @@ A convenience constructor `makeDeterministicRuntimePoliciesLayer` builds all fou
 
 ## Status
 
-| Tier             | Domains                                                                     | Meaning                                              |
-| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
-| **Stable**       | Numeric                                                                     | API surface is fixed; breaking changes follow semver |
-| **Provisional**  | LinearAlgebra                                                               | API is functional but may evolve                     |
-| **Experimental** | Algebra, Calculus, Special, Probability, Statistics, Optimization, Geometry | Scaffolded; not yet implemented                      |
+| Tier             | Domains                                         | Meaning                                              |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| **Stable**       | Geometry                                        | API surface is fixed; breaking changes follow semver |
+| **Provisional**  | Numeric, LinearAlgebra, Probability, Statistics | API is functional but may evolve                     |
+| **Experimental** | Algebra, Calculus, Special, Optimization        | Scaffolded; not yet implemented                      |
 
 Experimental surfaces are available under `effect-math/experimental` and are excluded from stability guarantees.
 

@@ -1,3 +1,13 @@
+/**
+ * Schema authority for the Statistics domain — defines the canonical domain
+ * discriminator, sample input contracts, and the `SummaryStatistics` tagged
+ * class carrier. All schemas enforce finite-number validation at decode time,
+ * so kernels can assume well-formed numeric input.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+
 import { Effect, Schema } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
@@ -69,3 +79,53 @@ export type StatisticsSchemaBoundaryError = BoundaryDecodeError | BoundaryEncode
  * @category models
  */
 export type StatisticsDomain = typeof StatisticsDomainSchema.Type
+
+// ---------------------------------------------------------------------------
+// Shared finite number schema
+// ---------------------------------------------------------------------------
+
+const FiniteNumber = Schema.Number.pipe(Schema.finite())
+
+// ---------------------------------------------------------------------------
+// Operation input schemas — boundary decode contracts
+// ---------------------------------------------------------------------------
+
+/**
+ * Sample data input — non-empty array of finite numbers. Used as the
+ * boundary decode contract for single-sample operations such as `mean`,
+ * `variance`, and `summaryStatistics`.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const SampleInput = Schema.Struct({
+  values: Schema.NonEmptyArray(FiniteNumber)
+}).annotations({ identifier: "SampleInput" })
+
+/**
+ * Two-sample input for comparison operations such as `covariance`.
+ * Both `a` and `b` must be non-empty arrays of finite numbers.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const TwoSampleInput = Schema.Struct({
+  a: Schema.NonEmptyArray(FiniteNumber),
+  b: Schema.NonEmptyArray(FiniteNumber)
+}).annotations({ identifier: "TwoSampleInput" })
+
+/**
+ * Summary statistics result carrier — a `Schema.TaggedClass` holding
+ * mean, variance, standard deviation, min, max, and count.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export class SummaryStatistics extends Schema.TaggedClass<SummaryStatistics>()("SummaryStatistics", {
+  mean: FiniteNumber,
+  variance: FiniteNumber,
+  standardDeviation: FiniteNumber,
+  min: FiniteNumber,
+  max: FiniteNumber,
+  count: Schema.Number.pipe(Schema.finite(), Schema.int(), Schema.greaterThanOrEqualTo(1))
+}) {}

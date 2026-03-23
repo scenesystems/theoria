@@ -1,5 +1,12 @@
 /**
- * Probability domain public surface.
+ * Probability distribution evaluation and information-theoretic measures.
+ * Provides normal (Gaussian) and uniform PDF/CDF kernels, and Shannon
+ * entropy over discrete distributions. All kernels operate on scalar
+ * arguments or `Chunk<number>` carriers using Effect primitives.
+ *
+ * Probability owns distribution contracts and measure-space primitives —
+ * Statistics consumes these for estimation and inference but must not
+ * redeclare them.
  *
  * @since 0.1.0
  * @module
