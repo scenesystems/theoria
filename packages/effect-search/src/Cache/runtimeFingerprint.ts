@@ -162,29 +162,22 @@ const tokenPayload = (tokens: Chunk.Chunk<string>): string =>
   Chunk.reduce(tokens, "", (payload, token) => `${payload}${token.length}:${token};`)
 
 const digestPayload = (payload: string): Effect.Effect<string, FingerprintUnsupportedValue> =>
-  Effect.try({
-    try: () => utf8ToBytes(payload),
-    catch: (cause) =>
-      new FingerprintUnsupportedValue({
-        valueType: "digest",
-        reason: String(cause)
-      })
-  }).pipe(
-    Effect.flatMap(blake3Hash),
-    Effect.flatMap(toBase64Url),
-    Effect.mapError((cause) =>
-      new FingerprintUnsupportedValue({
-        valueType: "digest",
-        reason: String(cause)
-      })
-    ),
-    Effect.flatMap((digest) =>
-      Match.value(DIGEST_PATTERN.test(digest)).pipe(
-        Match.when(true, () => Effect.succeed(digest)),
-        Match.orElse(() => unsupportedValue("digest", `invalid base64url digest shape: ${digest}`))
-      )
+  Effect.gen(function*() {
+    const bytes = yield* Effect.try({
+      try: () => utf8ToBytes(payload),
+      catch: (cause) =>
+        new FingerprintUnsupportedValue({
+          valueType: "digest",
+          reason: String(cause)
+        })
+    })
+    const hash = yield* blake3Hash(bytes)
+    const digest = toBase64Url(hash)
+    return yield* Match.value(DIGEST_PATTERN.test(digest)).pipe(
+      Match.when(true, () => Effect.succeed(digest)),
+      Match.orElse(() => unsupportedValue("digest", `invalid base64url digest shape: ${digest}`))
     )
-  )
+  })
 
 const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, FingerprintUnsupportedValue> =>
   digestPayload(tokenPayload(tokens))
