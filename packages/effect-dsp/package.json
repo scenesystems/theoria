@@ -1,0 +1,68 @@
+{
+  "name": "effect-dsp",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Effect-native DSPy — programming, not prompting, language models",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-dsp"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "dspy",
+    "prompt-optimization",
+    "llm",
+    "declarative-signal-programming",
+    "bayesian-optimization",
+    "few-shot-learning"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./Signature": "./src/Signature/index.ts",
+    "./Module": "./src/Module/index.ts",
+    "./Optimizer": "./src/Optimizer/index.ts",
+    "./Metric": "./src/Metric/index.ts",
+    "./Evaluate": "./src/Evaluate/index.ts",
+    "./Example": "./src/Example/index.ts",
+    "./Trace": "./src/Trace/index.ts",
+    "./Errors": "./src/Errors/index.ts",
+    "./Cache": "./src/Cache/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./test": "./src/testing/index.ts",
+    "./internal/*": null,
+    "./optimizers/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run --root ../.. packages/effect-dsp/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "dependencies": {
+    "@scenesystems/digest": "workspace:*",
+    "effect-math": "workspace:*",
+    "effect-search": "workspace:*"
+  },
+  "peerDependencies": {
+    "@effect/ai": ">=0.35.0",
+    "effect": "^3.0.0"
+  }
+}
