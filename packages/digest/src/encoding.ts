@@ -38,7 +38,10 @@ export const toBase64Url = (bytes: Uint8Array): Effect.Effect<string> => Effect.
 export const fromBase64Url = (str: string): Effect.Effect<Uint8Array> => Effect.sync(() => base64urlnopad.decode(str))
 
 /**
- * Encode bytes to hex string.
+ * Encode bytes to lowercase hex string (2 chars per byte).
+ *
+ * Useful for diagnostic logging and CLI output where base64url
+ * is less human-readable.
  *
  * @since 0.1.0
  * @category encoding
@@ -46,7 +49,10 @@ export const fromBase64Url = (str: string): Effect.Effect<Uint8Array> => Effect.
 export const toHex = (bytes: Uint8Array): Effect.Effect<string> => Effect.sync(() => bytesToHex(bytes))
 
 /**
- * Decode hex string to bytes.
+ * Decode a lowercase hex string back to raw bytes.
+ *
+ * Rejects odd-length strings and non-hex characters at the
+ * `@noble/hashes` layer.
  *
  * @since 0.1.0
  * @category encoding
