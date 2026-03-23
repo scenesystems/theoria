@@ -1,1 +1,10 @@
+node_modules
+dist
+build
+coverage
 .tsbuildinfo/
+docs/
+
+# Python (uv fixture generation)
+__pycache__/
+.venv/
