@@ -14,10 +14,6 @@
  * shape — `Date`, `BigInt`, `Uint8Array`, and other non-JSON types
  * must be pre-encoded by the caller (typically via `Schema.encode`).
  *
- * Uses BLAKE3's context mode for domain separation when a context
- * string is provided, eliminating collision risk from manual salt
- * concatenation.
- *
  * @example
  * ```ts
  * import { durableFingerprint } from "@scenesystems/digest"
@@ -28,10 +24,27 @@
  * ```
  *
  * @see {@link canonicalize} — stage 1: deterministic JSON serialization
- * @see {@link blake3} — stage 2: primary hash algorithm
+ * @see {@link blake3Hash} — stage 2: primary hash algorithm
  * @see {@link FingerprintUnsupportedValue} — error for non-JSON-safe inputs
  * @see {@link ContentDigest} — typed result schema
  *
  * @since 0.1.0
  * @category fingerprint
  */
+
+import type { Effect } from "effect"
+import { digest } from "../digest.js"
+import type { FingerprintUnsupportedValue } from "./errors.js"
+
+/**
+ * Compute a durable, deterministic fingerprint of a structured value.
+ *
+ * Uses BLAKE3-256 as the digest algorithm. Returns an algorithm-tagged
+ * string: `"blake3-256:<base64url>"`.
+ *
+ * @since 0.1.0
+ * @category fingerprint
+ */
+export const durableFingerprint = (
+  value: unknown
+): Effect.Effect<string, FingerprintUnsupportedValue> => digest("blake3-256", value)
