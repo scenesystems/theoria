@@ -37,8 +37,8 @@ bun run build
 Per-package:
 
 ```sh
-bun --filter effect-search run check
-bun --filter effect-search run test
+bun run --filter effect-search check
+bun run --filter effect-search test
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.

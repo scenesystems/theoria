@@ -20,3 +20,16 @@
  * @since 0.1.0
  * @category algorithms
  */
+
+import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
+import { Effect } from "effect"
+
+/**
+ * Hash `input` bytes using SHA-256 (FIPS 180-4).
+ *
+ * Pure deterministic operation — no error channel.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const sha256 = (input: Uint8Array): Effect.Effect<Uint8Array> => Effect.sync(() => nobleSha256(input))
