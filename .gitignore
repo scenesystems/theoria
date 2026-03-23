@@ -53,3 +53,8 @@ __pycache__/
 
 # Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
 .vendor/effect/
+.vendor/noble-hashes/
+.vendor/noble-curves/
+.vendor/noble-ciphers/
+.vendor/noble-post-quantum/
+.vendor/scure-base/
