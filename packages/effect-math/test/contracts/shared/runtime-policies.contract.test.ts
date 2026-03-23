@@ -52,6 +52,34 @@ describe("shared runtime policy contracts", () => {
           Match.orElse(() => false)
         )
       ).toStrictEqual(true)
+
+      expect(
+        Match.value(deterministic).pipe(
+          Match.when(
+            {
+              backendPolicy: { policy: "typed-array" },
+              precisionPolicy: { policy: "strict" },
+              diagnosticsPolicy: { policy: "enabled" }
+            },
+            () => true
+          ),
+          Match.orElse(() => false)
+        )
+      ).toStrictEqual(true)
+
+      expect(
+        Match.value(nondeterministic).pipe(
+          Match.when(
+            {
+              backendPolicy: { policy: "scalar" },
+              precisionPolicy: { policy: "relaxed" },
+              diagnosticsPolicy: { policy: "disabled" }
+            },
+            () => true
+          ),
+          Match.orElse(() => false)
+        )
+      ).toStrictEqual(true)
     }))
 
   it.effect("rejects excess properties at boundary decode for runtime policy unions", () =>

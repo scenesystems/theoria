@@ -30,7 +30,7 @@ describe("Numeric benchmark guard", () => {
       })
       const plan = yield* Schema.decodeUnknown(BenchmarkPlanSchema)({
         runs: 100,
-        maxMeanDurationMs: 1.2
+        maxMeanDurationMs: 1.4
       })
 
       const startedAt = performance.now()

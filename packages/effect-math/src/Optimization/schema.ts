@@ -21,7 +21,9 @@ export const OptimizationDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeOptimizationDomain = (input: unknown) =>
-  Schema.decodeUnknown(OptimizationDomainSchema)(input).pipe(
+  Schema.decodeUnknown(OptimizationDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({

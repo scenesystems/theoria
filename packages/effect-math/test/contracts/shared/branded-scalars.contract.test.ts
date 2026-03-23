@@ -5,10 +5,12 @@ import * as SchemaAST from "effect/SchemaAST"
 import {
   AbsoluteTolerance,
   Axis,
+  ConditioningThreshold,
   Dimension,
   IterationBudget,
   RelativeTolerance,
-  Seed
+  Seed,
+  StepSize
 } from "../../../src/contracts/shared/BrandedScalars.js"
 
 describe("shared branded scalar contracts", () => {
@@ -28,6 +30,14 @@ describe("shared branded scalar contracts", () => {
       _tag: "Some",
       value: ["IterationBudget"]
     })
+    expect(SchemaAST.getBrandAnnotation(ConditioningThreshold.ast)).toMatchObject({
+      _tag: "Some",
+      value: ["ConditioningThreshold"]
+    })
+    expect(SchemaAST.getBrandAnnotation(StepSize.ast)).toMatchObject({
+      _tag: "Some",
+      value: ["StepSize"]
+    })
   })
 
   it.effect("accepts canonical valid values and rejects out-of-bound values", () =>
@@ -38,11 +48,15 @@ describe("shared branded scalar contracts", () => {
       expect(Number.Equivalence(yield* Schema.decodeUnknown(RelativeTolerance)(1e-6), 1e-6)).toStrictEqual(true)
       expect(Number.Equivalence(yield* Schema.decodeUnknown(Seed)(42), 42)).toStrictEqual(true)
       expect(Number.Equivalence(yield* Schema.decodeUnknown(IterationBudget)(1000), 1000)).toStrictEqual(true)
+      expect(Number.Equivalence(yield* Schema.decodeUnknown(ConditioningThreshold)(1e-3), 1e-3)).toStrictEqual(true)
+      expect(Number.Equivalence(yield* Schema.decodeUnknown(StepSize)(1e-2), 1e-2)).toStrictEqual(true)
 
       const invalidDimension = yield* Effect.either(Schema.decodeUnknown(Dimension)(0))
       const invalidAxis = yield* Effect.either(Schema.decodeUnknown(Axis)(-1))
       const invalidAbsoluteTolerance = yield* Effect.either(Schema.decodeUnknown(AbsoluteTolerance)(-1e-9))
       const invalidRelativeTolerance = yield* Effect.either(Schema.decodeUnknown(RelativeTolerance)(0))
+      const invalidConditioningThreshold = yield* Effect.either(Schema.decodeUnknown(ConditioningThreshold)(0))
+      const invalidStepSize = yield* Effect.either(Schema.decodeUnknown(StepSize)(0))
 
       expect(
         Match.value(invalidDimension).pipe(
@@ -67,6 +81,20 @@ describe("shared branded scalar contracts", () => {
       ).toStrictEqual(true)
       expect(
         Match.value(invalidRelativeTolerance).pipe(
+          Match.tag("Left", () => true),
+          Match.tag("Right", () => false),
+          Match.exhaustive
+        )
+      ).toStrictEqual(true)
+      expect(
+        Match.value(invalidConditioningThreshold).pipe(
+          Match.tag("Left", () => true),
+          Match.tag("Right", () => false),
+          Match.exhaustive
+        )
+      ).toStrictEqual(true)
+      expect(
+        Match.value(invalidStepSize).pipe(
           Match.tag("Left", () => true),
           Match.tag("Right", () => false),
           Match.exhaustive

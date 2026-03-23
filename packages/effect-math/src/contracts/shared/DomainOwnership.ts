@@ -62,12 +62,17 @@ export const DomainOwnershipMatrix = Schema.Struct({
  */
 export const InitialDomainOwnershipMatrix = {
   Probability: {
-    owns: ["distribution contracts", "measure-space primitives"],
+    owns: [
+      "distribution contracts",
+      "measure-space primitives",
+      "random variable semantics",
+      "stochastic process contracts"
+    ],
     sharedWith: ["Statistics", "Optimization"],
     note: "Probability owns distribution semantics; statistics consumes them for estimation and inference."
   },
   Statistics: {
-    owns: ["estimators", "summary statistics", "inference outputs"],
+    owns: ["estimators", "summary statistics", "inference outputs", "tests", "intervals", "diagnostics"],
     sharedWith: ["Probability", "Optimization"],
     note: "Statistics owns estimators and inference artifacts; distribution definitions remain in Probability."
   },
@@ -104,7 +109,8 @@ export const InitialDomainOwnershipMatrix = {
   Geometry: {
     owns: ["metric-space contracts", "spatial transforms"],
     sharedWith: ["Optimization", "LinearAlgebra"],
-    note: "Geometry owns spatial and metric contracts used by optimization objective-space tooling."
+    note:
+      "Geometry is first-wave stable and owns spatial and metric contracts used by optimization objective-space tooling."
   }
 }
 

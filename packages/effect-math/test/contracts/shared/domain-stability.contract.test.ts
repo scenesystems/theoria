@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Schema } from "effect"
 
 import { DomainStability } from "../../../src/contracts/shared/DomainStability.js"
+import { GeometryDomainModel } from "../../../src/Geometry/model.js"
 
 describe("shared domain stability contracts", () => {
   it.effect("accepts the three canonical stability levels", () =>
@@ -23,4 +24,10 @@ describe("shared domain stability contracts", () => {
         )
       ).toStrictEqual(true)
     }))
+
+  it("keeps Geometry in stable tier for first-wave release obligations", () => {
+    const geometryStability = Schema.decodeUnknownSync(DomainStability)(GeometryDomainModel.stability)
+
+    expect(geometryStability).toStrictEqual("stable")
+  })
 })

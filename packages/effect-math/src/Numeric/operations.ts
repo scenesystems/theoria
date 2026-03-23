@@ -39,7 +39,9 @@ export const validateNumericBoundary = (input: unknown) =>
     )
 
     yield* Effect.catchAll(
-      Schema.decodeUnknown(NumericBoundaryValidationInput)(input),
+      Schema.decodeUnknown(NumericBoundaryValidationInput)(input, {
+        onExcessProperty: "error"
+      }),
       (error) =>
         Effect.fail(
           new NumericDomainBoundaryError({
@@ -49,9 +51,14 @@ export const validateNumericBoundary = (input: unknown) =>
     )
 
     return yield* Effect.catchAll(
-      Schema.decodeUnknown(NumericBoundaryValidationResult)({
-        ok: true
-      }),
+      Schema.decodeUnknown(NumericBoundaryValidationResult)(
+        {
+          ok: true
+        },
+        {
+          onExcessProperty: "error"
+        }
+      ),
       (error) =>
         Effect.fail(
           new NumericDomainBoundaryError({

@@ -22,6 +22,13 @@ describe("Geometry domain contracts", () => {
       expect(EffectString.Equivalence(GeometryDomainModel.domain, GeometryDomainContract)).toStrictEqual(true)
     }))
 
+  it.effect("treats Geometry as stable in the first stable wave", () =>
+    Effect.gen(function*() {
+      const decoded = yield* Schema.decodeUnknown(GeometryDomainSchema)(GeometryDomainModel)
+
+      expect(EffectString.Equivalence(decoded.stability, "stable")).toStrictEqual(true)
+    }))
+
   it.effect("round-trips the canonical model through boundary helpers", () =>
     Effect.gen(function*() {
       const decoded = yield* decodeGeometryDomain(GeometryDomainModel)

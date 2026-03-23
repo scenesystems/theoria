@@ -62,3 +62,23 @@ export const Seed = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).ann
 export const IterationBudget = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
   identifier: "IterationBudget"
 }).pipe(Schema.brand("IterationBudget"))
+
+/**
+ * Strictly positive finite conditioning threshold.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const ConditioningThreshold = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).annotations({
+  identifier: "ConditioningThreshold"
+}).pipe(Schema.brand("ConditioningThreshold"))
+
+/**
+ * Strictly positive finite integration/optimization step size.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const StepSize = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).annotations({
+  identifier: "StepSize"
+}).pipe(Schema.brand("StepSize"))

@@ -3,6 +3,8 @@ import { Effect, Match, Record as EffectRecord, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import packageJson from "../../package.json" with { type: "json" }
+import { ExperimentalSeams } from "../../src/experimental/index.js"
+import { GeometryDomainModel } from "../../src/Geometry/model.js"
 
 const ExportsRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 const ExportValuesSchema = Schema.Array(Schema.Unknown)
@@ -80,4 +82,12 @@ describe("package export contracts", () => {
       expect(experimentalExport).toStrictEqual("./src/experimental/index.ts")
       expect(exportContainsExperimental(rootExport)).toStrictEqual(false)
     }))
+
+  it("keeps Geometry in the stable root surface while isolating experimental seams", () => {
+    expect(GeometryDomainModel.stability).toStrictEqual("stable")
+
+    const experimentalEntries = Arr.fromIterable(ExperimentalSeams)
+    expect(experimentalEntries.length).toBeGreaterThan(0)
+    expect(ExperimentalSeams.some((seam) => seam.includes("experimental"))).toStrictEqual(false)
+  })
 })

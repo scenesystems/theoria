@@ -1,32 +1,133 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Equivalence, Record as EffectRecord, Schema } from "effect"
+import { Effect, Match, Schema } from "effect"
 
-import * as AlgebraInternal from "../../src/Algebra/internal/index.js"
-import * as CalculusInternal from "../../src/Calculus/internal/index.js"
-import * as GeometryInternal from "../../src/Geometry/internal/index.js"
-import * as LinearAlgebraInternal from "../../src/LinearAlgebra/internal/index.js"
-import * as NumericInternal from "../../src/Numeric/internal/index.js"
-import * as OptimizationInternal from "../../src/Optimization/internal/index.js"
-import * as ProbabilityInternal from "../../src/Probability/internal/index.js"
-import * as SpecialInternal from "../../src/Special/internal/index.js"
-import * as StatisticsInternal from "../../src/Statistics/internal/index.js"
+import { decodeAlgebraDomain } from "../../src/Algebra/schema.js"
+import { decodeCalculusDomain } from "../../src/Calculus/schema.js"
+import { DomainOwnershipMatrix, InitialDomainOwnershipMatrix } from "../../src/contracts/shared/DomainOwnership.js"
+import { RuntimePolicies } from "../../src/contracts/shared/RuntimePolicies.js"
+import { decodeGeometryDomain } from "../../src/Geometry/schema.js"
+import { decodeLinearAlgebraDomain } from "../../src/LinearAlgebra/schema.js"
+import { decodeNumericDomain } from "../../src/Numeric/schema.js"
+import { decodeOptimizationDomain } from "../../src/Optimization/schema.js"
+import { decodeProbabilityDomain } from "../../src/Probability/schema.js"
+import { decodeSpecialDomain } from "../../src/Special/schema.js"
+import { decodeStatisticsDomain } from "../../src/Statistics/schema.js"
 
-const NamespaceSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
-const keyEq = Equivalence.array(Equivalence.string)
+describe("package internal boundary contracts", () => {
+  it.effect("enforces strict excess-property rejection at public domain boundaries", () =>
+    Effect.gen(function*() {
+      const decodeEdges = [
+        Effect.either(
+          decodeNumericDomain({
+            domain: "Numeric",
+            stability: "provisional",
+            precision: "strict"
+          })
+        ),
+        Effect.either(
+          decodeAlgebraDomain({
+            domain: "Algebra",
+            stability: "provisional",
+            structure: "ring"
+          })
+        ),
+        Effect.either(
+          decodeLinearAlgebraDomain({
+            domain: "LinearAlgebra",
+            stability: "provisional",
+            tensorShape: [2, 2]
+          })
+        ),
+        Effect.either(
+          decodeCalculusDomain({
+            domain: "Calculus",
+            stability: "provisional",
+            derivativeOrder: 2
+          })
+        ),
+        Effect.either(
+          decodeSpecialDomain({
+            domain: "Special",
+            stability: "provisional",
+            family: "Bessel"
+          })
+        ),
+        Effect.either(
+          decodeProbabilityDomain({
+            domain: "Probability",
+            stability: "provisional",
+            distribution: "Normal"
+          })
+        ),
+        Effect.either(
+          decodeStatisticsDomain({
+            domain: "Statistics",
+            stability: "provisional",
+            estimator: "Mean"
+          })
+        ),
+        Effect.either(
+          decodeOptimizationDomain({
+            domain: "Optimization",
+            stability: "provisional",
+            solver: "GradientDescent"
+          })
+        ),
+        Effect.either(
+          decodeGeometryDomain({
+            domain: "Geometry",
+            stability: "stable",
+            frame: "world"
+          })
+        )
+      ]
 
-const namespaceKeys = (value: unknown): ReadonlyArray<string> =>
-  EffectRecord.keys(Schema.decodeUnknownSync(NamespaceSchema)(value)).filter((key) => key !== "__esModule").sort()
+      const strictBoundaryResults = yield* Effect.all(decodeEdges)
 
-describe("package internal namespace contracts", () => {
-  it("keeps exactly one internal marker in each explicit internal module", () => {
-    expect(keyEq(namespaceKeys(NumericInternal), ["NumericInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(AlgebraInternal), ["AlgebraInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(LinearAlgebraInternal), ["LinearAlgebraInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(CalculusInternal), ["CalculusInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(SpecialInternal), ["SpecialInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(ProbabilityInternal), ["ProbabilityInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(StatisticsInternal), ["StatisticsInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(OptimizationInternal), ["OptimizationInternalNamespace"])).toStrictEqual(true)
-    expect(keyEq(namespaceKeys(GeometryInternal), ["GeometryInternalNamespace"])).toStrictEqual(true)
-  })
+      yield* Effect.forEach(
+        strictBoundaryResults,
+        (boundary) =>
+          Effect.sync(() => {
+            expect(
+              Match.value(boundary).pipe(
+                Match.tag("Left", ({ left }) => left._tag === "BoundaryDecodeError"),
+                Match.tag("Right", () => false),
+                Match.exhaustive
+              )
+            ).toStrictEqual(true)
+          }),
+        { discard: true }
+      )
+    }))
+
+  it.effect("keeps ownership and runtime-policy governance surfaces schema-authoritative", () =>
+    Effect.gen(function*() {
+      const ownership = yield* Schema.decodeUnknown(DomainOwnershipMatrix)(InitialDomainOwnershipMatrix)
+
+      expect(ownership.Probability.owns).toContain("distribution contracts")
+      expect(ownership.Statistics.owns).toContain("estimators")
+
+      const runtimeBoundary = yield* Effect.either(
+        Schema.decodeUnknown(RuntimePolicies)(
+          {
+            rngPolicy: {
+              policy: "nondeterministic",
+              seed: 42
+            },
+            precisionPolicy: { policy: "strict" },
+            backendPolicy: { policy: "typed-array" },
+            diagnosticsPolicy: { policy: "enabled" }
+          },
+          { onExcessProperty: "error" }
+        )
+      )
+
+      expect(
+        Match.value(runtimeBoundary).pipe(
+          Match.tag("Left", () => true),
+          Match.tag("Right", () => false),
+          Match.exhaustive
+        )
+      ).toStrictEqual(true)
+    }))
 })

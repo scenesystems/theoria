@@ -21,7 +21,9 @@ export const AlgebraDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeAlgebraDomain = (input: unknown) =>
-  Schema.decodeUnknown(AlgebraDomainSchema)(input).pipe(
+  Schema.decodeUnknown(AlgebraDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({

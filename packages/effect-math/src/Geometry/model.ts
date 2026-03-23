@@ -9,5 +9,5 @@ import type { GeometryDomain } from "./schema.js"
  */
 export const GeometryDomainModel: GeometryDomain = {
   domain: GeometryDomainContract,
-  stability: "provisional"
+  stability: "stable"
 }

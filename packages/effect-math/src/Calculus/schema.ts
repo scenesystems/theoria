@@ -21,7 +21,9 @@ export const CalculusDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeCalculusDomain = (input: unknown) =>
-  Schema.decodeUnknown(CalculusDomainSchema)(input).pipe(
+  Schema.decodeUnknown(CalculusDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({

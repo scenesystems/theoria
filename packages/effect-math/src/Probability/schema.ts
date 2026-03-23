@@ -21,7 +21,9 @@ export const ProbabilityDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeProbabilityDomain = (input: unknown) =>
-  Schema.decodeUnknown(ProbabilityDomainSchema)(input).pipe(
+  Schema.decodeUnknown(ProbabilityDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({

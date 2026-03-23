@@ -21,7 +21,9 @@ export const GeometryDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeGeometryDomain = (input: unknown) =>
-  Schema.decodeUnknown(GeometryDomainSchema)(input).pipe(
+  Schema.decodeUnknown(GeometryDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({

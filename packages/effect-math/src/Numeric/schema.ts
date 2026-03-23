@@ -21,7 +21,9 @@ export const NumericDomainSchema = Schema.Struct({
  * @category schemas
  */
 export const decodeNumericDomain = (input: unknown) =>
-  Schema.decodeUnknown(NumericDomainSchema)(input).pipe(
+  Schema.decodeUnknown(NumericDomainSchema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.catchAll((error) =>
       Effect.fail(
         new BoundaryDecodeError({
