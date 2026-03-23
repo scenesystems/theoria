@@ -1,0 +1,70 @@
+{
+  "name": "effect-search",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Effect-native black-box optimization for TypeScript",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-search"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "optimization",
+    "bayesian-optimization",
+    "hyperparameter-optimization",
+    "tpe",
+    "motpe",
+    "hyperband",
+    "bohb",
+    "pareto",
+    "black-box-optimization"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./Cache": "./src/Cache/index.ts",
+    "./Contracts": "./src/contracts/index.ts",
+    "./Errors": "./src/Errors/index.ts",
+    "./Experimental": "./src/experimental/index.ts",
+    "./Pareto": "./src/Pareto/index.ts",
+    "./Sampler": "./src/Sampler/index.ts",
+    "./Scheduler": "./src/Scheduler/index.ts",
+    "./SearchSpace": "./src/SearchSpace/index.ts",
+    "./Study": "./src/Study/index.ts",
+    "./StudyEvent": "./src/StudyEvent/index.ts",
+    "./Trial": "./src/Trial/index.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run --root ../.. packages/effect-search/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "dependencies": {
+    "@scenesystems/digest": "workspace:*",
+    "effect-math": "workspace:*"
+  },
+  "peerDependencies": {
+    "@effect/experimental": "^0.60.0",
+    "@effect/platform": "^0.96.0",
+    "effect": "^3.0.0"
+  }
+}
