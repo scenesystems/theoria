@@ -1,0 +1,10 @@
+{
+  "name": "linalg-dot-product-stable",
+  "input": {
+    "a": [1, 2, 3],
+    "b": [4, 5, 6]
+  },
+  "expected": {
+    "result": 32
+  }
+}

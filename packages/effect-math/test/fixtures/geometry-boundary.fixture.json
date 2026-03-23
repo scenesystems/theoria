@@ -1,0 +1,10 @@
+{
+  "name": "geometry-euclidean-distance-stable",
+  "input": {
+    "a": [0, 0],
+    "b": [3, 4]
+  },
+  "expected": {
+    "result": 5
+  }
+}

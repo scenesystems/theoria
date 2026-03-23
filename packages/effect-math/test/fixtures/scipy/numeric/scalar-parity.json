@@ -1,0 +1,184 @@
+{
+  "fixture": "numeric.scalar-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 0.0,
+        "id": "log1p-zero",
+        "input": {
+          "x": 0.0
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": 9.999999999999995e-16,
+        "id": "log1p-tiny-positive",
+        "input": {
+          "x": 1e-15
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": -1.0000000000000007e-15,
+        "id": "log1p-tiny-negative",
+        "input": {
+          "x": -1e-15
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": 0.009950330853168083,
+        "id": "log1p-small",
+        "input": {
+          "x": 0.01
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": 0.6931471805599453,
+        "id": "log1p-one",
+        "input": {
+          "x": 1.0
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": 13.815511557963774,
+        "id": "log1p-large",
+        "input": {
+          "x": 1000000.0
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": -32.236990899346836,
+        "id": "log1p-near-negative-one",
+        "input": {
+          "x": -0.99999999999999
+        },
+        "operation": "log1p"
+      },
+      {
+        "expected": 0.0,
+        "id": "expm1-zero",
+        "input": {
+          "x": 0.0
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": 1.0000000000000007e-15,
+        "id": "expm1-tiny-positive",
+        "input": {
+          "x": 1e-15
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": -9.999999999999995e-16,
+        "id": "expm1-tiny-negative",
+        "input": {
+          "x": -1e-15
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": 0.010050167084168058,
+        "id": "expm1-small",
+        "input": {
+          "x": 0.01
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": 1.7182818284590453,
+        "id": "expm1-one",
+        "input": {
+          "x": 1.0
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": 5.184705528587072e21,
+        "id": "expm1-large",
+        "input": {
+          "x": 50.0
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": -0.8646647167633873,
+        "id": "expm1-negative",
+        "input": {
+          "x": -2.0
+        },
+        "operation": "expm1"
+      },
+      {
+        "expected": 15.0,
+        "id": "sum-simple",
+        "input": {
+          "values": [1.0, 2.0, 3.0, 4.0, 5.0]
+        },
+        "operation": "sum"
+      },
+      {
+        "expected": 2.0,
+        "id": "sum-cancellation",
+        "input": {
+          "values": [1e16, 1.0, -1e16, 1.0]
+        },
+        "operation": "sum"
+      },
+      {
+        "expected": 42.0,
+        "id": "sum-single",
+        "input": {
+          "values": [42.0]
+        },
+        "operation": "sum"
+      },
+      {
+        "expected": 1.0,
+        "id": "sum-alternating-sign",
+        "input": {
+          "values": [1.0, -1.0, 1.0, -1.0, 1.0]
+        },
+        "operation": "sum"
+      },
+      {
+        "expected": 10.0,
+        "id": "sum-large-uniform",
+        "input": {
+          "values": [
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
+          ]
+        },
+        "operation": "sum"
+      },
+      {
+        "expected": 2e-10,
+        "id": "sum-mixed-magnitude",
+        "input": {
+          "values": [1e-10, 10000000000.0, 1e-10, -10000000000.0]
+        },
+        "operation": "sum"
+      }
+    ]
+  }
+}

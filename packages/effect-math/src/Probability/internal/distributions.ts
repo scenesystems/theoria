@@ -55,8 +55,8 @@ export const standardNormalCdf = (x: number): number => {
   const a5 = 1.061405429
   const p = 0.3275911
   const sign = N.sign(x)
-  const absX = Math.abs(x)
-  const t = N.unsafeDivide(1, N.sum(1, N.multiply(p, absX)))
+  const z = N.unsafeDivide(Math.abs(x), Math.SQRT2)
+  const t = N.unsafeDivide(1, N.sum(1, N.multiply(p, z)))
   const t2 = N.multiply(t, t)
   const t3 = N.multiply(t2, t)
   const t4 = N.multiply(t3, t)
@@ -71,7 +71,7 @@ export const standardNormalCdf = (x: number): number => {
       )
     )
   )
-  const y = N.subtract(1, N.multiply(poly, Math.exp(N.multiply(N.negate(absX), absX))))
+  const y = N.subtract(1, N.multiply(poly, Math.exp(N.negate(N.multiply(z, z)))))
   return N.multiply(0.5, N.sum(1, N.multiply(sign, y)))
 }
 
