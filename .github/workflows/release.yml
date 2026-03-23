@@ -9,7 +9,8 @@ concurrency:
   # Releases must not be interrupted
   cancel-in-progress: false
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   release:
