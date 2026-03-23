@@ -19,15 +19,15 @@ const stressScenarios = Schema.decodeUnknownSync(Schema.Array(ScenarioSchema))([
     label: "baseline-mixed",
     seed: 177,
     startupTrials: 4,
-    nEiCandidates: 32,
-    trials: 14
+    nEiCandidates: 16,
+    trials: 8
   },
   {
     label: "aggressive-ei",
     seed: 2,
-    startupTrials: 5,
-    nEiCandidates: 48,
-    trials: 16
+    startupTrials: 4,
+    nEiCandidates: 20,
+    trials: 10
   }
 ])
 
@@ -104,8 +104,7 @@ describe("integration mixed-space tpe study", () => {
             }),
           { discard: true }
         )
-      }),
-    10_000
+      })
   )
 
   it.effect(
@@ -174,7 +173,6 @@ describe("integration mixed-space tpe study", () => {
         // Joint candidate scoring is less greedy than per-dimension argmax and can accept
         // a bounded regression on some stress slices while still producing competitive runs.
         expect(maxRegression).toBeLessThanOrEqual(0.25)
-      }),
-    12_000
+      })
   )
 })

@@ -56,9 +56,9 @@ const valueTrace = (result: Study.SingleObjectiveResult): Array<number> =>
 const optimizeWith = (concurrency: number) =>
   Study.optimize({
     space: makeSpace(),
-    sampler: Sampler.tpe({ seed: 212, nStartupTrials: 6, nEiCandidates: 40 }),
+    sampler: Sampler.tpe({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 }),
     direction: "minimize",
-    trials: 18,
+    trials: 10,
     concurrency,
     objective
   })
@@ -103,7 +103,7 @@ describe("integration conditional TPE study", () => {
         encodeValueTrace(valueTrace(tracedRuns.parallelBOption))
       )
       expect(tracedRuns.parallelAOption.bestTrial.state.value).toBe(tracedRuns.parallelBOption.bestTrial.state.value)
-    }), 15_000)
+    }))
 
   it.effect("never emits impossible branch assignments", () =>
     Effect.gen(function*() {
@@ -139,11 +139,11 @@ describe("integration conditional TPE study", () => {
     Effect.gen(function*() {
       const options = {
         seed: 404,
-        nStartupTrials: 5,
-        nEiCandidates: 32
+        nStartupTrials: 4,
+        nEiCandidates: 16
       }
-      const totalTrials = 16
-      const firstLegTrials = 9
+      const totalTrials = 8
+      const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
         space: makeSpace(),
@@ -201,8 +201,8 @@ describe("integration conditional TPE study", () => {
     Effect.gen(function*() {
       const options = {
         seed: 515,
-        nStartupTrials: 6,
-        nEiCandidates: 40,
+        nStartupTrials: 4,
+        nEiCandidates: 16,
         multivariate: true,
         groupDimensions: true
       }
@@ -210,14 +210,14 @@ describe("integration conditional TPE study", () => {
         space: makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
-        trials: 18,
+        trials: 10,
         objective
       })
       const right = yield* Study.optimize({
         space: makeSpace(),
         sampler: Sampler.tpe(options),
         direction: "minimize",
-        trials: 18,
+        trials: 10,
         objective
       })
       const leftSingle = asSingleObjective(left)

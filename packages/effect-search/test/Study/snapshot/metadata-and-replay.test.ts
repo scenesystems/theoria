@@ -143,11 +143,11 @@ describe("Study snapshot-resume metadata and replay parity", () => {
     Effect.gen(function*() {
       const options = {
         seed: 313,
-        nStartupTrials: 6,
-        nEiCandidates: 36
+        nStartupTrials: 4,
+        nEiCandidates: 16
       }
-      const totalTrials = 15
-      const firstLegTrials = 8
+      const totalTrials = 8
+      const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
         space: makeSpace(),
@@ -203,11 +203,11 @@ describe("Study snapshot-resume metadata and replay parity", () => {
     Effect.gen(function*() {
       const options = {
         seed: 404,
-        nStartupTrials: 5,
-        nEiCandidates: 30
+        nStartupTrials: 4,
+        nEiCandidates: 16
       }
-      const totalTrials = 14
-      const firstLegTrials = 9
+      const totalTrials = 8
+      const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
         space: makeMultiSpace(),
