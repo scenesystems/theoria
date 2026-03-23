@@ -10,3 +10,7 @@
  *
  * @internal
  */
+
+import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from "@noble/hashes/utils.js"
+
+export { bytesToHex, concatBytes, hexToBytes, utf8ToBytes }

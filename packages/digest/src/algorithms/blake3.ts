@@ -6,63 +6,82 @@
  * Wraps `@noble/hashes/blake3.js` — audited, zero-dependency, 879K
  * ops/sec for 32B inputs.
  *
- * BLAKE3 provides three distinct operational modes via the Noble API:
- *
- * ### Default hash — `blake3Hash(input)`
- *
- * Standard content hashing. Input must be `Uint8Array`. Output is
- * 32 bytes (`Uint8Array`). Noble call: `blake3(input)`.
- *
- * ### Keyed MAC — `blake3Mac(key, message)`
- *
- * Message authentication without HMAC overhead. Key must be exactly
- * 32 bytes. Output is 32 bytes. Faster than HMAC-SHA256 because
- * BLAKE3 integrates the key natively rather than double-hashing.
- * Noble call: `blake3(message, { key })`.
- *
- * Use for internal integrity checks where the protocol is
- * BLAKE3-native. For webhook verification or external protocol
- * interop, use {@link hmacSha256} instead.
- *
- * ### Derive key — `blake3DeriveKey(context, input, dkLen?)`
- *
- * Domain-separated key derivation using BLAKE3's native KDF mode.
- * The `context` parameter is a hardcoded ASCII string identifying
- * the application domain (e.g., `"effect-search/cache-key"`). The
- * optional `dkLen` parameter controls output length (default 32
- * bytes, max 2^64). Noble call: `blake3(input, { context })` or
- * `blake3(input, { context, dkLen })`.
- *
- * This mode architecturally replaces manual salt concatenation
- * (`salt + ":" + input`). BLAKE3 derive_key guarantees proper
- * domain separation without collision risk from string
- * concatenation, and different context strings are guaranteed to
- * produce independent output even for identical inputs.
+ * Every operation returns `Effect<Uint8Array>` — errors are typed in
+ * the channel where validation is required (e.g. `InvalidKeyLength`
+ * for keyed MAC mode).
  *
  * @example
  * ```ts
  * import { blake3Hash, blake3Mac, blake3DeriveKey } from "@scenesystems/digest"
- * import { utf8ToBytes } from "@noble/hashes/utils.js"
+ * import { Effect } from "effect"
  *
- * // Default hash
- * const hash: Uint8Array = blake3Hash(utf8ToBytes("hello"))
- *
- * // Keyed MAC (key must be exactly 32 bytes)
- * const mac: Uint8Array = blake3Mac(key32, utf8ToBytes("message"))
- *
- * // Domain-separated KDF
- * const derived: Uint8Array = blake3DeriveKey(
- *   "effect-search/cache-key",
- *   utf8ToBytes(canonicalJson)
- * )
+ * const program = Effect.gen(function* () {
+ *   const hash = yield* blake3Hash(new Uint8Array([1, 2, 3]))
+ *   const mac = yield* blake3Mac(key32, message)
+ *   const derived = yield* blake3DeriveKey("my-app/cache", input)
+ * })
  * ```
  *
  * @see {@link hmacSha256} — HMAC-based MAC for external protocol compatibility
- * @see {@link hkdfSha256} — HMAC-based KDF for X25519 key agreement output
  * @see {@link sha256} — secondary algorithm for FIPS compatibility
- * @see {@link digest} — unified pipeline composing canonicalization + hashing + encoding
  * @see {@link toBase64Url} — encode output bytes to base64url
  *
  * @since 0.1.0
  * @category algorithms
  */
+
+import { blake3 } from "@noble/hashes/blake3.js"
+import { utf8ToBytes } from "@noble/hashes/utils.js"
+import { Effect, Option } from "effect"
+import { InvalidKeyLength } from "../schemas/errors.js"
+
+/**
+ * Hash `input` bytes using BLAKE3 default mode.
+ *
+ * Pure deterministic operation — no error channel.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const blake3Hash = (input: Uint8Array): Effect.Effect<Uint8Array> => Effect.sync(() => blake3(input))
+
+/**
+ * Compute BLAKE3 keyed MAC of `message` using `key`.
+ *
+ * Fails with `InvalidKeyLength` when key is not exactly 32 bytes.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const blake3Mac = (
+  key: Uint8Array,
+  message: Uint8Array
+): Effect.Effect<Uint8Array, InvalidKeyLength> =>
+  key.length !== 32
+    ? new InvalidKeyLength({ expected: 32, actual: key.length })
+    : Effect.sync(() => blake3(message, { key }))
+
+/**
+ * Derive a key from `input` using BLAKE3 KDF mode with `context`
+ * domain separation.
+ *
+ * Context must be a hardcoded ASCII string — it is UTF-8 encoded
+ * internally before passing to Noble. When `dkLen` is `Option.some`,
+ * the output length is set to that value; otherwise Noble defaults
+ * to 32 bytes.
+ *
+ * @since 0.1.0
+ * @category algorithms
+ */
+export const blake3DeriveKey = (
+  context: string,
+  input: Uint8Array,
+  dkLen: Option.Option<number> = Option.none()
+): Effect.Effect<Uint8Array> =>
+  Effect.sync(() => {
+    const ctx = utf8ToBytes(context)
+    return Option.match(dkLen, {
+      onNone: () => blake3(input, { context: ctx }),
+      onSome: (len) => blake3(input, { context: ctx, dkLen: len })
+    })
+  })
