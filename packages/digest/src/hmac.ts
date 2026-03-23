@@ -35,3 +35,37 @@
  * @since 0.1.0
  * @category authentication
  */
+
+import { hmac } from "@noble/hashes/hmac.js"
+import { sha1 } from "@noble/hashes/legacy.js"
+import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
+import { Effect } from "effect"
+
+/**
+ * Compute HMAC-SHA256 of `message` using `key`.
+ *
+ * Key length is flexible per RFC 2104 — short keys are zero-padded
+ * to block size, long keys are hashed to block size internally.
+ *
+ * @since 0.1.0
+ * @category authentication
+ */
+export const hmacSha256 = (
+  key: Uint8Array,
+  message: Uint8Array
+): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(nobleSha256, key, message))
+
+/**
+ * Compute HMAC-SHA1 of `message` using `key`.
+ *
+ * Legacy compatibility only — use {@link hmacSha256} for new
+ * integrations. Required by older webhook providers (Shopify,
+ * legacy GitHub endpoints).
+ *
+ * @since 0.1.0
+ * @category authentication
+ */
+export const hmacSha1 = (
+  key: Uint8Array,
+  message: Uint8Array
+): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(sha1, key, message))
