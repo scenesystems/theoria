@@ -28,4 +28,34 @@ describe("shared domain ownership contracts", () => {
       expect(decoded.Geometry.note.includes("first-wave stable")).toStrictEqual(true)
       expect(decoded.Numeric.note.includes("tolerance")).toStrictEqual(true)
     }))
+
+  it("enforces Probability/Statistics ownership boundary — Statistics never owns distribution or measure-space contracts", () => {
+    const probabilityExclusiveOwnership = [
+      "distribution contracts",
+      "measure-space primitives",
+      "random variable semantics",
+      "stochastic process contracts"
+    ]
+
+    probabilityExclusiveOwnership.forEach((concept) => {
+      expect(InitialDomainOwnershipMatrix.Probability.owns).toContain(concept)
+      expect(InitialDomainOwnershipMatrix.Statistics.owns).not.toContain(concept)
+    })
+  })
+
+  it("freezes the v1 domain set — nine domains with no additions or removals", () => {
+    const frozenV1Domains = [
+      "Algebra",
+      "Calculus",
+      "Geometry",
+      "LinearAlgebra",
+      "Numeric",
+      "Optimization",
+      "Probability",
+      "Special",
+      "Statistics"
+    ]
+
+    expect(EffectRecord.keys(InitialDomainOwnershipMatrix).sort()).toStrictEqual(frozenV1Domains)
+  })
 })

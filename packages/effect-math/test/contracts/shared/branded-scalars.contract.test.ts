@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number, Schema } from "effect"
+import { Effect, Match, Number, Record as EffectRecord, Schema } from "effect"
 import * as SchemaAST from "effect/SchemaAST"
 
 import {
@@ -12,6 +12,7 @@ import {
   Seed,
   StepSize
 } from "../../../src/contracts/shared/BrandedScalars.js"
+import * as BrandedScalars from "../../../src/contracts/shared/BrandedScalars.js"
 
 describe("shared branded scalar contracts", () => {
   it("declares the canonical brand identifier for each scalar contract", () => {
@@ -101,4 +102,18 @@ describe("shared branded scalar contracts", () => {
         )
       ).toStrictEqual(true)
     }))
+
+  it("freezes the v1 branded scalar vocabulary", () => {
+    const frozenV1 = [
+      "AbsoluteTolerance",
+      "Axis",
+      "ConditioningThreshold",
+      "Dimension",
+      "IterationBudget",
+      "RelativeTolerance",
+      "Seed",
+      "StepSize"
+    ]
+    expect(EffectRecord.keys({ ...BrandedScalars }).sort()).toStrictEqual(frozenV1)
+  })
 })
