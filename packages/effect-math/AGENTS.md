@@ -40,12 +40,12 @@ Nine domains, each with the same file structure:
 | ------------- | ------------ | ----------------------------------------------------- |
 | Numeric       | provisional  | Scalar transforms, safe division, transcendentals     |
 | LinearAlgebra | provisional  | Dense vector/matrix ops over Chunk carriers           |
-| Geometry      | **stable**   | Metric distances, midpoint, centroid                  |
+| Geometry      | provisional  | Metric distances, midpoint, centroid                  |
 | Probability   | provisional  | Normal/uniform PDF/CDF, Shannon entropy               |
 | Statistics    | provisional  | Mean, variance, stddev, covariance, SummaryStatistics |
 | Algebra       | experimental | Scaffolded                                            |
 | Calculus      | experimental | Scaffolded                                            |
-| Special       | experimental | Scaffolded                                            |
+| Special       | provisional  | Gamma, lnGamma, beta, erf/erfc, digamma               |
 | Optimization  | experimental | Scaffolded                                            |
 
 Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.

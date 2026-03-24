@@ -15,10 +15,16 @@ Nine mathematical domains with uniform module structure — each domain exposes 
 - **Geometry** — Euclidean, Manhattan, and Chebyshev distance metrics, midpoint computation, and centroid calculation
 - **Probability** — normal and uniform PDF/CDF, standard normal distribution, and Shannon entropy
 - **Statistics** — mean, variance, standard deviation, and covariance estimators
-- **Algebra** — domain scaffold for semigroup/monoid laws (provisional)
-- **Calculus** — domain scaffold for differentiation/integration (provisional)
-- **Special** — domain scaffold for special functions (provisional)
-- **Optimization** — domain scaffold for convergence and Pareto contracts (provisional)
+- **Special** — gamma (Lanczos g=7), log-gamma, beta, erf/erfc (A&S 7.1.26), and digamma (asymptotic + recurrence)
+- **Algebra** — domain scaffold for algebraic structures (experimental)
+- **Calculus** — domain scaffold for differentiation/integration (experimental)
+- **Optimization** — domain scaffold for convergence and Pareto contracts (experimental)
+
+All six implemented domains follow the three-tier operation pattern:
+
+1. **Pure kernels** — synchronous functions with no Effect overhead
+2. **`*Validated` boundary operations** — Schema decode with `onExcessProperty: "error"` and typed errors
+3. **`*WithPolicies` context-aware operations** — read `PrecisionPolicyService`/`DiagnosticsPolicyService` via `Context.Tag`
 
 ### Branded scalar vocabulary
 
@@ -40,20 +46,26 @@ Eight nominal numeric types enforcing semantic constraints at the type level:
 
 ### Boundary contracts
 
-- **Strict public decode** — `onExcessProperty: "error"` for all stable boundary entrypoints
+- **Strict public decode** — `onExcessProperty: "error"` for all boundary entrypoints
 - **Schema-validated operations** — every pure kernel has a `*Validated` counterpart using `Schema.decodeUnknown` for external input
-- **Typed error taxonomy** — `DomainNotLoadedError`, `BoundaryDecodeError`, `EmptyInputError`, `DimensionMismatchError`, `NegativeValueError`, `DivisionByZeroError` per domain
+- **Typed error taxonomy** — per-domain `DecodeError`, `DomainViolationError`, `ShapeError`, `ParameterError` with `Schema.TaggedError`
+
+### SciPy fixture parity
+
+- **Six domain fixture generators** — Python generators producing golden reference values from SciPy/NumPy
+- **152 fixture cases** across Numeric, LinearAlgebra, Geometry, Probability, Statistics, and Special
+- **Fixture-parity tests** — registry-loaded, Schema-decoded, `Match.exhaustive`-dispatched
 
 ### Cross-domain contracts
 
 - **Domain ownership matrix** — codified Probability/Statistics ownership boundary preventing duplicate distribution contracts
-- **Domain stability tiers** — `stable`, `provisional`, `experimental` with explicit promotion criteria
-- **Backend/precision matrix** — fixture-backed compatibility evidence for stable boundary claims
+- **All implemented domains provisional** — no stable tier claims until post-release stabilization
+- **Backend/precision matrix** — fixture-backed compatibility evidence for boundary claims
 
 ### Governance
 
-- **Tree-shakeable subpath exports** — `effect-math/Numeric`, `effect-math/Probability`, etc. with `internal/*` blocked
-- **SciPy fixture parity** — golden numerical fixtures verified against SciPy reference implementations
-- **240 LOC cap** — enforced per source file
+- **Tree-shakeable subpath exports** — `effect-math/Numeric`, `effect-math/Special`, etc. with `internal/*` blocked
+- **274 tests across 40 suites** — all five gates pass (check, check:tests, lint, test, build)
+- **6 runnable examples** — one per implemented domain using `BunRuntime.runMain` and subpath imports
 
 Built entirely on [Effect](https://effect.website) with Schema-driven type inference, typed error channels, and `Context.Tag` service composition throughout.

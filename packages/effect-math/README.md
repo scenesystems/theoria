@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, and statistics — with typed errors, immutable carriers, and configurable runtime policies.
+Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
 
 [Quick start](#quick-start) · [Domains](#domains) · [Runtime policies](#runtime-policies) · [Error handling](#error-handling) · [API at a glance](#api-at-a-glance)
 
@@ -40,6 +40,7 @@ import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
 import { euclideanDistance } from "effect-math/Geometry"
 import { mean, variance } from "effect-math/Statistics"
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
+import { gamma, erf, beta } from "effect-math/Special"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
@@ -55,6 +56,11 @@ variance(Chunk.fromIterable([2, 4, 6])) // 4
 
 normalPdf(0, 0, 1) // ≈ 0.3989
 standardNormalCdf(0) // 0.5
+
+gamma(5) // 24 (= 4!)
+gamma(0.5) // √π ≈ 1.7725
+erf(1) // ≈ 0.8427
+beta(0.5, 0.5) // π
 ```
 
 When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
@@ -92,9 +98,9 @@ Each domain is a self-contained subpath export with its own schemas, typed error
 | **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid |
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                     |
 | **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance                  |
+| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)            |
 | Algebra           | `effect-math/Algebra`       | Planned — algebraic structures                                  |
 | Calculus          | `effect-math/Calculus`      | Planned — differentiation and integration                       |
-| Special           | `effect-math/Special`       | Planned — special mathematical functions                        |
 | Optimization      | `effect-math/Optimization`  | Planned — numerical optimization                                |
 
 Internal modules are blocked from import via the package `exports` map.
@@ -141,6 +147,7 @@ const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
 |               | `GeometryDegenerateError`    | Degenerate geometric configuration         |
 | Probability   | `ProbabilityParameterError`  | Invalid distribution parameters            |
 | Statistics    | `StatisticsShapeError`       | Too few observations for the estimator     |
+| Special       | `SpecialParameterError`      | Invalid parameters (e.g., gamma at poles)  |
 
 Each domain also defines a `DomainViolationError` raised under `"strict"` precision when an operation produces a non-finite result.
 
@@ -153,6 +160,7 @@ import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } fro
 import { mean, variance, standardDeviation, covariance } from "effect-math/Statistics"
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
 import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
+import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
 
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
@@ -160,6 +168,7 @@ import { distanceWithPolicies } from "effect-math/Geometry"
 import { summaryStatisticsWithPolicies } from "effect-math/Statistics"
 import { normalPdfWithPolicies } from "effect-math/Probability"
 import { sumWithPolicies } from "effect-math/Numeric"
+import { gammaWithPolicies, erfWithPolicies } from "effect-math/Special"
 
 // Runtime policy services and layer constructors
 import {
@@ -173,11 +182,10 @@ import {
 
 ## Status
 
-| Tier             | Domains                                         | Meaning                                      |
-| ---------------- | ----------------------------------------------- | -------------------------------------------- |
-| **Stable**       | Geometry                                        | API is fixed; breaking changes follow semver |
-| **Provisional**  | Numeric, LinearAlgebra, Probability, Statistics | Functional and tested, may evolve            |
-| **Experimental** | Algebra, Calculus, Special, Optimization        | Scaffolded — not yet implemented             |
+| Tier             | Domains                                                            | Meaning                           |
+| ---------------- | ------------------------------------------------------------------ | --------------------------------- |
+| **Provisional**  | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special | Functional and tested, may evolve |
+| **Experimental** | Algebra, Calculus, Optimization                                    | Scaffolded — not yet implemented  |
 
 ## Contributing
 
@@ -185,7 +193,7 @@ See the [repository](https://github.com/scenesystems/theoria) for contribution g
 
 ```sh
 bun run check    # Type check
-bun run test     # 222 tests across 24 suites
+bun run test     # 274 tests across 40 suites
 bun run lint     # ESLint with Effect rules
 bun run build    # ESM + CJS + annotate-pure-calls
 ```
