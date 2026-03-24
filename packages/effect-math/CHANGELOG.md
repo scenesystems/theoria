@@ -1,5 +1,11 @@
 # effect-math
 
+## 0.1.2
+
+### Patch Changes
+
+- [#9](https://github.com/scenesystems/theoria/pull/9) [`575eee5`](https://github.com/scenesystems/theoria/commit/575eee520879202d8b3c314a1e4bc63a545c08a7) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - fix: replace workspace:\* with workspace:^ so changesets resolves real version ranges on publish
+
 ## 0.1.1
 
 ### Patch Changes
