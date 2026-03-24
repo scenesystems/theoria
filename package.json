@@ -20,7 +20,7 @@
     "test:watch": "vitest",
     "lint": "eslint --max-warnings=0",
     "lint:fix": "eslint --max-warnings=0 --fix",
-    "build": "tsc -b tsconfig.build.json && bun run --filter '*' build",
+    "build": "tsc -b tsconfig.build.json && bun run --filter '*' build && bun run scripts/resolve-workspace-deps.ts",
     "clean": "rm -rf packages/*/build packages/*/dist packages/*/.tsbuildinfo *.tsbuildinfo",
     "docgen": "bun run --filter '*' docgen",
     "docs": "bun run docgen && node scripts/docs.mjs",
