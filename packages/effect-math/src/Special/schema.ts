@@ -1,5 +1,6 @@
 /**
- * Special-functions schema authority — domain model and boundary codec contracts.
+ * Special-functions schema authority — domain model and operation input
+ * contracts.
  *
  * @since 0.1.0
  * @category schemas
@@ -9,8 +10,12 @@ import { Effect, Schema } from "effect"
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
+// ---------------------------------------------------------------------------
+// Domain model
+// ---------------------------------------------------------------------------
+
 /**
- * Special schema authority scaffold.
+ * Special-functions domain model schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +26,16 @@ export const SpecialDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical special-functions domain model.
+ * Special schema-derived type.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type SpecialDomain = typeof SpecialDomainSchema.Type
+
+/**
+ * Decodes unknown boundary input into the canonical special-functions
+ * domain model.
  *
  * @since 0.1.0
  * @category schemas
@@ -42,7 +56,8 @@ export const decodeSpecialDomain = (input: unknown) =>
   )
 
 /**
- * Encodes the canonical special-functions domain model at the package boundary.
+ * Encodes the canonical special-functions domain model at the package
+ * boundary.
  *
  * @since 0.1.0
  * @category schemas
@@ -68,10 +83,60 @@ export const encodeSpecialDomain = (domain: SpecialDomain) =>
  */
 export type SpecialSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
+// ---------------------------------------------------------------------------
+// Operation input schemas
+// ---------------------------------------------------------------------------
+
 /**
- * Special schema-derived type.
+ * Gamma function input — any finite number (reflection formula handles
+ * x < 0.5; poles at non-positive integers produce Infinity).
  *
  * @since 0.1.0
- * @category models
+ * @category schemas
  */
-export type SpecialDomain = typeof SpecialDomainSchema.Type
+export const GammaInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite())
+}).annotations({ identifier: "GammaInput" })
+
+/**
+ * Log-gamma input — strictly positive finite scalar (lnΓ is undefined
+ * for x ≤ 0).
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LnGammaInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+}).annotations({ identifier: "LnGammaInput" })
+
+/**
+ * Beta function input — two strictly positive finite scalars.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const BetaInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  b: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+}).annotations({ identifier: "BetaInput" })
+
+/**
+ * Error function input — any finite scalar.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const ErfInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite())
+}).annotations({ identifier: "ErfInput" })
+
+/**
+ * Digamma input — strictly positive finite scalar (ψ is undefined for
+ * x ≤ 0 in this implementation).
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const DigammaInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+}).annotations({ identifier: "DigammaInput" })
