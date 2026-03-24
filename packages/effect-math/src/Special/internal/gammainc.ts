@@ -49,8 +49,8 @@ const gammaincSeries = (a: number, x: number): number => {
 /**
  * Tail-recursive modified Lentz CF for Q(a,x).
  *
- * Uses the Legendre CF representation of Γ(a,x) following
- * Numerical Recipes §6.2 (gcf).
+ * Uses the Legendre CF representation of Γ(a,x)
+ * (Gautschi, 1979; Lentz, 1976).
  *
  * CF: b₀ = x+1−a, a_n = n(a−n), b_n = x+1+2n−a
  *

@@ -21,9 +21,7 @@
     "probability",
     "optimization",
     "mathematics",
-    "scientific-computing",
-    "pareto",
-    "kde"
+    "scientific-computing"
   ],
   "publishConfig": {
     "access": "public",

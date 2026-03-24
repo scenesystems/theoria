@@ -1,7 +1,7 @@
 /**
  * Lanczos approximation for the gamma function and its logarithm.
  *
- * Uses g = 7 with 9 coefficients from Numerical Recipes (3rd ed., §6.1).
+ * Uses g = 7 with 9 coefficients (Godfrey, 2001; GNU Scientific Library).
  * Reflection formula Γ(x)·Γ(1−x) = π/sin(πx) handles x < 0.5.
  * `Math.sqrt`, `Math.exp`, `Math.log`, `Math.sin`, `Math.PI` are
  * deterministic IEEE 754 leaf operations used here as mathematical
