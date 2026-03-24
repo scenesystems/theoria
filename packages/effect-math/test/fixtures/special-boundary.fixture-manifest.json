@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "algorithm": "blake3-256",
+  "fixtures": [
+    {
+      "name": "special-gamma-stable",
+      "path": "test/fixtures/special-boundary.fixture.json",
+      "hash": "blake3-256:PENDING_RECOMPUTE_special"
+    }
+  ]
+}

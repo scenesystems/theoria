@@ -1,0 +1,10 @@
+{
+  "name": "algebra-poly-eval-stable",
+  "input": {
+    "coefficients": [1, -2, 1],
+    "x": 3
+  },
+  "expected": {
+    "result": 4
+  }
+}

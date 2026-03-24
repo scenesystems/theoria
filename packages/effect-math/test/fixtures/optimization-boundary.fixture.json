@@ -1,0 +1,11 @@
+{
+  "name": "optimization-bisect-stable",
+  "input": {
+    "function": "x_squared_minus_2",
+    "a": 0,
+    "b": 2
+  },
+  "expected": {
+    "result": 1.4142135623730951
+  }
+}
