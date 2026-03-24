@@ -1,3 +1,8 @@
+/**
+ * Finite dimension extraction — converts search space parameters into discrete value sets for grid enumeration.
+ *
+ * @since 0.1.0
+ */
 import { Effect, Match, Number as Num } from "effect"
 
 import type { Distribution, PrimitiveChoice } from "../../contracts/Distribution.js"
@@ -53,6 +58,7 @@ const finiteDimensionFromParameter = (
     }))
   )
 
+/** @since 0.1.0 */
 export const finiteDimensionsFromSpace = (
   space: SearchSpace.SearchSpace
 ): Effect.Effect<Array<FiniteDimension>, GridIncompatible> => Effect.forEach(space.params, finiteDimensionFromParameter)

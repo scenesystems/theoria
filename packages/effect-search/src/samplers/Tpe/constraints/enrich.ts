@@ -1,3 +1,8 @@
+/**
+ * Constraint enrichment — evaluates constraint functions on completed trials missing constraint scores.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Option } from "effect"
 
 import { SuggestCompletedTrial } from "../../../Sampler/index.js"
@@ -54,6 +59,7 @@ const evaluateConstraintsForTrial = (
     })
   )
 
+/** @since 0.1.0 */
 export const enrichCompletedTrialsWithConstraints = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   constraints: ReadonlyArray<TpeConstraintEvaluator>

@@ -1,3 +1,8 @@
+/**
+ * TPE grouped mixed suggestion — sequential group-wise joint sampling with config merging.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -10,8 +15,17 @@ import { activeGroupParameters, orderedGroups } from "./groupedMixed/groups.js"
 import { GroupedMixedSettings } from "./groupedMixed/model.js"
 import { mergeConfigs, suggestGroup } from "./groupedMixed/scoring.js"
 
-export { GroupedMixedSettings }
+export {
+  /**
+   * Feature flags controlling multivariate and group-dimensions behavior.
+   *
+   * @since 0.1.0
+   * @category models
+   */
+  GroupedMixedSettings
+}
 
+/** @since 0.1.0 */
 export const suggestGroupedMixedJoint = (
   rng: Rng.Rng,
   nCandidates: number,

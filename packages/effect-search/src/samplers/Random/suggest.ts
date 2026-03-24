@@ -1,3 +1,8 @@
+/**
+ * Random sampler suggestion — produces a full configuration from per-trial RNG.
+ *
+ * @since 0.1.0
+ */
 import { Effect } from "effect"
 
 import type { SearchError } from "../../Errors/index.js"
@@ -7,6 +12,7 @@ import type * as SearchSpace from "../../SearchSpace/index.js"
 import { configObject } from "./config.js"
 import { sampleParameters } from "./parameters.js"
 
+/** @since 0.1.0 */
 export const suggest = (
   seed: number,
   space: SearchSpace.SearchSpace,

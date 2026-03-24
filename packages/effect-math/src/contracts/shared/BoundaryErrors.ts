@@ -1,3 +1,9 @@
+/**
+ * Shared boundary error types for domain contract edges.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
 import { Schema } from "effect"
 
 /**

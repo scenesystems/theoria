@@ -1,3 +1,8 @@
+/**
+ * Grid sampler — exhaustive enumeration of finite search spaces.
+ *
+ * @since 0.1.0
+ */
 import { Effect, Match, Option } from "effect"
 
 import { InvalidStudyConfig } from "../Errors/index.js"
@@ -39,6 +44,7 @@ const restoreCheckpoint = (
     )
   )
 
+/** @since 0.1.0 */
 export const make = (
   options: Sampler.GridOptions = {},
   pendingImputationPolicy: PendingImputationPolicy

@@ -84,9 +84,9 @@ export const covariance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => num
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { meanValidated } from "effect-math"
+ * import { Statistics } from "effect-math"
  *
- * const program = meanValidated({ values: [2, 4, 6] })
+ * const program = Statistics.meanValidated({ values: [2, 4, 6] })
  * // Effect succeeds with 4
  * ```
  *
@@ -119,9 +119,9 @@ export const meanValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { varianceValidated } from "effect-math"
+ * import { Statistics } from "effect-math"
  *
- * const program = varianceValidated({ values: [2, 4, 6] })
+ * const program = Statistics.varianceValidated({ values: [2, 4, 6] })
  * // Effect succeeds with 4
  * ```
  *
@@ -166,9 +166,9 @@ export const varianceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { summaryStatisticsValidated } from "effect-math"
+ * import { Statistics } from "effect-math"
  *
- * const program = summaryStatisticsValidated({ values: [2, 4, 6, 8] })
+ * const program = Statistics.summaryStatisticsValidated({ values: [2, 4, 6, 8] })
  * ```
  *
  * @see {@link summaryStatisticsWithPolicies} for policy-aware variant
@@ -226,9 +226,9 @@ export const summaryStatisticsValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { covarianceValidated } from "effect-math"
+ * import { Statistics } from "effect-math"
  *
- * const program = covarianceValidated({ a: [1, 2, 3], b: [4, 5, 6] })
+ * const program = Statistics.covarianceValidated({ a: [1, 2, 3], b: [4, 5, 6] })
  * // Effect succeeds with 1
  * ```
  *
@@ -293,14 +293,18 @@ export const covarianceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { summaryStatisticsWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService,
+ *   Statistics
+ * } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = summaryStatisticsWithPolicies(
+ * const program = Statistics.summaryStatisticsWithPolicies(
  *   Chunk.fromIterable([2, 4, 6, 8])
  * ).pipe(Effect.provide(policies))
  * ```

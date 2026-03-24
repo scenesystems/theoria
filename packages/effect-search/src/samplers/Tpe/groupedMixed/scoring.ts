@@ -1,3 +1,8 @@
+/**
+ * TPE grouped scoring — per-group joint candidate generation with optional multivariate trace merging.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -50,6 +55,7 @@ const multivariateTraceForGroup = (
     })
   )
 
+/** @since 0.1.0 */
 export const mergeConfigs = (left: unknown, right: unknown): unknown =>
   Record.fromEntries([
     ...Match.value(left).pipe(
@@ -148,6 +154,7 @@ const groupCandidateAtIndex = (
     })
   })
 
+/** @since 0.1.0 */
 export const suggestGroup = (
   rng: Rng.Rng,
   nCandidates: number,

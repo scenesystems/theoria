@@ -1,3 +1,8 @@
+/**
+ * Multivariate continuous adapters — maps numeric parameters to a model coordinate system and back.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Record, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -6,6 +11,7 @@ import type * as SearchSpace from "../../../SearchSpace/index.js"
 import { expandedBoundsForStep, normalizeFloat } from "../dimensions/float.js"
 import { invalidConfig } from "../options.js"
 
+/** @since 0.1.0 */
 export class ContinuousAdapter extends Data.Class<{
   readonly name: string
   readonly toModel: (value: number) => number
@@ -28,6 +34,7 @@ const modelValueFromConfig = (adapter: ContinuousAdapter, config: SamplerConfig)
     Option.map((value) => adapter.toModel(value))
   )
 
+/** @since 0.1.0 */
 export const adapterForParameter = (
   parameter: SearchSpace.ParameterMetadata
 ): Effect.Effect<ContinuousAdapter, InvalidSamplerConfig> =>
@@ -134,6 +141,7 @@ const modelVectorFromConfig = (
       )
   )
 
+/** @since 0.1.0 */
 export const vectorsFromSplit = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   trials: ReadonlyArray<{ readonly config: SamplerConfig }>
@@ -146,12 +154,14 @@ export const vectorsFromSplit = (
       })
     ))
 
+/** @since 0.1.0 */
 export const configFromCandidate = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   candidateValues: ReadonlyArray<number>
 ): unknown =>
   Record.fromEntries(Arr.map(Arr.zip(adapters, candidateValues), ([adapter, value]) => Tuple.make(adapter.name, value)))
 
+/** @since 0.1.0 */
 export const normalizeModelCandidate = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   modelCandidate: ReadonlyArray<number>,

@@ -1,9 +1,15 @@
+/**
+ * TPE parameter grouping — conditional decomposition and depth-ordered group construction.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Match, Number as Num, Predicate, Record } from "effect"
 
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import * as SearchSpace from "../../../SearchSpace/index.js"
 import type { GroupedMixedSettings } from "./model.js"
 
+/** @since 0.1.0 */
 export class OrderedGroup extends Data.Class<{
   readonly key: string
   readonly names: ReadonlyArray<string>
@@ -33,6 +39,7 @@ const groupDepth = (parameters: ReadonlyArray<SearchSpace.ParameterMetadata>): n
     )
   )
 
+/** @since 0.1.0 */
 export const orderedGroups = (
   space: SearchSpace.SearchSpace,
   settings: GroupedMixedSettings
@@ -57,6 +64,7 @@ export const orderedGroups = (
   )
 }
 
+/** @since 0.1.0 */
 export const activeGroupParameters = (
   space: SearchSpace.SearchSpace,
   group: OrderedGroup,
@@ -75,6 +83,7 @@ const trialContainsAllParameters = (
     ? Arr.every(parameters, (parameter) => Record.has(config, parameter.name))
     : false
 
+/** @since 0.1.0 */
 export const splitForParameters = (
   split: TrialSplit,
   parameters: ReadonlyArray<SearchSpace.ParameterMetadata>
@@ -87,6 +96,7 @@ export const splitForParameters = (
     : split
 }
 
+/** @since 0.1.0 */
 export const isContinuousParameter = (parameter: SearchSpace.ParameterMetadata): boolean =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "float" }, () => true),

@@ -1,3 +1,8 @@
+/**
+ * Acquisition function registry — resolves built-in and custom acquisition strategies for TPE.
+ *
+ * @since 0.1.0
+ */
 import { Match, Option } from "effect"
 
 import { sumLogDensities } from "../../../internal/tpe/expectedImprovement.js"
@@ -14,15 +19,47 @@ import { piAcquisition } from "./pi.js"
 import { thompsonAcquisition } from "./thompson.js"
 
 export {
+  /**
+   * Log-density and cost context passed to acquisition scoring functions.
+   *
+   * @since 0.1.0
+   * @category models
+   */
   type AcquisitionContext,
+  /**
+   * Callable acquisition strategy with a name and scoring function.
+   *
+   * @since 0.1.0
+   * @category models
+   */
   type AcquisitionImplementation,
+  /**
+   * Union of built-in acquisition names and custom implementations.
+   *
+   * @since 0.1.0
+   * @category models
+   */
   type AcquisitionOption,
+  /**
+   * Literal union of built-in acquisition strategy names.
+   *
+   * @since 0.1.0
+   * @category models
+   */
   type BuiltInAcquisitionName,
+  /**
+   * Schema for validating built-in acquisition strategy name literals.
+   *
+   * @since 0.1.0
+   * @category schemas
+   */
   BuiltInAcquisitionNameSchema
 } from "./model.js"
 
+/** @since 0.1.0 */
 export const defaultAcquisitionName: BuiltInAcquisitionName = "ei"
 
+/** @since 0.1.0 */
 export const builtinAcquisitionRegistry: Record<
   BuiltInAcquisitionName,
   AcquisitionImplementation
@@ -38,6 +75,7 @@ const builtinAcquisition = (
   name: BuiltInAcquisitionName
 ): AcquisitionImplementation => builtinAcquisitionRegistry[name]
 
+/** @since 0.1.0 */
 export const resolveAcquisition = (
   acquisition?: AcquisitionOption
 ): AcquisitionImplementation =>
@@ -53,11 +91,13 @@ export const resolveAcquisition = (
     })
   )
 
+/** @since 0.1.0 */
 export const scoreAcquisition = (
   context: AcquisitionContext,
   acquisition?: AcquisitionOption
 ): number => resolveAcquisition(acquisition).score(context)
 
+/** @since 0.1.0 */
 export const scoreJointAcquisition = (
   logLContributions: ReadonlyArray<number>,
   logGContributions: ReadonlyArray<number>,

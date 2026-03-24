@@ -113,9 +113,9 @@ export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = En
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { normalPdfValidated } from "effect-math"
+ * import { Probability } from "effect-math"
  *
- * const program = normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
+ * const program = Probability.normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
  * // Effect succeeds with ≈ 0.3989
  * ```
  *
@@ -148,9 +148,9 @@ export const normalPdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { normalCdfValidated } from "effect-math"
+ * import { Probability } from "effect-math"
  *
- * const program = normalCdfValidated({ x: 0, mu: 0, sigma: 1 })
+ * const program = Probability.normalCdfValidated({ x: 0, mu: 0, sigma: 1 })
  * // Effect succeeds with 0.5
  * ```
  *
@@ -184,9 +184,9 @@ export const normalCdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { uniformPdfValidated } from "effect-math"
+ * import { Probability } from "effect-math"
  *
- * const program = uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
+ * const program = Probability.uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
  * // Effect succeeds with 1
  * ```
  *
@@ -229,9 +229,9 @@ export const uniformPdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { uniformCdfValidated } from "effect-math"
+ * import { Probability } from "effect-math"
  *
- * const program = uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
+ * const program = Probability.uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
  * // Effect succeeds with 0.5
  * ```
  *
@@ -273,9 +273,9 @@ export const uniformCdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { entropyValidated } from "effect-math"
+ * import { Probability } from "effect-math"
  *
- * const program = entropyValidated({ probabilities: [0.5, 0.5] })
+ * const program = Probability.entropyValidated({ probabilities: [0.5, 0.5] })
  * // Effect succeeds with ln(2) ≈ 0.6931
  * ```
  *
@@ -312,14 +312,18 @@ export const entropyValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect, Layer } from "effect"
- * import { normalPdfWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService,
+ *   Probability
+ * } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = normalPdfWithPolicies(0, 0, 1).pipe(Effect.provide(policies))
+ * const program = Probability.normalPdfWithPolicies(0, 0, 1).pipe(Effect.provide(policies))
  * ```
  *
  * @see {@link normalPdf} for the pure kernel (no service requirements)

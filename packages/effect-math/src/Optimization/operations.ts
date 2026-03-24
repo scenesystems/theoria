@@ -1,3 +1,9 @@
+/**
+ * Optimization domain operations.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 import { Effect } from "effect"
 
 import { OptimizationDomainModel } from "./model.js"

@@ -1,3 +1,8 @@
+/**
+ * Random parameter sampling — iterates search space parameters respecting conditional activation.
+ *
+ * @since 0.1.0
+ */
 import { Effect, Match } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -6,6 +11,7 @@ import * as SearchSpace from "../../SearchSpace/index.js"
 import { configObject, type ConfigValues, emptyConfigValues, setConfigValue } from "./config.js"
 import { sampleDistribution } from "./distribution.js"
 
+/** @since 0.1.0 */
 export const sampleParameters = (
   rng: Rng.Rng,
   parameters: ReadonlyArray<SearchSpace.ParameterMetadata>

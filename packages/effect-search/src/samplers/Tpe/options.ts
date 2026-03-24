@@ -1,3 +1,8 @@
+/**
+ * TPE option parsing — default resolution and validation for TPE sampler configuration.
+ *
+ * @since 0.1.0
+ */
 import { Effect, Number as Num, Option } from "effect"
 
 import { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -9,17 +14,21 @@ import { type AcquisitionImplementation, type AcquisitionOption, resolveAcquisit
 const DEFAULT_NOISE_ALPHA = 1
 const MAX_NOISE_ALPHA = 10
 
+/** @since 0.1.0 */
 export type TpeConstraintEvaluator = (config: unknown) => Effect.Effect<number, never, never>
 
+/** @since 0.1.0 */
 export type TpeRuntimeOptions = TpeOptions & {
   readonly constraints?: ReadonlyArray<TpeConstraintEvaluator>
   readonly acquisition?: AcquisitionOption
 }
 
+/** @since 0.1.0 */
 export const acquisitionFromOptions = (
   options: TpeRuntimeOptions
 ): AcquisitionImplementation => resolveAcquisition(options.acquisition)
 
+/** @since 0.1.0 */
 export const constraintEvaluatorsFromOptions = (
   options: TpeRuntimeOptions
 ): ReadonlyArray<TpeConstraintEvaluator> =>
@@ -27,6 +36,7 @@ export const constraintEvaluatorsFromOptions = (
     Option.getOrElse(() => [])
   )
 
+/** @since 0.1.0 */
 export const snapshotSafeOptionsFromRuntime = (
   options: TpeRuntimeOptions
 ): TpeOptions => {
@@ -52,31 +62,39 @@ export const snapshotSafeOptionsFromRuntime = (
   )
 }
 
+/** @since 0.1.0 */
 export const startupTrialsFromOptions = (options: TpeOptions): number =>
   numberOptionOr(Option.fromNullable(options.nStartupTrials), 10)
 
+/** @since 0.1.0 */
 export const candidatesFromOptions = (options: TpeOptions): number =>
   numberOptionOr(Option.fromNullable(options.nEiCandidates), 24)
 
+/** @since 0.1.0 */
 export const seedFromOptions = (options: TpeOptions): number => numberOptionOr(Option.fromNullable(options.seed), 0)
 
+/** @since 0.1.0 */
 export const multivariateFromOptions = (options: TpeOptions): boolean =>
   Option.fromNullable(options.multivariate).pipe(Option.getOrElse(() => false))
 
+/** @since 0.1.0 */
 export const groupDimensionsFromOptions = (options: TpeOptions): boolean =>
   Option.fromNullable(options.groupDimensions).pipe(Option.getOrElse(() => false))
 
+/** @since 0.1.0 */
 export const noiseAwareFromOptions = (options: TpeOptions): boolean =>
   Option.fromNullable(options.noiseAware).pipe(
     Option.getOrElse(() => defaultNoiseBandwidthOptions.noiseAware)
   )
 
+/** @since 0.1.0 */
 export const noiseAlphaFromOptions = (options: TpeOptions): number =>
   numberOptionOr(
     Option.fromNullable(options.noiseAlpha),
     defaultNoiseBandwidthOptions.noiseAlpha || DEFAULT_NOISE_ALPHA
   )
 
+/** @since 0.1.0 */
 export const noiseOptionsFromOptions = (
   options: TpeOptions
 ): NoiseBandwidthOptions =>
@@ -85,12 +103,14 @@ export const noiseOptionsFromOptions = (
     noiseAlpha: noiseAlphaFromOptions(options)
   })
 
+/** @since 0.1.0 */
 export const invalidConfig = (reason: string): InvalidSamplerConfig =>
   new InvalidSamplerConfig({
     reason,
     sampler: "tpe"
   })
 
+/** @since 0.1.0 */
 export const validateOptions = (
   options: TpeOptions
 ): Effect.Effect<void, InvalidSamplerConfig> =>

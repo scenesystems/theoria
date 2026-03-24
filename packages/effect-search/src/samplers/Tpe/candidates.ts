@@ -1,3 +1,8 @@
+/**
+ * TPE candidate selection — argmax-based best-candidate extraction and random roll generation.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -12,6 +17,7 @@ const indices = (count: number): Array<number> =>
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
 
+/** @since 0.1.0 */
 export const chooseBestCandidate = <A>(
   candidates: ReadonlyArray<A>,
   scores: ReadonlyArray<number>,
@@ -27,11 +33,13 @@ export const chooseBestCandidate = <A>(
   )
 }
 
+/** @since 0.1.0 */
 export const drawRolls = (
   rng: Rng.Rng,
   count: number
 ): Effect.Effect<Array<number>> => Effect.forEach(indices(count), () => Rng.nextFloat(rng))
 
+/** @since 0.1.0 */
 export const drawRollPairs = (
   rng: Rng.Rng,
   count: number

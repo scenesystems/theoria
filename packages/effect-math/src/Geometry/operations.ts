@@ -35,9 +35,9 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { euclideanDistance } from "effect-math"
+ * import { Geometry } from "effect-math"
  *
- * euclideanDistance(
+ * Geometry.euclideanDistance(
  *   Chunk.fromIterable([0, 0]),
  *   Chunk.fromIterable([3, 4])
  * ) // 5
@@ -79,10 +79,10 @@ export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { midpoint } from "effect-math"
+ * import { Geometry } from "effect-math"
  *
  * Chunk.toReadonlyArray(
- *   midpoint(
+ *   Geometry.midpoint(
  *     Chunk.fromIterable([0, 0]),
  *     Chunk.fromIterable([4, 6])
  *   )
@@ -112,9 +112,9 @@ export const midpoint: (
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { distanceValidated } from "effect-math"
+ * import { Geometry } from "effect-math"
  *
- * const program = distanceValidated({
+ * const program = Geometry.distanceValidated({
  *   a: [0, 0], b: [3, 4], metric: "euclidean"
  * }).pipe(
  *   Effect.catchTag("GeometryShapeMismatchError", (e) =>
@@ -172,9 +172,9 @@ export const distanceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { midpointValidated } from "effect-math"
+ * import { Geometry } from "effect-math"
  *
- * const program = midpointValidated({ a: [0, 0], b: [4, 6] })
+ * const program = Geometry.midpointValidated({ a: [0, 0], b: [4, 6] })
  * // Effect succeeds with [2, 3]
  * ```
  *
@@ -220,9 +220,9 @@ export const midpointValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { centroidValidated } from "effect-math"
+ * import { Geometry } from "effect-math"
  *
- * const program = centroidValidated({
+ * const program = Geometry.centroidValidated({
  *   points: [[0, 0], [4, 6], [2, 3]]
  * })
  * // Effect succeeds with [2, 3]
@@ -281,14 +281,18 @@ export const centroidValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { distanceWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   Geometry,
+ *   PrecisionPolicyService
+ * } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = distanceWithPolicies(
+ * const program = Geometry.distanceWithPolicies(
  *   Chunk.fromIterable([0, 0]),
  *   Chunk.fromIterable([3, 4]),
  *   "euclidean"

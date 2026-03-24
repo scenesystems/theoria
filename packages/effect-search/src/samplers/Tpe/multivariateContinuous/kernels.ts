@@ -1,7 +1,13 @@
+/**
+ * Multivariate kernel utilities — per-dimension statistics, uniform weights, and roll generation.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
 
 import * as Rng from "../../../internal/rng.js"
 
+/** @since 0.1.0 */
 export class MultivariateCandidateRoll extends Data.Class<{
   readonly componentRoll: number
   readonly valueRolls: ReadonlyArray<number>
@@ -13,6 +19,7 @@ const indices = (count: number): ReadonlyArray<number> =>
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
 
+/** @since 0.1.0 */
 export const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
@@ -38,6 +45,7 @@ const stddev = (values: ReadonlyArray<number>, mean: number): number =>
     })
   )
 
+/** @since 0.1.0 */
 export const statsByDimension = (
   vectors: ReadonlyArray<ReadonlyArray<number>>,
   dimensionCount: number
@@ -51,12 +59,14 @@ export const statsByDimension = (
     }
   })
 
+/** @since 0.1.0 */
 export const uniformWeights = (componentCount: number): ReadonlyArray<number> =>
   Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
   )
 
+/** @since 0.1.0 */
 export const drawMultivariateRolls = (
   rng: Rng.Rng,
   nCandidates: number,

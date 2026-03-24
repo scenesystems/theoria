@@ -113,13 +113,15 @@ export class ArtifactId extends Schema.Class<ArtifactId>("ArtifactId")({
   sequence: Schema.NonNegativeInt
 }) {}
 
-/**
- * Re-export from `@scenesystems/digest` — algorithm-tagged digest pair
- * for content-addressable integrity checks.
- *
- * @see {@link ArtifactLineage} — optional integrity field for content verification
- *
- * @since 0.1.0
- * @category models
- */
-export { ContentDigest } from "@scenesystems/digest"
+export {
+  /**
+   * Re-export from `@scenesystems/digest` — algorithm-tagged digest pair
+   * for content-addressable integrity checks.
+   *
+   * @see {@link ArtifactLineage} — optional integrity field for content verification
+   *
+   * @since 0.1.0
+   * @category models
+   */
+  ContentDigest
+} from "@scenesystems/digest"

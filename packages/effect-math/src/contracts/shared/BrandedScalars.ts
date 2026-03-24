@@ -1,3 +1,9 @@
+/**
+ * Branded scalar schemas for cross-domain numeric constraints.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
 import { Schema } from "effect"
 
 const ScalarFiniteNumber = Schema.Number.pipe(Schema.finite())

@@ -1,3 +1,8 @@
+/**
+ * Random distribution sampling — draws values from categorical, integer, and float distributions.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import type { Distribution } from "../../contracts/Distribution.js"
@@ -138,6 +143,7 @@ const sampleFloat = (
       )
   })
 
+/** @since 0.1.0 */
 export const sampleDistribution = (
   rng: Rng.Rng,
   distribution: Distribution

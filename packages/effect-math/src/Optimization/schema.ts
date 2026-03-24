@@ -1,3 +1,9 @@
+/**
+ * Optimization schema authority — domain model and boundary codec contracts.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
 import { Effect, Schema } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"

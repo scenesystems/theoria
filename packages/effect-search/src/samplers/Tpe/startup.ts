@@ -1,3 +1,8 @@
+/**
+ * TPE startup routing — delegates to random sampling until enough history, then switches to model-driven suggestion.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Equal, HashMap, Match, Number as Num, Option, Record } from "effect"
 
 import type { InvalidSamplerConfig, SearchError } from "../../Errors/index.js"
@@ -150,6 +155,7 @@ const suggestModelDriven = (
       )
   })
 
+/** @since 0.1.0 */
 export const suggestWithStartup = (
   randomSampler: Sampler,
   seed: number,

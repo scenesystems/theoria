@@ -1,3 +1,8 @@
+/**
+ * Grid cursor — index-based lookup into an enumerated grid of configurations.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import { InvalidSamplerConfig, SamplerExhausted } from "../../Errors/index.js"
@@ -16,6 +21,7 @@ const missingConfigError = (): InvalidSamplerConfig =>
     sampler: "grid"
   })
 
+/** @since 0.1.0 */
 export const configAtCursor = (
   configs: ReadonlyArray<GridConfig>,
   nextTrialNumber: number

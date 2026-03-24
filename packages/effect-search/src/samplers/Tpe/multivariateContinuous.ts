@@ -1,3 +1,8 @@
+/**
+ * TPE multivariate continuous — joint Gaussian mixture sampling for correlated numeric dimensions.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -20,8 +25,17 @@ import {
 import { drawMultivariateRolls, statsByDimension, uniformWeights, valueAt } from "./multivariateContinuous/kernels.js"
 import { MultivariateContinuousTrace } from "./multivariateContinuous/model.js"
 
-export { MultivariateContinuousTrace }
+export {
+  /**
+   * Trace record capturing candidate configs, log-densities, and scores for multivariate continuous parameters.
+   *
+   * @since 0.1.0
+   * @category models
+   */
+  MultivariateContinuousTrace
+}
 
+/** @since 0.1.0 */
 export const multivariateContinuousCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

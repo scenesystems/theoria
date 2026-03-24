@@ -1,3 +1,8 @@
+/**
+ * Single-objective trial split — directional value normalization and constraint-aware partitioning.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Match, Option } from "effect"
 
 import type { Direction } from "../../../contracts/Direction.js"
@@ -59,6 +64,7 @@ const asConstraintAwareSplitTrials = (
     )
   )
 
+/** @since 0.1.0 */
 export const splitSingleObjective = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   direction: Direction

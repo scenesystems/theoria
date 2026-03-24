@@ -1,8 +1,14 @@
+/**
+ * Random sampler checkpoint — validates seed consistency on study resume.
+ *
+ * @since 0.1.0
+ */
 import { Effect, Match } from "effect"
 
 import { InvalidStudyConfig } from "../../Errors/index.js"
 import type * as Sampler from "../../Sampler/index.js"
 
+/** @since 0.1.0 */
 export const restoreCheckpoint = (
   seed: number,
   checkpoint: Sampler.SamplerCheckpoint

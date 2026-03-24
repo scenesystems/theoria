@@ -1,3 +1,9 @@
+/**
+ * Statistics domain model instance.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 import { StatisticsDomainContract } from "./contract.js"
 import type { StatisticsDomain } from "./schema.js"
 

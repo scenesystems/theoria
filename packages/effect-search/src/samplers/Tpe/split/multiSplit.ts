@@ -1,3 +1,8 @@
+/**
+ * Multi-objective trial split — Pareto front decomposition with scalarized constraint-aware partitioning.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Number as Num, Option } from "effect"
 
 import type { Direction } from "../../../contracts/Direction.js"
@@ -143,6 +148,7 @@ const splitCount = (size: number, nBelowOverride?: number): number => {
   })
 }
 
+/** @since 0.1.0 */
 export const splitMultiObjective = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   directions: ReadonlyArray<Direction>,

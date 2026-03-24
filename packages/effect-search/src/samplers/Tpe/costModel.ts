@@ -1,3 +1,8 @@
+/**
+ * TPE cost model — similarity-weighted cost estimation for candidate configurations.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Equal, Match, Number as Num, Option, Predicate, Record } from "effect"
 
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
@@ -74,6 +79,7 @@ const primitiveSimilarity = (left: unknown, right: unknown): number =>
     Match.orElse(() => BACKGROUND_SIMILARITY)
   )
 
+/** @since 0.1.0 */
 export const estimateCostForNumericParameter = (
   split: TrialSplit,
   parameterName: string,
@@ -94,6 +100,7 @@ export const estimateCostForNumericParameter = (
   )
 }
 
+/** @since 0.1.0 */
 export const estimateCostForCategoricalParameter = (
   split: TrialSplit,
   parameterName: string,
@@ -128,6 +135,7 @@ const keySimilarity = (
     })
   )
 
+/** @since 0.1.0 */
 export const estimateCostForConfig = (
   split: TrialSplit,
   candidateConfig: unknown
@@ -166,6 +174,7 @@ export const estimateCostForConfig = (
   )
 }
 
+/** @since 0.1.0 */
 export const objectiveVarianceFromSplit = (split: TrialSplit): Option.Option<number> => {
   const variances = Arr.filterMap(
     Arr.appendAll(split.below, split.above),

@@ -1,3 +1,9 @@
+/**
+ * Runtime policy contracts for cross-domain effectful orchestration.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
 import { Context, Effect, Layer, Schema } from "effect"
 
 import { Seed } from "./BrandedScalars.js"

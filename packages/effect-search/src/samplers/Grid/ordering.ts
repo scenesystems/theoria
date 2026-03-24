@@ -1,3 +1,8 @@
+/**
+ * Grid ordering — optional Fisher–Yates shuffle of enumerated grid configurations.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 
 import type { GridConfig } from "../../internal/grid.js"
@@ -39,6 +44,7 @@ const shuffledGridConfigs = (
     return yield* shuffleAtIndex(output, output.length - 1, rng)
   })
 
+/** @since 0.1.0 */
 export const orderGridConfigs = (
   configs: ReadonlyArray<GridConfig>,
   shuffle: boolean,

@@ -1,3 +1,8 @@
+/**
+ * TPE integer dimension — continuous Parzen estimation with integer rounding and step quantization.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Number as Num, Option } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -27,6 +32,7 @@ const normalizeInt = (
     0
   )
 
+/** @since 0.1.0 */
 export const suggestIntParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -47,6 +53,7 @@ export const suggestIntParameter = (
     )
   })
 
+/** @since 0.1.0 */
 export const intCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
@@ -84,6 +91,7 @@ export const intCandidateTraceFromRolls = (
     })
   })
 
+/** @since 0.1.0 */
 export const intCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

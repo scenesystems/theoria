@@ -1,3 +1,8 @@
+/**
+ * Thompson Sampling acquisition — Gumbel-noise perturbation of log-likelihood scores.
+ *
+ * @since 0.1.0
+ */
 import { Option } from "effect"
 
 import * as Float64 from "../../../internal/float64.js"
@@ -18,6 +23,7 @@ const gumbelNoise = (roll: number): number =>
     -Float64.log(clampRoll(roll))
   )
 
+/** @since 0.1.0 */
 export const thompsonScore = (
   logL: number,
   roll: Option.Option<number>,
@@ -31,6 +37,7 @@ export const thompsonScore = (
     estimatedCost
   )
 
+/** @since 0.1.0 */
 export const thompsonAcquisition: AcquisitionImplementation = new AcquisitionImplementation({
   name: "thompson",
   score: ({ logL, estimatedCost, roll }: AcquisitionContext) => thompsonScore(logL, roll, estimatedCost)

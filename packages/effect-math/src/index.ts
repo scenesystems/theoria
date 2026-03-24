@@ -11,55 +11,55 @@
  * @since 0.1.0
  * @category domains
  */
-export * from "./Numeric/index.js"
+export * as Numeric from "./Numeric/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Algebra/index.js"
+export * as Algebra from "./Algebra/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./LinearAlgebra/index.js"
+export * as LinearAlgebra from "./LinearAlgebra/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Calculus/index.js"
+export * as Calculus from "./Calculus/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Special/index.js"
+export * as Special from "./Special/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Probability/index.js"
+export * as Probability from "./Probability/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Statistics/index.js"
+export * as Statistics from "./Statistics/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Optimization/index.js"
+export * as Optimization from "./Optimization/index.js"
 
 /**
  * @since 0.1.0
  * @category domains
  */
-export * from "./Geometry/index.js"
+export * as Geometry from "./Geometry/index.js"
 
 /**
  * @since 0.1.0

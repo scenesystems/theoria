@@ -1,3 +1,9 @@
+/**
+ * Algebra domain operations.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 import { Effect } from "effect"
 
 import { AlgebraDomainModel } from "./model.js"

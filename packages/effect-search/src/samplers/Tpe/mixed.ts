@@ -1,3 +1,8 @@
+/**
+ * TPE mixed-space suggestion — joint candidate scoring across heterogeneous dimension types.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
@@ -15,11 +20,13 @@ import { intCandidateTrace } from "./dimensions/int.js"
 import type { DimensionScoreTrace } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
+/** @since 0.1.0 */
 export class NamedDimensionScoreTrace extends Data.Class<{
   readonly name: string
   readonly trace: DimensionScoreTrace<unknown>
 }> {}
 
+/** @since 0.1.0 */
 export class MixedCandidateSelection extends Data.Class<{
   readonly candidateConfigs: Array<unknown>
   readonly jointScores: Array<number>
@@ -121,6 +128,7 @@ const scoreTraceAt = (
     )
   )
 
+/** @since 0.1.0 */
 export const selectBestMixedCandidate = (
   traces: ReadonlyArray<NamedDimensionScoreTrace>,
   split: TrialSplit,
@@ -160,6 +168,7 @@ export const selectBestMixedCandidate = (
     })
   )
 
+/** @since 0.1.0 */
 export const traceForParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -203,6 +212,7 @@ export const traceForParameter = (
     Match.exhaustive
   )
 
+/** @since 0.1.0 */
 export const suggestMixedJoint = (
   rng: Rng.Rng,
   nCandidates: number,

@@ -1,3 +1,9 @@
+/**
+ * Domain ownership matrix — declares which domain owns which mathematical concepts.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
 import { Schema } from "effect"
 
 /**

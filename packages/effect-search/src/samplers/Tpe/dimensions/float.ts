@@ -1,3 +1,8 @@
+/**
+ * TPE float dimension — continuous Parzen estimation with log-scale and step-quantization support.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
@@ -37,6 +42,7 @@ const quantizeWithStep = (
     maximum: high
   })
 
+/** @since 0.1.0 */
 export const normalizeFloat = (
   value: number,
   low: number,
@@ -48,6 +54,7 @@ export const normalizeFloat = (
     onSome: (stride) => quantizeWithStep(value, low, high, stride)
   })
 
+/** @since 0.1.0 */
 export const expandedBoundsForStep = (
   low: number,
   high: number,
@@ -111,6 +118,7 @@ const floatModel = (
       )
   })
 
+/** @since 0.1.0 */
 export const suggestFloatParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -144,6 +152,7 @@ export const suggestFloatParameter = (
     )
   })
 
+/** @since 0.1.0 */
 export const floatCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
@@ -194,6 +203,7 @@ export const floatCandidateTraceFromRolls = (
     })
   })
 
+/** @since 0.1.0 */
 export const floatCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

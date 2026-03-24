@@ -1,3 +1,8 @@
+/**
+ * TPE categorical dimension — Parzen-based density estimation and candidate sampling for categorical parameters.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Effect, Match, Option } from "effect"
 
 import { type PrimitiveChoice } from "../../../contracts/Distribution.js"
@@ -35,6 +40,7 @@ const tupleKeysFromTrials = (
 ): Effect.Effect<Array<string>, InvalidSamplerConfig> =>
   Effect.forEach(trials, (trial) => tupleKeyFromTrial(dimensions, trial))
 
+/** @since 0.1.0 */
 export const categoricalDimensions = (
   space: SearchSpace.SearchSpace
 ): Array<Multi.CategoricalDimension> =>
@@ -50,6 +56,7 @@ export const categoricalDimensions = (
     )
   )
 
+/** @since 0.1.0 */
 export const suggestCategoricalParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -68,6 +75,7 @@ export const suggestCategoricalParameter = (
     )
   })
 
+/** @since 0.1.0 */
 export const categoricalCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   choices: ReadonlyArray<PrimitiveChoice>,
@@ -109,6 +117,7 @@ export const categoricalCandidateTraceFromRolls = (
     })
   })
 
+/** @since 0.1.0 */
 export const categoricalCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -121,6 +130,7 @@ export const categoricalCandidateTrace = (
     Effect.flatMap((rolls) => categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition))
   )
 
+/** @since 0.1.0 */
 export const suggestMultivariateCategorical = (
   rng: Rng.Rng,
   nCandidates: number,

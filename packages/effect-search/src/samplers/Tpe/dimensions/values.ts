@@ -1,3 +1,8 @@
+/**
+ * TPE dimension value extraction — collects observed parameter values from completed trials with conditional fallback.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Equal, Match, Option, Schema } from "effect"
 
 import { type PrimitiveChoice, PrimitiveChoiceSchema } from "../../../contracts/Distribution.js"
@@ -77,11 +82,13 @@ const valuesWithFallback = <A>(
     []
   )
 
+/** @since 0.1.0 */
 export const numericValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
   trials: ReadonlyArray<CompletedTrialForSplit>
 ): Array<number> => valuesWithFallback(parameter, trials, asFiniteNumber)
 
+/** @since 0.1.0 */
 export const primitiveValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
   trials: ReadonlyArray<CompletedTrialForSplit>

@@ -41,9 +41,9 @@ export const loadLinearAlgebraDomain = Effect.succeed(LinearAlgebraDomainModel)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { dot } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * const result = dot(
+ * const result = LinearAlgebra.dot(
  *   Chunk.fromIterable([1, 2, 3]),
  *   Chunk.fromIterable([4, 5, 6])
  * )
@@ -64,9 +64,9 @@ export const dot: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = V
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { normL2 } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * normL2(Chunk.fromIterable([3, 4])) // 5
+ * LinearAlgebra.normL2(Chunk.fromIterable([3, 4])) // 5
  * ```
  *
  * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
@@ -133,10 +133,10 @@ export const vectorScale: (
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { matvec } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
  * // 2×2 identity matrix times [3, 7] → [3, 7]
- * const y = matvec(
+ * const y = LinearAlgebra.matvec(
  *   Chunk.fromIterable([1, 0, 0, 1]),
  *   2,
  *   2,
@@ -201,9 +201,9 @@ export const frobeniusNorm = (
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { dotValidated } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * const program = dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
+ * const program = LinearAlgebra.dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
  *   Effect.catchTag("ShapeMismatchError", (e) =>
  *     Effect.succeed(`dimension error: ${e.message}`)
  *   )
@@ -251,9 +251,9 @@ export const dotValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { matvecValidated } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * const program = matvecValidated({
+ * const program = LinearAlgebra.matvecValidated({
  *   data: [1, 0, 0, 1], rows: 2, cols: 2, x: [3, 7]
  * })
  * ```
@@ -319,9 +319,9 @@ export const matvecValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { normValidated } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * const program = normValidated({ values: [3, 4], kind: "L2" })
+ * const program = LinearAlgebra.normValidated({ values: [3, 4], kind: "L2" })
  * // Effect succeeds with 5
  * ```
  *
@@ -361,9 +361,9 @@ export const normValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { transposeValidated } from "effect-math"
+ * import { LinearAlgebra } from "effect-math"
  *
- * const program = transposeValidated({
+ * const program = LinearAlgebra.transposeValidated({
  *   data: [1, 2, 3, 4], rows: 2, cols: 2
  * })
  * // Effect succeeds with [1, 3, 2, 4]
@@ -423,10 +423,10 @@ export const transposeValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { dotWithPolicies } from "effect-math"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
+ *   LinearAlgebra,
  *   PrecisionPolicyService
  * } from "effect-math"
  *
@@ -436,7 +436,7 @@ export const transposeValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = dotWithPolicies(
+ * const program = LinearAlgebra.dotWithPolicies(
  *   Chunk.fromIterable([1, 2]),
  *   Chunk.fromIterable([3, 4])
  * ).pipe(Effect.provide(policies))
@@ -510,14 +510,18 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { normWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   LinearAlgebra,
+ *   PrecisionPolicyService
+ * } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = normWithPolicies(
+ * const program = LinearAlgebra.normWithPolicies(
  *   Chunk.fromIterable([3, 4]),
  *   "L2"
  * ).pipe(Effect.provide(policies))

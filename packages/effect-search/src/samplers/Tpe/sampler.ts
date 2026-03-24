@@ -1,3 +1,8 @@
+/**
+ * TPE sampler construction — wires options, checkpoint, and suggest into a Sampler instance.
+ *
+ * @since 0.1.0
+ */
 import { Effect } from "effect"
 
 import { noPendingImputationPolicy, type PendingImputationPolicy } from "../../Sampler/index.js"
@@ -19,6 +24,7 @@ import {
 } from "./options.js"
 import { suggestWithStartup } from "./startup.js"
 
+/** @since 0.1.0 */
 export const make = (
   options: TpeRuntimeOptions = {},
   pendingImputationPolicy: PendingImputationPolicy

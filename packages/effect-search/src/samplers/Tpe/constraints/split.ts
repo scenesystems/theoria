@@ -1,3 +1,8 @@
+/**
+ * Constraint-aware trial splitting — feasibility-based partitioning with density-ranked infeasible promotion.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Data, Match, Number as Num, Option, Order } from "effect"
 
 import {
@@ -8,6 +13,7 @@ import {
 import { defaultGamma } from "../../../internal/tpe/gammaSplit.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 
+/** @since 0.1.0 */
 export class ConstraintAwareSplitTrial extends Data.Class<{
   readonly trial: CompletedTrialForSplit
   readonly constraints: ReadonlyArray<number>
@@ -109,6 +115,7 @@ const originalTrialsFromRankedSelection = (
       )
   )
 
+/** @since 0.1.0 */
 export const splitWithConstraintFeasibility = (
   trials: ReadonlyArray<ConstraintAwareSplitTrial>,
   nBelowOverride?: number

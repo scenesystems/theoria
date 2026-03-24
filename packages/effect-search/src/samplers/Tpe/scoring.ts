@@ -1,8 +1,14 @@
+/**
+ * TPE scoring — log-probability computation for categorical Parzen density models.
+ *
+ * @since 0.1.0
+ */
 import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
 
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
 import * as Float64 from "../../internal/float64.js"
 
+/** @since 0.1.0 */
 export const logProbability = (
   choices: ReadonlyArray<PrimitiveChoice>,
   probabilities: ReadonlyArray<number>,

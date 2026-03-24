@@ -1,3 +1,9 @@
+/**
+ * Domain stability level schema — stable, provisional, or experimental.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
 import { Schema } from "effect"
 
 /**

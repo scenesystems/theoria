@@ -1,3 +1,9 @@
+/**
+ * Linear algebra domain model instance.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 import { LinearAlgebraDomainContract } from "./contract.js"
 import type { LinearAlgebraDomain } from "./schema.js"
 
