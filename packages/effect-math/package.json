@@ -44,6 +44,7 @@
     "./Optimization": "./src/Optimization/index.ts",
     "./Geometry": "./src/Geometry/index.ts",
     "./Complex": "./src/Complex/index.ts",
+    "./Distribution": "./src/Distribution/index.ts",
     "./internal/*": null,
     "./Numeric/internal/*": null,
     "./Algebra/internal/*": null,
@@ -54,7 +55,8 @@
     "./Statistics/internal/*": null,
     "./Optimization/internal/*": null,
     "./Geometry/internal/*": null,
-    "./Complex/internal/*": null
+    "./Complex/internal/*": null,
+    "./Distribution/internal/*": null
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",

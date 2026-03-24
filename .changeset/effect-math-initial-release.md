@@ -8,7 +8,7 @@ A domain-first mathematics and statistics library with Schema-driven contracts, 
 
 ### Domain architecture
 
-Ten mathematical domains with uniform module structure — each domain exposes a typed model, Schema-backed contracts, boundary-validated operations, and a typed error channel:
+Eleven mathematical domains with uniform module structure — each domain exposes a typed model, Schema-backed contracts, boundary-validated operations, and a typed error channel:
 
 - **Numeric** — safe division, logarithms, summation, argmax, clamping, and range checks with `NaN`/`Infinity` rejection
 - **LinearAlgebra** — dot products, L1/L2/L∞ norms, vector addition and scaling, matrix-vector multiplication, transpose, and Frobenius norm
@@ -19,6 +19,7 @@ Ten mathematical domains with uniform module structure — each domain exposes a
 - **Algebra** — polynomial evaluation and derivative, GCD, LCM, and factorial
 - **Calculus** — numerical derivative, trapezoidal rule, and Simpson's rule
 - **Optimization** — bisection root-finding and golden section minimization
+- **Distribution** — full algebra of 10 distribution families (Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson) with PDF/CDF, log-PDF/PMF, quantile (inverse CDF), mean, variance, and differential entropy kernels; 502 SciPy fixture cases across 13 fixture files
 - **Complex** — complex arithmetic, trigonometric and hyperbolic functions, polar form, `Chunk`-based vector carriers, and machine-precision Fornberg differentiation
 
 All domains follow the three-tier operation pattern:
@@ -59,7 +60,7 @@ Eight nominal numeric types enforcing semantic constraints at the type level:
 ### Governance
 
 - **Tree-shakeable subpath exports** — `effect-math/Numeric`, `effect-math/Complex`, etc. with `internal/*` blocked
-- **69 test suites** — all five gates pass (check, check:tests, lint, test, build)
-- **9 runnable examples** — one per implemented domain using `BunRuntime.runMain` and subpath imports
+- **72 test suites, 641 tests** — all seven gates pass (check, check:tests, lint, test, build, fixtures:check, docgen)
+- **10 runnable examples** — one per implemented domain using `BunRuntime.runMain` and subpath imports
 
 Built entirely on [Effect](https://effect.website) with Schema-driven type inference, typed error channels, and `Context.Tag` service composition throughout.

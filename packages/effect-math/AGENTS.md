@@ -34,19 +34,21 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 
 ## Domain Architecture
 
-Nine domains, each with the same file structure:
+Eleven domains, each with the same file structure:
 
-| Domain        | Stability   | Surface                                               |
-| ------------- | ----------- | ----------------------------------------------------- |
-| Numeric       | provisional | Scalar transforms, safe division, transcendentals     |
-| LinearAlgebra | provisional | Dense vector/matrix ops over Chunk carriers           |
-| Geometry      | provisional | Metric distances, midpoint, centroid                  |
-| Probability   | provisional | Normal/uniform PDF/CDF, Shannon entropy               |
-| Statistics    | provisional | Mean, variance, stddev, covariance, SummaryStatistics |
-| Algebra       | provisional | Polynomial eval/derivative, GCD, LCM, factorial       |
-| Calculus      | provisional | Numerical derivative, trapezoidal, Simpson's rule     |
-| Special       | provisional | Gamma, lnGamma, beta, erf/erfc, digamma               |
-| Optimization  | provisional | Bisection root-finding, golden section minimization   |
+| Domain        | Stability   | Surface                                                                                        |
+| ------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| Numeric       | provisional | Scalar transforms, safe division, transcendentals                                              |
+| LinearAlgebra | provisional | Dense vector/matrix ops over Chunk carriers                                                    |
+| Geometry      | provisional | Metric distances, midpoint, centroid                                                           |
+| Probability   | provisional | Normal/uniform PDF/CDF, Shannon entropy                                                        |
+| Statistics    | provisional | Mean, variance, stddev, covariance, SummaryStatistics                                          |
+| Algebra       | provisional | Polynomial eval/derivative, GCD, LCM, factorial                                                |
+| Calculus      | provisional | Numerical derivative, trapezoidal, Simpson's rule                                              |
+| Special       | provisional | Gamma, lnGamma, beta, erf/erfc, digamma                                                        |
+| Optimization  | provisional | Bisection root-finding, golden section minimization                                            |
+| Complex       | provisional | Complex arithmetic, polar form, roots of unity                                                 |
+| Distribution  | provisional | Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT, Categorical, Binomial, Poisson |
 
 Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
 

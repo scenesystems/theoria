@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
+Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, distributions, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
 
 [Quick start](#quick-start) · [Domains](#domains) · [Runtime policies](#runtime-policies) · [Error handling](#error-handling) · [API at a glance](#api-at-a-glance)
 
@@ -41,6 +41,7 @@ import { euclideanDistance } from "effect-math/Geometry"
 import { mean, variance } from "effect-math/Statistics"
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
+import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
 import { of, add, abs, sin, complexDerivative } from "effect-math/Complex"
 
 const a = Chunk.fromIterable([1, 2, 3])
@@ -62,6 +63,10 @@ gamma(5) // 24 (= 4!)
 gamma(0.5) // √π ≈ 1.7725
 erf(1) // ≈ 0.8427
 beta(0.5, 0.5) // π
+
+distNormalCdf(1.96, 0, 1) // ≈ 0.975
+betaMean(2, 5) // ≈ 0.2857
+poissonPmf(3, 5) // ≈ 0.1404
 
 const z = add(of(1, 2), of(3, 4)) // 4 + 6i
 abs(of(3, 4)) // 5
@@ -97,18 +102,19 @@ Under `"strict"` precision, non-finite results fail with a typed error instead o
 
 Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
 
-| Domain            | Import                      | What it does                                                         |
-| ----------------- | --------------------------- | -------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`         |
-| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                  |
-| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid      |
-| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                          |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max              |
-| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                 |
-| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                      |
-| **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule               |
-| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization                  |
-| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, Fornberg derivative |
+| Domain            | Import                      | What it does                                                                                                                                                        |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`                                                                                                        |
+| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                 |
+| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                     |
+| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                         |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max                                                                                                             |
+| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                |
+| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                     |
+| **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule                                                                                                              |
+| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization                                                                                                                 |
+| **Distribution**  | `effect-math/Distribution`  | 10-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, entropy |
+| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, Fornberg derivative                                                                                                |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -155,6 +161,8 @@ const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
 | Probability   | `ProbabilityParameterError`  | Invalid distribution parameters            |
 | Statistics    | `StatisticsShapeError`       | Too few observations for the estimator     |
 | Special       | `SpecialParameterError`      | Invalid parameters (e.g., gamma at poles)  |
+| Distribution  | `DistributionDecodeError`    | Schema decode failure for operation input  |
+|               | `DistributionParameterError` | Invalid parameters (e.g., σ ≤ 0)           |
 | Complex       | `ComplexDivisionByZeroError` | Division by zero complex number            |
 |               | `ComplexDomainError`         | Invalid domain (e.g., log of zero)         |
 
@@ -173,6 +181,27 @@ import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
 import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
 import { derivative, trapezoid, simpson } from "effect-math/Calculus"
 import { bisect, goldenSection } from "effect-math/Optimization"
+import {
+  normalPdf as dNormalPdf,
+  normalCdf as dNormalCdf,
+  normalQuantile,
+  betaPdf,
+  betaCdf,
+  betaQuantile,
+  gammaPdf,
+  gammaCdf,
+  exponentialPdf,
+  uniformPdf,
+  studentTPdf,
+  categoricalPmf,
+  binomialPmf,
+  poissonPmf as dPoissonPmf,
+  normalMean,
+  normalVariance,
+  normalEntropy as dNormalEntropy,
+  betaMean as dBetaMean,
+  gammaMean
+} from "effect-math/Distribution"
 import {
   of,
   add,
@@ -235,6 +264,7 @@ import {
 } from "effect-math/Algebra"
 import { trapezoidWithPolicies, simpsonWithPolicies, derivativeWithPolicies } from "effect-math/Calculus"
 import { bisectWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
+import { normalPdfWithPolicies, normalCdfWithPolicies, betaCdfWithPolicies } from "effect-math/Distribution"
 
 // Runtime policy services and layer constructors
 import {
@@ -248,9 +278,9 @@ import {
 
 ## Status
 
-| Tier            | Domains                                                                                                      | Meaning                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Complex | Functional and tested, may evolve |
+| Tier            | Domains                                                                                                                    | Meaning                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Distribution, Complex | Functional and tested, may evolve |
 
 ## Acknowledgments
 

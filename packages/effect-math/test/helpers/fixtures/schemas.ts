@@ -767,6 +767,868 @@ export const ComplexArithmeticParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Distribution: algebra-parity
+// ---------------------------------------------------------------------------
+
+const DistNormalEvalInputSchema = Schema.Struct({ x: Schema.Number, mu: Schema.Number, sigma: Schema.Number })
+const DistNormalParamsInputSchema = Schema.Struct({ mu: Schema.Number, sigma: Schema.Number })
+const DistNormalQuantileInputSchema = Schema.Struct({ p: Schema.Number, mu: Schema.Number, sigma: Schema.Number })
+
+const DistLogNormalEvalInputSchema = Schema.Struct({ x: Schema.Number, mu: Schema.Number, sigma: Schema.Number })
+const DistLogNormalParamsInputSchema = Schema.Struct({ mu: Schema.Number, sigma: Schema.Number })
+const DistLogNormalQuantileInputSchema = Schema.Struct({ p: Schema.Number, mu: Schema.Number, sigma: Schema.Number })
+
+const DistExponentialEvalInputSchema = Schema.Struct({ x: Schema.Number, rate: Schema.Number })
+const DistExponentialParamsInputSchema = Schema.Struct({ rate: Schema.Number })
+const DistExponentialQuantileInputSchema = Schema.Struct({ p: Schema.Number, rate: Schema.Number })
+
+const DistUniformEvalInputSchema = Schema.Struct({ x: Schema.Number, low: Schema.Number, high: Schema.Number })
+const DistUniformParamsInputSchema = Schema.Struct({ low: Schema.Number, high: Schema.Number })
+const DistUniformQuantileInputSchema = Schema.Struct({ p: Schema.Number, low: Schema.Number, high: Schema.Number })
+
+const DistBetaEvalInputSchema = Schema.Struct({ x: Schema.Number, alpha: Schema.Number, beta: Schema.Number })
+const DistBetaParamsInputSchema = Schema.Struct({ alpha: Schema.Number, beta: Schema.Number })
+const DistBetaQuantileInputSchema = Schema.Struct({ p: Schema.Number, alpha: Schema.Number, beta: Schema.Number })
+
+const DistGammaEvalInputSchema = Schema.Struct({ x: Schema.Number, shape: Schema.Number, scale: Schema.Number })
+const DistGammaParamsInputSchema = Schema.Struct({ shape: Schema.Number, scale: Schema.Number })
+const DistGammaQuantileInputSchema = Schema.Struct({ p: Schema.Number, shape: Schema.Number, scale: Schema.Number })
+
+const DistStudentTEvalInputSchema = Schema.Struct({ x: Schema.Number, df: Schema.Number })
+const DistStudentTParamsInputSchema = Schema.Struct({ df: Schema.Number })
+const DistStudentTQuantileInputSchema = Schema.Struct({ p: Schema.Number, df: Schema.Number })
+
+const DistCategoricalEvalInputSchema = Schema.Struct({ k: Schema.Number, probs: Schema.Array(Schema.Number) })
+const DistCategoricalParamsInputSchema = Schema.Struct({ probs: Schema.Array(Schema.Number) })
+
+const DistBinomialEvalInputSchema = Schema.Struct({ k: Schema.Number, n: Schema.Number, p: Schema.Number })
+const DistBinomialParamsInputSchema = Schema.Struct({ n: Schema.Number, p: Schema.Number })
+
+const DistPoissonEvalInputSchema = Schema.Struct({ k: Schema.Number, mu: Schema.Number })
+const DistPoissonParamsInputSchema = Schema.Struct({ mu: Schema.Number })
+
+export const DistNormalCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalPdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalLogpdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalCdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalQuantile"),
+    input: DistNormalQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalMean"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalVariance"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalEntropy"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistLogNormalCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalPdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalLogpdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalCdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalQuantile"),
+    input: DistLogNormalQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalMean"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalVariance"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalEntropy"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistExponentialCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialPdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialLogpdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialCdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialQuantile"),
+    input: DistExponentialQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialMean"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialVariance"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialEntropy"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistUniformCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformPdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformLogpdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformCdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformQuantile"),
+    input: DistUniformQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformMean"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformVariance"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformEntropy"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistBetaCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaPdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaLogpdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaCdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaQuantile"),
+    input: DistBetaQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaMean"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaVariance"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaEntropy"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistGammaCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaPdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaLogpdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaCdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaQuantile"),
+    input: DistGammaQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaMean"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaVariance"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaEntropy"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistStudentTCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTPdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTLogpdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTCdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTQuantile"),
+    input: DistStudentTQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTMean"),
+    input: DistStudentTParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTVariance"),
+    input: DistStudentTParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistCategoricalCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalPmf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalLogpmf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalCdf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalMean"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalVariance"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalEntropy"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistBinomialCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialPmf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialLogpmf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialCdf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialMean"),
+    input: DistBinomialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialVariance"),
+    input: DistBinomialParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistPoissonCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonPmf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonLogpmf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonCdf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonMean"),
+    input: DistPoissonParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonVariance"),
+    input: DistPoissonParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+// Flat union of all 65 individual case structs — avoids nested Schema.Union
+// which breaks Match.when narrowing (Match requires a flat discriminated union)
+const DistributionAlgebraParityCaseSchema = Schema.Union(
+  // Normal (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalPdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalLogpdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalCdf"),
+    input: DistNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalQuantile"),
+    input: DistNormalQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalMean"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalVariance"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("normalEntropy"),
+    input: DistNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // LogNormal (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalPdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalLogpdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalCdf"),
+    input: DistLogNormalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalQuantile"),
+    input: DistLogNormalQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalMean"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalVariance"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("logNormalEntropy"),
+    input: DistLogNormalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Exponential (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialPdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialLogpdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialCdf"),
+    input: DistExponentialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialQuantile"),
+    input: DistExponentialQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialMean"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialVariance"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("exponentialEntropy"),
+    input: DistExponentialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Uniform (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformPdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformLogpdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformCdf"),
+    input: DistUniformEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformQuantile"),
+    input: DistUniformQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformMean"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformVariance"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("uniformEntropy"),
+    input: DistUniformParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Beta (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaPdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaLogpdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaCdf"),
+    input: DistBetaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaQuantile"),
+    input: DistBetaQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaMean"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaVariance"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("betaEntropy"),
+    input: DistBetaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Gamma (7)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaPdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaLogpdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaCdf"),
+    input: DistGammaEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaQuantile"),
+    input: DistGammaQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaMean"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaVariance"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("gammaEntropy"),
+    input: DistGammaParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // StudentT (6)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTPdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTLogpdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTCdf"),
+    input: DistStudentTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTQuantile"),
+    input: DistStudentTQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTMean"),
+    input: DistStudentTParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("studentTVariance"),
+    input: DistStudentTParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Categorical (6)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalPmf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalLogpmf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalCdf"),
+    input: DistCategoricalEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalMean"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalVariance"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("categoricalEntropy"),
+    input: DistCategoricalParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Binomial (5)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialPmf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialLogpmf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialCdf"),
+    input: DistBinomialEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialMean"),
+    input: DistBinomialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("binomialVariance"),
+    input: DistBinomialParamsInputSchema,
+    expected: Schema.Number
+  }),
+  // Poisson (5)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonPmf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonLogpmf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonCdf"),
+    input: DistPoissonEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonMean"),
+    input: DistPoissonParamsInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("poissonVariance"),
+    input: DistPoissonParamsInputSchema,
+    expected: Schema.Number
+  })
+)
+
+export const DistributionAlgebraParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("distribution.algebra-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(DistributionAlgebraParityCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fixture name literal union + known fixture union
 // ---------------------------------------------------------------------------
 
@@ -774,6 +1636,7 @@ export const FixtureNameSchema = Schema.Literal(
   "algebra.polynomial-parity",
   "calculus.numerical-parity",
   "complex.arithmetic-parity",
+  "distribution.algebra-parity",
   "numeric.scalar-parity",
   "numeric.logspace-parity",
   "linalg.vector-parity",
@@ -791,6 +1654,7 @@ export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
   ComplexArithmeticParityFixtureSchema,
+  DistributionAlgebraParityFixtureSchema,
   NumericScalarParityFixtureSchema,
   NumericLogspaceParityFixtureSchema,
   LinalgVectorParityFixtureSchema,

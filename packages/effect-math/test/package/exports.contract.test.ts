@@ -41,6 +41,8 @@ describe("package export contracts", () => {
       "./Optimization",
       "./Geometry",
       "./Complex",
+      "./Distribution",
+      "./Distribution/internal/*",
       "./internal/*",
       "./Numeric/internal/*",
       "./Algebra/internal/*",
@@ -70,7 +72,8 @@ describe("package export contracts", () => {
         "./Statistics/internal/*",
         "./Optimization/internal/*",
         "./Geometry/internal/*",
-        "./Complex/internal/*"
+        "./Complex/internal/*",
+        "./Distribution/internal/*"
       )
 
       yield* Effect.forEach(

@@ -99,6 +99,17 @@ export const safeDivideFinite: (dividend: number, divisor: number) => Option.Opt
 export const log: (value: number) => number = Math.log
 
 /**
+ * Strict natural logarithm using DataView bit-decomposition + Taylor
+ * series. Produces deterministic results independent of platform
+ * `Math.log` implementation.
+ *
+ * @see {@link log} — relaxed variant delegating to `Math.log`
+ * @since 0.1.0
+ * @category operations
+ */
+export const logStrict: (value: number) => number = Transcendental.logStrict
+
+/**
  * Numerically stable `ln(1 + x)` using the relaxed kernel. Avoids
  * catastrophic cancellation for `|x| << 1` where `Math.log(1 + x)`
  * would lose significant digits. For policy-controlled precision
@@ -113,6 +124,17 @@ export const log: (value: number) => number = Math.log
 export const log1p: (value: number) => number = Transcendental.log1pRelaxed
 
 /**
+ * Strict `ln(1 + x)` using Taylor series for `|x| < 1e-4` and
+ * DataView bit-decomposition log for larger values. Produces
+ * deterministic results independent of platform `Math.log1p`.
+ *
+ * @see {@link log1p} — relaxed variant delegating to `Math.log1p`
+ * @since 0.1.0
+ * @category operations
+ */
+export const log1pStrict: (value: number) => number = Transcendental.log1pStrict
+
+/**
  * Numerically stable `exp(x) - 1` using the relaxed kernel. Avoids
  * catastrophic cancellation for `|x| << 1` where `Math.exp(x) - 1`
  * would lose significant digits. For policy-controlled precision
@@ -124,6 +146,17 @@ export const log1p: (value: number) => number = Transcendental.log1pRelaxed
  * @category operations
  */
 export const expm1: (value: number) => number = Transcendental.expm1Relaxed
+
+/**
+ * Strict `exp(x) - 1` using Taylor series for `|x| < 1e-5` and
+ * pure `E**x - 1` for larger values. Produces deterministic results
+ * independent of platform `Math.expm1`.
+ *
+ * @see {@link expm1} — relaxed variant delegating to `Math.expm1`
+ * @since 0.1.0
+ * @category operations
+ */
+export const expm1Strict: (value: number) => number = Transcendental.expm1Strict
 
 /**
  * Naive pairwise sum via Effect's `Number.sumAll`. Sufficient for small

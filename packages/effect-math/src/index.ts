@@ -69,6 +69,12 @@ export * as Complex from "./Complex/index.js"
 
 /**
  * @since 0.1.0
+ * @category domains
+ */
+export * as Distribution from "./Distribution/index.js"
+
+/**
+ * @since 0.1.0
  * @category contracts
  */
 export * from "./contracts/index.js"

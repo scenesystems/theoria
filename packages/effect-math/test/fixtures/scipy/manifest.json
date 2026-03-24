@@ -13,6 +13,10 @@
       "name": "complex.arithmetic-parity"
     },
     {
+      "file": "distribution/algebra-parity.json",
+      "name": "distribution.algebra-parity"
+    },
+    {
       "file": "geometry/distance-parity.json",
       "name": "geometry.distance-parity"
     },
