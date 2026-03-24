@@ -7,7 +7,7 @@ Effect libraries for optimization, language model programming, applied math, and
 
 _Theoria_ (θεωρία) — observation that produces knowledge.
 
-[Packages](#packages) · [Conventions](#conventions) · [Development](#development) · [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
+[Packages](#packages) · [Development](#development) · [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
 
 ---
 
