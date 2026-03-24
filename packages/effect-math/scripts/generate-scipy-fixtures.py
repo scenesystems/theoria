@@ -33,6 +33,7 @@ from fixtures import (
     geometry,
     probability,
     statistics,
+    special,
 )
 
 FAMILIES = [
@@ -41,6 +42,7 @@ FAMILIES = [
     geometry,
     probability,
     statistics,
+    special,
 ]
 
 FIXTURE_OUTPUT_DIR = Path(__file__).resolve().parent.parent / "test" / "fixtures" / "scipy"

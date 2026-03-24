@@ -17,6 +17,10 @@
       "name": "probability.distribution-parity"
     },
     {
+      "file": "special/function-parity.json",
+      "name": "special.function-parity"
+    },
+    {
       "file": "statistics/estimator-parity.json",
       "name": "statistics.estimator-parity"
     }

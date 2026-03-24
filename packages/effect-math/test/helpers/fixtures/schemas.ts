@@ -259,6 +259,69 @@ export const StatisticsEstimatorParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Special: function-parity
+// ---------------------------------------------------------------------------
+
+const SpecialGammaCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("gamma"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialLnGammaCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("lnGamma"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialBetaCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("beta"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialErfCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("erf"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialErfcCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("erfc"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialDigammaCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("digamma"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialFunctionCaseSchema = Schema.Union(
+  SpecialGammaCaseSchema,
+  SpecialLnGammaCaseSchema,
+  SpecialBetaCaseSchema,
+  SpecialErfCaseSchema,
+  SpecialErfcCaseSchema,
+  SpecialDigammaCaseSchema
+)
+
+export const SpecialFunctionParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("special.function-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(SpecialFunctionCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fixture name literal union + known fixture union
 // ---------------------------------------------------------------------------
 
@@ -267,7 +330,8 @@ export const FixtureNameSchema = Schema.Literal(
   "linalg.vector-parity",
   "geometry.distance-parity",
   "probability.distribution-parity",
-  "statistics.estimator-parity"
+  "statistics.estimator-parity",
+  "special.function-parity"
 )
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
@@ -277,7 +341,8 @@ export const KnownFixtureSchema = Schema.Union(
   LinalgVectorParityFixtureSchema,
   GeometryDistanceParityFixtureSchema,
   ProbabilityDistributionParityFixtureSchema,
-  StatisticsEstimatorParityFixtureSchema
+  StatisticsEstimatorParityFixtureSchema,
+  SpecialFunctionParityFixtureSchema
 )
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>
