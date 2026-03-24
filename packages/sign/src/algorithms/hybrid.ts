@@ -32,7 +32,7 @@
  */
 import { XWing } from "@noble/post-quantum/hybrid.js"
 import { Effect } from "effect"
-import { SigningFailed } from "../schemas/errors.js"
+import { KemFailed } from "../schemas/errors.js"
 import { KemCiphertext } from "../schemas/KemCiphertext.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 
@@ -44,7 +44,7 @@ import { KeyPair } from "../schemas/KeyPair.js"
  */
 export const xwingEncapsulate = (
   publicKey: Uint8Array
-): Effect.Effect<KemCiphertext, SigningFailed> =>
+): Effect.Effect<KemCiphertext, KemFailed> =>
   Effect.try({
     try: () => {
       const result = XWing.encapsulate(publicKey)
@@ -54,7 +54,7 @@ export const xwingEncapsulate = (
         sharedSecret: result.sharedSecret
       })
     },
-    catch: (error) => new SigningFailed({ algorithm: "xwing", reason: String(error) })
+    catch: (error) => new KemFailed({ algorithm: "xwing", reason: String(error) })
   })
 
 /**
@@ -66,10 +66,10 @@ export const xwingEncapsulate = (
 export const xwingDecapsulate = (
   cipherText: Uint8Array,
   secretKey: Uint8Array
-): Effect.Effect<Uint8Array, SigningFailed> =>
+): Effect.Effect<Uint8Array, KemFailed> =>
   Effect.try({
     try: () => XWing.decapsulate(cipherText, secretKey),
-    catch: (error) => new SigningFailed({ algorithm: "xwing", reason: String(error) })
+    catch: (error) => new KemFailed({ algorithm: "xwing", reason: String(error) })
   })
 
 /**

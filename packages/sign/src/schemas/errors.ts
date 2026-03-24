@@ -11,6 +11,10 @@
  * @category errors
  */
 import { Schema } from "effect"
+import { AgreementAlgorithm } from "./AgreementAlgorithm.js"
+import { KemAlgorithm } from "./KemAlgorithm.js"
+import { CryptoAlgorithm } from "./KeyPair.js"
+import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 
 /**
  * Signing operation failed.
@@ -24,7 +28,7 @@ import { Schema } from "effect"
 export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
   "SigningFailed",
   {
-    algorithm: Schema.String,
+    algorithm: SignatureAlgorithm,
     reason: Schema.String
   }
 ) {}
@@ -41,7 +45,7 @@ export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
 export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()(
   "VerificationFailed",
   {
-    algorithm: Schema.String,
+    algorithm: SignatureAlgorithm,
     reason: Schema.String
   }
 ) {}
@@ -58,7 +62,7 @@ export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()
 export class InvalidSignature extends Schema.TaggedError<InvalidSignature>()(
   "InvalidSignature",
   {
-    algorithm: Schema.String,
+    algorithm: SignatureAlgorithm,
     reason: Schema.String
   }
 ) {}
@@ -75,7 +79,43 @@ export class InvalidSignature extends Schema.TaggedError<InvalidSignature>()(
 export class KeyGenerationFailed extends Schema.TaggedError<KeyGenerationFailed>()(
   "KeyGenerationFailed",
   {
-    algorithm: Schema.String,
+    algorithm: CryptoAlgorithm,
+    reason: Schema.String
+  }
+) {}
+
+/**
+ * Key agreement operation failed.
+ *
+ * Carries `algorithm` (which agreement was attempted) and `reason`
+ * (human-readable explanation). Raised when ECDH fails due to
+ * invalid key material.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class AgreementFailed extends Schema.TaggedError<AgreementFailed>()(
+  "AgreementFailed",
+  {
+    algorithm: AgreementAlgorithm,
+    reason: Schema.String
+  }
+) {}
+
+/**
+ * Key encapsulation operation failed.
+ *
+ * Carries `algorithm` (which KEM was attempted) and `reason`
+ * (human-readable explanation). Raised when encapsulation or
+ * decapsulation fails.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class KemFailed extends Schema.TaggedError<KemFailed>()(
+  "KemFailed",
+  {
+    algorithm: KemAlgorithm,
     reason: Schema.String
   }
 ) {}

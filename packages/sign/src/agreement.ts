@@ -24,6 +24,7 @@ import type { Effect } from "effect"
 import { Match } from "effect"
 import { x25519SharedSecret } from "./algorithms/x25519.js"
 import type { AgreementAlgorithm } from "./schemas/AgreementAlgorithm.js"
+import type { AgreementFailed } from "./schemas/errors.js"
 import type { SharedSecret } from "./schemas/SharedSecret.js"
 
 type AgreementAlgorithmType = typeof AgreementAlgorithm.Type
@@ -38,7 +39,7 @@ export const deriveSharedSecret = (
   algorithm: AgreementAlgorithmType,
   secretKey: Uint8Array,
   publicKey: Uint8Array
-): Effect.Effect<SharedSecret> =>
+): Effect.Effect<SharedSecret, AgreementFailed> =>
   Match.value(algorithm).pipe(
     Match.when("x25519", () => x25519SharedSecret(secretKey, publicKey)),
     Match.exhaustive

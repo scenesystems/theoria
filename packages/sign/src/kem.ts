@@ -31,7 +31,7 @@
 import type { Effect } from "effect"
 import { Match } from "effect"
 import { xwingDecapsulate, xwingEncapsulate } from "./algorithms/hybrid.js"
-import type { SigningFailed } from "./schemas/errors.js"
+import type { KemFailed } from "./schemas/errors.js"
 import type { KemAlgorithm } from "./schemas/KemAlgorithm.js"
 import type { KemCiphertext } from "./schemas/KemCiphertext.js"
 
@@ -46,7 +46,7 @@ type KemAlgorithmType = typeof KemAlgorithm.Type
 export const encapsulate = (
   algorithm: KemAlgorithmType,
   publicKey: Uint8Array
-): Effect.Effect<KemCiphertext, SigningFailed> =>
+): Effect.Effect<KemCiphertext, KemFailed> =>
   Match.value(algorithm).pipe(
     Match.when("xwing", () => xwingEncapsulate(publicKey)),
     Match.exhaustive
@@ -62,7 +62,7 @@ export const decapsulate = (
   algorithm: KemAlgorithmType,
   cipherText: Uint8Array,
   secretKey: Uint8Array
-): Effect.Effect<Uint8Array, SigningFailed> =>
+): Effect.Effect<Uint8Array, KemFailed> =>
   Match.value(algorithm).pipe(
     Match.when("xwing", () => xwingDecapsulate(cipherText, secretKey)),
     Match.exhaustive

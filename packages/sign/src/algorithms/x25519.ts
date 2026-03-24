@@ -10,6 +10,7 @@
  */
 import { x25519 } from "@noble/curves/ed25519.js"
 import { Effect } from "effect"
+import { AgreementFailed } from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { SharedSecret } from "../schemas/SharedSecret.js"
 
@@ -22,13 +23,15 @@ import { SharedSecret } from "../schemas/SharedSecret.js"
 export const x25519SharedSecret = (
   secretKey: Uint8Array,
   publicKey: Uint8Array
-): Effect.Effect<SharedSecret> =>
-  Effect.sync(() =>
-    new SharedSecret({
-      algorithm: "x25519",
-      sharedSecret: x25519.getSharedSecret(secretKey, publicKey)
-    })
-  )
+): Effect.Effect<SharedSecret, AgreementFailed> =>
+  Effect.try({
+    try: () =>
+      new SharedSecret({
+        algorithm: "x25519",
+        sharedSecret: x25519.getSharedSecret(secretKey, publicKey)
+      }),
+    catch: (error) => new AgreementFailed({ algorithm: "x25519", reason: String(error) })
+  })
 
 /**
  * Generate an X25519 key pair.
