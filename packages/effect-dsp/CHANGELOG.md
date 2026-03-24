@@ -1,5 +1,22 @@
 # effect-dsp
 
+## 0.1.3
+
+### Patch Changes
+
+- [#11](https://github.com/scenesystems/theoria/pull/11) [`7de6c02`](https://github.com/scenesystems/theoria/commit/7de6c02e0d65cd66b5d4c2ed1c01a8c7bee6ee01) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - fix: resolve workspace: protocol deps to real semver in dist/package.json at build time
+
+  `build-utils pack-v3` copies `workspace:^` dependencies verbatim into `dist/package.json`,
+  and `changeset publish` (which calls `npm publish` internally) does not rewrite them. This
+  made published packages uninstallable outside the monorepo.
+
+  Adds `scripts/resolve-workspace-deps.ts` which runs after all per-package builds, reads each
+  workspace package's actual version, and rewrites `workspace:^` → `^{version}` (and `~`, `*`
+  variants) in every `dist/package.json`. Also supports `--check` mode for CI verification.
+
+- Updated dependencies [[`7de6c02`](https://github.com/scenesystems/theoria/commit/7de6c02e0d65cd66b5d4c2ed1c01a8c7bee6ee01)]:
+  - effect-search@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes
