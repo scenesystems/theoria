@@ -1,8 +1,9 @@
-import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Chunk, Equal, Match, Number as Num, Option } from "effect"
+import { logStrict, logsumexp } from "effect-math/Numeric"
 
 import { ndtriExp } from "./truncatedNormal/normal.js"
 
-const LOG_SQRT_2PI = 0.5 * Math.log(2 * Math.PI)
+const LOG_SQRT_2PI = 0.5 * logStrict(2 * 3.141592653589793)
 const EPSILON = 1e-12
 
 const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
@@ -85,7 +86,7 @@ const chooseComponentIndex = (weights: ReadonlyArray<number>, componentRoll: num
     })
   )
 
-const quantileFromRoll = (roll: number): number => ndtriExp(Math.log(validProbability(roll)))
+const quantileFromRoll = (roll: number): number => ndtriExp(logStrict(validProbability(roll)))
 
 export const diagonalGaussianLogDensity = (
   point: ReadonlyArray<number>,
@@ -100,24 +101,12 @@ export const diagonalGaussianLogDensity = (
         const sigma = validSigma(valueAt(sigmas, index, EPSILON))
         const normalized = (coordinate - currentMean) / sigma
 
-        return accumulator + (-LOG_SQRT_2PI - Math.log(sigma) - 0.5 * normalized * normalized)
+        return accumulator + (-LOG_SQRT_2PI - logStrict(sigma) - 0.5 * normalized * normalized)
       })),
     Match.exhaustive
   )
 
-const logSumExp = (values: ReadonlyArray<number>): number => {
-  const maxValue = Arr.reduce(values, Number.NEGATIVE_INFINITY, Num.max)
-
-  return Match.value(maxValue === Number.NEGATIVE_INFINITY).pipe(
-    Match.when(true, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() =>
-      maxValue +
-      Math.log(
-        Arr.reduce(values, 0, (accumulator, value) => Num.sum(accumulator, Math.exp(value - maxValue)))
-      )
-    )
-  )
-}
+const logSumExp = (values: ReadonlyArray<number>): number => logsumexp(Chunk.fromIterable(values))
 
 export const diagonalGaussianMixtureLogDensity = (
   point: ReadonlyArray<number>,
@@ -134,7 +123,7 @@ export const diagonalGaussianMixtureLogDensity = (
 
     return Match.value(Num.lessThanOrEqualTo(weight, 0)).pipe(
       Match.when(true, () => Number.NEGATIVE_INFINITY),
-      Match.orElse(() => Math.log(weight) + diagonalGaussianLogDensity(point, mean, sigma))
+      Match.orElse(() => logStrict(weight) + diagonalGaussianLogDensity(point, mean, sigma))
     )
   })
 

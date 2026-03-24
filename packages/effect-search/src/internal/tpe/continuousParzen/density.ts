@@ -1,4 +1,5 @@
-import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num } from "effect"
+import { logsumexp } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import * as Float64 from "../../float64.js"
@@ -10,24 +11,7 @@ import {
 import { samplerMathError } from "./errors.js"
 import type { ContinuousKernel, ContinuousParzen } from "./model.js"
 
-const logSumExp = (values: ReadonlyArray<number>): number => {
-  const baseline = Arr.head(values).pipe(
-    Option.getOrElse(() => Number.NEGATIVE_INFINITY)
-  )
-  const maxValue = Arr.reduce(values, baseline, (currentMax, value) => Num.max(currentMax, value))
-
-  return Match.value(Number.isFinite(maxValue)).pipe(
-    Match.when(false, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() => {
-      const sumExp = Arr.reduce(values, 0, (sum, value) => Num.sum(sum, Float64.exp(value - maxValue)))
-
-      return Match.value(Number.isFinite(sumExp) && Num.greaterThan(sumExp, 0)).pipe(
-        Match.when(true, () => maxValue + Float64.log(sumExp)),
-        Match.orElse(() => Number.NEGATIVE_INFINITY)
-      )
-    })
-  )
-}
+const logSumExp = (values: ReadonlyArray<number>): number => logsumexp(Chunk.fromIterable(values))
 
 const kernelLogWeight = (kernel: ContinuousKernel): number =>
   Match.value(Num.greaterThan(kernel.weight, 0)).pipe(

@@ -1,4 +1,6 @@
 import { Match, Number as Num } from "effect"
+import { logaddexp } from "effect-math/Numeric"
+import { erf, erfc } from "effect-math/Special"
 
 import * as Float64 from "../../float64.js"
 import {
@@ -13,7 +15,6 @@ import {
   NEWTON_RELATIVE_TOLERANCE,
   SQRT_TWO
 } from "./constants.js"
-import { erf, erfc } from "./erf.js"
 import { AsymptoticSeriesState } from "./model.js"
 
 export const ndtr = (value: number): number => {
@@ -82,14 +83,7 @@ export const logNdtr = (value: number): number =>
 
 export const logNormPdf = (x: number): number => -0.5 * x * x - LOG_SQRT_TWO_PI
 
-export const logSum = (logP: number, logQ: number): number => {
-  const baseline = Num.max(logP, logQ)
-
-  return Match.value(baseline === Number.NEGATIVE_INFINITY).pipe(
-    Match.when((isNegativeInfinity) => isNegativeInfinity, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() => baseline + Float64.log(Float64.exp(logP - baseline) + Float64.exp(logQ - baseline)))
-  )
-}
+export const logSum = (logP: number, logQ: number): number => logaddexp(logP, logQ)
 
 export const logDiff = (logP: number, logQ: number): number =>
   Match.value(logP).pipe(
