@@ -5,7 +5,7 @@ export default defineConfig({
     pool: "forks",
     poolOptions: {
       forks: {
-        maxForks: 4,
+        maxForks: process.env.CI ? 2 : 4,
         minForks: 1
       }
     },
@@ -15,7 +15,8 @@ export default defineConfig({
     include: ["packages/*/test/**/*.test.ts"],
     passWithNoTests: true,
     testTimeout: 30_000,
-    hookTimeout: 30_000
+    hookTimeout: 30_000,
+    teardownTimeout: 30_000
   },
   coverage: {
     provider: "v8",
