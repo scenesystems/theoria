@@ -6,7 +6,7 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Match, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import { Evaluate, Example, Metric, Module, Signature } from "effect-dsp"
 import { ModuleParams } from "effect-dsp/contracts"
 import { MockLanguageModel } from "effect-dsp/test"
@@ -18,11 +18,10 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
-import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-artifacts.js"
-import { withStudyProgress, withStudyRuntime } from "./shared/study-runtime.js"
+import { createExampleArtifacts } from "./shared/output-artifacts.js"
+import { studyCacheLayer, studyStorageLayer, withStudyProgress } from "./shared/study-runtime.js"
 
 const EXAMPLE_NAME = "07-miprov2-resume-from-storage"
-const STORAGE_DIRECTORY = ".tmp/effect-dsp/examples/miprov2-resume"
 
 const italyEvalset = Arr.make(
   new Example.Example({
@@ -68,6 +67,16 @@ const responseForPrompt = (prompt: string) =>
 
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)
+  const studyLayer = Layer.provideMerge(
+    Layer.merge(
+      studyStorageLayer(artifacts.storageDir),
+      studyCacheLayer("effect-dsp/examples/miprov2-resume")
+    ),
+    Layer.merge(
+      Contracts.fileSystemSink(artifacts.storageDir),
+      artifacts.envelopeContextLayer
+    )
+  )
 
   const mock = yield* MockLanguageModel.make(
     MockLanguageModel.map(responseForPrompt)
@@ -129,7 +138,7 @@ const program = Effect.gen(function*() {
         trials: 3,
         objective
       })
-    )
+    ).pipe(Stream.provideLayer(studyLayer))
   )
 
   const resumedEvents = yield* Stream.runCollect(
@@ -141,7 +150,7 @@ const program = Effect.gen(function*() {
         trials: 2,
         objective
       })
-    )
+    ).pipe(Stream.provideLayer(studyLayer))
   )
 
   const firstLegTags = Arr.map(Arr.fromIterable(firstLegEvents), (event) => event._tag)
@@ -175,7 +184,7 @@ const program = Effect.gen(function*() {
       resumedLastEvent: resumedTags[resumedTags.length - 1]
     },
     optimizationConfig: {
-      storageDirectory: STORAGE_DIRECTORY,
+      storageDirectory: artifacts.storageDir,
       firstLegTrials: 3,
       resumedTrials: 2,
       seed: 64
@@ -213,10 +222,10 @@ const program = Effect.gen(function*() {
     summary: summaryArtifact,
     events: eventsArtifact,
     moduleState: moduleStateArtifact
-  }).pipe(Effect.provide(artifacts.envelopeContextLayer))
+  }).pipe(Effect.provide(studyLayer))
 
   yield* Effect.log("miprov2-resume-from-storage", {
-    storageDirectory: STORAGE_DIRECTORY,
+    storageDirectory: artifacts.storageDir,
     firstLegEventCount: firstLegTags.length,
     resumedEventCount: resumedTags.length,
     resumedLastEvent: resumedTags[resumedTags.length - 1],
@@ -224,24 +233,8 @@ const program = Effect.gen(function*() {
   })
 })
 
-const main = Effect.gen(function*() {
-  const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.1.0")
-  const runId = yield* Schema.decode(Contracts.RunId)("01HZ0000000000000000000000")
-  const envelopeContextLayer = Contracts.EnvelopeContextLive({
-    packageVersion,
-    runId,
-    studyId: EXAMPLE_NAME
-  })
-  return yield* withStudyRuntime(program, {
-    storageDirectory: STORAGE_DIRECTORY,
-    envelopeContextLayer,
-    cachePrefix: "effect-dsp/examples/miprov2-resume"
-  })
-})
-
 BunRuntime.runMain(
-  main.pipe(
-    Effect.provide(noopArtifactSinkLayer),
+  program.pipe(
     Effect.provide(BunContext.layer)
   )
 )

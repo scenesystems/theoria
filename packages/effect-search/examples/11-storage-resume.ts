@@ -14,13 +14,11 @@
  */
 import { FileSystem } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Effect, Layer, Match, Schema } from "effect"
+import { Effect, Match, Schema } from "effect"
 
 import { Contracts, Sampler, SearchSpace, Study } from "effect-search"
 
 const objectiveValue = (x: number, y: number): number => (x - 0.4) ** 2 + (y - 1.2) ** 2
-
-const NoopArtifactSink = Layer.succeed(Contracts.ArtifactSink, { emit: () => Effect.void })
 
 const program = Effect.scoped(
   Effect.gen(function*() {
@@ -35,6 +33,7 @@ const program = Effect.scoped(
       runId,
       studyId: "example-study"
     })
+    const artifactSinkLayer = Contracts.fileSystemSink(directory)
     const storageLayer = Study.StudyStorageLive(Study.studyStorageOptions(directory))
 
     const space = yield* SearchSpace.make({
@@ -49,7 +48,7 @@ const program = Effect.scoped(
       sampler: Sampler.tpe({ seed: 901 }),
       trials: 15,
       objective
-    }).pipe(Effect.provide(storageLayer), Effect.provide(NoopArtifactSink), Effect.provide(envelopeContextLayer))
+    }).pipe(Effect.provide(storageLayer), Effect.provide(artifactSinkLayer), Effect.provide(envelopeContextLayer))
 
     const resumed = yield* Study.resumeFromStorage({
       space,
@@ -57,7 +56,7 @@ const program = Effect.scoped(
       direction: "minimize",
       trials: 10,
       objective
-    }).pipe(Effect.provide(storageLayer), Effect.provide(NoopArtifactSink), Effect.provide(envelopeContextLayer))
+    }).pipe(Effect.provide(storageLayer), Effect.provide(artifactSinkLayer), Effect.provide(envelopeContextLayer))
 
     yield* Match.value(resumed).pipe(
       Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>
