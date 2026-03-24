@@ -1,3 +1,4 @@
+/* global console */
 // Aggregates per-package docgen output into a unified docs/ tree for GitHub Pages.
 // Follows the same pattern as Effect-TS/effect scripts/docs.mjs.
 // Run after `bun run docgen`: node scripts/docs.mjs
@@ -252,15 +253,6 @@ function processPackage(dirName, displayName, navOrder, collection, ambiguousDir
 
     dirTitleMap.set(relDir, title)
     dirParentMap.set(relDir, parentTitle)
-
-    // Need grand_parent if this title is ambiguous and parent is also ambiguous
-    let gpForPage
-    if (ambiguousDirNames.has(title)) {
-      // Always include grand_parent when the directory name is ambiguous across packages
-      // This helps Just the Docs disambiguate which parent we mean
-      // For top-level dirs under a package, no grand_parent needed since the parent (package) is unique
-      gpForPage = undefined
-    }
 
     const destPath = Path.join(destDir, relDir, "index.md")
     createDirGroupPage(destPath, title, parentTitle, grandParentTitle, dirNavOrder++)
