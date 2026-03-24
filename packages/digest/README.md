@@ -132,7 +132,7 @@ import { Effect } from "effect"
 const program = Effect.gen(function* () {
   // Raw BLAKE3 hash with manual encoding
   const hash = yield* blake3Hash(utf8ToBytes("hello"))
-  const encoded = yield* toBase64Url(hash) // 43-char base64url
+  const encoded = toBase64Url(hash) // 43-char base64url
 
   // Convenience: string → hash in one call
   const same = yield* digestUtf8("blake3-256", "hello")
