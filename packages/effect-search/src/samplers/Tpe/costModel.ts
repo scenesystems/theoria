@@ -79,7 +79,17 @@ const primitiveSimilarity = (left: unknown, right: unknown): number =>
     Match.orElse(() => BACKGROUND_SIMILARITY)
   )
 
-/** @since 0.1.0 */
+/**
+ * Estimates trial cost for a numeric parameter candidate using
+ * distance-weighted similarity to observed costs. Closer observed
+ * values contribute more to the estimate, enabling cost-aware
+ * acquisition that avoids expensive regions of the search space.
+ *
+ * @see {@link estimateCostForCategoricalParameter} for categorical parameters
+ * @see {@link estimateCostForConfig} for full-config cost estimation
+ * @since 0.1.0
+ * @category scoring
+ */
 export const estimateCostForNumericParameter = (
   split: TrialSplit,
   parameterName: string,
@@ -100,7 +110,17 @@ export const estimateCostForNumericParameter = (
   )
 }
 
-/** @since 0.1.0 */
+/**
+ * Estimates trial cost for a categorical parameter candidate using
+ * equality-based similarity to observed costs. Matching categories
+ * receive full weight while mismatches receive a background
+ * similarity of 0.25, providing a soft cost signal for discrete choices.
+ *
+ * @see {@link estimateCostForNumericParameter} for continuous parameters
+ * @see {@link estimateCostForConfig} for full-config cost estimation
+ * @since 0.1.0
+ * @category scoring
+ */
 export const estimateCostForCategoricalParameter = (
   split: TrialSplit,
   parameterName: string,
@@ -135,7 +155,17 @@ const keySimilarity = (
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Estimates trial cost for a full candidate configuration by averaging
+ * per-key similarity-weighted costs across all parameters. Automatically
+ * detects numeric vs. categorical keys and applies the appropriate
+ * similarity metric for each.
+ *
+ * @see {@link estimateCostForNumericParameter} for per-numeric-key similarity
+ * @see {@link estimateCostForCategoricalParameter} for per-categorical-key similarity
+ * @since 0.1.0
+ * @category scoring
+ */
 export const estimateCostForConfig = (
   split: TrialSplit,
   candidateConfig: unknown
@@ -174,7 +204,17 @@ export const estimateCostForConfig = (
   )
 }
 
-/** @since 0.1.0 */
+/**
+ * Computes the mean observed objective variance across all trials in
+ * a split, used for noise-aware Parzen estimation. Returns `None`
+ * when no trials carry finite non-negative variance values,
+ * signaling the estimator to use default bandwidth.
+ *
+ * @see {@link TrialSplit} for the below/above trial partition
+ * @see {@link estimateCostForConfig} for the companion cost estimation
+ * @since 0.1.0
+ * @category scoring
+ */
 export const objectiveVarianceFromSplit = (split: TrialSplit): Option.Option<number> => {
   const variances = Arr.filterMap(
     Arr.appendAll(split.below, split.above),

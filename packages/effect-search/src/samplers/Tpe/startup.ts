@@ -155,7 +155,19 @@ const suggestModelDriven = (
       )
   })
 
-/** @since 0.1.0 */
+/**
+ * Routes suggestion requests through the startup phase — delegates to random
+ * sampling until `startupTrials` observations are collected, then switches
+ * to the model-driven TPE suggest pipeline.
+ *
+ * The startup phase ensures the Parzen estimator has enough observations
+ * to build meaningful density models before switching from exploration
+ * to exploitation.
+ *
+ * @see {@link startupTrialsFromOptions} for configuring the phase boundary
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestWithStartup = (
   randomSampler: Sampler,
   seed: number,

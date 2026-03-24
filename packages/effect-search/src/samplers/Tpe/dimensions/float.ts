@@ -42,7 +42,17 @@ const quantizeWithStep = (
     maximum: high
   })
 
-/** @since 0.1.0 */
+/**
+ * Clamps and optionally step-quantizes a raw float sample back into the
+ * original parameter domain.
+ *
+ * When a step size is provided, values are rounded to the nearest valid grid
+ * point within [low, high]. Without a step, values are simply clamped.
+ *
+ * @see {@link expandedBoundsForStep} for the companion bound expansion
+ * @since 0.1.0
+ * @category constructors
+ */
 export const normalizeFloat = (
   value: number,
   low: number,
@@ -54,7 +64,17 @@ export const normalizeFloat = (
     onSome: (stride) => quantizeWithStep(value, low, high, stride)
   })
 
-/** @since 0.1.0 */
+/**
+ * Expands parameter bounds by half a step in each direction so the Parzen
+ * estimator covers the full quantized range.
+ *
+ * Without expansion, the boundary kernels would undercount edge values,
+ * biasing the density estimate away from the parameter limits.
+ *
+ * @see {@link normalizeFloat} for the clamping step that uses these bounds
+ * @since 0.1.0
+ * @category constructors
+ */
 export const expandedBoundsForStep = (
   low: number,
   high: number,
@@ -118,7 +138,16 @@ const floatModel = (
       )
   })
 
-/** @since 0.1.0 */
+/**
+ * Suggests the best float value for a parameter by building Parzen estimators
+ * on the below/above splits, sampling candidates from the below-distribution,
+ * and selecting the highest-scoring one via the acquisition function.
+ *
+ * @see {@link floatCandidateTrace} for the underlying trace construction
+ * @see {@link normalizeFloat} for the domain clamping applied to candidates
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestFloatParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -152,7 +181,18 @@ export const suggestFloatParameter = (
     )
   })
 
-/** @since 0.1.0 */
+/**
+ * Builds a full candidate trace for a float parameter from pre-drawn rolls,
+ * including log-scale transform and noise-bandwidth support.
+ *
+ * Separates randomness (rolls) from density estimation so traces can be
+ * replayed deterministically from a checkpoint.
+ *
+ * @see {@link floatCandidateTrace} for the convenience wrapper that draws rolls
+ * @see {@link DimensionScoreTrace} for the output shape
+ * @since 0.1.0
+ * @category sampling
+ */
 export const floatCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
@@ -203,7 +243,18 @@ export const floatCandidateTraceFromRolls = (
     })
   })
 
-/** @since 0.1.0 */
+/**
+ * Draws random roll pairs and delegates to {@link floatCandidateTraceFromRolls}
+ * to produce a complete float dimension trace.
+ *
+ * This is the primary entry point for float dimension tracing in the
+ * mixed-space suggestion pipeline.
+ *
+ * @see {@link floatCandidateTraceFromRolls} for the roll-based implementation
+ * @see {@link suggestFloatParameter} for direct best-value selection
+ * @since 0.1.0
+ * @category sampling
+ */
 export const floatCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

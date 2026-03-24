@@ -55,7 +55,15 @@ const multivariateTraceForGroup = (
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Shallow-merges two config records, with right-hand entries winning
+ * on collision. Used to accumulate partial configs across sequential
+ * group sampling steps into a complete candidate configuration.
+ *
+ * @see {@link suggestGroupedMixedJoint} which chains merge across groups
+ * @since 0.1.0
+ * @category sampling
+ */
 export const mergeConfigs = (left: unknown, right: unknown): unknown =>
   Record.fromEntries([
     ...Match.value(left).pipe(
@@ -154,7 +162,18 @@ const groupCandidateAtIndex = (
     })
   })
 
-/** @since 0.1.0 */
+/**
+ * Generates a candidate config for a single parameter group by building
+ * independent and (optionally) multivariate traces, scoring them jointly,
+ * and selecting the best candidate. This is the inner loop of the
+ * grouped-mixed sampling strategy — called once per group in depth order.
+ *
+ * @see {@link suggestGroupedMixedJoint} which orchestrates across groups
+ * @see {@link mergeConfigs} which combines group results
+ * @see {@link splitForParameters} which narrows trial history per group
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestGroup = (
   rng: Rng.Rng,
   nCandidates: number,

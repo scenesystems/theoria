@@ -64,7 +64,18 @@ const asConstraintAwareSplitTrials = (
     )
   )
 
-/** @since 0.1.0 */
+/**
+ * Splits completed trials for single-objective TPE by normalizing values
+ * according to the optimization direction and partitioning into below/above
+ * groups with constraint-aware feasibility.
+ *
+ * The below group feeds the l(x) density estimator (promising region),
+ * while the above group feeds g(x) (complement region).
+ *
+ * @see {@link splitMultiObjective} for multi-objective Pareto-based splitting
+ * @since 0.1.0
+ * @category sampling
+ */
 export const splitSingleObjective = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   direction: Direction

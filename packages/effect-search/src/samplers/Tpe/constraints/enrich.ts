@@ -59,7 +59,17 @@ const evaluateConstraintsForTrial = (
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Evaluates constraint functions on completed trials that lack constraint
+ * scores, preserving already-scored trials unchanged. This lazy enrichment
+ * avoids redundant constraint evaluation when trials already carry valid
+ * constraint vectors from prior iterations.
+ *
+ * @see {@link TpeConstraintEvaluator} for the constraint function signature
+ * @see {@link SuggestCompletedTrial} for the trial structure being enriched
+ * @since 0.1.0
+ * @category constructors
+ */
 export const enrichCompletedTrialsWithConstraints = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   constraints: ReadonlyArray<TpeConstraintEvaluator>

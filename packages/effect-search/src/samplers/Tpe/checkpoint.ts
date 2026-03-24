@@ -8,7 +8,17 @@ import { Effect, Match } from "effect"
 import { InvalidStudyConfig } from "../../Errors/index.js"
 import type * as Sampler from "../../Sampler/index.js"
 
-/** @since 0.1.0 */
+/**
+ * Validates that a persisted TPE sampler checkpoint matches the current
+ * seed, startup trials, and candidate count on study resume. Fails with
+ * {@link InvalidStudyConfig} if any parameter differs, preventing silent
+ * configuration drift across study sessions.
+ *
+ * @see {@link Sampler.SamplerCheckpoint} for the persisted checkpoint structure
+ * @see {@link InvalidStudyConfig} for the validation error
+ * @since 0.1.0
+ * @category configuration
+ */
 export const restoreCheckpoint = (
   seed: number,
   startupTrials: number,

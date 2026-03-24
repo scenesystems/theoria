@@ -143,7 +143,18 @@ const sampleFloat = (
       )
   })
 
-/** @since 0.1.0 */
+/**
+ * Draws a single random value from a categorical, integer, fidelity, or float
+ * distribution using the provided RNG, respecting optional step quantization
+ * and log scaling.
+ *
+ * Dispatches to the appropriate type-specific sampler (uniform choice,
+ * uniform integer, or uniform/log-uniform float).
+ *
+ * @see {@link sampleParameters} for the parameter-level orchestration
+ * @since 0.1.0
+ * @category sampling
+ */
 export const sampleDistribution = (
   rng: Rng.Rng,
   distribution: Distribution

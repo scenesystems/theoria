@@ -148,7 +148,18 @@ const splitCount = (size: number, nBelowOverride?: number): number => {
   })
 }
 
-/** @since 0.1.0 */
+/**
+ * Splits completed trials for multi-objective TPE by computing Pareto fronts,
+ * scalarizing with hypervolume-based weights, and partitioning into below/above
+ * groups with constraint-aware feasibility.
+ *
+ * Uses non-dominated sorting and hypervolume contribution to rank trials,
+ * ensuring the below group covers the Pareto-optimal region.
+ *
+ * @see {@link splitSingleObjective} for single-objective splitting
+ * @since 0.1.0
+ * @category sampling
+ */
 export const splitMultiObjective = (
   completed: ReadonlyArray<SuggestCompletedTrial>,
   directions: ReadonlyArray<Direction>,

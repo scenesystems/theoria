@@ -20,13 +20,36 @@ import { intCandidateTrace } from "./dimensions/int.js"
 import type { DimensionScoreTrace } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
-/** @since 0.1.0 */
+/**
+ * A dimension score trace tagged with its parameter name for use in joint
+ * mixed-space scoring.
+ *
+ * Wraps a per-dimension {@link DimensionScoreTrace} with the parameter name
+ * so the joint scoring phase can reconstruct full candidate configs from
+ * individual dimension traces.
+ *
+ * @see {@link traceForParameter} for constructing named traces
+ * @see {@link selectBestMixedCandidate} for the joint selection that consumes them
+ * @since 0.1.0
+ * @category models
+ */
 export class NamedDimensionScoreTrace extends Data.Class<{
   readonly name: string
   readonly trace: DimensionScoreTrace<unknown>
 }> {}
 
-/** @since 0.1.0 */
+/**
+ * Result of mixed-space joint candidate selection, containing all candidate
+ * configs, their joint acquisition scores, and the best-scoring config.
+ *
+ * Returned by {@link selectBestMixedCandidate} after scoring all candidates
+ * jointly across dimension traces.
+ *
+ * @see {@link selectBestMixedCandidate} for the selection algorithm
+ * @see {@link NamedDimensionScoreTrace} for the per-dimension input traces
+ * @since 0.1.0
+ * @category models
+ */
 export class MixedCandidateSelection extends Data.Class<{
   readonly candidateConfigs: Array<unknown>
   readonly jointScores: Array<number>
@@ -128,7 +151,16 @@ const scoreTraceAt = (
     )
   )
 
-/** @since 0.1.0 */
+/**
+ * Scores candidates jointly across all dimension traces by summing per-dimension
+ * log-densities under l(x) and g(x), applying cost-aware acquisition scoring,
+ * then selecting the config with the highest joint score.
+ *
+ * @see {@link MixedCandidateSelection} for the output shape
+ * @see {@link traceForParameter} for building the per-dimension input traces
+ * @since 0.1.0
+ * @category scoring
+ */
 export const selectBestMixedCandidate = (
   traces: ReadonlyArray<NamedDimensionScoreTrace>,
   split: TrialSplit,
@@ -168,7 +200,16 @@ export const selectBestMixedCandidate = (
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Dispatches to the appropriate dimension-specific trace builder (float, int,
+ * fidelity, or categorical) for a single parameter, returning a
+ * {@link NamedDimensionScoreTrace} ready for joint scoring.
+ *
+ * @see {@link suggestMixedJoint} for the full mixed-space pipeline that calls this
+ * @see {@link selectBestMixedCandidate} for how the resulting traces are scored
+ * @since 0.1.0
+ * @category sampling
+ */
 export const traceForParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -212,7 +253,19 @@ export const traceForParameter = (
     Match.exhaustive
   )
 
-/** @since 0.1.0 */
+/**
+ * Suggests a full config across a heterogeneous search space by generating
+ * per-dimension candidate traces and jointly scoring them via the acquisition
+ * function.
+ *
+ * This is the top-level entry point for mixed-space TPE suggestion when all
+ * dimensions are scored independently then combined.
+ *
+ * @see {@link traceForParameter} for per-dimension trace construction
+ * @see {@link selectBestMixedCandidate} for joint candidate selection
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestMixedJoint = (
   rng: Rng.Rng,
   nCandidates: number,

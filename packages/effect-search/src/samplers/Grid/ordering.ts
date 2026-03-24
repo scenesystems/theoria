@@ -44,7 +44,17 @@ const shuffledGridConfigs = (
     return yield* shuffleAtIndex(output, output.length - 1, rng)
   })
 
-/** @since 0.1.0 */
+/**
+ * Optionally applies a seeded Fisher–Yates shuffle to enumerated grid
+ * configurations, returning them in traversal order or randomized order.
+ *
+ * When shuffled, the grid is permuted deterministically from the seed,
+ * useful for interleaving diverse configs early in large grid searches.
+ *
+ * @see {@link finiteDimensionsFromSpace} for the grid enumeration step
+ * @since 0.1.0
+ * @category constructors
+ */
 export const orderGridConfigs = (
   configs: ReadonlyArray<GridConfig>,
   shuffle: boolean,

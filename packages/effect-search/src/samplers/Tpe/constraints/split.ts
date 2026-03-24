@@ -13,7 +13,17 @@ import {
 import { defaultGamma } from "../../../internal/tpe/gammaSplit.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 
-/** @since 0.1.0 */
+/**
+ * A completed trial paired with its constraint violation vector for
+ * feasibility-aware splitting. Each constraint value represents a
+ * violation magnitude — values ≤ 0 are feasible, positive values
+ * indicate the degree of constraint violation.
+ *
+ * @see {@link splitWithConstraintFeasibility} which partitions these trials
+ * @see {@link CompletedTrialForSplit} for the underlying trial structure
+ * @since 0.1.0
+ * @category models
+ */
 export class ConstraintAwareSplitTrial extends Data.Class<{
   readonly trial: CompletedTrialForSplit
   readonly constraints: ReadonlyArray<number>
@@ -115,7 +125,18 @@ const originalTrialsFromRankedSelection = (
       )
   )
 
-/** @since 0.1.0 */
+/**
+ * Partitions trials into below/above sets using constraint feasibility.
+ * Feasible trials are split first; when the target below-set size exceeds
+ * the feasible count, the best infeasible trials are promoted by their
+ * constraint density ratio rank. This balances objective optimization
+ * with constraint satisfaction in constrained Bayesian optimization.
+ *
+ * @see {@link ConstraintAwareSplitTrial} for the input trial format
+ * @see {@link TrialSplit} for the output below/above partition
+ * @since 0.1.0
+ * @category sampling
+ */
 export const splitWithConstraintFeasibility = (
   trials: ReadonlyArray<ConstraintAwareSplitTrial>,
   nBelowOverride?: number

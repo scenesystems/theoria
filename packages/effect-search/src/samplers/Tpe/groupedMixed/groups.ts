@@ -9,7 +9,17 @@ import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import * as SearchSpace from "../../../SearchSpace/index.js"
 import type { GroupedMixedSettings } from "./model.js"
 
-/** @since 0.1.0 */
+/**
+ * A sorted batch of parameter names at a given conditional depth.
+ * Groups are sampled sequentially from shallowest to deepest so
+ * that discriminant values resolved in earlier groups can gate
+ * which parameters are active in later groups.
+ *
+ * @see {@link orderedGroups} which constructs and sorts these
+ * @see {@link activeGroupParameters} which filters by activation
+ * @since 0.1.0
+ * @category models
+ */
 export class OrderedGroup extends Data.Class<{
   readonly key: string
   readonly names: ReadonlyArray<string>
@@ -39,7 +49,18 @@ const groupDepth = (parameters: ReadonlyArray<SearchSpace.ParameterMetadata>): n
     )
   )
 
-/** @since 0.1.0 */
+/**
+ * Decomposes a search space into depth-sorted parameter groups. When
+ * `groupDimensions` is enabled, conditional boundaries define group
+ * edges; otherwise all parameters form a single group. Groups are
+ * sorted by minimum activation depth so shallow discriminants are
+ * resolved before deeper conditional branches.
+ *
+ * @see {@link OrderedGroup} for the group data model
+ * @see {@link GroupedMixedSettings} for the controlling feature flags
+ * @since 0.1.0
+ * @category constructors
+ */
 export const orderedGroups = (
   space: SearchSpace.SearchSpace,
   settings: GroupedMixedSettings
@@ -64,7 +85,17 @@ export const orderedGroups = (
   )
 }
 
-/** @since 0.1.0 */
+/**
+ * Filters a group's parameters to only those whose activation
+ * conditions are satisfied by the current partial config. Called
+ * during sequential group sampling so that conditional branches
+ * are correctly pruned before building Parzen estimators.
+ *
+ * @see {@link OrderedGroup} for the group being filtered
+ * @see {@link splitForParameters} for narrowing trial history
+ * @since 0.1.0
+ * @category sampling
+ */
 export const activeGroupParameters = (
   space: SearchSpace.SearchSpace,
   group: OrderedGroup,
@@ -83,7 +114,17 @@ const trialContainsAllParameters = (
     ? Arr.every(parameters, (parameter) => Record.has(config, parameter.name))
     : false
 
-/** @since 0.1.0 */
+/**
+ * Narrows a trial split to only trials whose configs contain all of
+ * the given parameters. Falls back to the original split if either
+ * side would become empty, ensuring Parzen estimators always have
+ * sufficient observations to build density models.
+ *
+ * @see {@link activeGroupParameters} which determines which parameters are live
+ * @see {@link suggestGroup} which consumes the narrowed split
+ * @since 0.1.0
+ * @category sampling
+ */
 export const splitForParameters = (
   split: TrialSplit,
   parameters: ReadonlyArray<SearchSpace.ParameterMetadata>
@@ -96,7 +137,16 @@ export const splitForParameters = (
     : split
 }
 
-/** @since 0.1.0 */
+/**
+ * Reports whether a parameter has a continuous distribution (float,
+ * int, or fidelity). Used to partition group parameters into those
+ * eligible for multivariate continuous kernels versus those that
+ * must be sampled independently as categoricals.
+ *
+ * @see {@link suggestGroup} which uses this to route parameters
+ * @since 0.1.0
+ * @category guards
+ */
 export const isContinuousParameter = (parameter: SearchSpace.ParameterMetadata): boolean =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "float" }, () => true),

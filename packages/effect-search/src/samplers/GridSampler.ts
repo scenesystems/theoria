@@ -44,7 +44,18 @@ const restoreCheckpoint = (
     )
   )
 
-/** @since 0.1.0 */
+/**
+ * Constructs a grid sampler that enumerates the Cartesian product of finite
+ * dimensions, optionally shuffled, and yields one configuration per trial index.
+ *
+ * Grid search is exhaustive — it covers every combination exactly once,
+ * making it suitable for small discrete search spaces.
+ *
+ * @see {@link Sampler.Sampler} for the output data class
+ * @see {@link finiteDimensionValues} for how parameter grids are extracted
+ * @since 0.1.0
+ * @category constructors
+ */
 export const make = (
   options: Sampler.GridOptions = {},
   pendingImputationPolicy: PendingImputationPolicy

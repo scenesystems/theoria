@@ -11,7 +11,19 @@ import type * as SearchSpace from "../../../SearchSpace/index.js"
 import { expandedBoundsForStep, normalizeFloat } from "../dimensions/float.js"
 import { invalidConfig } from "../options.js"
 
-/** @since 0.1.0 */
+/**
+ * Maps a numeric search-space parameter to a model coordinate system
+ * (e.g. log-space) and back, enabling the multivariate Gaussian kernel to
+ * operate in a normalized domain.
+ *
+ * Each adapter encapsulates the forward transform (`toModel`) and the inverse
+ * clamping/quantization step (`normalize`) for one continuous dimension.
+ *
+ * @see {@link adapterForParameter} for constructing an adapter from a parameter spec
+ * @see {@link configFromCandidate} for mapping model-space candidates back to configs
+ * @since 0.1.0
+ * @category models
+ */
 export class ContinuousAdapter extends Data.Class<{
   readonly name: string
   readonly toModel: (value: number) => number
@@ -34,7 +46,19 @@ const modelValueFromConfig = (adapter: ContinuousAdapter, config: SamplerConfig)
     Option.map((value) => adapter.toModel(value))
   )
 
-/** @since 0.1.0 */
+/**
+ * Constructs a {@link ContinuousAdapter} for a given parameter, selecting the
+ * appropriate model transform (identity, log, or integer-expanded) based on
+ * distribution type and scale.
+ *
+ * Fails for categorical parameters since they have no continuous model-space
+ * representation.
+ *
+ * @see {@link ContinuousAdapter} for the output shape
+ * @see {@link vectorsFromSplit} for extracting model-space vectors using adapters
+ * @since 0.1.0
+ * @category constructors
+ */
 export const adapterForParameter = (
   parameter: SearchSpace.ParameterMetadata
 ): Effect.Effect<ContinuousAdapter, InvalidSamplerConfig> =>
@@ -141,7 +165,18 @@ const modelVectorFromConfig = (
       )
   )
 
-/** @since 0.1.0 */
+/**
+ * Extracts model-space coordinate vectors from a trial split, discarding
+ * trials with missing or non-finite parameter values.
+ *
+ * Produces the observation matrix that the multivariate Parzen estimator
+ * fits its kernel density to.
+ *
+ * @see {@link adapterForParameter} for building the adapter array
+ * @see {@link configFromCandidate} for the inverse operation
+ * @since 0.1.0
+ * @category constructors
+ */
 export const vectorsFromSplit = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   trials: ReadonlyArray<{ readonly config: SamplerConfig }>
@@ -154,14 +189,37 @@ export const vectorsFromSplit = (
       })
     ))
 
-/** @since 0.1.0 */
+/**
+ * Converts a normalized candidate vector back into a name→value config
+ * record using the adapter ordering.
+ *
+ * This is the inverse of {@link vectorsFromSplit} — it maps model-space
+ * coordinates back to the parameter names the search space expects.
+ *
+ * @see {@link normalizeModelCandidate} for the pre-normalization step
+ * @see {@link vectorsFromSplit} for the forward direction
+ * @since 0.1.0
+ * @category constructors
+ */
 export const configFromCandidate = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   candidateValues: ReadonlyArray<number>
 ): unknown =>
   Record.fromEntries(Arr.map(Arr.zip(adapters, candidateValues), ([adapter, value]) => Tuple.make(adapter.name, value)))
 
-/** @since 0.1.0 */
+/**
+ * Clamps and rounds each coordinate of a model-space candidate through its
+ * adapter's normalize function, failing if the vector length does not match
+ * the adapter count.
+ *
+ * Ensures every sampled candidate lies within the valid parameter bounds
+ * before it is converted back to a config record.
+ *
+ * @see {@link configFromCandidate} for the next step after normalization
+ * @see {@link ContinuousAdapter} for the per-dimension normalize function
+ * @since 0.1.0
+ * @category guards
+ */
 export const normalizeModelCandidate = (
   adapters: ReadonlyArray<ContinuousAdapter>,
   modelCandidate: ReadonlyArray<number>,

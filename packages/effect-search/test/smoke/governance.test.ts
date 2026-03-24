@@ -26,6 +26,26 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
     "src/contracts/ArtifactRelation.ts",
     "Artifact relation schemas and constructors co-located for tagged union coherence. Follow-up: split relation constructors into focused modules after contract stabilization."
+  ],
+  [
+    "src/samplers/Tpe/dimensions/categorical.ts",
+    "TPE categorical dimension co-locates univariate and multivariate Parzen suggestion, trace construction, and candidate selection. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/dimensions/float.ts",
+    "TPE float dimension co-locates log-scale model, Parzen estimation, trace construction, and normalization. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/mixed.ts",
+    "TPE mixed-space joint scoring co-locates per-dimension dispatch, joint acquisition scoring, and candidate selection. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/multivariateContinuous/adapters.ts",
+    "Multivariate continuous adapters co-locate model transforms, vector extraction, and normalization for all numeric distribution types. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/options.ts",
+    "TPE option parsing co-locates default resolution, validation, and checkpoint projection for all sampler configuration fields. Size driven by multi-line JSDoc on all exports."
   ]
 ]
 

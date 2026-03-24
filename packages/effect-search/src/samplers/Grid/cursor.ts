@@ -21,7 +21,17 @@ const missingConfigError = (): InvalidSamplerConfig =>
     sampler: "grid"
   })
 
-/** @since 0.1.0 */
+/**
+ * Retrieves the grid configuration at the given trial index, failing when the
+ * grid is exhausted or the index is out of bounds.
+ *
+ * The cursor maps trial numbers directly to grid positions, so index 0
+ * returns the first enumerated (or shuffled) configuration.
+ *
+ * @see {@link finiteDimensionsFromSpace} for how grid entries are enumerated
+ * @since 0.1.0
+ * @category constructors
+ */
 export const configAtCursor = (
   configs: ReadonlyArray<GridConfig>,
   nextTrialNumber: number

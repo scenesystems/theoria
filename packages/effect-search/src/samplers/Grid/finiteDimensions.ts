@@ -58,7 +58,17 @@ const finiteDimensionFromParameter = (
     }))
   )
 
-/** @since 0.1.0 */
+/**
+ * Extracts finite, enumerable value sets from every search space parameter,
+ * failing for unbounded float dimensions that lack a step size.
+ *
+ * The resulting dimension arrays are combined via Cartesian product to
+ * form the full grid of configurations.
+ *
+ * @see {@link configAtCursor} for accessing individual grid entries
+ * @since 0.1.0
+ * @category constructors
+ */
 export const finiteDimensionsFromSpace = (
   space: SearchSpace.SearchSpace
 ): Effect.Effect<Array<FiniteDimension>, GridIncompatible> => Effect.forEach(space.params, finiteDimensionFromParameter)

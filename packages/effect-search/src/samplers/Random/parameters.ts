@@ -11,7 +11,19 @@ import * as SearchSpace from "../../SearchSpace/index.js"
 import { configObject, type ConfigValues, emptyConfigValues, setConfigValue } from "./config.js"
 import { sampleDistribution } from "./distribution.js"
 
-/** @since 0.1.0 */
+/**
+ * Iterates search space parameters in order, sampling each active parameter's
+ * distribution and skipping conditionally inactive ones based on
+ * already-sampled values.
+ *
+ * The fold accumulates sampled values so that later conditional-activation
+ * checks can reference earlier parameter values.
+ *
+ * @see {@link sampleDistribution} for per-distribution random draws
+ * @see {@link ConfigValues} for the accumulator type
+ * @since 0.1.0
+ * @category sampling
+ */
 export const sampleParameters = (
   rng: Rng.Rng,
   parameters: ReadonlyArray<SearchSpace.ParameterMetadata>

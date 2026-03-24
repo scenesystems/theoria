@@ -25,7 +25,19 @@ export {
   GroupedMixedSettings
 }
 
-/** @since 0.1.0 */
+/**
+ * Suggests a full configuration by sampling each conditional parameter
+ * group in depth order, merging partial configs between groups. This
+ * is the top-level entry point for grouped-mixed TPE — it handles
+ * conditional activation, group decomposition, and config accumulation
+ * so callers receive a single complete config.
+ *
+ * @see {@link orderedGroups} for group decomposition
+ * @see {@link suggestGroup} for per-group candidate generation
+ * @see {@link GroupedMixedSettings} for feature flag control
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestGroupedMixedJoint = (
   rng: Rng.Rng,
   nCandidates: number,

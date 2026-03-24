@@ -82,13 +82,33 @@ const valuesWithFallback = <A>(
     []
   )
 
-/** @since 0.1.0 */
+/**
+ * Extracts finite numeric observed values for a parameter from completed
+ * trials, falling back through progressively relaxed activation conditions.
+ *
+ * The fallback chain ensures density estimation always has observations to
+ * fit, even when conditional activation filters out most trials.
+ *
+ * @see {@link primitiveValuesForParameter} for categorical extraction
+ * @since 0.1.0
+ * @category constructors
+ */
 export const numericValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
   trials: ReadonlyArray<CompletedTrialForSplit>
 ): Array<number> => valuesWithFallback(parameter, trials, asFiniteNumber)
 
-/** @since 0.1.0 */
+/**
+ * Extracts primitive choice values for a categorical parameter from completed
+ * trials, falling back through progressively relaxed activation conditions.
+ *
+ * Values are matched against the parameter's declared choices to ensure
+ * the categorical Parzen estimator receives valid observations.
+ *
+ * @see {@link numericValuesForParameter} for numeric extraction
+ * @since 0.1.0
+ * @category constructors
+ */
 export const primitiveValuesForParameter = (
   parameter: SearchSpace.ParameterMetadata,
   trials: ReadonlyArray<CompletedTrialForSplit>

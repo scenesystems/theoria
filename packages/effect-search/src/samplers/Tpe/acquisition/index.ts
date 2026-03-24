@@ -56,10 +56,27 @@ export {
   BuiltInAcquisitionNameSchema
 } from "./model.js"
 
-/** @since 0.1.0 */
+/**
+ * The default acquisition strategy name used when none is explicitly
+ * specified. Falls back to Expected Improvement, which provides the
+ * best general-purpose exploration–exploitation tradeoff.
+ *
+ * @see {@link builtinAcquisitionRegistry} for the full strategy lookup
+ * @see {@link resolveAcquisition} which uses this as fallback
+ * @since 0.1.0
+ * @category configuration
+ */
 export const defaultAcquisitionName: BuiltInAcquisitionName = "ei"
 
-/** @since 0.1.0 */
+/**
+ * Lookup table mapping each built-in acquisition name to its scoring
+ * implementation. Contains entries for `"ei"`, `"pi"`, and `"thompson"`.
+ *
+ * @see {@link BuiltInAcquisitionName} for the key type
+ * @see {@link resolveAcquisition} which queries this registry
+ * @since 0.1.0
+ * @category configuration
+ */
 export const builtinAcquisitionRegistry: Record<
   BuiltInAcquisitionName,
   AcquisitionImplementation
@@ -75,7 +92,17 @@ const builtinAcquisition = (
   name: BuiltInAcquisitionName
 ): AcquisitionImplementation => builtinAcquisitionRegistry[name]
 
-/** @since 0.1.0 */
+/**
+ * Resolves an optional {@link AcquisitionOption} to a concrete
+ * {@link AcquisitionImplementation}, falling back to EI when no
+ * option is provided. Handles both built-in name strings and
+ * custom implementation instances.
+ *
+ * @see {@link builtinAcquisitionRegistry} for built-in strategy lookup
+ * @see {@link scoreAcquisition} which calls this to score candidates
+ * @since 0.1.0
+ * @category constructors
+ */
 export const resolveAcquisition = (
   acquisition?: AcquisitionOption
 ): AcquisitionImplementation =>
@@ -91,13 +118,32 @@ export const resolveAcquisition = (
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Scores a single candidate using the resolved acquisition function
+ * and its log-density context. Resolves the acquisition strategy
+ * on each call, making it safe to use with varying options.
+ *
+ * @see {@link AcquisitionContext} for the scoring inputs
+ * @see {@link scoreJointAcquisition} for multi-dimensional scoring
+ * @since 0.1.0
+ * @category scoring
+ */
 export const scoreAcquisition = (
   context: AcquisitionContext,
   acquisition?: AcquisitionOption
 ): number => resolveAcquisition(acquisition).score(context)
 
-/** @since 0.1.0 */
+/**
+ * Scores a joint (multi-dimensional) candidate by summing per-dimension
+ * log-density contributions into aggregate ℓ(x) and g(x) values before
+ * passing them to the acquisition function. This enables independent
+ * per-dimension density estimation while scoring the full configuration.
+ *
+ * @see {@link scoreAcquisition} for single-dimension scoring
+ * @see {@link AcquisitionContext} for the aggregated scoring inputs
+ * @since 0.1.0
+ * @category scoring
+ */
 export const scoreJointAcquisition = (
   logLContributions: ReadonlyArray<number>,
   logGContributions: ReadonlyArray<number>,

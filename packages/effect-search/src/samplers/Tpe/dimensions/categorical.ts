@@ -40,7 +40,17 @@ const tupleKeysFromTrials = (
 ): Effect.Effect<Array<string>, InvalidSamplerConfig> =>
   Effect.forEach(trials, (trial) => tupleKeyFromTrial(dimensions, trial))
 
-/** @since 0.1.0 */
+/**
+ * Extracts all categorical dimensions from a search space as
+ * `CategoricalDimension` descriptors for multivariate Parzen estimation.
+ *
+ * Non-categorical parameters are filtered out, producing the dimension
+ * list consumed by {@link suggestMultivariateCategorical}.
+ *
+ * @see {@link suggestMultivariateCategorical} for joint categorical suggestion
+ * @since 0.1.0
+ * @category constructors
+ */
 export const categoricalDimensions = (
   space: SearchSpace.SearchSpace
 ): Array<Multi.CategoricalDimension> =>
@@ -56,7 +66,16 @@ export const categoricalDimensions = (
     )
   )
 
-/** @since 0.1.0 */
+/**
+ * Suggests the best categorical value for a parameter by building Parzen
+ * density estimators on below/above splits and scoring candidates via the
+ * acquisition function.
+ *
+ * @see {@link categoricalCandidateTrace} for the underlying trace construction
+ * @see {@link suggestMultivariateCategorical} for joint multi-dimension suggestion
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestCategoricalParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -75,7 +94,18 @@ export const suggestCategoricalParameter = (
     )
   })
 
-/** @since 0.1.0 */
+/**
+ * Builds a full candidate trace for a categorical parameter from pre-drawn
+ * rolls, returning candidates, log-densities, and acquisition scores.
+ *
+ * Separates randomness from density estimation so traces can be replayed
+ * deterministically from a checkpoint.
+ *
+ * @see {@link categoricalCandidateTrace} for the convenience wrapper
+ * @see {@link DimensionScoreTrace} for the output shape
+ * @since 0.1.0
+ * @category sampling
+ */
 export const categoricalCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   choices: ReadonlyArray<PrimitiveChoice>,
@@ -117,7 +147,18 @@ export const categoricalCandidateTraceFromRolls = (
     })
   })
 
-/** @since 0.1.0 */
+/**
+ * Draws random rolls and delegates to {@link categoricalCandidateTraceFromRolls}
+ * to produce a complete categorical dimension trace.
+ *
+ * This is the primary entry point for categorical dimension tracing in the
+ * mixed-space suggestion pipeline.
+ *
+ * @see {@link categoricalCandidateTraceFromRolls} for the roll-based implementation
+ * @see {@link suggestCategoricalParameter} for direct best-value selection
+ * @since 0.1.0
+ * @category sampling
+ */
 export const categoricalCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -130,7 +171,18 @@ export const categoricalCandidateTrace = (
     Effect.flatMap((rolls) => categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition))
   )
 
-/** @since 0.1.0 */
+/**
+ * Suggests a joint categorical assignment across multiple dimensions by
+ * enumerating choice tuples and scoring via Parzen density.
+ *
+ * Flattens multi-dimensional categorical spaces into a single-dimension
+ * tuple space so the density estimator captures inter-dimension correlations.
+ *
+ * @see {@link categoricalDimensions} for extracting dimension descriptors
+ * @see {@link suggestCategoricalParameter} for independent per-dimension suggestion
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestMultivariateCategorical = (
   rng: Rng.Rng,
   nCandidates: number,

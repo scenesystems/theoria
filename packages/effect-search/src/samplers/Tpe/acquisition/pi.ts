@@ -14,7 +14,17 @@ const probabilityFromLogDensities = (
   logG: number
 ): number => Float64.exp(logL - logG) / (1 + Float64.exp(logL - logG))
 
-/** @since 0.1.0 */
+/**
+ * Computes the Probability of Improvement from log-densities ℓ(x)
+ * and g(x), optionally weighted by estimated cost. PI measures the
+ * probability that a candidate improves over the current best,
+ * making it more exploitation-focused than EI.
+ *
+ * @see {@link AcquisitionContext} for the log-density and cost inputs
+ * @see {@link piAcquisition} for the pre-built strategy instance
+ * @since 0.1.0
+ * @category scoring
+ */
 export const piScore = (
   logL: number,
   logG: number,
@@ -25,7 +35,16 @@ export const piScore = (
     estimatedCost
   )
 
-/** @since 0.1.0 */
+/**
+ * Pre-built Probability of Improvement acquisition strategy instance,
+ * ready for registration in the TPE sampler's acquisition registry.
+ * Uses {@link piScore} as its scoring function.
+ *
+ * @see {@link piScore} for the underlying scoring computation
+ * @see {@link AcquisitionImplementation} for the strategy protocol
+ * @since 0.1.0
+ * @category constructors
+ */
 export const piAcquisition: AcquisitionImplementation = new AcquisitionImplementation({
   name: "pi",
   score: ({ logL, logG, estimatedCost }: AcquisitionContext) => piScore(logL, logG, estimatedCost)

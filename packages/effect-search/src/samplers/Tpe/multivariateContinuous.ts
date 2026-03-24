@@ -35,7 +35,19 @@ export {
   MultivariateContinuousTrace
 }
 
-/** @since 0.1.0 */
+/**
+ * Builds a candidate trace for correlated continuous dimensions by fitting
+ * diagonal Gaussian mixtures to the below/above splits and scoring each
+ * candidate via the acquisition function.
+ *
+ * Returns `Option.none()` when fewer than 2 continuous dimensions are
+ * present, since multivariate modeling requires at least two dimensions.
+ *
+ * @see {@link MultivariateContinuousTrace} for the output shape
+ * @see {@link multivariateFromOptions} for the feature toggle
+ * @since 0.1.0
+ * @category sampling
+ */
 export const multivariateContinuousCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

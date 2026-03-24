@@ -32,7 +32,16 @@ const normalizeInt = (
     0
   )
 
-/** @since 0.1.0 */
+/**
+ * Suggests the best integer value for a parameter by sampling candidates from
+ * the below-distribution Parzen estimator, scoring them via acquisition, and
+ * rounding to the nearest valid step.
+ *
+ * @see {@link intCandidateTrace} for the underlying trace construction
+ * @see {@link suggestFloatParameter} for the continuous-valued equivalent
+ * @since 0.1.0
+ * @category sampling
+ */
 export const suggestIntParameter = (
   rng: Rng.Rng,
   nCandidates: number,
@@ -53,7 +62,18 @@ export const suggestIntParameter = (
     )
   })
 
-/** @since 0.1.0 */
+/**
+ * Builds a full candidate trace for an integer parameter from pre-drawn rolls,
+ * returning candidates, log-densities, and acquisition scores.
+ *
+ * Internally uses expanded bounds (±0.5 step) so the Parzen estimator covers
+ * the full integer range including boundary values.
+ *
+ * @see {@link intCandidateTrace} for the convenience wrapper that draws rolls
+ * @see {@link DimensionScoreTrace} for the output shape
+ * @since 0.1.0
+ * @category sampling
+ */
 export const intCandidateTraceFromRolls = (
   parameter: SearchSpace.ParameterMetadata,
   low: number,
@@ -91,7 +111,18 @@ export const intCandidateTraceFromRolls = (
     })
   })
 
-/** @since 0.1.0 */
+/**
+ * Draws random roll pairs and delegates to {@link intCandidateTraceFromRolls}
+ * to produce a complete integer dimension trace.
+ *
+ * This is the primary entry point for integer dimension tracing in the
+ * mixed-space suggestion pipeline.
+ *
+ * @see {@link intCandidateTraceFromRolls} for the roll-based implementation
+ * @see {@link suggestIntParameter} for direct best-value selection
+ * @since 0.1.0
+ * @category sampling
+ */
 export const intCandidateTrace = (
   rng: Rng.Rng,
   nCandidates: number,

@@ -5,7 +5,18 @@
  */
 import { Data } from "effect"
 
-/** @since 0.1.0 */
+/**
+ * Immutable trace capturing the multivariate continuous TPE sampling step —
+ * stores parameter names, candidate configs, below/above log-densities, and
+ * acquisition scores for diagnostics and selection.
+ *
+ * Provides full observability into the correlated continuous sampling path,
+ * enabling diagnostic visualization and deterministic replay.
+ *
+ * @see {@link multivariateContinuousCandidateTrace} for the producer
+ * @since 0.1.0
+ * @category models
+ */
 export class MultivariateContinuousTrace extends Data.Class<{
   readonly parameterNames: ReadonlyArray<string>
   readonly candidateConfigs: ReadonlyArray<unknown>

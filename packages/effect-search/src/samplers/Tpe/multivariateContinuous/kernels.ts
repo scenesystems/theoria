@@ -7,7 +7,17 @@ import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect
 
 import * as Rng from "../../../internal/rng.js"
 
-/** @since 0.1.0 */
+/**
+ * Random draws used to sample a single candidate from a diagonal Gaussian
+ * mixture — a component selection roll plus one value roll per dimension.
+ *
+ * Pre-drawing rolls decouples randomness from density estimation, enabling
+ * deterministic replay from a checkpoint.
+ *
+ * @see {@link drawMultivariateRolls} for batch generation of roll sets
+ * @since 0.1.0
+ * @category models
+ */
 export class MultivariateCandidateRoll extends Data.Class<{
   readonly componentRoll: number
   readonly valueRolls: ReadonlyArray<number>
@@ -19,7 +29,17 @@ const indices = (count: number): ReadonlyArray<number> =>
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
 
-/** @since 0.1.0 */
+/**
+ * Safely retrieves a numeric value at `index`, returning `fallback` when the
+ * index is out of bounds.
+ *
+ * Used throughout kernel density estimation where missing dimensions should
+ * degrade gracefully rather than throw.
+ *
+ * @see {@link statsByDimension} for a consumer that indexes across dimension vectors
+ * @since 0.1.0
+ * @category constructors
+ */
 export const valueAt = (values: ReadonlyArray<number>, index: number, fallback: number): number =>
   Arr.get(values, index).pipe(Option.getOrElse(() => fallback))
 
@@ -45,7 +65,18 @@ const stddev = (values: ReadonlyArray<number>, mean: number): number =>
     })
   )
 
-/** @since 0.1.0 */
+/**
+ * Computes per-dimension mean and standard deviation across a set of
+ * observation vectors, used to derive Scott's bandwidth for the diagonal
+ * Gaussian kernel.
+ *
+ * The resulting statistics determine how wide each kernel component spreads
+ * in each dimension of the multivariate Parzen estimator.
+ *
+ * @see {@link uniformWeights} for the companion equal-weight initialization
+ * @since 0.1.0
+ * @category scoring
+ */
 export const statsByDimension = (
   vectors: ReadonlyArray<ReadonlyArray<number>>,
   dimensionCount: number
@@ -59,14 +90,36 @@ export const statsByDimension = (
     }
   })
 
-/** @since 0.1.0 */
+/**
+ * Generates equal mixture weights (1/n each) for a Gaussian mixture with
+ * `componentCount` components.
+ *
+ * Uniform weights are the default initialization — each observed data point
+ * contributes equally to the mixture density before any pruning or
+ * re-weighting.
+ *
+ * @see {@link statsByDimension} for per-dimension kernel statistics
+ * @since 0.1.0
+ * @category constructors
+ */
 export const uniformWeights = (componentCount: number): ReadonlyArray<number> =>
   Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
   )
 
-/** @since 0.1.0 */
+/**
+ * Draws `nCandidates` sets of random rolls from the RNG — one
+ * component-selection roll and `dimensionCount` value rolls per candidate —
+ * for use in diagonal Gaussian mixture sampling.
+ *
+ * All randomness is consumed up front so the density estimation and scoring
+ * phases remain deterministic given the same roll sequence.
+ *
+ * @see {@link MultivariateCandidateRoll} for the per-candidate roll structure
+ * @since 0.1.0
+ * @category sampling
+ */
 export const drawMultivariateRolls = (
   rng: Rng.Rng,
   nCandidates: number,

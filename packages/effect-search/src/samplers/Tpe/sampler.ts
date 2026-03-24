@@ -24,7 +24,19 @@ import {
 } from "./options.js"
 import { suggestWithStartup } from "./startup.js"
 
-/** @since 0.1.0 */
+/**
+ * Constructs a TPE `Sampler` from runtime options, wiring checkpoint
+ * persistence, option validation, and the startup-aware suggest pipeline
+ * into a single Sampler instance.
+ *
+ * This is the primary entry point for creating a Tree-structured Parzen
+ * Estimator sampler for Bayesian optimization.
+ *
+ * @see {@link Sampler.Sampler} for the output data class
+ * @see {@link suggestWithStartup} for the startup-phase routing logic
+ * @since 0.1.0
+ * @category constructors
+ */
 export const make = (
   options: TpeRuntimeOptions = {},
   pendingImputationPolicy: PendingImputationPolicy
