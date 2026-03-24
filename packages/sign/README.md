@@ -1,12 +1,17 @@
 # @scenesystems/sign
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
 Digital signatures, key agreement, and key encapsulation for [Effect](https://effect.website). Classical and post-quantum algorithms, built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem.
 
-## Install
+## Installation
 
 ```sh
+npm install @scenesystems/sign
+# or
+pnpm add @scenesystems/sign
+# or
 bun add @scenesystems/sign
 ```
 
@@ -257,4 +262,4 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 
 ## License
 
-[MIT](../../LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE) — Copyright © 2026 Scene Systems

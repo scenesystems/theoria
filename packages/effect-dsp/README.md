@@ -144,16 +144,11 @@ Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.
 
 ### Planned modules
 
-These DSPy modules have not yet been implemented:
-
-| Module                 | DSPy equivalent             | Description                                                                   | Reference                                                                      |
-| ---------------------- | --------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `bestOfN`              | `dspy.BestOfN`              | Run module N times with different rollout IDs, return best by reward function | [DSPy docs](https://dspy.ai/tutorials/output_refinement/best-of-n-and-refine/) |
-| `refine`               | `dspy.Refine`               | `BestOfN` + automatic feedback generation between attempts                    | [DSPy docs](https://dspy.ai/tutorials/output_refinement/best-of-n-and-refine/) |
-| `react`                | `dspy.ReAct`                | Reasoning + acting agent with tool use                                        | [1](#ref-1), [7](#ref-7)                                                       |
-| `programOfThought`     | `dspy.ProgramOfThought`     | Generate executable code to derive the answer                                 | [1](#ref-1)                                                                    |
-| `multiChainComparison` | `dspy.MultiChainComparison` | Compare multiple CoT outputs to produce a final prediction                    | [1](#ref-1)                                                                    |
-| `parallel`             | `dspy.Parallel`             | Parallel execution of module over multiple inputs                             | [DSPy docs](https://dspy.ai/)                                                  |
+| Module                 | DSPy equivalent             | Description                                                | Reference                     |
+| ---------------------- | --------------------------- | ---------------------------------------------------------- | ----------------------------- |
+| `programOfThought`     | `dspy.ProgramOfThought`     | Generate executable code to derive the answer              | [1](#ref-1)                   |
+| `multiChainComparison` | `dspy.MultiChainComparison` | Compare multiple CoT outputs to produce a final prediction | [1](#ref-1)                   |
+| `parallel`             | `dspy.Parallel`             | Parallel execution of module over multiple inputs          | [DSPy docs](https://dspy.ai/) |
 
 ### Planned optimizers
 
@@ -167,7 +162,7 @@ These DSPy modules have not yet been implemented:
 
 ## Status
 
-`effect-dsp` is in active development. Core Signature, Module, Trace, and Evaluate contracts are implemented and tested. All six optimizers — `LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, and `GEPA` — are implemented with tests and runnable examples.
+`effect-dsp` is in active development. Core modules — `predict`, `chainOfThought`, `bestOfN`, `refine`, `react`, and `compose` — are implemented along with all six optimizers (`LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, `GEPA`), evaluation, tracing, and caching.
 
 ## Acknowledgements
 

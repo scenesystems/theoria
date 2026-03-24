@@ -262,7 +262,7 @@ See the [repository](https://github.com/scenesystems/theoria) for contribution g
 
 ```sh
 bun run check    # Type check
-bun run test     # 69 suites
+bun run test     # Run tests
 bun run lint     # ESLint with Effect rules
 bun run build    # ESM + CJS + annotate-pure-calls
 ```

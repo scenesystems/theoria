@@ -74,7 +74,7 @@ LabeledFewShot, BootstrapFewShot, BootstrapRS, Ensemble, MIPROv2, GEPA. Uses `ef
 
 ### [`effect-math`](./packages/effect-math) — Applied math
 
-Nine domains: numerics, linear algebra, geometry, probability, statistics, special functions, algebra, calculus, and optimization solvers. Pure kernels for the hot path, Effect wrappers when you need typed errors or runtime policies.
+Ten domains: numerics, linear algebra, geometry, probability, statistics, special functions, complex analysis, algebra, calculus, and optimization solvers. Pure kernels for the hot path, Effect wrappers when you need typed errors or runtime policies.
 
 ```ts
 import { Chunk } from "effect"
@@ -164,7 +164,7 @@ Implements the [DSPy](https://github.com/stanfordnlp/dspy) paradigm [(Khattab et
 
 ### effect-math
 
-Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses the rational polynomial from [Abramowitz & Stegun](https://personal.math.ubc.ca/~cbm/aands/) (1964), formula 7.1.26. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). Verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures (214 cases across 9 domains).
+Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses the rational polynomial from [Abramowitz & Stegun](https://personal.math.ubc.ca/~cbm/aands/) (1964), formula 7.1.26. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). Complex-step differentiation follows [Squire & Trapp (1998)](https://doi.org/10.1137/S003614459631241X). Verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures across all domains.
 
 ### Cryptographic packages
 

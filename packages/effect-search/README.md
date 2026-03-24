@@ -1,6 +1,5 @@
 # `effect-search`
 
-[![npm](https://img.shields.io/npm/v/effect-search)](https://www.npmjs.com/package/effect-search)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
