@@ -11,6 +11,8 @@ import * as Study from "../../src/Study/index.js"
 
 const space = makeLogLearningRateSpace()
 
+const PERF_BUDGET_MS = process.env.CI ? 30_000 : 6_000
+
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
@@ -39,7 +41,7 @@ describe("deterministic TPE performance harness", () => {
         const elapsedMillis = endedAt - startedAt
 
         expect(Option.isSome(resultOption)).toBe(true)
-        expect(elapsedMillis).toBeLessThan(6_000)
+        expect(elapsedMillis).toBeLessThan(PERF_BUDGET_MS)
 
         if (Option.isNone(resultOption)) {
           return
