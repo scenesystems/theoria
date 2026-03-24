@@ -140,3 +140,47 @@ export const ErfInput = Schema.Struct({
 export const DigammaInput = Schema.Struct({
   x: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
 }).annotations({ identifier: "DigammaInput" })
+
+/**
+ * Inverse error function input — finite scalar in (-1, 1).
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const ErfinvInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(-1), Schema.lessThan(1))
+}).annotations({ identifier: "ErfinvInput" })
+
+/**
+ * Regularised incomplete gamma function input — a > 0, x ≥ 0.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const GammaincInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
+}).annotations({ identifier: "GammaincInput" })
+
+/**
+ * Regularised incomplete beta function input — a > 0, b > 0, x ∈ [0, 1].
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const BetaincInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  b: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1))
+}).annotations({ identifier: "BetaincInput" })
+
+/**
+ * Polygamma function input — non-negative integer n and x > 0.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const PolygammaInput = Schema.Struct({
+  n: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  x: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+}).annotations({ identifier: "PolygammaInput" })

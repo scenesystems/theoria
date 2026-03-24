@@ -166,3 +166,46 @@ export const ReductionInput = Schema.Struct({
 export const ArgmaxInput = Schema.Struct({
   values: FiniteVector
 }).annotations({ identifier: "ArgmaxInput" })
+
+/**
+ * Log-add-exp input contract — two finite scalars.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LogaddexpInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite()),
+  b: Schema.Number.pipe(Schema.finite())
+}).annotations({ identifier: "LogaddexpInput" })
+
+/**
+ * Log-sum-exp input contract — non-empty finite vector.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LogsumexpInput = Schema.Struct({
+  values: FiniteVector
+}).annotations({ identifier: "LogsumexpInput" })
+
+/**
+ * xlogy input contract — finite x and strictly positive finite y.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const XlogyInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+}).annotations({ identifier: "XlogyInput" })
+
+/**
+ * xlog1py input contract — finite x and finite y > -1.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const Xlog1pyInput = Schema.Struct({
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(-1))
+}).annotations({ identifier: "Xlog1pyInput" })

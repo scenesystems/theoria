@@ -4,8 +4,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
+import { Chunk, Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
 
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import {
   BackendPolicyService,
   collectRuntimePolicies,
@@ -20,12 +21,14 @@ import {
   NumericDomainBoundaryError,
   NumericDomainViolationError
 } from "./errors.js"
+import * as Logspace from "./internal/logspace.js"
+import * as Logsumexp from "./internal/logsumexp.js"
 import * as Reduction from "./internal/reduction.js"
 import * as Scalar from "./internal/scalar.js"
 import * as Selection from "./internal/selection.js"
 import * as Transcendental from "./internal/transcendental.js"
 import { NumericDomainModel } from "./model.js"
-import { ArgmaxInput, DivideInput, LogInput, ReductionInput } from "./schema.js"
+import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogsumexpInput, ReductionInput } from "./schema.js"
 
 /**
  * Division with zero-divisor guard — returns `None` instead of producing
@@ -569,4 +572,159 @@ export const validateNumericBoundary = (input: unknown) =>
         })
       )
     )
+  })
+
+// ---------------------------------------------------------------------------
+// Log-space pure kernel re-exports
+// ---------------------------------------------------------------------------
+
+/**
+ * Log-space addition: `log(exp(a) + exp(b))` computed without leaving
+ * log-space. Numerically stable for all finite inputs.
+ *
+ * @see {@link logaddexpValidated} — boundary-validated variant
+ * @see {@link logaddexpWithPolicies} — policy-aware variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const logaddexp: (a: number, b: number) => number = Logspace.logaddexp
+
+/**
+ * Log-space subtraction: `log(exp(a) - exp(b))` computed without leaving
+ * log-space. Requires `a >= b`.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const logsubexp: (a: number, b: number) => number = Logspace.logsubexp
+
+/**
+ * Computes `log(1 - exp(x))` in a numerically stable way.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const log1mexp: (x: number) => number = Logspace.log1mexp
+
+/**
+ * Computes `log(1 + exp(x))` (softplus) in a numerically stable way.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const log1pexp: (x: number) => number = Logspace.log1pexp
+
+/**
+ * Computes `x * log(y)` with the convention that `0 * log(0) = 0`.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const xlogy: (x: number, y: number) => number = Logspace.xlogy
+
+/**
+ * Computes `x * log1p(y)` with the convention that `0 * log1p(0) = 0`.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const xlog1py: (x: number, y: number) => number = Logspace.xlog1py
+
+/**
+ * Log-sum-exp over a `Chunk<number>`: `log(Σ exp(xᵢ))` computed in a
+ * numerically stable way by shifting by the maximum element.
+ *
+ * @see {@link logsumexpValidated} — boundary-validated variant
+ * @see {@link logsumexpWithPolicies} — policy-aware variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const logsumexp: (xs: Chunk.Chunk<number>) => number = Logsumexp.logsumexpChunk
+
+// ---------------------------------------------------------------------------
+// Log-space validated boundary operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Boundary-validated logaddexp. Accepts `unknown` input, decodes through
+ * `LogaddexpInput`, and returns `log(exp(a) + exp(b))`.
+ *
+ * @see {@link logaddexp} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const logaddexpValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(LogaddexpInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new NumericDecodeError({
+          operation: "logaddexp",
+          message: error.message
+        })
+      )
+    )
+    return Logspace.logaddexp(decoded.a, decoded.b)
+  })
+
+/**
+ * Boundary-validated logsumexp. Accepts `unknown` input, decodes through
+ * `LogsumexpInput`, and returns `log(Σ exp(xᵢ))`.
+ *
+ * @see {@link logsumexp} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const logsumexpValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(LogsumexpInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new NumericDecodeError({
+          operation: "logsumexp",
+          message: error.message
+        })
+      )
+    )
+    return Logsumexp.logsumexpChunk(Chunk.fromIterable(decoded.values))
+  })
+
+// ---------------------------------------------------------------------------
+// Log-space policy-aware operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Policy-aware logaddexp reading `PrecisionPolicyService` and
+ * `DiagnosticsPolicyService` from context.
+ *
+ * @see {@link logaddexp} — pure kernel without policy seams
+ * @see {@link logaddexpValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const logaddexpWithPolicies = (a: number, b: number) =>
+  withScalarPolicyGuards({
+    operation: "Numeric.logaddexpWithPolicies",
+    compute: () => Logspace.logaddexp(a, b),
+    makeError: (message) => new NumericDomainViolationError({ operation: "logaddexpWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+  })
+
+/**
+ * Policy-aware logsumexp reading `PrecisionPolicyService` and
+ * `DiagnosticsPolicyService` from context.
+ *
+ * @see {@link logsumexp} — pure kernel without policy seams
+ * @see {@link logsumexpValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const logsumexpWithPolicies = (values: ReadonlyArray<number>) =>
+  withScalarPolicyGuards({
+    operation: "Numeric.logsumexpWithPolicies",
+    compute: () => Logsumexp.logsumexpChunk(Chunk.fromIterable(values)),
+    makeError: (message) => new NumericDomainViolationError({ operation: "logsumexpWithPolicies", message }),
+    annotations: (result) => ({ inputSize: String(values.length), result: String(result) })
   })

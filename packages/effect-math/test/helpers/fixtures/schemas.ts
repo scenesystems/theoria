@@ -259,6 +259,77 @@ export const StatisticsEstimatorParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Numeric: logspace-parity
+// ---------------------------------------------------------------------------
+
+const NumericLogaddexpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("logaddexp"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericLogsubexpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("logsubexp"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericLog1mexpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("log1mexp"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericLog1pexpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("log1pexp"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericXlogyCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("xlogy"),
+  input: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericXlog1pyCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("xlog1py"),
+  input: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
+  expected: Schema.Number
+})
+
+const NumericLogsumexpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("logsumexp"),
+  input: Schema.Struct({ values: Schema.Array(Schema.Number) }),
+  expected: Schema.Number
+})
+
+const NumericLogspaceCaseSchema = Schema.Union(
+  NumericLogaddexpCaseSchema,
+  NumericLogsubexpCaseSchema,
+  NumericLog1mexpCaseSchema,
+  NumericLog1pexpCaseSchema,
+  NumericXlogyCaseSchema,
+  NumericXlog1pyCaseSchema,
+  NumericLogsumexpCaseSchema
+)
+
+export const NumericLogspaceParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("numeric.logspace-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(NumericLogspaceCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Special: function-parity
 // ---------------------------------------------------------------------------
 
@@ -318,6 +389,69 @@ export const SpecialFunctionParityFixtureSchema = Schema.Struct({
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     cases: Schema.Array(SpecialFunctionCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Special: inverse-parity
+// ---------------------------------------------------------------------------
+
+const SpecialErfinvCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("erfinv"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialErfcinvCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("erfcinv"),
+  input: Schema.Struct({ x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialGammaincCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("gammainc"),
+  input: Schema.Struct({ a: Schema.Number, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialGammainccCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("gammaincc"),
+  input: Schema.Struct({ a: Schema.Number, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialBetaincCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("betainc"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialPolygammaCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("polygamma"),
+  input: Schema.Struct({ n: Schema.Number, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const SpecialInverseCaseSchema = Schema.Union(
+  SpecialErfinvCaseSchema,
+  SpecialErfcinvCaseSchema,
+  SpecialGammaincCaseSchema,
+  SpecialGammainccCaseSchema,
+  SpecialBetaincCaseSchema,
+  SpecialPolygammaCaseSchema
+)
+
+export const SpecialInverseParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("special.inverse-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(SpecialInverseCaseSchema)
   })
 })
 
@@ -454,11 +588,13 @@ export const FixtureNameSchema = Schema.Literal(
   "algebra.polynomial-parity",
   "calculus.numerical-parity",
   "numeric.scalar-parity",
+  "numeric.logspace-parity",
   "linalg.vector-parity",
   "geometry.distance-parity",
   "probability.distribution-parity",
   "statistics.estimator-parity",
   "special.function-parity",
+  "special.inverse-parity",
   "optimization.solver-parity"
 )
 
@@ -468,11 +604,13 @@ export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
   NumericScalarParityFixtureSchema,
+  NumericLogspaceParityFixtureSchema,
   LinalgVectorParityFixtureSchema,
   GeometryDistanceParityFixtureSchema,
   ProbabilityDistributionParityFixtureSchema,
   StatisticsEstimatorParityFixtureSchema,
   SpecialFunctionParityFixtureSchema,
+  SpecialInverseParityFixtureSchema,
   OptimizationSolverParityFixtureSchema
 )
 

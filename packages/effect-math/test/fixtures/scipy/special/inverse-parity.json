@@ -1,0 +1,381 @@
+{
+  "fixture": "special.inverse-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 0.0,
+        "id": "erfinv-zero",
+        "input": {
+          "x": 0.0
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 0.08885599049425769,
+        "id": "erfinv-0.1",
+        "input": {
+          "x": 0.1
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 0.4769362762044699,
+        "id": "erfinv-0.5",
+        "input": {
+          "x": 0.5
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 0.9061938024368233,
+        "id": "erfinv-0.8",
+        "input": {
+          "x": 0.8
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 1.3859038243496775,
+        "id": "erfinv-0.95",
+        "input": {
+          "x": 0.95
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 1.8213863677184496,
+        "id": "erfinv-0.99",
+        "input": {
+          "x": 0.99
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": -0.4769362762044699,
+        "id": "erfinv-neg-0.5",
+        "input": {
+          "x": -0.5
+        },
+        "operation": "erfinv"
+      },
+      {
+        "expected": 1.8213863677184499,
+        "id": "erfcinv-0.01",
+        "input": {
+          "x": 0.01
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": 1.1630871536766743,
+        "id": "erfcinv-0.1",
+        "input": {
+          "x": 0.1
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": 0.4769362762044699,
+        "id": "erfcinv-0.5",
+        "input": {
+          "x": 0.5
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": -0.0,
+        "id": "erfcinv-1.0",
+        "input": {
+          "x": 1.0
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": -0.4769362762044699,
+        "id": "erfcinv-1.5",
+        "input": {
+          "x": 1.5
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": -1.8213863677184496,
+        "id": "erfcinv-1.99",
+        "input": {
+          "x": 1.99
+        },
+        "operation": "erfcinv"
+      },
+      {
+        "expected": 0.8427007929497151,
+        "id": "gammainc-half-1",
+        "input": {
+          "a": 0.5,
+          "x": 1.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.6321205588285577,
+        "id": "gammainc-1-1",
+        "input": {
+          "a": 1.0,
+          "x": 1.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.2642411176571153,
+        "id": "gammainc-2-1",
+        "input": {
+          "a": 2.0,
+          "x": 1.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.5595067149347878,
+        "id": "gammainc-5-5",
+        "input": {
+          "a": 5.0,
+          "x": 5.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.34527915398142317,
+        "id": "gammainc-half-0.1",
+        "input": {
+          "a": 0.5,
+          "x": 0.1
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.03182805730620481,
+        "id": "gammainc-10-5",
+        "input": {
+          "a": 10.0,
+          "x": 5.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.9999546000702375,
+        "id": "gammainc-1-10",
+        "input": {
+          "a": 1.0,
+          "x": 10.0
+        },
+        "operation": "gammainc"
+      },
+      {
+        "expected": 0.15729920705028105,
+        "id": "gammaincc-half-1",
+        "input": {
+          "a": 0.5,
+          "x": 1.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.36787944117144245,
+        "id": "gammaincc-1-1",
+        "input": {
+          "a": 1.0,
+          "x": 1.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.7357588823428847,
+        "id": "gammaincc-2-1",
+        "input": {
+          "a": 2.0,
+          "x": 1.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.44049328506521246,
+        "id": "gammaincc-5-5",
+        "input": {
+          "a": 5.0,
+          "x": 5.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.6547208460185768,
+        "id": "gammaincc-half-0.1",
+        "input": {
+          "a": 0.5,
+          "x": 0.1
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.9681719426937951,
+        "id": "gammaincc-10-5",
+        "input": {
+          "a": 10.0,
+          "x": 5.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 4.539992976248486e-5,
+        "id": "gammaincc-1-10",
+        "input": {
+          "a": 1.0,
+          "x": 10.0
+        },
+        "operation": "gammaincc"
+      },
+      {
+        "expected": 0.5,
+        "id": "betainc-1-1-0.5",
+        "input": {
+          "a": 1.0,
+          "b": 1.0,
+          "x": 0.5
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.6875,
+        "id": "betainc-2-3-0.5",
+        "input": {
+          "a": 2.0,
+          "b": 3.0,
+          "x": 0.5
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.5000000000000001,
+        "id": "betainc-half-half-0.5",
+        "input": {
+          "a": 0.5,
+          "b": 0.5,
+          "x": 0.5
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.09880865999999996,
+        "id": "betainc-5-5-0.3",
+        "input": {
+          "a": 5.0,
+          "b": 5.0,
+          "x": 0.3
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.6833570849799877,
+        "id": "betainc-half-5-0.1",
+        "input": {
+          "a": 0.5,
+          "b": 5.0,
+          "x": 0.1
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.5,
+        "id": "betainc-10-10-0.5",
+        "input": {
+          "a": 10.0,
+          "b": 10.0,
+          "x": 0.5
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": 0.9984,
+        "id": "betainc-2-5-0.8",
+        "input": {
+          "a": 2.0,
+          "b": 5.0,
+          "x": 0.8
+        },
+        "operation": "betainc"
+      },
+      {
+        "expected": -0.5772156649015329,
+        "id": "polygamma-0-1",
+        "input": {
+          "n": 0,
+          "x": 1.0
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": 0.42278433509846713,
+        "id": "polygamma-0-2",
+        "input": {
+          "n": 0,
+          "x": 2.0
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": -1.9635100260214235,
+        "id": "polygamma-0-half",
+        "input": {
+          "n": 0,
+          "x": 0.5
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": 1.6449340668482266,
+        "id": "polygamma-1-1",
+        "input": {
+          "n": 1,
+          "x": 1.0
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": 0.6449340668482266,
+        "id": "polygamma-1-2",
+        "input": {
+          "n": 1,
+          "x": 2.0
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": -2.404113806319188,
+        "id": "polygamma-2-1",
+        "input": {
+          "n": 2,
+          "x": 1.0
+        },
+        "operation": "polygamma"
+      },
+      {
+        "expected": 2.251752589066721,
+        "id": "polygamma-0-10",
+        "input": {
+          "n": 0,
+          "x": 10.0
+        },
+        "operation": "polygamma"
+      }
+    ]
+  }
+}

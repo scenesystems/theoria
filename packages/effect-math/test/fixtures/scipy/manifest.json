@@ -17,6 +17,10 @@
       "name": "linalg.vector-parity"
     },
     {
+      "file": "numeric/logspace-parity.json",
+      "name": "numeric.logspace-parity"
+    },
+    {
       "file": "numeric/scalar-parity.json",
       "name": "numeric.scalar-parity"
     },
@@ -31,6 +35,10 @@
     {
       "file": "special/function-parity.json",
       "name": "special.function-parity"
+    },
+    {
+      "file": "special/inverse-parity.json",
+      "name": "special.inverse-parity"
     },
     {
       "file": "statistics/estimator-parity.json",

@@ -31,11 +31,13 @@ from fixtures import (
     algebra,
     calculus,
     numeric,
+    numeric_logspace,
     linalg,
     geometry,
     probability,
     statistics,
     special,
+    special_inverse,
     optimization,
 )
 
@@ -43,11 +45,13 @@ FAMILIES = [
     algebra,
     calculus,
     numeric,
+    numeric_logspace,
     linalg,
     geometry,
     probability,
     statistics,
     special,
+    special_inverse,
     optimization,
 ]
 

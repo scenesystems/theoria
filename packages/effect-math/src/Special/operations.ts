@@ -11,11 +11,25 @@ import { Effect, Schema } from "effect"
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { SpecialDecodeError, SpecialDomainViolationError } from "./errors.js"
 import * as Beta from "./internal/beta.js"
+import * as Betainc from "./internal/betainc.js"
 import * as Digamma from "./internal/digamma.js"
 import * as Erf from "./internal/erf.js"
+import * as Erfinv from "./internal/erfinv.js"
 import * as Gamma from "./internal/gamma.js"
+import * as Gammainc from "./internal/gammainc.js"
+import * as Polygamma from "./internal/polygamma.js"
 import { SpecialDomainModel } from "./model.js"
-import { BetaInput, DigammaInput, ErfInput, GammaInput, LnGammaInput } from "./schema.js"
+import {
+  BetaincInput,
+  BetaInput,
+  DigammaInput,
+  ErfInput,
+  ErfinvInput,
+  GammaincInput,
+  GammaInput,
+  LnGammaInput,
+  PolygammaInput
+} from "./schema.js"
 
 /**
  * Lifts the static `SpecialDomainModel` into an Effect so it can be
@@ -428,4 +442,201 @@ export const digammaWithPolicies = (x: number) =>
     compute: () => Digamma.digammaKernel(x),
     makeError: (message) => new SpecialDomainViolationError({ operation: "digammaWithPolicies", message }),
     annotations: (result) => ({ input: String(x), result: String(result) })
+  })
+
+// ---------------------------------------------------------------------------
+// Inverse & incomplete pure kernel re-exports
+// ---------------------------------------------------------------------------
+
+/**
+ * Inverse error function erfinv(x) — returns y such that erf(y) = x.
+ * Requires x ∈ (-1, 1).
+ *
+ * @see {@link erfinvValidated} — boundary-validated variant
+ * @see {@link erfinvWithPolicies} — policy-aware variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const erfinv: (x: number) => number = Erfinv.erfinvKernel
+
+/**
+ * Inverse complementary error function erfcinv(x) = erfinv(1 - x).
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const erfcinv: (x: number) => number = Erfinv.erfcinvKernel
+
+/**
+ * Regularised lower incomplete gamma function P(a, x) = γ(a, x) / Γ(a).
+ * Requires a > 0 and x ≥ 0.
+ *
+ * @see {@link gammaincValidated} — boundary-validated variant
+ * @see {@link gammaincWithPolicies} — policy-aware variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const gammainc: (a: number, x: number) => number = Gammainc.gammaincKernel
+
+/**
+ * Regularised upper incomplete gamma function Q(a, x) = 1 - P(a, x).
+ * Requires a > 0 and x ≥ 0.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const gammaincc: (a: number, x: number) => number = Gammainc.gammainccKernel
+
+/**
+ * Regularised incomplete beta function I_x(a, b). Requires a > 0,
+ * b > 0, and x ∈ [0, 1].
+ *
+ * @see {@link betaincValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const betainc: (a: number, b: number, x: number) => number = Betainc.betaincKernel
+
+/**
+ * Polygamma function ψ^(n)(x) — the n-th derivative of the digamma
+ * function. Requires non-negative integer n and x > 0.
+ *
+ * @see {@link polygammaValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const polygamma: (n: number, x: number) => number = Polygamma.polygammaKernel
+
+// ---------------------------------------------------------------------------
+// Inverse & incomplete validated boundary operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Boundary-validated erfinv. Accepts `unknown` input, decodes through
+ * `ErfinvInput`, and returns erfinv(x).
+ *
+ * @see {@link erfinv} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const erfinvValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(ErfinvInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new SpecialDecodeError({
+          operation: "erfinv",
+          message: error.message
+        })
+      )
+    )
+    return Erfinv.erfinvKernel(decoded.x)
+  })
+
+/**
+ * Boundary-validated gammainc. Accepts `unknown` input, decodes through
+ * `GammaincInput`, and returns P(a, x).
+ *
+ * @see {@link gammainc} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const gammaincValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(GammaincInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new SpecialDecodeError({
+          operation: "gammainc",
+          message: error.message
+        })
+      )
+    )
+    return Gammainc.gammaincKernel(decoded.a, decoded.x)
+  })
+
+/**
+ * Boundary-validated betainc. Accepts `unknown` input, decodes through
+ * `BetaincInput`, and returns I_x(a, b).
+ *
+ * @see {@link betainc} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const betaincValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(BetaincInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new SpecialDecodeError({
+          operation: "betainc",
+          message: error.message
+        })
+      )
+    )
+    return Betainc.betaincKernel(decoded.a, decoded.b, decoded.x)
+  })
+
+/**
+ * Boundary-validated polygamma. Accepts `unknown` input, decodes through
+ * `PolygammaInput`, and returns ψ^(n)(x).
+ *
+ * @see {@link polygamma} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const polygammaValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(PolygammaInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new SpecialDecodeError({
+          operation: "polygamma",
+          message: error.message
+        })
+      )
+    )
+    return Polygamma.polygammaKernel(decoded.n, decoded.x)
+  })
+
+// ---------------------------------------------------------------------------
+// Inverse & incomplete policy-aware operations
+// ---------------------------------------------------------------------------
+
+/**
+ * Policy-aware erfinv reading `PrecisionPolicyService` and
+ * `DiagnosticsPolicyService` from context.
+ *
+ * @see {@link erfinv} — pure kernel without policy seams
+ * @see {@link erfinvValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const erfinvWithPolicies = (x: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.erfinvWithPolicies",
+    compute: () => Erfinv.erfinvKernel(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "erfinvWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
+  })
+
+/**
+ * Policy-aware gammainc reading `PrecisionPolicyService` and
+ * `DiagnosticsPolicyService` from context.
+ *
+ * @see {@link gammainc} — pure kernel without policy seams
+ * @see {@link gammaincValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const gammaincWithPolicies = (a: number, x: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.gammaincWithPolicies",
+    compute: () => Gammainc.gammaincKernel(a, x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "gammaincWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, x=${x}`, result: String(result) })
   })
