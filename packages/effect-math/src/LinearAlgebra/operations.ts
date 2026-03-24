@@ -7,13 +7,10 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Match, Number as N, Schema } from "effect"
 
-import {
-  BackendPolicyService,
-  DiagnosticsPolicyService,
-  PrecisionPolicyService
-} from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
+import { BackendPolicyService } from "../contracts/shared/RuntimePolicies.js"
 import { LinearAlgebraDecodeError, LinearAlgebraDomainViolationError, ShapeMismatchError } from "./errors.js"
 import * as Matrix from "./internal/matrix.js"
 import * as Vector from "./internal/vector.js"
@@ -451,54 +448,16 @@ export const transposeValidated = (input: unknown) =>
 export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) =>
   Effect.gen(function*() {
     const backend = yield* BackendPolicyService
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = yield* Match.value(backend.policy).pipe(
-      Match.when("typed-array", () => Effect.sync(() => Vector.dot(a, b))),
-      Match.when("scalar", () => Effect.sync(() => Vector.dot(a, b))),
-      Match.exhaustive
-    )
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new LinearAlgebraDomainViolationError({
-              operation: "dotWithPolicies",
-              message: `Non-finite dot product result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("LinearAlgebra.dotWithPolicies").pipe(
-            Effect.annotateLogs({
-              backend: backend.policy,
-              precision: precision.policy,
-              vectorLength: String(Chunk.size(a)),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+    return yield* withScalarPolicyGuards({
+      operation: "LinearAlgebra.dotWithPolicies",
+      compute: () => Vector.dot(a, b),
+      makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "dotWithPolicies", message }),
+      annotations: (result) => ({
+        backend: backend.policy,
+        vectorLength: String(Chunk.size(a)),
+        result: String(result)
+      })
+    })
   })
 
 /**
@@ -534,44 +493,19 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
  * @category operations
  */
 export const normWithPolicies = (values: Chunk.Chunk<number>, kind: "L1" | "L2" | "Linf") =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const result = Match.value(kind).pipe(
-      Match.when("L1", () => Vector.normL1(values)),
-      Match.when("L2", () => Vector.normL2(values)),
-      Match.when("Linf", () => Vector.normLinf(values)),
-      Match.exhaustive
-    )
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new LinearAlgebraDomainViolationError({
-              operation: "normWithPolicies",
-              message: `Non-finite norm result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.logDebug("LinearAlgebra.normWithPolicies").pipe(
-          Effect.annotateLogs({
-            kind,
-            precision: precision.policy,
-            vectorLength: String(Chunk.size(values))
-          })
-        )),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "LinearAlgebra.normWithPolicies",
+    compute: () =>
+      Match.value(kind).pipe(
+        Match.when("L1", () => Vector.normL1(values)),
+        Match.when("L2", () => Vector.normL2(values)),
+        Match.when("Linf", () => Vector.normLinf(values)),
+        Match.exhaustive
+      ),
+    makeError: (message) => new LinearAlgebraDomainViolationError({ operation: "normWithPolicies", message }),
+    annotations: (result) => ({
+      kind,
+      vectorLength: String(Chunk.size(values)),
+      result: String(result)
+    })
   })

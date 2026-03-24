@@ -7,10 +7,13 @@ import {
   factorialWithPolicies,
   gcd,
   gcdValidated,
+  gcdWithPolicies,
   lcm,
   lcmValidated,
+  lcmWithPolicies,
   polyDerivative,
   polyDerivativeValidated,
+  polyDerivativeWithPolicies,
   polyEval,
   polyEvalValidated,
   polyEvalWithPolicies
@@ -267,5 +270,47 @@ describe("Algebra / factorialWithPolicies", () => {
     Effect.gen(function*() {
       const result = yield* factorialWithPolicies(200)
       expect(Number.isFinite(result)).toBe(false)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Algebra / polyDerivativeWithPolicies", () => {
+  it.effect("returns correct derivative under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* polyDerivativeWithPolicies(Chunk.fromIterable([1, -2, 1]))
+      expect(Chunk.toReadonlyArray(result)).toStrictEqual([-2, 2])
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns correct derivative under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* polyDerivativeWithPolicies(Chunk.fromIterable([3, 2]))
+      expect(Chunk.toReadonlyArray(result)).toStrictEqual([2])
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Algebra / gcdWithPolicies", () => {
+  it.effect("returns correct gcd under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* gcdWithPolicies(12, 8)
+      expect(result).toStrictEqual(4)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns correct gcd under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* gcdWithPolicies(7, 13)
+      expect(result).toStrictEqual(1)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Algebra / lcmWithPolicies", () => {
+  it.effect("returns correct lcm under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* lcmWithPolicies(12, 8)
+      expect(result).toStrictEqual(24)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns correct lcm under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* lcmWithPolicies(7, 13)
+      expect(result).toStrictEqual(91)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })

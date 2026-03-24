@@ -9,6 +9,7 @@
  */
 import { Chunk, Effect, Match, Option, Schema } from "effect"
 
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
 import { StatisticsDecodeError, StatisticsDomainViolationError, StatisticsShapeError } from "./errors.js"
 import * as Estimators from "./internal/estimators.js"
@@ -71,6 +72,26 @@ export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estima
  * @category operations
  */
 export const covariance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Estimators.covariance
+
+/**
+ * Minimum value of a chunk — returns `Option.none()` for empty input,
+ * `Option.some(min)` otherwise.
+ *
+ * @see {@link minimumValidated} for Schema-validated boundary input
+ * @since 0.1.0
+ * @category operations
+ */
+export const minimum: (values: Chunk.Chunk<number>) => Option.Option<number> = Estimators.minimum
+
+/**
+ * Maximum value of a chunk — returns `Option.none()` for empty input,
+ * `Option.some(max)` otherwise.
+ *
+ * @see {@link maximumValidated} for Schema-validated boundary input
+ * @since 0.1.0
+ * @category operations
+ */
+export const maximum: (values: Chunk.Chunk<number>) => Option.Option<number> = Estimators.maximum
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations with boundary input checking
@@ -279,6 +300,74 @@ export const covarianceValidated = (input: unknown) =>
     )
   })
 
+/**
+ * Boundary-validated minimum — decodes `input` through `SampleInput` and
+ * returns `Option.some(min)` for non-empty valid input. Fails with
+ * `StatisticsDecodeError` for malformed input.
+ *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { Statistics } from "effect-math"
+ *
+ * const program = Statistics.minimumValidated({ values: [3, 1, 2] })
+ * // Effect succeeds with Option.some(1)
+ * ```
+ *
+ * @see {@link minimum} for the pure kernel (no validation overhead)
+ * @since 0.1.0
+ * @category operations
+ */
+export const minimumValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new StatisticsDecodeError({
+          operation: "minimum",
+          message: error.message
+        })
+      )
+    )
+
+    return Estimators.minimum(Chunk.fromIterable(decoded.values))
+  })
+
+/**
+ * Boundary-validated maximum — decodes `input` through `SampleInput` and
+ * returns `Option.some(max)` for non-empty valid input. Fails with
+ * `StatisticsDecodeError` for malformed input.
+ *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { Statistics } from "effect-math"
+ *
+ * const program = Statistics.maximumValidated({ values: [3, 1, 2] })
+ * // Effect succeeds with Option.some(3)
+ * ```
+ *
+ * @see {@link maximum} for the pure kernel (no validation overhead)
+ * @since 0.1.0
+ * @category operations
+ */
+export const maximumValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new StatisticsDecodeError({
+          operation: "maximum",
+          message: error.message
+        })
+      )
+    )
+
+    return Estimators.maximum(Chunk.fromIterable(decoded.values))
+  })
+
 // ---------------------------------------------------------------------------
 // Policy-aware operations
 // ---------------------------------------------------------------------------
@@ -373,5 +462,177 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
       min: minVal,
       max: maxVal,
       count
+    })
+  })
+
+/**
+ * Policy-aware mean that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
+ *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
+ *   with precision policy, sample size, result, and elapsed-ms annotations.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Effect, Layer } from "effect"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService,
+ *   Statistics
+ * } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = Statistics.meanWithPolicies(
+ *   Chunk.fromIterable([2, 4, 6])
+ * ).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link mean} for the pure kernel (no policy seams)
+ * @see {@link meanValidated} for the boundary-validated variant
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
+ * @since 0.1.0
+ * @category operations
+ */
+export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
+  withScalarPolicyGuards({
+    operation: "Statistics.meanWithPolicies",
+    compute: () => Estimators.mean(values),
+    makeError: (message) => new StatisticsDomainViolationError({ operation: "meanWithPolicies", message }),
+    annotations: (result) => ({ sampleSize: String(Chunk.size(values)), result: String(result) })
+  })
+
+/**
+ * Policy-aware variance that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
+ *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
+ *   with precision policy, sample size, result, and elapsed-ms annotations.
+ *
+ * Requires at least 2 samples for Bessel correction — fails with
+ * `StatisticsShapeError` otherwise.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Effect, Layer } from "effect"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService,
+ *   Statistics
+ * } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = Statistics.varianceWithPolicies(
+ *   Chunk.fromIterable([2, 4, 6])
+ * ).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link variance} for the pure kernel (no policy seams)
+ * @see {@link varianceValidated} for the boundary-validated variant
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
+ * @since 0.1.0
+ * @category operations
+ */
+export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
+  Effect.gen(function*() {
+    yield* Effect.filterOrFail(
+      Effect.succeed(Chunk.size(values)),
+      (n) => n >= 2,
+      (n) =>
+        new StatisticsShapeError({
+          operation: "varianceWithPolicies",
+          expected: "at least 2 samples",
+          actual: `${n} sample(s)`,
+          message: "Bessel-corrected variance requires at least 2 samples"
+        })
+    )
+    return yield* withScalarPolicyGuards({
+      operation: "Statistics.varianceWithPolicies",
+      compute: () => Estimators.variance(values),
+      makeError: (message) => new StatisticsDomainViolationError({ operation: "varianceWithPolicies", message }),
+      annotations: (result) => ({ sampleSize: String(Chunk.size(values)), result: String(result) })
+    })
+  })
+
+/**
+ * Policy-aware covariance that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
+ *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
+ *   with precision policy, sample size, result, and elapsed-ms annotations.
+ *
+ * Requires equal-length samples with at least 2 observations — fails with
+ * `StatisticsShapeError` otherwise.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Effect, Layer } from "effect"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService,
+ *   Statistics
+ * } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = Statistics.covarianceWithPolicies(
+ *   Chunk.fromIterable([1, 2, 3]),
+ *   Chunk.fromIterable([4, 5, 6])
+ * ).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link covariance} for the pure kernel (no policy seams)
+ * @see {@link covarianceValidated} for the boundary-validated variant
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
+ * @since 0.1.0
+ * @category operations
+ */
+export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) =>
+  Effect.gen(function*() {
+    yield* Effect.filterOrFail(
+      Effect.succeed({ aLen: Chunk.size(a), bLen: Chunk.size(b) }),
+      ({ aLen, bLen }) => aLen === bLen,
+      ({ aLen, bLen }) =>
+        new StatisticsShapeError({
+          operation: "covarianceWithPolicies",
+          expected: `length ${aLen}`,
+          actual: `length ${bLen}`,
+          message: "Covariance requires samples of equal length"
+        })
+    )
+
+    yield* Effect.filterOrFail(
+      Effect.succeed(Chunk.size(a)),
+      (n) => n >= 2,
+      (n) =>
+        new StatisticsShapeError({
+          operation: "covarianceWithPolicies",
+          expected: "at least 2 samples",
+          actual: `${n} sample(s)`,
+          message: "Bessel-corrected covariance requires at least 2 samples"
+        })
+    )
+
+    return yield* withScalarPolicyGuards({
+      operation: "Statistics.covarianceWithPolicies",
+      compute: () => Estimators.covariance(a, b),
+      makeError: (message) => new StatisticsDomainViolationError({ operation: "covarianceWithPolicies", message }),
+      annotations: (result) => ({ sampleSize: String(Chunk.size(a)), result: String(result) })
     })
   })

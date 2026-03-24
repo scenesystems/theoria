@@ -6,9 +6,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Number as N, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { ProbabilityDecodeError, ProbabilityDomainViolationError, ProbabilityParameterError } from "./errors.js"
 import * as Distributions from "./internal/distributions.js"
 import * as EntropyKernel from "./internal/entropy.js"
@@ -333,40 +333,85 @@ export const entropyValidated = (input: unknown) =>
  * @category operations
  */
 export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
+  withScalarPolicyGuards({
+    operation: "Probability.normalPdfWithPolicies",
+    compute: () => Distributions.normalPdf(x, mu, sigma),
+    makeError: (message) => new ProbabilityDomainViolationError({ operation: "normalPdfWithPolicies", message }),
+    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+  })
 
-    const result = Distributions.normalPdf(x, mu, sigma)
+/**
+ * Policy-aware normal CDF that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
+ *
+ * @see {@link normalCdf} — pure kernel without policy seams
+ * @see {@link normalCdfValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
+  withScalarPolicyGuards({
+    operation: "Probability.normalCdfWithPolicies",
+    compute: () => Distributions.normalCdf(x, mu, sigma),
+    makeError: (message) => new ProbabilityDomainViolationError({ operation: "normalCdfWithPolicies", message }),
+    annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+  })
 
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new ProbabilityDomainViolationError({
-              operation: "normalPdfWithPolicies",
-              message: `Non-finite normal PDF result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
+/**
+ * Policy-aware uniform PDF that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
+ *
+ * @see {@link uniformPdf} — pure kernel without policy seams
+ * @see {@link uniformPdfValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const uniformPdfWithPolicies = (x: number, low: number, high: number) =>
+  withScalarPolicyGuards({
+    operation: "Probability.uniformPdfWithPolicies",
+    compute: () => Distributions.uniformPdf(x, low, high),
+    makeError: (message) => new ProbabilityDomainViolationError({ operation: "uniformPdfWithPolicies", message }),
+    annotations: (result) => ({ x: String(x), low: String(low), high: String(high), result: String(result) })
+  })
 
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.logDebug("Probability.normalPdfWithPolicies").pipe(
-          Effect.annotateLogs({
-            precision: precision.policy,
-            x: String(x),
-            mu: String(mu),
-            sigma: String(sigma)
-          })
-        )),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
+/**
+ * Policy-aware uniform CDF that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
+ *
+ * @see {@link uniformCdf} — pure kernel without policy seams
+ * @see {@link uniformCdfValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const uniformCdfWithPolicies = (x: number, low: number, high: number) =>
+  withScalarPolicyGuards({
+    operation: "Probability.uniformCdfWithPolicies",
+    compute: () => Distributions.uniformCdf(x, low, high),
+    makeError: (message) => new ProbabilityDomainViolationError({ operation: "uniformCdfWithPolicies", message }),
+    annotations: (result) => ({ x: String(x), low: String(low), high: String(high), result: String(result) })
+  })
 
-    return result
+/**
+ * Policy-aware Shannon entropy that reads two runtime services from context:
+ *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
+ *
+ * @see {@link shannonEntropy} — pure kernel without policy seams
+ * @see {@link entropyValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const entropyWithPolicies = (probabilities: Chunk.Chunk<number>) =>
+  withScalarPolicyGuards({
+    operation: "Probability.entropyWithPolicies",
+    compute: () => EntropyKernel.shannonEntropy(probabilities),
+    makeError: (message) => new ProbabilityDomainViolationError({ operation: "entropyWithPolicies", message }),
+    annotations: (result) => ({ inputSize: String(Chunk.size(probabilities)), result: String(result) })
   })

@@ -6,9 +6,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withCustomPolicyGuards, withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { AlgebraDecodeError, AlgebraDomainViolationError } from "./errors.js"
 import * as Integer from "./internal/integer.js"
 import * as Polynomial from "./internal/polynomial.js"
@@ -274,51 +274,40 @@ export const factorialValidated = (input: unknown) =>
  * @category operations
  */
 export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
+  withScalarPolicyGuards({
+    operation: "Algebra.polyEvalWithPolicies",
+    compute: () => Polynomial.polyEval(coefficients, x),
+    makeError: (message) => new AlgebraDomainViolationError({ operation: "polyEvalWithPolicies", message }),
+    annotations: (result) => ({
+      input: `coefficients=[${Chunk.toReadonlyArray(coefficients).join(",")}], x=${x}`,
+      result: String(result)
+    })
+  })
 
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Polynomial.polyEval(coefficients, x)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new AlgebraDomainViolationError({
-              operation: "polyEvalWithPolicies",
-              message: `Non-finite polyEval result: P(${x}) = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Algebra.polyEvalWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: `coefficients=[${Chunk.toReadonlyArray(coefficients).join(",")}], x=${x}`,
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+/**
+ * Policy-aware polyDerivative reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects results containing
+ *   non-finite coefficients with `AlgebraDomainViolationError`; `"relaxed"`
+ *   passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link polyDerivative} — pure kernel without policy seams
+ * @see {@link polyDerivativeValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const polyDerivativeWithPolicies = (coefficients: Chunk.Chunk<number>) =>
+  withCustomPolicyGuards({
+    operation: "Algebra.polyDerivativeWithPolicies",
+    compute: () => Polynomial.polyDerivative(coefficients),
+    isValid: (result) => Chunk.every(result, (c) => Number.isFinite(c)),
+    makeError: (message) => new AlgebraDomainViolationError({ operation: "polyDerivativeWithPolicies", message }),
+    annotations: (result) => ({
+      input: `coefficients=[${Chunk.toReadonlyArray(coefficients).join(",")}]`,
+      result: `[${Chunk.toReadonlyArray(result).join(",")}]`
+    })
   })
 
 /**
@@ -335,49 +324,51 @@ export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: numbe
  * @category operations
  */
 export const factorialWithPolicies = (n: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
+  withScalarPolicyGuards({
+    operation: "Algebra.factorialWithPolicies",
+    compute: () => Integer.factorial(n),
+    makeError: (message) => new AlgebraDomainViolationError({ operation: "factorialWithPolicies", message }),
+    annotations: (result) => ({ input: String(n), result: String(result) })
+  })
 
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
+/**
+ * Policy-aware gcd reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link gcd} — pure kernel without policy seams
+ * @see {@link gcdValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const gcdWithPolicies = (a: number, b: number) =>
+  withScalarPolicyGuards({
+    operation: "Algebra.gcdWithPolicies",
+    compute: () => Integer.gcd(a, b),
+    makeError: (message) => new AlgebraDomainViolationError({ operation: "gcdWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+  })
 
-    const result = Integer.factorial(n)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new AlgebraDomainViolationError({
-              operation: "factorialWithPolicies",
-              message: `Non-finite factorial result: ${n}! = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Algebra.factorialWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: String(n),
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+/**
+ * Policy-aware lcm reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link lcm} — pure kernel without policy seams
+ * @see {@link lcmValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const lcmWithPolicies = (a: number, b: number) =>
+  withScalarPolicyGuards({
+    operation: "Algebra.lcmWithPolicies",
+    compute: () => Integer.lcm(a, b),
+    makeError: (message) => new AlgebraDomainViolationError({ operation: "lcmWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
   })

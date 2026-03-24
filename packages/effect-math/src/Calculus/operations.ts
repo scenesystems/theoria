@@ -6,14 +6,14 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { CalculusDecodeError, CalculusDomainViolationError } from "./errors.js"
 import * as Differentiation from "./internal/differentiation.js"
 import * as Integration from "./internal/integration.js"
 import { CalculusDomainModel } from "./model.js"
-import { SimpsonInput, TrapezoidInput } from "./schema.js"
+import { DerivativeInput, SimpsonInput, TrapezoidInput } from "./schema.js"
 
 /**
  * Lifts the static `CalculusDomainModel` into an Effect so it can be
@@ -44,6 +44,8 @@ export const loadCalculusDomain = Effect.succeed(CalculusDomainModel)
  *
  * @see {@link trapezoid} — composite trapezoidal integration
  * @see {@link simpson} — composite Simpson's integration
+ * @see {@link derivativeValidated} — boundary-validated variant
+ * @see {@link derivativeWithPolicies} — policy-aware variant
  * @since 0.1.0
  * @category operations
  */
@@ -147,6 +149,30 @@ export const simpsonValidated = (input: unknown) =>
     return Integration.simpsonsRule(Chunk.fromIterable(decoded.values), decoded.dx)
   })
 
+/**
+ * Boundary-validated derivative. Accepts a function `f` and `unknown`
+ * input, decodes through `DerivativeInput` with `onExcessProperty: "error"`,
+ * and returns the central-difference approximation.
+ *
+ * @see {@link derivative} — pure kernel for pre-validated input
+ * @since 0.1.0
+ * @category validated operations
+ */
+export const derivativeValidated = (f: (x: number) => number, input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(DerivativeInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new CalculusDecodeError({
+          operation: "derivative",
+          message: error.message
+        })
+      )
+    )
+    return Differentiation.centralDifference(f, decoded.x, decoded.h)
+  })
+
 // ---------------------------------------------------------------------------
 // Policy-aware operations
 // ---------------------------------------------------------------------------
@@ -185,52 +211,60 @@ export const simpsonValidated = (input: unknown) =>
  * @category operations
  */
 export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
+  withScalarPolicyGuards({
+    operation: "Calculus.trapezoidWithPolicies",
+    compute: () => Integration.trapezoidalRule(values, dx),
+    makeError: (message) => new CalculusDomainViolationError({ operation: "trapezoidWithPolicies", message }),
+    annotations: (result) => ({
+      inputSize: String(Chunk.size(values)),
+      dx: String(dx),
+      result: String(result)
+    })
+  })
 
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Integration.trapezoidalRule(values, dx)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new CalculusDomainViolationError({
-              operation: "trapezoidWithPolicies",
-              message: `Non-finite trapezoid result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Calculus.trapezoidWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              inputSize: String(Chunk.size(values)),
-              dx: String(dx),
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+/**
+ * Policy-aware derivative reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `CalculusDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Layer } from "effect"
+ * import { Calculus } from "effect-math"
+ * import {
+ *   DiagnosticsPolicyService,
+ *   PrecisionPolicyService
+ * } from "effect-math/contracts"
+ *
+ * const layer = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const f = (x: number) => x * x
+ * const program = Calculus.derivativeWithPolicies(f, 1).pipe(
+ *   Effect.provide(layer)
+ * )
+ * ```
+ *
+ * @see {@link derivative} — pure kernel without policy seams
+ * @see {@link derivativeValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const derivativeWithPolicies = (f: (x: number) => number, x: number, h?: number) =>
+  withScalarPolicyGuards({
+    operation: "Calculus.derivativeWithPolicies",
+    compute: () => Differentiation.centralDifference(f, x, h),
+    makeError: (message) => new CalculusDomainViolationError({ operation: "derivativeWithPolicies", message }),
+    annotations: (result) => ({
+      x: String(x),
+      h: String(h ?? 1e-8),
+      result: String(result)
+    })
   })
 
 /**
@@ -247,50 +281,13 @@ export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =
  * @category operations
  */
 export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Integration.simpsonsRule(values, dx)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new CalculusDomainViolationError({
-              operation: "simpsonWithPolicies",
-              message: `Non-finite simpson result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Calculus.simpsonWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              inputSize: String(Chunk.size(values)),
-              dx: String(dx),
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "Calculus.simpsonWithPolicies",
+    compute: () => Integration.simpsonsRule(values, dx),
+    makeError: (message) => new CalculusDomainViolationError({ operation: "simpsonWithPolicies", message }),
+    annotations: (result) => ({
+      inputSize: String(Chunk.size(values)),
+      dx: String(dx),
+      result: String(result)
+    })
   })

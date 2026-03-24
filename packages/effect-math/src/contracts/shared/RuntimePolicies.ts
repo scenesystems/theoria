@@ -218,18 +218,11 @@ export const makeNondeterministicRuntimePoliciesLayer = (
  * @since 0.1.0
  * @category contracts
  */
-export const collectRuntimePolicies = Effect.gen(function*() {
-  const rngPolicy = yield* RngPolicyService
-  const precisionPolicy = yield* PrecisionPolicyService
-  const backendPolicy = yield* BackendPolicyService
-  const diagnosticsPolicy = yield* DiagnosticsPolicyService
-
-  return {
-    rngPolicy,
-    precisionPolicy,
-    backendPolicy,
-    diagnosticsPolicy
-  }
+export const collectRuntimePolicies = Effect.all({
+  rngPolicy: RngPolicyService,
+  precisionPolicy: PrecisionPolicyService,
+  backendPolicy: BackendPolicyService,
+  diagnosticsPolicy: DiagnosticsPolicyService
 })
 
 /**

@@ -34,3 +34,9 @@ export * from "./shared/RuntimePolicies.js"
  * @category contracts
  */
 export * from "./shared/DomainOwnership.js"
+
+/**
+ * @since 0.1.0
+ * @category combinators
+ */
+export * from "./shared/PolicyGuards.js"

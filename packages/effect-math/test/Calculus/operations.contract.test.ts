@@ -3,6 +3,8 @@ import { Chunk, Effect, Exit, Number as N, Schema } from "effect"
 
 import {
   derivative,
+  derivativeValidated,
+  derivativeWithPolicies,
   simpson,
   simpsonValidated,
   simpsonWithPolicies,
@@ -140,9 +142,62 @@ describe("Calculus / simpsonValidated", () => {
     }))
 })
 
+describe("Calculus / derivativeValidated", () => {
+  it.effect("decodes valid input and computes derivative", () =>
+    Effect.gen(function*() {
+      const f = (x: number) => N.multiply(x, x)
+      const result = yield* derivativeValidated(f, { x: 1 })
+      expectClose(result, 2, KERNEL_TOLERANCE)
+    }))
+
+  it.effect("decodes valid input with custom h", () =>
+    Effect.gen(function*() {
+      const f = (x: number) => N.multiply(x, x)
+      const result = yield* derivativeValidated(f, { x: 1, h: 1e-5 })
+      expectClose(result, 2, 1e-4)
+    }))
+
+  it.effect("rejects excess properties", () =>
+    Effect.gen(function*() {
+      const f = (x: number) => N.multiply(x, x)
+      const result = yield* Effect.exit(derivativeValidated(f, { x: 1, extra: true }))
+      expect(Exit.isFailure(result)).toBe(true)
+    }))
+})
+
 // ---------------------------------------------------------------------------
 // Policy-aware operations
 // ---------------------------------------------------------------------------
+
+describe("Calculus / derivativeWithPolicies", () => {
+  it.effect("returns correct result under strict+typed-array", () =>
+    Effect.gen(function*() {
+      const f = (x: number) => N.multiply(x, x)
+      const result = yield* derivativeWithPolicies(f, 1)
+      expectClose(result, 2, KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("strict rejects non-finite result", () =>
+    Effect.gen(function*() {
+      const f = (_x: number) => Infinity
+      const result = yield* Effect.exit(derivativeWithPolicies(f, 1))
+      expect(Exit.isFailure(result)).toBe(true)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("relaxed passes non-finite result", () =>
+    Effect.gen(function*() {
+      const f = (_x: number) => Infinity
+      const result = yield* derivativeWithPolicies(f, 1)
+      expect(Number.isFinite(result)).toBe(false)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+
+  it.effect("diagnostics enabled logs without failure", () =>
+    Effect.gen(function*() {
+      const f = (x: number) => N.multiply(x, x)
+      const result = yield* derivativeWithPolicies(f, 3)
+      expectClose(result, 6, KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+})
 
 describe("Calculus / trapezoidWithPolicies", () => {
   it.effect("returns correct result under strict+typed-array", () =>

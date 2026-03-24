@@ -6,18 +6,22 @@ import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/share
 import {
   beta,
   betaValidated,
+  betaWithPolicies,
   digamma,
   digammaValidated,
+  digammaWithPolicies,
   erf,
   erfc,
   erfcValidated,
+  erfcWithPolicies,
   erfValidated,
   erfWithPolicies,
   gamma,
   gammaValidated,
   gammaWithPolicies,
   lnGamma,
-  lnGammaValidated
+  lnGammaValidated,
+  lnGammaWithPolicies
 } from "../../src/Special/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
@@ -252,4 +256,63 @@ describe("Special / erfWithPolicies", () => {
       const result = yield* erfWithPolicies(0)
       expect(result).toStrictEqual(0) // erf(0) is exactly 0 by special-case
     }).pipe(Effect.provide(strictTypedArrayLayer)))
+})
+
+describe("Special / lnGammaWithPolicies", () => {
+  it.effect("returns correct result under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* lnGammaWithPolicies(1)
+      expectClose(result, 0, KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns finite result for large input under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* lnGammaWithPolicies(100)
+      expect(Number.isFinite(result)).toBe(true)
+      expect(result).toBeGreaterThan(0)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Special / betaWithPolicies", () => {
+  it.effect("returns correct result under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* betaWithPolicies(1, 1)
+      expectClose(result, 1, KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns B(0.5,0.5) ≈ π under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* betaWithPolicies(0.5, 0.5)
+      expectClose(result, Math.PI, KERNEL_TOLERANCE)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Special / erfcWithPolicies", () => {
+  it.effect("returns erfc(0) = 1 under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* erfcWithPolicies(0)
+      expect(result).toStrictEqual(1)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns correct result under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* erfcWithPolicies(1)
+      expect(Math.abs(N.subtract(N.sum(result, erf(1)), 1))).toBeLessThan(1e-15)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
+})
+
+describe("Special / digammaWithPolicies", () => {
+  it.effect("returns ψ(1) ≈ -γ under strict", () =>
+    Effect.gen(function*() {
+      const eulerMascheroni = 0.5772156649015329
+      const result = yield* digammaWithPolicies(1)
+      expectClose(result, N.negate(eulerMascheroni), DIGAMMA_TOLERANCE)
+    }).pipe(Effect.provide(strictTypedArrayLayer)))
+
+  it.effect("returns ψ(2) ≈ 1 - γ under relaxed", () =>
+    Effect.gen(function*() {
+      const eulerMascheroni = 0.5772156649015329
+      const result = yield* digammaWithPolicies(2)
+      expectClose(result, N.subtract(1, eulerMascheroni), DIGAMMA_TOLERANCE)
+    }).pipe(Effect.provide(relaxedScalarLayer)))
 })

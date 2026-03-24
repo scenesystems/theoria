@@ -6,9 +6,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { SpecialDecodeError, SpecialDomainViolationError } from "./errors.js"
 import * as Beta from "./internal/beta.js"
 import * as Digamma from "./internal/digamma.js"
@@ -318,51 +318,11 @@ export const digammaValidated = (input: unknown) =>
  * @category operations
  */
 export const gammaWithPolicies = (x: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Gamma.gammaLanczos(x)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new SpecialDomainViolationError({
-              operation: "gammaWithPolicies",
-              message: `Non-finite gamma result: Γ(${x}) = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Special.gammaWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: String(x),
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "Special.gammaWithPolicies",
+    compute: () => Gamma.gammaLanczos(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "gammaWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
   })
 
 /**
@@ -379,49 +339,93 @@ export const gammaWithPolicies = (x: number) =>
  * @category operations
  */
 export const erfWithPolicies = (x: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
+  withScalarPolicyGuards({
+    operation: "Special.erfWithPolicies",
+    compute: () => Erf.erfAbramowitzStegun(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "erfWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
+  })
 
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
+/**
+ * Policy-aware lnGamma reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link lnGamma} — pure kernel without policy seams
+ * @see {@link lnGammaValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const lnGammaWithPolicies = (x: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.lnGammaWithPolicies",
+    compute: () => Gamma.lnGammaLanczos(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "lnGammaWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
+  })
 
-    const result = Erf.erfAbramowitzStegun(x)
+/**
+ * Policy-aware beta reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link beta} — pure kernel without policy seams
+ * @see {@link betaValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const betaWithPolicies = (a: number, b: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.betaWithPolicies",
+    compute: () => Beta.betaFromGamma(a, b),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "betaWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
+  })
 
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new SpecialDomainViolationError({
-              operation: "erfWithPolicies",
-              message: `Non-finite erf result: erf(${x}) = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
+/**
+ * Policy-aware erfc reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link erfc} — pure kernel without policy seams
+ * @see {@link erfcValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const erfcWithPolicies = (x: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.erfcWithPolicies",
+    compute: () => Erf.erfcAbramowitzStegun(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "erfcWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
+  })
 
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Special.erfWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: String(x),
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+/**
+ * Policy-aware digamma reading two services from context:
+ *
+ * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
+ *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
+ * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
+ *   with input, result, precision, and elapsed-ms annotations.
+ *
+ * @see {@link digamma} — pure kernel without policy seams
+ * @see {@link digammaValidated} — boundary-validated variant
+ * @since 0.1.0
+ * @category operations
+ */
+export const digammaWithPolicies = (x: number) =>
+  withScalarPolicyGuards({
+    operation: "Special.digammaWithPolicies",
+    compute: () => Digamma.digammaKernel(x),
+    makeError: (message) => new SpecialDomainViolationError({ operation: "digammaWithPolicies", message }),
+    annotations: (result) => ({ input: String(x), result: String(result) })
   })

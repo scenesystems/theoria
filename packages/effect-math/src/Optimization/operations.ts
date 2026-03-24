@@ -6,9 +6,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { OptimizationDecodeError, OptimizationDomainViolationError } from "./errors.js"
 import * as Bisect from "./internal/bisect.js"
 import * as GoldenSection from "./internal/goldenSection.js"
@@ -168,51 +168,11 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  * @category operations
  */
 export const bisectWithPolicies = (f: (x: number) => number, a: number, b: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Bisect.bisectKernel(f, a, b)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new OptimizationDomainViolationError({
-              operation: "bisectWithPolicies",
-              message: `Non-finite bisect result: bisect(${a}, ${b}) = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Optimization.bisectWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: `a=${a}, b=${b}`,
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "Optimization.bisectWithPolicies",
+    compute: () => Bisect.bisectKernel(f, a, b),
+    makeError: (message) => new OptimizationDomainViolationError({ operation: "bisectWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
   })
 
 /**
@@ -229,49 +189,9 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
  * @category operations
  */
 export const goldenSectionWithPolicies = (f: (x: number) => number, a: number, b: number) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = GoldenSection.goldenSectionKernel(f, a, b)
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new OptimizationDomainViolationError({
-              operation: "goldenSectionWithPolicies",
-              message: `Non-finite goldenSection result: goldenSection(${a}, ${b}) = ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Optimization.goldenSectionWithPolicies").pipe(
-            Effect.annotateLogs({
-              precision: precision.policy,
-              input: `a=${a}, b=${b}`,
-              result: String(result),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "Optimization.goldenSectionWithPolicies",
+    compute: () => GoldenSection.goldenSectionKernel(f, a, b),
+    makeError: (message) => new OptimizationDomainViolationError({ operation: "goldenSectionWithPolicies", message }),
+    annotations: (result) => ({ input: `a=${a}, b=${b}`, result: String(result) })
   })

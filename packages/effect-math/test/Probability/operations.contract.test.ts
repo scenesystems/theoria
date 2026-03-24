@@ -5,8 +5,10 @@ import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
   entropyValidated,
+  entropyWithPolicies,
   normalCdf,
   normalCdfValidated,
+  normalCdfWithPolicies,
   normalPdf,
   normalPdfValidated,
   normalPdfWithPolicies,
@@ -15,8 +17,10 @@ import {
   standardNormalPdf,
   uniformCdf,
   uniformCdfValidated,
+  uniformCdfWithPolicies,
   uniformPdf,
-  uniformPdfValidated
+  uniformPdfValidated,
+  uniformPdfWithPolicies
 } from "../../src/Probability/operations.js"
 
 const strictLayer = makeDeterministicRuntimePoliciesLayer({
@@ -318,4 +322,60 @@ describe("Probability / normalPdfWithPolicies", () => {
       const runB = yield* normalPdfWithPolicies(1.5, 0, 1).pipe(Effect.provide(strictLayer))
       expect(N.Equivalence(runA, runB)).toStrictEqual(true)
     }))
+})
+
+describe("Probability / normalCdfWithPolicies", () => {
+  it.effect("CDF at mean equals 0.5 under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* normalCdfWithPolicies(0, 0, 1)
+      expect(result).toBeCloseTo(0.5)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("CDF at mean equals 0.5 under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* normalCdfWithPolicies(3, 3, 1)
+      expect(result).toBeCloseTo(0.5)
+    }).pipe(Effect.provide(relaxedLayer)))
+})
+
+describe("Probability / uniformPdfWithPolicies", () => {
+  it.effect("returns 1/(high-low) inside bounds under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* uniformPdfWithPolicies(0.5, 0, 1)
+      expect(result).toBeCloseTo(1)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("returns 0 outside bounds under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* uniformPdfWithPolicies(-0.1, 0, 1)
+      expect(result).toStrictEqual(0)
+    }).pipe(Effect.provide(relaxedLayer)))
+})
+
+describe("Probability / uniformCdfWithPolicies", () => {
+  it.effect("returns 0.5 at midpoint under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* uniformCdfWithPolicies(0.5, 0, 1)
+      expect(result).toBeCloseTo(0.5)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("returns 1 above upper bound under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* uniformCdfWithPolicies(2, 0, 1)
+      expect(result).toStrictEqual(1)
+    }).pipe(Effect.provide(relaxedLayer)))
+})
+
+describe("Probability / entropyWithPolicies", () => {
+  it.effect("entropy of uniform distribution equals ln(n) under strict", () =>
+    Effect.gen(function*() {
+      const result = yield* entropyWithPolicies(Chunk.fromIterable([0.25, 0.25, 0.25, 0.25]))
+      expect(result).toBeCloseTo(Math.log(4))
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("entropy of fair coin equals ln(2) under relaxed", () =>
+    Effect.gen(function*() {
+      const result = yield* entropyWithPolicies(Chunk.fromIterable([0.5, 0.5]))
+      expect(result).toBeCloseTo(Math.log(2))
+    }).pipe(Effect.provide(relaxedLayer)))
 })

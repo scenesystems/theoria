@@ -97,7 +97,7 @@ Each domain is a self-contained subpath export with its own schemas, typed error
 | **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose             |
 | **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid |
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                     |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance                  |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max         |
 | **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)            |
 | **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                 |
 | **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule          |
@@ -157,7 +157,7 @@ Each domain also defines a `DomainViolationError` raised under `"strict"` precis
 // Pure kernels — no Effect wrapper
 import { dot, normL2, vectorAdd, vectorScale, matvec, transpose, frobeniusNorm } from "effect-math/LinearAlgebra"
 import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "effect-math/Geometry"
-import { mean, variance, standardDeviation, covariance } from "effect-math/Statistics"
+import { mean, variance, standardDeviation, covariance, minimum, maximum } from "effect-math/Statistics"
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
 import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
 import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
@@ -168,12 +168,36 @@ import { bisect, goldenSection } from "effect-math/Optimization"
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
 import { distanceWithPolicies } from "effect-math/Geometry"
-import { summaryStatisticsWithPolicies } from "effect-math/Statistics"
-import { normalPdfWithPolicies } from "effect-math/Probability"
+import {
+  summaryStatisticsWithPolicies,
+  meanWithPolicies,
+  varianceWithPolicies,
+  covarianceWithPolicies
+} from "effect-math/Statistics"
+import {
+  normalPdfWithPolicies,
+  normalCdfWithPolicies,
+  uniformPdfWithPolicies,
+  uniformCdfWithPolicies,
+  entropyWithPolicies
+} from "effect-math/Probability"
 import { sumWithPolicies } from "effect-math/Numeric"
-import { gammaWithPolicies, erfWithPolicies } from "effect-math/Special"
-import { polyEvalWithPolicies, factorialWithPolicies } from "effect-math/Algebra"
-import { trapezoidWithPolicies, simpsonWithPolicies } from "effect-math/Calculus"
+import {
+  gammaWithPolicies,
+  erfWithPolicies,
+  lnGammaWithPolicies,
+  betaWithPolicies,
+  erfcWithPolicies,
+  digammaWithPolicies
+} from "effect-math/Special"
+import {
+  polyEvalWithPolicies,
+  factorialWithPolicies,
+  polyDerivativeWithPolicies,
+  gcdWithPolicies,
+  lcmWithPolicies
+} from "effect-math/Algebra"
+import { trapezoidWithPolicies, simpsonWithPolicies, derivativeWithPolicies } from "effect-math/Calculus"
 import { bisectWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
 
 // Runtime policy services and layer constructors
@@ -192,13 +216,17 @@ import {
 | --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------- |
 | **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization | Functional and tested, may evolve |
 
+## Acknowledgments
+
+Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses the rational polynomial from [Abramowitz & Stegun](https://personal.math.ubc.ca/~cbm/aands/) (1964), formula 7.1.26. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). All numerical kernels verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures.
+
 ## Contributing
 
 See the [repository](https://github.com/scenesystems/theoria) for contribution guidelines.
 
 ```sh
 bun run check    # Type check
-bun run test     # 341 tests across 46 suites
+bun run test     # 62 suites
 bun run lint     # ESLint with Effect rules
 bun run build    # ESM + CJS + annotate-pure-calls
 ```

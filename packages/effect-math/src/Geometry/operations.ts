@@ -7,9 +7,9 @@
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number as N, Schema } from "effect"
+import { Chunk, Effect, Match, Number as N, Schema } from "effect"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
+import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { GeometryDecodeError, GeometryDomainViolationError, GeometryShapeMismatchError } from "./errors.js"
 import * as Metric from "./internal/metric.js"
 import { GeometryDomainModel } from "./model.js"
@@ -310,54 +310,19 @@ export const distanceWithPolicies = (
   b: Chunk.Chunk<number>,
   metric: "euclidean" | "manhattan" | "chebyshev"
 ) =>
-  Effect.gen(function*() {
-    const precision = yield* PrecisionPolicyService
-    const diagnostics = yield* DiagnosticsPolicyService
-
-    const startedAt = yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () => Clock.currentTimeMillis),
-      Match.when("disabled", () => Effect.succeed(0)),
-      Match.exhaustive
-    )
-
-    const result = Match.value(metric).pipe(
-      Match.when("euclidean", () => Metric.euclideanDistance(a, b)),
-      Match.when("manhattan", () => Metric.manhattanDistance(a, b)),
-      Match.when("chebyshev", () => Metric.chebyshevDistance(a, b)),
-      Match.exhaustive
-    )
-
-    yield* Match.value(precision.policy).pipe(
-      Match.when("strict", () =>
-        Effect.filterOrFail(
-          Effect.succeed(result),
-          Number.isFinite,
-          () =>
-            new GeometryDomainViolationError({
-              operation: "distanceWithPolicies",
-              message: `Non-finite distance result: ${result}`
-            })
-        ).pipe(Effect.asVoid)),
-      Match.when("relaxed", () => Effect.void),
-      Match.exhaustive
-    )
-
-    yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
-        Effect.gen(function*() {
-          const elapsed = yield* Clock.currentTimeMillis
-          yield* Effect.logDebug("Geometry.distanceWithPolicies").pipe(
-            Effect.annotateLogs({
-              metric,
-              precision: precision.policy,
-              dimensionality: String(Chunk.size(a)),
-              elapsedMs: String(N.subtract(elapsed, startedAt))
-            })
-          )
-        })),
-      Match.when("disabled", () => Effect.void),
-      Match.exhaustive
-    )
-
-    return result
+  withScalarPolicyGuards({
+    operation: "Geometry.distanceWithPolicies",
+    compute: () =>
+      Match.value(metric).pipe(
+        Match.when("euclidean", () => Metric.euclideanDistance(a, b)),
+        Match.when("manhattan", () => Metric.manhattanDistance(a, b)),
+        Match.when("chebyshev", () => Metric.chebyshevDistance(a, b)),
+        Match.exhaustive
+      ),
+    makeError: (message) => new GeometryDomainViolationError({ operation: "distanceWithPolicies", message }),
+    annotations: (result) => ({
+      metric,
+      dimensionality: String(Chunk.size(a)),
+      result: String(result)
+    })
   })

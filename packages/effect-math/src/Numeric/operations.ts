@@ -411,7 +411,7 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
               backend: backend.policy,
               precision: precision.policy,
               inputSize: String(values.length),
-              elapsedMs: String(elapsed - startedAt)
+              elapsedMs: String(EffectNumber.subtract(elapsed, startedAt))
             })
           )
         })),
