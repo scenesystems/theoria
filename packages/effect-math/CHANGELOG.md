@@ -21,7 +21,7 @@
   - **Calculus** — numerical derivative, trapezoidal rule, and Simpson's rule
   - **Optimization** — bisection root-finding and golden section minimization
   - **Distribution** — full algebra of 10 distribution families (Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson) with PDF/CDF, log-PDF/PMF, quantile (inverse CDF), mean, variance, and differential entropy kernels; 502 SciPy fixture cases across 13 fixture files
-  - **Complex** — complex arithmetic, trigonometric and hyperbolic functions, polar form, `Chunk`-based vector carriers, and machine-precision Fornberg differentiation
+  - **Complex** — complex arithmetic, trigonometric and hyperbolic functions, polar form, `Chunk`-based vector carriers, and machine-precision complex-step differentiation
 
   All domains follow the three-tier operation pattern:
   1. **Pure kernels** — synchronous functions with no Effect overhead

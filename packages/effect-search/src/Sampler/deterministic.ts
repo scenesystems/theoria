@@ -30,8 +30,8 @@ export const normalizeDeterministicSeed = (seed: number): number => {
 }
 
 /**
- * Advance one deterministic linear-congruential-generator step using the
- * Numerical Recipes constants (multiplier 1664525, increment 1013904223,
+ * Advance one deterministic linear-congruential-generator step using
+ * Knuth's LCG constants (multiplier 1664525, increment 1013904223,
  * modulus 2³²). The output is a 32-bit unsigned integer suitable for seeding
  * subsequent calls.
  *

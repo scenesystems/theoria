@@ -1,9 +1,10 @@
 {
   "repository": {
     "type": "git",
-    "url": "https://github.com/scenesystems/effect-search.git"
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-search"
   },
-  "homepage": "https://github.com/scenesystems/effect-search",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
   "keywords": [
     "effect",
     "optimization",

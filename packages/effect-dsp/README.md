@@ -13,7 +13,7 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 
 ## Why effect-dsp?
 
-`effect-dsp` brings DSPy's "programming, not prompting" paradigm<sup>[1](#ref-1)</sup> to Effect-native TypeScript codebases. It is not a port of the DSPy Python library — it is a ground-up implementation that maps DSPy's core abstractions onto Effect primitives (`Schema`, `Ref`, `FiberRef`, `Layer`, `Effect.gen`), leveraging [`effect-search`](../effect-search) for optimizer search orchestration.
+`effect-dsp` brings DSPy's "programming, not prompting" paradigm<sup>[1](#ref-1)</sup> to Effect-native TypeScript codebases. It is not a port of the DSPy Python library — it is a ground-up implementation that maps DSPy's core abstractions onto Effect primitives (`Schema`, `Ref`, `FiberRef`, `Layer`, `Effect.gen`), leveraging [`effect-search`](https://github.com/scenesystems/theoria/tree/main/packages/effect-search) for optimizer search orchestration.
 
 - **Schema-first signatures** — define I/O contracts with `Schema.Struct` and derive field metadata, instructions, and prompt templates. No string parsing.
 - **Effect-native module runtime** — modules are values with `forward` effects and `Ref`-backed learnable parameters (instructions + demonstrations).
@@ -179,7 +179,7 @@ The original DSP (Demonstrate-Search-Predict) framework<sup>[[5]](https://arxiv.
 - <span id="ref-7">**[7]**</span> Yao, S. et al. ["ReAct: Synergizing Reasoning and Acting in Language Models."](https://arxiv.org/abs/2210.03629) ICLR 2023. arXiv:2210.03629. — Theoretical basis for the planned `react` module.
 - <span id="ref-8">**[8]**</span> Wang, X. et al. ["Self-Consistency Improves Chain of Thought Reasoning in Language Models."](https://arxiv.org/abs/2203.11171) ICLR 2023. arXiv:2203.11171. — Theoretical basis for `Ensemble` majority-vote aggregation.
 
-This package also depends on [`effect-search`](../effect-search) for black-box optimization primitives (search spaces, samplers, TPE, study orchestration) used by optimizer surfaces.
+This package also depends on [`effect-search`](https://github.com/scenesystems/theoria/tree/main/packages/effect-search) for black-box optimization primitives (search spaces, samplers, TPE, study orchestration) used by optimizer surfaces.
 
 ## Contributing
 
