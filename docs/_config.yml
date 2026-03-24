@@ -1,8 +1,4 @@
-remote_theme: just-the-docs/just-the-docs
-repository: scenesystems/theoria
-
-plugins:
-  - jekyll-remote-theme
+theme: just-the-docs
 
 title: Theoria API Reference
 description: API documentation for the Theoria open-source research software ecosystem by Scene Systems

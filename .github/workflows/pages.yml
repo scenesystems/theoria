@@ -15,11 +15,15 @@ concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -29,14 +33,18 @@ jobs:
       - run: bun run docgen
       - run: node scripts/docs.mjs
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
 
       - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
+        run: bundle exec jekyll build --source . --destination ../_site
+        working-directory: docs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main'

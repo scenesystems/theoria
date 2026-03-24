@@ -4,9 +4,9 @@ Jekyll-based API documentation site using the [Just the Docs](https://just-the-d
 
 ## Theme Configuration
 
-`_config.yml` uses `remote_theme: just-the-docs/just-the-docs` (not `theme:`). The `github-pages` gem used by `actions/jekyll-build-pages@v1` does not allowlist `just-the-docs` as a `theme:` — setting `theme: just-the-docs` causes a build failure. The `remote_theme:` key works via the `jekyll-remote-theme` plugin (bundled in `github-pages`, and also listed in `plugins:` and the local `Gemfile`).
+`_config.yml` uses `theme: just-the-docs`. Both local Docker preview and CI install from `docs/Gemfile` (Jekyll 4.4 + just-the-docs gem).
 
-Do NOT add `theme: just-the-docs` to `_config.yml`. The `just-the-docs` gem in the `Gemfile` exists only as a local development convenience for the Docker preview.
+Do NOT use `actions/jekyll-build-pages@v1` — its Docker image bundles the `github-pages` gem with Jekyll 3.10 and an allowlisted theme set that excludes `just-the-docs`. CI instead uses `ruby/setup-ruby@v1` with `bundler-cache: true` and runs `bundle exec jekyll build` directly from our `Gemfile`.
 
 ## Tracked vs Generated Content
 
@@ -53,7 +53,8 @@ This runs docgen, the aggregation script, builds a Docker image from `docs/Docke
 `.github/workflows/pages.yml` — triggers on push to `main`, PRs, and manual dispatch:
 
 - Runs `bun run docgen` and `node scripts/docs.mjs`
-- Builds with `actions/jekyll-build-pages@v1` (uses `remote_theme` from `_config.yml`)
+- Installs Ruby 3.3 via `ruby/setup-ruby@v1` with `bundler-cache: true` (caches gems from `docs/Gemfile`)
+- Builds with `bundle exec jekyll build` using Jekyll 4.4 and the `just-the-docs` gem
 - Deploys to GitHub Pages on `main`; uploads a `docs-preview` artifact on PRs
 
 ## Custom Styling

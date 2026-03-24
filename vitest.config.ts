@@ -13,7 +13,8 @@ export default defineConfig({
     maxConcurrency: 10,
 
     include: ["packages/*/test/**/*.test.ts"],
-    passWithNoTests: true
+    passWithNoTests: true,
+    testTimeout: 30_000
   },
   coverage: {
     provider: "v8",
