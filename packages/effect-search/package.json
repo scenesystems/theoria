@@ -1,6 +1,6 @@
 {
   "name": "effect-search",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Effect-native black-box optimization for TypeScript",
   "license": "MIT",

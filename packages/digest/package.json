@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/digest",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Cryptographic content hashing and canonicalization for Effect",
   "license": "MIT",
