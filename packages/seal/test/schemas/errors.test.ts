@@ -80,7 +80,7 @@ describe("InvalidKey — Schema.TaggedError", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
         Effect.gen(function*() {
-          return yield* new InvalidKey({ expected: 32, received: 16 })
+          return yield* new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" })
         })
       )
       expect(Exit.isFailure(exit)).toBe(true)
@@ -89,7 +89,7 @@ describe("InvalidKey — Schema.TaggedError", () => {
   it.effect("is catchable via Effect.catchTag", () =>
     Effect.gen(function*() {
       const result = yield* Effect.gen(function*() {
-        return yield* new InvalidKey({ expected: 32, received: 64 })
+        return yield* new InvalidKey({ expected: 32, received: 64, reason: "key must be exactly 32 bytes, got 64" })
       }).pipe(
         Effect.catchTag("InvalidKey", (e) => Effect.succeed(`caught:${e.expected}:${e.received}`))
       )
@@ -100,17 +100,17 @@ describe("InvalidKey — Schema.TaggedError", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(
         Effect.gen(function*() {
-          return yield* new InvalidKey({ expected: 32, received: 0 })
+          return yield* new InvalidKey({ expected: 32, received: 0, reason: "key must be exactly 32 bytes, got 0" })
         })
       )
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 0 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 0, reason: "key must be exactly 32 bytes, got 0" }))
       )
     }))
 
   it.effect("has correct _tag discrimination", () =>
     Effect.gen(function*() {
-      const err = new InvalidKey({ expected: 32, received: 16 })
+      const err = new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" })
       expect(err._tag).toBe("InvalidKey")
     }))
 })

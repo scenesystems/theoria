@@ -32,11 +32,16 @@ export const validateKey = (key: Uint8Array): Effect.Effect<void, InvalidKey> =>
     yield* Effect.filterOrFail(
       Effect.succeed(key.length),
       (len) => len === KEY_BYTES,
-      (len) => new InvalidKey({ expected: KEY_BYTES, received: len })
+      (len) =>
+        new InvalidKey({
+          expected: KEY_BYTES,
+          received: len,
+          reason: `key must be exactly ${KEY_BYTES} bytes, got ${len}`
+        })
     )
     yield* Effect.filterOrFail(
       Effect.succeed(equalBytes(key, ZERO_KEY)),
       (isZero) => !isZero,
-      () => new InvalidKey({ expected: KEY_BYTES, received: key.length })
+      () => new InvalidKey({ expected: KEY_BYTES, received: key.length, reason: "key is all-zero (weak key rejected)" })
     )
   })

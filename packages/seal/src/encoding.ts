@@ -19,7 +19,7 @@
  */
 
 import { concatBytes } from "@noble/ciphers/utils.js"
-import { Effect, Either, Encoding, Match, Tuple } from "effect"
+import { Effect, Encoding, Match, Tuple } from "effect"
 import { AES_GCM_NONCE_BYTES, XCHACHA20_NONCE_BYTES } from "./internal/nonce.js"
 import type { SealAlgorithm } from "./schemas/SealAlgorithm.js"
 import { SealedEnvelope } from "./schemas/SealedEnvelope.js"
@@ -70,13 +70,7 @@ export const unpackEnvelope = (
   envelope: SealedEnvelope
 ): Effect.Effect<Uint8Array, Encoding.DecodeException> =>
   Effect.gen(function*() {
-    const nonce = yield* Either.match(Encoding.decodeBase64Url(envelope.nonce), {
-      onLeft: (err) => Effect.fail(err),
-      onRight: (bytes) => Effect.succeed(bytes)
-    })
-    const ciphertext = yield* Either.match(Encoding.decodeBase64Url(envelope.ciphertext), {
-      onLeft: (err) => Effect.fail(err),
-      onRight: (bytes) => Effect.succeed(bytes)
-    })
+    const nonce = yield* Encoding.decodeBase64Url(envelope.nonce)
+    const ciphertext = yield* Encoding.decodeBase64Url(envelope.ciphertext)
     return concatBytes(nonce, ciphertext)
   })

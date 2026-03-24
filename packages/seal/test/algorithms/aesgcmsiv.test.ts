@@ -67,7 +67,7 @@ describe("aesgcmsivEncrypt / aesgcmsivDecrypt", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(aesgcmsivEncrypt(shortKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 16 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" }))
       )
     }))
 
@@ -75,7 +75,7 @@ describe("aesgcmsivEncrypt / aesgcmsivDecrypt", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(aesgcmsivEncrypt(longKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 64 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 64, reason: "key must be exactly 32 bytes, got 64" }))
       )
     }))
 
@@ -84,7 +84,7 @@ describe("aesgcmsivEncrypt / aesgcmsivDecrypt", () => {
       const encrypted = yield* aesgcmsivEncrypt(validKey, plaintext)
       const exit = yield* Effect.exit(aesgcmsivDecrypt(shortKey, encrypted))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 16 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" }))
       )
     }))
 

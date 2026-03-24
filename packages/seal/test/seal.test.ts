@@ -64,7 +64,7 @@ describe("seal — key validation", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(seal("xchacha20-poly1305", shortKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 16 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" }))
       )
     }))
 
@@ -72,7 +72,7 @@ describe("seal — key validation", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(seal("aes-256-gcm", longKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 64 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 64, reason: "key must be exactly 32 bytes, got 64" }))
       )
     }))
 })

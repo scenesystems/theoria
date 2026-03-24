@@ -45,8 +45,9 @@ export class DecryptionFailed extends Schema.TaggedError<DecryptionFailed>()(
 /**
  * Key validation failed before encryption or decryption.
  *
- * Carries `expected` (required key length in bytes) and
- * `received` (actual key length in bytes).
+ * Carries `expected` (required key length in bytes),
+ * `received` (actual key length in bytes), and `reason`
+ * (human-readable explanation of the failure).
  *
  * @since 0.1.0
  * @category errors
@@ -55,6 +56,7 @@ export class InvalidKey extends Schema.TaggedError<InvalidKey>()(
   "InvalidKey",
   {
     expected: Schema.Number,
-    received: Schema.Number
+    received: Schema.Number,
+    reason: Schema.String
   }
 ) {}

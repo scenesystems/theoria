@@ -67,7 +67,7 @@ describe("xchacha20Encrypt / xchacha20Decrypt", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(xchacha20Encrypt(shortKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 16 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" }))
       )
     }))
 
@@ -75,7 +75,7 @@ describe("xchacha20Encrypt / xchacha20Decrypt", () => {
     Effect.gen(function*() {
       const exit = yield* Effect.exit(xchacha20Encrypt(longKey, plaintext))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 64 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 64, reason: "key must be exactly 32 bytes, got 64" }))
       )
     }))
 
@@ -84,7 +84,7 @@ describe("xchacha20Encrypt / xchacha20Decrypt", () => {
       const encrypted = yield* xchacha20Encrypt(validKey, plaintext)
       const exit = yield* Effect.exit(xchacha20Decrypt(shortKey, encrypted))
       expect(exit).toStrictEqual(
-        Exit.fail(new InvalidKey({ expected: 32, received: 16 }))
+        Exit.fail(new InvalidKey({ expected: 32, received: 16, reason: "key must be exactly 32 bytes, got 16" }))
       )
     }))
 
