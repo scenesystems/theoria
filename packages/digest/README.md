@@ -230,6 +230,16 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 | --------------- | -------- | --------------------------- |
 | `@noble/hashes` | 6 audits | BLAKE3, SHA-256, HMAC, HKDF |
 
+### Standards
+
+| Algorithm | Specification                                                                                |
+| --------- | -------------------------------------------------------------------------------------------- |
+| BLAKE3    | [O'Connor et al. (2020)](https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf) |
+| SHA-256   | [NIST FIPS 180-4](https://doi.org/10.6028/NIST.FIPS.180-4)                                   |
+| HMAC      | [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104)                                           |
+| HKDF      | [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869)                                           |
+| JCS       | [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)                                           |
+
 ## License
 
 [MIT](../../LICENSE) — Copyright © 2026 Scene Systems

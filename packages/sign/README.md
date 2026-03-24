@@ -242,6 +242,19 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 | `@noble/hashes`       | 6 audits | SHA-256/512 for key encoding                          |
 | `@noble/post-quantum` | 1 audit  | ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (XWing) |
 
+### Standards
+
+| Algorithm           | Specification                                                             |
+| ------------------- | ------------------------------------------------------------------------- |
+| Ed25519             | [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)                        |
+| X25519              | [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748)                        |
+| secp256k1           | [SEC 2 §2.4.1](https://www.secg.org/sec2-v2.pdf)                          |
+| Schnorr (secp256k1) | [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki) |
+| ML-DSA              | [NIST FIPS 204](https://doi.org/10.6028/NIST.FIPS.204)                    |
+| SLH-DSA             | [NIST FIPS 205](https://doi.org/10.6028/NIST.FIPS.205)                    |
+| ML-KEM (via XWing)  | [NIST FIPS 203](https://doi.org/10.6028/NIST.FIPS.203)                    |
+| XWing               | [Barbosa et al. (2024)](https://doi.org/10.62056/a3qj89n4e)               |
+
 ## License
 
 [MIT](../../LICENSE) — Copyright © 2026 Scene Systems

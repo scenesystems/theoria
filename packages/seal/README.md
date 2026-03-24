@@ -166,6 +166,15 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 | ---------------- | -------- | ------------------------------------- |
 | `@noble/ciphers` | 2 audits | XChaCha20-Poly1305, AES-256-GCM(-SIV) |
 
+### Standards
+
+| Algorithm         | Specification                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| ChaCha20-Poly1305 | [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439)                                             |
+| XChaCha20         | [draft-irtf-cfrg-xchacha-03](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03) |
+| AES-GCM-SIV       | [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)                                             |
+| AES-GCM           | [NIST SP 800-38D](https://doi.org/10.6028/NIST.SP.800-38D)                                     |
+
 ## License
 
 [MIT](../../LICENSE) — Copyright © 2026 Scene Systems

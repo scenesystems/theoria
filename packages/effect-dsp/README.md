@@ -27,7 +27,7 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 
 - Signature construction and validation (`Signature.make`, `Signature.describe`, derived field metadata and instructions)
 - Predictor module (`Module.predict`) with dual output strategy resolution (`text` / `structured` / `auto`) and DSPy-compatible `[[ ## field ## ]]` delimiters<sup>[1](#ref-1)</sup>
-- Chain-of-thought module (`Module.chainOfThought`) — prepends `reasoning` field to output signature
+- Chain-of-thought module (`Module.chainOfThought`) — prepends `reasoning` field to output signature<sup>[6](#ref-6)</sup>
 - Module composition (`Module.compose`) — graph-based sub-module wiring with typed `forward` callbacks
 - Parsing retry pipeline for text-mode outputs with structured feedback loops
 - Fiber-local tracing (`Trace.withTracing`, `Trace.append`, `Trace.get`)
@@ -38,9 +38,9 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 - `LabeledFewShot` — attach random labeled demos without model calls<sup>[1](#ref-1)</sup>
 - `BootstrapFewShot` — teacher-bootstrapped demonstration generation<sup>[1](#ref-1)</sup>
 - `BootstrapRS` — random search over bootstrapped demo candidates<sup>[1](#ref-1)</sup>
-- `Ensemble` — run N programs, aggregate via `majorityVote` or custom reduce function<sup>[1](#ref-1)</sup>
+- `Ensemble` — run N programs, aggregate via `majorityVote` or custom reduce function<sup>[1](#ref-1)</sup><sup>[8](#ref-8)</sup>
 - `MIPROv2` — instruction + demo co-optimization via Bayesian search<sup>[2](#ref-2)</sup>
-- `GEPA` — reflective prompt evolution via natural-language feedback (directory scaffolded)<sup>[3](#ref-3)</sup>
+- `GEPA` — reflective prompt evolution with Pareto frontier analysis, two-gate acceptance, weighted parent sampling, and merge/crossover phases<sup>[3](#ref-3)</sup>
 
 ## Installation
 
@@ -150,7 +150,7 @@ These DSPy modules have not yet been implemented:
 | ---------------------- | --------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `bestOfN`              | `dspy.BestOfN`              | Run module N times with different rollout IDs, return best by reward function | [DSPy docs](https://dspy.ai/tutorials/output_refinement/best-of-n-and-refine/) |
 | `refine`               | `dspy.Refine`               | `BestOfN` + automatic feedback generation between attempts                    | [DSPy docs](https://dspy.ai/tutorials/output_refinement/best-of-n-and-refine/) |
-| `react`                | `dspy.ReAct`                | Reasoning + acting agent with tool use                                        | [1](#ref-1)                                                                    |
+| `react`                | `dspy.ReAct`                | Reasoning + acting agent with tool use                                        | [1](#ref-1), [7](#ref-7)                                                       |
 | `programOfThought`     | `dspy.ProgramOfThought`     | Generate executable code to derive the answer                                 | [1](#ref-1)                                                                    |
 | `multiChainComparison` | `dspy.MultiChainComparison` | Compare multiple CoT outputs to produce a final prediction                    | [1](#ref-1)                                                                    |
 | `parallel`             | `dspy.Parallel`             | Parallel execution of module over multiple inputs                             | [DSPy docs](https://dspy.ai/)                                                  |
@@ -167,18 +167,22 @@ These DSPy modules have not yet been implemented:
 
 ## Status
 
-`effect-dsp` is in active development. Core Signature, Module, Trace, and Evaluate contracts are implemented and tested. Optimizer algorithms are at varying stages of completion — `LabeledFewShot` and `Ensemble` are functional; `BootstrapFewShot`, `BootstrapRS`, and `MIPROv2` have implementations with runtime decompositions; `GEPA` is scaffolded.
+`effect-dsp` is in active development. Core Signature, Module, Trace, and Evaluate contracts are implemented and tested. All six optimizers — `LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, and `GEPA` — are implemented with tests and runnable examples.
 
 ## Acknowledgements
 
 `effect-dsp` implements the DSPy paradigm introduced by [Omar Khattab et al. at Stanford NLP](https://github.com/stanfordnlp/dspy). We build on the theoretical foundations and algorithmic designs from the following papers:
 
-- <span id="ref-1">**[1]**</span> Khattab, O. et al. ["DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines."](https://arxiv.org/abs/2310.03714) arXiv:2310.03714, 2023. — Core DSPy framework: signatures, modules (`Predict`, `ChainOfThought`, `ReAct`, `ProgramOfThought`, `MultiChainComparison`), `BootstrapFewShot`, `BootstrapRS`, `LabeledFewShot`, `Ensemble`.
-- <span id="ref-2">**[2]**</span> Opsahl-Ong, K. et al. ["Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs."](https://arxiv.org/abs/2406.11695) arXiv:2406.11695, 2024. — `MIPROv2` optimizer: Bayesian instruction + demonstration co-optimization.
-- <span id="ref-3">**[3]**</span> Agrawal, L.A. et al. ["GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning."](https://arxiv.org/abs/2507.19457) arXiv:2507.19457, 2025. ICLR 2026 Oral. — `GEPA` (Genetic-Pareto) optimizer.
-- <span id="ref-4">**[4]**</span> Khattab, O. et al. ["Fine-Tuning and Prompt Optimization: Two Great Steps that Work Better Together."](https://arxiv.org/abs/2407.10930) arXiv:2407.10930, 2024. — `BootstrapFinetune`, `BetterTogether`.
+- <span id="ref-1">**[1]**</span> Khattab, O. et al. ["DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines."](https://arxiv.org/abs/2310.03714) ICLR 2024. arXiv:2310.03714, 2023. — Core DSPy framework: signatures, modules (`Predict`, `ChainOfThought`, `ReAct`, `ProgramOfThought`, `MultiChainComparison`), `BootstrapFewShot`, `BootstrapRS`, `LabeledFewShot`, `Ensemble`.
+- <span id="ref-2">**[2]**</span> Opsahl-Ong, K. et al. ["Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs."](https://arxiv.org/abs/2406.11695) EMNLP 2024. arXiv:2406.11695, 2024. — `MIPROv2` optimizer: Bayesian instruction + demonstration co-optimization.
+- <span id="ref-3">**[3]**</span> Agrawal, L.A. et al. ["GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning."](https://arxiv.org/abs/2507.19457) ICLR 2026 (Oral). arXiv:2507.19457, 2025. — `GEPA` (Genetic-Pareto) optimizer.
+- <span id="ref-4">**[4]**</span> Soylu, D. et al. ["Fine-Tuning and Prompt Optimization: Two Great Steps that Work Better Together."](https://arxiv.org/abs/2407.10930) EMNLP 2024. arXiv:2407.10930, 2024. — `BootstrapFinetune`, `BetterTogether`.
 
 The original DSP (Demonstrate-Search-Predict) framework<sup>[[5]](https://arxiv.org/abs/2212.14024)</sup> preceded DSPy and established the compositional retrieval + LM pipeline pattern.
+
+- <span id="ref-6">**[6]**</span> Wei, J. et al. ["Chain-of-Thought Prompting Elicits Reasoning in Large Language Models."](https://arxiv.org/abs/2201.11903) NeurIPS 2022. arXiv:2201.11903. — Theoretical basis for `Module.chainOfThought`.
+- <span id="ref-7">**[7]**</span> Yao, S. et al. ["ReAct: Synergizing Reasoning and Acting in Language Models."](https://arxiv.org/abs/2210.03629) ICLR 2023. arXiv:2210.03629. — Theoretical basis for the planned `react` module.
+- <span id="ref-8">**[8]**</span> Wang, X. et al. ["Self-Consistency Improves Chain of Thought Reasoning in Language Models."](https://arxiv.org/abs/2203.11171) ICLR 2023. arXiv:2203.11171. — Theoretical basis for `Ensemble` majority-vote aggregation.
 
 This package also depends on [`effect-search`](../effect-search) for black-box optimization primitives (search spaces, samplers, TPE, study orchestration) used by optimizer surfaces.
 
