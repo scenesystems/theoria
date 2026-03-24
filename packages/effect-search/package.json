@@ -69,8 +69,8 @@
     "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
   },
   "dependencies": {
-    "@scenesystems/digest": "workspace:*",
-    "effect-math": "workspace:*"
+    "@scenesystems/digest": "workspace:^",
+    "effect-math": "workspace:^"
   },
   "peerDependencies": {
     "@effect/experimental": "^0.60.0",

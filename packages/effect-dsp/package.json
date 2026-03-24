@@ -58,9 +58,9 @@
     "docgen": "docgen"
   },
   "dependencies": {
-    "@scenesystems/digest": "workspace:*",
-    "effect-math": "workspace:*",
-    "effect-search": "workspace:*"
+    "@scenesystems/digest": "workspace:^",
+    "effect-math": "workspace:^",
+    "effect-search": "workspace:^"
   },
   "peerDependencies": {
     "@effect/ai": ">=0.35.0",
