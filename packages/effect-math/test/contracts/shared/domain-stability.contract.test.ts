@@ -25,9 +25,9 @@ describe("shared domain stability contracts", () => {
       ).toStrictEqual(true)
     }))
 
-  it("keeps Geometry in stable tier for first-wave release obligations", () => {
+  it("keeps Geometry in provisional tier during pre-release", () => {
     const geometryStability = Schema.decodeUnknownSync(DomainStability)(GeometryDomainModel.stability)
 
-    expect(geometryStability).toStrictEqual("stable")
+    expect(geometryStability).toStrictEqual("provisional")
   })
 })

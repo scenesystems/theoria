@@ -15,5 +15,5 @@ import type { GeometryDomain } from "./schema.js"
  */
 export const GeometryDomainModel: GeometryDomain = {
   domain: GeometryDomainContract,
-  stability: "stable"
+  stability: "provisional"
 }

@@ -83,8 +83,8 @@ describe("package export contracts", () => {
       expect(exportContainsExperimental(rootExport)).toStrictEqual(false)
     }))
 
-  it("keeps Geometry in the stable root surface while isolating experimental seams", () => {
-    expect(GeometryDomainModel.stability).toStrictEqual("stable")
+  it("keeps Geometry provisional and isolates experimental seams", () => {
+    expect(GeometryDomainModel.stability).toStrictEqual("provisional")
 
     const experimentalEntries = Arr.fromIterable(ExperimentalSeams)
     expect(experimentalEntries.length).toBeGreaterThan(0)
