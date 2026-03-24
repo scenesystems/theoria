@@ -75,7 +75,7 @@
     "docgen": "docgen"
   },
   "devDependencies": {
-    "@scenesystems/digest": "workspace:*"
+    "@scenesystems/digest": "workspace:^"
   },
   "peerDependencies": {
     "effect": "^3.20.0"
