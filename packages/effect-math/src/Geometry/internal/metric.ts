@@ -19,7 +19,7 @@ const abs = (x: number): number => N.max(x, N.negate(x))
 
 /**
  * Euclidean distance: `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have equal
- * length — no runtime guard is applied (use `distanceEffect` for validated
+ * length — no runtime guard is applied (use `distanceValidated` for validated
  * input).
  *
  * @since 0.1.0
@@ -72,7 +72,7 @@ export const midpoint = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): Chunk.
 /**
  * Centroid (arithmetic mean) of a non-empty collection of points. Each point
  * is a `Chunk<number>`. All points must have equal dimensionality — no
- * runtime guard is applied (use `centroidEffect` for validated input).
+ * runtime guard is applied (use `centroidValidated` for validated input).
  *
  * @since 0.1.0
  * @category internal

@@ -4,14 +4,14 @@ import { Chunk, Effect, Number as N, Schema } from "effect"
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
-  centroidEffect,
+  centroidValidated,
   chebyshevDistance,
-  distanceEffect,
+  distanceValidated,
   distanceWithPolicies,
   euclideanDistance,
   manhattanDistance,
   midpoint,
-  midpointEffect
+  midpointValidated
 } from "../../src/Geometry/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
@@ -102,29 +102,29 @@ describe("Geometry / midpoint", () => {
 // Effect-wrapped operations
 // ---------------------------------------------------------------------------
 
-describe("Geometry / distanceEffect", () => {
+describe("Geometry / distanceValidated", () => {
   it.effect("decodes valid euclidean input and computes distance", () =>
     Effect.gen(function*() {
-      const result = yield* distanceEffect({ a: [0, 0], b: [3, 4], metric: "euclidean" })
+      const result = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean" })
       expect(result).toStrictEqual(5)
     }))
 
   it.effect("decodes valid manhattan input and computes distance", () =>
     Effect.gen(function*() {
-      const result = yield* distanceEffect({ a: [0, 0], b: [3, 4], metric: "manhattan" })
+      const result = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "manhattan" })
       expect(result).toStrictEqual(7)
     }))
 
   it.effect("decodes valid chebyshev input and computes distance", () =>
     Effect.gen(function*() {
-      const result = yield* distanceEffect({ a: [0, 0], b: [3, 4], metric: "chebyshev" })
+      const result = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "chebyshev" })
       expect(result).toStrictEqual(4)
     }))
 
   it.effect("rejects excess properties with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        distanceEffect({ a: [0, 0], b: [3, 4], metric: "euclidean", extra: true })
+        distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean", extra: true })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
       expect(error.operation).toStrictEqual("distance")
@@ -133,7 +133,7 @@ describe("Geometry / distanceEffect", () => {
   it.effect("rejects mismatched point dimensions with GeometryShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        distanceEffect({ a: [1, 2, 3], b: [4, 5], metric: "euclidean" })
+        distanceValidated({ a: [1, 2, 3], b: [4, 5], metric: "euclidean" })
       )
       expect(error._tag).toStrictEqual("GeometryShapeMismatchError")
       expect(error.operation).toStrictEqual("distance")
@@ -142,7 +142,7 @@ describe("Geometry / distanceEffect", () => {
   it.effect("rejects non-finite input with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        distanceEffect({ a: [1, Infinity], b: [3, 4], metric: "euclidean" })
+        distanceValidated({ a: [1, Infinity], b: [3, 4], metric: "euclidean" })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
     }))
@@ -150,23 +150,23 @@ describe("Geometry / distanceEffect", () => {
   it.effect("rejects invalid metric with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        distanceEffect({ a: [1, 2], b: [3, 4], metric: "minkowski" })
+        distanceValidated({ a: [1, 2], b: [3, 4], metric: "minkowski" })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
     }))
 })
 
-describe("Geometry / midpointEffect", () => {
+describe("Geometry / midpointValidated", () => {
   it.effect("computes midpoint with valid input", () =>
     Effect.gen(function*() {
-      const result = yield* midpointEffect({ a: [0, 0], b: [4, 6] })
+      const result = yield* midpointValidated({ a: [0, 0], b: [4, 6] })
       expect(result).toStrictEqual([2, 3])
     }))
 
   it.effect("rejects mismatched dimensions with GeometryShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        midpointEffect({ a: [1, 2, 3], b: [4, 5] })
+        midpointValidated({ a: [1, 2, 3], b: [4, 5] })
       )
       expect(error._tag).toStrictEqual("GeometryShapeMismatchError")
       expect(error.operation).toStrictEqual("midpoint")
@@ -175,17 +175,17 @@ describe("Geometry / midpointEffect", () => {
   it.effect("rejects excess properties with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        midpointEffect({ a: [1, 2], b: [3, 4], extra: true })
+        midpointValidated({ a: [1, 2], b: [3, 4], extra: true })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
       expect(error.operation).toStrictEqual("midpoint")
     }))
 })
 
-describe("Geometry / centroidEffect", () => {
+describe("Geometry / centroidValidated", () => {
   it.effect("computes centroid of three 2D points", () =>
     Effect.gen(function*() {
-      const result = yield* centroidEffect({
+      const result = yield* centroidValidated({
         points: [[0, 0], [3, 0], [0, 3]]
       })
       expect(result).toStrictEqual([1, 1])
@@ -193,14 +193,14 @@ describe("Geometry / centroidEffect", () => {
 
   it.effect("centroid of a single point is that point", () =>
     Effect.gen(function*() {
-      const result = yield* centroidEffect({ points: [[5, 7]] })
+      const result = yield* centroidValidated({ points: [[5, 7]] })
       expect(result).toStrictEqual([5, 7])
     }))
 
   it.effect("rejects mixed-dimension points with GeometryShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        centroidEffect({ points: [[1, 2], [3, 4, 5]] })
+        centroidValidated({ points: [[1, 2], [3, 4, 5]] })
       )
       expect(error._tag).toStrictEqual("GeometryShapeMismatchError")
       expect(error.operation).toStrictEqual("centroid")
@@ -209,7 +209,7 @@ describe("Geometry / centroidEffect", () => {
   it.effect("rejects empty points array with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        centroidEffect({ points: [] })
+        centroidValidated({ points: [] })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
     }))
@@ -217,7 +217,7 @@ describe("Geometry / centroidEffect", () => {
   it.effect("rejects excess properties with GeometryDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        centroidEffect({ points: [[1, 2]], extra: true })
+        centroidValidated({ points: [[1, 2]], extra: true })
       )
       expect(error._tag).toStrictEqual("GeometryDecodeError")
       expect(error.operation).toStrictEqual("centroid")

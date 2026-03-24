@@ -1,7 +1,7 @@
 /**
  * Statistics operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Effect-wrapped variants with Schema-validated boundary
- * input, and policy-aware operations that respect `PrecisionPolicyService`
+ * `Chunk` carriers, Schema-validated variants with boundary input checking,
+ * and policy-aware operations that respect `PrecisionPolicyService`
  * and `DiagnosticsPolicyService`.
  *
  * @since 0.1.0
@@ -29,50 +29,72 @@ export const loadStatisticsDomain = Effect.succeed(StatisticsDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Arithmetic mean of a non-empty chunk.
+ * Arithmetic mean `x̄ = (Σ xᵢ) / n`. Assumes a non-empty chunk; returns
+ * `NaN` for empty input.
  *
+ * @see {@link meanValidated} for Schema-validated boundary input
+ * @see {@link summaryStatisticsWithPolicies} for full descriptive statistics with policy support
  * @since 0.1.0
  * @category operations
  */
 export const mean: (values: Chunk.Chunk<number>) => number = Estimators.mean
 
 /**
- * Sample variance (Bessel-corrected, n-1 denominator).
+ * Sample variance with Bessel correction — `s² = Σ(xᵢ − x̄)² / (n − 1)`.
+ * Requires at least 2 observations; returns `NaN` for fewer.
  *
+ * @see {@link varianceValidated} for Schema-validated boundary input with sample-size checking
+ * @see {@link standardDeviation} for the square root of this value
  * @since 0.1.0
  * @category operations
  */
 export const variance: (values: Chunk.Chunk<number>) => number = Estimators.variance
 
 /**
- * Sample standard deviation — `√(variance)`.
+ * Sample standard deviation — `s = √(s²)` where `s²` is the
+ * Bessel-corrected variance. Requires at least 2 observations.
  *
+ * @see {@link variance} for the underlying variance computation
+ * @see {@link summaryStatisticsValidated} for full descriptive statistics
  * @since 0.1.0
  * @category operations
  */
 export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estimators.standardDeviation
 
 /**
- * Covariance of two equal-length chunks (Bessel-corrected, n-1 denominator).
+ * Sample covariance `cov(a, b) = Σ(aᵢ − ā)(bᵢ − b̄) / (n − 1)` with
+ * Bessel correction. Both chunks must have the same length and at least
+ * 2 observations.
  *
+ * @see {@link covarianceValidated} for Schema-validated boundary input with shape checking
  * @since 0.1.0
  * @category operations
  */
 export const covariance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Estimators.covariance
 
 // ---------------------------------------------------------------------------
-// Effect-wrapped operations with schema-validated input
+// Schema-validated operations with boundary input checking
 // ---------------------------------------------------------------------------
 
 /**
- * Effect-wrapped mean that decodes `input` through `SampleInput` and
- * computes the arithmetic mean. Fails with `StatisticsDecodeError` for
+ * Boundary-validated mean — decodes `input` through `SampleInput` and
+ * computes `x̄ = (Σ xᵢ) / n`. Fails with `StatisticsDecodeError` for
  * malformed input.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { meanValidated } from "effect-math"
+ *
+ * const program = meanValidated({ values: [2, 4, 6] })
+ * // Effect succeeds with 4
+ * ```
+ *
+ * @see {@link mean} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const meanEffect = (input: unknown) =>
+export const meanValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
       onExcessProperty: "error"
@@ -89,15 +111,25 @@ export const meanEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped variance that decodes `input` through `SampleInput`,
- * validates at least 2 samples for Bessel correction, and computes
- * the sample variance. Fails with `StatisticsDecodeError` for malformed
- * input or `StatisticsShapeError` for insufficient data.
+ * Boundary-validated variance — decodes `input` through `SampleInput`,
+ * requires at least 2 samples for Bessel correction, and computes
+ * `s² = Σ(xᵢ − x̄)² / (n − 1)`. Fails with `StatisticsDecodeError` for
+ * malformed input or `StatisticsShapeError` for insufficient data.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { varianceValidated } from "effect-math"
+ *
+ * const program = varianceValidated({ values: [2, 4, 6] })
+ * // Effect succeeds with 4
+ * ```
+ *
+ * @see {@link variance} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const varianceEffect = (input: unknown) =>
+export const varianceValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
       onExcessProperty: "error"
@@ -126,15 +158,25 @@ export const varianceEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped summary statistics that decodes `input` through
- * `SampleInput`, validates at least 2 samples, computes mean, variance,
- * standard deviation, min, max, and count, and returns a `SummaryStatistics`
+ * Boundary-validated summary statistics — decodes `input` through
+ * `SampleInput`, requires at least 2 samples, and computes mean, variance,
+ * standard deviation, min, max, and count. Returns a `SummaryStatistics`
  * TaggedClass instance.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { summaryStatisticsValidated } from "effect-math"
+ *
+ * const program = summaryStatisticsValidated({ values: [2, 4, 6, 8] })
+ * ```
+ *
+ * @see {@link summaryStatisticsWithPolicies} for policy-aware variant
+ * @see {@link mean} / {@link variance} / {@link standardDeviation} for individual estimators
  * @since 0.1.0
  * @category operations
  */
-export const summaryStatisticsEffect = (input: unknown) =>
+export const summaryStatisticsValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
       onExcessProperty: "error"
@@ -177,14 +219,24 @@ export const summaryStatisticsEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped covariance that decodes `input` through `TwoSampleInput`,
+ * Boundary-validated covariance — decodes `input` through `TwoSampleInput`,
  * validates equal-length samples with at least 2 observations, and computes
- * the Bessel-corrected covariance.
+ * `cov(a, b) = Σ(aᵢ − ā)(bᵢ − b̄) / (n − 1)`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { covarianceValidated } from "effect-math"
+ *
+ * const program = covarianceValidated({ a: [1, 2, 3], b: [4, 5, 6] })
+ * // Effect succeeds with 1
+ * ```
+ *
+ * @see {@link covariance} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const covarianceEffect = (input: unknown) =>
+export const covarianceValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(TwoSampleInput)(input, {
       onExcessProperty: "error"
@@ -232,11 +284,30 @@ export const covarianceEffect = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware summary statistics that reads `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from the Effect context. Under `"strict"`
- * precision, rejects non-finite results with `StatisticsDomainViolationError`.
- * Under `"enabled"` diagnostics, emits `Effect.logDebug` with metadata.
+ * Policy-aware summary statistics that reads two runtime services from
+ * context:
  *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite mean, variance, or stddev with `StatisticsDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with precision policy and sample size
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Effect, Layer } from "effect"
+ * import { summaryStatisticsWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = summaryStatisticsWithPolicies(
+ *   Chunk.fromIterable([2, 4, 6, 8])
+ * ).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link summaryStatisticsValidated} for the boundary-validated variant (no service requirements)
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */

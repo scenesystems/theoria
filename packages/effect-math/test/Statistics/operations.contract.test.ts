@@ -5,14 +5,14 @@ import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
   covariance,
-  covarianceEffect,
+  covarianceValidated,
   mean,
-  meanEffect,
+  meanValidated,
   standardDeviation,
-  summaryStatisticsEffect,
+  summaryStatisticsValidated,
   summaryStatisticsWithPolicies,
   variance,
-  varianceEffect
+  varianceValidated
 } from "../../src/Statistics/operations.js"
 
 const strictLayer = makeDeterministicRuntimePoliciesLayer({
@@ -84,17 +84,17 @@ describe("Statistics / covariance", () => {
 // Effect-wrapped operations
 // ---------------------------------------------------------------------------
 
-describe("Statistics / meanEffect", () => {
+describe("Statistics / meanValidated", () => {
   it.effect("decodes valid input and computes mean", () =>
     Effect.gen(function*() {
-      const result = yield* meanEffect({ values: [1, 2, 3] })
+      const result = yield* meanValidated({ values: [1, 2, 3] })
       expect(result).toStrictEqual(2)
     }))
 
   it.effect("rejects excess properties with StatisticsDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        meanEffect({ values: [1, 2, 3], extra: true })
+        meanValidated({ values: [1, 2, 3], extra: true })
       )
       expect(error._tag).toStrictEqual("StatisticsDecodeError")
       expect(error.operation).toStrictEqual("mean")
@@ -103,7 +103,7 @@ describe("Statistics / meanEffect", () => {
   it.effect("rejects empty array with StatisticsDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        meanEffect({ values: [] })
+        meanValidated({ values: [] })
       )
       expect(error._tag).toStrictEqual("StatisticsDecodeError")
     }))
@@ -111,33 +111,33 @@ describe("Statistics / meanEffect", () => {
   it.effect("rejects non-finite input with StatisticsDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        meanEffect({ values: [1, Infinity] })
+        meanValidated({ values: [1, Infinity] })
       )
       expect(error._tag).toStrictEqual("StatisticsDecodeError")
     }))
 })
 
-describe("Statistics / varianceEffect", () => {
+describe("Statistics / varianceValidated", () => {
   it.effect("computes variance with valid input", () =>
     Effect.gen(function*() {
-      const result = yield* varianceEffect({ values: [1, 3] })
+      const result = yield* varianceValidated({ values: [1, 3] })
       expect(result).toStrictEqual(2)
     }))
 
   it.effect("rejects single sample with StatisticsShapeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        varianceEffect({ values: [5] })
+        varianceValidated({ values: [5] })
       )
       expect(error._tag).toStrictEqual("StatisticsShapeError")
       expect(error.operation).toStrictEqual("variance")
     }))
 })
 
-describe("Statistics / summaryStatisticsEffect", () => {
+describe("Statistics / summaryStatisticsValidated", () => {
   it.effect("returns TaggedClass with correct fields", () =>
     Effect.gen(function*() {
-      const result = yield* summaryStatisticsEffect({ values: [1, 2, 3, 4, 5] })
+      const result = yield* summaryStatisticsValidated({ values: [1, 2, 3, 4, 5] })
       expect(result._tag).toStrictEqual("SummaryStatistics")
       expect(result.mean).toStrictEqual(3)
       expect(result.count).toStrictEqual(5)
@@ -150,7 +150,7 @@ describe("Statistics / summaryStatisticsEffect", () => {
   it.effect("rejects single sample with StatisticsShapeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        summaryStatisticsEffect({ values: [5] })
+        summaryStatisticsValidated({ values: [5] })
       )
       expect(error._tag).toStrictEqual("StatisticsShapeError")
       expect(error.operation).toStrictEqual("summaryStatistics")
@@ -159,23 +159,23 @@ describe("Statistics / summaryStatisticsEffect", () => {
   it.effect("rejects excess properties with StatisticsDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        summaryStatisticsEffect({ values: [1, 2], extra: true })
+        summaryStatisticsValidated({ values: [1, 2], extra: true })
       )
       expect(error._tag).toStrictEqual("StatisticsDecodeError")
     }))
 })
 
-describe("Statistics / covarianceEffect", () => {
+describe("Statistics / covarianceValidated", () => {
   it.effect("computes covariance with valid input", () =>
     Effect.gen(function*() {
-      const result = yield* covarianceEffect({ a: [1, 2, 3], b: [2, 4, 6] })
+      const result = yield* covarianceValidated({ a: [1, 2, 3], b: [2, 4, 6] })
       expect(result).toStrictEqual(2)
     }))
 
   it.effect("rejects mismatched lengths with StatisticsShapeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        covarianceEffect({ a: [1, 2, 3], b: [4, 5] })
+        covarianceValidated({ a: [1, 2, 3], b: [4, 5] })
       )
       expect(error._tag).toStrictEqual("StatisticsShapeError")
       expect(error.operation).toStrictEqual("covariance")
@@ -184,7 +184,7 @@ describe("Statistics / covarianceEffect", () => {
   it.effect("rejects single sample with StatisticsShapeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        covarianceEffect({ a: [1], b: [2] })
+        covarianceValidated({ a: [1], b: [2] })
       )
       expect(error._tag).toStrictEqual("StatisticsShapeError")
       expect(error.operation).toStrictEqual("covariance")
@@ -193,7 +193,7 @@ describe("Statistics / covarianceEffect", () => {
   it.effect("rejects excess properties with StatisticsDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        covarianceEffect({ a: [1, 2], b: [3, 4], extra: true })
+        covarianceValidated({ a: [1, 2], b: [3, 4], extra: true })
       )
       expect(error._tag).toStrictEqual("StatisticsDecodeError")
     }))

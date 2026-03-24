@@ -1,7 +1,7 @@
 /**
  * LinearAlgebra operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Effect-wrapped variants with Schema-validated boundary
- * input, and policy-aware operations that respect `PrecisionPolicyService`,
+ * `Chunk` carriers, Schema-validated variants with boundary input checking,
+ * and policy-aware operations that respect `PrecisionPolicyService`,
  * `BackendPolicyService`, and `DiagnosticsPolicyService`.
  *
  * @since 0.1.0
@@ -34,66 +34,76 @@ export const loadLinearAlgebraDomain = Effect.succeed(LinearAlgebraDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Allocation-free dot product over two immutable `Chunk` carriers. Both
- * chunks must have the same length — no runtime guard is applied (use
- * `dotEffect` for validated input).
+ * Inner product `Σ aᵢ·bᵢ` — allocation-free over two immutable `Chunk`
+ * carriers. Both chunks must have the same length; no runtime guard is
+ * applied.
  *
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { dot } from "./operations.js"
+ * import { dot } from "effect-math"
  *
  * const result = dot(
  *   Chunk.fromIterable([1, 2, 3]),
  *   Chunk.fromIterable([4, 5, 6])
  * )
- * // result === 32  (1*4 + 2*5 + 3*6)
+ * // result === 32  (1·4 + 2·5 + 3·6)
  * ```
  *
+ * @see {@link dotValidated} for Schema-validated boundary input with shape checking
+ * @see {@link dotWithPolicies} for policy-aware variant with precision and diagnostics
  * @since 0.1.0
  * @category operations
  */
 export const dot: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Vector.dot
 
 /**
- * Euclidean (L2) norm — `√(Σ xᵢ²)`. Pure function over an immutable `Chunk`
- * carrier with no allocations beyond the result scalar.
+ * Euclidean (L2) norm — `√(Σ xᵢ²)`. Pure function, allocation-free over an
+ * immutable `Chunk` carrier.
  *
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { normL2 } from "./operations.js"
+ * import { normL2 } from "effect-math"
  *
  * normL2(Chunk.fromIterable([3, 4])) // 5
  * ```
  *
+ * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
+ * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
  * @since 0.1.0
  * @category operations
  */
 export const normL2: (v: Chunk.Chunk<number>) => number = Vector.normL2
 
 /**
- * L1 (Manhattan) norm — `Σ |xᵢ|`. Pure function, allocation-free over an
- * immutable `Chunk` carrier.
+ * L1 (Manhattan / taxicab) norm — `Σ |xᵢ|`. Useful for sparsity-aware
+ * regularization (LASSO). Pure function, allocation-free.
  *
+ * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
+ * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
  * @since 0.1.0
  * @category operations
  */
 export const normL1: (v: Chunk.Chunk<number>) => number = Vector.normL1
 
 /**
- * L∞ (Chebyshev) norm — `max |xᵢ|`. Pure function, allocation-free over an
- * immutable `Chunk` carrier.
+ * L∞ (Chebyshev) norm — `max |xᵢ|`. Returns the largest absolute component,
+ * useful for worst-case error bounds.
  *
+ * @see {@link normValidated} for Schema-validated boundary input with norm-kind dispatch
+ * @see {@link normWithPolicies} for policy-aware variant with precision and diagnostics
  * @since 0.1.0
  * @category operations
  */
 export const normLinf: (v: Chunk.Chunk<number>) => number = Vector.normLinf
 
 /**
- * Elementwise vector addition via `Chunk.zipWith`. Returns a new `Chunk` —
- * the inputs are not mutated. Both chunks must have the same length.
+ * Elementwise vector addition `cᵢ = aᵢ + bᵢ` via `Chunk.zipWith`. Returns a
+ * new `Chunk` — the inputs are not mutated. Both chunks must have the same
+ * length.
  *
+ * @see {@link vectorScale} for scalar multiplication
  * @since 0.1.0
  * @category operations
  */
@@ -103,9 +113,10 @@ export const vectorAdd: (
 ) => Chunk.Chunk<number> = Vector.add
 
 /**
- * Scalar-vector multiplication — scales every element of `v` by `alpha`.
- * Returns a new `Chunk`; the input is not mutated.
+ * Scalar-vector multiplication `cᵢ = α · vᵢ` — scales every element of `v`
+ * by `alpha`. Returns a new `Chunk`; the input is not mutated.
  *
+ * @see {@link vectorAdd} for elementwise addition
  * @since 0.1.0
  * @category operations
  */
@@ -115,14 +126,14 @@ export const vectorScale: (
 ) => Chunk.Chunk<number> = Vector.scale
 
 /**
- * Matrix-vector multiply: `y = A · x`. Assumes a contiguous row-major layout
- * (`stride = cols`, `offset = 0`). The vector `x` must have length equal to
- * `cols`.
+ * Matrix-vector multiply `y = A · x` — returns a `Chunk` of length `rows`.
+ * Assumes a contiguous row-major flat layout (`stride = cols`, `offset = 0`).
+ * The vector `x` must have length equal to `cols`.
  *
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { matvec } from "./operations.js"
+ * import { matvec } from "effect-math"
  *
  * // 2×2 identity matrix times [3, 7] → [3, 7]
  * const y = matvec(
@@ -133,6 +144,8 @@ export const vectorScale: (
  * )
  * ```
  *
+ * @see {@link matvecValidated} for Schema-validated boundary input with shape checking
+ * @see {@link transpose} for the transpose operation on the same layout
  * @since 0.1.0
  * @category operations
  */
@@ -145,8 +158,12 @@ export const matvec = (
 
 /**
  * Transposes a row-major matrix of shape `rows × cols` into a new `Chunk` of
- * shape `cols × rows`. Assumes contiguous layout (`stride = cols`, `offset = 0`).
+ * shape `cols × rows`. Assumes contiguous layout (`stride = cols`,
+ * `offset = 0`). Useful for converting between row-major and column-major
+ * access patterns.
  *
+ * @see {@link transposeValidated} for Schema-validated boundary input with shape checking
+ * @see {@link matvec} for matrix-vector multiply on the same layout
  * @since 0.1.0
  * @category operations
  */
@@ -158,9 +175,10 @@ export const transpose = (
 
 /**
  * Frobenius norm — `√(Σᵢⱼ aᵢⱼ²)`, the matrix analog of the vector L2 norm.
- * Assumes contiguous row-major layout. Useful for measuring matrix magnitude
- * or convergence distance between iterates.
+ * Assumes contiguous row-major layout. Commonly used to measure matrix
+ * magnitude or convergence distance between iterates.
  *
+ * @see {@link normL2} for the vector equivalent
  * @since 0.1.0
  * @category operations
  */
@@ -171,31 +189,33 @@ export const frobeniusNorm = (
 ): number => Matrix.frobeniusNorm(data, rows, cols, cols, 0)
 
 // ---------------------------------------------------------------------------
-// Effect-wrapped operations with schema-validated input
+// Schema-validated operations with boundary input checking
 // ---------------------------------------------------------------------------
 
 /**
- * Effect-wrapped dot product that decodes `input` through `DotProductInput`,
- * validates equal-length vectors, and computes the result. Fails with
+ * Boundary-validated dot product — decodes `input` through `DotProductInput`,
+ * verifies equal-length vectors, and computes `Σ aᵢ·bᵢ`. Fails with
  * `LinearAlgebraDecodeError` for malformed input or `ShapeMismatchError`
  * for mismatched vector lengths.
  *
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { dotEffect } from "./operations.js"
+ * import { dotValidated } from "effect-math"
  *
- * const program = dotEffect({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
+ * const program = dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
  *   Effect.catchTag("ShapeMismatchError", (e) =>
  *     Effect.succeed(`dimension error: ${e.message}`)
  *   )
  * )
  * ```
  *
+ * @see {@link dot} for the pure kernel (no validation overhead)
+ * @see {@link dotWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
-export const dotEffect = (input: unknown) =>
+export const dotValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(DotProductInput)(input, {
       onExcessProperty: "error"
@@ -224,14 +244,25 @@ export const dotEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped matrix-vector multiply. Decodes through `MatvecInput`,
- * validates that `data.length === rows * cols` and `x.length === cols`,
- * then computes `y = A · x`. Returns the result as a `ReadonlyArray<number>`.
+ * Boundary-validated matrix-vector multiply `y = A · x`. Decodes through
+ * `MatvecInput`, validates `data.length === rows × cols` and
+ * `x.length === cols`, then returns `ReadonlyArray<number>` of length `rows`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { matvecValidated } from "effect-math"
+ *
+ * const program = matvecValidated({
+ *   data: [1, 0, 0, 1], rows: 2, cols: 2, x: [3, 7]
+ * })
+ * ```
+ *
+ * @see {@link matvec} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const matvecEffect = (input: unknown) =>
+export const matvecValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(MatvecInput)(input, {
       onExcessProperty: "error"
@@ -281,14 +312,25 @@ export const matvecEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped vector norm. Decodes through `NormInput` and dispatches
- * to L1, L2, or Linf based on the `kind` discriminator. Fails with
- * `LinearAlgebraDecodeError` if the input is malformed.
+ * Boundary-validated vector norm — decodes through `NormInput` and dispatches
+ * to L1, L2, or L∞ based on the `kind` discriminator. Fails with
+ * `LinearAlgebraDecodeError` for malformed input.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { normValidated } from "effect-math"
+ *
+ * const program = normValidated({ values: [3, 4], kind: "L2" })
+ * // Effect succeeds with 5
+ * ```
+ *
+ * @see {@link normL1} / {@link normL2} / {@link normLinf} for pure kernel functions
+ * @see {@link normWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
-export const normEffect = (input: unknown) =>
+export const normValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(NormInput)(input, {
       onExcessProperty: "error"
@@ -312,15 +354,26 @@ export const normEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped matrix transpose. Decodes through `TransposeInput`,
- * validates that `data.length === rows * cols`, and returns the transposed
- * matrix as a `ReadonlyArray<number>` in row-major order with shape
- * `cols × rows`.
+ * Boundary-validated matrix transpose — decodes through `TransposeInput`,
+ * validates `data.length === rows × cols`, and returns the transposed matrix
+ * as `ReadonlyArray<number>` in row-major order with shape `cols × rows`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { transposeValidated } from "effect-math"
+ *
+ * const program = transposeValidated({
+ *   data: [1, 2, 3, 4], rows: 2, cols: 2
+ * })
+ * // Effect succeeds with [1, 3, 2, 4]
+ * ```
+ *
+ * @see {@link transpose} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const transposeEffect = (input: unknown) =>
+export const transposeValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(TransposeInput)(input, {
       onExcessProperty: "error"
@@ -361,22 +414,21 @@ export const transposeEffect = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware dot product that reads three runtime services from the
- * Effect context:
+ * Policy-aware dot product that reads three runtime services from context:
  *
- * - **BackendPolicyService** — selects the execution strategy (`typed-array` or `scalar`)
- * - **PrecisionPolicyService** — when `"strict"`, rejects non-finite results with `LinearAlgebraDomainViolationError`
- * - **DiagnosticsPolicyService** — when `"enabled"`, emits `Effect.logDebug` with timing and policy metadata
+ * - **BackendPolicyService** — selects the execution strategy (`"typed-array"` or `"scalar"`)
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with timing, backend, and vector-length metadata
  *
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { dotWithPolicies } from "./operations.js"
+ * import { dotWithPolicies } from "effect-math"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "../contracts/shared/RuntimePolicies.js"
+ * } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(BackendPolicyService, { policy: "scalar" }),
@@ -390,6 +442,9 @@ export const transposeEffect = (input: unknown) =>
  * ).pipe(Effect.provide(policies))
  * ```
  *
+ * @see {@link dot} for the pure kernel (no service requirements)
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */
@@ -447,12 +502,30 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
   })
 
 /**
- * Policy-aware vector norm that reads `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from the Effect context. Under `"strict"`
- * precision, a non-finite result (e.g. from overflow) fails with
- * `LinearAlgebraDomainViolationError`. Under `"enabled"` diagnostics,
- * emits `Effect.logDebug` with the norm kind and vector length.
+ * Policy-aware vector norm that reads two runtime services from context:
  *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results (e.g. from overflow) with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with norm kind, precision policy, and vector length
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Effect, Layer } from "effect"
+ * import { normWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = normWithPolicies(
+ *   Chunk.fromIterable([3, 4]),
+ *   "L2"
+ * ).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link normL1} / {@link normL2} / {@link normLinf} for pure kernels
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */

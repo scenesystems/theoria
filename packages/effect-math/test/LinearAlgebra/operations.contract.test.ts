@@ -5,18 +5,18 @@ import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
   dot,
-  dotEffect,
+  dotValidated,
   dotWithPolicies,
   frobeniusNorm,
   matvec,
-  matvecEffect,
-  normEffect,
+  matvecValidated,
   normL1,
   normL2,
   normLinf,
+  normValidated,
   normWithPolicies,
   transpose,
-  transposeEffect,
+  transposeValidated,
   vectorAdd,
   vectorScale
 } from "../../src/LinearAlgebra/operations.js"
@@ -149,17 +149,17 @@ describe("LinearAlgebra / frobeniusNorm", () => {
 // Effect-wrapped operations
 // ---------------------------------------------------------------------------
 
-describe("LinearAlgebra / dotEffect", () => {
+describe("LinearAlgebra / dotValidated", () => {
   it.effect("decodes valid input and computes dot product", () =>
     Effect.gen(function*() {
-      const result = yield* dotEffect({ a: [1, 2, 3], b: [4, 5, 6] })
+      const result = yield* dotValidated({ a: [1, 2, 3], b: [4, 5, 6] })
       expect(result).toStrictEqual(32)
     }))
 
   it.effect("rejects excess properties with LinearAlgebraDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        dotEffect({ a: [1, 2], b: [3, 4], extra: true })
+        dotValidated({ a: [1, 2], b: [3, 4], extra: true })
       )
       expect(error._tag).toStrictEqual("LinearAlgebraDecodeError")
       expect(error.operation).toStrictEqual("dot")
@@ -168,7 +168,7 @@ describe("LinearAlgebra / dotEffect", () => {
   it.effect("rejects mismatched vector lengths with ShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        dotEffect({ a: [1, 2, 3], b: [4, 5] })
+        dotValidated({ a: [1, 2, 3], b: [4, 5] })
       )
       expect(error._tag).toStrictEqual("ShapeMismatchError")
       expect(error.operation).toStrictEqual("dot")
@@ -177,16 +177,16 @@ describe("LinearAlgebra / dotEffect", () => {
   it.effect("rejects non-finite input with LinearAlgebraDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        dotEffect({ a: [1, Infinity], b: [3, 4] })
+        dotValidated({ a: [1, Infinity], b: [3, 4] })
       )
       expect(error._tag).toStrictEqual("LinearAlgebraDecodeError")
     }))
 })
 
-describe("LinearAlgebra / matvecEffect", () => {
+describe("LinearAlgebra / matvecValidated", () => {
   it.effect("computes matrix-vector multiply with valid input", () =>
     Effect.gen(function*() {
-      const result = yield* matvecEffect({
+      const result = yield* matvecValidated({
         rows: 2,
         cols: 2,
         data: [1, 0, 0, 1],
@@ -198,7 +198,7 @@ describe("LinearAlgebra / matvecEffect", () => {
   it.effect("rejects data length mismatch with ShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        matvecEffect({ rows: 2, cols: 2, data: [1, 0, 0], x: [3, 7] })
+        matvecValidated({ rows: 2, cols: 2, data: [1, 0, 0], x: [3, 7] })
       )
       expect(error._tag).toStrictEqual("ShapeMismatchError")
       expect(error.operation).toStrictEqual("matvec")
@@ -207,52 +207,52 @@ describe("LinearAlgebra / matvecEffect", () => {
   it.effect("rejects vector length mismatch with ShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        matvecEffect({ rows: 2, cols: 2, data: [1, 0, 0, 1], x: [3] })
+        matvecValidated({ rows: 2, cols: 2, data: [1, 0, 0, 1], x: [3] })
       )
       expect(error._tag).toStrictEqual("ShapeMismatchError")
       expect(error.operation).toStrictEqual("matvec")
     }))
 })
 
-describe("LinearAlgebra / normEffect", () => {
+describe("LinearAlgebra / normValidated", () => {
   it.effect("computes L2 norm via schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* normEffect({ values: [3, 4], kind: "L2" })
+      const result = yield* normValidated({ values: [3, 4], kind: "L2" })
       expect(result).toStrictEqual(5)
     }))
 
   it.effect("computes L1 norm via schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* normEffect({ values: [-1, 2, -3], kind: "L1" })
+      const result = yield* normValidated({ values: [-1, 2, -3], kind: "L1" })
       expect(result).toStrictEqual(6)
     }))
 
   it.effect("computes Linf norm via schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* normEffect({ values: [-1, 5, -3], kind: "Linf" })
+      const result = yield* normValidated({ values: [-1, 5, -3], kind: "Linf" })
       expect(result).toStrictEqual(5)
     }))
 
   it.effect("rejects invalid norm kind with LinearAlgebraDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normEffect({ values: [1, 2], kind: "L3" })
+        normValidated({ values: [1, 2], kind: "L3" })
       )
       expect(error._tag).toStrictEqual("LinearAlgebraDecodeError")
     }))
 })
 
-describe("LinearAlgebra / transposeEffect", () => {
+describe("LinearAlgebra / transposeValidated", () => {
   it.effect("transposes with schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* transposeEffect({ rows: 2, cols: 3, data: [1, 2, 3, 4, 5, 6] })
+      const result = yield* transposeValidated({ rows: 2, cols: 3, data: [1, 2, 3, 4, 5, 6] })
       expect(result).toStrictEqual([1, 4, 2, 5, 3, 6])
     }))
 
   it.effect("rejects data length mismatch with ShapeMismatchError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        transposeEffect({ rows: 2, cols: 3, data: [1, 2, 3] })
+        transposeValidated({ rows: 2, cols: 3, data: [1, 2, 3] })
       )
       expect(error._tag).toStrictEqual("ShapeMismatchError")
       expect(error.operation).toStrictEqual("transpose")

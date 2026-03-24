@@ -4,19 +4,19 @@ import { Chunk, Effect, Number as N, Schema } from "effect"
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
-  entropyEffect,
+  entropyValidated,
   normalCdf,
-  normalCdfEffect,
+  normalCdfValidated,
   normalPdf,
-  normalPdfEffect,
+  normalPdfValidated,
   normalPdfWithPolicies,
   shannonEntropy,
   standardNormalCdf,
   standardNormalPdf,
   uniformCdf,
-  uniformCdfEffect,
+  uniformCdfValidated,
   uniformPdf,
-  uniformPdfEffect
+  uniformPdfValidated
 } from "../../src/Probability/operations.js"
 
 const strictLayer = makeDeterministicRuntimePoliciesLayer({
@@ -173,13 +173,13 @@ describe("Probability / shannonEntropy", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Effect-wrapped operations
+// Schema-validated operations
 // ---------------------------------------------------------------------------
 
-describe("Probability / normalPdfEffect", () => {
+describe("Probability / normalPdfValidated", () => {
   it.effect("decodes valid input and computes normal PDF", () =>
     Effect.gen(function*() {
-      const result = yield* normalPdfEffect({ x: 0, mu: 0, sigma: 1 })
+      const result = yield* normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
       const expected = N.unsafeDivide(1, Math.sqrt(N.multiply(2, Math.PI)))
       expect(result).toBeCloseTo(expected)
     }))
@@ -187,7 +187,7 @@ describe("Probability / normalPdfEffect", () => {
   it.effect("rejects excess properties with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normalPdfEffect({ x: 0, mu: 0, sigma: 1, extra: true })
+        normalPdfValidated({ x: 0, mu: 0, sigma: 1, extra: true })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
       expect(error.operation).toStrictEqual("normalPdf")
@@ -196,7 +196,7 @@ describe("Probability / normalPdfEffect", () => {
   it.effect("rejects non-finite input with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normalPdfEffect({ x: Infinity, mu: 0, sigma: 1 })
+        normalPdfValidated({ x: Infinity, mu: 0, sigma: 1 })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))
@@ -204,65 +204,65 @@ describe("Probability / normalPdfEffect", () => {
   it.effect("rejects sigma <= 0 with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        normalPdfEffect({ x: 0, mu: 0, sigma: 0 })
+        normalPdfValidated({ x: 0, mu: 0, sigma: 0 })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))
 })
 
-describe("Probability / normalCdfEffect", () => {
+describe("Probability / normalCdfValidated", () => {
   it.effect("CDF at mean equals 0.5", () =>
     Effect.gen(function*() {
-      const result = yield* normalCdfEffect({ x: 5, mu: 5, sigma: 2 })
+      const result = yield* normalCdfValidated({ x: 5, mu: 5, sigma: 2 })
       expect(result).toBeCloseTo(0.5)
     }))
 })
 
-describe("Probability / uniformPdfEffect", () => {
+describe("Probability / uniformPdfValidated", () => {
   it.effect("decodes valid input and computes uniform PDF", () =>
     Effect.gen(function*() {
-      const result = yield* uniformPdfEffect({ x: 0.5, low: 0, high: 1 })
+      const result = yield* uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
       expect(result).toBeCloseTo(1)
     }))
 
   it.effect("rejects low >= high with ProbabilityParameterError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        uniformPdfEffect({ x: 0.5, low: 1, high: 0 })
+        uniformPdfValidated({ x: 0.5, low: 1, high: 0 })
       )
       expect(error._tag).toStrictEqual("ProbabilityParameterError")
       expect(error.operation).toStrictEqual("uniformPdf")
     }))
 })
 
-describe("Probability / uniformCdfEffect", () => {
+describe("Probability / uniformCdfValidated", () => {
   it.effect("CDF at midpoint equals 0.5", () =>
     Effect.gen(function*() {
-      const result = yield* uniformCdfEffect({ x: 0.5, low: 0, high: 1 })
+      const result = yield* uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
       expect(result).toBeCloseTo(0.5)
     }))
 
   it.effect("rejects low >= high with ProbabilityParameterError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        uniformCdfEffect({ x: 0.5, low: 5, high: 5 })
+        uniformCdfValidated({ x: 0.5, low: 5, high: 5 })
       )
       expect(error._tag).toStrictEqual("ProbabilityParameterError")
       expect(error.operation).toStrictEqual("uniformCdf")
     }))
 })
 
-describe("Probability / entropyEffect", () => {
+describe("Probability / entropyValidated", () => {
   it.effect("computes entropy of uniform distribution", () =>
     Effect.gen(function*() {
-      const result = yield* entropyEffect({ probabilities: [0.25, 0.25, 0.25, 0.25] })
+      const result = yield* entropyValidated({ probabilities: [0.25, 0.25, 0.25, 0.25] })
       expect(result).toBeCloseTo(Math.log(4))
     }))
 
   it.effect("rejects excess properties with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyEffect({ probabilities: [0.5, 0.5], extra: true })
+        entropyValidated({ probabilities: [0.5, 0.5], extra: true })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
       expect(error.operation).toStrictEqual("entropy")
@@ -271,7 +271,7 @@ describe("Probability / entropyEffect", () => {
   it.effect("rejects negative probabilities with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyEffect({ probabilities: [-0.5, 1.5] })
+        entropyValidated({ probabilities: [-0.5, 1.5] })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))
@@ -279,7 +279,7 @@ describe("Probability / entropyEffect", () => {
   it.effect("rejects empty array with ProbabilityDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        entropyEffect({ probabilities: [] })
+        entropyValidated({ probabilities: [] })
       )
       expect(error._tag).toStrictEqual("ProbabilityDecodeError")
     }))

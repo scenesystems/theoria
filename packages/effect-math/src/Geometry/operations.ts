@@ -1,7 +1,7 @@
 /**
  * Geometry operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Effect-wrapped variants with Schema-validated boundary
- * input, and policy-aware operations that respect `PrecisionPolicyService`
+ * `Chunk` carriers, Schema-validated variants with boundary input checking,
+ * and policy-aware operations that respect `PrecisionPolicyService`
  * and `DiagnosticsPolicyService`.
  *
  * @since 0.1.0
@@ -29,14 +29,13 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Euclidean distance between two equal-length `Chunk` carriers:
- * `√(Σ (aᵢ − bᵢ)²)`. No runtime guard is applied — use `distanceEffect`
- * for validated input.
+ * Euclidean (L2) distance — `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have the
+ * same length; no runtime guard is applied.
  *
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { euclideanDistance } from "./operations.js"
+ * import { euclideanDistance } from "effect-math"
  *
  * euclideanDistance(
  *   Chunk.fromIterable([0, 0]),
@@ -44,37 +43,43 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
  * ) // 5
  * ```
  *
+ * @see {@link distanceValidated} for Schema-validated boundary input with shape checking
+ * @see {@link distanceWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
 export const euclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.euclideanDistance
 
 /**
- * Manhattan distance between two equal-length `Chunk` carriers:
- * `Σ |aᵢ − bᵢ|`. No runtime guard is applied.
+ * Manhattan (L1 / taxicab) distance — `Σ |aᵢ − bᵢ|`. Both chunks must have
+ * the same length; no runtime guard is applied.
  *
+ * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
+ * @see {@link distanceWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
 export const manhattanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.manhattanDistance
 
 /**
- * Chebyshev distance between two equal-length `Chunk` carriers:
- * `max |aᵢ − bᵢ|`. No runtime guard is applied.
+ * Chebyshev (L∞) distance — `max |aᵢ − bᵢ|`. Both chunks must have the
+ * same length; no runtime guard is applied.
  *
+ * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
+ * @see {@link distanceWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
 export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.chebyshevDistance
 
 /**
- * Elementwise midpoint of two equal-length `Chunk` carriers:
- * `(aᵢ + bᵢ) / 2`. Returns a new `Chunk` — the inputs are not mutated.
+ * Elementwise midpoint — `mᵢ = (aᵢ + bᵢ) / 2`. Returns a new `Chunk`; the
+ * inputs are not mutated. Both chunks must have the same length.
  *
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { midpoint } from "./operations.js"
+ * import { midpoint } from "effect-math"
  *
  * Chunk.toReadonlyArray(
  *   midpoint(
@@ -84,6 +89,7 @@ export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
  * ) // [2, 3]
  * ```
  *
+ * @see {@link midpointValidated} for Schema-validated boundary input
  * @since 0.1.0
  * @category operations
  */
@@ -93,22 +99,22 @@ export const midpoint: (
 ) => Chunk.Chunk<number> = Metric.midpoint
 
 // ---------------------------------------------------------------------------
-// Effect-wrapped operations with schema-validated input
+// Schema-validated operations with boundary input checking
 // ---------------------------------------------------------------------------
 
 /**
- * Effect-wrapped distance computation that decodes `input` through
- * `DistanceInput`, validates equal-length points, and dispatches to the
- * correct metric kernel via `Match.exhaustive`. Fails with
+ * Boundary-validated distance — decodes `input` through `DistanceInput`,
+ * validates equal-length points, and dispatches to the correct metric kernel
+ * (euclidean, manhattan, chebyshev) via `Match.exhaustive`. Fails with
  * `GeometryDecodeError` for malformed input or `GeometryShapeMismatchError`
  * for mismatched point dimensions.
  *
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { distanceEffect } from "./operations.js"
+ * import { distanceValidated } from "effect-math"
  *
- * const program = distanceEffect({
+ * const program = distanceValidated({
  *   a: [0, 0], b: [3, 4], metric: "euclidean"
  * }).pipe(
  *   Effect.catchTag("GeometryShapeMismatchError", (e) =>
@@ -117,10 +123,12 @@ export const midpoint: (
  * )
  * ```
  *
+ * @see {@link euclideanDistance} / {@link manhattanDistance} / {@link chebyshevDistance} for pure kernels
+ * @see {@link distanceWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
-export const distanceEffect = (input: unknown) =>
+export const distanceValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(DistanceInput)(input, {
       onExcessProperty: "error"
@@ -157,14 +165,24 @@ export const distanceEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped midpoint that decodes `input` through `MidpointInput`,
- * validates equal-length points, and computes the elementwise midpoint.
- * Returns the result as a `ReadonlyArray<number>`.
+ * Boundary-validated midpoint — decodes `input` through `MidpointInput`,
+ * validates equal-length points, and computes `mᵢ = (aᵢ + bᵢ) / 2`.
+ * Returns the result as `ReadonlyArray<number>`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { midpointValidated } from "effect-math"
+ *
+ * const program = midpointValidated({ a: [0, 0], b: [4, 6] })
+ * // Effect succeeds with [2, 3]
+ * ```
+ *
+ * @see {@link midpoint} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const midpointEffect = (input: unknown) =>
+export const midpointValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(MidpointInput)(input, {
       onExcessProperty: "error"
@@ -195,14 +213,26 @@ export const midpointEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped centroid that decodes `input` through `CentroidInput`,
- * validates that all points have equal dimensionality, and computes the
- * arithmetic mean. Returns the result as a `ReadonlyArray<number>`.
+ * Boundary-validated centroid — decodes `input` through `CentroidInput`,
+ * validates that all points share the same dimensionality, and computes the
+ * componentwise arithmetic mean. Returns `ReadonlyArray<number>`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { centroidValidated } from "effect-math"
+ *
+ * const program = centroidValidated({
+ *   points: [[0, 0], [4, 6], [2, 3]]
+ * })
+ * // Effect succeeds with [2, 3]
+ * ```
+ *
+ * @see {@link midpointValidated} for the two-point special case
  * @since 0.1.0
  * @category operations
  */
-export const centroidEffect = (input: unknown) =>
+export const centroidValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(CentroidInput)(input, {
       onExcessProperty: "error"
@@ -243,21 +273,15 @@ export const centroidEffect = (input: unknown) =>
 
 /**
  * Policy-aware distance computation that reads two runtime services from
- * the Effect context:
+ * context:
  *
- * - **PrecisionPolicyService** — when `"strict"`, rejects non-finite results
- *   with `GeometryDomainViolationError`
- * - **DiagnosticsPolicyService** — when `"enabled"`, emits `Effect.logDebug`
- *   with timing and policy metadata
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `GeometryDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with metric, precision, dimensionality, and elapsed time
  *
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
- * import { distanceWithPolicies } from "./operations.js"
- * import {
- *   DiagnosticsPolicyService,
- *   PrecisionPolicyService
- * } from "../contracts/shared/RuntimePolicies.js"
+ * import { distanceWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
@@ -271,6 +295,9 @@ export const centroidEffect = (input: unknown) =>
  * ).pipe(Effect.provide(policies))
  * ```
  *
+ * @see {@link euclideanDistance} / {@link manhattanDistance} / {@link chebyshevDistance} for pure kernels
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */

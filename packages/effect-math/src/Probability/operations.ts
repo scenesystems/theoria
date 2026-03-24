@@ -1,6 +1,6 @@
 /**
- * Probability operation surface — pure kernel re-exports, Effect-wrapped
- * variants with Schema-validated boundary input, and policy-aware operations
+ * Probability operation surface — pure kernel re-exports, Schema-validated
+ * variants with boundary input checking, and policy-aware operations
  * that respect `PrecisionPolicyService` and `DiagnosticsPolicyService`.
  *
  * @since 0.1.0
@@ -29,74 +29,102 @@ export const loadProbabilityDomain = Effect.succeed(ProbabilityDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Standard normal PDF: (1 / √(2π)) · exp(-x²/2).
+ * Standard normal (μ=0, σ=1) probability density function:
+ * `(1 / √(2π)) · exp(−x²/2)`. Pure scalar function.
  *
+ * @see {@link normalPdf} for arbitrary μ and σ
+ * @see {@link normalPdfValidated} for Schema-validated boundary input
  * @since 0.1.0
  * @category operations
  */
 export const standardNormalPdf: (x: number) => number = Distributions.standardNormalPdf
 
 /**
- * Normal PDF with parameters mu and sigma.
+ * Normal (Gaussian) PDF — `(1 / (σ√(2π))) · exp(−(x−μ)² / (2σ²))`.
+ * Requires σ > 0; no runtime guard is applied.
  *
+ * @see {@link normalPdfValidated} for Schema-validated boundary input
+ * @see {@link normalPdfWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
 export const normalPdf: (x: number, mu: number, sigma: number) => number = Distributions.normalPdf
 
 /**
- * Standard normal CDF via Abramowitz & Stegun rational approximation.
+ * Standard normal (μ=0, σ=1) cumulative distribution function via
+ * Abramowitz & Stegun rational approximation (maximum error ≈ 7.5×10⁻⁸).
  *
+ * @see {@link normalCdf} for arbitrary μ and σ
  * @since 0.1.0
  * @category operations
  */
 export const standardNormalCdf: (x: number) => number = Distributions.standardNormalCdf
 
 /**
- * Normal CDF with parameters mu and sigma.
+ * Normal CDF — `P(X ≤ x)` for `X ~ N(μ, σ²)`. Computed by standardising
+ * and delegating to `standardNormalCdf`.
  *
+ * @see {@link normalCdfValidated} for Schema-validated boundary input
  * @since 0.1.0
  * @category operations
  */
 export const normalCdf: (x: number, mu: number, sigma: number) => number = Distributions.normalCdf
 
 /**
- * Uniform PDF: 1 / (high − low) when low ≤ x ≤ high, else 0.
+ * Uniform PDF — `1 / (high − low)` when `low ≤ x ≤ high`, else `0`.
+ * Requires `low < high`; no runtime guard is applied.
  *
+ * @see {@link uniformPdfValidated} for Schema-validated boundary input with parameter checking
  * @since 0.1.0
  * @category operations
  */
 export const uniformPdf: (x: number, low: number, high: number) => number = Distributions.uniformPdf
 
 /**
- * Uniform CDF: linear interpolation between low and high.
+ * Uniform CDF — linear interpolation `(x − low) / (high − low)` clamped
+ * to `[0, 1]`. Requires `low < high`; no runtime guard is applied.
  *
+ * @see {@link uniformCdfValidated} for Schema-validated boundary input with parameter checking
  * @since 0.1.0
  * @category operations
  */
 export const uniformCdf: (x: number, low: number, high: number) => number = Distributions.uniformCdf
 
 /**
- * Shannon entropy: −Σ pᵢ · ln(pᵢ) over a discrete probability distribution.
+ * Shannon entropy `H = −Σ pᵢ · ln(pᵢ)` over a discrete probability
+ * distribution. Zero-probability bins are skipped (0·ln(0) = 0 by
+ * convention). Result is in nats; divide by `ln(2)` for bits.
  *
+ * @see {@link entropyValidated} for Schema-validated boundary input
  * @since 0.1.0
  * @category operations
  */
 export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = EntropyKernel.shannonEntropy
 
 // ---------------------------------------------------------------------------
-// Effect-wrapped operations with schema-validated input
+// Schema-validated operations
 // ---------------------------------------------------------------------------
 
 /**
- * Effect-wrapped normal PDF that decodes `input` through `NormalEvalInput`,
- * validates parameters, and computes the PDF value. Fails with
- * `ProbabilityDecodeError` for malformed input.
+ * Boundary-validated normal PDF — decodes `input` through `NormalEvalInput`
+ * and computes `f(x | μ, σ)`. Fails with `ProbabilityDecodeError` for
+ * malformed input.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { normalPdfValidated } from "effect-math"
+ *
+ * const program = normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
+ * // Effect succeeds with ≈ 0.3989
+ * ```
+ *
+ * @see {@link normalPdf} for the pure kernel (no validation overhead)
+ * @see {@link normalPdfWithPolicies} for policy-aware variant
  * @since 0.1.0
  * @category operations
  */
-export const normalPdfEffect = (input: unknown) =>
+export const normalPdfValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(NormalEvalInput)(input, {
       onExcessProperty: "error"
@@ -113,12 +141,24 @@ export const normalPdfEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped normal CDF with schema-validated input.
+ * Boundary-validated normal CDF — decodes `input` through `NormalEvalInput`
+ * and computes `P(X ≤ x)` for `X ~ N(μ, σ²)`. Fails with
+ * `ProbabilityDecodeError` for malformed input.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { normalCdfValidated } from "effect-math"
+ *
+ * const program = normalCdfValidated({ x: 0, mu: 0, sigma: 1 })
+ * // Effect succeeds with 0.5
+ * ```
+ *
+ * @see {@link normalCdf} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const normalCdfEffect = (input: unknown) =>
+export const normalCdfValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(NormalEvalInput)(input, {
       onExcessProperty: "error"
@@ -135,12 +175,26 @@ export const normalCdfEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped uniform PDF with schema-validated input.
+ * Boundary-validated uniform PDF — decodes `input` through
+ * `UniformEvalInput`, validates `low < high`, and computes
+ * `1 / (high − low)` when `low ≤ x ≤ high`. Fails with
+ * `ProbabilityDecodeError` for malformed input or
+ * `ProbabilityParameterError` when `low ≥ high`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { uniformPdfValidated } from "effect-math"
+ *
+ * const program = uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
+ * // Effect succeeds with 1
+ * ```
+ *
+ * @see {@link uniformPdf} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const uniformPdfEffect = (input: unknown) =>
+export const uniformPdfValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(UniformEvalInput)(input, {
       onExcessProperty: "error"
@@ -167,12 +221,25 @@ export const uniformPdfEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped uniform CDF with schema-validated input.
+ * Boundary-validated uniform CDF — decodes `input` through
+ * `UniformEvalInput`, validates `low < high`, and computes `P(X ≤ x)`
+ * for the uniform distribution. Fails with `ProbabilityDecodeError` for
+ * malformed input or `ProbabilityParameterError` when `low ≥ high`.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { uniformCdfValidated } from "effect-math"
+ *
+ * const program = uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
+ * // Effect succeeds with 0.5
+ * ```
+ *
+ * @see {@link uniformCdf} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const uniformCdfEffect = (input: unknown) =>
+export const uniformCdfValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(UniformEvalInput)(input, {
       onExcessProperty: "error"
@@ -199,13 +266,24 @@ export const uniformCdfEffect = (input: unknown) =>
   })
 
 /**
- * Effect-wrapped Shannon entropy with schema-validated input. Decodes
- * through `EntropyInput` and computes −Σ pᵢ · ln(pᵢ).
+ * Boundary-validated Shannon entropy — decodes through `EntropyInput`
+ * and computes `H = −Σ pᵢ · ln(pᵢ)`. Fails with `ProbabilityDecodeError`
+ * for malformed input.
  *
+ * @example
+ * ```ts
+ * import { Effect } from "effect"
+ * import { entropyValidated } from "effect-math"
+ *
+ * const program = entropyValidated({ probabilities: [0.5, 0.5] })
+ * // Effect succeeds with ln(2) ≈ 0.6931
+ * ```
+ *
+ * @see {@link shannonEntropy} for the pure kernel (no validation overhead)
  * @since 0.1.0
  * @category operations
  */
-export const entropyEffect = (input: unknown) =>
+export const entropyValidated = (input: unknown) =>
   Effect.gen(function*() {
     const decoded = yield* Schema.decodeUnknown(EntropyInput)(input, {
       onExcessProperty: "error"
@@ -226,11 +304,27 @@ export const entropyEffect = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware normal PDF that reads `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from the Effect context. Under `"strict"`
- * precision, rejects non-finite results with `ProbabilityDomainViolationError`.
- * Under `"enabled"` diagnostics, emits `Effect.logDebug` with operation metadata.
+ * Policy-aware normal PDF that reads two runtime services from context:
  *
+ * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
+ * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with `x`, `mu`, `sigma`, and precision metadata
+ *
+ * @example
+ * ```ts
+ * import { Effect, Layer } from "effect"
+ * import { normalPdfWithPolicies, PrecisionPolicyService, DiagnosticsPolicyService } from "effect-math"
+ *
+ * const policies = Layer.mergeAll(
+ *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+ *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+ * )
+ *
+ * const program = normalPdfWithPolicies(0, 0, 1).pipe(Effect.provide(policies))
+ * ```
+ *
+ * @see {@link normalPdf} for the pure kernel (no service requirements)
+ * @see {@link PrecisionPolicyService}
+ * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */

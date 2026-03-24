@@ -4,8 +4,8 @@ import { Effect, Number as EffectNumber, Option, Schema } from "effect"
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
-  argmaxEffect,
   argmaxIndex,
+  argmaxValidated,
   between,
   clamp,
   expm1,
@@ -13,15 +13,15 @@ import {
   log,
   log1p,
   log1pWithPolicies,
-  logEffect,
+  logValidated,
   safeDivide,
-  safeDivideEffect,
   safeDivideFinite,
+  safeDivideValidated,
   sum,
-  sumEffect,
+  sumValidated,
   sumWithPolicies,
   unsafeDivide,
-  unsafeDivideEffect
+  unsafeDivideValidated
 } from "../../src/Numeric/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
@@ -181,17 +181,17 @@ describe("Numeric / expm1", () => {
     }))
 })
 
-describe("Numeric / safeDivideEffect", () => {
+describe("Numeric / safeDivideValidated", () => {
   it.effect("decodes valid input and returns Option.Some", () =>
     Effect.gen(function*() {
-      const result = yield* safeDivideEffect({ dividend: 10, divisor: 4 })
+      const result = yield* safeDivideValidated({ dividend: 10, divisor: 4 })
       expect(Option.getOrThrow(result)).toStrictEqual(2.5)
     }))
 
   it.effect("rejects excess properties with NumericDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        safeDivideEffect({ dividend: 10, divisor: 4, extra: true })
+        safeDivideValidated({ dividend: 10, divisor: 4, extra: true })
       )
       expect(error._tag).toStrictEqual("NumericDecodeError")
       expect(error.operation).toStrictEqual("safeDivide")
@@ -200,65 +200,65 @@ describe("Numeric / safeDivideEffect", () => {
   it.effect("rejects non-finite input with NumericDecodeError", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        safeDivideEffect({ dividend: Infinity, divisor: 2 })
+        safeDivideValidated({ dividend: Infinity, divisor: 2 })
       )
       expect(error._tag).toStrictEqual("NumericDecodeError")
     }))
 })
 
-describe("Numeric / unsafeDivideEffect", () => {
+describe("Numeric / unsafeDivideValidated", () => {
   it.effect("succeeds for valid division", () =>
     Effect.gen(function*() {
-      expect(yield* unsafeDivideEffect({ dividend: 10, divisor: 5 })).toStrictEqual(2)
+      expect(yield* unsafeDivideValidated({ dividend: 10, divisor: 5 })).toStrictEqual(2)
     }))
 
   it.effect("fails with NumericDomainViolationError on zero divisor", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(
-        unsafeDivideEffect({ dividend: 10, divisor: 0 })
+        unsafeDivideValidated({ dividend: 10, divisor: 0 })
       )
       expect(error._tag).toStrictEqual("NumericDomainViolationError")
       expect(error.operation).toStrictEqual("unsafeDivide")
     }))
 })
 
-describe("Numeric / logEffect", () => {
+describe("Numeric / logValidated", () => {
   it.effect("succeeds for positive finite input", () =>
     Effect.gen(function*() {
-      expect(yield* logEffect({ value: Math.E })).toBeCloseTo(1)
+      expect(yield* logValidated({ value: Math.E })).toBeCloseTo(1)
     }))
 
   it.effect("rejects non-positive input", () =>
     Effect.gen(function*() {
-      const error = yield* Effect.flip(logEffect({ value: -1 }))
+      const error = yield* Effect.flip(logValidated({ value: -1 }))
       expect(error._tag).toStrictEqual("NumericDecodeError")
       expect(error.operation).toStrictEqual("log")
     }))
 })
 
-describe("Numeric / sumEffect", () => {
+describe("Numeric / sumValidated", () => {
   it.effect("sums a non-empty finite vector", () =>
     Effect.gen(function*() {
-      expect(yield* sumEffect({ values: [1, 2, 3] })).toStrictEqual(6)
+      expect(yield* sumValidated({ values: [1, 2, 3] })).toStrictEqual(6)
     }))
 
   it.effect("rejects empty array", () =>
     Effect.gen(function*() {
-      const error = yield* Effect.flip(sumEffect({ values: [] }))
+      const error = yield* Effect.flip(sumValidated({ values: [] }))
       expect(error._tag).toStrictEqual("NumericDecodeError")
       expect(error.operation).toStrictEqual("sum")
     }))
 })
 
-describe("Numeric / argmaxEffect", () => {
+describe("Numeric / argmaxValidated", () => {
   it.effect("returns index of maximum in non-empty vector", () =>
     Effect.gen(function*() {
-      expect(Option.getOrThrow(yield* argmaxEffect({ values: [1, 5, 3] }))).toStrictEqual(1)
+      expect(Option.getOrThrow(yield* argmaxValidated({ values: [1, 5, 3] }))).toStrictEqual(1)
     }))
 
   it.effect("rejects NaN in vector", () =>
     Effect.gen(function*() {
-      const error = yield* Effect.flip(argmaxEffect({ values: [1, NaN, 3] }))
+      const error = yield* Effect.flip(argmaxValidated({ values: [1, NaN, 3] }))
       expect(error._tag).toStrictEqual("NumericDecodeError")
     }))
 })
