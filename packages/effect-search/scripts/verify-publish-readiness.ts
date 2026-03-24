@@ -9,8 +9,8 @@ const PACKED_PACKAGE_JSON = "dist/package.json"
 const README_PATH = "README.md"
 
 const MONOREPO_REPOSITORY_URL = "https://github.com/scenesystems/theoria.git"
-const MONOREPO_REPOSITORY_DIRECTORY = "effect-search"
-const MONOREPO_HOMEPAGE = "https://github.com/scenesystems/theoria/tree/main/effect-search"
+const MONOREPO_REPOSITORY_DIRECTORY = "packages/effect-search"
+const MONOREPO_HOMEPAGE = "https://github.com/scenesystems/theoria/tree/main/packages/effect-search"
 
 const FORBIDDEN_REPOSITORY_URL_FRAGMENTS = ["github.com/scenesystems/eva", "github.com/scenesystems/eva.git"]
 
@@ -203,7 +203,7 @@ const checkRepositoryMetadata = (
     todos.push({
       code: MONOREPO_TOPOLOGY_TODO_CODE,
       message:
-        "TODO(M4): enforce scenesystems/theoria repository.url + repository.directory + homepage once the monorepo migration lands"
+        "repository.url + repository.directory + homepage should match scenesystems/theoria monorepo layout"
     })
   }
 

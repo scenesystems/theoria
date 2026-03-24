@@ -48,21 +48,21 @@ describe("package/repository-metadata", () => {
       ])
 
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).toContain(MONOREPO_TOPOLOGY_TODO_CODE)
       expect(result.stderr).not.toContain("metadata.repository.url-forbidden")
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.todo("enforces scenesystems/theoria monorepo repository metadata once the migration lands")
-
-  it.effect("tracks monorepo topology enforcement as an explicit TODO", () =>
+  it.effect("enforces scenesystems/theoria monorepo repository metadata", () =>
     Effect.gen(function*() {
       const root = yield* resolvePackageRoot
       const fixtureRoot = `${root}/test/package/fixtures`
       const result = yield* runPublishCheck(root, [
         `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--readme=${fixtureRoot}/README.valid.md`,
+        "--enforce-monorepo-topology"
       ])
 
-      expect(result.stderr).toContain(MONOREPO_TOPOLOGY_TODO_CODE)
+      expect(result.exitCode).toBe(0)
+      expect(result.stderr).not.toContain(MONOREPO_TOPOLOGY_TODO_CODE)
+      expect(result.stderr).not.toContain("metadata.monorepo.target-mismatch")
     }).pipe(Effect.provide(BunContext.layer)))
 })

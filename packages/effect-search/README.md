@@ -1064,7 +1064,7 @@ bun run examples/01-quick-start.ts
 
 All core features are implemented and tested: search spaces, three samplers (Random, Grid, TPE), single and multi-objective optimization, snapshot/resume, pruning, conditional spaces, streaming events, multivariate TPE, noise-aware bandwidth, HyperBand/BOHB multi-fidelity scheduling, warm-starting with prior trials, c-TPE constrained optimization, budget-aware stopping, file-backed persistence via `StudyStorage`, objective caching via `StudyObjectiveCache` on shared `Cache.SchemaCache`, and full Effect-native runtime architecture. Mathematical correctness is verified against [Optuna](https://github.com/optuna/optuna) via golden fixtures, property-based invariant tests, and trace replay suites.
 
-`effect-search` is the optimization engine behind [`effect-dsp`](https://github.com/scenesystems/effect-dsp), an Effect-native declarative signal programming framework.
+`effect-search` is the optimization engine behind [`effect-dsp`](https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp), an Effect-native declarative signal programming framework.
 
 ## Contributing
 
@@ -1101,15 +1101,13 @@ bun run changeset-publish --dry-run
 
 `publish:check` is the single-source release contract for package metadata, export boundaries, keyword coverage, and script wiring. `changeset-publish` re-runs `publish:check --require-packed-manifest` after build so packed-manifest export boundaries are enforced before publish.
 
-Monorepo topology enforcement (`scenesystems/theoria` + `repository.directory`) is tracked as an explicit TODO contract until `effect-search` is moved.
-
 ## Acknowledgments
 
 The TPE implementation is based on the work of [Bergstra et al. (2011)](https://papers.nips.cc/paper/2011/hash/86e8f7ab32cfd12577bc2619bc635690-Abstract.html), with bandwidth selection and weighting strategies informed by [Watanabe (2023)](https://arxiv.org/abs/2304.11127). Multi-objective optimization follows the MOTPE algorithm from [Ozaki et al. (2022)](https://doi.org/10.1613/jair.1.13188), using hypervolume contribution weighting from [Guerreiro et al. (2021)](https://doi.org/10.1145/3453474). Constrained TPE follows c-TPE from [Watanabe & Hutter (2023)](https://doi.org/10.24963/ijcai.2023/486). HyperBand scheduling follows [Li et al. (2017)](https://jmlr.org/papers/v18/16-558.html), with BOHB combining it with TPE per [Falkner et al. (2018)](https://proceedings.mlr.press/v80/falkner18a.html). Parallel evaluation uses constant liar imputation from [Ginsbourger et al. (2010)](https://doi.org/10.1007/978-3-642-10701-6_6).
 
 [Optuna](https://github.com/optuna/optuna) is the reference implementation we verify against — our golden fixture pipeline generates expected values from Optuna and asserts parity in TypeScript. The `Sampler` interface design draws from Optuna's ask-and-tell pattern, adapted for Effect's structured concurrency.
 
-Built on [Effect](https://effect.website). `effect-search` is the optimization engine behind [`effect-dsp`](https://github.com/scenesystems/effect-dsp), which brings [DSPy](https://github.com/stanfordnlp/dspy)'s declarative signal programming paradigm to TypeScript.
+Built on [Effect](https://effect.website). `effect-search` is the optimization engine behind [`effect-dsp`](https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp), which brings [DSPy](https://github.com/stanfordnlp/dspy)'s declarative signal programming paradigm to TypeScript.
 
 ## License
 
