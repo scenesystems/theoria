@@ -66,6 +66,9 @@
     "packages/effect-math": {
       "name": "effect-math",
       "version": "0.0.0",
+      "devDependencies": {
+        "@scenesystems/digest": "workspace:*",
+      },
       "peerDependencies": {
         "effect": "^3.20.0",
       },
