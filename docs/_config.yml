@@ -1,0 +1,32 @@
+theme: just-the-docs
+
+title: Theoria API Reference
+description: API documentation for the Theoria open-source research software ecosystem by Scene Systems
+
+color_scheme: scene
+search_enabled: true
+
+collections:
+  effect:
+    output: true
+  scenesystems:
+    output: true
+
+just_the_docs:
+  collections:
+    effect:
+      name: Effect Packages
+    scenesystems:
+      name: "@scenesystems"
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+aux_links:
+  "Scene Systems":
+    - "https://scenesystems.io"
+  "GitHub":
+    - "https://github.com/scenesystems/theoria"

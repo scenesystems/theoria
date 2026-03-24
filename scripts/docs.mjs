@@ -1,0 +1,382 @@
+// Aggregates per-package docgen output into a unified docs/ tree for GitHub Pages.
+// Follows the same pattern as Effect-TS/effect scripts/docs.mjs.
+// Run after `bun run docgen`: node scripts/docs.mjs
+import * as Fs from "node:fs"
+import * as Path from "node:path"
+
+const ROOT = Path.resolve(import.meta.dirname, "..")
+const DOCS_OUT = Path.join(ROOT, "docs")
+
+const GITHUB_REPO = "https://github.com/scenesystems/theoria"
+const GITHUB_BRANCH = "main"
+
+/**
+ * Package definitions: [dirName, displayName, navOrder, collection]
+ * collection maps to a Just the Docs collection (sidebar section).
+ */
+const PACKAGES = [
+  ["effect-search", "effect-search", 1, "effect"],
+  ["effect-dsp", "effect-dsp", 2, "effect"],
+  ["effect-math", "effect-math", 3, "effect"],
+  ["digest", "@scenesystems/digest", 1, "scenesystems"],
+  ["seal", "@scenesystems/seal", 2, "scenesystems"],
+  ["sign", "@scenesystems/sign", 3, "scenesystems"]
+]
+
+/** Files/dirs to preserve during clean */
+const PRESERVE = new Set([
+  "_config.yml",
+  "_includes",
+  "_sass",
+  "Dockerfile",
+  "Gemfile",
+  "Gemfile.lock",
+  ".jekyll-cache",
+  "_site"
+])
+
+function ensureDir(dir) {
+  if (!Fs.existsSync(dir)) {
+    Fs.mkdirSync(dir, { recursive: true })
+  }
+}
+
+/**
+ * Detect whether a docgen markdown file is a pure barrel (re-export only).
+ * Pure barrels contain `## From ` headers but no `export declare` signatures.
+ */
+function isPureBarrel(filePath) {
+  const content = Fs.readFileSync(filePath, "utf8")
+  const hasReExports = /^## From /m.test(content)
+  const hasDeclare = /export declare/.test(content)
+  return hasReExports && !hasDeclare
+}
+
+/**
+ * Collect the full directory tree under a docgen modules/ folder.
+ * Returns an array of relative dir paths (e.g. ["Sampler", "Sampler/shared", "Study/runtime"]).
+ */
+function collectDirs(srcDir) {
+  const dirs = []
+  function walk(dir, rel) {
+    const entries = Fs.readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const relPath = rel ? `${rel}/${entry.name}` : entry.name
+        dirs.push(relPath)
+        walk(Path.join(dir, entry.name), relPath)
+      }
+    }
+  }
+  walk(srcDir, "")
+  return dirs
+}
+
+/**
+ * Build a set of directory basenames that appear in multiple packages,
+ * so we know which titles need grand_parent disambiguation.
+ */
+function findAmbiguousDirNames() {
+  /** @type {Map<string, string[]>} basename → [packageName, ...] */
+  const nameToPackages = new Map()
+  for (const [dirName, , ] of PACKAGES) {
+    const srcDir = Path.join(ROOT, "packages", dirName, "docs", "modules")
+    if (!Fs.existsSync(srcDir)) continue
+    const dirs = collectDirs(srcDir)
+    for (const d of dirs) {
+      const basename = Path.basename(d)
+      if (!nameToPackages.has(basename)) nameToPackages.set(basename, [])
+      nameToPackages.get(basename).push(dirName)
+    }
+  }
+  const ambiguous = new Set()
+  for (const [name, pkgs] of nameToPackages) {
+    if (pkgs.length > 1) ambiguous.add(name)
+  }
+  return ambiguous
+}
+
+/**
+ * Create an intermediate navigation page for a directory group.
+ *
+ * @param {string} destPath - Where to write the index.md
+ * @param {string} title - Display title for this directory
+ * @param {string} parentTitle - Parent page title
+ * @param {string|undefined} grandParentTitle - Grand-parent for disambiguation
+ * @param {number} navOrder - Navigation order
+ */
+function createDirGroupPage(destPath, title, parentTitle, grandParentTitle, navOrder) {
+  const lines = [
+    "---",
+    `title: "${title}"`,
+    "has_children: true",
+    `parent: "${parentTitle}"`,
+  ]
+  if (grandParentTitle) {
+    lines.push(`grand_parent: "${grandParentTitle}"`)
+  }
+  lines.push(`nav_order: ${navOrder}`)
+  lines.push("---")
+  lines.push("")
+
+  ensureDir(Path.dirname(destPath))
+  Fs.writeFileSync(destPath, lines.join("\n"))
+}
+
+/**
+ * Rewrite a docgen module markdown file with correct parent/grand_parent hierarchy.
+ *
+ * @param {string} srcPath - Source file path
+ * @param {string} destPath - Destination file path
+ * @param {string} parentTitle - Immediate parent title
+ * @param {string|undefined} grandParentTitle - Grand-parent for disambiguation
+ * @param {string} leafTitle - Display title (just the filename, not the full path)
+ * @param {string} dirName - Package directory name (e.g. "effect-search")
+ */
+function rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, dirName) {
+  let content = Fs.readFileSync(srcPath, "utf8")
+
+  // Extract the original docgen title (contains source path like "Sampler/constructors.ts")
+  const titleMatch = content.match(/^title: (.+)$/m)
+  const originalTitle = titleMatch ? titleMatch[1].trim().replace(/^["']|["']$/g, "") : ""
+
+  // Replace the title (docgen uses full path like "Study/runtime/scheduler/rounds.ts")
+  content = content.replace(
+    /^title: .+$/m,
+    `title: "${leafTitle}"`
+  )
+
+  // Replace parent
+  content = content.replace(
+    /^parent: .+$/m,
+    `parent: "${parentTitle}"`
+  )
+
+  // Add grand_parent if needed (insert after parent line)
+  if (grandParentTitle) {
+    content = content.replace(
+      /^(parent: .+)$/m,
+      `$1\ngrand_parent: "${grandParentTitle}"`
+    )
+  }
+
+  // Add "View Source" link after the frontmatter
+  if (originalTitle) {
+    const srcUrl = `${GITHUB_REPO}/blob/${GITHUB_BRANCH}/packages/${dirName}/src/${originalTitle}`
+    content = content.replace(
+      /^---\n\n/m,
+      `---\n\n> [View source](${srcUrl})\n\n`
+    )
+  }
+
+  ensureDir(Path.dirname(destPath))
+  Fs.writeFileSync(destPath, content)
+}
+
+/**
+ * Process a single package: create directory group pages and rewrite module pages.
+ */
+function processPackage(dirName, displayName, navOrder, collection, ambiguousDirNames) {
+  const pkgDocsModules = Path.join(ROOT, "packages", dirName, "docs", "modules")
+  const destDir = Path.join(DOCS_OUT, `_${collection}`, dirName)
+
+  if (!Fs.existsSync(pkgDocsModules)) {
+    console.log(`⏭ Skipping ${displayName} (no docs/modules/)`)
+    return
+  }
+
+  ensureDir(destDir)
+
+  // Create package index with README content
+  const readmePath = Path.join(ROOT, "packages", dirName, "README.md")
+  let readmeContent = ""
+  if (Fs.existsSync(readmePath)) {
+    readmeContent = Fs.readFileSync(readmePath, "utf8")
+    // Strip the first H1 line (redundant with the page title)
+    readmeContent = readmeContent.replace(/^# .+\n+/, "")
+    // Strip badges block (lines that are only badge images/links)
+    readmeContent = readmeContent.replace(/^(\[!\[.*?\].*?\n)+\n*/m, "")
+  }
+
+  Fs.writeFileSync(
+    Path.join(destDir, "index.md"),
+    [
+      "---",
+      `title: "${displayName}"`,
+      "has_children: true",
+      `nav_order: ${navOrder}`,
+      "---",
+      "",
+      `# ${displayName}`,
+      "",
+      ...(readmeContent ? [readmeContent] : []),
+      ""
+    ].join("\n")
+  )
+
+  // Collect all directories and create intermediate navigation pages
+  const dirs = collectDirs(pkgDocsModules)
+
+  // Sort dirs so parents are created before children
+  dirs.sort((a, b) => a.split("/").length - b.split("/").length || a.localeCompare(b))
+
+  // Track dir → title mapping for parent references
+  /** @type {Map<string, string>} relPath → title */
+  const dirTitleMap = new Map()
+  // Track dir → parent title for grand_parent references
+  /** @type {Map<string, string>} relPath → parentTitle */
+  const dirParentMap = new Map()
+
+  let dirNavOrder = 1
+  for (const relDir of dirs) {
+    const parts = relDir.split("/")
+    const dirBasename = parts[parts.length - 1]
+    const title = dirBasename
+
+    let parentTitle
+    let grandParentTitle
+
+    if (parts.length === 1) {
+      // Top-level directory under package
+      parentTitle = displayName
+      grandParentTitle = undefined
+    } else {
+      // Nested directory - parent is the enclosing directory
+      const parentRelDir = parts.slice(0, -1).join("/")
+      parentTitle = dirTitleMap.get(parentRelDir) || parentRelDir
+      // If the parent title is ambiguous, set grand_parent
+      if (ambiguousDirNames.has(parentTitle)) {
+        grandParentTitle = dirParentMap.get(parentRelDir)
+      }
+    }
+
+    dirTitleMap.set(relDir, title)
+    dirParentMap.set(relDir, parentTitle)
+
+    // Need grand_parent if this title is ambiguous and parent is also ambiguous
+    let gpForPage
+    if (ambiguousDirNames.has(title)) {
+      // Always include grand_parent when the directory name is ambiguous across packages
+      // This helps Just the Docs disambiguate which parent we mean
+      // For top-level dirs under a package, no grand_parent needed since the parent (package) is unique
+      gpForPage = undefined
+    }
+
+    const destPath = Path.join(destDir, relDir, "index.md")
+    createDirGroupPage(destPath, title, parentTitle, grandParentTitle, dirNavOrder++)
+  }
+
+  // Now process all .md module files
+  processModuleFiles(pkgDocsModules, destDir, displayName, dirTitleMap, dirParentMap, ambiguousDirNames, "", dirName)
+
+  const count = Fs.readdirSync(pkgDocsModules, { recursive: true })
+    .filter((f) => String(f).endsWith(".md") && String(f) !== "index.md").length
+  console.log(`✓ ${displayName}: ${count} module docs, ${dirs.length} directory groups`)
+}
+
+/**
+ * Recursively process module .md files, rewriting their parent/grand_parent.
+ */
+function processModuleFiles(srcDir, destDir, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, relPrefix, pkgDirName) {
+  if (!Fs.existsSync(srcDir)) return
+
+  const entries = Fs.readdirSync(srcDir, { withFileTypes: true })
+  for (const entry of entries) {
+    const srcPath = Path.join(srcDir, entry.name)
+    const destPath = Path.join(destDir, entry.name)
+
+    if (entry.isDirectory()) {
+      ensureDir(destPath)
+      const childRel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
+      processModuleFiles(srcPath, destPath, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, childRel, pkgDirName)
+    } else if (entry.name === "index.md") {
+      // Skip docgen's "Modules" index — we create our own
+      continue
+    } else if (entry.name === "index.ts.md" && isPureBarrel(srcPath)) {
+      // Skip pure barrel files (only re-exports, no real API signatures)
+      continue
+    } else if (entry.name.endsWith(".md")) {
+      // Determine the parent for this file
+      let parentTitle
+      let grandParentTitle
+
+      if (relPrefix) {
+        // File is inside a directory group
+        parentTitle = dirTitleMap.get(relPrefix) || relPrefix
+        // If parent title is ambiguous, set grand_parent
+        if (ambiguousDirNames.has(parentTitle)) {
+          grandParentTitle = dirParentMap.get(relPrefix)
+        }
+      } else {
+        // File is at the root of the package modules
+        parentTitle = packageDisplayName
+        grandParentTitle = undefined
+      }
+
+      // Extract just the filename as the display title
+      const leafTitle = entry.name.replace(/\.md$/, "")
+
+      rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, pkgDirName)
+    }
+  }
+}
+
+/** Read a one-line description from a package's package.json */
+function getPackageDescription(dirName) {
+  const pkgJsonPath = Path.join(ROOT, "packages", dirName, "package.json")
+  if (Fs.existsSync(pkgJsonPath)) {
+    try {
+      const pkg = JSON.parse(Fs.readFileSync(pkgJsonPath, "utf8"))
+      if (pkg.description) return pkg.description
+    } catch { /* ignore */ }
+  }
+  return ""
+}
+
+// --- Main execution ---
+
+// Clean docs/ output (preserve infrastructure files)
+if (Fs.existsSync(DOCS_OUT)) {
+  const entries = Fs.readdirSync(DOCS_OUT, { withFileTypes: true })
+  for (const entry of entries) {
+    if (PRESERVE.has(entry.name)) continue
+    const fullPath = Path.join(DOCS_OUT, entry.name)
+    Fs.rmSync(fullPath, { recursive: true, force: true })
+  }
+}
+ensureDir(DOCS_OUT)
+
+// Scan for ambiguous directory names across all packages
+const ambiguousDirNames = findAmbiguousDirNames()
+if (ambiguousDirNames.size > 0) {
+  console.log(`ℹ Ambiguous directory names (will use grand_parent): ${[...ambiguousDirNames].join(", ")}`)
+}
+
+// Create root index
+Fs.writeFileSync(
+  Path.join(DOCS_OUT, "index.md"),
+  [
+    "---",
+    "title: Home",
+    "nav_order: 1",
+    "---",
+    "",
+    "# Theoria API Reference",
+    "",
+    "API documentation for the [Theoria](https://github.com/scenesystems/theoria) open-source research software ecosystem by [Scene Systems](https://scenesystems.io).",
+    "",
+    "## Packages",
+    "",
+    ...PACKAGES.map(
+      ([dir, name, , col]) => `- [**${name}**](_${col}/${dir}/) — ${getPackageDescription(dir)}`
+    ),
+    ""
+  ].join("\n")
+)
+
+// Process each package
+for (const [dirName, displayName, navOrder, collection] of PACKAGES) {
+  processPackage(dirName, displayName, navOrder, collection, ambiguousDirNames)
+}
+
+console.log("\nDocs aggregation complete → docs/")

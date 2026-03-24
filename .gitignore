@@ -7,9 +7,6 @@ dist/
 out/
 *.tgz
 
-# Generated documentation (@effect/docgen output)
-**/docs/
-
 # Emitted JS in source/test directories (build output goes to dist/)
 packages/*/src/**/*.js
 packages/*/test/**/*.js
@@ -18,8 +15,15 @@ packages/*/test/**/*.js
 .tsbuildinfo/
 *.tsbuildinfo
 
-# Generated documentation (@effect/docgen output)
-**/docs/
+# Generated documentation (@effect/docgen output per-package)
+packages/*/docs/
+
+# Aggregated docs site (generated content excluded, infrastructure tracked)
+/docs/_effect/
+/docs/_scenesystems/
+/docs/index.md
+/docs/_site/
+/docs/.jekyll-cache/
 
 # Code coverage
 coverage/

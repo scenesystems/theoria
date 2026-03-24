@@ -1,62 +1,51 @@
-name: Docs
+name: Deploy API Reference to GitHub Pages
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
-    name: Build docs
-    if: github.repository_owner == 'scenesystems'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
-      - name: Generate API docs
-        run: bun run docgen
+      - run: bun install --frozen-lockfile
+      - run: bun run docgen
+      - run: node scripts/docs.mjs
 
-      - name: Assemble site
-        run: |
-          mkdir -p _site
-          for pkg in packages/*/; do
-            name=$(basename "$pkg")
-            if [ -d "$pkg/docs" ]; then
-              cp -r "$pkg/docs" "_site/$name"
-            fi
-          done
-          cp README.md _site/index.md
-          echo "theoria.scenesystems.io" > _site/CNAME
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
+        uses: actions/upload-pages-artifact@v3
 
   deploy:
-    name: Deploy
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pages: write
-      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
