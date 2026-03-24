@@ -1,0 +1,85 @@
+{
+  "name": "effect-math",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Foundational numerics, linear algebra, statistics, and optimization for Effect",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-math"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "numerics",
+    "linear-algebra",
+    "statistics",
+    "probability",
+    "optimization",
+    "mathematics",
+    "scientific-computing",
+    "pareto",
+    "kde"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./experimental": "./src/experimental/index.ts",
+    "./Numeric": "./src/Numeric/index.ts",
+    "./Algebra": "./src/Algebra/index.ts",
+    "./LinearAlgebra": "./src/LinearAlgebra/index.ts",
+    "./Calculus": "./src/Calculus/index.ts",
+    "./Special": "./src/Special/index.ts",
+    "./Probability": "./src/Probability/index.ts",
+    "./Statistics": "./src/Statistics/index.ts",
+    "./Optimization": "./src/Optimization/index.ts",
+    "./Geometry": "./src/Geometry/index.ts",
+    "./Complex": "./src/Complex/index.ts",
+    "./Distribution": "./src/Distribution/index.ts",
+    "./internal/*": null,
+    "./Numeric/internal/*": null,
+    "./Algebra/internal/*": null,
+    "./LinearAlgebra/internal/*": null,
+    "./Calculus/internal/*": null,
+    "./Special/internal/*": null,
+    "./Probability/internal/*": null,
+    "./Statistics/internal/*": null,
+    "./Optimization/internal/*": null,
+    "./Geometry/internal/*": null,
+    "./Complex/internal/*": null,
+    "./Distribution/internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test examples",
+    "lint:fix": "eslint --max-warnings=0 --fix src test examples",
+    "test": "vitest run --root ../.. packages/effect-math/test",
+    "publish:check": "bun run scripts/verify-publish-readiness.ts",
+    "fixtures:check": "bun run scripts/check-fixtures.ts",
+    "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
+    "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
+    "fixtures:lock": "uv lock --script scripts/generate-scipy-fixtures.py",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "devDependencies": {
+    "@scenesystems/digest": "workspace:*"
+  },
+  "peerDependencies": {
+    "effect": "^3.20.0"
+  }
+}

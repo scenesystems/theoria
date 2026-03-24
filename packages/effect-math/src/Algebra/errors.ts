@@ -1,0 +1,85 @@
+/**
+ * Typed error taxonomy for the Algebra domain. Each error is a
+ * `Schema.TaggedError` so it round-trips through Effect channels and
+ * can be pattern-matched by `_tag`. Errors are stratified into boundary
+ * failures (decode/encode) and operation failures (decode, domain
+ * violation, invalid parameters).
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+import { Schema } from "effect"
+
+import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
+
+/**
+ * Raised when an orchestration-level boundary validation fails before
+ * reaching the specific operation.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class AlgebraDomainBoundaryError
+  extends Schema.TaggedError<AlgebraDomainBoundaryError>()("AlgebraDomainBoundaryError", {
+    message: Schema.String
+  })
+{}
+
+/**
+ * Raised when Schema decode fails for a specific operation's input
+ * contract (e.g. `PolyEvalInput`, `GcdInput`). The `operation` field names
+ * the failed operation for error-recovery branching.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()("AlgebraDecodeError", {
+  operation: Schema.String,
+  message: Schema.String
+}) {}
+
+/**
+ * Raised under the `"strict"` precision policy when an operation produces
+ * a non-finite result (NaN or ±Infinity). Under `"relaxed"` precision
+ * this error is never emitted.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class AlgebraDomainViolationError
+  extends Schema.TaggedError<AlgebraDomainViolationError>()("AlgebraDomainViolationError", {
+    operation: Schema.String,
+    message: Schema.String
+  })
+{}
+
+/**
+ * Raised when mathematical parameters are invalid for the requested
+ * operation — for example, factorial of a negative number.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export class AlgebraParameterError extends Schema.TaggedError<AlgebraParameterError>()("AlgebraParameterError", {
+  operation: Schema.String,
+  message: Schema.String
+}) {}
+
+/**
+ * Union of all boundary-level errors.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export type AlgebraBoundaryError = AlgebraDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
+
+/**
+ * Union of all operation-level errors.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export type AlgebraOperationError =
+  | AlgebraDecodeError
+  | AlgebraDomainViolationError
+  | AlgebraParameterError

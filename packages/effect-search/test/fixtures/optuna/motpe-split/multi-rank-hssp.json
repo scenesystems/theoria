@@ -1,0 +1,50 @@
+{
+  "fixture": "motpe-split.multi-rank-hssp",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "directions": ["minimize", "minimize"],
+    "expectedAbove": [30, 33],
+    "expectedBelow": [31, 32],
+    "nBelow": 2,
+    "trials": [
+      {
+        "feasible": true,
+        "hsspScore": 0.4,
+        "rank": 0,
+        "trialNumber": 30,
+        "values": [1, 4]
+      },
+      {
+        "feasible": true,
+        "hsspScore": 1,
+        "rank": 0,
+        "trialNumber": 31,
+        "values": [2, 2]
+      },
+      {
+        "feasible": true,
+        "hsspScore": 0.7,
+        "rank": 0,
+        "trialNumber": 32,
+        "values": [3, 1]
+      },
+      {
+        "feasible": true,
+        "hsspScore": 0,
+        "rank": 1,
+        "trialNumber": 33,
+        "values": [4, 3]
+      }
+    ]
+  }
+}

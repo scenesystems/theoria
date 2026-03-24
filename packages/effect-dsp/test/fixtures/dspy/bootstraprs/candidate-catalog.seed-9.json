@@ -1,0 +1,42 @@
+{
+  "fixture": "dspy.bootstraprs.candidate-catalog.seed-9",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "numCandidates": 2,
+    "seeds": [9, 10],
+    "maxRounds": 1,
+    "maxBootstrappedDemos": 1,
+    "maxLabeledDemos": 0,
+    "threshold": 1.0,
+    "trainset": [
+      {
+        "question": "What is the capital of France?",
+        "answer": "Paris"
+      },
+      {
+        "question": "What is the capital of Japan?",
+        "answer": "Tokyo"
+      }
+    ],
+    "valset": [
+      {
+        "question": "Name the capital of Japan in one word",
+        "answer": "Tokyo"
+      }
+    ],
+    "expectedCandidateLabels": ["uncompiled", "labeled-few-shot", "bootstrap-9", "bootstrap-10"],
+    "expectedBestCandidateLabel": "bootstrap-9",
+    "expectedBestDemoQuestions": ["What is the capital of Japan?"],
+    "expectedCallCount": 8
+  }
+}

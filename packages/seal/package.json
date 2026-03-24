@@ -1,0 +1,55 @@
+{
+  "name": "@scenesystems/seal",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Authenticated encryption for Effect",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/seal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/seal"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "xchacha20",
+    "poly1305",
+    "aes-gcm",
+    "aes-gcm-siv",
+    "aead",
+    "encryption",
+    "authenticated-encryption",
+    "noble-ciphers",
+    "sealed-envelope"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run --root ../.. packages/seal/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.0.0"
+  },
+  "peerDependencies": {
+    "effect": "^3.20.0"
+  }
+}

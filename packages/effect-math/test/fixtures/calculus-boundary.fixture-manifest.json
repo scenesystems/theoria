@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "algorithm": "blake3-256",
+  "fixtures": [
+    {
+      "name": "calculus-trapezoid-stable",
+      "path": "test/fixtures/calculus-boundary.fixture.json",
+      "hash": "blake3-256:pCbDn3rMVm5SzfhPW6LWLcVHDKgC8Nz5F7Gu7PN8lJE"
+    }
+  ]
+}

@@ -223,6 +223,7 @@ export default [
       // Disable base rules that conflict with TS
       "no-undef": "off",
       "no-unused-vars": "off",
+      "no-redeclare": "off",
       "no-fallthrough": "off",
       "no-irregular-whitespace": "off",
       "require-yield": "off",

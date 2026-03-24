@@ -1,0 +1,55 @@
+{
+  "fixture": "dspy.evaluate.event-order.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "eventCount": 7,
+    "completedIndices": [0, 1],
+    "failedIndices": [2],
+    "events": [
+      {
+        "_tag": "ExampleStarted",
+        "index": 0,
+        "total": 3
+      },
+      {
+        "_tag": "ExampleCompleted",
+        "index": 0,
+        "score": 1.0
+      },
+      {
+        "_tag": "ExampleStarted",
+        "index": 1,
+        "total": 3
+      },
+      {
+        "_tag": "ExampleCompleted",
+        "index": 1,
+        "score": 0.0
+      },
+      {
+        "_tag": "ExampleStarted",
+        "index": 2,
+        "total": 3
+      },
+      {
+        "_tag": "ExampleFailed",
+        "index": 2
+      },
+      {
+        "_tag": "EvaluationCompleted",
+        "overallScore": 0.5,
+        "total": 3
+      }
+    ]
+  }
+}

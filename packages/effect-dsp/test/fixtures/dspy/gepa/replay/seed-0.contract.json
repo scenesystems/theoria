@@ -1,0 +1,39 @@
+{
+  "fixture": "dspy.gepa.replay.seed-0.contract",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "seed": 0,
+    "moduleName": "qa-replay",
+    "maxIterations": 3,
+    "trainsetSize": 3,
+    "requiredManifestFixtures": [
+      "dspy.gepa.pareto.score-matrix.basic",
+      "dspy.gepa.pareto.score-matrix.ties",
+      "dspy.gepa.selection.weights.seed-42",
+      "dspy.gepa.reflect.dataset-shape",
+      "dspy.gepa.reflect.prompt-template.basic",
+      "dspy.gepa.reflect.format-failure-feedback",
+      "dspy.gepa.accept.mutation-strict-greater",
+      "dspy.gepa.accept.merge-non-strict",
+      "dspy.gepa.merge.common-ancestor-cases",
+      "dspy.gepa.merge.schedule.max-merge-invocations",
+      "dspy.gepa.orchestration.event-order.seed-0",
+      "dspy.gepa.orchestration.state-transitions.basic",
+      "dspy.gepa.replay.frontier-snapshots.seed-0",
+      "dspy.gepa.replay.params.seed-0",
+      "dspy.gepa.governance.public-seams",
+      "dspy.gepa.governance.optimizer-options"
+    ],
+    "byteEqualityChecks": ["savedStateBytes", "frontierSnapshotBytes", "eventTimelineBytes", "paramsBytes"]
+  }
+}

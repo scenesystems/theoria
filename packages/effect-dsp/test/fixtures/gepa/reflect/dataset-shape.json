@@ -1,0 +1,26 @@
+{
+  "fixture": "gepa.reflect.dataset-shape",
+  "payload": {
+    "predictorName": "qa",
+    "currentInstruction": "Answer with concise factual responses.",
+    "samples": [
+      {
+        "exampleId": "example-0",
+        "predictorName": "qa",
+        "inputs": { "question": "What is the capital of France?" },
+        "generatedOutputs": { "answer": "Lyon" },
+        "expectedOutput": { "answer": "Paris" },
+        "metricResult": { "score": 0, "feedback": "Use the canonical capital city." }
+      },
+      {
+        "exampleId": "example-1",
+        "predictorName": "qa",
+        "inputs": { "question": "What is the capital of Japan?" },
+        "generatedOutputs": { "answer": "Tokyo" },
+        "expectedOutput": { "answer": "Tokyo" },
+        "metricResult": { "score": 1, "feedback": "" }
+      }
+    ],
+    "expectedPromptSections": ["## Inputs", "## Generated Outputs", "## Expected Output", "## Feedback"]
+  }
+}

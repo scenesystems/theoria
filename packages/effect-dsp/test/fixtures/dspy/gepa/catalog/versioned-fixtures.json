@@ -1,0 +1,95 @@
+{
+  "fixture": "dspy.gepa.catalog.versioned-fixtures",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "fixtureSet": "dspy.gepa",
+    "version": 2,
+    "fixtures": [
+      {
+        "name": "dspy.gepa.pareto.score-matrix.basic",
+        "file": "gepa/pareto/score-matrix.basic.json"
+      },
+      {
+        "name": "dspy.gepa.pareto.score-matrix.ties",
+        "file": "gepa/pareto/score-matrix.ties.json"
+      },
+      {
+        "name": "dspy.gepa.selection.weights.seed-42",
+        "file": "gepa/selection/weights.seed-42.json"
+      },
+      {
+        "name": "dspy.gepa.reflect.dataset-shape",
+        "file": "gepa/reflect/dataset-shape.json"
+      },
+      {
+        "name": "dspy.gepa.reflect.prompt-template.basic",
+        "file": "gepa/reflect/prompt-template.basic.json"
+      },
+      {
+        "name": "dspy.gepa.reflect.format-failure-feedback",
+        "file": "gepa/reflect/format-failure-feedback.json"
+      },
+      {
+        "name": "dspy.gepa.accept.mutation-strict-greater",
+        "file": "gepa/accept/mutation-strict-greater.json"
+      },
+      {
+        "name": "dspy.gepa.accept.merge-non-strict",
+        "file": "gepa/accept/merge-non-strict.json"
+      },
+      {
+        "name": "dspy.gepa.merge.common-ancestor-cases",
+        "file": "gepa/merge/common-ancestor-cases.json"
+      },
+      {
+        "name": "dspy.gepa.merge.schedule.max-merge-invocations",
+        "file": "gepa/merge/schedule.max-merge-invocations.json"
+      },
+      {
+        "name": "dspy.gepa.orchestration.event-order.seed-0",
+        "file": "gepa/orchestration/event-order.seed-0.json"
+      },
+      {
+        "name": "dspy.gepa.orchestration.state-transitions.basic",
+        "file": "gepa/orchestration/state-transitions.basic.json"
+      },
+      {
+        "name": "dspy.gepa.replay.frontier-snapshots.seed-0",
+        "file": "gepa/replay/frontier-snapshots.seed-0.json"
+      },
+      {
+        "name": "dspy.gepa.replay.params.seed-0",
+        "file": "gepa/replay/params.seed-0.json"
+      },
+      {
+        "name": "dspy.gepa.governance.public-seams",
+        "file": "gepa/governance/public-seams.json"
+      },
+      {
+        "name": "dspy.gepa.governance.optimizer-options",
+        "file": "gepa/governance/optimizer-options.json"
+      }
+    ],
+    "namespaces": [
+      "dspy.gepa.accept",
+      "dspy.gepa.governance",
+      "dspy.gepa.merge",
+      "dspy.gepa.orchestration",
+      "dspy.gepa.pareto",
+      "dspy.gepa.reflect",
+      "dspy.gepa.replay",
+      "dspy.gepa.selection"
+    ],
+    "requiredFixtureCount": 16
+  }
+}

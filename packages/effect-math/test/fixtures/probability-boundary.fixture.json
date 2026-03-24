@@ -1,0 +1,9 @@
+{
+  "name": "probability-standard-normal-pdf-stable",
+  "input": {
+    "x": 0
+  },
+  "expected": {
+    "result": 0.3989422804014327
+  }
+}

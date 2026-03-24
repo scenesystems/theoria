@@ -1,0 +1,18 @@
+{
+  "fixture": "categorical-parzen.basic",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "choices": ["adam", "sgd", "adamw"],
+    "observations": ["adam"]
+  }
+}

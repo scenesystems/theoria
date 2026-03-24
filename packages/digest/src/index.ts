@@ -1,19 +1,30 @@
 /**
- * @scenesystems/digest — pure core entrypoint.
+ * @scenesystems/digest — cryptographic content hashing and
+ * canonicalization for Effect.
  *
- * Cryptographic content hashing and canonicalization with zero Effect
- * dependency. Only `@noble/hashes` is required at runtime.
+ * Two algorithms, one canonicalization strategy, one encoding. BLAKE3
+ * context mode provides native domain separation — no manual salt
+ * concatenation needed.
  *
- * Two algorithms: BLAKE3-256 (primary) and SHA-256 (secondary).
- * One canonicalization strategy: RFC 8785 JCS.
- * One encoding: base64url (43 chars, no padding).
+ * @see {@link blake3Hash} — primary hash algorithm
+ * @see {@link sha256} — secondary hash algorithm
+ * @see {@link canonicalize} — RFC 8785 JCS canonicalization
+ * @see {@link toBase64Url} — base64url encoding
+ * @see {@link durableFingerprint} — canonical fingerprinting function
+ * @see {@link Digest256} — branded digest value schema
+ * @see {@link ContentDigest} — algorithm-tagged digest pair
  *
  * @example
  * ```ts
- * import { blake3, sha256, canonicalize, digest } from "@scenesystems/digest"
+ * import { blake3Hash, canonicalize, digest, durableFingerprint, utf8ToBytes } from "@scenesystems/digest"
+ * import { Effect } from "effect"
  *
- * const hash = blake3(canonicalize({ key: "value" }))
- * const tagged = digest("blake3-256", canonicalize({ key: "value" }))
+ * const program = Effect.gen(function*() {
+ *   const canonical = yield* canonicalize({ key: "value" })
+ *   const hash = yield* blake3Hash(utf8ToBytes(canonical))
+ *   const tagged = yield* digest("blake3-256", { key: "value" })
+ *   const key = yield* durableFingerprint({ question: "What is 2+2?" })
+ * })
  * ```
  *
  * @since 0.1.0
@@ -52,6 +63,54 @@ export * from "./digest.js"
 
 /**
  * @since 0.1.0
- * @category contracts
+ * @category digest
  */
-export * from "./contracts.js"
+export * from "./convenience.js"
+
+/**
+ * @since 0.1.0
+ * @category digest
+ */
+export * from "./digestSchemaValue.js"
+
+/**
+ * @since 0.1.0
+ * @category authentication
+ */
+export * from "./hmac.js"
+
+/**
+ * @since 0.1.0
+ * @category key-derivation
+ */
+export * from "./kdf.js"
+
+/**
+ * @since 0.1.0
+ * @category schemas
+ */
+export * from "./schemas/Digest256.js"
+
+/**
+ * @since 0.1.0
+ * @category schemas
+ */
+export * from "./schemas/ContentDigest.js"
+
+/**
+ * @since 0.1.0
+ * @category schemas
+ */
+export * from "./schemas/DigestAlgorithm.js"
+
+/**
+ * @since 0.1.0
+ * @category fingerprint
+ */
+export * from "./schemas/durableFingerprint.js"
+
+/**
+ * @since 0.1.0
+ * @category errors
+ */
+export * from "./schemas/errors.js"

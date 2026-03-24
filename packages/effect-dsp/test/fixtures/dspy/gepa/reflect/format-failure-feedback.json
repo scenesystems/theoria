@@ -1,0 +1,19 @@
+{
+  "fixture": "dspy.gepa.reflect.format-failure-feedback",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "structureInstruction": "[[ ## answer ## ]]",
+    "expectedPrefix": "Your output failed to parse. Follow this structure:\n",
+    "expectedFeedback": "Your output failed to parse. Follow this structure:\n[[ ## answer ## ]]"
+  }
+}

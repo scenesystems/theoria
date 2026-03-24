@@ -1,0 +1,50 @@
+{
+  "fixture": "ei.mixed-trace",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "expectedBestIndex": 3,
+    "scoreTrace": [
+      {
+        "candidate": "adam@0.010",
+        "expected": 2.527420816362044,
+        "logG": -4.1902676518187025,
+        "logL": -1.6628468354566588
+      },
+      {
+        "candidate": "sgd@0.100",
+        "expected": -2.8445404374279732,
+        "logG": -1.4959508920303168,
+        "logL": -4.34049132945829
+      },
+      {
+        "candidate": "adamw@0.030",
+        "expected": 1.1189838647877268,
+        "logG": -3.1694938943267066,
+        "logL": -2.0505100295389798
+      },
+      {
+        "candidate": "adam@0.005",
+        "expected": 2.598554928217646,
+        "logG": -4.42546281908901,
+        "logL": -1.8269078908713643
+      },
+      {
+        "candidate": "adamw@0.140",
+        "expected": -1.9336182030116773,
+        "logG": -1.9581615847469904,
+        "logL": -3.8917797877586677
+      }
+    ],
+    "scoreVector": [2.527420816362044, -2.8445404374279732, 1.1189838647877268, 2.598554928217646, -1.9336182030116773]
+  }
+}

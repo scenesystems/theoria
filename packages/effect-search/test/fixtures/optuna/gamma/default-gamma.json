@@ -1,0 +1,44 @@
+{
+  "fixture": "gamma.default-gamma",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "cap": 25,
+    "cases": [
+      {
+        "defaultGamma": 0,
+        "hyperoptGamma": 0,
+        "nTrials": 0
+      },
+      {
+        "defaultGamma": 1,
+        "hyperoptGamma": 1,
+        "nTrials": 1
+      },
+      {
+        "defaultGamma": 1,
+        "hyperoptGamma": 1,
+        "nTrials": 10
+      },
+      {
+        "defaultGamma": 5,
+        "hyperoptGamma": 2,
+        "nTrials": 50
+      },
+      {
+        "defaultGamma": 25,
+        "hyperoptGamma": 5,
+        "nTrials": 260
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "fixture": "dspy.mipro.phase-config",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "phaseOrder": ["phase1", "phase2", "phase3"],
+    "phase1AnchorKinds": ["zero-shot", "labels-only", "bootstrap-unshuffled", "bootstrap-shuffled"],
+    "phase3TrialBudgetFormula": "max(ceil(max(2*M*log(N), 3*N/2)), minimum)",
+    "phase3CadenceDefaults": {
+      "seed": 1,
+      "minibatchSize": 50,
+      "fullEvalEvery": 5
+    },
+    "phase3Sampler": {
+      "kind": "tpe",
+      "multivariate": true
+    },
+    "phase3PriorTrialCount": 1
+  }
+}

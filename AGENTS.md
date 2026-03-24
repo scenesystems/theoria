@@ -13,8 +13,8 @@ Effect-native scientific computing monorepo.
 | effect-search        | `packages/effect-search/` | `effect-search`        | effect, @scenesystems/digest                              |
 | effect-dsp           | `packages/effect-dsp/`    | `effect-dsp`           | effect-search, @effect/ai (peer)                          |
 | effect-math          | `packages/effect-math/`   | `effect-math`          | effect                                                    |
-| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes, @scure/base, effect                        |
-| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`   | @noble/ciphers, @scure/base, effect                       |
+| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes, effect                                     |
+| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`   | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`          | `@scenesystems/sign`   | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
 All `@scenesystems/*` packages have a single entrypoint (`.`). Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
@@ -42,7 +42,9 @@ All `@scenesystems/*` packages have a single entrypoint (`.`). Effect is a requi
 | Build             | `bun run build`       |
 | Clean             | `bun run clean`       |
 
-Per-package: `bun --filter effect-search run check`
+Per-package: `bun run --filter 'effect-math' check`
+
+**CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 
 Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
 

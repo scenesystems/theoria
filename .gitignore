@@ -7,12 +7,23 @@ dist/
 out/
 *.tgz
 
+# Emitted JS in source/test directories (build output goes to dist/)
+packages/*/src/**/*.js
+packages/*/test/**/*.js
+
 # TypeScript incremental build
 .tsbuildinfo/
 *.tsbuildinfo
 
-# Generated documentation (@effect/docgen output)
-**/docs/
+# Generated documentation (@effect/docgen output per-package)
+packages/*/docs/
+
+# Aggregated docs site (generated content excluded, infrastructure tracked)
+/docs/_effect/
+/docs/_scenesystems/
+/docs/index.md
+/docs/_site/
+/docs/.jekyll-cache/
 
 # Code coverage
 coverage/
@@ -40,5 +51,14 @@ __pycache__/
 # Scratch files
 .tmp/
 
+# PR-scoped specs (ephemeral tracking — not committed)
+.specs/*
+!.specs/AGENTS.md
+
 # Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
 .vendor/effect/
+.vendor/noble-hashes/
+.vendor/noble-curves/
+.vendor/noble-ciphers/
+.vendor/noble-post-quantum/
+.vendor/scure-base/

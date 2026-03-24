@@ -1,69 +1,72 @@
-name: Docs
+name: API Reference
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: {}
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
-    name: Build docs
-    if: github.repository_owner == 'scenesystems'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/setup
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
-      - name: Build packages (docgen needs declarations)
-        run: bun run build
+      - run: bun install --frozen-lockfile
+      - run: bun run docgen
+      - run: node scripts/docs.mjs
 
-      - name: Generate API docs
-        run: |
-          for pkg in packages/*/; do
-            if [ -f "$pkg/package.json" ]; then
-              name=$(basename "$pkg")
-              echo "Generating docs for $name"
-              (cd "$pkg" && bunx @effect/docgen) || true
-            fi
-          done
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
 
-      - name: Build site
-        run: |
-          mkdir -p _site
-          # Collect per-package docs into unified site
-          for pkg in packages/*/; do
-            name=$(basename "$pkg")
-            if [ -d "$pkg/docs" ]; then
-              cp -r "$pkg/docs" "_site/$name"
-            fi
-          done
-          # Copy root README as index
-          cp README.md _site/index.md
+      - name: Build with Jekyll
+        run: bundle exec jekyll build --source . --destination ../_site
+        working-directory: docs
 
-      - name: Upload artifact
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
+      - name: Upload PR preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: ./_site
+          retention-days: 7
+
   deploy:
-    name: Deploy
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pages: write
-      id-token: write
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

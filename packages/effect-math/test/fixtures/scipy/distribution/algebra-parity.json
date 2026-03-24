@@ -1,0 +1,1247 @@
+{
+  "fixture": "distribution.algebra-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 0.3989422804014327,
+        "id": "normal-pdf-std-0",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.24197072451914337,
+        "id": "normal-pdf-std-1",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.24197072451914337,
+        "id": "normal-pdf-std-neg1",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": -1.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.19947114020071635,
+        "id": "normal-pdf-shifted",
+        "input": {
+          "mu": 5.0,
+          "sigma": 2.0,
+          "x": 5.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": -0.9189385332046727,
+        "id": "normal-logpdf-std-0",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.0
+        },
+        "operation": "normalLogpdf"
+      },
+      {
+        "expected": -5.418938533204672,
+        "id": "normal-logpdf-std-3",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 3.0
+        },
+        "operation": "normalLogpdf"
+      },
+      {
+        "expected": -1.612085713764618,
+        "id": "normal-logpdf-shifted",
+        "input": {
+          "mu": 5.0,
+          "sigma": 2.0,
+          "x": 5.0
+        },
+        "operation": "normalLogpdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "normal-cdf-0",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.9750021048517795,
+        "id": "normal-cdf-196",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.96
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.001349898031630093,
+        "id": "normal-cdf-neg3",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": -3.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "normal-quantile-50",
+        "input": {
+          "mu": 0.0,
+          "p": 0.5,
+          "sigma": 1.0
+        },
+        "operation": "normalQuantile"
+      },
+      {
+        "expected": -1.9599639845400545,
+        "id": "normal-quantile-025",
+        "input": {
+          "mu": 0.0,
+          "p": 0.025,
+          "sigma": 1.0
+        },
+        "operation": "normalQuantile"
+      },
+      {
+        "expected": 1.959963984540054,
+        "id": "normal-quantile-975",
+        "input": {
+          "mu": 0.0,
+          "p": 0.975,
+          "sigma": 1.0
+        },
+        "operation": "normalQuantile"
+      },
+      {
+        "expected": 5.0,
+        "id": "normal-quantile-shifted",
+        "input": {
+          "mu": 5.0,
+          "p": 0.5,
+          "sigma": 2.0
+        },
+        "operation": "normalQuantile"
+      },
+      {
+        "expected": 0.0,
+        "id": "normal-mean-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "normalMean"
+      },
+      {
+        "expected": 5.0,
+        "id": "normal-mean-shifted",
+        "input": {
+          "mu": 5.0,
+          "sigma": 2.0
+        },
+        "operation": "normalMean"
+      },
+      {
+        "expected": 1.0,
+        "id": "normal-variance-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "normalVariance"
+      },
+      {
+        "expected": 9.0,
+        "id": "normal-variance-wide",
+        "input": {
+          "mu": 0.0,
+          "sigma": 3.0
+        },
+        "operation": "normalVariance"
+      },
+      {
+        "expected": 1.4189385332046727,
+        "id": "normal-entropy-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "normalEntropy"
+      },
+      {
+        "expected": 2.5175508218727822,
+        "id": "normal-entropy-wide",
+        "input": {
+          "mu": 0.0,
+          "sigma": 3.0
+        },
+        "operation": "normalEntropy"
+      },
+      {
+        "expected": 0.3989422804014327,
+        "id": "lognormal-pdf-1",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "logNormalPdf"
+      },
+      {
+        "expected": 0.15687401927898112,
+        "id": "lognormal-pdf-2",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 2.0
+        },
+        "operation": "logNormalPdf"
+      },
+      {
+        "expected": -0.9189385332046727,
+        "id": "lognormal-logpdf-1",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "logNormalLogpdf"
+      },
+      {
+        "expected": -0.466017859603828,
+        "id": "lognormal-logpdf-05",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.5
+        },
+        "operation": "logNormalLogpdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "lognormal-cdf-1",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "logNormalCdf"
+      },
+      {
+        "expected": 0.7558914042144173,
+        "id": "lognormal-cdf-2",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 2.0
+        },
+        "operation": "logNormalCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "lognormal-quantile-50",
+        "input": {
+          "mu": 0.0,
+          "p": 0.5,
+          "sigma": 1.0
+        },
+        "operation": "logNormalQuantile"
+      },
+      {
+        "expected": 3.6022244792791573,
+        "id": "lognormal-quantile-90",
+        "input": {
+          "mu": 0.0,
+          "p": 0.9,
+          "sigma": 1.0
+        },
+        "operation": "logNormalQuantile"
+      },
+      {
+        "expected": 1.6487212707001282,
+        "id": "lognormal-mean-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "logNormalMean"
+      },
+      {
+        "expected": 4.670774270471604,
+        "id": "lognormal-variance-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "logNormalVariance"
+      },
+      {
+        "expected": 1.4189385332046727,
+        "id": "lognormal-entropy-std",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0
+        },
+        "operation": "logNormalEntropy"
+      },
+      {
+        "expected": 1.0,
+        "id": "exp-pdf-0",
+        "input": {
+          "rate": 1.0,
+          "x": 0.0
+        },
+        "operation": "exponentialPdf"
+      },
+      {
+        "expected": 0.36787944117144233,
+        "id": "exp-pdf-1",
+        "input": {
+          "rate": 1.0,
+          "x": 1.0
+        },
+        "operation": "exponentialPdf"
+      },
+      {
+        "expected": 0.7357588823428847,
+        "id": "exp-pdf-rate2",
+        "input": {
+          "rate": 2.0,
+          "x": 0.5
+        },
+        "operation": "exponentialPdf"
+      },
+      {
+        "expected": -0.0,
+        "id": "exp-logpdf-0",
+        "input": {
+          "rate": 1.0,
+          "x": 0.0
+        },
+        "operation": "exponentialLogpdf"
+      },
+      {
+        "expected": -2.0,
+        "id": "exp-logpdf-2",
+        "input": {
+          "rate": 1.0,
+          "x": 2.0
+        },
+        "operation": "exponentialLogpdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "exp-cdf-0",
+        "input": {
+          "rate": 1.0,
+          "x": 0.0
+        },
+        "operation": "exponentialCdf"
+      },
+      {
+        "expected": 0.6321205588285577,
+        "id": "exp-cdf-1",
+        "input": {
+          "rate": 1.0,
+          "x": 1.0
+        },
+        "operation": "exponentialCdf"
+      },
+      {
+        "expected": 0.9932620530009145,
+        "id": "exp-cdf-5",
+        "input": {
+          "rate": 1.0,
+          "x": 5.0
+        },
+        "operation": "exponentialCdf"
+      },
+      {
+        "expected": 0.6931471805599453,
+        "id": "exp-quantile-50",
+        "input": {
+          "p": 0.5,
+          "rate": 1.0
+        },
+        "operation": "exponentialQuantile"
+      },
+      {
+        "expected": 2.302585092994046,
+        "id": "exp-quantile-90",
+        "input": {
+          "p": 0.9,
+          "rate": 1.0
+        },
+        "operation": "exponentialQuantile"
+      },
+      {
+        "expected": 1.0,
+        "id": "exp-mean-rate1",
+        "input": {
+          "rate": 1.0
+        },
+        "operation": "exponentialMean"
+      },
+      {
+        "expected": 0.5,
+        "id": "exp-mean-rate2",
+        "input": {
+          "rate": 2.0
+        },
+        "operation": "exponentialMean"
+      },
+      {
+        "expected": 1.0,
+        "id": "exp-variance-rate1",
+        "input": {
+          "rate": 1.0
+        },
+        "operation": "exponentialVariance"
+      },
+      {
+        "expected": 1.0,
+        "id": "exp-entropy-rate1",
+        "input": {
+          "rate": 1.0
+        },
+        "operation": "exponentialEntropy"
+      },
+      {
+        "expected": 1.0,
+        "id": "unif-pdf-inside",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.5
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "unif-pdf-outside",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": -0.1
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "unif-logpdf-inside",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.5
+        },
+        "operation": "uniformLogpdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "unif-cdf-mid",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.5
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "unif-cdf-below",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": -1.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "unif-cdf-above",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 2.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 0.25,
+        "id": "unif-quantile-25",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "p": 0.25
+        },
+        "operation": "uniformQuantile"
+      },
+      {
+        "expected": 6.5,
+        "id": "unif-quantile-75",
+        "input": {
+          "high": 8.0,
+          "low": 2.0,
+          "p": 0.75
+        },
+        "operation": "uniformQuantile"
+      },
+      {
+        "expected": 0.5,
+        "id": "unif-mean-01",
+        "input": {
+          "high": 1.0,
+          "low": 0.0
+        },
+        "operation": "uniformMean"
+      },
+      {
+        "expected": 5.0,
+        "id": "unif-mean-28",
+        "input": {
+          "high": 8.0,
+          "low": 2.0
+        },
+        "operation": "uniformMean"
+      },
+      {
+        "expected": 0.08333333333333333,
+        "id": "unif-variance-01",
+        "input": {
+          "high": 1.0,
+          "low": 0.0
+        },
+        "operation": "uniformVariance"
+      },
+      {
+        "expected": 0.0,
+        "id": "unif-entropy-01",
+        "input": {
+          "high": 1.0,
+          "low": 0.0
+        },
+        "operation": "uniformEntropy"
+      },
+      {
+        "expected": 1.791759469228055,
+        "id": "unif-entropy-28",
+        "input": {
+          "high": 8.0,
+          "low": 2.0
+        },
+        "operation": "uniformEntropy"
+      },
+      {
+        "expected": 1.5000000000000007,
+        "id": "beta-pdf-sym",
+        "input": {
+          "alpha": 2.0,
+          "beta": 2.0,
+          "x": 0.5
+        },
+        "operation": "betaPdf"
+      },
+      {
+        "expected": 2.1608999999999994,
+        "id": "beta-pdf-asym",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0,
+          "x": 0.3
+        },
+        "operation": "betaPdf"
+      },
+      {
+        "expected": 0.6366197723675814,
+        "id": "beta-pdf-ushaped",
+        "input": {
+          "alpha": 0.5,
+          "beta": 0.5,
+          "x": 0.5
+        },
+        "operation": "betaPdf"
+      },
+      {
+        "expected": -0.06453852113757108,
+        "id": "beta-logpdf-mid",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0,
+          "x": 0.5
+        },
+        "operation": "betaLogpdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "beta-cdf-sym",
+        "input": {
+          "alpha": 2.0,
+          "beta": 2.0,
+          "x": 0.5
+        },
+        "operation": "betaCdf"
+      },
+      {
+        "expected": 0.5798250000000003,
+        "id": "beta-cdf-asym",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0,
+          "x": 0.3
+        },
+        "operation": "betaCdf"
+      },
+      {
+        "expected": 0.26444998329566005,
+        "id": "beta-quantile-50",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0,
+          "p": 0.5
+        },
+        "operation": "betaQuantile"
+      },
+      {
+        "expected": 0.5103163065514917,
+        "id": "beta-quantile-90",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0,
+          "p": 0.9
+        },
+        "operation": "betaQuantile"
+      },
+      {
+        "expected": 0.2857142857142857,
+        "id": "beta-mean-25",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0
+        },
+        "operation": "betaMean"
+      },
+      {
+        "expected": 0.025510204081632654,
+        "id": "beta-variance-25",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0
+        },
+        "operation": "betaVariance"
+      },
+      {
+        "expected": -0.48453071499548805,
+        "id": "beta-entropy-25",
+        "input": {
+          "alpha": 2.0,
+          "beta": 5.0
+        },
+        "operation": "betaEntropy"
+      },
+      {
+        "expected": 0.36787944117144233,
+        "id": "gamma-pdf-1",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0,
+          "x": 1.0
+        },
+        "operation": "gammaPdf"
+      },
+      {
+        "expected": 0.2706705664732254,
+        "id": "gamma-pdf-2",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0,
+          "x": 2.0
+        },
+        "operation": "gammaPdf"
+      },
+      {
+        "expected": 0.43939128946772243,
+        "id": "gamma-pdf-small",
+        "input": {
+          "scale": 2.0,
+          "shape": 0.5,
+          "x": 0.5
+        },
+        "operation": "gammaPdf"
+      },
+      {
+        "expected": -1.0,
+        "id": "gamma-logpdf-1",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0,
+          "x": 1.0
+        },
+        "operation": "gammaLogpdf"
+      },
+      {
+        "expected": 0.2642411176571153,
+        "id": "gamma-cdf-1",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0,
+          "x": 1.0
+        },
+        "operation": "gammaCdf"
+      },
+      {
+        "expected": 0.9595723180054873,
+        "id": "gamma-cdf-5",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0,
+          "x": 5.0
+        },
+        "operation": "gammaCdf"
+      },
+      {
+        "expected": 1.6783469900166612,
+        "id": "gamma-quantile-50",
+        "input": {
+          "p": 0.5,
+          "scale": 1.0,
+          "shape": 2.0
+        },
+        "operation": "gammaQuantile"
+      },
+      {
+        "expected": 3.889720169867429,
+        "id": "gamma-quantile-90",
+        "input": {
+          "p": 0.9,
+          "scale": 1.0,
+          "shape": 2.0
+        },
+        "operation": "gammaQuantile"
+      },
+      {
+        "expected": 2.0,
+        "id": "gamma-mean-21",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0
+        },
+        "operation": "gammaMean"
+      },
+      {
+        "expected": 2.0,
+        "id": "gamma-variance-21",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0
+        },
+        "operation": "gammaVariance"
+      },
+      {
+        "expected": 1.5772156649015328,
+        "id": "gamma-entropy-21",
+        "input": {
+          "scale": 1.0,
+          "shape": 2.0
+        },
+        "operation": "gammaEntropy"
+      },
+      {
+        "expected": 0.36755259694786135,
+        "id": "studentt-pdf-0",
+        "input": {
+          "df": 3.0,
+          "x": 0.0
+        },
+        "operation": "studentTPdf"
+      },
+      {
+        "expected": 0.206748335783172,
+        "id": "studentt-pdf-1",
+        "input": {
+          "df": 3.0,
+          "x": 1.0
+        },
+        "operation": "studentTPdf"
+      },
+      {
+        "expected": 0.206748335783172,
+        "id": "studentt-pdf-neg1",
+        "input": {
+          "df": 3.0,
+          "x": -1.0
+        },
+        "operation": "studentTPdf"
+      },
+      {
+        "expected": 0.39563218489409685,
+        "id": "studentt-pdf-df30",
+        "input": {
+          "df": 30.0,
+          "x": 0.0
+        },
+        "operation": "studentTPdf"
+      },
+      {
+        "expected": -1.0008888496235098,
+        "id": "studentt-logpdf-0",
+        "input": {
+          "df": 3.0,
+          "x": 0.0
+        },
+        "operation": "studentTLogpdf"
+      },
+      {
+        "expected": -2.695484570397917,
+        "id": "studentt-logpdf-2",
+        "input": {
+          "df": 3.0,
+          "x": 2.0
+        },
+        "operation": "studentTLogpdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "studentt-cdf-0",
+        "input": {
+          "df": 3.0,
+          "x": 0.0
+        },
+        "operation": "studentTCdf"
+      },
+      {
+        "expected": 0.8044988905221148,
+        "id": "studentt-cdf-1",
+        "input": {
+          "df": 3.0,
+          "x": 1.0
+        },
+        "operation": "studentTCdf"
+      },
+      {
+        "expected": 0.06966298427942152,
+        "id": "studentt-cdf-neg2",
+        "input": {
+          "df": 3.0,
+          "x": -2.0
+        },
+        "operation": "studentTCdf"
+      },
+      {
+        "expected": 0.9703288435519748,
+        "id": "studentt-cdf-df30",
+        "input": {
+          "df": 30.0,
+          "x": 1.96
+        },
+        "operation": "studentTCdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "studentt-quantile-50",
+        "input": {
+          "df": 3.0,
+          "p": 0.5
+        },
+        "operation": "studentTQuantile"
+      },
+      {
+        "expected": 3.1824463052837078,
+        "id": "studentt-quantile-975",
+        "input": {
+          "df": 3.0,
+          "p": 0.975
+        },
+        "operation": "studentTQuantile"
+      },
+      {
+        "expected": -3.1824463052837086,
+        "id": "studentt-quantile-025",
+        "input": {
+          "df": 3.0,
+          "p": 0.025
+        },
+        "operation": "studentTQuantile"
+      },
+      {
+        "expected": 0.0,
+        "id": "studentt-mean-df3",
+        "input": {
+          "df": 3.0
+        },
+        "operation": "studentTMean"
+      },
+      {
+        "expected": 3.0,
+        "id": "studentt-variance-df3",
+        "input": {
+          "df": 3.0
+        },
+        "operation": "studentTVariance"
+      },
+      {
+        "expected": 1.0714285714285714,
+        "id": "studentt-variance-df30",
+        "input": {
+          "df": 30.0
+        },
+        "operation": "studentTVariance"
+      },
+      {
+        "expected": 0.1,
+        "id": "cat-pmf-k0",
+        "input": {
+          "k": 0,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalPmf"
+      },
+      {
+        "expected": 0.4,
+        "id": "cat-pmf-k3",
+        "input": {
+          "k": 3,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalPmf"
+      },
+      {
+        "expected": 0.5,
+        "id": "cat-pmf-fair",
+        "input": {
+          "k": 0,
+          "probs": [0.5, 0.5]
+        },
+        "operation": "categoricalPmf"
+      },
+      {
+        "expected": -2.3025850929940455,
+        "id": "cat-logpmf-k0",
+        "input": {
+          "k": 0,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalLogpmf"
+      },
+      {
+        "expected": -0.916290731874155,
+        "id": "cat-logpmf-k3",
+        "input": {
+          "k": 3,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalLogpmf"
+      },
+      {
+        "expected": 0.1,
+        "id": "cat-cdf-k0",
+        "input": {
+          "k": 0,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalCdf"
+      },
+      {
+        "expected": 0.6,
+        "id": "cat-cdf-k2",
+        "input": {
+          "k": 2,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "cat-cdf-k3",
+        "input": {
+          "k": 3,
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalCdf"
+      },
+      {
+        "expected": 2.0,
+        "id": "cat-mean-4class",
+        "input": {
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalMean"
+      },
+      {
+        "expected": 1.0,
+        "id": "cat-variance-4class",
+        "input": {
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalVariance"
+      },
+      {
+        "expected": 1.2798542258336676,
+        "id": "cat-entropy-4class",
+        "input": {
+          "probs": [0.1, 0.2, 0.3, 0.4]
+        },
+        "operation": "categoricalEntropy"
+      },
+      {
+        "expected": 0.6931471805599453,
+        "id": "cat-entropy-fair",
+        "input": {
+          "probs": [0.5, 0.5]
+        },
+        "operation": "categoricalEntropy"
+      },
+      {
+        "expected": 0.2460937500000002,
+        "id": "binom-pmf-k5",
+        "input": {
+          "k": 5,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialPmf"
+      },
+      {
+        "expected": 0.0009765624999999993,
+        "id": "binom-pmf-k0",
+        "input": {
+          "k": 0,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialPmf"
+      },
+      {
+        "expected": 0.0009765625,
+        "id": "binom-pmf-k10",
+        "input": {
+          "k": 10,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialPmf"
+      },
+      {
+        "expected": 0.07160367220526213,
+        "id": "binom-pmf-k3-p03",
+        "input": {
+          "k": 3,
+          "n": 20,
+          "p": 0.3
+        },
+        "operation": "binomialPmf"
+      },
+      {
+        "expected": -1.4020427180880288,
+        "id": "binom-logpmf-k5",
+        "input": {
+          "k": 5,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialLogpmf"
+      },
+      {
+        "expected": -6.931471805599453,
+        "id": "binom-logpmf-k0",
+        "input": {
+          "k": 0,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialLogpmf"
+      },
+      {
+        "expected": 0.623046875,
+        "id": "binom-cdf-k5",
+        "input": {
+          "k": 5,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialCdf"
+      },
+      {
+        "expected": 0.0009765625,
+        "id": "binom-cdf-k0",
+        "input": {
+          "k": 0,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "binom-cdf-k10",
+        "input": {
+          "k": 10,
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialCdf"
+      },
+      {
+        "expected": 5.0,
+        "id": "binom-mean-10-05",
+        "input": {
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialMean"
+      },
+      {
+        "expected": 6.0,
+        "id": "binom-mean-20-03",
+        "input": {
+          "n": 20,
+          "p": 0.3
+        },
+        "operation": "binomialMean"
+      },
+      {
+        "expected": 2.5,
+        "id": "binom-variance-10-05",
+        "input": {
+          "n": 10,
+          "p": 0.5
+        },
+        "operation": "binomialVariance"
+      },
+      {
+        "expected": 0.049787068367863944,
+        "id": "poisson-pmf-k0",
+        "input": {
+          "k": 0,
+          "mu": 3.0
+        },
+        "operation": "poissonPmf"
+      },
+      {
+        "expected": 0.22404180765538775,
+        "id": "poisson-pmf-k3",
+        "input": {
+          "k": 3,
+          "mu": 3.0
+        },
+        "operation": "poissonPmf"
+      },
+      {
+        "expected": 0.10081881344492458,
+        "id": "poisson-pmf-k5",
+        "input": {
+          "k": 5,
+          "mu": 3.0
+        },
+        "operation": "poissonPmf"
+      },
+      {
+        "expected": 0.3032653298563167,
+        "id": "poisson-pmf-k1-mu05",
+        "input": {
+          "k": 1,
+          "mu": 0.5
+        },
+        "operation": "poissonPmf"
+      },
+      {
+        "expected": -3.0,
+        "id": "poisson-logpmf-k0",
+        "input": {
+          "k": 0,
+          "mu": 3.0
+        },
+        "operation": "poissonLogpmf"
+      },
+      {
+        "expected": -1.4959226032237258,
+        "id": "poisson-logpmf-k3",
+        "input": {
+          "k": 3,
+          "mu": 3.0
+        },
+        "operation": "poissonLogpmf"
+      },
+      {
+        "expected": 0.04978706836786395,
+        "id": "poisson-cdf-k0",
+        "input": {
+          "k": 0,
+          "mu": 3.0
+        },
+        "operation": "poissonCdf"
+      },
+      {
+        "expected": 0.6472318887822313,
+        "id": "poisson-cdf-k3",
+        "input": {
+          "k": 3,
+          "mu": 3.0
+        },
+        "operation": "poissonCdf"
+      },
+      {
+        "expected": 0.9997076630493527,
+        "id": "poisson-cdf-k10",
+        "input": {
+          "k": 10,
+          "mu": 3.0
+        },
+        "operation": "poissonCdf"
+      },
+      {
+        "expected": 3.0,
+        "id": "poisson-mean-3",
+        "input": {
+          "mu": 3.0
+        },
+        "operation": "poissonMean"
+      },
+      {
+        "expected": 0.5,
+        "id": "poisson-mean-05",
+        "input": {
+          "mu": 0.5
+        },
+        "operation": "poissonMean"
+      },
+      {
+        "expected": 3.0,
+        "id": "poisson-variance-3",
+        "input": {
+          "mu": 3.0
+        },
+        "operation": "poissonVariance"
+      }
+    ]
+  }
+}

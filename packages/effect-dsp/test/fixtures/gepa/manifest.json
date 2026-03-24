@@ -1,0 +1,26 @@
+{
+  "fixtureSet": "gepa",
+  "version": 1,
+  "fixtures": [
+    {
+      "name": "gepa.pareto.score-matrix.basic",
+      "file": "pareto/score-matrix.basic.json"
+    },
+    {
+      "name": "gepa.pareto.score-matrix.ties",
+      "file": "pareto/score-matrix.ties.json"
+    },
+    {
+      "name": "gepa.selection.weights.seed-42",
+      "file": "selection/weights.seed-42.json"
+    },
+    {
+      "name": "gepa.merge.common-ancestor-cases",
+      "file": "merge/common-ancestor-cases.json"
+    },
+    {
+      "name": "gepa.reflect.dataset-shape",
+      "file": "reflect/dataset-shape.json"
+    }
+  ]
+}

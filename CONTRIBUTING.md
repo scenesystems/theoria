@@ -37,8 +37,8 @@ bun run build       # Build
 Per-package:
 
 ```sh
-bun --filter effect-search run check
-bun --filter effect-search run test
+bun run --filter effect-search check
+bun run --filter effect-search test
 ```
 
 ## Fixture Generation

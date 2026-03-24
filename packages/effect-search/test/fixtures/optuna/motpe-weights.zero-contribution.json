@@ -1,0 +1,25 @@
+{
+  "fixture": "motpe-weights.zero-contribution",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "directions": ["minimize", "minimize"],
+    "expectedContributions": [0.0, 0.0, 0.0],
+    "expectedWeights": [1e-12, 1e-12, 1e-12],
+    "points": [
+      [1, 1],
+      [1, 1],
+      [1, 1]
+    ],
+    "referencePoint": [2, 2]
+  }
+}

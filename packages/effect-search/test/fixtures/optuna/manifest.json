@@ -1,0 +1,185 @@
+{
+  "fixtures": [
+    {
+      "file": "categorical-parzen/basic.json",
+      "name": "categorical-parzen.basic"
+    },
+    {
+      "file": "categorical-parzen/distance.json",
+      "name": "categorical-parzen.distance"
+    },
+    {
+      "file": "categorical-parzen/recency-ramp.json",
+      "name": "categorical-parzen.recency-ramp"
+    },
+    {
+      "file": "conditional/filtering.json",
+      "name": "conditional.filtering"
+    },
+    {
+      "file": "conditional/group-decomposition.json",
+      "name": "conditional.group-decomposition"
+    },
+    {
+      "file": "constrained-tpe/parity.json",
+      "name": "constrained-tpe.parity"
+    },
+    {
+      "file": "continuous-kde/basic.json",
+      "name": "continuous-kde.basic"
+    },
+    {
+      "file": "continuous-kde/bimodal-separated.json",
+      "name": "continuous-kde.bimodal-separated"
+    },
+    {
+      "file": "continuous-kde/boundary-high-skew.json",
+      "name": "continuous-kde.boundary-high-skew"
+    },
+    {
+      "file": "continuous-kde/boundary-low-skew.json",
+      "name": "continuous-kde.boundary-low-skew"
+    },
+    {
+      "file": "continuous-kde/endpoint-observations.json",
+      "name": "continuous-kde.endpoint-observations"
+    },
+    {
+      "file": "continuous-kde/extreme-asymmetric-range.json",
+      "name": "continuous-kde.extreme-asymmetric-range"
+    },
+    {
+      "file": "continuous-kde/magic-clip.json",
+      "name": "continuous-kde.magic-clip"
+    },
+    {
+      "file": "continuous-kde/micro-positive-span.json",
+      "name": "continuous-kde.micro-positive-span"
+    },
+    {
+      "file": "continuous-kde/narrow-support.json",
+      "name": "continuous-kde.narrow-support"
+    },
+    {
+      "file": "continuous-kde/offset-positive-range.json",
+      "name": "continuous-kde.offset-positive-range"
+    },
+    {
+      "file": "continuous-kde/outlier-cluster.json",
+      "name": "continuous-kde.outlier-cluster"
+    },
+    {
+      "file": "continuous-kde/prior-only.json",
+      "name": "continuous-kde.prior-only"
+    },
+    {
+      "file": "continuous-kde/recency-ramp.json",
+      "name": "continuous-kde.recency-ramp"
+    },
+    {
+      "file": "continuous-kde/repeated-support-point.json",
+      "name": "continuous-kde.repeated-support-point"
+    },
+    {
+      "file": "continuous-kde/single-observation.json",
+      "name": "continuous-kde.single-observation"
+    },
+    {
+      "file": "continuous-kde/tiny-cross-zero-span.json",
+      "name": "continuous-kde.tiny-cross-zero-span"
+    },
+    {
+      "file": "continuous-kde/upper-boundary-cluster.json",
+      "name": "continuous-kde.upper-boundary-cluster"
+    },
+    {
+      "file": "continuous-kde/wide-negative-range.json",
+      "name": "continuous-kde.wide-negative-range"
+    },
+    {
+      "file": "ei/basic.json",
+      "name": "ei.basic"
+    },
+    {
+      "file": "ei/mixed-trace.json",
+      "name": "ei.mixed-trace"
+    },
+    {
+      "file": "gamma/default-gamma.json",
+      "name": "gamma.default-gamma"
+    },
+    {
+      "file": "mixed-space/joint-trace.json",
+      "name": "mixed-space.joint-trace"
+    },
+    {
+      "file": "mixed-space/joint-trace-recency-shift.json",
+      "name": "mixed-space.joint-trace.recency-shift"
+    },
+    {
+      "file": "motpe-reference/reference-point.json",
+      "name": "motpe-reference.reference-point"
+    },
+    {
+      "file": "motpe-split/multi-rank-hssp.json",
+      "name": "motpe-split.multi-rank-hssp"
+    },
+    {
+      "file": "motpe-study.2obj.json",
+      "name": "motpe-study.2obj"
+    },
+    {
+      "file": "motpe-weights.2obj.json",
+      "name": "motpe-weights.2obj"
+    },
+    {
+      "file": "motpe-weights.mixed-directions.json",
+      "name": "motpe-weights.mixed-directions"
+    },
+    {
+      "file": "motpe-weights.zero-contribution.json",
+      "name": "motpe-weights.zero-contribution"
+    },
+    {
+      "file": "multivariate-gaussian/parity.json",
+      "name": "multivariate-gaussian.parity"
+    },
+    {
+      "file": "noise-bandwidth/parity.json",
+      "name": "noise-bandwidth.parity"
+    },
+    {
+      "file": "pruned-score/pruned-ordering.json",
+      "name": "pruned-score.pruned-ordering"
+    },
+    {
+      "file": "pruning/percentile-pruner.json",
+      "name": "pruning.percentile-pruner"
+    },
+    {
+      "file": "pruning/report-contract.json",
+      "name": "pruning.report-contract"
+    },
+    {
+      "file": "split-trials/single-and-liar.json",
+      "name": "split-trials.single-and-liar"
+    },
+    {
+      "file": "tpe-categorical-study.replay.json",
+      "name": "tpe-categorical-study.replay"
+    },
+    {
+      "file": "truncated-normal/edge-cases.json",
+      "name": "truncated-normal.edge-cases"
+    }
+  ],
+  "generator": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generatorVersion": "2.0.0",
+    "pythonVersion": "3.11",
+    "script": "scripts/generate-optuna-fixtures.py",
+    "upstream": "optuna",
+    "upstreamVersion": "4.3.0"
+  },
+  "schemaVersion": "1.0.0"
+}

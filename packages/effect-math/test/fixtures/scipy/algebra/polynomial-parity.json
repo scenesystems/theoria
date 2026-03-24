@@ -1,0 +1,294 @@
+{
+  "fixture": "algebra.polynomial-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 5.0,
+        "id": "polyEval-constant",
+        "input": {
+          "coefficients": [5.0],
+          "x": 3.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 5.0,
+        "id": "polyEval-linear",
+        "input": {
+          "coefficients": [2.0, 3.0],
+          "x": 1.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 4.0,
+        "id": "polyEval-quadratic",
+        "input": {
+          "coefficients": [1.0, -2.0, 1.0],
+          "x": 3.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 13.0,
+        "id": "polyEval-cubic",
+        "input": {
+          "coefficients": [1.0, 0.0, -1.0, 2.0],
+          "x": 2.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 1.0,
+        "id": "polyEval-zero",
+        "input": {
+          "coefficients": [1.0, 2.0, 3.0],
+          "x": 0.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 3.0,
+        "id": "polyEval-negative-x",
+        "input": {
+          "coefficients": [1.0, 1.0, 1.0],
+          "x": -2.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 17.0,
+        "id": "polyEval-high-degree",
+        "input": {
+          "coefficients": [1.0, 0.0, 0.0, 0.0, 1.0],
+          "x": 2.0
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": 2.75,
+        "id": "polyEval-fractional",
+        "input": {
+          "coefficients": [0.5, -1.5, 2.0],
+          "x": 1.5
+        },
+        "operation": "polyEval"
+      },
+      {
+        "expected": [0.0],
+        "id": "polyDeriv-constant",
+        "input": {
+          "coefficients": [5.0]
+        },
+        "operation": "polyDerivative"
+      },
+      {
+        "expected": [2.0],
+        "id": "polyDeriv-linear",
+        "input": {
+          "coefficients": [3.0, 2.0]
+        },
+        "operation": "polyDerivative"
+      },
+      {
+        "expected": [-2.0, 2.0],
+        "id": "polyDeriv-quadratic",
+        "input": {
+          "coefficients": [1.0, -2.0, 1.0]
+        },
+        "operation": "polyDerivative"
+      },
+      {
+        "expected": [0.0, -6.0, 3.0],
+        "id": "polyDeriv-cubic",
+        "input": {
+          "coefficients": [2.0, 0.0, -3.0, 1.0]
+        },
+        "operation": "polyDerivative"
+      },
+      {
+        "expected": [0.0, 0.0, 0.0, 4.0],
+        "id": "polyDeriv-quartic",
+        "input": {
+          "coefficients": [1.0, 0.0, 0.0, 0.0, 1.0]
+        },
+        "operation": "polyDerivative"
+      },
+      {
+        "expected": 1,
+        "id": "gcd-coprime",
+        "input": {
+          "a": 7,
+          "b": 13
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 4,
+        "id": "gcd-common",
+        "input": {
+          "a": 12,
+          "b": 8
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 6,
+        "id": "gcd-equal",
+        "input": {
+          "a": 6,
+          "b": 6
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 1,
+        "id": "gcd-one",
+        "input": {
+          "a": 1,
+          "b": 100
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 21,
+        "id": "gcd-large",
+        "input": {
+          "a": 462,
+          "b": 1071
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 5,
+        "id": "gcd-zero-a",
+        "input": {
+          "a": 0,
+          "b": 5
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 5,
+        "id": "gcd-zero-b",
+        "input": {
+          "a": 5,
+          "b": 0
+        },
+        "operation": "gcd"
+      },
+      {
+        "expected": 91,
+        "id": "lcm-coprime",
+        "input": {
+          "a": 7,
+          "b": 13
+        },
+        "operation": "lcm"
+      },
+      {
+        "expected": 24,
+        "id": "lcm-common",
+        "input": {
+          "a": 12,
+          "b": 8
+        },
+        "operation": "lcm"
+      },
+      {
+        "expected": 6,
+        "id": "lcm-equal",
+        "input": {
+          "a": 6,
+          "b": 6
+        },
+        "operation": "lcm"
+      },
+      {
+        "expected": 100,
+        "id": "lcm-one",
+        "input": {
+          "a": 1,
+          "b": 100
+        },
+        "operation": "lcm"
+      },
+      {
+        "expected": 23562,
+        "id": "lcm-large",
+        "input": {
+          "a": 462,
+          "b": 1071
+        },
+        "operation": "lcm"
+      },
+      {
+        "expected": 1.0,
+        "id": "factorial-0",
+        "input": {
+          "n": 0
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 1.0,
+        "id": "factorial-1",
+        "input": {
+          "n": 1
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 120.0,
+        "id": "factorial-5",
+        "input": {
+          "n": 5
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 3628800.0,
+        "id": "factorial-10",
+        "input": {
+          "n": 10
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 479001600.0,
+        "id": "factorial-12",
+        "input": {
+          "n": 12
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 1307674368000.0,
+        "id": "factorial-15",
+        "input": {
+          "n": 15
+        },
+        "operation": "factorial"
+      },
+      {
+        "expected": 2.43290200817664e18,
+        "id": "factorial-20",
+        "input": {
+          "n": 20
+        },
+        "operation": "factorial"
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "calculus-trapezoid-stable",
+  "input": {
+    "values": [0, 1, 4, 9, 16],
+    "dx": 1
+  },
+  "expected": {
+    "result": 22
+  }
+}

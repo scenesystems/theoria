@@ -1,0 +1,88 @@
+{
+  "fixture": "multivariate-gaussian.parity",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "bandwidthCases": [
+      {
+        "dimensions": 2,
+        "expectedBandwidth": 1.3625841381159225,
+        "expectedFactor": 0.6812920690579612,
+        "id": "10x2",
+        "sampleCount": 10,
+        "stddev": 2.0
+      },
+      {
+        "dimensions": 2,
+        "expectedBandwidth": 0.9283177667225558,
+        "expectedFactor": 0.4641588833612779,
+        "id": "100x2",
+        "sampleCount": 100,
+        "stddev": 2.0
+      }
+    ],
+    "densityCases": [
+      {
+        "expectedLogDensity": -1.8378770664093453,
+        "id": "standard-origin",
+        "mean": [0.0, 0.0],
+        "point": [0.0, 0.0],
+        "sigmas": [1.0, 1.0]
+      },
+      {
+        "expectedLogDensity": -2.8378770664093453,
+        "id": "unit-offset",
+        "mean": [0.0, 0.0],
+        "point": [1.0, -1.0],
+        "sigmas": [1.0, 1.0]
+      },
+      {
+        "expectedLogDensity": -0.28871092210109006,
+        "id": "asymmetric-sigma",
+        "mean": [0.5, -0.75],
+        "point": [0.25, -0.5],
+        "sigmas": [0.2, 0.4]
+      }
+    ],
+    "mixtureCase": {
+      "componentRoll": 0.2,
+      "expectedLogDensity": 1.574801336561569,
+      "expectedSample": [0.16146795335924322, -0.19511989745839187],
+      "means": [
+        [0.2, -0.3],
+        [1.1, 0.6]
+      ],
+      "sigmas": [
+        [0.1, 0.2],
+        [0.3, 0.4]
+      ],
+      "valueRolls": [0.35, 0.7],
+      "weights": [0.75, 0.25]
+    },
+    "samplingCases": [
+      {
+        "expectedSample": [0.24368968689107984, -0.4873793737821598],
+        "id": "kernel-a",
+        "mean": [0.5, -1.0],
+        "rolls": [0.1, 0.9],
+        "sigmas": [0.2, 0.4]
+      },
+      {
+        "expectedSample": [1.33867148609753, 0.6713399230937939],
+        "id": "kernel-b",
+        "mean": [1.25, 0.75],
+        "rolls": [0.6, 0.3],
+        "sigmas": [0.35, 0.15]
+      }
+    ]
+  }
+}

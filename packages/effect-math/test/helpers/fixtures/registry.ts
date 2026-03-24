@@ -1,0 +1,69 @@
+import { Context, Effect, Layer, Option } from "effect"
+
+import { FixtureNotFoundError, type FixtureRegistryError } from "./errors.js"
+import { findManifestEntry, loadFixtureByEntry, loadManifest } from "./io.js"
+import type { FixtureName, KnownFixture } from "./schemas.js"
+
+const FIXTURE_ROOT_URL = new URL("../../fixtures/scipy/", import.meta.url)
+const DEFAULT_MANIFEST_FILE = "manifest.json"
+
+export class FixtureRegistry extends Context.Tag("effect-math/test/helpers/FixtureRegistry")<
+  FixtureRegistry,
+  {
+    readonly load: (
+      name: FixtureName
+    ) => Effect.Effect<KnownFixture, FixtureRegistryError>
+    readonly validateManifest: Effect.Effect<void, FixtureRegistryError>
+  }
+>() {}
+
+export const makeFixtureRegistry = (
+  options: {
+    readonly rootUrl?: URL
+    readonly manifestFileName?: string
+  } = {}
+): Context.Tag.Service<FixtureRegistry> => {
+  const rootUrl = options.rootUrl ?? FIXTURE_ROOT_URL
+  const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
+
+  const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
+    Effect.gen(function*() {
+      const manifest = yield* loadManifest(rootUrl, manifestFileName)
+      const entry = findManifestEntry(manifest, name)
+
+      return yield* Option.match(entry, {
+        onNone: () =>
+          Effect.fail(
+            new FixtureNotFoundError({
+              fixture: name
+            })
+          ),
+        onSome: (value) => loadFixtureByEntry(rootUrl, value)
+      })
+    })
+
+  const validateManifest = Effect.gen(function*() {
+    const manifest = yield* loadManifest(rootUrl, manifestFileName)
+    yield* Effect.forEach(manifest.fixtures, (entry) =>
+      loadFixtureByEntry(rootUrl, entry).pipe(
+        Effect.asVoid
+      ))
+  })
+
+  return {
+    load,
+    validateManifest
+  }
+}
+
+export const FixtureRegistryLive = Layer.succeed(FixtureRegistry, makeFixtureRegistry())
+
+export const loadFixture = (
+  name: FixtureName
+): Effect.Effect<KnownFixture, FixtureRegistryError, FixtureRegistry> =>
+  Effect.flatMap(FixtureRegistry, (registry) => registry.load(name))
+
+export const validateFixtureManifest: Effect.Effect<void, FixtureRegistryError, FixtureRegistry> = Effect.flatMap(
+  FixtureRegistry,
+  (registry) => registry.validateManifest
+)

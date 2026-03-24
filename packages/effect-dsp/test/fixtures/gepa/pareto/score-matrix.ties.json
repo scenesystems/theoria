@@ -1,0 +1,28 @@
+{
+  "fixture": "gepa.pareto.score-matrix.ties",
+  "payload": {
+    "objectiveDirection": "maximize",
+    "scores": [
+      [0.7, 0.7, 0.7],
+      [0.7, 0.7, 0.7],
+      [0.6, 0.8, 0.7]
+    ],
+    "expectedFrontierIndices": [0, 1, 2],
+    "expectedDominatedIndices": [],
+    "expectedHoldings": [
+      { "exampleIndex": 0, "bestScore": 0.7, "holders": [0, 1] },
+      { "exampleIndex": 1, "bestScore": 0.8, "holders": [2] },
+      { "exampleIndex": 2, "bestScore": 0.7, "holders": [0, 1, 2] }
+    ],
+    "expectedSelectionWeights": [
+      { "candidateIndex": 0, "weight": 2 },
+      { "candidateIndex": 1, "weight": 2 },
+      { "candidateIndex": 2, "weight": 2 }
+    ],
+    "sampling": {
+      "seed": 42,
+      "draws": 10000,
+      "tolerance": 0.02
+    }
+  }
+}

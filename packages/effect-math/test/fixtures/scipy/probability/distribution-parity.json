@@ -1,0 +1,310 @@
+{
+  "fixture": "probability.distribution-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 0.3989422804014327,
+        "id": "normal-pdf-at-zero",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.24197072451914337,
+        "id": "normal-pdf-at-one",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.24197072451914337,
+        "id": "normal-pdf-at-minus-one",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": -1.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.0044318484119380075,
+        "id": "normal-pdf-tail-3sigma",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 3.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 6.075882849823286e-9,
+        "id": "normal-pdf-tail-6sigma",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 6.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.19947114020071635,
+        "id": "normal-pdf-shifted",
+        "input": {
+          "mu": 5.0,
+          "sigma": 2.0,
+          "x": 5.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 39.89422804014327,
+        "id": "normal-pdf-narrow",
+        "input": {
+          "mu": 0.0,
+          "sigma": 0.01,
+          "x": 0.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.003989422804014327,
+        "id": "normal-pdf-wide",
+        "input": {
+          "mu": 0.0,
+          "sigma": 100.0,
+          "x": 0.0
+        },
+        "operation": "normalPdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "normal-cdf-at-zero",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 0.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.8413447460685429,
+        "id": "normal-cdf-at-one",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 1.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.15865525393145707,
+        "id": "normal-cdf-at-minus-one",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": -1.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.9986501019683699,
+        "id": "normal-cdf-tail-3sigma",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 3.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.001349898031630093,
+        "id": "normal-cdf-tail-neg3sigma",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": -3.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.9999999990134123,
+        "id": "normal-cdf-tail-6sigma",
+        "input": {
+          "mu": 0.0,
+          "sigma": 1.0,
+          "x": 6.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 0.8413447460685429,
+        "id": "normal-cdf-shifted",
+        "input": {
+          "mu": 5.0,
+          "sigma": 2.0,
+          "x": 7.0
+        },
+        "operation": "normalCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "uniform-pdf-inside",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.5
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "uniform-pdf-at-low",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.0
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "uniform-pdf-at-high",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 1.0
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "uniform-pdf-below",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": -0.1
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "uniform-pdf-above",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 1.1
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.01,
+        "id": "uniform-pdf-wide",
+        "input": {
+          "high": 100.0,
+          "low": 0.0,
+          "x": 50.0
+        },
+        "operation": "uniformPdf"
+      },
+      {
+        "expected": 0.5,
+        "id": "uniform-cdf-inside",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.5
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "uniform-cdf-at-low",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 0.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "uniform-cdf-at-high",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 1.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 0.0,
+        "id": "uniform-cdf-below",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": -1.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 1.0,
+        "id": "uniform-cdf-above",
+        "input": {
+          "high": 1.0,
+          "low": 0.0,
+          "x": 2.0
+        },
+        "operation": "uniformCdf"
+      },
+      {
+        "expected": 0.6931471805599453,
+        "id": "entropy-uniform-2",
+        "input": {
+          "probabilities": [0.5, 0.5]
+        },
+        "operation": "entropy"
+      },
+      {
+        "expected": 1.3862943611198906,
+        "id": "entropy-uniform-4",
+        "input": {
+          "probabilities": [0.25, 0.25, 0.25, 0.25]
+        },
+        "operation": "entropy"
+      },
+      {
+        "expected": 0.0,
+        "id": "entropy-degenerate",
+        "input": {
+          "probabilities": [1.0, 0.0]
+        },
+        "operation": "entropy"
+      },
+      {
+        "expected": 0.39439769144744274,
+        "id": "entropy-skewed",
+        "input": {
+          "probabilities": [0.9, 0.05, 0.05]
+        },
+        "operation": "entropy"
+      }
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "fixture": "dspy.chat.qa-basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "signatureDescription": "Answer questions with short factual answers",
+    "inputFields": [
+      {
+        "name": "question",
+        "type": "str",
+        "description": "The question to answer"
+      }
+    ],
+    "outputFields": [
+      {
+        "name": "answer",
+        "type": "str",
+        "description": "A concise factual answer"
+      }
+    ],
+    "query": "What is the capital of Japan?",
+    "demo": null,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Your input fields are:\n1. `question` (str): The question to answer\nYour output fields are:\n1. `answer` (str): A concise factual answer\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Answer questions with short factual answers"
+      },
+      {
+        "role": "user",
+        "content": "[[ ## question ## ]]\nWhat is the capital of Japan?\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+      }
+    ],
+    "fieldMarkers": ["[[ ## question ## ]]", "[[ ## answer ## ]]", "[[ ## completed ## ]]"],
+    "outputRequirements": "Respond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+  }
+}

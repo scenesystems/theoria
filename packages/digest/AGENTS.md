@@ -19,36 +19,30 @@ Cryptographic content hashing and canonicalization for Effect.
 
 All four gates must pass clean before any work is considered complete.
 
-## Architecture: Dual-Layer Package
+## Architecture
 
-Two entrypoints, two dependency profiles:
+Single entrypoint — `@scenesystems/digest`. Effect is a required
+peer dependency. Schema is the single source of truth for all types.
 
-| Entrypoint | Import path                   | Runtime deps    | Effect required? |
-| ---------- | ----------------------------- | --------------- | ---------------- |
-| Core (`.`) | `@scenesystems/digest`        | `@noble/hashes` | No               |
-| Schema     | `@scenesystems/digest/schema` | `@noble/hashes` | Yes (peer)       |
+### Modules
 
-### Core Layer (`src/index.ts`)
-
-Pure JS/TS functions. Zero Effect dependency. Consumers who only need
-hashing and canonicalization use this entrypoint.
-
-- `src/algorithms/blake3.ts` — BLAKE3-256 digest
+- `src/algorithms/blake3.ts` — BLAKE3 multi-mode: hash, keyed MAC, derive_key KDF
 - `src/algorithms/sha256.ts` — SHA-256 digest
 - `src/canonicalize.ts` — RFC 8785 JCS canonicalization
-- `src/encoding.ts` — base64url encode/decode
+- `src/encoding.ts` — base64url encode/decode, hex encode/decode, utf8ToBytes
 - `src/digest.ts` — unified canonicalize → hash → encode pipeline
-- `src/contracts.ts` — pure type contracts (DigestAlgorithm, etc.)
+- `src/convenience.ts` — algorithm-parameterized digest functions (digestBytes, digestUtf8, base64url/hex variants, canonicalJsonBytes)
+- `src/digestSchemaValue.ts` — Schema.encode → JCS → hash pipeline
+- `src/hmac.ts` — HMAC-SHA256, HMAC-SHA1, hmacSha256Base64Url, hmacSha1Hex
+- `src/kdf.ts` — HKDF-SHA256 and HKDF-SHA512 key derivation (RFC 5869)
 
-### Schema Layer (`src/schema.ts`)
+### Schemas (`src/schemas/`)
 
-Effect Schema integration. Requires `effect` peer dependency.
-
-- `src/schema/DigestAlgorithm.ts` — `Schema.Literal("blake3-256", "sha256")`
-- `src/schema/Digest256.ts` — branded 43-char base64url schema
-- `src/schema/ContentDigest.ts` — algorithm-tagged digest pair
-- `src/schema/durableFingerprint.ts` — Effect-wrapped canonical fingerprinting
-- `src/schema/errors.ts` — `Schema.TaggedError` types
+- `src/schemas/DigestAlgorithm.ts` — `Schema.Literal("blake3-256", "sha256")`
+- `src/schemas/Digest256.ts` — branded 43-char base64url schema
+- `src/schemas/ContentDigest.ts` — algorithm-tagged digest pair
+- `src/schemas/durableFingerprint.ts` — Effect-wrapped canonical fingerprinting
+- `src/schemas/errors.ts` — `Schema.TaggedError` types
 
 ### Internal (`src/internal/`)
 
@@ -60,15 +54,13 @@ Private implementation. Blocked from consumers via exports map.
 
 ## Conventions
 
-- **Effect-native discipline** applies to the schema layer and all tests
-- **Core layer is vanilla TS** — no Effect imports in `src/algorithms/`, `src/canonicalize.ts`, `src/encoding.ts`, `src/digest.ts`, `src/contracts.ts`
-- **Tests always use `@effect/vitest`** with `it.effect()` for schema-layer tests
+- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
+- **Tests always use `@effect/vitest`** with `it.effect()` for schema tests
 - **Golden test vectors** from RFC 8785, NIST FIPS 180-4, and BLAKE3 reference
-- **Single source of truth** — algorithms and contracts defined once, consumed by both layers
+- **Schema is the single source of truth** — types are defined as Schema in `src/schemas/`, extracted via `Schema.Type` and `import type`
 
 ## Governance
 
 - `internal/*` blocked from consumers via exports map
-- Core entrypoint must have zero Effect imports (verified by governance test)
 - No `@noble/hashes` types leak through public surface
 - 240 LOC file-size limit applies

@@ -1,0 +1,41 @@
+{
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/effect-search.git"
+  },
+  "homepage": "https://github.com/scenesystems/effect-search",
+  "keywords": [
+    "effect",
+    "optimization",
+    "bayesian-optimization",
+    "hyperparameter-optimization",
+    "tpe",
+    "motpe",
+    "hyperband",
+    "bohb",
+    "pareto",
+    "black-box-optimization"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": "./src/index.ts",
+    "./Cache": "./src/Cache/index.ts",
+    "./Contracts": "./src/contracts/index.ts",
+    "./Errors": "./src/Errors/index.ts",
+    "./Experimental": "./src/experimental/index.ts",
+    "./Pareto": "./src/Pareto/index.ts",
+    "./Sampler": "./src/Sampler/index.ts",
+    "./Scheduler": "./src/Scheduler/index.ts",
+    "./SearchSpace": "./src/SearchSpace/index.ts",
+    "./Study": "./src/Study/index.ts",
+    "./StudyEvent": "./src/StudyEvent/index.ts",
+    "./Trial": "./src/Trial/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./experimental": "./src/experimental/index.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "publish:check": "bun run scripts/verify-publish-readiness.ts",
+    "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "fixtures": [
+    {
+      "file": "algebra/polynomial-parity.json",
+      "name": "algebra.polynomial-parity"
+    },
+    {
+      "file": "calculus/numerical-parity.json",
+      "name": "calculus.numerical-parity"
+    },
+    {
+      "file": "complex/arithmetic-parity.json",
+      "name": "complex.arithmetic-parity"
+    },
+    {
+      "file": "distribution/algebra-parity.json",
+      "name": "distribution.algebra-parity"
+    },
+    {
+      "file": "geometry/distance-parity.json",
+      "name": "geometry.distance-parity"
+    },
+    {
+      "file": "linalg/vector-parity.json",
+      "name": "linalg.vector-parity"
+    },
+    {
+      "file": "numeric/logspace-parity.json",
+      "name": "numeric.logspace-parity"
+    },
+    {
+      "file": "numeric/scalar-parity.json",
+      "name": "numeric.scalar-parity"
+    },
+    {
+      "file": "optimization/solver-parity.json",
+      "name": "optimization.solver-parity"
+    },
+    {
+      "file": "probability/distribution-parity.json",
+      "name": "probability.distribution-parity"
+    },
+    {
+      "file": "special/function-parity.json",
+      "name": "special.function-parity"
+    },
+    {
+      "file": "special/inverse-parity.json",
+      "name": "special.inverse-parity"
+    },
+    {
+      "file": "statistics/estimator-parity.json",
+      "name": "statistics.estimator-parity"
+    }
+  ],
+  "generator": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatorVersion": "1.0.0",
+    "numpyVersion": "1.26.4",
+    "pythonVersion": "3.13.5",
+    "script": "scripts/generate-scipy-fixtures.py",
+    "upstream": "scipy",
+    "upstreamVersion": "1.17.1"
+  },
+  "schemaVersion": "1.0.0"
+}

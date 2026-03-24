@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "algorithm": "blake3-256",
+  "fixtures": [
+    {
+      "name": "geometry-euclidean-distance-stable",
+      "path": "test/fixtures/geometry-boundary.fixture.json",
+      "hash": "blake3-256:8Q39QRJwY1tS-IR9WniPQ_pKHWgYDOgpkiC0y5EnFHw"
+    }
+  ]
+}

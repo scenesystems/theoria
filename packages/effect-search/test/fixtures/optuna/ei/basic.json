@@ -1,0 +1,50 @@
+{
+  "fixture": "ei.basic",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "expectedBestIndex": 0,
+    "scoreTrace": [
+      {
+        "candidate": "x=0.050",
+        "expected": 2.3064026364571615,
+        "logG": -1.6353711538931905,
+        "logL": 0.6710314825639709
+      },
+      {
+        "candidate": "x=0.200",
+        "expected": 2.09844570514058,
+        "logG": -1.3001401438326687,
+        "logL": 0.7983055613079113
+      },
+      {
+        "candidate": "x=0.400",
+        "expected": 0.3297275590602149,
+        "logG": -0.23328076005914222,
+        "logL": 0.09644679900107267
+      },
+      {
+        "candidate": "x=0.700",
+        "expected": -1.8413907323638927,
+        "logG": 0.6104247688250211,
+        "logL": -1.2309659635388717
+      },
+      {
+        "candidate": "x=0.900",
+        "expected": -1.8191094866235225,
+        "logG": 0.24588433703164758,
+        "logL": -1.573225149591875
+      }
+    ],
+    "scoreVector": [2.3064026364571615, 2.09844570514058, 0.3297275590602149, -1.8413907323638927, -1.8191094866235225]
+  }
+}

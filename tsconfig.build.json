@@ -5,5 +5,12 @@
     "noEmit": true
   },
   "files": [],
-  "references": [{ "path": "./packages/digest/tsconfig.build.json" }]
+  "references": [
+    { "path": "./packages/digest/tsconfig.build.json" },
+    { "path": "./packages/effect-dsp/tsconfig.build.json" },
+    { "path": "./packages/effect-math/tsconfig.build.json" },
+    { "path": "./packages/effect-search/tsconfig.build.json" },
+    { "path": "./packages/seal/tsconfig.build.json" },
+    { "path": "./packages/sign/tsconfig.build.json" }
+  ]
 }

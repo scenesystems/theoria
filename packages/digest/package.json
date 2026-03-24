@@ -27,36 +27,29 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": true,
+    "directory": "dist"
   },
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "default": "./dist/schema.js"
-    }
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
-    "test": "vitest run",
-    "build": "tsc -b tsconfig.build.json",
-    "clean": "rm -rf dist .tsbuildinfo"
+    "test": "vitest run --root ../.. packages/digest/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
   },
   "dependencies": {
-    "@noble/hashes": "^1.8.0"
+    "@noble/hashes": "^2.0.0"
   },
   "peerDependencies": {
-    "effect": "^3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "effect": {
-      "optional": true
-    }
+    "effect": "^3.20.0"
   }
 }

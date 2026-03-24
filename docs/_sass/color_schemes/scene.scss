@@ -1,0 +1,40 @@
+// Scene Systems — Ocean Teal color scheme
+// Source: @scene/theme packages/theme/src/colors.ts
+
+$color-scheme: dark;
+
+// Scene palette
+$scene-50:  #f0fdfb;
+$scene-100: #cdfaf4;
+$scene-200: #9af5e9;
+$scene-300: #60e8da;
+$scene-400: #2dd4ce;
+$scene-500: #14b8b4;
+$scene-600: #0d9490;
+$scene-700: #0f7578;
+$scene-800: #115d60;
+$scene-900: #134d4f;
+$scene-950: #042e35;
+
+// Backgrounds — deep ocean
+$body-background-color: #0c1a1c;
+$sidebar-color: $scene-950;
+$search-background-color: #0f2628;
+$table-background-color: #0f2628;
+$code-background-color: #0a1416;
+$feedback-color: darken($sidebar-color, 2%);
+$base-button-color: #0f2628;
+
+// Text
+$body-heading-color: $scene-50;
+$body-text-color: #c8e4e2;
+$search-result-preview-color: #c8e4e2;
+$code-linenumber-color: $scene-200;
+
+// Links and accents — glow teal
+$link-color: $scene-400;
+$nav-child-link-color: $scene-300;
+$btn-primary-color: $scene-500;
+$border-color: #1a3a3d;
+
+@import "./vendor/accessible-pygments/github-dark";

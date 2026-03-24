@@ -1,0 +1,128 @@
+{
+  "fixture": "optimization.solver-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 1.4142135623724243,
+        "id": "bisect-x-squared-minus-2",
+        "input": {
+          "a": 0.0,
+          "b": 2.0,
+          "function": "x_squared_minus_2"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": 1.5707963267950618,
+        "id": "bisect-cos",
+        "input": {
+          "a": 0.0,
+          "b": 2.0,
+          "function": "cos"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": 1.0,
+        "id": "bisect-x-cubed-minus-1",
+        "input": {
+          "a": 0.0,
+          "b": 2.0,
+          "function": "x_cubed_minus_1"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": 3.141592653589214,
+        "id": "bisect-sin",
+        "input": {
+          "a": 2.0,
+          "b": 4.0,
+          "function": "sin"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": 0.6931471805592082,
+        "id": "bisect-exp-minus-2",
+        "input": {
+          "a": 0.0,
+          "b": 2.0,
+          "function": "exp_minus_2"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": 1.5,
+        "id": "bisect-linear",
+        "input": {
+          "a": 0.0,
+          "b": 3.0,
+          "function": "linear_2x_minus_3"
+        },
+        "operation": "bisect"
+      },
+      {
+        "expected": -5.551115123125783e-17,
+        "id": "golden-x-squared",
+        "input": {
+          "a": -2.0,
+          "b": 2.0,
+          "function": "x_squared"
+        },
+        "operation": "goldenSection"
+      },
+      {
+        "expected": 1.0,
+        "id": "golden-x-minus-1-squared",
+        "input": {
+          "a": -2.0,
+          "b": 4.0,
+          "function": "x_minus_1_squared"
+        },
+        "operation": "goldenSection"
+      },
+      {
+        "expected": 0.7071064080049332,
+        "id": "golden-x4-minus-x2",
+        "input": {
+          "a": 0.0,
+          "b": 2.0,
+          "function": "x4_minus_x2"
+        },
+        "operation": "goldenSection"
+      },
+      {
+        "expected": 3.141592648622993,
+        "id": "golden-cos",
+        "input": {
+          "a": 2.0,
+          "b": 5.0,
+          "function": "cos"
+        },
+        "operation": "goldenSection"
+      },
+      {
+        "expected": 2.220446049250313e-16,
+        "id": "golden-abs-x",
+        "input": {
+          "a": -3.0,
+          "b": 3.0,
+          "function": "abs_x"
+        },
+        "operation": "goldenSection"
+      }
+    ]
+  }
+}

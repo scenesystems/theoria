@@ -1,0 +1,64 @@
+{
+  "fixture": "continuous-kde.basic",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "expected": {
+      "candidateRolls": [
+        [0.1, 0.5],
+        [0.35, 0.2],
+        [0.6, 0.9],
+        [0.95, 0.4]
+      ],
+      "expectedSamples": [0.24002663780724834, 0.24415943691753303, 0.8988067500975703, 0.4038670919519788],
+      "kernels": [
+        {
+          "mean": 0.2,
+          "sigma": 0.2,
+          "weight": 0.25
+        },
+        {
+          "mean": 0.4,
+          "sigma": 0.2,
+          "weight": 0.25
+        },
+        {
+          "mean": 0.7,
+          "sigma": 0.2,
+          "weight": 0.25
+        },
+        {
+          "mean": 0.5,
+          "sigma": 1.0,
+          "weight": 0.25
+        }
+      ],
+      "logDensities": [
+        {
+          "expected": -0.06682984020140215,
+          "probe": 0.1
+        },
+        {
+          "expected": 0.11423360307331054,
+          "probe": 0.6
+        },
+        {
+          "expected": -0.5303857502050052,
+          "probe": 0.9
+        }
+      ]
+    },
+    "high": 1.0,
+    "low": 0.0,
+    "observations": [0.2, 0.4, 0.7]
+  }
+}

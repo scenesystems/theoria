@@ -1,0 +1,5 @@
+.tsbuildinfo/
+build/
+dist/
+docs/
+examples/artifacts/
