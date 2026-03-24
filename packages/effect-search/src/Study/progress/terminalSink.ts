@@ -17,9 +17,13 @@ const resolveProcessWriter = (stream: "stdout" | "stderr"): Option.Option<Proces
     Option.filter(Predicate.isRecord),
     Option.flatMap((proc) => Option.fromNullable(proc[stream])),
     Option.filter(Predicate.isRecord),
-    Option.flatMap((io) => Option.fromNullable(io["write"])),
-    Option.filter(Predicate.isFunction),
-    Option.map((write) => (chunk: string) => write(chunk))
+    Option.map((io) =>
+      Option.fromNullable(io["write"]).pipe(
+        Option.filter(Predicate.isFunction),
+        Option.map((write) => (chunk: string) => write.call(io, chunk))
+      )
+    ),
+    Option.flatten
   )
 
 const processStdoutWriter: Option.Option<ProcessWriter> = resolveProcessWriter("stdout")
