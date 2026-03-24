@@ -38,4 +38,4 @@ Initial release of `@scenesystems/digest` — cryptographic content hashing and 
 - **`ContentDigest`** — algorithm-tagged digest pair schema
 - **`DigestAlgorithm`** — literal union of supported algorithms
 
-All cryptographic primitives are built on the [Noble](https://paulmillr.com/noble/) audited ecosystem (`@noble/hashes`, `@scure/base`). Every operation is Effect-native with typed error channels.
+All cryptographic primitives are built on the [Noble](https://paulmillr.com/noble/) audited ecosystem (`@noble/hashes`). Every operation is Effect-native with typed error channels.
