@@ -459,14 +459,14 @@ Fs.writeFileSync(
     "nav_order: 1",
     "---",
     "",
-    "# Theoria API Reference",
+    "# Theoria",
     "",
     "API documentation for the [Theoria](https://github.com/scenesystems/theoria) open-source research software ecosystem by [Scene Systems](https://scenesystems.io).",
     "",
     "## Packages",
     "",
     ...PACKAGES.map(
-      ([dir, name, , col]) => `- [**${name}**](_${col}/${dir}/) — ${getPackageDescription(dir)}`
+      ([dir, name, , col]) => `- [**${name}**](/${col}/${dir}/) — ${getPackageDescription(dir)}`
     ),
     ""
   ].join("\n")
