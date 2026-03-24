@@ -16,9 +16,9 @@ const GITHUB_BRANCH = "main"
  * collection maps to a Just the Docs collection (sidebar section).
  */
 const PACKAGES = [
-  ["effect-search", "effect-search", 1, "effect"],
-  ["effect-dsp", "effect-dsp", 2, "effect"],
-  ["effect-math", "effect-math", 3, "effect"],
+  ["effect-math", "effect-math", 1, "effect"],
+  ["effect-search", "effect-search", 2, "effect"],
+  ["effect-dsp", "effect-dsp", 3, "effect"],
   ["digest", "@scenesystems/digest", 1, "scenesystems"],
   ["seal", "@scenesystems/seal", 2, "scenesystems"],
   ["sign", "@scenesystems/sign", 3, "scenesystems"]

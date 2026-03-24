@@ -14,16 +14,34 @@ _Theoria_ (θεωρία) — observation that produces knowledge.
 ## Packages
 
 ```
-effect-dsp              Language model programming (DSPy for Effect)
-    ↓ uses
-effect-search           Bayesian optimization (TPE, multi-objective, constrained)
-    ↓ uses
 effect-math             Numerics, linear algebra, statistics, probability, special functions
+    ↑ uses
+effect-search           Bayesian optimization (TPE, multi-objective, constrained)
+    ↑ uses
+effect-dsp              Language model programming (DSPy for Effect)
 
 @scenesystems/digest    BLAKE3-256, SHA-256, JCS canonicalization
 @scenesystems/seal      XChaCha20-Poly1305, AES-256-GCM-SIV, AES-256-GCM
 @scenesystems/sign      Ed25519, ML-DSA, SLH-DSA, X25519, XWing
 ```
+
+### [`effect-math`](./packages/effect-math) — Applied math
+
+Ten domains: numerics, linear algebra, geometry, probability, statistics, special functions, complex analysis, algebra, calculus, and optimization solvers. Pure kernels for the hot path, Effect wrappers when you need typed errors or runtime policies.
+
+```ts
+import { Chunk } from "effect"
+import { dot, normL2 } from "effect-math/LinearAlgebra"
+import { mean, variance } from "effect-math/Statistics"
+import { gamma, erf } from "effect-math/Special"
+
+dot(Chunk.fromIterable([1, 2, 3]), Chunk.fromIterable([4, 5, 6])) // 32
+mean(Chunk.fromIterable([2, 4, 6])) // 4
+gamma(5) // 24 (= 4!)
+erf(1) // ≈ 0.8427
+```
+
+Schema-validated boundaries, configurable precision policies via `Layer`, SciPy fixture parity across all domains. [README →](./packages/effect-math/README.md)
 
 ### [`effect-search`](./packages/effect-search) — Bayesian optimization
 
@@ -71,24 +89,6 @@ const program = Effect.gen(function* () {
 ```
 
 LabeledFewShot, BootstrapFewShot, BootstrapRS, Ensemble, MIPROv2, GEPA. Uses `effect-search` for optimizer orchestration. [README →](./packages/effect-dsp/README.md)
-
-### [`effect-math`](./packages/effect-math) — Applied math
-
-Ten domains: numerics, linear algebra, geometry, probability, statistics, special functions, complex analysis, algebra, calculus, and optimization solvers. Pure kernels for the hot path, Effect wrappers when you need typed errors or runtime policies.
-
-```ts
-import { Chunk } from "effect"
-import { dot, normL2 } from "effect-math/LinearAlgebra"
-import { mean, variance } from "effect-math/Statistics"
-import { gamma, erf } from "effect-math/Special"
-
-dot(Chunk.fromIterable([1, 2, 3]), Chunk.fromIterable([4, 5, 6])) // 32
-mean(Chunk.fromIterable([2, 4, 6])) // 4
-gamma(5) // 24 (= 4!)
-erf(1) // ≈ 0.8427
-```
-
-Schema-validated boundaries, configurable precision policies via `Layer`, SciPy fixture parity across all domains. [README →](./packages/effect-math/README.md)
 
 ### [`@scenesystems/digest`](./packages/digest) — Content hashing
 
