@@ -161,14 +161,47 @@ function rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, lea
     )
   }
 
-  // Add "View Source" link after the frontmatter
+  // Build per-symbol line number index from the source file
+  const symbolLines = new Map()
   if (originalTitle) {
+    const srcFilePath = Path.join(ROOT, "packages", dirName, "src", originalTitle)
+    if (Fs.existsSync(srcFilePath)) {
+      const srcLines = Fs.readFileSync(srcFilePath, "utf8").split("\n")
+      for (let i = 0; i < srcLines.length; i++) {
+        const match = srcLines[i].match(/^export (?:const|function|class|type|interface|declare)\s+(\w+)/)
+        if (match) {
+          symbolLines.set(match[1], i + 1)
+        }
+      }
+    }
+
     const srcUrl = `${GITHUB_REPO}/blob/${GITHUB_BRANCH}/packages/${dirName}/src/${originalTitle}`
+
+    // Add file-level "View source" link after frontmatter
     content = content.replace(
       /^---\n\n/m,
       `---\n\n> [View source](${srcUrl})\n\n`
     )
+
+    // Inject per-symbol source links: find each ## heading followed by a **Signature** block
+    // and add a source link with the line number
+    content = content.replace(
+      /^## (\w+)\n\n([\s\S]*?)\*\*Signature\*\*/gm,
+      (full, symbolName, between) => {
+        const line = symbolLines.get(symbolName)
+        if (line) {
+          return `## ${symbolName}\n\n${between}**Signature** ([source](${srcUrl}#L${line}))`
+        }
+        return full
+      }
+    )
   }
+
+  // Resolve {@link symbolName} tags to inline code (bold monospace)
+  content = content.replace(
+    /\{@link\s+(\w+)\}/g,
+    (_, name) => `\`${name}\``
+  )
 
   ensureDir(Path.dirname(destPath))
   Fs.writeFileSync(destPath, content)
