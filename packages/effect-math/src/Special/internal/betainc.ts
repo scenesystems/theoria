@@ -1,8 +1,8 @@
 /**
  * Regularized incomplete beta function kernel.
  *
- * I_x(a,b) = B(x;a,b) / B(a,b) via the Lentz continued fraction
- * (Numerical Recipes §6.4) with symmetry transform. Normalization
+ * I_x(a,b) = B(x;a,b) / B(a,b) via the modified Lentz continued fraction
+ * (Lentz, 1976; Thompson & Barnett, 1986) with symmetry transform. Normalization
  * uses log-space via `lnGammaLanczos`.
  *
  * When x > (a+1)/(a+b+2) the symmetry identity I_x(a,b) = 1 − I_{1−x}(b,a)
@@ -25,7 +25,7 @@ const guard = (v: number): number => (Math.abs(v) < FPMIN ? FPMIN : v)
  * Modified Lentz continued fraction for I_x(a,b).
  *
  * Returns the CF value that, when multiplied by the beta-prefix / a,
- * gives I_x(a,b). Follows Numerical Recipes betacf().
+ * gives I_x(a,b).
  *
  * @since 0.1.0
  * @category internal
@@ -40,7 +40,7 @@ const betacf = (a: number, b: number, x: number): number => {
 }
 
 /**
- * Tail-recursive Lentz CF loop following NR betacf().
+ * Tail-recursive Lentz CF loop.
  *
  * All mutable Lentz state (h, c, d) is threaded through parameters.
  *

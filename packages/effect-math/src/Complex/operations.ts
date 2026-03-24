@@ -534,7 +534,7 @@ export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
 // ---------------------------------------------------------------------------
 
 /**
- * Complex-step derivative (Fornberg method):
+ * Complex-step derivative (Squire & Trapp, 1998):
  *   f'(x) ≈ Im(f(x + ih)) / h
  *
  * Achieves machine-precision accuracy for analytic functions without
