@@ -22,19 +22,18 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   covariance,
   covarianceValidated,
-  makeDeterministicRuntimePoliciesLayer,
   mean,
   meanValidated,
-  Seed,
   standardDeviation,
   summaryStatisticsValidated,
   summaryStatisticsWithPolicies,
   variance,
   varianceValidated
-} from "effect-math"
+} from "effect-math/Statistics"
 
 const program = Effect.gen(function*() {
   const data = Chunk.fromIterable([2, 4, 4, 4, 5, 5, 7, 9])

@@ -19,15 +19,8 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect } from "effect"
 
-import {
-  expm1,
-  log1p,
-  makeDeterministicRuntimePoliciesLayer,
-  Seed,
-  sum,
-  sumValidated,
-  sumWithPolicies
-} from "effect-math"
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { expm1, log1p, sum, sumValidated, sumWithPolicies } from "effect-math/Numeric"
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — synchronous, no Effect wrapper ───────────────

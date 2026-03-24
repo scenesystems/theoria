@@ -22,21 +22,20 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   entropyValidated,
-  makeDeterministicRuntimePoliciesLayer,
   normalCdf,
   normalCdfValidated,
   normalPdf,
   normalPdfValidated,
   normalPdfWithPolicies,
-  Seed,
   shannonEntropy,
   standardNormalCdf,
   standardNormalPdf,
   uniformCdf,
   uniformPdf
-} from "effect-math"
+} from "effect-math/Probability"
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — standard normal ──────────────────────────────

@@ -20,22 +20,21 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   dot,
   dotValidated,
   dotWithPolicies,
   frobeniusNorm,
-  makeDeterministicRuntimePoliciesLayer,
   matvec,
   normL1,
   normL2,
   normLinf,
   normWithPolicies,
-  Seed,
   transpose,
   vectorAdd,
   vectorScale
-} from "effect-math"
+} from "effect-math/LinearAlgebra"
 
 const program = Effect.gen(function*() {
   const a = Chunk.fromIterable([1, 2, 3])

@@ -21,18 +21,17 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   centroidValidated,
   chebyshevDistance,
   distanceValidated,
   distanceWithPolicies,
   euclideanDistance,
-  makeDeterministicRuntimePoliciesLayer,
   manhattanDistance,
   midpoint,
-  midpointValidated,
-  Seed
-} from "effect-math"
+  midpointValidated
+} from "effect-math/Geometry"
 
 const program = Effect.gen(function*() {
   const origin = Chunk.fromIterable([0, 0])
