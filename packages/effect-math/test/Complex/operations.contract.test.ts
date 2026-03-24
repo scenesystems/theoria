@@ -588,7 +588,7 @@ describe("Complex / real ↔ complex interop", () => {
 // Complex-step differentiation
 // ---------------------------------------------------------------------------
 
-describe("Complex / complexDerivative (Fornberg method)", () => {
+describe("Complex / complexDerivative (complex-step method)", () => {
   it.effect("derivative of z→z² at x=3 ≈ 6", () =>
     Effect.gen(function*() {
       const f = (z: Complex) => multiply(z, z)
