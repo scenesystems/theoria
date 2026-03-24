@@ -4,12 +4,9 @@ Jekyll-based API documentation site using the [Just the Docs](https://just-the-d
 
 ## Theme Configuration
 
-`_config.yml` declares **both** `theme:` and `remote_theme:`:
+`_config.yml` uses `remote_theme: just-the-docs/just-the-docs` (not `theme:`). The `github-pages` gem used by `actions/jekyll-build-pages@v1` does not allowlist `just-the-docs` as a `theme:` — setting `theme: just-the-docs` causes a build failure. The `remote_theme:` key works via the `jekyll-remote-theme` plugin (bundled in `github-pages`, and also listed in `plugins:` and the local `Gemfile`).
 
-- `theme: just-the-docs` — used locally via the Docker preview (gem installed from `Gemfile`)
-- `remote_theme: just-the-docs/just-the-docs` — used in CI by `actions/jekyll-build-pages@v1` (loaded via the `jekyll-remote-theme` plugin bundled in the `github-pages` gem)
-
-Both must be present. Do not remove either.
+Do NOT add `theme: just-the-docs` to `_config.yml`. The `just-the-docs` gem in the `Gemfile` exists only as a local development convenience for the Docker preview.
 
 ## Tracked vs Generated Content
 
