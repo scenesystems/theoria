@@ -28,21 +28,27 @@ from typing import Any
 
 from fixtures._common import DEFAULT_GENERATED_AT, GENERATOR_VERSION, SCHEMA_VERSION, write_json
 from fixtures import (
+    algebra,
+    calculus,
     numeric,
     linalg,
     geometry,
     probability,
     statistics,
     special,
+    optimization,
 )
 
 FAMILIES = [
+    algebra,
+    calculus,
     numeric,
     linalg,
     geometry,
     probability,
     statistics,
     special,
+    optimization,
 ]
 
 FIXTURE_OUTPUT_DIR = Path(__file__).resolve().parent.parent / "test" / "fixtures" / "scipy"

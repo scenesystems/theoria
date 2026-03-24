@@ -322,27 +322,158 @@ export const SpecialFunctionParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Algebra: polynomial-parity
+// ---------------------------------------------------------------------------
+
+const AlgebraPolyEvalCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("polyEval"),
+  input: Schema.Struct({ coefficients: Schema.Array(Schema.Number), x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const AlgebraPolyDerivativeCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("polyDerivative"),
+  input: Schema.Struct({ coefficients: Schema.Array(Schema.Number) }),
+  expected: Schema.Array(Schema.Number)
+})
+
+const AlgebraGcdCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("gcd"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const AlgebraLcmCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("lcm"),
+  input: Schema.Struct({ a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const AlgebraFactorialCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("factorial"),
+  input: Schema.Struct({ n: Schema.Number }),
+  expected: Schema.Number
+})
+
+const AlgebraPolynomialCaseSchema = Schema.Union(
+  AlgebraPolyEvalCaseSchema,
+  AlgebraPolyDerivativeCaseSchema,
+  AlgebraGcdCaseSchema,
+  AlgebraLcmCaseSchema,
+  AlgebraFactorialCaseSchema
+)
+
+export const AlgebraPolynomialParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("algebra.polynomial-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(AlgebraPolynomialCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Calculus: numerical-parity
+// ---------------------------------------------------------------------------
+
+const CalculusDerivativeCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("derivative"),
+  input: Schema.Struct({ function: Schema.String, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const CalculusTrapezoidCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("trapezoid"),
+  input: Schema.Struct({ values: Schema.Array(Schema.Number), dx: Schema.Number }),
+  expected: Schema.Number
+})
+
+const CalculusSimpsonCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("simpson"),
+  input: Schema.Struct({ values: Schema.Array(Schema.Number), dx: Schema.Number }),
+  expected: Schema.Number
+})
+
+const CalculusNumericalCaseSchema = Schema.Union(
+  CalculusDerivativeCaseSchema,
+  CalculusTrapezoidCaseSchema,
+  CalculusSimpsonCaseSchema
+)
+
+export const CalculusNumericalParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("calculus.numerical-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(CalculusNumericalCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Optimization: solver-parity
+// ---------------------------------------------------------------------------
+
+const OptimizationBisectCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("bisect"),
+  input: Schema.Struct({ function: Schema.String, a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const OptimizationGoldenSectionCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("goldenSection"),
+  input: Schema.Struct({ function: Schema.String, a: Schema.Number, b: Schema.Number }),
+  expected: Schema.Number
+})
+
+const OptimizationSolverCaseSchema = Schema.Union(
+  OptimizationBisectCaseSchema,
+  OptimizationGoldenSectionCaseSchema
+)
+
+export const OptimizationSolverParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("optimization.solver-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(OptimizationSolverCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fixture name literal union + known fixture union
 // ---------------------------------------------------------------------------
 
 export const FixtureNameSchema = Schema.Literal(
+  "algebra.polynomial-parity",
+  "calculus.numerical-parity",
   "numeric.scalar-parity",
   "linalg.vector-parity",
   "geometry.distance-parity",
   "probability.distribution-parity",
   "statistics.estimator-parity",
-  "special.function-parity"
+  "special.function-parity",
+  "optimization.solver-parity"
 )
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
 
 export const KnownFixtureSchema = Schema.Union(
+  AlgebraPolynomialParityFixtureSchema,
+  CalculusNumericalParityFixtureSchema,
   NumericScalarParityFixtureSchema,
   LinalgVectorParityFixtureSchema,
   GeometryDistanceParityFixtureSchema,
   ProbabilityDistributionParityFixtureSchema,
   StatisticsEstimatorParityFixtureSchema,
-  SpecialFunctionParityFixtureSchema
+  SpecialFunctionParityFixtureSchema,
+  OptimizationSolverParityFixtureSchema
 )
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>

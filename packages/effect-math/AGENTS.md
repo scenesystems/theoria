@@ -36,17 +36,17 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 
 Nine domains, each with the same file structure:
 
-| Domain        | Stability    | Surface                                               |
-| ------------- | ------------ | ----------------------------------------------------- |
-| Numeric       | provisional  | Scalar transforms, safe division, transcendentals     |
-| LinearAlgebra | provisional  | Dense vector/matrix ops over Chunk carriers           |
-| Geometry      | provisional  | Metric distances, midpoint, centroid                  |
-| Probability   | provisional  | Normal/uniform PDF/CDF, Shannon entropy               |
-| Statistics    | provisional  | Mean, variance, stddev, covariance, SummaryStatistics |
-| Algebra       | experimental | Scaffolded                                            |
-| Calculus      | experimental | Scaffolded                                            |
-| Special       | provisional  | Gamma, lnGamma, beta, erf/erfc, digamma               |
-| Optimization  | experimental | Scaffolded                                            |
+| Domain        | Stability   | Surface                                               |
+| ------------- | ----------- | ----------------------------------------------------- |
+| Numeric       | provisional | Scalar transforms, safe division, transcendentals     |
+| LinearAlgebra | provisional | Dense vector/matrix ops over Chunk carriers           |
+| Geometry      | provisional | Metric distances, midpoint, centroid                  |
+| Probability   | provisional | Normal/uniform PDF/CDF, Shannon entropy               |
+| Statistics    | provisional | Mean, variance, stddev, covariance, SummaryStatistics |
+| Algebra       | provisional | Polynomial eval/derivative, GCD, LCM, factorial       |
+| Calculus      | provisional | Numerical derivative, trapezoidal, Simpson's rule     |
+| Special       | provisional | Gamma, lnGamma, beta, erf/erfc, digamma               |
+| Optimization  | provisional | Bisection root-finding, golden section minimization   |
 
 Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
 
@@ -84,7 +84,7 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline met
 ### Fixture Architecture
 
 - **Python generators** (`scripts/fixtures/*.py`): one module per domain, each exports `generate(generated_at) -> list[dict]`
-- **TS schemas** (`test/helpers/fixtures/schemas.ts`): typed discriminated unions per domain, `KnownFixtureSchema` union of all 5
+- **TS schemas** (`test/helpers/fixtures/schemas.ts`): typed discriminated unions per domain, `KnownFixtureSchema` union of all 9
 - **TS registry** (`test/helpers/fixtures/registry.ts`): `FixtureRegistry` Context.Tag, `loadFixture` helper, `@effect/platform` + `@effect/platform-bun` for file I/O
 - **Fixture-parity tests** (`test/{Domain}/fixture-parity.test.ts`): load via registry, decode through domain schema, dispatch via `Match.exhaustive`
 

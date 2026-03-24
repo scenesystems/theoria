@@ -99,9 +99,9 @@ Each domain is a self-contained subpath export with its own schemas, typed error
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                     |
 | **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance                  |
 | **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)            |
-| Algebra           | `effect-math/Algebra`       | Planned — algebraic structures                                  |
-| Calculus          | `effect-math/Calculus`      | Planned — differentiation and integration                       |
-| Optimization      | `effect-math/Optimization`  | Planned — numerical optimization                                |
+| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                 |
+| **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule          |
+| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization             |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -161,6 +161,9 @@ import { mean, variance, standardDeviation, covariance } from "effect-math/Stati
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
 import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
 import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
+import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
+import { derivative, trapezoid, simpson } from "effect-math/Calculus"
+import { bisect, goldenSection } from "effect-math/Optimization"
 
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
@@ -169,6 +172,9 @@ import { summaryStatisticsWithPolicies } from "effect-math/Statistics"
 import { normalPdfWithPolicies } from "effect-math/Probability"
 import { sumWithPolicies } from "effect-math/Numeric"
 import { gammaWithPolicies, erfWithPolicies } from "effect-math/Special"
+import { polyEvalWithPolicies, factorialWithPolicies } from "effect-math/Algebra"
+import { trapezoidWithPolicies, simpsonWithPolicies } from "effect-math/Calculus"
+import { bisectWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
 
 // Runtime policy services and layer constructors
 import {
@@ -182,10 +188,9 @@ import {
 
 ## Status
 
-| Tier             | Domains                                                            | Meaning                           |
-| ---------------- | ------------------------------------------------------------------ | --------------------------------- |
-| **Provisional**  | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special | Functional and tested, may evolve |
-| **Experimental** | Algebra, Calculus, Optimization                                    | Scaffolded — not yet implemented  |
+| Tier            | Domains                                                                                             | Meaning                           |
+| --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization | Functional and tested, may evolve |
 
 ## Contributing
 
@@ -193,7 +198,7 @@ See the [repository](https://github.com/scenesystems/theoria) for contribution g
 
 ```sh
 bun run check    # Type check
-bun run test     # 274 tests across 40 suites
+bun run test     # 341 tests across 46 suites
 bun run lint     # ESLint with Effect rules
 bun run build    # ESM + CJS + annotate-pure-calls
 ```

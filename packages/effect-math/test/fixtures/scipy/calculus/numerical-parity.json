@@ -1,0 +1,195 @@
+{
+  "fixture": "calculus.numerical-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": 1.9999999933961732,
+        "id": "deriv-x-squared-at-1",
+        "input": {
+          "function": "x_squared",
+          "x": 1.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 5.999999963535174,
+        "id": "deriv-x-squared-at-3",
+        "input": {
+          "function": "x_squared",
+          "x": 3.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 11.999999882661427,
+        "id": "deriv-x-cubed-at-2",
+        "input": {
+          "function": "x_cubed",
+          "x": 2.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 1.0,
+        "id": "deriv-sin-at-0",
+        "input": {
+          "function": "sin",
+          "x": 0.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 0.0,
+        "id": "deriv-sin-at-pi-half",
+        "input": {
+          "function": "sin",
+          "x": 1.5707963267948966
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 0.999999993922529,
+        "id": "deriv-exp-at-0",
+        "input": {
+          "function": "exp",
+          "x": 0.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 2.7182818218562943,
+        "id": "deriv-exp-at-1",
+        "input": {
+          "function": "exp",
+          "x": 1.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 0.9999999994736442,
+        "id": "deriv-ln-at-1",
+        "input": {
+          "function": "ln",
+          "x": 1.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 0.4999999969612645,
+        "id": "deriv-ln-at-2",
+        "input": {
+          "function": "ln",
+          "x": 2.0
+        },
+        "operation": "derivative"
+      },
+      {
+        "expected": 1.0,
+        "id": "trap-constant",
+        "input": {
+          "dx": 0.25,
+          "values": [1.0, 1.0, 1.0, 1.0, 1.0]
+        },
+        "operation": "trapezoid"
+      },
+      {
+        "expected": 8.0,
+        "id": "trap-linear",
+        "input": {
+          "dx": 1.0,
+          "values": [0.0, 1.0, 2.0, 3.0, 4.0]
+        },
+        "operation": "trapezoid"
+      },
+      {
+        "expected": 22.0,
+        "id": "trap-quadratic-5",
+        "input": {
+          "dx": 1.0,
+          "values": [0.0, 1.0, 4.0, 9.0, 16.0]
+        },
+        "operation": "trapezoid"
+      },
+      {
+        "expected": 0.9979429863543573,
+        "id": "trap-sine-quarter",
+        "input": {
+          "dx": 0.15707963267948966,
+          "values": [
+            0.0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
+            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1.0
+          ]
+        },
+        "operation": "trapezoid"
+      },
+      {
+        "expected": 21.0,
+        "id": "trap-uniform-dx",
+        "input": {
+          "dx": 0.5,
+          "values": [1.0, 4.0, 9.0, 16.0, 25.0]
+        },
+        "operation": "trapezoid"
+      },
+      {
+        "expected": 8.0,
+        "id": "simpson-constant",
+        "input": {
+          "dx": 1.0,
+          "values": [2.0, 2.0, 2.0, 2.0, 2.0]
+        },
+        "operation": "simpson"
+      },
+      {
+        "expected": 8.0,
+        "id": "simpson-linear",
+        "input": {
+          "dx": 1.0,
+          "values": [0.0, 1.0, 2.0, 3.0, 4.0]
+        },
+        "operation": "simpson"
+      },
+      {
+        "expected": 21.333333333333332,
+        "id": "simpson-quadratic",
+        "input": {
+          "dx": 1.0,
+          "values": [0.0, 1.0, 4.0, 9.0, 16.0]
+        },
+        "operation": "simpson"
+      },
+      {
+        "expected": 1.0000033922209006,
+        "id": "simpson-sine",
+        "input": {
+          "dx": 0.15707963267948966,
+          "values": [
+            0.0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
+            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1.0
+          ]
+        },
+        "operation": "simpson"
+      },
+      {
+        "expected": 64.0,
+        "id": "simpson-cubic",
+        "input": {
+          "dx": 1.0,
+          "values": [0.0, 1.0, 8.0, 27.0, 64.0]
+        },
+        "operation": "simpson"
+      }
+    ]
+  }
+}

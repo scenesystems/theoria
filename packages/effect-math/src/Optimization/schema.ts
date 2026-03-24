@@ -10,7 +10,7 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Optimization schema authority scaffold.
+ * Optimization domain model schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -75,3 +75,35 @@ export type OptimizationSchemaBoundaryError = BoundaryDecodeError | BoundaryEnco
  * @category models
  */
 export type OptimizationDomain = typeof OptimizationDomainSchema.Type
+
+// ---------------------------------------------------------------------------
+// Operation input schemas
+// ---------------------------------------------------------------------------
+
+/**
+ * Bisection method input — two finite bracket endpoints with optional
+ * tolerance and iteration budget.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const BisectInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite()),
+  b: Schema.Number.pipe(Schema.finite()),
+  tolerance: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))),
+  maxIterations: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)))
+}).annotations({ identifier: "BisectInput" })
+
+/**
+ * Golden section search input — two finite bracket endpoints with
+ * optional tolerance and iteration budget.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const GoldenSectionInput = Schema.Struct({
+  a: Schema.Number.pipe(Schema.finite()),
+  b: Schema.Number.pipe(Schema.finite()),
+  tolerance: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))),
+  maxIterations: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)))
+}).annotations({ identifier: "GoldenSectionInput" })

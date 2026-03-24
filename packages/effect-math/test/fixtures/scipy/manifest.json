@@ -1,6 +1,14 @@
 {
   "fixtures": [
     {
+      "file": "algebra/polynomial-parity.json",
+      "name": "algebra.polynomial-parity"
+    },
+    {
+      "file": "calculus/numerical-parity.json",
+      "name": "calculus.numerical-parity"
+    },
+    {
       "file": "geometry/distance-parity.json",
       "name": "geometry.distance-parity"
     },
@@ -11,6 +19,10 @@
     {
       "file": "numeric/scalar-parity.json",
       "name": "numeric.scalar-parity"
+    },
+    {
+      "file": "optimization/solver-parity.json",
+      "name": "optimization.solver-parity"
     },
     {
       "file": "probability/distribution-parity.json",

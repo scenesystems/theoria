@@ -8,7 +8,8 @@ import { CalculusDomainContract } from "./contract.js"
 import type { CalculusDomain } from "./schema.js"
 
 /**
- * Calculus domain model scaffold.
+ * Calculus domain model instance — numerical differentiation and
+ * composite quadrature integration.
  *
  * @since 0.1.0
  * @category models
