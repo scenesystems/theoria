@@ -581,12 +581,199 @@ export const OptimizationSolverParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Complex: arithmetic-parity
+// ---------------------------------------------------------------------------
+
+const ComplexReImExpected = Schema.Struct({ re: Schema.Number, im: Schema.Number })
+
+const ComplexBinaryInputSchema = Schema.Struct({
+  aRe: Schema.Number,
+  aIm: Schema.Number,
+  bRe: Schema.Number,
+  bIm: Schema.Number
+})
+
+const ComplexUnaryInputSchema = Schema.Struct({
+  re: Schema.Number,
+  im: Schema.Number
+})
+
+const ComplexAddCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("add"),
+  input: ComplexBinaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexSubtractCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("subtract"),
+  input: ComplexBinaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexMultiplyCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("multiply"),
+  input: ComplexBinaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexDivideCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("divide"),
+  input: ComplexBinaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexConjugateCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("conjugate"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexAbsCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("abs"),
+  input: ComplexUnaryInputSchema,
+  expected: Schema.Number
+})
+
+const ComplexArgCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("arg"),
+  input: ComplexUnaryInputSchema,
+  expected: Schema.Number
+})
+
+const ComplexExpCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("exp"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexLogCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("log"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexSqrtCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("sqrt"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexPowCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("pow"),
+  input: Schema.Struct({
+    baseRe: Schema.Number,
+    baseIm: Schema.Number,
+    expRe: Schema.Number,
+    expIm: Schema.Number
+  }),
+  expected: ComplexReImExpected
+})
+
+const ComplexSinCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("sin"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexCosCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("cos"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexTanCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("tan"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexSinhCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("sinh"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexCoshCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("cosh"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexTanhCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("tanh"),
+  input: ComplexUnaryInputSchema,
+  expected: ComplexReImExpected
+})
+
+const ComplexToPolarCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("toPolar"),
+  input: ComplexUnaryInputSchema,
+  expected: Schema.Struct({ r: Schema.Number, theta: Schema.Number })
+})
+
+const ComplexDerivativeCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("complexDerivative"),
+  input: Schema.Struct({ fn: Schema.String, x: Schema.Number }),
+  expected: Schema.Number
+})
+
+const ComplexArithmeticCaseSchema = Schema.Union(
+  ComplexAddCaseSchema,
+  ComplexSubtractCaseSchema,
+  ComplexMultiplyCaseSchema,
+  ComplexDivideCaseSchema,
+  ComplexConjugateCaseSchema,
+  ComplexAbsCaseSchema,
+  ComplexArgCaseSchema,
+  ComplexExpCaseSchema,
+  ComplexLogCaseSchema,
+  ComplexSqrtCaseSchema,
+  ComplexPowCaseSchema,
+  ComplexSinCaseSchema,
+  ComplexCosCaseSchema,
+  ComplexTanCaseSchema,
+  ComplexSinhCaseSchema,
+  ComplexCoshCaseSchema,
+  ComplexTanhCaseSchema,
+  ComplexToPolarCaseSchema,
+  ComplexDerivativeCaseSchema
+)
+
+export const ComplexArithmeticParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("complex.arithmetic-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(ComplexArithmeticCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fixture name literal union + known fixture union
 // ---------------------------------------------------------------------------
 
 export const FixtureNameSchema = Schema.Literal(
   "algebra.polynomial-parity",
   "calculus.numerical-parity",
+  "complex.arithmetic-parity",
   "numeric.scalar-parity",
   "numeric.logspace-parity",
   "linalg.vector-parity",
@@ -603,6 +790,7 @@ export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
 export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
+  ComplexArithmeticParityFixtureSchema,
   NumericScalarParityFixtureSchema,
   NumericLogspaceParityFixtureSchema,
   LinalgVectorParityFixtureSchema,

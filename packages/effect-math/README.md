@@ -41,6 +41,7 @@ import { euclideanDistance } from "effect-math/Geometry"
 import { mean, variance } from "effect-math/Statistics"
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
+import { of, add, abs, sin, complexDerivative } from "effect-math/Complex"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
@@ -61,6 +62,11 @@ gamma(5) // 24 (= 4!)
 gamma(0.5) // √π ≈ 1.7725
 erf(1) // ≈ 0.8427
 beta(0.5, 0.5) // π
+
+const z = add(of(1, 2), of(3, 4)) // 4 + 6i
+abs(of(3, 4)) // 5
+sin(of(1, 1)) // sin(1)cosh(1) + i·cos(1)sinh(1)
+complexDerivative(sin, 0) // cos(0) = 1 (machine-precision)
 ```
 
 When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
@@ -91,17 +97,18 @@ Under `"strict"` precision, non-finite results fail with a typed error instead o
 
 Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
 
-| Domain            | Import                      | What it does                                                    |
-| ----------------- | --------------------------- | --------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`    |
-| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose             |
-| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid |
-| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                     |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max         |
-| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)            |
-| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                 |
-| **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule          |
-| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization             |
+| Domain            | Import                      | What it does                                                         |
+| ----------------- | --------------------------- | -------------------------------------------------------------------- |
+| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`         |
+| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                  |
+| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid      |
+| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                          |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max              |
+| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                 |
+| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                      |
+| **Calculus**      | `effect-math/Calculus`      | Numerical derivative, trapezoidal rule, Simpson's rule               |
+| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization                  |
+| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, Fornberg derivative |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -148,6 +155,8 @@ const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
 | Probability   | `ProbabilityParameterError`  | Invalid distribution parameters            |
 | Statistics    | `StatisticsShapeError`       | Too few observations for the estimator     |
 | Special       | `SpecialParameterError`      | Invalid parameters (e.g., gamma at poles)  |
+| Complex       | `ComplexDivisionByZeroError` | Division by zero complex number            |
+|               | `ComplexDomainError`         | Invalid domain (e.g., log of zero)         |
 
 Each domain also defines a `DomainViolationError` raised under `"strict"` precision when an operation produces a non-finite result.
 
@@ -164,6 +173,33 @@ import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
 import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
 import { derivative, trapezoid, simpson } from "effect-math/Calculus"
 import { bisect, goldenSection } from "effect-math/Optimization"
+import {
+  of,
+  add,
+  multiply,
+  divide,
+  conjugate,
+  abs,
+  arg,
+  exp,
+  log,
+  pow,
+  sqrt,
+  sin,
+  cos,
+  tan,
+  sinh,
+  cosh,
+  tanh,
+  toPolar,
+  fromPolar,
+  complexDerivative,
+  complexDot,
+  complexNorm,
+  complexScale,
+  fromRealChunk,
+  toRealChunk
+} from "effect-math/Complex"
 
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
@@ -212,13 +248,13 @@ import {
 
 ## Status
 
-| Tier            | Domains                                                                                             | Meaning                           |
-| --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------- |
-| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization | Functional and tested, may evolve |
+| Tier            | Domains                                                                                                      | Meaning                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Complex | Functional and tested, may evolve |
 
 ## Acknowledgments
 
-Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses the rational polynomial from [Abramowitz & Stegun](https://personal.math.ubc.ca/~cbm/aands/) (1964), formula 7.1.26. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). All numerical kernels verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures.
+Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses the rational polynomial from [Abramowitz & Stegun](https://personal.math.ubc.ca/~cbm/aands/) (1964), formula 7.1.26. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). Complex-step differentiation follows [Squire & Trapp (1998)](https://doi.org/10.1137/S003614459631241X). Complex division uses the [Smith (1962)](https://doi.org/10.1145/368637.368661) method for overflow safety. All numerical kernels verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures.
 
 ## Contributing
 
@@ -226,7 +262,7 @@ See the [repository](https://github.com/scenesystems/theoria) for contribution g
 
 ```sh
 bun run check    # Type check
-bun run test     # 62 suites
+bun run test     # 69 suites
 bun run lint     # ESLint with Effect rules
 bun run build    # ESM + CJS + annotate-pure-calls
 ```

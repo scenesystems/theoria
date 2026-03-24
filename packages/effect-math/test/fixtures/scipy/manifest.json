@@ -9,6 +9,10 @@
       "name": "calculus.numerical-parity"
     },
     {
+      "file": "complex/arithmetic-parity.json",
+      "name": "complex.arithmetic-parity"
+    },
+    {
       "file": "geometry/distance-parity.json",
       "name": "geometry.distance-parity"
     },

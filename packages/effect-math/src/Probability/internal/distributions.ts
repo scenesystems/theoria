@@ -3,10 +3,15 @@
  * All functions are deterministic IEEE 754 leaf computations over
  * scalar arguments — no Effect context, no allocations.
  *
+ * The standard normal CDF delegates to the `erf` kernel in
+ * `Special/internal/erf.ts` via the identity Φ(x) = ½(1 + erf(x/√2)).
+ *
  * @since 0.1.0
  * @category internal
  */
 import { Number as N } from "effect"
+
+import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
 
 /**
  * Precomputed √(2π) for the standard normal PDF denominator.
@@ -41,39 +46,17 @@ export const normalPdf = (x: number, mu: number, sigma: number): number => {
 }
 
 /**
- * Standard normal CDF via rational approximation (Abramowitz & Stegun).
+ * Standard normal CDF: Φ(x) = ½(1 + erf(x / √2)).
+ *
+ * Delegates to `erfAbramowitzStegun` from the Special domain — the
+ * single source of truth for the A&S 7.1.26 rational approximation.
  * Accurate to ~1.5 × 10⁻⁷ for all real x.
  *
  * @since 0.1.0
  * @category internal
  */
-export const standardNormalCdf = (x: number): number => {
-  const a1 = 0.254829592
-  const a2 = -0.284496736
-  const a3 = 1.421413741
-  const a4 = -1.453152027
-  const a5 = 1.061405429
-  const p = 0.3275911
-  const sign = N.sign(x)
-  const z = N.unsafeDivide(Math.abs(x), Math.SQRT2)
-  const t = N.unsafeDivide(1, N.sum(1, N.multiply(p, z)))
-  const t2 = N.multiply(t, t)
-  const t3 = N.multiply(t2, t)
-  const t4 = N.multiply(t3, t)
-  const t5 = N.multiply(t4, t)
-  const poly = N.sum(
-    N.multiply(a1, t),
-    N.sum(
-      N.multiply(a2, t2),
-      N.sum(
-        N.multiply(a3, t3),
-        N.sum(N.multiply(a4, t4), N.multiply(a5, t5))
-      )
-    )
-  )
-  const y = N.subtract(1, N.multiply(poly, Math.exp(N.negate(N.multiply(z, z)))))
-  return N.multiply(0.5, N.sum(1, N.multiply(sign, y)))
-}
+export const standardNormalCdf = (x: number): number =>
+  N.multiply(0.5, N.sum(1, erfAbramowitzStegun(N.unsafeDivide(x, Math.SQRT2))))
 
 /**
  * Normal CDF with parameters mu and sigma:

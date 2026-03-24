@@ -30,6 +30,7 @@ from fixtures._common import DEFAULT_GENERATED_AT, GENERATOR_VERSION, SCHEMA_VER
 from fixtures import (
     algebra,
     calculus,
+    complex,
     numeric,
     numeric_logspace,
     linalg,
@@ -44,6 +45,7 @@ from fixtures import (
 FAMILIES = [
     algebra,
     calculus,
+    complex,
     numeric,
     numeric_logspace,
     linalg,

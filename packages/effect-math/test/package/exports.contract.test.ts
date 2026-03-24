@@ -40,6 +40,7 @@ describe("package export contracts", () => {
       "./Statistics",
       "./Optimization",
       "./Geometry",
+      "./Complex",
       "./internal/*",
       "./Numeric/internal/*",
       "./Algebra/internal/*",
@@ -49,7 +50,8 @@ describe("package export contracts", () => {
       "./Probability/internal/*",
       "./Statistics/internal/*",
       "./Optimization/internal/*",
-      "./Geometry/internal/*"
+      "./Geometry/internal/*",
+      "./Complex/internal/*"
     ).sort()
 
     expect(EffectRecord.keys(exportsRecord).sort()).toStrictEqual(expectedExportPaths)
@@ -67,7 +69,8 @@ describe("package export contracts", () => {
         "./Probability/internal/*",
         "./Statistics/internal/*",
         "./Optimization/internal/*",
-        "./Geometry/internal/*"
+        "./Geometry/internal/*",
+        "./Complex/internal/*"
       )
 
       yield* Effect.forEach(
