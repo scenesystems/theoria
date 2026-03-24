@@ -466,7 +466,7 @@ Fs.writeFileSync(
     "## Packages",
     "",
     ...PACKAGES.map(
-      ([dir, name, , col]) => `- [**${name}**](/${col}/${dir}/) — ${getPackageDescription(dir)}`
+      ([dir, name, , col]) => `- [**${name}**](${col}/${dir}/) — ${getPackageDescription(dir)}`
     ),
     ""
   ].join("\n")

@@ -1,6 +1,7 @@
 theme: just-the-docs
 
 title: Theoria
+baseurl: /theoria
 description: API documentation for the Theoria open-source research software ecosystem by Scene Systems
 
 color_scheme: scene
