@@ -1,5 +1,14 @@
 # effect-search
 
+## 0.1.1
+
+### Patch Changes
+
+- [#7](https://github.com/scenesystems/theoria/pull/7) [`879632d`](https://github.com/scenesystems/theoria/commit/879632dbc69face1471bf9f8e78c68e756dc854c) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Fix LCG attribution (Knuth, not Numerical Recipes), correct broken standalone effect-dsp links to monorepo paths, remove stale monorepo migration TODO, and update publish-readiness script constants to match packages/effect-search layout.
+
+- Updated dependencies [[`2025cab`](https://github.com/scenesystems/theoria/commit/2025cab1ebda57eb22a0637df96cc3b2e9a52dae)]:
+  - effect-math@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

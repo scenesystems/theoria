@@ -1,5 +1,15 @@
 # effect-dsp
 
+## 0.1.1
+
+### Patch Changes
+
+- [#7](https://github.com/scenesystems/theoria/pull/7) [`879632d`](https://github.com/scenesystems/theoria/commit/879632dbc69face1471bf9f8e78c68e756dc854c) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Replace relative ../effect-search links in README with absolute GitHub monorepo URLs so they resolve correctly on npm.
+
+- Updated dependencies [[`2025cab`](https://github.com/scenesystems/theoria/commit/2025cab1ebda57eb22a0637df96cc3b2e9a52dae), [`879632d`](https://github.com/scenesystems/theoria/commit/879632dbc69face1471bf9f8e78c68e756dc854c)]:
+  - effect-math@0.1.1
+  - effect-search@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
