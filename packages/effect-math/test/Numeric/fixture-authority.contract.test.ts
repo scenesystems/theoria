@@ -1,5 +1,3 @@
-import { FileSystem, Path } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Equivalence, Number, Schema, String as EffectString } from "effect"
 
@@ -9,8 +7,7 @@ import fixturePayload from "../fixtures/numeric-boundary.fixture.json" with { ty
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import { validateNumericBoundary } from "../../src/Numeric/operations.js"
-
-const canonicalFixtureFingerprint = "blake3-256:JG8sS88IyW8sqjv8R6_Y5UoyJx0ql8f11eyfGsNfB9E"
+import { computeFixtureHash } from "../helpers/fixtures/digest.js"
 
 const fixtureExpectedEq = Equivalence.struct({
   ok: Equivalence.boolean
@@ -36,24 +33,20 @@ const deterministicLayer = makeDeterministicRuntimePoliciesLayer({
 })
 
 describe("Numeric fixture authority", () => {
-  it.effect("manifest hash and fixture payload remain canonical", () =>
+  it.effect("manifest hash matches @scenesystems/digest computation", () =>
     Effect.gen(function*() {
       const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(fixtureManifest)
       const fixture = manifest.fixtures[0]
 
-      const path = yield* Path.Path
-      const fs = yield* FileSystem.FileSystem
-      const testFileUrl = new URL(import.meta.url)
-      const testDir = yield* path.fromFileUrl(testFileUrl).pipe(Effect.map(path.dirname))
-      const resolvedPath = path.resolve(testDir, fixture.path.replace("test/fixtures", "../fixtures"))
-      const fixtureFile = yield* fs.readFileString(resolvedPath)
-
       expect(Number.Equivalence(manifest.version, 1)).toStrictEqual(true)
       expect(EffectString.Equivalence(manifest.algorithm, "blake3-256")).toStrictEqual(true)
-      expect(EffectString.Equivalence(fixture.hash, canonicalFixtureFingerprint)).toStrictEqual(true)
+      expect(EffectString.Equivalence(fixture.name, "numeric-boundary-stable")).toStrictEqual(true)
+
+      const computedHash = yield* computeFixtureHash(fixturePayload)
+
+      expect(EffectString.Equivalence(fixture.hash, computedHash)).toStrictEqual(true)
       expect(EffectString.Equivalence(fixture.hash.split(":")[0] ?? "", manifest.algorithm)).toStrictEqual(true)
-      expect(fixtureFile.includes("\"name\": \"numeric-boundary-stable\"")).toStrictEqual(true)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }))
 
   it.effect("fixture replay proves canonical numeric boundary behavior", () =>
     Effect.gen(function*() {

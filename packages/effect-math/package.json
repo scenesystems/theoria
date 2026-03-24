@@ -62,6 +62,7 @@
     "test": "vitest run --root ../.. packages/effect-math/test",
     "publish:check": "bun run scripts/verify-publish-readiness.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
+    "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
     "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
     "fixtures:lock": "uv lock --script scripts/generate-scipy-fixtures.py",
     "build-esm": "tsc -b tsconfig.build.json",
@@ -70,6 +71,9 @@
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
     "clean": "rm -rf build dist .tsbuildinfo",
     "docgen": "docgen"
+  },
+  "devDependencies": {
+    "@scenesystems/digest": "workspace:*"
   },
   "peerDependencies": {
     "effect": "^3.20.0"

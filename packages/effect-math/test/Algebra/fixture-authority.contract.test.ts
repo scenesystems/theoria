@@ -5,6 +5,7 @@ import fixtureManifest from "../fixtures/algebra-boundary.fixture-manifest.json"
 import fixturePayload from "../fixtures/algebra-boundary.fixture.json" with { type: "json" }
 
 import { polyEval } from "../../src/Algebra/operations.js"
+import { computeFixtureHash } from "../helpers/fixtures/digest.js"
 
 const FixtureManifestSchema = Schema.Struct({
   version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
@@ -19,13 +20,19 @@ const FixtureManifestSchema = Schema.Struct({
 })
 
 describe("Algebra fixture authority", () => {
-  it.effect("manifest conforms to fixture manifest schema", () =>
+  it.effect("manifest hash matches @scenesystems/digest computation", () =>
     Effect.gen(function*() {
       const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(fixtureManifest)
+      const fixture = manifest.fixtures[0]
 
       expect(Number.Equivalence(manifest.version, 1)).toStrictEqual(true)
       expect(EffectString.Equivalence(manifest.algorithm, "blake3-256")).toStrictEqual(true)
-      expect(EffectString.Equivalence(manifest.fixtures[0].name, "algebra-poly-eval-stable")).toStrictEqual(true)
+      expect(EffectString.Equivalence(fixture.name, "algebra-poly-eval-stable")).toStrictEqual(true)
+
+      const computedHash = yield* computeFixtureHash(fixturePayload)
+
+      expect(EffectString.Equivalence(fixture.hash, computedHash)).toStrictEqual(true)
+      expect(EffectString.Equivalence(fixture.hash.split(":")[0] ?? "", manifest.algorithm)).toStrictEqual(true)
     }))
 
   it("fixture replay proves canonical polyEval behavior", () => {
