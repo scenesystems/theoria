@@ -125,6 +125,47 @@ function createDirGroupPage(destPath, title, parentTitle, grandParentTitle, navO
 }
 
 /**
+ * Build a symbol → doc page URL index for a package.
+ * Scans all docgen markdown files for `## symbolName` headings and maps them
+ * to `relPath.html#anchor` URLs relative to the package doc root.
+ *
+ * @param {string} modulesDir - e.g. packages/digest/docs/modules
+ * @returns {Map<string, string>} symbolName → relative URL (e.g. "algorithms/blake3.ts.html#blake3hash")
+ */
+function buildSymbolIndex(modulesDir) {
+  /** @type {Map<string, string>} */
+  const index = new Map()
+  if (!Fs.existsSync(modulesDir)) return index
+
+  function walk(dir, relPrefix) {
+    const entries = Fs.readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        walk(Path.join(dir, entry.name), relPrefix ? `${relPrefix}/${entry.name}` : entry.name)
+      } else if (entry.name.endsWith(".md") && entry.name !== "index.md") {
+        const filePath = Path.join(dir, entry.name)
+        const content = Fs.readFileSync(filePath, "utf8")
+        const pageUrl = relPrefix
+          ? `${relPrefix}/${entry.name.replace(/\.md$/, ".html")}`
+          : entry.name.replace(/\.md$/, ".html")
+
+        // Match ## headings that are symbol names (word chars only, not "overview" headings)
+        const headingRe = /^## (\w+)\s*$/gm
+        let match
+        while ((match = headingRe.exec(content)) !== null) {
+          const sym = match[1]
+          if (sym.endsWith("overview")) continue
+          const anchor = sym.toLowerCase()
+          index.set(sym, `${pageUrl}#${anchor}`)
+        }
+      }
+    }
+  }
+  walk(modulesDir, "")
+  return index
+}
+
+/**
  * Rewrite a docgen module markdown file with correct parent/grand_parent hierarchy.
  *
  * @param {string} srcPath - Source file path
@@ -133,8 +174,9 @@ function createDirGroupPage(destPath, title, parentTitle, grandParentTitle, navO
  * @param {string|undefined} grandParentTitle - Grand-parent for disambiguation
  * @param {string} leafTitle - Display title (just the filename, not the full path)
  * @param {string} dirName - Package directory name (e.g. "effect-search")
+ * @param {Map<string, string>} symbolIndex - symbol → relative URL index
  */
-function rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, dirName) {
+function rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, dirName, symbolIndex) {
   let content = Fs.readFileSync(srcPath, "utf8")
 
   // Extract the original docgen title (contains source path like "Sampler/constructors.ts")
@@ -197,10 +239,38 @@ function rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, lea
     )
   }
 
-  // Resolve {@link symbolName} tags to inline code (bold monospace)
+  // Resolve {@link symbolName} tags to clickable links using the symbol index.
+  // Compute the relative path from this doc page to the target symbol's page.
+  const thisPageRel = originalTitle
+    ? originalTitle.replace(/\.ts$/, ".ts.html")
+    : ""
+  const thisPageDir = thisPageRel.includes("/")
+    ? thisPageRel.slice(0, thisPageRel.lastIndexOf("/"))
+    : ""
+
   content = content.replace(
     /\{@link\s+(\w+)\}/g,
-    (_, name) => `\`${name}\``
+    (full, name) => {
+      const targetUrl = symbolIndex.get(name)
+      if (!targetUrl) return `\`${name}\``
+
+      // Compute relative path from this page's directory to the target
+      const targetDir = targetUrl.includes("/")
+        ? targetUrl.slice(0, targetUrl.lastIndexOf("/"))
+        : ""
+      let relUrl
+      if (thisPageDir === targetDir) {
+        // Same directory — just the filename#anchor
+        relUrl = targetUrl.includes("/")
+          ? targetUrl.slice(targetUrl.lastIndexOf("/") + 1)
+          : targetUrl
+      } else {
+        // Different directory — go up and back down
+        const upCount = thisPageDir ? thisPageDir.split("/").length : 0
+        relUrl = "../".repeat(upCount) + targetUrl
+      }
+      return `[\`${name}\`](${relUrl})`
+    }
   )
 
   ensureDir(Path.dirname(destPath))
@@ -291,8 +361,11 @@ function processPackage(dirName, displayName, navOrder, collection, ambiguousDir
     createDirGroupPage(destPath, title, parentTitle, grandParentTitle, dirNavOrder++)
   }
 
+  // Build per-package symbol index for {@link} resolution
+  const symbolIndex = buildSymbolIndex(pkgDocsModules)
+
   // Now process all .md module files
-  processModuleFiles(pkgDocsModules, destDir, displayName, dirTitleMap, dirParentMap, ambiguousDirNames, "", dirName)
+  processModuleFiles(pkgDocsModules, destDir, displayName, dirTitleMap, dirParentMap, ambiguousDirNames, "", dirName, symbolIndex)
 
   const count = Fs.readdirSync(pkgDocsModules, { recursive: true })
     .filter((f) => String(f).endsWith(".md") && String(f) !== "index.md").length
@@ -302,7 +375,7 @@ function processPackage(dirName, displayName, navOrder, collection, ambiguousDir
 /**
  * Recursively process module .md files, rewriting their parent/grand_parent.
  */
-function processModuleFiles(srcDir, destDir, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, relPrefix, pkgDirName) {
+function processModuleFiles(srcDir, destDir, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, relPrefix, pkgDirName, symbolIndex) {
   if (!Fs.existsSync(srcDir)) return
 
   const entries = Fs.readdirSync(srcDir, { withFileTypes: true })
@@ -313,7 +386,7 @@ function processModuleFiles(srcDir, destDir, packageDisplayName, dirTitleMap, di
     if (entry.isDirectory()) {
       ensureDir(destPath)
       const childRel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
-      processModuleFiles(srcPath, destPath, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, childRel, pkgDirName)
+      processModuleFiles(srcPath, destPath, packageDisplayName, dirTitleMap, dirParentMap, ambiguousDirNames, childRel, pkgDirName, symbolIndex)
     } else if (entry.name === "index.md") {
       // Skip docgen's "Modules" index — we create our own
       continue
@@ -341,7 +414,7 @@ function processModuleFiles(srcDir, destDir, packageDisplayName, dirTitleMap, di
       // Extract just the filename as the display title
       const leafTitle = entry.name.replace(/\.md$/, "")
 
-      rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, pkgDirName)
+      rewriteModulePage(srcPath, destPath, parentTitle, grandParentTitle, leafTitle, pkgDirName, symbolIndex)
     }
   }
 }
