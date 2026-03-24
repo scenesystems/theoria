@@ -5,21 +5,6 @@ import fc from "fast-check"
 import * as Float64 from "../../src/internal/float64.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../src/internal/tpe/continuousParzen.js"
 
-// eslint-disable-next-line no-restricted-syntax
-type BoundsInput = {
-  readonly center: number
-  readonly span: number
-}
-
-// eslint-disable-next-line no-restricted-syntax
-type DeterministicEdgeScenario = {
-  readonly id: string
-  readonly observations: ReadonlyArray<number>
-  readonly low: number
-  readonly high: number
-  readonly probes: ReadonlyArray<number>
-}
-
 const boundsInputArbitrary = fc.record({
   center: fc.double({
     min: -20,
@@ -67,7 +52,7 @@ const rollPairsArbitrary = fc.array(fc.tuple(rollArbitrary, rollArbitrary), {
 const WEIGHT_ABSOLUTE_TOLERANCE = 1e-12
 const MIDPOINT_ABSOLUTE_TOLERANCE = 1e-12
 
-const deterministicEdgeScenarios: ReadonlyArray<DeterministicEdgeScenario> = [
+const deterministicEdgeScenarios = [
   {
     id: "endpoint-observations",
     observations: Arr.make(0, 0, 1, 1),
@@ -126,7 +111,7 @@ const deterministicEdgeScenarios: ReadonlyArray<DeterministicEdgeScenario> = [
   }
 ]
 
-const toBounds = (input: BoundsInput): readonly [number, number] => [
+const toBounds = (input: { readonly center: number; readonly span: number }): readonly [number, number] => [
   input.center - input.span,
   input.center + input.span
 ]

@@ -5,20 +5,6 @@ import fc from "fast-check"
 import * as Float64 from "../../src/internal/float64.js"
 import { cdf, logPdf, sample, TruncatedNormalParams } from "../../src/internal/tpe/truncatedNormal.js"
 
-// eslint-disable-next-line no-restricted-syntax
-type ParamsInput = {
-  readonly mean: number
-  readonly sigma: number
-  readonly supportCenter: number
-  readonly halfWidth: number
-}
-
-// eslint-disable-next-line no-restricted-syntax
-type DeterministicTailCase = {
-  readonly id: string
-  readonly params: TruncatedNormalParams
-}
-
 const paramsInputArbitrary = fc.record({
   mean: fc.double({
     min: -5,
@@ -60,7 +46,12 @@ const rollArbitrary = fc.double({
   noDefaultInfinity: true
 })
 
-const toParams = (input: ParamsInput): TruncatedNormalParams =>
+const toParams = (input: {
+  readonly mean: number
+  readonly sigma: number
+  readonly supportCenter: number
+  readonly halfWidth: number
+}): TruncatedNormalParams =>
   new TruncatedNormalParams({
     mean: input.mean,
     sigma: input.sigma,
@@ -75,7 +66,7 @@ const CDF_EPSILON = 1e-8
 const ROUNDTRIP_QUANTILE_TOLERANCE = 1e-7
 const PPF_MONOTONE_RESOLUTION = 134 * Number.EPSILON
 
-const deterministicTailCases: ReadonlyArray<DeterministicTailCase> = [
+const deterministicTailCases = [
   {
     id: "mean-far-right-support-left",
     params: new TruncatedNormalParams({

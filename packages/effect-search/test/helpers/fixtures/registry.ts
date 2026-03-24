@@ -7,31 +7,25 @@ import type { FixtureName, KnownFixture } from "./schemas.js"
 const FIXTURE_ROOT_URL = new URL("../../fixtures/optuna/", import.meta.url)
 const DEFAULT_MANIFEST_FILE = "manifest.json"
 
-// eslint-disable-next-line no-restricted-syntax
-export type FixtureRegistryService = {
-  readonly load: (
-    name: FixtureName
-  ) => Effect.Effect<KnownFixture, FixtureRegistryError>
-  readonly loadAll: (
-    namespace: string
-  ) => Effect.Effect<Array<KnownFixture>, FixtureRegistryError>
-  readonly validateManifest: Effect.Effect<void, FixtureRegistryError>
-}
-
 export class FixtureRegistry extends Context.Tag("effect-search/test/helpers/FixtureRegistry")<
   FixtureRegistry,
-  FixtureRegistryService
+  {
+    readonly load: (
+      name: FixtureName
+    ) => Effect.Effect<KnownFixture, FixtureRegistryError>
+    readonly loadAll: (
+      namespace: string
+    ) => Effect.Effect<Array<KnownFixture>, FixtureRegistryError>
+    readonly validateManifest: Effect.Effect<void, FixtureRegistryError>
+  }
 >() {}
 
-// eslint-disable-next-line no-restricted-syntax
-export type FixtureRegistryOptions = {
-  readonly rootUrl?: URL
-  readonly manifestFileName?: string
-}
-
 export const makeFixtureRegistry = (
-  options: FixtureRegistryOptions = {}
-): FixtureRegistryService => {
+  options: {
+    readonly rootUrl?: URL
+    readonly manifestFileName?: string
+  } = {}
+): FixtureRegistry["Type"] => {
   const rootUrl = options.rootUrl ?? FIXTURE_ROOT_URL
   const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
 
