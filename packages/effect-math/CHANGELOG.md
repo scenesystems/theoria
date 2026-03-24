@@ -1,5 +1,11 @@
 # effect-math
 
+## 0.1.1
+
+### Patch Changes
+
+- [#4](https://github.com/scenesystems/theoria/pull/4) [`2025cab`](https://github.com/scenesystems/theoria/commit/2025cab1ebda57eb22a0637df96cc3b2e9a52dae) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add THIRD_PARTY_NOTICES with full license texts for Boost.Math (BSL-1.0) and Cephes (BSD-2-Clause) coefficients. Fix Fornberg → Squire & Trapp (1998) attribution for complex-step differentiation. Replace Numerical Recipes citations with original algorithm authors (Godfrey/GSL, Lentz, Gautschi). Remove phantom pareto/kde keywords from package.json.
+
 ## 0.1.0
 
 ### Minor Changes
