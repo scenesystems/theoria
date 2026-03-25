@@ -1,8 +1,5 @@
 /**
- * Streaming digest contract tests (F1 target-state TDD).
- *
- * These tests intentionally specify APIs that do not exist yet.
- * Red failure is expected until the streaming implementation lands.
+ * Streaming digest contract tests.
  */
 
 import { describe, expect, it } from "@effect/vitest"
@@ -15,6 +12,8 @@ import {
   digestByteStream,
   digestByteStreamBase64Url,
   digestByteStreamHex,
+  DigestStreaming,
+  DigestStreamingLive,
   digestUtf8,
   digestUtf8Stream
 } from "../src/index.js"
@@ -71,6 +70,17 @@ describe("digestByteStream — chunked byte hashing", () => {
       const b = yield* digestByteStream("blake3-256", Stream.fromIterable(reverse))
       expect(a).not.toEqual(b)
     }))
+
+  it.effect("re-running the same digest effect yields stable output", () =>
+    Effect.gen(function*() {
+      const chunks = [utf8ToBytes("reuse-"), utf8ToBytes("safe")]
+      const program = digestByteStreamBase64Url("sha256", Stream.fromIterable(chunks))
+
+      const first = yield* program
+      const second = yield* program
+
+      expect(second).toBe(first)
+    }))
 })
 
 describe("digestUtf8Stream — chunked string hashing", () => {
@@ -101,4 +111,48 @@ describe("digestByteStream encoded variants", () => {
       expect(streamed).toBe(oneShot)
       expect(streamed).toMatch(/^[0-9a-f]{64}$/)
     }))
+})
+
+describe("stream failure propagation", () => {
+  it.effect("digestByteStream preserves upstream stream errors", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.either(digestByteStream("sha256", Stream.fail("stream failed")))
+      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+    }))
+
+  it.effect("digestUtf8Stream preserves upstream stream errors", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.either(digestUtf8Stream("blake3-256", Stream.fail("stream failed")))
+      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+    }))
+
+  it.effect("digestByteStreamBase64Url preserves upstream stream errors", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.either(
+        digestByteStreamBase64Url("sha256", Stream.fail("stream failed"))
+      )
+      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+    }))
+
+  it.effect("digestByteStreamHex preserves upstream stream errors", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.either(digestByteStreamHex("blake3-256", Stream.fail("stream failed")))
+      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+    }))
+})
+
+describe("DigestStreaming service", () => {
+  it.effect("DigestStreamingLive provides injectable stream helpers", () =>
+    Effect.gen(function*() {
+      const digestStreaming = yield* DigestStreaming
+      const chunks = [utf8ToBytes("inject-"), utf8ToBytes("able")]
+
+      const streamed = yield* digestStreaming.digestByteStreamBase64Url(
+        "blake3-256",
+        Stream.fromIterable(chunks)
+      )
+      const oneShot = yield* digestBytesBase64Url("blake3-256", concatBytes(chunks))
+
+      expect(streamed).toBe(oneShot)
+    }).pipe(Effect.provide(DigestStreamingLive)))
 })

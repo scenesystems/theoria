@@ -81,6 +81,13 @@ These helpers consume `Stream.Stream` inputs and are implemented with Effect `St
 | `digestByteStreamBase64Url(algorithm, chunks)` | Hash stream + base64url encode → `Effect<string>`       |
 | `digestByteStreamHex(algorithm, chunks)`       | Hash stream + hex encode → `Effect<string>`             |
 
+### Streaming service and layer
+
+| Export                | Description                                                |
+| --------------------- | ---------------------------------------------------------- |
+| `DigestStreaming`     | Effect service tag for injectable streaming digest helpers |
+| `DigestStreamingLive` | Layer providing `DigestStreaming` from the module helpers  |
+
 ### Canonicalization
 
 | Function                    | Description                           |
@@ -170,6 +177,21 @@ const program = Effect.gen(function* () {
   // true — stream digest is invariant to chunking strategy
   const parity = streamed === oneShot
 })
+```
+
+### Streaming via dependency injection
+
+```ts
+import { DigestStreaming, DigestStreamingLive, utf8ToBytes } from "@scenesystems/digest"
+import { Effect, Stream } from "effect"
+
+const program = Effect.gen(function* () {
+  const digestStreaming = yield* DigestStreaming
+  return yield* digestStreaming.digestByteStreamBase64Url(
+    "sha256",
+    Stream.fromIterable([utf8ToBytes("chunk-1"), utf8ToBytes("chunk-2")])
+  )
+}).pipe(Effect.provide(DigestStreamingLive))
 ```
 
 ### Webhook signature verification

@@ -17,10 +17,9 @@
 import { blake3 } from "@noble/hashes/blake3.js"
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
 import { utf8ToBytes } from "@noble/hashes/utils.js"
-import { Effect, Match, Stream } from "effect"
+import { Effect, Layer, Match, Stream } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
-
-type DigestAlgorithm = "blake3-256" | "sha256"
+import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 
 const makeHasher = (algorithm: DigestAlgorithm) =>
   Match.value(algorithm).pipe(
@@ -52,16 +51,15 @@ const makeHasher = (algorithm: DigestAlgorithm) =>
 export const digestByteStream = <E, R>(
   algorithm: DigestAlgorithm,
   chunks: Stream.Stream<Uint8Array, E, R>
-): Effect.Effect<Uint8Array, E, R> => {
-  const hasher = makeHasher(algorithm)
-  return chunks.pipe(
-    Stream.runFold(hasher, (state, chunk) => {
-      state.update(chunk)
-      return state
-    }),
-    Effect.map((state) => state.digest())
-  )
-}
+): Effect.Effect<Uint8Array, E, R> =>
+  Effect.flatMap(Effect.sync(() => makeHasher(algorithm)), (hasher) =>
+    chunks.pipe(
+      Stream.runFold(hasher, (state, chunk) => {
+        state.update(chunk)
+        return state
+      }),
+      Effect.map((state) => state.digest())
+    ))
 
 /**
  * Hash a stream of UTF-8 text chunks using the specified algorithm.
@@ -102,3 +100,47 @@ export const digestByteStreamHex = <E, R>(
   algorithm: DigestAlgorithm,
   chunks: Stream.Stream<Uint8Array, E, R>
 ): Effect.Effect<string, E, R> => Effect.map(digestByteStream(algorithm, chunks), toHex)
+
+/**
+ * Injectable streaming digest service.
+ *
+ * Use this service when consumers should depend on digest capabilities via
+ * Effect layers rather than importing concrete helpers directly.
+ *
+ * @since 0.1.1
+ * @category services
+ */
+export class DigestStreaming extends Effect.Tag("@scenesystems/digest/DigestStreaming")<
+  DigestStreaming,
+  {
+    readonly digestByteStream: <E, R>(
+      algorithm: DigestAlgorithm,
+      chunks: Stream.Stream<Uint8Array, E, R>
+    ) => Effect.Effect<Uint8Array, E, R>
+    readonly digestUtf8Stream: <E, R>(
+      algorithm: DigestAlgorithm,
+      chunks: Stream.Stream<string, E, R>
+    ) => Effect.Effect<Uint8Array, E, R>
+    readonly digestByteStreamBase64Url: <E, R>(
+      algorithm: DigestAlgorithm,
+      chunks: Stream.Stream<Uint8Array, E, R>
+    ) => Effect.Effect<string, E, R>
+    readonly digestByteStreamHex: <E, R>(
+      algorithm: DigestAlgorithm,
+      chunks: Stream.Stream<Uint8Array, E, R>
+    ) => Effect.Effect<string, E, R>
+  }
+>() {}
+
+/**
+ * Live layer for {@link DigestStreaming}.
+ *
+ * @since 0.1.1
+ * @category layers
+ */
+export const DigestStreamingLive = Layer.succeed(DigestStreaming, {
+  digestByteStream,
+  digestUtf8Stream,
+  digestByteStreamBase64Url,
+  digestByteStreamHex
+})
