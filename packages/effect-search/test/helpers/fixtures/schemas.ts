@@ -1,5 +1,6 @@
 import { Schema } from "effect"
 
+import { BuiltInAcquisitionNameSchema } from "../../../src/contracts/Acquisition.js"
 import { DirectionSchema } from "../../../src/contracts/Direction.js"
 import { PrimitiveChoiceSchema } from "../../../src/contracts/Distribution.js"
 import { PromptCategoricalConfigSchema } from "../../../src/experimental/scenarios/promptCategorical.js"
@@ -624,6 +625,68 @@ export const PercentilePrunerFixtureSchema = Schema.Struct({
 
 export type PercentilePrunerFixture = Schema.Schema.Type<typeof PercentilePrunerFixtureSchema>
 
+const AdvancedSamplerSpaceSchema = Schema.Struct({
+  x: Schema.Struct({ low: Schema.Number, high: Schema.Number }),
+  y: Schema.Struct({ low: Schema.Number, high: Schema.Number })
+})
+
+const AdvancedSamplerContextSchema = Schema.Struct({
+  nextTrialNumber: Schema.Number,
+  completed: Schema.Array(
+    Schema.Struct({
+      trialNumber: Schema.Number,
+      config: Schema.Struct({
+        x: Schema.Number,
+        y: Schema.Number
+      }),
+      value: Schema.Number
+    })
+  )
+})
+
+export const AdvancedCmaEsFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("advanced-samplers.cmaes-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    space: AdvancedSamplerSpaceSchema,
+    context: AdvancedSamplerContextSchema,
+    sampler: Schema.Struct({
+      seed: Schema.Number,
+      sigma: Schema.Number,
+      populationSize: Schema.Number
+    }),
+    expected: Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number
+    })
+  })
+})
+
+export type AdvancedCmaEsFixture = Schema.Schema.Type<typeof AdvancedCmaEsFixtureSchema>
+
+export const AdvancedGpBoFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("advanced-samplers.gpbo-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    space: AdvancedSamplerSpaceSchema,
+    context: AdvancedSamplerContextSchema,
+    sampler: Schema.Struct({
+      seed: Schema.Number,
+      nStartupTrials: Schema.Number,
+      nCandidates: Schema.Number,
+      lengthScale: Schema.Number,
+      noise: Schema.Number,
+      acquisition: BuiltInAcquisitionNameSchema
+    }),
+    expected: Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number
+    })
+  })
+})
+
+export type AdvancedGpBoFixture = Schema.Schema.Type<typeof AdvancedGpBoFixtureSchema>
+
 export const FixtureNameSchema = Schema.Literal(
   "gamma.default-gamma",
   "split-trials.single-and-liar",
@@ -667,7 +730,9 @@ export const FixtureNameSchema = Schema.Literal(
   "motpe-weights.mixed-directions",
   "motpe-weights.zero-contribution",
   "motpe-study.2obj",
-  "constrained-tpe.parity"
+  "constrained-tpe.parity",
+  "advanced-samplers.cmaes-parity",
+  "advanced-samplers.gpbo-parity"
 )
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
@@ -714,7 +779,9 @@ export const KnownFixtureSchema = Schema.Union(
   TpeCategoricalStudyReplayFixtureSchema,
   MotpeWeightsFixtureSchema,
   MotpeStudyFixtureSchema,
-  ConstrainedTpeFixtureSchema
+  ConstrainedTpeFixtureSchema,
+  AdvancedCmaEsFixtureSchema,
+  AdvancedGpBoFixtureSchema
 )
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>

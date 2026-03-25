@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Option } from "effect"
 
 import type { Direction } from "../../contracts/Direction.js"
 import { matchObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
@@ -11,8 +11,10 @@ import { normalizeObjectiveVector } from "../../contracts/ObjectiveValue.js"
 import { SamplerObjectiveUnsupported } from "../../Errors/index.js"
 import type { SamplerConfig } from "../../internal/configAccess.js"
 import type { SuggestContext } from "../../Sampler/index.js"
+import { minimumObserved } from "./math.js"
 
 export class ScalarObservation extends Data.Class<{
+  readonly trialNumber: number
   readonly config: SamplerConfig
   readonly value: number
 }> {}
@@ -54,6 +56,7 @@ export const scalarObservationsFromContext = (
         scalarFromObjective(trial.value).pipe(
           Option.map((value) =>
             new ScalarObservation({
+              trialNumber: trial.trialNumber,
               config: trial.config,
               value: orientedValue(direction, value)
             })
@@ -63,14 +66,4 @@ export const scalarObservationsFromContext = (
   )
 
 export const bestObservedValue = (observations: ReadonlyArray<ScalarObservation>): number =>
-  Arr.head(observations).pipe(
-    Option.match({
-      onNone: () => 0,
-      onSome: (first) =>
-        Arr.reduce(
-          Arr.drop(observations, 1),
-          first.value,
-          (current, observation) => Num.min(current, observation.value)
-        )
-    })
-  )
+  minimumObserved(Arr.map(observations, (observation) => observation.value), 0)

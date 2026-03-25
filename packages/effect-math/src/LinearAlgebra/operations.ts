@@ -13,6 +13,7 @@ import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { BackendPolicyService } from "../contracts/shared/RuntimePolicies.js"
 import { LinearAlgebraDecodeError, LinearAlgebraDomainViolationError, ShapeMismatchError } from "./errors.js"
 import * as Matrix from "./internal/matrix.js"
+import * as Solver from "./internal/solver.js"
 import * as Vector from "./internal/vector.js"
 import { LinearAlgebraDomainModel } from "./model.js"
 import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schema.js"
@@ -184,6 +185,58 @@ export const frobeniusNorm = (
   rows: number,
   cols: number
 ): number => Matrix.frobeniusNorm(data, rows, cols, cols, 0)
+
+/**
+ * Cholesky decomposition `A = L Lᵀ` for symmetric positive-definite matrices.
+ * Input matrix is row-major dense with shape `size × size`. Returns the
+ * row-major lower-triangular factor `L` (upper entries are zero) or
+ * `Option.none()` when the matrix is not SPD.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const cholesky = (
+  matrix: Chunk.Chunk<number>,
+  size: number
+) => Solver.choleskySpd(matrix, size)
+
+/**
+ * Forward substitution solve for lower-triangular systems `Lx = b`.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const forwardSubstitutionLower = (
+  lower: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.forwardSubstituteLower(lower, size, rhs)
+
+/**
+ * Backward substitution solve for upper-triangular systems `Ux = b`.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const backwardSubstitutionUpper = (
+  upper: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.backwardSubstituteUpper(upper, size, rhs)
+
+/**
+ * Solve symmetric positive-definite systems `Ax = b` via Cholesky +
+ * triangular substitution. Returns `Option.none()` for invalid shapes or
+ * non-SPD matrices.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const solveSpd = (
+  matrix: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.solveSpd(matrix, size, rhs)
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations with boundary input checking

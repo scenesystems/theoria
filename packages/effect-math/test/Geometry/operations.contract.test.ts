@@ -11,7 +11,8 @@ import {
   euclideanDistance,
   manhattanDistance,
   midpoint,
-  midpointValidated
+  midpointValidated,
+  squaredEuclideanDistance
 } from "../../src/Geometry/operations.js"
 
 const strictTypedArrayLayer = makeDeterministicRuntimePoliciesLayer({
@@ -49,6 +50,21 @@ describe("Geometry / euclideanDistance", () => {
   it.effect("returns zero for empty chunks", () =>
     Effect.gen(function*() {
       expect(euclideanDistance(Chunk.empty(), Chunk.empty())).toStrictEqual(0)
+    }))
+})
+
+describe("Geometry / squaredEuclideanDistance", () => {
+  it.effect("computes squared distance between [0,0] and [3,4]", () =>
+    Effect.gen(function*() {
+      const a = Chunk.fromIterable([0, 0])
+      const b = Chunk.fromIterable([3, 4])
+      expect(squaredEuclideanDistance(a, b)).toStrictEqual(25)
+    }))
+
+  it.effect("returns zero for identical points", () =>
+    Effect.gen(function*() {
+      const a = Chunk.fromIterable([1, 2, 3])
+      expect(squaredEuclideanDistance(a, a)).toStrictEqual(0)
     }))
 })
 

@@ -4,56 +4,66 @@ import { Effect, Schema } from "effect"
 import * as Contracts from "../../src/contracts/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import fixturePayload from "../fixtures/advanced-samplers/single-objective-trace.json" with { type: "json" }
+import {
+  AdvancedCmaEsFixtureSchema,
+  AdvancedGpBoFixtureSchema,
+  FixtureRegistryLive,
+  loadFixture
+} from "../helpers/fixtures/index.js"
 
-const AdvancedSamplerFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("advanced-samplers.single-objective-trace"),
-  space: Schema.Struct({
-    x: Schema.Struct({ low: Schema.Number, high: Schema.Number }),
-    y: Schema.Struct({ low: Schema.Number, high: Schema.Number })
-  }),
-  context: Schema.Struct({
-    nextTrialNumber: Schema.Number,
-    completed: Schema.Array(
-      Schema.Struct({
-        trialNumber: Schema.Number,
-        config: Schema.Struct({
-          x: Schema.Number,
-          y: Schema.Number
-        }),
-        value: Schema.Number
-      })
-    )
-  }),
-  expected: Schema.Struct({
-    cmaEs: Schema.Struct({ x: Schema.Number, y: Schema.Number }),
-    gpBo: Schema.Struct({ x: Schema.Number, y: Schema.Number })
+const makeSpace = (
+  space: {
+    readonly x: { readonly low: number; readonly high: number }
+    readonly y: { readonly low: number; readonly high: number }
+  }
+) =>
+  SearchSpace.unsafeMake({
+    x: SearchSpace.float(space.x.low, space.x.high),
+    y: SearchSpace.float(space.y.low, space.y.high)
   })
-})
+
+const makeContext = (
+  context: {
+    readonly nextTrialNumber: number
+    readonly completed: ReadonlyArray<{
+      readonly trialNumber: number
+      readonly config: { readonly x: number; readonly y: number }
+      readonly value: number
+    }>
+  }
+) =>
+  new Sampler.SuggestContext({
+    completed: context.completed.map((entry) =>
+      Sampler.makeSuggestCompletedTrial(entry.trialNumber, entry.config, entry.value)
+    ),
+    pending: [],
+    objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
+    nextTrialNumber: context.nextTrialNumber,
+    epsilon: 0
+  })
 
 describe("advanced samplers fixture parity", () => {
-  it.effect("matches deterministic fixture traces for cma-es and gp-bo", () =>
+  it.effect("matches deterministic fixture trace for cma-es", () =>
     Effect.gen(function*() {
-      const fixture = Schema.decodeUnknownSync(AdvancedSamplerFixtureSchema)(fixturePayload)
-      const space = SearchSpace.unsafeMake({
-        x: SearchSpace.float(fixture.space.x.low, fixture.space.x.high),
-        y: SearchSpace.float(fixture.space.y.low, fixture.space.y.high)
-      })
-      const context = new Sampler.SuggestContext({
-        completed: fixture.context.completed.map((entry) =>
-          Sampler.makeSuggestCompletedTrial(entry.trialNumber, entry.config, entry.value)
-        ),
-        pending: [],
-        objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
-        nextTrialNumber: fixture.context.nextTrialNumber,
-        epsilon: 0
-      })
-      const cmaSampler = Sampler.cmaEs({ seed: 23, sigma: 0.55, populationSize: 8 })
-      const gpSampler = Sampler.gpBo({ seed: 23, nStartupTrials: 2, nCandidates: 16, acquisition: "ei" })
+      const loaded = yield* loadFixture("advanced-samplers.cmaes-parity")
+      const fixture = yield* Schema.decodeUnknown(AdvancedCmaEsFixtureSchema)(loaded)
+      const space = makeSpace(fixture.payload.space)
+      const context = makeContext(fixture.payload.context)
+      const cmaSampler = Sampler.cmaEs(fixture.payload.sampler)
       const cmaCandidate = yield* Sampler.suggest(cmaSampler, space, context)
-      const gpCandidate = yield* Sampler.suggest(gpSampler, space, context)
 
-      expect(cmaCandidate).toEqual(fixture.expected.cmaEs)
-      expect(gpCandidate).toEqual(fixture.expected.gpBo)
-    }))
+      expect(cmaCandidate).toEqual(fixture.payload.expected)
+    }).pipe(Effect.provide(FixtureRegistryLive)))
+
+  it.effect("matches deterministic fixture trace for gp-bo", () =>
+    Effect.gen(function*() {
+      const loaded = yield* loadFixture("advanced-samplers.gpbo-parity")
+      const fixture = yield* Schema.decodeUnknown(AdvancedGpBoFixtureSchema)(loaded)
+      const space = makeSpace(fixture.payload.space)
+      const context = makeContext(fixture.payload.context)
+      const gpSampler = Sampler.gpBo(fixture.payload.sampler)
+      const candidate = yield* Sampler.suggest(gpSampler, space, context)
+
+      expect(candidate).toEqual(fixture.payload.expected)
+    }).pipe(Effect.provide(FixtureRegistryLive)))
 })

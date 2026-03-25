@@ -1,6 +1,14 @@
 {
   "fixtures": [
     {
+      "file": "advanced-samplers/cmaes-parity.json",
+      "name": "advanced-samplers.cmaes-parity"
+    },
+    {
+      "file": "advanced-samplers/gpbo-parity.json",
+      "name": "advanced-samplers.gpbo-parity"
+    },
+    {
       "file": "categorical-parzen/basic.json",
       "name": "categorical-parzen.basic"
     },
