@@ -227,6 +227,26 @@ const program = Effect.gen(function* () {
 
 See the [`examples/`](./examples) directory for complete runnable programs.
 
+## Fixture Workflow
+
+Digest cross-language conformance fixtures are deterministic generated artifacts committed to the repository. Tests consume checked-in fixture outputs so expected values are not derived from the implementation under test.
+
+```sh
+# Generate runtime parity outputs (Python + Rust)
+bun run fixtures:generate
+
+# Validate fixture schema/provenance/hash contracts
+bun run fixtures:check
+
+# Recompute and stamp source manifest contentSha256 fields
+bun run fixtures:stamp
+
+# Verify fixture contracts + conformance suites
+bun run fixtures:verify
+```
+
+Fixture provenance is tracked in `test/fixtures/external/sources.manifest.json`. Runtime parity outputs are committed in `test/fixtures/parity/generated/`.
+
 ## Cryptographic foundations
 
 All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
