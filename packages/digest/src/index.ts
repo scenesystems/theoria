@@ -74,6 +74,12 @@ export * from "./convenience.js"
 export * from "./digestSchemaValue.js"
 
 /**
+ * @since 0.1.1
+ * @category digest
+ */
+export * from "./streaming.js"
+
+/**
  * @since 0.1.0
  * @category authentication
  */
