@@ -78,6 +78,8 @@ These helpers consume `Stream.Stream` inputs and are implemented with Effect `St
 | ---------------------------------------------- | ------------------------------------------------------- |
 | `digestByteStream(algorithm, chunks)`          | Hash a `Stream<Uint8Array>` → `Effect<Uint8Array>`      |
 | `digestUtf8Stream(algorithm, chunks)`          | Hash a `Stream<string>` as UTF-8 → `Effect<Uint8Array>` |
+| `digestUtf8StreamBase64Url(algorithm, chunks)` | Hash UTF-8 stream + base64url encode → `Effect<string>` |
+| `digestUtf8StreamHex(algorithm, chunks)`       | Hash UTF-8 stream + hex encode → `Effect<string>`       |
 | `digestByteStreamBase64Url(algorithm, chunks)` | Hash stream + base64url encode → `Effect<string>`       |
 | `digestByteStreamHex(algorithm, chunks)`       | Hash stream + hex encode → `Effect<string>`             |
 

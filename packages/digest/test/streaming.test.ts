@@ -15,7 +15,11 @@ import {
   DigestStreaming,
   DigestStreamingLive,
   digestUtf8,
-  digestUtf8Stream
+  digestUtf8Base64Url,
+  digestUtf8Stream,
+  digestUtf8StreamBase64Url,
+  digestUtf8StreamHex,
+  toHex
 } from "../src/index.js"
 
 const concatBytes = (chunks: ReadonlyArray<Uint8Array>): Uint8Array =>
@@ -91,6 +95,14 @@ describe("digestUtf8Stream — chunked string hashing", () => {
       const oneShot = yield* digestUtf8("sha256", chunks.join(""))
       expect(streamed).toEqual(oneShot)
     }))
+
+  it.effect("matches one-shot digestUtf8 when a surrogate pair is split across chunks", () =>
+    Effect.gen(function*() {
+      const chunks = ["scene-\uD83D", "\uDE00-systems"]
+      const streamed = yield* digestUtf8Stream("blake3-256", Stream.fromIterable(chunks))
+      const oneShot = yield* digestUtf8("blake3-256", "scene-\uD83D\uDE00-systems")
+      expect(streamed).toEqual(oneShot)
+    }))
 })
 
 describe("digestByteStream encoded variants", () => {
@@ -109,6 +121,25 @@ describe("digestByteStream encoded variants", () => {
       const streamed = yield* digestByteStreamHex("sha256", Stream.fromIterable(chunks))
       const oneShot = yield* digestBytesHex("sha256", concatBytes(chunks))
       expect(streamed).toBe(oneShot)
+      expect(streamed).toMatch(/^[0-9a-f]{64}$/)
+    }))
+
+  it.effect("digestUtf8StreamBase64Url matches digestUtf8Base64Url", () =>
+    Effect.gen(function*() {
+      const chunks = ["stream", "ing", "-utf8-b64"]
+      const streamed = yield* digestUtf8StreamBase64Url("sha256", Stream.fromIterable(chunks))
+      const oneShot = yield* digestUtf8Base64Url("sha256", chunks.join(""))
+      expect(streamed).toBe(oneShot)
+      expect(streamed).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    }))
+
+  it.effect("digestUtf8StreamHex matches byte-stream hex for equivalent payload", () =>
+    Effect.gen(function*() {
+      const chunks = ["stream", "ing", "-utf8-hex"]
+      const streamed = yield* digestUtf8StreamHex("blake3-256", Stream.fromIterable(chunks))
+      const asBytes = chunks.map(utf8ToBytes)
+      const byteStream = yield* digestByteStreamHex("blake3-256", Stream.fromIterable(asBytes))
+      expect(streamed).toBe(byteStream)
       expect(streamed).toMatch(/^[0-9a-f]{64}$/)
     }))
 })
@@ -146,13 +177,18 @@ describe("DigestStreaming service", () => {
     Effect.gen(function*() {
       const digestStreaming = yield* DigestStreaming
       const chunks = [utf8ToBytes("inject-"), utf8ToBytes("able")]
+      const textChunks = ["inject-", "text"]
 
       const streamed = yield* digestStreaming.digestByteStreamBase64Url(
         "blake3-256",
         Stream.fromIterable(chunks)
       )
       const oneShot = yield* digestBytesBase64Url("blake3-256", concatBytes(chunks))
+      const streamedTextHex = yield* digestStreaming.digestUtf8StreamHex("sha256", Stream.fromIterable(textChunks))
+      const oneShotText = yield* digestUtf8("sha256", textChunks.join(""))
+      const oneShotTextHex = toHex(oneShotText)
 
       expect(streamed).toBe(oneShot)
+      expect(streamedTextHex).toBe(oneShotTextHex)
     }).pipe(Effect.provide(DigestStreamingLive)))
 })
