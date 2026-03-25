@@ -1,0 +1,8 @@
+{
+  "id": "rfc8785-appendix:key-order",
+  "input": {
+    "z": 1,
+    "a": 2
+  },
+  "expectedCanonical": "{\"a\":2,\"z\":1}"
+}

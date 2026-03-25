@@ -1,0 +1,9 @@
+{
+  "id": "cyberphone-jcs-corpus:key-order-object",
+  "input": {
+    "c": 3,
+    "a": 1,
+    "b": 2
+  },
+  "expectedCanonical": "{\"a\":1,\"b\":2,\"c\":3}"
+}

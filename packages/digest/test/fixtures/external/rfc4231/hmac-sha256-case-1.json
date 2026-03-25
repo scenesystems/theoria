@@ -1,0 +1,7 @@
+{
+  "id": "rfc4231:case-1",
+  "operation": "hmac-sha256",
+  "keyHex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+  "messageHex": "4869205468657265",
+  "expectedHex": "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+}

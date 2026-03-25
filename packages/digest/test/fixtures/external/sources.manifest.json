@@ -1,0 +1,92 @@
+{
+  "sources": [
+    {
+      "id": "rfc8785-appendix",
+      "kind": "jcs",
+      "fixturePath": "rfc8785/appendix-b-key-order.json",
+      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc8785.html#appendix-B",
+      "revision": "rfc8785",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "IETF Trust Legal Provisions",
+      "normalizationNotes": "Subset fixture normalized to a single key-order object for deterministic JCS parity checks.",
+      "contentSha256": "27c86d850b190e53c21c7ade3226cc36e5d599e1427cf4f9d7fb02996b432fea"
+    },
+    {
+      "id": "cyberphone-jcs-corpus",
+      "kind": "jcs",
+      "fixturePath": "jcs-corpus/key-order-object.json",
+      "sourceUrl": "https://github.com/cyberphone/json-canonicalization",
+      "revision": "subset-snapshot-2026-03-25",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "MIT",
+      "normalizationNotes": "Pinned corpus subset reduced to key-order object coverage for deterministic fixture replay.",
+      "contentSha256": "b56e9189c81b6f867ce7e29d9842739a3c9e8e3f9a5f37c7c2dcf1a96af6dcee"
+    },
+    {
+      "id": "blake3-official-vectors-subset",
+      "kind": "hash",
+      "fixturePath": "blake3/hash-empty.json",
+      "sourceUrl": "https://github.com/BLAKE3-team/BLAKE3/blob/master/test_vectors/test_vectors.json",
+      "revision": "test_vectors.json",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "CC0-1.0",
+      "normalizationNotes": "Subset fixture keeps deterministic empty-input hash case from the official vector corpus.",
+      "contentSha256": "0a545c0cd5c87b9d202de30a854559705c4c2463e1e9e619a982bc02c7098771"
+    },
+    {
+      "id": "sha256-fips180-4",
+      "kind": "hash",
+      "fixturePath": "sha256/abc.json",
+      "sourceUrl": "https://csrc.nist.gov/pubs/fips/180-4/final",
+      "revision": "fips-180-4",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "NIST publication",
+      "normalizationNotes": "Fixture uses canonical \"abc\" SHA-256 vector from FIPS 180-4 Appendix examples.",
+      "contentSha256": "ce7d5bf33ea533afe4610f4f57b1e1ba98fd6e7581cf29e111875dfd76bfe1a2"
+    },
+    {
+      "id": "rfc4231-hmac-sha256-case-1",
+      "kind": "hmac-hkdf",
+      "fixturePath": "rfc4231/hmac-sha256-case-1.json",
+      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc4231",
+      "revision": "rfc4231",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "IETF Trust Legal Provisions",
+      "normalizationNotes": "Fixture encodes RFC 4231 HMAC-SHA256 case 1 with hex-normalized key and message payloads.",
+      "contentSha256": "ebdc3248ac6bc4ce0a6b62686ee0d9494c9f91f54250f5219019b2143e5107ce"
+    },
+    {
+      "id": "rfc5869-hkdf-sha256-case-1",
+      "kind": "hmac-hkdf",
+      "fixturePath": "rfc5869/hkdf-sha256-case-1.json",
+      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc5869",
+      "revision": "rfc5869",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "IETF Trust Legal Provisions",
+      "normalizationNotes": "Fixture encodes RFC 5869 HKDF-SHA256 case 1 with explicit salt, info, and output length fields.",
+      "contentSha256": "992f21cbcdb000c9434c351624eacaf8132d2a29d3ecbaacdfeff0484f81de51"
+    },
+    {
+      "id": "python-runtime-parity-generated",
+      "kind": "parity-runtime",
+      "fixturePath": "../parity/generated/python.json",
+      "sourceUrl": "https://github.com/scenesystems/theoria/blob/main/packages/digest/scripts/parity/python/generate.py",
+      "revision": "generated-at-2026-03-25T00:00:00Z",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "MIT",
+      "normalizationNotes": "Generated parity output is deterministic and derived from manifest-declared hash fixture sources.",
+      "contentSha256": "b91165ced04e1a6ac34a06e48561bb01686c824bafe324004a87e3d4edbde256"
+    },
+    {
+      "id": "rust-runtime-parity-generated",
+      "kind": "parity-runtime",
+      "fixturePath": "../parity/generated/rust.json",
+      "sourceUrl": "https://github.com/scenesystems/theoria/blob/main/packages/digest/scripts/parity/rust/src/main.rs",
+      "revision": "generated-at-2026-03-25T00:00:00Z",
+      "retrievedAt": "2026-03-25",
+      "sourceLicense": "MIT",
+      "normalizationNotes": "Generated parity output is deterministic and derived from manifest-declared hash fixture sources.",
+      "contentSha256": "1f83c342bc9baebbd23ba095d7a09322f302b5ec0fd6326ae0b3e02030bf0c4d"
+    }
+  ]
+}
