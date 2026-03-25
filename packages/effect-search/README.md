@@ -23,7 +23,7 @@ Sometimes you can't write a formula for what you're optimizing. You can run a th
 ### What you get
 
 - **Typed search spaces** — `float`, `int`, `categorical`, `boolean`, and tree-structured conditionals with full type inference
-- **Three samplers** — Random (baseline), Grid (exhaustive), TPE (Bayesian optimization that gets smarter over time), plus HyperBand/BOHB multi-fidelity scheduling
+- **Five samplers** — Random (baseline), Grid (exhaustive), TPE (Bayesian), CMA-ES (continuous evolution strategy), GP-BO (continuous Bayesian surrogate), plus HyperBand/BOHB multi-fidelity scheduling
 - **Multi-objective** — MOTPE finds Pareto-optimal trade-offs when you have competing goals
 - **Warm-starting** — inject trials from prior studies to skip the cold-start phase
 - **Multivariate TPE** — joint density estimation for correlated parameter spaces
@@ -104,10 +104,12 @@ Examples in this README use effectful `SearchSpace.make` / `SearchSpace.makeCond
 | `Sampler.random()`                           | Baselines, cheap evaluations, exploration    | Simple, unbiased, parallelizes well                                 | No learning — doesn't improve with experience         |
 | `Sampler.grid()`                             | Small finite spaces, exhaustive coverage     | Guaranteed to try every combination                                 | Doesn't scale — exponential in dimensions             |
 | `Sampler.tpe()`                              | Expensive evaluations, mixed parameter types | Learns from history, handles categorical + continuous + conditional | Needs ~10 startup trials before it outperforms random |
+| `Sampler.cmaEs()`                            | Continuous single-objective tuning           | Deterministic evolution strategy with strong local refinement       | Continuous/int dimensions only (no categorical)       |
+| `Sampler.gpBo()`                             | Continuous single-objective tuning           | Kernel-weighted Bayesian ranking with EI/PI/Thompson compatibility  | Continuous/int dimensions only (no categorical)       |
 | MOTPE (TPE with `directions`)                | Multiple competing objectives                | Finds Pareto-optimal trade-offs                                     | Requires more trials for meaningful fronts            |
 | `Scheduler.hyperband()` / `Scheduler.bohb()` | Multi-fidelity with early stopping           | Allocates more budget to promising configs via successive halving   | Requires a `fidelity` dimension in the search space   |
 
-**Start with `Sampler.tpe()`.** It works well across problem types and gets better as trials accumulate. Use `Sampler.random()` as a baseline to confirm TPE is actually helping. When evaluations have a natural fidelity axis (epochs, iterations, data fraction), consider HyperBand or BOHB — they stop bad configurations early and focus budget on winners.
+**Start with `Sampler.tpe()` for mixed spaces.** Use `Sampler.cmaEs()` or `Sampler.gpBo()` when your space is continuous single-objective and you want a dedicated advanced sampler lane. Use `Sampler.random()` as a baseline to confirm model-guided samplers are helping. When evaluations have a natural fidelity axis (epochs, iterations, data fraction), consider HyperBand or BOHB — they stop bad configurations early and focus budget on winners.
 
 ## Core concepts
 

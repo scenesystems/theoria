@@ -58,6 +58,10 @@ export * from "./Direction.js"
 /**
  * @since 0.1.0
  */
+export * from "./Acquisition.js"
+/**
+ * @since 0.1.0
+ */
 export * from "./Distribution.js"
 /**
  * @since 0.1.0

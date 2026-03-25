@@ -1,0 +1,60 @@
+{
+  "fixture": "advanced-samplers.single-objective-trace",
+  "space": {
+    "x": {
+      "low": -3,
+      "high": 3
+    },
+    "y": {
+      "low": -2,
+      "high": 2
+    }
+  },
+  "context": {
+    "nextTrialNumber": 4,
+    "completed": [
+      {
+        "trialNumber": 0,
+        "config": {
+          "x": -1.2,
+          "y": 0.5
+        },
+        "value": 3.2
+      },
+      {
+        "trialNumber": 1,
+        "config": {
+          "x": 0.8,
+          "y": -0.1
+        },
+        "value": 1.1
+      },
+      {
+        "trialNumber": 2,
+        "config": {
+          "x": 1,
+          "y": -0.2
+        },
+        "value": 0.9
+      },
+      {
+        "trialNumber": 3,
+        "config": {
+          "x": 2,
+          "y": 1.2
+        },
+        "value": 4.7
+      }
+    ]
+  },
+  "expected": {
+    "cmaEs": {
+      "x": 0.794668213691593,
+      "y": 0.6737456128675432
+    },
+    "gpBo": {
+      "x": 1.8545331420375426,
+      "y": -1.1191788933248694
+    }
+  }
+}

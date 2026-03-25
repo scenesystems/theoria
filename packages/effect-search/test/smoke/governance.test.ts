@@ -12,10 +12,6 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Schema cache authority currently co-locates shared resolve semantics, SQLite key-value adapter wiring, and cache-layer constructors to preserve one deterministic persistence kernel. Follow-up: extract SQLite authority setup into `Cache/sqliteAuthority.ts` and isolate resolve single-flight helpers into `Cache/resolve.ts` while keeping `schemaCache.ts` as public composition entrypoint."
   ],
   [
-    "src/Sampler/kinds.ts",
-    "Sampler kind schema and checkpoint definitions co-located for schema union coherence. Follow-up: split checkpoint schemas into `Sampler/checkpoints.ts` after sampler SPI stabilization."
-  ],
-  [
     "src/Sampler/weighted.ts",
     "Weighted single-draw selection, deterministic replay sampling, and pair sampling remain co-located to preserve one auditable seed-stepping and fallback-policy kernel. Follow-up: split fallback helpers into `Sampler/weightedFallback.ts` and pair orchestration into `Sampler/weightedPair.ts` after sampler API stabilization."
   ],

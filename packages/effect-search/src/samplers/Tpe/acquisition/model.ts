@@ -4,31 +4,35 @@
  * @since 0.1.0
  */
 import type { Option } from "effect"
-import { Data, Match, Predicate, Schema } from "effect"
+import { Data, Predicate } from "effect"
 
-/**
- * Schema that validates a string as one of the built-in acquisition
- * strategy names: `"ei"`, `"pi"`, or `"thompson"`. Used to decode
- * user-facing configuration into type-safe acquisition selection.
- *
- * @see {@link BuiltInAcquisitionName} for the derived type
- * @see {@link AcquisitionOption} for the full configuration union
- * @since 0.1.0
- * @category schemas
- */
-export const BuiltInAcquisitionNameSchema = Schema.Literal("ei", "pi", "thompson")
+import type { BuiltInAcquisitionName } from "../../../contracts/Acquisition.js"
 
-/**
- * Literal union type of the three built-in acquisition strategy names:
- * `"ei"` | `"pi"` | `"thompson"`. Derived from
- * {@link BuiltInAcquisitionNameSchema}.
- *
- * @see {@link BuiltInAcquisitionNameSchema} for the validating schema
- * @see {@link AcquisitionOption} which extends this with custom implementations
- * @since 0.1.0
- * @category models
- */
-export type BuiltInAcquisitionName = Schema.Schema.Type<typeof BuiltInAcquisitionNameSchema>
+export {
+  /**
+   * Shared built-in acquisition strategy schema used by TPE and GP-BO.
+   *
+   * @since 0.1.0
+   * @category schemas
+   */
+  BuiltInAcquisitionNameSchema,
+  /**
+   * Shared built-in acquisition strategy type guard used by TPE and GP-BO.
+   *
+   * @since 0.1.0
+   * @category guards
+   */
+  isBuiltInAcquisitionName
+} from "../../../contracts/Acquisition.js"
+export {
+  /**
+   * Shared built-in acquisition strategy name union.
+   *
+   * @since 0.1.0
+   * @category models
+   */
+  type BuiltInAcquisitionName
+} from "../../../contracts/Acquisition.js"
 
 /**
  * Immutable context record carrying the inputs needed by any acquisition
@@ -90,24 +94,6 @@ export class AcquisitionImplementation extends Data.Class<{
  * @category models
  */
 export type AcquisitionOption = BuiltInAcquisitionName | AcquisitionImplementation
-
-/**
- * Type guard that narrows an unknown value to a {@link BuiltInAcquisitionName}
- * by matching against the known strategy literals. Used during acquisition
- * resolution to distinguish string names from custom implementations.
- *
- * @see {@link BuiltInAcquisitionName} for the matched literals
- * @see {@link isAcquisitionImplementation} for the structural guard
- * @since 0.1.0
- * @category guards
- */
-export const isBuiltInAcquisitionName = (input: unknown): input is BuiltInAcquisitionName =>
-  Match.value(input).pipe(
-    Match.when("ei", () => true),
-    Match.when("pi", () => true),
-    Match.when("thompson", () => true),
-    Match.orElse(() => false)
-  )
 
 /**
  * Type guard that structurally checks whether an unknown value conforms

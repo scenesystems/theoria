@@ -36,7 +36,9 @@ describe("constrained tpe", () => {
       const tpeOptions = Sampler.matchSamplerKind({
         Random: () => Option.none<Sampler.TpeOptions>(),
         Grid: () => Option.none<Sampler.TpeOptions>(),
-        Tpe: ({ options }) => Option.some(options)
+        Tpe: ({ options }) => Option.some(options),
+        CmaEs: () => Option.none<Sampler.TpeOptions>(),
+        GpBo: () => Option.none<Sampler.TpeOptions>()
       })(sampler.kind)
 
       expect(decoded._tag).toBe("Right")
