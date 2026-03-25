@@ -7,26 +7,11 @@
 
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Schema } from "effect"
+import { FixtureKindSchema, FixtureManifestSchema, FixtureSourceSchema } from "../../../scripts/fixture-schemas.js"
 
-export const ExternalFixtureKindSchema = Schema.Literal("jcs", "hash", "hmac-hkdf", "parity-runtime")
-
-export const ExternalFixtureSourceSchema = Schema.Struct({
-  id: Schema.String,
-  kind: ExternalFixtureKindSchema,
-  fixturePath: Schema.String,
-  sourceUrl: Schema.String.pipe(Schema.pattern(/^https:\/\//)),
-  revision: Schema.String,
-  retrievedAt: Schema.String,
-  sourceLicense: Schema.String,
-  normalizationNotes: Schema.String,
-  contentSha256: Schema.String.pipe(Schema.pattern(/^[a-f0-9]{64}$/))
-})
-
-export const ExternalFixtureManifestSchema = Schema.parseJson(
-  Schema.Struct({
-    sources: Schema.NonEmptyArray(ExternalFixtureSourceSchema)
-  })
-)
+export const ExternalFixtureKindSchema = FixtureKindSchema
+export const ExternalFixtureSourceSchema = FixtureSourceSchema
+export const ExternalFixtureManifestSchema = FixtureManifestSchema
 
 export type ExternalFixtureKind = Schema.Schema.Type<typeof ExternalFixtureKindSchema>
 export type ExternalFixtureSource = Schema.Schema.Type<typeof ExternalFixtureSourceSchema>

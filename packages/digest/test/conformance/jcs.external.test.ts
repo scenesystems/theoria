@@ -8,17 +8,10 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Schema } from "effect"
+import { JcsFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { canonicalize } from "../../src/canonicalize.js"
 import { loadExternalFixtureManifest, readExternalFixture } from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
-
-const JcsFixtureSchema = Schema.parseJson(
-  Schema.Struct({
-    id: Schema.String,
-    input: Schema.Unknown,
-    expectedCanonical: Schema.String
-  })
-)
 
 describe("external conformance — jcs", () => {
   it.effect("pins RFC 8785 and cyberphone corpus fixture sources", () =>

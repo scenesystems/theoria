@@ -7,7 +7,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { createHash } from "node:crypto"
-import { Array as Arr, Console, Effect, Option, Schema } from "effect"
+import { Array as Arr, Console, Effect, Option } from "effect"
 import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
 
 class FixtureStampError {
@@ -20,8 +20,6 @@ class FixtureStampError {
 }
 
 const toSha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex")
-
-const encodeManifestJson = Schema.encode(FixtureManifestSchema)
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -74,9 +72,10 @@ const program = Effect.gen(function*() {
     return
   }
 
-  const encoded = yield* encodeManifestJson(updatedManifest).pipe(
-    Effect.mapError(() => new FixtureStampError(manifestPath, "manifest encode failed"))
-  )
+  const encoded = yield* Effect.try({
+    try: () => JSON.stringify(updatedManifest, null, 2),
+    catch: () => new FixtureStampError(manifestPath, "manifest encode failed")
+  })
 
   yield* fileSystem.writeFileString(manifestPath, `${encoded}\n`).pipe(
     Effect.mapError(() => new FixtureStampError(manifestPath, "failed to write manifest"))

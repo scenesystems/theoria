@@ -9,6 +9,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Effect, Schema } from "effect"
+import { RuntimeParityFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { digestBytesHex } from "../../src/convenience.js"
 import {
   loadExternalFixtureManifest,
@@ -16,21 +17,6 @@ import {
   selectExternalSourcesByKind
 } from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
-
-const RuntimeParityFixtureSchema = Schema.parseJson(
-  Schema.Struct({
-    runtime: Schema.Literal("python", "rust"),
-    generatedAt: Schema.String,
-    cases: Schema.NonEmptyArray(
-      Schema.Struct({
-        id: Schema.String,
-        algorithm: Schema.Literal("blake3-256", "sha256"),
-        inputUtf8: Schema.String,
-        expectedHex: Schema.String
-      })
-    )
-  })
-)
 
 const loadRuntimeParitySources = loadExternalFixtureManifest.pipe(
   Effect.map((manifest) => selectExternalSourcesByKind(manifest, "parity-runtime"))

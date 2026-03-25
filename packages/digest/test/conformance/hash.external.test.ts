@@ -9,18 +9,10 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Effect, Schema } from "effect"
+import { HashFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { digestBytesHex } from "../../src/convenience.js"
 import { loadExternalFixtureManifest, readExternalFixture } from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
-
-const HashFixtureSchema = Schema.parseJson(
-  Schema.Struct({
-    id: Schema.String,
-    algorithm: Schema.Literal("blake3-256", "sha256"),
-    inputUtf8: Schema.String,
-    expectedHex: Schema.String
-  })
-)
 
 describe("external conformance — hash", () => {
   it.effect("pins external corpus for BLAKE3 and SHA-256", () =>

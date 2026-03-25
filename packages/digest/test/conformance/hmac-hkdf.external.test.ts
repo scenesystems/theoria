@@ -8,6 +8,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
+import { HmacHkdfFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { toHex } from "../../src/encoding.js"
 import { hmacSha256 } from "../../src/hmac.js"
 import { hkdfSha256 } from "../../src/kdf.js"
@@ -18,26 +19,6 @@ import {
   selectExternalSourcesByKind
 } from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
-
-const HmacFixtureSchema = Schema.Struct({
-  id: Schema.String,
-  operation: Schema.Literal("hmac-sha256"),
-  keyHex: Schema.String,
-  messageHex: Schema.String,
-  expectedHex: Schema.String
-})
-
-const HkdfFixtureSchema = Schema.Struct({
-  id: Schema.String,
-  operation: Schema.Literal("hkdf-sha256"),
-  ikmHex: Schema.String,
-  saltHex: Schema.optional(Schema.String),
-  infoHex: Schema.String,
-  length: Schema.Number,
-  expectedHex: Schema.String
-})
-
-const HmacHkdfFixtureSchema = Schema.parseJson(Schema.Union(HmacFixtureSchema, HkdfFixtureSchema))
 
 describe("external conformance — hmac-hkdf", () => {
   it.effect("pins external corpus for RFC 4231 and RFC 5869 fixtures", () =>
