@@ -70,6 +70,17 @@ const program = Effect.gen(function* () {
 | `digestUtf8Base64Url(algorithm, text)`   | Hash string + base64url → `Effect<string>` |
 | `digestBytesHex(algorithm, bytes)`       | Hash + hex encode → `Effect<string>`       |
 
+### Streaming digest functions
+
+These helpers consume `Stream.Stream` inputs and are implemented with Effect `Stream.runFold`, so callers can hash large payloads incrementally without pre-concatenating full input buffers.
+
+| Function                                       | Description                                             |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| `digestByteStream(algorithm, chunks)`          | Hash a `Stream<Uint8Array>` → `Effect<Uint8Array>`      |
+| `digestUtf8Stream(algorithm, chunks)`          | Hash a `Stream<string>` as UTF-8 → `Effect<Uint8Array>` |
+| `digestByteStreamBase64Url(algorithm, chunks)` | Hash stream + base64url encode → `Effect<string>`       |
+| `digestByteStreamHex(algorithm, chunks)`       | Hash stream + hex encode → `Effect<string>`             |
+
 ### Canonicalization
 
 | Function                    | Description                           |
@@ -141,6 +152,23 @@ const program = Effect.gen(function* () {
 
   // Convenience: string → hash in one call
   const same = yield* digestUtf8("blake3-256", "hello")
+})
+```
+
+### Streaming content hashing
+
+```ts
+import { digestByteStreamBase64Url, digestBytesBase64Url, utf8ToBytes } from "@scenesystems/digest"
+import { Effect, Stream } from "effect"
+
+const program = Effect.gen(function* () {
+  const chunks = [utf8ToBytes("scene-"), utf8ToBytes("systems-"), utf8ToBytes("stream")]
+
+  const streamed = yield* digestByteStreamBase64Url("blake3-256", Stream.fromIterable(chunks))
+  const oneShot = yield* digestBytesBase64Url("blake3-256", utf8ToBytes("scene-systems-stream"))
+
+  // true — stream digest is invariant to chunking strategy
+  const parity = streamed === oneShot
 })
 ```
 
