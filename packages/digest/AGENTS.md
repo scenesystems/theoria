@@ -10,14 +10,20 @@ Cryptographic content hashing and canonicalization for Effect.
 
 ## Commands
 
-| Task       | Command         |
-| ---------- | --------------- |
-| Type check | `bun run check` |
-| Lint       | `bun run lint`  |
-| Test       | `bun run test`  |
-| Build      | `bun run build` |
+| Task               | Command                     |
+| ------------------ | --------------------------- |
+| Type check         | `bun run check`             |
+| Lint               | `bun run lint`              |
+| Test               | `bun run test`              |
+| Build              | `bun run build`             |
+| Fixture check      | `bun run fixtures:check`    |
+| Fixture generate   | `bun run fixtures:generate` |
+| Fixture verify     | `bun run fixtures:verify`   |
+| Fixture hash stamp | `bun run fixtures:stamp`    |
 
 All four gates must pass clean before any work is considered complete.
+
+For fixture/parity work, fixture checks and conformance tests are required as part of completion proof.
 
 ## Architecture
 
@@ -64,3 +70,6 @@ Private implementation. Blocked from consumers via exports map.
 - `internal/*` blocked from consumers via exports map
 - No `@noble/hashes` types leak through public surface
 - 240 LOC file-size limit applies
+- External and runtime parity fixtures are deterministic generated artifacts committed under `test/fixtures/`
+- Do not derive expected conformance outputs from code under test during test execution
+- Keep `test/fixtures/external/sources.manifest.json` as the canonical fixture provenance and hash source

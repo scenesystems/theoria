@@ -1,0 +1,18 @@
+{
+  "runtime": "rust",
+  "generatedAt": "2026-03-25T00:00:00Z",
+  "cases": [
+    {
+      "id": "blake3:empty",
+      "algorithm": "blake3-256",
+      "inputUtf8": "",
+      "expectedHex": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "id": "sha256:abc",
+      "algorithm": "sha256",
+      "inputUtf8": "abc",
+      "expectedHex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    }
+  ]
+}
