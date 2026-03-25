@@ -2,7 +2,13 @@
  * Streaming digest pipelines.
  *
  * These helpers hash chunked streams without requiring callers to pre-concatenate
- * all bytes in memory.
+ * all bytes in memory. Internally they fold with `Stream.runFold`, updating an
+ * incremental hasher per chunk and emitting a final digest at stream completion.
+ *
+ * @see {@link digestBytes} one-shot byte hashing for non-streaming inputs
+ * @see {@link digestUtf8} one-shot UTF-8 hashing for non-streaming inputs
+ * @see https://effect.website/docs/stream/ Stream APIs
+ * @see https://effect.website/docs/stream/operations/#runfold Stream.runFold
  *
  * @since 0.1.1
  * @category digest
@@ -26,6 +32,20 @@ const makeHasher = (algorithm: DigestAlgorithm) =>
 /**
  * Hash a stream of byte chunks using the specified algorithm.
  *
+ * The resulting digest is invariant to chunk boundaries and depends only on
+ * chunk order and byte content.
+ *
+ * @example
+ * ```ts
+ * import { digestByteStream, utf8ToBytes } from "@scenesystems/digest"
+ * import { Effect, Stream } from "effect"
+ *
+ * const program = digestByteStream("blake3-256", Stream.fromIterable([
+ *   utf8ToBytes("scene-"),
+ *   utf8ToBytes("systems")
+ * ]))
+ * ```
+ *
  * @since 0.1.1
  * @category digest
  */
@@ -46,6 +66,9 @@ export const digestByteStream = <E, R>(
 /**
  * Hash a stream of UTF-8 text chunks using the specified algorithm.
  *
+ * Equivalent to mapping `utf8ToBytes` over the stream and then calling
+ * {@link digestByteStream}.
+ *
  * @since 0.1.1
  * @category digest
  */
@@ -57,6 +80,8 @@ export const digestUtf8Stream = <E, R>(
 /**
  * Hash a stream of byte chunks and encode the digest as base64url.
  *
+ * Returns a 43-character output for 256-bit digests.
+ *
  * @since 0.1.1
  * @category digest
  */
@@ -67,6 +92,8 @@ export const digestByteStreamBase64Url = <E, R>(
 
 /**
  * Hash a stream of byte chunks and encode the digest as lowercase hex.
+ *
+ * Returns a 64-character output for 256-bit digests.
  *
  * @since 0.1.1
  * @category digest
