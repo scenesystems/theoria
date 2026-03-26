@@ -114,3 +114,41 @@ export const digestBytesHex = (
 export const canonicalJsonBytes = (
   value: unknown
 ): Effect.Effect<Uint8Array, FingerprintUnsupportedValue> => Effect.map(canonicalize(value), utf8ToBytes)
+
+/**
+ * Canonicalize structured data via RFC 8785 JCS, then hash the canonical bytes.
+ *
+ * Equivalent to `canonicalJsonBytes(value)` followed by `digestBytes(algorithm, bytes)`.
+ *
+ * @since 0.1.1
+ * @category digest
+ */
+export const digestCanonicalJsonBytes = (
+  algorithm: "blake3-256" | "sha256",
+  value: unknown
+): Effect.Effect<Uint8Array, FingerprintUnsupportedValue> =>
+  Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytes(algorithm, bytes))
+
+/**
+ * Canonicalize structured data via RFC 8785 JCS, hash, and base64url encode.
+ *
+ * @since 0.1.1
+ * @category digest
+ */
+export const digestCanonicalJsonBase64Url = (
+  algorithm: "blake3-256" | "sha256",
+  value: unknown
+): Effect.Effect<string, FingerprintUnsupportedValue> =>
+  Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytesBase64Url(algorithm, bytes))
+
+/**
+ * Canonicalize structured data via RFC 8785 JCS, hash, and hex encode.
+ *
+ * @since 0.1.1
+ * @category digest
+ */
+export const digestCanonicalJsonHex = (
+  algorithm: "blake3-256" | "sha256",
+  value: unknown
+): Effect.Effect<string, FingerprintUnsupportedValue> =>
+  Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytesHex(algorithm, bytes))

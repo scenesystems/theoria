@@ -70,6 +70,14 @@ const program = Effect.gen(function* () {
 | `digestUtf8Base64Url(algorithm, text)`   | Hash string + base64url → `Effect<string>` |
 | `digestBytesHex(algorithm, bytes)`       | Hash + hex encode → `Effect<string>`       |
 
+### Canonical JSON digest helpers
+
+| Function                                         | Description                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------ |
+| `digestCanonicalJsonBytes(algorithm, value)`     | RFC 8785 JCS canonicalize + hash → `Effect<Uint8Array, E>`         |
+| `digestCanonicalJsonBase64Url(algorithm, value)` | RFC 8785 JCS canonicalize + hash + base64url → `Effect<string, E>` |
+| `digestCanonicalJsonHex(algorithm, value)`       | RFC 8785 JCS canonicalize + hash + hex → `Effect<string, E>`       |
+
 ### Streaming digest functions
 
 These helpers consume `Stream.Stream` inputs and are implemented with Effect `Stream.runFold`, so callers can hash large payloads incrementally without pre-concatenating full input buffers.
