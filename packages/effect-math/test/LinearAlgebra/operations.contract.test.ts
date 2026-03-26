@@ -169,6 +169,12 @@ describe("LinearAlgebra / cholesky", () => {
       const decomposed = cholesky(Chunk.fromIterable([1, 2, 2, 1]), 2)
       expect(Option.isNone(decomposed)).toStrictEqual(true)
     }))
+
+  it.effect("returns none for non-symmetric input", () =>
+    Effect.gen(function*() {
+      const decomposed = cholesky(Chunk.fromIterable([2, 1, 0, 2]), 2)
+      expect(Option.isNone(decomposed)).toStrictEqual(true)
+    }))
 })
 
 describe("LinearAlgebra / forwardSubstitutionLower", () => {
@@ -217,6 +223,12 @@ describe("LinearAlgebra / solveSpd", () => {
   it.effect("returns none for invalid matrix shape", () =>
     Effect.gen(function*() {
       const solved = solveSpd(Chunk.fromIterable([1, 0, 0]), 2, Chunk.fromIterable([1, 2]))
+      expect(Option.isNone(solved)).toStrictEqual(true)
+    }))
+
+  it.effect("returns none for non-symmetric matrix", () =>
+    Effect.gen(function*() {
+      const solved = solveSpd(Chunk.fromIterable([2, 1, 0, 2]), 2, Chunk.fromIterable([1, 1]))
       expect(Option.isNone(solved)).toStrictEqual(true)
     }))
 })

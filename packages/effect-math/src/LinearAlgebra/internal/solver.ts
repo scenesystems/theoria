@@ -43,11 +43,24 @@ const lowerToChunk = (lower: Readonly<Record<string, number>>, size: number): Ch
     return column <= row ? lowerValueAt(lower, row, column) : 0
   })
 
+const isSymmetricMatrix = (matrix: Chunk.Chunk<number>, size: number): boolean =>
+  Arr.every(
+    Arr.makeBy(size, (row) => row),
+    (row) =>
+      Arr.every(
+        Arr.makeBy(size - row - 1, (offset) => row + offset + 1),
+        (column) =>
+          abs(
+            N.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))
+          ) <= MATRIX_SOLVER_EPSILON
+      )
+  )
+
 export const choleskySpd = (
   matrix: Chunk.Chunk<number>,
   size: number
 ): Option.Option<Chunk.Chunk<number>> => {
-  if (Chunk.size(matrix) !== size * size) {
+  if (Chunk.size(matrix) !== size * size || !isSymmetricMatrix(matrix, size)) {
     return Option.none()
   }
 

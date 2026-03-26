@@ -319,6 +319,34 @@ def _constraint_descending_order(values: list[float]) -> list[int]:
     return [entry[0] for entry in sorted(enumerate(values), key=lambda entry: (-entry[1], entry[0]))]
 
 
+def _is_finite_number(value: Any) -> bool:
+    return isinstance(value, int | float) and math.isfinite(float(value))
+
+
+def _assert_finite(value: Any, context: str) -> list[str]:
+    if not _is_finite_number(value):
+        return [f"  FAIL {context}: expected finite numeric value, actual={value!r}"]
+    return []
+
+
+def _assert_within_bounds(value: Any, low: Any, high: Any, context: str) -> list[str]:
+    errors: list[str] = []
+    errors.extend(_assert_finite(value, context))
+    errors.extend(_assert_finite(low, f"{context} low"))
+    errors.extend(_assert_finite(high, f"{context} high"))
+    if errors:
+        return errors
+
+    numeric_value = float(value)
+    numeric_low = float(low)
+    numeric_high = float(high)
+    if numeric_value < numeric_low or numeric_value > numeric_high:
+        return [
+            f"  FAIL {context}: expected {numeric_low} <= value <= {numeric_high}, actual={numeric_value}"
+        ]
+    return []
+
+
 # ---------------------------------------------------------------------------
 # FM-1: gamma
 # ---------------------------------------------------------------------------
@@ -1615,6 +1643,94 @@ def verify_pruned_score() -> list[str]:
     return errors
 
 
+# ---------------------------------------------------------------------------
+# FM-17: advanced sampler fixture contracts
+# ---------------------------------------------------------------------------
+def verify_advanced_samplers_contract() -> list[str]:
+    errors: list[str] = []
+    fixture_specs = [
+        ("advanced-samplers.cmaes-parity", "advanced-samplers/cmaes-parity.json"),
+        ("advanced-samplers.gpbo-parity", "advanced-samplers/gpbo-parity.json"),
+    ]
+
+    manifest = load_fixture(FIXTURE_DIR / "manifest.json")
+    entries = {(entry["name"], entry["file"]) for entry in manifest.get("fixtures", [])}
+    for name, file in fixture_specs:
+        if (name, file) not in entries:
+            errors.append(f"  FAIL advanced-samplers manifest: missing ({name}, {file})")
+
+    for fixture_name, relative_path in fixture_specs:
+        fixture_path = FIXTURE_DIR / relative_path
+        doc = load_fixture(fixture_path)
+        payload = doc["payload"]
+        context = payload["context"]
+        space = payload["space"]
+        expected = payload["expected"]
+
+        errors.extend(assert_exact(doc["fixture"], fixture_name, f"advanced-samplers fixture tag {fixture_name}"))
+
+        lows = {
+            "x": space["x"]["low"],
+            "y": space["y"]["low"],
+        }
+        highs = {
+            "x": space["x"]["high"],
+            "y": space["y"]["high"],
+        }
+
+        for axis in ("x", "y"):
+            errors.extend(_assert_finite(lows[axis], f"{fixture_name} space.{axis}.low"))
+            errors.extend(_assert_finite(highs[axis], f"{fixture_name} space.{axis}.high"))
+            if _is_finite_number(lows[axis]) and _is_finite_number(highs[axis]):
+                if float(lows[axis]) >= float(highs[axis]):
+                    errors.append(
+                        f"  FAIL {fixture_name} space.{axis}: low must be < high, got {lows[axis]} >= {highs[axis]}"
+                    )
+
+            errors.extend(
+                _assert_within_bounds(
+                    expected[axis],
+                    lows[axis],
+                    highs[axis],
+                    f"{fixture_name} expected.{axis}",
+                )
+            )
+
+        completed = context["completed"]
+        next_trial_number = context["nextTrialNumber"]
+        if len(completed) <= 0:
+            errors.append(f"  FAIL {fixture_name} context.completed: expected non-empty trial history")
+
+        trial_numbers = [entry["trialNumber"] for entry in completed]
+        for index, trial_number in enumerate(trial_numbers):
+            errors.extend(_assert_finite(trial_number, f"{fixture_name} completed[{index}].trialNumber"))
+
+        if trial_numbers:
+            max_trial = max(int(trial_number) for trial_number in trial_numbers)
+            errors.extend(
+                assert_exact(
+                    int(next_trial_number),
+                    max_trial + 1,
+                    f"{fixture_name} nextTrialNumber sequencing",
+                )
+            )
+
+        for index, entry in enumerate(completed):
+            config = entry["config"]
+            errors.extend(_assert_finite(entry["value"], f"{fixture_name} completed[{index}].value"))
+            for axis in ("x", "y"):
+                errors.extend(
+                    _assert_within_bounds(
+                        config[axis],
+                        lows[axis],
+                        highs[axis],
+                        f"{fixture_name} completed[{index}].config.{axis}",
+                    )
+                )
+
+    return errors
+
+
 VERIFIERS: dict[str, Any] = {
     "FM-1 gamma": verify_gamma,
     "FM-2 split-trials": verify_split_trials,
@@ -1633,6 +1749,7 @@ VERIFIERS: dict[str, Any] = {
     "FM-6 motpe-weights": verify_motpe_weights,
     "FM-5 motpe-reference": verify_motpe_reference,
     "FM-3 pruned-score": verify_pruned_score,
+    "FM-17 advanced-samplers-contract": verify_advanced_samplers_contract,
 }
 
 
