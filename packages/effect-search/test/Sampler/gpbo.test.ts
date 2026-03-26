@@ -107,18 +107,48 @@ describe("Sampler.gpBo", () => {
 
   it.effect("fails checkpoint restore when persisted checkpoint mismatches runtime sampler parameters", () =>
     Effect.gen(function*() {
-      const sampler = Sampler.gpBo({ seed: 5, nStartupTrials: 4, nCandidates: 32 })
+      const sampler = Sampler.gpBo({ seed: 5, nStartupTrials: 4, nCandidates: 32, lengthScale: 0.2, noise: 0.01 })
       const checkpoint = yield* Sampler.checkpoint(sampler)
       const corruptCheckpoint = Match.value(checkpoint).pipe(
-        Match.tag("GpBo", ({ seed, nStartupTrials, nCandidates }): Sampler.SamplerCheckpoint => ({
+        Match.tag("GpBo", ({ seed, nStartupTrials, nCandidates, lengthScale, noise }): Sampler.SamplerCheckpoint => ({
           _tag: "GpBo",
           seed,
           nStartupTrials,
-          nCandidates: nCandidates + 1
+          nCandidates: nCandidates + 1,
+          lengthScale,
+          noise
         })),
         Match.orElse((value): Sampler.SamplerCheckpoint => value)
       )
       const outcome = yield* Effect.either(Sampler.restoreCheckpoint(sampler, corruptCheckpoint))
+
+      expect(Either.isLeft(outcome)).toBe(true)
+
+      if (Either.isLeft(outcome)) {
+        expect(outcome.left).toBeInstanceOf(InvalidStudyConfig)
+      }
+    }))
+
+  it.effect("fails checkpoint restore when GP hyperparameters drift across resume", () =>
+    Effect.gen(function*() {
+      const checkpointSource = Sampler.gpBo({
+        seed: 7,
+        nStartupTrials: 2,
+        nCandidates: 24,
+        lengthScale: 0.15,
+        noise: 0.005,
+        acquisition: "ei"
+      })
+      const checkpoint = yield* Sampler.checkpoint(checkpointSource)
+      const resumedWithDrift = Sampler.gpBo({
+        seed: 7,
+        nStartupTrials: 2,
+        nCandidates: 24,
+        lengthScale: 0.9,
+        noise: 0.1,
+        acquisition: "ei"
+      })
+      const outcome = yield* Effect.either(Sampler.restoreCheckpoint(resumedWithDrift, checkpoint))
 
       expect(Either.isLeft(outcome)).toBe(true)
 

@@ -62,6 +62,8 @@ export const GpBoSamplerCheckpointSchema = Schema.TaggedStruct("GpBo", {
   seed: Schema.Number,
   nStartupTrials: Schema.Number,
   nCandidates: Schema.Number,
+  lengthScale: Schema.Number,
+  noise: Schema.Number,
   acquisition: Schema.optional(BuiltInAcquisitionNameSchema)
 })
 

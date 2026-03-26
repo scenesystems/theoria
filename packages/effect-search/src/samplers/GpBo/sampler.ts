@@ -20,6 +20,13 @@ import {
 } from "./options.js"
 import { suggest } from "./suggest.js"
 
+/**
+ * Constructs a GP-BO sampler with deterministic checkpoint state for
+ * study resume integrity.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const make = (
   options: GpBoRuntimeOptions = {},
   pendingImputationPolicy: PendingImputationPolicy
@@ -40,12 +47,15 @@ export const make = (
       seed,
       nStartupTrials,
       nCandidates,
+      lengthScale,
+      noise,
       ...Option.match(acquisition, {
         onNone: () => ({}),
         onSome: (value) => ({ acquisition: value })
       })
     }),
-    restore: (checkpoint) => restoreCheckpoint(seed, nStartupTrials, nCandidates, acquisition, checkpoint),
+    restore: (checkpoint) =>
+      restoreCheckpoint(seed, nStartupTrials, nCandidates, lengthScale, noise, acquisition, checkpoint),
     suggest: (space, context) =>
       validateOptions(snapshotOptions).pipe(
         Effect.flatMap(() =>

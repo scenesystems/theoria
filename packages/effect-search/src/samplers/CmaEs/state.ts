@@ -7,12 +7,24 @@ import { Array as Arr, Data, Number as Num, Option, Order } from "effect"
 
 import { l2Norm } from "../shared/math.js"
 
+/**
+ * Completed observation encoded for CMA-ES generation updates.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class CmaEsObservation extends Data.Class<{
   readonly trialNumber: number
   readonly vector: ReadonlyArray<number>
   readonly value: number
 }> {}
 
+/**
+ * Mutable CMA-ES search state projected as an immutable value object.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class CmaEsState extends Data.Class<{
   readonly mean: ReadonlyArray<number>
   readonly sigma: number
@@ -21,6 +33,12 @@ export class CmaEsState extends Data.Class<{
   readonly pC: ReadonlyArray<number>
 }> {}
 
+/**
+ * Derived adaptation constants for CMA-ES step and covariance updates.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class CmaEsConstants extends Data.Class<{
   readonly cSigma: number
   readonly dSigma: number
@@ -38,11 +56,23 @@ const vectorValueAt = (vector: ReadonlyArray<number>, index: number): number =>
 const numericValueAt = (vector: ReadonlyArray<number>, index: number, fallback = 0): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => fallback))
 
+/**
+ * Reads diagonal covariance values with unit fallback for missing entries.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const covarianceValueAt = (vector: ReadonlyArray<number>, index: number): number =>
   Arr.get(vector, index).pipe(Option.getOrElse(() => 1))
 
 const zeros = (dimension: number): Array<number> => Arr.makeBy(dimension, () => 0)
 
+/**
+ * Creates the canonical CMA-ES initial state in normalized coordinates.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const createInitialState = (
   mean: ReadonlyArray<number>,
   sigma: number,
@@ -56,6 +86,12 @@ export const createInitialState = (
     pC: zeros(dimension)
   })
 
+/**
+ * Computes normalized recombination weights for the elite population.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const recombinationWeights = (mu: number): Array<number> => {
   const rawWeights = Arr.makeBy(mu, (index) => Math.log(mu + 0.5) - Math.log(index + 1))
   const denominator = Arr.reduce(rawWeights, 0, (sum, weight) => sum + weight)
@@ -65,6 +101,12 @@ export const recombinationWeights = (mu: number): Array<number> => {
 const muEffective = (weights: ReadonlyArray<number>): number =>
   1 / Arr.reduce(weights, 0, (sum, weight) => sum + (weight * weight))
 
+/**
+ * Derives CMA-ES adaptation constants for a dimension and weight set.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const cmaEsConstants = (dimensions: number, weights: ReadonlyArray<number>): CmaEsConstants => {
   const muEff = muEffective(weights)
   const cSigma = (muEff + 2) / (dimensions + muEff + 5)
@@ -98,6 +140,12 @@ const weightedEliteMean = (
         sum + ((weights[position] ?? 0) * vectorValueAt(elite[position]?.vector ?? Arr.empty<number>(), index))
     ))
 
+/**
+ * Advances CMA-ES state by one completed generation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const updateState = (
   current: CmaEsState,
   generation: ReadonlyArray<CmaEsObservation>,
@@ -175,4 +223,10 @@ export const updateState = (
   })
 }
 
+/**
+ * Stable trial-number ordering for reconstructing CMA-ES generations.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const trialOrder = Order.mapInput(Order.number, (observation: CmaEsObservation) => observation.trialNumber)

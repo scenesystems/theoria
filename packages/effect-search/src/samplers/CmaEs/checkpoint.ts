@@ -8,6 +8,13 @@ import { Effect, Match } from "effect"
 import { InvalidStudyConfig } from "../../Errors/index.js"
 import type * as Sampler from "../../Sampler/index.js"
 
+/**
+ * Validates that persisted CMA-ES checkpoint state matches runtime options
+ * before allowing resume.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const restoreCheckpoint = (
   seed: number,
   sigma: number,

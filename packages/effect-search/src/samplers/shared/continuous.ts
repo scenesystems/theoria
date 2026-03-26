@@ -18,6 +18,12 @@ const clamp01 = (value: number): number =>
     maximum: 1
   })
 
+/**
+ * Canonical continuous-dimension descriptor used by vectorized samplers.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class ContinuousDimension extends Data.Class<{
   readonly name: string
   readonly distribution: Distribution
@@ -83,6 +89,13 @@ const validateNumericBounds = (
     Match.orElse(() => Effect.void)
   )
 
+/**
+ * Selects and validates continuous-compatible dimensions from a search
+ * space for samplers that operate in normalized vector coordinates.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const continuousDimensionsFromSpace = (
   sampler: string,
   space: SearchSpace.SearchSpace
@@ -167,6 +180,13 @@ const denormalizeValueForDimension = (dimension: ContinuousDimension, normalized
     Match.orElse(() => 0)
   )
 
+/**
+ * Encodes a configuration into normalized `[0, 1]` coordinates for the
+ * provided continuous dimensions.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const normalizedVectorFromConfig = (
   dimensions: ReadonlyArray<ContinuousDimension>,
   config: SamplerConfig
@@ -183,6 +203,13 @@ export const normalizedVectorFromConfig = (
         ))
   )
 
+/**
+ * Decodes normalized vector coordinates back into a concrete sampler
+ * configuration with distribution-aware scaling and quantization.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const denormalizeVector = (
   dimensions: ReadonlyArray<ContinuousDimension>,
   vector: ReadonlyArray<number>
@@ -199,5 +226,11 @@ export const denormalizeVector = (
   })
 }
 
+/**
+ * Returns the neutral center point (`0.5`) for each normalized dimension.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const normalizedCenter = (dimensions: ReadonlyArray<ContinuousDimension>): Array<number> =>
   Arr.makeBy(dimensions.length, () => 0.5)

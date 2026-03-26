@@ -51,6 +51,13 @@ const sampleCandidate = (
       )
     ))
 
+/**
+ * Suggests the next CMA-ES candidate for continuous single-objective
+ * search spaces.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const suggest = (
   seed: number,
   sigma: number,

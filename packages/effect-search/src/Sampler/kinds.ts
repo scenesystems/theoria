@@ -13,7 +13,19 @@ import {
   TpeOptionsSchema
 } from "./options.js"
 
+/**
+ * Re-export sampler checkpoint schemas and types.
+ *
+ * @since 0.1.0
+ * @category re-exports
+ */
 export * from "./checkpoints.js"
+/**
+ * Re-export sampler option schemas and types.
+ *
+ * @since 0.1.0
+ * @category re-exports
+ */
 export * from "./options.js"
 
 /**

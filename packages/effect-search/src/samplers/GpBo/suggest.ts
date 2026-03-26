@@ -15,12 +15,24 @@ import { minimumObserved } from "../shared/math.js"
 import { scalarObservationsFromContext } from "../shared/objective.js"
 import { buildPosterior, predictPosterior } from "./gaussianProcess.js"
 
+/**
+ * Normalized scalar observation used by GP-BO fitting and ranking.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class GpObservation extends Data.Class<{
   readonly trialNumber: number
   readonly vector: ReadonlyArray<number>
   readonly value: number
 }> {}
 
+/**
+ * Candidate score record produced during acquisition evaluation.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class CandidateScore extends Data.Class<{
   readonly vector: ReadonlyArray<number>
   readonly score: number
@@ -71,6 +83,13 @@ const acquisitionScore = (
 
 const observationOrder = Order.mapInput(Order.number, (observation: GpObservation) => observation.value)
 
+/**
+ * Suggests the next GP-BO candidate for continuous single-objective search
+ * spaces.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const suggest = (
   seed: number,
   nStartupTrials: number,

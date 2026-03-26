@@ -226,13 +226,18 @@ describe("Study snapshot-resume validation boundaries", () => {
           sigma,
           populationSize
         })),
-        Match.tag("GpBo", ({ seed, nStartupTrials, nCandidates, acquisition }): Sampler.SamplerCheckpoint => ({
-          _tag: "GpBo",
-          seed: seed + 1,
-          nStartupTrials,
-          nCandidates,
-          acquisition
-        })),
+        Match.tag(
+          "GpBo",
+          ({ seed, nStartupTrials, nCandidates, lengthScale, noise, acquisition }): Sampler.SamplerCheckpoint => ({
+            _tag: "GpBo",
+            seed: seed + 1,
+            nStartupTrials,
+            nCandidates,
+            lengthScale,
+            noise,
+            acquisition
+          })
+        ),
         Match.exhaustive
       )
       const corruptSnapshot = new Study.StudySnapshot({

@@ -18,6 +18,13 @@ import {
 } from "./options.js"
 import { suggest } from "./suggest.js"
 
+/**
+ * Constructs a CMA-ES sampler with deterministic checkpoint state for
+ * study resume integrity.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
 export const make = (
   options: CmaEsRuntimeOptions = {},
   pendingImputationPolicy: PendingImputationPolicy

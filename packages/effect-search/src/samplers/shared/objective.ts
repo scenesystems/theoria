@@ -13,6 +13,12 @@ import type { SamplerConfig } from "../../internal/configAccess.js"
 import type { SuggestContext } from "../../Sampler/index.js"
 import { minimumObserved } from "./math.js"
 
+/**
+ * Scalar trial observation normalized for shared advanced-sampler logic.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export class ScalarObservation extends Data.Class<{
   readonly trialNumber: number
   readonly config: SamplerConfig
@@ -46,6 +52,13 @@ const scalarFromObjective = (value: number | ReadonlyArray<number>): Option.Opti
     Option.filter(Number.isFinite)
   )
 
+/**
+ * Extracts finite scalar observations from completed trials and orients them
+ * to minimization so advanced samplers can share one objective convention.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const scalarObservationsFromContext = (
   sampler: string,
   context: SuggestContext
@@ -65,5 +78,11 @@ export const scalarObservationsFromContext = (
     )
   )
 
+/**
+ * Returns the best (lowest) oriented scalar value across observations.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const bestObservedValue = (observations: ReadonlyArray<ScalarObservation>): number =>
   minimumObserved(Arr.map(observations, (observation) => observation.value), 0)

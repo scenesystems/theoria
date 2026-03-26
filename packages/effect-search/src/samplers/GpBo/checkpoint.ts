@@ -27,10 +27,19 @@ const acquisitionLabel = (acquisition: Option.Option<Sampler.BuiltInAcquisitionN
     onSome: (value) => value
   })
 
+/**
+ * Validates that persisted GP-BO checkpoint state matches runtime options
+ * before allowing resume.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const restoreCheckpoint = (
   seed: number,
   nStartupTrials: number,
   nCandidates: number,
+  lengthScale: number,
+  noise: number,
   acquisition: Option.Option<Sampler.BuiltInAcquisitionName>,
   checkpoint: Sampler.SamplerCheckpoint
 ): Effect.Effect<void, InvalidStudyConfig> =>
@@ -42,6 +51,8 @@ export const restoreCheckpoint = (
           seed: checkpointSeed,
           nStartupTrials: checkpointStartup,
           nCandidates: checkpointCandidates,
+          lengthScale: checkpointLengthScale,
+          noise: checkpointNoise,
           acquisition: checkpointAcquisition
         }
       ) =>
@@ -52,6 +63,8 @@ export const restoreCheckpoint = (
             seed === checkpointSeed &&
               nStartupTrials === checkpointStartup &&
               nCandidates === checkpointCandidates &&
+              lengthScale === checkpointLengthScale &&
+              noise === checkpointNoise &&
               acquisitionMatches(acquisition, checkpointAcquisitionOption)
           ).pipe(
             Match.when(true, () => Effect.void),
@@ -59,10 +72,10 @@ export const restoreCheckpoint = (
               Effect.fail(
                 new InvalidStudyConfig({
                   reason: "Study.resume gp-bo sampler checkpoint mismatch: " +
-                    `expected { seed: ${seed}, nStartupTrials: ${nStartupTrials}, nCandidates: ${nCandidates}, acquisition: ${
+                    `expected { seed: ${seed}, nStartupTrials: ${nStartupTrials}, nCandidates: ${nCandidates}, lengthScale: ${lengthScale}, noise: ${noise}, acquisition: ${
                       acquisitionLabel(acquisition)
                     } }, ` +
-                    `received { seed: ${checkpointSeed}, nStartupTrials: ${checkpointStartup}, nCandidates: ${checkpointCandidates}, acquisition: ${
+                    `received { seed: ${checkpointSeed}, nStartupTrials: ${checkpointStartup}, nCandidates: ${checkpointCandidates}, lengthScale: ${checkpointLengthScale}, noise: ${checkpointNoise}, acquisition: ${
                       acquisitionLabel(checkpointAcquisitionOption)
                     } }`
                 })
