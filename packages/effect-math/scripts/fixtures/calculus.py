@@ -1,4 +1,18 @@
-"""Calculus domain fixture generation from SciPy reference implementations."""
+"""Calculus domain fixture generation with explicit provenance classes.
+
+SciPy/NumPy-derived expectations:
+- ``trapezoid`` via ``numpy.trapz``
+- ``simpson`` via ``scipy.integrate.simpson``
+- ``adaptiveSimpson`` via ``scipy.integrate.quad``
+
+Analytic/reference-derived expectations:
+- ``derivative`` and ``secondDerivative`` (closed-form / reference formulas)
+- multivariate operators (gradient, jacobian, hessian, directionalDerivative,
+  divergence, laplacian) from analytic expressions for the fixture functions
+
+This split is intentional: SciPy does not expose one-to-one APIs for every
+operator contract we verify.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +33,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
             "metadata": metadata(generated_at),
             "payload": {
                 "cases": [
-                    # --- derivative (central finite difference) ---
+                    # --- derivative (analytic/reference finite-difference expectation) ---
                     _derivative_case("deriv-x-squared-at-1", "x_squared", 1.0),
                     _derivative_case("deriv-x-squared-at-3", "x_squared", 3.0),
                     _derivative_case("deriv-x-cubed-at-2", "x_cubed", 2.0),
@@ -29,7 +43,13 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _derivative_case("deriv-exp-at-1", "exp", 1.0),
                     _derivative_case("deriv-ln-at-1", "ln", 1.0),
                     _derivative_case("deriv-ln-at-2", "ln", 2.0),
-                    # --- trapezoid (composite trapezoidal rule) ---
+                    _derivative_case("deriv-cubic-plus-linear-at-2", "cubic_plus_linear", 2.0),
+                    # --- second derivative (analytic/reference expectation) ---
+                    _second_derivative_case("second-deriv-x-cubed-at-2", "x_cubed", 2.0),
+                    _second_derivative_case("second-deriv-sin-at-pi-third", "sin", math.pi / 3),
+                    _second_derivative_case("second-deriv-exp-at-1", "exp", 1.0),
+                    _second_derivative_case("second-deriv-cubic-plus-linear-at-1", "cubic_plus_linear", 1.0),
+                    # --- trapezoid (SciPy/NumPy reference) ---
                     _trapezoid_case("trap-constant", [1.0, 1.0, 1.0, 1.0, 1.0], 0.25),
                     _trapezoid_case("trap-linear", [0.0, 1.0, 2.0, 3.0, 4.0], 1.0),
                     _trapezoid_case("trap-quadratic-5", [0.0, 1.0, 4.0, 9.0, 16.0], 1.0),
@@ -38,7 +58,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                                     math.pi / 20),
                     _trapezoid_case("trap-uniform-dx",
                                     [1.0, 4.0, 9.0, 16.0, 25.0], 0.5),
-                    # --- simpson (composite Simpson's rule) ---
+                    # --- simpson (SciPy reference) ---
                     _simpson_case("simpson-constant", [2.0, 2.0, 2.0, 2.0, 2.0], 1.0),
                     _simpson_case("simpson-linear", [0.0, 1.0, 2.0, 3.0, 4.0], 1.0),
                     _simpson_case("simpson-quadratic", [0.0, 1.0, 4.0, 9.0, 16.0], 1.0),
@@ -47,6 +67,32 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                                   math.pi / 20),
                     _simpson_case("simpson-cubic",
                                   [float(x**3) for x in range(5)], 1.0),
+                    # --- adaptive Simpson over continuous functions (SciPy reference) ---
+                    _adaptive_simpson_case("adaptive-simpson-sine", "sin", 0.0, math.pi, 1e-8, 1e-8, 12),
+                    _adaptive_simpson_case("adaptive-simpson-exp", "exp", 0.0, 1.0, 1e-8, 1e-8, 12),
+                    # --- multivariate differential operators (analytic/reference) ---
+                    _gradient_case("gradient-quadratic-surface-point-a", "quadratic_surface", [1.0, 2.0]),
+                    _gradient_case("gradient-quadratic-surface-point-b", "quadratic_surface", [-0.5, 0.25]),
+                    _jacobian_case("jacobian-coupled-field-point-a", "coupled_field", [1.0, 2.0]),
+                    _jacobian_case("jacobian-coupled-field-point-b", "coupled_field", [-0.5, 0.25]),
+                    _hessian_case("hessian-quadratic-surface-point-a", "quadratic_surface", [1.0, 2.0]),
+                    _hessian_case("hessian-quadratic-surface-point-b", "quadratic_surface", [-0.5, 0.25]),
+                    _directional_derivative_case(
+                        "directional-quadratic-surface-point-a",
+                        "quadratic_surface",
+                        [1.0, 2.0],
+                        [1.0, 1.0],
+                    ),
+                    _directional_derivative_case(
+                        "directional-quadratic-surface-point-b",
+                        "quadratic_surface",
+                        [-0.5, 0.25],
+                        [2.0, -1.0],
+                    ),
+                    _divergence_case("divergence-coupled-field-point-a", "coupled_field", [1.0, 2.0]),
+                    _divergence_case("divergence-coupled-field-point-b", "coupled_field", [-0.5, 0.25]),
+                    _laplacian_case("laplacian-quadratic-surface-point-a", "quadratic_surface", [1.0, 2.0]),
+                    _laplacian_case("laplacian-quadratic-surface-point-b", "quadratic_surface", [-0.5, 0.25]),
                 ]
             },
         }
@@ -59,7 +105,28 @@ _FUNCTIONS = {
     "sin": math.sin,
     "exp": math.exp,
     "ln": math.log,
+    "cubic_plus_linear": lambda x: x**3 + 2.0 * x,
 }
+
+_SECOND_DERIVATIVES = {
+    "x_cubed": lambda x: 6.0 * x,
+    "sin": lambda x: -math.sin(x),
+    "exp": math.exp,
+    "cubic_plus_linear": lambda x: 6.0 * x,
+}
+
+_DEFAULT_ABSOLUTE_TOLERANCE = 1e-8
+_DEFAULT_RELATIVE_TOLERANCE = 2e-8
+
+
+def _assertion(
+    absolute_tolerance: float = _DEFAULT_ABSOLUTE_TOLERANCE,
+    relative_tolerance: float = _DEFAULT_RELATIVE_TOLERANCE,
+) -> dict[str, float]:
+    return {
+        "absoluteTolerance": absolute_tolerance,
+        "relativeTolerance": relative_tolerance,
+    }
 
 
 def _central_difference(f, x: float, h: float = 1e-8) -> float:
@@ -75,6 +142,19 @@ def _derivative_case(case_id: str, func_name: str, x: float) -> dict[str, Any]:
         "operation": "derivative",
         "input": {"function": func_name, "x": x},
         "expected": result,
+        "assertion": _assertion(),
+    }
+
+
+def _second_derivative_case(case_id: str, func_name: str, x: float) -> dict[str, Any]:
+    f2 = _SECOND_DERIVATIVES[func_name]
+    result = float(f2(x))
+    return {
+        "id": case_id,
+        "operation": "secondDerivative",
+        "input": {"function": func_name, "x": x},
+        "expected": result,
+        "assertion": _assertion(),
     }
 
 
@@ -85,6 +165,7 @@ def _trapezoid_case(case_id: str, values: list[float], dx: float) -> dict[str, A
         "operation": "trapezoid",
         "input": {"values": values, "dx": dx},
         "expected": result,
+        "assertion": _assertion(),
     }
 
 
@@ -95,4 +176,147 @@ def _simpson_case(case_id: str, values: list[float], dx: float) -> dict[str, Any
         "operation": "simpson",
         "input": {"values": values, "dx": dx},
         "expected": result,
+        "assertion": _assertion(),
+    }
+
+
+def _adaptive_simpson_case(
+    case_id: str,
+    func_name: str,
+    a: float,
+    b: float,
+    absolute_tolerance: float,
+    relative_tolerance: float,
+    max_depth: int,
+) -> dict[str, Any]:
+    f = _FUNCTIONS[func_name]
+    result = float(integrate.quad(f, a, b, epsabs=absolute_tolerance, epsrel=relative_tolerance)[0])
+    return {
+        "id": case_id,
+        "operation": "adaptiveSimpson",
+        "input": {
+            "function": func_name,
+            "a": a,
+            "b": b,
+            "absoluteTolerance": absolute_tolerance,
+            "relativeTolerance": relative_tolerance,
+            "maxDepth": max_depth,
+        },
+        "expected": result,
+        "assertion": _assertion(absolute_tolerance, relative_tolerance),
+    }
+
+
+def _gradient_quadratic_surface(point: list[float]) -> list[float]:
+    x, y = point
+    return [2.0 * x + 3.0 * y, 3.0 * x + 2.0 * y]
+
+
+def _jacobian_coupled_field(point: list[float]) -> list[list[float]]:
+    x, y = point
+    return [[2.0 * x, 1.0], [y + math.cos(x), x]]
+
+
+def _hessian_quadratic_surface(_point: list[float]) -> list[list[float]]:
+    return [[2.0, 3.0], [3.0, 2.0]]
+
+
+def _directional_derivative_quadratic_surface(point: list[float], direction: list[float]) -> float:
+    gradient = _gradient_quadratic_surface(point)
+    direction_norm = math.sqrt(sum(component * component for component in direction))
+    if direction_norm <= 0:
+        raise ValueError("direction vector norm must be positive")
+    dot = sum(gradient_component * direction_component for gradient_component, direction_component in zip(gradient, direction))
+    return float(dot / direction_norm)
+
+
+def _divergence_coupled_field(point: list[float]) -> float:
+    x, _ = point
+    return float(3.0 * x)
+
+
+def _laplacian_quadratic_surface(_point: list[float]) -> float:
+    return 4.0
+
+
+def _gradient_case(case_id: str, func_name: str, point: list[float]) -> dict[str, Any]:
+    if func_name != "quadratic_surface":
+        raise ValueError(f"unsupported scalar surface: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "gradient",
+        "input": {"function": func_name, "point": point},
+        "expected": _gradient_quadratic_surface(point),
+        "assertion": _assertion(),
+    }
+
+
+def _jacobian_case(case_id: str, func_name: str, point: list[float]) -> dict[str, Any]:
+    if func_name != "coupled_field":
+        raise ValueError(f"unsupported vector field: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "jacobian",
+        "input": {"function": func_name, "point": point},
+        "expected": _jacobian_coupled_field(point),
+        "assertion": _assertion(),
+    }
+
+
+def _hessian_case(case_id: str, func_name: str, point: list[float]) -> dict[str, Any]:
+    if func_name != "quadratic_surface":
+        raise ValueError(f"unsupported scalar surface: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "hessian",
+        "input": {"function": func_name, "point": point},
+        "expected": _hessian_quadratic_surface(point),
+        "assertion": _assertion(),
+    }
+
+
+def _directional_derivative_case(
+    case_id: str,
+    func_name: str,
+    point: list[float],
+    direction: list[float],
+) -> dict[str, Any]:
+    if func_name != "quadratic_surface":
+        raise ValueError(f"unsupported scalar surface: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "directionalDerivative",
+        "input": {"function": func_name, "point": point, "direction": direction},
+        "expected": _directional_derivative_quadratic_surface(point, direction),
+        "assertion": _assertion(),
+    }
+
+
+def _divergence_case(case_id: str, func_name: str, point: list[float]) -> dict[str, Any]:
+    if func_name != "coupled_field":
+        raise ValueError(f"unsupported vector field: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "divergence",
+        "input": {"function": func_name, "point": point},
+        "expected": _divergence_coupled_field(point),
+        "assertion": _assertion(),
+    }
+
+
+def _laplacian_case(case_id: str, func_name: str, point: list[float]) -> dict[str, Any]:
+    if func_name != "quadratic_surface":
+        raise ValueError(f"unsupported scalar surface: {func_name}")
+
+    return {
+        "id": case_id,
+        "operation": "laplacian",
+        "input": {"function": func_name, "point": point},
+        "expected": _laplacian_quadratic_surface(point),
+        "assertion": _assertion(),
     }

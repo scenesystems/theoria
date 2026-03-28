@@ -40,3 +40,45 @@ export * from "./shared/DomainOwnership.js"
  * @category combinators
  */
 export * from "./shared/PolicyGuards.js"
+
+/**
+ * @since 0.1.0
+ * @category errors
+ */
+export * from "./shared/AdvancedComputationErrors.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/ScalarAuthority.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/PrecisionEscalation.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/BackendAuthority.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/AutodiffAuthority.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/UncertaintyEnvelope.js"
+
+/**
+ * @since 0.1.0
+ * @category contracts
+ */
+export * from "./shared/ComputationDispatch.js"

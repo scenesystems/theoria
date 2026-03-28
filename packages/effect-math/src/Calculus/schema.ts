@@ -1,6 +1,5 @@
 /**
- * Calculus schema authority — domain model and operation input
- * contracts.
+ * Calculus schema authority — domain model and operation boundary contracts.
  *
  * @since 0.1.0
  * @category schemas
@@ -8,11 +7,8 @@
 import { Effect, Schema } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
+import { AbsoluteTolerance, IterationBudget, RelativeTolerance, StepSize } from "../contracts/shared/BrandedScalars.js"
 import { DomainStability } from "../contracts/shared/DomainStability.js"
-
-// ---------------------------------------------------------------------------
-// Domain model
-// ---------------------------------------------------------------------------
 
 /**
  * Calculus domain model schema.
@@ -81,42 +77,191 @@ export const encodeCalculusDomain = (domain: CalculusDomain) =>
  */
 export type CalculusSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
-// ---------------------------------------------------------------------------
-// Operation input schemas
-// ---------------------------------------------------------------------------
+const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const NonNegativeFiniteNumber = FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
+const GreaterThanOneFiniteNumber = FiniteNumber.pipe(Schema.greaterThan(1))
+const NonEmptyFiniteNumberArray = Schema.NonEmptyArray(FiniteNumber)
+
+const SampledValues = Schema.Array(FiniteNumber).pipe(
+  Schema.filter((values) => values.length >= 2 || "Expected at least two sampled values")
+)
+
+const RidderContractionFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("RidderContractionFactor"))
+const RidderSafetyFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("RidderSafetyFactor"))
 
 /**
- * Derivative input — finite x coordinate and optional positive step
- * size h.
+ * Ridder-method tuning envelope shared across derivative-based operators.
  *
  * @since 0.1.0
  * @category schemas
  */
-export const DerivativeInput = Schema.Struct({
-  x: Schema.Number.pipe(Schema.finite()),
-  h: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)))
-}).annotations({ identifier: "DerivativeInput" })
+export const RidderMethodInput = Schema.Struct({
+  initialStep: Schema.optional(StepSize),
+  contractionFactor: Schema.optional(RidderContractionFactor),
+  maxIterations: Schema.optional(IterationBudget),
+  absoluteTolerance: Schema.optional(AbsoluteTolerance),
+  relativeTolerance: Schema.optional(RelativeTolerance),
+  minimumStep: Schema.optional(StepSize),
+  safetyFactor: Schema.optional(RidderSafetyFactor)
+}).annotations({ identifier: "RidderMethodInput" })
 
 /**
- * Trapezoidal rule input — array of sample values and positive step
- * size dx.
+ * Ridder-method tuning envelope type.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type RidderMethodInputType = typeof RidderMethodInput.Type
+
+/**
+ * First/second derivative limit estimate payload.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const DerivativeLimitEstimateSchema = Schema.Struct({
+  value: FiniteNumber,
+  absoluteError: NonNegativeFiniteNumber,
+  iterations: IterationBudget,
+  converged: Schema.Boolean
+}).annotations({ identifier: "DerivativeLimitEstimate" })
+
+/**
+ * First/second derivative limit estimate type.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type DerivativeLimitEstimate = typeof DerivativeLimitEstimateSchema.Type
+
+/**
+ * Univariate first-derivative input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const DerivativeInput = Schema.extend(
+  Schema.Struct({ x: FiniteNumber }),
+  RidderMethodInput
+).annotations({ identifier: "DerivativeInput" })
+
+/**
+ * Univariate second-derivative input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const SecondDerivativeInput = Schema.extend(
+  Schema.Struct({ x: FiniteNumber }),
+  RidderMethodInput
+).annotations({ identifier: "SecondDerivativeInput" })
+
+/**
+ * Trapezoidal-rule input envelope.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const TrapezoidInput = Schema.Struct({
-  values: Schema.Array(Schema.Number),
-  dx: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+  values: SampledValues,
+  dx: StepSize
 }).annotations({ identifier: "TrapezoidInput" })
 
 /**
- * Simpson's rule input — array of sample values and positive step
- * size dx.
+ * Simpson-rule input envelope.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const SimpsonInput = Schema.Struct({
-  values: Schema.Array(Schema.Number),
-  dx: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+  values: SampledValues,
+  dx: StepSize
 }).annotations({ identifier: "SimpsonInput" })
+
+/**
+ * Adaptive-Simpson input with independent absolute and relative tolerances.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const AdaptiveSimpsonInput = Schema.Struct({
+  a: FiniteNumber,
+  b: FiniteNumber,
+  absoluteTolerance: Schema.optional(AbsoluteTolerance),
+  relativeTolerance: Schema.optional(RelativeTolerance),
+  maxDepth: Schema.optional(IterationBudget)
+}).annotations({ identifier: "AdaptiveSimpsonInput" })
+
+/**
+ * Gradient/Jacobian/Hessian point input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+const PointInput = Schema.Struct({
+  point: NonEmptyFiniteNumberArray
+})
+
+/**
+ * Gradient input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const GradientInput = Schema.extend(PointInput, RidderMethodInput).annotations({
+  identifier: "GradientInput"
+})
+
+/**
+ * Jacobian input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const JacobianInput = Schema.extend(PointInput, RidderMethodInput).annotations({
+  identifier: "JacobianInput"
+})
+
+/**
+ * Hessian input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const HessianInput = Schema.extend(PointInput, RidderMethodInput).annotations({
+  identifier: "HessianInput"
+})
+
+/**
+ * Directional-derivative input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const DirectionalDerivativeInput = Schema.extend(
+  Schema.Struct({
+    point: NonEmptyFiniteNumberArray,
+    direction: NonEmptyFiniteNumberArray
+  }),
+  RidderMethodInput
+).annotations({ identifier: "DirectionalDerivativeInput" })
+
+/**
+ * Divergence input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const DivergenceInput = Schema.extend(PointInput, RidderMethodInput).annotations({
+  identifier: "DivergenceInput"
+})
+
+/**
+ * Laplacian input envelope.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LaplacianInput = Schema.extend(PointInput, RidderMethodInput).annotations({
+  identifier: "LaplacianInput"
+})

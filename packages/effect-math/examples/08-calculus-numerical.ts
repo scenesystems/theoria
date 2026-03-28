@@ -1,16 +1,20 @@
 /**
  * Calculus — numerical differentiation and integration.
  *
- * Numerical calculus approximates derivatives via central finite
- * differences and integrals via composite quadrature rules
- * (trapezoidal, Simpson's 1/3). Pure kernels compute values directly
- * from evenly-spaced samples; validated variants decode boundary input;
+ * Numerical calculus here uses limit-accurate Ridder extrapolation for derivatives
+ * and composite quadrature rules (trapezoidal, Simpson's 1/3, adaptive Simpson)
+ * for integration. Pure kernels compute values directly from sampled arrays or
+ * callable functions; validated variants decode boundary input;
  * policy-aware variants enforce precision constraints and emit
  * diagnostics.
  *
- * What this shows: `derivative`, `trapezoid`, `simpson`,
- * schema-validated `trapezoidValidated` / `simpsonValidated`, and
- * policy-aware `trapezoidWithPolicies` / `simpsonWithPolicies`.
+ * What this shows: scalar `derivative` + `secondDerivative` plus
+ * `derivativeLimit` + `secondDerivativeLimit` error estimates,
+ * multivariate `gradient` / `jacobian` / `hessian` / `directionalDerivative`
+ * / `divergence` / `laplacian`, sampled quadrature (`trapezoid`, `simpson`),
+ * continuous adaptive quadrature (`adaptiveSimpson`) with independent
+ * absolute and relative tolerances, schema-validated boundaries,
+ * and policy-aware execution.
  *
  * Run: bun run packages/effect-math/examples/08-calculus-numerical.ts
  * @module
@@ -19,7 +23,19 @@ import { BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Chunk, Console, Effect, Number as N } from "effect"
 
 import {
+  adaptiveSimpson,
+  adaptiveSimpsonValidated,
   derivative,
+  derivativeLimit,
+  derivativeLimitWithPolicies,
+  directionalDerivative,
+  divergence,
+  gradient,
+  hessian,
+  jacobian,
+  laplacian,
+  secondDerivative,
+  secondDerivativeLimit,
   simpson,
   simpsonValidated,
   simpsonWithPolicies,
@@ -30,7 +46,7 @@ import {
 import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 
 const program = Effect.gen(function*() {
-  // ─── Pure kernels — derivative ───────────────────────────────────
+  // ─── Pure kernels — derivative operators ─────────────────────────
   const xSquared = (x: number) => N.multiply(x, x)
   yield* Console.log("d/dx(x²)|₁:", derivative(xSquared, 1))
   // Output: d/dx(x²)|₁: ≈ 2
@@ -38,6 +54,55 @@ const program = Effect.gen(function*() {
   // Output: d/dx(x²)|₃: ≈ 6
   yield* Console.log("d/dx(sin)|₀:", derivative(Math.sin, 0))
   // Output: d/dx(sin)|₀: ≈ 1 (cos(0) = 1)
+
+  const xCubed = (x: number) => N.multiply(N.multiply(x, x), x)
+  yield* Console.log("d²/dx²(x³)|₂:", secondDerivative(xCubed, 2))
+  // Output: d²/dx²(x³)|₂: ≈ 12
+
+  const firstLimit = derivativeLimit(Math.sin, Math.PI / 3, {
+    absoluteTolerance: 1e-12,
+    relativeTolerance: 1e-12
+  })
+  yield* Console.log("derivativeLimit d/dx(sin)|π/3:", firstLimit)
+  // Output: value ≈ 0.5 with bounded absoluteError and convergence flag
+
+  const secondLimit = secondDerivativeLimit(Math.sin, Math.PI / 3)
+  yield* Console.log("secondDerivativeLimit d²/dx²(sin)|π/3:", secondLimit)
+  // Output: value ≈ -sin(π/3)
+
+  // ─── Pure kernels — multivariate differential operators ──────────
+  const scalarSurface = (point: Chunk.Chunk<number>) => {
+    const x = Chunk.unsafeGet(point, 0)
+    const y = Chunk.unsafeGet(point, 1)
+    return N.sum(N.sum(N.multiply(x, x), N.multiply(3, N.multiply(x, y))), N.multiply(y, y))
+  }
+
+  const vectorField = (point: Chunk.Chunk<number>) => {
+    const x = Chunk.unsafeGet(point, 0)
+    const y = Chunk.unsafeGet(point, 1)
+    return Chunk.fromIterable([
+      N.sum(N.multiply(x, x), y),
+      N.sum(N.multiply(x, y), Math.sin(x))
+    ])
+  }
+
+  const point = Chunk.fromIterable([1, 2])
+  const direction = Chunk.fromIterable([3, 4])
+  yield* Console.log("gradient at [1,2]:", Chunk.toReadonlyArray(gradient(scalarSurface, point)))
+  yield* Console.log(
+    "jacobian at [1,2]:",
+    Chunk.toReadonlyArray(Chunk.map(jacobian(vectorField, point), (row) => Chunk.toReadonlyArray(row)))
+  )
+  yield* Console.log(
+    "hessian at [1,2]:",
+    Chunk.toReadonlyArray(Chunk.map(hessian(scalarSurface, point), (row) => Chunk.toReadonlyArray(row)))
+  )
+  yield* Console.log(
+    "directionalDerivative at [1,2] along [3,4]:",
+    directionalDerivative(scalarSurface, point, direction)
+  )
+  yield* Console.log("divergence at [1,2]:", divergence(vectorField, point))
+  yield* Console.log("laplacian at [1,2]:", laplacian(scalarSurface, point))
 
   // ─── Pure kernels — trapezoidal integration ──────────────────────
   // Sample sin(x) at 11 evenly-spaced points over [0, π/2]
@@ -53,6 +118,12 @@ const program = Effect.gen(function*() {
   yield* Console.log("∫x² dx [0,4] (simpson):", simpson(quadValues, 1))
   // Output: ∫x² dx [0,4] (simpson): 21.333... (exact = 64/3)
 
+  yield* Console.log(
+    "∫sin(x) dx [0, π] (adaptiveSimpson abs=1e-10 rel=1e-10):",
+    adaptiveSimpson(Math.sin, 0, Math.PI, 1e-10, 1e-10)
+  )
+  // Output: ∫sin(x) dx [0, π] (adaptiveSimpson): ≈ 2
+
   // ─── Schema-validated — boundary input decoded via Schema ─────────
   const trapV = yield* trapezoidValidated({ values: [1, 1, 1, 1, 1], dx: 0.25 })
   yield* Console.log("trapezoidValidated (constant):", trapV)
@@ -61,6 +132,15 @@ const program = Effect.gen(function*() {
   const simpV = yield* simpsonValidated({ values: [0, 1, 4, 9, 16], dx: 1 })
   yield* Console.log("simpsonValidated (quadratic):", simpV)
   // Output: simpsonValidated (quadratic): 21.333...
+
+  const adaptiveV = yield* adaptiveSimpsonValidated(Math.sin, {
+    a: 0,
+    b: Math.PI,
+    absoluteTolerance: 1e-8,
+    relativeTolerance: 1e-8,
+    maxDepth: 12
+  })
+  yield* Console.log("adaptiveSimpsonValidated (sin over [0, π]):", adaptiveV)
 
   // ─── Policy-aware — strict precision ─────────────────────────────
   const policies = makeDeterministicRuntimePoliciesLayer({
@@ -77,6 +157,11 @@ const program = Effect.gen(function*() {
   const simpP = yield* simpsonWithPolicies(quadValues, 1).pipe(Effect.provide(policies))
   yield* Console.log("simpsonWithPolicies (strict):", simpP)
   // Output: simpsonWithPolicies (strict): 21.333...
+
+  const derivativePolicyEstimate = yield* derivativeLimitWithPolicies(Math.sin, Math.PI / 3).pipe(
+    Effect.provide(policies)
+  )
+  yield* Console.log("derivativeLimitWithPolicies d/dx(sin)|π/3:", derivativePolicyEstimate)
 })
 
 BunRuntime.runMain(program)
