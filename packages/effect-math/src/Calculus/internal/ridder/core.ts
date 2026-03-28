@@ -7,7 +7,7 @@
 import { Data, Number as N, Option, Schema } from "effect"
 
 import { IterationBudget } from "../../../contracts/shared/BrandedScalars.js"
-import type { DerivativeLimitEstimate, RidderMethodInputType } from "../../schema.js"
+import { type DerivativeLimitEstimate, RidderMethodInput, type RidderMethodInputType } from "../../schema.js"
 
 class NormalizedRidderConfig extends Data.Class<{
   readonly initialStep: number
@@ -62,44 +62,54 @@ const optionalField = (
   config?: RidderMethodInputType
 ): Option.Option<number> => Option.fromNullable(config?.[field])
 
-const normalizeConfig = (config?: RidderMethodInputType): NormalizedRidderConfig =>
-  new NormalizedRidderConfig({
+const decodeRidderMethodInput = Schema.decodeUnknownSync(RidderMethodInput, {
+  onExcessProperty: "error"
+})
+
+const normalizeConfig = (config?: RidderMethodInputType): NormalizedRidderConfig => {
+  const decoded = Option.match(Option.fromNullable(config), {
+    onNone: () => undefined,
+    onSome: (candidate) => decodeRidderMethodInput(candidate)
+  })
+
+  return new NormalizedRidderConfig({
     initialStep: selectOrDefault(
-      optionalField("initialStep", config),
+      optionalField("initialStep", decoded),
       isFinitePositive,
       DEFAULT_CONFIG.initialStep
     ),
     contractionFactor: selectOrDefault(
-      optionalField("contractionFactor", config),
+      optionalField("contractionFactor", decoded),
       isFiniteGreaterThanOne,
       DEFAULT_CONFIG.contractionFactor
     ),
     maxIterations: selectOrDefault(
-      optionalField("maxIterations", config),
+      optionalField("maxIterations", decoded),
       isPositiveInteger,
       DEFAULT_CONFIG.maxIterations
     ),
     absoluteTolerance: selectOrDefault(
-      optionalField("absoluteTolerance", config),
+      optionalField("absoluteTolerance", decoded),
       isFinitePositive,
       DEFAULT_CONFIG.absoluteTolerance
     ),
     relativeTolerance: selectOrDefault(
-      optionalField("relativeTolerance", config),
+      optionalField("relativeTolerance", decoded),
       isFinitePositive,
       DEFAULT_CONFIG.relativeTolerance
     ),
     minimumStep: selectOrDefault(
-      optionalField("minimumStep", config),
+      optionalField("minimumStep", decoded),
       isFinitePositive,
       DEFAULT_CONFIG.minimumStep
     ),
     safetyFactor: selectOrDefault(
-      optionalField("safetyFactor", config),
+      optionalField("safetyFactor", decoded),
       isFiniteGreaterThanOne,
       DEFAULT_CONFIG.safetyFactor
     )
   })
+}
 
 const toleranceFor = (value: number, config: NormalizedRidderConfig): number =>
   N.max(config.absoluteTolerance, N.multiply(absolute(value), config.relativeTolerance))

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Match, Option, Schema } from "effect"
 
 import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 
@@ -43,6 +43,48 @@ export const AutodiffCapability = Schema.Struct({
  * @category models
  */
 export type AutodiffCapabilityType = typeof AutodiffCapability.Type
+
+/**
+ * Resolved differentiation method.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const AutodiffResolutionMethod = Schema.Literal("autodiff", "finite-difference")
+
+/**
+ * Resolved differentiation method type.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type AutodiffResolutionMethodType = typeof AutodiffResolutionMethod.Type
+
+const AUTODIFF_METHOD: AutodiffResolutionMethodType = "autodiff"
+const FINITE_DIFFERENCE_METHOD: AutodiffResolutionMethodType = "finite-difference"
+
+const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<AutodiffModeType> =>
+  modes.filter((mode, index, all) => all.findIndex((candidate) => candidate === mode) === index)
+
+/**
+ * Resolved autodiff authority decision.
+ *
+ * @since 0.1.0
+ * @category contracts
+ */
+export const AutodiffResolution = Schema.Struct({
+  method: AutodiffResolutionMethod,
+  mode: Schema.optional(AutodiffMode),
+  usedFiniteDifferenceFallback: Schema.Boolean
+})
+
+/**
+ * Resolved autodiff authority decision type.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type AutodiffResolutionType = typeof AutodiffResolution.Type
 
 /**
  * Autodiff selection policy contract.
@@ -122,7 +164,12 @@ export const DefaultAutodiffAuthority: AutodiffAuthorityStateType = {
 export const AutodiffAuthorityLive = Layer.succeed(AutodiffAuthorityService, DefaultAutodiffAuthority)
 
 /**
- * Resolves autodiff mode from authority capabilities.
+ * Resolves autodiff mode from authority capabilities and policy.
+ *
+ * **Details**
+ * Caller preference is evaluated first, then policy order.
+ * When no lane is available, `allowFiniteDifferenceFallback` decides whether
+ * dispatch degrades to finite-difference or fails with a typed contract error.
  *
  * @since 0.1.0
  * @category contracts
@@ -134,10 +181,12 @@ export const resolveAutodiffMode = (request: {
   Effect.gen(function*() {
     const authority = yield* AutodiffAuthorityService
 
-    const orderedModes = Option.match(Option.fromNullable(request.preferredMode), {
-      onNone: () => authority.policy.preferredOrder,
-      onSome: (preferredMode) => [preferredMode, ...authority.policy.preferredOrder]
-    })
+    const orderedModes = dedupeModes(
+      Option.match(Option.fromNullable(request.preferredMode), {
+        onNone: () => authority.policy.preferredOrder,
+        onSome: (preferredMode) => [preferredMode, ...authority.policy.preferredOrder]
+      })
+    )
 
     const resolved = Option.fromNullable(orderedModes.find((mode) =>
       authority.capabilities.some((candidate) => candidate.mode === mode && candidate.available)
@@ -151,14 +200,29 @@ export const resolveAutodiffMode = (request: {
 
     return yield* Option.match(resolved, {
       onNone: () =>
-        Effect.fail(
-          new AutodiffUnavailableError({
-            operation: request.operation,
-            requestedMode: request.preferredMode ?? "policy-default",
-            availableModes,
-            message: "No autodiff mode is currently available"
-          })
+        Match.value(authority.policy.allowFiniteDifferenceFallback).pipe(
+          Match.when(true, () =>
+            Effect.succeed<AutodiffResolutionType>({
+              method: FINITE_DIFFERENCE_METHOD,
+              mode: undefined,
+              usedFiniteDifferenceFallback: true
+            })),
+          Match.when(false, () =>
+            Effect.fail(
+              new AutodiffUnavailableError({
+                operation: request.operation,
+                requestedMode: request.preferredMode ?? "policy-default",
+                availableModes,
+                message: "No autodiff mode is currently available"
+              })
+            )),
+          Match.exhaustive
         ),
-      onSome: (mode) => Effect.succeed(mode)
+      onSome: (mode) =>
+        Effect.succeed<AutodiffResolutionType>({
+          method: AUTODIFF_METHOD,
+          mode,
+          usedFiniteDifferenceFallback: false
+        })
     })
   })

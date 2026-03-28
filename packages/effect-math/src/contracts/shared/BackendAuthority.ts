@@ -4,9 +4,10 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Effect, Match, Option, Schema } from "effect"
 
 import { BackendUnavailableError } from "./AdvancedComputationErrors.js"
+import { BackendPolicyService, type BackendPolicyType } from "./RuntimePolicies.js"
 import { ScalarKind, type ScalarKindType } from "./ScalarAuthority.js"
 
 /**
@@ -45,89 +46,44 @@ export const BackendCapability = Schema.Struct({
  */
 export type BackendCapabilityType = typeof BackendCapability.Type
 
-/**
- * Backend selection policy contract.
- *
- * @since 0.1.0
- * @category contracts
- */
-export const BackendSelectionPolicy = Schema.Struct({
-  preferredOrder: Schema.NonEmptyArray(BackendKind)
-})
+const RUNTIME_BACKEND_CAPABILITIES: ReadonlyArray<BackendCapabilityType> = [{
+  kind: "typed-array",
+  available: true,
+  supportedScalarKinds: ["float64"]
+}, {
+  kind: "scalar",
+  available: true,
+  supportedScalarKinds: ["float64", "bigdecimal"]
+}, {
+  kind: "accelerated",
+  available: false,
+  supportedScalarKinds: ["float64"]
+}]
+
+const TYPED_ARRAY_FIRST_ORDER: ReadonlyArray<BackendKindType> = ["typed-array", "scalar"]
+const SCALAR_FIRST_ORDER: ReadonlyArray<BackendKindType> = ["scalar", "typed-array"]
+
+type RuntimeBackendPolicy = BackendPolicyType["policy"]
+
+const orderedKindsFromRuntimePolicy = (policy: RuntimeBackendPolicy): ReadonlyArray<BackendKindType> =>
+  Match.value(policy).pipe(
+    Match.when("typed-array", () => TYPED_ARRAY_FIRST_ORDER),
+    Match.when("scalar", () => SCALAR_FIRST_ORDER),
+    Match.exhaustive
+  )
+
+const backendSupportsScalarKind = (kind: BackendKindType, scalarKind: ScalarKindType): boolean =>
+  Option.match(Option.fromNullable(RUNTIME_BACKEND_CAPABILITIES.find((candidate) => candidate.kind === kind)), {
+    onNone: () => false,
+    onSome: (capability) => capability.available && capability.supportedScalarKinds.includes(scalarKind)
+  })
 
 /**
- * Backend selection policy type.
+ * Resolves backend kind from runtime policy authority and backend capabilities.
  *
- * @since 0.1.0
- * @category models
- */
-export type BackendSelectionPolicyType = typeof BackendSelectionPolicy.Type
-
-/**
- * Backend authority state.
- *
- * @since 0.1.0
- * @category contracts
- */
-export const BackendAuthorityState = Schema.Struct({
-  policy: BackendSelectionPolicy,
-  capabilities: Schema.NonEmptyArray(BackendCapability)
-})
-
-/**
- * Backend authority state type.
- *
- * @since 0.1.0
- * @category models
- */
-export type BackendAuthorityStateType = typeof BackendAuthorityState.Type
-
-/**
- * Backend authority service seam.
- *
- * @since 0.1.0
- * @category contracts
- */
-export class BackendAuthorityService extends Context.Tag("effect-math/contracts/shared/BackendAuthorityService")<
-  BackendAuthorityService,
-  BackendAuthorityStateType
->() {}
-
-/**
- * Baseline backend authority for RED-first execution.
- *
- * @since 0.1.0
- * @category contracts
- */
-export const DefaultBackendAuthority: BackendAuthorityStateType = {
-  policy: {
-    preferredOrder: ["scalar", "typed-array", "accelerated"]
-  },
-  capabilities: [{
-    kind: "accelerated",
-    available: false,
-    supportedScalarKinds: ["float64"]
-  }, {
-    kind: "typed-array",
-    available: true,
-    supportedScalarKinds: ["float64"]
-  }, {
-    kind: "scalar",
-    available: true,
-    supportedScalarKinds: ["float64", "bigdecimal"]
-  }]
-}
-
-/**
- * Live backend authority layer.
- *
- * @since 0.1.0
- * @category contracts
- */
-export const BackendAuthorityLive = Layer.succeed(BackendAuthorityService, DefaultBackendAuthority)
-
-/**
- * Resolves backend kind from authority capabilities and deterministic fallback.
+ * **Details**
+ * Runtime backend policy is authoritative for ordering. `preferredBackend`
+ * is carried for diagnostics only and never bypasses runtime policy ordering.
  *
  * @since 0.1.0
  * @category contracts
@@ -138,28 +94,14 @@ export const resolveBackendKind = (request: {
   readonly preferredBackend?: BackendKindType
 }) =>
   Effect.gen(function*() {
-    const authority = yield* BackendAuthorityService
+    const backendPolicy = yield* BackendPolicyService
+    const orderedKinds = orderedKindsFromRuntimePolicy(backendPolicy.policy)
+    const requestedBackend = request.preferredBackend ?? backendPolicy.policy
+    const resolved = Option.fromNullable(
+      orderedKinds.find((kind) => backendSupportsScalarKind(kind, request.scalarKind))
+    )
 
-    const orderedKinds = Option.match(Option.fromNullable(request.preferredBackend), {
-      onNone: () => authority.policy.preferredOrder,
-      onSome: (preferredBackend) => {
-        const preferredIndex = authority.policy.preferredOrder.findIndex((kind) => kind === preferredBackend)
-
-        return preferredIndex < 0
-          ? [preferredBackend, ...authority.policy.preferredOrder]
-          : authority.policy.preferredOrder.slice(0, preferredIndex + 1).reverse()
-      }
-    })
-
-    const backendSupportsScalarKind = (kind: BackendKindType) =>
-      Option.match(Option.fromNullable(authority.capabilities.find((candidate) => candidate.kind === kind)), {
-        onNone: () => false,
-        onSome: (capability) => capability.available && capability.supportedScalarKinds.includes(request.scalarKind)
-      })
-
-    const resolved = Option.fromNullable(orderedKinds.find((kind) => backendSupportsScalarKind(kind)))
-
-    const availableBackends = authority.capabilities
+    const availableBackends = RUNTIME_BACKEND_CAPABILITIES
       .filter((candidate) => candidate.available)
       .map((candidate) => candidate.kind)
 
@@ -168,7 +110,7 @@ export const resolveBackendKind = (request: {
         Effect.fail(
           new BackendUnavailableError({
             operation: request.operation,
-            requestedBackend: request.preferredBackend ?? "policy-default",
+            requestedBackend,
             availableBackends,
             message: `No backend can satisfy scalar lane ${request.scalarKind}`
           })

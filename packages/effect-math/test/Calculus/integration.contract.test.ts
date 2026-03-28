@@ -94,6 +94,21 @@ describe("Calculus / integration validated boundaries", () => {
 
       expectClose(result, 2, 1e-10)
     }))
+
+  it.effect("adaptiveSimpsonValidated maps callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(adaptiveSimpsonValidated(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        {
+          a: 0,
+          b: 1
+        }
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("adaptiveSimpson")
+      expect(error.message.length > 0).toStrictEqual(true)
+    }))
 })
 
 describe("Calculus / integration policy behavior", () => {
@@ -118,4 +133,17 @@ describe("Calculus / integration policy behavior", () => {
       const result = yield* trapezoidWithPolicies(Chunk.fromIterable([Number.POSITIVE_INFINITY, 1]), 1)
       expect(Number.isFinite(result)).toStrictEqual(false)
     }).pipe(Effect.provide(relaxedPolicies)))
+
+  it.effect("policy wrappers map callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(adaptiveSimpsonWithPolicies(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        0,
+        1
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("adaptiveSimpsonWithPolicies")
+      expect(error.message.length > 0).toStrictEqual(true)
+    }).pipe(Effect.provide(strictPolicies)))
 })

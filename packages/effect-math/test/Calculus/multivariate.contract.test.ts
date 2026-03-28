@@ -193,6 +193,20 @@ describe("Calculus / multivariate validated boundaries", () => {
 
       expectClose(result, 4, 2e-6)
     }))
+
+  it.effect("gradientValidated maps callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(gradientValidated(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        {
+          point: [1, 2]
+        }
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("gradient")
+      expect(error.message.length > 0).toStrictEqual(true)
+    }))
 })
 
 describe("Calculus / multivariate policy behavior", () => {
@@ -233,4 +247,16 @@ describe("Calculus / multivariate policy behavior", () => {
       expect(jacobianValues.flat().some((value) => Number.isFinite(value) === false)).toStrictEqual(true)
       expect(hessianValues.flat().some((value) => Number.isFinite(value) === false)).toStrictEqual(true)
     }).pipe(Effect.provide(relaxedPolicies)))
+
+  it.effect("policy wrappers map callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(gradientWithPolicies(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        point
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("gradientWithPolicies")
+      expect(error.message.length > 0).toStrictEqual(true)
+    }).pipe(Effect.provide(strictPolicies)))
 })

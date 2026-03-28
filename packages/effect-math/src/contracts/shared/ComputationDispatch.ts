@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category contracts
  */
-import { Context, Effect, Layer, Match, Schema } from "effect"
+import { Context, Effect, Layer, Match, Option, Schema } from "effect"
 
 import type {
   AutodiffUnavailableError,
@@ -13,17 +13,47 @@ import type {
   ScalarLaneUnsupportedError
 } from "./AdvancedComputationErrors.js"
 import { ComputationDispatchDecodeError } from "./AdvancedComputationErrors.js"
-import { AutodiffAuthorityLive, AutodiffMode, resolveAutodiffMode } from "./AutodiffAuthority.js"
+import {
+  AutodiffAuthorityLive,
+  AutodiffMode,
+  AutodiffResolutionMethod,
+  resolveAutodiffMode
+} from "./AutodiffAuthority.js"
 import type { AutodiffAuthorityService } from "./AutodiffAuthority.js"
-import { BackendAuthorityLive, BackendKind, resolveBackendKind } from "./BackendAuthority.js"
-import type { BackendAuthorityService } from "./BackendAuthority.js"
-import { PrecisionEscalationLive, resolveEscalatedScalarKind } from "./PrecisionEscalation.js"
-import type { PrecisionEscalationService } from "./PrecisionEscalation.js"
-import { resolveScalarKind, ScalarAuthorityLive, ScalarKind, ScalarOperationCategory } from "./ScalarAuthority.js"
+import { BackendKind, resolveBackendKind } from "./BackendAuthority.js"
+import {
+  ConvergenceObservation,
+  PrecisionEscalationDecisionSource,
+  PrecisionEscalationLive,
+  resolveEscalatedScalarKind
+} from "./PrecisionEscalation.js"
+import type { PrecisionEscalationDecisionType, PrecisionEscalationService } from "./PrecisionEscalation.js"
+import { BackendPolicyService } from "./RuntimePolicies.js"
+import {
+  resolveScalarKind,
+  ScalarAuthorityLive,
+  ScalarKind,
+  ScalarOperationCategory,
+  ScalarResolutionSource
+} from "./ScalarAuthority.js"
 import type { ScalarAuthorityService } from "./ScalarAuthority.js"
+
+const ComputationDifferentiationMethod = Schema.Union(Schema.Literal("none"), AutodiffResolutionMethod)
+const NO_AUTODIFF_RESOLUTION: {
+  readonly method: "none"
+  readonly mode: undefined
+  readonly usedFiniteDifferenceFallback: false
+} = {
+  method: "none",
+  mode: undefined,
+  usedFiniteDifferenceFallback: false
+}
 
 /**
  * Advanced dispatch request contract.
+ *
+ * `preferredBackend` and `preferredAutodiff` express caller intent while
+ * runtime policy services stay authoritative for final lane selection.
  *
  * @since 0.1.0
  * @category contracts
@@ -31,11 +61,11 @@ import type { ScalarAuthorityService } from "./ScalarAuthority.js"
 export const ComputationDispatchRequest = Schema.Struct({
   operationCategory: ScalarOperationCategory,
   operationName: Schema.String,
-  requestedScalarKind: ScalarKind,
+  requestedScalarKind: Schema.optional(ScalarKind),
   preferredBackend: Schema.optional(BackendKind),
   preferredAutodiff: Schema.optional(AutodiffMode),
   escalationAttempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  converged: Schema.Boolean,
+  convergence: Schema.optional(ConvergenceObservation),
   requiresAutodiff: Schema.Boolean,
   requiresUncertaintyEnvelope: Schema.Boolean
 })
@@ -51,14 +81,22 @@ export type ComputationDispatchRequestType = typeof ComputationDispatchRequest.T
 /**
  * Advanced dispatch plan contract.
  *
+ * Includes both resolved execution lanes and provenance fields so tests can
+ * assert which authority produced each decision.
+ *
  * @since 0.1.0
  * @category contracts
  */
 export const ComputationDispatchPlan = Schema.Struct({
   scalarKind: ScalarKind,
+  scalarResolutionSource: ScalarResolutionSource,
+  precisionEscalationSource: PrecisionEscalationDecisionSource,
   backendKind: BackendKind,
   autodiffMode: Schema.optional(AutodiffMode),
+  differentiationMethod: ComputationDifferentiationMethod,
+  finiteDifferenceFallback: Schema.Boolean,
   escalated: Schema.Boolean,
+  convergenceSatisfied: Schema.Boolean,
   uncertaintyEnvelope: Schema.Boolean
 })
 
@@ -92,7 +130,7 @@ export type ComputationDispatchError =
 export type ComputationDispatchRequirements =
   | ScalarAuthorityService
   | PrecisionEscalationService
-  | BackendAuthorityService
+  | BackendPolicyService
   | AutodiffAuthorityService
 
 /**
@@ -126,45 +164,66 @@ const decodeComputationDispatchRequest = (input: unknown) =>
 /**
  * Contract-level plan builder wired directly to authority services.
  *
+ * **Details**
+ * Scalar, precision, backend, and autodiff decisions are all resolved through
+ * runtime policy services so there is a single observable dispatch authority.
+ *
  * @since 0.1.0
  * @category contracts
  */
 export const planComputationFromAuthorities = (request: ComputationDispatchRequestType) =>
   Effect.gen(function*() {
-    const initialScalarKind = yield* resolveScalarKind({
+    const initialScalarRequest = {
       operation: request.operationName,
       operationCategory: request.operationCategory,
-      requestedKind: request.requestedScalarKind
-    })
+      ...Option.match(Option.fromNullable(request.requestedScalarKind), {
+        onNone: () => ({}),
+        onSome: (requestedKind) => ({ requestedKind })
+      })
+    }
 
-    const resolvedScalarKind = yield* Match.value(request.converged).pipe(
-      Match.when(true, () => Effect.succeed(initialScalarKind)),
-      Match.when(false, () =>
+    const initialScalarResolution = yield* resolveScalarKind(initialScalarRequest)
+
+    const precisionDecision = yield* Option.match(Option.fromNullable(request.convergence), {
+      onNone: () =>
+        Effect.succeed<PrecisionEscalationDecisionType>({
+          scalarKind: initialScalarResolution.kind,
+          converged: true,
+          escalated: false,
+          source: "none"
+        }),
+      onSome: (convergence) =>
         resolveEscalatedScalarKind({
           operation: request.operationName,
-          currentKind: initialScalarKind,
-          attempts: request.escalationAttempt
-        })),
-      Match.exhaustive
-    )
-
-    const resolvedBackendKind = yield* Match.value(request.preferredBackend).pipe(
-      Match.when(undefined, () =>
-        resolveBackendKind({
-          operation: request.operationName,
-          scalarKind: resolvedScalarKind
-        })),
-      Match.orElse((preferredBackend) =>
-        resolveBackendKind({
-          operation: request.operationName,
-          scalarKind: resolvedScalarKind,
-          preferredBackend
+          currentKind: initialScalarResolution.kind,
+          attempts: request.escalationAttempt,
+          convergence,
+          scalarResolutionSource: initialScalarResolution.source
         })
-      )
-    )
+    })
 
-    const resolvedAutodiffMode = yield* Match.value(request.requiresAutodiff).pipe(
-      Match.when(false, () => Effect.succeed(undefined)),
+    const resolvedScalarKind = yield* resolveScalarKind({
+      operation: request.operationName,
+      operationCategory: request.operationCategory,
+      requestedKind: precisionDecision.scalarKind,
+      enforceRequestedKind: true
+    }).pipe(Effect.map((resolution) => resolution.kind))
+
+    // Runtime backend policy remains authoritative; caller preference is
+    // carried for diagnostics only.
+    const backendRequest = {
+      operation: request.operationName,
+      scalarKind: resolvedScalarKind,
+      ...Option.match(Option.fromNullable(request.preferredBackend), {
+        onNone: () => ({}),
+        onSome: (preferredBackend) => ({ preferredBackend })
+      })
+    }
+
+    const resolvedBackendKind = yield* resolveBackendKind(backendRequest)
+
+    const autodiffResolution = yield* Match.value(request.requiresAutodiff).pipe(
+      Match.when(false, () => Effect.succeed(NO_AUTODIFF_RESOLUTION)),
       Match.when(true, () =>
         Match.value(request.preferredAutodiff).pipe(
           Match.when(undefined, () =>
@@ -183,9 +242,14 @@ export const planComputationFromAuthorities = (request: ComputationDispatchReque
 
     return {
       scalarKind: resolvedScalarKind,
+      scalarResolutionSource: initialScalarResolution.source,
+      precisionEscalationSource: precisionDecision.source,
       backendKind: resolvedBackendKind,
-      autodiffMode: resolvedAutodiffMode,
-      escalated: resolvedScalarKind !== initialScalarKind,
+      autodiffMode: autodiffResolution.mode,
+      differentiationMethod: autodiffResolution.method,
+      finiteDifferenceFallback: autodiffResolution.usedFiniteDifferenceFallback,
+      escalated: precisionDecision.escalated,
+      convergenceSatisfied: precisionDecision.converged,
       uncertaintyEnvelope: request.requiresUncertaintyEnvelope
     }
   })
@@ -199,7 +263,7 @@ export const planComputationFromAuthorities = (request: ComputationDispatchReque
 export const ComputationDispatchAuthoritiesLive = Layer.mergeAll(
   ScalarAuthorityLive,
   PrecisionEscalationLive,
-  BackendAuthorityLive,
+  Layer.succeed(BackendPolicyService, { policy: "scalar" }),
   AutodiffAuthorityLive
 )
 

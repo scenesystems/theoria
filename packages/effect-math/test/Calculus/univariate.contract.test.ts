@@ -62,6 +62,11 @@ describe("Calculus / univariate limit operators", () => {
       const cubic = (x: number) => N.multiply(N.multiply(x, x), x)
       expectClose(secondDerivative(cubic, 2), 12, 1e-7)
     }))
+
+  it.effect("rejects legacy numeric third-arg Ridder config in pure paths", () =>
+    Effect.gen(function*() {
+      expect(() => Reflect.apply(derivativeLimit, undefined, [Math.sin, 0, 1])).toThrow()
+    }))
 })
 
 describe("Calculus / univariate validated boundaries", () => {
@@ -87,6 +92,18 @@ describe("Calculus / univariate validated boundaries", () => {
 
       expect(Exit.isFailure(result)).toStrictEqual(true)
     }))
+
+  it.effect("derivativeLimitValidated maps callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(derivativeLimitValidated(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        { x: 1 }
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("derivativeLimit")
+      expect(error.message.length > 0).toStrictEqual(true)
+    }))
 })
 
 describe("Calculus / univariate policy behavior", () => {
@@ -110,5 +127,17 @@ describe("Calculus / univariate policy behavior", () => {
 
       expect(estimate.converged).toStrictEqual(true)
       expectClose(estimate.value, -Math.sin(Math.PI / 3), 1e-9)
+    }).pipe(Effect.provide(strictPolicies)))
+
+  it.effect("policy wrappers map callback throws to typed kernel errors", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(derivativeLimitWithPolicies(
+        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        1
+      ))
+
+      expect(error._tag).toStrictEqual("KernelExecutionError")
+      expect(error.operation).toStrictEqual("derivativeLimitWithPolicies")
+      expect(error.message.length > 0).toStrictEqual(true)
     }).pipe(Effect.provide(strictPolicies)))
 })

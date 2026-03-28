@@ -6,8 +6,24 @@
  */
 import { Chunk, Effect, Schema } from "effect"
 
+import { KernelExecutionError } from "../../contracts/shared/AdvancedComputationErrors.js"
 import { CalculusDecodeError, CalculusParameterError } from "../errors.js"
 import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.js"
+
+const formatKernelErrorMessage = (error: unknown): string =>
+  error instanceof Error
+    ? error.message
+    : String(error)
+
+export const executeKernel = <A>(operation: string, kernel: () => A): Effect.Effect<A, KernelExecutionError> =>
+  Effect.try({
+    try: kernel,
+    catch: (error) =>
+      new KernelExecutionError({
+        operation,
+        message: formatKernelErrorMessage(error)
+      })
+  })
 
 export const decodeOperationInput = <A, I, R>(
   schema: Schema.Schema<A, I, R>,

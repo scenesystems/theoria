@@ -11,14 +11,19 @@ describe("advanced uncertainty envelope contracts", () => {
         operationCategory: "calculus",
         operationName: "adaptiveSimpson",
         requestedScalarKind: "float64",
-        escalationAttempt: 1,
-        converged: false,
+        escalationAttempt: 0,
+        convergence: {
+          absoluteError: 1e-4,
+          relativeError: 1e-3,
+          iterations: 64
+        },
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: true
       }).pipe(Effect.provide(ComputationDispatchLive))
 
       expect(plan.uncertaintyEnvelope).toStrictEqual(true)
       expect(plan.scalarKind).toStrictEqual("bigdecimal")
+      expect(plan.precisionEscalationSource).toStrictEqual("escalation-order")
     }))
 
   it.effect("rejects float64 intervals where lower exceeds upper", () =>
