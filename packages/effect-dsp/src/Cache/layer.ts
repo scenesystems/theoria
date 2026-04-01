@@ -7,6 +7,7 @@
 import type * as PlatformError from "@effect/platform/Error"
 import type * as FileSystem from "@effect/platform/FileSystem"
 import type * as Path from "@effect/platform/Path"
+import type * as SqlClient from "@effect/sql/SqlClient"
 import { Effect, Layer, type Schema } from "effect"
 import {
   type CacheBackendError,
@@ -16,7 +17,7 @@ import {
   SchemaCache,
   SchemaCacheFileSystem,
   SchemaCacheMemory,
-  SchemaCacheSqlite
+  SchemaCacheSql
 } from "effect-search/Cache"
 
 import { buildDspCacheKey, DspCache, DspCacheKey } from "./model.js"
@@ -32,7 +33,7 @@ const DSP_CACHE_VERSION = "v1"
  *
  * @see {@link DspCacheMemory} — pre-wired in-memory layer for tests
  * @see {@link DspCacheFileSystem} — file-system persistence
- * @see {@link DspCacheSqlite} — SQLite persistence
+ * @see {@link DspCacheSql} — SQL persistence
  *
  * @since 0.0.0
  * @category layers
@@ -106,14 +107,14 @@ export const DspCacheFileSystem = (
   Layer.provide(DspCacheLive, SchemaCacheFileSystem(directory))
 
 /**
- * SQLite-backed {@link DspCache} — entries persist in a SQLite database
- * in the given directory. Uses `@effect/sql-sqlite-node` via the
- * shared `effect-search/Cache` authority.
+ * SQL-backed {@link DspCache} — entries persist in a SQL database.
+ * Accepts a `SqlClient` layer from the consumer.
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
  * @since 0.0.0
  * @category layers
  */
-export const DspCacheSqlite = (directory: string): Layer.Layer<DspCache, CacheBackendError> =>
-  Layer.provide(DspCacheLive, SchemaCacheSqlite(directory))
+export const DspCacheSql = (
+  sqlClientLayer: Layer.Layer<SqlClient.SqlClient, CacheBackendError>
+): Layer.Layer<DspCache, CacheBackendError> => Layer.provide(DspCacheLive, SchemaCacheSql(sqlClientLayer))

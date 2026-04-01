@@ -65,5 +65,5 @@ export {
    *
    * @since 0.0.0
    */
-  DspCacheSqlite
+  DspCacheSql
 } from "./layer.js"
