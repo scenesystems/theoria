@@ -15,6 +15,12 @@ const formatKernelErrorMessage = (error: unknown): string =>
     ? error.message
     : String(error)
 
+/**
+ * Executes a pure kernel and maps runtime exceptions to typed execution errors.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const executeKernel = <A>(operation: string, kernel: () => A): Effect.Effect<A, KernelExecutionError> =>
   Effect.try({
     try: kernel,
@@ -25,6 +31,12 @@ export const executeKernel = <A>(operation: string, kernel: () => A): Effect.Eff
       })
   })
 
+/**
+ * Decodes unknown operation input with strict excess-property rejection.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const decodeOperationInput = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   operation: string,
@@ -40,6 +52,12 @@ export const decodeOperationInput = <A, I, R>(
     )
   )
 
+/**
+ * Lifts Ridder configuration fields from decoded operation input.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const ridderConfigFrom = (input: RidderMethodInputType): RidderMethodInputType => ({
   initialStep: input.initialStep,
   contractionFactor: input.contractionFactor,
@@ -50,18 +68,48 @@ export const ridderConfigFrom = (input: RidderMethodInputType): RidderMethodInpu
   safetyFactor: input.safetyFactor
 })
 
+/**
+ * Checks whether every value in a vector is finite.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const vectorIsFinite = (values: Chunk.Chunk<number>): boolean =>
   Chunk.reduce(values, true, (acc, value) => acc && Number.isFinite(value))
 
+/**
+ * Checks whether every value in a matrix is finite.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const matrixIsFinite = (matrix: Chunk.Chunk<Chunk.Chunk<number>>): boolean =>
   Chunk.reduce(matrix, true, (acc, row) => acc && vectorIsFinite(row))
 
+/**
+ * Checks whether a derivative-limit estimate is finite.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const estimateIsFinite = (estimate: DerivativeLimitEstimate): boolean =>
   Number.isFinite(estimate.value) && Number.isFinite(estimate.absoluteError)
 
+/**
+ * Converts matrix chunks into nested readonly arrays for validated boundaries.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const matrixToReadonly = (matrix: Chunk.Chunk<Chunk.Chunk<number>>) =>
   Chunk.toReadonlyArray(Chunk.map(matrix, (row) => Chunk.toReadonlyArray(row)))
 
+/**
+ * Enforces operation-specific parameter invariants.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const ensureParameters = (operation: string, condition: boolean, message: string) =>
   condition
     ? Effect.void

@@ -12,6 +12,12 @@ import type { RidderMethodInputType } from "../../schema.js"
 import { directionalDerivative, divergence, gradient, hessian, jacobian, laplacian } from "../pure.js"
 import { executeKernel, matrixIsFinite, vectorIsFinite } from "../shared.js"
 
+/**
+ * Policy-aware gradient evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const gradientWithPolicies = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
@@ -36,6 +42,12 @@ export const gradientWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware Jacobian evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const jacobianWithPolicies = (
   f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
   point: Chunk.Chunk<number>,
@@ -60,6 +72,12 @@ export const jacobianWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware Hessian evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const hessianWithPolicies = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
@@ -83,6 +101,12 @@ export const hessianWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware directional derivative evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const directionalDerivativeWithPolicies = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,
@@ -107,6 +131,12 @@ export const directionalDerivativeWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware divergence evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const divergenceWithPolicies = (
   f: (point: Chunk.Chunk<number>) => Chunk.Chunk<number>,
   point: Chunk.Chunk<number>,
@@ -130,6 +160,12 @@ export const divergenceWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware Laplacian evaluation.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const laplacianWithPolicies = (
   f: (point: Chunk.Chunk<number>) => number,
   point: Chunk.Chunk<number>,

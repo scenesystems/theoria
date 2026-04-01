@@ -12,6 +12,12 @@ import type { RidderMethodInputType } from "../../schema.js"
 import { adaptiveSimpson, derivativeLimit, secondDerivativeLimit, simpson, trapezoid } from "../pure.js"
 import { estimateIsFinite, executeKernel } from "../shared.js"
 
+/**
+ * Policy-aware first-derivative limit estimate.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const derivativeLimitWithPolicies = (
   f: (x: number) => number,
   x: number,
@@ -38,6 +44,12 @@ export const derivativeLimitWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware second-derivative limit estimate.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const secondDerivativeLimitWithPolicies = (
   f: (x: number) => number,
   x: number,
@@ -64,18 +76,36 @@ export const secondDerivativeLimitWithPolicies = (
     )
   )
 
+/**
+ * Policy-aware first derivative value projection.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const derivativeWithPolicies = (
   f: (x: number) => number,
   x: number,
   config?: RidderMethodInputType
 ) => Effect.map(derivativeLimitWithPolicies(f, x, config), (estimate) => estimate.value)
 
+/**
+ * Policy-aware second derivative value projection.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const secondDerivativeWithPolicies = (
   f: (x: number) => number,
   x: number,
   config?: RidderMethodInputType
 ) => Effect.map(secondDerivativeLimitWithPolicies(f, x, config), (estimate) => estimate.value)
 
+/**
+ * Policy-aware trapezoidal integration.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
   executeKernel("trapezoidWithPolicies", () => trapezoid(values, dx)).pipe(
     Effect.flatMap((result) =>
@@ -96,6 +126,12 @@ export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =
     )
   )
 
+/**
+ * Policy-aware Simpson integration.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
   executeKernel("simpsonWithPolicies", () => simpson(values, dx)).pipe(
     Effect.flatMap((result) =>
@@ -116,6 +152,12 @@ export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
     )
   )
 
+/**
+ * Policy-aware adaptive Simpson integration.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
 export const adaptiveSimpsonWithPolicies = (
   f: (x: number) => number,
   a: number,
