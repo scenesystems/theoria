@@ -1,0 +1,166 @@
+import { Schema } from "effect"
+import * as Arr from "effect/Array"
+import type * as Option from "effect/Option"
+
+import { Id } from "./id.js"
+
+const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+
+/**
+ * Package grouping for the home page catalog.
+ *
+ * - `effect`: Effect ecosystem packages (`effect-*`)
+ * - `scenesystems`: Scene Systems org-scoped packages (`@scenesystems/*`)
+ *
+ * @since 0.1.0
+ */
+export const PackageGroup = Schema.Literal("effect", "scenesystems")
+
+export type PackageGroup = typeof PackageGroup.Type
+
+/**
+ * Full card definition consumed by both the home catalog and deep-dive pages.
+ *
+ * Metadata fields (`description`, `version`, `npmUrl`, `repoUrl`) are kept in
+ * sync with the source `package.json` files via `card-metadata-sync.test.ts`.
+ *
+ * @since 0.1.0
+ */
+export const Card = Schema.Struct({
+  id: Id,
+  title: NonEmptyString,
+  packageName: NonEmptyString,
+  description: NonEmptyString,
+  useCase: NonEmptyString,
+  summary: NonEmptyString,
+  runLabel: NonEmptyString,
+  deepDivePath: NonEmptyString,
+  group: PackageGroup,
+  version: NonEmptyString,
+  npmUrl: NonEmptyString,
+  repoUrl: NonEmptyString,
+  license: NonEmptyString,
+  interactiveLabel: Schema.optional(NonEmptyString)
+})
+
+export type Card = typeof Card.Type
+
+export const cards: ReadonlyArray<Card> = [
+  {
+    id: "effect-text",
+    title: "effect-text",
+    packageName: "effect-text",
+    description: "Effect-native text preparation, measurement, and greedy multiline layout",
+    useCase: "Instant, deterministic text layout that turns costly measurement into pure arithmetic.",
+    summary:
+      "Prepare once, project everywhere — proving that text layout is instant deterministic arithmetic across a multi-domain corpus.",
+    runLabel: "Run Benchmark",
+    deepDivePath: "/demos/effect-text",
+    group: "effect",
+    version: "0.0.0",
+    npmUrl: "https://www.npmjs.com/package/effect-text",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
+    license: "MIT",
+    interactiveLabel: "Live Reflow"
+  },
+  {
+    id: "effect-search",
+    title: "effect-search",
+    packageName: "effect-search",
+    description: "Effect-native black-box optimization for TypeScript",
+    useCase: "Typed optimization studies with deterministic replay and sampler comparisons.",
+    summary: "Compare adaptive TPE optimization against seeded random search under a fixed budget.",
+    runLabel: "Run Optimizer Comparison",
+    deepDivePath: "/demos/effect-search",
+    group: "effect",
+    version: "0.1.3",
+    npmUrl: "https://www.npmjs.com/package/effect-search",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
+    license: "MIT",
+    interactiveLabel: "Live Optimization"
+  },
+  {
+    id: "effect-math",
+    title: "effect-math",
+    packageName: "effect-math",
+    description: "Foundational numerics, linear algebra, statistics, and optimization for Effect",
+    useCase: "Numerically stable scientific operators with runtime-boundary contracts.",
+    summary:
+      "Visualize statistical power across effect sizes and sample sizes using Distribution, Calculus, and Optimization domains.",
+    runLabel: "Run Power Analysis",
+    deepDivePath: "/demos/effect-math",
+    group: "effect",
+    version: "0.1.2",
+    npmUrl: "https://www.npmjs.com/package/effect-math",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
+    license: "MIT",
+    interactiveLabel: "Power Explorer"
+  },
+  {
+    id: "effect-dsp",
+    title: "effect-dsp",
+    packageName: "effect-dsp",
+    description: "Effect-native DSPy — programming, not prompting, language models",
+    useCase: "Typed program synthesis/evaluation workflows across model providers.",
+    summary: "Execute a provider-backed typed classifier and compare it to a heuristic baseline.",
+    runLabel: "Run Model Evaluation",
+    deepDivePath: "/demos/effect-dsp",
+    group: "effect",
+    version: "0.1.3",
+    npmUrl: "https://www.npmjs.com/package/effect-dsp",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
+    license: "MIT",
+    interactiveLabel: "Typed Evaluation"
+  },
+  {
+    id: "digest",
+    title: "@scenesystems/digest",
+    packageName: "@scenesystems/digest",
+    description: "Cryptographic content hashing and canonicalization built with Effect",
+    useCase: "Cryptographic content hashing with JCS canonicalization and algorithm-tagged output.",
+    summary: "Hash a structured value with BLAKE3-256 and SHA-256, compare digest outputs and canonicalization.",
+    runLabel: "Run Digest Benchmark",
+    deepDivePath: "/demos/digest",
+    group: "scenesystems",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/digest",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/digest",
+    license: "MIT"
+  },
+  {
+    id: "sign",
+    title: "@scenesystems/sign",
+    packageName: "@scenesystems/sign",
+    description: "Digital signatures, key agreement, and key encapsulation built with Effect",
+    useCase: "Digital signatures and verification across classical and post-quantum algorithms.",
+    summary: "Generate Ed25519 key pairs, sign a message, verify the signature, and inspect key sizes.",
+    runLabel: "Run Signature Demo",
+    deepDivePath: "/demos/sign",
+    group: "scenesystems",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
+    license: "MIT"
+  },
+  {
+    id: "seal",
+    title: "@scenesystems/seal",
+    packageName: "@scenesystems/seal",
+    description: "Authenticated encryption built with Effect",
+    useCase: "Authenticated encryption with self-describing envelopes and algorithm selection.",
+    summary: "Encrypt and decrypt with XChaCha20-Poly1305, verify round-trip integrity and envelope structure.",
+    runLabel: "Run Encryption Demo",
+    deepDivePath: "/demos/seal",
+    group: "scenesystems",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
+    license: "MIT"
+  }
+]
+
+export const effectCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "effect")
+
+export const scenesystemsCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "scenesystems")
+
+export const cardById = (id: Card["id"]): Option.Option<Card> => Arr.findFirst(cards, (card) => card.id === id)

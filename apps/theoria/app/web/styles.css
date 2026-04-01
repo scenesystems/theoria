@@ -1,0 +1,341 @@
+@import "tailwindcss";
+
+/*
+ * Safelist: SemanticText generates typography classes dynamically from role names.
+ * Tailwind v4 cannot detect template-literal class names at build time,
+ * so we point to a safelist file that lists all fully-expanded class names.
+ */
+@source "../semantic-text-safelist.txt";
+
+@theme inline {
+  --color-stage-0: var(--th-stage-0);
+  --color-stage-50: var(--th-stage-50);
+  --color-stage-100: var(--th-stage-100);
+  --color-stage-200: var(--th-stage-200);
+  --color-stage-300: var(--th-stage-300);
+  --color-stage-400: var(--th-stage-400);
+
+  --color-ink-300: var(--th-ink-300);
+  --color-ink-400: var(--th-ink-400);
+  --color-ink-500: var(--th-ink-500);
+  --color-ink-600: var(--th-ink-600);
+  --color-ink-700: var(--th-ink-700);
+  --color-ink-800: var(--th-ink-800);
+  --color-ink-900: var(--th-ink-900);
+  --color-ink-950: var(--th-ink-950);
+
+  --color-danger-50: var(--th-danger-50);
+  --color-danger-200: var(--th-danger-200);
+  --color-danger-400: var(--th-danger-400);
+  --color-danger-500: var(--th-danger-500);
+  --color-danger-600: var(--th-danger-600);
+  --color-danger-700: var(--th-danger-700);
+
+  /* Syntax highlighting — flips with theme */
+  --color-code-comment: var(--th-code-comment);
+  --color-code-keyword: var(--th-code-keyword);
+  --color-code-string: var(--th-code-string);
+  --color-code-number: var(--th-code-number);
+  --color-code-type: var(--th-code-type);
+  --color-code-operator: var(--th-code-operator);
+
+  --shadow-surface: var(--th-shadow-surface);
+  --shadow-hero: var(--th-shadow-hero);
+  --shadow-chip: var(--th-shadow-chip);
+}
+
+@theme {
+  --color-tone-text-100: #e9f1ff;
+  --color-tone-text-200: #d5e3fa;
+  --color-tone-text-300: #b8cced;
+  --color-tone-text-400: #93add9;
+  --color-tone-text-500: #627fab;
+  --color-tone-text-600: #587296;
+  --color-tone-text-700: #4d668b;
+  --color-tone-text-800: #3b506f;
+  --color-tone-text-900: #2a3c57;
+
+  --color-tone-search-100: #f8f2e6;
+  --color-tone-search-200: #ecdfc7;
+  --color-tone-search-300: #d8c5a0;
+  --color-tone-search-400: #bca47f;
+  --color-tone-search-500: #8d724d;
+  --color-tone-search-600: #7c6443;
+  --color-tone-search-700: #6c5639;
+  --color-tone-search-800: #59482f;
+  --color-tone-search-900: #443722;
+
+  --color-tone-math-100: #eaf4ef;
+  --color-tone-math-200: #d4e6dc;
+  --color-tone-math-300: #b3d0bf;
+  --color-tone-math-400: #86b19a;
+  --color-tone-math-500: #4f7e67;
+  --color-tone-math-600: #47715c;
+  --color-tone-math-700: #3f6452;
+  --color-tone-math-800: #345343;
+  --color-tone-math-900: #284036;
+
+  --color-tone-dsp-100: #f5edf2;
+  --color-tone-dsp-200: #e3d2dc;
+  --color-tone-dsp-300: #c9adbc;
+  --color-tone-dsp-400: #ab8599;
+  --color-tone-dsp-500: #7a5568;
+  --color-tone-dsp-600: #6d4c5e;
+  --color-tone-dsp-700: #604353;
+  --color-tone-dsp-800: #4f3644;
+  --color-tone-dsp-900: #3c2833;
+
+  --color-tone-digest-100: #e6f4f4;
+  --color-tone-digest-200: #c8e5e5;
+  --color-tone-digest-300: #a0cfcf;
+  --color-tone-digest-400: #71b1b1;
+  --color-tone-digest-500: #468585;
+  --color-tone-digest-600: #3e7777;
+  --color-tone-digest-700: #376969;
+  --color-tone-digest-800: #2d5656;
+  --color-tone-digest-900: #224242;
+
+  --color-tone-sign-100: #faf0e4;
+  --color-tone-sign-200: #f0dbc3;
+  --color-tone-sign-300: #ddbf99;
+  --color-tone-sign-400: #c49c6e;
+  --color-tone-sign-500: #946b3e;
+  --color-tone-sign-600: #846037;
+  --color-tone-sign-700: #735430;
+  --color-tone-sign-800: #5f4528;
+  --color-tone-sign-900: #49341e;
+
+  --color-tone-seal-100: #edebf6;
+  --color-tone-seal-200: #d8d4ea;
+  --color-tone-seal-300: #bab4d5;
+  --color-tone-seal-400: #9790ba;
+  --color-tone-seal-500: #6a6192;
+  --color-tone-seal-600: #5f5783;
+  --color-tone-seal-700: #544d74;
+  --color-tone-seal-800: #453f60;
+  --color-tone-seal-900: #34304a;
+
+  /* Typography: font-family theme tokens (generated — do not edit) */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-body: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
+
+  /* Typography: per-role font-size tokens (generated — do not edit) */
+  --st-fs-hero-title: 38px;
+  --st-fs-hero-body: 17px;
+  --st-fs-card-title: 24px;
+  --st-fs-card-summary: 15px;
+  --st-fs-status: 14px;
+  --st-fs-tab-label: 12px;
+  --st-fs-section-title: 14px;
+  --st-fs-row-label: 11px;
+  --st-fs-row-value: 14px;
+  --st-fs-code-meta: 12px;
+  --st-fs-code-block: 12px;
+  --st-fs-button-label: 12px;
+
+  /* Typography: per-role line-height tokens (generated — do not edit) */
+  --st-lh-hero-title: 44px;
+  --st-lh-hero-body: 27px;
+  --st-lh-card-title: 32px;
+  --st-lh-card-summary: 24px;
+  --st-lh-status: 22px;
+  --st-lh-tab-label: 16px;
+  --st-lh-section-title: 20px;
+  --st-lh-row-label: 16px;
+  --st-lh-row-value: 22px;
+  --st-lh-code-meta: 18px;
+  --st-lh-code-block: 18px;
+  --st-lh-button-label: 16px;
+
+  /* Typography: per-role font-weight tokens (generated — do not edit) */
+  --st-fw-hero-title: 600;
+  --st-fw-hero-body: 400;
+  --st-fw-card-title: 600;
+  --st-fw-card-summary: 400;
+  --st-fw-status: 400;
+  --st-fw-tab-label: 600;
+  --st-fw-section-title: 600;
+  --st-fw-row-label: 600;
+  --st-fw-row-value: 400;
+  --st-fw-code-meta: 400;
+  --st-fw-code-block: 400;
+  --st-fw-button-label: 600;
+
+  /* Typography: per-role tracking tokens (generated — do not edit) */
+  --st-tr-hero-title: -0.02em;
+  --st-tr-hero-body: 0;
+  --st-tr-card-title: -0.01em;
+  --st-tr-card-summary: 0;
+  --st-tr-status: 0;
+  --st-tr-tab-label: 0.02em;
+  --st-tr-section-title: 0;
+  --st-tr-row-label: 0.04em;
+  --st-tr-row-value: 0;
+  --st-tr-code-meta: 0;
+  --st-tr-code-block: 0;
+  --st-tr-button-label: 0.02em;
+
+  /* Typography: per-role font-family tokens (generated — do not edit) */
+  --st-ff-hero-title: var(--font-display);
+  --st-ff-hero-body: var(--font-body);
+  --st-ff-card-title: var(--font-display);
+  --st-ff-card-summary: var(--font-body);
+  --st-ff-status: var(--font-body);
+  --st-ff-tab-label: var(--font-body);
+  --st-ff-section-title: var(--font-display);
+  --st-ff-row-label: var(--font-body);
+  --st-ff-row-value: var(--font-body);
+  --st-ff-code-meta: var(--font-mono);
+  --st-ff-code-block: var(--font-mono);
+  --st-ff-button-label: var(--font-body);
+
+  /* Typography: per-role/variant max-width tokens (generated — do not edit) */
+  --st-mw-hero-title-compact: 680px;
+  --st-mw-hero-title-expanded: 920px;
+  --st-mw-hero-body-compact: 600px;
+  --st-mw-hero-body-expanded: 880px;
+  --st-mw-card-title-compact: 420px;
+  --st-mw-card-title-expanded: 860px;
+  --st-mw-card-summary-compact: 720px;
+  --st-mw-card-summary-expanded: 1400px;
+  --st-mw-status-compact: 760px;
+  --st-mw-status-expanded: 1400px;
+  --st-mw-tab-label-compact: 180px;
+  --st-mw-tab-label-expanded: 220px;
+  --st-mw-section-title-compact: 900px;
+  --st-mw-section-title-expanded: 1400px;
+  --st-mw-row-label-compact: 340px;
+  --st-mw-row-label-expanded: 420px;
+  --st-mw-row-value-compact: 760px;
+  --st-mw-row-value-expanded: 1400px;
+  --st-mw-code-meta-compact: 900px;
+  --st-mw-code-meta-expanded: 1400px;
+  --st-mw-code-block-compact: 900px;
+  --st-mw-code-block-expanded: 1800px;
+  --st-mw-button-label-compact: 170px;
+  --st-mw-button-label-expanded: 210px;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* Light theme — surfaces are bright, ink is dark */
+    --th-stage-0: #ffffff;
+    --th-stage-50: #f5f7fb;
+    --th-stage-100: #edf1f7;
+    --th-stage-200: #dde4ee;
+    --th-stage-300: #c8d3e3;
+    --th-stage-400: #a8b7cc;
+
+    --th-ink-300: #c8d3e3;
+    --th-ink-400: #a8b7cc;
+    --th-ink-500: #7d8da5;
+    --th-ink-600: #5d6f88;
+    --th-ink-700: #44546b;
+    --th-ink-800: #2b3950;
+    --th-ink-900: #172339;
+    --th-ink-950: #0b1326;
+
+    --th-danger-50: #fef2f2;
+    --th-danger-200: #fecaca;
+    --th-danger-400: #f87171;
+    --th-danger-500: #ef4444;
+    --th-danger-600: #dc2626;
+    --th-danger-700: #b91c1c;
+
+    /* Syntax highlighting — saturated tones for light background */
+    --th-code-comment: #6b7d99;
+    --th-code-keyword: #3b5998;
+    --th-code-string: #2e7d57;
+    --th-code-number: #b07d2e;
+    --th-code-type: #7b5ea7;
+    --th-code-operator: #44546b;
+
+    --th-shadow-surface: 0 28px 72px -54px rgb(11 19 38 / 30%);
+    --th-shadow-hero: 0 42px 110px -72px rgb(23 35 57 / 34%);
+    --th-shadow-chip: 0 16px 32px -26px rgb(11 19 38 / 24%);
+  }
+
+  :root.dark {
+    color-scheme: dark;
+
+    /* Dark theme — surfaces are dark, ink is light */
+    --th-stage-0: #0b1326;
+    --th-stage-50: #0f1a30;
+    --th-stage-100: #152038;
+    --th-stage-200: #1c2944;
+    --th-stage-300: #263550;
+    --th-stage-400: #44546b;
+
+    --th-ink-300: #263550;
+    --th-ink-400: #44546b;
+    --th-ink-500: #5d6f88;
+    --th-ink-600: #7d8da5;
+    --th-ink-700: #a8b7cc;
+    --th-ink-800: #c8d3e3;
+    --th-ink-900: #edf1f7;
+    --th-ink-950: #ffffff;
+
+    --th-danger-50: #2a1215;
+    --th-danger-200: #5c2022;
+    --th-danger-400: #dc4444;
+    --th-danger-500: #ef5555;
+    --th-danger-600: #f87171;
+    --th-danger-700: #fca5a5;
+
+    /* Syntax highlighting — pastel tones for dark background */
+    --th-code-comment: #7f91ad;
+    --th-code-keyword: #98b6ff;
+    --th-code-string: #9cd7bb;
+    --th-code-number: #e9c98b;
+    --th-code-type: #d0bee8;
+    --th-code-operator: #bed1ea;
+
+    --th-shadow-surface: 0 28px 72px -54px rgb(0 0 0 / 50%);
+    --th-shadow-hero: 0 42px 110px -72px rgb(0 0 0 / 55%);
+    --th-shadow-chip: 0 16px 32px -26px rgb(0 0 0 / 40%);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--color-stage-100) 88%, transparent) 0%, transparent 46%),
+      radial-gradient(circle at 10% 4%, color-mix(in srgb, var(--color-stage-100) 60%, transparent) 0%, transparent 42%),
+      var(--color-stage-50);
+    color: var(--color-ink-900);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Content transition animations
+ * --------------------------------------------------------------------------- */
+
+@layer utilities {
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 250ms ease-out both;
+  }
+
+  .evidence-section-enter {
+    animation: fade-in-up 300ms ease-out both;
+  }
+}
+
+

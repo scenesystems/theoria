@@ -9,7 +9,8 @@
   },
   "packageManager": "bun@1.3.9",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "prepare": "husky",
@@ -30,6 +31,14 @@
     "changeset:publish": "changeset publish",
     "prettier": "prettier --cache --cache-location node_modules/.cache/.prettiercache --check \"**/*.{md,json,yml,yaml}\"",
     "prettier:fix": "prettier --cache --cache-location node_modules/.cache/.prettiercache --write \"**/*.{md,json,yml,yaml}\"",
+    "app:theoria": "bun run --filter @theoria/theoria-app dev",
+    "app:theoria:tmux": "bash scripts/dev-theoria-tmux.sh start",
+    "app:theoria:tmux:logs": "bash scripts/dev-theoria-tmux.sh logs",
+    "app:theoria:tmux:logs:full": "bash scripts/dev-theoria-tmux.sh logs-full",
+    "app:theoria:tmux:stop": "bash scripts/dev-theoria-tmux.sh stop",
+    "check:apps": "bun run --filter @theoria/theoria-app check:all",
+    "lint:apps": "bun run --filter @theoria/theoria-app lint",
+    "test:apps": "bun run --filter @theoria/theoria-app test",
     "vendor:sync": "bash scripts/vendor-sync.sh",
     "vendor:check": "bash scripts/vendor-sync.sh --check"
   },
