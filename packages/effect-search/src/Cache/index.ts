@@ -70,5 +70,5 @@ export {
   /** @since 0.1.0 */
   SchemaCacheMemory,
   /** @since 0.1.0 */
-  SchemaCacheSqlite
+  SchemaCacheSql
 } from "./schemaCache.js"

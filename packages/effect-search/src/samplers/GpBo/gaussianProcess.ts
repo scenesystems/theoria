@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Chunk, Data, Option } from "effect"
-import { cholesky, forwardSubstitutionLower, solveSpd } from "effect-math/LinearAlgebra"
+import { backwardSubstitutionUpper, cholesky, forwardSubstitutionLower, transpose } from "effect-math/LinearAlgebra"
 
 import { dotProduct, squaredDistance } from "../shared/math.js"
 
@@ -46,6 +46,21 @@ const buildKernelMatrix = (
     return row === column ? base + noise + EPSILON : base
   })
 
+const solvePosteriorWeights = (
+  lower: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+): Option.Option<Chunk.Chunk<number>> =>
+  forwardSubstitutionLower(lower, size, rhs).pipe(
+    Option.flatMap((forward) =>
+      backwardSubstitutionUpper(
+        transpose(lower, size, size),
+        size,
+        forward
+      )
+    )
+  )
+
 /**
  * Builds GP posterior state from observed vectors and scalar outcomes.
  * Returns `Option.none()` when the kernel system cannot be solved.
@@ -67,7 +82,7 @@ export const buildPosterior = (
 
       return cholesky(kernel, size).pipe(
         Option.flatMap((lower) =>
-          solveSpd(kernel, size, rhs).pipe(
+          solvePosteriorWeights(lower, size, rhs).pipe(
             Option.map(
               (alpha) =>
                 new PosteriorModel({

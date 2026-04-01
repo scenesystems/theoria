@@ -236,7 +236,7 @@ export {
   /** @since 0.1.0 */ StudyObjectiveCacheMemory,
   /** @since 0.1.0 */ StudyObjectiveCacheOptions,
   /** @since 0.1.0 */ studyObjectiveCacheOptions,
-  /** @since 0.1.0 */ StudyObjectiveCacheSqlite
+  /** @since 0.1.0 */ StudyObjectiveCacheSql
 } from "./studyObjectiveCache.js"
 
 export {

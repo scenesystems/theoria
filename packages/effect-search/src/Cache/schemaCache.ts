@@ -5,7 +5,6 @@
  */
 import * as PlatformError from "@effect/platform/Error"
 import * as KeyValueStore from "@effect/platform/KeyValueStore"
-import * as SqliteNodeClient from "@effect/sql-sqlite-node/SqliteClient"
 import * as SqlClient from "@effect/sql/SqlClient"
 import { Cache, Effect, Layer, Option, ParseResult, PartitionedSemaphore, Schema, Tuple } from "effect"
 import type * as Context from "effect/Context"
@@ -17,12 +16,8 @@ import { durableFingerprint } from "./fingerprint.js"
 const LOOKUP_CACHE_CAPACITY = 1024
 const LOOKUP_CACHE_TTL = "24 hours"
 const SQLITE_CACHE_TABLE = "effect_search_cache_entries"
-const SQLITE_CACHE_FILE_NAME = "effect-search-schema-cache.sqlite"
-const SQLITE_NODE_RUNTIME = "node"
 
 const cachePrefix = (namespace: string, version: string): string => `${namespace}:${version}:`
-
-const sqliteFilePath = (directory: string): string => `${directory}/${SQLITE_CACHE_FILE_NAME}`
 
 const platformErrorFromCause = (operation: string) => (cause: unknown): PlatformError.PlatformError =>
   new PlatformError.SystemError({
@@ -202,34 +197,24 @@ const makeSqliteKeyValueStore = (): Effect.Effect<
     })
   })
 
-const sqliteSqlClientLayer = (directory: string): Layer.Layer<SqlClient.SqlClient, CacheBackendError> =>
-  SqliteNodeClient.layer({
-    filename: sqliteFilePath(directory)
-  }).pipe(
-    Layer.mapError((error) =>
-      new CacheBackendError({
-        operation: `sqlite-layer:${SQLITE_NODE_RUNTIME}`,
-        reason: String(error)
-      })
-    )
-  )
-
-const sqliteKeyValueStoreLayer = (directory: string): Layer.Layer<KeyValueStore.KeyValueStore, CacheBackendError> =>
+const sqlKeyValueStoreLayer = (
+  sqlClientLayer: Layer.Layer<SqlClient.SqlClient, CacheBackendError>
+): Layer.Layer<KeyValueStore.KeyValueStore, CacheBackendError> =>
   Layer.scoped(
     KeyValueStore.KeyValueStore,
     makeSqliteKeyValueStore().pipe(
       Effect.mapError((error) =>
         new CacheBackendError({
-          operation: "sqlite-key-value-store",
+          operation: "sql-key-value-store",
           reason: error.message
         })
       )
     )
   ).pipe(
-    Layer.provide(sqliteSqlClientLayer(directory)),
+    Layer.provide(sqlClientLayer),
     Layer.mapError((error) =>
       new CacheBackendError({
-        operation: "sqlite-key-value-store-layer",
+        operation: "sql-key-value-store-layer",
         reason: String(error)
       })
     )
@@ -374,10 +359,13 @@ export const SchemaCacheFileSystem = (directory: string) =>
   Layer.provide(SchemaCacheLive, KeyValueStore.layerFileSystem(directory))
 
 /**
- * SQLite-backed shared cache layer.
+ * SQL-backed shared cache layer. Accepts a `SqlClient` layer from the
+ * consumer — any `@effect/sql-*` driver works without effect-search
+ * coupling to a specific runtime.
  *
  * @since 0.1.0
  * @category layers
  */
-export const SchemaCacheSqlite = (directory: string) =>
-  Layer.provide(SchemaCacheLive, sqliteKeyValueStoreLayer(directory))
+export const SchemaCacheSql = (
+  sqlClientLayer: Layer.Layer<SqlClient.SqlClient, CacheBackendError>
+) => Layer.provide(SchemaCacheLive, sqlKeyValueStoreLayer(sqlClientLayer))

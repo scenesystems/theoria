@@ -39,6 +39,7 @@ export class CandidateScore extends Data.Class<{
 }> {}
 
 const EXPLORATION_EPSILON = 0.01
+const DEFAULT_ACQUISITION: BuiltInAcquisitionName = "ei"
 
 const sampleUniformVector = (rng: Rng.Rng, dimensions: number): Effect.Effect<Array<number>> =>
   dimensions <= 0
@@ -67,19 +68,18 @@ const acquisitionScore = (
   mean: number,
   best: number,
   variance: number,
-  acquisition: Option.Option<BuiltInAcquisitionName>,
-  roll: number
-): number =>
-  Option.match(acquisition, {
-    onNone: () => expectedImprovementScore(mean, best, variance),
-    onSome: (resolvedAcquisition) =>
-      Match.value(resolvedAcquisition).pipe(
-        Match.when("ei", () => expectedImprovementScore(mean, best, variance)),
-        Match.when("pi", () => probabilityImprovementScore(mean, best, variance)),
-        Match.when("thompson", () => thompsonScore(mean, best, variance, roll)),
-        Match.exhaustive
-      )
-  })
+  acquisition: BuiltInAcquisitionName,
+  rng: Rng.Rng
+): Effect.Effect<number> =>
+  Match.value(acquisition).pipe(
+    Match.when("ei", () => Effect.succeed(expectedImprovementScore(mean, best, variance))),
+    Match.when("pi", () => Effect.succeed(probabilityImprovementScore(mean, best, variance))),
+    Match.when("thompson", () =>
+      Rng.nextFloat(rng, 0, 1).pipe(
+        Effect.map((roll) => thompsonScore(mean, best, variance, roll))
+      )),
+    Match.exhaustive
+  )
 
 const observationOrder = Order.mapInput(Order.number, (observation: GpObservation) => observation.value)
 
@@ -121,6 +121,7 @@ export const suggest = (
     }
 
     const best = minimumObserved(Arr.map(observations, (observation) => observation.value), 0)
+    const resolvedAcquisition = Option.getOrElse(acquisition, () => DEFAULT_ACQUISITION)
     const incumbent = Arr.head(Arr.sort(observations, observationOrder)).pipe(
       Option.map((observation) => observation.vector)
     )
@@ -142,12 +143,12 @@ export const suggest = (
 
     const scored = yield* Effect.forEach(candidates, (candidate) =>
       Effect.gen(function*() {
-        const roll = yield* Rng.nextFloat(rng, 0, 1)
         const prediction = predictPosterior(posterior.value, candidate)
+        const score = yield* acquisitionScore(prediction.mean, best, prediction.variance, resolvedAcquisition, rng)
 
         return new CandidateScore({
           vector: candidate,
-          score: acquisitionScore(prediction.mean, best, prediction.variance, acquisition, roll)
+          score
         })
       }))
 
