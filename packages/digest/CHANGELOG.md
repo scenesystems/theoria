@@ -1,5 +1,23 @@
 # @scenesystems/digest
 
+## 0.2.0
+
+### Minor Changes
+
+- [#16](https://github.com/scenesystems/theoria/pull/16) [`4651634`](https://github.com/scenesystems/theoria/commit/46516347d9c73308cfb7ea65ab98eae77537f3be) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add canonical JSON digest helper APIs for one-call RFC 8785 JCS + hash workflows.
+
+  New exports include `digestCanonicalJsonBytes`, `digestCanonicalJsonBase64Url`, and `digestCanonicalJsonHex`, which preserve canonicalization error semantics while removing repeated `canonicalize + utf8ToBytes + digest` boilerplate.
+
+- [#15](https://github.com/scenesystems/theoria/pull/15) [`3c3e316`](https://github.com/scenesystems/theoria/commit/3c3e316dd563bb684338e521e9e0e953b872c329) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add streaming digest APIs for chunked hashing workflows in Effect applications.
+
+  New exports include `digestByteStream`, `digestUtf8Stream`, `digestUtf8StreamBase64Url`, `digestUtf8StreamHex`, `digestByteStreamBase64Url`, and `digestByteStreamHex`, enabling incremental hashing over `Stream` inputs while preserving one-shot digest parity and encoded-output consistency.
+
+  This release also adds `DigestStreaming` and `DigestStreamingLive` so streaming helpers can be injected via Effect layers, and ensures repeated execution of the same streaming digest effect remains safe.
+
+### Patch Changes
+
+- [#13](https://github.com/scenesystems/theoria/pull/13) [`774c14c`](https://github.com/scenesystems/theoria/commit/774c14c0a27d05c01109ac496fd15b9efeb8d922) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Improve digest fixture governance and conformance coverage with deterministic fixture lifecycle tooling, external vector provenance validation, runtime parity fixtures, and clearer mismatch diagnostics for conformance failures.
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,5 +1,31 @@
 # effect-search
 
+## 0.2.0
+
+### Minor Changes
+
+- [#17](https://github.com/scenesystems/theoria/pull/17) [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add advanced continuous samplers to `effect-search` with new `Sampler.cmaEs()` and `Sampler.gpBo()` constructors.
+
+  This release expands sampler taxonomy/checkpoint schemas (`CmaEs` and `GpBo`), adds typed sampler compatibility errors (`SamplerSearchSpaceUnsupported`, `SamplerObjectiveUnsupported`), supports snapshot/resume validation for the new samplers, and ships deterministic fixture-backed + integration coverage for advanced sampler execution.
+
+  Documentation and examples now include advanced-sampler guidance and continuous-space comparison coverage.
+
+### Patch Changes
+
+- [#17](https://github.com/scenesystems/theoria/pull/17) [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Harden advanced sampler determinism and shared SQL cache integration in `effect-search`.
+  - preserve GP-BO deterministic replay by consuming seeded RNG draws only for Thompson sampling and by reusing a single Cholesky factor during posterior construction
+  - replace the SQLite-runtime-specific `SchemaCacheSqlite` helper with `SchemaCacheSql`, which accepts a caller-provided SQLite-compatible `SqlClient` layer for shared cache storage
+  - keep advanced sampler fixture verification wired into the committed Optuna parity suite so cache and sampler regressions are caught together
+
+- [#17](https://github.com/scenesystems/theoria/pull/17) [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Reduce hot-path TPE overhead in `effect-search` so deterministic optimization stays within local test budgets.
+  - remove per-candidate Effect wrapper overhead from the univariate float and int TPE trace builders
+  - reduce continuous Parzen sampling and density overhead by reusing kernel parameter objects in the hot path
+  - route continuous Parzen and multivariate Gaussian log-density aggregation through the shared `effect-math` `logSumExp` authority so the sampler stays aligned to the math source of truth
+
+- Updated dependencies [[`774c14c`](https://github.com/scenesystems/theoria/commit/774c14c0a27d05c01109ac496fd15b9efeb8d922), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`4651634`](https://github.com/scenesystems/theoria/commit/46516347d9c73308cfb7ea65ab98eae77537f3be), [`3c3e316`](https://github.com/scenesystems/theoria/commit/3c3e316dd563bb684338e521e9e0e953b872c329)]:
+  - @scenesystems/digest@0.2.0
+  - effect-math@0.2.0
+
 ## 0.1.3
 
 ### Patch Changes

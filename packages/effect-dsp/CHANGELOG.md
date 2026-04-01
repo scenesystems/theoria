@@ -1,5 +1,18 @@
 # effect-dsp
 
+## 0.1.4
+
+### Patch Changes
+
+- [#17](https://github.com/scenesystems/theoria/pull/17) [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Align `effect-dsp` cache SQL wiring with the current shared cache surface from `effect-search`.
+  - rename the exported SQL cache layer from `DspCacheSqlite` to `DspCacheSql`
+  - delegate SQL-backed cache storage through `SchemaCacheSql`, which now accepts a caller-provided SQLite-compatible `SqlClient` layer instead of a SQLite directory helper
+
+- Updated dependencies [[`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`774c14c`](https://github.com/scenesystems/theoria/commit/774c14c0a27d05c01109ac496fd15b9efeb8d922), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`020ea82`](https://github.com/scenesystems/theoria/commit/020ea82e94b23380fcd871737087504cd2e439f2), [`4651634`](https://github.com/scenesystems/theoria/commit/46516347d9c73308cfb7ea65ab98eae77537f3be), [`3c3e316`](https://github.com/scenesystems/theoria/commit/3c3e316dd563bb684338e521e9e0e953b872c329)]:
+  - effect-search@0.2.0
+  - @scenesystems/digest@0.2.0
+  - effect-math@0.2.0
+
 ## 0.1.3
 
 ### Patch Changes
