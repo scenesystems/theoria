@@ -1,5 +1,5 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Match, Option, Schema, Stream } from "effect"
+import { Clock, Effect, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import type * as ParseResult from "effect/ParseResult"
 
@@ -96,6 +96,12 @@ const encoder = new TextEncoder()
 const sseEvent = (event: EvidenceEvent): Uint8Array =>
   encoder.encode(`event: evidence\ndata: ${encodeEvidenceEventJson(event)}\n\n`)
 
+// SSE comment heartbeat keeps the connection alive through proxies with
+// idle timeouts (Railway: 60s keep-alive). Comment lines are ignored by
+// EventSource clients per the SSE spec.
+const sseHeartbeat = encoder.encode(`: heartbeat\n\n`)
+const heartbeatStream = Stream.repeat(Stream.make(sseHeartbeat), Schedule.spaced("30 seconds"))
+
 const describeStreamFailure = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
     const message = error.message.trim()
@@ -121,7 +127,7 @@ const streamResponse = (id: typeof Id.Type, requestId: string, customText: strin
           return jsonResponse(failureEnvelope(requestId))
         }
 
-        const sseStream = Stream.concat(
+        const dataStream = Stream.concat(
           sections.pipe(Stream.map((section) => new SectionAppend({ section }))),
           Stream.fromEffect(
             Effect.gen(function*() {
@@ -151,6 +157,8 @@ const streamResponse = (id: typeof Id.Type, requestId: string, customText: strin
           ),
           Stream.map(sseEvent)
         )
+
+        const sseStream = Stream.merge(dataStream, heartbeatStream, { haltStrategy: "left" })
 
         return HttpServerResponse.stream(sseStream, {
           headers: {
