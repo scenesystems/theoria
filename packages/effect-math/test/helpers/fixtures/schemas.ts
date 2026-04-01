@@ -304,9 +304,9 @@ const NumericXlog1pyCaseSchema = Schema.Struct({
   expected: Schema.Number
 })
 
-const NumericLogsumexpCaseSchema = Schema.Struct({
+const NumericLogSumExpCaseSchema = Schema.Struct({
   id: Schema.String,
-  operation: Schema.Literal("logsumexp"),
+  operation: Schema.Literal("logSumExp"),
   input: Schema.Struct({ values: Schema.Array(Schema.Number) }),
   expected: Schema.Number
 })
@@ -318,7 +318,7 @@ const NumericLogspaceCaseSchema = Schema.Union(
   NumericLog1pexpCaseSchema,
   NumericXlogyCaseSchema,
   NumericXlog1pyCaseSchema,
-  NumericLogsumexpCaseSchema
+  NumericLogSumExpCaseSchema
 )
 
 export const NumericLogspaceParityFixtureSchema = Schema.Struct({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Match, Number as N, Schema } from "effect"
 
-import { log1mexp, log1pexp, logaddexp, logsubexp, logsumexp, xlog1py, xlogy } from "../../src/Numeric/operations.js"
+import { log1mexp, log1pexp, logaddexp, logsubexp, logSumExp, xlog1py, xlogy } from "../../src/Numeric/operations.js"
 import { FixtureRegistryLive, loadFixture, NumericLogspaceParityFixtureSchema } from "../helpers/fixtures/index.js"
 
 const RELATIVE_TOLERANCE = 1e-12
@@ -30,8 +30,8 @@ describe("Numeric logspace SciPy fixture parity", () => {
             Match.when({ operation: "log1pexp" }, (v) => expectParity(log1pexp(v.input.x), v.expected)),
             Match.when({ operation: "xlogy" }, (v) => expectParity(xlogy(v.input.x, v.input.y), v.expected)),
             Match.when({ operation: "xlog1py" }, (v) => expectParity(xlog1py(v.input.x, v.input.y), v.expected)),
-            Match.when({ operation: "logsumexp" }, (v) =>
-              expectParity(logsumexp(Chunk.fromIterable(v.input.values)), v.expected)),
+            Match.when({ operation: "logSumExp" }, (v) =>
+              expectParity(logSumExp(Chunk.fromIterable(v.input.values)), v.expected)),
             Match.exhaustive
           )
         ))

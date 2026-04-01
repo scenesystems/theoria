@@ -22,13 +22,13 @@ import {
   NumericDomainViolationError
 } from "./errors.js"
 import * as Logspace from "./internal/logspace.js"
-import * as Logsumexp from "./internal/logsumexp.js"
+import * as LogSumExp from "./internal/logSumExp.js"
 import * as Reduction from "./internal/reduction.js"
 import * as Scalar from "./internal/scalar.js"
 import * as Selection from "./internal/selection.js"
 import * as Transcendental from "./internal/transcendental.js"
 import { NumericDomainModel } from "./model.js"
-import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogsumexpInput, ReductionInput } from "./schema.js"
+import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogSumExpInput, ReductionInput } from "./schema.js"
 
 /**
  * Division with zero-divisor guard — returns `None` instead of producing
@@ -667,12 +667,12 @@ export const xlog1py: (x: number, y: number) => number = Logspace.xlog1py
  * Log-sum-exp over a `Chunk<number>`: `log(Σ exp(xᵢ))` computed in a
  * numerically stable way by shifting by the maximum element.
  *
- * @see {@link logsumexpValidated} — boundary-validated variant
- * @see {@link logsumexpWithPolicies} — policy-aware variant
+ * @see {@link logSumExpValidated} — boundary-validated variant
+ * @see {@link logSumExpWithPolicies} — policy-aware variant
  * @since 0.1.0
  * @category operations
  */
-export const logsumexp: (xs: Chunk.Chunk<number>) => number = Logsumexp.logsumexpChunk
+export const logSumExp: (xs: Chunk.Chunk<number>) => number = LogSumExp.logSumExpChunk
 
 // ---------------------------------------------------------------------------
 // Log-space validated boundary operations
@@ -702,26 +702,26 @@ export const logaddexpValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated logsumexp. Accepts `unknown` input, decodes through
- * `LogsumexpInput`, and returns `log(Σ exp(xᵢ))`.
+ * Boundary-validated log-sum-exp. Accepts `unknown` input, decodes through
+ * `LogSumExpInput`, and returns `log(Σ exp(xᵢ))`.
  *
- * @see {@link logsumexp} — pure kernel for pre-validated input
+ * @see {@link logSumExp} — pure kernel for pre-validated input
  * @since 0.1.0
  * @category validated operations
  */
-export const logsumexpValidated = (input: unknown) =>
+export const logSumExpValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LogsumexpInput)(input, {
+    const decoded = yield* Schema.decodeUnknown(LogSumExpInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
         new NumericDecodeError({
-          operation: "logsumexp",
+          operation: "logSumExp",
           message: error.message
         })
       )
     )
-    return Logsumexp.logsumexpChunk(Chunk.fromIterable(decoded.values))
+    return LogSumExp.logSumExpChunk(Chunk.fromIterable(decoded.values))
   })
 
 // ---------------------------------------------------------------------------
@@ -746,18 +746,18 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
   })
 
 /**
- * Policy-aware logsumexp reading `PrecisionPolicyService` and
+ * Policy-aware log-sum-exp reading `PrecisionPolicyService` and
  * `DiagnosticsPolicyService` from context.
  *
- * @see {@link logsumexp} — pure kernel without policy seams
- * @see {@link logsumexpValidated} — boundary-validated variant
+ * @see {@link logSumExp} — pure kernel without policy seams
+ * @see {@link logSumExpValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
  */
-export const logsumexpWithPolicies = (values: ReadonlyArray<number>) =>
+export const logSumExpWithPolicies = (values: ReadonlyArray<number>) =>
   withScalarPolicyGuards({
-    operation: "Numeric.logsumexpWithPolicies",
-    compute: () => Logsumexp.logsumexpChunk(Chunk.fromIterable(values)),
-    makeError: (message) => new NumericDomainViolationError({ operation: "logsumexpWithPolicies", message }),
+    operation: "Numeric.logSumExpWithPolicies",
+    compute: () => LogSumExp.logSumExpChunk(Chunk.fromIterable(values)),
+    makeError: (message) => new NumericDomainViolationError({ operation: "logSumExpWithPolicies", message }),
     annotations: (result) => ({ inputSize: String(values.length), result: String(result) })
   })

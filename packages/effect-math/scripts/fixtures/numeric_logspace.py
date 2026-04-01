@@ -54,12 +54,12 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _xlog1py_case("xlog1py-2-3", 2.0, 3.0),
                     _xlog1py_case("xlog1py-half-small", 0.5, 0.01),
                     _xlog1py_case("xlog1py-large", 10.0, 99.0),
-                    # --- logsumexp ---
-                    _logsumexp_case("logsumexp-small-array", [1.0, 2.0, 3.0]),
-                    _logsumexp_case("logsumexp-large-array", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]),
-                    _logsumexp_case("logsumexp-all-same", [5.0, 5.0, 5.0, 5.0]),
-                    _logsumexp_case("logsumexp-one-dominant", [100.0, 1.0, 2.0, 3.0]),
-                    _logsumexp_case("logsumexp-negative", [-1.0, -2.0, -3.0, -4.0]),
+                    # --- logSumExp ---
+                    _log_sum_exp_case("logsumexp-small-array", [1.0, 2.0, 3.0]),
+                    _log_sum_exp_case("logsumexp-large-array", [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]),
+                    _log_sum_exp_case("logsumexp-all-same", [5.0, 5.0, 5.0, 5.0]),
+                    _log_sum_exp_case("logsumexp-one-dominant", [100.0, 1.0, 2.0, 3.0]),
+                    _log_sum_exp_case("logsumexp-negative", [-1.0, -2.0, -3.0, -4.0]),
                 ]
             },
         }
@@ -121,10 +121,10 @@ def _xlog1py_case(case_id: str, x: float, y: float) -> dict[str, Any]:
     }
 
 
-def _logsumexp_case(case_id: str, values: list[float]) -> dict[str, Any]:
+def _log_sum_exp_case(case_id: str, values: list[float]) -> dict[str, Any]:
     return {
         "id": case_id,
-        "operation": "logsumexp",
+        "operation": "logSumExp",
         "input": {"values": values},
         "expected": float(sp_special.logsumexp(values)),
     }

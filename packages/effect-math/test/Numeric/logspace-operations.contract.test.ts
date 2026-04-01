@@ -10,9 +10,9 @@ import {
   logaddexpValidated,
   logaddexpWithPolicies,
   logsubexp,
-  logsumexp,
-  logsumexpValidated,
-  logsumexpWithPolicies,
+  logSumExp,
+  logSumExpValidated,
+  logSumExpWithPolicies,
   xlog1py,
   xlogy
 } from "../../src/Numeric/operations.js"
@@ -134,18 +134,18 @@ describe("Numeric / xlog1py", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Pure kernel operations — logsumexp
+// Pure kernel operations — logSumExp
 // ---------------------------------------------------------------------------
 
-describe("Numeric / logsumexp", () => {
-  it.effect("logsumexp([1, 2, 3]) ≈ 3.4076", () =>
+describe("Numeric / logSumExp", () => {
+  it.effect("logSumExp([1, 2, 3]) ≈ 3.4076", () =>
     Effect.gen(function*() {
-      expectClose(logsumexp(Chunk.fromIterable([1, 2, 3])), 3.40760596444438, KERNEL_TOLERANCE)
+      expectClose(logSumExp(Chunk.fromIterable([1, 2, 3])), 3.40760596444438, KERNEL_TOLERANCE)
     }))
 
-  it.effect("logsumexp empty chunk → -Infinity", () =>
+  it.effect("logSumExp empty chunk → -Infinity", () =>
     Effect.gen(function*() {
-      expect(logsumexp(Chunk.empty())).toStrictEqual(-Infinity)
+      expect(logSumExp(Chunk.empty())).toStrictEqual(-Infinity)
     }))
 })
 
@@ -167,22 +167,22 @@ describe("Numeric / logaddexpValidated", () => {
     }))
 })
 
-describe("Numeric / logsumexpValidated", () => {
+describe("Numeric / logSumExpValidated", () => {
   it.effect("decodes valid input", () =>
     Effect.gen(function*() {
-      const result = yield* logsumexpValidated({ values: [1, 2, 3] })
+      const result = yield* logSumExpValidated({ values: [1, 2, 3] })
       expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
     }))
 
   it.effect("rejects excess properties", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(logsumexpValidated({ values: [1, 2], extra: true }))
+      const result = yield* Effect.exit(logSumExpValidated({ values: [1, 2], extra: true }))
       expect(Exit.isFailure(result)).toBe(true)
     }))
 
   it.effect("rejects non-numeric values", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(logsumexpValidated({ values: ["a", "b"] }))
+      const result = yield* Effect.exit(logSumExpValidated({ values: ["a", "b"] }))
       expect(Exit.isFailure(result)).toBe(true)
     }))
 })
@@ -205,16 +205,16 @@ describe("Numeric / logaddexpWithPolicies", () => {
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
 
-describe("Numeric / logsumexpWithPolicies", () => {
+describe("Numeric / logSumExpWithPolicies", () => {
   it.effect("returns correct result under strict+typed-array", () =>
     Effect.gen(function*() {
-      const result = yield* logsumexpWithPolicies([1, 2, 3])
+      const result = yield* logSumExpWithPolicies([1, 2, 3])
       expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
     }).pipe(Effect.provide(strictTypedArrayLayer)))
 
   it.effect("returns correct result under relaxed+scalar", () =>
     Effect.gen(function*() {
-      const result = yield* logsumexpWithPolicies([1, 2, 3])
+      const result = yield* logSumExpWithPolicies([1, 2, 3])
       expectClose(result, 3.40760596444438, KERNEL_TOLERANCE)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
