@@ -15,6 +15,7 @@ import {
   shannonEntropy,
   standardNormalCdf,
   standardNormalPdf,
+  standardNormalTransform,
   uniformCdf,
   uniformCdfValidated,
   uniformCdfWithPolicies,
@@ -83,6 +84,29 @@ describe("Probability / standardNormalCdf", () => {
   it.effect("CDF approaches 0 for large negative x", () =>
     Effect.gen(function*() {
       expect(standardNormalCdf(-6)).toBeCloseTo(0, 5)
+    }))
+})
+
+describe("Probability / standardNormalTransform", () => {
+  it.effect("maps 0.5 to zero", () =>
+    Effect.gen(function*() {
+      expect(standardNormalTransform(0.5)).toBeCloseTo(0, 12)
+    }))
+
+  it.effect("inverts standardNormalCdf for representative quantiles", () =>
+    Effect.gen(function*() {
+      const probes = [0.1, 0.25, 0.9]
+
+      probes.forEach((probe) => {
+        const roundTrip = standardNormalCdf(standardNormalTransform(probe))
+        expect(roundTrip).toBeCloseTo(probe, 6)
+      })
+    }))
+
+  it.effect("clamps endpoint rolls to finite values", () =>
+    Effect.gen(function*() {
+      expect(Number.isFinite(standardNormalTransform(0))).toStrictEqual(true)
+      expect(Number.isFinite(standardNormalTransform(1))).toStrictEqual(true)
     }))
 })
 

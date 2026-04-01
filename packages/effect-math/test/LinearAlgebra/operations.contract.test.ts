@@ -1,12 +1,15 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Number as N, Schema } from "effect"
+import { Chunk, Effect, Number as N, Option, Schema } from "effect"
 
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
+  backwardSubstitutionUpper,
+  cholesky,
   dot,
   dotValidated,
   dotWithPolicies,
+  forwardSubstitutionLower,
   frobeniusNorm,
   matvec,
   matvecValidated,
@@ -15,6 +18,7 @@ import {
   normLinf,
   normValidated,
   normWithPolicies,
+  solveSpd,
   transpose,
   transposeValidated,
   vectorAdd,
@@ -142,6 +146,90 @@ describe("LinearAlgebra / frobeniusNorm", () => {
     Effect.gen(function*() {
       const identity = Chunk.fromIterable([1, 0, 0, 1])
       expect(frobeniusNorm(identity, 2, 2)).toBeCloseTo(Math.sqrt(2))
+    }))
+})
+
+describe("LinearAlgebra / cholesky", () => {
+  it.effect("decomposes SPD matrix into lower-triangular factor", () =>
+    Effect.gen(function*() {
+      const decomposed = cholesky(Chunk.fromIterable([4, 2, 2, 3]), 2)
+      expect(Option.isSome(decomposed)).toStrictEqual(true)
+
+      if (Option.isSome(decomposed)) {
+        const values = Chunk.toReadonlyArray(decomposed.value)
+        expect(values[0]).toBeCloseTo(2)
+        expect(values[1]).toBeCloseTo(0)
+        expect(values[2]).toBeCloseTo(1)
+        expect(values[3]).toBeCloseTo(Math.sqrt(2))
+      }
+    }))
+
+  it.effect("returns none for non-SPD input", () =>
+    Effect.gen(function*() {
+      const decomposed = cholesky(Chunk.fromIterable([1, 2, 2, 1]), 2)
+      expect(Option.isNone(decomposed)).toStrictEqual(true)
+    }))
+
+  it.effect("returns none for non-symmetric input", () =>
+    Effect.gen(function*() {
+      const decomposed = cholesky(Chunk.fromIterable([2, 1, 0, 2]), 2)
+      expect(Option.isNone(decomposed)).toStrictEqual(true)
+    }))
+})
+
+describe("LinearAlgebra / forwardSubstitutionLower", () => {
+  it.effect("solves lower-triangular systems", () =>
+    Effect.gen(function*() {
+      const lower = Chunk.fromIterable([2, 0, 1, 2])
+      const rhs = Chunk.fromIterable([4, 5])
+      const solved = forwardSubstitutionLower(lower, 2, rhs)
+      expect(Option.isSome(solved)).toStrictEqual(true)
+
+      if (Option.isSome(solved)) {
+        expect(Chunk.toReadonlyArray(solved.value)).toStrictEqual([2, 1.5])
+      }
+    }))
+})
+
+describe("LinearAlgebra / backwardSubstitutionUpper", () => {
+  it.effect("solves upper-triangular systems", () =>
+    Effect.gen(function*() {
+      const upper = Chunk.fromIterable([2, 1, 0, 2])
+      const rhs = Chunk.fromIterable([5, 4])
+      const solved = backwardSubstitutionUpper(upper, 2, rhs)
+      expect(Option.isSome(solved)).toStrictEqual(true)
+
+      if (Option.isSome(solved)) {
+        expect(Chunk.toReadonlyArray(solved.value)).toStrictEqual([1.5, 2])
+      }
+    }))
+})
+
+describe("LinearAlgebra / solveSpd", () => {
+  it.effect("solves SPD systems with Cholesky path", () =>
+    Effect.gen(function*() {
+      const matrix = Chunk.fromIterable([4, 1, 1, 3])
+      const rhs = Chunk.fromIterable([1, 2])
+      const solved = solveSpd(matrix, 2, rhs)
+      expect(Option.isSome(solved)).toStrictEqual(true)
+
+      if (Option.isSome(solved)) {
+        const values = Chunk.toReadonlyArray(solved.value)
+        expect(values[0]).toBeCloseTo(1 / 11)
+        expect(values[1]).toBeCloseTo(7 / 11)
+      }
+    }))
+
+  it.effect("returns none for invalid matrix shape", () =>
+    Effect.gen(function*() {
+      const solved = solveSpd(Chunk.fromIterable([1, 0, 0]), 2, Chunk.fromIterable([1, 2]))
+      expect(Option.isNone(solved)).toStrictEqual(true)
+    }))
+
+  it.effect("returns none for non-symmetric matrix", () =>
+    Effect.gen(function*() {
+      const solved = solveSpd(Chunk.fromIterable([2, 1, 0, 2]), 2, Chunk.fromIterable([1, 1]))
+      expect(Option.isNone(solved)).toStrictEqual(true)
     }))
 })
 

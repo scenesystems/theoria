@@ -44,6 +44,7 @@ from fixtures import (
     noise_bandwidth,
     multivariate_gaussian,
     constrained_tpe,
+    advanced_samplers,
 )
 
 FAMILIES = [
@@ -62,6 +63,7 @@ FAMILIES = [
     noise_bandwidth,
     multivariate_gaussian,
     constrained_tpe,
+    advanced_samplers,
 ]
 
 DEFAULT_GENERATED_AT = "2026-03-15T00:00:00Z"

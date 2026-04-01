@@ -1,5 +1,5 @@
 import { Array as Arr, Chunk, Equal, Match, Number as Num, Option } from "effect"
-import { logStrict, logsumexp } from "effect-math/Numeric"
+import { logStrict, logSumExp } from "effect-math/Numeric"
 
 import { ndtriExp } from "./truncatedNormal/normal.js"
 
@@ -106,8 +106,6 @@ export const diagonalGaussianLogDensity = (
     Match.exhaustive
   )
 
-const logSumExp = (values: ReadonlyArray<number>): number => logsumexp(Chunk.fromIterable(values))
-
 export const diagonalGaussianMixtureLogDensity = (
   point: ReadonlyArray<number>,
   means: ReadonlyArray<ReadonlyArray<number>>,
@@ -127,7 +125,7 @@ export const diagonalGaussianMixtureLogDensity = (
     )
   })
 
-  return logSumExp(componentLogDensities)
+  return logSumExp(Chunk.fromIterable(componentLogDensities))
 }
 
 export const sampleDiagonalGaussian = (

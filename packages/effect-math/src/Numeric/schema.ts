@@ -184,9 +184,9 @@ export const LogaddexpInput = Schema.Struct({
  * @since 0.1.0
  * @category schemas
  */
-export const LogsumexpInput = Schema.Struct({
+export const LogSumExpInput = Schema.Struct({
   values: FiniteVector
-}).annotations({ identifier: "LogsumexpInput" })
+}).annotations({ identifier: "LogSumExpInput" })
 
 /**
  * xlogy input contract — finite x and strictly positive finite y.

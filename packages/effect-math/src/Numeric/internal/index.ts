@@ -5,7 +5,7 @@
  * @category internal
  */
 export * as Logspace from "./logspace.js"
-export * as Logsumexp from "./logsumexp.js"
+export * as LogSumExp from "./logSumExp.js"
 export * as Reduction from "./reduction.js"
 export * as Scalar from "./scalar.js"
 export * as Selection from "./selection.js"

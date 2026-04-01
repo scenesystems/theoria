@@ -13,6 +13,7 @@ import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { BackendPolicyService } from "../contracts/shared/RuntimePolicies.js"
 import { LinearAlgebraDecodeError, LinearAlgebraDomainViolationError, ShapeMismatchError } from "./errors.js"
 import * as Matrix from "./internal/matrix.js"
+import * as Solver from "./internal/solver.js"
 import * as Vector from "./internal/vector.js"
 import { LinearAlgebraDomainModel } from "./model.js"
 import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schema.js"
@@ -184,6 +185,125 @@ export const frobeniusNorm = (
   rows: number,
   cols: number
 ): number => Matrix.frobeniusNorm(data, rows, cols, cols, 0)
+
+/**
+ * Cholesky decomposition `A = L Lᵀ` for symmetric positive-definite matrices.
+ * Input matrix is row-major dense with shape `size × size`. Returns the
+ * row-major lower-triangular factor `L` (upper entries are zero) or
+ * `Option.none()` when shape, symmetry, or definiteness preconditions fail.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Option } from "effect"
+ * import { LinearAlgebra } from "effect-math"
+ *
+ * const decomposed = LinearAlgebra.cholesky(
+ *   Chunk.fromIterable([4, 2, 2, 3]),
+ *   2
+ * )
+ *
+ * if (Option.isSome(decomposed)) {
+ *   // lower-triangular factor in row-major layout
+ *   Chunk.toReadonlyArray(decomposed.value) // [2, 0, 1, sqrt(2)]
+ * }
+ * ```
+ *
+ * @see {@link solveSpd} for the complete SPD solve path
+ * @since 0.1.0
+ * @category operations
+ */
+export const cholesky = (
+  matrix: Chunk.Chunk<number>,
+  size: number
+) => Solver.choleskySpd(matrix, size)
+
+/**
+ * Forward substitution solve for lower-triangular systems `Lx = b`.
+ * Expects `lower` to be square (`size × size`) and `rhs` length equal to
+ * `size`; returns `Option.none()` for invalid shapes or near-zero pivots.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Option } from "effect"
+ * import { LinearAlgebra } from "effect-math"
+ *
+ * const solved = LinearAlgebra.forwardSubstitutionLower(
+ *   Chunk.fromIterable([2, 0, 1, 2]),
+ *   2,
+ *   Chunk.fromIterable([4, 5])
+ * )
+ *
+ * Option.map(solved, Chunk.toReadonlyArray) // Some([2, 1.5])
+ * ```
+ *
+ * @see {@link backwardSubstitutionUpper} for the corresponding upper-triangular solve
+ * @since 0.1.0
+ * @category operations
+ */
+export const forwardSubstitutionLower = (
+  lower: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.forwardSubstituteLower(lower, size, rhs)
+
+/**
+ * Backward substitution solve for upper-triangular systems `Ux = b`.
+ * Expects `upper` to be square (`size × size`) and `rhs` length equal to
+ * `size`; returns `Option.none()` for invalid shapes or near-zero pivots.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Option } from "effect"
+ * import { LinearAlgebra } from "effect-math"
+ *
+ * const solved = LinearAlgebra.backwardSubstitutionUpper(
+ *   Chunk.fromIterable([2, 1, 0, 2]),
+ *   2,
+ *   Chunk.fromIterable([5, 4])
+ * )
+ *
+ * Option.map(solved, Chunk.toReadonlyArray) // Some([1.5, 2])
+ * ```
+ *
+ * @see {@link forwardSubstitutionLower} for the corresponding lower-triangular solve
+ * @since 0.1.0
+ * @category operations
+ */
+export const backwardSubstitutionUpper = (
+  upper: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.backwardSubstituteUpper(upper, size, rhs)
+
+/**
+ * Solve symmetric positive-definite systems `Ax = b` via Cholesky +
+ * triangular substitution. Returns `Option.none()` for invalid shapes or
+ * non-SPD matrices. Prefer this over explicit matrix inversion for numerical
+ * stability and lower computational cost.
+ *
+ * @example
+ * ```ts
+ * import { Chunk, Option } from "effect"
+ * import { LinearAlgebra } from "effect-math"
+ *
+ * const solved = LinearAlgebra.solveSpd(
+ *   Chunk.fromIterable([4, 1, 1, 3]),
+ *   2,
+ *   Chunk.fromIterable([1, 2])
+ * )
+ *
+ * Option.map(solved, Chunk.toReadonlyArray) // Some([1/11, 7/11])
+ * ```
+ *
+ * @see {@link cholesky} if you need the explicit factor `L`
+ * @since 0.1.0
+ * @category operations
+ */
+export const solveSpd = (
+  matrix: Chunk.Chunk<number>,
+  size: number,
+  rhs: Chunk.Chunk<number>
+) => Solver.solveSpd(matrix, size, rhs)
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations with boundary input checking

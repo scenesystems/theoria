@@ -18,6 +18,10 @@ import { Chunk, Number as N } from "effect"
  * @category internal
  */
 export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number => {
+  if (N.lessThan(Chunk.size(values), 2)) {
+    return Number.NaN
+  }
+
   const n = N.subtract(Chunk.size(values), 1)
   const first = Chunk.unsafeGet(values, 0)
   const last = Chunk.unsafeGet(values, n)
@@ -49,6 +53,14 @@ export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number
  */
 export const simpsonsRule = (values: Chunk.Chunk<number>, dx: number): number => {
   const size = Chunk.size(values)
+  if (N.lessThan(size, 2)) {
+    return Number.NaN
+  }
+
+  if (N.Equivalence(size, 2)) {
+    return trapezoidalRule(values, dx)
+  }
+
   const intervals = N.subtract(size, 1)
 
   // Number of intervals that can be handled by Simpson's (must be even)

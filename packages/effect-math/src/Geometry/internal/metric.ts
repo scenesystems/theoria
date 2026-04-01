@@ -18,6 +18,23 @@ import { Chunk, Number as N, Option, pipe } from "effect"
 const abs = (x: number): number => N.max(x, N.negate(x))
 
 /**
+ * Squared Euclidean distance: `Σ (aᵢ − bᵢ)²`. Both chunks must have equal
+ * length — no runtime guard is applied (use `distanceValidated` for validated
+ * input).
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
+  pipe(
+    Chunk.zipWith(a, b, (ai, bi) => {
+      const diff = N.subtract(ai, bi)
+      return N.multiply(diff, diff)
+    }),
+    Chunk.reduce(0, N.sum)
+  )
+
+/**
  * Euclidean distance: `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have equal
  * length — no runtime guard is applied (use `distanceValidated` for validated
  * input).
@@ -26,15 +43,7 @@ const abs = (x: number): number => N.max(x, N.negate(x))
  * @category internal
  */
 export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  Math.sqrt(
-    pipe(
-      Chunk.zipWith(a, b, (ai, bi) => {
-        const diff = N.subtract(ai, bi)
-        return N.multiply(diff, diff)
-      }),
-      Chunk.reduce(0, N.sum)
-    )
-  )
+  Math.sqrt(squaredEuclideanDistance(a, b))
 
 /**
  * Manhattan distance: `Σ |aᵢ − bᵢ|`. Both chunks must have equal length.

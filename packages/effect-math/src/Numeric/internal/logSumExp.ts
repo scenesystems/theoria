@@ -7,13 +7,13 @@
 import { Chunk, Number as N } from "effect"
 
 /**
- * logsumexp(xs) = log(Σ exp(xᵢ)) computed as max + log(Σ exp(xᵢ - max)).
+ * logSumExp(xs) = log(Σ exp(xᵢ)) computed as max + log(Σ exp(xᵢ - max)).
  * Returns -Infinity for empty chunks.
  *
  * @since 0.1.0
  * @category internal
  */
-export const logsumexpChunk = (xs: Chunk.Chunk<number>): number => {
+export const logSumExpChunk = (xs: Chunk.Chunk<number>): number => {
   const len = Chunk.size(xs)
   if (len === 0) return -Infinity
   if (len === 1) return Chunk.unsafeGet(xs, 0)

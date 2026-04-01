@@ -12,6 +12,7 @@
 import { Number as N } from "effect"
 
 import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
+import { erfinvKernel } from "../../Special/internal/erfinv.js"
 
 /**
  * Precomputed √(2π) for the standard normal PDF denominator.
@@ -20,6 +21,21 @@ import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
  * @category internal
  */
 const SQRT_2PI = Math.sqrt(N.multiply(2, Math.PI))
+
+/**
+ * Numerical guard for probability-edge transforms that map `u ∈ (0, 1)`
+ * into unbounded real support.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+const UNIT_INTERVAL_EPSILON = 1e-12
+
+const clampUnitRoll = (roll: number): number =>
+  N.clamp(roll, {
+    minimum: UNIT_INTERVAL_EPSILON,
+    maximum: 1 - UNIT_INTERVAL_EPSILON
+  })
 
 /**
  * Standard normal PDF: (1 / √(2π)) · exp(-x²/2).
@@ -57,6 +73,19 @@ export const normalPdf = (x: number, mu: number, sigma: number): number => {
  */
 export const standardNormalCdf = (x: number): number =>
   N.multiply(0.5, N.sum(1, erfAbramowitzStegun(N.unsafeDivide(x, Math.SQRT2))))
+
+/**
+ * Standard-normal transform `u ↦ z` for `u ∈ (0, 1)` using the inverse-CDF
+ * identity `Φ⁻¹(u) = √2 · erfinv(2u − 1)`.
+ *
+ * Inputs are clamped to `(ε, 1-ε)` so finite rolls from samplers never
+ * produce `±Infinity` at the endpoints.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const standardNormalTransform = (roll: number): number =>
+  N.multiply(Math.SQRT2, erfinvKernel(N.subtract(N.multiply(2, clampUnitRoll(roll)), 1)))
 
 /**
  * Normal CDF with parameters mu and sigma:

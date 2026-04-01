@@ -51,6 +51,30 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
 export const euclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Metric.euclideanDistance
 
 /**
+ * Squared Euclidean distance — `Σ (aᵢ − bᵢ)²` without the square root.
+ * Useful for optimization kernels where only relative distances matter.
+ * Both chunks must have the same length; no runtime guard is applied.
+ *
+ * @example
+ * ```ts
+ * import { Chunk } from "effect"
+ * import { Geometry } from "effect-math"
+ *
+ * Geometry.squaredEuclideanDistance(
+ *   Chunk.fromIterable([0, 0]),
+ *   Chunk.fromIterable([3, 4])
+ * ) // 25
+ * ```
+ *
+ * @see {@link euclideanDistance} for the rooted L2 metric
+ * @see {@link distanceValidated} for Schema-validated boundary input
+ * @since 0.1.0
+ * @category operations
+ */
+export const squaredEuclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number =
+  Metric.squaredEuclideanDistance
+
+/**
  * Manhattan (L1 / taxicab) distance — `Σ |aᵢ − bᵢ|`. Both chunks must have
  * the same length; no runtime guard is applied.
  *

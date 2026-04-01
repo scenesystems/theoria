@@ -12,6 +12,8 @@ import {
   NoSuccessfulTrials,
   NotImplemented,
   SamplerExhausted,
+  SamplerObjectiveUnsupported,
+  SamplerSearchSpaceUnsupported,
   SearchErrorSchema,
   TrialError
 } from "../../src/Errors/index.js"
@@ -22,6 +24,17 @@ const errorSamples = Arr.make(
   new SamplerExhausted({ sampler: "grid", nextTrialNumber: 2, available: 2 }),
   new InvalidStudyConfig({ reason: "invalid-study" }),
   new GridIncompatible({ dimension: "lr", reason: "non-finite" }),
+  new SamplerSearchSpaceUnsupported({
+    sampler: "gp-bo",
+    reason: "requires continuous dimensions",
+    dimension: "optimizer",
+    distribution: "categorical"
+  }),
+  new SamplerObjectiveUnsupported({
+    sampler: "cma-es",
+    objective: "Multi",
+    reason: "single objective only"
+  }),
   new InvalidObjectiveValue({ trialNumber: 1, value: Number.NaN }),
   new InvalidObjectiveReport({ trialNumber: 1, reason: "duplicate-step", step: 0, value: 1, previousStep: 0 }),
   new TrialError({ trialNumber: 1, message: "objective failed", cause: "boom" }),

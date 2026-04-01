@@ -16,7 +16,11 @@ export {
   /** @since 0.1.0 */
   InvalidSamplerConfig,
   /** @since 0.1.0 */
-  SamplerExhausted
+  SamplerExhausted,
+  /** @since 0.1.0 */
+  SamplerObjectiveUnsupported,
+  /** @since 0.1.0 */
+  SamplerSearchSpaceUnsupported
 } from "./Sampler.js"
 export {
   /** @since 0.1.0 */
@@ -39,7 +43,13 @@ export {
   TrialError
 } from "./Study.js"
 
-import { GridIncompatible, InvalidSamplerConfig, SamplerExhausted } from "./Sampler.js"
+import {
+  GridIncompatible,
+  InvalidSamplerConfig,
+  SamplerExhausted,
+  SamplerObjectiveUnsupported,
+  SamplerSearchSpaceUnsupported
+} from "./Sampler.js"
 import { InvalidSearchSpace } from "./SearchSpace.js"
 import {
   InvalidMathInput,
@@ -68,7 +78,13 @@ export type SpaceError = Schema.Schema.Type<typeof SpaceErrorSchema>
  * @since 0.1.0
  * @category schemas
  */
-export const SamplerErrorSchema = Schema.Union(InvalidSamplerConfig, SamplerExhausted, GridIncompatible)
+export const SamplerErrorSchema = Schema.Union(
+  InvalidSamplerConfig,
+  SamplerExhausted,
+  GridIncompatible,
+  SamplerSearchSpaceUnsupported,
+  SamplerObjectiveUnsupported
+)
 
 /**
  * @since 0.1.0
@@ -108,6 +124,8 @@ export const SearchErrorSchema = Schema.Union(
   SamplerExhausted,
   InvalidStudyConfig,
   GridIncompatible,
+  SamplerSearchSpaceUnsupported,
+  SamplerObjectiveUnsupported,
   InvalidObjectiveValue,
   InvalidObjectiveReport,
   NoSuccessfulTrials,

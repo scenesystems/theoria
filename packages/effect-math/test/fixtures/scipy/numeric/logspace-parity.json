@@ -279,7 +279,7 @@
         "input": {
           "values": [1.0, 2.0, 3.0]
         },
-        "operation": "logsumexp"
+        "operation": "logSumExp"
       },
       {
         "expected": 2.893493315657009,
@@ -287,7 +287,7 @@
         "input": {
           "values": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         },
-        "operation": "logsumexp"
+        "operation": "logSumExp"
       },
       {
         "expected": 6.386294361119891,
@@ -295,7 +295,7 @@
         "input": {
           "values": [5.0, 5.0, 5.0, 5.0]
         },
-        "operation": "logsumexp"
+        "operation": "logSumExp"
       },
       {
         "expected": 100.0,
@@ -303,7 +303,7 @@
         "input": {
           "values": [100.0, 1.0, 2.0, 3.0]
         },
-        "operation": "logsumexp"
+        "operation": "logSumExp"
       },
       {
         "expected": -0.5598103014388047,
@@ -311,7 +311,7 @@
         "input": {
           "values": [-1.0, -2.0, -3.0, -4.0]
         },
-        "operation": "logsumexp"
+        "operation": "logSumExp"
       }
     ]
   }

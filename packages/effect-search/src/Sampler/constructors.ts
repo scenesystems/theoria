@@ -4,6 +4,10 @@
  * @since 0.1.0
  */
 import { constantLiarPendingImputationPolicy } from "../internal/constantLiar.js"
+import type { CmaEsRuntimeOptions } from "../samplers/CmaEs/options.js"
+import * as CmaEsSampler from "../samplers/CmaEsSampler.js"
+import type { GpBoRuntimeOptions } from "../samplers/GpBo/options.js"
+import * as GpBoSampler from "../samplers/GpBoSampler.js"
 import * as GridSampler from "../samplers/GridSampler.js"
 import * as RandomSampler from "../samplers/RandomSampler.js"
 import type { TpeRuntimeOptions } from "../samplers/Tpe/options.js"
@@ -54,3 +58,23 @@ export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(opt
  */
 export const tpe = (options: TpeRuntimeOptions = {}): Sampler =>
   TpeSampler.make(options, constantLiarPendingImputationPolicy)
+
+/**
+ * Covariance Matrix Adaptation Evolution Strategy for continuous
+ * single-objective optimization.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const cmaEs = (options: CmaEsRuntimeOptions = {}): Sampler =>
+  CmaEsSampler.make(options, constantLiarPendingImputationPolicy)
+
+/**
+ * Gaussian-process-inspired Bayesian optimization for continuous
+ * single-objective optimization with TPE-compatible acquisition labels.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const gpBo = (options: GpBoRuntimeOptions = {}): Sampler =>
+  GpBoSampler.make(options, constantLiarPendingImputationPolicy)

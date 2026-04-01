@@ -1,0 +1,72 @@
+{
+  "fixture": "advanced-samplers.cmaes-parity",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py",
+      "version": "2.0.0"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.3.0"
+    }
+  },
+  "payload": {
+    "context": {
+      "completed": [
+        {
+          "config": {
+            "x": -1.2,
+            "y": 0.5
+          },
+          "trialNumber": 0,
+          "value": 3.2
+        },
+        {
+          "config": {
+            "x": 0.8,
+            "y": -0.1
+          },
+          "trialNumber": 1,
+          "value": 1.1
+        },
+        {
+          "config": {
+            "x": 1.0,
+            "y": -0.2
+          },
+          "trialNumber": 2,
+          "value": 0.9
+        },
+        {
+          "config": {
+            "x": 2.0,
+            "y": 1.2
+          },
+          "trialNumber": 3,
+          "value": 4.7
+        }
+      ],
+      "nextTrialNumber": 4
+    },
+    "expected": {
+      "x": -3.0,
+      "y": -0.5142791868521459
+    },
+    "sampler": {
+      "populationSize": 8,
+      "seed": 23,
+      "sigma": 0.55
+    },
+    "space": {
+      "x": {
+        "high": 3.0,
+        "low": -3.0
+      },
+      "y": {
+        "high": 2.0,
+        "low": -2.0
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import type * as SqlClient from "@effect/sql/SqlClient"
 import { Data, Effect, Layer, Option, Schema } from "effect"
 import type * as Context from "effect/Context"
 
@@ -164,10 +165,16 @@ export const StudyObjectiveCacheFileSystem = (
 ) => StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheFileSystem(directory)))
 
 /**
+ * SQLite-compatible SQL-backed study objective cache.
+ *
+ * Accepts a `SqlClient` layer from the consumer, while the underlying cache
+ * statements remain aligned to the SQLite-compatible dialect used by
+ * `SchemaCacheSql`.
+ *
  * @since 0.1.0
  * @category layers
  */
-export const StudyObjectiveCacheSqlite = (
-  directory: string,
+export const StudyObjectiveCacheSql = (
+  sqlClientLayer: Layer.Layer<SqlClient.SqlClient, Cache.CacheBackendError>,
   options: StudyObjectiveCacheOptions = DEFAULT_OPTIONS
-) => StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheSqlite(directory)))
+) => StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheSql(sqlClientLayer)))

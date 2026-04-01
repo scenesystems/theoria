@@ -52,3 +52,36 @@ export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
   /** @since 0.1.0 */
   readonly [SearchErrorTypeId]: typeof SearchErrorTypeId = SearchErrorTypeId
 }
+
+/**
+ * @since 0.1.0
+ * @category errors
+ */
+export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSearchSpaceUnsupported>()(
+  "effect-search/SamplerSearchSpaceUnsupported",
+  {
+    sampler: Schema.String,
+    reason: Schema.String,
+    dimension: Schema.optional(Schema.String),
+    distribution: Schema.optional(Schema.String)
+  }
+) {
+  /** @since 0.1.0 */
+  readonly [SearchErrorTypeId]: typeof SearchErrorTypeId = SearchErrorTypeId
+}
+
+/**
+ * @since 0.1.0
+ * @category errors
+ */
+export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjectiveUnsupported>()(
+  "effect-search/SamplerObjectiveUnsupported",
+  {
+    sampler: Schema.String,
+    objective: Schema.String,
+    reason: Schema.String
+  }
+) {
+  /** @since 0.1.0 */
+  readonly [SearchErrorTypeId]: typeof SearchErrorTypeId = SearchErrorTypeId
+}

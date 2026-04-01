@@ -61,6 +61,27 @@ export const normalPdf: (x: number, mu: number, sigma: number) => number = Distr
 export const standardNormalCdf: (x: number) => number = Distributions.standardNormalCdf
 
 /**
+ * Standard-normal transform from a unit roll — maps `u ∈ (0, 1)` to a
+ * standard-normal variate `z = Φ⁻¹(u)`. Internally clamps endpoint values so
+ * finite sampler rolls never produce `±Infinity`. Inputs outside `[0, 1]`
+ * are clamped to the nearest endpoint before transformation.
+ *
+ * @example
+ * ```ts
+ * import { Probability } from "effect-math"
+ *
+ * const z = Probability.standardNormalTransform(0.975)
+ * // z ≈ 1.95996
+ * ```
+ *
+ * @see {@link standardNormalCdf} for the forward transform
+ * @see {@link normalCdf} when working with non-standard `(μ, σ)` coordinates
+ * @since 0.1.0
+ * @category operations
+ */
+export const standardNormalTransform: (roll: number) => number = Distributions.standardNormalTransform
+
+/**
  * Normal CDF — `P(X ≤ x)` for `X ~ N(μ, σ²)`. Computed by standardising
  * and delegating to `standardNormalCdf`.
  *

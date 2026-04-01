@@ -8,11 +8,7 @@ import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import * as Float64 from "../../../internal/float64.js"
 import type * as Rng from "../../../internal/rng.js"
-import {
-  buildContinuousParzen,
-  logDensityEffect,
-  sampleFromParzenEffect
-} from "../../../internal/tpe/continuousParzen.js"
+import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
@@ -221,10 +217,10 @@ export const floatCandidateTraceFromRolls = (
       noiseOptions,
       empiricalVariance
     )
-    const modelCandidates = yield* Effect.forEach(rolls, ([kernelRoll, valueRoll]) =>
-      sampleFromParzenEffect(belowParzen, kernelRoll, valueRoll))
-    const logPairs = yield* Effect.forEach(modelCandidates, (candidate) =>
-      Effect.all([logDensityEffect(belowParzen, candidate), logDensityEffect(aboveParzen, candidate)]))
+    const modelCandidates = Arr.map(rolls, ([kernelRoll, valueRoll]) =>
+      sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    const logPairs = Arr.map(modelCandidates, (candidate) =>
+      Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate)))
 
     return new DimensionScoreTrace({
       candidates: Arr.map(modelCandidates, (candidate) =>
