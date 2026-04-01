@@ -9,25 +9,16 @@
   },
   "packageManager": "bun@1.3.9",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "packages/*"
   ],
   "scripts": {
     "prepare": "husky",
-    "app:theoria": "bun run apps/theoria/server.ts",
-    "app:theoria:tmux": "bash scripts/dev-theoria-tmux.sh start",
-    "app:theoria:tmux:logs": "bash scripts/dev-theoria-tmux.sh logs",
-    "app:theoria:tmux:logs:full": "bash scripts/dev-theoria-tmux.sh logs-full",
-    "app:theoria:tmux:stop": "bash scripts/dev-theoria-tmux.sh stop",
     "check": "tsc -b tsconfig.json",
     "check:tests": "tsc -b tsconfig.test.json",
-    "check:apps": "bun run --filter '@theoria/theoria-app' check:all",
     "check:all": "bun run check && bun run check:tests",
     "test": "vitest run",
-    "test:apps": "bun run --filter '@theoria/theoria-app' test",
     "test:watch": "vitest",
     "lint": "eslint --max-warnings=0",
-    "lint:apps": "bun run --filter '@theoria/theoria-app' lint",
     "lint:fix": "eslint --max-warnings=0 --fix",
     "build": "tsc -b tsconfig.build.json && bun run --filter '*' build && bun run scripts/resolve-workspace-deps.ts",
     "clean": "rm -rf packages/*/build packages/*/dist packages/*/.tsbuildinfo apps/*/.tsbuildinfo *.tsbuildinfo",
