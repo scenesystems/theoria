@@ -359,9 +359,10 @@ export const SchemaCacheFileSystem = (directory: string) =>
   Layer.provide(SchemaCacheLive, KeyValueStore.layerFileSystem(directory))
 
 /**
- * SQL-backed shared cache layer. Accepts a `SqlClient` layer from the
- * consumer — any `@effect/sql-*` driver works without effect-search
- * coupling to a specific runtime.
+ * SQLite-compatible SQL-backed shared cache layer. Accepts a `SqlClient`
+ * layer from the consumer so callers can choose the runtime integration,
+ * while the cache SQL itself remains pinned to the SQLite-compatible dialect
+ * used by the shared key-value store implementation.
  *
  * @since 0.1.0
  * @category layers

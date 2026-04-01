@@ -107,8 +107,10 @@ export const DspCacheFileSystem = (
   Layer.provide(DspCacheLive, SchemaCacheFileSystem(directory))
 
 /**
- * SQL-backed {@link DspCache} — entries persist in a SQL database.
- * Accepts a `SqlClient` layer from the consumer.
+ * SQLite-compatible SQL-backed {@link DspCache} — entries persist in a SQL
+ * database exposed through a caller-provided `SqlClient` layer, while the
+ * shared cache statements remain aligned to the SQLite-compatible dialect
+ * expected by `SchemaCacheSql`.
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *

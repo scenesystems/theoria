@@ -165,9 +165,11 @@ export const StudyObjectiveCacheFileSystem = (
 ) => StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheFileSystem(directory)))
 
 /**
- * SQL-backed study objective cache.
+ * SQLite-compatible SQL-backed study objective cache.
  *
- * Accepts a `SqlClient` layer from the consumer — any `@effect/sql-*` driver works.
+ * Accepts a `SqlClient` layer from the consumer, while the underlying cache
+ * statements remain aligned to the SQLite-compatible dialect used by
+ * `SchemaCacheSql`.
  *
  * @since 0.1.0
  * @category layers
