@@ -1,11 +1,12 @@
-import { describe, expect, it } from "@effect/vitest"
+import { BunContext } from "@effect/platform-bun"
+import { expect, layer } from "@effect/vitest"
 import { Effect } from "effect"
 
 import { preloadProgram as preloadDigestProgram } from "../../app/server/demos/digest/run.js"
 import { preloadProgram as preloadEffectSearchProgram } from "../../app/server/demos/effect-search/preload.js"
 import { preloadProgram as preloadEffectTextProgram } from "../../app/server/demos/effect-text/preload.js"
 
-describe("Theoria Demo Program Sources", () => {
+layer(BunContext.layer)("Theoria Demo Program Sources", (it) => {
   it.effect("publishes a virtual workspace for prepared effect-text sources", () =>
     Effect.gen(function*() {
       const program = yield* preloadEffectTextProgram

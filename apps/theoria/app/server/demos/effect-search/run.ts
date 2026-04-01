@@ -1,3 +1,4 @@
+import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Stream } from "effect"
 
 import { Sampler } from "effect-search"
@@ -28,7 +29,7 @@ const configurationSection: EvidenceSection = {
   ]
 }
 
-export const run: Effect.Effect<RunData, unknown, never> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
   const tpe = yield* minimizeWith(Sampler.tpe({ seed: defaultSamplerSeed }))
   const random = yield* minimizeWith(Sampler.random({ seed: defaultSamplerSeed }))

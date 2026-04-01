@@ -1,3 +1,4 @@
+import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Stream } from "effect"
 
 import type { EvidenceSection } from "../../../contracts/evidence.js"
@@ -187,7 +188,7 @@ const streamedSectionEffects: ReadonlyArray<Effect.Effect<EvidenceSection, never
 // Exports
 // ---------------------------------------------------------------------------
 
-export const run: Effect.Effect<RunData, unknown, never> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
 
   const [sensitivity, bySampleSize, requiredGrid, curves, geometry] = yield* Effect.all([

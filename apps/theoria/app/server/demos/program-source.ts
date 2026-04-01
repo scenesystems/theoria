@@ -1,17 +1,12 @@
-import { readFile } from "node:fs/promises"
-import { relative, sep } from "node:path"
-import { fileURLToPath, pathToFileURL } from "node:url"
-
+import { FileSystem, Path } from "@effect/platform"
 import { Data, Effect } from "effect"
-
-import type { Program, ProgramFile } from "../../contracts/presentation.js"
 
 import { program, programFile } from "./presentation.js"
 
 const appRootEntryPrefix = "app/"
 const demoEntryPrefix = "server/demos/"
 
-class ProgramSourceReadError extends Data.TaggedError("ProgramSourceReadError")<{
+export class ProgramSourceReadError extends Data.TaggedError("ProgramSourceReadError")<{
   readonly entry: string
   readonly reason: string
 }> {}
@@ -27,7 +22,7 @@ const fileUrlFor = (moduleUrl: string, baseUrl: string | URL = import.meta.url):
     ? resolvedUrl.pathname.slice(4)
     : resolvedUrl.pathname
 
-  return pathToFileURL(decodeURIComponent(pathname))
+  return new URL(`file://${pathname}`)
 }
 
 const packageRootUrl = fileUrlFor("../../../", import.meta.url)
@@ -45,50 +40,72 @@ const resolvedModuleUrl = (moduleUrl: string): URL => {
 
   return pathname.startsWith(`/${appRootEntryPrefix}`)
     ? new URL(pathname.slice(1), packageRootUrl)
-    : pathToFileURL(decodeURIComponent(pathname))
+    : new URL(`file://${pathname}`)
 }
 
-const relativeEntryForModule = (moduleUrl: string): string =>
-  relative(fileURLToPath(packageRootUrl), fileURLToPath(resolvedModuleUrl(moduleUrl))).split(sep).join("/")
+const relativeEntryForModule = (moduleUrl: string) =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const rootPath = yield* path.fromFileUrl(packageRootUrl)
+    const modulePath = yield* path.fromFileUrl(resolvedModuleUrl(moduleUrl))
 
-const entryForModule = (moduleUrl: string): string => {
-  const relativeEntry = relativeEntryForModule(moduleUrl)
-
-  if (!relativeEntry.startsWith(appRootEntryPrefix)) {
-    return relativeEntry
-  }
-
-  const appEntry = relativeEntry.slice(appRootEntryPrefix.length)
-
-  if (!appEntry.startsWith(demoEntryPrefix)) {
-    return appEntry
-  }
-
-  const demoEntrySegments = appEntry.split("/")
-
-  return ["server", ...demoEntrySegments.slice(3)].join("/")
-}
-
-const readSource = (entry: string, moduleUrl: string): Effect.Effect<string, ProgramSourceReadError> =>
-  Effect.tryPromise({
-    try: () => readFile(resolvedModuleUrl(moduleUrl), "utf8"),
-    catch: (cause) =>
-      new ProgramSourceReadError({
-        entry,
-        reason: String(cause)
-      })
+    return path.relative(rootPath, modulePath).split(path.sep).join("/")
   })
 
-export const executableProgramFile = (
-  moduleUrl: string
-): Effect.Effect<ProgramFile, ProgramSourceReadError> => {
-  const entry = entryForModule(moduleUrl)
+const entryForModule = (moduleUrl: string) =>
+  relativeEntryForModule(moduleUrl).pipe(
+    Effect.map((relativeEntry) => {
+      if (!relativeEntry.startsWith(appRootEntryPrefix)) {
+        return relativeEntry
+      }
 
-  return readSource(entry, moduleUrl).pipe(Effect.map((source) => programFile(entry, source)))
-}
+      const appEntry = relativeEntry.slice(appRootEntryPrefix.length)
 
-export const executableProgram = (moduleUrl: string): Effect.Effect<Program, ProgramSourceReadError> => {
-  const entry = entryForModule(moduleUrl)
+      if (!appEntry.startsWith(demoEntryPrefix)) {
+        return appEntry
+      }
 
-  return readSource(entry, moduleUrl).pipe(Effect.map((source) => program(entry, source)))
-}
+      const demoEntrySegments = appEntry.split("/")
+
+      return ["server", ...demoEntrySegments.slice(3)].join("/")
+    })
+  )
+
+const readSource = (moduleUrl: string) =>
+  Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const filePath = yield* path.fromFileUrl(resolvedModuleUrl(moduleUrl))
+
+    return yield* fs.readFileString(filePath)
+  })
+
+export const executableProgramFile = (moduleUrl: string) =>
+  Effect.gen(function*() {
+    const entry = yield* entryForModule(moduleUrl)
+    const source = yield* readSource(moduleUrl)
+
+    return programFile(entry, source)
+  }).pipe(
+    Effect.mapError((cause) =>
+      new ProgramSourceReadError({
+        entry: moduleUrl,
+        reason: String(cause)
+      })
+    )
+  )
+
+export const executableProgram = (moduleUrl: string) =>
+  Effect.gen(function*() {
+    const entry = yield* entryForModule(moduleUrl)
+    const source = yield* readSource(moduleUrl)
+
+    return program(entry, source)
+  }).pipe(
+    Effect.mapError((cause) =>
+      new ProgramSourceReadError({
+        entry: moduleUrl,
+        reason: String(cause)
+      })
+    )
+  )

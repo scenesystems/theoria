@@ -1,3 +1,4 @@
+import type { FileSystem, Path } from "@effect/platform"
 import type { Stream } from "effect"
 import { Effect, Match } from "effect"
 import * as Arr from "effect/Array"
@@ -8,6 +9,8 @@ import type { EvidenceSection } from "../../contracts/evidence.js"
 import type { Id } from "../../contracts/id.js"
 import type { ProgramPreview } from "../../contracts/program-preview.js"
 import type { RunData } from "../../contracts/run.js"
+
+type ProgramSourceEnv = FileSystem.FileSystem | Path.Path
 
 import { preloadProgram as preloadDigestProgram, run as runDigest } from "./digest/run.js"
 import type { DspProviderRuntime } from "./effect-dsp/provider.js"
@@ -35,15 +38,15 @@ type Definition = {
   readonly id: Id
   readonly card: Card
   readonly lane: Lane
-  readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime>
-  readonly preload: Effect.Effect<ProgramPreview, unknown, never>
+  readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>
+  readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>
   readonly streamSections: (customText?: string) => Stream.Stream<EvidenceSection, unknown, never> | null
 }
 
 const preloadFrom = (
   card: Card,
-  program: Effect.Effect<ProgramPreview["program"], unknown, never>
-): Effect.Effect<ProgramPreview, unknown, never> =>
+  program: Effect.Effect<ProgramPreview["program"], unknown, ProgramSourceEnv>
+): Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv> =>
   program.pipe(
     Effect.map((loadedProgram) => ({
       id: card.id,
@@ -56,8 +59,8 @@ const preloadFrom = (
 const makeDefinition = (
   card: Card,
   lane: Lane,
-  execute: Effect.Effect<RunData, unknown, DspProviderRuntime>,
-  preload: Effect.Effect<ProgramPreview, unknown, never>,
+  execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>,
+  preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>,
   streamSections: (customText?: string) => Stream.Stream<EvidenceSection, unknown, never> | null = () => null
 ): Definition => ({
   id: card.id,

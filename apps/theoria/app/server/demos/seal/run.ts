@@ -1,12 +1,18 @@
+import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { equalBytes, generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
-import type { Program } from "../../../contracts/presentation.js"
 import type { RunData } from "../../../contracts/run.js"
 
-import { executableProgram } from "../program-source.js"
+import type { Program } from "../../../contracts/presentation.js"
 
-export const preloadProgram: Effect.Effect<Program, unknown, never> = executableProgram(import.meta.url)
+import { executableProgram, type ProgramSourceReadError } from "../program-source.js"
+
+export const preloadProgram: Effect.Effect<
+  Program,
+  ProgramSourceReadError,
+  FileSystem.FileSystem | Path.Path
+> = executableProgram(import.meta.url)
 
 const plaintextString = "Authenticated encryption round-trip demo from Theoria"
 
@@ -19,7 +25,7 @@ const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     return { value, durationMs: endedAt - startedAt }
   })
 
-export const run: Effect.Effect<RunData, unknown, never> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
   const plaintext = utf8ToBytes(plaintextString)
   const key = yield* generateKey()

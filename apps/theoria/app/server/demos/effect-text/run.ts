@@ -1,3 +1,4 @@
+import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Option, Stream } from "effect"
 import * as Arr from "effect/Array"
 
@@ -298,7 +299,7 @@ const obstacleProjection = Effect.gen(function*() {
   }
 }).pipe(Effect.provide(Text.TextLayoutLive))
 
-export const run: Effect.Effect<RunData, unknown, never> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
   const baseline = yield* measured(baselineLayouts)
   const optimized = yield* measured(optimizedLayouts)
