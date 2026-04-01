@@ -14,12 +14,22 @@ import * as effectEslint from "@effect/eslint-plugin"
 // ─── File Patterns ────────────────────────────────────────────────────────────
 // Shared constants for consistent targeting across config blocks.
 
-const TS_FILES = ["**/*.ts", "**/*.mts", "**/*.cts"]
+const TS_FILES = ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"]
 const SRC_FILES = ["packages/*/src/**/*.ts", "packages/*/src/**/*.mts", "packages/*/src/**/*.cts"]
 const TEST_FILES = ["packages/*/test/**/*.ts", "packages/*/test/**/*.mts", "packages/*/test/**/*.cts"]
 const EXAMPLE_FILES = ["packages/*/examples/**/*.ts", "packages/*/examples/**/*.mts"]
+const APP_SRC_FILES = [
+  "apps/*/server.ts",
+  "apps/*/src/**/*.ts",
+  "apps/*/src/**/*.tsx",
+  "apps/*/app/**/*.ts",
+  "apps/*/app/**/*.tsx"
+]
+const APP_TEST_FILES = ["apps/*/test/**/*.ts", "apps/*/test/**/*.mts", "apps/*/test/**/*.cts"]
 const FIXTURE_FILES = ["packages/*/test/fixtures/**/*.ts"]
 const PACKAGE_FILES = [...SRC_FILES, ...TEST_FILES, ...EXAMPLE_FILES]
+const APP_FILES = [...APP_SRC_FILES, ...APP_TEST_FILES]
+const EFFECT_FILES = [...PACKAGE_FILES, ...APP_FILES]
 
 // ─── Effect Anti-Pattern Rules ────────────────────────────────────────────────
 // Full Effect-native discipline. Applied to src/, test/, and examples/.
@@ -170,6 +180,33 @@ const EFFECT_RULES = [
   }))
 ]
 
+const APP_EFFECT_RULES = EFFECT_RULES.filter((rule) => {
+  if (typeof rule !== "object" || rule === null || !("selector" in rule) || typeof rule.selector !== "string") {
+    return true
+  }
+
+  return !rule.selector.startsWith("TSInterfaceDeclaration")
+    && !rule.selector.startsWith("TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']")
+    && !rule.selector.startsWith("TSTypeAliasDeclaration[typeAnnotation.type='TSConditionalType']")
+    && !rule.selector.startsWith("TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference']")
+})
+
+// React component props fundamentally use `| undefined` and `=== undefined`.
+// TSX view files relax these rules while keeping all other Effect discipline.
+const APP_TSX_EFFECT_RULES = APP_EFFECT_RULES.filter((rule) => {
+  if (typeof rule !== "object" || rule === null || !("selector" in rule) || typeof rule.selector !== "string") {
+    return true
+  }
+
+  return !rule.selector.startsWith("TSUnionType > TSUndefinedKeyword")
+    && !rule.selector.startsWith("BinaryExpression[operator='==='][right.type='Identifier'][right.name='undefined']")
+    && !rule.selector.startsWith("BinaryExpression[operator='==='][left.type='Identifier'][left.name='undefined']")
+    && !rule.selector.startsWith("BinaryExpression[operator='!=='][right.type='Identifier'][right.name='undefined']")
+    && !rule.selector.startsWith("BinaryExpression[operator='!=='][left.type='Identifier'][left.name='undefined']")
+    && !rule.selector.startsWith("CallExpression[callee.object.name='Option'][callee.property.name='getOrUndefined']")
+    && !rule.selector.startsWith("TSTypeReference[typeName.name='Omit']")
+})
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -185,7 +222,8 @@ export default [
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",
       "*.config.mjs",
-      ".vendor/**"
+      ".vendor/**",
+      ".tmp/**"
     ]
   },
 
@@ -203,6 +241,9 @@ export default [
       parser: tsParser,
       ecmaVersion: 2024,
       sourceType: "module",
+      parserOptions: {
+        jsx: true
+      },
       globals: {
         console: "readonly",
         process: "readonly",
@@ -250,7 +291,7 @@ export default [
   // ── 4. dprint formatting (Effect ecosystem convention) ──────────────────
   {
     name: "theoria/dprint",
-    files: PACKAGE_FILES,
+    files: EFFECT_FILES,
     plugins: {
       "@effect": effectEslint
     },
@@ -281,6 +322,23 @@ export default [
     files: PACKAGE_FILES,
     rules: {
       "no-restricted-syntax": ["error", ...EFFECT_RULES]
+    }
+  },
+
+  {
+    name: "theoria/app-effect-rules",
+    files: APP_FILES,
+    rules: {
+      "no-restricted-syntax": ["error", ...APP_EFFECT_RULES]
+    }
+  },
+
+  // ── 5b. TSX relaxation — React props use `| undefined` inherently ──────
+  {
+    name: "theoria/app-tsx-rules",
+    files: ["apps/*/app/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": ["error", ...APP_TSX_EFFECT_RULES]
     }
   },
 

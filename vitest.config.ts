@@ -12,7 +12,7 @@ export default defineConfig({
     fileParallelism: true,
     maxConcurrency: 10,
 
-    include: ["packages/*/test/**/*.test.ts"],
+    include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts"],
     passWithNoTests: true,
     testTimeout: 30_000,
     hookTimeout: 30_000,
@@ -24,7 +24,9 @@ export default defineConfig({
     reporter: ["text", "lcov", "html"],
     reportsDirectory: "coverage",
     include: [
-      "packages/*/src/**/*.ts"
+      "packages/*/src/**/*.ts",
+      "apps/*/src/**/*.ts",
+      "apps/*/server.ts"
     ],
     exclude: [
       "**/*.test.ts",

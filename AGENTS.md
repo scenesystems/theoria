@@ -12,6 +12,7 @@ Effect-native scientific computing monorepo.
 | -------------------- | ------------------------- | ---------------------- | --------------------------------------------------------- |
 | effect-search        | `packages/effect-search/` | `effect-search`        | effect, @scenesystems/digest                              |
 | effect-dsp           | `packages/effect-dsp/`    | `effect-dsp`           | effect-search, @effect/ai (peer)                          |
+| effect-text          | `packages/effect-text/`   | `effect-text`          | effect, effect-search                                     |
 | effect-math          | `packages/effect-math/`   | `effect-math`          | effect                                                    |
 | @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes, effect                                     |
 | @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`   | @noble/ciphers, effect                                    |
@@ -47,6 +48,8 @@ Per-package: `bun run --filter 'effect-math' check`
 **CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 
 Before committing: `bun run check && bun run check:tests && bun run lint && bun run test`
+
+For `apps/theoria` dev work, use the checked-in runbook: `bun run app:theoria:tmux`. Treat the frontend dev server port as fixed at `5175`; do not improvise alternate Vite ports unless the user explicitly asks for a config change.
 
 ---
 
@@ -116,6 +119,7 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 | ------------------------- | --------------------------------------------------------------------------- |
 | `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
 | `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
+| `packages/effect-text/`   | Text preparation, measurement seams, greedy multiline layout                |
 | `packages/effect-math/`   | Mathematical and statistical foundations                                    |
 | `packages/digest/`        | Content hashing, JCS canonicalization (`@scenesystems/digest`)              |
 | `packages/seal/`          | Authenticated encryption (`@scenesystems/seal`)                             |
@@ -144,7 +148,7 @@ Each package runs `publish:check` before release to enforce repository metadata,
 
 **Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`
 
-**Scopes:** `effect-search`, `effect-dsp`, `effect-math`, `digest`, `seal`, `sign`, `root`
+**Scopes:** `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
 
 ```bash
 git commit -m "feat(effect-search): add TPE categorical sampler"

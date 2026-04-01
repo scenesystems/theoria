@@ -9,10 +9,12 @@
   },
   "files": [],
   "references": [
+    { "path": "./apps/theoria/tsconfig.test.json" },
     { "path": "./packages/digest/tsconfig.test.json" },
     { "path": "./packages/effect-dsp/tsconfig.test.json" },
     { "path": "./packages/effect-math/tsconfig.test.json" },
     { "path": "./packages/effect-search/tsconfig.test.json" },
+    { "path": "./packages/effect-text/tsconfig.test.json" },
     { "path": "./packages/seal/tsconfig.test.json" },
     { "path": "./packages/sign/tsconfig.test.json" }
   ]

@@ -3,11 +3,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Effect libraries for optimization, language model programming, applied math, and cryptography.
+Effect libraries for optimization, language model programming, text layout, applied math, and cryptography.
 
 _Theoria_ (θεωρία) — observation that produces knowledge.
 
-[Packages](#packages) · [Development](#development) · [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
+[Packages](#packages) · [Development](#development) · [Frontend Demos](#frontend-demos) · [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
 
 ---
 
@@ -19,6 +19,8 @@ effect-math             Numerics, linear algebra, statistics, probability, speci
 effect-search           Bayesian optimization (TPE, multi-objective, constrained)
     ↑ uses
 effect-dsp              Language model programming (DSPy for Effect)
+
+effect-text             Text preparation, measurement seams, greedy multiline layout
 
 @scenesystems/digest    BLAKE3-256, SHA-256, JCS canonicalization
 @scenesystems/seal      XChaCha20-Poly1305, AES-256-GCM-SIV, AES-256-GCM
@@ -90,6 +92,28 @@ const program = Effect.gen(function* () {
 
 LabeledFewShot, BootstrapFewShot, BootstrapRS, Ensemble, MIPROv2, GEPA. Uses `effect-search` for optimizer orchestration. [README →](./packages/effect-dsp/README.md)
 
+### [`effect-text`](./packages/effect-text) — Text preparation and layout
+
+```ts
+import { Effect } from "effect"
+import { TextLayoutLive, layout, layoutLines, prepare } from "effect-text"
+
+const program = Effect.gen(function* () {
+  const prepared = yield* prepare({
+    text: "Prepare once, layout many times.",
+    font: { family: "Mono", size: 16 },
+    whiteSpace: "normal"
+  })
+
+  const summary = layout(prepared, { maxWidth: 120, lineHeight: 20 })
+  const lines = layoutLines(prepared, { maxWidth: 120, lineHeight: 20 })
+
+  return { summary, lines }
+}).pipe(Effect.provide(TextLayoutLive))
+```
+
+`prepare` owns segmentation, measurement, and caching. `layout` stays pure, so it is safe to call in the hot path on resize. The default live layer is deterministic and swappable, which makes browser-accurate measurement a service concern rather than ambient global state. [README →](./packages/effect-text/README.md)
+
 ### [`@scenesystems/digest`](./packages/digest) — Content hashing
 
 ```ts
@@ -130,6 +154,18 @@ Ed25519, secp256k1 (ECDSA + Schnorr), ML-DSA (FIPS 204), SLH-DSA (FIPS 205), X25
 `effect-math` exposes three tiers per domain: pure kernels (`dot`, `mean`, `gamma`), schema-validated boundaries (`dotValidated`), and policy-aware operations (`meanWithPolicies`) that read precision and diagnostics config from `Layer`. Import what you need — `effect-math/LinearAlgebra`, `effect-math/Statistics`, etc.
 
 `effect-search` and `effect-dsp` follow the same subpath convention. The `@scenesystems/*` crypto packages each have a single entrypoint.
+
+## Theoria App
+
+The monorepo includes a first-class public app under [`apps/theoria/`](./apps/theoria/) as a single live surface with typed envelopes and executable Effect-native demos for `effect-text`, `effect-search`, `effect-math`, and `effect-dsp`.
+
+```sh
+bun run app:theoria
+```
+
+Then open `http://127.0.0.1:3876`.
+
+For tmux operations and route-level guidance, see [`apps/theoria/README.md`](./apps/theoria/README.md).
 
 ## Development
 
