@@ -1,0 +1,59 @@
+{
+  "name": "effect-text",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Effect-native text preparation, measurement, and greedy multiline layout",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-text"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "text-layout",
+    "text-measurement",
+    "line-breaking",
+    "typography",
+    "canvas",
+    "layout"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./Text": "./src/Text/index.ts",
+    "./Contracts": "./src/Contracts/index.ts",
+    "./Errors": "./src/Errors/index.ts",
+    "./Experimental": "./src/experimental/index.ts",
+    "./contracts": "./src/Contracts/index.ts",
+    "./experimental": "./src/experimental/index.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run --root ../.. packages/effect-text/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "peerDependencies": {
+    "effect": "^3.20.0"
+  },
+  "dependencies": {
+    "effect-search": "workspace:^"
+  }
+}
