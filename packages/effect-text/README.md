@@ -366,6 +366,12 @@ This first release is intentionally a foundation rather than full browser parity
 
 Those features belong behind the existing service seams rather than in a different architecture.
 
+## Acknowledgments
+
+The prepare/layout architecture is inspired by [pretext](https://github.com/chenglou/pretext) by Cheng Lou — the insight that text layout decomposes into an expensive effectful preparation phase and a cheap pure projection phase. `effect-text` brings this architecture to Effect, replacing ambient globals with explicit `Context.Tag` services and `Layer` composition.
+
+Built on [Effect](https://effect.website). Experimental calibration uses [`effect-search`](https://github.com/scenesystems/theoria/tree/main/packages/effect-search) for Bayesian optimization over candidate engine profiles.
+
 ## Contributing
 
 ```sh
