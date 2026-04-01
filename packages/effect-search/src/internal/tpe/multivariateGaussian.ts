@@ -1,5 +1,7 @@
-import { Array as Arr, Chunk, Equal, Match, Number as Num, Option } from "effect"
-import { logStrict, logsumexp } from "effect-math/Numeric"
+import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+import { logStrict } from "effect-math/Numeric"
+
+import * as Float64 from "../float64.js"
 
 import { ndtriExp } from "./truncatedNormal/normal.js"
 
@@ -106,7 +108,23 @@ export const diagonalGaussianLogDensity = (
     Match.exhaustive
   )
 
-const logSumExp = (values: ReadonlyArray<number>): number => logsumexp(Chunk.fromIterable(values))
+const logSumExp = (values: ReadonlyArray<number>): number => {
+  const maxValue = Arr.reduce(
+    values,
+    Number.NEGATIVE_INFINITY,
+    (currentMax, value) => value > currentMax ? value : currentMax
+  )
+
+  return Match.value(Number.isFinite(maxValue)).pipe(
+    Match.when(false, () => maxValue),
+    Match.orElse(() =>
+      maxValue +
+      Float64.log(
+        Arr.reduce(values, 0, (sum, value) => sum + Float64.exp(value - maxValue))
+      )
+    )
+  )
+}
 
 export const diagonalGaussianMixtureLogDensity = (
   point: ReadonlyArray<number>,
