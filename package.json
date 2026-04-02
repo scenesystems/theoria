@@ -40,7 +40,8 @@
     "lint:apps": "bun run --filter @theoria/theoria-app lint",
     "test:apps": "bun run --filter @theoria/theoria-app test",
     "vendor:sync": "bash scripts/vendor-sync.sh",
-    "vendor:check": "bash scripts/vendor-sync.sh --check"
+    "vendor:check": "bash scripts/vendor-sync.sh --check",
+    "test:e2e:theoria": "playwright test --config e2e/theoria/playwright.config.ts"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.6",
@@ -65,6 +66,7 @@
     "@effect/sql-sqlite-node": "0.52.0",
     "@effect/vitest": "^0.29.0",
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^25.5.0",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",

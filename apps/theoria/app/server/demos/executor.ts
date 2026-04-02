@@ -3,10 +3,11 @@ import { Cause, Clock, Effect, Option, Schema } from "effect"
 import type { ErrorCode } from "../../contracts/error.js"
 import type { Id as DemoId } from "../../contracts/id.js"
 import type { RunData as DemoData, RunEnvelope as DemoResponseEnvelope } from "../../contracts/run.js"
+import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import { DspProviderUnavailable } from "./effect-dsp/provider.js"
 import { ExecutionPolicy } from "./policy.js"
-import { lookup } from "./registry.js"
+import { lookupForReleaseStage } from "./registry.js"
 
 const isProviderUnavailable = Schema.is(DspProviderUnavailable)
 
@@ -82,10 +83,11 @@ const failed = (
 export const execute = (id: DemoId, requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
+    const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
     const policy = yield* ExecutionPolicy
 
-    const definitionOption = lookup(id)
+    const definitionOption = lookupForReleaseStage(id, releaseStage)
 
     return yield* Option.match(definitionOption, {
       onNone: () =>

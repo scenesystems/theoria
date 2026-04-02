@@ -5,7 +5,10 @@ import {
   codeCommentaryScene,
   customTextScene,
   legalPolicyScene,
+  markdownDocsScene,
+  multilingualScene,
   productCopyScene,
+  releaseNotesScene,
   researchAbstractScene,
   supportChatScene
 } from "./reflow-scenes.js"
@@ -47,6 +50,27 @@ export const corpus: ReadonlyArray<CorpusEntry> = [
     scene: supportChatScene,
     text:
       "Customer: Hi team, after migrating to typed envelopes our dashboard finally loads consistently, but when I switch organizations the previous run state still flashes for a second before the new data settles. Support: Thank you, that means transport decoding is healthier but surface orchestration is still leaking stale geometry; please capture the scene identifier, the last evidence hash you saw, and whether the flash happens before or after the new run controls mount. Customer: Confirmed, the flash happens before the next evidence stream attaches, and the confusing part is that the UI looks confident even when the contract is briefly wrong."
+  },
+  {
+    id: "markdown-docs",
+    label: "Markdown docs",
+    scene: markdownDocsScene,
+    text:
+      "### Migration Notes\n1. Replace ad-hoc payloads with schema contracts that can be reused by humans, agents, and evaluation tools without translation drift.\n2. Surface failure metadata in every envelope so the interface can tell the truth before a person has to guess what broke.\n3. Keep rendering pure, push side effects into orchestration layers, and treat every mismatch between prepared state and displayed state as a constitutional bug rather than a visual quirk.\n4. When in doubt, move the authority closer to the contract instead of adding another compensating wrapper."
+  },
+  {
+    id: "release-notes",
+    label: "Release notes",
+    scene: releaseNotesScene,
+    text:
+      "This release introduces deterministic replay for constrained optimization studies, lane-specific timeout policies, capability reporting for provider-bound demonstrations, and a stricter projection pipeline for text-heavy scenes. The headline improvement is not cosmetic polish; it is trustworthiness. Layout preparation is now amortized, evidence streams remain attributable, and the live stage is far less willing to fake consistency when the underlying contract disagrees with what the browser is showing."
+  },
+  {
+    id: "multilingual",
+    label: "Multilingual snippet",
+    scene: multilingualScene,
+    text:
+      "El sistema mantiene contratos tipados para cada operacion critica, y tambien conserva huellas legibles para que una investigadora humana pueda entender por que una escena cambio de forma. At the same time, the runtime stays lightweight across language boundaries, so teams can compare evidence, debate interpretations, and repair drift without losing the thread between what the model inferred, what the interface rendered, and what the protocol actually authorized."
   },
   {
     id: "code-commentary",

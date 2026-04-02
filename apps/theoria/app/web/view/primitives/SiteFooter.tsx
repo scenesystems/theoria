@@ -1,42 +1,64 @@
-import { GlobeAltIcon } from "@heroicons/react/20/solid"
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
+import * as Arr from "effect/Array"
 
-import { GitHubMark, XMark } from "./BrandMarks.js"
-import { Cluster } from "./Layout.js"
+import { Cluster, Section, Stack } from "./Layout.js"
 import { ExternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
+import { TheoriaLogo } from "./TheoriaLogo.js"
 
 // eslint-disable-next-line no-restricted-syntax -- static render-time constant, not a side effect
 const COPYRIGHT_YEAR = new Date().getFullYear()
 
-const footerLink = "inline-flex items-center gap-1.5 text-ink-700 transition-colors duration-150 hover:text-ink-900"
+type FooterDestination = {
+  readonly href: string
+  readonly label: string
+}
+
+const footerDestinations: ReadonlyArray<FooterDestination> = [
+  {
+    href: "https://github.com/scenesystems/theoria",
+    label: "GitHub"
+  },
+  {
+    href: "https://scenesystems.io",
+    label: "scenesystems.io"
+  },
+  {
+    href: "https://x.com/scenesystems",
+    label: "@scenesystems"
+  }
+]
+
+const footerLinkClassName =
+  "inline-flex min-w-0 items-center gap-1.5 text-ink-600 transition-colors duration-150 hover:text-ink-900"
+
+const FooterLink = ({ destination }: { readonly destination: FooterDestination }) => (
+  <ExternalLink className={footerLinkClassName} href={destination.href}>
+    <SemanticText as="span" className="text-ink-700" role="status" text={destination.label} variant="compact" />
+    <ArrowTopRightOnSquareIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink-400" />
+  </ExternalLink>
+)
 
 export const SiteFooter = () => (
-  <footer className="border-t border-stage-200/90 pt-5">
-    <Cluster className="items-center justify-between gap-4">
-      <SemanticText
-        as="span"
-        className="text-ink-700"
-        role="row-label"
-        text={`© ${COPYRIGHT_YEAR} Scene Systems`}
-        variant="expanded"
-      />
+  <Section as="footer" className="mt-10 border-t border-stage-200/90 pb-3 pt-4 sm:pt-5">
+    <Cluster className="items-start justify-between gap-x-6 gap-y-3">
+      <Stack className="gap-1">
+        <TheoriaLogo className="text-[1.45rem] sm:text-[1.55rem]" />
+        <SemanticText
+          as="p"
+          className="text-ink-500"
+          role="status"
+          text={`© ${COPYRIGHT_YEAR} Scene Systems`}
+          variant="compact"
+        />
+      </Stack>
 
-      <Cluster className="gap-4">
-        <ExternalLink className={footerLink} href="https://github.com/scenesystems/theoria">
-          <GitHubMark className="shrink-0" />
-          <SemanticText as="span" className="text-ink-700" role="row-label" text="GitHub" variant="compact" />
-        </ExternalLink>
-
-        <ExternalLink className={footerLink} href="https://scenesystems.io">
-          <GlobeAltIcon aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <SemanticText as="span" className="text-ink-700" role="row-label" text="scenesystems.io" variant="compact" />
-        </ExternalLink>
-
-        <ExternalLink className={footerLink} href="https://x.com/scenesystems">
-          <XMark className="shrink-0" />
-          <SemanticText as="span" className="text-ink-700" role="row-label" text="@scenesystems" variant="compact" />
-        </ExternalLink>
+      <Cluster as="nav" className="gap-x-4 gap-y-2 sm:justify-end">
+        {Arr.map(
+          footerDestinations,
+          (destination) => <FooterLink destination={destination} key={destination.href} />
+        )}
       </Cluster>
     </Cluster>
-  </footer>
+  </Section>
 )

@@ -13,33 +13,39 @@ export const GridLayout = Schema.Literal("split", "stack", "sidebar", "lead-rail
 export type GridLayout = typeof GridLayout.Type
 
 /**
- * Deep-dive pane ordering for the expanded demo shell.
+ * Surface identities available in the deep-dive projection workspace.
  *
  * @since 0.1.0
  */
-export enum DeepDivePaneOrderValue {
-  StageCode = "stage-code",
-  CodeStage = "code-stage"
-}
-
-export enum DeepDiveFocusedPaneValue {
+export enum DeepDiveSurfacePlaneValue {
   Stage = "stage",
+  Evidence = "evidence",
   Source = "source"
 }
 
-export const DeepDiveStagePanePercentDefault = 58
-export const DeepDiveStagePanePercentMax = 72
-export const DeepDiveStagePanePercentMin = 34
+/**
+ * @since 0.1.0
+ */
+export const DeepDiveSurfacePlane = Schema.Enums(DeepDiveSurfacePlaneValue)
 
 /**
  * @since 0.1.0
  */
-export const DeepDivePaneOrder = Schema.Enums(DeepDivePaneOrderValue)
+export type DeepDiveSurfacePlane = typeof DeepDiveSurfacePlane.Type
 
 /**
+ * Identifies which visible pane is focused in compact deep-dive layouts.
+ *
  * @since 0.1.0
  */
-export type DeepDivePaneOrder = typeof DeepDivePaneOrder.Type
+export enum DeepDiveFocusedPaneValue {
+  Primary = "primary",
+  Secondary = "secondary"
+}
+
+export const DeepDivePanePercentDefault = 58
+export const DeepDivePanePercentMax = 72
+export const DeepDivePanePercentMin = 34
 
 /**
  * @since 0.1.0
@@ -52,20 +58,20 @@ export const DeepDiveFocusedPane = Schema.Enums(DeepDiveFocusedPaneValue)
 export type DeepDiveFocusedPane = typeof DeepDiveFocusedPane.Type
 
 /**
- * Percent width reserved for the interactive stage in the deep-dive split view.
+ * Percent width reserved for the primary deep-dive projection pane.
  *
  * @since 0.1.0
  */
-export const DeepDiveStagePanePercent = Schema.Number.pipe(
+export const DeepDivePanePercent = Schema.Number.pipe(
   Schema.int(),
-  Schema.greaterThanOrEqualTo(DeepDiveStagePanePercentMin),
-  Schema.lessThanOrEqualTo(DeepDiveStagePanePercentMax)
+  Schema.greaterThanOrEqualTo(DeepDivePanePercentMin),
+  Schema.lessThanOrEqualTo(DeepDivePanePercentMax)
 )
 
 /**
  * @since 0.1.0
  */
-export type DeepDiveStagePanePercent = typeof DeepDiveStagePanePercent.Type
+export type DeepDivePanePercent = typeof DeepDivePanePercent.Type
 
 /**
  * Pane scroll behavior controlling overflow via Tailwind utilities.
@@ -78,6 +84,21 @@ export const PaneScroll = Schema.Literal("vertical", "horizontal", "both", "none
  * @since 0.1.0
  */
 export type PaneScroll = typeof PaneScroll.Type
+
+/**
+ * Content card border geometry.
+ *
+ * - `rounded`: full border with rounded corners (default)
+ * - `left-accent`: left border only, square corners
+ *
+ * @since 0.1.0
+ */
+export const ContentCardShape = Schema.Literal("rounded", "left-accent")
+
+/**
+ * @since 0.1.0
+ */
+export type ContentCardShape = typeof ContentCardShape.Type
 
 /**
  * Content card density controlling inner gap and padding.

@@ -1,12 +1,15 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import type { Stream } from "effect"
-import { Clock, Effect } from "effect"
+import type { Deferred, Stream } from "effect"
+import { Clock, Effect, Queue } from "effect"
 import { Study } from "effect-search"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
+import type { CanonicalStep } from "../../contracts/canonical-step.js"
+import type { EffectTextProjectionStep } from "../../contracts/canonical-step.js"
 import { corpus } from "../../contracts/corpus.js"
+import { DemoExecutionError } from "../../contracts/demo-error.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { SectionAppend, SectionUpsert } from "../../contracts/evidence-stream.js"
 import type { EvidenceItem } from "../../contracts/evidence.js"
@@ -20,14 +23,24 @@ import {
   reflowSliderMaxWidth,
   resolveReflowCorpusEntry
 } from "./reflow.js"
-import { awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import type { RunRegistry } from "./run-registry-context.js"
 
 export const animatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 
 const defaultReflowWidth = Math.round(reflowSliderMaxWidth / 2)
-const stepDelayMs = 12
-const corpusPauseMs = 300
-const obstaclePauseMs = 400
+const stepDelayMs = 10
+const corpusPauseMs = 96
+const obstaclePauseMs = 120
+
+type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
+
+const executionFailedError = (message: string): DemoExecutionError =>
+  new DemoExecutionError({
+    code: "execution-failed",
+    message,
+    retryable: true
+  })
 
 type EffectTextAnimationEvent = EvidenceEvent | {
   readonly _tag: "LocalRunFrameUpdated"
@@ -111,26 +124,94 @@ const emitFrameUpdate = ({
     frame
   })
 
-export const resetAnimationState = (ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+export const setAnimationPlayback = (
+  registry: RunRegistry,
+  isAnimating: boolean
+): Effect.Effect<void, never, never> =>
   Effect.sync(() => {
-    const hasCustomText = ctx(customTextAtom).trim().length > 0
+    registry.set(animatingAtom, isAnimating)
+  })
 
-    ctx.set(animatingAtom, false)
-    ctx.set(reflowControlsAtom, {
+export const syncAnimationFrameToControls = (
+  registry: RunRegistry,
+  frame: EffectTextRunFrame
+): Effect.Effect<void, never, never> =>
+  Effect.sync(() => {
+    registry.set(reflowControlsAtom, frame.controls)
+  })
+
+export const resetAnimationState = (registry: RunRegistry): Effect.Effect<void, never, never> =>
+  Effect.sync(() => {
+    const hasCustomText = registry.get(customTextAtom).trim().length > 0
+
+    registry.set(animatingAtom, false)
+    registry.set(reflowControlsAtom, {
       corpusIndex: hasCustomText ? corpus.length : 0,
       width: defaultReflowWidth,
       obstaclesEnabled: false
     })
   })
 
-export const makeAnimationStream = (
-  ctx: AtomType.FnContext,
+const takeEffectTextQueueEvent = (
   signal: RunSignal,
-  plan: EffectTextRunPlan
-): Stream.Stream<EffectTextAnimationEvent, never, never> =>
-  Study.streamFromEmitter<EffectTextAnimationEvent, void, never, never>((emit) =>
+  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>
+): Effect.Effect<CanonicalStep | StreamCompletionEvent, never, never> =>
+  Effect.raceFirst(
+    Queue.take(stepQueue),
+    awaitNextRunSignalChange(signal).pipe(
+      Effect.zipRight(awaitRunSignal(signal)),
+      Effect.flatMap(() => takeEffectTextQueueEvent(signal, stepQueue))
+    )
+  )
+
+const takeEffectTextProjectionStep = (
+  signal: RunSignal,
+  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>
+): Effect.Effect<EffectTextProjectionStep, DemoExecutionError, never> =>
+  takeEffectTextQueueEvent(signal, stepQueue).pipe(
+    Effect.flatMap((step) =>
+      step._tag === "StreamComplete"
+        ? Effect.fail(
+          executionFailedError(
+            "effect-text run ended before all authored projection steps arrived."
+          )
+        )
+        : step._tag === "EffectTextProjectionStep"
+        ? Effect.succeed(step)
+        : takeEffectTextProjectionStep(signal, stepQueue)
+    )
+  )
+
+const validateAuthoredStep = ({
+  authoredStep,
+  plannedCorpusIndex,
+  plannedStep
+}: {
+  readonly authoredStep: EffectTextProjectionStep
+  readonly plannedCorpusIndex: number
+  readonly plannedStep: EffectTextRunPlan["entries"][number]["steps"][number]
+}): Effect.Effect<void, DemoExecutionError, never> =>
+  authoredStep.corpusIndex === plannedCorpusIndex
+    && authoredStep.requestedWidthPx === plannedStep.requestedWidthPx
+    && authoredStep.stageWidthPx === plannedStep.stageWidthPx
+    && authoredStep.obstaclesEnabled === plannedStep.obstaclesEnabled
+    ? Effect.void
+    : Effect.fail(
+      executionFailedError(
+        `effect-text authored step drifted from the frozen run plan (expected corpus=${plannedCorpusIndex}, requestedWidth=${plannedStep.requestedWidthPx}, stageWidth=${plannedStep.stageWidthPx}, obstacles=${plannedStep.obstaclesEnabled}; received corpus=${authoredStep.corpusIndex}, requestedWidth=${authoredStep.requestedWidthPx}, stageWidth=${authoredStep.stageWidthPx}, obstacles=${authoredStep.obstaclesEnabled}).`
+      )
+    )
+
+export const makeAnimationStream = (
+  registry: RunRegistry,
+  signal: RunSignal,
+  plan: EffectTextRunPlan,
+  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>,
+  _serverCompleted: Deferred.Deferred<StreamCompletionEvent>
+): Stream.Stream<EffectTextAnimationEvent, DemoExecutionError, never> =>
+  Study.streamFromEmitter<EffectTextAnimationEvent, void, DemoExecutionError, never>((emit) =>
     Effect.gen(function*() {
-      ctx.set(animatingAtom, true)
+      registry.set(animatingAtom, true)
 
       const startedAt = yield* Clock.currentTimeMillis
       const frameCount = Arr.reduce(plan.entries, 0, (count, entry) => count + entry.steps.length)
@@ -145,22 +226,25 @@ export const makeAnimationStream = (
             const trialRows = yield* Effect.reduce(
               planEntry.steps,
               initialTrialAccumulator,
-              (acc, step) =>
+              (acc, plannedStep) =>
                 Effect.gen(function*() {
                   yield* awaitRunSignal(signal)
+                  const authoredStep = yield* takeEffectTextProjectionStep(signal, stepQueue)
+                  yield* validateAuthoredStep({ authoredStep, plannedCorpusIndex: planEntry.corpusIndex, plannedStep })
+
                   const projection = projectReflowProjection({
                     entry,
-                    obstaclesEnabled: step.obstaclesEnabled,
+                    obstaclesEnabled: plannedStep.obstaclesEnabled,
                     prepared,
-                    requestedWidthPx: step.requestedWidthPx,
-                    stageWidthPx: step.stageWidthPx
+                    requestedWidthPx: plannedStep.requestedWidthPx,
+                    stageWidthPx: plannedStep.stageWidthPx
                   })
                   const frame: EffectTextRunFrame = {
                     _tag: "effect-text",
                     controls: {
                       corpusIndex: planEntry.corpusIndex,
-                      width: step.stageWidthPx,
-                      obstaclesEnabled: step.obstaclesEnabled
+                      width: plannedStep.stageWidthPx,
+                      obstaclesEnabled: plannedStep.obstaclesEnabled
                     },
                     projection
                   }
@@ -172,7 +256,7 @@ export const makeAnimationStream = (
                   const updatedRows = Arr.append(acc.rows, {
                     corpusLabel: entry.label,
                     width: projection.stageWidthPx,
-                    obstacles: step.obstaclesEnabled,
+                    obstacles: plannedStep.obstaclesEnabled,
                     lineCount: projection.summary.lineCount,
                     height: projection.summary.height,
                     maxLineWidth: projection.summary.maxLineWidth
@@ -183,7 +267,7 @@ export const makeAnimationStream = (
                   const isObstacleTransition = Option.fromNullable(planEntry.steps[acc.index + 1]).pipe(
                     Option.match({
                       onNone: () => false,
-                      onSome: (nextStep) => nextStep.obstaclesEnabled !== step.obstaclesEnabled
+                      onSome: (nextStep) => nextStep.obstaclesEnabled !== plannedStep.obstaclesEnabled
                     })
                   )
                   const isLastForEntry = acc.index + 1 >= planEntry.steps.length
@@ -224,13 +308,13 @@ export const makeAnimationStream = (
                 _tag: "Text",
                 label: "Proof",
                 value:
-                  "The run froze its text plan up front, prepared each entry once, and projected every width and obstacle combination from that shared authority."
+                  "The run froze browser-only context up front, then rendered each server-authored projection step into both the live stage and the projection transcript."
               }
             ]
           }
         })
       )
     }).pipe(
-      Effect.ensuring(resetAnimationState(ctx))
+      Effect.ensuring(setAnimationPlayback(registry, false))
     )
   )

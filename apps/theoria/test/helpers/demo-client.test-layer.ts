@@ -13,7 +13,7 @@ export type DemoClientFixtures = {
   readonly run: (id: Id) => Effect.Effect<RunData, DemoError>
   readonly runWithMeta?: (id: Id) => Effect.Effect<{ readonly data: RunData; readonly meta: Metadata }, DemoError>
   readonly preload: (id: Id) => Effect.Effect<ProgramPreview, DemoError>
-  readonly streamUrl?: (id: Id, customText?: string | null) => string
+  readonly streamUrl?: (id: Id, manifest?: string | null) => string
 }
 
 export const makeDemoClientTestLayer = (fixtures: DemoClientFixtures): Layer.Layer<DemoClient> =>
@@ -33,6 +33,7 @@ export const makeDemoClientTestLayer = (fixtures: DemoClientFixtures): Layer.Lay
           }))
         )),
       preload: fixtures.preload,
+      versions: () => Effect.succeed({}),
       streamUrl: fixtures.streamUrl ?? ((id) => `/api/demos/${id}/stream`)
     })
   )

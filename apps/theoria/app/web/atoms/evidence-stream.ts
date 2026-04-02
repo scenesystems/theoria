@@ -10,9 +10,10 @@ import {
   StreamComplete
 } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
+import { encodeStreamManifest, type StreamManifest } from "../../contracts/stream-manifest.js"
 import { DemoClient } from "../services/DemoClient.js"
 
-const sseStreamIds: ReadonlyArray<Id> = ["effect-text", "effect-search", "effect-math"]
+const sseStreamIds: ReadonlyArray<Id> = ["effect-text", "effect-search", "effect-math", "effect-dsp"]
 const eventPacingDelay = "180 millis"
 
 const decodeSseEvent = (data: string): Either.Either<EvidenceEvent, DemoError> =>
@@ -27,13 +28,13 @@ const pacedState = (hasDeliveredSection: boolean, event: EvidenceEvent): readonl
 
 const makeSseEvidenceStream = (
   id: Id,
-  customText: string | null = null
+  manifest: string | null = null
 ): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
   Stream.asyncPush<EvidenceEvent, DemoError, DemoClient>((emit) =>
     Effect.acquireRelease(
       Effect.gen(function*() {
         const client = yield* DemoClient
-        const eventSource = new EventSource(client.streamUrl(id, customText))
+        const eventSource = new EventSource(client.streamUrl(id, manifest))
         const streamState = { closed: false, deliveredEvent: false, terminalEvent: false }
 
         const close = () => {
@@ -46,8 +47,8 @@ const makeSseEvidenceStream = (
         const onEvidence = (event: MessageEvent<string>) => {
           Match.value(decodeSseEvent(event.data)).pipe(
             Match.when(Either.isLeft, ({ left }) => {
-              close()
               emit.fail(left)
+              close()
             }),
             Match.orElse(({ right }) => {
               streamState.deliveredEvent = true
@@ -55,14 +56,14 @@ const makeSseEvidenceStream = (
               Match.value(right).pipe(
                 Match.tag("StreamFailed", ({ error }) => {
                   streamState.terminalEvent = true
-                  close()
                   emit.fail(new DemoExecutionError(error))
+                  close()
                 }),
                 Match.tag("StreamComplete", () => {
                   streamState.terminalEvent = true
                   emit.single(right)
-                  close()
                   emit.end()
+                  close()
                 }),
                 Match.orElse(() => {
                   emit.single(right)
@@ -74,7 +75,6 @@ const makeSseEvidenceStream = (
 
         const onError = () => {
           if (!streamState.closed && !streamState.terminalEvent) {
-            close()
             emit.fail(
               new DemoRequestError({
                 message: streamState.deliveredEvent
@@ -82,6 +82,7 @@ const makeSseEvidenceStream = (
                   : `Failed to stream evidence for ${id}.`
               })
             )
+            close()
           }
         }
 
@@ -112,11 +113,14 @@ const makeFetchEvidenceStream = (id: Id): Stream.Stream<EvidenceEvent, DemoError
 
 export const makeServerEvidenceStream = (
   id: Id,
-  customText: string | null = null
-): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
-  sseStreamIds.includes(id)
-    ? makeSseEvidenceStream(id, customText)
+  manifest: StreamManifest | null = null
+): Stream.Stream<EvidenceEvent, DemoError, DemoClient> => {
+  const encoded = manifest !== null ? encodeStreamManifest(manifest) : null
+
+  return sseStreamIds.includes(id)
+    ? makeSseEvidenceStream(id, encoded)
     : paceEvidenceStream(makeFetchEvidenceStream(id))
+}
 
 export const paceEvidenceStream = <E, R>(
   stream: Stream.Stream<EvidenceEvent, E, R>

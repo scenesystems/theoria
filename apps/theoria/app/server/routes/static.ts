@@ -2,7 +2,10 @@ import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import { cardByIdForReleaseStage } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
+import type { ReleaseStage } from "../../contracts/release-stage.js"
+import { serverReleaseStage } from "../config/release-stage.js"
 
 const fromFileUrl = (url: URL): string => decodeURIComponent(url.pathname)
 
@@ -23,20 +26,21 @@ const RelativeAssetPath = Schema.String.pipe(
 const isRelativeAssetPath = Schema.is(RelativeAssetPath)
 const isKnownDemoId = Schema.is(Id)
 const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
+const htmlTagPattern = /<html\b([^>]*)>/u
 
 const deepDiveId = (pathname: string): Option.Option<string> =>
   Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
     Option.flatMap((matches) => Arr.get(matches, 1))
   )
 
-const isHtmlPath = (pathname: string): boolean =>
+const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
   Match.value(pathname).pipe(
     Match.when("/", () => true),
     Match.when("/index.html", () => true),
     Match.orElse((value) =>
       Option.match(deepDiveId(value), {
         onNone: () => false,
-        onSome: (id) => isKnownDemoId(id)
+        onSome: (id) => isKnownDemoId(id) && Option.isSome(cardByIdForReleaseStage(id, stage))
       })
     )
   )
@@ -73,10 +77,10 @@ export const notFoundResponse = () =>
     headers: responseHeaders("/not-found.txt")
   })
 
-const staticAssetPath = (pathname: string): Option.Option<string> =>
+const staticAssetPath = (pathname: string, stage: ReleaseStage): Option.Option<string> =>
   Match.value(pathname).pipe(
     Match.when((value) => value.startsWith("/api/"), () => Option.none<string>()),
-    Match.when((value) => isHtmlPath(value), () => Option.some(indexPath)),
+    Match.when((value) => isHtmlPath(value, stage), () => Option.some(indexPath)),
     Match.orElse((value) => {
       const relativePath = value.startsWith("/") ? value.slice(1) : value
       return isRelativeAssetPath(relativePath)
@@ -85,12 +89,17 @@ const staticAssetPath = (pathname: string): Option.Option<string> =>
     })
   )
 
-const headerPath = (pathname: string): string => isHtmlPath(pathname) ? "/index.html" : pathname
+const headerPath = (pathname: string, stage: ReleaseStage): string =>
+  isHtmlPath(pathname, stage) ? "/index.html" : pathname
+
+const injectReleaseStage = (html: string, stage: ReleaseStage): string =>
+  html.replace(htmlTagPattern, `<html$1 data-theoria-release-stage="${stage}">`)
 
 export const staticResponse = (pathname: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const resolvedPath = staticAssetPath(pathname)
+    const releaseStage = yield* serverReleaseStage
+    const resolvedPath = staticAssetPath(pathname, releaseStage)
 
     return yield* Option.match(resolvedPath, {
       onNone: () => Effect.succeed(notFoundResponse()),
@@ -100,9 +109,20 @@ export const staticResponse = (pathname: string) =>
           Effect.flatMap((exists) =>
             Match.value(exists).pipe(
               Match.when(true, () =>
-                HttpServerResponse.file(path, {
-                  headers: responseHeaders(headerPath(pathname))
-                }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
+                isHtmlPath(pathname, releaseStage)
+                  ? fileSystem.readFileString(path).pipe(
+                    Effect.map((html) => injectReleaseStage(html, releaseStage)),
+                    Effect.flatMap((html) =>
+                      HttpServerResponse.text(html, {
+                        status: 200,
+                        headers: responseHeaders(headerPath(pathname, releaseStage))
+                      })
+                    ),
+                    Effect.catchAll(() => Effect.succeed(notFoundResponse()))
+                  )
+                  : HttpServerResponse.file(path, {
+                    headers: responseHeaders(headerPath(pathname, releaseStage))
+                  }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
               Match.orElse(() => Effect.succeed(notFoundResponse()))
             )
           )

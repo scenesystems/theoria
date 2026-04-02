@@ -1,56 +1,109 @@
-import { Separator } from "@base-ui-components/react/separator"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidenceSection } from "../../../contracts/evidence.js"
+import type { EvidencePlaneLane, EvidencePlaneViewModel, EvidenceSectionViewModel } from "../data/evidence-layout.js"
 
-import { evidenceSpan } from "../data/evidence-layout.js"
-import { EvidenceGrid, EvidenceGridItem } from "../primitives/EvidenceGrid.js"
-import { Cluster, Section, Stack } from "../primitives/Layout.js"
+import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { StatusPill } from "../primitives/StatusPill.js"
 
-import { EvidenceItemRenderer } from "../primitives/EvidenceItemRenderer.js"
+import { EvidenceSectionCard } from "./EvidenceSectionCard.js"
 
-const sectionItemCount = (section: EvidenceSection): string => {
-  const n = section.items.length
-  return n === 1 ? "1 metric" : `${n} metrics`
-}
-
-const animationDelayClassName = (index: number): string =>
-  Match.value(Math.min(index, 5)).pipe(
-    Match.when(0, () => "[animation-delay:0ms]"),
-    Match.when(1, () => "[animation-delay:60ms]"),
-    Match.when(2, () => "[animation-delay:120ms]"),
-    Match.when(3, () => "[animation-delay:180ms]"),
-    Match.when(4, () => "[animation-delay:240ms]"),
-    Match.orElse(() => "[animation-delay:300ms]")
-  )
-
-const SectionHeader = ({ section }: { readonly section: EvidenceSection }) => (
-  <Cluster as="span" className="inline-flex gap-2">
-    <SemanticText as="span" className="text-ink-900" role="section-title" text={section.title} variant="expanded" />
-    <StatusPill className="bg-stage-100 text-ink-700" label={sectionItemCount(section)} />
-  </Cluster>
+const emptyFilterState = (
+  <Layer className="border-t border-stage-200/72 py-4">
+    <SemanticText
+      as="p"
+      className="text-ink-700"
+      role="status"
+      text="No evidence sections match the current lens. Expand the focus or change the view to bring them back into projection."
+      variant="expanded"
+    />
+  </Layer>
 )
 
-export const EvidenceSections = ({ sections }: { readonly sections: ReadonlyArray<EvidenceSection> }) => (
-  <Stack className="gap-0">
-    {Arr.map(
-      sections,
-      (section, index) => (
-        <Section key={section.title} className={`evidence-section-enter py-4 ${animationDelayClassName(index)}`}>
-          {index > 0 ? <Separator className="mb-4 h-px bg-stage-200/80" /> : null}
-          <SectionHeader section={section} />
-          <EvidenceGrid>
-            {Arr.map(section.items, (item, itemIndex) => (
-              <EvidenceGridItem key={itemIndex} span={evidenceSpan(item)}>
-                <EvidenceItemRenderer item={item} />
-              </EvidenceGridItem>
-            ))}
-          </EvidenceGrid>
-        </Section>
-      )
-    )}
+const sectionList = ({
+  sections,
+  startIndex,
+  spotlight
+}: {
+  readonly sections: ReadonlyArray<EvidenceSectionViewModel>
+  readonly startIndex: number
+  readonly spotlight?: boolean
+}) => (
+  <Stack className="gap-8">
+    {Arr.map(sections, (section, index) => (
+      <EvidenceSectionCard
+        index={startIndex + index}
+        key={section.key}
+        section={section}
+        spotlight={spotlight === true && index === 0}
+      />
+    ))}
   </Stack>
 )
+
+const laneHeader = ({
+  lane
+}: {
+  readonly lane: EvidencePlaneLane
+}) => (
+  <Stack className="gap-1.5 border-t border-stage-200/68 pt-4">
+    <SemanticText as="p" className="max-w-none text-ink-600" role="row-label" text={lane.eyebrow} variant="expanded" />
+    <SemanticText
+      as="p"
+      className="max-w-none text-ink-900"
+      role="section-title"
+      text={lane.title}
+      variant="expanded"
+    />
+    <SemanticText as="p" className="max-w-none text-ink-700" role="status" text={lane.description} variant="expanded" />
+  </Stack>
+)
+
+const laneColumn = ({
+  lane,
+  startIndex
+}: {
+  readonly lane: EvidencePlaneLane
+  readonly startIndex: number
+}) => (
+  <Stack className="gap-6">
+    {laneHeader({ lane })}
+    {sectionList({ sections: lane.sections, startIndex })}
+  </Stack>
+)
+
+export const EvidenceSections = ({ plane }: { readonly plane: EvidencePlaneViewModel }) =>
+  plane.sections.length === 0
+    ? emptyFilterState
+    : Match.value(plane.layout).pipe(
+      Match.tag("Focused", ({ section }) => sectionList({ sections: [section], spotlight: true, startIndex: 0 })),
+      Match.tag("Live", ({ spotlight, stream }) => (
+        <Stack className="gap-8">
+          {spotlight === null ? null : sectionList({ sections: [spotlight], spotlight: true, startIndex: 0 })}
+          {stream === null
+            ? null
+            : laneColumn({ lane: stream, startIndex: spotlight === null ? 0 : 1 })}
+        </Stack>
+      )),
+      Match.tag("Narrative", ({ spotlight, narrative, reference }) => (
+        <Stack className="gap-8">
+          {spotlight === null ? null : sectionList({ sections: [spotlight], spotlight: true, startIndex: 0 })}
+          {narrative === null && reference === null
+            ? null
+            : narrative === null
+            ? laneColumn({ lane: reference!, startIndex: spotlight === null ? 0 : 1 })
+            : reference === null
+            ? laneColumn({ lane: narrative, startIndex: spotlight === null ? 0 : 1 })
+            : (
+              <Stack className="gap-8">
+                {laneColumn({ lane: narrative, startIndex: spotlight === null ? 0 : 1 })}
+                {laneColumn({
+                  lane: reference,
+                  startIndex: spotlight === null ? narrative.sections.length : narrative.sections.length + 1
+                })}
+              </Stack>
+            )}
+        </Stack>
+      )),
+      Match.exhaustive
+    )

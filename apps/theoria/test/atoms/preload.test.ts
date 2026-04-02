@@ -34,7 +34,8 @@ describe("Route preload mounting", () => {
                   data: runDataFixture("unused"),
                   meta: { requestId: "req", buildSha: "build", durationMs: 1 }
                 }),
-              streamUrl: (id) => `/api/demos/${id}/stream`
+              streamUrl: (id) => `/api/demos/${id}/stream`,
+              versions: () => Effect.succeed({})
             })
           )
         )

@@ -1,213 +1,207 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import * as Arr from "effect/Array"
 
-import { dspWidgetViewModelAtom, selectDspEvaluationCaseAtom } from "../../atoms/dsp-widget.js"
-import { Grid } from "../containers/Grid.js"
+import { type DspEvaluationExample, type DspFieldMeta, type DspSignatureContract } from "../../../contracts/demo/dsp.js"
+import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
+import { selectDspModuleTypeAtom, selectDspScenarioAtom, setDspOptimizationBudgetAtom } from "../../atoms/dsp-widget.js"
+import { AccentBorder } from "../primitives/AccentBorder.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
-import { ContentCard } from "../primitives/ContentCard.js"
-import {
-  contentCardDangerClasses,
-  contentCardToneClassesFor,
-  surfaceMaterials,
-  toneClassesFor
-} from "../primitives/designSystem.js"
-import { Cluster, Stack } from "../primitives/Layout.js"
-import { MetricStrip } from "../primitives/MetricStrip.js"
+import { DataTable } from "../primitives/DataTable.js"
+import { toneClassesFor } from "../primitives/designSystem.js"
+import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
+import { Stack } from "../primitives/Layout.js"
+import { PlaneMetaRail } from "../primitives/PlaneMetaRail.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { SignatureContractPanel } from "../primitives/SignatureContractPanel.js"
+import { SliderRow } from "../primitives/SliderRow.js"
 
 const tone = toneClassesFor("dsp")
-const dspCardTone = contentCardToneClassesFor("dsp")
 
-const evaluationCardTone = (correct: boolean) => correct ? dspCardTone : contentCardDangerClasses
+const SignaturePanel = ({ contract }: { readonly contract: DspSignatureContract }) => (
+  <SignatureContractPanel
+    inputFields={contract.inputFields}
+    instruction={contract.instruction}
+    outputFields={contract.outputFields}
+    title="Signature contract"
+    tone={tone}
+  />
+)
 
-const evaluationLabelClassName = (correct: boolean): string => correct ? tone.textStrong : "text-danger-700"
+const truncate = (s: string, max: number): string => s.length > max ? `${s.slice(0, max)}…` : s
 
-const evaluationStatus = (correct: boolean): string => correct ? "correct" : "miss"
+const evaluationColumns = (
+  inputFields: ReadonlyArray<DspFieldMeta>,
+  outputFields: ReadonlyArray<DspFieldMeta>
+): ReadonlyArray<string> => [
+  "#",
+  ...Arr.map(inputFields, (f) => f.name),
+  ...Arr.map(outputFields, (f) => `→ ${f.name}`)
+]
 
-const EvaluationTrackCard = ({
-  correct,
-  label,
-  rationale,
+const evaluationRow = (
+  example: DspEvaluationExample,
+  index: number,
+  inputFields: ReadonlyArray<DspFieldMeta>,
+  outputFields: ReadonlyArray<DspFieldMeta>
+): ReadonlyArray<string> => [
+  `${index + 1}`,
+  ...Arr.map(inputFields, (f) => truncate(example.input[f.name] ?? "", 72)),
+  ...Arr.map(outputFields, (f) => truncate(example.expected[f.name] ?? "", 72))
+]
+
+const evaluationRows = (
+  examples: ReadonlyArray<DspEvaluationExample>,
+  inputFields: ReadonlyArray<DspFieldMeta>,
+  outputFields: ReadonlyArray<DspFieldMeta>
+): ReadonlyArray<ReadonlyArray<string>> => Arr.map(examples, (ex, i) => evaluationRow(ex, i, inputFields, outputFields))
+
+const EvaluationTable = ({
+  contract,
+  metricDescription,
+  metricName,
+  examples
+}: {
+  readonly contract: DspSignatureContract
+  readonly metricDescription: string
+  readonly metricName: string
+  readonly examples: ReadonlyArray<DspEvaluationExample>
+}) => {
+  const columns = evaluationColumns(contract.inputFields, contract.outputFields)
+  const rows = evaluationRows(examples, contract.inputFields, contract.outputFields)
+  const metaMetrics = [
+    { label: "Rows", value: `${rows.length}` },
+    { label: "Columns", value: `${columns.length}` },
+    { label: "Metric", value: metricName }
+  ]
+
+  return (
+    <Stack className="gap-2.5">
+      <PlaneMetaRail
+        description={metricDescription}
+        eyebrow="Evaluation dataset"
+        metricPresentation="inline"
+        metrics={metaMetrics}
+      />
+      <DataTable columns={columns} density="compact" label="Labeled examples" rows={rows} summaryVisible={false} />
+    </Stack>
+  )
+}
+
+const RuntimeStatusPanel = ({
+  detail,
   title
 }: {
-  readonly correct: boolean
-  readonly label: string
-  readonly rationale: string
+  readonly detail: string
   readonly title: string
 }) => (
-  <ContentCard density="standard" tone={evaluationCardTone(correct)}>
-    <Cluster className="items-start justify-between gap-3">
-      <SemanticText as="p" className="text-ink-700" role="row-label" text={title} variant="expanded" />
-      <SemanticText
-        as="span"
-        className={evaluationLabelClassName(correct)}
-        role="row-value"
-        text={evaluationStatus(correct)}
-        variant="expanded"
-      />
-    </Cluster>
-    <SemanticText as="p" className="text-ink-900" role="card-title" text={label} variant="expanded" />
-    <SemanticText as="p" className="text-ink-700" role="card-summary" text={rationale} variant="expanded" />
-  </ContentCard>
+  <AccentBorder tone={tone}>
+    <SemanticText as="p" className={tone.text} role="row-label" text={title} />
+    <SemanticText as="p" className="text-ink-800" role="row-value" text={detail} />
+  </AccentBorder>
+)
+
+const ModuleConfigurationPanel = ({
+  controlsLocked,
+  moduleTypeIndex,
+  moduleTypeOptions,
+  optimizationBudget,
+  onSelectModuleType,
+  onSetBudget
+}: {
+  readonly controlsLocked: boolean
+  readonly moduleTypeIndex: number
+  readonly moduleTypeOptions: ReadonlyArray<{ readonly index: number; readonly label: string }>
+  readonly optimizationBudget: {
+    readonly value: number
+    readonly min: number
+    readonly max: number
+    readonly step: number
+    readonly display: string
+  }
+  readonly onSelectModuleType: (index: number) => void
+  readonly onSetBudget: (value: number) => void
+}) => (
+  <Stack className="gap-3">
+    <Stack className="gap-1">
+      <SemanticText as="p" className={tone.text} role="row-label" text="Module configuration" />
+      {controlsLocked
+        ? (
+          <SemanticText
+            as="p"
+            className="text-ink-600"
+            role="row-value"
+            text="Active runs stay pinned to the frozen manifest snapshot until completion."
+          />
+        )
+        : null}
+    </Stack>
+    <ChoicePills
+      activeIndex={moduleTypeIndex}
+      disabled={controlsLocked}
+      onSelect={onSelectModuleType}
+      options={moduleTypeOptions}
+      tone={tone}
+    />
+    <SliderRow
+      disabled={controlsLocked}
+      display={optimizationBudget.display}
+      hint="BootstrapFewShot optimization rounds"
+      hintNoWrap
+      label="Rounds"
+      layout="stacked"
+      max={optimizationBudget.max}
+      min={optimizationBudget.min}
+      onChange={onSetBudget}
+      step={optimizationBudget.step}
+      tone={tone}
+      value={optimizationBudget.value}
+    />
+  </Stack>
 )
 
 export const LiveDspEvaluation = () => {
   const vm = useAtomValue(dspWidgetViewModelAtom)
-  const selectCase = useAtomSet(selectDspEvaluationCaseAtom)
+  const selectScenario = useAtomSet(selectDspScenarioAtom)
+  const selectModuleType = useAtomSet(selectDspModuleTypeAtom)
+  const setBudget = useAtomSet(setDspOptimizationBudgetAtom)
 
   return (
-    <Stack className="mx-auto w-full max-w-6xl gap-4 xl:px-4 2xl:px-6">
-      <ChoicePills
-        activeIndex={vm.activeIndex}
-        className="w-full gap-2 xl:justify-center"
-        disabled={false}
-        onSelect={selectCase}
-        options={vm.options}
-        tone={tone}
-      />
+    <InstrumentPanel
+      controls={
+        <Stack className="gap-4">
+          <ChoicePills
+            activeIndex={vm.scenarioIndex}
+            className="w-full gap-2 xl:justify-center"
+            disabled={vm.controlsLocked}
+            onSelect={selectScenario}
+            options={vm.scenarioOptions}
+            tone={tone}
+          />
+          {vm.runtimeStatus !== null
+            ? <RuntimeStatusPanel detail={vm.runtimeStatus.detail} title={vm.runtimeStatus.title} />
+            : null}
+          <ModuleConfigurationPanel
+            controlsLocked={vm.controlsLocked}
+            moduleTypeIndex={vm.moduleTypeIndex}
+            moduleTypeOptions={vm.moduleTypeOptions}
+            onSelectModuleType={selectModuleType}
+            onSetBudget={setBudget}
+            optimizationBudget={vm.optimizationBudget}
+          />
+        </Stack>
+      }
+      metrics={vm.metrics}
+    >
+      <Stack className="gap-5">
+        <SignaturePanel contract={vm.scenario.contract} />
 
-      <MetricStrip metrics={vm.metrics} />
-
-      <Stack className={`${surfaceMaterials.raisedCard} gap-4 p-5 sm:p-6`}>
-        <Cluster className="items-start justify-between gap-3">
-          <Stack className="gap-1">
-            <SemanticText
-              as="p"
-              className={tone.text}
-              role="row-label"
-              text="Typed evaluation artifact"
-              variant="expanded"
-            />
-            <SemanticText
-              as="h3"
-              className="text-ink-900"
-              role="section-title"
-              text={vm.activeCase.label}
-              variant="expanded"
-            />
-          </Stack>
-          <ContentCard className="w-full sm:w-auto" density="compact" tone={dspCardTone}>
-            <Stack className="gap-1">
-              <SemanticText
-                as="p"
-                className="text-ink-700"
-                role="row-label"
-                text="Expected label"
-                variant="expanded"
-              />
-              <SemanticText
-                as="p"
-                className={tone.textStrong}
-                role="row-value"
-                text={vm.activeCase.expectedLabel}
-                variant="expanded"
-              />
-            </Stack>
-          </ContentCard>
-        </Cluster>
-
-        <ContentCard density="standard" tone={dspCardTone}>
-          <Stack className="gap-2">
-            <SemanticText
-              as="p"
-              className="text-ink-700"
-              role="row-label"
-              text="Input text"
-              variant="expanded"
-            />
-            <SemanticText
-              as="p"
-              className="text-ink-900"
-              role="card-summary"
-              text={vm.activeCase.input}
-              variant="expanded"
-            />
-          </Stack>
-        </ContentCard>
-
-        <Grid className="gap-3 xl:gap-4" layout="lead-rail">
-          <ContentCard density="standard">
-            <Stack className="gap-3">
-              <SemanticText
-                as="p"
-                className={tone.text}
-                role="row-label"
-                text="Program contract"
-                variant="expanded"
-              />
-              <SemanticText
-                as="p"
-                className="text-ink-900"
-                role="card-summary"
-                text={vm.contract.instruction}
-                variant="expanded"
-              />
-              <Cluster className="items-stretch gap-3">
-                <ContentCard className="flex-1" density="compact" tone={dspCardTone}>
-                  <Stack className="gap-1">
-                    <SemanticText
-                      as="p"
-                      className="text-ink-700"
-                      role="row-label"
-                      text="Input field"
-                      variant="expanded"
-                    />
-                    <SemanticText
-                      as="p"
-                      className="text-ink-900"
-                      role="row-value"
-                      text={vm.contract.inputField}
-                      variant="expanded"
-                    />
-                  </Stack>
-                </ContentCard>
-                <ContentCard className="flex-1" density="compact" tone={dspCardTone}>
-                  <Stack className="gap-1">
-                    <SemanticText
-                      as="p"
-                      className="text-ink-700"
-                      role="row-label"
-                      text="Output field"
-                      variant="expanded"
-                    />
-                    <SemanticText
-                      as="p"
-                      className="text-ink-900"
-                      role="row-value"
-                      text={vm.contract.outputField}
-                      variant="expanded"
-                    />
-                  </Stack>
-                </ContentCard>
-              </Cluster>
-            </Stack>
-          </ContentCard>
-
-          <Stack className="gap-3">
-            <EvaluationTrackCard
-              correct={vm.activeCase.heuristicCorrect}
-              label={vm.activeCase.heuristicLabel}
-              rationale={vm.activeCase.heuristicRationale}
-              title="Heuristic baseline"
-            />
-            <EvaluationTrackCard
-              correct={vm.activeCase.modelCorrect}
-              label={vm.activeCase.modelLabel}
-              rationale={vm.activeCase.modelRationale}
-              title="Typed provider program"
-            />
-          </Stack>
-        </Grid>
-      </Stack>
-
-      <Stack className={`${surfaceMaterials.callout} gap-0`}>
-        <SemanticText
-          as="p"
-          className="text-ink-700"
-          role="card-summary"
-          text={vm.activeCase.note}
-          variant="expanded"
+        <EvaluationTable
+          contract={vm.scenario.contract}
+          examples={vm.scenario.examples}
+          metricDescription={vm.scenario.metricDescription}
+          metricName={vm.scenario.metricName}
         />
       </Stack>
-    </Stack>
+    </InstrumentPanel>
   )
 }

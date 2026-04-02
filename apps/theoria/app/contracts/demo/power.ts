@@ -12,6 +12,25 @@ import * as Arr from "effect/Array"
 
 import { normalCdf, normalPdf, normalQuantile } from "effect-math/Distribution"
 
+export const defaultPowerControls: {
+  readonly d: 0.5
+  readonly n: 30
+  readonly alpha: 0.05
+} = {
+  d: 0.5,
+  n: 30,
+  alpha: 0.05
+}
+export const powerEffectSizeMin = 0.1
+export const powerEffectSizeMax = 2.0
+export const powerEffectSizeStep = 0.05
+export const powerSampleSizeMin = 5
+export const powerSampleSizeMax = 200
+export const powerSampleSizeStep = 1
+export const powerAlphaMin = 0.01
+export const powerAlphaMax = 0.1
+export const powerAlphaStep = 0.01
+
 // ---------------------------------------------------------------------------
 // Core power analysis kernels
 // ---------------------------------------------------------------------------

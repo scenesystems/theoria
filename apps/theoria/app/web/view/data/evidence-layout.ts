@@ -2,6 +2,8 @@ import { Match } from "effect"
 
 import type { EvidenceItem } from "../../../contracts/evidence.js"
 
+export * from "./evidence-plane-model.js"
+
 export type EvidenceSpan = "compact" | "medium" | "wide" | "full"
 
 export const evidenceSpan = (item: EvidenceItem): EvidenceSpan =>

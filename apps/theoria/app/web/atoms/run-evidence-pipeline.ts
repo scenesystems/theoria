@@ -1,11 +1,26 @@
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Match, Option, Ref, Stream } from "effect"
+import { Deferred, Effect, Match, Option, Queue, Ref, Stream } from "effect"
 
+import type { CanonicalStep } from "../../contracts/canonical-step.js"
+import type { ChoreographyCue, ChoreographyState } from "../../contracts/choreography.js"
+import { initialChoreographyState, reduceChoreographyState } from "../../contracts/choreography.js"
 import { type DemoError, DemoExecutionError } from "../../contracts/demo-error.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
+import {
+  EffectDspManifest,
+  EffectMathManifest,
+  EffectSearchManifest,
+  EffectTextManifest,
+  type StreamManifest
+} from "../../contracts/stream-manifest.js"
 import type { DemoClient } from "../services/DemoClient.js"
-import { isEffectMathRunPlan, isEffectTextRunPlan, type LocalRunFrame, type LocalRunPlan } from "../state/local-run.js"
+import {
+  isEffectMathRunPlan,
+  isEffectSearchRunPlan,
+  isEffectTextRunPlan,
+  type LocalRunFrame,
+  type LocalRunPlan
+} from "../state/local-run.js"
 import {
   applyEvidenceEventToStore,
   emptyEvidenceStoreState,
@@ -14,8 +29,16 @@ import {
 } from "../state/types.js"
 
 import { makeAnimationStream, resetAnimationState } from "./animation.js"
+import { makeDspRunStream } from "./dsp-local-driver.js"
+import { snapshotEffectDspRunPlan } from "./dsp-run-plan.js"
+import { dspModuleTypeIndexAtom, dspOptimizationBudgetAtom, dspScenarioIndexAtom } from "./dsp-widget.js"
 import { makeServerEvidenceStream } from "./evidence-stream.js"
-import { makeOptimizationAnimationStream, resetOptimizationAnimationState } from "./optimization-animation.js"
+import {
+  makeOptimizationAnimationStream,
+  resetOptimizationAnimationState,
+  snapshotEffectSearchRunPlan,
+  trialBudgetAtom
+} from "./optimization-animation.js"
 import {
   makePowerAnimationStream,
   powerControlsAtom,
@@ -24,8 +47,10 @@ import {
 } from "./power-animation.js"
 import { customTextAtom, reflowStageViewportWidthAtom, snapshotEffectTextRunPlan } from "./reflow.js"
 import type { RunSignal } from "./run-lifecycle.js"
+import type { RunRegistry } from "./run-registry-context.js"
 
 type CompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
+type AuthoredStepQueueEvent = CanonicalStep | CompletionEvent
 type LocalCompletionEvent = { readonly _tag: "LocalDriverCompleted" }
 type LocalRunFrameUpdatedEvent = {
   readonly _tag: "LocalRunFrameUpdated"
@@ -35,19 +60,21 @@ type LocalDriverStreamEvent = EvidenceEvent | LocalRunFrameUpdatedEvent
 type PipelineEvent = LocalDriverStreamEvent | LocalCompletionEvent
 
 export type LocalDriverSnapshot = {
-  readonly serverStreamInput: string | null
+  readonly manifest: StreamManifest | null
   readonly localRunPlan: LocalRunPlan | null
 }
 
 export type LocalDriverDescriptor = {
   readonly ownership: RunOwnership
-  readonly snapshot: (ctx: AtomType.FnContext) => LocalDriverSnapshot
+  readonly snapshot: (registry: RunRegistry) => LocalDriverSnapshot
   readonly makeStream: (
-    ctx: AtomType.FnContext,
+    registry: RunRegistry,
     signal: RunSignal,
-    snapshot: LocalDriverSnapshot
-  ) => Stream.Stream<LocalDriverStreamEvent, never, never>
-  readonly reset: (ctx: AtomType.FnContext) => Effect.Effect<void, never, never>
+    snapshot: LocalDriverSnapshot,
+    stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
+    serverCompleted: Deferred.Deferred<CompletionEvent>
+  ) => Stream.Stream<LocalDriverStreamEvent, DemoError, never>
+  readonly reset: (registry: RunRegistry) => Effect.Effect<void, never, never>
 }
 
 const serverOnlyOwnership: RunOwnership = {
@@ -62,42 +89,76 @@ const sharedStreamingOwnership: RunOwnership = {
 
 const effectTextLocalDriver: LocalDriverDescriptor = {
   ownership: sharedStreamingOwnership,
-  snapshot: (ctx) => {
-    const customText = ctx(customTextAtom)
+  snapshot: (registry) => {
+    const customText = registry.get(customTextAtom)
+    const viewportWidthPx = registry.get(reflowStageViewportWidthAtom)
 
     return {
-      serverStreamInput: customText,
-      localRunPlan: snapshotEffectTextRunPlan({
-        customText,
-        viewportWidthPx: ctx(reflowStageViewportWidthAtom)
-      })
+      manifest: new EffectTextManifest({ customText, viewportWidthPx }),
+      localRunPlan: snapshotEffectTextRunPlan({ customText, viewportWidthPx })
     }
   },
-  makeStream: (ctx, signal, snapshot) =>
+  makeStream: (registry, signal, snapshot, stepQueue, serverCompleted) =>
     isEffectTextRunPlan(snapshot.localRunPlan)
-      ? makeAnimationStream(ctx, signal, snapshot.localRunPlan)
+      ? makeAnimationStream(registry, signal, snapshot.localRunPlan, stepQueue, serverCompleted)
       : Stream.empty,
   reset: resetAnimationState
 }
 
 const effectSearchLocalDriver: LocalDriverDescriptor = {
   ownership: sharedStreamingOwnership,
-  snapshot: () => ({ serverStreamInput: null, localRunPlan: null }),
-  makeStream: (ctx, signal) => makeOptimizationAnimationStream(ctx, signal),
+  snapshot: (registry) => {
+    const trialBudget = registry.get(trialBudgetAtom)
+
+    return {
+      manifest: new EffectSearchManifest({ trialBudget }),
+      localRunPlan: snapshotEffectSearchRunPlan(trialBudget)
+    }
+  },
+  makeStream: (registry, signal, snapshot, _cueQueue, _serverCompleted) =>
+    isEffectSearchRunPlan(snapshot.localRunPlan)
+      ? makeOptimizationAnimationStream(registry, signal, snapshot.localRunPlan)
+      : Stream.empty,
   reset: resetOptimizationAnimationState
 }
 
 const effectMathLocalDriver: LocalDriverDescriptor = {
   ownership: sharedStreamingOwnership,
-  snapshot: (ctx) => ({
-    serverStreamInput: null,
-    localRunPlan: snapshotEffectMathRunPlan(ctx(powerControlsAtom))
-  }),
-  makeStream: (ctx, signal, snapshot) =>
+  snapshot: (registry) => {
+    const controls = registry.get(powerControlsAtom)
+
+    return {
+      manifest: new EffectMathManifest({ alpha: controls.alpha, d: controls.d, n: controls.n }),
+      localRunPlan: snapshotEffectMathRunPlan(controls)
+    }
+  },
+  makeStream: (registry, signal, snapshot, _cueQueue, _serverCompleted) =>
     isEffectMathRunPlan(snapshot.localRunPlan)
-      ? makePowerAnimationStream(ctx, signal, snapshot.localRunPlan)
+      ? makePowerAnimationStream(registry, signal, snapshot.localRunPlan)
       : Stream.empty,
   reset: resetPowerAnimationStateEffect
+}
+
+const effectDspLocalDriver: LocalDriverDescriptor = {
+  ownership: sharedStreamingOwnership,
+  snapshot: (registry) => {
+    const plan = snapshotEffectDspRunPlan({
+      scenarioIndex: registry.get(dspScenarioIndexAtom),
+      moduleTypeIndex: registry.get(dspModuleTypeIndexAtom),
+      optimizationBudget: registry.get(dspOptimizationBudgetAtom)
+    })
+
+    return {
+      manifest: new EffectDspManifest({
+        scenarioId: plan.scenarioId,
+        moduleType: plan.moduleType,
+        optimizationBudget: plan.optimizationBudget
+      }),
+      localRunPlan: plan
+    }
+  },
+  makeStream: (_ctx, signal, _snapshot, stepQueue, _serverCompleted) => makeDspRunStream(signal, stepQueue),
+  reset: () => Effect.void
 }
 
 export const localDriverFor = (id: Id): Option.Option<LocalDriverDescriptor> =>
@@ -105,6 +166,7 @@ export const localDriverFor = (id: Id): Option.Option<LocalDriverDescriptor> =>
     Match.when("effect-text", () => Option.some(effectTextLocalDriver)),
     Match.when("effect-search", () => Option.some(effectSearchLocalDriver)),
     Match.when("effect-math", () => Option.some(effectMathLocalDriver)),
+    Match.when("effect-dsp", () => Option.some(effectDspLocalDriver)),
     Match.orElse(() => Option.none())
   )
 
@@ -116,45 +178,63 @@ export const runOwnershipFor = (localDriver: Option.Option<LocalDriverDescriptor
 
 export const snapshotLocalDriver = (
   localDriver: Option.Option<LocalDriverDescriptor>,
-  ctx: AtomType.FnContext
+  registry: RunRegistry
 ): LocalDriverSnapshot =>
   Option.match(localDriver, {
-    onNone: () => ({ serverStreamInput: null, localRunPlan: null }),
-    onSome: (driver) => driver.snapshot(ctx)
+    onNone: () => ({ manifest: null, localRunPlan: null }),
+    onSome: (driver) => driver.snapshot(registry)
   })
 
 export const resetLocalDriverState = (
   localDriver: Option.Option<LocalDriverDescriptor>,
-  ctx: AtomType.FnContext
+  registry: RunRegistry
 ): Effect.Effect<void, never, never> =>
   Option.match(localDriver, {
     onNone: () => Effect.void,
-    onSome: (driver) => driver.reset(ctx)
+    onSome: (driver) => driver.reset(registry)
   })
 
 const localDriverCompleted: LocalCompletionEvent = { _tag: "LocalDriverCompleted" }
 
 const localEvidenceStreamFor = (
   localDriver: Option.Option<LocalDriverDescriptor>,
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   signal: RunSignal,
-  snapshot: LocalDriverSnapshot
-): Stream.Stream<PipelineEvent, never, never> =>
+  snapshot: LocalDriverSnapshot,
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
+  serverCompleted: Deferred.Deferred<CompletionEvent>
+): Stream.Stream<PipelineEvent, DemoError, never> =>
   Option.match(localDriver, {
     onNone: () => Stream.empty,
-    onSome: (driver) => Stream.concat(driver.makeStream(ctx, signal, snapshot), Stream.succeed(localDriverCompleted))
+    onSome: (driver) =>
+      Stream.concat(
+        driver.makeStream(registry, signal, snapshot, stepQueue, serverCompleted),
+        Stream.succeed(localDriverCompleted)
+      )
   })
 
 const recordServerCompletion = (
   completionRef: Ref.Ref<Option.Option<CompletionEvent>>,
+  serverCompleted: Deferred.Deferred<CompletionEvent>,
   onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>,
   event: PipelineEvent
 ): Effect.Effect<void, never, never> =>
   Match.value(event).pipe(
     Match.tag("StreamComplete", (completion) =>
       Ref.set(completionRef, Option.some(completion)).pipe(
+        Effect.zipRight(Deferred.succeed(serverCompleted, completion)),
         Effect.zipRight(onServerCompleted(completion))
       )),
+    Match.orElse(() => Effect.void)
+  )
+
+const enqueueAuthoredStep = (
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
+  event: EvidenceEvent
+): Effect.Effect<void, never, never> =>
+  Match.value(event).pipe(
+    Match.tag("Step", ({ step }) => Queue.offer(stepQueue, step).pipe(Effect.asVoid)),
+    Match.tag("StreamComplete", (completion) => Queue.offer(stepQueue, completion).pipe(Effect.asVoid)),
     Match.orElse(() => Effect.void)
   )
 
@@ -188,6 +268,9 @@ const ensureLocalCompletion = (
     )
   )
 
+const claimFinalizationNotification = (notified: boolean): readonly [boolean, boolean] =>
+  notified ? [false, true] : [true, true]
+
 const finalizePipelineIfReady = ({
   completionRef,
   finalizationNotifiedRef,
@@ -201,12 +284,15 @@ const finalizePipelineIfReady = ({
   readonly onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>
   readonly storeRef: Ref.Ref<EvidenceStoreState>
 }): Effect.Effect<void, never, never> =>
-  Effect.all([Ref.get(completionRef), Ref.get(finalizationNotifiedRef), Ref.get(localCompletionRef)]).pipe(
-    Effect.flatMap(([completion, finalizationNotified, localCompletion]) =>
-      Option.isSome(completion) && localCompletion && !finalizationNotified
-        ? Ref.set(finalizationNotifiedRef, true).pipe(
-          Effect.zipRight(Ref.get(storeRef)),
-          Effect.flatMap(onReadyForFinalization)
+  Effect.all([Ref.get(completionRef), Ref.get(localCompletionRef)]).pipe(
+    Effect.flatMap(([completion, localCompletion]) =>
+      Option.isSome(completion) && localCompletion
+        ? Ref.modify(finalizationNotifiedRef, claimFinalizationNotification).pipe(
+          Effect.flatMap((shouldNotify) =>
+            shouldNotify
+              ? Ref.get(storeRef).pipe(Effect.flatMap(onReadyForFinalization))
+              : Effect.void
+          )
         )
         : Effect.void
     )
@@ -217,7 +303,9 @@ const recordPipelineEvent = (
   onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>,
   onLocalCompleted: () => Effect.Effect<void, never, never>,
   storeRef: Ref.Ref<EvidenceStoreState>,
+  choreographyRef: Ref.Ref<ChoreographyState>,
   onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>,
+  onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>,
   event: PipelineEvent
 ): Effect.Effect<void, never, never> =>
   Match.value(event).pipe(
@@ -226,6 +314,13 @@ const recordPipelineEvent = (
       "LocalDriverCompleted",
       () => Ref.set(localCompletionRef, true).pipe(Effect.zipRight(onLocalCompleted()))
     ),
+    Match.tag("Choreography", ({ cue }) =>
+      Ref.update(choreographyRef, (state) =>
+        reduceChoreographyState(state, cue)).pipe(
+          Effect.zipRight(onCue(cue))
+        )),
+    Match.tag("Step", () =>
+      Effect.void),
     Match.orElse((evidenceEvent) =>
       Ref.update(storeRef, (store) => applyEvidenceEventToStore(store, evidenceEvent)).pipe(
         Effect.zipRight(onEvent(evidenceEvent))
@@ -233,11 +328,58 @@ const recordPipelineEvent = (
     )
   )
 
+const processPipelineEvent = ({
+  completionRef,
+  event,
+  finalizationNotifiedRef,
+  localCompletionRef,
+  onCue,
+  onEvent,
+  onFrame,
+  onLocalCompleted,
+  onReadyForFinalization,
+  storeRef,
+  choreographyRef
+}: {
+  readonly completionRef: Ref.Ref<Option.Option<CompletionEvent>>
+  readonly event: PipelineEvent
+  readonly finalizationNotifiedRef: Ref.Ref<boolean>
+  readonly localCompletionRef: Ref.Ref<boolean>
+  readonly onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>
+  readonly onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>
+  readonly onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>
+  readonly onLocalCompleted: () => Effect.Effect<void, never, never>
+  readonly onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>
+  readonly storeRef: Ref.Ref<EvidenceStoreState>
+  readonly choreographyRef: Ref.Ref<ChoreographyState>
+}): Effect.Effect<void, never, never> =>
+  recordPipelineEvent(
+    localCompletionRef,
+    onFrame,
+    onLocalCompleted,
+    storeRef,
+    choreographyRef,
+    onEvent,
+    onCue,
+    event
+  ).pipe(
+    Effect.zipRight(
+      finalizePipelineIfReady({
+        completionRef,
+        finalizationNotifiedRef,
+        localCompletionRef,
+        onReadyForFinalization,
+        storeRef
+      })
+    )
+  )
+
 export const runEvidencePipeline = ({
-  ctx,
+  registry,
   id,
   localDriver,
   localDriverSnapshot,
+  onCue,
   onEvent,
   onFrame,
   onLocalCompleted,
@@ -245,10 +387,11 @@ export const runEvidencePipeline = ({
   onServerCompleted,
   signal
 }: {
-  readonly ctx: AtomType.FnContext
+  readonly registry: RunRegistry
   readonly id: Id
   readonly localDriver: Option.Option<LocalDriverDescriptor>
   readonly localDriverSnapshot: LocalDriverSnapshot
+  readonly onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>
   readonly onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>
   readonly onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>
   readonly onLocalCompleted: () => Effect.Effect<void, never, never>
@@ -258,34 +401,42 @@ export const runEvidencePipeline = ({
 }): Effect.Effect<EvidenceStoreState, DemoError, DemoClient> =>
   Effect.gen(function*() {
     const completionRef = yield* Ref.make<Option.Option<CompletionEvent>>(Option.none())
+    const serverCompleted = yield* Deferred.make<CompletionEvent>()
     const finalizationNotifiedRef = yield* Ref.make(false)
     const localCompletionRef = yield* Ref.make(Option.match(localDriver, {
       onNone: () => true,
       onSome: () => false
     }))
     const storeRef = yield* Ref.make<EvidenceStoreState>(emptyEvidenceStoreState)
-    const serverEvidenceStream = makeServerEvidenceStream(id, localDriverSnapshot.serverStreamInput).pipe(
-      Stream.tap((event) => recordServerCompletion(completionRef, onServerCompleted, event))
-    )
-
-    yield* Stream.merge(
-      serverEvidenceStream,
-      localEvidenceStreamFor(localDriver, ctx, signal, localDriverSnapshot)
-    ).pipe(
-      Stream.runForEach((event) =>
-        recordPipelineEvent(localCompletionRef, onFrame, onLocalCompleted, storeRef, onEvent, event).pipe(
-          Effect.zipRight(
-            finalizePipelineIfReady({
-              completionRef,
-              finalizationNotifiedRef,
-              localCompletionRef,
-              onReadyForFinalization,
-              storeRef
-            })
-          )
+    const choreographyRef = yield* Ref.make(initialChoreographyState)
+    const stepQueue = yield* Queue.unbounded<AuthoredStepQueueEvent>()
+    const serverEvidenceStream = makeServerEvidenceStream(id, localDriverSnapshot.manifest).pipe(
+      Stream.tap((event) =>
+        recordServerCompletion(completionRef, serverCompleted, onServerCompleted, event).pipe(
+          Effect.zipRight(enqueueAuthoredStep(stepQueue, event))
         )
       )
     )
+    const handlePipelineEvent = (event: PipelineEvent): Effect.Effect<void, never, never> =>
+      processPipelineEvent({
+        completionRef,
+        event,
+        finalizationNotifiedRef,
+        localCompletionRef,
+        onCue,
+        onEvent,
+        onFrame,
+        onLocalCompleted,
+        onReadyForFinalization,
+        storeRef,
+        choreographyRef
+      })
+
+    yield* Stream.merge(
+      serverEvidenceStream,
+      localEvidenceStreamFor(localDriver, registry, signal, localDriverSnapshot, stepQueue, serverCompleted),
+      { haltStrategy: "both" }
+    ).pipe(Stream.runForEach(handlePipelineEvent))
 
     yield* ensureServerCompletion(completionRef)
     yield* ensureLocalCompletion(localCompletionRef)

@@ -14,6 +14,7 @@ export const effectTextCardFixture: Card = {
   interactiveLabel: "Live Reflow",
   deepDivePath: "/demos/effect-text",
   group: "effect",
+  releaseState: "published",
   version: "0.0.0",
   npmUrl: "https://www.npmjs.com/package/effect-text",
   repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",

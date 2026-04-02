@@ -8,6 +8,7 @@ import type { Id as IdType } from "../../contracts/id.js"
 import type { SurfaceVariant } from "../../contracts/presentation.js"
 import type { RunData } from "../../contracts/run.js"
 import { statusText } from "../state/status.js"
+import { buildEvidencePlaneViewModel, type EvidencePlaneViewModel } from "../view/data/evidence-layout.js"
 import { tabHintFor } from "../view/deep/interactiveMetadata.js"
 import {
   type DemoEvidenceViewModel,
@@ -25,10 +26,15 @@ import {
   surfaceViewModel
 } from "../view/surfaceModel.js"
 
+import { surfaceEvidencePlaneAtom } from "./evidence-plane.js"
 import {
   surfaceAtom,
+  surfaceEvidenceCompleteAtom,
+  surfaceEvidenceMetaAtom,
   surfaceEvidenceSectionCountAtom,
+  surfaceEvidenceSectionsAtom,
   surfaceEvidenceStreamAtom,
+  surfaceEvidenceSummaryAtom,
   surfacePreloadStateAtom,
   surfaceRunDataAtom,
   surfaceRunStateAtom,
@@ -112,16 +118,33 @@ export const deepDiveStageFrameAtom: (id: IdType) => AtomType.Atom<DemoStageFram
     )
 )
 
-export const deepDiveEvidenceAtom: (id: IdType) => AtomType.Atom<DemoEvidenceViewModel | null> = Atom.family(
+type DeepDiveEvidenceAtomViewModel = DemoEvidenceViewModel & {
+  readonly plane: EvidencePlaneViewModel
+}
+
+export const deepDiveEvidenceAtom: (id: IdType) => AtomType.Atom<DeepDiveEvidenceAtomViewModel | null> = Atom.family(
   (id: IdType) =>
     Atom.make((get: AtomType.Context) =>
       Option.match(cardById(id), {
         onNone: () => null,
-        onSome: () =>
-          demoEvidenceViewModel({
-            run: get(surfaceRunStateAtom(id)),
-            stream: get(surfaceEvidenceStreamAtom(id))
-          })
+        onSome: () => {
+          const run = get(surfaceRunStateAtom(id))
+          const stream = get(surfaceEvidenceStreamAtom(id))
+          const plane = get(surfaceEvidencePlaneAtom(id))
+
+          return {
+            ...demoEvidenceViewModel({ run, stream }),
+            plane: buildEvidencePlaneViewModel({
+              complete: get(surfaceEvidenceCompleteAtom(id)),
+              filter: plane.filter,
+              meta: get(surfaceEvidenceMetaAtom(id)),
+              order: plane.order,
+              sections: get(surfaceEvidenceSectionsAtom(id)),
+              sectionKey: plane.sectionKey,
+              summary: get(surfaceEvidenceSummaryAtom(id))
+            })
+          }
+        }
       })
     )
 )

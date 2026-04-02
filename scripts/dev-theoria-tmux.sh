@@ -9,7 +9,7 @@ PORT="${THEORIA_PORT:-3876}"
 VITE_PORT="5175"
 WINDOW_NAME="theoria-app-${PORT}"
 TARGET="${TMUX_SESSION}:${WINDOW_NAME}"
-SERVER_CMD="cd \"${REPO_ROOT}\" && PORT=${PORT} bun run app:theoria"
+SERVER_CMD="cd \"${REPO_ROOT}\" && PORT=${PORT} bun --hot run apps/theoria/server.ts"
 VITE_CMD="cd \"${REPO_ROOT}/apps/theoria\" && THEORIA_PORT=${PORT} bun run dev:web"
 HEALTH_URL="http://127.0.0.1:${PORT}/api/health/live"
 

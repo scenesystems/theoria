@@ -1,11 +1,11 @@
 import { Match } from "effect"
 
-import { type LegendTheme, surfaceMaterials } from "./designSystem.js"
-import { Cluster, Layer, Stack } from "./Layout.js"
+import { type LegendTheme } from "./designSystem.js"
+import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 type LegendShape = "circle" | "square" | "diamond"
-type LegendVariant = "inline" | "chip"
+type LegendVariant = "inline" | "rail"
 
 const swatchClassName = ({
   swatch,
@@ -35,34 +35,42 @@ export const LegendItem = ({
   readonly value?: string
   readonly variant?: LegendVariant
 }) =>
-  variant === "chip"
+  variant === "rail"
     ? (
-      <Cluster className={className ?? `${surfaceMaterials.supportPanelDense} items-start gap-2`}>
-        <Layer aria-hidden as="span" className={swatchClassName({ swatch: theme.swatch, shape })} />
-        <Stack className="min-w-0 gap-1">
-          {value === undefined
-            ? null
-            : (
-              <SemanticText
-                as="p"
-                className="text-ink-700/78"
-                role="row-label"
-                text={value}
-                variant="expanded"
-              />
-            )}
+      <Layer className={className ?? "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1"}>
+        <Layer
+          aria-hidden
+          as="span"
+          className={`${swatchClassName({ swatch: theme.swatch, shape })} ${
+            value === undefined ? "row-span-1" : "row-span-2"
+          } mt-0.5`}
+        />
+        <Layer as="dt" className="min-w-0">
           <SemanticText
-            as="p"
-            className={theme.label}
-            role="status"
+            as="span"
+            className={`${theme.label} block max-w-none whitespace-nowrap`}
+            role="row-label"
             text={label}
             variant="expanded"
           />
-        </Stack>
-      </Cluster>
+        </Layer>
+        {value === undefined
+          ? null
+          : (
+            <Layer as="dd" className="min-w-0">
+              <SemanticText
+                as="span"
+                className="block max-w-none whitespace-nowrap text-ink-600"
+                role="code-meta"
+                text={value}
+                variant="expanded"
+              />
+            </Layer>
+          )}
+      </Layer>
     )
     : (
-      <Cluster className={className ?? "gap-1.5"}>
+      <Layer className={className ?? "inline-flex items-center gap-1.5"}>
         <Layer aria-hidden as="span" className={swatchClassName({ swatch: theme.swatch, shape })} />
         <SemanticText
           as="span"
@@ -71,5 +79,5 @@ export const LegendItem = ({
           text={value === undefined ? label : `${label} ${value}`}
           variant="expanded"
         />
-      </Cluster>
+      </Layer>
     )

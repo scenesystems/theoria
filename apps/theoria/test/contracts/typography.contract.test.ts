@@ -36,6 +36,12 @@ describe("Typography contract", () => {
     })
   })
 
+  it("panel and card headings opt out of line wrapping", () => {
+    expect(semanticsFor("section-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("card-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("hero-title").lineBreaks).toBe("wrap")
+  })
+
   it("prepareInputFor produces valid effect-text input", () => {
     const input = prepareInputFor("hero-title", "Test heading")
     expect(input.text).toBe("Test heading")

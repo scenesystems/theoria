@@ -5,15 +5,33 @@ import type { Text } from "effect-text"
 import * as Arr from "effect/Array"
 
 import { corpus } from "../../contracts/corpus.js"
+import {
+  optimizationTrialBudgetMax,
+  optimizationTrialBudgetMin,
+  optimizationTrialBudgetStep
+} from "../../contracts/demo/objective.js"
+import {
+  powerAlphaMax,
+  powerAlphaMin,
+  powerAlphaStep,
+  powerEffectSizeMax,
+  powerEffectSizeMin,
+  powerEffectSizeStep,
+  powerSampleSizeMax,
+  powerSampleSizeMin,
+  powerSampleSizeStep
+} from "../../contracts/demo/power.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 import {
   isEffectMathRunFrame,
   isEffectMathRunPlan,
+  isEffectSearchRunPlan,
   isEffectTextRunFrame,
   isEffectTextRunPlan,
   type LocalRunFrame,
   type LocalRunPlan
 } from "../state/local-run.js"
+import { runShowsAnimatingState, runUsesActiveFrameAuthority } from "../state/run-interaction.js"
 import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleProjection.js"
 import type { MetricAppearance } from "../view/primitives/designSystem.js"
 import { animatingAtom } from "./animation.js"
@@ -32,7 +50,7 @@ import {
   resolveReflowStageMaxWidth,
   resolveReflowStageWidth
 } from "./reflow.js"
-import { surfaceActiveLocalRunFrameAtom, surfaceActiveLocalRunPlanAtom } from "./surface.js"
+import { surfaceActiveLocalRunFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
 
 export type WidgetMetric = {
   readonly label: string
@@ -178,14 +196,22 @@ const resolveActiveEffectMathAuthority = ({
     ? { frame, plan }
     : null
 
+const resolveActiveEffectSearchAuthority = (
+  plan: LocalRunPlan | null
+): Extract<LocalRunPlan, { readonly _tag: "effect-search" }> | null => isEffectSearchRunPlan(plan) ? plan : null
+
 export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = Atom.make(
   (get: AtomType.Context): ReflowWidgetViewModel => {
     const controls = get(reflowControlsAtom)
+    const run = get(surfaceRunStateAtom("effect-text"))
+    const isAnimating = get(animatingAtom)
     const manualProjection = get(reflowProjectionAtom)
-    const activeAuthority = resolveActiveEffectTextAuthority({
-      frame: get(surfaceActiveLocalRunFrameAtom("effect-text")),
-      plan: get(surfaceActiveLocalRunPlanAtom("effect-text"))
-    })
+    const activeAuthority = runUsesActiveFrameAuthority(run)
+      ? resolveActiveEffectTextAuthority({
+        frame: get(surfaceActiveLocalRunFrameAtom("effect-text")),
+        plan: get(surfaceActiveLocalRunPlanAtom("effect-text"))
+      })
+      : null
     const projection = resolveReflowProjection({
       activeFrame: activeAuthority?.frame ?? null,
       manualProjection
@@ -223,7 +249,7 @@ export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = A
         display: `${width}px`
       },
       obstaclesEnabled,
-      isAnimating: get(animatingAtom),
+      isAnimating: runShowsAnimatingState(run, isAnimating),
       metrics: stage === null ? [] : reflowMetrics({ obstaclesEnabled, projection: stage }),
       lines: projection?.lines ?? [],
       stage
@@ -256,22 +282,27 @@ const dangerMetricAppearance: MetricAppearance = { _tag: "danger" }
 
 export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetViewModel> = Atom.make(
   (get: AtomType.Context): OptimizationWidgetViewModel => {
+    const run = get(surfaceRunStateAtom("effect-search"))
     const projection = get(optimizationProjectionAtom)
+    const activePlan = runShowsAnimatingState(run, get(optimizationAnimatingAtom))
+      ? resolveActiveEffectSearchAuthority(get(surfaceActiveLocalRunPlanAtom("effect-search")))
+      : null
     const improvement = Option.zipWith(
       projection.tpeBestValue,
       projection.randomBestValue,
       (tpeBest, randomBest) => `${((1 - tpeBest / randomBest) * 100).toFixed(1)}%`
     )
+    const trialBudget = activePlan?.trialBudget ?? projection.trialBudget
 
     return {
       budget: {
-        value: projection.trialBudget,
-        min: 10,
-        max: 100,
-        step: 5,
-        display: `${projection.trialBudget}`
+        value: trialBudget,
+        min: optimizationTrialBudgetMin,
+        max: optimizationTrialBudgetMax,
+        step: optimizationTrialBudgetStep,
+        display: `${trialBudget}`
       },
-      isAnimating: get(optimizationAnimatingAtom),
+      isAnimating: runShowsAnimatingState(run, get(optimizationAnimatingAtom)),
       metrics: [
         {
           label: "TPE best",
@@ -284,7 +315,7 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
           value: Option.getOrElse(improvement, () => "—"),
           appearance: { _tag: "tone", tone: "search" }
         },
-        { label: "Trials", value: `${projection.tpeTrials.length}/${projection.trialBudget}` }
+        { label: "Trials", value: `${projection.tpeTrials.length}/${trialBudget}` }
       ],
       projection
     }
@@ -333,10 +364,13 @@ const powerMetricAppearance = (powerValue: number): MetricAppearance =>
 
 export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Atom.make(
   (get: AtomType.Context): PowerWidgetViewModel => {
-    const activeAuthority = resolveActiveEffectMathAuthority({
-      frame: get(surfaceActiveLocalRunFrameAtom("effect-math")),
-      plan: get(surfaceActiveLocalRunPlanAtom("effect-math"))
-    })
+    const run = get(surfaceRunStateAtom("effect-math"))
+    const activeAuthority = runUsesActiveFrameAuthority(run)
+      ? resolveActiveEffectMathAuthority({
+        frame: get(surfaceActiveLocalRunFrameAtom("effect-math")),
+        plan: get(surfaceActiveLocalRunPlanAtom("effect-math"))
+      })
+      : null
     const projection = activeAuthority?.frame.projection ?? get(powerProjectionAtom)
     const controls = activeAuthority?.frame.controls ?? {
       d: projection.d,
@@ -348,27 +382,27 @@ export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Ato
       controls: {
         effectSize: {
           value: controls.d,
-          min: 0.1,
-          max: 2.0,
-          step: 0.05,
+          min: powerEffectSizeMin,
+          max: powerEffectSizeMax,
+          step: powerEffectSizeStep,
           display: controls.d.toFixed(2)
         },
         sampleSize: {
           value: controls.n,
-          min: 5,
-          max: 200,
-          step: 1,
+          min: powerSampleSizeMin,
+          max: powerSampleSizeMax,
+          step: powerSampleSizeStep,
           display: `${controls.n}`
         },
         alpha: {
           value: controls.alpha,
-          min: 0.01,
-          max: 0.1,
-          step: 0.01,
+          min: powerAlphaMin,
+          max: powerAlphaMax,
+          step: powerAlphaStep,
           display: controls.alpha.toFixed(2)
         }
       },
-      isAnimating: get(powerAnimatingAtom),
+      isAnimating: runShowsAnimatingState(run, get(powerAnimatingAtom)),
       metrics: [
         {
           label: "Power",

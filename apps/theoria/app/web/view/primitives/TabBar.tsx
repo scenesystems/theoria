@@ -38,11 +38,18 @@ export const TabButton = ({
 )
 
 export const TabBar = ({
+  className,
   children
 }: {
+  readonly className?: string
   readonly children: ReactNode
 }) => (
-  <Layer as="nav" className="flex gap-1 rounded-lg border border-stage-200/95 bg-stage-100/68 p-1">
+  <Layer
+    as="nav"
+    className={`flex gap-1 rounded-lg border border-stage-200/95 bg-stage-100/68 p-1${
+      className !== undefined ? ` ${className}` : ""
+    }`}
+  >
     {children}
   </Layer>
 )

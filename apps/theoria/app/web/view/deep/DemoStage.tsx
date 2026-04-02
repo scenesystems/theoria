@@ -1,13 +1,16 @@
-import { ArrowPathIcon, PauseIcon, PlayIcon, StopIcon } from "@heroicons/react/20/solid"
-import { Match, Option } from "effect"
+import { Match } from "effect"
 import type { ReactNode } from "react"
 
-import type { RunControlActionKind } from "../../state/types.js"
-import type { RunControlsViewModel } from "../runControlsModel.js"
+import {
+  buildEvidencePlaneViewModel,
+  type EvidencePlaneFilter,
+  type EvidencePlaneOrder,
+  type EvidencePlaneViewModel
+} from "../data/evidence-layout.js"
+import { EvidenceToolbar } from "../primitives/EvidenceToolbar.js"
 import type { DemoEvidenceViewModel, DemoStageViewModel } from "./stageModel.js"
 
-import { ActionButton } from "../primitives/ActionButton.js"
-import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { Layer, Stack } from "../primitives/Layout.js"
 import { EmptyState, FailureState, RunningState } from "../primitives/Skeleton.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
@@ -16,156 +19,149 @@ import { EvidenceSections } from "./EvidenceSections.js"
 const stagePaneClassName = (active: boolean): string => active ? "min-h-0 flex-1" : "hidden min-h-0 flex-1"
 
 const evidenceSectionsNode = ({
-  actions,
   banner,
-  includeAction,
-  sections
+  onSelectFilter,
+  onSelectOrder,
+  onSelectSection,
+  plane
 }: {
-  readonly actions: ReactNode | undefined
   readonly banner: DemoEvidenceViewModel["banner"]
-  readonly includeAction: boolean
-  readonly sections: DemoEvidenceViewModel["sections"]
+  readonly onSelectFilter: (filter: EvidencePlaneFilter) => void
+  readonly onSelectOrder: (order: EvidencePlaneOrder) => void
+  readonly onSelectSection: (sectionKey: string | null) => void
+  readonly plane: EvidencePlaneViewModel
 }) => (
-  <Stack className="gap-3 animate-fade-in-up">
+  <Stack className="gap-4 animate-fade-in-up">
     {banner === null
       ? null
-      : <StageBanner action={includeAction ? actions : undefined} text={banner.text} tone={banner.tone} />}
-    <EvidenceSections sections={sections} />
+      : <StageBanner text={banner.text} tone={banner.tone} />}
+    <EvidenceToolbar
+      onSelectFilter={onSelectFilter}
+      onSelectOrder={onSelectOrder}
+      onSelectSection={onSelectSection}
+      viewModel={plane}
+    />
+    <EvidenceSections plane={plane} />
   </Stack>
 )
 
 const retainedEvidenceNode = ({
-  actions,
   banner,
   emptyNode,
-  includeAction,
+  onSelectFilter,
+  onSelectOrder,
+  onSelectSection,
+  plane,
   sections
 }: {
-  readonly actions: ReactNode | undefined
   readonly banner: DemoEvidenceViewModel["banner"]
   readonly emptyNode: ReactNode
-  readonly includeAction: boolean
+  readonly onSelectFilter: (filter: EvidencePlaneFilter) => void
+  readonly onSelectOrder: (order: EvidencePlaneOrder) => void
+  readonly onSelectSection: (sectionKey: string | null) => void
+  readonly plane: EvidencePlaneViewModel
   readonly sections: DemoEvidenceViewModel["sections"]
 }) =>
   sections.length === 0
     ? emptyNode
-    : evidenceSectionsNode({ actions, banner, includeAction, sections })
-
-const actionIcon = (action: RunControlActionKind) =>
-  Match.value(action).pipe(
-    Match.when("pause", () => <PauseIcon aria-hidden className="h-4 w-4 shrink-0" />),
-    Match.when("stop", () => <StopIcon aria-hidden className="h-4 w-4 shrink-0" />),
-    Match.when("reset", () => <ArrowPathIcon aria-hidden className="h-4 w-4 shrink-0" />),
-    Match.orElse(() => <PlayIcon aria-hidden className="h-4 w-4 shrink-0" />)
-  )
-
-const controlActions = ({
-  controls,
-  onRunControlAction
-}: {
-  readonly controls: RunControlsViewModel
-  readonly onRunControlAction?: ((action: RunControlActionKind) => void) | undefined
-}) => {
-  if (onRunControlAction === undefined) {
-    return undefined
-  }
-
-  return (
-    <Cluster className="gap-2">
-      <ActionButton
-        disabled={controls.primary.disabled}
-        icon={actionIcon(controls.primary.action)}
-        label={controls.primary.label}
-        onClick={() => {
-          onRunControlAction(controls.primary.action)
-        }}
-      />
-      {Option.match(controls.secondary, {
-        onNone: () => null,
-        onSome: (secondary) => (
-          <ActionButton
-            disabled={secondary.disabled}
-            icon={actionIcon(secondary.action)}
-            label={secondary.label}
-            onClick={() => {
-              onRunControlAction(secondary.action)
-            }}
-          />
-        )
-      })}
-    </Cluster>
-  )
-}
+    : evidenceSectionsNode({
+      banner,
+      onSelectFilter,
+      onSelectOrder,
+      onSelectSection,
+      plane
+    })
 
 export const EvidenceStage = ({
-  controls,
-  onRunControlAction,
+  onSelectEvidenceFilter,
+  onSelectEvidenceOrder,
+  onSelectEvidenceSection,
   viewModel
 }: {
-  readonly controls: RunControlsViewModel
-  readonly onRunControlAction?: ((action: RunControlActionKind) => void) | undefined
-  readonly viewModel: DemoEvidenceViewModel
-}) => {
-  const actions = controlActions({ controls, onRunControlAction })
-
-  return Match.value(viewModel).pipe(
-    Match.tag("empty", ({ description }) => <EmptyState action={actions} description={description} />),
-    Match.tag("running", ({ banner, description, sections }) =>
+  readonly onSelectEvidenceFilter: (filter: EvidencePlaneFilter) => void
+  readonly onSelectEvidenceOrder: (order: EvidencePlaneOrder) => void
+  readonly onSelectEvidenceSection: (sectionKey: string | null) => void
+  readonly viewModel: DemoEvidenceViewModel & { readonly plane: EvidencePlaneViewModel }
+}) =>
+  Match.value(viewModel).pipe(
+    Match.tag("empty", ({ description }) => <EmptyState description={description} />),
+    Match.tag("running", ({ banner, description, plane, sections }) =>
       retainedEvidenceNode({
-        actions,
         banner,
         emptyNode: <RunningState text={description} />,
-        includeAction: false,
+        onSelectFilter: onSelectEvidenceFilter,
+        onSelectOrder: onSelectEvidenceOrder,
+        onSelectSection: onSelectEvidenceSection,
+        plane,
         sections
       })),
-    Match.tag("paused", ({ banner, description, sections }) =>
+    Match.tag("paused", ({ banner, description, plane, sections }) =>
       retainedEvidenceNode({
-        actions,
         banner,
-        emptyNode: <EmptyState action={actions} description={description} />,
-        includeAction: true,
+        emptyNode: <EmptyState description={description} />,
+        onSelectFilter: onSelectEvidenceFilter,
+        onSelectOrder: onSelectEvidenceOrder,
+        onSelectSection: onSelectEvidenceSection,
+        plane,
         sections
       })),
-    Match.tag("stopped", ({ banner, description, sections }) =>
+    Match.tag("stopped", ({ banner, description, plane, sections }) =>
       retainedEvidenceNode({
-        actions,
         banner,
-        emptyNode: <EmptyState action={actions} description={description} />,
-        includeAction: true,
+        emptyNode: <EmptyState description={description} />,
+        onSelectFilter: onSelectEvidenceFilter,
+        onSelectOrder: onSelectEvidenceOrder,
+        onSelectSection: onSelectEvidenceSection,
+        plane,
         sections
       })),
-    Match.tag("failure", ({ banner, description, sections }) =>
+    Match.tag("failure", ({ banner, description, plane, sections }) =>
       retainedEvidenceNode({
-        actions,
         banner,
-        emptyNode: <FailureState action={actions} description={description} />,
-        includeAction: true,
+        emptyNode: <FailureState description={description} />,
+        onSelectFilter: onSelectEvidenceFilter,
+        onSelectOrder: onSelectEvidenceOrder,
+        onSelectSection: onSelectEvidenceSection,
+        plane,
         sections
       })),
-    Match.tag("results", ({ banner, sections }) =>
+    Match.tag("results", ({ banner, plane }) =>
       evidenceSectionsNode({
-        actions,
         banner,
-        includeAction: true,
-        sections
+        onSelectFilter: onSelectEvidenceFilter,
+        onSelectOrder: onSelectEvidenceOrder,
+        onSelectSection: onSelectEvidenceSection,
+        plane
       })),
     Match.exhaustive
   )
-}
 
 export const DemoStage = ({
-  controls,
   interactiveContent,
-  onRunControlAction,
   viewModel
 }: {
-  readonly controls: RunControlsViewModel
   readonly interactiveContent: ReactNode | undefined
-  readonly onRunControlAction?: ((action: RunControlActionKind) => void) | undefined
   readonly viewModel: DemoStageViewModel
 }) => {
+  const defaultPlane = buildEvidencePlaneViewModel({
+    complete: viewModel.evidence._tag === "results",
+    filter: "all",
+    meta: null,
+    order: "narrative",
+    sections: viewModel.evidence.sections,
+    sectionKey: null,
+    summary: null
+  })
   const evidenceNode = (
-    <EvidenceStage controls={controls} onRunControlAction={onRunControlAction} viewModel={viewModel.evidence} />
+    <EvidenceStage
+      onSelectEvidenceFilter={() => undefined}
+      onSelectEvidenceOrder={() => undefined}
+      onSelectEvidenceSection={() => undefined}
+      viewModel={{
+        ...viewModel.evidence,
+        plane: defaultPlane
+      }}
+    />
   )
 
   if (!viewModel.showTabs || interactiveContent === undefined) {

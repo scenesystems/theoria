@@ -1,15 +1,27 @@
 import { Match } from "effect"
-import type { ReactNode } from "react"
+import type { ComponentPropsWithRef, ReactNode } from "react"
 
-import type { ContentCardDensity } from "../../../contracts/layout.js"
+import type { ContentCardDensity, ContentCardShape } from "../../../contracts/layout.js"
 
 import type { ContentCardToneClasses } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 
-const densityClassName = (density: ContentCardDensity): string =>
+const gapClassName = (density: ContentCardDensity): string =>
   Match.value(density).pipe(
-    Match.when("compact", () => "flex flex-col gap-2 rounded-md border p-4 shadow-chip"),
-    Match.when("standard", () => "flex flex-col gap-3 rounded-lg border p-5 shadow-chip"),
+    Match.when("compact", () => "flex flex-col gap-2 p-4 shadow-chip"),
+    Match.when("standard", () => "flex flex-col gap-3 p-5 shadow-chip"),
+    Match.exhaustive
+  )
+
+const shapeClassName = (density: ContentCardDensity, shape: ContentCardShape): string =>
+  Match.value(shape).pipe(
+    Match.when("rounded", () =>
+      Match.value(density).pipe(
+        Match.when("compact", () => "rounded-md border"),
+        Match.when("standard", () => "rounded-lg border"),
+        Match.exhaustive
+      )),
+    Match.when("left-accent", () => "border-l-[3px]"),
     Match.exhaustive
   )
 
@@ -19,16 +31,19 @@ export const ContentCard = ({
   children,
   className,
   density,
-  tone
+  shape = "rounded",
+  tone,
+  ...rest
 }: {
   readonly children: ReactNode
   readonly className?: string
   readonly density: ContentCardDensity
+  readonly shape?: ContentCardShape
   readonly tone?: ContentCardToneClasses
-}) => {
-  const base = densityClassName(density)
+} & Omit<ComponentPropsWithRef<"div">, "children" | "className">) => {
+  const base = `${gapClassName(density)} ${shapeClassName(density, shape)}`
   const surface = tone !== undefined ? `${tone.border} ${tone.bg}` : neutralClassName
   const combined = className === undefined ? `${base} ${surface}` : `${base} ${surface} ${className}`
 
-  return <Layer className={combined}>{children}</Layer>
+  return <Layer {...rest} className={combined}>{children}</Layer>
 }

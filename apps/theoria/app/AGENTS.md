@@ -42,7 +42,7 @@ Bun HTTP server with Effect-native handlers. No framework router — routing is 
 | `app.ts`            | Layer composition: `HttpLive` from `ExecutionPolicyLive`, `DspProviderRuntimeLive`, `RuntimeInfoLive`, `BunHttpServer` |
 | `router.ts`         | `Match.value(pathname)` dispatch to route handlers. API 404 returns a typed `Failure` envelope.                        |
 | `config/runtime.ts` | `RuntimeInfo` service: `buildSha` + `startedAtMs` from `Config` + `Clock`                                              |
-| `demos/registry.ts` | `Card → Definition` mapping via `Match.value(card.id)`. Each definition has `execute`, `preload`, `streamSections`.    |
+| `demos/registry.ts` | `Card → Definition` mapping via `Match.value(card.id)`. Each definition has `execute`, `preload`, `streamElements`.    |
 | `demos/executor.ts` | Wraps demo execution with lane-bounded concurrency, timeout, and typed envelope responses                              |
 | `demos/policy.ts`   | `ExecutionPolicy` service with `Lane` (`"local"                                                                        | "provider"`), semaphore-bounded concurrency, env-configurable timeouts |
 | `routes/*.ts`       | Individual route handlers returning `HttpServerResponse`                                                               |
@@ -53,9 +53,9 @@ Each demo lives in `demos/<package-name>/run.ts` and exports:
 
 - `run`: `Effect.Effect<RunData, unknown, DspProviderRuntime>` — the demo execution
 - `preloadProgram`: `Effect.Effect<Program, unknown, never>` — source code preview
-- `streamSections` (optional): `Stream.Stream<EvidenceSection>` — SSE evidence stream
+- `streamElements` (optional): `Stream.Stream<StreamElement>` — SSE evidence stream (sections + choreography cues)
 
-Register in `registry.ts` via `makeDefinition(card, lane, execute, preload, streamSections)`.
+Register in `registry.ts` via `makeDefinition(card, lane, execute, preload, streamElements)`.
 
 ### Anti-patterns
 
@@ -79,6 +79,7 @@ React 19 + effect-atom + Tailwind CSS v4. All state flows through atoms, all ren
 | `surface.ts`                                                      | `Atom.family` per demo ID: `surfaceAtom`, `surfaceRunDataAtom`, `surfaceEvidenceStreamAtom`                |
 | `actions.ts`                                                      | `appRuntime.fn` / `Atom.fnSync` action atoms: `runDemoAtom`, `selectStageTabAtom`, `selectProgramFileAtom` |
 | `internal.ts`                                                     | `modifySurface`, `preloadSurface` — internal helpers consumed by `actions.ts` only                         |
+| `element-observation.ts`                                          | Mount-scoped DOM observation primitives: width handles, ref-cleanup observers, ephemeral element slots     |
 | `animation.ts`, `optimization-animation.ts`, `power-animation.ts` | Per-demo animation streams driven by `Atom.fn` context                                                     |
 | `evidence-stream.ts`                                              | SSE evidence stream atom for live server-sent updates                                                      |
 | `theme.ts`                                                        | Theme preference atom (light/dark/system)                                                                  |
@@ -95,6 +96,22 @@ React 19 + effect-atom + Tailwind CSS v4. All state flows through atoms, all ren
 - `SurfaceState`: full state per demo surface (preload, run, stage tab, program file index).
 - `RunState`: tagged union (`RunIdle | RunRunning | RunSuccess | RunFailed`).
 - `reduceRunState`: pure state transition function for the run state machine.
+
+### Client State Categories
+
+Every client-side value must belong to exactly one category before you choose an atom shape.
+
+- **Durable semantic state**: Stable domain identities that survive remounts and route changes. Use `Atom.make`, `Atom.family(id)`, and `Atom.keepAlive` only when the key is a real semantic identity such as a demo id, run session, pane preference, or theme preference.
+- **Derived projection state**: Pure views over durable state. Use read-only derived atoms and let registry TTL reclaim them when idle.
+- **Mount-scoped element observation**: Values derived from a live DOM element (`ResizeObserver`, viewport width, rects, visibility, scroll measurements). These live in `web/atoms/element-observation.ts` and must use React 19 ref cleanup plus non-`keepAlive` atom slots created per mount. Never key them by string ids like `useId()` or any other pseudo-identity.
+
+**Rule**: If the source of truth disappears when the element unmounts, the state must disappear with it. Do not promote DOM lifetime into durable app identity.
+
+**Current concrete observers**:
+
+- `SemanticText` block layout measurement
+- `ReflowPreview` stage viewport width
+- `PresentationSurface` projection workspace width
 
 ### View: `view/`
 
@@ -128,7 +145,7 @@ This applies to all concerns:
 - **Typography**: All text flows through `SemanticText` which reads from `TextRole` contract semantics. To add a new text style, add a `TextRole` and its CSS variable tokens — never style text directly on a component.
 - **Spacing and layout**: Controlled by layout primitives and Tailwind utilities composed through props. To change layout behavior, improve the primitive or add a variant to the contract schema (`GridLayout`, `ContentCardDensity`) — never add ad-hoc CSS to one component.
 - **Component variants**: Driven by contract schemas (`SurfaceVariant`, `CardTone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
-- **Tone/accent mapping**: Managed by `theme.ts` via `toneForCard` and `groupThemeFor`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
+- **Tone/accent mapping**: Managed by `theme.ts` via `toneForCard` and `representativeToneFor`, resolved to `ToneClasses` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
 
 **The test**: If a change touches only one component file and adds a visual property that no other component shares, it is almost certainly wrong. The property should live in a contract, a primitive, or a theme token.
 
@@ -157,7 +174,7 @@ This applies to all concerns:
 ## Adding a New Demo
 
 1. Add a `Card` entry in `contracts/card.ts` with all required metadata fields.
-2. Create `server/demos/<name>/run.ts` exporting `run`, `preloadProgram`, and optionally `streamSections`.
+2. Create `server/demos/<name>/run.ts` exporting `run`, `preloadProgram`, and optionally `streamElements`.
 3. Add the `Match.when` arm in `server/demos/registry.ts` → `definitionForCard`.
 4. If the demo needs a client-side animation, add a `Match.when` arm in `web/atoms/actions.ts` → `animationEffectFor`.
 5. If the demo adds a new `EvidenceItem` variant, update `contracts/evidence.ts` and all `Match.exhaustive` consumers (`view/presenter.ts`, evidence renderers in `view/deep/evidence/`).

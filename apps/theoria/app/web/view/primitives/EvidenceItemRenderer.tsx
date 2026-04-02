@@ -5,27 +5,36 @@ import type { EvidenceItem } from "../../../contracts/evidence.js"
 import { formatDelta, formatNumber, formatScalar } from "../data/format.js"
 import { ComparisonBar } from "./ComparisonBar.js"
 import { DataTable } from "./DataTable.js"
-import { surfaceMaterials } from "./designSystem.js"
-import { Layer, Stack } from "./Layout.js"
+import { EvidenceProse } from "./EvidenceProse.js"
 import { MetricCard } from "./MetricCard.js"
-import { SemanticText } from "./SemanticText.js"
 import { Sparkline } from "./Sparkline.js"
 
-export const EvidenceItemRenderer = ({ item }: { readonly item: EvidenceItem }) =>
+type EvidenceItemRendererSurface = "panel" | "flush"
+
+export const EvidenceItemRenderer = ({
+  item,
+  surface = "panel"
+}: {
+  readonly item: EvidenceItem
+  readonly surface?: EvidenceItemRendererSurface
+}) =>
   Match.value(item).pipe(
     Match.tag("Scalar", (i) => {
       const value = formatScalar(i.value, "", i.format)
-      return <MetricCard label={i.label} unit={i.unit} value={value} />
+      return <MetricCard label={i.label} surface={surface} unit={i.unit} value={value} />
     }),
     Match.tag("Comparison", (i) => {
       const delta = formatDelta(i.baseline, i.improved, i.direction)
       return (
         <ComparisonBar
+          baseline={i.baseline}
           baselineValue={`${formatNumber(i.baseline)} ${i.unit}`}
           deltaText={delta.percentText}
           favorable={delta.favorable}
+          improved={i.improved}
           improvedValue={`${formatNumber(i.improved)} ${i.unit}`}
           label={i.label}
+          surface={surface}
         />
       )
     }),
@@ -36,6 +45,7 @@ export const EvidenceItemRenderer = ({ item }: { readonly item: EvidenceItem }) 
       return (
         <Sparkline
           label={i.label}
+          surface={surface}
           summaryItems={[
             { label: "Min", value: formatNumber(min) },
             { label: "Max", value: formatNumber(max) },
@@ -47,13 +57,6 @@ export const EvidenceItemRenderer = ({ item }: { readonly item: EvidenceItem }) 
       )
     }),
     Match.tag("Table", (i) => <DataTable columns={i.columns} label={i.label} rows={i.rows} />),
-    Match.tag("Text", (i) => (
-      <Layer className={surfaceMaterials.evidenceCard}>
-        <Stack className="gap-1">
-          <SemanticText as="dt" className="text-ink-700" role="row-label" text={i.label} variant="expanded" />
-          <SemanticText as="dd" className="text-ink-800" role="row-value" text={i.value} variant="expanded" />
-        </Stack>
-      </Layer>
-    )),
+    Match.tag("Text", (i) => <EvidenceProse items={[i]} />),
     Match.exhaustive
   )

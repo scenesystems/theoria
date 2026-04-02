@@ -4,20 +4,25 @@ import * as Arr from "effect/Array"
 import type * as ParseResult from "effect/ParseResult"
 
 import {
+  Choreography,
   encodeEvidenceEventJson,
   type EvidenceEvent,
   SectionAppend,
+  Step,
   StreamComplete,
   StreamFailed
 } from "../../contracts/evidence-stream.js"
 import { Id } from "../../contracts/id.js"
 import { ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
 import { RunEnvelope } from "../../contracts/run.js"
+import { decodeStreamManifest, type StreamManifest } from "../../contracts/stream-manifest.js"
+import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
 
 import { execute } from "../demos/executor.js"
 import { preload } from "../demos/preload.js"
-import { lookup } from "../demos/registry.js"
+import { lookupForReleaseStage } from "../demos/registry.js"
+import type { StreamElement } from "../demos/stream-element.js"
 
 const DemoEndpoint = Schema.Literal("run", "preload", "stream")
 
@@ -91,6 +96,34 @@ const failureEnvelope = (requestId: string) => ({
   }
 })
 
+const invalidDemoEnvelope = (requestId: string) => ({
+  ok: false,
+  meta: {
+    requestId,
+    buildSha: "unknown",
+    durationMs: 0
+  },
+  error: {
+    code: "invalid-demo-id",
+    message: "Requested demo does not exist.",
+    retryable: false
+  }
+})
+
+const executionFailureEnvelope = (requestId: string) => ({
+  ok: false,
+  meta: {
+    requestId,
+    buildSha: "unknown",
+    durationMs: 0
+  },
+  error: {
+    code: "execution-failed",
+    message: "Demo execution failed.",
+    retryable: true
+  }
+})
+
 const encoder = new TextEncoder()
 
 const sseEvent = (event: EvidenceEvent): Uint8Array =>
@@ -100,7 +133,7 @@ const sseEvent = (event: EvidenceEvent): Uint8Array =>
 // idle timeouts (Railway: 60s keep-alive). Comment lines are ignored by
 // EventSource clients per the SSE spec.
 const sseHeartbeat = encoder.encode(`: heartbeat\n\n`)
-const heartbeatStream = Stream.repeat(Stream.make(sseHeartbeat), Schedule.spaced("30 seconds"))
+const heartbeatStream = Stream.repeat(Stream.make(sseHeartbeat), Schedule.spaced("8 seconds"))
 
 const describeStreamFailure = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
@@ -112,23 +145,31 @@ const describeStreamFailure = (error: unknown): string => {
   return "Demo stream failed."
 }
 
-const streamResponse = (id: typeof Id.Type, requestId: string, customText: string | null = null) =>
+const elementToEvent = (element: StreamElement): EvidenceEvent =>
+  Match.value(element).pipe(
+    Match.when({ _tag: "cue" }, ({ cue }) => new Choreography({ cue })),
+    Match.when({ _tag: "step" }, ({ step }) => new Step({ step })),
+    Match.orElse(({ section }) => new SectionAppend({ section }))
+  )
+
+const streamResponse = (id: typeof Id.Type, requestId: string, manifest: StreamManifest | null) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
+    const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
-    const definition = lookup(id)
+    const definition = lookupForReleaseStage(id, releaseStage)
 
     return Option.match(definition, {
-      onNone: () => jsonResponse(failureEnvelope(requestId)),
+      onNone: () => jsonResponse(invalidDemoEnvelope(requestId)),
       onSome: (def) => {
-        const sections = def.streamSections(customText === null ? undefined : customText)
+        const elements = def.streamElements(manifest)
 
-        if (sections === null) {
+        if (elements === null) {
           return jsonResponse(failureEnvelope(requestId))
         }
 
         const dataStream = Stream.concat(
-          sections.pipe(Stream.map((section) => new SectionAppend({ section }))),
+          Stream.map(elements, elementToEvent),
           Stream.fromEffect(
             Effect.gen(function*() {
               const endedAtMs = yield* Clock.currentTimeMillis
@@ -171,12 +212,15 @@ const streamResponse = (id: typeof Id.Type, requestId: string, customText: strin
     })
   })
 
-const parseCustomText = (rawUrl: string | null): string | null =>
+const parseManifest = (rawUrl: string | null): StreamManifest | null =>
   Match.value(rawUrl).pipe(
-    Match.when(null, () => null),
-    Match.orElse((resolvedUrl) => {
-      const value = new URL(resolvedUrl, "http://127.0.0.1").searchParams.get("customText")
-      return value !== null && value.trim().length > 0 ? value.trim() : null
+    Match.when(null, (): StreamManifest | null => null),
+    Match.orElse((resolvedUrl): StreamManifest | null => {
+      const raw = new URL(resolvedUrl, "http://127.0.0.1").searchParams.get("manifest")
+
+      return raw !== null && raw.trim().length > 0
+        ? Option.getOrElse(decodeStreamManifest(raw.trim()), () => null)
+        : null
     })
   )
 
@@ -186,7 +230,7 @@ export const demoRoute = (pathname: string, requestId: string, rawUrl: string | 
       Match.value(route.endpoint).pipe(
         Match.when(
           "stream",
-          () => streamResponse(route.id, requestId, parseCustomText(rawUrl))
+          () => streamResponse(route.id, requestId, parseManifest(rawUrl))
         ),
         Match.when("run", () =>
           execute(route.id, requestId).pipe(
@@ -201,5 +245,16 @@ export const demoRoute = (pathname: string, requestId: string, rawUrl: string | 
         )
       )
     ),
-    Effect.catchAll(() => Effect.succeed(jsonResponse(failureEnvelope(requestId))))
+    Effect.catchAll((error) =>
+      error instanceof InvalidDemoRoute
+        ? Effect.succeed(jsonResponse(failureEnvelope(requestId)))
+        : Effect.logError("theoria demo route failed").pipe(
+          Effect.annotateLogs("pathname", pathname),
+          Effect.annotateLogs("requestId", requestId),
+          Effect.annotateLogs("error", String(error)),
+          Effect.zipRight(
+            Effect.succeed(jsonResponse(executionFailureEnvelope(requestId)))
+          )
+        )
+    )
   )

@@ -1,3 +1,4 @@
+import { GitHubStarButton } from "./GitHubStarButton.js"
 import { Cluster, Header } from "./Layout.js"
 import { InternalLink } from "./Link.js"
 import { ThemeToggle } from "./ThemeToggle.js"
@@ -9,7 +10,10 @@ export const SiteHeader = () => (
       <InternalLink href="/">
         <TheoriaLogo className="text-2xl" />
       </InternalLink>
-      <ThemeToggle />
+      <Cluster className="items-center gap-2">
+        <GitHubStarButton />
+        <ThemeToggle />
+      </Cluster>
     </Cluster>
   </Header>
 )

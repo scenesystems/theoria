@@ -1,4 +1,4 @@
-import { Match, Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 
 import type { PackageGroup } from "./card.js"
@@ -24,29 +24,14 @@ const defaultTone: CardTone = "text"
 
 export const toneForCard = (id: CardId): CardTone => Option.getOrElse(HashMap.get(toneByCard, id), () => defaultTone)
 
-export type GroupTheme = {
-  readonly dot: string
-  readonly accentBorder: string
-  readonly versionBg: string
-  readonly versionText: string
-  readonly ctaText: string
+/**
+ * The brand tone for a package group — all cards within a group share this
+ * color family on the home page. Per-card tones (`toneForCard`) are used as
+ * the primary accent on deep dive pages.
+ *
+ * @since 0.1.0
+ */
+export const representativeToneFor = (group: PackageGroup): CardTone => {
+  const tones: Record<PackageGroup, CardTone> = { effect: "text", scenesystems: "digest" }
+  return tones[group]
 }
-
-export const groupThemeFor = (group: PackageGroup): GroupTheme =>
-  Match.value(group).pipe(
-    Match.when("effect", () => ({
-      dot: "bg-tone-text-500",
-      accentBorder: "border-l-tone-text-400",
-      versionBg: "bg-tone-text-100",
-      versionText: "text-tone-text-800",
-      ctaText: "text-tone-text-700 hover:text-tone-text-900"
-    })),
-    Match.when("scenesystems", () => ({
-      dot: "bg-tone-digest-500",
-      accentBorder: "border-l-tone-digest-400",
-      versionBg: "bg-tone-digest-100",
-      versionText: "text-tone-digest-800",
-      ctaText: "text-tone-digest-700 hover:text-tone-digest-900"
-    })),
-    Match.exhaustive
-  )

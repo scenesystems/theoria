@@ -49,6 +49,16 @@ export const Stack = <E extends ElementType = "div">({
   return <Component {...props} className={classes("flex min-w-0 flex-col", className)} />
 }
 
+export const Rail = <E extends ElementType = "div">({
+  as,
+  className,
+  ...props
+}: SlotProps<E>) => {
+  const Component = as ?? "div"
+
+  return <Component {...props} className={classes("flex min-w-0 items-center", className)} />
+}
+
 export const Cluster = <E extends ElementType = "div">({
   as,
   className,

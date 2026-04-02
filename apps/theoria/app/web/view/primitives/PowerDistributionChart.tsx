@@ -3,7 +3,7 @@ import type { PowerWidgetViewModel } from "../../atoms/widget-view-models.js"
 import { POWER_SVG, powerChartModel } from "../data/powerChartModel.js"
 import { dangerSubtleLegendTheme, type LegendTheme, neutralLegendTheme, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
-import { LegendItem } from "./LegendItem.js"
+import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
 
 const h1Theme: LegendTheme = { swatch: "bg-tone-math-500", label: "text-ink-700" }
@@ -100,12 +100,14 @@ export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewMod
         />
       </Cluster>
 
-      <Cluster className="justify-center gap-5">
-        <LegendItem label="H₀: no effect" shape="circle" theme={neutralLegendTheme} />
-        <LegendItem label={model.h1MeanText} shape="circle" theme={h1Theme} />
-        <LegendItem label={model.alphaText} shape="square" theme={dangerSubtleLegendTheme} />
-        <LegendItem label="Power" shape="square" theme={powerTheme} />
-      </Cluster>
+      <LegendRail
+        items={[
+          { label: "H₀: no effect", shape: "circle", theme: neutralLegendTheme },
+          { label: model.h1MeanText, shape: "circle", theme: h1Theme },
+          { label: model.alphaText, shape: "square", theme: dangerSubtleLegendTheme },
+          { label: "Power", shape: "square", theme: powerTheme }
+        ]}
+      />
     </Stack>
   )
 }

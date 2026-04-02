@@ -48,6 +48,7 @@ const expanded = "flex-1 lg:flex-none"
 const solo = "flex-1"
 
 export const SplitPane = ({
+  ariaLabel = "Resize workspace panels",
   compactActivePane = "first",
   dividerClassName,
   first,
@@ -59,6 +60,7 @@ export const SplitPane = ({
   second,
   secondPaneVisible = false
 }: {
+  readonly ariaLabel?: string
   readonly compactActivePane?: "first" | "second"
   readonly dividerClassName: string
   readonly first: ReactNode
@@ -135,7 +137,7 @@ export const SplitPane = ({
       </Layer>
 
       <Button
-        aria-label="Resize stage and source workspace panels"
+        aria-label={ariaLabel}
         className={`relative shrink-0 w-0 overflow-hidden pointer-events-none ${
           secondPaneVisible
             ? "lg:w-px lg:overflow-visible lg:pointer-events-auto lg:cursor-col-resize"

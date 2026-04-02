@@ -166,6 +166,72 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 
 ---
 
+## Deployment (Railway)
+
+The `apps/theoria` showcase application deploys to [Railway](https://railway.com) as a long-running Bun server. Configuration lives in `railway.json` at the repo root (required for monorepo workspace resolution).
+
+### Architecture
+
+| Concern        | Detail                                                           |
+| -------------- | ---------------------------------------------------------------- |
+| Builder        | RAILPACK (auto-detects Bun from `bun.lock`)                      |
+| Build command  | `bun run --filter @theoria/theoria-app build:web`                |
+| Start command  | `cd apps/theoria && bun run server.ts`                           |
+| Healthcheck    | `GET /api/health/live` (60s timeout)                             |
+| Restart policy | `ON_FAILURE`, max 5 retries                                      |
+| Port           | `$PORT` env var (Railway-injected), falls back to `3876` locally |
+
+### Environments
+
+| Environment     | Purpose                           | Secrets                               |
+| --------------- | --------------------------------- | ------------------------------------- |
+| **production**  | Live at `theoria.scenesystems.io` | Sealed API keys (not visible to CLI)  |
+| **staging**     | Persistent base for PR previews   | Non-sealed, rate-limited staging keys |
+| **PR previews** | Ephemeral per-PR environments     | Inherited from staging                |
+
+### Railway CLI
+
+All deployment debugging uses the Railway CLI. **Never use `npm`/`npx`** — the CLI is installed via `brew install railway`.
+
+```bash
+# Link to an environment (interactive — stored in .railway/)
+railway link
+
+# Check current link
+railway status
+
+# Switch environment for one command
+railway logs --environment staging
+
+# Key commands
+railway logs --build              # RAILPACK build output
+railway logs -n 200               # last 200 runtime log lines
+railway logs --since 1h           # time-windowed
+railway logs --filter "@level:error"  # filtered
+railway variable list --kv        # env vars (sealed vars hidden)
+railway ssh                       # shell into running container
+railway redeploy --yes            # redeploy same code (after var changes)
+railway restart --yes             # restart without rebuild (after crashes)
+railway up --verbose              # deploy local code
+railway deployment list           # deployment history
+```
+
+### Deployment Protocol
+
+1. **Code changes** are deployed via git push → Railway auto-deploys from the linked branch.
+2. **Variable changes** require `railway redeploy --yes` (no code change needed).
+3. **Crash recovery** uses `railway restart --yes` (fastest — reuses existing image).
+4. **Debugging** always starts with `railway logs --build` (build failures) then `railway logs -n 200` (runtime failures).
+5. **Healthcheck** at `/api/health/live` must return 200 within 60s or Railway marks the deploy as failed.
+
+### Anti-patterns
+
+- Setting Railway "Root Directory" to `/apps/theoria` — breaks monorepo workspace resolution. Keep it blank.
+- Using `node:fs`/`node:path` in server code — use `@effect/platform` `FileSystem`/`Path` services for container compatibility.
+- Forgetting the SSE heartbeat — Railway proxy kills idle connections after 60s. The 30s heartbeat in `routes/demos.ts` prevents this.
+
+---
+
 ## Skills Reference
 
 | Skill                           | When to Load                          |

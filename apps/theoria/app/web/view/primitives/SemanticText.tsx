@@ -1,12 +1,9 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
-import { useId } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import { semanticsFor, type TextProjection, type TextRole } from "../../../contracts/text.js"
-import { elementWidthAtom, makeWidthObserver } from "../../atoms/element-width.js"
-import { textProjectionAtom, textProjectionKey } from "../../atoms/text.js"
+import { useTextProjection } from "../../atoms/text.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code"
 
@@ -69,7 +66,27 @@ const InlineText = ({
   return <Component className={combined}>{text}</Component>
 }
 
-const BlockText = ({
+const NoWrapBlockText = ({
+  as,
+  className,
+  role,
+  text
+}: {
+  readonly as: BlockElement
+  readonly className: string | undefined
+  readonly role: TextRole
+  readonly text: string
+}) => {
+  const Component = as
+  const glyph = glyphClassName(role)
+  const leading = `leading-(${lineHeightVar(role)})`
+  const base = `whitespace-nowrap ${glyph} ${leading}`
+  const combined = className === undefined ? base : `${base} ${className}`
+
+  return <Component className={combined}>{text}</Component>
+}
+
+const WrappedBlockText = ({
   as,
   className,
   role,
@@ -82,10 +99,8 @@ const BlockText = ({
   readonly text: string
   readonly variant: SurfaceVariant
 }) => {
-  const elementId = useId()
-  const setWidth = useAtomSet(elementWidthAtom(elementId))
-  const refCallback = makeWidthObserver(setWidth)
-  const projection = useAtomValue(textProjectionAtom(textProjectionKey(role, variant, text, elementId)))
+  const { projection, ref } = useTextProjection({ role, text, variant })
+  const semantics = semanticsFor(role)
   const Component = as
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
@@ -96,7 +111,7 @@ const BlockText = ({
 
     return (
       <Component
-        ref={refCallback}
+        ref={ref}
         className={combined}
         data-lines={projection.summary.lineCount}
         data-height={projection.summary.height}
@@ -107,7 +122,7 @@ const BlockText = ({
     )
   }
 
-  const whiteSpace = Match.value(semanticsFor(role).whiteSpace).pipe(
+  const whiteSpace = Match.value(semantics.whiteSpace).pipe(
     Match.when("pre-wrap", () => "whitespace-pre-wrap break-words"),
     Match.orElse(() => "whitespace-normal break-words")
   )
@@ -116,7 +131,7 @@ const BlockText = ({
   const combined = className === undefined ? fallback : `${fallback} ${className}`
 
   return (
-    <Component ref={refCallback} className={combined}>
+    <Component ref={ref} className={combined}>
       {text}
     </Component>
   )
@@ -127,19 +142,24 @@ export const SemanticText = ({
   className,
   role,
   text,
-  variant
+  variant = "expanded"
 }: {
   readonly as?: SemanticTextElement
   readonly className?: string
   readonly role: TextRole
   readonly text: string
-  readonly variant: SurfaceVariant
+  readonly variant?: SurfaceVariant
 }) => {
   const element = as ?? "p"
+  const semantics = semanticsFor(role)
 
   if (!isBlockElement(element)) {
     return <InlineText as={element} className={className} role={role} text={text} />
   }
 
-  return <BlockText as={element} className={className} role={role} text={text} variant={variant} />
+  if (semantics.lineBreaks === "nowrap") {
+    return <NoWrapBlockText as={element} className={className} role={role} text={text} />
+  }
+
+  return <WrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
 }

@@ -16,6 +16,7 @@
     { "path": "./packages/effect-text/tsconfig.test.json" },
     { "path": "./packages/seal/tsconfig.test.json" },
     { "path": "./packages/sign/tsconfig.test.json" },
-    { "path": "./apps/theoria/tsconfig.test.json" }
+    { "path": "./apps/theoria/tsconfig.test.json" },
+    { "path": "./e2e/theoria/tsconfig.json" }
   ]
 }

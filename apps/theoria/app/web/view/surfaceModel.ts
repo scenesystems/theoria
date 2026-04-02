@@ -17,7 +17,7 @@ import {
   type DemoStageViewModel,
   demoStageViewModel
 } from "./deep/stageModel.js"
-import type { PresentedRun } from "./presenter.js"
+import { type PresentedRun, presentSections } from "./presenter.js"
 import type { RunControlsViewModel } from "./runControlsModel.js"
 import { runControlsViewModel } from "./runControlsModel.js"
 import type { SurfaceChromeContentModel } from "./surfaceChromeModel.js"
@@ -69,11 +69,13 @@ const packageUseCaseRow = (card: Card): { readonly label: string; readonly value
 })
 
 const selectedSectionRows = (
-  presented: PresentedRun | null
+  presented: PresentedRun | null,
+  stream: EvidenceStreamState
 ): ReadonlyArray<{ readonly label: string; readonly value: string }> =>
-  presented === null
-    ? [{ label: "Status", value: "Press Run to see results." }]
-    : Arr.flatMap(presented.sections, (section) => section.rows)
+  Arr.flatMap(
+    presented === null ? presentSections(stream.sections) : presented.sections,
+    (section) => section.rows
+  )
 
 const compactRows = ({
   card,
@@ -87,7 +89,7 @@ const compactRows = ({
   const packageRow = packageUseCaseRow(card)
   const rowsWithUseCase = rows[0]?.label === packageRow.label ? rows : [packageRow, ...rows]
 
-  return state.run._tag === "RunSuccess"
+  return state.run._tag === "RunSuccess" || rows.length > 0
     ? Arr.take(rowsWithUseCase, compactEvidenceRowLimit + 1)
     : [packageRow, { label: "Run Intent", value: card.summary }]
 }
@@ -106,7 +108,7 @@ export const surfaceViewModel = ({
   readonly variant: SurfaceVariant
 }): SurfaceViewModel => {
   const compact = variant === "compact"
-  const rows = selectedSectionRows(presented)
+  const rows = selectedSectionRows(presented, stream)
 
   return {
     running: runPhase(state.run) === "running",

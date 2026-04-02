@@ -1,6 +1,6 @@
 import { Option } from "effect"
 
-import type { CorpusEntry } from "./corpus.js"
+import type { CorpusEntry } from "../../../contracts/corpus.js"
 
 type WidthProjection = {
   readonly width: number

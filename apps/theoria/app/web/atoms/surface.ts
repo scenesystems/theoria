@@ -24,13 +24,40 @@ export type RunRuntimeTelemetryRow = {
   readonly value: string
 }
 
-export type RunRuntimeTelemetryViewModel = {
+export type RunRuntimeTelemetrySection = {
+  readonly description: string
+  readonly kind: "facts" | "trace"
   readonly rows: ReadonlyArray<RunRuntimeTelemetryRow>
+  readonly title: string
 }
+
+export type RunRuntimeTelemetryViewModel = {
+  readonly sections: ReadonlyArray<RunRuntimeTelemetrySection>
+}
+
+const telemetrySection = ({
+  description,
+  kind,
+  rows,
+  title
+}: {
+  readonly description: string
+  readonly kind: RunRuntimeTelemetrySection["kind"]
+  readonly rows: ReadonlyArray<RunRuntimeTelemetryRow>
+  readonly title: string
+}): RunRuntimeTelemetrySection => ({
+  description,
+  kind,
+  rows,
+  title
+})
 
 const telemetryEventLabel = (kind: RunRuntimeTelemetryKind): string =>
   Match.value(kind).pipe(
+    Match.when("run-started", () => "Run started"),
     Match.when("pause-requested", () => "Pause requested"),
+    Match.when("resume-requested", () => "Resume requested"),
+    Match.when("stop-requested", () => "Stop requested"),
     Match.when("checkpoint-reached", () => "Next cooperative checkpoint"),
     Match.when("server-completed", () => "Server completion observed"),
     Match.when("local-completed", () => "Local completion observed"),
@@ -118,23 +145,72 @@ export const surfaceRunRuntimeTelemetryViewModelAtom: (id: Id) => AtomType.Atom<
         }
 
         const startedAtMs = telemetry.startedAtMs
+        const ownership = run.session.ownership
+        const completion = run.session.completion
+        const localRunPlan = run.session.localRunPlan
+        const localRunFrame = run.session.localRunFrame
+        const summaryRows: ReadonlyArray<RunRuntimeTelemetryRow> = [
+          {
+            label: "Run session",
+            value: `sequence ${run.session.sequence} · token ${run.session.token}`
+          },
+          {
+            label: "Run state",
+            value: `${run._tag} · control ${run.session.control} · outcome ${run.session.outcome}`
+          },
+          {
+            label: "Ownership",
+            value: `local ${ownership.localDriver ? "yes" : "no"} · server ${ownership.serverStream ? "yes" : "no"}`
+          },
+          {
+            label: "Completion",
+            value: `local ${completion.local.state} · server ${completion.server.state}`
+          },
+          {
+            label: "Local plan",
+            value: localRunPlan === null ? "none" : localRunPlan._tag
+          },
+          {
+            label: "Local frame",
+            value: localRunFrame === null ? "none" : localRunFrame._tag
+          },
+          ...Option.fromNullable(completion.server.summary).pipe(
+            Option.match({
+              onNone: (): ReadonlyArray<RunRuntimeTelemetryRow> => [],
+              onSome: (summary): ReadonlyArray<RunRuntimeTelemetryRow> => [{
+                label: "Server summary",
+                value: summary
+              }]
+            })
+          )
+        ]
+        const traceRows = telemetry.events.map((event) => ({
+          label: telemetryEventLabel(event.kind),
+          value: telemetryEventValue({
+            atMs: event.atMs,
+            detail: event.detail,
+            startedAtMs
+          })
+        }))
 
-        return {
-          rows: [
-            {
-              label: "Run session",
-              value: `sequence ${run.session.sequence} · token ${run.session.token}`
-            },
-            ...telemetry.events.map((event) => ({
-              label: telemetryEventLabel(event.kind),
-              value: telemetryEventValue({
-                atMs: event.atMs,
-                detail: event.detail,
-                startedAtMs
-              })
-            }))
-          ]
-        }
+        const sections: ReadonlyArray<RunRuntimeTelemetrySection> = [
+          telemetrySection({
+            description: "Reducer-owned session facts, ownership, and completion state for the active run.",
+            kind: "facts",
+            rows: summaryRows,
+            title: "Session snapshot"
+          }),
+          ...(traceRows.length === 0
+            ? []
+            : [telemetrySection({
+              description: "Cooperative checkpoints and completion observations in reducer order.",
+              kind: "trace",
+              rows: traceRows,
+              title: "Lifecycle trace"
+            })])
+        ]
+
+        return { sections }
       })
   )
 

@@ -37,6 +37,7 @@ export const SliderRow = ({
   step,
   disabled,
   hint,
+  hintNoWrap = false,
   layout = "inline",
   onChange,
   tone
@@ -49,6 +50,7 @@ export const SliderRow = ({
   readonly step: number
   readonly disabled: boolean
   readonly hint?: string
+  readonly hintNoWrap?: boolean
   readonly layout?: SliderRowLayout
   readonly onChange: (v: number) => void
   readonly tone: ToneClasses
@@ -61,7 +63,27 @@ export const SliderRow = ({
             <SemanticText as="dt" className="text-ink-700" role="row-label" text={label} variant="expanded" />
             {hint === undefined
               ? null
-              : <SemanticText as="p" className="text-ink-700/78" role="code-meta" text={hint} variant="expanded" />}
+              : (
+                hintNoWrap
+                  ? (
+                    <SemanticText
+                      as="span"
+                      className="block max-w-none text-ink-700/78"
+                      role="code-meta"
+                      text={hint}
+                      variant="expanded"
+                    />
+                  )
+                  : (
+                    <SemanticText
+                      as="p"
+                      className="text-ink-700/78"
+                      role="code-meta"
+                      text={hint}
+                      variant="expanded"
+                    />
+                  )
+              )}
           </Stack>
           <SemanticText
             as="dd"

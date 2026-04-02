@@ -1,0 +1,79 @@
+import type { ReactNode } from "react"
+
+import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { TextRole } from "../../../contracts/text.js"
+
+import { Layer, Stack } from "./Layout.js"
+import { SemanticText } from "./SemanticText.js"
+
+const classes = (...entries: ReadonlyArray<string | undefined>): string =>
+  entries.filter((entry) => entry !== undefined && entry.length > 0).join(" ")
+
+export const SelectionRail = ({
+  action,
+  actionClassName,
+  accent,
+  children,
+  className
+}: {
+  readonly action?: ReactNode
+  readonly actionClassName?: string
+  readonly accent: ReactNode
+  readonly children: ReactNode
+  readonly className?: string
+}) => (
+  <Layer
+    className={classes(
+      "grid w-full min-w-0 items-start gap-x-3",
+      action === undefined ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[auto_minmax(0,1fr)_auto]",
+      className
+    )}
+  >
+    {accent}
+    <Layer className="min-w-0 w-full">{children}</Layer>
+    {action === undefined
+      ? null
+      : <Layer className={classes("min-w-0 justify-self-end", actionClassName)}>{action}</Layer>}
+  </Layer>
+)
+
+export const SelectionCopy = ({
+  detail,
+  detailClassName = "max-w-none text-ink-500",
+  detailRole = "code-meta",
+  detailVariant = "compact",
+  title,
+  titleClassName = "text-ink-900",
+  titleRole,
+  titleVariant = "expanded"
+}: {
+  readonly detail?: string | null
+  readonly detailClassName?: string
+  readonly detailRole?: TextRole
+  readonly detailVariant?: SurfaceVariant
+  readonly title: string
+  readonly titleClassName?: string
+  readonly titleRole: TextRole
+  readonly titleVariant?: SurfaceVariant
+}) => (
+  <Stack className="min-w-0 gap-0.5">
+    <SemanticText
+      as="p"
+      className={titleClassName}
+      role={titleRole}
+      text={title}
+      variant={titleVariant}
+    />
+    {detail === undefined || detail === null
+      ? null
+      : (
+        <SemanticText
+          as="p"
+          className={detailClassName}
+          role={detailRole}
+          text={detail}
+          variant={detailVariant}
+        />
+      )}
+  </Stack>
+)

@@ -2,16 +2,25 @@ import { surfaceMaterials } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
+type MetricCardSurface = "panel" | "flush"
+
+const metricCardClassName = (surface: MetricCardSurface): string =>
+  surface === "flush"
+    ? "border-y border-stage-200/72 py-3"
+    : surfaceMaterials.evidenceCard
+
 export const MetricCard = ({
   label,
+  surface = "panel",
   value,
   unit
 }: {
   readonly label: string
+  readonly surface?: MetricCardSurface
   readonly value: string
   readonly unit?: string
 }) => (
-  <Layer className={surfaceMaterials.evidenceCard}>
+  <Layer className={metricCardClassName(surface)}>
     <Stack className="gap-1">
       <SemanticText as="dt" className="text-ink-700" role="row-label" text={label} variant="expanded" />
       <Cluster className="items-baseline gap-1.5">

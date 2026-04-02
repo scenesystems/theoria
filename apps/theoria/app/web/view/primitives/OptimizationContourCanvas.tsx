@@ -14,7 +14,7 @@ import {
 } from "../data/optimizationContours.js"
 import { type LegendTheme, neutralSubtleLegendTheme, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
-import { LegendItem } from "./LegendItem.js"
+import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
 
 const tpeTheme: LegendTheme = { swatch: "bg-tone-search-500 shadow-sm", label: "text-ink-700" }
@@ -189,16 +189,13 @@ export const OptimizationContourCanvas = ({ vm }: { readonly vm: OptimizationWid
         />
       </Cluster>
 
-      <Cluster className="justify-center gap-3 sm:gap-5">
-        <LegendItem label="TPE (adaptive)" shape="circle" theme={tpeTheme} />
-        <LegendItem label="Random" shape="circle" theme={neutralSubtleLegendTheme} />
-        <LegendItem
-          label="Optimum"
-          shape="diamond"
-          theme={optimumTheme}
-          value={`(${optimum.x}, ${optimum.y})`}
-        />
-      </Cluster>
+      <LegendRail
+        items={[
+          { label: "TPE (adaptive)", shape: "circle", theme: tpeTheme },
+          { label: "Random", shape: "circle", theme: neutralSubtleLegendTheme },
+          { label: "Optimum", shape: "diamond", theme: optimumTheme, value: `(${optimum.x}, ${optimum.y})` }
+        ]}
+      />
     </Stack>
   )
 }

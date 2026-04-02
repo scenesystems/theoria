@@ -5,6 +5,7 @@ import { DemoDecodeError, type DemoError, DemoExecutionError, DemoRequestError }
 import type { Metadata } from "../../contracts/envelope.js"
 import type { ErrorModel } from "../../contracts/error.js"
 import type { Id } from "../../contracts/id.js"
+import { type PackageVersions, PackageVersionsEnvelope } from "../../contracts/package-versions.js"
 import { type ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
 import { type RunData, RunEnvelope } from "../../contracts/run.js"
 
@@ -83,10 +84,13 @@ export class DemoClient extends Effect.Service<DemoClient>()("theoria/DemoClient
       requestEnvelope(runPath(id), RunEnvelope),
     preload: (id: Id): Effect.Effect<ProgramPreview, DemoError> =>
       requestEnvelope(preloadPath(id), ProgramPreviewEnvelope).pipe(Effect.map(({ data }) => data)),
-    streamUrl: (id: Id, customText: string | null = null): string => {
+    versions: (): Effect.Effect<PackageVersions, DemoError> =>
+      requestEnvelope("/api/versions/packages", PackageVersionsEnvelope).pipe(Effect.map(({ data }) => data)),
+    streamUrl: (id: Id, manifest: string | null = null): string => {
       const base = streamPath(id)
-      return customText !== null && customText.trim().length > 0
-        ? `${base}?customText=${encodeURIComponent(customText.trim())}`
+
+      return manifest !== null && manifest.trim().length > 0
+        ? `${base}?manifest=${encodeURIComponent(manifest.trim())}`
         : base
     }
   }

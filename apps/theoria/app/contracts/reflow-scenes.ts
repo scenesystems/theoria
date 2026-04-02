@@ -131,6 +131,135 @@ export const supportChatScene: ReflowScene = {
   ]
 }
 
+export const markdownDocsScene: ReflowScene = {
+  summary:
+    "The migration notes now read like structured docs, with a release callout, a checklist rail, and a contract note shaping the same prepared text.",
+  obstacles: [
+    obstacle({
+      badge: "DOCS",
+      detail: "Migration guide",
+      id: "markdown-release-callout",
+      label: "Release callout",
+      heightPx: 88,
+      tone: "digest",
+      topPx: 24,
+      placement: "right",
+      variant: "panel",
+      widthPx: 152
+    }),
+    obstacle({
+      badge: "CHECK",
+      detail: "Contract, envelope, render",
+      id: "markdown-checklist-rail",
+      label: "Checklist rail",
+      heightPx: 112,
+      tone: "math",
+      topPx: 132,
+      placement: "left",
+      variant: "stack",
+      widthPx: 132
+    }),
+    obstacle({
+      badge: "SOT",
+      detail: "Authority stays in contracts",
+      id: "markdown-contract-note",
+      label: "Contract note",
+      heightPx: 92,
+      tone: "text",
+      topPx: 268,
+      placement: "right",
+      variant: "quote",
+      widthPx: 166
+    })
+  ]
+}
+
+export const releaseNotesScene: ReflowScene = {
+  summary:
+    "The notes read like a product changelog with a trust badge, an evaluation figure, and a replay checklist built into the flow.",
+  obstacles: [
+    obstacle({
+      badge: "TRUST",
+      detail: "Evidence stays attributable",
+      id: "release-trust-badge",
+      label: "Trust badge",
+      heightPx: 88,
+      tone: "sign",
+      topPx: 24,
+      placement: "left",
+      variant: "panel",
+      widthPx: 146
+    }),
+    obstacle({
+      badge: "EVAL",
+      detail: "Provider capability proof",
+      id: "release-evaluation-figure",
+      label: "Evaluation figure",
+      heightPx: 118,
+      tone: "search",
+      topPx: 126,
+      placement: "right",
+      variant: "figure",
+      widthPx: 160
+    }),
+    obstacle({
+      badge: "REPLAY",
+      detail: "Deterministic by default",
+      id: "release-replay-checklist",
+      label: "Replay checklist",
+      heightPx: 96,
+      tone: "seal",
+      topPx: 258,
+      placement: "right",
+      variant: "stack",
+      widthPx: 158
+    })
+  ]
+}
+
+export const multilingualScene: ReflowScene = {
+  summary:
+    "The multilingual excerpt bends around a language tag, an interpretation note, and an evidence rail without breaking the prepared-text contract.",
+  obstacles: [
+    obstacle({
+      badge: "ES/EN",
+      detail: "Language handoff",
+      id: "multilingual-language-tag",
+      label: "Language tag",
+      heightPx: 86,
+      tone: "text",
+      topPx: 24,
+      placement: "right",
+      variant: "panel",
+      widthPx: 150
+    }),
+    obstacle({
+      badge: "NOTE",
+      detail: "Interpretation remains explicit",
+      id: "multilingual-interpretation-note",
+      label: "Interpretation note",
+      heightPx: 104,
+      tone: "digest",
+      topPx: 132,
+      placement: "left",
+      variant: "quote",
+      widthPx: 136
+    }),
+    obstacle({
+      badge: "TRACE",
+      detail: "Render stays contract-loyal",
+      id: "multilingual-evidence-rail",
+      label: "Evidence rail",
+      heightPx: 96,
+      tone: "search",
+      topPx: 262,
+      placement: "right",
+      variant: "stack",
+      widthPx: 160
+    })
+  ]
+}
+
 export const codeCommentaryScene: ReflowScene = {
   summary:
     "The commentary now resembles engineering notes: a prepared handle card, a delta figure, and a derivation note occupy stable rails.",

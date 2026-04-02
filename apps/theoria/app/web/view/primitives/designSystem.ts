@@ -27,6 +27,24 @@ export type ToneClasses = {
   readonly bgTinted: string
 }
 
+export const neutralToneClasses: ToneClasses = {
+  indicator: "bg-stage-400",
+  border: "border-stage-400",
+  borderSubtle: "border-stage-200/95",
+  borderHover: "hover:border-stage-300",
+  focusRing: "focus-visible:ring-stage-300",
+  dot: "bg-stage-400",
+  text: "text-ink-700",
+  textStrong: "text-ink-900",
+  textMuted: "text-ink-500",
+  fill: "fill-ink-700",
+  fillMuted: "fill-ink-400",
+  stroke: "stroke-ink-700",
+  bg: "bg-stage-400",
+  bgSubtle: "bg-stage-100",
+  bgTinted: "bg-stage-100/70"
+}
+
 export const toneClassesFor = (tone: CardTone): ToneClasses =>
   Match.value(tone).pipe(
     Match.when("text", () => ({
@@ -213,11 +231,19 @@ export type SurfaceMaterials = {
   readonly raisedCard: string
   readonly supportPanel: string
   readonly supportPanelDense: string
+  readonly instrumentPanel: string
+  readonly instrumentSection: string
+  readonly instrumentViewport: string
   readonly stripPanel: string
+  readonly metricHeroPanel: string
   readonly callout: string
   readonly calloutError: string
   readonly evidenceCardFrame: string
   readonly evidenceCard: string
+  readonly evidenceProse: string
+  readonly evidenceLane: string
+  readonly evidenceToolbar: string
+  readonly evidenceToolbarDock: string
   readonly chartFrame: string
 }
 
@@ -226,13 +252,60 @@ export const surfaceMaterials: SurfaceMaterials = {
     "rounded-[2rem] border border-stage-300/95 bg-stage-0/94 shadow-hero ring-1 ring-stage-0/80 backdrop-blur-sm",
   supportPanel: "rounded-2xl border border-stage-200/90 bg-stage-0/88 shadow-chip",
   supportPanelDense: "rounded-2xl border border-stage-200/90 bg-stage-0/88 px-3 py-2 shadow-chip",
-  stripPanel: "flex-wrap gap-3 rounded-xl border border-stage-200/80 bg-stage-0/72 px-3 py-2 shadow-chip",
+  instrumentPanel: "gap-0",
+  instrumentSection: "border-b border-stage-200/72 pb-4",
+  instrumentViewport: "pt-5",
+  stripPanel: "overflow-hidden border border-stage-200/74 bg-stage-0/28",
+  metricHeroPanel: "overflow-hidden border border-stage-200/82 bg-stage-0/34",
   callout: "rounded-md border border-stage-200/95 bg-stage-50/85 px-3 py-3",
   calloutError: "rounded-md border border-danger-200/80 bg-danger-50/70 px-3 py-3",
   evidenceCardFrame: "rounded-lg border border-stage-200/80 bg-stage-0/60",
   evidenceCard: "rounded-lg border border-stage-200/80 bg-stage-0/60 px-4 py-3",
-  chartFrame: "rounded-lg border border-stage-200/80 bg-stage-50/60 shadow-chip"
+  evidenceProse: "rounded-[1.35rem] border border-stage-200/70 bg-stage-50/46 shadow-chip",
+  evidenceToolbar: "rounded-[1.75rem] border border-stage-200/90 bg-stage-0/94 shadow-chip",
+  evidenceLane: "rounded-[1.15rem] border border-stage-200/72 bg-stage-50/32 px-4 py-4",
+  evidenceToolbarDock:
+    "rounded-[1.45rem] border border-stage-200/86 bg-stage-0/90 shadow-[0_24px_72px_-52px_rgba(15,23,42,0.42)] ring-1 ring-stage-0/68 backdrop-blur-xl",
+  chartFrame: "overflow-hidden rounded-[1.35rem] border border-stage-200/74 bg-stage-0/42 shadow-chip"
 }
+
+export type EvidenceSectionTheme = {
+  readonly accent: string
+  readonly badge: string
+  readonly frame: string
+  readonly eyebrow: string
+}
+
+export const evidenceSectionThemeFor = (
+  variant: "highlight" | "analysis" | "context" | "dataset"
+): EvidenceSectionTheme =>
+  Match.value(variant).pipe(
+    Match.when("highlight", () => ({
+      accent: "bg-ink-900",
+      badge: "bg-stage-100 text-ink-900",
+      frame: "rounded-[1.6rem] border border-stage-300/90 bg-stage-0/96 shadow-surface ring-1 ring-stage-0/60",
+      eyebrow: "text-ink-600"
+    })),
+    Match.when("analysis", () => ({
+      accent: "bg-stage-400",
+      badge: "bg-stage-100 text-ink-800",
+      frame: "rounded-[1.6rem] border border-stage-200/90 bg-stage-0/90 shadow-chip",
+      eyebrow: "text-ink-600"
+    })),
+    Match.when("context", () => ({
+      accent: "bg-stage-300",
+      badge: "bg-stage-0/90 text-ink-700",
+      frame: "rounded-[1.6rem] border border-stage-200/75 bg-stage-50/72 shadow-chip",
+      eyebrow: "text-ink-600"
+    })),
+    Match.when("dataset", () => ({
+      accent: "bg-stage-400",
+      badge: "bg-stage-100 text-ink-700",
+      frame: "rounded-[1.6rem] border border-stage-200/90 bg-stage-0/88 shadow-chip",
+      eyebrow: "text-ink-600"
+    })),
+    Match.exhaustive
+  )
 
 const pillButtonBaseClassName =
   "inline-flex min-h-9 items-center justify-center rounded-full border px-4 py-2 transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
@@ -247,6 +320,44 @@ export const pillButtonClassName = ({
   active
     ? `${pillButtonBaseClassName} border-stage-300/90 bg-stage-0/96 shadow-chip ring-1 ring-stage-0/65 hover:border-stage-400 ${tone.borderSubtle} ${tone.bgTinted}`
     : `${pillButtonBaseClassName} border-stage-200/95 bg-stage-50/72 hover:border-stage-300 hover:bg-stage-0/90`
+
+const segmentedControlRailBaseClassName =
+  "grid min-w-0 gap-1 rounded-[1rem] border border-stage-200/80 bg-stage-50/38 p-1"
+
+export const segmentedControlRailClassName = (count: number): string =>
+  count <= 2
+    ? `${segmentedControlRailBaseClassName} grid-cols-2`
+    : count === 3
+    ? `${segmentedControlRailBaseClassName} grid-cols-1 sm:grid-cols-3`
+    : `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`
+
+const segmentedControlButtonBaseClassName =
+  "inline-flex min-h-10 min-w-0 items-center justify-center rounded-[0.9rem] border border-transparent px-3 py-2 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+
+export const segmentedControlButtonClassName = ({
+  active,
+  tone
+}: {
+  readonly active: boolean
+  readonly tone: ToneClasses
+}): string =>
+  active
+    ? `${segmentedControlButtonBaseClassName} border-stage-200/80 bg-stage-0/88 ${tone.bgTinted}`
+    : `${segmentedControlButtonBaseClassName} hover:border-stage-200/70 hover:bg-stage-0/52`
+
+const panelButtonBaseClassName =
+  "inline-flex min-h-11 w-full min-w-0 items-start justify-start rounded-[0.95rem] border px-3.5 py-3 text-left transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
+
+export const panelButtonClassName = ({
+  active,
+  tone
+}: {
+  readonly active: boolean
+  readonly tone: ToneClasses
+}): string =>
+  active
+    ? `${panelButtonBaseClassName} border-stage-300/84 bg-stage-50/76 ${tone.bgTinted}`
+    : `${panelButtonBaseClassName} border-stage-200/70 bg-transparent hover:border-stage-300/80 hover:bg-stage-50/38`
 
 const toggleTrackBaseClassName =
   "inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-55"
@@ -348,7 +459,7 @@ export const appTheme = {
     "pointer-events-none absolute -right-24 top-24 h-[21rem] w-[21rem] rounded-full bg-stage-100/90 blur-3xl",
   content: "relative mx-auto flex w-full max-w-[84rem] flex-col gap-4 px-4 py-7 sm:px-7 sm:py-9 lg:px-10",
   compactNav:
-    "flex items-center justify-between gap-4 border-b border-stage-200/90 bg-stage-0/92 px-4 py-3 backdrop-blur-sm sm:px-6",
+    "border-b border-stage-200/90 bg-stage-0/88 px-4 py-3 backdrop-blur-xl shadow-[0_18px_60px_-52px_rgba(15,23,42,0.65)] sm:px-6 sm:py-4",
   homeGrid: "grid grid-cols-1 gap-4 xl:grid-cols-2"
 }
 

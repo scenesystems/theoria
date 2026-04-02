@@ -4,6 +4,8 @@ import { Clock, Deferred, Duration, Effect, Fiber, Match, Option, SynchronizedRe
 
 import type { Id } from "../../contracts/id.js"
 
+import type { RunRegistry } from "./run-registry-context.js"
+
 type RunSignalActivity = "running" | "paused" | "stopping"
 
 type RunSignalObserver = {
@@ -45,16 +47,15 @@ const runControllerAtom: (id: Id) => AtomType.Writable<RunController> = Atom.fam
 )
 
 const updateRunController = (
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   id: Id,
   f: (controller: RunController) => RunController
 ): void => {
-  const current = ctx(runControllerAtom(id))
-  ctx.set(runControllerAtom(id), f(current))
+  registry.update(runControllerAtom(id), f)
 }
 
-const clearActiveRun = (ctx: AtomType.FnContext, id: Id, token: number): void => {
-  updateRunController(ctx, id, (controller) =>
+const clearActiveRun = (registry: RunRegistry, id: Id, token: number): void => {
+  updateRunController(registry, id, (controller) =>
     Option.match(controller.active, {
       onNone: () => controller,
       onSome: (active) =>
@@ -67,15 +68,16 @@ const clearActiveRun = (ctx: AtomType.FnContext, id: Id, token: number): void =>
     }))
 }
 
-const activeRun = (ctx: AtomType.FnContext, id: Id): Option.Option<ActiveRun> => ctx(runControllerAtom(id)).active
+const activeRun = (registry: RunRegistry, id: Id): Option.Option<ActiveRun> =>
+  registry.get(runControllerAtom(id)).active
 
 const withActiveRun = <A>(
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   id: Id,
   onNone: () => A,
   onSome: (active: ActiveRun) => A
 ): A =>
-  Option.match(activeRun(ctx, id), {
+  Option.match(activeRun(registry, id), {
     onNone,
     onSome
   })
@@ -226,6 +228,12 @@ export const makeRunSignal = (
 export const awaitRunSignal = (signal: RunSignal): Effect.Effect<void, never, never> =>
   awaitRunningState(signal).pipe(Effect.asVoid)
 
+export const awaitNextRunSignalChange = (signal: RunSignal): Effect.Effect<void, never, never> =>
+  SynchronizedRef.get(signal.stateRef).pipe(
+    Effect.flatMap((state) => Deferred.await(state.changeGate)),
+    Effect.asVoid
+  )
+
 export const sleepWithRunSignal = (signal: RunSignal, ms: number): Effect.Effect<void, never, never> =>
   sleepRemainingWithRunSignal(signal, ms)
 
@@ -288,11 +296,11 @@ export const markRunSignalStopping = (signal: RunSignal): Effect.Effect<void, ne
       )
     )).pipe(Effect.flatMap(notifyRunSignalUpdate), Effect.asVoid)
 
-export const allocateRunToken = (ctx: AtomType.FnContext, id: Id): number => {
-  const controller = ctx(runControllerAtom(id))
+export const allocateRunToken = (registry: RunRegistry, id: Id): number => {
+  const controller = registry.get(runControllerAtom(id))
   const token = controller.nextToken
 
-  ctx.set(runControllerAtom(id), {
+  registry.set(runControllerAtom(id), {
     ...controller,
     nextToken: token + 1
   })
@@ -300,22 +308,22 @@ export const allocateRunToken = (ctx: AtomType.FnContext, id: Id): number => {
   return token
 }
 
-export const registerActiveRun = (ctx: AtomType.FnContext, id: Id, active: ActiveRun): void => {
-  updateRunController(ctx, id, (controller) => ({ ...controller, active: Option.some(active) }))
+export const registerActiveRun = (registry: RunRegistry, id: Id, active: ActiveRun): void => {
+  updateRunController(registry, id, (controller) => ({ ...controller, active: Option.some(active) }))
 }
 
-export const releaseActiveRun = (ctx: AtomType.FnContext, id: Id, token: number): void => {
-  clearActiveRun(ctx, id, token)
+export const releaseActiveRun = (registry: RunRegistry, id: Id, token: number): void => {
+  clearActiveRun(registry, id, token)
 }
 
-export const activeRunFor = (ctx: AtomType.FnContext, id: Id): Option.Option<ActiveRun> => activeRun(ctx, id)
+export const activeRunFor = (registry: RunRegistry, id: Id): Option.Option<ActiveRun> => activeRun(registry, id)
 
 export const pauseActiveRun = (
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   id: Id
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(
-    ctx,
+    registry,
     id,
     () => Effect.succeed(Option.none()),
     (active) =>
@@ -325,11 +333,11 @@ export const pauseActiveRun = (
   )
 
 export const resumeActiveRun = (
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   id: Id
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(
-    ctx,
+    registry,
     id,
     () => Effect.succeed(Option.none()),
     (active) =>
@@ -338,9 +346,9 @@ export const resumeActiveRun = (
       )
   )
 
-export const interruptActiveRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+export const interruptActiveRun = (id: Id, registry: RunRegistry): Effect.Effect<void, never, never> =>
   withActiveRun(
-    ctx,
+    registry,
     id,
     () => Effect.void,
     (active) =>
@@ -348,7 +356,7 @@ export const interruptActiveRun = (id: Id, ctx: AtomType.FnContext): Effect.Effe
         Effect.zipRight(Fiber.interrupt(active.fiber)),
         Effect.ensuring(
           Effect.sync(() => {
-            clearActiveRun(ctx, id, active.token)
+            clearActiveRun(registry, id, active.token)
           })
         )
       )
@@ -356,10 +364,10 @@ export const interruptActiveRun = (id: Id, ctx: AtomType.FnContext): Effect.Effe
 
 export const stopActiveRun = (
   id: Id,
-  ctx: AtomType.FnContext
+  registry: RunRegistry
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(
-    ctx,
+    registry,
     id,
     () => Effect.succeed(Option.none()),
     (active) =>
@@ -367,7 +375,7 @@ export const stopActiveRun = (
         Effect.zipRight(Fiber.interrupt(active.fiber)),
         Effect.ensuring(
           Effect.sync(() => {
-            clearActiveRun(ctx, id, active.token)
+            clearActiveRun(registry, id, active.token)
           })
         ),
         Effect.as(Option.some(active))

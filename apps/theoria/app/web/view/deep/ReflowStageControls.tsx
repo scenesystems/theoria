@@ -4,7 +4,7 @@ import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
 import type { ToneClasses } from "../primitives/designSystem.js"
 
 import { ChoicePills } from "../primitives/ChoicePills.js"
-import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { Layer, Rail, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { LoadingIndicator } from "../primitives/Skeleton.js"
 import { SliderRow } from "../primitives/SliderRow.js"
@@ -55,7 +55,7 @@ export const ReflowStageControls = ({
       tone={tone}
     />
 
-    <Cluster className="w-full items-center justify-between gap-4 xl:flex-nowrap">
+    <Layer className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <Layer className="min-w-0 flex-1">
         <SliderRow
           disabled={vm.isAnimating}
@@ -69,7 +69,7 @@ export const ReflowStageControls = ({
           value={vm.width.value}
         />
       </Layer>
-      <Layer className="flex w-full shrink-0 items-center justify-end gap-3 xl:w-auto xl:flex-nowrap">
+      <Rail className="w-full justify-end gap-3 lg:w-auto lg:flex-nowrap">
         <LoadingIndicator active={vm.isAnimating} text="Animating…" tone={tone} />
         <ToggleSwitch
           checked={vm.obstaclesEnabled}
@@ -78,7 +78,7 @@ export const ReflowStageControls = ({
           onToggle={onToggleObstacles}
           tone={tone}
         />
-      </Layer>
-    </Cluster>
+      </Rail>
+    </Layer>
   </Stack>
 )

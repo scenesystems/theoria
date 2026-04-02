@@ -1,4 +1,7 @@
-import { effectCards, scenesystemsCards } from "../../../contracts/card.js"
+import * as Arr from "effect/Array"
+
+import { cardsForReleaseStage } from "../../../contracts/card.js"
+import { runtimeReleaseStage } from "../../runtime/release-stage.js"
 import { appTheme } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SiteFooter } from "../primitives/SiteFooter.js"
@@ -6,6 +9,10 @@ import { SiteHeader } from "../primitives/SiteHeader.js"
 
 import { HomeHero } from "./HomeHero.js"
 import { InstrumentSection } from "./InstrumentSection.js"
+
+const visibleCards = cardsForReleaseStage(runtimeReleaseStage())
+const effectCards = Arr.filter(visibleCards, (card) => card.group === "effect")
+const scenesystemsCards = Arr.filter(visibleCards, (card) => card.group === "scenesystems")
 
 export const HomePage = () => (
   <Layer as="main" className={appTheme.root}>

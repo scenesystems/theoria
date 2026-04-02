@@ -69,7 +69,10 @@ export type RunCompletion = {
 }
 
 export type RunRuntimeTelemetryKind =
+  | "run-started"
   | "pause-requested"
+  | "resume-requested"
+  | "stop-requested"
   | "checkpoint-reached"
   | "server-completed"
   | "local-completed"
@@ -456,9 +459,18 @@ const emptyRunRuntimeTelemetryState: RunRuntimeTelemetryState = {
   events: []
 }
 
-const startedRunRuntimeTelemetryState = (startedAtMs: number): RunRuntimeTelemetryState => ({
+const ownershipDetail = (ownership: RunOwnership): string =>
+  `local=${ownership.localDriver ? "yes" : "no"} · server=${ownership.serverStream ? "yes" : "no"}`
+
+const startedRunRuntimeTelemetryState = ({
+  ownership,
+  startedAtMs
+}: {
+  readonly ownership: RunOwnership
+  readonly startedAtMs: number
+}): RunRuntimeTelemetryState => ({
   startedAtMs,
-  events: []
+  events: [{ kind: "run-started", atMs: startedAtMs, detail: ownershipDetail(ownership) }]
 })
 
 const appendRunRuntimeTelemetryEvent = (
@@ -745,8 +757,8 @@ export type RunMessage =
   | { readonly _tag: "RunLocalCompleted"; readonly sequence: number; readonly observedAtMs: number }
   | { readonly _tag: "RunPauseCheckpointReached"; readonly sequence: number; readonly observedAtMs: number }
   | { readonly _tag: "RunPaused"; readonly sequence: number; readonly requestedAtMs: number }
-  | { readonly _tag: "RunResumed"; readonly sequence: number }
-  | { readonly _tag: "RunStopping"; readonly sequence: number }
+  | { readonly _tag: "RunResumed"; readonly sequence: number; readonly requestedAtMs: number }
+  | { readonly _tag: "RunStopping"; readonly sequence: number; readonly requestedAtMs: number }
   | { readonly _tag: "RunStopped"; readonly sequence: number; readonly finalizedAtMs: number }
   | { readonly _tag: "RunFailed"; readonly sequence: number; readonly finalizedAtMs: number; readonly error: DemoError }
   | {
@@ -768,7 +780,7 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
         ownership,
         program,
         runCompletionFromOwnership(ownership),
-        startedRunRuntimeTelemetryState(startedAtMs),
+        startedRunRuntimeTelemetryState({ ownership, startedAtMs }),
         localRunPlan,
         null
       )),
@@ -811,32 +823,38 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
           { kind: "pause-requested", atMs: requestedAtMs, detail: null }
         )
         : state),
-    Match.tag("RunResumed", ({ sequence }): RunState =>
+    Match.tag("RunResumed", ({ sequence, requestedAtMs }): RunState =>
       state._tag === "RunPaused" && state.sequence === sequence
-        ? runInFlightState(
-          "RunRunning",
-          state.session.token,
-          sequence,
-          state.session.ownership,
-          state.program,
-          state.session.completion,
-          state.session.telemetry,
-          state.session.localRunPlan,
-          state.session.localRunFrame
+        ? updateRunInFlightTelemetry(
+          runInFlightState(
+            "RunRunning",
+            state.session.token,
+            sequence,
+            state.session.ownership,
+            state.program,
+            state.session.completion,
+            state.session.telemetry,
+            state.session.localRunPlan,
+            state.session.localRunFrame
+          ),
+          { kind: "resume-requested", atMs: requestedAtMs, detail: null }
         )
         : state),
-    Match.tag("RunStopping", ({ sequence }): RunState =>
+    Match.tag("RunStopping", ({ sequence, requestedAtMs }): RunState =>
       hasMatchingSequence(state, sequence)
-        ? runInFlightState(
-          "RunStopping",
-          state.session.token,
-          sequence,
-          state.session.ownership,
-          state.program,
-          state.session.completion,
-          state.session.telemetry,
-          state.session.localRunPlan,
-          state.session.localRunFrame
+        ? updateRunInFlightTelemetry(
+          runInFlightState(
+            "RunStopping",
+            state.session.token,
+            sequence,
+            state.session.ownership,
+            state.program,
+            state.session.completion,
+            state.session.telemetry,
+            state.session.localRunPlan,
+            state.session.localRunFrame
+          ),
+          { kind: "stop-requested", atMs: requestedAtMs, detail: null }
         )
         : state),
     Match.tag("RunStopped", ({ sequence, finalizedAtMs }): RunState =>

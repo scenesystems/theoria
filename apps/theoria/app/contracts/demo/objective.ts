@@ -34,6 +34,9 @@ export const optimum: Config2D = { x: 2, y: -1 }
 export const objectiveExpression = "(x − 2)² + (y + 1)²"
 
 export const defaultTrialBudget = 30
+export const optimizationTrialBudgetMin = 10
+export const optimizationTrialBudgetMax = 100
+export const optimizationTrialBudgetStep = 5
 
 export const defaultSamplerSeed = 42
 

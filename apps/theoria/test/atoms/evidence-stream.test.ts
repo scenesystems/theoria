@@ -89,6 +89,7 @@ const serverEvidenceLayer = Layer.succeed(
     run: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     runWithMeta: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     preload: () => Effect.fail(new DemoRequestError({ message: "unused" })),
+    versions: () => Effect.succeed({}),
     streamUrl: (id) => `/api/demos/${id}/stream`
   })
 )

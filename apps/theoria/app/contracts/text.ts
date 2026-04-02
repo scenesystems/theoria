@@ -77,12 +77,17 @@ export const VariantMaxWidth = Schema.Struct({
 
 export type VariantMaxWidth = typeof VariantMaxWidth.Type
 
+export const LineBreakBehavior = Schema.Literal("wrap", "nowrap")
+
+export type LineBreakBehavior = typeof LineBreakBehavior.Type
+
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
   fontSize: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
   weight: FontWeight,
   tracking: Schema.Number.pipe(Schema.finite()),
+  lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
   lineHeight: PositiveLineHeight,
   maxWidth: VariantMaxWidth
@@ -103,6 +108,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 38,
     weight: "semibold",
     tracking: -0.02,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 44,
     maxWidth: { compact: 680, expanded: 920 }
@@ -113,6 +119,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 17,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 27,
     maxWidth: { compact: 600, expanded: 880 }
@@ -123,9 +130,10 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 24,
     weight: "semibold",
     tracking: -0.01,
+    lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 32,
-    maxWidth: { compact: 420, expanded: 860 }
+    maxWidth: { compact: 520, expanded: 1120 }
   },
   "card-summary": {
     role: "card-summary",
@@ -133,6 +141,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 15,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 24,
     maxWidth: { compact: 720, expanded: 1400 }
@@ -143,6 +152,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
     maxWidth: { compact: 760, expanded: 1400 }
@@ -153,6 +163,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "semibold",
     tracking: 0.02,
+    lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
     maxWidth: { compact: 180, expanded: 220 }
@@ -163,6 +174,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "semibold",
     tracking: 0,
+    lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 20,
     maxWidth: { compact: 900, expanded: 1400 }
@@ -173,9 +185,10 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 11,
     weight: "semibold",
     tracking: 0.04,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 16,
-    maxWidth: { compact: 340, expanded: 420 }
+    maxWidth: { compact: 360, expanded: 680 }
   },
   "row-value": {
     role: "row-value",
@@ -183,6 +196,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
     maxWidth: { compact: 760, expanded: 1400 }
@@ -193,6 +207,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 18,
     maxWidth: { compact: 900, expanded: 1400 }
@@ -203,6 +218,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    lineBreaks: "wrap",
     whiteSpace: "pre-wrap",
     lineHeight: 18,
     maxWidth: { compact: 900, expanded: 1800 }
@@ -213,6 +229,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "semibold",
     tracking: 0.02,
+    lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
     maxWidth: { compact: 170, expanded: 210 }

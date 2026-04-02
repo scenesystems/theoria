@@ -1,8 +1,9 @@
-import { Schema } from "effect"
+import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
-import type * as Option from "effect/Option"
+import * as Option from "effect/Option"
 
 import { Id } from "./id.js"
+import type { ReleaseStage } from "./release-stage.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -19,10 +20,47 @@ export const PackageGroup = Schema.Literal("effect", "scenesystems")
 export type PackageGroup = typeof PackageGroup.Type
 
 /**
+ * Display metadata for a package group on the home page.
+ *
+ * @since 0.1.0
+ */
+export const PackageGroupMeta = Schema.Struct({
+  label: NonEmptyString,
+  description: NonEmptyString
+})
+
+export type PackageGroupMeta = typeof PackageGroupMeta.Type
+
+export const CardReleaseState = Schema.Literal("published", "coming-soon")
+
+export type CardReleaseState = typeof CardReleaseState.Type
+
+/**
+ * Resolved display metadata for each package group.
+ *
+ * @since 0.1.0
+ */
+export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
+  Match.value(group).pipe(
+    Match.when("effect", () => ({
+      label: "Effect Ecosystem",
+      description:
+        "Typed, composable libraries extending the Effect ecosystem with scientific computing, optimization, and language model programming."
+    })),
+    Match.when("scenesystems", () => ({
+      label: "Scene Systems",
+      description:
+        "Cryptographic primitives built with Effect for content addressing, digital signatures, and authenticated encryption."
+    })),
+    Match.exhaustive
+  )
+
+/**
  * Full card definition consumed by both the home catalog and deep-dive pages.
  *
- * Metadata fields (`description`, `version`, `npmUrl`, `repoUrl`) are kept in
- * sync with the source `package.json` files via `card-metadata-sync.test.ts`.
+ * The `version` field provides a static fallback. Live versions are resolved
+ * at runtime from the `/api/versions/packages` endpoint which reads the
+ * workspace `package.json` files on server startup.
  *
  * @since 0.1.0
  */
@@ -36,6 +74,7 @@ export const Card = Schema.Struct({
   runLabel: NonEmptyString,
   deepDivePath: NonEmptyString,
   group: PackageGroup,
+  releaseState: CardReleaseState,
   version: NonEmptyString,
   npmUrl: NonEmptyString,
   repoUrl: NonEmptyString,
@@ -57,7 +96,8 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Benchmark",
     deepDivePath: "/demos/effect-text",
     group: "effect",
-    version: "0.0.0",
+    releaseState: "published",
+    version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
     license: "MIT",
@@ -73,7 +113,8 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Optimizer Comparison",
     deepDivePath: "/demos/effect-search",
     group: "effect",
-    version: "0.1.3",
+    releaseState: "published",
+    version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/effect-search",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
     license: "MIT",
@@ -90,7 +131,8 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Power Analysis",
     deepDivePath: "/demos/effect-math",
     group: "effect",
-    version: "0.1.2",
+    releaseState: "published",
+    version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/effect-math",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
     license: "MIT",
@@ -106,7 +148,8 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Model Evaluation",
     deepDivePath: "/demos/effect-dsp",
     group: "effect",
-    version: "0.1.3",
+    releaseState: "published",
+    version: "0.1.4",
     npmUrl: "https://www.npmjs.com/package/effect-dsp",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
     license: "MIT",
@@ -122,7 +165,8 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Digest Benchmark",
     deepDivePath: "/demos/digest",
     group: "scenesystems",
-    version: "0.1.0",
+    releaseState: "coming-soon",
+    version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/digest",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/digest",
     license: "MIT"
@@ -137,6 +181,7 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Signature Demo",
     deepDivePath: "/demos/sign",
     group: "scenesystems",
+    releaseState: "coming-soon",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
@@ -152,6 +197,7 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Encryption Demo",
     deepDivePath: "/demos/seal",
     group: "scenesystems",
+    releaseState: "coming-soon",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
@@ -164,3 +210,18 @@ export const effectCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group
 export const scenesystemsCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "scenesystems")
 
 export const cardById = (id: Card["id"]): Option.Option<Card> => Arr.findFirst(cards, (card) => card.id === id)
+
+export const cardVisibleInReleaseStage = (card: Card, stage: ReleaseStage): boolean =>
+  Match.value(stage).pipe(
+    Match.when("preview", () => true),
+    Match.when("production", () => card.releaseState === "published"),
+    Match.exhaustive
+  )
+
+export const cardsForReleaseStage = (stage: ReleaseStage): ReadonlyArray<Card> =>
+  Arr.filter(cards, (card) => cardVisibleInReleaseStage(card, stage))
+
+export const cardByIdForReleaseStage = (id: Card["id"], stage: ReleaseStage): Option.Option<Card> =>
+  cardById(id).pipe(
+    Option.filter((card) => cardVisibleInReleaseStage(card, stage))
+  )

@@ -1,8 +1,8 @@
 import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
 import type { ToneClasses } from "../primitives/designSystem.js"
 
+import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
-import { MetricStrip } from "../primitives/MetricStrip.js"
 import { ReflowPreview } from "../primitives/ReflowPreview.js"
 import { ContentPlaceholder, LoadingIndicator } from "../primitives/Skeleton.js"
 
@@ -25,22 +25,27 @@ export const ReflowStagePanel = ({
 }) =>
   vm.stage === null
     ? (
-      <Stack className="gap-4 xl:px-4 2xl:px-6">
+      <Stack className="gap-4">
         <LoadingIndicator active text="Preparing text…" tone={tone} />
         <ContentPlaceholder text="Preparing text…" />
       </Stack>
     )
     : (
-      <Stack className="mx-auto w-full max-w-6xl gap-4 xl:px-4 2xl:px-6">
-        <ReflowStageControls
-          onSelectCorpus={onSelectCorpus}
-          onSetCustomText={onSetCustomText}
-          onSetWidth={onSetWidth}
-          onToggleObstacles={onToggleObstacles}
-          tone={tone}
-          vm={vm}
-        />
-        <MetricStrip metrics={vm.metrics} />
-        <ReflowPreview vm={vm} />
+      <Stack className="gap-4">
+        <InstrumentPanel
+          controls={
+            <ReflowStageControls
+              onSelectCorpus={onSelectCorpus}
+              onSetCustomText={onSetCustomText}
+              onSetWidth={onSetWidth}
+              onToggleObstacles={onToggleObstacles}
+              tone={tone}
+              vm={vm}
+            />
+          }
+          metrics={vm.metrics}
+        >
+          <ReflowPreview vm={vm} />
+        </InstrumentPanel>
       </Stack>
     )

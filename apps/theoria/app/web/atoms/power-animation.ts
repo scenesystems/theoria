@@ -5,11 +5,18 @@ import { Clock, Effect } from "effect"
 import { Study } from "effect-search"
 import * as Arr from "effect/Array"
 
-import { nonCentrality, overlapCoefficient, power, requiredN } from "../../contracts/demo/power.js"
+import {
+  defaultPowerControls,
+  nonCentrality,
+  overlapCoefficient,
+  power,
+  requiredN
+} from "../../contracts/demo/power.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { SectionAppend, SectionUpsert } from "../../contracts/evidence-stream.js"
 import type { EvidenceItem } from "../../contracts/evidence.js"
 import { awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import type { RunRegistry } from "./run-registry-context.js"
 
 // ---------------------------------------------------------------------------
 // Atoms
@@ -21,9 +28,7 @@ export type PowerControls = {
   readonly alpha: number
 }
 
-const defaultPowerControls: PowerControls = { d: 0.5, n: 30, alpha: 0.05 }
-
-export const powerControlsAtom: AtomType.Writable<PowerControls> = Atom.make(defaultPowerControls)
+export const powerControlsAtom: AtomType.Writable<PowerControls> = Atom.make<PowerControls>(defaultPowerControls)
 
 export const powerAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 
@@ -204,6 +209,22 @@ const emitFrameUpdate = ({
 
 const sectionUpsertInterval = 5
 
+export const setPowerAnimationPlayback = (
+  registry: RunRegistry,
+  isAnimating: boolean
+): Effect.Effect<void, never, never> =>
+  Effect.sync(() => {
+    registry.set(powerAnimatingAtom, isAnimating)
+  })
+
+export const syncPowerFrameToControls = (
+  registry: RunRegistry,
+  frame: EffectMathRunFrame
+): Effect.Effect<void, never, never> =>
+  Effect.sync(() => {
+    registry.set(powerControlsAtom, frame.controls)
+  })
+
 const sweepPhase = (
   emit: (event: EffectMathAnimationEvent) => Effect.Effect<void, never, never>,
   phase: EffectMathRunPhase,
@@ -247,24 +268,24 @@ const sweepPhase = (
       })
   )
 
-export const resetPowerAnimationState = (ctx: AtomType.FnContext): void => {
-  ctx.set(powerControlsAtom, defaultPowerControls)
-  ctx.set(powerAnimatingAtom, false)
+export const resetPowerAnimationState = (registry: RunRegistry): void => {
+  registry.set(powerControlsAtom, defaultPowerControls)
+  registry.set(powerAnimatingAtom, false)
 }
 
-export const resetPowerAnimationStateEffect = (ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+export const resetPowerAnimationStateEffect = (registry: RunRegistry): Effect.Effect<void, never, never> =>
   Effect.sync(() => {
-    resetPowerAnimationState(ctx)
+    resetPowerAnimationState(registry)
   })
 
 export const makePowerAnimationStream = (
-  ctx: AtomType.FnContext,
+  registry: RunRegistry,
   signal: RunSignal,
   plan: EffectMathRunPlan
 ): Stream.Stream<EffectMathAnimationEvent, never, never> =>
   Study.streamFromEmitter<EffectMathAnimationEvent, void, never, never>((emit) =>
     Effect.gen(function*() {
-      ctx.set(powerAnimatingAtom, true)
+      registry.set(powerAnimatingAtom, true)
       const startedAt = yield* Clock.currentTimeMillis
       const phaseRows = yield* Effect.forEach(
         plan.phases,
@@ -333,6 +354,6 @@ export const makePowerAnimationStream = (
         })
       )
     }).pipe(
-      Effect.ensuring(resetPowerAnimationStateEffect(ctx))
+      Effect.ensuring(resetPowerAnimationStateEffect(registry))
     )
   )

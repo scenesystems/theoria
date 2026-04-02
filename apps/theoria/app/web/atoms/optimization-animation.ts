@@ -8,6 +8,7 @@ import * as Arr from "effect/Array"
 import {
   bestTrialPoint,
   defaultSamplerSeed,
+  defaultTrialBudget,
   objectiveAt,
   objectiveExpression,
   optimum,
@@ -18,6 +19,7 @@ import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { SectionAppend } from "../../contracts/evidence-stream.js"
 import { publishOptimizationEvidence } from "./optimization-evidence.js"
 import { awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import type { RunRegistry } from "./run-registry-context.js"
 
 import type { Config2D } from "../../contracts/demo/objective.js"
 
@@ -29,7 +31,29 @@ const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
 
 export type { TrialPoint } from "../../contracts/demo/objective.js"
 
-export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(30)
+export type EffectSearchRunPlan = {
+  readonly _tag: "effect-search"
+  readonly samplerSeed: number
+  readonly trialBudget: number
+}
+
+export type EffectSearchRunFrame = {
+  readonly _tag: "effect-search"
+  readonly phase: OptimizationProjection["phase"]
+  readonly randomBestValue: number | null
+  readonly randomTrialCount: number
+  readonly tpeBestValue: number | null
+  readonly tpeTrialCount: number
+  readonly trialBudget: number
+}
+
+export const snapshotEffectSearchRunPlan = (trialBudget: number): EffectSearchRunPlan => ({
+  _tag: "effect-search",
+  samplerSeed: defaultSamplerSeed,
+  trialBudget
+})
+
+export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(defaultTrialBudget)
 
 export const optimizationAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 
@@ -79,26 +103,35 @@ export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> =
 
 const stepDelayMs = 40
 
-export const resetOptimizationAnimationState = (ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+export const setOptimizationAnimationPlayback = (
+  registry: RunRegistry,
+  isAnimating: boolean
+): Effect.Effect<void, never, never> =>
   Effect.sync(() => {
-    ctx.set(optimizationAnimatingAtom, false)
-    ctx.set(tpeTrialsAtom, [])
-    ctx.set(randomTrialsAtom, [])
+    registry.set(optimizationAnimatingAtom, isAnimating)
+  })
+
+export const resetOptimizationAnimationState = (registry: RunRegistry): Effect.Effect<void, never, never> =>
+  Effect.sync(() => {
+    registry.set(optimizationAnimatingAtom, false)
+    registry.set(tpeTrialsAtom, [])
+    registry.set(randomTrialsAtom, [])
   })
 
 export const makeOptimizationAnimationStream = (
-  ctx: AtomType.FnContext,
-  signal: RunSignal
+  registry: RunRegistry,
+  signal: RunSignal,
+  plan: EffectSearchRunPlan
 ): Stream.Stream<EvidenceEvent, never, never> =>
   Study.streamFromEmitter<EvidenceEvent, void, never, never>((emit) =>
     Effect.gen(function*() {
-      ctx.set(optimizationAnimatingAtom, true)
-      ctx.set(tpeTrialsAtom, [])
-      ctx.set(randomTrialsAtom, [])
+      registry.set(optimizationAnimatingAtom, true)
+      registry.set(tpeTrialsAtom, [])
+      registry.set(randomTrialsAtom, [])
 
       const startedAt = yield* Clock.currentTimeMillis
-      const trialBudget = ctx(trialBudgetAtom)
-      const seed = defaultSamplerSeed
+      const trialBudget = plan.trialBudget
+      const seed = plan.samplerSeed
 
       const tpePointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
       const randomPointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
@@ -162,8 +195,8 @@ export const makeOptimizationAnimationStream = (
                   trialRef: randomPointsRef
                 })
 
-                ctx.set(tpeTrialsAtom, tpePoints)
-                ctx.set(randomTrialsAtom, randomPoints)
+                registry.set(tpeTrialsAtom, tpePoints)
+                registry.set(randomTrialsAtom, randomPoints)
 
                 if (index === 0) {
                   yield* publishOptimizationEvidence({
@@ -221,6 +254,6 @@ export const makeOptimizationAnimationStream = (
         })
       )
     }).pipe(
-      Effect.ensuring(resetOptimizationAnimationState(ctx))
+      Effect.ensuring(resetOptimizationAnimationState(registry))
     )
   )

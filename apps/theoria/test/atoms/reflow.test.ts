@@ -257,7 +257,7 @@ describe("Reflow projection (pure layout)", () => {
 
   it.effect("keeps default obstacle tops stable as width changes", () =>
     Effect.gen(function*() {
-      const entry = corpus[4]!
+      const entry = corpus.find((e) => e.id === "product-copy")!
       const prepared = yield* Text.prepare({
         text: entry.text,
         font: reflowTestFont,

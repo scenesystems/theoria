@@ -2,7 +2,7 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import { makeWidthObserver } from "../../atoms/element-width.js"
+import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import {
   reflowStageFrameBorderPx,
   reflowStageHorizontalInsetPx,
@@ -32,13 +32,13 @@ const lineRailStyle = (leftInsetPx: number, rightInsetPx: number): CSSProperties
 
 export const ReflowPreview = ({ vm }: { readonly vm: ReflowWidgetViewModel }) => {
   const setStageViewportWidth = useAtomSet(reflowStageViewportWidthAtom)
+  const observeStageViewport = useElementWidthReporter(setStageViewportWidth)
 
   if (vm.stage === null) {
     return null
   }
 
   const stage = vm.stage
-  const observeStageViewport = makeWidthObserver(setStageViewportWidth)
   const frameWidthPx = stage.canvasWidthPx + (reflowStageHorizontalInsetPx * 2) + (reflowStageFrameBorderPx * 2)
   const frameHeightPx = stage.canvasHeightPx + (reflowStageVerticalInsetPx * 2)
 

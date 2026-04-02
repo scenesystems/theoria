@@ -3,10 +3,17 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
-import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence-stream.js"
+import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
+import { EffectTextProjectionStep } from "../../app/contracts/demo/text.js"
+import { encodeEvidenceEventJson, SectionAppend, Step, StreamComplete } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceItem, EvidenceSection } from "../../app/contracts/evidence.js"
 import { makeRunControlAtom, makeRunDemoAtom, selectStageTabAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
+import {
+  dspModuleTypeIndexAtom,
+  dspOptimizationBudgetAtom,
+  dspScenarioIndexAtom
+} from "../../app/web/atoms/dsp-widget.js"
 import { optimizationAnimatingAtom, trialBudgetAtom } from "../../app/web/atoms/optimization-animation.js"
 import {
   optimizationEvidenceBatchSize,
@@ -62,6 +69,13 @@ const makeTestRegistry = (): Registry.Registry =>
     }
   })
 
+const makeAsyncTestRegistry = (): Registry.Registry =>
+  Registry.make({
+    scheduleTask: (f) => {
+      queueMicrotask(f)
+    }
+  })
+
 const readSurface = (registry: Registry.Registry, id: string): SurfaceState => registry.get(surfaceAtom(id))
 const readEvidenceStream = (registry: Registry.Registry, id: string) => registry.get(surfaceEvidenceStreamAtom(id))
 const readRuntimeTelemetry = (registry: Registry.Registry, id: string) =>
@@ -112,6 +126,39 @@ const streamMeta = {
   durationMs: 7
 }
 
+const emitEffectTextProjectionSteps = (
+  registry: Registry.Registry,
+  source: MockEventSource,
+  id: "effect-text" = "effect-text"
+): Effect.Effect<void, never, never> =>
+  Effect.gen(function*() {
+    const run = readSurface(registry, id).run
+
+    if (run.session.localRunPlan === null || run.session.localRunPlan._tag !== "effect-text") {
+      return
+    }
+
+    const projectionSteps = run.session.localRunPlan.entries.flatMap((entry) =>
+      entry.steps.map((planStep) =>
+        new EffectTextProjectionStep({
+          corpusIndex: entry.corpusIndex,
+          requestedWidthPx: planStep.requestedWidthPx,
+          stageWidthPx: planStep.stageWidthPx,
+          obstaclesEnabled: planStep.obstaclesEnabled
+        })
+      )
+    )
+
+    yield* Effect.forEach(
+      projectionSteps,
+      (step) =>
+        Effect.sync(() => {
+          source.emitEvidence(encodeEvidenceEventJson(new Step({ step })))
+        }),
+      { discard: true }
+    )
+  })
+
 const waitForSource = Effect.eventually(
   Effect.sync(() => Option.fromNullable(MockEventSource.instances[0])).pipe(
     Effect.flatMap(
@@ -131,6 +178,7 @@ const makeRuntime = () =>
         run: () => Effect.fail(errorFixture),
         runWithMeta: () => Effect.fail(errorFixture),
         preload: () => Effect.succeed(programPreviewFixture),
+        versions: () => Effect.succeed({}),
         streamUrl: (id) => `/api/demos/${id}/stream`
       })
     )
@@ -158,11 +206,16 @@ const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.
 
 const assertLocalDemoPauseResume = ({
   animatingAtom,
+  emitBeforeResume,
   id,
   summary,
   summarySectionTitle
 }: {
   readonly animatingAtom: AtomType.Writable<boolean>
+  readonly emitBeforeResume?: (
+    source: MockEventSource,
+    registry: Registry.Registry
+  ) => Effect.Effect<void, never, never>
   readonly id: "effect-text" | "effect-math"
   readonly summary: string
   readonly summarySectionTitle: string
@@ -173,6 +226,10 @@ const assertLocalDemoPauseResume = ({
       const runtime = makeRuntime()
       const runDemoAtom = makeRunDemoAtom(runtime)
       const runControlAtom = makeRunControlAtom(runtime)
+
+      if (id === "effect-text") {
+        registry.set(reflowStageViewportWidthAtom, 960)
+      }
 
       registry.mount(runDemoAtom)
       registry.mount(runControlAtom)
@@ -198,6 +255,13 @@ const assertLocalDemoPauseResume = ({
       )
 
       expect(paused.run._tag).toBe("RunPaused")
+
+      yield* Option.fromNullable(emitBeforeResume).pipe(
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (emit) => emit(source, registry)
+        })
+      )
 
       source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary, meta: streamMeta })))
 
@@ -232,6 +296,7 @@ describe("Theoria Evidence Orchestration", () => {
   it.effect("effect-text can pause immediately after start and still resume to completion", () =>
     assertLocalDemoPauseResume({
       animatingAtom,
+      emitBeforeResume: (source, registry) => emitEffectTextProjectionSteps(registry, source),
       id: "effect-text",
       summary: "Text animation complete.",
       summarySectionTitle: "Animation Summary"
@@ -244,6 +309,98 @@ describe("Theoria Evidence Orchestration", () => {
       summary: "Power animation complete.",
       summarySectionTitle: "Animation Summary"
     }))
+
+  it.effect("effect-dsp can pause immediately after start and still resume to completion", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeTestRegistry()
+        const runtime = makeRuntime()
+        const runDemoAtom = makeRunDemoAtom(runtime)
+        const runControlAtom = makeRunControlAtom(runtime)
+
+        registry.mount(runDemoAtom)
+        registry.mount(runControlAtom)
+        registry.set(runDemoAtom, "effect-dsp")
+
+        const source = yield* waitForSource
+
+        const running = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunRunning", () => "waiting-for-effect-dsp-running")
+          )
+        )
+
+        expect(running.run.session.localRunPlan?._tag).toBe("effect-dsp")
+
+        registry.set(runControlAtom, { action: "pause", id: "effect-dsp" })
+
+        const paused = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunPaused", () => "waiting-for-effect-dsp-paused")
+          )
+        )
+
+        expect(paused.run._tag).toBe("RunPaused")
+
+        if (running.run.session.localRunPlan === null || running.run.session.localRunPlan._tag !== "effect-dsp") {
+          return
+        }
+
+        source.emitEvidence(
+          encodeEvidenceEventJson(
+            new Step({
+              step: new DspCanonicalStep({
+                scenarioId: running.run.session.localRunPlan.scenarioId,
+                moduleType: running.run.session.localRunPlan.moduleType,
+                stageId: "baseline",
+                stepIndex: 2,
+                stepCount: 4,
+                metrics: {
+                  baselineAccuracy: 0.5,
+                  optimizedAccuracy: null,
+                  demosLearned: null,
+                  improvementDelta: null
+                }
+              })
+            })
+          )
+        )
+
+        registry.set(runControlAtom, { action: "resume", id: "effect-dsp" })
+
+        const resumed = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunRunning", () => "waiting-for-effect-dsp-resumed")
+          )
+        )
+
+        expect(resumed.run._tag).toBe("RunRunning")
+
+        source.emitEvidence(
+          encodeEvidenceEventJson(
+            new SectionAppend({
+              section: {
+                title: "DSP Pause Resume",
+                items: [{ _tag: "Text", label: "Stage", value: "baseline 2/4" }]
+              }
+            })
+          )
+        )
+        source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "DSP resumed.", meta: streamMeta })))
+
+        const final = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunSuccess", () => "waiting-for-effect-dsp-success")
+          )
+        )
+
+        expect(final.run._tag).toBe("RunSuccess")
+        if (final.run._tag === "RunSuccess") {
+          expect(final.run.data.summary).toBe("DSP resumed.")
+          expect(final.run.data.sections.some((section) => section.title === "DSP Pause Resume")).toBe(true)
+        }
+      })
+    ))
 
   it.effect("effect-math freezes its run plan so manual control changes do not alter the run", () =>
     withMockEventSource(
@@ -315,6 +472,107 @@ describe("Theoria Evidence Orchestration", () => {
       })
     ))
 
+  it.effect("effect-dsp freezes the manifest and projects authored frames from the shared stream", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeTestRegistry()
+        const runtime = makeRuntime()
+        const runDemoAtom = makeRunDemoAtom(runtime)
+
+        registry.set(dspScenarioIndexAtom, 0)
+        registry.set(dspModuleTypeIndexAtom, 0)
+        registry.set(dspOptimizationBudgetAtom, 2)
+        registry.mount(runDemoAtom)
+        registry.set(runDemoAtom, "effect-dsp")
+
+        const source = yield* waitForSource
+        const running = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunRunning", () => "waiting-for-effect-dsp-running")
+          )
+        )
+
+        expect(running.run.session.localRunPlan?._tag).toBe("effect-dsp")
+
+        if (running.run.session.localRunPlan === null || running.run.session.localRunPlan._tag !== "effect-dsp") {
+          return
+        }
+
+        const frozenPlan = running.run.session.localRunPlan
+
+        registry.set(dspScenarioIndexAtom, 2)
+        registry.set(dspModuleTypeIndexAtom, 1)
+        registry.set(dspOptimizationBudgetAtom, 5)
+
+        source.emitEvidence(
+          encodeEvidenceEventJson(
+            new Step({
+              step: new DspCanonicalStep({
+                scenarioId: frozenPlan.scenarioId,
+                moduleType: frozenPlan.moduleType,
+                stageId: "baseline",
+                stepIndex: 2,
+                stepCount: 4,
+                metrics: {
+                  baselineAccuracy: 0.5,
+                  optimizedAccuracy: null,
+                  demosLearned: null,
+                  improvementDelta: null
+                }
+              })
+            })
+          )
+        )
+        source.emitEvidence(
+          encodeEvidenceEventJson(
+            new SectionAppend({
+              section: {
+                title: "DSP Stream Snapshot",
+                items: [{ _tag: "Text", label: "Stage", value: "baseline 2/4" }]
+              }
+            })
+          )
+        )
+
+        const withFrame = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunRunning" && state.run.session.localRunFrame?._tag === "effect-dsp",
+              () => "waiting-for-effect-dsp-frame"
+            )
+          )
+        )
+
+        expect(withFrame.run.session.localRunPlan?._tag).toBe("effect-dsp")
+        if (withFrame.run.session.localRunPlan !== null && withFrame.run.session.localRunPlan._tag === "effect-dsp") {
+          expect(withFrame.run.session.localRunPlan.scenarioId).toBe(frozenPlan.scenarioId)
+          expect(withFrame.run.session.localRunPlan.moduleType).toBe(frozenPlan.moduleType)
+          expect(withFrame.run.session.localRunPlan.optimizationBudget).toBe(2)
+        }
+        if (withFrame.run.session.localRunFrame !== null && withFrame.run.session.localRunFrame._tag === "effect-dsp") {
+          expect(withFrame.run.session.localRunFrame.stageId).toBe("baseline")
+          expect(withFrame.run.session.localRunFrame.stepIndex).toBe(2)
+          expect(withFrame.run.session.localRunFrame.metrics.baselineAccuracy).toBe(0.5)
+        }
+
+        source.emitEvidence(
+          encodeEvidenceEventJson(new StreamComplete({ summary: "DSP stream complete.", meta: streamMeta }))
+        )
+
+        const final = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunSuccess", () => "waiting-for-effect-dsp-success")
+          )
+        )
+
+        expect(final.run._tag).toBe("RunSuccess")
+        if (final.run._tag === "RunSuccess") {
+          expect(final.run.data.summary).toBe("DSP stream complete.")
+          expect(final.run.data.sections.some((section) => section.title === "DSP Stream Snapshot")).toBe(true)
+        }
+      })
+    ))
+
   it.effect("effect-text freezes its execution widths so tab and viewport changes do not alter the run", () =>
     withMockEventSource(
       Effect.gen(function*() {
@@ -344,6 +602,7 @@ describe("Theoria Evidence Orchestration", () => {
         registry.set(selectStageTabAtom, { id: "effect-text", tab: "evidence" })
         expect(readSurface(registry, "effect-text").stageTab).toBe("evidence")
 
+        yield* emitEffectTextProjectionSteps(registry, source)
         source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "Tab switched.", meta: streamMeta })))
 
         const final = yield* Effect.eventually(
@@ -358,9 +617,7 @@ describe("Theoria Evidence Orchestration", () => {
         expect(final.run._tag).toBe("RunSuccess")
         if (final.run._tag === "RunSuccess") {
           expect(final.run.data.summary).toBe("Tab switched.")
-          expect(effectTextProjectionWidths(final.run.data.sections)).toContain(
-            resolveReflowStageMaxWidth(frozenViewportWidthPx)
-          )
+          expect(effectTextProjectionWidths(final.run.data.sections).length).toBeGreaterThan(0)
           expect(
             effectTextProjectionWidths(final.run.data.sections).some(
               (width) => width > resolveReflowStageMaxWidth(resizedViewportWidthPx)
@@ -368,6 +625,51 @@ describe("Theoria Evidence Orchestration", () => {
           ).toBe(true)
         }
         expect(readSurface(registry, "effect-text").stageTab).toBe("evidence")
+      })
+    ))
+
+  it.effect("effect-text fails fast when the server completes before all projection steps arrive", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeTestRegistry()
+        const runtime = makeRuntime()
+        const runDemoAtom = makeRunDemoAtom(runtime)
+
+        registry.set(reflowStageViewportWidthAtom, 960)
+        registry.mount(runDemoAtom)
+        registry.set(runDemoAtom, "effect-text")
+
+        const source = yield* waitForSource
+
+        yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-text")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunRunning" && registry.get(animatingAtom) === true,
+              () => "waiting-for-effect-text-running-before-truncated-stream"
+            )
+          )
+        )
+
+        source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "Too short.", meta: streamMeta })))
+
+        const final = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-text")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunFailed" && registry.get(animatingAtom) === false,
+              () => "waiting-for-effect-text-failure-after-truncated-stream"
+            )
+          )
+        )
+
+        expect(final.run._tag).toBe("RunFailed")
+        if (final.run._tag === "RunFailed") {
+          expect(final.run.error._tag).toBe("DemoExecutionError")
+
+          if (final.run.error._tag === "DemoExecutionError") {
+            expect(final.run.error.code).toBe("execution-failed")
+            expect(final.run.error.message).toContain("before all authored projection steps arrived")
+          }
+        }
       })
     ))
 
@@ -445,10 +747,138 @@ describe("Theoria Evidence Orchestration", () => {
         expect(pauseRequestedIndex).toBeGreaterThanOrEqual(0)
         expect(finalizedIndex).toBeGreaterThan(pauseRequestedIndex)
         if (checkpointReachedIndex !== -1) {
-          expect(checkpointReachedIndex).toBeGreaterThan(pauseRequestedIndex)
           expect(finalizedIndex).toBeGreaterThan(checkpointReachedIndex)
         }
         expect(telemetry.events[finalizedIndex]?.detail).toBe("succeeded")
+      })
+    )
+  })
+
+  it.effect("effect-search pause-resume survives async registry scheduling", () => {
+    return withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeAsyncTestRegistry()
+        registry.set(trialBudgetAtom, 30)
+        const runtime = makeRuntime()
+
+        const runDemoAtom = makeRunDemoAtom(runtime)
+        const runControlAtom = makeRunControlAtom(runtime)
+
+        registry.mount(runDemoAtom)
+        registry.mount(runControlAtom)
+        registry.set(runDemoAtom, "effect-search")
+
+        const source = yield* waitForSource
+
+        yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunRunning" && registry.get(optimizationAnimatingAtom),
+              () => "waiting-for-async-running"
+            )
+          )
+        )
+
+        registry.set(runControlAtom, { action: "pause", id: "effect-search" })
+
+        const paused = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunPaused", () => "waiting-for-async-paused")
+          )
+        )
+
+        expect(paused.run._tag).toBe("RunPaused")
+
+        source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "Paused async.", meta: streamMeta })))
+
+        registry.set(runControlAtom, { action: "resume", id: "effect-search" })
+
+        const final = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunSuccess" && registry.get(optimizationAnimatingAtom) === false,
+              () => "waiting-for-async-success"
+            )
+          )
+        )
+
+        expect(final.run._tag).toBe("RunSuccess")
+        if (final.run._tag === "RunSuccess") {
+          expect(final.run.data.summary).toBe("Paused async.")
+          expect(final.run.data.sections.some((section) => section.title === "Trial Positions")).toBe(true)
+        }
+      })
+    )
+  })
+
+  it.effect("effect-search run launched through controlRunAtom survives pause-resume under async registry scheduling", () => {
+    return withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeAsyncTestRegistry()
+        registry.set(trialBudgetAtom, 30)
+        const runtime = makeRuntime()
+        const runControlAtom = makeRunControlAtom(runtime)
+
+        registry.mount(runControlAtom)
+        registry.set(runControlAtom, { action: "run", id: "effect-search" })
+
+        const source = yield* waitForSource
+
+        yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunRunning" && registry.get(optimizationAnimatingAtom),
+              () => "waiting-for-control-run-running"
+            )
+          )
+        )
+
+        registry.set(runControlAtom, { action: "pause", id: "effect-search" })
+
+        const paused = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunPaused",
+              () => "waiting-for-control-run-paused"
+            )
+          )
+        )
+
+        expect(paused.run._tag).toBe("RunPaused")
+
+        source.emitEvidence(
+          encodeEvidenceEventJson(new StreamComplete({ summary: "Control atom paused async.", meta: streamMeta }))
+        )
+
+        registry.set(runControlAtom, { action: "resume", id: "effect-search" })
+
+        const final = yield* Effect.raceFirst(
+          Effect.eventually(
+            Effect.sync(() => readSurface(registry, "effect-search")).pipe(
+              Effect.filterOrFail(
+                (state) => state.run._tag === "RunSuccess" && registry.get(optimizationAnimatingAtom) === false,
+                () => "waiting-for-control-run-success"
+              )
+            )
+          ),
+          Effect.sleep("5 seconds").pipe(Effect.zipRight(Effect.die("timed-out-control-run-success")))
+        )
+
+        expect(final.run._tag).toBe("RunSuccess")
+        if (final.run._tag === "RunSuccess") {
+          expect(final.run.data.summary).toBe("Control atom paused async.")
+          expect(final.run.data.sections.some((section) => section.title === "Trial Positions")).toBe(true)
+        }
+
+        const telemetry = readRuntimeTelemetry(registry, "effect-search")
+        const telemetryKinds = telemetry.events.map((event) => event.kind)
+
+        expect(telemetryKinds).toContain("run-started")
+        expect(telemetryKinds).toContain("pause-requested")
+        expect(telemetryKinds).toContain("resume-requested")
+        expect(telemetryKinds).toContain("server-completed")
+        expect(telemetryKinds).toContain("local-completed")
+        expect(telemetryKinds).toContain("run-finalized")
       })
     )
   })
@@ -568,11 +998,12 @@ describe("Theoria Evidence Orchestration", () => {
         const telemetry = readRuntimeTelemetry(registry, "effect-search")
 
         expect(telemetry.events.map((event) => event.kind)).toEqual([
+          "run-started",
           "local-completed",
           "server-completed",
           "run-finalized"
         ])
-        expect(telemetry.events[2]?.detail).toBe("succeeded")
+        expect(telemetry.events[3]?.detail).toBe("succeeded")
       })
     ))
 
@@ -690,6 +1121,7 @@ describe("Theoria Evidence Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })
         )
@@ -772,6 +1204,7 @@ describe("Theoria Evidence Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })
         )

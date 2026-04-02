@@ -1,9 +1,10 @@
 import type { Text } from "effect-text"
 import * as Arr from "effect/Array"
 
+import { obstacleGapPx } from "../../contracts/demo/text.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 
-export const reflowObstacleGapPx = 16
+export const reflowObstacleGapPx = obstacleGapPx
 
 export type ReflowStageObstacle = Obstacle & {
   readonly occupiedWidthPx: number

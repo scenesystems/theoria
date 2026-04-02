@@ -70,8 +70,11 @@ const sectionToPresented = (section: EvidenceSection): PresentedSection => ({
   rows: Arr.map(section.items, itemToRow)
 })
 
+export const presentSections = (sections: ReadonlyArray<EvidenceSection>): ReadonlyArray<PresentedSection> =>
+  Arr.map(sections, sectionToPresented)
+
 export const presentRun = (run: RunData): PresentedRun => ({
   summary: run.summary,
-  sections: Arr.map(run.sections, sectionToPresented),
+  sections: presentSections(run.sections),
   program: run.program
 })

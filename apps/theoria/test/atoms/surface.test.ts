@@ -9,10 +9,12 @@ import {
   surfaceEvidenceSectionsAtom,
   surfaceEvidenceStoreAtom,
   surfaceEvidenceStreamAtom,
-  surfaceRunDataAtom
+  surfaceRunDataAtom,
+  surfaceRunRuntimeTelemetryViewModelAtom
 } from "../../app/web/atoms/surface.js"
 import { applyEvidenceEvent } from "../../app/web/state/types.js"
-import { runDataFixture } from "../helpers/demo-fixtures.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { runningRunState } from "../helpers/run-state.js"
 import { succeededRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -131,5 +133,29 @@ describe("Surface Atoms", () => {
       expect(sectionUpdates.current).toBeGreaterThan(countUpdates.current)
       unsubscribeCount()
       unsubscribeSections()
+    }))
+
+  it.effect("surfaceRunRuntimeTelemetryViewModelAtom exposes lifecycle summary rows and ordered events", () =>
+    Effect.gen(function*() {
+      const registry = makeTestRegistry()
+      const running = runningRunState({
+        program: programPreviewFixture.program,
+        startedAtMs: 100,
+        sequence: 7,
+        token: 3
+      })
+
+      registry.update(surfaceAtom("effect-text"), (state) => ({
+        ...state,
+        run: running
+      }))
+
+      const viewModel = registry.get(surfaceRunRuntimeTelemetryViewModelAtom("effect-text"))
+      const rows = viewModel?.sections.flatMap((section) => section.rows) ?? []
+
+      expect(viewModel).not.toBeNull()
+      expect(rows.some((row) => row.label === "Run state" && row.value.includes("RunRunning"))).toBe(true)
+      expect(rows.some((row) => row.label === "Ownership")).toBe(true)
+      expect(rows.some((row) => row.label === "Run started")).toBe(true)
     }))
 })

@@ -5,8 +5,18 @@ import { spanClassName } from "../data/evidence-layout.js"
 
 import { Layer } from "./Layout.js"
 
-export const EvidenceGrid = ({ children }: { readonly children: ReactNode }) => (
-  <Layer className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+export const EvidenceGrid = ({
+  children,
+  className
+}: {
+  readonly children: ReactNode
+  readonly className?: string
+}) => (
+  <Layer
+    className={`mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4${
+      className !== undefined ? ` ${className}` : ""
+    }`}
+  >
     {children}
   </Layer>
 )

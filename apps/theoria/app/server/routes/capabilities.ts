@@ -3,7 +3,9 @@ import { Clock, Effect, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Capabilities } from "../../contracts/capabilities.js"
-import { cards } from "../../contracts/card.js"
+import { type Card, cardsForReleaseStage } from "../../contracts/card.js"
+import type { ReleaseStage } from "../../contracts/release-stage.js"
+import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 
@@ -15,7 +17,8 @@ const jsonResponse = (body: unknown) =>
     }
   })
 
-const nonDspCapabilities = Arr.filter(cards, (card) => card.id !== "effect-dsp")
+const nonDspCapabilities = (stage: ReleaseStage) =>
+  Arr.filter(cardsForReleaseStage(stage), (card) => card.id !== "effect-dsp")
 
 const dspDemoCapability = (
   runtime: {
@@ -51,7 +54,7 @@ const dspProviderFields = (
   })
 })
 
-const capabilityEntry = (id: (typeof cards)[number]["id"]) =>
+const capabilityEntry = (id: Card["id"]) =>
   Match.value(id).pipe(
     Match.when("effect-dsp", () => ({
       id: "effect-dsp",
@@ -67,13 +70,14 @@ const capabilityEntry = (id: (typeof cards)[number]["id"]) =>
 export const capabilitiesRoute = (requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
+    const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
     const dspRuntime = yield* DspProviderRuntime
     const endedAtMs = yield* Clock.currentTimeMillis
 
     const data = yield* Schema.decodeUnknown(Capabilities)({
       demos: [
-        ...Arr.map(nonDspCapabilities, (card) => capabilityEntry(card.id)),
+        ...Arr.map(nonDspCapabilities(releaseStage), (card) => capabilityEntry(card.id)),
         dspDemoCapability(dspRuntime)
       ],
       dsp: dspProviderFields(dspRuntime)

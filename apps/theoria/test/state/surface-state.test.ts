@@ -161,13 +161,14 @@ describe("surface-state reducer", () => {
 
       expect(succeeded.session.telemetry.startedAtMs).toBe(100)
       expect(succeeded.session.telemetry.events.map((event) => event.kind)).toEqual([
+        "run-started",
         "pause-requested",
         "checkpoint-reached",
         "server-completed",
         "local-completed",
         "run-finalized"
       ])
-      expect(succeeded.session.telemetry.events[4]?.detail).toBe("succeeded")
+      expect(succeeded.session.telemetry.events[5]?.detail).toBe("succeeded")
     }))
 
   it.effect("keeps local frame authority sequence-scoped and clears it on reset", () =>

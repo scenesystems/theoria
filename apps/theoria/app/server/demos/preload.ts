@@ -3,9 +3,10 @@ import { Cause, Clock, Effect, Option } from "effect"
 import type { ErrorCode } from "../../contracts/error.js"
 import type { Id as DemoId } from "../../contracts/id.js"
 import type { ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
+import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
 
-import { lookup } from "./registry.js"
+import { lookupForReleaseStage } from "./registry.js"
 
 const successEnvelope = (
   requestId: string,
@@ -79,9 +80,10 @@ const failed = (
 export const preload = (id: DemoId, requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
+    const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
 
-    const definitionOption = lookup(id)
+    const definitionOption = lookupForReleaseStage(id, releaseStage)
 
     return yield* Option.match(definitionOption, {
       onNone: () =>

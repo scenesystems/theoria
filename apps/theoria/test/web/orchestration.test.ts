@@ -161,10 +161,8 @@ describe("Theoria Orchestration", () => {
               run: (id) => runWithMeta(id).pipe(Effect.map(({ data }) => data)),
               runWithMeta,
               preload: () => Effect.succeed(programPreviewFixture),
-              streamUrl: (id, customText = null) =>
-                customText === null
-                  ? `/api/demos/${id}/stream`
-                  : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
+              versions: () => Effect.succeed({}),
+              streamUrl: (id) => `/api/demos/${id}/stream`
             })
           )
         )
@@ -215,6 +213,7 @@ describe("Theoria Orchestration", () => {
                 Effect.onInterrupt(() => Deferred.succeed(runInterrupted, undefined))
               ),
             preload: () => Effect.succeed(programPreviewFixture),
+            versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null
                 ? `/api/demos/${id}/stream`
@@ -260,6 +259,7 @@ describe("Theoria Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null
                 ? `/api/demos/${id}/stream`
