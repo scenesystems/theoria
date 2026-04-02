@@ -5,6 +5,7 @@ import { Clock, Effect, Option, Ref, Schema } from "effect"
 import { Sampler, SearchSpace, Study } from "effect-search"
 import * as Arr from "effect/Array"
 
+import { DemoExecutionError } from "../../contracts/demo-error.js"
 import {
   bestTrialPoint,
   defaultSamplerSeed,
@@ -17,6 +18,7 @@ import {
 } from "../../contracts/demo/objective.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { SectionAppend } from "../../contracts/evidence-stream.js"
+import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
 import { publishOptimizationEvidence } from "./optimization-evidence.js"
 import { awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
@@ -24,6 +26,13 @@ import type { RunRegistry } from "./run-registry-context.js"
 import type { Config2D } from "../../contracts/demo/objective.js"
 
 const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
+
+const executionFailedError = (message: string): DemoExecutionError =>
+  new DemoExecutionError({
+    code: "execution-failed",
+    message,
+    retryable: true
+  })
 
 // ---------------------------------------------------------------------------
 // Atoms
@@ -118,12 +127,14 @@ export const resetOptimizationAnimationState = (registry: RunRegistry): Effect.E
     registry.set(randomTrialsAtom, [])
   })
 
+type OptimizationAnimationEvent = EvidenceEvent | LocalDriverCompletedEvent
+
 export const makeOptimizationAnimationStream = (
   registry: RunRegistry,
   signal: RunSignal,
   plan: EffectSearchRunPlan
-): Stream.Stream<EvidenceEvent, never, never> =>
-  Study.streamFromEmitter<EvidenceEvent, void, never, never>((emit) =>
+): Stream.Stream<OptimizationAnimationEvent, DemoExecutionError, never> =>
+  Study.streamFromEmitter<OptimizationAnimationEvent, void, DemoExecutionError, never>((emit) =>
     Effect.gen(function*() {
       registry.set(optimizationAnimatingAtom, true)
       registry.set(tpeTrialsAtom, [])
@@ -228,8 +239,9 @@ export const makeOptimizationAnimationStream = (
             randomPointsRef,
             tpePointsRef
           })
-          yield* Effect.all([Study.cancel(tpeHandle), Study.cancel(randomHandle)], { concurrency: 2 })
-        }).pipe(Effect.catchAll(() => Effect.void))
+        }).pipe(
+          Effect.mapError(() => executionFailedError("effect-search animation failed before local completion."))
+        )
       )
 
       const endedAt = yield* Clock.currentTimeMillis
@@ -253,6 +265,8 @@ export const makeOptimizationAnimationStream = (
           }
         })
       )
+      yield* setOptimizationAnimationPlayback(registry, false)
+      yield* emit(localDriverCompletedEvent)
     }).pipe(
       Effect.ensuring(resetOptimizationAnimationState(registry))
     )

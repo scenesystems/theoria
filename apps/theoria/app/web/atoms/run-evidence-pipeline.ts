@@ -4,6 +4,7 @@ import type { CanonicalStep } from "../../contracts/canonical-step.js"
 import type { ChoreographyCue, ChoreographyState } from "../../contracts/choreography.js"
 import { initialChoreographyState, reduceChoreographyState } from "../../contracts/choreography.js"
 import { type DemoError, DemoExecutionError } from "../../contracts/demo-error.js"
+import { optimizationTrialBudgetMax, optimizationTrialBudgetMin } from "../../contracts/demo/objective.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
 import {
@@ -33,6 +34,7 @@ import { makeDspRunStream } from "./dsp-local-driver.js"
 import { snapshotEffectDspRunPlan } from "./dsp-run-plan.js"
 import { dspModuleTypeIndexAtom, dspOptimizationBudgetAtom, dspScenarioIndexAtom } from "./dsp-widget.js"
 import { makeServerEvidenceStream } from "./evidence-stream.js"
+import { type LocalDriverCompletedEvent } from "./local-driver-events.js"
 import {
   makeOptimizationAnimationStream,
   resetOptimizationAnimationState,
@@ -51,13 +53,12 @@ import type { RunRegistry } from "./run-registry-context.js"
 
 type CompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalStep | CompletionEvent
-type LocalCompletionEvent = { readonly _tag: "LocalDriverCompleted" }
 type LocalRunFrameUpdatedEvent = {
   readonly _tag: "LocalRunFrameUpdated"
   readonly frame: LocalRunFrame
 }
-type LocalDriverStreamEvent = EvidenceEvent | LocalRunFrameUpdatedEvent
-type PipelineEvent = LocalDriverStreamEvent | LocalCompletionEvent
+type LocalDriverStreamEvent = EvidenceEvent | LocalRunFrameUpdatedEvent | LocalDriverCompletedEvent
+type PipelineEvent = LocalDriverStreamEvent
 
 export type LocalDriverSnapshot = {
   readonly manifest: StreamManifest | null
@@ -109,9 +110,13 @@ const effectSearchLocalDriver: LocalDriverDescriptor = {
   ownership: sharedStreamingOwnership,
   snapshot: (registry) => {
     const trialBudget = registry.get(trialBudgetAtom)
+    const manifestTrialBudget = Math.max(
+      optimizationTrialBudgetMin,
+      Math.min(trialBudget, optimizationTrialBudgetMax)
+    )
 
     return {
-      manifest: new EffectSearchManifest({ trialBudget }),
+      manifest: new EffectSearchManifest({ trialBudget: manifestTrialBudget }),
       localRunPlan: snapshotEffectSearchRunPlan(trialBudget)
     }
   },
@@ -194,38 +199,55 @@ export const resetLocalDriverState = (
     onSome: (driver) => driver.reset(registry)
   })
 
-const localDriverCompleted: LocalCompletionEvent = { _tag: "LocalDriverCompleted" }
-
 const localEvidenceStreamFor = (
   localDriver: Option.Option<LocalDriverDescriptor>,
   registry: RunRegistry,
   signal: RunSignal,
   snapshot: LocalDriverSnapshot,
   stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
-  serverCompleted: Deferred.Deferred<CompletionEvent>
+  serverCompleted: Deferred.Deferred<CompletionEvent>,
+  onLocalCompleted: Effect.Effect<void, never, never>
 ): Stream.Stream<PipelineEvent, DemoError, never> =>
   Option.match(localDriver, {
     onNone: () => Stream.empty,
     onSome: (driver) =>
-      Stream.concat(
-        driver.makeStream(registry, signal, snapshot, stepQueue, serverCompleted),
-        Stream.succeed(localDriverCompleted)
+      driver.makeStream(registry, signal, snapshot, stepQueue, serverCompleted).pipe(
+        Stream.onDone(() => onLocalCompleted)
       )
   })
 
 const recordServerCompletion = (
   completionRef: Ref.Ref<Option.Option<CompletionEvent>>,
   serverCompleted: Deferred.Deferred<CompletionEvent>,
+  finalizationNotifiedRef: Ref.Ref<boolean>,
+  localCompletionRef: Ref.Ref<boolean>,
+  storeRef: Ref.Ref<EvidenceStoreState>,
+  onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>,
   onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>,
+  onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>,
   event: PipelineEvent
 ): Effect.Effect<void, never, never> =>
   Match.value(event).pipe(
     Match.tag("StreamComplete", (completion) =>
-      Ref.set(completionRef, Option.some(completion)).pipe(
-        Effect.zipRight(Deferred.succeed(serverCompleted, completion)),
-        Effect.zipRight(onServerCompleted(completion))
-      )),
-    Match.orElse(() => Effect.void)
+      Ref.update(storeRef, (store) =>
+        applyEvidenceEventToStore(store, completion)).pipe(
+          Effect.zipRight(Ref.set(completionRef, Option.some(completion))),
+          Effect.zipRight(Deferred.succeed(serverCompleted, completion)),
+          Effect.zipRight(onEvent(completion)),
+          Effect.zipRight(onServerCompleted(completion)),
+          Effect.zipRight(
+            finalizePipelineIfReady({
+              completionRef,
+              finalizationNotifiedRef,
+              localCompletionRef,
+              onReadyForFinalization,
+              storeRef
+            })
+          )
+        )),
+    Match.orElse(() =>
+      Effect.void
+    )
   )
 
 const enqueueAuthoredStep = (
@@ -271,6 +293,9 @@ const ensureLocalCompletion = (
 const claimFinalizationNotification = (notified: boolean): readonly [boolean, boolean] =>
   notified ? [false, true] : [true, true]
 
+const claimLocalCompletion = (localCompletion: boolean): readonly [boolean, boolean] =>
+  localCompletion ? [false, true] : [true, true]
+
 const finalizePipelineIfReady = ({
   completionRef,
   finalizationNotifiedRef,
@@ -298,10 +323,41 @@ const finalizePipelineIfReady = ({
     )
   )
 
+const recordLocalCompletion = ({
+  completionRef,
+  finalizationNotifiedRef,
+  localCompletionRef,
+  onLocalCompleted,
+  onReadyForFinalization,
+  storeRef
+}: {
+  readonly completionRef: Ref.Ref<Option.Option<CompletionEvent>>
+  readonly finalizationNotifiedRef: Ref.Ref<boolean>
+  readonly localCompletionRef: Ref.Ref<boolean>
+  readonly onLocalCompleted: () => Effect.Effect<void, never, never>
+  readonly onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>
+  readonly storeRef: Ref.Ref<EvidenceStoreState>
+}): Effect.Effect<void, never, never> =>
+  Ref.modify(localCompletionRef, claimLocalCompletion).pipe(
+    Effect.flatMap((shouldRecordCompletion) =>
+      shouldRecordCompletion
+        ? onLocalCompleted().pipe(
+          Effect.zipRight(
+            finalizePipelineIfReady({
+              completionRef,
+              finalizationNotifiedRef,
+              localCompletionRef,
+              onReadyForFinalization,
+              storeRef
+            })
+          )
+        )
+        : Effect.void
+    )
+  )
+
 const recordPipelineEvent = (
-  localCompletionRef: Ref.Ref<boolean>,
   onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>,
-  onLocalCompleted: () => Effect.Effect<void, never, never>,
   storeRef: Ref.Ref<EvidenceStoreState>,
   choreographyRef: Ref.Ref<ChoreographyState>,
   onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>,
@@ -310,10 +366,8 @@ const recordPipelineEvent = (
 ): Effect.Effect<void, never, never> =>
   Match.value(event).pipe(
     Match.tag("LocalRunFrameUpdated", ({ frame }) => onFrame(frame)),
-    Match.tag(
-      "LocalDriverCompleted",
-      () => Ref.set(localCompletionRef, true).pipe(Effect.zipRight(onLocalCompleted()))
-    ),
+    Match.tag("LocalDriverCompleted", () => Effect.void),
+    Match.tag("StreamComplete", () => Effect.void),
     Match.tag("Choreography", ({ cue }) =>
       Ref.update(choreographyRef, (state) =>
         reduceChoreographyState(state, cue)).pipe(
@@ -353,24 +407,35 @@ const processPipelineEvent = ({
   readonly storeRef: Ref.Ref<EvidenceStoreState>
   readonly choreographyRef: Ref.Ref<ChoreographyState>
 }): Effect.Effect<void, never, never> =>
-  recordPipelineEvent(
-    localCompletionRef,
-    onFrame,
-    onLocalCompleted,
-    storeRef,
-    choreographyRef,
-    onEvent,
-    onCue,
-    event
-  ).pipe(
-    Effect.zipRight(
-      finalizePipelineIfReady({
+  Match.value(event).pipe(
+    Match.tag("LocalDriverCompleted", () =>
+      recordLocalCompletion({
         completionRef,
         finalizationNotifiedRef,
         localCompletionRef,
+        onLocalCompleted,
         onReadyForFinalization,
         storeRef
-      })
+      })),
+    Match.orElse(() =>
+      recordPipelineEvent(
+        onFrame,
+        storeRef,
+        choreographyRef,
+        onEvent,
+        onCue,
+        event
+      ).pipe(
+        Effect.zipRight(
+          finalizePipelineIfReady({
+            completionRef,
+            finalizationNotifiedRef,
+            localCompletionRef,
+            onReadyForFinalization,
+            storeRef
+          })
+        )
+      )
     )
   )
 
@@ -412,11 +477,22 @@ export const runEvidencePipeline = ({
     const stepQueue = yield* Queue.unbounded<AuthoredStepQueueEvent>()
     const serverEvidenceStream = makeServerEvidenceStream(id, localDriverSnapshot.manifest).pipe(
       Stream.tap((event) =>
-        recordServerCompletion(completionRef, serverCompleted, onServerCompleted, event).pipe(
+        recordServerCompletion(
+          completionRef,
+          serverCompleted,
+          finalizationNotifiedRef,
+          localCompletionRef,
+          storeRef,
+          onEvent,
+          onServerCompleted,
+          onReadyForFinalization,
+          event
+        ).pipe(
           Effect.zipRight(enqueueAuthoredStep(stepQueue, event))
         )
       )
     )
+
     const handlePipelineEvent = (event: PipelineEvent): Effect.Effect<void, never, never> =>
       processPipelineEvent({
         completionRef,
@@ -432,9 +508,26 @@ export const runEvidencePipeline = ({
         choreographyRef
       })
 
+    const localCompletionEffect = recordLocalCompletion({
+      completionRef,
+      finalizationNotifiedRef,
+      localCompletionRef,
+      onLocalCompleted,
+      onReadyForFinalization,
+      storeRef
+    })
+
     yield* Stream.merge(
       serverEvidenceStream,
-      localEvidenceStreamFor(localDriver, registry, signal, localDriverSnapshot, stepQueue, serverCompleted),
+      localEvidenceStreamFor(
+        localDriver,
+        registry,
+        signal,
+        localDriverSnapshot,
+        stepQueue,
+        serverCompleted,
+        localCompletionEffect
+      ),
       { haltStrategy: "both" }
     ).pipe(Stream.runForEach(handlePipelineEvent))
 

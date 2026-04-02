@@ -5,6 +5,7 @@ import type { CanonicalStep } from "../../contracts/canonical-step.js"
 import { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 
+import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
 import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
@@ -12,7 +13,7 @@ type AuthoredStepQueueEvent = CanonicalStep | StreamCompletionEvent
 type DspLocalDriverEvent = {
   readonly _tag: "LocalRunFrameUpdated"
   readonly frame: DspRunFrame
-}
+} | LocalDriverCompletedEvent
 
 const frameForStep = (step: Extract<CanonicalStep, { readonly _tag: "DspCanonicalStep" }>) =>
   new DspRunFrame({
@@ -50,7 +51,7 @@ const drainAuthoredSteps = ({
   takeAuthoredStepQueueEvent({ signal, stepQueue }).pipe(
     Effect.flatMap((nextEvent) =>
       nextEvent._tag === "StreamComplete"
-        ? Effect.void
+        ? emit(localDriverCompletedEvent)
         : nextEvent._tag === "DspCanonicalStep"
         ? awaitRunSignal(signal).pipe(
           Effect.zipRight(
