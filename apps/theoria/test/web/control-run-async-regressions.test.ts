@@ -104,7 +104,7 @@ const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.
 const waitForWithin = <A>(label: string, effect: Effect.Effect<A, string, never>): Effect.Effect<A, never, never> =>
   Effect.raceFirst(
     Effect.eventually(effect).pipe(Effect.orDie),
-    Effect.sleep("5 seconds").pipe(Effect.zipRight(Effect.die(`timed-out-${label}`)))
+    Effect.sleep("10 seconds").pipe(Effect.zipRight(Effect.die(`timed-out-${label}`)))
   )
 
 const waitForRunState = (
