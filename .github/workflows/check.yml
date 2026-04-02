@@ -27,6 +27,17 @@ jobs:
       - uses: ./.github/actions/setup
       - run: bun run check:all
 
+  app:
+    name: Theoria app boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: bun run check:apps
+      - run: bun run lint:apps
+      - run: bun run test:apps
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

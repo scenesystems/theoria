@@ -55,6 +55,9 @@ __pycache__/
 .specs/*
 !.specs/AGENTS.md
 
+# Railway CLI local link state
+.railway/
+
 # Vendored source (agent reference — cloned by scripts/vendor-sync.sh)
 .vendor/effect/
 .vendor/noble-hashes/
