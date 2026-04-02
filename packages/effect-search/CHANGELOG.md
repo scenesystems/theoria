@@ -1,5 +1,11 @@
 # effect-search
 
+## 0.2.1
+
+### Patch Changes
+
+- [#21](https://github.com/scenesystems/theoria/pull/21) [`1f68ecc`](https://github.com/scenesystems/theoria/commit/1f68ecc48ba1fc2b272b69a7bfcdefa3d93cf4e5) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Fix stream bridge completion delivery for merged consumers and preserve tail events emitted at stream shutdown boundaries.
+
 ## 0.2.0
 
 ### Minor Changes
