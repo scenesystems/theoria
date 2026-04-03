@@ -1,6 +1,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Ref } from "effect"
+import { Effect, Layer, Match, Option, Order, Ref } from "effect"
+import * as Arr from "effect/Array"
 
 import {
   callExpressionTargets,
@@ -11,6 +12,13 @@ import {
 import { Contracts, Text } from "../../src/index.js"
 
 const packageRootUrl = new URL("../../", import.meta.url)
+const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Arr.sort(values, Order.string)
+
+const maxWidthAtLine = (request: { readonly maxWidth: number }, lineIndex: number): number =>
+  Match.value(lineIndex).pipe(
+    Match.when(0, () => request.maxWidth),
+    Match.orElse(() => 40)
+  )
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
@@ -32,7 +40,9 @@ const readInitializerTargets = (relativePath: string, variableName: string) =>
   readProjectFile(packageRootUrl, relativePath).pipe(
     Effect.map((source) => {
       const parsed = parseTypeScript(`${variableName}.ts`, source)
-      const [initializer = "undefined"] = variableInitializerTexts(parsed, variableName)
+      const initializer = Arr.head(variableInitializerTexts(parsed, variableName)).pipe(
+        Option.getOrElse(() => "undefined")
+      )
 
       return callExpressionTargets(
         parseTypeScript(`${variableName}.initializer.ts`, `const ${variableName} = ${initializer}`)
@@ -51,13 +61,13 @@ describe("Text variable-width contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
       const afterPrepare = yield* Ref.get(measurements)
-      const projected = Text.layoutLinesWith(prepared, request, (lineIndex) => lineIndex === 0 ? request.maxWidth : 40)
+      const projected = Text.layoutLinesWith(prepared, request, (lineIndex) => maxWidthAtLine(request, lineIndex))
       const uniform = Text.layoutLinesWith(prepared, request, () => request.maxWidth)
       const afterProjection = yield* Ref.get(measurements)
 
       expect(afterProjection).toBe(afterPrepare)
       expect(projected.length).toBeGreaterThan(uniform.length)
-      expect(projected.every((line) => line.width <= (line.index === 0 ? request.maxWidth : 40) + 0.01)).toBe(true)
+      expect(Arr.every(projected, (line) => line.width <= maxWidthAtLine(request, line.index) + 0.01)).toBe(true)
     }))
 
   it.effect("variable-width projection does not re-enter measurement or service lookup after preparation", () =>
@@ -79,7 +89,7 @@ describe("Text variable-width contracts", () => {
       const afterProjection = yield* Ref.get(measurements)
 
       expect(afterProjection).toBe(afterPrepare)
-      expect(narrow.map((line) => line.text)).not.toEqual(wide.map((line) => line.text))
-      expect([...layoutLinesWithTargets].sort()).toEqual(["materializeLines", "preparedTextCore"])
+      expect(Arr.map(narrow, (line) => line.text)).not.toEqual(Arr.map(wide, (line) => line.text))
+      expect(sortStrings(layoutLinesWithTargets)).toEqual(sortStrings(["materializeLines", "preparedTextCore"]))
     }))
 })

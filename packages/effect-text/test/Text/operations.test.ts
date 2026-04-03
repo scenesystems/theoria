@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Option, Ref, Stream } from "effect"
+import { Effect, Layer, Match, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
@@ -28,13 +28,12 @@ class EmojiCanvasContext {
 
   measureText(text: string): { readonly width: number } {
     return {
-      width: text === "🙂"
-        ? 4
-        : text === "AB"
-        ? 20
-        : text === "A🙂B"
-        ? 22
-        : text.length * 10
+      width: Match.value(text).pipe(
+        Match.when("🙂", () => 4),
+        Match.when("AB", () => 20),
+        Match.when("A🙂B", () => 22),
+        Match.orElse((value) => value.length * 10)
+      )
     }
   }
 }
@@ -142,7 +141,10 @@ describe("Text operations", () => {
 
       expect(core.baseDirection).toBe("rtl")
       expect(
-        core.manualSurface.segments.filter((segment) => segment.kind === "text").map((segment) => segment.direction)
+        Arr.map(
+          Arr.filter(core.manualSurface.segments, (segment) => segment.kind === "text"),
+          (segment) => segment.direction
+        )
       ).toEqual(["rtl", "ltr"])
     }))
 
@@ -222,7 +224,7 @@ describe("Text edge cases and robustness", () => {
 
       const lines = Text.layoutLines(prepared, { maxWidth: 11, lineHeight: 12 })
       expect(lines.length).toBe(3)
-      expect(lines.map((l) => l.text)).toEqual(["ab", "cd", "ef"])
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["ab", "cd", "ef"])
     }))
 
   it.effect("handles text that exactly fills the line width", () =>
@@ -264,7 +266,7 @@ describe("Text edge cases and robustness", () => {
 
       const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
       expect(lines.length).toBe(3)
-      expect(lines.map((l) => l.text)).toEqual(["a", "", "b"])
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["a", "", "b"])
     }))
 
   it.effect("font weight defaults to 400 when omitted", () =>
@@ -338,16 +340,21 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 80, lineHeight: 14 }
+      const maxWidthAtLine = (lineIndex: number): number =>
+        Match.value(lineIndex).pipe(
+          Match.when(0, () => request.maxWidth),
+          Match.orElse(() => 40)
+        )
       const projected = Text.layoutLinesWith(
         prepared,
         request,
-        (lineIndex) => lineIndex === 0 ? request.maxWidth : 40
+        maxWidthAtLine
       )
       const uniform = Text.layoutLines(prepared, request)
 
       expect(projected.length).toBeGreaterThan(uniform.length)
       Arr.forEach(projected, (line) => {
-        const maxWidth = line.index === 0 ? request.maxWidth : 40
+        const maxWidth = maxWidthAtLine(line.index)
         expect(line.width).toBeLessThanOrEqual(maxWidth + 0.01)
       })
     }))
@@ -366,7 +373,7 @@ describe("Text edge cases and robustness", () => {
       const lines = Text.layoutLines(prepared, request)
 
       expect(ranges[0]?.start).toEqual(Text.initialCursor())
-      expect(ranges.map((range) => range.width)).toEqual(lines.map((line) => line.width))
+      expect(Arr.map(ranges, (range) => range.width)).toEqual(Arr.map(lines, (line) => line.width))
     }))
 
   it.effect("measureNaturalWidth returns the widest forced line width", () =>

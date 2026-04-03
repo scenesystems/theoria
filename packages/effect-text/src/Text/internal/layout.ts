@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 import { Option } from "effect"
+import * as Arr from "effect/Array"
 
 import type { PreparedBreakKindType, PreparedTextCore } from "../model.js"
 import type {
@@ -20,9 +21,11 @@ import type {
 
 type SoftBreakCandidate = readonly [
   end: LayoutCursorType,
+  nextCursor: LayoutCursorType,
   fitWidth: number,
   paintWidth: number,
-  breakWidth: number
+  breakWidth: number,
+  breakText: string
 ]
 
 type WalkedLineRecord = LayoutLineRangeType & {
@@ -149,8 +152,24 @@ const appendSoftBreakCandidate = (
   paintWidth: number
 ): ReadonlyArray<SoftBreakCandidate> =>
   breakKindAtCursor(core, cursor) === "soft-hyphen"
-    ? [...candidates, [end, fitWidth, paintWidth, core.runtime.discretionaryHyphenWidth]]
+    ? [...candidates, [end, end, fitWidth, paintWidth, core.runtime.discretionaryHyphenWidth, "-"]]
     : candidates
+
+const appendExplicitBreakCandidate = (
+  state: LineScanState,
+  currentCursor: LayoutCursorType,
+  nextCursor: LayoutCursorType
+): LineScanState => ({
+  ...state,
+  softBreakCandidates: [...state.softBreakCandidates, [
+    currentCursor,
+    nextCursor,
+    state.fitWidth,
+    state.paintWidth,
+    0,
+    ""
+  ]]
+})
 
 const chooseSoftBreakCandidate = (
   candidates: ReadonlyArray<SoftBreakCandidate>,
@@ -158,8 +177,9 @@ const chooseSoftBreakCandidate = (
   lineFitEpsilon: number,
   preferEarlySoftHyphenBreak: boolean
 ): Option.Option<SoftBreakCandidate> => {
-  const fittingCandidates = candidates.filter(
-    (candidate) => candidate[1] + candidate[3] <= maxWidth + lineFitEpsilon
+  const fittingCandidates = Arr.filter(
+    candidates,
+    (candidate) => candidate[2] + candidate[4] <= maxWidth + lineFitEpsilon
   )
 
   return Option.fromNullable(
@@ -257,9 +277,9 @@ const finalizeSoftBreak = (state: LineScanState, candidate: SoftBreakCandidate):
   emitLineRecord(
     state.start,
     candidate[0],
-    candidate[0],
-    candidate[2] + candidate[3],
-    "-"
+    candidate[1],
+    candidate[3] + candidate[4],
+    candidate[5]
   )
 
 const appendPendingWhitespace = (
@@ -384,8 +404,7 @@ const walkNextLineRecord = (
     if (
       breakKind === "space" ||
       breakKind === "preserved-space" ||
-      breakKind === "tab" ||
-      breakKind === "zero-width-break"
+      breakKind === "tab"
     ) {
       return !lineHasCommittedContent(state) && core.whiteSpace === "normal"
         ? scan(nextCursor, segmentLimit, {
@@ -399,6 +418,17 @@ const walkNextLineRecord = (
           segmentLimit,
           appendPendingWhitespace(core, state, currentCursor, nextCursor)
         )
+    }
+
+    if (breakKind === "zero-width-break") {
+      return !lineHasCommittedContent(state)
+        ? scan(nextCursor, segmentLimit, {
+          ...state,
+          end: nextCursor,
+          pendingEnd: nextCursor,
+          start: nextCursor
+        })
+        : scan(nextCursor, segmentLimit, appendExplicitBreakCandidate(state, currentCursor, nextCursor))
     }
 
     if (!lineHasCommittedContent(state)) {
@@ -495,10 +525,11 @@ const materializeRangeText = (
     start.graphemeIndex,
     textGraphemeCountAt(core, start.segmentIndex)
   )
-  const middleText = core.manualSurface.segments
-    .slice(start.segmentIndex + 1, end.segmentIndex)
-    .map((_, index) => materializeSegmentText(core, start.segmentIndex + 1 + index))
-    .join("")
+  const middleText = Arr.reduce(
+    core.manualSurface.segments.slice(start.segmentIndex + 1, end.segmentIndex),
+    "",
+    (text, _, index) => text + materializeSegmentText(core, start.segmentIndex + 1 + index)
+  )
   const trailingText = end.graphemeIndex === 0 ? "" : materializeTextSlice(core, end.segmentIndex, 0, end.graphemeIndex)
 
   return leadingText + middleText + trailingText
@@ -591,7 +622,7 @@ export const materializeLines = (
   request: LayoutRequestType,
   maxWidthAtLine: (lineIndex: number) => number = () => request.maxWidth
 ): ReadonlyArray<LayoutLineType> =>
-  walkLineRecordArray(core, maxWidthAtLine).map((record, lineIndex) => materializeLine(core, lineIndex, record))
+  Arr.map(walkLineRecordArray(core, maxWidthAtLine), (record, lineIndex) => materializeLine(core, lineIndex, record))
 
 export const materializeLineAtCursor = (
   core: PreparedTextCore,
@@ -619,6 +650,6 @@ export const walkLineRanges = (
   request: LayoutRequestType,
   maxWidthAtLine: (lineIndex: number) => number = () => request.maxWidth
 ): ReadonlyArray<LayoutLineRangeType> =>
-  walkLineRecordArray(core, maxWidthAtLine).map(({ end, start, width }) => ({ end, start, width }))
+  Arr.map(walkLineRecordArray(core, maxWidthAtLine), ({ end, start, width }) => ({ end, start, width }))
 
 export const measureNaturalWidth = (core: PreparedTextCore): number => measureNaturalWidthFromChunk(core)

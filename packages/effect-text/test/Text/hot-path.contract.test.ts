@@ -1,6 +1,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Option, Ref, Stream } from "effect"
+import { Chunk, Effect, Equal, Layer, Option, Order, Ref, Stream } from "effect"
+import * as Arr from "effect/Array"
 import * as ts from "typescript"
 
 import {
@@ -14,6 +15,9 @@ import { Contracts, Text } from "../../src/index.js"
 import type { LayoutRequestType } from "../../src/Text/schema.js"
 
 const packageRootUrl = new URL("../../", import.meta.url)
+const containsString = (values: ReadonlyArray<string>, expected: string): boolean =>
+  Arr.some(values, (value) => Equal.equals(value, expected))
+const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Arr.sort(values, Order.string)
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
@@ -33,7 +37,7 @@ const makeTestContext = Effect.gen(function*() {
 
 const parseVariableInitializer = (source: string, variableName: string): ts.SourceFile => {
   const parsed = parseTypeScript(`${variableName}.ts`, source)
-  const [initializer = "undefined"] = variableInitializerTexts(parsed, variableName)
+  const initializer = Arr.head(variableInitializerTexts(parsed, variableName)).pipe(Option.getOrElse(() => "undefined"))
 
   return parseTypeScript(`${variableName}.initializer.ts`, `const ${variableName} = ${initializer}`)
 }
@@ -42,10 +46,12 @@ const initializerTargets = (source: string, variableName: string): ReadonlyArray
   callExpressionTargets(parseVariableInitializer(source, variableName))
 
 const objectLiteralPropertyNames = (sourceFile: ts.SourceFile): ReadonlyArray<string> => {
-  const collect = (node: ts.Node): ReadonlyArray<string> => [
-    ...(ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) ? [node.name.text] : []),
-    ...node.getChildren(sourceFile).flatMap(collect)
-  ]
+  const collect = (node: ts.Node): ReadonlyArray<string> =>
+    Arr.reduce(
+      Arr.fromIterable(node.getChildren(sourceFile)),
+      ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) ? Arr.make(node.name.text) : Arr.empty<string>(),
+      (names, child) => Arr.appendAll(names, collect(child))
+    )
 
   return collect(sourceFile)
 }
@@ -81,8 +87,8 @@ describe("Text hot-path contracts", () => {
     Effect.gen(function*() {
       const layoutTargets = yield* readInitializerTargets("src/Text/layout.ts", "layout")
 
-      expect(layoutTargets.includes("layoutLines")).toBe(false)
-      expect(layoutTargets.includes("materializeLines")).toBe(false)
+      expect(containsString(layoutTargets, "layoutLines")).toBe(false)
+      expect(containsString(layoutTargets, "materializeLines")).toBe(false)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("layoutNextLine advances with a source-position cursor", () =>
@@ -99,10 +105,10 @@ describe("Text hot-path contracts", () => {
         constructorsDeclarations: readDeclarationNames("src/Text/constructors.ts")
       })
 
-      expect(constructorsDeclarations.includes("prepareWithSegments")).toBe(true)
-      expect(layoutNextLineTargets.includes("layoutLines")).toBe(false)
-      expect([...layoutCursorKeys].sort()).toEqual(["graphemeIndex", "segmentIndex"])
-      expect([...initialCursorKeys].sort()).toEqual(["graphemeIndex", "segmentIndex"])
+      expect(containsString(constructorsDeclarations, "prepareWithSegments")).toBe(true)
+      expect(containsString(layoutNextLineTargets, "layoutLines")).toBe(false)
+      expect(sortStrings(layoutCursorKeys)).toEqual(sortStrings(["graphemeIndex", "segmentIndex"]))
+      expect(sortStrings(initialCursorKeys)).toEqual(sortStrings(["graphemeIndex", "segmentIndex"]))
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("streamLines emits the same sequence as repeated layoutNextLine", () =>
@@ -125,9 +131,9 @@ describe("Text hot-path contracts", () => {
       })
 
       expect(streamed).toEqual(cursorLines)
-      expect(streamTargets.includes("layoutLines")).toBe(false)
-      expect(streamTargets.includes("Stream.fromIterable")).toBe(false)
-      expect(layoutNextLineTargets.includes("layoutLines")).toBe(false)
+      expect(containsString(streamTargets, "layoutLines")).toBe(false)
+      expect(containsString(streamTargets, "Stream.fromIterable")).toBe(false)
+      expect(containsString(layoutNextLineTargets, "layoutLines")).toBe(false)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("walkLineRanges matches layoutLines widths and cursor bounds", () =>
@@ -137,14 +143,14 @@ describe("Text hot-path contracts", () => {
         schemaDeclarations: readDeclarationNames("src/Text/schema.ts")
       })
 
-      expect(layoutDeclarations.includes("walkLineRanges")).toBe(true)
-      expect(schemaDeclarations.includes("LayoutLineRange")).toBe(true)
+      expect(containsString(layoutDeclarations, "walkLineRanges")).toBe(true)
+      expect(containsString(schemaDeclarations, "LayoutLineRange")).toBe(true)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("measureNaturalWidth returns the widest forced line width", () =>
     Effect.gen(function*() {
       const layoutDeclarations = yield* readDeclarationNames("src/Text/layout.ts")
 
-      expect(layoutDeclarations.includes("measureNaturalWidth")).toBe(true)
+      expect(containsString(layoutDeclarations, "measureNaturalWidth")).toBe(true)
     }).pipe(Effect.provide(BunContext.layer)))
 })
