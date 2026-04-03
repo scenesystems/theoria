@@ -134,7 +134,8 @@ export type LayoutRequestType = typeof LayoutRequest.Type
  * @category schemas
  */
 export const LayoutCursor = Schema.Struct({
-  lineIndex: NonNegativeInt
+  segmentIndex: NonNegativeInt,
+  graphemeIndex: NonNegativeInt
 })
 
 /**
@@ -164,6 +165,26 @@ export const LayoutLine = Schema.Struct({
  * @category models
  */
 export type LayoutLineType = typeof LayoutLine.Type
+
+/**
+ * Non-materialized line geometry and cursor bounds.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const LayoutLineRange = Schema.Struct({
+  width: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  start: LayoutCursor,
+  end: LayoutCursor
+})
+
+/**
+ * Typed layout line range.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type LayoutLineRangeType = typeof LayoutLineRange.Type
 
 /**
  * Summary returned by `Text.layout`.

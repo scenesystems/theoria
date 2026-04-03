@@ -87,7 +87,7 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         prepare: yield* measureEffect(
           benchmarkIterations,
           () => Text.prepare(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
-          (preparedText) => ({ segmentCount: Text.PreparedText.core(preparedText).segments.length })
+          (preparedText) => ({ segmentCount: Text.PreparedText.core(preparedText).manualSurface.segments.length })
         ),
         layout: yield* measurePure(
           benchmarkIterations,

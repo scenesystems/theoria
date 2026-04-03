@@ -7,7 +7,13 @@ import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
 import type { MeasurementFailed } from "../../Errors/index.js"
-import type { PreparedSegmentType } from "../model.js"
+import type {
+  PreparedBreakKindType,
+  PreparedLineChunkType,
+  PreparedRuntimeTablesType,
+  PreparedSegmentType,
+  PreparedTextManualSurfaceType
+} from "../model.js"
 import type { BaseTextDirectionType, EngineProfileType, TextSegmentType } from "../schema.js"
 import {
   bidiLevelForDirection,
@@ -17,6 +23,9 @@ import {
   splitSoftHyphenPieces,
   splitWhitespaceTokens
 } from "./analysis.js"
+
+// Decomposition note: WP1 is mid-kernel migration, so preparation and runtime-table compilation stay together here.
+// Split plan: move chunk/runtime-table compilation into a dedicated internal module when the canonical walker replaces legacy materialization.
 
 type Measure = (text: string) => Effect.Effect<number, MeasurementFailed>
 type PreparationContext = readonly [
@@ -132,6 +141,81 @@ const prepareSegment = (
     ? prepareWhitespaceSegment(segment, context)
     : prepareTextSegment(segment, context)
 
+const preparedBreakKindFor = (segment: PreparedSegmentType): PreparedBreakKindType =>
+  segment.kind === "hard-break"
+    ? "hard-break"
+    : segment.kind === "tab"
+    ? "tab"
+    : segment.kind === "space"
+    ? "space"
+    : segment.breakOpportunity === "soft-hyphen"
+    ? "soft-hyphen"
+    : "text"
+
+const breakableGraphemeWidthsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
+  segment.kind === "text" ? [segment.width] : []
+
+const emptyChunks: ReadonlyArray<PreparedLineChunkType> = []
+
+const prefixWidthsFor = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
+  widths.reduce<ReadonlyArray<number>>((prefixes, width) => {
+    const previous = prefixes[prefixes.length - 1] ?? 0
+    return [...prefixes, previous + width]
+  }, [])
+
+const lineChunksFor = (segments: ReadonlyArray<PreparedSegmentType>): ReadonlyArray<PreparedLineChunkType> => {
+  const reduced = segments.reduce(
+    (state, segment, index) =>
+      segment.kind === "hard-break"
+        ? {
+          chunks: [
+            ...state.chunks,
+            {
+              startSegmentIndex: state.startSegmentIndex,
+              endSegmentIndex: index,
+              consumedEndSegmentIndex: index + 1
+            }
+          ],
+          startSegmentIndex: index + 1
+        }
+        : state,
+    {
+      chunks: emptyChunks,
+      startSegmentIndex: 0
+    }
+  )
+
+  return [
+    ...reduced.chunks,
+    {
+      startSegmentIndex: reduced.startSegmentIndex,
+      endSegmentIndex: segments.length,
+      consumedEndSegmentIndex: segments.length
+    }
+  ]
+}
+
+const compileRuntimeTables = (
+  segments: ReadonlyArray<PreparedSegmentType>,
+  chunks: ReadonlyArray<PreparedLineChunkType>,
+  hyphenWidth: number,
+  tabStopWidth: number
+): PreparedRuntimeTablesType => {
+  const breakableGraphemeWidths = segments.map(breakableGraphemeWidthsFor)
+
+  return {
+    breakKinds: segments.map(preparedBreakKindFor),
+    fitAdvances: segments.map((segment) => segment.width),
+    paintAdvances: segments.map((segment) => segment.width),
+    chunkStartIndices: chunks.map((chunk) => chunk.startSegmentIndex),
+    chunkConsumedEndIndices: chunks.map((chunk) => chunk.consumedEndSegmentIndex),
+    breakableGraphemeWidths,
+    breakablePrefixWidths: breakableGraphemeWidths.map(prefixWidthsFor),
+    discretionaryHyphenWidth: hyphenWidth,
+    tabStopAdvance: tabStopWidth
+  }
+}
+
 export const resolvePreparedBaseDirection = (
   text: string,
   engineProfile: EngineProfileType
@@ -143,7 +227,11 @@ export const prepareSegments = (
   baseDirection: BaseTextDirectionType,
   measure: Measure
 ): Effect.Effect<
-  { readonly segments: ReadonlyArray<PreparedSegmentType>; readonly tabStopWidth: number },
+  {
+    readonly tabStopWidth: number
+    readonly runtime: PreparedRuntimeTablesType
+    readonly manualSurface: PreparedTextManualSurfaceType
+  },
   MeasurementFailed
 > =>
   Effect.gen(function*() {
@@ -157,6 +245,15 @@ export const prepareSegments = (
       segments,
       (segment) => prepareSegment(segment, [baseDirection, engineProfile, hyphenWidth, measure, tabStopWidth])
     )
+    const flattenedSegments = Arr.flatten(prepared)
+    const chunks = lineChunksFor(flattenedSegments)
 
-    return { segments: Arr.flatten(prepared), tabStopWidth }
+    return {
+      tabStopWidth,
+      runtime: compileRuntimeTables(flattenedSegments, chunks, hyphenWidth, tabStopWidth),
+      manualSurface: {
+        segments: flattenedSegments,
+        chunks
+      }
+    }
   })

@@ -8,8 +8,46 @@ import { Effect, ParseResult, Schema } from "effect"
 import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../contracts/index.js"
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
 import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
-import { PreparedText } from "./model.js"
+import type { PreparedText, PreparedTextCore } from "./model.js"
+import { PreparedTextWithSegments } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
+
+const prepareCore = (
+  input: PrepareInputType
+): Effect.Effect<PreparedTextCore, MeasurementFailed, TextPreparationServices> =>
+  Effect.gen(function*() {
+    const segmenter = yield* WordSegmenter
+    const cache = yield* MeasurementCache
+    const engineProfile = yield* EngineProfile
+    const normalizedFont = { ...input.font, weight: input.font.weight ?? 400 }
+    const segmentedText = yield* segmenter.segment(input.text, input.whiteSpace)
+    const baseDirection = resolvePreparedBaseDirection(input.text, engineProfile)
+    const prepared = yield* prepareSegments(segmentedText, engineProfile, baseDirection, (text) =>
+      cache.measure(normalizedFont, text))
+
+    return {
+      text: input.text,
+      font: normalizedFont,
+      whiteSpace: input.whiteSpace,
+      baseDirection,
+      lineFitEpsilon: engineProfile.lineFitEpsilon,
+      tabStopWidth: prepared.tabStopWidth,
+      preferEarlySoftHyphenBreak: engineProfile.preferEarlySoftHyphenBreak,
+      runtime: prepared.runtime,
+      manualSurface: prepared.manualSurface
+    }
+  })
+
+/**
+ * Compiles text into a prepared handle that retains segment-level manual layout metadata.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const prepareWithSegments = (
+  input: PrepareInputType
+): Effect.Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices> =>
+  prepareCore(input).pipe(Effect.map(PreparedTextWithSegments.fromCore))
 
 /**
  * Compiles text into an opaque prepared handle.
@@ -20,27 +58,7 @@ import { PrepareInput, type PrepareInputType } from "./schema.js"
 export const prepare = (
   input: PrepareInputType
 ): Effect.Effect<PreparedText, MeasurementFailed, TextPreparationServices> =>
-  Effect.gen(function*() {
-    const segmenter = yield* WordSegmenter
-    const cache = yield* MeasurementCache
-    const engineProfile = yield* EngineProfile
-    const normalizedFont = { ...input.font, weight: input.font.weight ?? 400 }
-    const segments = yield* segmenter.segment(input.text, input.whiteSpace)
-    const baseDirection = resolvePreparedBaseDirection(input.text, engineProfile)
-    const prepared = yield* prepareSegments(segments, engineProfile, baseDirection, (text) =>
-      cache.measure(normalizedFont, text))
-
-    return PreparedText.fromCore({
-      text: input.text,
-      font: normalizedFont,
-      whiteSpace: input.whiteSpace,
-      baseDirection,
-      lineFitEpsilon: engineProfile.lineFitEpsilon,
-      tabStopWidth: prepared.tabStopWidth,
-      preferEarlySoftHyphenBreak: engineProfile.preferEarlySoftHyphenBreak,
-      segments: prepared.segments
-    })
-  })
+  prepareWithSegments(input).pipe(Effect.map(PreparedTextWithSegments.asPreparedText))
 
 /**
  * Decodes unknown input, then compiles it into a prepared handle.

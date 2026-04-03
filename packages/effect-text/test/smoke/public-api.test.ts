@@ -9,10 +9,12 @@ describe("effect-text public api", () => {
       expect(EffectText.Text).toBeDefined()
       expect(EffectText.Text.TextStability).toBe("provisional")
       expect(EffectText.Text.prepare).toBeDefined()
+      expect(EffectText.Text.prepareWithSegments).toBeDefined()
       expect(EffectText.Text.layout).toBeDefined()
       expect(EffectText.Text.layoutLinesWith).toBeDefined()
       expect(EffectText.Text.TextLayoutLive).toBeDefined()
       expect(EffectText.Text.PreparedText).toBeDefined()
+      expect(EffectText.Text.PreparedTextWithSegments).toBeDefined()
 
       expect(EffectText.Contracts).toBeDefined()
       expect(EffectText.Contracts.ContractsStability).toBe("stable")

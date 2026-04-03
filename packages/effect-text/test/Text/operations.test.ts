@@ -131,19 +131,18 @@ describe("Text operations", () => {
   it.effect("stores base direction and per-segment bidi metadata during prepare", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "שלום hello",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedText.core(prepared)
+      const core = Text.PreparedTextWithSegments.core(prepared)
 
       expect(core.baseDirection).toBe("rtl")
-      expect(core.segments.filter((segment) => segment.kind === "text").map((segment) => segment.direction)).toEqual([
-        "rtl",
-        "ltr"
-      ])
+      expect(
+        core.manualSurface.segments.filter((segment) => segment.kind === "text").map((segment) => segment.direction)
+      ).toEqual(["rtl", "ltr"])
     }))
 })
 
@@ -251,26 +250,26 @@ describe("Text edge cases and robustness", () => {
   it.effect("font weight defaults to 400 when omitted", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "hello",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedText.core(prepared)
+      const core = Text.PreparedTextWithSegments.core(prepared)
       expect(core.font.weight).toBe(400)
     }))
 
   it.effect("accepts explicit font weight in prepare input", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "hello",
         font: { family: "Mono", size: 10, weight: 700 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedText.core(prepared)
+      const core = Text.PreparedTextWithSegments.core(prepared)
       expect(core.font.weight).toBe(700)
     }))
 

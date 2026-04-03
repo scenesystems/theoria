@@ -5,7 +5,7 @@
  */
 import { Option, Stream, Tuple } from "effect"
 
-import { materializeLines } from "./internal/layout.js"
+import { materializeLineAtCursor, materializeLines } from "./internal/layout.js"
 import { PreparedText } from "./model.js"
 import type { LayoutCursorType, LayoutLineType, LayoutRequestType, LayoutSummaryType } from "./schema.js"
 
@@ -23,7 +23,7 @@ export type LineWidthResolver = (lineIndex: number) => number
  * @since 0.1.0
  * @category constructors
  */
-export const initialCursor = (): LayoutCursorType => ({ lineIndex: 0 })
+export const initialCursor = (): LayoutCursorType => ({ segmentIndex: 0, graphemeIndex: 0 })
 
 /**
  * Materializes all lines for the supplied width.
@@ -77,8 +77,8 @@ export const layoutNextLine = (
   request: LayoutRequestType,
   cursor: LayoutCursorType
 ): Option.Option<readonly [LayoutLineType, LayoutCursorType]> =>
-  Option.fromNullable(layoutLines(prepared, request)[cursor.lineIndex]).pipe(
-    Option.map((line) => Tuple.make(line, { lineIndex: cursor.lineIndex + 1 }))
+  materializeLineAtCursor(PreparedText.core(prepared), request, cursor).pipe(
+    Option.map(([line, nextCursor]) => Tuple.make(line, nextCursor))
   )
 
 /**
@@ -88,4 +88,8 @@ export const layoutNextLine = (
  * @category layout
  */
 export const streamLines = (prepared: PreparedText, request: LayoutRequestType): Stream.Stream<LayoutLineType> =>
-  Stream.fromIterable(layoutLines(prepared, request))
+  Stream.unfold(initialCursor(), (cursor) =>
+    Option.map(
+      layoutNextLine(prepared, request, cursor),
+      ([line, nextCursor]): readonly [LayoutLineType, LayoutCursorType] => [line, nextCursor]
+    ))

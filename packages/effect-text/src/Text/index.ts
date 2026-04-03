@@ -12,6 +12,13 @@ export {
    */
   PreparedText,
   /**
+   * Rich prepared handle returned by `Text.prepareWithSegments`.
+   *
+   * @since 0.1.0
+   * @category models
+   */
+  PreparedTextWithSegments,
+  /**
    * Stability lane for the Text namespace.
    *
    * @since 0.1.0
