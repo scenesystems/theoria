@@ -281,6 +281,23 @@ export default [
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/no-namespace": "off",
       "@typescript-eslint/array-type": ["warn", { default: "generic", readonly: "generic" }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "fs", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
+            { name: "path", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
+            { name: "url", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
+            { name: "crypto", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." }
+          ],
+          patterns: [
+            {
+              group: ["node:*"] ,
+              message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+            }
+          ]
+        }
+      ],
 
       // Style
       "object-shorthand": "error",

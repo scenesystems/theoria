@@ -70,6 +70,9 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced by `eslint.config.mjs` with `--max-warnings=0`. Use `it.effect()` in tests.
 
+- Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
+- Governance, architecture, and export-boundary tests must prove source structure with AST-backed inspection or schema-decoded manifests. Do not scrape source files with regexes or superficial `includes()` assertions when a structural proof is required.
+
 | Banned                             | Use Instead                                          |
 | ---------------------------------- | ---------------------------------------------------- |
 | `async/await`                      | `Effect.gen` with `yield*`                           |
