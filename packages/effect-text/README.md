@@ -26,6 +26,7 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Typed errors** — `MeasurementFailed` and `TextLayoutDecodeError` with tagged error channels
 - **Emoji correction** — one-time probe for browsers with weak complex-emoji measurement
 - **Soft-hyphen, tab, and hard-break support** — preserved through segmentation and layout
+- **Released overflow policy** — hard breaks first, then soft hyphens and explicit break opportunities, then grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
 - **Bidi metadata** — per-segment direction and bidi level (visual reordering not yet included)
 - **Experimental calibration** — typed corpora for engine-profile evaluation and `effect-search`-driven optimization
 - **No native deps** — pure TypeScript. Just `effect` as a peer dependency
@@ -81,16 +82,16 @@ The package is shaped by three ideas:
 
 That yields a small public surface:
 
-| Function               | Signature                                                                        | Phase     |
-| ---------------------- | -------------------------------------------------------------------------------- | --------- |
-| `Text.prepare`         | `(input) → Effect<PreparedText, MeasurementFailed, TextPreparationServices>`     | Effectful |
+| Function                   | Signature                                                                                | Phase     |
+| -------------------------- | ---------------------------------------------------------------------------------------- | --------- |
+| `Text.prepare`             | `(input) → Effect<PreparedText, MeasurementFailed, TextPreparationServices>`             | Effectful |
 | `Text.prepareWithSegments` | `(input) → Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices>` | Effectful |
-| `Text.prepareUnknown`  | `(input: unknown) → Effect<PreparedText, PrepareError, TextPreparationServices>` | Effectful |
-| `Text.layout`          | `(prepared, request) → LayoutSummary`                                            | Pure      |
-| `Text.layoutLines`     | `(prepared, request) → ReadonlyArray<LayoutLine>`                                | Pure      |
-| `Text.layoutLinesWith` | `(prepared, request, resolveMaxWidth) → ReadonlyArray<LayoutLine>`               | Pure      |
-| `Text.layoutNextLine`  | `(preparedWithSegments, request, cursor) → Option<[LayoutLine, LayoutCursor]>`   | Pure      |
-| `Text.streamLines`     | `(preparedWithSegments, request) → Stream<LayoutLine>`                           | Pure      |
+| `Text.prepareUnknown`      | `(input: unknown) → Effect<PreparedText, PrepareError, TextPreparationServices>`         | Effectful |
+| `Text.layout`              | `(prepared, request) → LayoutSummary`                                                    | Pure      |
+| `Text.layoutLines`         | `(prepared, request) → ReadonlyArray<LayoutLine>`                                        | Pure      |
+| `Text.layoutLinesWith`     | `(prepared, request, resolveMaxWidth) → ReadonlyArray<LayoutLine>`                       | Pure      |
+| `Text.layoutNextLine`      | `(preparedWithSegments, request, cursor) → Option<[LayoutLine, LayoutCursor]>`           | Pure      |
+| `Text.streamLines`         | `(preparedWithSegments, request) → Stream<LayoutLine>`                                   | Pure      |
 
 All pure layout functions reuse the same prepared handle. Prepare once, project many times at different widths.
 

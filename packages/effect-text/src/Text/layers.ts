@@ -48,7 +48,7 @@ const makeMeasurementCache = Effect.gen(function*() {
 })
 
 /**
- * Regex-based segmenter suitable for tests and deterministic environments.
+ * `Intl.Segmenter`-backed segmenter with deterministic fallback semantics.
  *
  * @since 0.1.0
  * @category layers

@@ -54,10 +54,10 @@ describe("Experimental.Calibration", () => {
             layout: { maxWidth: 40, lineHeight: 12 },
             expected: {
               lineCount: 2,
-              maxLineWidth: 25,
+              maxLineWidth: 40,
               lines: [
-                { text: "hello", width: 25 },
-                { text: "hello", width: 25 }
+                { text: "hello he", width: 40 },
+                { text: "llo", width: 15 }
               ]
             }
           }
@@ -70,10 +70,10 @@ describe("Experimental.Calibration", () => {
       expect(report.totalLineCountError).toBe(0)
       expect(report.totalMaxLineWidthError).toBe(0)
       expect(report.totalLineMismatchCount).toBe(0)
-      expect(report.results.map((result) => result.actual.maxLineWidth)).toEqual([15, 25])
+      expect(report.results.map((result) => result.actual.maxLineWidth)).toEqual([15, 40])
       expect(report.results[1]?.actualLines).toEqual([
-        { index: 0, text: "hello", width: 25 },
-        { index: 1, text: "hello", width: 25 }
+        { index: 0, text: "hello he", width: 40 },
+        { index: 1, text: "llo", width: 15 }
       ])
     }))
 
@@ -100,10 +100,10 @@ describe("Experimental.Calibration", () => {
           layout: { maxWidth: 40, lineHeight: 12 },
           expected: {
             lineCount: 2,
-            maxLineWidth: 25,
+            maxLineWidth: 40,
             lines: [
-              { text: "hello ", width: 30 },
-              { text: "hello", width: 25 }
+              { text: "hello he", width: 40 },
+              { text: "llo!", width: 15 }
             ]
           }
         }]

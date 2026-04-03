@@ -84,8 +84,27 @@ const resolveTabAdvance = (currentWidth: number, tabStopWidth: number): number =
   return remainder === 0 ? tabStopWidth : tabStopWidth - remainder
 }
 
+const segmentAt = (core: PreparedTextCore, segmentIndex: number) => core.manualSurface.segments[segmentIndex]
+
 const breakKindAt = (core: PreparedTextCore, segmentIndex: number): PreparedBreakKindType =>
   core.runtime.breakKinds[segmentIndex] ?? "text"
+
+const textGraphemeCountAt = (core: PreparedTextCore, segmentIndex: number): number =>
+  segmentAt(core, segmentIndex)?.kind === "text"
+    ? Math.max(segmentAt(core, segmentIndex)?.graphemes.length ?? 0, 1)
+    : 1
+
+const advanceCursor = (core: PreparedTextCore, cursor: LayoutCursorType): LayoutCursorType =>
+  segmentAt(core, cursor.segmentIndex)?.kind === "text" &&
+    cursor.graphemeIndex + 1 < textGraphemeCountAt(core, cursor.segmentIndex)
+    ? cursorAt(cursor.segmentIndex, cursor.graphemeIndex + 1)
+    : cursorAt(cursor.segmentIndex + 1)
+
+const breakKindAtCursor = (core: PreparedTextCore, cursor: LayoutCursorType): PreparedBreakKindType =>
+  segmentAt(core, cursor.segmentIndex)?.kind === "text" &&
+    cursor.graphemeIndex < textGraphemeCountAt(core, cursor.segmentIndex) - 1
+    ? "text"
+    : breakKindAt(core, cursor.segmentIndex)
 
 const resolveFitAdvance = (core: PreparedTextCore, segmentIndex: number, currentFitWidth: number): number =>
   breakKindAt(core, segmentIndex) === "tab"
@@ -97,15 +116,39 @@ const resolvePaintAdvance = (core: PreparedTextCore, segmentIndex: number, curre
     ? resolveTabAdvance(currentPaintWidth, core.runtime.tabStopAdvance)
     : core.runtime.paintAdvances[segmentIndex] ?? 0
 
+const resolveFitAdvanceAtCursor = (
+  core: PreparedTextCore,
+  cursor: LayoutCursorType,
+  currentFitWidth: number
+): number =>
+  breakKindAtCursor(core, cursor) === "tab"
+    ? resolveTabAdvance(currentFitWidth, core.runtime.tabStopAdvance)
+    : segmentAt(core, cursor.segmentIndex)?.kind === "text"
+    ? core.runtime.breakableGraphemeWidths[cursor.segmentIndex]?.[cursor.graphemeIndex] ??
+      core.runtime.fitAdvances[cursor.segmentIndex] ?? 0
+    : core.runtime.fitAdvances[cursor.segmentIndex] ?? 0
+
+const resolvePaintAdvanceAtCursor = (
+  core: PreparedTextCore,
+  cursor: LayoutCursorType,
+  currentPaintWidth: number
+): number =>
+  breakKindAtCursor(core, cursor) === "tab"
+    ? resolveTabAdvance(currentPaintWidth, core.runtime.tabStopAdvance)
+    : segmentAt(core, cursor.segmentIndex)?.kind === "text"
+    ? core.runtime.breakableGraphemeWidths[cursor.segmentIndex]?.[cursor.graphemeIndex] ??
+      core.runtime.paintAdvances[cursor.segmentIndex] ?? 0
+    : core.runtime.paintAdvances[cursor.segmentIndex] ?? 0
+
 const appendSoftBreakCandidate = (
   candidates: ReadonlyArray<SoftBreakCandidate>,
   core: PreparedTextCore,
-  segmentIndex: number,
+  cursor: LayoutCursorType,
   end: LayoutCursorType,
   fitWidth: number,
   paintWidth: number
 ): ReadonlyArray<SoftBreakCandidate> =>
-  breakKindAt(core, segmentIndex) === "soft-hyphen"
+  breakKindAtCursor(core, cursor) === "soft-hyphen"
     ? [...candidates, [end, fitWidth, paintWidth, core.runtime.discretionaryHyphenWidth]]
     : candidates
 
@@ -222,12 +265,11 @@ const finalizeSoftBreak = (state: LineScanState, candidate: SoftBreakCandidate):
 const appendPendingWhitespace = (
   core: PreparedTextCore,
   state: LineScanState,
-  segmentIndex: number,
-  nextCursor: LayoutCursorType,
-  currentCursor: LayoutCursorType
+  currentCursor: LayoutCursorType,
+  nextCursor: LayoutCursorType
 ): LineScanState => {
-  const fitAdvance = resolveFitAdvance(core, segmentIndex, state.fitWidth + state.pendingFitWidth)
-  const paintAdvance = resolvePaintAdvance(core, segmentIndex, state.paintWidth + state.pendingPaintWidth)
+  const fitAdvance = resolveFitAdvanceAtCursor(core, currentCursor, state.fitWidth + state.pendingFitWidth)
+  const paintAdvance = resolvePaintAdvanceAtCursor(core, currentCursor, state.paintWidth + state.pendingPaintWidth)
 
   return {
     ...state,
@@ -245,13 +287,13 @@ const appendPendingWhitespace = (
 const startLineWithSegment = (
   core: PreparedTextCore,
   state: LineScanState,
-  segmentIndex: number,
+  currentCursor: LayoutCursorType,
   nextCursor: LayoutCursorType
 ): LineScanState => {
   const leadingFitWidth = core.whiteSpace === "pre-wrap" ? state.pendingFitWidth : 0
   const leadingPaintWidth = core.whiteSpace === "pre-wrap" ? state.pendingPaintWidth : 0
-  const fitWidth = leadingFitWidth + resolveFitAdvance(core, segmentIndex, leadingFitWidth)
-  const paintWidth = leadingPaintWidth + resolvePaintAdvance(core, segmentIndex, leadingPaintWidth)
+  const fitWidth = leadingFitWidth + resolveFitAdvanceAtCursor(core, currentCursor, leadingFitWidth)
+  const paintWidth = leadingPaintWidth + resolvePaintAdvanceAtCursor(core, currentCursor, leadingPaintWidth)
 
   return {
     ...state,
@@ -262,20 +304,20 @@ const startLineWithSegment = (
     pendingFitWidth: 0,
     pendingPaintWidth: 0,
     pendingStart: Option.none(),
-    softBreakCandidates: appendSoftBreakCandidate([], core, segmentIndex, nextCursor, fitWidth, paintWidth)
+    softBreakCandidates: appendSoftBreakCandidate([], core, currentCursor, nextCursor, fitWidth, paintWidth)
   }
 }
 
 const appendCommittedSegment = (
   core: PreparedTextCore,
   state: LineScanState,
-  segmentIndex: number,
+  currentCursor: LayoutCursorType,
   nextCursor: LayoutCursorType
 ): LineScanState => {
   const fitWidth = state.fitWidth + state.pendingFitWidth +
-    resolveFitAdvance(core, segmentIndex, state.fitWidth + state.pendingFitWidth)
+    resolveFitAdvanceAtCursor(core, currentCursor, state.fitWidth + state.pendingFitWidth)
   const paintWidth = state.paintWidth + state.pendingPaintWidth +
-    resolvePaintAdvance(core, segmentIndex, state.paintWidth + state.pendingPaintWidth)
+    resolvePaintAdvanceAtCursor(core, currentCursor, state.paintWidth + state.pendingPaintWidth)
 
   return {
     ...state,
@@ -289,7 +331,7 @@ const appendCommittedSegment = (
     softBreakCandidates: appendSoftBreakCandidate(
       hasPendingWhitespace(state) ? [] : state.softBreakCandidates,
       core,
-      segmentIndex,
+      currentCursor,
       nextCursor,
       fitWidth,
       paintWidth
@@ -322,46 +364,52 @@ const walkNextLineRecord = (
   cursor: LayoutCursorType
 ): Option.Option<WalkedLineRecord> => {
   const scan = (
-    segmentIndex: number,
+    currentCursor: LayoutCursorType,
     segmentLimit: number,
     state: LineScanState
   ): Option.Option<WalkedLineRecord> => {
-    if (segmentIndex >= core.manualSurface.segments.length || segmentIndex >= segmentLimit) {
+    if (
+      currentCursor.segmentIndex >= core.manualSurface.segments.length || currentCursor.segmentIndex >= segmentLimit
+    ) {
       return finalizeAtEnd(core, state)
     }
 
-    const breakKind = breakKindAt(core, segmentIndex)
-    const currentCursor = cursorAt(segmentIndex)
-    const nextCursor = cursorAt(segmentIndex + 1)
+    const breakKind = breakKindAtCursor(core, currentCursor)
+    const nextCursor = advanceCursor(core, currentCursor)
 
     if (breakKind === "hard-break") {
       return Option.some(finalizeAtHardBreak(core, state, nextCursor))
     }
 
-    if (breakKind === "space" || breakKind === "tab") {
+    if (
+      breakKind === "space" ||
+      breakKind === "preserved-space" ||
+      breakKind === "tab" ||
+      breakKind === "zero-width-break"
+    ) {
       return !lineHasCommittedContent(state) && core.whiteSpace === "normal"
-        ? scan(segmentIndex + 1, segmentLimit, {
+        ? scan(nextCursor, segmentLimit, {
           ...state,
           end: nextCursor,
           pendingEnd: nextCursor,
           start: nextCursor
         })
         : scan(
-          segmentIndex + 1,
+          nextCursor,
           segmentLimit,
-          appendPendingWhitespace(core, state, segmentIndex, nextCursor, currentCursor)
+          appendPendingWhitespace(core, state, currentCursor, nextCursor)
         )
     }
 
     if (!lineHasCommittedContent(state)) {
-      return scan(segmentIndex + 1, segmentLimit, startLineWithSegment(core, state, segmentIndex, nextCursor))
+      return scan(nextCursor, segmentLimit, startLineWithSegment(core, state, currentCursor, nextCursor))
     }
 
     const candidateFitWidth = state.fitWidth + state.pendingFitWidth +
-      resolveFitAdvance(core, segmentIndex, state.fitWidth + state.pendingFitWidth)
+      resolveFitAdvanceAtCursor(core, currentCursor, state.fitWidth + state.pendingFitWidth)
 
     if (candidateFitWidth <= maxWidth + core.lineFitEpsilon) {
-      return scan(segmentIndex + 1, segmentLimit, appendCommittedSegment(core, state, segmentIndex, nextCursor))
+      return scan(nextCursor, segmentLimit, appendCommittedSegment(core, state, currentCursor, nextCursor))
     }
 
     if (hasPendingWhitespace(state)) {
@@ -384,7 +432,7 @@ const walkNextLineRecord = (
 
   return cursor.segmentIndex >= core.manualSurface.segments.length
     ? Option.none()
-    : scan(cursor.segmentIndex, chunkConsumedEndForCursor(core, cursor), initialLineScanState(cursor))
+    : scan(cursor, chunkConsumedEndForCursor(core, cursor), initialLineScanState(cursor))
 }
 
 const walkLineRecordArray = (
@@ -398,14 +446,63 @@ const walkLineRecordArray = (
     onSome: (record) => [record, ...walkLineRecordArray(core, maxWidthAtLine, lineIndex + 1, record.nextCursor)]
   })
 
+const materializeSegmentText = (core: PreparedTextCore, segmentIndex: number): string => {
+  const segment = segmentAt(core, segmentIndex)
+
+  return Option.fromNullable(segment).pipe(
+    Option.match({
+      onNone: () => "",
+      onSome: (value) => value.kind === "text" ? value.graphemes.join("") : value.text
+    })
+  )
+}
+
+const materializeTextSlice = (
+  core: PreparedTextCore,
+  segmentIndex: number,
+  startGraphemeIndex: number,
+  endGraphemeIndex: number
+): string => {
+  const segment = segmentAt(core, segmentIndex)
+
+  return Option.fromNullable(segment).pipe(
+    Option.match({
+      onNone: () => "",
+      onSome: (value) =>
+        value.kind === "text"
+          ? value.graphemes.slice(startGraphemeIndex, endGraphemeIndex).join("")
+          : value.text
+    })
+  )
+}
+
 const materializeRangeText = (
   core: PreparedTextCore,
   start: LayoutCursorType,
   end: LayoutCursorType
-): string =>
-  cursorEquals(start, end)
-    ? ""
-    : core.manualSurface.segments.slice(start.segmentIndex, end.segmentIndex).map((segment) => segment.text).join("")
+): string => {
+  if (cursorEquals(start, end)) {
+    return ""
+  }
+
+  if (start.segmentIndex === end.segmentIndex) {
+    return materializeTextSlice(core, start.segmentIndex, start.graphemeIndex, end.graphemeIndex)
+  }
+
+  const leadingText = materializeTextSlice(
+    core,
+    start.segmentIndex,
+    start.graphemeIndex,
+    textGraphemeCountAt(core, start.segmentIndex)
+  )
+  const middleText = core.manualSurface.segments
+    .slice(start.segmentIndex + 1, end.segmentIndex)
+    .map((_, index) => materializeSegmentText(core, start.segmentIndex + 1 + index))
+    .join("")
+  const trailingText = end.graphemeIndex === 0 ? "" : materializeTextSlice(core, end.segmentIndex, 0, end.graphemeIndex)
+
+  return leadingText + middleText + trailingText
+}
 
 const materializeLine = (
   core: PreparedTextCore,

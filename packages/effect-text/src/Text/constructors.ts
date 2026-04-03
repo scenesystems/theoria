@@ -22,7 +22,7 @@ const prepareCore = (
     const normalizedFont = { ...input.font, weight: input.font.weight ?? 400 }
     const segmentedText = yield* segmenter.segment(input.text, input.whiteSpace)
     const baseDirection = resolvePreparedBaseDirection(input.text, engineProfile)
-    const prepared = yield* prepareSegments(segmentedText, engineProfile, baseDirection, (text) =>
+    const prepared = yield* prepareSegments(segmentedText, input.whiteSpace, engineProfile, baseDirection, (text) =>
       cache.measure(normalizedFont, text))
 
     return {

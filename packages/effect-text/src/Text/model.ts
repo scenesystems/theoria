@@ -10,7 +10,16 @@ import { BaseTextDirection, FontDescriptor, WhiteSpaceMode } from "./schema.js"
 const PreparedSegmentKindSchema = Schema.Literal("text", "space", "hard-break", "tab")
 const PreparedSegmentDirectionSchema = Schema.Literal("ltr", "rtl", "neutral")
 const PreparedBreakOpportunitySchema = Schema.Literal("none", "space", "soft-hyphen")
-const PreparedBreakKindSchema = Schema.Literal("text", "space", "soft-hyphen", "hard-break", "tab")
+const PreparedBreakKindSchema = Schema.Literal(
+  "text",
+  "space",
+  "preserved-space",
+  "soft-hyphen",
+  "hard-break",
+  "tab",
+  "glue",
+  "zero-width-break"
+)
 
 const PreparedSegmentSchema = Schema.Struct({
   kind: PreparedSegmentKindSchema,
@@ -20,7 +29,9 @@ const PreparedSegmentSchema = Schema.Struct({
   bidiLevel: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   breakOpportunity: PreparedBreakOpportunitySchema,
   breakText: Schema.String,
-  breakWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
+  breakWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
+  graphemes: Schema.Array(Schema.String),
+  graphemeAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)))
 })
 
 const PreparedLineChunkSchema = Schema.Struct({

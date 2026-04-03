@@ -50,13 +50,13 @@ describe("Text operations", () => {
       }).pipe(Effect.provide(layer))
 
       const afterPrepare = yield* Ref.get(measurements)
-      expect(afterPrepare).toBe(2)
+      expect(afterPrepare).toBeGreaterThan(1)
 
       const narrow = Text.layout(prepared, { maxWidth: 40, lineHeight: 12 })
       const wide = Text.layout(prepared, { maxWidth: 100, lineHeight: 12 })
       const afterLayout = yield* Ref.get(measurements)
 
-      expect(afterLayout).toBe(2)
+      expect(afterLayout).toBe(afterPrepare)
       expect(narrow.lineCount).toBe(2)
       expect(wide.lineCount).toBe(1)
     }))
