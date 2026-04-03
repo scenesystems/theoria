@@ -149,10 +149,10 @@ Swap in `CanvasTextMeasurerLive` to use `CanvasRenderingContext2D.measureText`. 
 
 ```ts
 import { Effect, Layer } from "effect"
-import { Text } from "effect-text"
+import { Browser, Text } from "effect-text"
 
 // Provide a real CanvasRenderingContext2D in the browser
-const canvasLayer = Text.CanvasTextMeasurerLive({
+const canvasLayer = Browser.CanvasTextMeasurerLive({
   context,
   emojiCorrection: true,
   textBaseline: "alphabetic"
@@ -328,15 +328,16 @@ const safe = Text.prepareUnknown(untrustedInput).pipe(
 ## API at a glance
 
 ```ts
-import { Contracts, Errors, Experimental, Text } from "effect-text"
+import { Browser, Contracts, Errors, Experimental, Text } from "effect-text"
 ```
 
-| Module         | Key exports                                                                                                                                                                                                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive`, `CanvasTextMeasurerLive` |
-| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                             |
-| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                                |
-| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                     |
+| Module         | Key exports                                                                                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive` |
+| `Browser`      | `CanvasTextMeasurerLive`                                                                                                                                                                                                                          |
+| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                   |
+| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                      |
+| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                           |
 
 Subpath imports are also available: `import * as Text from "effect-text/Text"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 

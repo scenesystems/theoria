@@ -1,6 +1,6 @@
 import { Layer, Option } from "effect"
 import type { Contracts } from "effect-text"
-import { Text } from "effect-text"
+import { Browser, Text } from "effect-text"
 
 const makeCanvasContext = (): Option.Option<CanvasRenderingContext2D> => {
   if (typeof document === "undefined") {
@@ -16,7 +16,7 @@ const makeBrowserTextLayoutLayer = (): Layer.Layer<
   Option.match(makeCanvasContext(), {
     onNone: () => Text.TextLayoutLive,
     onSome: (context) => {
-      const canvasMeasurer = Text.CanvasTextMeasurerLive({ context })
+      const canvasMeasurer = Browser.CanvasTextMeasurerLive({ context })
 
       return Layer.mergeAll(
         Text.WordSegmenterLive,

@@ -7,7 +7,6 @@ import { Cache, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
 import { EngineProfile, MeasurementCache, TextMeasurer, WordSegmenter } from "../contracts/index.js"
-export { CanvasTextMeasurerLive } from "../Browser/layers.js"
 import { MeasurementFailed } from "../Errors/index.js"
 import { segmentText } from "./internal/analysis.js"
 import type { FontDescriptorType } from "./schema.js"

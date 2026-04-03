@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Errors, Text } from "../../src/index.js"
+import { Browser, Contracts, Errors, Text } from "../../src/index.js"
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
@@ -82,7 +82,7 @@ describe("Text operations", () => {
         Text.EngineProfileLive,
         Text.MeasurementCacheLive.pipe(
           Layer.provide(
-            Text.CanvasTextMeasurerLive({
+            Browser.CanvasTextMeasurerLive({
               context: new EmojiCanvasContext(),
               emojiCorrection: true
             })

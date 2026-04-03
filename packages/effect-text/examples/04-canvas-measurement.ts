@@ -5,7 +5,7 @@
  * `CanvasTextMeasurerLive` without changing the rest of the pipeline.
  *
  * Feature Type Links:
- * - {@link Text.CanvasTextMeasurerLive}
+ * - {@link Browser.CanvasTextMeasurerLive}
  * - {@link Contracts.TextMeasurer}
  * - {@link Text.TextLayoutLive}
  *
@@ -15,7 +15,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 
-import { Text } from "effect-text"
+import { Browser, Text } from "effect-text"
 
 class DemoCanvasContext {
   direction: "inherit" = "inherit"
@@ -41,7 +41,7 @@ const program = Effect.gen(function*() {
     Text.EngineProfileLive,
     Text.MeasurementCacheLive.pipe(
       Layer.provide(
-        Text.CanvasTextMeasurerLive({
+        Browser.CanvasTextMeasurerLive({
           context: new DemoCanvasContext(),
           emojiCorrection: true,
           textBaseline: "alphabetic"
