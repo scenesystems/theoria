@@ -6,7 +6,8 @@
 import { Option, Stream, Tuple } from "effect"
 
 import { materializeLineAtCursor, materializeLines } from "./internal/layout.js"
-import { PreparedText } from "./model.js"
+import type { PreparedText, PreparedTextWithSegments } from "./model.js"
+import { preparedTextCore } from "./model.js"
 import type { LayoutCursorType, LayoutLineType, LayoutRequestType, LayoutSummaryType } from "./schema.js"
 
 /**
@@ -32,7 +33,7 @@ export const initialCursor = (): LayoutCursorType => ({ segmentIndex: 0, graphem
  * @category layout
  */
 export const layoutLines = (prepared: PreparedText, request: LayoutRequestType): ReadonlyArray<LayoutLineType> =>
-  materializeLines(PreparedText.core(prepared), request)
+  materializeLines(preparedTextCore(prepared), request)
 
 /**
  * Materializes lines while allowing the caller to vary max width per line.
@@ -47,7 +48,7 @@ export const layoutLinesWith = (
   prepared: PreparedText,
   request: LayoutRequestType,
   resolveMaxWidth: LineWidthResolver
-): ReadonlyArray<LayoutLineType> => materializeLines(PreparedText.core(prepared), request, resolveMaxWidth)
+): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextCore(prepared), request, resolveMaxWidth)
 
 /**
  * Computes line count and height without exposing line text.
@@ -73,11 +74,11 @@ export const layout = (prepared: PreparedText, request: LayoutRequestType): Layo
  * @category layout
  */
 export const layoutNextLine = (
-  prepared: PreparedText,
+  prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   cursor: LayoutCursorType
 ): Option.Option<readonly [LayoutLineType, LayoutCursorType]> =>
-  materializeLineAtCursor(PreparedText.core(prepared), request, cursor).pipe(
+  materializeLineAtCursor(preparedTextCore(prepared), request, cursor).pipe(
     Option.map(([line, nextCursor]) => Tuple.make(line, nextCursor))
   )
 
@@ -87,7 +88,10 @@ export const layoutNextLine = (
  * @since 0.1.0
  * @category layout
  */
-export const streamLines = (prepared: PreparedText, request: LayoutRequestType): Stream.Stream<LayoutLineType> =>
+export const streamLines = (
+  prepared: PreparedTextWithSegments,
+  request: LayoutRequestType
+): Stream.Stream<LayoutLineType> =>
   Stream.unfold(initialCursor(), (cursor) =>
     Option.map(
       layoutNextLine(prepared, request, cursor),

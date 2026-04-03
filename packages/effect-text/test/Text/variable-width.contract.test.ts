@@ -80,6 +80,6 @@ describe("Text variable-width contracts", () => {
 
       expect(afterProjection).toBe(afterPrepare)
       expect(narrow.map((line) => line.text)).not.toEqual(wide.map((line) => line.text))
-      expect([...layoutLinesWithTargets].sort()).toEqual(["PreparedText.core", "materializeLines"])
+      expect([...layoutLinesWithTargets].sort()).toEqual(["materializeLines", "preparedTextCore"])
     }))
 })

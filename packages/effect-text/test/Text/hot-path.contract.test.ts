@@ -67,7 +67,7 @@ const readDeclarationNames = (relativePath: string) =>
   )
 
 const collectCursorLines = (
-  prepared: Text.PreparedText,
+  prepared: Text.PreparedTextWithSegments,
   request: LayoutRequestType,
   cursor = Text.initialCursor()
 ): ReadonlyArray<Text.LayoutLineType> =>
@@ -108,7 +108,7 @@ describe("Text hot-path contracts", () => {
   it.effect("streamLines emits the same sequence as repeated layoutNextLine", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "one two three four five six",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"

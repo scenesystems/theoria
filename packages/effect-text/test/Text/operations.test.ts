@@ -3,6 +3,7 @@ import { Effect, Layer, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
+import { preparedTextCore } from "../../src/Text/model.js"
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
@@ -137,7 +138,7 @@ describe("Text operations", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedTextWithSegments.core(prepared)
+      const core = preparedTextCore(prepared)
 
       expect(core.baseDirection).toBe("rtl")
       expect(
@@ -256,7 +257,7 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedTextWithSegments.core(prepared)
+      const core = preparedTextCore(prepared)
       expect(core.font.weight).toBe(400)
     }))
 
@@ -269,7 +270,7 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = Text.PreparedTextWithSegments.core(prepared)
+      const core = preparedTextCore(prepared)
       expect(core.font.weight).toBe(700)
     }))
 
@@ -335,7 +336,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("stream produces the same lines as layoutLines", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "alpha beta gamma delta",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -351,7 +352,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("cursor-based iteration covers all lines", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "one two three four five",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"

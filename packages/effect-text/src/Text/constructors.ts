@@ -8,8 +8,8 @@ import { Effect, ParseResult, Schema } from "effect"
 import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../contracts/index.js"
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
 import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
-import type { PreparedText, PreparedTextCore } from "./model.js"
-import { PreparedTextWithSegments } from "./model.js"
+import type { PreparedText, PreparedTextCore, PreparedTextWithSegments } from "./model.js"
+import { preparedTextFromCore, preparedTextWithSegmentsFromCore } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
 
 const prepareCore = (
@@ -47,7 +47,7 @@ const prepareCore = (
 export const prepareWithSegments = (
   input: PrepareInputType
 ): Effect.Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices> =>
-  prepareCore(input).pipe(Effect.map(PreparedTextWithSegments.fromCore))
+  prepareCore(input).pipe(Effect.map(preparedTextWithSegmentsFromCore))
 
 /**
  * Compiles text into an opaque prepared handle.
@@ -58,7 +58,7 @@ export const prepareWithSegments = (
 export const prepare = (
   input: PrepareInputType
 ): Effect.Effect<PreparedText, MeasurementFailed, TextPreparationServices> =>
-  prepareWithSegments(input).pipe(Effect.map(PreparedTextWithSegments.asPreparedText))
+  prepareCore(input).pipe(Effect.map(preparedTextFromCore))
 
 /**
  * Decodes unknown input, then compiles it into a prepared handle.

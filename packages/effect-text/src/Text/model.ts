@@ -118,6 +118,10 @@ export type PreparedTextManualSurfaceType = typeof PreparedTextManualSurfaceSche
  */
 export type PreparedTextCore = typeof _PreparedTextCoreSchema.Type
 
+const preparedTextConstructionToken = Symbol("PreparedTextConstructionToken")
+type PreparedTextConstructionToken = typeof preparedTextConstructionToken
+const preparedTextCoreSymbol = Symbol("PreparedTextCore")
+
 /**
  * Prepared text handle returned by `Text.prepare`.
  *
@@ -131,30 +135,15 @@ export class PreparedText {
    * @since 0.1.0
    * @category models
    */
-  readonly #core: PreparedTextCore
+  declare readonly [preparedTextCoreSymbol]: PreparedTextCore
 
-  protected constructor(core: PreparedTextCore) {
-    this.#core = core
-  }
-
-  /**
-   * Wraps prepared core data in an opaque handle.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  static fromCore(core: PreparedTextCore): PreparedText {
-    return new PreparedText(core)
-  }
-
-  /**
-   * Unwraps opaque prepared data for pure layout helpers.
-   *
-   * @since 0.1.0
-   * @category accessors
-   */
-  static core(self: PreparedText): PreparedTextCore {
-    return self.#core
+  constructor(_token: PreparedTextConstructionToken, core: PreparedTextCore) {
+    Object.defineProperty(this, preparedTextCoreSymbol, {
+      value: core,
+      enumerable: false,
+      configurable: false,
+      writable: false
+    })
   }
 }
 
@@ -165,27 +154,15 @@ export class PreparedText {
  * @category models
  */
 export class PreparedTextWithSegments extends PreparedText {
-  private constructor(core: PreparedTextCore) {
-    super(core)
-  }
-
-  /**
-   * Wraps compiled prepared data in the richer manual-layout handle.
-   *
-   * @since 0.1.0
-   * @category constructors
-   */
-  static override fromCore(core: PreparedTextCore): PreparedTextWithSegments {
-    return new PreparedTextWithSegments(core)
-  }
-
-  /**
-   * Narrows the richer handle to the opaque summary handle without copying data.
-   *
-   * @since 0.1.0
-   * @category accessors
-   */
-  static asPreparedText(self: PreparedTextWithSegments): PreparedText {
-    return self
+  constructor(token: PreparedTextConstructionToken, core: PreparedTextCore) {
+    super(token, core)
   }
 }
+
+export const preparedTextFromCore = (core: PreparedTextCore): PreparedText =>
+  new PreparedText(preparedTextConstructionToken, core)
+
+export const preparedTextWithSegmentsFromCore = (core: PreparedTextCore): PreparedTextWithSegments =>
+  new PreparedTextWithSegments(preparedTextConstructionToken, core)
+
+export const preparedTextCore = (self: PreparedText): PreparedTextCore => self[preparedTextCoreSymbol]

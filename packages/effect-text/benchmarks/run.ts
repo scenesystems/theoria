@@ -4,6 +4,7 @@ import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { Text } from "../src/index.js"
+import { preparedTextCore } from "../src/Text/model.js"
 import {
   BenchmarkReportSchema,
   benchmarkCorpus,
@@ -67,7 +68,7 @@ const measurePure = <A>(
   })
 
 const collectCursorLines = (
-  prepared: Text.PreparedText,
+  prepared: Text.PreparedTextWithSegments,
   request: BenchmarkCorpusCase["request"],
   cursor = Text.initialCursor()
 ): ReadonlyArray<Text.LayoutLineType> =>
@@ -78,7 +79,7 @@ const collectCursorLines = (
 
 const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<BenchmarkCaseReportType> =>
   Effect.gen(function*() {
-    const prepared = yield* Text.prepare(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive))
+    const prepared = yield* Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive))
 
     return {
       name: corpusCase.name,
@@ -86,8 +87,8 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
       metrics: {
         prepare: yield* measureEffect(
           benchmarkIterations,
-          () => Text.prepare(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
-          (preparedText) => ({ segmentCount: Text.PreparedText.core(preparedText).manualSurface.segments.length })
+          () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
+          (preparedText) => ({ segmentCount: preparedTextCore(preparedText).manualSurface.segments.length })
         ),
         layout: yield* measurePure(
           benchmarkIterations,

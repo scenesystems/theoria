@@ -84,12 +84,13 @@ That yields a small public surface:
 | Function               | Signature                                                                        | Phase     |
 | ---------------------- | -------------------------------------------------------------------------------- | --------- |
 | `Text.prepare`         | `(input) → Effect<PreparedText, MeasurementFailed, TextPreparationServices>`     | Effectful |
+| `Text.prepareWithSegments` | `(input) → Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices>` | Effectful |
 | `Text.prepareUnknown`  | `(input: unknown) → Effect<PreparedText, PrepareError, TextPreparationServices>` | Effectful |
 | `Text.layout`          | `(prepared, request) → LayoutSummary`                                            | Pure      |
 | `Text.layoutLines`     | `(prepared, request) → ReadonlyArray<LayoutLine>`                                | Pure      |
 | `Text.layoutLinesWith` | `(prepared, request, resolveMaxWidth) → ReadonlyArray<LayoutLine>`               | Pure      |
-| `Text.layoutNextLine`  | `(prepared, request, cursor) → Option<[LayoutLine, LayoutCursor]>`               | Pure      |
-| `Text.streamLines`     | `(prepared, request) → Stream<LayoutLine>`                                       | Pure      |
+| `Text.layoutNextLine`  | `(preparedWithSegments, request, cursor) → Option<[LayoutLine, LayoutCursor]>`   | Pure      |
+| `Text.streamLines`     | `(preparedWithSegments, request) → Stream<LayoutLine>`                           | Pure      |
 
 All pure layout functions reuse the same prepared handle. Prepare once, project many times at different widths.
 
@@ -198,6 +199,8 @@ For incremental or reactive consumers, prepared text can be walked line-by-line 
 ```ts
 import { Chunk, Effect, Option, Stream } from "effect"
 import { Text } from "effect-text"
+
+const prepared = yield * Text.prepareWithSegments(input)
 
 // Cursor stepping — pure, no allocation of full line array
 const first = Text.layoutNextLine(prepared, request, Text.initialCursor())
