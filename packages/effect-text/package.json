@@ -30,12 +30,18 @@
   "exports": {
     ".": "./src/index.ts",
     "./Text": "./src/Text/index.ts",
+    "./Browser": "./src/Browser/index.ts",
+    "./React": "./src/React/index.ts",
     "./Contracts": "./src/contracts/index.ts",
     "./Errors": "./src/Errors/index.ts",
     "./Experimental": "./src/experimental/index.ts",
     "./contracts": "./src/contracts/index.ts",
     "./experimental": "./src/experimental/index.ts",
-    "./internal/*": null
+    "./internal/*": null,
+    "./Text/internal/*": null,
+    "./Browser/internal/*": null,
+    "./React/internal/*": null,
+    "./experimental/*/internal/*": null
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",

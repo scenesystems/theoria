@@ -7,6 +7,8 @@ import { describe, expect, it } from "@effect/vitest"
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..")
 const srcRoot = join(packageRoot, "src")
 
+const expectedSourceRoots = ["Browser", "Errors", "React", "Text", "contracts", "experimental", "index.ts"]
+
 describe("package structure contracts", () => {
   it("keeps the converged shared authority and runtime internals in canonical locations", () => {
     const expectedPaths = [
@@ -33,5 +35,15 @@ describe("package structure contracts", () => {
     expect(existsSync(join(packageRoot, "src/Browser/index.ts"))).toStrictEqual(true)
     expect(existsSync(join(packageRoot, "src/React/index.ts"))).toStrictEqual(true)
     expect(existsSync(join(packageRoot, "src/experimental/Calibration/internal"))).toStrictEqual(true)
+  })
+
+  it("keeps root authorities and domain filenames predictable across the package", () => {
+    expect(readdirSync(srcRoot).sort()).toStrictEqual(expectedSourceRoots.sort())
+    expect(readdirSync(join(srcRoot, "Browser")).sort()).toStrictEqual(["index.ts", "internal", "layers.ts"].sort())
+    expect(readdirSync(join(srcRoot, "Errors")).sort()).toStrictEqual(["index.ts"])
+    expect(readdirSync(join(srcRoot, "React")).sort()).toStrictEqual(["index.ts", "internal"].sort())
+    expect(readdirSync(join(srcRoot, "experimental", "Calibration")).sort()).toStrictEqual(
+      ["evaluation.ts", "index.ts", "internal", "schema.ts", "search.ts"].sort()
+    )
   })
 })
