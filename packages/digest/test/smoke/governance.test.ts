@@ -18,7 +18,7 @@ import {
   referencesInternalBoundary,
   resolveRootFrom,
   toSourceFilePath
-} from "../../../../tools/testing/sourceProof.js"
+} from "@theoria/source-proof"
 
 const MAX_SOURCE_FILE_LINES = 240
 

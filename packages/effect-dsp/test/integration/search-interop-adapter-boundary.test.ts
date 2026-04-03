@@ -12,7 +12,7 @@ import {
   parseTypeScript,
   pathSegments,
   propertyAccessChains
-} from "../../../../tools/testing/sourceProof.js"
+} from "@theoria/source-proof"
 
 const INTEROP_ROOT_PATH = "src/optimizers/effectSearchInterop/"
 

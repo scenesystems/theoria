@@ -19,7 +19,7 @@ import {
   referencesInternalBoundary,
   stringLiterals,
   variableInitializerTexts
-} from "../../../../tools/testing/sourceProof.js"
+} from "@theoria/source-proof"
 
 type ParsedSourceFile = SourceFile
 

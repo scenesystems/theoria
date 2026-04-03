@@ -69,6 +69,7 @@
       "devDependencies": {
         "@effect/vitest": "^0.29.0",
         "@tailwindcss/vite": "^4.2.0",
+        "@theoria/source-proof": "workspace:*",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "^5.1.4",
@@ -83,6 +84,9 @@
       "dependencies": {
         "@noble/hashes": "^2.0.0",
       },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
+      },
       "peerDependencies": {
         "effect": "^3.20.0",
       },
@@ -94,6 +98,9 @@
         "@scenesystems/digest": "workspace:^",
         "effect-math": "workspace:^",
         "effect-search": "workspace:^",
+      },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
       },
       "peerDependencies": {
         "@effect/ai": ">=0.35.0",
@@ -112,10 +119,13 @@
     },
     "packages/effect-search": {
       "name": "effect-search",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "effect-math": "workspace:^",
+      },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
       },
       "peerDependencies": {
         "@effect/experimental": "^0.60.0",
@@ -133,6 +143,9 @@
       "dependencies": {
         "effect-search": "workspace:^",
       },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
+      },
       "peerDependencies": {
         "effect": "^3.20.0",
       },
@@ -142,6 +155,9 @@
       "version": "0.1.0",
       "dependencies": {
         "@noble/ciphers": "^2.0.0",
+      },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
       },
       "peerDependencies": {
         "effect": "^3.20.0",
@@ -155,8 +171,25 @@
         "@noble/hashes": "^2.0.0",
         "@noble/post-quantum": "^0.5.0",
       },
+      "devDependencies": {
+        "@theoria/source-proof": "workspace:*",
+      },
       "peerDependencies": {
         "effect": "^3.20.0",
+      },
+    },
+    "packages/source-proof": {
+      "name": "@theoria/source-proof",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/platform": "0.96.0",
+        "effect": "3.21.0",
+        "typescript": "^5.9.3",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "0.89.0",
+        "@effect/vitest": "^0.29.0",
+        "@types/node": "^25.5.0",
       },
     },
   },
@@ -569,6 +602,8 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.2.2", "", { "os": "win32", "cpu": "x64" }, "sha512-1T/37VvI7WyH66b+vqHj/cLwnCxt7Qt3WFu5Q8hk65aOvlwAhs7rAp1VkulBJw/N4tMirXjVnylTR72uI0HGcA=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.2.2", "", { "dependencies": { "@tailwindcss/node": "4.2.2", "@tailwindcss/oxide": "4.2.2", "tailwindcss": "4.2.2" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-mEiF5HO1QqCLXoNEfXVA1Tzo+cYsrqV7w9Juj2wdUFyW07JRenqMG225MvPwr3ZD9N1bFQj46X7r33iHxLUW0w=="],
+
+    "@theoria/source-proof": ["@theoria/source-proof@workspace:packages/source-proof"],
 
     "@theoria/theoria-app": ["@theoria/theoria-app@workspace:apps/theoria"],
 

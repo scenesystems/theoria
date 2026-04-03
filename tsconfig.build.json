@@ -13,6 +13,7 @@
     { "path": "./packages/effect-text/tsconfig.build.json" },
     { "path": "./packages/seal/tsconfig.build.json" },
     { "path": "./packages/sign/tsconfig.build.json" },
+    { "path": "./packages/source-proof/tsconfig.build.json" },
     { "path": "./apps/theoria/tsconfig.build.json" }
   ]
 }

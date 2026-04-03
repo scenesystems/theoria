@@ -9,7 +9,7 @@ import {
   parseTypeScript,
   readProjectFile,
   variableInitializerTexts
-} from "../../../../tools/testing/sourceProof.js"
+} from "@theoria/source-proof"
 import { Contracts, Text } from "../../src/index.js"
 import type { LayoutRequestType } from "../../src/Text/schema.js"
 

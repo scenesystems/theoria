@@ -1,0 +1,30 @@
+{
+  "name": "@theoria/source-proof",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AST-backed source structure proofs for Theoria workspace tests",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "lint": "eslint --max-warnings=0 src test",
+    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "test": "vitest run --root ../.. packages/source-proof/test",
+    "build": "tsc -b tsconfig.build.json",
+    "clean": "rm -rf build .tsbuildinfo",
+    "docgen": "echo 'docgen skipped for @theoria/source-proof'"
+  },
+  "dependencies": {
+    "@effect/platform": "0.96.0",
+    "effect": "3.21.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "0.89.0",
+    "@effect/vitest": "^0.29.0",
+    "@types/node": "^25.5.0"
+  }
+}

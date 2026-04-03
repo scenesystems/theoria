@@ -6,12 +6,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"
 
-import {
-  moduleSpecifiers,
-  parseTypeScript,
-  pathSegments,
-  referencesInternalBoundary
-} from "../../../../tools/testing/sourceProof.js"
+import { moduleSpecifiers, parseTypeScript, pathSegments, referencesInternalBoundary } from "@theoria/source-proof"
 
 const MAX_SOURCE_FILE_LINES = 240
 

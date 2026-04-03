@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { listTypeScriptFilesInDir, moduleSpecifiers, parseTypeScript } from "../../../../tools/testing/sourceProof.js"
+import { listTypeScriptFilesInDir, moduleSpecifiers, parseTypeScript } from "@theoria/source-proof"
 
 const packageRootUrl = new URL("../../", import.meta.url)
 
