@@ -2,8 +2,8 @@
 // Aggregates per-package docgen output into a unified docs/ tree for GitHub Pages.
 // Follows the same pattern as Effect-TS/effect scripts/docs.mjs.
 // Run after `bun run docgen`: node scripts/docs.mjs
-import * as Fs from "node:fs"
-import * as Path from "node:path"
+import * as Fs from "fs"
+import * as Path from "path"
 
 const ROOT = Path.resolve(import.meta.dirname, "..")
 const DOCS_OUT = Path.join(ROOT, "docs")

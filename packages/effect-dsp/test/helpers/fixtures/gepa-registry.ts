@@ -1,7 +1,5 @@
+import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Data, Effect, Option, Schema } from "effect"
-import { readdirSync, readFileSync } from "fs"
-import path from "path"
-import { fileURLToPath } from "url"
 
 export const GepaFixtureNameSchema = Schema.Literal(
   "gepa.pareto.score-matrix.basic",
@@ -152,23 +150,34 @@ export type GepaFixtureError = GepaFixtureManifestReadError | GepaFixtureDecodeE
 export const GEPA_FIXTURE_ROOT = new URL("../../fixtures/gepa/", import.meta.url)
 export const GEPA_MANIFEST_FILE = "manifest.json"
 
-const GEPA_FIXTURE_ROOT_PATH = fileURLToPath(GEPA_FIXTURE_ROOT)
 const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
 
-const readJsonUnknown = (fileUrl: URL): Effect.Effect<unknown, GepaFixtureDecodeError | GepaFixtureManifestReadError> =>
-  Effect.sync(() => readFileSync(fileUrl, "utf8")).pipe(
-    Effect.mapError((cause) => new GepaFixtureManifestReadError({ path: fileUrl.toString(), cause })),
-    Effect.flatMap((raw) =>
-      decodeJsonUnknown(raw).pipe(
-        Effect.mapError((cause) => new GepaFixtureDecodeError({ path: fileUrl.toString(), cause }))
-      )
+const readJsonUnknown = (
+  fileUrl: URL
+): Effect.Effect<unknown, GepaFixtureDecodeError | GepaFixtureManifestReadError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const filePath = yield* path.fromFileUrl(fileUrl).pipe(
+      Effect.mapError((cause) => new GepaFixtureManifestReadError({ path: fileUrl.toString(), cause }))
     )
-  )
+    const raw = yield* fileSystem.readFileString(filePath).pipe(
+      Effect.mapError((cause) => new GepaFixtureManifestReadError({ path: fileUrl.toString(), cause }))
+    )
+
+    return yield* decodeJsonUnknown(raw).pipe(
+      Effect.mapError((cause) => new GepaFixtureDecodeError({ path: fileUrl.toString(), cause }))
+    )
+  })
 
 export const loadGepaManifest = (
   rootUrl: URL = GEPA_FIXTURE_ROOT,
   manifestFileName: string = GEPA_MANIFEST_FILE
-): Effect.Effect<GepaFixtureManifest, GepaFixtureDecodeError | GepaFixtureManifestReadError> =>
+): Effect.Effect<
+  GepaFixtureManifest,
+  GepaFixtureDecodeError | GepaFixtureManifestReadError,
+  FileSystem.FileSystem | Path.Path
+> =>
   readJsonUnknown(new URL(manifestFileName, rootUrl)).pipe(
     Effect.flatMap((payload) =>
       Schema.decodeUnknown(GepaFixtureManifestSchema)(payload).pipe(
@@ -182,7 +191,11 @@ export const loadGepaManifest = (
 const loadGepaFixtureByEntry = (
   rootUrl: URL,
   entry: GepaFixtureManifest["fixtures"][number]
-): Effect.Effect<GepaKnownFixture, GepaFixtureDecodeError | GepaFixtureManifestReadError> =>
+): Effect.Effect<
+  GepaKnownFixture,
+  GepaFixtureDecodeError | GepaFixtureManifestReadError,
+  FileSystem.FileSystem | Path.Path
+> =>
   readJsonUnknown(new URL(entry.file, rootUrl)).pipe(
     Effect.flatMap((payload) =>
       Schema.decodeUnknown(GepaKnownFixtureSchema)(payload).pipe(
@@ -213,7 +226,7 @@ const resolveFixtureEntry = (
 export const loadGepaFixture = (
   fixtureName: GepaFixtureName,
   rootUrl: URL = GEPA_FIXTURE_ROOT
-): Effect.Effect<GepaKnownFixture, GepaFixtureError> =>
+): Effect.Effect<GepaKnownFixture, GepaFixtureError, FileSystem.FileSystem | Path.Path> =>
   loadGepaManifest(rootUrl).pipe(
     Effect.flatMap((manifest) => resolveFixtureEntry(manifest, fixtureName)),
     Effect.flatMap((entry) => loadGepaFixtureByEntry(rootUrl, entry))
@@ -222,27 +235,49 @@ export const loadGepaFixture = (
 export const validateGepaFixtureManifest = (
   rootUrl: URL = GEPA_FIXTURE_ROOT,
   manifestFileName: string = GEPA_MANIFEST_FILE
-): Effect.Effect<void, GepaFixtureError> =>
+): Effect.Effect<void, GepaFixtureError, FileSystem.FileSystem | Path.Path> =>
   loadGepaManifest(rootUrl, manifestFileName).pipe(
     Effect.flatMap((manifest) =>
       Effect.forEach(manifest.fixtures, (entry) => loadGepaFixtureByEntry(rootUrl, entry), { discard: true })
     )
   )
 
-const listJsonFiles = (rootPath: string, prefix: string): ReadonlyArray<string> => {
-  const directory = prefix === "" ? rootPath : path.join(rootPath, prefix)
+const listJsonFiles = (
+  rootPath: string,
+  prefix: string
+): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const directory = prefix === "" ? rootPath : path.join(rootPath, prefix)
+    const entries = yield* fileSystem.readDirectory(directory).pipe(Effect.orDie)
 
-  return Arr.flatMap(readdirSync(directory, { withFileTypes: true }), (entry) => {
-    const relativePath = prefix === "" ? entry.name : `${prefix}/${entry.name}`
+    const nested = yield* Effect.forEach(entries, (entry) =>
+      Effect.gen(function*() {
+        const relativePath = prefix === "" ? entry : `${prefix}/${entry}`
+        const absolutePath = path.join(rootPath, relativePath)
+        const stat = yield* fileSystem.stat(absolutePath).pipe(Effect.orDie)
 
-    return entry.isDirectory()
-      ? listJsonFiles(rootPath, relativePath)
-      : entry.name.endsWith(".json")
-      ? Arr.make(relativePath)
-      : Arr.empty<string>()
+        if (stat.type === "Directory") {
+          return yield* listJsonFiles(rootPath, relativePath)
+        }
+
+        return entry.endsWith(".json")
+          ? Arr.make(relativePath)
+          : Arr.empty<string>()
+      }))
+
+    return Arr.flatten(nested)
   })
-}
 
 export const listGepaFixtureJsonFiles = (
-  rootPath: string = GEPA_FIXTURE_ROOT_PATH
-): Effect.Effect<ReadonlyArray<string>> => Effect.sync(() => listJsonFiles(rootPath, ""))
+  rootPath: URL = GEPA_FIXTURE_ROOT
+): Effect.Effect<ReadonlyArray<string>, GepaFixtureManifestReadError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const resolvedRootPath = yield* path.fromFileUrl(rootPath).pipe(
+      Effect.mapError((cause) => new GepaFixtureManifestReadError({ path: rootPath.toString(), cause }))
+    )
+
+    return yield* listJsonFiles(resolvedRootPath, "")
+  })
