@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Option } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { BaseTextDirectionType, TextSegmentType, WhiteSpaceModeType } from "../schema.js"
@@ -17,30 +17,54 @@ const TAB = "\t"
 const LINE_FEED = "\n"
 const RTL_PATTERN = /[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u
 const STRONG_PATTERN = /\p{Letter}|\p{Number}/u
+const LETTER_PATTERN = /\p{Letter}/u
+const NUMBER_PATTERN = /\p{Number}/u
 const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
 const COMBINING_MARK_PATTERN = /\p{Mark}/u
 const VARIATION_SELECTOR_PATTERN = /[\uFE00-\uFE0F\u{E0100}-\u{E01EF}]/u
 const EMOJI_MODIFIER_PATTERN = /\p{Emoji_Modifier}/u
 const REGIONAL_INDICATOR_PATTERN = /\p{Regional_Indicator}/u
-const NO_SPACE_SCRIPT_PATTERN =
-  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
+const CJK_SCRIPT_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u
+const NO_SPACE_SCRIPT_PATTERN = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
 const OPENING_PUNCTUATION_PATTERN =
   /^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u
 const CLOSING_PUNCTUATION_PATTERN =
   /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
-const RUN_CONNECTOR_PATTERN = /^[-._~/:@?&=#%+]+$/u
+const RUN_CONNECTOR_PATTERN = /^[-._~,/:@?&=#%+]+$/u
 
 type TextDirection = "ltr" | "rtl" | "neutral"
 type WhitespaceToken = readonly [kind: "space" | "tab", text: string]
 type SoftHyphenPiece = readonly [text: string, breakAfter: boolean]
+type TextBreakClass =
+  | "alphabetic"
+  | "cjk"
+  | "closing-punctuation"
+  | "connector"
+  | "glue"
+  | "no-space-script"
+  | "numeric"
+  | "opening-punctuation"
+  | "other"
+  | "soft-hyphen"
+  | "zero-width-break"
+type AtomicToken =
+  | {
+    readonly breakClass: TextBreakClass
+    readonly kind: "text"
+    readonly text: string
+  }
+  | {
+    readonly kind: "hard-break" | "space" | "tab"
+    readonly text: string
+  }
+type TextAtomicToken = Extract<AtomicToken, { readonly kind: "text" }>
 
-const makeWordPiece = (segment: string, isWordLike: boolean) => ({ isWordLike, segment })
 const textSegment = (text: string): TextSegmentType => ({ kind: "text", text })
 const spaceSegment = (text: string): TextSegmentType => ({ kind: "space", text })
 const hardBreakSegment = (): TextSegmentType => ({ kind: "hard-break", text: LINE_FEED })
 const emptyTextSegments = (): ReadonlyArray<TextSegmentType> => []
 
-const getSegmenter = (granularity: "word" | "grapheme") => {
+const getSegmenter = (granularity: "grapheme") => {
   const Segmenter = globalThis.Intl?.Segmenter
   return Segmenter ? new Segmenter(undefined, { granularity }) : undefined
 }
@@ -51,13 +75,151 @@ const isOrdinaryWhitespaceCharacter = (char: string): boolean =>
   char === " " || char === TAB || char === LINE_FEED || char === "\u000b" || char === "\u000c"
 
 const isOrdinaryWhitespace = (text: string): boolean =>
-  text.length > 0 && Arr.fromIterable(text).every(isOrdinaryWhitespaceCharacter)
+  text.length > 0 && Arr.every(Arr.fromIterable(text), isOrdinaryWhitespaceCharacter)
 
 const isClosingPunctuation = (text: string): boolean => CLOSING_PUNCTUATION_PATTERN.test(text)
 
 const isOpeningPunctuation = (text: string): boolean => OPENING_PUNCTUATION_PATTERN.test(text)
 
 const isRunConnector = (text: string): boolean => RUN_CONNECTOR_PATTERN.test(text)
+
+const breakClass = (value: TextBreakClass): TextBreakClass => value
+const hardBreakToken = (text: string): AtomicToken => ({ kind: "hard-break", text })
+const spaceToken = (text: string): AtomicToken => ({ kind: "space", text })
+const tabToken = (text: string): AtomicToken => ({ kind: "tab", text })
+const textAtomicToken = (text: string): AtomicToken => ({ breakClass: classifyTextCluster(text), kind: "text", text })
+
+const classifyTextCluster = (text: string): TextBreakClass =>
+  Match.value(text).pipe(
+    Match.when(SOFT_HYPHEN, () => breakClass("soft-hyphen")),
+    Match.when(NO_BREAK_SPACE, () => breakClass("glue")),
+    Match.when(WORD_JOINER, () => breakClass("glue")),
+    Match.when(ZERO_WIDTH_SPACE, () => breakClass("zero-width-break")),
+    Match.orElse((value) =>
+      isRunConnector(value)
+        ? "connector"
+        : isOpeningPunctuation(value)
+        ? "opening-punctuation"
+        : isClosingPunctuation(value)
+        ? "closing-punctuation"
+        : CJK_SCRIPT_PATTERN.test(value)
+        ? "cjk"
+        : NO_SPACE_SCRIPT_PATTERN.test(value)
+        ? "no-space-script"
+        : NUMBER_PATTERN.test(value)
+        ? "numeric"
+        : LETTER_PATTERN.test(value)
+        ? "alphabetic"
+        : "other"
+    )
+  )
+
+const atomicTokenFor = (cluster: string): AtomicToken =>
+  Match.value(cluster).pipe(
+    Match.when(LINE_FEED, hardBreakToken),
+    Match.when(TAB, tabToken),
+    Match.orElse((text) =>
+      isOrdinaryWhitespace(text)
+        ? spaceToken(text)
+        : textAtomicToken(text)
+    )
+  )
+
+const tokenizeText = (text: string): ReadonlyArray<AtomicToken> =>
+  Arr.map(graphemeClusters(normalizeLineBreaks(text)), atomicTokenFor)
+
+const isRunEndpoint = (token: TextAtomicToken): boolean =>
+  token.breakClass === "alphabetic" || token.breakClass === "cjk" || token.breakClass === "numeric"
+
+const continuesConnectorRun = (token: TextAtomicToken): boolean =>
+  token.breakClass === "closing-punctuation" ||
+  token.breakClass === "connector" ||
+  isRunEndpoint(token)
+
+const shouldMergeTextAtoms = (
+  previous: TextAtomicToken,
+  current: TextAtomicToken,
+  next: Option.Option<TextAtomicToken>
+): boolean => {
+  if (previous.breakClass === "glue" || previous.breakClass === "zero-width-break") {
+    return false
+  }
+
+  if (current.breakClass === "glue" || current.breakClass === "zero-width-break") {
+    return false
+  }
+
+  if (previous.breakClass === "opening-punctuation") {
+    return true
+  }
+
+  if (current.breakClass === "closing-punctuation") {
+    return true
+  }
+
+  if (previous.breakClass === "soft-hyphen" || current.breakClass === "soft-hyphen") {
+    return true
+  }
+
+  if (previous.breakClass === "cjk" && current.breakClass === "cjk") {
+    return true
+  }
+
+  if (previous.breakClass === "no-space-script" || current.breakClass === "no-space-script") {
+    return false
+  }
+
+  if (previous.breakClass === "connector") {
+    return continuesConnectorRun(current)
+  }
+
+  if (current.breakClass === "connector") {
+    return isRunEndpoint(previous) ||
+      previous.breakClass === "closing-punctuation" ||
+      Option.exists(next, continuesConnectorRun)
+  }
+
+  return isRunEndpoint(previous) && isRunEndpoint(current)
+}
+
+const textSegmentsFromAtoms = (atoms: ReadonlyArray<TextAtomicToken>): ReadonlyArray<TextSegmentType> => {
+  const reduced = atoms.reduce<{
+    readonly current: string
+    readonly previous: Option.Option<TextAtomicToken>
+    readonly segments: ReadonlyArray<TextSegmentType>
+  }>(
+    (state, atom, index) =>
+      Option.match(state.previous, {
+        onNone: () => ({
+          current: atom.text,
+          previous: Option.some(atom),
+          segments: state.segments
+        }),
+        onSome: (previous) =>
+          shouldMergeTextAtoms(previous, atom, Option.fromNullable(atoms[index + 1]))
+            ? {
+              current: state.current + atom.text,
+              previous: Option.some(atom),
+              segments: state.segments
+            }
+            : {
+              current: atom.text,
+              previous: Option.some(atom),
+              segments: state.current.length === 0 ? state.segments : [...state.segments, textSegment(state.current)]
+            }
+      }),
+    {
+      current: "",
+      previous: Option.none<TextAtomicToken>(),
+      segments: emptyTextSegments()
+    }
+  )
+
+  return reduced.current.length === 0 ? reduced.segments : [...reduced.segments, textSegment(reduced.current)]
+}
+
+const spaceSegmentsFromText = (text: string): ReadonlyArray<TextSegmentType> =>
+  Arr.map(splitWhitespaceTokens(text), (token) => spaceSegment(token[1]))
 
 const fallbackGraphemeClusters = (text: string): ReadonlyArray<string> =>
   Arr.fromIterable(text).reduce<ReadonlyArray<string>>((clusters, char) => {
@@ -82,102 +244,102 @@ export const graphemeClusters = (text: string): ReadonlyArray<string> => {
   const segmenter = getSegmenter("grapheme")
 
   return segmenter
-    ? Arr.fromIterable(segmenter.segment(text)).map((part) => part.segment)
+    ? Arr.map(Arr.fromIterable(segmenter.segment(text)), (part) => part.segment)
     : fallbackGraphemeClusters(text)
 }
 
-const fallbackWordPieces = (text: string): ReadonlyArray<{ readonly isWordLike: boolean; readonly segment: string }> =>
-  NO_SPACE_SCRIPT_PATTERN.test(text)
-    ? graphemeClusters(text).map((segment) => makeWordPiece(segment, true))
-    : [makeWordPiece(text, true)]
-
-const wordPiecesFor = (text: string): ReadonlyArray<{ readonly isWordLike: boolean; readonly segment: string }> => {
-  const segmenter = getSegmenter("word")
-
-  return segmenter
-    ? Arr.fromIterable(segmenter.segment(text)).map((part) => makeWordPiece(part.segment, Boolean(part.isWordLike)))
-    : fallbackWordPieces(text)
-}
-
-const mergeWordPieces = (
-  pieces: ReadonlyArray<{ readonly isWordLike: boolean; readonly segment: string }>
-): ReadonlyArray<string> =>
-  pieces.reduce<ReadonlyArray<string>>((segments, piece) => {
-    const previous = segments[segments.length - 1]
-
-    return Option.fromNullable(previous).pipe(
-      Option.match({
-        onNone: () => [piece.segment],
-        onSome: (lastSegment) => {
-          const shouldMerge = lastSegment.endsWith(NO_BREAK_SPACE) ||
-            lastSegment.endsWith(WORD_JOINER) ||
-            isOpeningPunctuation(lastSegment) ||
-            isClosingPunctuation(piece.segment) ||
-            isRunConnector(piece.segment) ||
-            (piece.isWordLike && isRunConnector(lastSegment.slice(-1)))
-
-          return shouldMerge
-            ? [...segments.slice(0, -1), lastSegment + piece.segment]
-            : [...segments, piece.segment]
-        }
-      })
-    )
-  }, [])
-
-const textSegmentsFor = (text: string): ReadonlyArray<TextSegmentType> =>
-  text
-    .split(ZERO_WIDTH_SPACE)
-    .reduce<ReadonlyArray<TextSegmentType>>((segments, part, index, parts) => {
-      const mergedParts = part.length === 0
-        ? segments
-        : [
-          ...segments,
-          ...mergeWordPieces(wordPiecesFor(part)).map(textSegment)
-        ]
-
-      return index < parts.length - 1
-        ? [...mergedParts, textSegment(ZERO_WIDTH_SPACE)]
-        : mergedParts
-    }, emptyTextSegments())
-
 const segmentNormalText = (text: string): ReadonlyArray<TextSegmentType> =>
-  wordPiecesFor(normalizeLineBreaks(text)).reduce(
-    (state, piece) =>
-      piece.segment === LINE_FEED || isOrdinaryWhitespace(piece.segment)
-        ? {
-          pendingSpace: state.pendingSpace || state.segments.length > 0,
-          segments: state.segments
-        }
-        : {
-          pendingSpace: false,
-          segments: [
-            ...state.segments,
-            ...(state.pendingSpace && state.segments.length > 0 ? [spaceSegment(" ")] : []),
-            ...textSegmentsFor(piece.segment)
-          ]
-        },
-    {
-      pendingSpace: false,
-      segments: emptyTextSegments()
-    }
-  ).segments
+  ((state: {
+    readonly pendingSpace: boolean
+    readonly segments: ReadonlyArray<TextSegmentType>
+    readonly textRun: ReadonlyArray<TextAtomicToken>
+  }) => [...state.segments, ...textSegmentsFromAtoms(state.textRun)])(
+    tokenizeText(text).reduce<{
+      readonly pendingSpace: boolean
+      readonly segments: ReadonlyArray<TextSegmentType>
+      readonly textRun: ReadonlyArray<TextAtomicToken>
+    }>(
+      (state, token) =>
+        token.kind === "text"
+          ? {
+            pendingSpace: false,
+            segments: state.pendingSpace && state.segments.length > 0 && state.textRun.length === 0
+              ? [...state.segments, spaceSegment(" ")]
+              : state.segments,
+            textRun: [...state.textRun, token]
+          }
+          : {
+            pendingSpace: state.pendingSpace || state.textRun.length > 0 || state.segments.length > 0,
+            segments: [
+              ...state.segments,
+              ...textSegmentsFromAtoms(state.textRun)
+            ],
+            textRun: []
+          },
+      {
+        pendingSpace: false,
+        segments: emptyTextSegments(),
+        textRun: []
+      }
+    )
+  )
 
 const segmentPreWrapText = (text: string): ReadonlyArray<TextSegmentType> =>
-  wordPiecesFor(normalizeLineBreaks(text)).reduce<ReadonlyArray<TextSegmentType>>((segments, piece) => {
-    if (piece.segment === LINE_FEED) {
-      return [...segments, hardBreakSegment()]
-    }
-
-    if (isOrdinaryWhitespace(piece.segment)) {
-      return [...segments, spaceSegment(piece.segment)]
-    }
-
-    return [...segments, ...textSegmentsFor(piece.segment)]
-  }, emptyTextSegments())
+  ((state: {
+    readonly segments: ReadonlyArray<TextSegmentType>
+    readonly textRun: ReadonlyArray<TextAtomicToken>
+    readonly whitespace: string
+  }) => [
+    ...state.segments,
+    ...textSegmentsFromAtoms(state.textRun),
+    ...spaceSegmentsFromText(state.whitespace)
+  ])(
+    tokenizeText(text).reduce<{
+      readonly segments: ReadonlyArray<TextSegmentType>
+      readonly textRun: ReadonlyArray<TextAtomicToken>
+      readonly whitespace: string
+    }>(
+      (state, token) =>
+        token.kind === "text"
+          ? {
+            segments: state.whitespace.length === 0
+              ? state.segments
+              : [
+                ...state.segments,
+                ...textSegmentsFromAtoms(state.textRun),
+                ...spaceSegmentsFromText(state.whitespace)
+              ],
+            textRun: state.whitespace.length === 0 ? [...state.textRun, token] : [token],
+            whitespace: ""
+          }
+          : token.kind === "hard-break"
+          ? {
+            segments: [
+              ...state.segments,
+              ...textSegmentsFromAtoms(state.textRun),
+              ...spaceSegmentsFromText(state.whitespace),
+              hardBreakSegment()
+            ],
+            textRun: [],
+            whitespace: ""
+          }
+          : {
+            segments: [...state.segments, ...textSegmentsFromAtoms(state.textRun)],
+            textRun: [],
+            whitespace: state.whitespace + token.text
+          },
+      {
+        segments: emptyTextSegments(),
+        textRun: [],
+        whitespace: ""
+      }
+    )
+  )
 
 /**
- * Builds text, space, and hard-break segments from `Intl.Segmenter` word/grapheme
- * analysis when available, with a deterministic fallback for runtimes without it.
+ * Builds text, space, and hard-break segments from canonical grapheme and
+ * break-class analysis, using `Intl.Segmenter` grapheme boundaries when available
+ * and a deterministic fallback otherwise.
  *
  * @since 0.1.0
  * @category internals

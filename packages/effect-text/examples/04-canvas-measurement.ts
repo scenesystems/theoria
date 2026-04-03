@@ -13,7 +13,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Match } from "effect"
 
 import { Browser, Text } from "effect-text"
 
@@ -24,13 +24,12 @@ class DemoCanvasContext {
 
   measureText(text: string): { readonly width: number } {
     return {
-      width: text === "🙂"
-        ? 4
-        : text === "AB"
-        ? 20
-        : text === "A🙂B"
-        ? 22
-        : text.length * 10
+      width: Match.value(text).pipe(
+        Match.when("🙂", () => 4),
+        Match.when("AB", () => 20),
+        Match.when("A🙂B", () => 22),
+        Match.orElse((value) => value.length * 10)
+      )
     }
   }
 }

@@ -3,8 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option } from "effect"
+import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Data from "effect/Data"
 
 import { MeasurementFailed } from "../../Errors/index.js"
 import type { FontDescriptorType } from "../../Text/schema.js"
@@ -17,20 +18,38 @@ type NormalizedEmojiCorrection = readonly [probe: string, minimumAdvanceMultipli
 const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
 const Segmenter = typeof Intl === "undefined" ? undefined : Reflect.get(Intl, "Segmenter")
 
+const makeNormalizedEmojiCorrection = (probe: string, minimumAdvanceMultiplier: number): NormalizedEmojiCorrection =>
+  Data.tuple(probe, minimumAdvanceMultiplier)
+
+const resolveEmojiCorrectionProbe = (value: object): string => {
+  const probe = Reflect.get(value, "probe")
+  return typeof probe === "string" ? probe : "🙂"
+}
+
+const resolveEmojiAdvanceMultiplier = (value: object): number => {
+  const minimumAdvanceMultiplier = Reflect.get(value, "minimumAdvanceMultiplier")
+  return typeof minimumAdvanceMultiplier === "number" ? minimumAdvanceMultiplier : 1
+}
+
+const emojiCorrectionObject = (value: unknown): Option.Option<object> =>
+  typeof value === "object" && value !== null ? Option.some(value) : Option.none()
+
 const graphemeClusters = (text: string): ReadonlyArray<string> =>
   typeof Segmenter === "function"
-    ? Arr.fromIterable(new Segmenter(undefined, { granularity: "grapheme" }).segment(text)).map((part) => part.segment)
+    ? Arr.map(Arr.fromIterable(new Segmenter(undefined, { granularity: "grapheme" }).segment(text)), (part) =>
+      part.segment)
     : Arr.fromIterable(text)
 
 const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
 
 export const stripEmojiClusters = (text: string): readonly [string, number] => {
-  const result = graphemeClusters(text).reduce(
+  const result = Arr.reduce(
+    graphemeClusters(text),
+    { text: "", count: 0 },
     (state, cluster) =>
       EMOJI_PATTERN.test(cluster)
         ? { text: state.text, count: state.count + 1 }
-        : { text: state.text + cluster, count: state.count },
-    { text: "", count: 0 }
+        : { text: state.text + cluster, count: state.count }
   )
 
   return [result.text, result.count]
@@ -69,24 +88,29 @@ export const decodeFontKey = (key: string): FontDescriptorType => {
 
 export const toCanvasFont = (font: FontDescriptorType): string => {
   const w = font.weight ?? 400
-  return w !== 400 ? `${w} ${font.size}px ${font.family}` : `${font.size}px ${font.family}`
+  return Match.value(w).pipe(
+    Match.when(400, () => `${font.size}px ${font.family}`),
+    Match.orElse((weight) => `${weight} ${font.size}px ${font.family}`)
+  )
 }
 
 export const normalizeEmojiCorrection = (emojiCorrection: unknown): Option.Option<NormalizedEmojiCorrection> =>
   Option.fromNullable(emojiCorrection).pipe(
     Option.flatMap((value) =>
-      value === false
-        ? Option.none()
-        : value === true
-        ? Option.some(["🙂", 1])
-        : typeof value === "object"
-        ? Option.some([
-          typeof Reflect.get(value, "probe") === "string" ? Reflect.get(value, "probe") : "🙂",
-          typeof Reflect.get(value, "minimumAdvanceMultiplier") === "number"
-            ? Reflect.get(value, "minimumAdvanceMultiplier")
-            : 1
-        ])
-        : Option.none()
+      Match.value(value).pipe(
+        Match.when(false, () => Option.none()),
+        Match.when(true, () => Option.some(makeNormalizedEmojiCorrection("🙂", 1))),
+        Match.orElse((resolvedValue) =>
+          emojiCorrectionObject(resolvedValue).pipe(
+            Option.map((objectValue) =>
+              makeNormalizedEmojiCorrection(
+                resolveEmojiCorrectionProbe(objectValue),
+                resolveEmojiAdvanceMultiplier(objectValue)
+              )
+            )
+          )
+        )
+      )
     )
   )
 
@@ -134,16 +158,19 @@ export const correctEmojiWidth = (
   emojiAdvance: number,
   measureWithoutEmoji: Effect.Effect<number, MeasurementFailed>
 ): Effect.Effect<number, MeasurementFailed> => {
-  if (!containsEmoji(text)) {
-    return Effect.succeed(rawWidth)
-  }
+  return Match.value(containsEmoji(text)).pipe(
+    Match.when(false, () => Effect.succeed(rawWidth)),
+    Match.orElse(() => {
+      const [strippedText, emojiCount] = stripEmojiClusters(text)
 
-  const [strippedText, emojiCount] = stripEmojiClusters(text)
-  if (emojiCount === 0 || strippedText === text) {
-    return Effect.succeed(rawWidth)
-  }
-
-  return measureWithoutEmoji.pipe(
-    Effect.map((strippedWidth) => Math.max(rawWidth, strippedWidth + emojiCount * emojiAdvance))
+      return Match.value(emojiCount === 0 || strippedText === text).pipe(
+        Match.when(true, () => Effect.succeed(rawWidth)),
+        Match.orElse(() =>
+          measureWithoutEmoji.pipe(
+            Effect.map((strippedWidth) => Math.max(rawWidth, strippedWidth + emojiCount * emojiAdvance))
+          )
+        )
+      )
+    })
   )
 }

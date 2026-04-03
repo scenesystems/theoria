@@ -26,6 +26,7 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Typed errors** — `MeasurementFailed` and `TextLayoutDecodeError` with tagged error channels
 - **Emoji correction** — one-time probe for browsers with weak complex-emoji measurement
 - **Soft-hyphen, tab, and hard-break support** — preserved through segmentation and layout
+- **Compiled unicode break surface** — NBSP/WJ/ZWSP, URL-like runs, numeric runs, paired punctuation, and CJK punctuation pairs are compiled into explicit prepared break kinds before layout
 - **Released overflow policy** — hard breaks first, then soft hyphens and explicit break opportunities, then grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
 - **Bidi metadata** — per-segment direction and bidi level (visual reordering not yet included)
 - **Experimental calibration** — typed corpora for engine-profile evaluation and `effect-search`-driven optimization
@@ -365,7 +366,7 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 This first release is intentionally a foundation rather than full browser parity.
 
-**Included:** deterministic measurement caching, optional canvas measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, bidi metadata, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, optional canvas measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi metadata, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
 
 **Not yet included:** full bidi visual reordering, dictionary-driven hyphenation, canvas font-loading orchestration, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
 
