@@ -5,6 +5,8 @@ import { LayoutRequest, type LayoutRequestType, PrepareInput, type PrepareInputT
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+const BenchmarkReportNameSchema = Schema.Literal("effect-text-materialize-baseline", "effect-text-walker-kernel")
+const BenchmarkMetricStatusSchema = Schema.Literal("recorded", "missing-api")
 
 export type BenchmarkCorpusCase = {
   readonly name: string
@@ -42,6 +44,8 @@ export const BenchmarkMetricSchema = Schema.Union(RecordedBenchmarkMetricSchema,
 
 export type BenchmarkMetricType = typeof BenchmarkMetricSchema.Type
 
+export type BenchmarkMetricStatusType = typeof BenchmarkMetricStatusSchema.Type
+
 export const BenchmarkCaseMetricsSchema = Schema.Struct({
   prepare: BenchmarkMetricSchema,
   layout: BenchmarkMetricSchema,
@@ -60,12 +64,69 @@ export const BenchmarkCaseReportSchema = Schema.Struct({
 export type BenchmarkCaseReportType = typeof BenchmarkCaseReportSchema.Type
 
 export const BenchmarkReportSchema = Schema.Struct({
-  benchmark: Schema.Literal("effect-text-materialize-baseline"),
+  benchmark: BenchmarkReportNameSchema,
   iterations: PositiveInt,
   corpus: Schema.Array(BenchmarkCaseReportSchema)
 })
 
 export type BenchmarkReportType = typeof BenchmarkReportSchema.Type
+
+export const ComparedBenchmarkMetricSchema = Schema.Struct({
+  status: Schema.Literal("compared"),
+  baselineMeanDurationMs: NonNegativeFiniteNumber,
+  walkerMeanDurationMs: NonNegativeFiniteNumber,
+  deltaMeanDurationMs: Schema.Number.pipe(Schema.finite()),
+  baselineTotalDurationMs: NonNegativeFiniteNumber,
+  walkerTotalDurationMs: NonNegativeFiniteNumber
+})
+
+export const NewSurfaceBenchmarkMetricSchema = Schema.Struct({
+  status: Schema.Literal("new-surface"),
+  baselineStatus: Schema.Literal("missing-api"),
+  walkerMeanDurationMs: NonNegativeFiniteNumber,
+  walkerTotalDurationMs: NonNegativeFiniteNumber,
+  sample: BenchmarkMetricSampleSchema
+})
+
+export const UnavailableBenchmarkComparisonMetricSchema = Schema.Struct({
+  status: Schema.Literal("unavailable"),
+  baselineStatus: BenchmarkMetricStatusSchema,
+  walkerStatus: BenchmarkMetricStatusSchema
+})
+
+export const BenchmarkComparisonMetricSchema = Schema.Union(
+  ComparedBenchmarkMetricSchema,
+  NewSurfaceBenchmarkMetricSchema,
+  UnavailableBenchmarkComparisonMetricSchema
+)
+
+export type BenchmarkComparisonMetricType = typeof BenchmarkComparisonMetricSchema.Type
+
+export const BenchmarkComparisonCaseMetricsSchema = Schema.Struct({
+  prepare: BenchmarkComparisonMetricSchema,
+  layout: BenchmarkComparisonMetricSchema,
+  layoutLines: BenchmarkComparisonMetricSchema,
+  layoutNextLine: BenchmarkComparisonMetricSchema,
+  streamLines: BenchmarkComparisonMetricSchema,
+  walkLineRanges: BenchmarkComparisonMetricSchema
+})
+
+export const BenchmarkComparisonCaseReportSchema = Schema.Struct({
+  name: Schema.String,
+  request: LayoutRequest,
+  metrics: BenchmarkComparisonCaseMetricsSchema
+})
+
+export type BenchmarkComparisonCaseReportType = typeof BenchmarkComparisonCaseReportSchema.Type
+
+export const BenchmarkComparisonReportSchema = Schema.Struct({
+  baselineBenchmark: Schema.Literal("effect-text-materialize-baseline"),
+  walkerBenchmark: Schema.Literal("effect-text-walker-kernel"),
+  iterations: PositiveInt,
+  corpus: Schema.Array(BenchmarkComparisonCaseReportSchema)
+})
+
+export type BenchmarkComparisonReportType = typeof BenchmarkComparisonReportSchema.Type
 
 export const benchmarkIterations = 200
 

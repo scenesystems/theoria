@@ -6,9 +6,13 @@ import * as Arr from "effect/Array"
 import { Text } from "../src/index.js"
 import { preparedTextCore } from "../src/Text/model.js"
 import {
+  BenchmarkComparisonReportSchema,
   BenchmarkReportSchema,
   benchmarkCorpus,
   benchmarkIterations,
+  type BenchmarkComparisonCaseReportType,
+  type BenchmarkComparisonMetricType,
+  type BenchmarkComparisonReportType,
   type BenchmarkCorpusCase,
   type BenchmarkCaseReportType,
   type BenchmarkMetricSampleType,
@@ -16,8 +20,11 @@ import {
   type BenchmarkReportType
 } from "./corpus.js"
 
-const outputUrl = new URL("./results/materialize-baseline.json", import.meta.url)
+const baselineOutputUrl = new URL("./results/materialize-baseline.json", import.meta.url)
+const walkerOutputUrl = new URL("./results/walker-kernel.json", import.meta.url)
+const comparisonOutputUrl = new URL("./results/walker-vs-materialize.json", import.meta.url)
 const BenchmarkReportJsonSchema = Schema.parseJson(BenchmarkReportSchema)
+const BenchmarkComparisonReportJsonSchema = Schema.parseJson(BenchmarkComparisonReportSchema)
 
 const meanDuration = (totalDurationMs: number, iterations: number): number => totalDurationMs / iterations
 
@@ -113,26 +120,104 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
           ),
           (lines) => ({ lineCount: lines.length })
         ),
-        walkLineRanges: { status: "missing-api" }
+        walkLineRanges: yield* measurePure(
+          benchmarkIterations,
+          () => Text.walkLineRanges(prepared, corpusCase.request),
+          (ranges) => ({ lineCount: ranges.length })
+        )
       }
     }
+  })
+
+const compareMetric = (
+  baselineMetric: BenchmarkMetricType,
+  walkerMetric: BenchmarkMetricType
+): BenchmarkComparisonMetricType => {
+  if (baselineMetric.status === "recorded" && walkerMetric.status === "recorded") {
+    return {
+      status: "compared",
+      baselineMeanDurationMs: baselineMetric.meanDurationMs,
+      walkerMeanDurationMs: walkerMetric.meanDurationMs,
+      deltaMeanDurationMs: walkerMetric.meanDurationMs - baselineMetric.meanDurationMs,
+      baselineTotalDurationMs: baselineMetric.totalDurationMs,
+      walkerTotalDurationMs: walkerMetric.totalDurationMs
+    }
+  }
+
+  if (baselineMetric.status === "missing-api" && walkerMetric.status === "recorded") {
+    return {
+      status: "new-surface",
+      baselineStatus: baselineMetric.status,
+      walkerMeanDurationMs: walkerMetric.meanDurationMs,
+      walkerTotalDurationMs: walkerMetric.totalDurationMs,
+      sample: walkerMetric.sample
+    }
+  }
+
+  return {
+    status: "unavailable",
+    baselineStatus: baselineMetric.status,
+    walkerStatus: walkerMetric.status
+  }
+}
+
+const compareCaseReports = (
+  baselineCase: BenchmarkCaseReportType,
+  walkerCase: BenchmarkCaseReportType
+): BenchmarkComparisonCaseReportType => ({
+  name: walkerCase.name,
+  request: walkerCase.request,
+  metrics: {
+    prepare: compareMetric(baselineCase.metrics.prepare, walkerCase.metrics.prepare),
+    layout: compareMetric(baselineCase.metrics.layout, walkerCase.metrics.layout),
+    layoutLines: compareMetric(baselineCase.metrics.layoutLines, walkerCase.metrics.layoutLines),
+    layoutNextLine: compareMetric(baselineCase.metrics.layoutNextLine, walkerCase.metrics.layoutNextLine),
+    streamLines: compareMetric(baselineCase.metrics.streamLines, walkerCase.metrics.streamLines),
+    walkLineRanges: compareMetric(baselineCase.metrics.walkLineRanges, walkerCase.metrics.walkLineRanges)
+  }
+})
+
+const findBaselineCase = (
+  baselineReport: BenchmarkReportType,
+  walkerCase: BenchmarkCaseReportType
+): Effect.Effect<BenchmarkCaseReportType> =>
+  Option.match(Arr.findFirst(baselineReport.corpus, (baselineCase) => baselineCase.name === walkerCase.name), {
+    onNone: () => Effect.dieMessage(`Missing materialize baseline for benchmark case: ${walkerCase.name}`),
+    onSome: Effect.succeed
   })
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const outputPath = yield* pathService.fromFileUrl(outputUrl).pipe(Effect.orDie)
-  const outputDirectory = pathService.dirname(outputPath)
-  const report: BenchmarkReportType = {
-    benchmark: "effect-text-materialize-baseline",
+  const baselinePath = yield* pathService.fromFileUrl(baselineOutputUrl).pipe(Effect.orDie)
+  const walkerPath = yield* pathService.fromFileUrl(walkerOutputUrl).pipe(Effect.orDie)
+  const comparisonPath = yield* pathService.fromFileUrl(comparisonOutputUrl).pipe(Effect.orDie)
+  const outputDirectory = pathService.dirname(walkerPath)
+  const walkerReport: BenchmarkReportType = {
+    benchmark: "effect-text-walker-kernel",
     iterations: benchmarkIterations,
     corpus: yield* Effect.forEach(benchmarkCorpus, benchmarkCase)
   }
-  const encoded = yield* Schema.encode(BenchmarkReportJsonSchema)(report)
+  const baselineText = yield* fileSystem.readFileString(baselinePath).pipe(Effect.orDie)
+  const baselineReport = yield* Schema.decode(BenchmarkReportJsonSchema)(baselineText).pipe(Effect.orDie)
+  const comparisonReport: BenchmarkComparisonReportType = {
+    baselineBenchmark: "effect-text-materialize-baseline",
+    walkerBenchmark: "effect-text-walker-kernel",
+    iterations: benchmarkIterations,
+    corpus: yield* Effect.forEach(walkerReport.corpus, (walkerCase) =>
+      findBaselineCase(baselineReport, walkerCase).pipe(
+        Effect.map((baselineCase) => compareCaseReports(baselineCase, walkerCase))
+      )
+    )
+  }
+  const encodedWalkerReport = yield* Schema.encode(BenchmarkReportJsonSchema)(walkerReport)
+  const encodedComparisonReport = yield* Schema.encode(BenchmarkComparisonReportJsonSchema)(comparisonReport)
 
   yield* fileSystem.makeDirectory(outputDirectory, { recursive: true }).pipe(Effect.orDie)
-  yield* fileSystem.writeFileString(outputPath, `${encoded}\n`).pipe(Effect.orDie)
-  yield* Console.log(`Wrote effect-text benchmark baseline: ${outputPath}`)
+  yield* fileSystem.writeFileString(walkerPath, `${encodedWalkerReport}\n`).pipe(Effect.orDie)
+  yield* fileSystem.writeFileString(comparisonPath, `${encodedComparisonReport}\n`).pipe(Effect.orDie)
+  yield* Console.log(`Wrote effect-text walker benchmark: ${walkerPath}`)
+  yield* Console.log(`Wrote effect-text walker comparison: ${comparisonPath}`)
 })
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
