@@ -5,10 +5,23 @@
  */
 import { Option, Stream, Tuple } from "effect"
 
-import { materializeLineAtCursor, materializeLines } from "./internal/layout.js"
+import {
+  makeInitialCursor,
+  materializeLineAtCursor,
+  materializeLines,
+  measureNaturalWidth as measureNaturalWidthFromCore,
+  summarizeLines,
+  walkLineRanges as walkLineRangesFromCore
+} from "./internal/layout.js"
 import type { PreparedText, PreparedTextWithSegments } from "./model.js"
 import { preparedTextCore } from "./model.js"
-import type { LayoutCursorType, LayoutLineType, LayoutRequestType, LayoutSummaryType } from "./schema.js"
+import type {
+  LayoutCursorType,
+  LayoutLineRangeType,
+  LayoutLineType,
+  LayoutRequestType,
+  LayoutSummaryType
+} from "./schema.js"
 
 /**
  * Resolves the maximum width available for a projected line index.
@@ -24,7 +37,7 @@ export type LineWidthResolver = (lineIndex: number) => number
  * @since 0.1.0
  * @category constructors
  */
-export const initialCursor = (): LayoutCursorType => ({ segmentIndex: 0, graphemeIndex: 0 })
+export const initialCursor = (): LayoutCursorType => makeInitialCursor({ segmentIndex: 0, graphemeIndex: 0 })
 
 /**
  * Materializes all lines for the supplied width.
@@ -51,21 +64,34 @@ export const layoutLinesWith = (
 ): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextCore(prepared), request, resolveMaxWidth)
 
 /**
+ * Walks laid out line ranges without materializing line text.
+ *
+ * @since 0.2.0
+ * @category layout
+ */
+export const walkLineRanges = (
+  prepared: PreparedText,
+  request: LayoutRequestType,
+  resolveMaxWidth: LineWidthResolver = () => request.maxWidth
+): ReadonlyArray<LayoutLineRangeType> => walkLineRangesFromCore(preparedTextCore(prepared), request, resolveMaxWidth)
+
+/**
+ * Measures the widest forced line produced by hard breaks in the prepared handle.
+ *
+ * @since 0.2.0
+ * @category layout
+ */
+export const measureNaturalWidth = (prepared: PreparedText): number =>
+  measureNaturalWidthFromCore(preparedTextCore(prepared))
+
+/**
  * Computes line count and height without exposing line text.
  *
  * @since 0.1.0
  * @category layout
  */
-export const layout = (prepared: PreparedText, request: LayoutRequestType): LayoutSummaryType => {
-  const lines = layoutLines(prepared, request)
-  const maxLineWidth = lines.reduce((maxWidth, line) => Math.max(maxWidth, line.width), 0)
-
-  return {
-    lineCount: lines.length,
-    height: lines.length * request.lineHeight,
-    maxLineWidth
-  }
-}
+export const layout = (prepared: PreparedText, request: LayoutRequestType): LayoutSummaryType =>
+  summarizeLines(preparedTextCore(prepared), request)
 
 /**
  * Returns the next line for a cursor, if one exists.

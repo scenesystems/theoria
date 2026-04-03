@@ -145,6 +145,25 @@ describe("Text operations", () => {
         core.manualSurface.segments.filter((segment) => segment.kind === "text").map((segment) => segment.direction)
       ).toEqual(["rtl", "ltr"])
     }))
+
+  it.effect("compiles walker runtime tables alongside the prepared manual surface", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepareWithSegments({
+        text: "alpha\nbeta",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(layer))
+
+      const core = preparedTextCore(prepared)
+
+      expect(core.runtime.breakKinds.length).toBe(core.manualSurface.segments.length)
+      expect(core.runtime.fitAdvances.length).toBe(core.manualSurface.segments.length)
+      expect(core.runtime.paintAdvances.length).toBe(core.manualSurface.segments.length)
+      expect(core.runtime.chunkStartIndices).toEqual([0, 2])
+      expect(core.runtime.chunkConsumedEndIndices).toEqual([2, 3])
+      expect(core.runtime.tabStopAdvance).toBe(0)
+    }))
 })
 
 describe("Text edge cases and robustness", () => {
@@ -331,6 +350,35 @@ describe("Text edge cases and robustness", () => {
         const maxWidth = line.index === 0 ? request.maxWidth : 40
         expect(line.width).toBeLessThanOrEqual(maxWidth + 0.01)
       })
+    }))
+
+  it.effect("walkLineRanges matches the widths produced by layoutLines", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepareWithSegments({
+        text: "alpha beta gamma delta",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+
+      const request = { maxWidth: 40, lineHeight: 12 }
+      const ranges = Text.walkLineRanges(prepared, request)
+      const lines = Text.layoutLines(prepared, request)
+
+      expect(ranges[0]?.start).toEqual(Text.initialCursor())
+      expect(ranges.map((range) => range.width)).toEqual(lines.map((line) => line.width))
+    }))
+
+  it.effect("measureNaturalWidth returns the widest forced line width", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepare({
+        text: "a\tb\ncccc",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(layer))
+
+      expect(Text.measureNaturalWidth(prepared)).toBe(25)
     }))
 
   it.effect("stream produces the same lines as layoutLines", () =>
