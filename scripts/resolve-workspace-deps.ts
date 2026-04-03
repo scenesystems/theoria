@@ -68,9 +68,7 @@ const buildVersionMap = Effect.gen(function*() {
   const path = yield* Path.Path
   const { packagesDir } = yield* resolveProjectPaths
   const entries = yield* listPackageDirectories
-  const versions = new Map<string, string>()
-
-  yield* Effect.forEach(
+  const discoveredPackages = yield* Effect.forEach(
     entries,
     (entry) =>
       Effect.gen(function*() {
@@ -78,7 +76,7 @@ const buildVersionMap = Effect.gen(function*() {
         const exists = yield* fs.exists(packageJsonPath).pipe(Effect.orDie)
 
         if (!exists) {
-          return
+          return undefined
         }
 
         const manifest = parseManifest(yield* fs.readFileString(packageJsonPath).pipe(Effect.orDie))
@@ -86,13 +84,15 @@ const buildVersionMap = Effect.gen(function*() {
         const version = asString(manifest.version)
 
         if (name !== undefined && version !== undefined) {
-          versions.set(name, version)
+          return [name, version] as const
         }
+
+        return undefined
       }),
-    { concurrency: "unbounded", discard: true }
+    { concurrency: "unbounded" }
   )
 
-  return versions
+  return new Map(discoveredPackages.filter((entry): entry is readonly [string, string] => entry !== undefined))
 })
 
 const resolveSpec = (spec: string, dependencyName: string, versions: Map<string, string>): Effect.Effect<string> =>
@@ -134,6 +134,66 @@ const resolveSpec = (spec: string, dependencyName: string, versions: Map<string,
 
 const dependencyFields = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] as const
 
+const resolveDependencyField = (
+  packageName: string,
+  field: (typeof dependencyFields)[number],
+  fieldRecord: Record<string, unknown>,
+  versions: Map<string, string>
+) =>
+  Effect.gen(function*() {
+    const results = yield* Effect.forEach(
+      Object.entries(fieldRecord),
+      ([dependencyName, dependencySpec]) =>
+        Effect.gen(function*() {
+          if (typeof dependencySpec !== "string" || !dependencySpec.startsWith("workspace:")) {
+            return {
+              error: undefined,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          if (checkMode) {
+            return {
+              error: `${packageName} ${field}.${dependencyName}: ${dependencySpec}`,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          const resolution = yield* resolveSpec(dependencySpec, dependencyName, versions).pipe(
+            Effect.either
+          )
+
+          if (resolution._tag === "Left") {
+            return {
+              error: resolution.left.message,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          return {
+            error: undefined,
+            resolvedEntry:
+              resolution.right === dependencySpec
+                ? undefined
+                : ([dependencyName, resolution.right] as const),
+            resolvedCount: resolution.right === dependencySpec ? 0 : 1
+          }
+        }),
+      { concurrency: "unbounded" }
+    )
+
+    return {
+      errors: results.flatMap((result) => (result.error === undefined ? [] : [result.error])),
+      resolvedCount: results.reduce((sum, result) => sum + result.resolvedCount, 0),
+      updates: Object.fromEntries(
+        results.flatMap((result) => (result.resolvedEntry === undefined ? [] : [result.resolvedEntry]))
+      )
+    }
+  })
+
 const processPackage = (packageDirectory: string, versions: Map<string, string>) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
@@ -146,56 +206,50 @@ const processPackage = (packageDirectory: string, versions: Map<string, string>)
     }
 
     const manifest = parseManifest(yield* fs.readFileString(distPackageJsonPath).pipe(Effect.orDie))
-    const errors: Array<string> = []
-    let resolved = 0
-
-    yield* Effect.forEach(
+    const packageName = asString(manifest.name) ?? packageDirectory
+    const fieldResults = yield* Effect.forEach(
       dependencyFields,
       (field) =>
         Effect.gen(function*() {
           const fieldRecord = asRecord(manifest[field])
 
           if (fieldRecord === undefined) {
-            return
+            return {
+              field,
+              nextFieldRecord: undefined,
+              errors: [] as Array<string>,
+              resolvedCount: 0
+            }
           }
 
-          yield* Effect.forEach(
-            Object.entries(fieldRecord),
-            ([dependencyName, dependencySpec]) =>
-              Effect.gen(function*() {
-                if (typeof dependencySpec !== "string" || !dependencySpec.startsWith("workspace:")) {
-                  return
-                }
+          const result = yield* resolveDependencyField(packageName, field, fieldRecord, versions)
 
-                if (checkMode) {
-                  errors.push(`${String(manifest.name ?? packageDirectory)} ${field}.${dependencyName}: ${dependencySpec}`)
-                  return
-                }
-
-                const resolvedSpec = yield* resolveSpec(dependencySpec, dependencyName, versions).pipe(
-                  Effect.catchAll((error) => {
-                    errors.push(error.message)
-                    return Effect.succeed(dependencySpec)
-                  })
-                )
-
-                if (resolvedSpec !== dependencySpec) {
-                  fieldRecord[dependencyName] = resolvedSpec
-                  resolved += 1
-                }
-              }),
-            { concurrency: "unbounded", discard: true }
-          )
+          return {
+            field,
+            nextFieldRecord: { ...fieldRecord, ...result.updates },
+            errors: result.errors,
+            resolvedCount: result.resolvedCount
+          }
         }),
-      { concurrency: "unbounded", discard: true }
+      { concurrency: "unbounded" }
     )
 
+    const nextManifest = fieldResults.reduce<Record<string, unknown>>(
+      (currentManifest, result) =>
+        result.nextFieldRecord === undefined
+          ? currentManifest
+          : { ...currentManifest, [result.field]: result.nextFieldRecord },
+      manifest
+    )
+    const errors = fieldResults.flatMap((result) => result.errors)
+    const resolved = fieldResults.reduce((sum, result) => sum + result.resolvedCount, 0)
+
     if (!checkMode && resolved > 0) {
-      yield* fs.writeFileString(distPackageJsonPath, `${JSON.stringify(manifest, null, 2)}\n`).pipe(Effect.orDie)
+      yield* fs.writeFileString(distPackageJsonPath, `${JSON.stringify(nextManifest, null, 2)}\n`).pipe(Effect.orDie)
     }
 
     return {
-      name: asString(manifest.name) ?? packageDirectory,
+      name: packageName,
       resolved,
       errors
     }
