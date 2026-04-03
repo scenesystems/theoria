@@ -1,60 +1,80 @@
-import { readdirSync, readFileSync } from "node:fs"
-import { dirname, join, relative } from "node:path"
-import { fileURLToPath } from "node:url"
-
+import { FileSystem } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import * as Arr from "effect/Array"
+import { Effect } from "effect"
 
-const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..")
-const sourceRoot = join(packageRoot, "src")
+import { listTypeScriptFilesInDir, moduleSpecifiers, parseTypeScript } from "../../../../tools/testing/sourceProof.js"
 
-const readTypeScriptFiles = (directory: string): ReadonlyArray<string> =>
-  readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const resolvedPath = join(directory, entry.name)
+const packageRootUrl = new URL("../../", import.meta.url)
 
-    return entry.isDirectory()
-      ? readTypeScriptFiles(resolvedPath)
-      : resolvedPath.endsWith(".ts")
-      ? [resolvedPath]
-      : []
-  })
+const pathSegments = (value: string): ReadonlyArray<string> => value.split("/").filter((segment) => segment.length > 0)
 
-const relativePath = (file: string): string => relative(packageRoot, file).replaceAll("\\", "/")
+const isPackageGlobalInternalSpecifier = (specifier: string): boolean => {
+  const segments = pathSegments(specifier)
+  const nonParentSegments = segments.filter((segment) => segment !== "..")
+  return segments.includes("..") && nonParentSegments.length > 0 && nonParentSegments[0] === "internal"
+}
 
-const importSpecifiers = (file: string): ReadonlyArray<string> =>
-  Arr.fromIterable(
-    readFileSync(file, "utf8").matchAll(/(?:import|export)\s+(?:type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g)
-  ).map((match) => match[1] ?? "")
+const containsPathSegmentSequence = (specifier: string, expected: ReadonlyArray<string>): boolean => {
+  const segments = pathSegments(specifier)
+
+  if (expected.length === 0) {
+    return false
+  }
+
+  const firstSegment = expected[0] ?? ""
+  const startIndex = segments.indexOf(firstSegment)
+
+  if (startIndex < 0) {
+    return false
+  }
+
+  return expected.every((segment, index) => segments[index + startIndex] === segment)
+}
 
 describe("package architecture boundaries", () => {
-  const sourceFiles = readTypeScriptFiles(sourceRoot)
+  const parsedSourceFiles = Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const sourceFiles = yield* listTypeScriptFilesInDir(packageRootUrl, "src")
 
-  it("removes package-global internal imports and lowercases shared contracts imports", () => {
-    const packageGlobalInternalImports = sourceFiles.filter((file) =>
-      importSpecifiers(file).some((specifier) => /(?:\.\.\/)+internal\//.test(specifier))
-    )
-    const uppercaseContractsImports = sourceFiles.filter((file) =>
-      importSpecifiers(file).some((specifier) => specifier.includes("/Contracts/index.js"))
-    )
-
-    expect(packageGlobalInternalImports.map(relativePath)).toStrictEqual([])
-    expect(uppercaseContractsImports.map(relativePath)).toStrictEqual([])
+    return yield* Effect.forEach(sourceFiles, (file) =>
+      fileSystem.readFileString(file.absolute).pipe(
+        Effect.orDie,
+        Effect.map((source) => ({
+          path: file.relative,
+          specifiers: moduleSpecifiers(parseTypeScript(file.relative, source))
+        }))
+      ))
   })
 
-  it("keeps domain-local internals private to the owning domain", () => {
-    const crossDomainInternalImports = sourceFiles.filter((file) => {
-      const path = relativePath(file)
-      const specifiers = importSpecifiers(file)
-
-      return specifiers.some(
-        (specifier) =>
-          (!path.startsWith("src/Text/") && specifier.includes("/Text/internal/")) ||
-          (!path.startsWith("src/Browser/") && specifier.includes("/Browser/internal/")) ||
-          (!path.startsWith("src/experimental/Calibration/") &&
-            specifier.includes("/experimental/Calibration/internal/"))
+  it.effect("removes package-global internal imports and lowercases shared contracts imports", () =>
+    Effect.gen(function*() {
+      const sourceFiles = yield* parsedSourceFiles
+      const packageGlobalInternalImports = sourceFiles.filter((file) =>
+        file.specifiers.some((specifier) => isPackageGlobalInternalSpecifier(specifier))
       )
-    })
+      const uppercaseContractsImports = sourceFiles.filter((file) =>
+        file.specifiers.some((specifier) => specifier.endsWith("/Contracts/index.js"))
+      )
 
-    expect(crossDomainInternalImports.map(relativePath)).toStrictEqual([])
-  })
+      expect(packageGlobalInternalImports.map((file) => file.path)).toStrictEqual([])
+      expect(uppercaseContractsImports.map((file) => file.path)).toStrictEqual([])
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("keeps domain-local internals private to the owning domain", () =>
+    Effect.gen(function*() {
+      const sourceFiles = yield* parsedSourceFiles
+      const crossDomainInternalImports = sourceFiles.filter((file) =>
+        file.specifiers.some(
+          (specifier) =>
+            (!file.path.startsWith("src/Text/") && containsPathSegmentSequence(specifier, ["Text", "internal"])) ||
+            (!file.path.startsWith("src/Browser/") &&
+              containsPathSegmentSequence(specifier, ["Browser", "internal"])) ||
+            (!file.path.startsWith("src/experimental/Calibration/") &&
+              containsPathSegmentSequence(specifier, ["experimental", "Calibration", "internal"]))
+        )
+      )
+
+      expect(crossDomainInternalImports.map((file) => file.path)).toStrictEqual([])
+    }).pipe(Effect.provide(BunContext.layer)))
 })

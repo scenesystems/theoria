@@ -12,8 +12,15 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Record, Schema } from "effect"
 
+import {
+  moduleSpecifiers,
+  parseTypeScript,
+  referencesInternalBoundary,
+  resolveRootFrom,
+  toSourceFilePath
+} from "../../../../tools/testing/sourceProof.js"
+
 const MAX_SOURCE_FILE_LINES = 240
-const INTERNAL_IMPORT_PATTERN = /from\s+["'][^"']*internal\//
 
 const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = []
 
@@ -45,31 +52,11 @@ class SourceFilePath extends Data.Class<{
 
 const packageRootUrl = new URL("../../", import.meta.url)
 
-const resolveProjectRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
-  const path = yield* Path.Path
-  return yield* path.fromFileUrl(packageRootUrl).pipe(Effect.orDie)
-})
-
-const toForwardSlashes = (path: Path.Path, value: string): string => value.split(path.sep).join("/")
-
-const toSourceFilePath = (
-  path: Path.Path,
-  root: string,
-  absoluteSourceRoot: string,
-  entry: string
-): SourceFilePath => {
-  const absolutePath = path.join(absoluteSourceRoot, entry)
-  return new SourceFilePath({
-    absolute: absolutePath,
-    relative: toForwardSlashes(path, path.relative(root, absolutePath))
-  })
-}
-
 const listTypeScriptFiles: Effect.Effect<Array<SourceFilePath>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* resolveProjectRoot
+    const root = yield* resolveRootFrom(packageRootUrl)
     const absoluteSourceRoot = path.join(root, "src")
     const entries = yield* fileSystem.readDirectory(absoluteSourceRoot, { recursive: true }).pipe(Effect.orDie)
 
@@ -113,7 +100,12 @@ const internalBoundaryViolations: Effect.Effect<Array<string>, never, FileSystem
     const findings = yield* Effect.forEach(files, (file) =>
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
-        Effect.map((content) => INTERNAL_IMPORT_PATTERN.test(content) && !hasAllowedInternalImport(file.relative)),
+        Effect.map((content) =>
+          moduleSpecifiers(parseTypeScript(file.relative, content)).some((specifier) =>
+            referencesInternalBoundary(specifier)
+          )
+          && !hasAllowedInternalImport(file.relative)
+        ),
         Effect.map((isViolation) =>
           isViolation
             ? Option.some(file.relative)
@@ -129,7 +121,7 @@ const packageExportKeys: Effect.Effect<Array<string>, never, FileSystem.FileSyst
   function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const root = yield* resolveProjectRoot
+    const root = yield* resolveRootFrom(packageRootUrl)
     const packageJsonPath = path.join(root, "package.json")
     const packageJson = yield* fileSystem.readFileString(packageJsonPath).pipe(Effect.orDie)
     const decoded = yield* Schema.decodeUnknown(ManifestExportKeysSchema)(packageJson).pipe(Effect.orDie)
