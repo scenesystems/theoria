@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Record as EffectRecord, Schema } from "effect"
+import { Effect, Order, Record as EffectRecord, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import packageJson from "../../package.json" with { type: "json" }
@@ -8,10 +8,11 @@ import { TextStability } from "../../src/Text/index.js"
 const ExportsRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 
 const exportsRecord = Schema.decodeUnknownSync(ExportsRecordSchema)(packageJson.exports)
+const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Arr.sort(values, Order.string)
 
 describe("package export contracts", () => {
   it("exposes the canonical public and blocked subpath export set", () => {
-    const expectedExportPaths = Arr.make(
+    const expectedExportPaths = sortStrings(Arr.make(
       ".",
       "./Text",
       "./Browser",
@@ -26,9 +27,9 @@ describe("package export contracts", () => {
       "./Browser/internal/*",
       "./React/internal/*",
       "./experimental/*/internal/*"
-    ).sort()
+    ))
 
-    expect(EffectRecord.keys(exportsRecord).sort()).toStrictEqual(expectedExportPaths)
+    expect(sortStrings(EffectRecord.keys(exportsRecord))).toStrictEqual(expectedExportPaths)
   })
 
   it.effect("keeps every internal export path hard-blocked and the experimental lane explicit", () =>

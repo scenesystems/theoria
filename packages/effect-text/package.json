@@ -49,6 +49,7 @@
     "lint": "eslint --max-warnings=0 src test benchmarks",
     "lint:fix": "eslint --max-warnings=0 --fix src test benchmarks",
     "test": "vitest run --root ../.. packages/effect-text/test",
+    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "bench": "bun benchmarks/run.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",

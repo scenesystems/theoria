@@ -1,13 +1,15 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Order } from "effect"
+import * as Arr from "effect/Array"
 
 import { resolveRootFrom } from "@theoria/source-proof"
 
 const packageRootUrl = new URL("../../", import.meta.url)
 
 const expectedSourceRoots = ["Browser", "Errors", "React", "Text", "contracts", "experimental", "index.ts"]
+const sortStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> => Arr.sort(values, Order.string)
 
 describe("package structure contracts", () => {
   it.effect("keeps the converged shared authority and runtime internals in canonical locations", () =>
@@ -30,9 +32,9 @@ describe("package structure contracts", () => {
         { concurrency: "unbounded" }
       )
 
-      expect(pathExists.every(Boolean)).toStrictEqual(true)
-      expect(srcEntries.includes("Contracts")).toStrictEqual(false)
-      expect(srcEntries.includes("internal")).toStrictEqual(false)
+      expect(Arr.every(pathExists, (exists) => exists)).toStrictEqual(true)
+      expect(Arr.some(srcEntries, (entry) => entry === "Contracts")).toStrictEqual(false)
+      expect(Arr.some(srcEntries, (entry) => entry === "internal")).toStrictEqual(false)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("keeps Text as the canonical runtime domain root", () =>
@@ -44,8 +46,8 @@ describe("package structure contracts", () => {
         Effect.orDie
       )
 
-      expect(textEntries.sort()).toStrictEqual(
-        ["constructors.ts", "index.ts", "internal", "layers.ts", "layout.ts", "model.ts", "schema.ts"].sort()
+      expect(sortStrings(textEntries)).toStrictEqual(
+        sortStrings(["constructors.ts", "index.ts", "internal", "layers.ts", "layout.ts", "model.ts", "schema.ts"])
       )
     }).pipe(Effect.provide(BunContext.layer)))
 
@@ -63,7 +65,7 @@ describe("package structure contracts", () => {
         concurrency: "unbounded"
       })
 
-      expect(pathExists.every(Boolean)).toStrictEqual(true)
+      expect(Arr.every(pathExists, (exists) => exists)).toStrictEqual(true)
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("keeps root authorities and domain filenames predictable across the package", () =>
@@ -80,12 +82,12 @@ describe("package structure contracts", () => {
         pathService.join(srcRoot, "experimental", "Calibration")
       ).pipe(Effect.orDie)
 
-      expect(srcEntries.sort()).toStrictEqual(expectedSourceRoots.sort())
-      expect(browserEntries.sort()).toStrictEqual(["index.ts", "internal", "layers.ts"].sort())
-      expect(errorsEntries.sort()).toStrictEqual(["index.ts"])
-      expect(reactEntries.sort()).toStrictEqual(["index.ts", "internal"].sort())
-      expect(calibrationEntries.sort()).toStrictEqual(
-        ["evaluation.ts", "index.ts", "internal", "schema.ts", "search.ts"].sort()
+      expect(sortStrings(srcEntries)).toStrictEqual(sortStrings(expectedSourceRoots))
+      expect(sortStrings(browserEntries)).toStrictEqual(sortStrings(["index.ts", "internal", "layers.ts"]))
+      expect(sortStrings(errorsEntries)).toStrictEqual(["index.ts"])
+      expect(sortStrings(reactEntries)).toStrictEqual(sortStrings(["index.ts", "internal"]))
+      expect(sortStrings(calibrationEntries)).toStrictEqual(
+        sortStrings(["evaluation.ts", "index.ts", "internal", "schema.ts", "search.ts"])
       )
     }).pipe(Effect.provide(BunContext.layer)))
 })
