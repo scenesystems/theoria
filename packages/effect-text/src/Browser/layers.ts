@@ -1,7 +1,7 @@
 /**
  * Browser-backed measurement layers.
  *
- * @since 0.1.0
+ * @since 0.2.0
  */
 import { Cache, Effect, Layer, Option } from "effect"
 
@@ -84,7 +84,7 @@ const makeCanvasTextMeasurer = (options: {
 /**
  * Browser canvas-backed measurer using `CanvasRenderingContext2D.measureText`.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category layers
  */
 export const CanvasTextMeasurerLive = (options: {

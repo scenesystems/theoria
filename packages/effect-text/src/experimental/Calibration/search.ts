@@ -8,58 +8,15 @@ import type { Layer } from "effect"
 import { Sampler, SearchSpace, Study } from "effect-search"
 
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
-import type { EngineProfileType } from "../../Text/schema.js"
 import { evaluateProfile } from "./evaluation.js"
-import type {
-  CalibrationCaseType,
-  CalibrationFloatDimensionType,
-  CalibrationIntDimensionType,
-  CalibrationProfileType,
-  CalibrationReportType,
-  CalibrationSearchSpaceSpecType
-} from "./schema.js"
-
-const DEFAULT_LINE_MISMATCH_WEIGHT = 10_000
-const DEFAULT_LINE_COUNT_WEIGHT = 1_000
-
-const defaultSearchSpaceSpec: CalibrationSearchSpaceSpecType = {
-  lineFitEpsilon: {
-    low: 0,
-    high: 0.05,
-    step: 0.001
-  },
-  tabWidth: {
-    low: 2,
-    high: 8,
-    step: 1
-  }
-}
-
-const numericSearchScore = (report: CalibrationReportType): number =>
-  (report.totalLineMismatchCount * DEFAULT_LINE_MISMATCH_WEIGHT) +
-  (report.totalLineCountError * DEFAULT_LINE_COUNT_WEIGHT) +
-  report.totalMaxLineWidthError
-
-const calibrationProfile = (name: string, engineProfile: EngineProfileType): CalibrationProfileType => ({
-  name,
-  engineProfile
-})
-
-const floatOptions = (dimension: CalibrationFloatDimensionType): { readonly step?: number } =>
-  Option.fromNullable(dimension.step).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (resolvedStep) => ({ step: resolvedStep })
-    })
-  )
-
-const intOptions = (dimension: CalibrationIntDimensionType): { readonly step?: number } =>
-  Option.fromNullable(dimension.step).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (resolvedStep) => ({ step: resolvedStep })
-    })
-  )
+import {
+  calibrationProfile,
+  defaultSearchSpaceSpec,
+  floatOptions,
+  intOptions,
+  numericSearchScore
+} from "./internal/search.js"
+import type { CalibrationCaseType, CalibrationSearchSpaceSpecType } from "./schema.js"
 
 /**
  * Compiles a default `effect-search` search space for engine-profile tuning.
