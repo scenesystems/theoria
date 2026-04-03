@@ -6,10 +6,14 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"
 
-const MAX_SOURCE_FILE_LINES = 240
+import {
+  moduleSpecifiers,
+  parseTypeScript,
+  pathSegments,
+  referencesInternalBoundary
+} from "../../../../tools/testing/sourceProof.js"
 
-const INTERNAL_EFFECT_SEARCH_IMPORT_PATTERN = /from\s+["']effect-search\/internal\//
-const INTERNAL_PROJECT_IMPORT_PATTERN = /from\s+["'][^"']*\/internal\//
+const MAX_SOURCE_FILE_LINES = 240
 
 const PackageExportsSchema = Schema.parseJson(
   Schema.Struct({
@@ -73,12 +77,6 @@ const readProjectFile = (
     return yield* fileSystem.readFileString(absolutePath).pipe(Effect.orDie)
   })
 
-const effectSearchImportSpecifiers = (source: string): ReadonlyArray<string> =>
-  Arr.filterMap(
-    Arr.fromIterable(source.matchAll(/from\s+["']effect-search\/([^"']+)["']/g)),
-    (match) => Option.fromNullable(match[1])
-  )
-
 const allowedEffectSearchSpecifiers = Arr.make("Pareto", "Sampler", "Study")
 
 describe("GEPA seam governance", () => {
@@ -98,12 +96,24 @@ describe("GEPA seam governance", () => {
       const internalSeamViolations = Arr.filterMap(
         sourcePairs,
         ([absolutePath, source]) =>
-          INTERNAL_EFFECT_SEARCH_IMPORT_PATTERN.test(source)
+          moduleSpecifiers(parseTypeScript(absolutePath, source)).some((specifier) => {
+              const segments = pathSegments(specifier)
+              return segments[0] === "effect-search" && segments[1] === "internal"
+            })
             ? Option.some(toRelativePath(path, root, absolutePath))
             : Option.none<string>()
       )
 
-      const imports = Arr.flatMap(sourcePairs, ([, source]) => effectSearchImportSpecifiers(source))
+      const imports = Arr.flatMap(
+        sourcePairs,
+        ([absolutePath, source]) =>
+          moduleSpecifiers(parseTypeScript(absolutePath, source)).flatMap((specifier) => {
+            const segments = pathSegments(specifier)
+            return segments[0] === "effect-search" && segments.length > 1
+              ? [segments[1]]
+              : []
+          })
+      )
       const unexpectedImports = Arr.filter(
         imports,
         (specifier) => !Arr.contains(allowedEffectSearchSpecifiers, specifier)
@@ -127,7 +137,9 @@ describe("GEPA seam governance", () => {
         fileSystem.readFileString(absolutePath).pipe(
           Effect.orDie,
           Effect.map((source) =>
-            INTERNAL_PROJECT_IMPORT_PATTERN.test(source)
+            moduleSpecifiers(parseTypeScript(absolutePath, source)).some((specifier) =>
+                referencesInternalBoundary(specifier)
+              )
               ? Option.some(toRelativePath(path, root, absolutePath))
               : Option.none<string>()
           )
@@ -145,8 +157,14 @@ describe("GEPA seam governance", () => {
       const packageExports = yield* Schema.decodeUnknown(PackageExportsSchema)(packageSource).pipe(
         Effect.map((decoded): PackageExports => decoded.exports)
       )
-      const optimizerIndexSource = yield* readProjectFile("src/Optimizer/index.ts")
-      const optimizerEventsIndexSource = yield* readProjectFile("src/Optimizer/events/index.ts")
+      const optimizerIndexSource = parseTypeScript(
+        "src/Optimizer/index.ts",
+        yield* readProjectFile("src/Optimizer/index.ts")
+      )
+      const optimizerEventsIndexSource = parseTypeScript(
+        "src/Optimizer/events/index.ts",
+        yield* readProjectFile("src/Optimizer/events/index.ts")
+      )
       const gepaFiles = yield* listTypeScriptFiles("src/optimizers/GEPA")
       const oversizedGepaFiles = yield* Effect.forEach(gepaFiles, (absolutePath) =>
         fileSystem.readFileString(absolutePath).pipe(
@@ -164,9 +182,9 @@ describe("GEPA seam governance", () => {
 
       expect(packageExports["./internal/*"]).toBeNull()
       expect(packageExports["./optimizers/*"]).toBeNull()
-      expect(optimizerIndexSource.includes("./gepa.js")).toBe(true)
-      expect(optimizerIndexSource.includes("./gepaStream.js")).toBe(true)
-      expect(optimizerEventsIndexSource.includes("./gepa.js")).toBe(true)
+      expect(moduleSpecifiers(optimizerIndexSource)).toContain("./gepa.js")
+      expect(moduleSpecifiers(optimizerIndexSource)).toContain("./gepaStream.js")
+      expect(moduleSpecifiers(optimizerEventsIndexSource)).toContain("./gepa.js")
       expect(oversizedGepaFiles).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))
 })

@@ -177,6 +177,18 @@ export const callExpressionTargets = (sourceFile: ts.SourceFile): ReadonlyArray<
   return targets
 }
 
+export const identifierNames = (sourceFile: ts.SourceFile): ReadonlyArray<string> => {
+  const identifiers: Array<string> = []
+
+  visitNodes(sourceFile, (node) => {
+    if (ts.isIdentifier(node)) {
+      identifiers.push(node.text)
+    }
+  })
+
+  return identifiers
+}
+
 export const exportedDeclarationNames = (sourceFile: ts.SourceFile): ReadonlyArray<string> => {
   const names: Array<string> = []
 
@@ -234,6 +246,33 @@ export const stringLiteralPropertyAssignments = (
       if (ts.isStringLiteral(node.initializer)) {
         values.push(node.initializer.text)
       }
+    }
+  })
+
+  return values
+}
+
+export const propertyAssignmentTexts = (
+  sourceFile: ts.SourceFile,
+  propertyName: string
+): ReadonlyArray<string> => {
+  const values: Array<string> = []
+
+  visitNodes(sourceFile, (node) => {
+    if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) && node.name.text === propertyName) {
+      values.push(node.initializer.getText(sourceFile))
+    }
+  })
+
+  return values
+}
+
+export const variableInitializerTexts = (sourceFile: ts.SourceFile, variableName: string): ReadonlyArray<string> => {
+  const values: Array<string> = []
+
+  visitNodes(sourceFile, (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === variableName && node.initializer !== undefined) {
+      values.push(node.initializer.getText(sourceFile))
     }
   })
 

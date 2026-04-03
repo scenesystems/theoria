@@ -202,7 +202,6 @@ const processPackage = (packageDirectory: string, versions: Map<string, string>)
   })
 
 const program = Effect.gen(function*() {
-  const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const { packagesDir } = yield* resolveProjectPaths
   const versions = yield* buildVersionMap
