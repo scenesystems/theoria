@@ -4,15 +4,37 @@
  * @since 0.1.0
  */
 import { Effect, Option } from "effect"
+import * as Arr from "effect/Array"
 
-import { MeasurementFailed } from "../Errors/index.js"
-import type { FontDescriptorType } from "../Text/schema.js"
-import { containsEmoji, stripEmojiClusters } from "./analysis.js"
+import { MeasurementFailed } from "../../Errors/index.js"
+import type { FontDescriptorType } from "../../Text/schema.js"
 
 type CanvasTextDirection = "ltr" | "rtl" | "inherit"
 type CanvasTextBaseline = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
 type ContextSnapshot = readonly [font: string, direction: CanvasTextDirection, textBaseline: CanvasTextBaseline]
 type NormalizedEmojiCorrection = readonly [probe: string, minimumAdvanceMultiplier: number]
+
+const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
+const Segmenter = typeof Intl === "undefined" ? undefined : Reflect.get(Intl, "Segmenter")
+
+const graphemeClusters = (text: string): ReadonlyArray<string> =>
+  typeof Segmenter === "function"
+    ? Arr.fromIterable(new Segmenter(undefined, { granularity: "grapheme" }).segment(text)).map((part) => part.segment)
+    : Arr.fromIterable(text)
+
+const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
+
+export const stripEmojiClusters = (text: string): readonly [string, number] => {
+  const result = graphemeClusters(text).reduce(
+    (state, cluster) =>
+      EMOJI_PATTERN.test(cluster)
+        ? { text: state.text, count: state.count + 1 }
+        : { text: state.text + cluster, count: state.count },
+    { text: "", count: 0 }
+  )
+
+  return [result.text, result.count]
+}
 
 const restoreContext = (
   context: {

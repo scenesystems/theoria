@@ -5,8 +5,8 @@
  */
 import { Option } from "effect"
 
-import type { PreparedSegmentType, PreparedTextCore } from "../Text/model.js"
-import type { LayoutLineType, LayoutRequestType } from "../Text/schema.js"
+import type { PreparedSegmentType, PreparedTextCore } from "../model.js"
+import type { LayoutLineType, LayoutRequestType } from "../schema.js"
 
 type SoftBreakCandidate = readonly [prefixText: string, prefixWidth: number, breakText: string, breakWidth: number]
 

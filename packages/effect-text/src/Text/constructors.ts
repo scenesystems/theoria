@@ -5,9 +5,9 @@
  */
 import { Effect, ParseResult, Schema } from "effect"
 
-import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../Contracts/index.js"
+import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../contracts/index.js"
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
-import { prepareSegments, resolvePreparedBaseDirection } from "../internal/preparation.js"
+import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
 import { PreparedText } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
 

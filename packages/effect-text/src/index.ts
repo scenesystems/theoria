@@ -21,7 +21,7 @@ export * as Text from "./Text/index.js"
  * @since 0.1.0
  * @category modules
  */
-export * as Contracts from "./Contracts/index.js"
+export * as Contracts from "./contracts/index.js"
 
 /**
  * Stable typed errors.

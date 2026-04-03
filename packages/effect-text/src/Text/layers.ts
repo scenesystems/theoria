@@ -3,19 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Cache, Effect, Layer, Option } from "effect"
+import { Cache, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
-import { EngineProfile, MeasurementCache, TextMeasurer, WordSegmenter } from "../Contracts/index.js"
+import { EngineProfile, MeasurementCache, TextMeasurer, WordSegmenter } from "../contracts/index.js"
+export { CanvasTextMeasurerLive } from "../Browser/layers.js"
 import { MeasurementFailed } from "../Errors/index.js"
-import { segmentText, stripEmojiClusters } from "../internal/analysis.js"
-import {
-  correctEmojiWidth,
-  decodeFontKey,
-  encodeFontKey,
-  measureCanvasText,
-  normalizeEmojiCorrection
-} from "../internal/canvas.js"
+import { segmentText } from "./internal/analysis.js"
 import type { FontDescriptorType } from "./schema.js"
 
 const encodeMeasurementKey = (font: FontDescriptorType, text: string): string =>
@@ -53,71 +47,6 @@ const makeMeasurementCache = Effect.gen(function*() {
     measure: (font: FontDescriptorType, text: string) => cache.get(encodeMeasurementKey(font, text))
   }
 })
-
-const makeCanvasTextMeasurer = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}) =>
-  Effect.gen(function*() {
-    const contextSemaphore = yield* Effect.makeSemaphore(1)
-    const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
-    const emojiAdvanceCache = yield* (
-      Option.match(emojiCorrection, {
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: (correction) =>
-          Cache.make({
-            capacity: 128,
-            timeToLive: "24 hours",
-            lookup: (key: string) => {
-              const font = decodeFontKey(key)
-
-              return measureCanvasText(
-                options.context,
-                font,
-                correction[0],
-                options.direction,
-                options.textBaseline
-              ).pipe(
-                Effect.map((width) => Math.max(width, font.size * correction[1]))
-              )
-            }
-          }).pipe(Effect.map(Option.some))
-      })
-    )
-
-    return {
-      measure: (font: FontDescriptorType, text: string) =>
-        contextSemaphore.withPermits(1)(
-          measureCanvasText(options.context, font, text, options.direction, options.textBaseline).pipe(
-            Effect.flatMap((rawWidth) =>
-              Option.match(emojiAdvanceCache, {
-                onNone: () => Effect.succeed(rawWidth),
-                onSome: (cache) =>
-                  cache.get(encodeFontKey(font)).pipe(
-                    Effect.flatMap((emojiAdvance) => {
-                      const [strippedText] = stripEmojiClusters(text)
-
-                      return correctEmojiWidth(
-                        text,
-                        rawWidth,
-                        emojiAdvance,
-                        measureCanvasText(options.context, font, strippedText, options.direction, options.textBaseline)
-                      )
-                    })
-                  )
-              })
-            )
-          )
-        )
-    }
-  })
 
 /**
  * Regex-based segmenter suitable for tests and deterministic environments.
@@ -167,24 +96,6 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
   preferEarlySoftHyphenBreak: false,
   preferPrefixWidthsForBreakableRuns: true
 })
-
-/**
- * Browser canvas-backed measurer using `CanvasRenderingContext2D.measureText`.
- *
- * @since 0.1.0
- * @category layers
- */
-export const CanvasTextMeasurerLive = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}) => Layer.effect(TextMeasurer, makeCanvasTextMeasurer(options))
 
 /**
  * Shared measurement cache built on Effect `Cache`.

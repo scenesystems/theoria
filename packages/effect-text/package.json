@@ -30,10 +30,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./Text": "./src/Text/index.ts",
-    "./Contracts": "./src/Contracts/index.ts",
+    "./Contracts": "./src/contracts/index.ts",
     "./Errors": "./src/Errors/index.ts",
     "./Experimental": "./src/experimental/index.ts",
-    "./contracts": "./src/Contracts/index.ts",
+    "./contracts": "./src/contracts/index.ts",
     "./experimental": "./src/experimental/index.ts",
     "./internal/*": null
   },

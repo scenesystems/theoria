@@ -7,7 +7,7 @@ import { Effect, Option } from "effect"
 import type { Layer } from "effect"
 import { Sampler, SearchSpace, Study } from "effect-search"
 
-import type { MeasurementCache, WordSegmenter } from "../../Contracts/index.js"
+import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import type { EngineProfileType } from "../../Text/schema.js"
 import { evaluateProfile } from "./evaluation.js"
 import type {

@@ -5,7 +5,7 @@
  */
 import { Option, Stream, Tuple } from "effect"
 
-import { materializeLines } from "../internal/layout.js"
+import { materializeLines } from "./internal/layout.js"
 import { PreparedText } from "./model.js"
 import type { LayoutCursorType, LayoutLineType, LayoutRequestType, LayoutSummaryType } from "./schema.js"
 

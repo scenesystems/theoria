@@ -6,8 +6,8 @@
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { EngineProfile } from "../../Contracts/index.js"
-import type { MeasurementCache, WordSegmenter } from "../../Contracts/index.js"
+import { EngineProfile } from "../../contracts/index.js"
+import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import type { MeasurementFailed } from "../../Errors/index.js"
 import { prepare } from "../../Text/constructors.js"
 import { layoutLines } from "../../Text/layout.js"

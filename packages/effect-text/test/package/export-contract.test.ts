@@ -29,20 +29,41 @@ describe("package export contracts", () => {
     const expectedExportPaths = Arr.make(
       ".",
       "./Text",
+      "./Browser",
+      "./React",
       "./Contracts",
       "./Errors",
       "./Experimental",
       "./contracts",
       "./experimental",
-      "./internal/*"
+      "./internal/*",
+      "./Text/internal/*",
+      "./Browser/internal/*",
+      "./React/internal/*",
+      "./experimental/*/internal/*"
     ).sort()
 
     expect(EffectRecord.keys(exportsRecord).sort()).toStrictEqual(expectedExportPaths)
   })
 
-  it.effect("keeps the internal boundary blocked and the experimental lane explicit", () =>
+  it.effect("keeps every internal export path hard-blocked and the experimental lane explicit", () =>
     Effect.gen(function*() {
-      expect(exportsRecord["./internal/*"]).toStrictEqual(null)
+      const blockedInternalPaths = Arr.make(
+        "./internal/*",
+        "./Text/internal/*",
+        "./Browser/internal/*",
+        "./React/internal/*",
+        "./experimental/*/internal/*"
+      )
+
+      yield* Effect.forEach(
+        blockedInternalPaths,
+        (path) => Effect.sync(() => expect(exportsRecord[path]).toStrictEqual(null)),
+        { discard: true }
+      )
+
+      expect(exportsRecord["./Contracts"]).toStrictEqual("./src/contracts/index.ts")
+      expect(exportsRecord["./contracts"]).toStrictEqual("./src/contracts/index.ts")
       expect(exportsRecord["./experimental"]).toStrictEqual("./src/experimental/index.ts")
       expect(exportContainsExperimental(exportsRecord["."])).toStrictEqual(false)
     }))

@@ -6,7 +6,7 @@
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
-import type { BaseTextDirectionType, TextSegmentType, WhiteSpaceModeType } from "../Text/schema.js"
+import type { BaseTextDirectionType, TextSegmentType, WhiteSpaceModeType } from "../schema.js"
 
 export const SOFT_HYPHEN = "\u00ad"
 

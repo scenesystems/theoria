@@ -6,9 +6,9 @@
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import type { MeasurementFailed } from "../Errors/index.js"
-import type { PreparedSegmentType } from "../Text/model.js"
-import type { BaseTextDirectionType, EngineProfileType, TextSegmentType } from "../Text/schema.js"
+import type { MeasurementFailed } from "../../Errors/index.js"
+import type { PreparedSegmentType } from "../model.js"
+import type { BaseTextDirectionType, EngineProfileType, TextSegmentType } from "../schema.js"
 import {
   bidiLevelForDirection,
   detectTextDirection,
