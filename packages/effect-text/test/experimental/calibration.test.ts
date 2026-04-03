@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { Sampler } from "effect-search"
+import * as Arr from "effect/Array"
 
 import { Contracts, Experimental, Text } from "../../src/index.js"
 
@@ -70,7 +71,7 @@ describe("Experimental.Calibration", () => {
       expect(report.totalLineCountError).toBe(0)
       expect(report.totalMaxLineWidthError).toBe(0)
       expect(report.totalLineMismatchCount).toBe(0)
-      expect(report.results.map((result) => result.actual.maxLineWidth)).toEqual([15, 40])
+      expect(Arr.map(report.results, (result) => result.actual.maxLineWidth)).toEqual([15, 40])
       expect(report.results[1]?.actualLines).toEqual([
         { index: 0, text: "hello he", width: 40 },
         { index: 1, text: "llo", width: 15 }

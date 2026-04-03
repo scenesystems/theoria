@@ -40,11 +40,12 @@ const lineMismatchCount = (
     Option.match({
       onNone: () => 0,
       onSome: (expectedLines) =>
-        Arr.makeBy(Math.max(expectedLines.length, actual.length), (index) => index).reduce<number>(
+        Arr.reduce(
+          Arr.makeBy(Math.max(expectedLines.length, actual.length), (index) => index),
+          0,
           (mismatchCount, index) =>
             mismatchCount +
-            (matchesLine(Option.fromNullable(expectedLines[index]), Option.fromNullable(actual[index])) ? 0 : 1),
-          0
+            (matchesLine(Option.fromNullable(expectedLines[index]), Option.fromNullable(actual[index])) ? 0 : 1)
         )
     })
   )
@@ -55,24 +56,27 @@ export const summarizeLines = (
 ): LayoutSummaryType => ({
   lineCount: lines.length,
   height: lines.length * lineHeight,
-  maxLineWidth: lines.reduce((maxWidth, line) => Math.max(maxWidth, line.width), 0)
+  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width))
 })
 
 export const makeCaseResult = (
   calibrationCase: CalibrationCaseType,
   actual: LayoutSummaryType,
   actualLines: ReadonlyArray<LayoutLineType>
-): CalibrationCaseResultType => ({
-  name: calibrationCase.name,
-  expected: calibrationCase.expected,
-  actual,
-  actualLines,
-  lineCountDelta: actual.lineCount - calibrationCase.expected.lineCount,
-  maxLineWidthDelta: actual.maxLineWidth - calibrationCase.expected.maxLineWidth,
-  lineMismatchCount: lineMismatchCount(Option.fromNullable(calibrationCase.expected.lines), actualLines),
-  matched: matchesSummary(calibrationCase.expected, actual) &&
-    lineMismatchCount(Option.fromNullable(calibrationCase.expected.lines), actualLines) === 0
-})
+): CalibrationCaseResultType => {
+  const mismatchCount = lineMismatchCount(Option.fromNullable(calibrationCase.expected.lines), actualLines)
+
+  return {
+    name: calibrationCase.name,
+    expected: calibrationCase.expected,
+    actual,
+    actualLines,
+    lineCountDelta: actual.lineCount - calibrationCase.expected.lineCount,
+    maxLineWidthDelta: actual.maxLineWidth - calibrationCase.expected.maxLineWidth,
+    lineMismatchCount: mismatchCount,
+    matched: matchesSummary(calibrationCase.expected, actual) && mismatchCount === 0
+  }
+}
 
 export const emptyReport = (profile: CalibrationProfileType): CalibrationReportType => ({
   profile,
