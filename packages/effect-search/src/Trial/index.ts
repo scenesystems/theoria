@@ -52,13 +52,13 @@ export {
 } from "./model.js"
 
 export {
-  /** @since 0.1.0 */ Cancelled,
-  /** @since 0.1.0 */ Completed,
+  /** @since 0.1.0 @category constructors */ Cancelled,
+  /** @since 0.1.0 @category constructors */ Completed,
   /** @since 0.1.0 */ type CompletedState,
-  /** @since 0.1.0 */ Failed,
-  /** @since 0.1.0 */ isState,
-  /** @since 0.1.0 */ matchState,
-  /** @since 0.1.0 */ Pruned,
-  /** @since 0.1.0 */ Running,
+  /** @since 0.1.0 @category constructors */ Failed,
+  /** @since 0.1.0 @category guards */ isState,
+  /** @since 0.1.0 @category pattern-matching */ matchState,
+  /** @since 0.1.0 @category constructors */ Pruned,
+  /** @since 0.1.0 @category constructors */ Running,
   /** @since 0.1.0 */ type TrialState
 } from "./state.js"

@@ -2,6 +2,7 @@
  * Domain contracts shared across modules.
  *
  * @since 0.1.0
+ * @category contracts
  */
 export * as Contracts from "./contracts/index.js"
 
@@ -9,6 +10,7 @@ export * as Contracts from "./contracts/index.js"
  * Shared cache authority and descriptor/layer primitives.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Cache from "./Cache/index.js"
 
@@ -16,6 +18,7 @@ export * as Cache from "./Cache/index.js"
  * Typed error hierarchy.
  *
  * @since 0.1.0
+ * @category errors
  */
 export * as Errors from "./Errors/index.js"
 
@@ -23,6 +26,7 @@ export * as Errors from "./Errors/index.js"
  * Unstable features with fixture-backed tests.
  *
  * @since 0.1.0
+ * @category experimental
  */
 export * as Experimental from "./experimental/index.js"
 
@@ -30,6 +34,7 @@ export * as Experimental from "./experimental/index.js"
  * Multi-objective dominance, frontier, and hypervolume.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Pareto from "./Pareto/index.js"
 
@@ -37,6 +42,7 @@ export * as Pareto from "./Pareto/index.js"
  * Algorithm strategies for suggesting configurations.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Sampler from "./Sampler/index.js"
 
@@ -44,6 +50,7 @@ export * as Sampler from "./Sampler/index.js"
  * Parallel trial scheduling.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Scheduler from "./Scheduler/index.js"
 
@@ -51,6 +58,7 @@ export * as Scheduler from "./Scheduler/index.js"
  * Parameter space definition and compilation.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as SearchSpace from "./SearchSpace/index.js"
 
@@ -58,6 +66,7 @@ export * as SearchSpace from "./SearchSpace/index.js"
  * Optimization orchestration, streaming, and persistence.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Study from "./Study/index.js"
 
@@ -65,6 +74,7 @@ export * as Study from "./Study/index.js"
  * Lifecycle event types for progress monitoring.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as StudyEvent from "./StudyEvent/index.js"
 
@@ -72,5 +82,6 @@ export * as StudyEvent from "./StudyEvent/index.js"
  * Trial data types and state machine.
  *
  * @since 0.1.0
+ * @category domains
  */
 export * as Trial from "./Trial/index.js"
