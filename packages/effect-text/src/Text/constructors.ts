@@ -3,10 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Effect, ParseResult, Schema } from "effect"
+import { Effect, Option, ParseResult, Schema } from "effect"
+import * as Arr from "effect/Array"
 
-import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../contracts/index.js"
+import {
+  EngineProfile,
+  HyphenationDictionary,
+  MeasurementCache,
+  type TextPreparationServices,
+  WordSegmenter
+} from "../contracts/index.js"
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
+import { normalizeHyphenationLocale } from "./internal/hyphenation.js"
 import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
 import type {
   PreparedText,
@@ -30,11 +38,30 @@ const prepareCore = (
     const segmenter = yield* WordSegmenter
     const cache = yield* MeasurementCache
     const engineProfile = yield* EngineProfile
+    const hyphenationDictionaryOption = yield* Effect.serviceOption(HyphenationDictionary)
     const normalizedFont = { ...input.font, weight: input.font.weight ?? 400 }
+    const hyphenationLocaleOption = Option.fromNullable(input.hyphenationLocale).pipe(
+      Option.map(normalizeHyphenationLocale)
+    )
     const segmentedText = yield* segmenter.segment(input.text, input.whiteSpace)
     const baseDirection = resolvePreparedBaseDirection(input.text, engineProfile)
-    const prepared = yield* prepareSegments(segmentedText, input.whiteSpace, engineProfile, baseDirection, (text) =>
-      cache.measure(normalizedFont, text))
+    const prepared = yield* prepareSegments(
+      segmentedText,
+      input.whiteSpace,
+      engineProfile,
+      baseDirection,
+      (text) => cache.measure(normalizedFont, text),
+      (word) =>
+        Option.match(hyphenationLocaleOption, {
+          onNone: () => Effect.succeed(Arr.empty<number>()),
+          onSome: (hyphenationLocale) =>
+            Option.match(hyphenationDictionaryOption, {
+              onNone: () => Effect.succeed(Arr.empty<number>()),
+              onSome: (dictionary) => dictionary.hyphenateWord(hyphenationLocale, word)
+            })
+        }),
+      Option.isSome(hyphenationLocaleOption)
+    )
 
     return {
       core: {
@@ -47,6 +74,10 @@ const prepareCore = (
         },
         meta: {
           font: normalizedFont,
+          hyphenationLocale: Option.match(hyphenationLocaleOption, {
+            onNone: () => undefined,
+            onSome: (hyphenationLocale) => hyphenationLocale
+          }),
           text: input.text
         }
       },

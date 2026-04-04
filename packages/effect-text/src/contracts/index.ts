@@ -66,6 +66,22 @@ export class MeasurementCache extends Context.Tag("effect-text/MeasurementCache"
 >() {}
 
 /**
+ * Optional hyphenation seam used while preparing locale-aware text.
+ *
+ * The service stays effectful so dictionaries can be loaded, cached, or
+ * refreshed behind `Layer` ownership while the layout walker remains pure.
+ *
+ * @since 0.2.0
+ * @category services
+ */
+export class HyphenationDictionary extends Context.Tag("effect-text/HyphenationDictionary")<
+  HyphenationDictionary,
+  {
+    readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
+  }
+>() {}
+
+/**
  * Runtime profile seam for layout quirks.
  *
  * @since 0.1.0
@@ -78,6 +94,10 @@ export class EngineProfile extends Context.Tag("effect-text/EngineProfile")<
 
 /**
  * Environment required by `Text.prepare`.
+ *
+ * Optional hyphenation dictionaries may also be provided through
+ * `Contracts.HyphenationDictionary`; when absent, preparation falls back to
+ * the deterministic non-dictionary break path.
  *
  * @since 0.1.0
  * @category models

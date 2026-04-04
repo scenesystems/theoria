@@ -7,16 +7,17 @@ import { Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
 
-import { BaseTextDirection, FontDescriptor, WhiteSpaceMode } from "./schema.js"
+import { BaseTextDirection, FontDescriptor, HyphenationLocale, WhiteSpaceMode } from "./schema.js"
 
 const PreparedSegmentKindSchema = Schema.Literal("text", "space", "hard-break", "tab")
 const PreparedSegmentDirectionSchema = Schema.Literal("ltr", "rtl", "neutral")
-const PreparedBreakOpportunitySchema = Schema.Literal("none", "space", "soft-hyphen")
+const PreparedBreakOpportunitySchema = Schema.Literal("none", "space", "soft-hyphen", "dictionary-hyphen")
 const PreparedBreakKindSchema = Schema.Literal(
   "text",
   "space",
   "preserved-space",
   "soft-hyphen",
+  "dictionary-hyphen",
   "hard-break",
   "tab",
   "glue",
@@ -68,7 +69,8 @@ const PreparedRuntimeTablesSchema = Schema.Struct({
 
 const PreparedTextMetaSchema = Schema.Struct({
   text: Schema.String,
-  font: FontDescriptor
+  font: FontDescriptor,
+  hyphenationLocale: Schema.optional(HyphenationLocale)
 })
 
 const PreparedTextKernelSchema = Schema.Struct({

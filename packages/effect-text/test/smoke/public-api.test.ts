@@ -27,6 +27,9 @@ describe("effect-text public api", () => {
       expect(EffectText.Text.layout).toBeDefined()
       expect(EffectText.Text.layoutLinesWith).toBeDefined()
       expect(EffectText.Text.TextLayoutLive).toBeDefined()
+      expect(EffectText.Text.HyphenationDictionaryLive).toBeDefined()
+      expect(EffectText.Text.NoHyphenationDictionaryLive).toBeDefined()
+      expect(EffectText.Text.HyphenationLocale).toBeDefined()
       expect(EffectText.Text.PreparedText).toBeDefined()
       expect(EffectText.Text.PreparedTextWithSegments).toBeDefined()
 
@@ -35,6 +38,7 @@ describe("effect-text public api", () => {
       expect(EffectText.Contracts.WordSegmenter).toBeDefined()
       expect(EffectText.Contracts.TextMeasurer).toBeDefined()
       expect(EffectText.Contracts.MeasurementCache).toBeDefined()
+      expect(EffectText.Contracts.HyphenationDictionary).toBeDefined()
       expect(EffectText.Contracts.EngineProfile).toBeDefined()
 
       expect(EffectText.Errors).toBeDefined()

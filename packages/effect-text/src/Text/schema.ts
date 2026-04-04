@@ -46,6 +46,25 @@ export const FontDescriptor = Schema.Struct({
 export type FontDescriptorType = typeof FontDescriptor.Type
 
 /**
+ * Locale identifier used to request dictionary hyphenation during preparation.
+ *
+ * The package treats this as an opaque, non-empty locale key and leaves locale
+ * normalization to the hyphenation service seam.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const HyphenationLocale = Schema.String.pipe(Schema.minLength(1))
+
+/**
+ * Locale identifier type used by dictionary hyphenation.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type HyphenationLocaleType = typeof HyphenationLocale.Type
+
+/**
  * Resolved base direction for a prepared paragraph.
  *
  * @since 0.1.0
@@ -97,7 +116,8 @@ export type TextSegmentType = typeof TextSegment.Type
 export const PrepareInput = Schema.Struct({
   text: Schema.String,
   font: FontDescriptor,
-  whiteSpace: WhiteSpaceMode
+  whiteSpace: WhiteSpaceMode,
+  hyphenationLocale: Schema.optional(HyphenationLocale)
 })
 
 /**

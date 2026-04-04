@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Data, Option } from "effect"
+import { Data, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
@@ -215,7 +215,7 @@ const appendBreakCandidate = (
   candidate: BreakCandidate
 ): ReadonlyArray<BreakCandidate> => Arr.append(candidates, candidate)
 
-const appendSoftHyphenBreakCandidate = (
+const appendDiscretionaryBreakCandidate = (
   candidates: ReadonlyArray<BreakCandidate>,
   core: PreparedTextCore,
   cursor: LayoutCursorType,
@@ -223,17 +223,29 @@ const appendSoftHyphenBreakCandidate = (
   fitWidth: number,
   paintWidth: number
 ): ReadonlyArray<BreakCandidate> =>
-  breakKindAtCursor(core, cursor) === "soft-hyphen"
-    ? appendBreakCandidate(candidates, {
-      end,
-      fitWidth,
-      insertedText: "-",
-      insertedWidth: core.kernel.runtime.discretionaryHyphenWidth,
-      kind: "soft-hyphen",
-      nextCursor: end,
-      paintWidth
-    })
-    : candidates
+  Match.value(breakKindAtCursor(core, cursor)).pipe(
+    Match.when("soft-hyphen", () =>
+      appendBreakCandidate(candidates, {
+        end,
+        fitWidth,
+        insertedText: "-",
+        insertedWidth: core.kernel.runtime.discretionaryHyphenWidth,
+        kind: "soft-hyphen",
+        nextCursor: end,
+        paintWidth
+      })),
+    Match.when("dictionary-hyphen", () =>
+      appendBreakCandidate(candidates, {
+        end,
+        fitWidth,
+        insertedText: "-",
+        insertedWidth: core.kernel.runtime.discretionaryHyphenWidth,
+        kind: "dictionary-hyphen",
+        nextCursor: end,
+        paintWidth
+      })),
+    Match.orElse(() => candidates)
+  )
 
 const explicitBreakCandidate = (
   state: LineScanState,
@@ -433,7 +445,7 @@ const startLineWithSegment = (
 
   return {
     ...state,
-    breakCandidates: appendSoftHyphenBreakCandidate([], core, currentCursor, nextCursor, fitWidth, paintWidth),
+    breakCandidates: appendDiscretionaryBreakCandidate([], core, currentCursor, nextCursor, fitWidth, paintWidth),
     end: nextCursor,
     fitWidth,
     paintWidth,
@@ -457,7 +469,7 @@ const appendCommittedSegment = (
 
   return {
     ...state,
-    breakCandidates: appendSoftHyphenBreakCandidate(
+    breakCandidates: appendDiscretionaryBreakCandidate(
       hasPendingWhitespace(state) ? [] : state.breakCandidates,
       core,
       currentCursor,

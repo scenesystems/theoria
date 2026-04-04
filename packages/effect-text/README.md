@@ -27,6 +27,7 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Typed errors** — `MeasurementFailed` and `TextLayoutDecodeError` with tagged error channels
 - **Emoji correction** — one-time probe for browsers with weak complex-emoji measurement
 - **Soft-hyphen, tab, and hard-break support** — preserved through segmentation and layout
+- **Dictionary hyphenation** — checked-in dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, with deterministic fallback for every other locale
 - **Compiled unicode break surface** — NBSP/WJ/ZWSP, URL-like runs, numeric runs, paired punctuation, and CJK punctuation pairs are compiled into explicit prepared break kinds before layout
 - **Released overflow policy** — hard breaks first, then soft hyphens and explicit break opportunities, then grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
 - **Bidi visual ordering** — prepared bidi metadata drives pure mixed-direction visual output with mirrored paired punctuation inside rtl visual runs
@@ -70,7 +71,7 @@ const program = Effect.gen(function* () {
 Effect.runPromise(program)
 ```
 
-`Text.TextLayoutLive` provides the four required services with deterministic defaults. See [Services](#services) for custom wiring.
+`Text.TextLayoutLive` provides the bundled preparation services with deterministic measurement defaults and shipped hyphenation dictionaries. See [Services](#services) for custom wiring.
 
 Code snippets with `yield*` belong inside `Effect.gen(function* () { ... })`.
 
@@ -102,18 +103,21 @@ Use `Text.prepare` when the caller only needs summary projections such as `Text.
 
 ## Services
 
-The live layer is composed from four services:
+The live preparation surface is built from four required services plus one optional hyphenation seam:
 
-| Service                      | Responsibility                                                    |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `Contracts.WordSegmenter`    | Builds `text`, `space`, and `hard-break` segments                 |
-| `Contracts.TextMeasurer`     | Converts font + text into a pixel width                           |
-| `Contracts.MeasurementCache` | Shared `Cache` keyed by the active measurement identity           |
-| `Contracts.EngineProfile`    | Runtime fit tolerance, tab stops, bidi defaults, and break quirks |
+| Service                           | Responsibility                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Contracts.WordSegmenter`         | Builds `text`, `space`, and `hard-break` segments                                                |
+| `Contracts.TextMeasurer`          | Converts font + text into a pixel width                                                          |
+| `Contracts.MeasurementCache`      | Shared `Cache` keyed by the active measurement identity                                          |
+| `Contracts.EngineProfile`         | Runtime fit tolerance, tab stops, bidi defaults, and break quirks                                |
+| `Contracts.HyphenationDictionary` | Adds locale-aware discretionary break opportunities during `prepare` while keeping `layout` pure |
 
 Browser-specific behavior is not ambient global state — it is data and services provided through `Layer`.
 
-`Text.TextLayoutLive` composes all four with deterministic defaults. For custom wiring, compose the individual layers:
+`TextPreparationServices` is the required preparation environment. `Contracts.HyphenationDictionary` is additive: when the service is absent, preparation stays deterministic and falls back to the non-dictionary break path.
+
+`Text.TextLayoutLive` composes the bundled preparation services with deterministic defaults. For custom wiring, compose the individual layers:
 
 ```ts
 import { Effect, Layer, Ref } from "effect"
@@ -149,6 +153,35 @@ const program = Effect.gen(function* () {
 ```
 
 The deterministic `MeasurementCache` deduplicates calls to `TextMeasurer` by font/text identity. In the browser lane, `Browser.BrowserMeasurementCacheLive` also keys cache entries by the browser support profile and a font-readiness revision so cached widths can be refreshed when named fonts become ready.
+
+## Dictionary hyphenation
+
+Dictionary hyphenation stays effectful during `prepare` and pure during `layout`.
+
+- The explicit public surface is `Contracts.HyphenationDictionary`, `Text.HyphenationDictionaryLive`, `Text.NoHyphenationDictionaryLive`, and `Text.HyphenationLocale`.
+- `Text.TextLayoutLive` and `Text.HyphenationDictionaryLive()` ship checked-in dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`.
+- Set `hyphenationLocale` on `Text.prepare` or `Text.prepareWithSegments` to enable locale-aware dictionary breaks for a prepared handle.
+- Author-provided soft hyphens remain authoritative. Dictionary hyphenation can add later opportunities, but it does not erase or reinterpret explicit discretionary breaks already present in the source text.
+- Any other locale falls back deterministically to the non-dictionary break path. `Text.NoHyphenationDictionaryLive` forces that fallback even for supported locales.
+
+```ts
+import { Effect } from "effect"
+import { Text } from "effect-text"
+
+const prepared =
+  yield *
+  Text.prepareWithSegments({
+    text: "colouration",
+    font: { family: "Mono", size: 10 },
+    hyphenationLocale: "en-gb",
+    whiteSpace: "normal"
+  }).pipe(Effect.provide(Text.TextLayoutLive))
+
+Text.layoutLines(prepared, { maxWidth: 35, lineHeight: 12 })
+// => ["colour-", "ation"]
+```
+
+[`07-dictionary-hyphenation`](./examples/07-dictionary-hyphenation.ts) is the package-owned runnable example for the full public surface: the stable contract tag, the shipped live layer, custom dictionaries, and deterministic no-dictionary fallback.
 
 ## Browser canvas measurement
 
@@ -188,16 +221,36 @@ const prepared =
 
 If named-font readiness changes, bump the revision with `Browser.incrementFontReadinessRevision`, rebuild the browser cache layer, and prepare again against the new cache revision.
 
-The canvas layer can apply a one-time emoji probe so browsers with weak complex-emoji measurement still produce stable widths.
+[`04-canvas-measurement`](./examples/04-canvas-measurement.ts) shows the official `CanvasTextMeasurerLive` + `BrowserMeasurementCacheLive` composition with explicit profile data, explicit freshness, and raw-versus-corrected emoji widths. [`06-live-browser-parity`](./examples/06-live-browser-parity.ts) walks the shipped browser support envelope and the checked-in parity artifacts in one package-owned proof entrypoint.
 
-**`emojiCorrection`** accepts `true` for defaults or `{ minimumAdvanceMultiplier, probe }` for fine-grained control.
+### Emoji correction
+
+`emojiCorrection` is optional and additive.
+
+- `false` disables the correction pass completely.
+- `true` enables the default one-time probe (`"🙂"`, minimum advance multiplier `1`).
+- `{ minimumAdvanceMultiplier, probe }` keeps the same additive algorithm while letting the caller choose the probe glyph and minimum per-emoji advance floor.
+
+Guarantees:
+
+- The correction only widens under-measured emoji-containing runs; it never reduces a browser measurement.
+- Non-emoji runs stay unchanged.
+- The correction remains an additive browser-layer concern; `Text.layout` stays pure and unchanged.
+
+Limits and non-goals:
+
+- This is not a general shaping or browser-normalization pass.
+- It does not repair browser-specific kerning, mark positioning, or font fallback behavior outside emoji under-measurement.
+- It does not inspect user agents; it only consumes the configured browser measurer and support-profile data.
 
 ### Browser support manifest
 
-`Browser.BrowserSupportManifest` currently records two shipped browser profiles:
+`Browser.BrowserSupportManifest` is the shipped authority for browser profile names, font policy, released white-space coverage, parity cases, and explicit caveats.
 
-- `canvas-monospace`: named-family control profile with default family `Mono`, fallback stack `Mono, monospace`, `whiteSpace` coverage for `normal` and `pre-wrap`, and the full browser parity case set
-- `canvas-system-ui`: browser-default UI stack profile with default family `system-ui`, fallback stack `system-ui, sans-serif`, the same `whiteSpace` coverage and parity cases, and a slightly looser fit epsilon for browser-resolved UI fonts
+| Profile            | Font policy                                            | Covered surface                                                                                                                                                         | Explicit caveats and non-goals                                                                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `canvas-monospace` | Named-family control profile using `Mono, monospace`   | `whiteSpace: normal, pre-wrap`, the released parity case set, and the control named-font browser lane                                                                   | Covers only the checked-in `Mono` control family and fallback stack. Alternate named fonts, alternate fallback stacks, and shaping-engine parity outside the checked-in artifacts remain outside the shipped surface.                     |
+| `canvas-system-ui` | Browser-default UI stack using `system-ui, sans-serif` | The resolved browser-default UI stack for `whiteSpace: normal, pre-wrap`, the released parity case set, and a slightly looser fit epsilon for browser-resolved UI fonts | Covers the browser-resolved `system-ui` stack rather than one pinned font file. User-agent-specific fallback changes, alternate UI stacks, and shaping-engine parity outside the checked-in artifacts remain outside the shipped surface. |
 
 Each shipped profile also publishes the `Contracts.EngineProfile` data that the pure layout plane should consume. Browser-specific fit heuristics and break preferences stay in that profile data rather than in user-agent inspection or app-local conditionals.
 
@@ -212,7 +265,7 @@ The checked-in browser accuracy harness in [`examples/live/browserAccuracyHarnes
 - [`canvas-monospace` accuracy artifact](./examples/live/artifacts/canvas-monospace.json)
 - [`canvas-system-ui` accuracy artifact](./examples/live/artifacts/canvas-system-ui.json)
 
-This is plain support data. It exists so the browser README/example/test surface can describe the same supported configuration without duplicating literals in multiple places.
+This is plain support data. It exists so the browser README, examples, tests, and verification harness can describe the same supported configuration without duplicating literals in multiple places.
 
 ## Per-line width resolution
 
@@ -372,13 +425,13 @@ const safe = Text.prepareUnknown(untrustedInput).pipe(
 import { Browser, Contracts, Errors, Experimental, Text } from "effect-text"
 ```
 
-| Module         | Key exports                                                                                                                                                                                                                                                            |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive`                      |
-| `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision` |
-| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                        |
-| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                           |
-| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                |
+| Module         | Key exports                                                                                                                                                                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `HyphenationDictionaryLive`, `NoHyphenationDictionaryLive`, `HyphenationLocale`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive` |
+| `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision`                                                             |
+| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `HyphenationDictionary`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                                                           |
+| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                                                                                       |
+| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                                                                            |
 
 Subpath imports are also available: `import * as Text from "effect-text/Text"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 
@@ -386,13 +439,15 @@ Subpath imports are also available: `import * as Text from "effect-text/Text"`. 
 
 Runnable examples in [`examples/`](./examples):
 
-| Example                                                                                  | What it shows                                      |
-| ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| [`01-quick-start`](./examples/01-quick-start.ts)                                         | Deterministic prepare/layout flow                  |
-| [`02-cursor-and-stream`](./examples/02-cursor-and-stream.ts)                             | Cursor stepping and `Stream` projection            |
-| [`03-explicit-services-and-caching`](./examples/03-explicit-services-and-caching.ts)     | Custom measurement seam with shared caching        |
-| [`04-canvas-measurement`](./examples/04-canvas-measurement.ts)                           | Canvas-backed measurement with emoji correction    |
-| [`05-experimental-calibration-search`](./examples/05-experimental-calibration-search.ts) | `effect-search`-driven engine-profile optimization |
+| Example                                                                                  | What it shows                                                                 |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`01-quick-start`](./examples/01-quick-start.ts)                                         | Deterministic prepare/layout flow                                             |
+| [`02-cursor-and-stream`](./examples/02-cursor-and-stream.ts)                             | Cursor stepping and `Stream` projection                                       |
+| [`03-explicit-services-and-caching`](./examples/03-explicit-services-and-caching.ts)     | Custom measurement seam with shared caching                                   |
+| [`04-canvas-measurement`](./examples/04-canvas-measurement.ts)                           | Official browser layer composition and additive emoji correction              |
+| [`05-experimental-calibration-search`](./examples/05-experimental-calibration-search.ts) | `effect-search`-driven engine-profile optimization                            |
+| [`06-live-browser-parity`](./examples/06-live-browser-parity.ts)                         | Package-owned browser support-envelope proof                                  |
+| [`07-dictionary-hyphenation`](./examples/07-dictionary-hyphenation.ts)                   | Stable hyphenation contract, shipped dictionaries, and deterministic fallback |
 
 ```sh
 bun run packages/effect-text/examples/01-quick-start.ts
@@ -402,11 +457,11 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 This release ships a bounded browser parity envelope rather than full CSS and shaping parity.
 
-**Included:** deterministic measurement caching, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, one-time emoji correction fallback, checked-in browser accuracy artifacts for `canvas-monospace` and `canvas-system-ui`, fit-vs-paint browser kernel divergence for summary parity, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, checked-in hyphenation dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, deterministic fallback for every other locale, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, optional additive emoji correction, checked-in browser accuracy artifacts for `canvas-monospace` and `canvas-system-ui`, fit-vs-paint browser kernel divergence for summary parity, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
 
-**Not yet included:** dictionary-driven hyphenation, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+**Not yet included:** browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
 
-**Current browser parity envelope:** the checked-in browser artifacts cover both shipped support profiles — `canvas-monospace` for the named `Mono` control family and `canvas-system-ui` for the browser-resolved default UI stack. Untested named fonts, alternate browser fallback stacks beyond those shipped profiles, and shaping-engine parity outside the recorded artifact set remain outside the current parity claims.
+**Current browser parity envelope:** the checked-in browser artifacts cover `canvas-monospace` and `canvas-system-ui` only. `canvas-monospace` is the control lane for the checked-in `Mono, monospace` stack. `canvas-system-ui` covers the browser-resolved `system-ui, sans-serif` stack on the released white-space modes and parity cases only. Untested named fonts, alternate fallback stacks, shaping-engine parity outside the recorded artifact set, and browser-specific correction passes beyond the optional emoji correction remain outside the current parity claims.
 
 **Explicit bidi non-goals for the current surface:** explicit Unicode bidi control characters, selection/copy-paste semantics, and shaping-engine parity outside the tested named-font envelope. Formatting controls are detected as an unsupported branch during preparation; `effect-text` does not claim control-aware Unicode bidi parity beyond the shipped mirror table and mixed-direction visual ordering tests.
 

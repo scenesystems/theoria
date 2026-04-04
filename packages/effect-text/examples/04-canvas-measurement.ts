@@ -1,8 +1,9 @@
 /**
- * Canvas Measurement — browser-style measurement as an additive layer.
+ * Canvas Measurement — official browser layer composition.
  *
- * What this shows: a canvas-like context can be supplied through
- * `CanvasTextMeasurerLive` without changing the rest of the pipeline.
+ * What this shows: `CanvasTextMeasurerLive` and
+ * `BrowserMeasurementCacheLive` wire into the same prepare/layout split, and
+ * emoji correction stays optional and additive.
  *
  * Feature Type Links:
  * - {@link Browser.CanvasTextMeasurerLive}
@@ -34,36 +35,70 @@ class DemoCanvasContext {
   }
 }
 
-const program = Effect.gen(function*() {
-  const browserProfile = Browser.browserSupportProfile("canvas-system-ui")
-  const fontReadinessRevision = Browser.initialFontReadinessRevision()
-  const services = Layer.mergeAll(
+const browserProfile = Browser.browserSupportProfile("canvas-system-ui")
+const fontReadinessRevision = Browser.initialFontReadinessRevision()
+
+const servicesWithEmojiCorrection = (
+  emojiCorrection: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
+) =>
+  Layer.mergeAll(
     Text.WordSegmenterLive,
     Layer.succeed(Contracts.EngineProfile, browserProfile.engineProfile),
     Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: browserProfile.id }).pipe(
       Layer.provide(
         Browser.CanvasTextMeasurerLive({
           context: new DemoCanvasContext(),
-          emojiCorrection: true,
+          emojiCorrection,
           textBaseline: "alphabetic"
         })
       )
     )
   )
 
-  const prepared = yield* Text.prepareWithSegments({
-    text: "A🙂B",
+const maxLineWidthFor = (text: string, emojiCorrection: boolean) =>
+  Text.prepareWithSegments({
+    text,
     font: { family: browserProfile.defaultFontFamily, size: 12 },
     whiteSpace: browserProfile.defaultWhiteSpaceMode
-  }).pipe(Effect.provide(services))
+  }).pipe(
+    Effect.provide(servicesWithEmojiCorrection(emojiCorrection)),
+    Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 16 }).maxLineWidth)
+  )
+
+const program = Effect.gen(function*() {
+  const correctedServices = servicesWithEmojiCorrection(true)
+  const correctedPrepared = yield* Text.prepareWithSegments({
+    text: "A🙂B keeps browser measurement additive.",
+    font: { family: browserProfile.defaultFontFamily, size: 12 },
+    whiteSpace: browserProfile.defaultWhiteSpaceMode
+  }).pipe(Effect.provide(correctedServices))
+
+  const emojiWidths = yield* Effect.all({
+    correctedEmoji: maxLineWidthFor("A🙂B", true),
+    correctedPlain: maxLineWidthFor("AB", true),
+    rawEmoji: maxLineWidthFor("A🙂B", false),
+    rawPlain: maxLineWidthFor("AB", false)
+  })
 
   yield* Effect.log("canvas-backed measurement", {
     browserEngineProfile: browserProfile.engineProfile,
+    browserFontSelection: browserProfile.fontSelection,
     browserProfile: browserProfile.id,
+    browserSupportCaveats: browserProfile.caveats,
+    browserWhiteSpaceModes: browserProfile.whiteSpaceModes,
+    browserParityCases: browserProfile.parityCases,
     browserTabPolicy: browserProfile.tabPolicy,
     fontReadinessRevision,
-    summary: Text.layout(prepared, { maxWidth: 100, lineHeight: 16 }),
-    lines: Text.layoutLines(prepared, { maxWidth: 100, lineHeight: 16 })
+    emojiCorrection: {
+      additiveOnEmoji: emojiWidths.correctedEmoji > emojiWidths.rawEmoji,
+      correctedEmoji: emojiWidths.correctedEmoji,
+      correctedPlain: emojiWidths.correctedPlain,
+      rawEmoji: emojiWidths.rawEmoji,
+      rawPlain: emojiWidths.rawPlain,
+      unchangedPlainText: emojiWidths.correctedPlain === emojiWidths.rawPlain
+    },
+    summary: Text.layout(correctedPrepared, { maxWidth: 100, lineHeight: 16 }),
+    lines: Text.layoutLines(correctedPrepared, { maxWidth: 100, lineHeight: 16 })
   })
 })
 

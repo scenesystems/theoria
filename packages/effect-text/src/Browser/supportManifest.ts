@@ -136,7 +136,7 @@ const defaultBrowserSupportProfile: BrowserSupportProfileType = {
   parityCases,
   caveats: [
     "Named-font browser coverage is limited to the checked-in Mono control family and its monospace fallback stack.",
-    "This control profile is the baseline browser envelope for direct named-font parity checks."
+    "Parity claims cover only the released `normal` and `pre-wrap` white-space modes plus the checked-in browser parity cases; alternate named fonts, fallback stacks, and shaping-engine parity outside those artifacts remain outside the shipped surface."
   ]
 }
 
@@ -161,7 +161,7 @@ const systemUiBrowserSupportProfile: BrowserSupportProfileType = {
   parityCases,
   caveats: [
     "The browser chooses the concrete UI font for this profile, so parity claims cover the resolved browser-default `system-ui` stack rather than one named font file.",
-    "Layout stays data-driven through the profile engine settings; the pure layout plane never inspects user agents."
+    "Support covers only the released `normal` and `pre-wrap` white-space modes plus the checked-in browser parity cases; user-agent-specific fallback changes, alternate UI stacks, and shaping-engine parity outside those artifacts remain outside the shipped surface."
   ]
 }
 

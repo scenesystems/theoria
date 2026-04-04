@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Match } from "effect"
+import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { MeasurementFailed } from "../../Errors/index.js"
@@ -29,13 +29,21 @@ import {
   ZERO_WIDTH_SPACE
 } from "./analysis.js"
 import { containsUnsupportedBidiControls, mirrorText } from "./bidi.js"
+import {
+  type HyphenatedPiece,
+  type HyphenationBreakOpportunity,
+  splitDictionaryHyphenationPieces
+} from "./hyphenation.js"
 
 type Measure = (text: string) => Effect.Effect<number, MeasurementFailed>
+type HyphenateWord = (word: string) => Effect.Effect<ReadonlyArray<number>>
 
 type PreparationContext = Readonly<{
   baseDirection: BaseTextDirectionType
+  dictionaryHyphenationEnabled: boolean
   engineProfile: EngineProfileType
   hyphenWidth: number
+  hyphenateWord: HyphenateWord
   measure: Measure
   tabStopAdvance: number
 }>
@@ -53,8 +61,14 @@ type PreparedBidiGraphemeData = Readonly<{
   mirroredGraphemes: ReadonlyArray<string>
 }>
 
+type HyphenationRun = Readonly<{
+  hyphenate: boolean
+  text: string
+}>
+
 const isZeroWidthControlText = (text: string): boolean => text === ZERO_WIDTH_SPACE || text === WORD_JOINER
 const preparedBreakKind = (value: PreparedBreakKindType): PreparedBreakKindType => value
+const hyphenatableTextPattern = /^[\p{Letter}\p{Mark}]+$/u
 
 const lastOrElse = <A>(values: ReadonlyArray<A>, fallback: A): A =>
   values.length === 0 ? fallback : values[values.length - 1] ?? fallback
@@ -77,7 +91,15 @@ const preparedTextBreakKindFor = (segment: PreparedSegmentType): PreparedBreakKi
     Match.when(ZERO_WIDTH_SPACE, () => preparedBreakKind("zero-width-break")),
     Match.when(WORD_JOINER, () => preparedBreakKind("glue")),
     Match.when(NO_BREAK_SPACE, () => preparedBreakKind("glue")),
-    Match.orElse(() => preparedBreakKind(segment.breakOpportunity === "soft-hyphen" ? "soft-hyphen" : "text"))
+    Match.orElse(() =>
+      preparedBreakKind(
+        segment.breakOpportunity === "soft-hyphen"
+          ? "soft-hyphen"
+          : segment.breakOpportunity === "dictionary-hyphen"
+          ? "dictionary-hyphen"
+          : "text"
+      )
+    )
   )
 
 const compilePreparedBidiGraphemeData = (
@@ -107,7 +129,7 @@ const makeTextSegment = (
   graphemes: ReadonlyArray<string>,
   graphemeAdvances: ReadonlyArray<number>,
   fitPrefixWidths: ReadonlyArray<number>,
-  breakAfter: boolean,
+  breakOpportunity: HyphenationBreakOpportunity,
   breakWidth: number,
   baseDirection: BaseTextDirectionType
 ): PreparedSegmentType => {
@@ -122,9 +144,9 @@ const makeTextSegment = (
     fitWidth,
     direction,
     bidiLevel: bidiLevelForDirection(direction, baseDirection),
-    breakOpportunity: breakAfter ? "soft-hyphen" : "none",
-    breakText: breakAfter ? "-" : "",
-    breakWidth: breakAfter ? breakWidth : 0,
+    breakOpportunity,
+    breakText: breakOpportunity === "none" ? "" : "-",
+    breakWidth: breakOpportunity === "none" ? 0 : breakWidth,
     graphemes,
     graphemeAdvances,
     fitPrefixWidths,
@@ -175,8 +197,53 @@ const makeHardBreakSegment = (baseDirection: BaseTextDirectionType): PreparedSeg
 const cumulativeTexts = (parts: ReadonlyArray<string>): ReadonlyArray<string> =>
   Arr.reduce(parts, Arr.empty<string>(), (texts, part) => Arr.append(texts, lastOrElse(texts, "") + part))
 
-const cumulativePieceTexts = (pieces: ReadonlyArray<readonly [string, boolean]>): ReadonlyArray<string> =>
-  cumulativeTexts(Arr.map(pieces, (piece) => piece[0]))
+const hyphenationRuns = (text: string): ReadonlyArray<HyphenationRun> =>
+  Arr.reduce(graphemeClusters(text), Arr.empty<HyphenationRun>(), (runs, grapheme) => {
+    const hyphenate = hyphenatableTextPattern.test(grapheme)
+
+    return Arr.last(runs).pipe(
+      Option.match({
+        onNone: () => Arr.of({ hyphenate, text: grapheme }),
+        onSome: (previousRun) =>
+          previousRun.hyphenate === hyphenate
+            ? Arr.append(
+              Arr.take(runs, Math.max(runs.length - 1, 0)),
+              {
+                hyphenate,
+                text: `${previousRun.text}${grapheme}`
+              }
+            )
+            : Arr.append(runs, { hyphenate, text: grapheme })
+      })
+    )
+  })
+
+const hyphenatedRunPieces = (
+  run: HyphenationRun,
+  hyphenateWord: HyphenateWord,
+  finalBreakOpportunity: HyphenationBreakOpportunity
+): Effect.Effect<ReadonlyArray<HyphenatedPiece>> =>
+  run.hyphenate
+    ? hyphenateWord(run.text).pipe(
+      Effect.map((breakPoints) => splitDictionaryHyphenationPieces(run.text, breakPoints, finalBreakOpportunity))
+    )
+    : Effect.succeed(Arr.of({ breakOpportunity: finalBreakOpportunity, text: run.text }))
+
+const hyphenatedTextPieces = (
+  text: string,
+  hyphenateWord: HyphenateWord,
+  dictionaryHyphenationEnabled: boolean
+): Effect.Effect<ReadonlyArray<HyphenatedPiece>> =>
+  Effect.forEach(splitSoftHyphenPieces(text), (piece) => {
+    const runs = dictionaryHyphenationEnabled ? hyphenationRuns(piece[0]) : Arr.of({ hyphenate: false, text: piece[0] })
+
+    return Effect.forEach(runs, (run, runIndex) =>
+      hyphenatedRunPieces(
+        run,
+        hyphenateWord,
+        piece[1] && runIndex === runs.length - 1 ? "soft-hyphen" : "none"
+      )).pipe(Effect.map(Arr.flatten))
+  }).pipe(Effect.map(Arr.flatten))
 
 const measureGraphemeData = (
   text: string,
@@ -236,49 +303,49 @@ const measureGraphemeData = (
 const prepareTextSegment = (
   segment: TextSegmentType,
   context: PreparationContext
-): Effect.Effect<ReadonlyArray<PreparedSegmentType>, MeasurementFailed> => {
-  const pieces = splitSoftHyphenPieces(segment.text)
-
-  if (pieces.length === 0) {
-    return Effect.succeed([])
-  }
-
-  const fitMeasurementTexts = pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
-    ? cumulativePieceTexts(pieces)
-    : Arr.map(pieces, (piece) => piece[0])
-
-  return Effect.forEach(fitMeasurementTexts, context.measure).pipe(
-    Effect.flatMap((fitPieceWidths) =>
-      Effect.forEach(
-        pieces,
-        (piece, index) =>
-          measureGraphemeData(piece[0], context.measure, context.engineProfile.preferPrefixWidthsForBreakableRuns).pipe(
-            Effect.map((graphemeData) => {
-              const fitWidth = isZeroWidthControlText(piece[0])
-                ? 0
-                : pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
-                ? widthFromPrefixMeasurements(fitPieceWidths, index)
-                : graphemeData.fitWidth
-
-              return (
-                makeTextSegment(
-                  piece[0],
-                  graphemeData.paintWidth,
-                  fitWidth,
-                  graphemeData.graphemes,
-                  graphemeData.graphemeAdvances,
-                  graphemeData.fitPrefixWidths,
-                  piece[1],
-                  context.hyphenWidth,
-                  context.baseDirection
-                )
-              )
-            })
-          )
-      )
+): Effect.Effect<ReadonlyArray<PreparedSegmentType>, MeasurementFailed> =>
+  Effect.gen(function*() {
+    const pieces = yield* hyphenatedTextPieces(
+      segment.text,
+      context.hyphenateWord,
+      context.dictionaryHyphenationEnabled
     )
-  )
-}
+
+    if (pieces.length === 0) {
+      return []
+    }
+
+    const fitMeasurementTexts = pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
+      ? cumulativeTexts(Arr.map(pieces, (piece) => piece.text))
+      : Arr.map(pieces, (piece) => piece.text)
+    const fitPieceWidths = yield* Effect.forEach(fitMeasurementTexts, context.measure)
+
+    return yield* Effect.forEach(
+      pieces,
+      (piece, index) =>
+        measureGraphemeData(piece.text, context.measure, context.engineProfile.preferPrefixWidthsForBreakableRuns).pipe(
+          Effect.map((graphemeData) => {
+            const fitWidth = isZeroWidthControlText(piece.text)
+              ? 0
+              : pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
+              ? widthFromPrefixMeasurements(fitPieceWidths, index)
+              : graphemeData.fitWidth
+
+            return makeTextSegment(
+              piece.text,
+              graphemeData.paintWidth,
+              fitWidth,
+              graphemeData.graphemes,
+              graphemeData.graphemeAdvances,
+              graphemeData.fitPrefixWidths,
+              piece.breakOpportunity,
+              context.hyphenWidth,
+              context.baseDirection
+            )
+          })
+        )
+    )
+  })
 
 const prepareWhitespaceSegment = (
   segment: TextSegmentType,
@@ -399,7 +466,9 @@ export const prepareSegments = (
   whiteSpace: WhiteSpaceModeType,
   engineProfile: EngineProfileType,
   baseDirection: BaseTextDirectionType,
-  measure: Measure
+  measure: Measure,
+  hyphenateWord: HyphenateWord,
+  shouldMeasureDictionaryHyphenWidth: boolean
 ): Effect.Effect<
   {
     readonly kernelRuntime: PreparedRuntimeTablesType
@@ -408,17 +477,19 @@ export const prepareSegments = (
   MeasurementFailed
 > =>
   Effect.gen(function*() {
-    const needsSoftHyphenWidth = Arr.some(
+    const needsDiscretionaryHyphenWidth = Arr.some(
       segments,
-      (segment) => segment.kind === "text" && segment.text.includes(SOFT_HYPHEN)
+      (segment) => segment.kind === "text" && (segment.text.includes(SOFT_HYPHEN) || shouldMeasureDictionaryHyphenWidth)
     )
     const needsTabStopAdvance = Arr.some(segments, (segment) => segment.kind === "space" && segment.text.includes("\t"))
-    const hyphenWidth = needsSoftHyphenWidth ? yield* measure("-") : 0
+    const hyphenWidth = needsDiscretionaryHyphenWidth ? yield* measure("-") : 0
     const tabStopAdvance = needsTabStopAdvance ? (yield* measure(" ")) * engineProfile.tabWidth : 0
     const context: PreparationContext = {
       baseDirection,
+      dictionaryHyphenationEnabled: shouldMeasureDictionaryHyphenWidth,
       engineProfile,
       hyphenWidth,
+      hyphenateWord,
       measure,
       tabStopAdvance
     }
