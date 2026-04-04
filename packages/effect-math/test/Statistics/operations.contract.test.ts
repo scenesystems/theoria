@@ -15,6 +15,7 @@ import {
   minimum,
   minimumValidated,
   standardDeviation,
+  summaryStatistics,
   summaryStatisticsValidated,
   summaryStatisticsWithPolicies,
   variance,
@@ -69,6 +70,20 @@ describe("Statistics / standardDeviation", () => {
   it.effect("computes standard deviation of [1, 3]", () =>
     Effect.gen(function*() {
       expect(standardDeviation(Chunk.fromIterable([1, 3]))).toBeCloseTo(Math.sqrt(2))
+    }))
+})
+
+describe("Statistics / summaryStatistics", () => {
+  it.effect("computes descriptive statistics for a non-empty chunk", () =>
+    Effect.gen(function*() {
+      const result = summaryStatistics(Chunk.make(1, 2, 3, 4, 5))
+      expect(result._tag).toStrictEqual("SummaryStatistics")
+      expect(result.mean).toStrictEqual(3)
+      expect(result.count).toStrictEqual(5)
+      expect(result.min).toStrictEqual(1)
+      expect(result.max).toStrictEqual(5)
+      expect(result.variance).toStrictEqual(2.5)
+      expect(result.standardDeviation).toBeCloseTo(Math.sqrt(2.5))
     }))
 })
 
