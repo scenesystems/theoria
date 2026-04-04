@@ -9,14 +9,9 @@ import { parseTypeScript, readProjectFile, variableInitializerTexts } from "@the
 import { Browser, Contracts, Text } from "../../src/index.js"
 
 const packageRootUrl = new URL("../../", import.meta.url)
-
-const defaultEngineProfile: Text.EngineProfileType = {
-  lineFitEpsilon: 0.005,
-  tabWidth: 4,
-  defaultDirection: "ltr",
-  preferEarlySoftHyphenBreak: false,
-  preferPrefixWidthsForBreakableRuns: true
-}
+const browserProfiles = Browser.BrowserSupportManifest.profiles
+const browserProfile = Browser.browserSupportProfile()
+const defaultEngineProfile = browserProfile.engineProfile
 
 const visualLine = (
   index: number,
@@ -111,12 +106,14 @@ const browserLayer = (
     textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
     measureText: (text: string) => { readonly width: number }
   },
-  emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
+  fontReadinessRevision: Browser.FontReadinessRevisionType,
+  emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string },
+  profile: Browser.BrowserSupportProfileType = browserProfile
 ) =>
   Layer.mergeAll(
     Text.WordSegmenterLive,
-    Text.EngineProfileLive,
-    Text.MeasurementCacheLive.pipe(
+    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
+    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: profile.id }).pipe(
       Layer.provide(
         Option.match(Option.fromNullable(emojiCorrection), {
           onNone: () => Browser.CanvasTextMeasurerLive({ context }),
@@ -130,18 +127,55 @@ const browserLayer = (
     )
   )
 
-const browserPreparationLayer = (context: {
-  direction: "ltr" | "rtl" | "inherit"
-  font: string
-  textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-  measureText: (text: string) => { readonly width: number }
-}) =>
+const browserPreparationLayer = (
+  context: {
+    direction: "ltr" | "rtl" | "inherit"
+    font: string
+    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
+    measureText: (text: string) => { readonly width: number }
+  },
+  fontReadinessRevision: Browser.FontReadinessRevisionType,
+  profile: Browser.BrowserSupportProfileType = browserProfile
+) =>
   Layer.mergeAll(
     Text.WordSegmenterLive,
-    Text.MeasurementCacheLive.pipe(Layer.provide(Browser.CanvasTextMeasurerLive({ context })))
+    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: profile.id }).pipe(
+      Layer.provide(Browser.CanvasTextMeasurerLive({ context }))
+    )
+  )
+
+const deterministicLayer = (profile: Browser.BrowserSupportProfileType) =>
+  Layer.mergeAll(
+    Text.WordSegmenterLive,
+    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
+    Text.MeasurementCacheLive.pipe(
+      Layer.provide(
+        Layer.succeed(Contracts.TextMeasurer, {
+          measure: (_font: Text.FontDescriptorType, text: string) => Effect.succeed(text.length * 10)
+        })
+      )
+    )
   )
 
 describe("Text browser runtime contracts", () => {
+  it.effect("browser support manifest ships multiple profiles with explicit engine and tab policy data", () =>
+    Effect.sync(() => {
+      const profileIds = Arr.map(browserProfiles, (profile) => profile.id)
+
+      expect(profileIds).toEqual(["canvas-monospace", "canvas-system-ui"])
+      expect(browserProfiles[0]?.fontSelection).toBe("named-family")
+      expect(browserProfiles[0]?.fontStack).toEqual(["Mono", "monospace"])
+      expect(browserProfiles[1]?.fontSelection).toBe("browser-default-stack")
+      expect(browserProfiles[1]?.fontStack).toEqual(["system-ui", "sans-serif"])
+      expect(Arr.every(browserProfiles, (profile) => profile.tabPolicy.mode === "space-columns")).toBe(true)
+      expect(Arr.every(browserProfiles, (profile) => profile.engineProfile.tabWidth === profile.tabPolicy.columns))
+        .toBe(true)
+      expect(
+        (browserProfiles[1]?.engineProfile.lineFitEpsilon ?? 0) >
+          (browserProfiles[0]?.engineProfile.lineFitEpsilon ?? 0)
+      ).toBe(true)
+    }))
+
   it.effect("CanvasTextMeasurerLive is concurrency-safe under repeated prepare calls", () =>
     Effect.gen(function*() {
       const initializerCalls = yield* readInitializerCallExpressions(
@@ -150,12 +184,12 @@ describe("Text browser runtime contracts", () => {
       ).pipe(Effect.provide(BunContext.layer))
       const context = new MonospaceCanvasContext()
       const inputs: ReadonlyArray<Text.PrepareInputType> = Arr.make(
-        prepareInput("alpha beta", { family: "Mono", size: 10 }, "normal"),
-        prepareInput("beta gamma", { family: "Mono", size: 10 }, "normal"),
-        prepareInput("gamma delta", { family: "Mono", size: 12 }, "normal"),
-        prepareInput("delta\tepsilon", { family: "Mono", size: 10 }, "pre-wrap"),
-        prepareInput("zeta\u00adeta", { family: "Mono", size: 10 }, "normal"),
-        prepareInput("theta\n iota", { family: "Mono", size: 10 }, "pre-wrap")
+        prepareInput("alpha beta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
+        prepareInput("beta gamma", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
+        prepareInput("gamma delta", { family: browserProfile.defaultFontFamily, size: 12 }, "normal"),
+        prepareInput("delta\tepsilon", { family: browserProfile.defaultFontFamily, size: 10 }, "pre-wrap"),
+        prepareInput("zeta\u00adeta", { family: browserProfile.defaultFontFamily, size: 10 }, "normal"),
+        prepareInput("theta\n iota", { family: browserProfile.defaultFontFamily, size: 10 }, "pre-wrap")
       )
 
       const summaries = yield* Effect.forEach(
@@ -165,7 +199,7 @@ describe("Text browser runtime contracts", () => {
             Effect.map((prepared) => Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }))
           ),
         { concurrency: "unbounded" }
-      ).pipe(Effect.provide(browserLayer(context)))
+      ).pipe(Effect.provide(browserLayer(context, Browser.initialFontReadinessRevision())))
 
       expect(containsString(initializerCalls, "Effect.makeSemaphore")).toBe(true)
       expect(containsString(initializerCalls, "contextSemaphore.withPermits")).toBe(true)
@@ -178,16 +212,16 @@ describe("Text browser runtime contracts", () => {
 
   it.effect("emoji correction remains optional and additive", () =>
     Effect.gen(function*() {
-      const correctedLayer = browserLayer(new EmojiCanvasContext(), true)
-      const rawLayer = browserLayer(new EmojiCanvasContext(), false)
+      const correctedLayer = browserLayer(new EmojiCanvasContext(), Browser.initialFontReadinessRevision(), true)
+      const rawLayer = browserLayer(new EmojiCanvasContext(), Browser.initialFontReadinessRevision(), false)
       const emojiInput: Text.PrepareInputType = {
         text: "A🙂B",
-        font: { family: "Mono", size: 12 },
+        font: { family: browserProfile.defaultFontFamily, size: 12 },
         whiteSpace: "normal"
       }
       const plainInput: Text.PrepareInputType = {
         text: "AB",
-        font: { family: "Mono", size: 12 },
+        font: { family: browserProfile.defaultFontFamily, size: 12 },
         whiteSpace: "normal"
       }
 
@@ -220,9 +254,11 @@ describe("Text browser runtime contracts", () => {
   it.effect("prepared text can be invalidated or refreshed when font readiness changes", () =>
     Effect.gen(function*() {
       const context = new MonospaceCanvasContext()
+      const baseRevision = Browser.initialFontReadinessRevision()
+      const refreshedRevision = Browser.incrementFontReadinessRevision(baseRevision)
       const input: Text.PrepareInputType = {
         text: "alpha beta",
-        font: { family: "Mono", size: 10 },
+        font: { family: browserProfile.defaultFontFamily, size: 10 },
         whiteSpace: "normal"
       }
       const request = { maxWidth: 200, lineHeight: 12 }
@@ -239,10 +275,10 @@ describe("Text browser runtime contracts", () => {
         )
 
         return { before, stale }
-      }).pipe(Effect.provide(browserLayer(context)))
+      }).pipe(Effect.provide(browserLayer(context, baseRevision)))
 
       const refreshed = yield* Text.prepare(input).pipe(
-        Effect.provide(browserLayer(context)),
+        Effect.provide(browserLayer(context, refreshedRevision)),
         Effect.map((prepared) => Text.layout(prepared, request).maxLineWidth)
       )
 
@@ -251,12 +287,52 @@ describe("Text browser runtime contracts", () => {
       expect(refreshed).toBe(200)
     }))
 
+  it.effect("tab semantics stay stable across deterministic and browser-backed measurement layers", () =>
+    Effect.gen(function*() {
+      const request = { maxWidth: 100, lineHeight: 12 }
+      const results = yield* Effect.forEach(browserProfiles, (profile) =>
+        Effect.all({
+          browserLines: Text.prepareWithSegments({
+            text: "a\tb",
+            font: { family: profile.defaultFontFamily, size: 10 },
+            whiteSpace: "pre-wrap"
+          }).pipe(
+            Effect.provide(
+              browserLayer(new MonospaceCanvasContext(), Browser.initialFontReadinessRevision(), undefined, profile)
+            ),
+            Effect.map((prepared) => Text.layoutLines(prepared, request))
+          ),
+          deterministicLines: Text.prepareWithSegments({
+            text: "a\tb",
+            font: { family: profile.defaultFontFamily, size: 10 },
+            whiteSpace: "pre-wrap"
+          }).pipe(
+            Effect.provide(deterministicLayer(profile)),
+            Effect.map((prepared) => Text.layoutLines(prepared, request))
+          )
+        }).pipe(
+          Effect.map(({ browserLines, deterministicLines }) => ({
+            browserLines,
+            deterministicLines,
+            tabWidth: profile.engineProfile.tabWidth
+          }))
+        ))
+
+      yield* Effect.forEach(results, (result) =>
+        Effect.sync(() => {
+          expect(result.tabWidth).toBe(4)
+          expect(result.browserLines).toEqual([visualLine(0, "a\tb", 50)])
+          expect(result.deterministicLines).toEqual([visualLine(0, "a\tb", 50)])
+        }), { discard: true })
+    }))
+
   it.effect("measurement cache freshness policy is explicit after font or engine changes", () =>
     Effect.gen(function*() {
       const context = new MonospaceCanvasContext()
+      const fontReadinessRevision = Browser.initialFontReadinessRevision()
       const baseInput: Text.PrepareInputType = {
         text: "ab\u00adcd\u00adef",
-        font: { family: "Mono", size: 10 },
+        font: { family: browserProfile.defaultFontFamily, size: 10 },
         whiteSpace: "normal"
       }
       const largerFontInput: Text.PrepareInputType = {
@@ -291,7 +367,7 @@ describe("Text browser runtime contracts", () => {
           lateLines: Text.layoutLines(latePrepared, request),
           largerSummary: Text.layout(largePrepared, { maxWidth: 200, lineHeight: 12 })
         }
-      }).pipe(Effect.provide(browserPreparationLayer(context)))
+      }).pipe(Effect.provide(browserPreparationLayer(context, fontReadinessRevision)))
 
       expect(result.callsAfterEarly).toBeGreaterThan(0)
       expect(result.callsAfterEngineChange).toBe(result.callsAfterEarly)

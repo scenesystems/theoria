@@ -21,7 +21,8 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Prepare/layout split** — effectful preparation, pure arithmetic layout
 - **Deterministic default layer** — width estimator that works in tests, SSR, and server contexts without a browser
 - **Additive browser measurement** — swap in `CanvasTextMeasurerLive` for `CanvasRenderingContext2D.measureText` without changing application code
-- **Shared measurement cache** — Effect `Cache`-backed deduplication across prepare calls
+- **Explicit browser freshness** — browser caches and prepared-handle reuse can key off a named browser profile plus a font-readiness revision
+- **Shared measurement cache** — Effect `Cache`-backed deduplication across prepare calls, with a browser-specific cache keyed by full font signature and explicit freshness state
 - **Multiple layout projections** — summary, full lines, per-line width resolution, cursor stepping, or `Stream`
 - **Typed errors** — `MeasurementFailed` and `TextLayoutDecodeError` with tagged error channels
 - **Emoji correction** — one-time probe for browsers with weak complex-emoji measurement
@@ -107,7 +108,7 @@ The live layer is composed from four services:
 | ---------------------------- | ----------------------------------------------------------------- |
 | `Contracts.WordSegmenter`    | Builds `text`, `space`, and `hard-break` segments                 |
 | `Contracts.TextMeasurer`     | Converts font + text into a pixel width                           |
-| `Contracts.MeasurementCache` | Shared `Cache` keyed by font/text identity                        |
+| `Contracts.MeasurementCache` | Shared `Cache` keyed by the active measurement identity           |
 | `Contracts.EngineProfile`    | Runtime fit tolerance, tab stops, bidi defaults, and break quirks |
 
 Browser-specific behavior is not ambient global state — it is data and services provided through `Layer`.
@@ -147,15 +148,18 @@ const program = Effect.gen(function* () {
 })
 ```
 
-The `MeasurementCache` deduplicates calls to `TextMeasurer` — identical font/text pairs hit the cache instead of re-measuring.
+The deterministic `MeasurementCache` deduplicates calls to `TextMeasurer` by font/text identity. In the browser lane, `Browser.BrowserMeasurementCacheLive` also keys cache entries by the browser support profile and a font-readiness revision so cached widths can be refreshed when named fonts become ready.
 
 ## Browser canvas measurement
 
-Swap in `CanvasTextMeasurerLive` to use `CanvasRenderingContext2D.measureText`. The prepare/layout split stays the same — only the measurement service changes:
+Swap in `CanvasTextMeasurerLive` to use `CanvasRenderingContext2D.measureText`. The prepare/layout split stays the same — only the measurement and cache layers change. `Browser.BrowserSupportManifest` holds the supported browser profiles, and `Browser.BrowserMeasurementCacheLive` takes the active support profile plus the font-readiness revision used for cache freshness:
 
 ```ts
 import { Effect, Layer } from "effect"
-import { Browser, Text } from "effect-text"
+import { Browser, Contracts, Text } from "effect-text"
+
+const browserProfile = Browser.browserSupportProfile()
+const fontReadinessRevision = Browser.initialFontReadinessRevision()
 
 // Provide a real CanvasRenderingContext2D in the browser
 const canvasLayer = Browser.CanvasTextMeasurerLive({
@@ -166,22 +170,40 @@ const canvasLayer = Browser.CanvasTextMeasurerLive({
 
 const services = Layer.mergeAll(
   Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(Layer.provide(canvasLayer))
+  Layer.succeed(Contracts.EngineProfile, browserProfile.engineProfile),
+  Browser.BrowserMeasurementCacheLive({
+    fontReadinessRevision,
+    profileId: browserProfile.id
+  }).pipe(Layer.provide(canvasLayer))
 )
 
 const prepared =
   yield *
   Text.prepare({
     text: "Canvas-backed measurement.",
-    font: { family: "system-ui", size: 16 },
-    whiteSpace: "normal"
+    font: { family: browserProfile.defaultFontFamily, size: 16 },
+    whiteSpace: browserProfile.defaultWhiteSpaceMode
   }).pipe(Effect.provide(services))
 ```
 
-The canvas layer preserves deterministic caching through `MeasurementCache` and can apply a one-time emoji probe so browsers with weak complex-emoji measurement still produce stable widths.
+If named-font readiness changes, bump the revision with `Browser.incrementFontReadinessRevision`, rebuild the browser cache layer, and prepare again against the new cache revision.
+
+The canvas layer can apply a one-time emoji probe so browsers with weak complex-emoji measurement still produce stable widths.
 
 **`emojiCorrection`** accepts `true` for defaults or `{ minimumAdvanceMultiplier, probe }` for fine-grained control.
+
+### Browser support manifest
+
+`Browser.BrowserSupportManifest` currently records two shipped browser profiles:
+
+- `canvas-monospace`: named-family control profile with default family `Mono`, fallback stack `Mono, monospace`, `whiteSpace` coverage for `normal` and `pre-wrap`, and the full browser parity case set
+- `canvas-system-ui`: browser-default UI stack profile with default family `system-ui`, fallback stack `system-ui, sans-serif`, the same `whiteSpace` coverage and parity cases, and a slightly looser fit epsilon for browser-resolved UI fonts
+
+Each shipped profile also publishes the `Contracts.EngineProfile` data that the pure layout plane should consume. Browser-specific fit heuristics and break preferences stay in that profile data rather than in user-agent inspection or app-local conditionals.
+
+The shipped `tabWidth` policy is explicit and shared across both browser profiles: `tabWidth: 4`, interpreted as CSS-style tab stops aligned to four space columns measured from the active space advance. The browser runtime and deterministic runtime both consume that same policy through `Contracts.EngineProfile`, so `a\tb` projects with the same tab semantics in both lanes.
+
+This is plain support data. It exists so the browser README/example/test surface can describe the same supported configuration without duplicating literals in multiple places.
 
 ## Per-line width resolution
 
@@ -341,13 +363,13 @@ const safe = Text.prepareUnknown(untrustedInput).pipe(
 import { Browser, Contracts, Errors, Experimental, Text } from "effect-text"
 ```
 
-| Module         | Key exports                                                                                                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive` |
-| `Browser`      | `CanvasTextMeasurerLive`                                                                                                                                                                                                                          |
-| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                   |
-| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                      |
-| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                           |
+| Module         | Key exports                                                                                                                                                                                                                                                            |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive`                      |
+| `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision` |
+| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                        |
+| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                           |
+| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                |
 
 Subpath imports are also available: `import * as Text from "effect-text/Text"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 
@@ -371,9 +393,11 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 This first release is intentionally a foundation rather than full browser parity.
 
-**Included:** deterministic measurement caching, optional canvas measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
 
-**Not yet included:** dictionary-driven hyphenation, canvas font-loading orchestration, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+**Not yet included:** dictionary-driven hyphenation, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+
+**Current named-font browser envelope:** the browser support data currently covers the checked-in `canvas-monospace` configuration with the `Mono` family. `system-ui`, generic browser font fallback stacks, and untested named fonts remain outside the current parity claims.
 
 **Explicit bidi non-goals for the current surface:** explicit Unicode bidi control characters, selection/copy-paste semantics, and shaping-engine parity outside the tested named-font envelope. Formatting controls are detected as an unsupported branch during preparation; `effect-text` does not claim control-aware Unicode bidi parity beyond the shipped mirror table and mixed-direction visual ordering tests.
 

@@ -15,7 +15,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect, Layer, Match } from "effect"
 
-import { Browser, Text } from "effect-text"
+import { Browser, Contracts, Text } from "effect-text"
 
 class DemoCanvasContext {
   direction: "inherit" = "inherit"
@@ -35,10 +35,12 @@ class DemoCanvasContext {
 }
 
 const program = Effect.gen(function*() {
+  const browserProfile = Browser.browserSupportProfile("canvas-system-ui")
+  const fontReadinessRevision = Browser.initialFontReadinessRevision()
   const services = Layer.mergeAll(
     Text.WordSegmenterLive,
-    Text.EngineProfileLive,
-    Text.MeasurementCacheLive.pipe(
+    Layer.succeed(Contracts.EngineProfile, browserProfile.engineProfile),
+    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: browserProfile.id }).pipe(
       Layer.provide(
         Browser.CanvasTextMeasurerLive({
           context: new DemoCanvasContext(),
@@ -51,11 +53,15 @@ const program = Effect.gen(function*() {
 
   const prepared = yield* Text.prepareWithSegments({
     text: "A🙂B",
-    font: { family: "Mono", size: 12 },
-    whiteSpace: "normal"
+    font: { family: browserProfile.defaultFontFamily, size: 12 },
+    whiteSpace: browserProfile.defaultWhiteSpaceMode
   }).pipe(Effect.provide(services))
 
   yield* Effect.log("canvas-backed measurement", {
+    browserEngineProfile: browserProfile.engineProfile,
+    browserProfile: browserProfile.id,
+    browserTabPolicy: browserProfile.tabPolicy,
+    fontReadinessRevision,
     summary: Text.layout(prepared, { maxWidth: 100, lineHeight: 16 }),
     lines: Text.layoutLines(prepared, { maxWidth: 100, lineHeight: 16 })
   })

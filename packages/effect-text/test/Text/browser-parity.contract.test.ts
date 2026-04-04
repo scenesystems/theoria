@@ -2,7 +2,10 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
-import { Browser, Text } from "../../src/index.js"
+import { Browser, Contracts, Text } from "../../src/index.js"
+
+const browserProfiles = Browser.BrowserSupportManifest.profiles
+const fontReadinessRevision = Browser.initialFontReadinessRevision()
 
 const visualLine = (
   index: number,
@@ -27,11 +30,11 @@ class BrowserParityCanvasContext {
   }
 }
 
-const browserLayer = () =>
+const browserLayer = (profile: Browser.BrowserSupportProfileType) =>
   Layer.mergeAll(
     Text.WordSegmenterLive,
-    Text.EngineProfileLive,
-    Text.MeasurementCacheLive.pipe(
+    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
+    Browser.BrowserMeasurementCacheLive({ fontReadinessRevision, profileId: profile.id }).pipe(
       Layer.provide(
         Browser.CanvasTextMeasurerLive({
           context: new BrowserParityCanvasContext()
@@ -53,97 +56,102 @@ const expectSummaryToMatchLines = (
   expect(summary.maxLineWidth).toBe(widestLineWidth(lines))
 }
 
+const expectProfileLayout = (
+  profile: Browser.BrowserSupportProfileType,
+  input: {
+    readonly text: string
+    readonly whiteSpace: Text.WhiteSpaceModeType
+  },
+  request: Text.LayoutRequestType,
+  expectedLines: ReadonlyArray<Text.LayoutLineType>
+) =>
+  Effect.gen(function*() {
+    const prepared = yield* Text.prepareWithSegments({
+      text: input.text,
+      font: { family: profile.defaultFontFamily, size: 10 },
+      whiteSpace: input.whiteSpace
+    }).pipe(Effect.provide(browserLayer(profile)))
+    const lines = Text.layoutLines(prepared, request)
+
+    expect(lines).toEqual(expectedLines)
+    expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+  })
+
 describe("Text browser parity contracts", () => {
   it.effect("matches browser layout for white-space normal", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 100, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha beta gamma",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([
-        visualLine(0, "alpha beta", 100),
-        visualLine(1, "gamma", 50)
-      ])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(browserProfiles, (profile) =>
+        Effect.sync(() =>
+          expect(profile.whiteSpaceModes).toContain("normal")
+        ).pipe(
+          Effect.zipRight(
+            expectProfileLayout(profile, { text: "alpha beta gamma", whiteSpace: "normal" }, request, [
+              visualLine(0, "alpha beta", 100),
+              visualLine(1, "gamma", 50)
+            ])
+          )
+        ), { discard: true })
     }))
 
   it.effect("matches browser layout for white-space pre-wrap", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 200, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha  beta",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([visualLine(0, "alpha  beta", 110)])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(browserProfiles, (profile) =>
+        Effect.sync(() =>
+          expect(profile.whiteSpaceModes).toContain("pre-wrap")
+        ).pipe(
+          Effect.zipRight(
+            expectProfileLayout(profile, { text: "alpha  beta", whiteSpace: "pre-wrap" }, request, [
+              visualLine(0, "alpha  beta", 110)
+            ])
+          )
+        ), { discard: true })
     }))
 
   it.effect("matches browser behavior for trailing whitespace and hard breaks", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 200, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha  \nbeta",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([
-        visualLine(0, "alpha  ", 70),
-        visualLine(1, "beta", 40)
-      ])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(browserProfiles, (profile) =>
+        expectProfileLayout(profile, { text: "alpha  \nbeta", whiteSpace: "pre-wrap" }, request, [
+          visualLine(0, "alpha  ", 70),
+          visualLine(1, "beta", 40)
+        ]), { discard: true })
     }))
 
   it.effect("matches browser tab advances", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 100, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "a\tb",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([visualLine(0, "a\tb", 50)])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(browserProfiles, (profile) =>
+        expectProfileLayout(profile, { text: "a\tb", whiteSpace: "pre-wrap" }, request, [
+          visualLine(0, "a\tb", 50)
+        ]), { discard: true })
     }))
 
   it.effect("matches browser soft-hyphen behavior", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 60, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha\u00adbeta",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([
-        visualLine(0, "alpha-", 60),
-        visualLine(1, "beta", 40)
-      ])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(browserProfiles, (profile) =>
+        expectProfileLayout(profile, { text: "alpha\u00adbeta", whiteSpace: "normal" }, request, [
+          visualLine(0, "alpha-", 60),
+          visualLine(1, "beta", 40)
+        ]), { discard: true })
     }))
 
-  it.effect("matches browser punctuation and mixed inline cases for the v0.2 browser profile set", () =>
+  it.effect("matches browser punctuation and mixed inline cases for every shipped browser profile", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 200, lineHeight: 12 }
-      const prepared = yield* Text.prepareWithSegments({
-        text: "(שלום) hello",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(browserLayer()))
-      const lines = Text.layoutLines(prepared, request)
-
-      expect(lines).toEqual([visualLine(0, "hello (םולש)", 120, "rtl")])
-      expectSummaryToMatchLines(Text.layout(prepared, request), lines, request.lineHeight)
+      yield* Effect.forEach(
+        browserProfiles,
+        (profile) =>
+          Effect.sync(() => expect(profile.parityCases).toContain("mixed-inline-punctuation")).pipe(
+            Effect.zipRight(
+              expectProfileLayout(profile, { text: "(שלום) hello", whiteSpace: "normal" }, request, [
+                visualLine(0, "hello (םולש)", 120, "rtl")
+              ])
+            )
+          ),
+        { discard: true }
+      )
     }))
 })

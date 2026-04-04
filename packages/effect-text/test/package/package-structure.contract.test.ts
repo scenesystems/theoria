@@ -83,7 +83,9 @@ describe("package structure contracts", () => {
       ).pipe(Effect.orDie)
 
       expect(sortStrings(srcEntries)).toStrictEqual(sortStrings(expectedSourceRoots))
-      expect(sortStrings(browserEntries)).toStrictEqual(sortStrings(["index.ts", "internal", "layers.ts"]))
+      expect(sortStrings(browserEntries)).toStrictEqual(
+        sortStrings(["fontReadiness.ts", "index.ts", "internal", "layers.ts", "supportManifest.ts"])
+      )
       expect(sortStrings(errorsEntries)).toStrictEqual(["index.ts"])
       expect(sortStrings(reactEntries)).toStrictEqual(sortStrings(["index.ts", "internal"]))
       expect(sortStrings(calibrationEntries)).toStrictEqual(
