@@ -2,14 +2,14 @@
  * GEPA optimizer event contracts.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 
 /**
  * Schema describing events emitted during GEPA optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const GEPAEventSchema = Schema.Union(
@@ -64,7 +64,7 @@ export const GEPAEventSchema = Schema.Union(
 /**
  * Events emitted during GEPA optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type GEPAEvent = typeof GEPAEventSchema.Type
@@ -72,7 +72,7 @@ export type GEPAEvent = typeof GEPAEventSchema.Type
 /**
  * Constructors and match helpers for GEPA events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const GEPAEvent = Data.taggedEnum<GEPAEvent>()

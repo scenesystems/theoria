@@ -2,7 +2,7 @@
  * Extracts {@link FieldInfo} metadata from `Schema.Struct` field
  * declarations by inspecting the Schema AST property signatures.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option, Schema, SchemaAST } from "effect"
 import { FieldDescriptionId } from "./annotations.js"
@@ -21,7 +21,7 @@ const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertyS
  * @see {@link FieldInfo} — the returned metadata model
  * @see {@link FieldDescriptionId} — the annotation symbol read
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const extractSingleFieldInfo = (
@@ -47,7 +47,7 @@ const propertySignaturesFromFields = (fields: Schema.Struct.Fields): ReadonlyArr
  * @see {@link FieldInfo}
  * @see {@link extractSingleFieldInfo} — per-field extraction
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const fieldsToInfoArray = (fields: Schema.Struct.Fields): ReadonlyArray<FieldInfo> =>

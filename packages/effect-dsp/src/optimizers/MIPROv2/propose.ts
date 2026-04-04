@@ -3,7 +3,7 @@
  * dataset summaries and demonstration context.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 import { InstructionProposalFailed } from "../../Errors/optimizer.js"
@@ -27,7 +27,7 @@ import { buildProposalPrompt, datasetSummary, promptDemosFromCandidate } from ".
  * diversity tip used, the rendered prompt, and whether this is the baseline
  * (original) instruction.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class InstructionCandidate extends Schema.Class<InstructionCandidate>("MIPROv2InstructionCandidate")({
@@ -43,7 +43,7 @@ export class InstructionCandidate extends Schema.Class<InstructionCandidate>("MI
  * Phase 2 proposals grouped by predictor — each predictor gets a baseline
  * plus `numInstructions` proposed alternatives.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class PredictorInstructionCandidates
@@ -57,7 +57,7 @@ export class PredictorInstructionCandidates
  * Phase 2 configuration — module, training set, demo candidates from
  * Phase 1, and diversity controls.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ProposeInstructionCandidatesOptions<
@@ -95,7 +95,7 @@ const baselineCandidate = (predictorName: string, instruction: string): Instruct
  * diversity tip and demonstration context from Phase 1 candidates.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const proposeInstructionCandidates = <

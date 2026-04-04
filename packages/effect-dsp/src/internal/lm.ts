@@ -1,7 +1,7 @@
 /**
  * Sole @effect/ai import site — all LLM calls route through here.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
@@ -16,7 +16,7 @@ import type * as Schema from "effect/Schema"
  * Wraps a structured-object LLM response with the decoded value,
  * raw text completion, and token usage metadata.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -30,7 +30,7 @@ export class ObjectCallResult<A> extends Data.Class<{
  * Captures the id, name, and serialized parameters of a single tool
  * invocation made during text generation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -44,7 +44,7 @@ export class TextToolCallSummary extends Data.Class<{
  * Captures the id, name, result payload, and failure status of a single
  * tool-result returned during text generation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -59,7 +59,7 @@ export class TextToolResultSummary extends Data.Class<{
  * Wraps a text-mode LLM response with the completion string, token usage,
  * and any tool interactions that occurred during generation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -80,7 +80,7 @@ type TextCallOptions<
  * Calls the language model in structured-object mode and returns the full
  * {@link ObjectCallResult} including the decoded value, raw text, and usage.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -108,7 +108,7 @@ export const callLmResponse = <A, I extends Record<string, unknown>, R>(
  *
  * @see {@link callLmResponse} for the full response variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -130,7 +130,7 @@ export const callLm = <A, I extends Record<string, unknown>, R>(
  *
  * Accepts an optional toolkit for tool-augmented generation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -184,7 +184,7 @@ export const callLmTextResponse = <
  *
  * @see {@link callLmTextResponse} for the full response variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

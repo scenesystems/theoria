@@ -1,7 +1,7 @@
 /**
  * Module parameter persistence via Schema-serializable envelopes.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Record, Ref, Schema } from "effect"
 import { SaveLoadError } from "../Errors/save-load.js"
@@ -51,7 +51,7 @@ const refsRecord = (
  * @see {@link load}
  * @see {@link SavedState}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(module: Module<I, O>) =>
@@ -79,7 +79,7 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * @see {@link save}
  * @see {@link SavedState}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(

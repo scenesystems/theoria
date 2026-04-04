@@ -1,7 +1,7 @@
 /**
  * Metric and evaluation-domain errors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -9,7 +9,7 @@ import { Schema } from "effect"
  * Raised when a metric scoring function fails during evaluation. Carries the
  * metric name for targeted error handling.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class MetricError extends Schema.TaggedError<MetricError>()(
@@ -24,7 +24,7 @@ export class MetricError extends Schema.TaggedError<MetricError>()(
  * Raised when a single example evaluation fails. Caught and collected by the
  * evaluation runtime — does not abort the full run.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>()(

@@ -4,7 +4,7 @@
  * calls.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Schema } from "effect"
 import { Array as Arr, Data, Effect, Match, Option, Order, Ref } from "effect"
@@ -30,7 +30,7 @@ const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (e
  * Configuration for LabeledFewShot — module, training set, number of demos
  * (`k`), and optional deterministic seed.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
@@ -80,7 +80,7 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
  * pseudo-random scoring for reproducible selection.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const labeledFewShot = <

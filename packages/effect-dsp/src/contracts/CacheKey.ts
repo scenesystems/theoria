@@ -1,7 +1,7 @@
 /**
  * Composite cache key for module-level memoization of LM calls.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { ModuleId } from "./ModuleId.js"
@@ -15,7 +15,7 @@ import { ModuleId } from "./ModuleId.js"
  * @see {@link ModuleId} — the module identity component
  * @see {@link ModuleParams} — parameter state that feeds the `paramsHash`
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class CacheKey extends Schema.Class<CacheKey>("CacheKey")({

@@ -1,7 +1,7 @@
 /**
  * Text generation and instruction extraction for optimizer-level LLM calls.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Option } from "effect"
 
@@ -11,7 +11,7 @@ export {
    * response. Adapter over the internal LM boundary — useful for
    * optimizer-level LLM calls outside the predict runtime.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   callLmText as generateText
@@ -24,7 +24,7 @@ export {
  * the trimmed full response when no fences are found, or to the
  * provided `fallback` when the response is empty.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const extractInstruction = (response: string, fallback: string): string => {

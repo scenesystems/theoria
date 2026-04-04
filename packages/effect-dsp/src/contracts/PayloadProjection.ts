@@ -2,7 +2,7 @@
  * Projection helpers that convert typed module payloads into the universal
  * {@link FieldRecord} shape consumed by traces, events, and optimizer state.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, Schema } from "effect"
 import { FieldRecord, type FieldRecord as FieldRecordType } from "./FieldValue.js"
@@ -16,7 +16,7 @@ import { FieldRecord, type FieldRecord as FieldRecordType } from "./FieldValue.j
  * @see {@link FieldRecord} — the target schema
  * @see {@link encodeAndProjectFieldRecord} — encode-then-project variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const projectFieldRecord = <E>(
@@ -36,7 +36,7 @@ export const projectFieldRecord = <E>(
  * @see {@link projectFieldRecord} — decode-only variant
  * @see {@link FieldRecord} — the target schema
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const encodeAndProjectFieldRecord = <A, I, R, E>(

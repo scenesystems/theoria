@@ -1,7 +1,7 @@
 /**
  * Evaluation report contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -9,7 +9,7 @@ import { Schema } from "effect"
  * Typed failure projection for a single example — captures the example index,
  * error tag, and human-readable message.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ExampleFailure extends Schema.Class<ExampleFailure>("ExampleFailure")({
@@ -22,7 +22,7 @@ export class ExampleFailure extends Schema.Class<ExampleFailure>("ExampleFailure
  * Per-example evaluation result containing metric scores, optional failure,
  * and wall-clock duration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ExampleResult extends Schema.Class<ExampleResult>("ExampleResult")({
@@ -36,7 +36,7 @@ export class ExampleResult extends Schema.Class<ExampleResult>("ExampleResult")(
  * Aggregate evaluation report — overall scores per metric, per-example
  * results, failure list, and success/failure counts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("EvaluationReport")({

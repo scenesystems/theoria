@@ -1,7 +1,7 @@
 /**
  * Closed discriminant for the optimizer algorithms shipped in effect-dsp.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -13,7 +13,7 @@ import { Schema } from "effect"
  *
  * @see {@link OptimizerEventEnvelope} — tags events with the originating optimizer kind
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const OptimizerKind = Schema.Literal(
@@ -29,7 +29,7 @@ export const OptimizerKind = Schema.Literal(
  * Inferred runtime type of {@link OptimizerKind}.
  *
  * @see {@link OptimizerKind}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type OptimizerKind = Schema.Schema.Type<typeof OptimizerKind>

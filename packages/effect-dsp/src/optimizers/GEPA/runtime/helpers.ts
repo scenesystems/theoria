@@ -1,7 +1,7 @@
 /**
  * GEPA runtime helper combinators.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option } from "effect"
 
@@ -27,7 +27,7 @@ const parseExampleIndex = (exampleId: string): number => Option.getOrElse(parseT
 /**
  * Attach optional metric feedback only when available.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withFeedback = (feedback: Option.Option<string>): Readonly<Record<string, string>> =>
@@ -39,7 +39,7 @@ export const withFeedback = (feedback: Option.Option<string>): Readonly<Record<s
 /**
  * Safe score lookup with zero fallback.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const scoreAt = (scores: ReadonlyArray<number>, index: number): number =>
@@ -48,7 +48,7 @@ export const scoreAt = (scores: ReadonlyArray<number>, index: number): number =>
 /**
  * Deterministic micro-boost used as a tie-breaker for strict mutation gate-1.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const candidateBoost = (candidateId: string): number =>
@@ -60,7 +60,7 @@ export const candidateBoost = (candidateId: string): number =>
 /**
  * Pick one predictor instruction from a candidate by predictor name.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const instructionForPredictor = (
@@ -74,7 +74,7 @@ export const instructionForPredictor = (
 /**
  * Derive one weighted parent index from the current Pareto snapshot.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const chooseParentIndex = (state: GEPAState, seed: number): number => {
@@ -86,7 +86,7 @@ export const chooseParentIndex = (state: GEPAState, seed: number): number => {
 /**
  * Derive one weighted parent pair from the current Pareto snapshot.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const chooseParentPairIndices = (state: GEPAState, seed: number): readonly [number, number] =>
@@ -97,7 +97,7 @@ export const chooseParentPairIndices = (state: GEPAState, seed: number): readonl
 /**
  * Build merge comparisons for aligned parent score vectors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildMergeComparisons = (
@@ -114,7 +114,7 @@ export const buildMergeComparisons = (
 /**
  * Project full valset scores onto the merge-comparison subsample.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const scoreVectorForComparisons = (
@@ -126,7 +126,7 @@ export const scoreVectorForComparisons = (
 /**
  * Gate merge attempts to successful prior mutation and remaining budget.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category guards
  */
 export const shouldAttemptMerge = (state: GEPAState): boolean =>

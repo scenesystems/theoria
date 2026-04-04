@@ -2,7 +2,7 @@
  * Refinement composition wrapper — iteratively improves module output
  * by feeding reward feedback back into the prompt.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Ref } from "effect"
@@ -19,7 +19,7 @@ import { makeRefineForward } from "./runtime.js"
  * @see {@link refine} — constructor that consumes this options type
  * @see {@link RewardFn} — scoring function type used by `reward`
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type RefineOptions<
@@ -68,7 +68,7 @@ export type RefineOptions<
  * @see {@link RewardFn}
  * @see {@link RefineOptions}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const refine = <

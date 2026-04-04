@@ -1,7 +1,7 @@
 /**
  * Chain-of-thought signature transformation contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, Record, Schema } from "effect"
 import { SignatureError } from "../../Errors/signature.js"
@@ -21,7 +21,7 @@ const withReasoningInstructions = (instructions: string): string => `${instructi
  * original output fields, capturing step-by-step reasoning before the
  * final answer.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ChainOfThoughtOutputFields<O extends Schema.Struct.Fields> =
@@ -42,7 +42,7 @@ const chainOfThoughtOutputFields = <O extends Schema.Struct.Fields>(
  * chain-of-thought instructions. Fails with `SignatureError` if the
  * output fields already contain a `reasoning` field.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const toChainOfThoughtSignature = <

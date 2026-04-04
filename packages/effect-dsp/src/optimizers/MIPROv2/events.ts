@@ -2,14 +2,14 @@
  * MIPROv2 optimizer event contracts.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 
 /**
  * Schema describing events emitted during MIPROv2 optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const MIPROv2EventSchema = Schema.Union(
@@ -52,7 +52,7 @@ export const MIPROv2EventSchema = Schema.Union(
 /**
  * Events emitted during MIPROv2 optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type MIPROv2Event = typeof MIPROv2EventSchema.Type
@@ -60,7 +60,7 @@ export type MIPROv2Event = typeof MIPROv2EventSchema.Type
 /**
  * Constructors and match helpers for MIPROv2 events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const MIPROv2Event = Data.taggedEnum<MIPROv2Event>()

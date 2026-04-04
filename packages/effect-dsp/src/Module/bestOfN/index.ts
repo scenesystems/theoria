@@ -2,7 +2,7 @@
  * Best-of-N composition wrapper — runs a module N times with distinct
  * rollout identities and returns the highest-scoring candidate.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Option, Ref } from "effect"
@@ -18,7 +18,7 @@ import { makeBestOfNForward, type RewardFn } from "./runtime.js"
  * @see {@link bestOfN} — constructor that consumes this options type
  * @see {@link RewardFn} — scoring function type used by `reward`
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BestOfNOptions<
@@ -63,7 +63,7 @@ export type BestOfNOptions<
  * @see {@link RewardFn}
  * @see {@link BestOfNOptions}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bestOfN = <
@@ -114,7 +114,7 @@ export {
    * @see {@link MetricResult} — the score + optional feedback returned
    * @see {@link bestOfN} — primary consumer of this type
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type RewardFn

@@ -2,7 +2,7 @@
  * Learnable parameter bundle carried by every module instance — the mutable
  * state that optimizers search over.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { Option } from "effect"
@@ -19,7 +19,7 @@ import { OutputStrategySchema } from "./OutputStrategy.js"
  * @see {@link OutputStrategySchema} — governs how output is rendered
  * @see {@link withModuleParamsDemos} — replace demos while preserving other fields
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleParams extends Schema.Class<ModuleParams>("ModuleParams")({
@@ -38,7 +38,7 @@ export class ModuleParams extends Schema.Class<ModuleParams>("ModuleParams")({
  *
  * @see {@link ModuleParams}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makeDefaultModuleParams = (instructions: string): ModuleParams =>
@@ -80,7 +80,7 @@ const mergeModuleParams = (
  *
  * @see {@link ModuleParams}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withModuleParamsDemos = (
@@ -95,7 +95,7 @@ export const withModuleParamsDemos = (
  *
  * @see {@link ModuleParams}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withModuleParamsDemosAndInstructions = (
@@ -115,7 +115,7 @@ export const withModuleParamsDemosAndInstructions = (
  *
  * @see {@link ModuleParams}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withModuleParamsInstructions = (

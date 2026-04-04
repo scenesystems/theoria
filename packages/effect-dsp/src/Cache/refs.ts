@@ -2,7 +2,7 @@
  * Fiber-local rollout identity for cache key diversity and composition
  * wrapper isolation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, FiberRef, Option } from "effect"
 
@@ -13,7 +13,7 @@ import { Effect, FiberRef, Option } from "effect"
  *
  * @see {@link withRollout} — scoped setter for this ref
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category refs
  */
 export const RolloutRef: FiberRef.FiberRef<Option.Option<number>> = FiberRef.unsafeMake(Option.none())
@@ -25,7 +25,7 @@ export const RolloutRef: FiberRef.FiberRef<Option.Option<number>> = FiberRef.uns
  *
  * @see {@link RolloutRef} — the underlying fiber-local ref
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withRollout = <A, E, R>(

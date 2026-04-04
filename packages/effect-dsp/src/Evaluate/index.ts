@@ -2,7 +2,7 @@
  * Dataset evaluation runtime — run a module against labeled examples with
  * composable metrics.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Ref, Stream } from "effect"
 import type { Schema } from "effect"
@@ -12,14 +12,14 @@ import { evaluateKernel, type EvaluateOptions, noEvents } from "./runtime/kernel
 /**
  * Report types — `Report`, `ExampleResult`, and `ExampleFailure`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 export * from "./report.js"
 
 /**
  * Lifecycle events — `EvaluationEvent` schema, constructors, and type.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 export * from "./events.js"
 
@@ -28,7 +28,7 @@ export {
    * Configuration for an evaluation run: module, examples, metrics, and
    * optional concurrency.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    * @see {@link run}
    * @see {@link stream}
@@ -46,7 +46,7 @@ const appendEvent =
  * Each example is scored by all provided metrics. Failures are caught and
  * collected — they do not abort the run.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link stream}
  * @see {@link Report}
@@ -67,7 +67,7 @@ export const run = <
  *
  * Shares the same runtime kernel as {@link run}.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link run}
  * @see {@link Report}

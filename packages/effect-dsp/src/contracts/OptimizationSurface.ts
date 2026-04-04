@@ -3,7 +3,7 @@
  * the surfaces consumed by optimizer search loops — parameter snapshots,
  * search dimensions, and ownership declarations for `effect-search` primitives.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Option, Schema } from "effect"
 import type { ModuleParams } from "./ModuleParams.js"
@@ -15,7 +15,7 @@ export {
    * alias for objective function signatures.
    *
    * @see {@link UsageSample}
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   UsageSample as OptimizationObjectiveUsage
@@ -26,7 +26,7 @@ export {
    * Convert a runtime trace entry into a stable optimization objective payload.
    *
    * @see {@link TraceObjectiveProjection}
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   projectTraceObjectiveProjection as projectOptimizationObjective,
@@ -34,7 +34,7 @@ export {
    * Deterministic trace-entry projection carrying the fields an optimizer's
    * objective function needs — I/O, tokens, timing, and score.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   TraceObjectiveProjection as OptimizationObjectiveSurface
@@ -46,7 +46,7 @@ export {
    * re-exported under an optimization-domain alias.
    *
    * @see {@link ModuleGraphProjection}
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   ModuleGraphProjection as OptimizationModuleGraphSurface,
@@ -55,7 +55,7 @@ export {
    * and root-to-node lineages.
    *
    * @see {@link ModuleGraphProjection}
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   projectModuleGraph as projectOptimizationModuleGraph
@@ -70,7 +70,7 @@ export {
  * @see {@link searchPrimitiveOwnership} — canonical instance
  * @see {@link EffectSearchInteropOwnership} — interop-specific variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class SearchPrimitiveOwnership extends Schema.Class<SearchPrimitiveOwnership>("SearchPrimitiveOwnership")({
@@ -84,7 +84,7 @@ export class SearchPrimitiveOwnership extends Schema.Class<SearchPrimitiveOwners
  *
  * @see {@link SearchPrimitiveOwnership}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
@@ -101,7 +101,7 @@ export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
  * @see {@link effectSearchInteropOwnership} — canonical instance
  * @see {@link SearchPrimitiveOwnership} — generic search variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class EffectSearchInteropOwnership extends Schema.Class<EffectSearchInteropOwnership>(
@@ -118,7 +118,7 @@ export class EffectSearchInteropOwnership extends Schema.Class<EffectSearchInter
  *
  * @see {@link EffectSearchInteropOwnership}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
@@ -137,7 +137,7 @@ export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
  * @see {@link projectOptimizationParameters} — canonical projection function
  * @see {@link ModuleParams} — the source parameter bundle
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class OptimizationParameterSurface
@@ -160,7 +160,7 @@ const OptimizationDimensionValue = Schema.Union(Schema.String, Schema.Number)
  * @see {@link projectOptimizationDimensions} — produces these from ModuleParams
  * @see {@link OptimizationParameterSurface} — the parameter snapshot they derive from
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class OptimizationDimension extends Schema.Class<OptimizationDimension>("OptimizationDimension")({
@@ -185,7 +185,7 @@ const optionalDimension = (
  * @see {@link OptimizationParameterSurface}
  * @see {@link ModuleParams}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const projectOptimizationParameters = (params: ModuleParams): OptimizationParameterSurface =>
@@ -205,7 +205,7 @@ export const projectOptimizationParameters = (params: ModuleParams): Optimizatio
  * @see {@link OptimizationDimension}
  * @see {@link projectOptimizationParameters}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const projectOptimizationDimensions = (params: ModuleParams): ReadonlyArray<OptimizationDimension> => {

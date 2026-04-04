@@ -1,7 +1,7 @@
 /**
  * ReAct iteration feedback and trace helpers.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -23,7 +23,7 @@ import { tracePayloadFromEncoded } from "../predict/trace.js"
 /**
  * ReAct loop state model.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ReactLoopState<A> = Readonly<{
@@ -56,7 +56,7 @@ const renderToolObservations = (response: TextCallResult): string =>
 /**
  * Build optional feedback payload from the accumulated iteration history.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const feedbackFromHistory = (history: ReadonlyArray<string>): Option.Option<string> =>
@@ -68,7 +68,7 @@ export const feedbackFromHistory = (history: ReadonlyArray<string>): Option.Opti
 /**
  * Render tool-observation feedback for a successful tool-call iteration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const makeToolObservationFeedback = (options: {
@@ -88,7 +88,7 @@ export const makeToolObservationFeedback = (options: {
 /**
  * Render parse-feedback for the next ReAct iteration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const makeIterationFeedback = (options: {
@@ -116,7 +116,7 @@ const traceProjectionError = (moduleName: string, carrier: "input" | "output"): 
 /**
  * Append one ReAct iteration to trace and usage stores.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const appendReactTraceEntry = <

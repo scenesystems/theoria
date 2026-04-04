@@ -1,7 +1,7 @@
 /**
  * Predict trace projection helpers.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -29,7 +29,7 @@ const traceCarrierError = (
 /**
  * Encode a typed payload through its schema and project it into `FieldRecord`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const tracePayloadFromEncoded = <A, I, R>(options: {
@@ -51,7 +51,7 @@ export const tracePayloadFromEncoded = <A, I, R>(options: {
 /**
  * Append a canonical trace entry for a completed predict-forward invocation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const appendTraceEntry = <

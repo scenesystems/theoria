@@ -1,7 +1,7 @@
 /**
  * GEPA runtime option and sink contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect } from "effect"
 import type { Schema } from "effect"
@@ -15,7 +15,7 @@ import type { GEPAEvent as GEPAEventType } from "../events.js"
 /**
  * GEPA constructor options.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAOptions<
@@ -36,7 +36,7 @@ export type GEPAOptions<
 /**
  * GEPA event sink.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAEventSink = (event: GEPAEventType) => Effect.Effect<void>
@@ -44,7 +44,7 @@ export type GEPAEventSink = (event: GEPAEventType) => Effect.Effect<void>
 /**
  * No-op GEPA event sink used by non-streaming execution.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noGEPAEvents: GEPAEventSink = () => Effect.void
@@ -52,7 +52,7 @@ export const noGEPAEvents: GEPAEventSink = () => Effect.void
 /**
  * Default merge budget for GEPA orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_MAX_MERGE_INVOCATIONS = 5

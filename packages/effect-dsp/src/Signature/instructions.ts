@@ -2,7 +2,7 @@
  * Derives a module's default instruction prompt from its {@link Signature}
  * description and field metadata.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Option } from "effect"
 import type { FieldInfo } from "./model.js"
@@ -27,7 +27,7 @@ const renderFieldSection = (
  * @see {@link Signature} — the source of description and field metadata
  * @see {@link ModuleParams} — where the derived instructions are stored
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const deriveInstruction = (

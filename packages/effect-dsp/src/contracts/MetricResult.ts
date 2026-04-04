@@ -2,7 +2,7 @@
  * Single metric evaluation result carrying a numeric score and optional
  * natural-language feedback.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -15,7 +15,7 @@ import { Schema } from "effect"
  * @see {@link MetricFn} — effectful scorer that produces MetricResult
  * @see {@link PureMetricFn} — synchronous scorer variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MetricResult extends Schema.Class<MetricResult>("MetricResult")({

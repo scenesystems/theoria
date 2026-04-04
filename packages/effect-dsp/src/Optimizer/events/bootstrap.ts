@@ -1,14 +1,14 @@
 /**
  * BootstrapFewShot optimizer event contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 
 /**
  * Schema describing events emitted during BootstrapFewShot optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  * @see {@link BootstrapEvent}
  */
@@ -55,7 +55,7 @@ export const BootstrapEventSchema = Schema.Union(
 /**
  * Events emitted during BootstrapFewShot optimization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type BootstrapEvent = typeof BootstrapEventSchema.Type
@@ -63,7 +63,7 @@ export type BootstrapEvent = typeof BootstrapEventSchema.Type
 /**
  * Constructors and match helpers for BootstrapFewShot events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const BootstrapEvent = Data.taggedEnum<BootstrapEvent>()

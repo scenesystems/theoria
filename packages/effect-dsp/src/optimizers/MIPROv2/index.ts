@@ -3,7 +3,7 @@
  * via grounded proposal and Bayesian search.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect } from "effect"
 import type { Schema } from "effect"
@@ -27,7 +27,7 @@ import { runPhase3Search } from "./search.js"
  * Configuration for MIPROv2 optimization — module, training/validation sets,
  * metric, candidate counts, and Phase 3 search budget.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2Options<
@@ -55,7 +55,7 @@ export type MIPROv2Options<
 /**
  * Callback invoked with each MIPROv2 lifecycle event for streaming progress.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2EventSink = (event: MIPROv2EventType) => Effect.Effect<void>
@@ -63,7 +63,7 @@ export type MIPROv2EventSink = (event: MIPROv2EventType) => Effect.Effect<void>
 /**
  * No-op event sink that discards all MIPROv2 events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noMIPROv2Events: MIPROv2EventSink = () => Effect.void
@@ -116,7 +116,7 @@ const totalInstructionCandidates = (
  * (Bayesian search) sequentially.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const miprov2WithEvents = <
@@ -177,7 +177,7 @@ export const miprov2WithEvents = <
  * Run MIPROv2 and return the module with optimized instructions and
  * demonstrations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const miprov2 = <
@@ -192,7 +192,7 @@ export const miprov2 = <
 /**
  * Run MIPROv2 and project all lifecycle events as an Effect Stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const miprov2Stream = <

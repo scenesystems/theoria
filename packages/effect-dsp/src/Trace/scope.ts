@@ -1,7 +1,7 @@
 /**
  * Trace + usage scoping combinators.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, FiberRef } from "effect"
 import { emptyUsage, type Usage, usageDelta } from "../contracts/Usage.js"
@@ -74,7 +74,7 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
  * const traced = Trace.withTracing(program)
  * ```
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withTracing = <A, E, R>(
@@ -93,7 +93,7 @@ export const withTracing = <A, E, R>(
  * Run a program with usage accounting enabled and return the result paired
  * with cumulative token usage. Nested scopes return usage deltas.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withUsageTracking = <A, E, R>(
@@ -112,7 +112,7 @@ export const withUsageTracking = <A, E, R>(
  * Read traces collected in the current scope. Returns an empty array when
  * tracing is not enabled.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const get: Effect.Effect<ReadonlyArray<Entry>> = Effect.gen(function*() {

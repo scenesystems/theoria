@@ -2,7 +2,7 @@
  * Phase 3 search space construction — maps instruction×demo candidates into
  * effect-search dimensions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Effect, Match, Option, Predicate, Record } from "effect"
@@ -71,7 +71,7 @@ const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSch
  * this signals a mismatch between the search space definition and the
  * config the sampler produced.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const configIndex = (config: Phase3Config, key: string): Effect.Effect<Phase3DimensionIndex, AllTrialsFailed> =>
@@ -93,7 +93,7 @@ export const configIndex = (config: Phase3Config, key: string): Effect.Effect<Ph
  * Fails with `AllTrialsFailed` when any predictor lacks a
  * corresponding entry in either candidate array.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link buildSearchDimensions} — consumes the bindings
  */
@@ -149,7 +149,7 @@ export const resolveBindings = <
  * This config is evaluated on the full validation set before the
  * search loop to produce a `PriorTrial` for warm-starting.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const baselineConfig = (bindings: ReadonlyArray<PredictorBinding>): Phase3Config =>
@@ -169,7 +169,7 @@ export const baselineConfig = (bindings: ReadonlyArray<PredictorBinding>): Phase
  * Candidate counts are capped at 10; larger sets cause
  * `AllTrialsFailed`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link resolveBindings} — produces the input bindings
  */
@@ -197,7 +197,7 @@ export const buildSearchDimensions = (bindings: ReadonlyArray<PredictorBinding>)
  * The result is floored at `1` so callers can safely use it as a
  * divisor.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const maxCandidateCount = (
@@ -212,7 +212,7 @@ export const maxCandidateCount = (
  * succeeds when the value is already a number and fails with
  * `AllTrialsFailed` when it receives a multi-objective array.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const objectiveScore = (value: number | ReadonlyArray<number>) =>
@@ -235,7 +235,7 @@ export const objectiveScore = (value: number | ReadonlyArray<number>) =>
  * For multi-objective results the first entry on the Pareto front is
  * used. Fails with `AllTrialsFailed` when the Pareto front is empty.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const resolveBestConfig = (

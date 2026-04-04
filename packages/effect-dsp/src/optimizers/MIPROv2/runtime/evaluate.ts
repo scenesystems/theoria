@@ -2,7 +2,7 @@
  * Phase 3 trial evaluation — applies instruction/demo configurations and
  * scores against the validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
@@ -29,7 +29,7 @@ import { configIndex } from "./search-space.js"
  * candidate so far, and the indices that distinguish full-evaluation
  * checkpoints from minibatch-only trials.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category refs
  * @see {@link makePhase3TrialRefs} — constructor
  * @see {@link evaluateTrial} — primary consumer
@@ -49,7 +49,7 @@ export type Phase3TrialRefs = Readonly<{
  * trial-index arrays start empty. Call once before entering the search
  * loop.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link Phase3TrialRefs}
  */
@@ -78,7 +78,7 @@ export const makePhase3TrialRefs: Effect.Effect<Phase3TrialRefs> = Effect.gen(fu
  * resolved. Fails with `AllTrialsFailed` when an index is out of
  * range for any predictor.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  * @see {@link evaluateTrial} — calls this before scoring
  */
@@ -128,7 +128,7 @@ export const applyPhase3Config = (options: {
  * refs so that subsequent trials have a meaningful comparison
  * baseline.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  * @see {@link evaluateTrial} — per-trial counterpart
  */
@@ -171,7 +171,7 @@ export const evaluateBaseline = <E, R>(options: {
  * Emits `TrialEvaluated` after every minibatch and `FullEvalCompleted`
  * after each checkpoint.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  * @see {@link evaluateBaseline} — warm-start counterpart
  * @see {@link Phase3TrialRefs} — mutable state consumed here

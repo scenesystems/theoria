@@ -2,7 +2,7 @@
  * Ensemble optimizer contracts — configuration, reduce function, and candidate
  * state.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect, Schema } from "effect"
 import type { DspError } from "../../Errors/union.js"
@@ -11,7 +11,7 @@ import type { Module as DspModule } from "../../Module/model.js"
 /**
  * Resolved input type for a schema struct, used as input to ensemble reducers.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type ProgramInput<I extends Schema.Struct.Fields> = Schema.Schema.Type<Schema.Struct<I>>
@@ -20,7 +20,7 @@ export type ProgramInput<I extends Schema.Struct.Fields> = Schema.Schema.Type<Sc
  * Resolved output type for a schema struct, used as output from ensemble
  * reducers.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type ProgramOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<Schema.Struct<O>>
@@ -32,7 +32,7 @@ export type ProgramOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<S
  * output or fails with a `DspError`.
  *
  * @see {@link EnsembleOptions} for where this is supplied
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = (options: {
@@ -49,7 +49,7 @@ export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.St
  * `seed` — deterministic seed for program sampling.
  *
  * @see {@link EnsembleReduceFn} for the reduce contract
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{

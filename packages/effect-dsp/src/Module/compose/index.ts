@@ -1,7 +1,7 @@
 /**
  * Module composition constructors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Schema } from "effect"
 import { Effect, Ref } from "effect"
@@ -33,7 +33,7 @@ const makeInitialParams = <
  * @see {@link ComposeForward}
  * @see {@link ComposeForwardContext}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const compose = <
@@ -75,7 +75,7 @@ export {
    * Build and validate a composition graph from sub-module declarations,
    * returning only the graph contract without constructing a full module.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category constructors
    */
   composeGraph,
@@ -83,7 +83,7 @@ export {
    * Sub-module declaration map keyed by local alias, consumed by
    * `compose` and `composeGraph`.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category type-level
    */
   type ComposeSubModules
@@ -94,7 +94,7 @@ export {
    * User-supplied forward function that orchestrates sub-module calls
    * within a composed module.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category type-level
    */
   type ComposeForward,
@@ -102,7 +102,7 @@ export {
    * Context object passed to `ComposeForward` — provides the validated
    * input, sub-module node map, and full composition graph.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category type-level
    */
   type ComposeForwardContext

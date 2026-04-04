@@ -1,7 +1,7 @@
 /**
  * Training and demonstration data types for optimization datasets.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -15,7 +15,7 @@ import { Schema } from "effect"
  * `output` is optional: unlabeled examples (input-only) are used in MIPROv2
  * Phase 2 for instruction proposal.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link Demo}
  */
@@ -29,7 +29,7 @@ export class Example extends Schema.Class<Example>("Example")({
  *
  * Unlike `Example`, both input and output are required.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link Example}
  */

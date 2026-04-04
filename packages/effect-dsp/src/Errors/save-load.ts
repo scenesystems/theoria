@@ -1,7 +1,7 @@
 /**
  * Save and load-domain errors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -9,7 +9,7 @@ import { Schema } from "effect"
  * Raised when module parameter persistence fails. The `operation` field
  * discriminates between save and load failures.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class SaveLoadError extends Schema.TaggedError<SaveLoadError>()(

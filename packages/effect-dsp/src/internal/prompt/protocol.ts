@@ -2,7 +2,7 @@
  * Shared DSPy-compatible marker grammar and output-template contracts.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr } from "effect"
@@ -14,7 +14,7 @@ import { Array as Arr } from "effect"
  * Shared by prompt rendering (to emit markers) and text-output parsing
  * (to extract field values).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  * @internal
  */
@@ -24,7 +24,7 @@ export const FIELD_MARKER_REGEX = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
  * Produces a single `[[ ## fieldName ## ]]` marker string for the given
  * field name.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  * @internal
  */
@@ -37,7 +37,7 @@ const renderOutputTemplateLine = (fieldName: string): string => `${renderFieldMa
  * marker-delimited response format — one `[[ ## field ## ]]` marker per
  * output field followed by a `[[ ## completed ## ]]` sentinel.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  * @internal
  */
@@ -54,7 +54,7 @@ export const renderOutputTemplate = (fieldNames: ReadonlyArray<string>): string 
  * When there are no output fields, instructs the model to respond with only
  * the `completed` marker.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  * @internal
  */

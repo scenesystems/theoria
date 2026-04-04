@@ -2,7 +2,7 @@
  * Uniform wrapper that lets heterogeneous optimizer progress events flow
  * through a single shared `Stream`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { OptimizerKind } from "./OptimizerKind.js"
@@ -17,7 +17,7 @@ import { OptimizerKind } from "./OptimizerKind.js"
  *
  * @see {@link OptimizerKind} — discriminant identifying the emitting optimizer
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class OptimizerEventEnvelope extends Schema.Class<OptimizerEventEnvelope>("OptimizerEventEnvelope")({

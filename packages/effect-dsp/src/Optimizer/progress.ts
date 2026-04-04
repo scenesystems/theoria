@@ -1,7 +1,7 @@
 /**
  * Reusable optimizer progress and summary abstractions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect } from "effect"
 import {
@@ -29,7 +29,7 @@ import {
 /**
  * Format one MIPROv2 event for deterministic progress logging.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatMIPROv2Event = formatMIPROv2ProgressEvent
@@ -37,7 +37,7 @@ export const formatMIPROv2Event = formatMIPROv2ProgressEvent
 /**
  * Format one BootstrapFewShot event for deterministic progress logging.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatBootstrapEvent = formatBootstrapProgressEvent
@@ -45,7 +45,7 @@ export const formatBootstrapEvent = formatBootstrapProgressEvent
 /**
  * Format one GEPA event for deterministic progress logging.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatGEPAEvent = formatGEPAProgressEvent
@@ -54,14 +54,14 @@ export {
   /**
    * Summarize MIPROv2 events into a semantic outcome report.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   summarizeMIPROv2Events,
   /**
    * Tap formatted MIPROv2 progress lines from a MIPROv2 stream.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   tapMIPROv2Progress
@@ -71,14 +71,14 @@ export {
   /**
    * Summarize BootstrapFewShot events into a semantic outcome report.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   summarizeBootstrapEvents,
   /**
    * Tap formatted BootstrapFewShot progress lines from a BootstrapFewShot stream.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   tapBootstrapProgress
@@ -88,14 +88,14 @@ export {
   /**
    * Summarize GEPA events into a semantic outcome report.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   summarizeGEPAEvents,
   /**
    * Tap formatted GEPA progress lines from a GEPA stream.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category combinators
    */
   tapGEPAProgress
@@ -105,7 +105,7 @@ export {
  * Semantic summary of a MIPROv2 optimization run — baseline vs. optimized
  * scores, demo counts, and per-event breakdown.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2OutcomeSummary = Readonly<{
@@ -122,7 +122,7 @@ export type MIPROv2OutcomeSummary = Readonly<{
  * Semantic summary of a GEPA optimization run — baseline vs. optimized scores,
  * instruction changes, and per-event breakdown.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAOutcomeSummary = Readonly<{
@@ -138,7 +138,7 @@ export type GEPAOutcomeSummary = Readonly<{
 /**
  * Build a semantic MIPROv2 outcome summary for live and test workloads.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const summarizeMIPROv2Outcome = (options: {
@@ -160,7 +160,7 @@ export const summarizeMIPROv2Outcome = (options: {
 /**
  * Build a semantic GEPA outcome summary for live and test workloads.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const summarizeGEPAOutcome = (options: {
@@ -183,7 +183,7 @@ export const summarizeGEPAOutcome = (options: {
  * Canonical optimizer progress API — formatters, tap combinators, and summary
  * builders for all optimizer variants.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const progress = {
@@ -205,7 +205,7 @@ export {
   /**
    * MIPROv2 optimization observability snapshot.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type MIPROv2OptimizationObservability
@@ -215,14 +215,14 @@ export {
   /**
    * MIPROv2 formatted progress line.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type MIPROv2ProgressLine,
   /**
    * MIPROv2 progress sink callback.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type MIPROv2ProgressSink
@@ -232,21 +232,21 @@ export {
   /**
    * BootstrapFewShot event summary.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type BootstrapEventSummary,
   /**
    * BootstrapFewShot formatted progress line.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type BootstrapProgressLine,
   /**
    * BootstrapFewShot progress sink callback.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type BootstrapProgressSink
@@ -256,14 +256,14 @@ export {
   /**
    * GEPA formatted progress line.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type GEPAProgressLine,
   /**
    * GEPA progress sink callback.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   type GEPAProgressSink
@@ -274,7 +274,7 @@ const noOpProgressEffect = Effect.void
 /**
  * No-op progress sink for BootstrapFewShot streams.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noBootstrapProgress: BootstrapProgressSink = () => noOpProgressEffect
@@ -282,7 +282,7 @@ export const noBootstrapProgress: BootstrapProgressSink = () => noOpProgressEffe
 /**
  * No-op progress sink for MIPROv2 streams.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noMIPROv2Progress: MIPROv2ProgressSink = () => noOpProgressEffect
@@ -290,7 +290,7 @@ export const noMIPROv2Progress: MIPROv2ProgressSink = () => noOpProgressEffect
 /**
  * No-op progress sink for GEPA streams.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noGEPAProgress: GEPAProgressSink = () => noOpProgressEffect

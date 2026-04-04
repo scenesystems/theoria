@@ -3,7 +3,7 @@
  * and optimizer discovery to inspect the module tree without generic
  * type parameters.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { HashMap, Ref } from "effect"
 import { Schema } from "effect"
@@ -19,7 +19,7 @@ import type { ModuleParams } from "./ModuleParams.js"
  * @see {@link Signature} — the full generic signature model
  * @see {@link ModuleNode} — the graph node that carries this projection
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleNodeSignature extends Schema.Class<ModuleNodeSignature>("ModuleNodeSignature")({
@@ -37,7 +37,7 @@ export class ModuleNodeSignature extends Schema.Class<ModuleNodeSignature>("Modu
  * @see {@link ModuleParams} — the mutable parameter state behind the Ref
  * @see {@link ModuleGraph} — the serializable graph built from ModuleNode trees
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ModuleNode = Readonly<{
@@ -53,7 +53,7 @@ export type ModuleNode = Readonly<{
  *
  * @see {@link ModuleNode}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makeModuleNode = (options: ModuleNode): ModuleNode => options
@@ -64,7 +64,7 @@ export const makeModuleNode = (options: ModuleNode): ModuleNode => options
  *
  * @see {@link ModuleNodeSignature}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makeModuleNodeSignature = (

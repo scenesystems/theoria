@@ -3,7 +3,7 @@
  * selection, common-ancestor merge, and reflective mutation.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
@@ -28,7 +28,7 @@ export { noGEPAEvents }
  * merge/crossover and reflective mutation across `maxIterations` generations.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(
@@ -139,7 +139,7 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
  * Run GEPA and return the module with optimized instructions. The best
  * candidate is selected from the Pareto frontier after all iterations complete.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(
@@ -149,7 +149,7 @@ export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 /**
  * Run GEPA and project all lifecycle events as an Effect Stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const gepaStream = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(

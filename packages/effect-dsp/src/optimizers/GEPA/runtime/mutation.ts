@@ -2,7 +2,7 @@
  * GEPA mutation phase — reflective instruction proposal and two-gate
  * acceptance.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
@@ -21,7 +21,7 @@ import type { GEPAEventSink, GEPAOptions } from "./options.js"
  * Result of one mutation iteration — updated state and whether the mutation
  * was accepted.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MutationPhaseResult = Readonly<{
@@ -64,7 +64,7 @@ const buildMutationCandidate = (
  * propose a mutated instruction via the meta-LLM, evaluate the candidate,
  * and apply the two-gate acceptance check.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(

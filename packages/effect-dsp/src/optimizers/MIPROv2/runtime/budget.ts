@@ -2,7 +2,7 @@
  * Phase 3 trial budget and cadence — controls how many trials to run and when
  * to evaluate the full validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Match, Option } from "effect"
@@ -11,7 +11,7 @@ import { Match, Option } from "effect"
  * Clamps a number to a positive value, substituting `fallback` when the
  * input is zero or negative.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const normalizePositive = (value: number, fallback: number): number =>
@@ -27,7 +27,7 @@ export const normalizePositive = (value: number, fallback: number): number =>
  * (`2 × predictors × ln(candidates)`) and an exploration floor
  * (`1.5 × candidates`), then ceiled and clamped to the provided minimum.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const phase3TrialBudget = (options: {
@@ -54,7 +54,7 @@ export const phase3TrialBudget = (options: {
  * to use during Bayesian search, normalizing any missing or non-positive
  * values to sensible defaults.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const resolvePhase3Cadence = (options: {

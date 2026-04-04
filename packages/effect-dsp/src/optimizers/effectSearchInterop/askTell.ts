@@ -3,7 +3,7 @@
  * suggestions into module parameter configurations and projects evaluation
  * results back.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { type Effect, Match, Option } from "effect"
 import { Pareto, Sampler, Study } from "effect-search"
@@ -40,7 +40,7 @@ const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): Ef
  * multivariate flag, and acquisition strategy. Unspecified options fall back to
  * {@link import("./model.js").defaultEffectSearchTpeSamplerOptions}.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
@@ -81,7 +81,7 @@ const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
  * Open a scoped study handle for manual ask/tell orchestration. The handle is
  * finalized when its `Scope` closes.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const open = <Space extends SearchSpace.SearchSpace>(
@@ -92,7 +92,7 @@ export const open = <Space extends SearchSpace.SearchSpace>(
  * Reserve one trial from the study — returns a suggested parameter
  * configuration that the caller should evaluate.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const ask = <Space extends SearchSpace.SearchSpace>(
@@ -102,7 +102,7 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
 /**
  * Report a successful objective value for a previously reserved trial number.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const tell = <Space extends SearchSpace.SearchSpace>(
@@ -115,7 +115,7 @@ export const tell = <Space extends SearchSpace.SearchSpace>(
  * Mark a previously reserved trial as failed so it does not bias future
  * sampling.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const fail = <Space extends SearchSpace.SearchSpace>(
@@ -128,7 +128,7 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  * Cancel a running study and complete its event stream. Outstanding trials are
  * discarded.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const cancel = <Space extends SearchSpace.SearchSpace>(
@@ -139,7 +139,7 @@ export const cancel = <Space extends SearchSpace.SearchSpace>(
  * Capture a serializable snapshot of the study state for persistence or
  * resume workflows.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const snapshot = <Space extends SearchSpace.SearchSpace>(
@@ -150,7 +150,7 @@ export const snapshot = <Space extends SearchSpace.SearchSpace>(
  * Compute the final study result once all trials have been told or failed.
  *
  * @see {@link resultSummary} for a portable projection of the result
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const result = <Space extends SearchSpace.SearchSpace>(
@@ -162,7 +162,7 @@ export const result = <Space extends SearchSpace.SearchSpace>(
  * that is insulated from upstream result-shape changes.
  *
  * @see {@link result} for obtaining the full study result
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const resultSummary = <Config>(result: Study.StudyResult<Config>): EffectSearchResultSummary =>
@@ -196,7 +196,7 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
  * Pareto-front utilities re-exported from effect-search — dominance checks,
  * non-dominated sorting, ranks, and 2-D hypervolume computation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category re-exports
  */
 export const pareto = {

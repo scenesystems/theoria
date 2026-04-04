@@ -1,7 +1,7 @@
 /**
  * GEPA candidate evaluation runtime.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 
@@ -19,7 +19,7 @@ import type { GEPAOptions } from "./options.js"
 /**
  * Materialized candidate evaluation rows.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type CandidateEvaluation = Readonly<{
@@ -38,7 +38,7 @@ const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
 /**
  * Evaluate one candidate against the resolved validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(

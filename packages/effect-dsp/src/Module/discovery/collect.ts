@@ -1,7 +1,7 @@
 /**
  * Discovery collection combinators.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
@@ -39,7 +39,7 @@ const registrationEdges = (
  * Convert a flat array of discovery registrations into a canonical module
  * graph. Fails if the root module id was not observed during execution.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const registrationsToModuleGraph = (
@@ -66,7 +66,7 @@ export const registrationsToModuleGraph = (
  * registrations observed during execution. The scope is automatically
  * isolated via `Effect.locally`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const discoverModules = <A, E, R>(
@@ -84,7 +84,7 @@ export const discoverModules = <A, E, R>(
  * Run a program and project the discovered registrations into a canonical
  * module graph rooted at the given id.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const discoverModuleGraph = <A, E, R>(
@@ -99,7 +99,7 @@ export const discoverModuleGraph = <A, E, R>(
  * Execute a program in a fresh discovery scope, returning only the
  * program result while discarding registrations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const withDiscoveryScope = <A, E, R>(

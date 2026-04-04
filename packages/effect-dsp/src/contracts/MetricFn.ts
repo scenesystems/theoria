@@ -1,7 +1,7 @@
 /**
  * Scorer function contracts used by `Evaluate` and optimizer inner loops.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect } from "effect"
 import { FieldRecord } from "./FieldValue.js"
@@ -14,7 +14,7 @@ import type { MetricResult } from "./MetricResult.js"
  *
  * @see {@link FieldRecord} — the underlying recursive record schema
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const MetricPayload = FieldRecord
@@ -23,7 +23,7 @@ export const MetricPayload = FieldRecord
  * Inferred decoded type of {@link MetricPayload}.
  *
  * @see {@link MetricPayload}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type MetricPayload = typeof MetricPayload.Type
@@ -32,7 +32,7 @@ export type MetricPayload = typeof MetricPayload.Type
  * Inferred encoded (wire-format) type of {@link MetricPayload}.
  *
  * @see {@link MetricPayload}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type MetricPayloadEncoded = typeof MetricPayload.Encoded
@@ -45,7 +45,7 @@ export type MetricPayloadEncoded = typeof MetricPayload.Encoded
  * @see {@link PureMetricFn} — synchronous variant for simple scorers
  * @see {@link MetricResult} — the score + optional feedback returned
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MetricFn<E = never, R = never> = (
@@ -61,7 +61,7 @@ export type MetricFn<E = never, R = never> = (
  * @see {@link MetricFn} — effectful variant for LM-as-judge scorers
  * @see {@link MetricResult} — the score + optional feedback returned
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PureMetricFn = (

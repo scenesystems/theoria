@@ -1,7 +1,7 @@
 /**
  * MIPROv2 Phase 3 public contracts — trial results and diagnostic snapshots.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, Schema } from "effect"
 import type { Study } from "effect-search"
@@ -16,7 +16,7 @@ import type { Phase3Config } from "./runtime/model.js"
 /**
  * Phase-3 diagnostics emitted for proofs and governance checks.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Phase3Diagnostics extends Schema.Class<Phase3Diagnostics>("MIPROv2Phase3Diagnostics")({
@@ -36,7 +36,7 @@ export class Phase3Diagnostics extends Schema.Class<Phase3Diagnostics>("MIPROv2P
 /**
  * Phase-3 options.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type RunPhase3SearchOptions<
@@ -60,7 +60,7 @@ export type RunPhase3SearchOptions<
 /**
  * Phase-3 return value.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type Phase3SearchResult<
@@ -75,7 +75,7 @@ export type Phase3SearchResult<
 /**
  * Phase-3 progress sink.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type Phase3EventSink = (event: MIPROv2EventType) => Effect.Effect<void>
@@ -83,7 +83,7 @@ export type Phase3EventSink = (event: MIPROv2EventType) => Effect.Effect<void>
 /**
  * No-op sink used by non-streaming orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noPhase3Events: Phase3EventSink = () => Effect.void

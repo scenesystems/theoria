@@ -3,7 +3,7 @@
  * a teacher module and filtering traces above a score threshold.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Array as Arr, Effect, Option, Ref } from "effect"
@@ -48,7 +48,7 @@ const bootstrapFailure = (options: {
  * Configuration for BootstrapFewShot — module, training set, metric, round
  * count, demo limits, score threshold, and optional teacher layer.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BootstrapFewShotOptions<
@@ -69,12 +69,20 @@ export type BootstrapFewShotOptions<
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
-export type { BootstrapEventSink } from "./runtime/round.js"
+export type {
+  /**
+   * Callback signature for observing BootstrapFewShot lifecycle events.
+   *
+   * @since 0.1.0
+   * @category type-level
+   */
+  BootstrapEventSink
+} from "./runtime/round.js"
 
 /**
  * No-op event sink that discards all bootstrap events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noBootstrapEvents: BootstrapEventSink = () => Effect.void
@@ -90,7 +98,7 @@ const streamBootstrapFewShotEvents = <A, E, R>(
  * no demos pass the threshold.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bootstrapFewShotWithEvents = <
@@ -233,7 +241,7 @@ export const bootstrapFewShotWithEvents = <
 /**
  * Run BootstrapFewShot and return the module with collected demonstrations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bootstrapFewShot = <
@@ -246,7 +254,7 @@ export const bootstrapFewShot = <
 /**
  * Run BootstrapFewShot and project all lifecycle events as an Effect Stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bootstrapFewShotStream = <

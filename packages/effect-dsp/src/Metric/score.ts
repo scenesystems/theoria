@@ -1,7 +1,7 @@
 /**
  * Metric scoring helpers.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option, Predicate, Record } from "effect"
 import type { MetricPayload } from "../contracts/MetricFn.js"
@@ -20,7 +20,7 @@ const scalarString = (value: unknown): Option.Option<string> =>
  * Read a field from a metric payload as a normalized (trimmed, lowercased)
  * string. Returns `Option.none()` for missing or non-scalar fields.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const fieldString = (payload: MetricPayload, field: string): Option.Option<string> =>
@@ -45,7 +45,7 @@ const nonEmptyToken = (token: string): Option.Option<string> =>
  * Read a field as normalized whitespace-delimited tokens. Returns
  * `Option.none()` for missing fields.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const tokenizedField = (payload: MetricPayload, field: string): Option.Option<ReadonlyArray<string>> =>
@@ -71,7 +71,7 @@ type OverlapState = Readonly<{
  * Compute multiset token overlap between two token arrays — counts each token
  * at most as many times as it appears in the right array.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const tokenOverlap = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): number =>
@@ -98,7 +98,7 @@ export const tokenOverlap = (left: ReadonlyArray<string>, right: ReadonlyArray<s
  * Arithmetic mean of a number array. Returns `0` for empty arrays rather than
  * `NaN`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const averageNumbers = (scores: ReadonlyArray<number>): number =>
@@ -110,7 +110,7 @@ export const averageNumbers = (scores: ReadonlyArray<number>): number =>
  * Convert a boolean condition to a `{0, 1}` score for deterministic binary
  * metrics.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const binaryScore = (condition: boolean): number => (condition ? 1 : 0)

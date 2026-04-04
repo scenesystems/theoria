@@ -1,7 +1,7 @@
 /**
  * Trace data models.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Option, Schema } from "effect"
 import { FieldRecord } from "../contracts/FieldValue.js"
@@ -11,7 +11,7 @@ import { FieldRecord } from "../contracts/FieldValue.js"
  * field records, the rendered prompt, raw LLM response, token usage, duration,
  * and optional score.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Entry extends Schema.Class<Entry>("TraceEntry")({
@@ -31,7 +31,7 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
 /**
  * Canonical "no score assigned" value for trace entries awaiting evaluation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noScore: Option.Option<number> = Option.none()

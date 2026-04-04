@@ -2,7 +2,7 @@
  * BootstrapRS candidate generation — runs BootstrapFewShot with different
  * seeds and collects parameter snapshots.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
@@ -20,7 +20,7 @@ import { labeledFewShot } from "../../LabeledFewShot/index.js"
 /**
  * Clamps a number to a non-negative value, replacing any negative input with zero.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */
@@ -37,7 +37,7 @@ export const normalizeNonNegative = (value: number): number =>
  * The offset is `seed % length`, ensuring deterministic but varied
  * orderings across candidate runs.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */
@@ -68,7 +68,7 @@ const buildSeeds = (
  * When explicit seeds are provided, takes up to `numCandidates` from them.
  * Otherwise generates a sequential range `[0, numCandidates)`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */
@@ -91,7 +91,7 @@ export const resolveSeeds = (options: {
  * `"bootstrap-{seed}"` to identify the optimization strategy that produced
  * the state.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -107,7 +107,7 @@ export class CandidateState extends Schema.Class<CandidateState>("BootstrapRSCan
  * Fails with `AllTrialsFailed` when the evaluation produces zero successful
  * examples.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -157,7 +157,7 @@ export const evaluateCandidate = <
  * Bootstrap candidates that fail are silently dropped. The uncompiled and
  * labeled-few-shot baselines are always included.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

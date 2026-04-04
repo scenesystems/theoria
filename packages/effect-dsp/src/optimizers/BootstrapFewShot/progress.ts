@@ -1,7 +1,7 @@
 /**
  * BootstrapFewShot event progress formatting and summaries.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect } from "effect"
 import { Array as Arr, Match, Stream } from "effect"
@@ -10,7 +10,7 @@ import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
 /**
  * Formatted BootstrapFewShot progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BootstrapProgressLine = Readonly<{
@@ -69,7 +69,7 @@ const detailsFromEvent = (event: BootstrapEvent): string =>
 /**
  * Deterministically format a BootstrapFewShot event as one progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatBootstrapProgressEvent = (event: BootstrapEvent): BootstrapProgressLine =>
@@ -78,7 +78,7 @@ export const formatBootstrapProgressEvent = (event: BootstrapEvent): BootstrapPr
 /**
  * Progress sink for formatted BootstrapFewShot lines.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BootstrapProgressSink<E = never, R = never> = (
@@ -88,7 +88,7 @@ export type BootstrapProgressSink<E = never, R = never> = (
 /**
  * Tap formatted BootstrapFewShot progress lines from an event stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const tapBootstrapProgress =
@@ -101,7 +101,7 @@ export const tapBootstrapProgress =
 /**
  * Semantic summary projected from BootstrapFewShot events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BootstrapEventSummary = Readonly<{
@@ -180,7 +180,7 @@ const summarizeEvent = (
 /**
  * Summarize BootstrapFewShot stream events into semantically meaningful counters.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const summarizeBootstrapEvents = (

@@ -2,7 +2,7 @@
  * Stable projection of runtime trace entries into the shape consumed by
  * optimizer objective functions and observability dashboards.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect, ParseResult } from "effect"
 import { Schema } from "effect"
@@ -20,7 +20,7 @@ import { UsageSample } from "./Usage.js"
  * @see {@link projectTraceObjectiveProjection} — canonical projection function
  * @see {@link UsageSample} — token usage snapshot carried by each projection
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProjection>("TraceObjectiveProjection")({
@@ -44,7 +44,7 @@ export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProject
  *
  * @see {@link TraceObjectiveProjection}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const projectTraceObjectiveProjection = (

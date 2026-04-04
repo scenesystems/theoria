@@ -3,7 +3,7 @@
  * comparison buckets.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match } from "effect"
 import { sampleStratifiedRoundRobin } from "effect-search/Sampler"
@@ -27,7 +27,7 @@ const bucketOrder: ReadonlyArray<MergeComparisonBucket> = Arr.make(PARENT_A_BETT
 /**
  * Classify one merge comparison into parent-a-better / parent-b-better / tie buckets.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const classifyMergeComparisonBucket = (comparison: MergeComparison): MergeComparisonBucket =>
@@ -52,7 +52,7 @@ const partitionMergeComparisons = (comparisons: ReadonlyArray<MergeComparison>):
  *
  * Fallback policy: seeded shuffle each bucket, then round-robin while skipping empty buckets.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const selectBalancedMergeSubsample = (

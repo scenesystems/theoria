@@ -4,7 +4,7 @@
  * effect-search.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Option } from "effect"
@@ -21,7 +21,7 @@ import { scoreCandidates, selectBestCandidate } from "./runtime/search.js"
 /**
  * BootstrapRS constructor options.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type BootstrapRSOptions<
@@ -55,7 +55,7 @@ const noCandidateError = () =>
  * Run BootstrapFewShot across candidate seeds and keep the best validation performer.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bootstrapRS = <

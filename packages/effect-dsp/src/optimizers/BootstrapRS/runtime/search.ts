@@ -2,7 +2,7 @@
  * BootstrapRS search orchestration — evaluates candidate parameter sets and
  * selects the best via effect-search.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Data, Effect, Either, Match, Option } from "effect"
@@ -20,7 +20,7 @@ import { type CandidateState, evaluateCandidate } from "./candidates.js"
  * The first element is the parameter snapshot and the second is the
  * metric score produced by running the candidate against the validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -32,7 +32,7 @@ export type ScoredCandidate = readonly [CandidateState, number]
  *
  * Candidates that fail evaluation are silently excluded from the result.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -87,7 +87,7 @@ const missingCandidateError = (options: {
  * winning entry, or fails with `AllTrialsFailed` when no candidate can be
  * selected.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

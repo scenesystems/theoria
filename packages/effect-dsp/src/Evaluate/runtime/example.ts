@@ -1,7 +1,7 @@
 /**
  * Per-example evaluation runtime.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -17,19 +17,19 @@ import type { EvaluationEventType } from "../events.js"
 import { ExampleFailure, ExampleResult } from "../report.js"
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export type EvaluationEventSink = (event: EvaluationEventType) => Effect.Effect<void>
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export type MetricEntry<ME, MR> = readonly [string, Metric<ME, MR>]
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export type ExampleOutcome = Readonly<{
@@ -44,7 +44,7 @@ type ExampleScore = Readonly<Record<string, number>>
 const metricEntryOrder: Order.Order<MetricEntry<unknown, unknown>> = Order.mapInput(Order.string, ([name]) => name)
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const sortedMetricEntries = <ME, MR>(metrics: Readonly<Record<string, Metric<ME, MR>>>) =>
@@ -87,7 +87,7 @@ const exampleFailureFromUnknown = (index: number, error: unknown): ExampleFailur
   })
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const resolveConcurrency = (options: { readonly concurrency?: number }): number =>
@@ -184,7 +184,7 @@ const scoreExample = <
   })
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const evaluateOutcome = <

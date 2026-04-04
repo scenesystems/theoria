@@ -1,7 +1,7 @@
 /**
  * Token and LM-call accounting accumulated across module forward passes.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Option, Schema } from "effect"
 
@@ -13,7 +13,7 @@ import { Option, Schema } from "effect"
  * @see {@link UsageSample} — per-call snapshot folded into Usage via {@link accumulateUsage}
  * @see {@link emptyUsage} — zero-valued seed for accumulation
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Usage extends Schema.Class<Usage>("Usage")({
@@ -32,7 +32,7 @@ export class Usage extends Schema.Class<Usage>("Usage")({
  * @see {@link Usage} — accumulated totals built from UsageSample values
  * @see {@link accumulateUsage} — folds a sample into running totals
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class UsageSample extends Schema.Class<UsageSample>("UsageSample")({
@@ -50,7 +50,7 @@ const tokenCount = (value: Option.Option<number>): number => Option.getOrElse(va
  * @see {@link Usage}
  * @see {@link UsageSample}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const accumulateUsage = (
@@ -71,7 +71,7 @@ export const accumulateUsage = (
  *
  * @see {@link Usage}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const usageDelta = (options: {
@@ -92,7 +92,7 @@ export const usageDelta = (options: {
  * @see {@link Usage}
  * @see {@link accumulateUsage}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const emptyUsage = new Usage({

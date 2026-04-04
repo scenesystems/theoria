@@ -3,7 +3,7 @@
  * control, with balanced subsampling for acceptance evaluation.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Option } from "effect"
 import { findNearestCommonAncestor, resolveMergeInputs } from "./merge/ancestor.js"
@@ -70,7 +70,7 @@ const skipPreparation = (
  * ancestor and performing three-way instruction crossover. Emits an explicit
  * skip event when no common ancestor exists.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const prepareCommonAncestorMerge = (
@@ -106,7 +106,7 @@ export const prepareCommonAncestorMerge = (
  * Promote an accepted merge candidate into the population and decrement the
  * remaining merge budget.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const recordAcceptedMerge = (

@@ -3,7 +3,7 @@
  * values consumed by `effect-search` study APIs (single-scalar or
  * multi-objective vectors).
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Order, Record, Schema } from "effect"
 import type { ObjectiveValue as EffectSearchObjectiveValue } from "effect-search/Contracts"
@@ -15,7 +15,7 @@ import { ExampleFailure, type Report } from "../Evaluate/report.js"
  *
  * @see {@link projectObjective} — dispatches on this mode
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const ObjectiveProjectionMode = Schema.Literal("single", "multi")
@@ -26,7 +26,7 @@ export const ObjectiveProjectionMode = Schema.Literal("single", "multi")
  *
  * @see {@link ObjectiveTelemetry} — carries an array of these
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ObjectiveMetricScore extends Schema.Class<ObjectiveMetricScore>("ObjectiveMetricScore")({
@@ -41,7 +41,7 @@ export class ObjectiveMetricScore extends Schema.Class<ObjectiveMetricScore>("Ob
  *
  * @see {@link ObjectiveProjection} — bundles telemetry with the objective
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("ObjectiveTelemetry")({
@@ -63,7 +63,7 @@ export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("Object
  * @see {@link projectMultiObjective} — vector projection
  * @see {@link ObjectiveTelemetry} — evaluation context carried alongside
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("ObjectiveProjection")({
@@ -75,7 +75,7 @@ export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("Obje
  * Re-export of the `effect-search` objective value type so downstream
  * consumers can reference it without importing `effect-search` directly.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type ObjectiveValue = EffectSearchObjectiveValue
@@ -116,7 +116,7 @@ const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveP
  * @see {@link ObjectiveProjection} — the returned projection
  * @see {@link projectMultiObjective} — vector variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const projectSingleObjective = (report: Report, metricName?: string) =>
@@ -140,7 +140,7 @@ export const projectSingleObjective = (report: Report, metricName?: string) =>
  * @see {@link ObjectiveProjection} — the returned projection
  * @see {@link projectSingleObjective} — scalar variant
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArray<string>) =>
@@ -161,7 +161,7 @@ export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArra
  * @see {@link ObjectiveProjectionMode} — the mode discriminant
  * @see {@link ObjectiveProjection} — the returned projection
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const projectObjective = (options: {

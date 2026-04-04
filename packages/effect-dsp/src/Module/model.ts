@@ -1,7 +1,7 @@
 /**
  * Core `Module` class and `SavedState` envelope for parameter persistence.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as AiError from "@effect/ai/AiError"
 import type * as LanguageModel from "@effect/ai/LanguageModel"
@@ -20,7 +20,7 @@ import type { Signature } from "../Signature/model.js"
  *
  * @see {@link Module}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
@@ -43,7 +43,7 @@ export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
  * @see {@link ModuleParams}
  * @see {@link SavedState}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Module<

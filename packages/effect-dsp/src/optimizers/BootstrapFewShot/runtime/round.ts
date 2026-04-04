@@ -2,7 +2,7 @@
  * BootstrapFewShot round execution — runs one training example, scores the
  * trace, and collects the demo if it passes the threshold.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"

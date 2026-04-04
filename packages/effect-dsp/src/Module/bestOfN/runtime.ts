@@ -1,7 +1,7 @@
 /**
  * Best-of-N forward runtime — runs N rollouts, scores each, returns best.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -20,7 +20,7 @@ import type { Module } from "../model.js"
  *
  * @see {@link MetricResult} — the score + optional feedback returned
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type RewardFn<
@@ -45,7 +45,7 @@ const scoredCandidateOrder: Order.Order<ScoredCandidate<unknown>> = Order.combin
 /**
  * Build a typed `forward` function for a best-of-N module.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const makeBestOfNForward = <

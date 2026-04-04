@@ -2,7 +2,7 @@
  * Public effect-search adapter — ask/tell orchestration and progress
  * composition for optimizer integration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { ask, cancel, fail, makeTpeSampler, open, pareto, result, resultSummary, snapshot, tell } from "./askTell.js"
 import { EffectSearchAcquisitionStrategySchema, EffectSearchInteropEventSchema } from "./model.js"
@@ -27,7 +27,7 @@ export {
  * Namespace object that bundles all effect-search adapter operations into a
  * single import for convenience.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const effectSearchInterop = {

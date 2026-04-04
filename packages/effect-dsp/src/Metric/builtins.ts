@@ -1,7 +1,7 @@
 /**
  * Built-in metric constructors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Option } from "effect"
 import type { MetricResult } from "../contracts/MetricResult.js"
@@ -15,7 +15,7 @@ const singleScoreResult = (score: number): MetricResult => new Result({ score })
  * Exact-match metric — scores 1 when the specified field matches exactly
  * (case-insensitive, trimmed), 0 otherwise.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category built-ins
  */
 export const exactMatch = (field: string) =>
@@ -41,7 +41,7 @@ const safeDivision = (numerator: number, denominator: number): number => denomin
  * Token-level F1 metric — computes precision, recall, and their harmonic mean
  * over whitespace-delimited tokens in the specified field.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category built-ins
  */
 export const f1 = (field: string) =>
@@ -71,7 +71,7 @@ export const f1 = (field: string) =>
  * Substring-membership metric — scores 1 when the specified field contains the
  * target string (case-insensitive, trimmed), 0 otherwise.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category built-ins
  */
 export const contains = (field: string, target: string) => {

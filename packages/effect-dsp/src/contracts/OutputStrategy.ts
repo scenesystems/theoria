@@ -1,7 +1,7 @@
 /**
  * Controls how a module renders its output prompt and parses the LM response.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Match, Schema } from "effect"
 
@@ -17,7 +17,7 @@ import { Match, Schema } from "effect"
  * @see {@link resolveStrategy} — resolves `"auto"` into a concrete mode
  * @see {@link ModuleParams} — carries the active strategy per module
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const OutputStrategySchema = Schema.Literal("text", "structured", "auto")
@@ -26,7 +26,7 @@ export const OutputStrategySchema = Schema.Literal("text", "structured", "auto")
  * Inferred runtime type of {@link OutputStrategySchema}.
  *
  * @see {@link OutputStrategySchema}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type OutputStrategy = Schema.Schema.Type<typeof OutputStrategySchema>
@@ -47,7 +47,7 @@ const resolveAutoStrategy = (demoCount: number): "text" | "structured" =>
  *
  * @see {@link OutputStrategySchema} — the source schema
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): "text" | "structured" =>

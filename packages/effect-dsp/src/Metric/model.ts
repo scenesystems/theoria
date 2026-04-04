@@ -1,7 +1,7 @@
 /**
  * Metric models.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data } from "effect"
 import type { MetricFn } from "../contracts/MetricFn.js"
@@ -10,7 +10,7 @@ import { MetricResult } from "../contracts/MetricResult.js"
 /**
  * Re-export of `MetricResult` — a score with optional feedback text.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export const Result = MetricResult
@@ -20,7 +20,7 @@ export const Result = MetricResult
  * and returns a `MetricResult`. Metrics can be pure or effectful, and compose
  * via `Metric.compose`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link MetricFn}
  * @see {@link MetricResult}

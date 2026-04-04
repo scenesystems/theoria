@@ -3,7 +3,7 @@
  * prompts that teach the model to improve its own instructions.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option, Predicate, Record } from "effect"
 import type { MetricResult } from "../../contracts/MetricResult.js"
@@ -55,7 +55,7 @@ const renderReflectiveExampleSection = (example: ReflectiveExample, index: numbe
  * Prefix for explicit parse-failure feedback injected when an LLM response
  * failed to decode.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const PARSE_FAILURE_FEEDBACK_PREFIX = "Your output failed to parse. Follow this structure:\n"
@@ -64,7 +64,7 @@ export const PARSE_FAILURE_FEEDBACK_PREFIX = "Your output failed to parse. Follo
  * Build parse-failure feedback with explicit structure guidance appended
  * after the prefix.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const formatParseFailureFeedback = (structureInstruction: string): string =>
@@ -74,7 +74,7 @@ export const formatParseFailureFeedback = (structureInstruction: string): string
  * Normalize `MetricResult.feedback` into a required string — empty feedback
  * stays empty, never `undefined`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const normalizeMetricFeedback = (metricResult: MetricResult): string =>
@@ -93,7 +93,7 @@ const reflectiveFeedback = (sample: ReflectiveDatasetSample): string =>
  * Build one frozen reflective-example row from a runtime sample. Resolves
  * feedback from either metric results or parse-failure structure.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildReflectiveExample = (sample: ReflectiveDatasetSample): ReflectiveExample =>
@@ -110,7 +110,7 @@ export const buildReflectiveExample = (sample: ReflectiveDatasetSample): Reflect
 /**
  * Build a reflective dataset from runtime samples for use in mutation prompts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildReflectiveDataset = (
@@ -121,7 +121,7 @@ export const buildReflectiveDataset = (
  * Select a predictor name using deterministic round-robin cycling across
  * iterations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const selectPredictorRoundRobin = (
@@ -139,7 +139,7 @@ export const selectPredictorRoundRobin = (
  * description for the meta-LLM.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildReflectivePrompt = (options: {

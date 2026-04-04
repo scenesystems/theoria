@@ -3,7 +3,7 @@
  * acceptance.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option } from "effect"
 import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
@@ -12,7 +12,7 @@ import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "
  * Inputs for the two-gate mutation acceptance check — previous and mutated
  * minibatch scores plus a deferred full-valset evaluation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type EvaluateMutationAcceptanceOptions<E, R> = Readonly<{
@@ -25,7 +25,7 @@ export type EvaluateMutationAcceptanceOptions<E, R> = Readonly<{
  * Inputs for the merge acceptance check — merged and both parent minibatch
  * scores.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type EvaluateMergeAcceptanceOptions = Readonly<{
@@ -42,7 +42,7 @@ const sumScores = (scores: CandidateScoreVector): number => Arr.reduce(scores, 0
  * passes — avoiding expensive evaluation for clearly inferior mutations.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const evaluateMutationAcceptance = <E, R>(
@@ -84,7 +84,7 @@ export const evaluateMutationAcceptance = <E, R>(
  * Evaluate merge acceptance using the non-strict comparator. A merged
  * candidate is accepted when its score sum equals or exceeds the best parent.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const evaluateMergeAcceptance = (

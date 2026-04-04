@@ -1,7 +1,7 @@
 /**
  * Canonical module-parameter graph traversal.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -26,7 +26,7 @@ const sortedChildNodes = (subModules: ModuleNode["subModules"]): ReadonlyArray<M
  * Collected by {@link collectModuleParamRefs} in deterministic traversal
  * order for use by optimizers and serialization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -60,7 +60,7 @@ const visitNode = (node: ModuleNode, state: TraversalState): TraversalState =>
  * Each module is visited at most once (by name), so diamond dependencies
  * in the module graph do not produce duplicate refs.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */

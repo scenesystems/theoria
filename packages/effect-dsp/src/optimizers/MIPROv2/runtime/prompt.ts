@@ -2,7 +2,7 @@
  * Phase 2 prompt rendering — assembles grounded instruction proposals from
  * dataset context.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Match, Option, Predicate, Record } from "effect"
@@ -13,7 +13,7 @@ import type { Example } from "../../../Example/index.js"
  * Strips away `Demo` class machinery, keeping only the raw field records
  * needed for text serialization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PromptDemo = Readonly<{
@@ -43,7 +43,7 @@ const renderDemoBlock = (input: Readonly<Record<string, unknown>>, output: Reado
  * (total / labeled / unlabeled counts) suitable for embedding in a
  * proposal prompt.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const datasetSummary = (trainset: ReadonlyArray<Example>): string => {
@@ -57,7 +57,7 @@ export const datasetSummary = (trainset: ReadonlyArray<Example>): string => {
  * Projects a candidate's demo array into the lightweight {@link PromptDemo}
  * shape for prompt rendering.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const promptDemosFromCandidate = (
@@ -74,7 +74,7 @@ export const promptDemosFromCandidate = (
  * summary, diversity tip, bootstrapped demo blocks, the baseline
  * instruction, and a closing directive to return one improved instruction.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildProposalPrompt = (options: {
