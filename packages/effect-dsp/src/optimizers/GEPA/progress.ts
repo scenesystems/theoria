@@ -1,7 +1,7 @@
 /**
  * GEPA event progress formatting and summaries.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Match, Stream } from "effect"
 import type { Effect } from "effect"
@@ -10,7 +10,7 @@ import type { GEPAEvent } from "./events.js"
 /**
  * Formatted GEPA progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAProgressLine = Readonly<{
@@ -72,7 +72,7 @@ const detailsFromEvent = (event: GEPAEvent): string =>
 /**
  * Deterministically format a GEPA event as one progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatGEPAProgressEvent = (event: GEPAEvent): GEPAProgressLine =>
@@ -81,7 +81,7 @@ export const formatGEPAProgressEvent = (event: GEPAEvent): GEPAProgressLine =>
 /**
  * Progress sink for formatted GEPA lines.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAProgressSink<E = never, R = never> = (
@@ -91,7 +91,7 @@ export type GEPAProgressSink<E = never, R = never> = (
 /**
  * Tap formatted GEPA progress lines from an event stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const tapGEPAProgress =
@@ -104,7 +104,7 @@ export const tapGEPAProgress =
 /**
  * Semantic summary projected from GEPA events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type { GEPAEventSummary } from "./progressSummary.js"
@@ -112,7 +112,7 @@ export type { GEPAEventSummary } from "./progressSummary.js"
 /**
  * Summarize GEPA stream events into semantically meaningful counters.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export { summarizeGEPAEvents } from "./progressSummary.js"

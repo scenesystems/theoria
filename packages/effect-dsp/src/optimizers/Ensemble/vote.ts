@@ -2,7 +2,7 @@
  * Ensemble output voting — deterministic majority vote across sub-module
  * predictions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Equal, Option } from "effect"
 import type { Schema } from "effect"
@@ -69,7 +69,7 @@ const winningVote = <O extends Schema.Struct.Fields>(
  *
  * Fails with `AllTrialsFailed` when the output array is empty.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const majorityVote = <O extends Schema.Struct.Fields>(

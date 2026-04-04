@@ -6,10 +6,15 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option } from "effect"
 
+import {
+  callExpressionTargets,
+  moduleSpecifiers,
+  parseTypeScript,
+  pathSegments,
+  propertyAccessChains
+} from "@theoria/source-proof"
+
 const INTEROP_ROOT_PATH = "src/optimizers/effectSearchInterop/"
-const EFFECT_SEARCH_INTERNAL_IMPORT_PATTERN = /from\s+["']effect-search\/internal\//
-const M5_INTEROP_SURFACE_PATTERN =
-  /Study\.open\(|Study\.ask\(|Study\.tell\(|Study\.fail\(|Study\.cancel\(|Study\.events\(|Study\.formatTerminalProgressEvent\(|Pareto\.|acquisition:\s*["'](?:ei|pi|thompson)["']/
 
 const packageRootUrl = new URL("../../", import.meta.url)
 
@@ -56,6 +61,23 @@ const readProjectFile = (
     return yield* fileSystem.readFileString(absolutePath).pipe(Effect.orDie)
   })
 
+const hasInteropCapability = (filePath: string, source: string): boolean => {
+  const parsed = parseTypeScript(filePath, source)
+  const callTargets = callExpressionTargets(parsed)
+  const propertyChains = propertyAccessChains(parsed)
+
+  return callTargets.some((target) =>
+    target === "Study.open"
+    || target === "Study.ask"
+    || target === "Study.tell"
+    || target === "Study.fail"
+    || target === "Study.cancel"
+    || target === "Study.events"
+    || target === "Study.formatTerminalProgressEvent"
+  )
+    || propertyChains.some((chain) => chain.startsWith("Pareto."))
+}
+
 const interopSurfaceLeakViolations: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -72,7 +94,7 @@ const interopSurfaceLeakViolations: Effect.Effect<Array<string>, never, FileSyst
       return fileSystem.readFileString(absolutePath).pipe(
         Effect.orDie,
         Effect.map((source) =>
-          M5_INTEROP_SURFACE_PATTERN.test(source)
+          hasInteropCapability(relativePath, source)
             ? Option.some(relativePath)
             : Option.none<string>()
         )
@@ -92,11 +114,16 @@ const effectSearchInternalImportViolations: Effect.Effect<Array<string>, never, 
     const findings = yield* Effect.forEach(files, (absolutePath) =>
       fileSystem.readFileString(absolutePath).pipe(
         Effect.orDie,
-        Effect.map((source) =>
-          EFFECT_SEARCH_INTERNAL_IMPORT_PATTERN.test(source)
+        Effect.map((source) => {
+          const parsed = parseTypeScript(absolutePath, source)
+
+          return moduleSpecifiers(parsed).some((specifier) => {
+              const segments = pathSegments(specifier)
+              return segments[0] === "effect-search" && segments[1] === "internal"
+            })
             ? Option.some(toForwardSlashes(path, path.relative(root, absolutePath)))
             : Option.none<string>()
-        )
+        })
       ))
 
     return Arr.filterMap(findings, (f) => f)
@@ -105,18 +132,31 @@ const effectSearchInternalImportViolations: Effect.Effect<Array<string>, never, 
 describe("integration/effectSearchInterop adapter boundary", () => {
   it.effect("exports the canonical effectSearchInterop seam from Optimizer barrels", () =>
     Effect.gen(function*() {
-      const optimizerIndex = yield* readProjectFile("src/Optimizer/index.ts")
-      const optimizerEventsIndex = yield* readProjectFile("src/Optimizer/events/index.ts")
+      const optimizerIndex = parseTypeScript("src/Optimizer/index.ts", yield* readProjectFile("src/Optimizer/index.ts"))
+      const optimizerEventsIndex = parseTypeScript(
+        "src/Optimizer/events/index.ts",
+        yield* readProjectFile("src/Optimizer/events/index.ts")
+      )
 
-      expect(optimizerIndex.includes("../optimizers/effectSearchInterop/index.js")).toBe(true)
-      expect(optimizerEventsIndex.includes("./optimizer.js")).toBe(true)
+      expect(moduleSpecifiers(optimizerIndex)).toContain("../optimizers/effectSearchInterop/index.js")
+      expect(moduleSpecifiers(optimizerEventsIndex)).toContain("./optimizer.js")
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("keeps ask/tell + Pareto + acquisition capabilities single-sourced in the interop adapter", () =>
     Effect.gen(function*() {
-      const interopIndex = yield* readProjectFile("src/optimizers/effectSearchInterop/index.ts")
+      const interopIndex = parseTypeScript(
+        "src/optimizers/effectSearchInterop/index.ts",
+        yield* readProjectFile("src/optimizers/effectSearchInterop/index.ts")
+      )
+      const adapter = parseTypeScript(
+        "src/optimizers/effectSearchInterop/adapter.ts",
+        yield* readProjectFile("src/optimizers/effectSearchInterop/adapter.ts")
+      )
 
-      expect(interopIndex.length > 0).toBe(true)
+      expect(moduleSpecifiers(interopIndex)).toContain("./adapter.js")
+      expect(moduleSpecifiers(interopIndex)).toContain("./model.js")
+      expect(moduleSpecifiers(adapter)).toContain("./askTell.js")
+      expect(moduleSpecifiers(adapter)).toContain("./progress.js")
       expect(yield* interopSurfaceLeakViolations).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))
 

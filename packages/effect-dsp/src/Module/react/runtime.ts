@@ -1,7 +1,7 @@
 /**
  * ReAct runtime orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -30,7 +30,7 @@ import {
 /**
  * Build a typed `forward` function for a ReAct module.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const makeReactForward = <

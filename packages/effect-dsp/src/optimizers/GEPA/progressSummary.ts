@@ -1,7 +1,7 @@
 /**
  * GEPA semantic summary projection.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match } from "effect"
 import type { GEPAEvent } from "./events.js"
@@ -9,7 +9,7 @@ import type { GEPAEvent } from "./events.js"
 /**
  * Semantic summary projected from GEPA events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type GEPAEventSummary = Readonly<{
@@ -143,7 +143,7 @@ const summarizeEvent = (
 /**
  * Summarize GEPA stream events into semantically meaningful counters.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const summarizeGEPAEvents = (

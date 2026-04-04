@@ -1,7 +1,7 @@
 /**
  * Evaluation event contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 import { ExampleFailure } from "./report.js"
@@ -11,7 +11,7 @@ import { ExampleFailure } from "./report.js"
  * `ExampleStarted`, `ExampleCompleted`, `ExampleFailed`, and
  * `EvaluationCompleted`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const EvaluationEventSchema = Schema.Union(
@@ -36,7 +36,7 @@ export const EvaluationEventSchema = Schema.Union(
  * Discriminated union of evaluation lifecycle events, extracted from
  * {@link EvaluationEventSchema}.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type EvaluationEventType = typeof EvaluationEventSchema.Type
@@ -44,7 +44,7 @@ export type EvaluationEventType = typeof EvaluationEventSchema.Type
 /**
  * Tagged-enum constructors and `$match` helpers for evaluation events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const EvaluationEvent = Data.taggedEnum<EvaluationEventType>()

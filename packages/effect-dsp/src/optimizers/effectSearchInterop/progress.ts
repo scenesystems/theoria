@@ -2,7 +2,7 @@
  * Event stream and progress line composition for effect-search ↔ effect-dsp
  * interop.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, Option, Stream } from "effect"
 import { Study } from "effect-search"
@@ -19,7 +19,7 @@ import {
  * formatting.
  *
  * @see {@link eventsWithProgress} for events with terminal progress lines
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const events = <Space extends SearchSpace.SearchSpace>(
@@ -32,7 +32,7 @@ export const events = <Space extends SearchSpace.SearchSpace>(
  * optimization.
  *
  * @see {@link events} for the raw event stream without progress
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const eventsWithProgress = <Space extends SearchSpace.SearchSpace, E, R>(

@@ -1,7 +1,7 @@
 /**
  * Module-domain errors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -10,7 +10,7 @@ import { Schema } from "effect"
  * field name, issue type (missing, unexpected, duplicate, or decode error), and
  * a human-readable message.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ParseFieldDiagnostic extends Schema.Class<ParseFieldDiagnostic>("ParseFieldDiagnostic")({
@@ -24,7 +24,7 @@ export class ParseFieldDiagnostic extends Schema.Class<ParseFieldDiagnostic>("Pa
  * schema. Carries the raw output, retry count, and per-field diagnostics for
  * prompt feedback.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
@@ -44,7 +44,7 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
  * Raised during module composition when the graph is invalid — duplicate
  * module ids, name collisions, or cycles.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class CompositionError extends Schema.TaggedError<CompositionError>()(

@@ -1,7 +1,7 @@
 /**
  * Parse retry schedule and orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type { Schema } from "effect"
@@ -15,7 +15,7 @@ import { parseTextOutput } from "./decode.js"
  * retry budget, schedule, feedback template, and the effectful reader
  * that produces fresh LLM text (optionally incorporating parse feedback).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @internal
  */
@@ -40,7 +40,7 @@ export class ParseTextWithRetryOptions<
  * Each retry increments the attempt counter embedded in the resulting
  * `ParseOutputError` so callers can inspect how many rounds were needed.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

@@ -2,7 +2,7 @@
  * Validated constructors for building {@link Signature} instances from
  * `Schema.Struct` field declarations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Record, Schema } from "effect"
 import { SignatureError } from "../Errors/signature.js"
@@ -49,7 +49,7 @@ const validateFieldCollections = (
  * @see {@link Signature} — the returned model
  * @see {@link describe} — annotate fields with human-readable descriptions
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const make = <

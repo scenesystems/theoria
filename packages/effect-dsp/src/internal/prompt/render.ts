@@ -1,7 +1,7 @@
 /**
  * Prompt rendering for predictor modules.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type * as Prompt from "@effect/ai/Prompt"
@@ -132,7 +132,7 @@ const demoMessages = <
  * - A user message with the current input values and output-format reminder
  * - An optional feedback message when a previous parse attempt failed
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

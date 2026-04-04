@@ -1,7 +1,7 @@
 /**
  * GEPA merge phase orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
@@ -36,7 +36,7 @@ const mergeCheckedEvent = (options: {
 /**
  * Execute the GEPA merge/crossover stage for one iteration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR>(

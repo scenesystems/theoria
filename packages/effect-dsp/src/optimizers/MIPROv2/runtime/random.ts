@@ -2,7 +2,7 @@
  * Deterministic pseudo-random helpers for reproducible sampling across
  * MIPROv2 phases.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import * as Sampler from "effect-search/Sampler"
@@ -11,7 +11,7 @@ import * as Sampler from "effect-search/Sampler"
  * Normalizes a seed to a deterministic positive integer suitable for
  * pseudo-random generation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const normalizeSeed = (seed: number): number => Sampler.normalizeDeterministicSeed(seed)
@@ -20,7 +20,7 @@ export const normalizeSeed = (seed: number): number => Sampler.normalizeDetermin
  * Clamps a count to at least 1, ensuring sampling loops always produce at
  * least one element.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const normalizeCount = (value: number): number => Sampler.normalizePositiveCount(value)
@@ -29,7 +29,7 @@ export const normalizeCount = (value: number): number => Sampler.normalizePositi
  * Produces an array of zero-based indices `[0, 1, …, count - 1]`.
  * Returns an empty array when `count` is zero or negative.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildIndices = (count: number): ReadonlyArray<number> => Sampler.buildIndices(count)
@@ -39,7 +39,7 @@ export const buildIndices = (count: number): ReadonlyArray<number> => Sampler.bu
  * The same seed always yields the same ordering, enabling reproducible
  * candidate generation across phases.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): ReadonlyArray<A> =>
@@ -50,7 +50,7 @@ export const shuffleBySeed = <A>(values: ReadonlyArray<A>, seed: number): Readon
  * (inclusive). Used to vary the number of demos in shuffled bootstrap
  * candidates.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const sampleBoundedCount = (seed: number, maxCount: number): number => Sampler.sampleBoundedCount(seed, maxCount)

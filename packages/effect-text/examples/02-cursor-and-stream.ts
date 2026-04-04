@@ -23,7 +23,7 @@ const request = {
 }
 
 const program = Effect.gen(function*() {
-  const prepared = yield* Text.prepare({
+  const prepared = yield* Text.prepareWithSegments({
     text: "Cursor stepping and stream projection stay pure after prepare time.",
     font: { family: "Mono", size: 14 },
     whiteSpace: "normal"

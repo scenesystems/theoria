@@ -1,7 +1,7 @@
 /**
  * ReAct module constructor.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
@@ -18,7 +18,7 @@ import { makeReactForward } from "./runtime.js"
  * Default cap on thought/action iterations before the module gives up
  * and fails with `ParseOutputError`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_REACT_MAX_ITERATIONS = 5
@@ -27,7 +27,7 @@ export const DEFAULT_REACT_MAX_ITERATIONS = 5
  * Configuration for a ReAct module: signature, toolkit of available tools,
  * and optional iteration cap.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ReactOptions<
@@ -64,7 +64,7 @@ const makeInitialParams = <
  * @see {@link predict}
  * @see {@link chainOfThought}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const react = <

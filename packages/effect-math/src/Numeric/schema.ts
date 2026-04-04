@@ -181,7 +181,7 @@ export const LogaddexpInput = Schema.Struct({
 /**
  * Log-sum-exp input contract — non-empty finite vector.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const LogSumExpInput = Schema.Struct({

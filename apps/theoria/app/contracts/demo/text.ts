@@ -6,6 +6,7 @@ import type { Obstacle } from "../obstacle.js"
 import { semanticsFor } from "../text.js"
 
 const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,20 @@ export const resolveStageMaxWidth = (viewportWidthPx: number): number =>
   viewportWidthPx > 0
     ? Math.min(stageSliderMaxWidth, Math.max(1, viewportWidthPx - stageHorizontalChromePx))
     : stageSliderMaxWidth
+
+export const resolveStageWidth = (
+  requestedWidthPx: number,
+  viewportWidthPx: number,
+  obstaclesEnabled = false,
+  sceneObstacles: ReadonlyArray<Obstacle> = []
+): number => {
+  const stageMaxWidth = resolveStageMaxWidth(viewportWidthPx)
+
+  return Math.min(
+    stageMaxWidth,
+    Math.max(projectionMinWidthFor(stageMaxWidth, obstaclesEnabled, sceneObstacles), requestedWidthPx)
+  )
+}
 
 export const partitionProjectionWidths = (
   minPx: number,
@@ -198,6 +213,75 @@ export const EffectTextRunManifest = Schema.Struct({
 })
 
 export type EffectTextRunManifest = typeof EffectTextRunManifest.Type
+
+export const EffectTextRunPlanEntry = Schema.Struct({
+  corpusIndex: NonNegativeInt,
+  label: NonEmptyString,
+  steps: Schema.Array(EffectTextRunManifestStep)
+})
+
+export type EffectTextRunPlanEntry = typeof EffectTextRunPlanEntry.Type
+
+export const EffectTextRunPlan = Schema.Struct({
+  _tag: Schema.Literal("effect-text"),
+  customText: Schema.String,
+  viewportWidthPx: NonNegativeInt,
+  entries: Schema.Array(EffectTextRunPlanEntry)
+})
+
+export type EffectTextRunPlan = typeof EffectTextRunPlan.Type
+
+const effectTextRunPlanStepsForEntry = (
+  entry: CorpusEntry,
+  viewportWidthPx: number
+): ReadonlyArray<EffectTextRunManifestStep> => {
+  const stageMaxWidth = resolveStageMaxWidth(viewportWidthPx)
+  const baseMinWidth = projectionMinWidthFor(stageMaxWidth, false, entry.scene.obstacles)
+  const obstacleMinWidth = projectionMinWidthFor(stageMaxWidth, true, entry.scene.obstacles)
+  const baseWidths = partitionProjectionWidths(baseMinWidth, stageMaxWidth, projectionStepCount)
+  const obstacleWidths = partitionProjectionWidths(obstacleMinWidth, stageMaxWidth, projectionStepCount)
+
+  return Arr.appendAll(
+    Arr.map(baseWidths, (requestedWidthPx): EffectTextRunManifestStep => ({
+      requestedWidthPx,
+      stageWidthPx: requestedWidthPx,
+      obstaclesEnabled: false
+    })),
+    Arr.map(obstacleWidths, (requestedWidthPx): EffectTextRunManifestStep => ({
+      requestedWidthPx,
+      stageWidthPx: requestedWidthPx,
+      obstaclesEnabled: true
+    }))
+  )
+}
+
+export const snapshotEffectTextRunPlan = ({
+  customText,
+  viewportWidthPx
+}: {
+  readonly customText: string
+  readonly viewportWidthPx: number
+}): EffectTextRunPlan => {
+  const corpusEntries = Arr.map(corpus, (_, corpusIndex) => corpusIndex)
+  const allEntries = customText.trim().length > 0
+    ? Arr.prepend(corpusEntries, corpus.length)
+    : corpusEntries
+
+  return {
+    _tag: "effect-text",
+    customText,
+    viewportWidthPx,
+    entries: Arr.map(allEntries, (corpusIndex): EffectTextRunPlanEntry => {
+      const entry = resolveCorpusEntry(corpusIndex, customText)
+
+      return {
+        corpusIndex,
+        label: entry.label,
+        steps: effectTextRunPlanStepsForEntry(entry, viewportWidthPx)
+      }
+    })
+  }
+}
 
 const projectionInstructions: ReadonlyArray<EffectTextProjectionInstruction> = Arr.appendAll(
   Arr.map(effectTextProjectionWidths, (requestedWidthPx): EffectTextProjectionInstruction => ({

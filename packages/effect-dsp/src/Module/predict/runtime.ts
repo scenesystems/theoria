@@ -1,7 +1,7 @@
 /**
  * Predict-forward runtime orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -20,7 +20,7 @@ import { appendTraceEntry } from "./trace.js"
 /**
  * Build a typed `forward` function for a predictor module.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const makeForward = <

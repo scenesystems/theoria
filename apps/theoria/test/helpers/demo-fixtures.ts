@@ -9,7 +9,7 @@ export const effectTextCardFixture: Card = {
   packageName: "effect-text",
   description: "Effect-native text preparation, measurement, and greedy multiline layout",
   useCase: "Deterministic semantic text layout projection for renderer authority.",
-  summary: "Benchmark text preparation reuse and layout fidelity across a multi-domain corpus.",
+  summary: "Browser-backed measurement and prepared-handle reuse across a multi-domain text corpus.",
   runLabel: "Run Benchmark",
   interactiveLabel: "Live Reflow",
   deepDivePath: "/demos/effect-text",

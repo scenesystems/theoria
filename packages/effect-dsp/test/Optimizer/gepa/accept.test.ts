@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.3 acceptance-gate contracts.
+ * GEPA acceptance-gate contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Ref, Schema } from "effect"

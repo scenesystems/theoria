@@ -1,7 +1,7 @@
 /**
  * Refine forward runtime — iterative improvement with feedback accumulation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -31,7 +31,7 @@ const appendFeedback = (
 /**
  * Build a typed `forward` function for a refine module.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const makeRefineForward = <

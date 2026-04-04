@@ -10,7 +10,7 @@
  * @see https://effect.website/docs/stream/ Stream APIs
  * @see https://effect.website/docs/stream/operations/#runfold Stream.runFold
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 
@@ -56,7 +56,7 @@ const splitTextForUtf8Boundary = (text: string): readonly [emit: string, carry: 
  * ]))
  * ```
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestByteStream = <E, R>(
@@ -78,7 +78,7 @@ export const digestByteStream = <E, R>(
  * Equivalent to mapping `utf8ToBytes` over the stream and then calling
  * {@link digestByteStream}.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestUtf8Stream = <E, R>(
@@ -108,7 +108,7 @@ export const digestUtf8Stream = <E, R>(
  *
  * Returns a 43-character output for 256-bit digests.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestUtf8StreamBase64Url = <E, R>(
@@ -121,7 +121,7 @@ export const digestUtf8StreamBase64Url = <E, R>(
  *
  * Returns a 64-character output for 256-bit digests.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestUtf8StreamHex = <E, R>(
@@ -134,7 +134,7 @@ export const digestUtf8StreamHex = <E, R>(
  *
  * Returns a 43-character output for 256-bit digests.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestByteStreamBase64Url = <E, R>(
@@ -147,7 +147,7 @@ export const digestByteStreamBase64Url = <E, R>(
  *
  * Returns a 64-character output for 256-bit digests.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestByteStreamHex = <E, R>(
@@ -161,7 +161,7 @@ export const digestByteStreamHex = <E, R>(
  * Use this service when consumers should depend on digest capabilities via
  * Effect layers rather than importing concrete helpers directly.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category services
  */
 export class DigestStreaming extends Effect.Tag("@scenesystems/digest/DigestStreaming")<
@@ -197,7 +197,7 @@ export class DigestStreaming extends Effect.Tag("@scenesystems/digest/DigestStre
 /**
  * Live layer for {@link DigestStreaming}.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category layers
  */
 export const DigestStreamingLive = Layer.succeed(DigestStreaming, {

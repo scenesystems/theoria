@@ -1,7 +1,7 @@
 /**
  * MIPROv2 event stream projection via the shared emitter bridge.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type { Effect, Stream } from "effect"
@@ -18,7 +18,7 @@ import type { Phase3EventSink } from "../phase3-model.js"
  * `emit` pushes an event into the resulting stream, allowing consumers
  * to observe progress incrementally.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const streamMIPROv2Events = <A, E, R>(

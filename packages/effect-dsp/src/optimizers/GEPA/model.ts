@@ -3,7 +3,7 @@
  * reflective examples.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { FieldRecord } from "../../contracts/FieldValue.js"
@@ -12,7 +12,7 @@ import { MetricResult } from "../../contracts/MetricResult.js"
 /**
  * Per-example score array for one candidate program across the validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const CandidateScoreVector = Schema.Array(Schema.Number)
@@ -20,7 +20,7 @@ export const CandidateScoreVector = Schema.Array(Schema.Number)
 /**
  * Per-example score array for one candidate program across the validation set.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type CandidateScoreVector = typeof CandidateScoreVector.Type
@@ -30,7 +30,7 @@ export type CandidateScoreVector = typeof CandidateScoreVector.Type
  * improvement (`newSum > oldSum`). Gate 2 runs full-valset evaluation only
  * when gate 1 passes.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MutationAcceptance extends Schema.Class<MutationAcceptance>("GEPAMutationAcceptance")({
@@ -46,7 +46,7 @@ export class MutationAcceptance extends Schema.Class<MutationAcceptance>("GEPAMu
  * Merge acceptance result using the non-strict comparator
  * (`mergedSum >= bestParentSum`).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MergeAcceptance extends Schema.Class<MergeAcceptance>("GEPAMergeAcceptance")({
@@ -59,7 +59,7 @@ export class MergeAcceptance extends Schema.Class<MergeAcceptance>("GEPAMergeAcc
  * Per-example Pareto frontier analysis — tracks which candidates hold the
  * best score for each validation example.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>("GEPAExampleFrontierHolding")({
@@ -72,7 +72,7 @@ export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>
  * Weighted parent selection entry — weight equals the number of per-example
  * frontier positions held by this candidate.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>("GEPAParentSelectionWeight")({
@@ -84,7 +84,7 @@ export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>("
  * Complete Pareto frontier snapshot for one score matrix — frontier indices,
  * dominated indices, per-example holdings, and derived parent weights.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>("GEPAParetoKernelSnapshot")({
@@ -98,7 +98,7 @@ export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>("GE
  * A frozen reflective-example row for mutation prompts — shows the model its
  * input, generated output, expected output, feedback, and score.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPAReflectiveExample")({
@@ -116,7 +116,7 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPARefl
  * metrics. `metricResult.feedback` provides the canonical feedback.
  * `parseFailureStructure` injects format guidance when parsing failed.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSample>("GEPAReflectiveDatasetSample")({
@@ -132,7 +132,7 @@ export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSampl
 /**
  * Instruction payload for one predictor in a GEPA candidate program.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class PredictorInstruction extends Schema.Class<PredictorInstruction>("GEPAPredictorInstruction")({
@@ -144,7 +144,7 @@ export class PredictorInstruction extends Schema.Class<PredictorInstruction>("GE
  * A candidate program in the GEPA population — carries a unique id, parent
  * lineage, and per-predictor instructions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ProgramCandidate extends Schema.Class<ProgramCandidate>("GEPAProgramCandidate")({
@@ -157,7 +157,7 @@ export class ProgramCandidate extends Schema.Class<ProgramCandidate>("GEPAProgra
  * Per-example score comparison between two parent candidates during
  * merge/crossover.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MergeComparison extends Schema.Class<MergeComparison>("GEPAMergeComparison")({
@@ -170,7 +170,7 @@ export class MergeComparison extends Schema.Class<MergeComparison>("GEPAMergeCom
  * Bucket classification for balanced merge subsampling — determines whether
  * parent A, parent B, or neither dominates each example.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const MergeComparisonBucketSchema = Schema.Literal("parent-a-better", "parent-b-better", "tie")
@@ -179,7 +179,7 @@ export const MergeComparisonBucketSchema = Schema.Literal("parent-a-better", "pa
  * Bucket classification for balanced merge subsampling — determines whether
  * parent A, parent B, or neither dominates each example.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MergeComparisonBucket = typeof MergeComparisonBucketSchema.Type
@@ -188,7 +188,7 @@ export type MergeComparisonBucket = typeof MergeComparisonBucketSchema.Type
  * Mutable merge phase state — tracks accepted candidates and remaining
  * merge budget.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MergeState extends Schema.Class<MergeState>("GEPAMergeState")({
@@ -201,7 +201,7 @@ export class MergeState extends Schema.Class<MergeState>("GEPAMergeState")({
  * iteration count, candidate population, score matrix, Pareto snapshot,
  * merge budget, and deterministic seed.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class GEPAState extends Schema.Class<GEPAState>("GEPAState")({

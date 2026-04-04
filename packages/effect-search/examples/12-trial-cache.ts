@@ -43,7 +43,7 @@ const program = Effect.gen(function*() {
     })
 
     return { first, second }
-  }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory(Study.studyObjectiveCacheOptions("m344-example-cache"))))
+  }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory(Study.studyObjectiveCacheOptions("trial-cache-example"))))
 
   const { first, second } = yield* cachedRuns
   const calls = yield* Ref.get(objectiveCalls)

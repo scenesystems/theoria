@@ -88,7 +88,7 @@ function ControlOptionMatrix<A>({
               <SelectionCopy
                 title={option.label}
                 titleClassName={active ? "max-w-none text-ink-900" : "max-w-none text-ink-700"}
-                titleRole="section-title"
+                titleRole="selection-title"
               />
             </SelectionRail>
           </Button>

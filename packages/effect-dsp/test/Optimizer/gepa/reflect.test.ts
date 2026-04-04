@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.2 reflective mutation contracts.
+ * GEPA reflective mutation contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Order, Predicate, Record, Schema } from "effect"

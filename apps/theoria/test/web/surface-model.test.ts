@@ -127,7 +127,7 @@ describe("Theoria Surface Model", () => {
       expect(model.stage.showTabs).toBe(true)
       expect(model.stage.activeTab).toBe("evidence")
       expect(model.stage.evidence._tag).toBe("results")
-      expect(model.stage.hintText).toContain("pure projection")
+      expect(model.stage.hintText).toContain("obstacle-aware projection")
     }))
 
   it.effect("keeps compact evidence rows focused on the package use case after success", () =>

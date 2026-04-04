@@ -19,12 +19,12 @@ const valueRole = (variant: MetricPillVariant) => variant === "hero" ? "card-tit
 const metricValueClassName = (variant: MetricPillVariant, classes: MetricPillClasses): string =>
   variant === "hero"
     ? `${classes.value} block max-w-none whitespace-normal`
-    : `${classes.value} block max-w-none truncate`
+    : `${classes.value} block max-w-none whitespace-normal`
 
 const metricSecondaryValueClassName = (variant: MetricPillVariant): string =>
   variant === "hero"
     ? "block max-w-none whitespace-normal text-ink-600"
-    : "block max-w-none truncate text-ink-600"
+    : "block max-w-none whitespace-normal text-ink-600"
 
 const splitMetricValue = (value: string): { readonly primary: string; readonly secondary: string } | null => {
   const trimmed = value.trim()
@@ -60,7 +60,7 @@ export const MetricPill = ({
       <Layer as="dt" className="min-w-0">
         <SemanticText
           as="span"
-          className={`${classes.label} block max-w-none whitespace-nowrap`}
+          className={`${classes.label} block max-w-none whitespace-normal`}
           role="row-label"
           text={label}
           variant="expanded"

@@ -1,7 +1,7 @@
 /**
  * Discovery registration models.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Ref } from "effect"
 import { Array as Arr, Data, Option, Order } from "effect"
@@ -29,7 +29,7 @@ export {
    * Lightweight signature projection used in discovery registrations —
    * carries only `description` and `instructions` without full Schema generics.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category models
    */
   ModuleNodeSignature as RegisteredSignature
@@ -40,7 +40,7 @@ export {
  * Captures the module id, parameter ref, signature projection, and
  * direct child ids.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleRegistration extends Data.TaggedClass("ModuleRegistration")<{
@@ -54,7 +54,7 @@ export class ModuleRegistration extends Data.TaggedClass("ModuleRegistration")<{
  * Sort and deduplicate child module ids for deterministic registration
  * payloads.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const canonicalSubModuleIds = (subModuleIds: ReadonlyArray<ModuleId>): ReadonlyArray<ModuleId> =>
@@ -77,7 +77,7 @@ const canonicalRegistration = (registration: ModuleRegistration): ModuleRegistra
  * Sort and canonicalize a snapshot of module registrations for
  * deterministic output.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const canonicalModuleRegistrations = (

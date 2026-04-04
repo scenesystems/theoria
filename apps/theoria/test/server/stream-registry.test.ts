@@ -64,9 +64,15 @@ describe("Theoria Demo Stream Registry", () => {
       const streamElements = Chunk.toReadonlyArray(collected)
       const sectionCount = streamElements.filter((element) => element._tag === "section").length
       const stepCount = streamElements.filter((element) => element._tag === "step").length
+      const sectionTitles = streamElements.flatMap((element) =>
+        element._tag === "section" ? [element.section.title] : []
+      )
 
-      expect(sectionCount).toBe(5)
+      expect(sectionCount).toBe(8)
       expect(stepCount).toBe(effectTextProjectionSteps("").length)
+      expect(sectionTitles).toContain("React Surface")
+      expect(sectionTitles).toContain("Browser Surface")
+      expect(sectionTitles).toContain("Calibration")
       expect(streamElements.some((element) => element._tag === "cue")).toBe(true)
     }))
 

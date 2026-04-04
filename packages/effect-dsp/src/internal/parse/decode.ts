@@ -1,7 +1,7 @@
 /**
  * Schema decoding and typed ParseOutputError mapping.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Effect, Match, Option, Predicate, Record, Schema } from "effect"
@@ -74,7 +74,7 @@ const decodeStruct = <O extends Schema.Struct.Fields>(options: {
  * schema, mapping any schema validation failures into a `ParseOutputError`
  * with per-field diagnostics.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */
@@ -100,7 +100,7 @@ export const parseStructuredOutput = <O extends Schema.Struct.Fields>(
  * Merges marker-level diagnostics (missing, duplicate, unexpected fields)
  * with schema-level decode errors into a single `ParseOutputError`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @internal
  */

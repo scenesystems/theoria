@@ -1,8 +1,7 @@
 /**
  * Convenience digest function contract tests.
  *
- * Target-state TDD — these imports SHOULD exist once implemented.
- * Tests specify the M347 north-star API surface.
+ * These tests pin the intended convenience API surface and behavioral contracts.
  *
  * ### digestBytes(algorithm, bytes) — raw byte hashing
  * - BLAKE3-256 golden vector correctness

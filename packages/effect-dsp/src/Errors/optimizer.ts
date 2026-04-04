@@ -1,14 +1,14 @@
 /**
  * Optimizer-domain errors.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
  * BootstrapFewShot produced zero high-scoring demos after all rounds.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  * @see BootstrapFewShot
  */
@@ -45,7 +45,7 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>()(
 /**
  * MIPROv2 Phase 2 meta-LLM failed to produce a valid instruction.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  * @see MIPROv2
  */
@@ -60,7 +60,7 @@ export class InstructionProposalFailed extends Schema.TaggedError<InstructionPro
 /**
  * Every trial evaluation in an optimizer run errored.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  */
 export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>()(
@@ -74,7 +74,7 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>()(
 /**
  * GEPA merge/crossover was rejected by the acceptance gate.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category errors
  * @see GEPA
  */

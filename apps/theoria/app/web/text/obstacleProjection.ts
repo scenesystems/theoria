@@ -1,6 +1,6 @@
 import { Option, Order } from "effect"
 import { Text } from "effect-text"
-import type { PreparedText } from "effect-text/Text"
+import type { PreparedTextWithSegments } from "effect-text/Text"
 import * as Arr from "effect/Array"
 
 import type { Obstacle } from "../../contracts/obstacle.js"
@@ -23,7 +23,7 @@ const obstacleBottomOrder = Order.mapInput(
 )
 
 const projectedLinesFor = (
-  prepared: PreparedText,
+  prepared: PreparedTextWithSegments,
   request: Text.LayoutRequestType,
   stageObstacles: ReadonlyArray<ReflowStageObstacle>
 ): ReadonlyArray<ReflowStageLine> =>
@@ -53,7 +53,7 @@ export const projectObstacleTextLayout = ({
 }: {
   readonly baselineSummary: Text.LayoutSummaryType
   readonly obstacles: ReadonlyArray<Obstacle>
-  readonly prepared: PreparedText
+  readonly prepared: PreparedTextWithSegments
   readonly request: Text.LayoutRequestType
 }): ObstacleProjection => {
   const stageObstacles = resolveStageObstacles(request, obstacles)

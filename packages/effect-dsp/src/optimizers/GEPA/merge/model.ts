@@ -1,7 +1,7 @@
 /**
  * GEPA merge/crossover contract models.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { MergeComparison, ProgramCandidate } from "../model.js"
@@ -9,7 +9,7 @@ import { MergeComparison, ProgramCandidate } from "../model.js"
 /**
  * Inputs for common-ancestor merge preparation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PrepareCommonAncestorMergeOptions = Readonly<{
@@ -27,7 +27,7 @@ export type PrepareCommonAncestorMergeOptions = Readonly<{
 /**
  * Merge/crossover preparation event emitted before acceptance evaluation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const MergePreparationEventSchema = Schema.Union(
@@ -45,7 +45,7 @@ export const MergePreparationEventSchema = Schema.Union(
 /**
  * Merge/crossover preparation event emitted before acceptance evaluation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type MergePreparationEvent = typeof MergePreparationEventSchema.Type
@@ -53,7 +53,7 @@ export type MergePreparationEvent = typeof MergePreparationEventSchema.Type
 /**
  * Merge preparation result.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MergePreparation extends Schema.Class<MergePreparation>("GEPAMergePreparation")({

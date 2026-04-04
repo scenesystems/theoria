@@ -1,7 +1,7 @@
 /**
  * Predict-forward strategy dispatch (structured vs text).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -108,7 +108,7 @@ const runTextForward = <
 /**
  * Resolve and execute the forward strategy for a module call.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const runForward = <

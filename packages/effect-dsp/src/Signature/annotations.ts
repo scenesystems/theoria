@@ -3,7 +3,7 @@
  * Schema fields. These descriptions appear in derived module instructions
  * and in the {@link FieldInfo} metadata.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 import { dual } from "effect/Function"
@@ -16,7 +16,7 @@ import { dual } from "effect/Function"
  * @see {@link describe} — annotates a Schema with this symbol
  * @see {@link FieldInfo} — consumes the annotation at construction time
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category annotations
  */
 export const FieldDescriptionId: unique symbol = Symbol.for("effect-dsp/FieldDescription")
@@ -30,7 +30,7 @@ export const FieldDescriptionId: unique symbol = Symbol.for("effect-dsp/FieldDes
  * @see {@link FieldDescriptionId} — the annotation symbol
  * @see {@link Signature} — where descriptions surface in instructions
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const describe: {

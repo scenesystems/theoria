@@ -2,7 +2,7 @@
  * DspCache layer constructors delegating to `effect-search/Cache` shared
  * authority backends.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as PlatformError from "@effect/platform/Error"
 import type * as FileSystem from "@effect/platform/FileSystem"
@@ -35,7 +35,7 @@ const DSP_CACHE_VERSION = "v1"
  * @see {@link DspCacheFileSystem} — file-system persistence
  * @see {@link DspCacheSql} — SQL persistence
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category layers
  */
 export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.effect(
@@ -83,7 +83,7 @@ export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.eff
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category layers
  */
 export const DspCacheMemory: Layer.Layer<DspCache> = Layer.provide(
@@ -98,7 +98,7 @@ export const DspCacheMemory: Layer.Layer<DspCache> = Layer.provide(
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category layers
  */
 export const DspCacheFileSystem = (
@@ -114,7 +114,7 @@ export const DspCacheFileSystem = (
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category layers
  */
 export const DspCacheSql = (

@@ -63,6 +63,29 @@ export const variance: (values: Chunk.Chunk<number>) => number = Estimators.vari
 export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estimators.standardDeviation
 
 /**
+ * Descriptive statistics for a non-empty chunk using one pass over the data.
+ *
+ * Singleton chunks produce zero variance and standard deviation.
+ *
+ * @see {@link summaryStatisticsValidated} for boundary-validated input
+ * @see {@link summaryStatisticsWithPolicies} for runtime-policy enforcement
+ * @since 0.2.1
+ * @category operations
+ */
+export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryStatistics => {
+  const summary = Estimators.summaryStatistics(values)
+
+  return new SummaryStatistics({
+    count: summary.count,
+    max: summary.maximum,
+    mean: summary.mean,
+    min: summary.minimum,
+    standardDeviation: summary.standardDeviation,
+    variance: summary.variance
+  })
+}
+
+/**
  * Sample covariance `cov(a, b) = Σ(aᵢ − ā)(bᵢ − b̄) / (n − 1)` with
  * Bessel correction. Both chunks must have the same length and at least
  * 2 observations.

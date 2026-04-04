@@ -10,13 +10,13 @@ import type { CanonicalStep } from "../../contracts/canonical-step.js"
 import type { EffectTextProjectionStep } from "../../contracts/canonical-step.js"
 import { corpus } from "../../contracts/corpus.js"
 import { DemoExecutionError } from "../../contracts/demo-error.js"
+import type { EffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { SectionAppend, SectionUpsert } from "../../contracts/evidence-stream.js"
 import type { EvidenceItem } from "../../contracts/evidence.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
-  type EffectTextRunPlan,
   prepareReflowEntry,
   projectReflowProjection,
   reflowControlsAtom,

@@ -1,6 +1,8 @@
 import { Chunk } from "effect"
 import { LinearAlgebra } from "effect-math"
 
+import { WordmarkMorph } from "./WordmarkMorph.js"
+
 type Vector3 = readonly [number, number, number]
 type Point2 = readonly [number, number]
 
@@ -106,23 +108,28 @@ const CubeMark = ({ className }: { readonly className?: string }) => (
  * from the tight bounding box of the projected faces so the cube is
  * perfectly centered with no wasted space.
  *
- * The cube height matches `1.1em` (cap-height proportion of the display font)
- * so it aligns visually with the wordmark baseline.
+ * When `animation="glossary"`, the wordmark renders via `WordmarkMorph` —
+ * an atom-driven primitive that flips per-character between "Theoria"
+ * and "θεωρία" using 3D rotateX with DOM-measured glyph widths.
  *
  * @since 0.1.0
  */
 export const TheoriaLogo = ({
+  animation = "none",
   className
 }: {
+  readonly animation?: "glossary" | "none"
   readonly className?: string
 }) => {
   const base = "inline-flex items-center gap-[0.25em] font-display font-semibold tracking-tight select-none"
   const combined = className === undefined ? base : `${base} ${className}`
 
   return (
-    <span className={combined}>
+    <span aria-label="Theoria" className={combined}>
       <CubeMark className="h-[0.85em] shrink-0" />
-      <span className="text-ink-900">Theoria</span>
+      {animation === "none"
+        ? <span className="text-ink-900" aria-hidden>Theoria</span>
+        : <WordmarkMorph />}
     </span>
   )
 }

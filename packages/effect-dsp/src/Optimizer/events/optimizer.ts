@@ -1,7 +1,7 @@
 /**
  * Wrapped optimizer event contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Effect, Schema } from "effect"
 import { StudyEventSchema as EffectSearchInteropEventSchema } from "effect-search/StudyEvent"
@@ -16,7 +16,7 @@ export {
   /**
    * Effect-search study event schema, re-exported for the optimizer event union.
    *
-   * @since 0.0.0
+   * @since 0.1.4
    * @category events
    */
   StudyEventSchema as EffectSearchInteropEventSchema
@@ -26,7 +26,7 @@ export {
  * Discriminated union schema wrapping all optimizer-specific and evaluation
  * event types under a single envelope.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const OptimizerEventSchema = Schema.Union(
@@ -51,7 +51,7 @@ export const OptimizerEventSchema = Schema.Union(
  * Wrapped optimizer event — each variant carries a domain-specific event
  * payload.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export type OptimizerEvent = typeof OptimizerEventSchema.Type
@@ -59,7 +59,7 @@ export type OptimizerEvent = typeof OptimizerEventSchema.Type
 /**
  * Tagged-enum constructors for wrapped optimizer events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category events
  */
 export const OptimizerEvent = Data.taggedEnum<OptimizerEvent>()
@@ -67,7 +67,7 @@ export const OptimizerEvent = Data.taggedEnum<OptimizerEvent>()
 /**
  * Project a Bootstrap event into the canonical optimizer event envelope.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const bootstrapEventEnvelope = (
@@ -91,7 +91,7 @@ export const bootstrapEventEnvelope = (
 /**
  * Project a MIPROv2 event into the canonical optimizer event envelope.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const miprov2EventEnvelope = (
@@ -115,7 +115,7 @@ export const miprov2EventEnvelope = (
 /**
  * Project a GEPA event into the canonical optimizer event envelope.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const gepaEventEnvelope = (

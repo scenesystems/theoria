@@ -5,7 +5,7 @@
  * deterministic live layer and the prepare/layout split.
  *
  * Feature Type Links:
- * - {@link Text.PreparedText}
+ * - {@link Text.PreparedTextWithSegments}
  * - {@link Text.LayoutSummaryType}
  * - {@link Text.LayoutLineType}
  *
@@ -18,7 +18,7 @@ import { Effect } from "effect"
 import { Text } from "effect-text"
 
 const program = Effect.gen(function*() {
-  const prepared = yield* Text.prepare({
+  const prepared = yield* Text.prepareWithSegments({
     text: "Effect keeps prepare effectful and layout pure.",
     font: { family: "Mono", size: 16 },
     whiteSpace: "normal"

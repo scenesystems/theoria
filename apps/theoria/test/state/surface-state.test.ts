@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
+import { snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
 import { type EffectMathRunFrame, snapshotEffectMathRunPlan } from "../../app/web/atoms/power-animation.js"
-import { snapshotEffectTextRunPlan } from "../../app/web/atoms/reflow.js"
 import { type LocalRunFrame } from "../../app/web/state/local-run.js"
 import { reduceRunState } from "../../app/web/state/types.js"
 import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"

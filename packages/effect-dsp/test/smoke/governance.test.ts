@@ -5,29 +5,25 @@ import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Record, Schema } from "effect"
+import type { SourceFile } from "typescript"
+
+import {
+  callExpressionTargets,
+  exportedDeclarationNames,
+  identifierNames,
+  moduleSpecifiers,
+  parseTypeScript,
+  pathSegments,
+  propertyAccessChains,
+  propertyAssignmentTexts,
+  referencesInternalBoundary,
+  stringLiterals,
+  variableInitializerTexts
+} from "@theoria/source-proof"
+
+type ParsedSourceFile = SourceFile
 
 const MAX_SOURCE_FILE_LINES = 240
-const INTERNAL_IMPORT_PATTERN = /from\s+["'][^"']*internal\//
-const PROVIDER_SDK_IMPORT_PATTERN =
-  /from\s+["']@effect\/ai-(?:openai|anthropic|openrouter|google|vertex|bedrock|azure)[^"']*["']|import\(\s*["']@effect\/ai-(?:openai|anthropic|openrouter|google|vertex|bedrock|azure)[^"']*["']\s*\)/
-const PROCESS_ENV_PATTERN = /\bprocess\.env\b/
-const LANGUAGE_MODEL_RUNTIME_CALL_PATTERN = /LanguageModel\.(?:generateText|generateObject)\s*\(/
-const MOCK_LANGUAGE_MODEL_PATTERN = /\bMockLanguageModel\b/
-const EFFECT_SEARCH_INTEROP_M5_SURFACE_PATTERN =
-  /Study\.open\(|Study\.ask\(|Study\.tell\(|Study\.fail\(|Study\.cancel\(|Study\.events\(|Study\.formatTerminalProgressEvent\(|Pareto\.|acquisition:\s*["'](?:ei|pi|thompson)["']/
-const TRACE_INTERNAL_IMPORT_PATTERNS = [
-  /from\s+["'][^"']*internal\/prompt\/trace[^"']*["']/,
-  /from\s+["'][^"']*Module\/predict\/trace[^"']*["']/
-]
-const LEGACY_ALIAS_PATTERNS = [
-  /export\s+(?:const|function)\s+effectful\b/,
-  /export\s+type\s+AnyMetric\b/,
-  /export\s+(?:const|function)\s+mipro\b/
-]
-const LEGACY_PROPOSAL_ALIAS_PATTERNS = [
-  /export\s+(?:const|function)\s+proposeInstructions\b/,
-  /export\s+(?:const|function)\s+phase2Propose\b/
-]
 const CANONICAL_MIPRO_TIPS = Arr.make("none", "creative", "simple", "description", "high_stakes", "persona")
 const LEGACY_MIPRO_TIPS = Arr.make(
   "focus-on-facts",
@@ -35,8 +31,6 @@ const LEGACY_MIPRO_TIPS = Arr.make(
   "prefer-short-answers",
   "explain-briefly"
 )
-const DETERMINISTIC_SEED_LITERAL_PATTERN = /1664525|1013904223|4294967296/
-const DUPLICATED_HASH_CACHE_PATTERN = /\bblake3\b|@noble\/hashes|PartitionedSemaphore\.make|KeyValueStore\.layerMemory/
 const CACHE_MODEL_CANONICAL_PATH = "src/Cache/model.ts"
 const CACHE_LAYER_CANONICAL_PATH = "src/Cache/layer.ts"
 const INTERNAL_LM_CANONICAL_PATH = "src/internal/lm.ts"
@@ -205,6 +199,11 @@ const readProjectFile = (
     return yield* fileSystem.readFileString(absolutePath).pipe(Effect.orDie)
   })
 
+const readParsedProjectFile = (
+  relativePath: string
+): Effect.Effect<ParsedSourceFile, never, FileSystem.FileSystem | Path.Path> =>
+  readProjectFile(relativePath).pipe(Effect.map((source) => parseTypeScript(relativePath, source)))
+
 class OversizeSourceFinding extends Data.Class<{
   readonly path: string
   readonly lines: number
@@ -229,7 +228,7 @@ const oversizeSourceFindings: Effect.Effect<Array<OversizeSourceFinding>, never,
   })
 
 const scanSourceFor = (
-  pattern: RegExp
+  predicate: (sourceFile: ParsedSourceFile) => boolean
 ): Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -238,7 +237,7 @@ const scanSourceFor = (
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          pattern.test(content)
+          predicate(parseTypeScript(file.relative, content))
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -248,7 +247,7 @@ const scanSourceFor = (
   })
 
 const scanSourceForWithFilter = (
-  pattern: RegExp,
+  predicate: (sourceFile: ParsedSourceFile) => boolean,
   filterFn: (relativePath: string) => boolean
 ): Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
@@ -258,7 +257,7 @@ const scanSourceForWithFilter = (
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          pattern.test(content) && filterFn(file.relative)
+          predicate(parseTypeScript(file.relative, content)) && filterFn(file.relative)
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -268,7 +267,7 @@ const scanSourceForWithFilter = (
   })
 
 const scanSourceForAny = (
-  patterns: ReadonlyArray<RegExp>
+  predicates: ReadonlyArray<(sourceFile: ParsedSourceFile) => boolean>
 ): Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -277,7 +276,7 @@ const scanSourceForAny = (
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          patterns.some((p) => p.test(content))
+          predicates.some((predicate) => predicate(parseTypeScript(file.relative, content)))
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -288,7 +287,7 @@ const scanSourceForAny = (
 
 const internalBoundaryViolations: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> =
   scanSourceForWithFilter(
-    INTERNAL_IMPORT_PATTERN,
+    (sourceFile) => moduleSpecifiers(sourceFile).some((specifier) => referencesInternalBoundary(specifier)),
     (relativePath) => !ALLOWED_INTERNAL_IMPORT_PREFIXES.some((prefix) => relativePath.startsWith(prefix))
   )
 
@@ -318,7 +317,11 @@ const optimizerTraceBoundaryViolations: Effect.Effect<Array<string>, never, File
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          TRACE_INTERNAL_IMPORT_PATTERNS.some((p) => p.test(content))
+          moduleSpecifiers(parseTypeScript(file.relative, content)).some(
+              (specifier) =>
+                pathSegments(specifier).join("/").includes("internal/prompt/trace")
+                || pathSegments(specifier).join("/").includes("Module/predict/trace")
+            )
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -342,7 +345,20 @@ const effectSearchInteropCapabilityLeakViolations: Effect.Effect<
     return fileSystem.readFileString(file.absolute).pipe(
       Effect.orDie,
       Effect.map((content) =>
-        EFFECT_SEARCH_INTEROP_M5_SURFACE_PATTERN.test(content)
+        (() => {
+            const sourceFile = parseTypeScript(file.relative, content)
+            return callExpressionTargets(sourceFile).some((target) =>
+              target === "Study.open"
+              || target === "Study.ask"
+              || target === "Study.tell"
+              || target === "Study.fail"
+              || target === "Study.cancel"
+              || target === "Study.events"
+              || target === "Study.formatTerminalProgressEvent"
+            )
+              || propertyAccessChains(sourceFile).some((chain) => chain.startsWith("Pareto."))
+              || propertyAssignmentTexts(sourceFile, "acquisition").length > 0
+          })()
           ? Option.some(file.relative)
           : Option.none<string>()
       )
@@ -362,7 +378,7 @@ const processEnvViolations: Effect.Effect<Array<string>, never, FileSystem.FileS
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          PROCESS_ENV_PATTERN.test(content)
+          propertyAccessChains(parseTypeScript(file.relative, content)).includes("process.env")
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -374,7 +390,13 @@ const processEnvViolations: Effect.Effect<Array<string>, never, FileSystem.FileS
 
 const duplicatedHashCacheViolations: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> =
   scanSourceForWithFilter(
-    DUPLICATED_HASH_CACHE_PATTERN,
+    (sourceFile) =>
+      moduleSpecifiers(sourceFile).some((specifier) => specifier.includes("@noble/hashes"))
+      || callExpressionTargets(sourceFile).some(
+        (target) => target === "PartitionedSemaphore.make" || target === "KeyValueStore.layerMemory"
+      )
+      || stringLiterals(sourceFile).includes("blake3")
+      || identifierNames(sourceFile).includes("blake3"),
     (relativePath) => relativePath !== CACHE_MODEL_CANONICAL_PATH && relativePath !== CACHE_LAYER_CANONICAL_PATH
   )
 
@@ -401,41 +423,42 @@ describe("Governance", () => {
   describe("barrel exports", () => {
     it.effect("pins root namespace exports in src/index.ts", () =>
       Effect.gen(function*() {
-        const rootBarrel = yield* readProjectFile("src/index.ts")
+        const rootBarrel = yield* readParsedProjectFile("src/index.ts")
+        const barrelSpecifiers = moduleSpecifiers(rootBarrel)
 
-        expect(rootBarrel.includes("export * as Cache from \"./Cache/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Errors from \"./Errors/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Evaluate from \"./Evaluate/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Example from \"./Example/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Metric from \"./Metric/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Module from \"./Module/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Optimizer from \"./Optimizer/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Signature from \"./Signature/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Trace from \"./Trace/index.js\"")).toBe(true)
-        expect(rootBarrel.includes("export * as Runtime from \"./Runtime/index.js\"")).toBe(false)
+        expect(barrelSpecifiers).toContain("./Cache/index.js")
+        expect(barrelSpecifiers).toContain("./Errors/index.js")
+        expect(barrelSpecifiers).toContain("./Evaluate/index.js")
+        expect(barrelSpecifiers).toContain("./Example/index.js")
+        expect(barrelSpecifiers).toContain("./Metric/index.js")
+        expect(barrelSpecifiers).toContain("./Module/index.js")
+        expect(barrelSpecifiers).toContain("./Optimizer/index.js")
+        expect(barrelSpecifiers).toContain("./Signature/index.js")
+        expect(barrelSpecifiers).toContain("./Trace/index.js")
+        expect(barrelSpecifiers).not.toContain("./Runtime/index.js")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("pins optimizer barrel to MIPROv2 and effect-search interop exports", () =>
       Effect.gen(function*() {
-        const optimizerBarrel = yield* readProjectFile("src/Optimizer/index.ts")
+        const optimizerBarrel = yield* readParsedProjectFile("src/Optimizer/index.ts")
 
-        expect(optimizerBarrel.includes("./miprov2.js")).toBe(true)
-        expect(optimizerBarrel.includes("../optimizers/effectSearchInterop/index.js")).toBe(true)
+        expect(moduleSpecifiers(optimizerBarrel)).toContain("./miprov2.js")
+        expect(moduleSpecifiers(optimizerBarrel)).toContain("../optimizers/effectSearchInterop/index.js")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("pins optimizer events barrel to MIPROv2 and interop event schemas", () =>
       Effect.gen(function*() {
-        const optimizerEventsBarrel = yield* readProjectFile("src/Optimizer/events/index.ts")
+        const optimizerEventsBarrel = yield* readParsedProjectFile("src/Optimizer/events/index.ts")
 
-        expect(optimizerEventsBarrel.includes("./miprov2.js")).toBe(true)
-        expect(optimizerEventsBarrel.includes("./optimizer.js")).toBe(true)
+        expect(moduleSpecifiers(optimizerEventsBarrel)).toContain("./miprov2.js")
+        expect(moduleSpecifiers(optimizerEventsBarrel)).toContain("./optimizer.js")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("pins public test harness export barrel", () =>
       Effect.gen(function*() {
-        const testBarrel = yield* readProjectFile("src/testing/index.ts")
+        const testBarrel = yield* readParsedProjectFile("src/testing/index.ts")
 
-        expect(testBarrel.includes("./MockLanguageModel.js")).toBe(true)
+        expect(moduleSpecifiers(testBarrel)).toContain("./MockLanguageModel.js")
       }).pipe(Effect.provide(BunContext.layer)))
   })
 
@@ -463,49 +486,65 @@ describe("Governance", () => {
 
     it.effect("forbids legacy metric/optimizer alias surface reintroduction", () =>
       Effect.gen(function*() {
-        expect(yield* scanSourceForAny(LEGACY_ALIAS_PATTERNS)).toEqual([])
+        expect(
+          yield* scanSourceForAny([
+            (sourceFile) => exportedDeclarationNames(sourceFile).includes("effectful"),
+            (sourceFile) => exportedDeclarationNames(sourceFile).includes("AnyMetric"),
+            (sourceFile) => exportedDeclarationNames(sourceFile).includes("mipro")
+          ])
+        ).toEqual([])
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("prevents legacy proposal aliases from reappearing", () =>
       Effect.gen(function*() {
-        expect(yield* scanSourceForAny(LEGACY_PROPOSAL_ALIAS_PATTERNS)).toEqual([])
+        expect(
+          yield* scanSourceForAny([
+            (sourceFile) => exportedDeclarationNames(sourceFile).includes("proposeInstructions"),
+            (sourceFile) => exportedDeclarationNames(sourceFile).includes("phase2Propose")
+          ])
+        ).toEqual([])
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("pins grounded proposer tip vocabulary to the canonical DSPy-aligned surface", () =>
       Effect.gen(function*() {
-        const source = yield* readProjectFile("src/optimizers/MIPROv2/runtime/policy.ts")
+        const sourceFile = yield* readParsedProjectFile("src/optimizers/MIPROv2/runtime/policy.ts")
+        const literals = stringLiterals(sourceFile)
 
-        expect(Arr.every(CANONICAL_MIPRO_TIPS, (tip) => source.includes(`"${tip}"`))).toBe(true)
-        expect(Arr.every(LEGACY_MIPRO_TIPS, (tip) => !source.includes(`"${tip}"`))).toBe(true)
+        expect(Arr.every(CANONICAL_MIPRO_TIPS, (tip) => literals.includes(tip))).toBe(true)
+        expect(Arr.every(LEGACY_MIPRO_TIPS, (tip) => !literals.includes(tip))).toBe(true)
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("keeps MIPRO exports and event boundaries canonical", () =>
       Effect.gen(function*() {
-        const optimizerIndex = yield* readProjectFile("src/Optimizer/index.ts")
-        const optimizerEventsIndex = yield* readProjectFile("src/Optimizer/events/index.ts")
+        const optimizerIndex = yield* readParsedProjectFile("src/Optimizer/index.ts")
+        const optimizerEventsIndex = yield* readParsedProjectFile("src/Optimizer/events/index.ts")
 
-        expect(optimizerIndex.includes("./miprov2.js")).toBe(true)
-        expect(optimizerEventsIndex.includes("./miprov2.js")).toBe(true)
+        expect(moduleSpecifiers(optimizerIndex)).toContain("./miprov2.js")
+        expect(moduleSpecifiers(optimizerEventsIndex)).toContain("./miprov2.js")
 
-        const eventOwners = yield* scanSourceFor(/export const MIPROv2EventSchema/)
+        const eventOwners = yield* scanSourceFor((sourceFile) =>
+          variableInitializerTexts(sourceFile, "MIPROv2EventSchema").length > 0
+        )
 
         expect(eventOwners).toEqual([MIPRO_EVENTS_CANONICAL_PATH])
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("keeps effect-search interop exports and event boundaries canonical", () =>
       Effect.gen(function*() {
-        const optimizerIndex = yield* readProjectFile("src/Optimizer/index.ts")
-        const optimizerEventsIndex = yield* readProjectFile("src/Optimizer/events/index.ts")
+        const optimizerIndex = yield* readParsedProjectFile("src/Optimizer/index.ts")
+        const optimizerEventsIndex = yield* readParsedProjectFile("src/Optimizer/events/index.ts")
 
-        expect(optimizerIndex.includes("../optimizers/effectSearchInterop/index.js")).toBe(true)
-        expect(optimizerEventsIndex.includes("./optimizer.js")).toBe(true)
+        expect(moduleSpecifiers(optimizerIndex)).toContain("../optimizers/effectSearchInterop/index.js")
+        expect(moduleSpecifiers(optimizerEventsIndex)).toContain("./optimizer.js")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("pins effect-search interop event contracts to effect-search source-of-truth schemas", () =>
       Effect.gen(function*() {
-        const source = yield* readProjectFile("src/optimizers/effectSearchInterop/model.ts")
+        const sourceFile = yield* readParsedProjectFile("src/optimizers/effectSearchInterop/model.ts")
 
-        expect(source.includes("EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema")).toBe(true)
+        expect(variableInitializerTexts(sourceFile, "EffectSearchInteropEventSchema")).toContain(
+          "StudyEvent.StudyEventSchema"
+        )
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("prevents M5 interop capability leakage outside canonical effectSearchInterop adapter", () =>
@@ -515,27 +554,37 @@ describe("Governance", () => {
 
     it.effect("pins objective projection seams to effect-search contracts", () =>
       Effect.gen(function*() {
-        const source = yield* readProjectFile("src/contracts/ObjectiveProjection.ts")
+        const sourceFile = yield* readParsedProjectFile("src/contracts/ObjectiveProjection.ts")
 
-        expect(source.includes("from \"effect-search/Contracts\"")).toBe(true)
+        expect(moduleSpecifiers(sourceFile)).toContain("effect-search/Contracts")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("keeps deterministic seed stepping delegated to effect-search shared contracts", () =>
       Effect.gen(function*() {
-        const seedLiteralOwners = yield* scanSourceFor(DETERMINISTIC_SEED_LITERAL_PATTERN)
+        const seedLiteralOwners = yield* scanSourceFor((sourceFile) =>
+          stringLiterals(sourceFile).some(
+            (literal) => literal === "1664525" || literal === "1013904223" || literal === "4294967296"
+          ) || identifierNames(sourceFile).some(
+            (identifier) => identifier === "1664525" || identifier === "1013904223" || identifier === "4294967296"
+          )
+        )
 
         expect(seedLiteralOwners).toEqual([])
 
-        const seedContract = yield* readProjectFile("src/contracts/DeterministicSeed.ts")
+        const seedContract = yield* readParsedProjectFile("src/contracts/DeterministicSeed.ts")
 
-        expect(seedContract.includes("from \"effect-search/Sampler\"")).toBe(true)
-        expect(seedContract.includes("normalizeDeterministicSeed")).toBe(true)
-        expect(seedContract.includes("nextDeterministicSeed")).toBe(true)
+        expect(moduleSpecifiers(seedContract)).toContain("effect-search/Sampler")
+        expect(exportedDeclarationNames(seedContract)).toContain("normalizeDeterministicSeed")
+        expect(exportedDeclarationNames(seedContract)).toContain("nextDeterministicSeed")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("keeps provider SDK imports outside src", () =>
       Effect.gen(function*() {
-        expect(yield* scanSourceFor(PROVIDER_SDK_IMPORT_PATTERN)).toEqual([])
+        expect(
+          yield* scanSourceFor((sourceFile) =>
+            moduleSpecifiers(sourceFile).some((specifier) => specifier.startsWith("@effect/ai-"))
+          )
+        ).toEqual([])
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("forbids process.env in src and examples", () =>
@@ -545,7 +594,11 @@ describe("Governance", () => {
 
     it.effect("keeps src/internal/lm.ts as the sole runtime @effect/ai call site", () =>
       Effect.gen(function*() {
-        const owners = yield* scanSourceFor(LANGUAGE_MODEL_RUNTIME_CALL_PATTERN)
+        const owners = yield* scanSourceFor((sourceFile) =>
+          callExpressionTargets(sourceFile).some(
+            (target) => target === "LanguageModel.generateText" || target === "LanguageModel.generateObject"
+          )
+        )
 
         expect(Arr.sort(owners, Order.string)).toEqual([INTERNAL_LM_CANONICAL_PATH])
       }).pipe(Effect.provide(BunContext.layer)))
@@ -553,7 +606,7 @@ describe("Governance", () => {
     it.effect("keeps MockLanguageModel implementation scoped to src/testing", () =>
       Effect.gen(function*() {
         const violations = yield* scanSourceForWithFilter(
-          MOCK_LANGUAGE_MODEL_PATTERN,
+          (sourceFile) => identifierNames(sourceFile).includes("MockLanguageModel"),
           (relativePath) => !relativePath.startsWith("src/testing/")
         )
 

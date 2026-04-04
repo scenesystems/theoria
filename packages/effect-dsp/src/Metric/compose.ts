@@ -1,7 +1,7 @@
 /**
  * Metric composition combinator.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Option, Order, Record } from "effect"
 import type { MetricPayload } from "../contracts/MetricFn.js"
@@ -57,7 +57,7 @@ const scoreMap = (scores: ReadonlyArray<readonly [string, MetricResult]>): Reado
  * computed deterministically in alphabetical order. Feedback strings from
  * individual metrics are concatenated.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const compose = <E = never, R = never>(
@@ -84,7 +84,7 @@ export const compose = <E = never, R = never>(
  * Project per-metric scores from a composed metric run into a name→score
  * record.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const composedScoreMap = scoreMap

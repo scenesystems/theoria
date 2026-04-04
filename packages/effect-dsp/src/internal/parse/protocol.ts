@@ -1,7 +1,7 @@
 /**
  * Marker extraction and diagnostics for text-output parsing.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Option, Record } from "effect"
@@ -27,7 +27,7 @@ const nextMarkerIndex = (
  * a record mapping each field name to the text content between its marker
  * and the next marker (or end of string).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */
@@ -116,7 +116,7 @@ const unexpectedFieldDiagnostics = (
  *
  * These diagnostics drive the feedback message in parse-retry loops.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  * @internal
  */

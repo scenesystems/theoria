@@ -3,7 +3,7 @@
  * per-example holdings, and parent weight derivation via effect-search.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Option } from "effect"
 import {
@@ -58,7 +58,7 @@ const toParentSelectionWeight = (weight: {
  * uses maximize-all-examples semantics — a candidate is non-dominated when
  * no other candidate scores strictly better on every example.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const nonDominatedCandidateIndices = (
@@ -69,7 +69,7 @@ export const nonDominatedCandidateIndices = (
  * Reports whether the left score vector Pareto-dominates the right under
  * maximize-all semantics.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const dominatesCandidateVector = (
@@ -81,7 +81,7 @@ export const dominatesCandidateVector = (
  * Compute which candidates hold the best score for each validation example.
  * Used to derive parent selection weights.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const perExampleFrontierHoldings = (
@@ -94,7 +94,7 @@ export const perExampleFrontierHoldings = (
  * candidate's weight equals the number of examples where it holds the best
  * score.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const deriveParentSelectionWeights = (
@@ -106,7 +106,7 @@ export const deriveParentSelectionWeights = (
  * Compute a complete Pareto snapshot for one score matrix — frontier indices,
  * dominated set, per-example holdings, and parent weights in a single pass.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const deriveParetoKernelSnapshot = (

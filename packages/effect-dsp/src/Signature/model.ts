@@ -2,7 +2,7 @@
  * Core Signature model — the typed I/O specification that every module
  * is built from.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Data, Schema } from "effect"
 
@@ -16,7 +16,7 @@ import { Data, Schema } from "effect"
  * @see {@link describe} — annotates a Schema field with a description
  * @see {@link Signature} — carries an array of FieldInfo
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class FieldInfo extends Schema.Class<FieldInfo>("FieldInfo")({
@@ -38,7 +38,7 @@ export class FieldInfo extends Schema.Class<FieldInfo>("FieldInfo")({
  * @see {@link Output} — extracts the decoded output type
  * @see {@link FieldInfo} — per-field metadata carried by the Signature
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class Signature<
@@ -59,7 +59,7 @@ export class Signature<
  *
  * @see {@link Signature}
  * @see {@link Output} — the output counterpart
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type Input<S extends Signature> = Schema.Schema.Type<S["inputSchema"]>
@@ -69,7 +69,7 @@ export type Input<S extends Signature> = Schema.Schema.Type<S["inputSchema"]>
  *
  * @see {@link Signature}
  * @see {@link Input} — the input counterpart
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type Output<S extends Signature> = Schema.Schema.Type<S["outputSchema"]>

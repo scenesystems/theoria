@@ -1,7 +1,7 @@
 /**
  * GEPA event-stream runtime adapter.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect, Stream } from "effect"
 import { streamFromEmitter } from "effect-search/Study"
@@ -13,7 +13,7 @@ import type { GEPAEventSink } from "./options.js"
 /**
  * Stream GEPA optimizer events with deterministic ordering and terminal signaling.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const streamGEPAEvents = <A, E, R>(

@@ -2,7 +2,7 @@
  * DspCache service — thin projection of `effect-search/Cache` shared
  * authority for module-level LM call memoization.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect, FiberRef, Schema } from "effect"
 import { CacheCorrupt, type CacheError, type CacheResolution, durableFingerprint } from "effect-search/Cache"
@@ -18,7 +18,7 @@ import { RolloutRef } from "./refs.js"
  * @see {@link RolloutRef} — fiber-local rollout identity source
  * @see {@link DspCache} — the service that builds and resolves these keys
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class DspCacheKey extends Schema.Class<DspCacheKey>("DspCacheKey")({
@@ -40,7 +40,7 @@ const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
  * @see {@link DspCacheKey} — the composite key built by `resolve`
  * @see {@link DspCacheMemory} — in-memory layer for tests
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category services
  */
 export class DspCache extends Effect.Tag("effect-dsp/Cache/DspCache")<
@@ -83,7 +83,7 @@ const fingerprintOrCorrupt = (
  * @see {@link DspCacheKey} — the composite key returned
  * @see {@link RolloutRef} — fiber-local rollout identity read during construction
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildDspCacheKey = (request: {

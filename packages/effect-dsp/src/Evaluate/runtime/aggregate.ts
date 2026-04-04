@@ -1,7 +1,7 @@
 /**
  * Evaluation outcome aggregation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -28,7 +28,7 @@ const overallScores = (
 const outcomeFailure = (outcome: ExampleOutcome): Option.Option<ExampleFailure> => outcome.failure
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export type AggregateResult = Readonly<{
@@ -37,7 +37,7 @@ export type AggregateResult = Readonly<{
 }>
 
 /**
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const aggregateOutcomes = (options: {

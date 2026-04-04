@@ -9,6 +9,7 @@ import { EvidenceItemRenderer } from "../primitives/EvidenceItemRenderer.js"
 import { EvidenceProse } from "../primitives/EvidenceProse.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
 import { MetricStrip } from "../primitives/MetricStrip.js"
+import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 const animationDelayClassName = (index: number): string =>
@@ -107,51 +108,54 @@ const SectionHeader = ({
   const latestLabel = section.latest ? spotlight ? "Live now" : "Newest evidence" : null
 
   return (
-    <Layer className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-      <Layer className="grid min-w-0 grid-cols-[0.35rem_minmax(0,1fr)] gap-2.5">
-        <Layer className={`mt-1 h-8 w-[0.35rem] shrink-0 rounded-full ${theme.accent}`} />
-        <Stack className="min-w-0 gap-1.5">
+    <SelectionRail
+      accent={<Layer className={`mt-1 h-8 w-[0.35rem] shrink-0 rounded-full ${theme.accent}`} />}
+      action={
+        <Stack className="min-w-0 gap-1 md:items-end">
           <SemanticText
             as="p"
-            className={`max-w-none ${theme.eyebrow}`}
+            className="text-ink-500"
             role="row-label"
-            text={joinText([section.eyebrow, latestLabel])}
-            variant="expanded"
-          />
-          <SemanticText
-            as="h3"
-            className={`max-w-none ${spotlight ? "text-ink-900" : "text-ink-800"}`}
-            role="card-title"
-            text={section.title}
+            text={section.itemCountLabel}
             variant="expanded"
           />
           <SemanticText
             as="p"
-            className="max-w-none text-ink-600"
-            role="card-summary"
-            text={section.summaryText}
+            className="text-ink-600"
+            role="code-meta"
+            text={section.badge}
             variant="expanded"
           />
         </Stack>
-      </Layer>
-
-      <Stack className="min-w-0 gap-1 md:items-end">
+      }
+      actionBreakpoint="md"
+      actionClassName="col-span-2 md:col-span-1"
+      className="gap-y-2.5"
+    >
+      <Stack className="min-w-0 gap-1.5">
         <SemanticText
           as="p"
-          className="text-ink-500"
+          className={`max-w-none ${theme.eyebrow}`}
           role="row-label"
-          text={section.itemCountLabel}
+          text={joinText([section.eyebrow, latestLabel])}
+          variant="expanded"
+        />
+        <SemanticText
+          as="h3"
+          className={`max-w-none ${spotlight ? "text-ink-900" : "text-ink-800"}`}
+          role="card-title"
+          text={section.title}
           variant="expanded"
         />
         <SemanticText
           as="p"
-          className="text-ink-600"
-          role="code-meta"
-          text={section.badge}
+          className="max-w-none text-ink-600"
+          role="card-summary"
+          text={section.summaryText}
           variant="expanded"
         />
       </Stack>
-    </Layer>
+    </SelectionRail>
   )
 }
 

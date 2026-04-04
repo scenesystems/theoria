@@ -669,7 +669,7 @@ export const xlog1py: (x: number, y: number) => number = Logspace.xlog1py
  *
  * @see {@link logSumExpValidated} — boundary-validated variant
  * @see {@link logSumExpWithPolicies} — policy-aware variant
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const logSumExp: (xs: Chunk.Chunk<number>) => number = LogSumExp.logSumExpChunk
@@ -706,7 +706,7 @@ export const logaddexpValidated = (input: unknown) =>
  * `LogSumExpInput`, and returns `log(Σ exp(xᵢ))`.
  *
  * @see {@link logSumExp} — pure kernel for pre-validated input
- * @since 0.1.0
+ * @since 0.2.0
  * @category validated operations
  */
 export const logSumExpValidated = (input: unknown) =>
@@ -751,7 +751,7 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
  *
  * @see {@link logSumExp} — pure kernel without policy seams
  * @see {@link logSumExpValidated} — boundary-validated variant
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const logSumExpWithPolicies = (values: ReadonlyArray<number>) =>

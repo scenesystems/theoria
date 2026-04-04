@@ -3,20 +3,39 @@
  *
  * @since 0.1.0
  */
-import { Cache, Effect, Layer, Option } from "effect"
+import { Cache, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
+import * as Rec from "effect/Record"
+import * as Tuple from "effect/Tuple"
 
-import { EngineProfile, MeasurementCache, TextMeasurer, WordSegmenter } from "../Contracts/index.js"
-import { MeasurementFailed } from "../Errors/index.js"
-import { segmentText, stripEmojiClusters } from "../internal/analysis.js"
 import {
-  correctEmojiWidth,
-  decodeFontKey,
-  encodeFontKey,
-  measureCanvasText,
-  normalizeEmojiCorrection
-} from "../internal/canvas.js"
+  EngineProfile,
+  HyphenationDictionary,
+  MeasurementCache,
+  TextMeasurer,
+  WordSegmenter
+} from "../contracts/index.js"
+import { EffectTextSupportManifest } from "../contracts/supportManifest.js"
+import { MeasurementFailed } from "../Errors/index.js"
+import { segmentText } from "./internal/analysis.js"
+import {
+  type CompiledHyphenationDictionary,
+  compileHyphenationDictionary,
+  type HyphenationDictionarySource,
+  hyphenationLocaleFallbackCandidates,
+  normalizeHyphenationLocale,
+  shippedHyphenationDictionarySourceForLocale,
+  shippedHyphenationDictionarySources
+} from "./internal/hyphenation.js"
 import type { FontDescriptorType } from "./schema.js"
+
+type LoadedHyphenationDictionary = CompiledHyphenationDictionary | HyphenationDictionarySource
+type HyphenationDictionaries = Readonly<Record<string, LoadedHyphenationDictionary>>
+
+const emptyHyphenationBreaks = Arr.empty<number>()
+const emptyLoadedHyphenationDictionary: LoadedHyphenationDictionary = {}
+const emptyCompiledHyphenationDictionary = compileHyphenationDictionary(emptyLoadedHyphenationDictionary)
 
 const encodeMeasurementKey = (font: FontDescriptorType, text: string): string =>
   `${encodeURIComponent(font.family)}|${font.size}|${font.weight ?? 400}|${encodeURIComponent(text)}`
@@ -54,73 +73,127 @@ const makeMeasurementCache = Effect.gen(function*() {
   }
 })
 
-const makeCanvasTextMeasurer = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
+const compiledHyphenationDictionaries = (
+  dictionaries: HyphenationDictionaries
+): Readonly<Record<string, CompiledHyphenationDictionary>> =>
+  Rec.fromEntries(
+    Arr.map(Rec.toEntries(dictionaries), ([locale, dictionary]) =>
+      Tuple.make(normalizeHyphenationLocale(locale), compiledHyphenationDictionary(dictionary)))
+  )
+
+const isCompiledHyphenationDictionary = (
+  dictionary: LoadedHyphenationDictionary
+): dictionary is CompiledHyphenationDictionary =>
+  "hyphenateWord" in dictionary && typeof dictionary.hyphenateWord === "function"
+
+const compiledHyphenationDictionary = (
+  dictionary: LoadedHyphenationDictionary
+): CompiledHyphenationDictionary =>
+  isCompiledHyphenationDictionary(dictionary)
+    ? dictionary
+    : compileHyphenationDictionary(dictionary)
+
+const compiledHyphenationDictionaryForLocale = (
+  dictionaries: Readonly<Record<string, CompiledHyphenationDictionary>>,
+  locale: string
+): Option.Option<CompiledHyphenationDictionary> =>
+  Arr.reduce(
+    hyphenationLocaleFallbackCandidates(locale),
+    Option.none<CompiledHyphenationDictionary>(),
+    (resolved, candidate) =>
+      Option.isSome(resolved)
+        ? resolved
+        : Option.fromNullable(dictionaries[candidate])
+  )
+
+const encodeHyphenationLocaleKey = (revision: number, locale: string): string =>
+  `${revision}|${encodeURIComponent(normalizeHyphenationLocale(locale))}`
+
+const decodeHyphenationLocaleKey = (key: string): string => {
+  const [_revision, locale = ""] = key.split("|")
+
+  return decodeURIComponent(locale)
+}
+
+const encodeHyphenationWordKey = (revision: number, locale: string, word: string): string =>
+  [
+    revision,
+    encodeURIComponent(normalizeHyphenationLocale(locale)),
+    encodeURIComponent(word)
+  ].join("|")
+
+const decodeHyphenationWordKey = (key: string): readonly [string, string] => {
+  const [_revision, locale = "", word = ""] = key.split("|")
+
+  return [decodeURIComponent(locale), decodeURIComponent(word)]
+}
+
+const noHyphenationDictionary = {
+  hyphenateWord: () => Effect.succeed(emptyHyphenationBreaks),
+  supportsLocale: () => Effect.succeed(false)
+}
+
+const makeHyphenationDictionary = (options?: {
+  readonly dictionaries?: HyphenationDictionaries
+  readonly loadDictionary?: (locale: string) => Effect.Effect<LoadedHyphenationDictionary>
+  readonly revision?: number
 }) =>
   Effect.gen(function*() {
-    const contextSemaphore = yield* Effect.makeSemaphore(1)
-    const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
-    const emojiAdvanceCache = yield* (
-      Option.match(emojiCorrection, {
-        onNone: () => Effect.succeed(Option.none()),
-        onSome: (correction) =>
-          Cache.make({
-            capacity: 128,
-            timeToLive: "24 hours",
-            lookup: (key: string) => {
-              const font = decodeFontKey(key)
+    const revision = options?.revision ?? 0
+    const dictionaries = compiledHyphenationDictionaries(options?.dictionaries ?? shippedHyphenationDictionarySources)
+    const supportsStaticLocale = (locale: string): boolean =>
+      Option.isSome(compiledHyphenationDictionaryForLocale(dictionaries, locale))
+    const loadDictionary = options?.loadDictionary ??
+      ((locale: string) =>
+        Effect.succeed(
+          Option.match(compiledHyphenationDictionaryForLocale(dictionaries, locale), {
+            onNone: () =>
+              shippedHyphenationDictionarySourceForLocale(locale).pipe(
+                Option.match({
+                  onNone: () => emptyCompiledHyphenationDictionary,
+                  onSome: compileHyphenationDictionary
+                })
+              ),
+            onSome: (dictionary) => dictionary
+          })
+        ))
+    const localeCache = yield* Cache.make({
+      capacity: 32,
+      timeToLive: "24 hours",
+      lookup: (key: string) =>
+        loadDictionary(decodeHyphenationLocaleKey(key)).pipe(
+          Effect.map(compiledHyphenationDictionary)
+        )
+    })
+    const hyphenationCache = yield* Cache.make({
+      capacity: 2048,
+      timeToLive: "24 hours",
+      lookup: (key: string) => {
+        const [locale, word] = decodeHyphenationWordKey(key)
 
-              return measureCanvasText(
-                options.context,
-                font,
-                correction[0],
-                options.direction,
-                options.textBaseline
-              ).pipe(
-                Effect.map((width) => Math.max(width, font.size * correction[1]))
-              )
-            }
-          }).pipe(Effect.map(Option.some))
-      })
-    )
+        return localeCache.get(encodeHyphenationLocaleKey(revision, locale)).pipe(
+          Effect.map((dictionary) => dictionary.hyphenateWord(word))
+        )
+      }
+    })
 
     return {
-      measure: (font: FontDescriptorType, text: string) =>
-        contextSemaphore.withPermits(1)(
-          measureCanvasText(options.context, font, text, options.direction, options.textBaseline).pipe(
-            Effect.flatMap((rawWidth) =>
-              Option.match(emojiAdvanceCache, {
-                onNone: () => Effect.succeed(rawWidth),
-                onSome: (cache) =>
-                  cache.get(encodeFontKey(font)).pipe(
-                    Effect.flatMap((emojiAdvance) => {
-                      const [strippedText] = stripEmojiClusters(text)
-
-                      return correctEmojiWidth(
-                        text,
-                        rawWidth,
-                        emojiAdvance,
-                        measureCanvasText(options.context, font, strippedText, options.direction, options.textBaseline)
-                      )
-                    })
-                  )
-              })
-            )
-          )
+      hyphenateWord: (locale: string, word: string) =>
+        word.length === 0
+          ? Effect.succeed(emptyHyphenationBreaks)
+          : hyphenationCache.get(encodeHyphenationWordKey(revision, locale, word)),
+      supportsLocale: (locale: string) =>
+        Option.fromNullable(options?.loadDictionary).pipe(
+          Option.match({
+            onNone: () => Effect.succeed(supportsStaticLocale(locale)),
+            onSome: () => Effect.succeed(true)
+          })
         )
     }
   })
 
 /**
- * Regex-based segmenter suitable for tests and deterministic environments.
+ * `Intl.Segmenter`-backed segmenter with deterministic fallback semantics.
  *
  * @since 0.1.0
  * @category layers
@@ -128,6 +201,37 @@ const makeCanvasTextMeasurer = (options: {
 export const WordSegmenterLive = Layer.succeed(WordSegmenter, {
   segment: (text, whiteSpace) => Effect.succeed(segmentText(text, whiteSpace))
 })
+
+/**
+ * Deterministic no-op hyphenation layer.
+ *
+ * This is the default fallback when callers do not provide dictionaries for a
+ * requested locale.
+ *
+ * @since 0.2.0
+ * @category layers
+ */
+export const NoHyphenationDictionaryLive = Layer.succeed(HyphenationDictionary, noHyphenationDictionary)
+
+/**
+ * Layer-owned dictionary hyphenation with per-locale and per-word caches.
+ *
+ * Rebuilding the layer with a new `revision` invalidates the loaded locale
+ * dictionaries and cached word break opportunities without relying on global
+ * singletons. When called without overrides, the layer ships checked-in
+ * dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, normalizes locale
+ * case plus `_`/`-` spellings, and falls back from tagged variants to a shipped
+ * base language when one exists. Every other locale deterministically falls
+ * back to the non-dictionary break path.
+ *
+ * @since 0.2.0
+ * @category layers
+ */
+export const HyphenationDictionaryLive = (options?: {
+  readonly dictionaries?: HyphenationDictionaries
+  readonly loadDictionary?: (locale: string) => Effect.Effect<LoadedHyphenationDictionary>
+  readonly revision?: number
+}) => Layer.effect(HyphenationDictionary, makeHyphenationDictionary(options))
 
 /**
  * Deterministic width estimator for environments without canvas measurement.
@@ -169,24 +273,6 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
 })
 
 /**
- * Browser canvas-backed measurer using `CanvasRenderingContext2D.measureText`.
- *
- * @since 0.1.0
- * @category layers
- */
-export const CanvasTextMeasurerLive = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}) => Layer.effect(TextMeasurer, makeCanvasTextMeasurer(options))
-
-/**
  * Shared measurement cache built on Effect `Cache`.
  *
  * @since 0.1.0
@@ -202,7 +288,16 @@ export const MeasurementCacheLive = Layer.effect(MeasurementCache, makeMeasureme
  */
 export const TextLayoutLive = Layer.mergeAll(
   WordSegmenterLive,
+  HyphenationDictionaryLive(),
   EngineProfileLive,
   TextMeasurerLive,
   MeasurementCacheLive.pipe(Layer.provide(TextMeasurerLive))
 )
+
+/**
+ * Shipped hyphenation support data used by the built-in dictionary layer.
+ *
+ * @since 0.2.0
+ * @category layers
+ */
+export const HyphenationSupport = EffectTextSupportManifest.hyphenation

@@ -1,7 +1,7 @@
 /**
  * MIPROv2 event progress formatting and summaries.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Stream } from "effect"
 import type { Effect } from "effect"
@@ -10,7 +10,7 @@ import type { MIPROv2Event } from "./events.js"
 /**
  * Formatted MIPROv2 progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2ProgressLine = Readonly<{
@@ -53,7 +53,7 @@ const detailsFromEvent = (event: MIPROv2Event): string =>
 /**
  * Deterministically format a MIPROv2 event as one progress line.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  */
 export const formatMIPROv2ProgressEvent = (event: MIPROv2Event): MIPROv2ProgressLine =>
@@ -62,7 +62,7 @@ export const formatMIPROv2ProgressEvent = (event: MIPROv2Event): MIPROv2Progress
 /**
  * Progress sink for formatted MIPROv2 lines.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2ProgressSink<E = never, R = never> = (
@@ -72,7 +72,7 @@ export type MIPROv2ProgressSink<E = never, R = never> = (
 /**
  * Tap formatted MIPROv2 progress lines from an event stream.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const tapMIPROv2Progress =
@@ -85,7 +85,7 @@ export const tapMIPROv2Progress =
 /**
  * Semantic summary projected from MIPROv2 events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2EventSummary = Readonly<{
@@ -186,7 +186,7 @@ const summarizeEvent = (
 /**
  * Summarize MIPROv2 stream events into semantically meaningful counters.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const summarizeMIPROv2Events = (

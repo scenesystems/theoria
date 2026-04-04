@@ -1,7 +1,7 @@
 /**
  * Predict-forward execution model.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -12,7 +12,7 @@ import type { FieldRecord as FieldRecordType } from "../../contracts/FieldValue.
 /**
  * Runtime output bundle produced by the predict forward engine.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export class ForwardExecution<A> extends Data.Class<{

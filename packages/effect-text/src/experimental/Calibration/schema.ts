@@ -4,8 +4,17 @@
  * @since 0.1.0
  */
 import { Schema } from "effect"
+import { Statistics } from "effect-math"
+import { Study, StudyEvent } from "effect-search"
 
-import { EngineProfileSchema, LayoutLine, LayoutRequest, LayoutSummary, PrepareInput } from "../../Text/schema.js"
+import {
+  BaseTextDirection,
+  EngineProfileSchema,
+  LayoutLine,
+  LayoutRequest,
+  LayoutSummary,
+  PrepareInput
+} from "../../Text/schema.js"
 
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 const NonNegativeNumber = FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
@@ -146,6 +155,88 @@ export const CalibrationReport = Schema.Struct({
 export type CalibrationReportType = typeof CalibrationReport.Type
 
 /**
+ * Explicit score weights used when collapsing calibration fidelity into one
+ * optimization objective value.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationScoreWeights = Schema.Struct({
+  lineMismatchCount: PositiveNumber,
+  lineCountError: PositiveNumber,
+  maxLineWidthError: PositiveNumber
+})
+
+/**
+ * Typed score-weight model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationScoreWeightsType = typeof CalibrationScoreWeights.Type
+
+/**
+ * Explicit optimization policy for the experimental calibration lane.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationObjectiveMetadata = Schema.Struct({
+  name: Schema.String,
+  direction: Schema.Literal("minimize"),
+  scorer: Schema.Literal("weighted-sum"),
+  primaryMetric: Schema.Literal("lineMismatchCount"),
+  secondaryMetric: Schema.Literal("lineCountError"),
+  tertiaryMetric: Schema.Literal("maxLineWidthError"),
+  scoreWeights: CalibrationScoreWeights
+})
+
+/**
+ * Typed optimization-policy model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationObjectiveMetadataType = typeof CalibrationObjectiveMetadata.Type
+
+const EmptyCalibrationLossSummary = Schema.Struct({
+  count: Schema.Literal(0),
+  mean: Schema.Literal(0),
+  minimum: Schema.Literal(0),
+  maximum: Schema.Literal(0),
+  variance: Schema.Literal(0),
+  standardDeviation: Schema.Literal(0)
+})
+
+const NonEmptyCalibrationLossSummary = Statistics.SummaryStatistics.pipe(
+  Schema.pick("count", "mean", "min", "max", "variance", "standardDeviation"),
+  Schema.rename({
+    min: "minimum",
+    max: "maximum"
+  })
+)
+
+/**
+ * Summary statistics for per-case experimental calibration losses.
+ *
+ * Empty corpora report one explicit zero summary, while non-empty corpora
+ * derive their shape from `effect-math/Statistics.SummaryStatistics` and only
+ * rename `min`/`max` into the calibration surface's `minimum`/`maximum` keys.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationLossSummary = Schema.Union(EmptyCalibrationLossSummary, NonEmptyCalibrationLossSummary)
+
+/**
+ * Typed loss-summary model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationLossSummaryType = typeof CalibrationLossSummary.Type
+
+/**
  * Float dimension bounds used when compiling an engine-profile search space.
  *
  * @since 0.1.0
@@ -186,23 +277,121 @@ export const CalibrationIntDimension = Schema.Struct({
 export type CalibrationIntDimensionType = typeof CalibrationIntDimension.Type
 
 /**
- * Numeric bounds for the default engine-profile search space.
+ * Explicit categorical choices for the base-direction search dimension.
  *
- * Direction and boolean profile toggles are searched exhaustively; this schema
- * controls the numeric axes exposed through `effect-search`.
- *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
-export const CalibrationSearchSpaceSpec = Schema.Struct({
-  lineFitEpsilon: CalibrationFloatDimension,
-  tabWidth: CalibrationIntDimension
+export const CalibrationDirectionDimension = Schema.Struct({
+  values: Schema.NonEmptyArray(BaseTextDirection)
 })
 
 /**
- * Typed engine-profile search space specification.
+ * Typed direction-dimension model.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
-export type CalibrationSearchSpaceSpecType = typeof CalibrationSearchSpaceSpec.Type
+export type CalibrationDirectionDimensionType = typeof CalibrationDirectionDimension.Type
+
+/**
+ * Explicit boolean choices for one experimental search toggle.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationBooleanDimension = Schema.Struct({
+  values: Schema.NonEmptyArray(Schema.Boolean)
+})
+
+/**
+ * Typed boolean-dimension model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationBooleanDimensionType = typeof CalibrationBooleanDimension.Type
+
+/**
+ * Single source of truth for the experimental engine-profile search space.
+ *
+ * `Experimental.Calibration.makeProfileSearchSpace` compiles this descriptor
+ * directly into `effect-search` dimensions so the released optimization knobs
+ * never drift away from the runtime profile surface.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationSearchDescriptor = Schema.Struct({
+  lineFitEpsilon: CalibrationFloatDimension,
+  tabWidth: CalibrationIntDimension,
+  defaultDirection: CalibrationDirectionDimension,
+  preferEarlySoftHyphenBreak: CalibrationBooleanDimension,
+  preferPrefixWidthsForBreakableRuns: CalibrationBooleanDimension
+})
+
+/**
+ * Typed search-descriptor model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor.Type
+
+/**
+ * Compatibility alias for the calibration search descriptor schema.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationSearchSpaceSpec = CalibrationSearchDescriptor
+
+/**
+ * Compatibility alias type for the calibration search descriptor.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationSearchSpaceSpecType = CalibrationSearchDescriptorType
+
+/**
+ * Machine-readable study artifacts emitted by experimental optimization runs.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationStudyArtifacts = Schema.Struct({
+  snapshot: Study.StudySnapshot,
+  eventLog: Schema.Array(StudyEvent.StudyEventSchema)
+})
+
+/**
+ * Typed study-artifact model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationStudyArtifactsType = typeof CalibrationStudyArtifacts.Type
+
+/**
+ * Structured optimization report emitted by `optimizeProfile`.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const CalibrationOptimizationReport = Schema.Struct({
+  objective: CalibrationObjectiveMetadata,
+  searchDescriptor: CalibrationSearchDescriptor,
+  completionReason: StudyEvent.CompletionReasonSchema,
+  bestScore: NonNegativeNumber,
+  bestLossSummary: CalibrationLossSummary,
+  artifacts: CalibrationStudyArtifacts
+})
+
+/**
+ * Typed optimization-report model.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type CalibrationOptimizationReportType = typeof CalibrationOptimizationReport.Type

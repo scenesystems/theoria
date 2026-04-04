@@ -1,7 +1,7 @@
 /**
  * Shared evaluation runtime kernel used by both `Evaluate.run` and `Evaluate.stream`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Effect } from "effect"
 import type { Schema } from "effect"
@@ -16,7 +16,7 @@ import { evaluateOutcome, type EvaluationEventSink, resolveConcurrency, sortedMe
  * Configuration for an evaluation run: module, examples, metrics, and
  * optional concurrency.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link import("../../Module/model.js").Module}
  * @see {@link import("../../Example/index.js").Example}
@@ -40,7 +40,7 @@ export {
    * Callback invoked with each evaluation lifecycle event for streaming
    * progress.
    *
-   * @since 0.0.0
+   * @since 0.1.0
    * @category type-level
    */
   type EvaluationEventSink
@@ -50,7 +50,7 @@ export {
  * Execute evaluation once and project progress through the provided event
  * sink. Shared by both `Evaluate.run` and `Evaluate.stream`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const evaluateKernel = <
@@ -100,7 +100,7 @@ export const evaluateKernel = <
  * No-op event sink that discards all events. Used by the batch {@link run}
  * projection.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const noEvents: EvaluationEventSink = () => Effect.void

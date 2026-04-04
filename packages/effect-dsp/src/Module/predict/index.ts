@@ -1,7 +1,7 @@
 /**
  * Leaf predictor module — the fundamental building block for LLM programs.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Schema } from "effect"
 import { Effect, HashMap, Option, Ref } from "effect"
@@ -21,7 +21,7 @@ const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
  *
  * @see {@link PredictPolicyOverrides}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PredictOptions = Readonly<{
@@ -49,7 +49,7 @@ const makeInitialParams = <
  * @see {@link Module}
  * @see {@link PredictOptions}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const predict = <
@@ -88,6 +88,6 @@ export const predict = <
 /**
  * Parse retry policies, feedback templates, and default constants.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 export * from "./policy.js"

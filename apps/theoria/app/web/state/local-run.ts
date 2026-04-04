@@ -1,8 +1,9 @@
 import type { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"
+import type { EffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { EffectDspRunPlan } from "../atoms/dsp-run-plan.js"
 import type { EffectSearchRunFrame, EffectSearchRunPlan } from "../atoms/optimization-animation.js"
 import type { EffectMathRunFrame, EffectMathRunPlan } from "../atoms/power-animation.js"
-import type { EffectTextRunFrame, EffectTextRunPlan } from "../atoms/reflow.js"
+import type { EffectTextRunFrame } from "../atoms/reflow.js"
 
 export type LocalRunPlan = EffectTextRunPlan | EffectSearchRunPlan | EffectMathRunPlan | EffectDspRunPlan
 export type LocalRunFrame = EffectTextRunFrame | EffectSearchRunFrame | EffectMathRunFrame | DspRunFrame

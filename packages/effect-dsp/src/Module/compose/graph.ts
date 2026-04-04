@@ -1,15 +1,13 @@
 /**
  * Composition graph construction and validation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 
 /**
- * Decomposition rationale: Task 2.8 requires graph construction, identity validation,
- * cycle detection, and canonical edge/node emission to share one recursion kernel.
- *
- * Decomposition plan: split this file into `ids.ts`, `validation.ts`, and `builder.ts`
- * once Task 2.9 lands and compose+CoT graph contracts stabilize.
+ * Decomposition rationale: graph construction, identity validation, cycle detection,
+ * and canonical edge/node emission still share one recursion kernel, so they remain
+ * co-located until the compose graph surface stabilizes further.
  */
 import { Array as Arr, Data, Effect, HashMap, Option, Order, Record, Schema } from "effect"
 import type { Ref } from "effect"
@@ -28,7 +26,7 @@ import type { Signature } from "../../Signature/model.js"
  * without requiring the generic `I/O` type parameters, avoiding variance issues
  * when storing heterogeneous sub-modules.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ComposableModule = Readonly<{
@@ -260,7 +258,7 @@ const visitChildNode = (options: {
  * `ComposableModule` projection — the alias is discarded after graph
  * construction.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ComposeSubModules = Readonly<Record<string, ComposableModule>>
@@ -270,7 +268,7 @@ export type ComposeSubModules = Readonly<Record<string, ComposableModule>>
  * direct child ids, full module graph, and a map of direct sub-module
  * nodes by id.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class CompositionGraph extends Data.Class<{
@@ -299,7 +297,7 @@ const buildSubModuleNode = (
  * Detects cycles, duplicate identities, and id mismatches during a
  * single recursive traversal.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const buildCompositionGraph = <
@@ -392,7 +390,7 @@ export const buildCompositionGraph = <
  * Build and return only the graph contract from a composition declaration,
  * discarding the sub-module node map.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const composeGraph = <

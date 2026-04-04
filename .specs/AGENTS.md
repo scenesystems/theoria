@@ -18,7 +18,7 @@ These specs live only as long as the PR they track. They are gitignored and neve
 
 4. **No proprietary context.** Theoria is MIT-licensed open source. Never reference proprietary codebases, internal architecture, internal research documents, or any private infrastructure. Reconstruct from understanding, never copy or cite proprietary sources.
 
-5. **No ephemeral context.** Never reference thread IDs, Amp URLs, agent names, or session-specific identifiers. Specs must be readable by anyone with access to the theoria repo and nothing else.
+5. **Session traceability is allowed.** Thread IDs, Amp URLs, agent names, and other session-specific identifiers may be included when they improve execution traceability, handoff clarity, or completion auditing. Keep them additive to the checklist rather than replacing concrete shipping details.
 
 6. **Definition of done is a command.** Every spec ends with the exact shell commands that prove completion. If you can't run it, it's not done.
 

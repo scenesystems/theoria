@@ -86,22 +86,22 @@ export type Card = typeof Card.Type
 
 export const cards: ReadonlyArray<Card> = [
   {
-    id: "effect-text",
-    title: "effect-text",
-    packageName: "effect-text",
-    description: "Effect-native text preparation, measurement, and greedy multiline layout",
-    useCase: "Instant, deterministic text layout that turns costly measurement into pure arithmetic.",
+    id: "effect-math",
+    title: "effect-math",
+    packageName: "effect-math",
+    description: "Foundational numerics, linear algebra, statistics, and optimization for Effect",
+    useCase: "Numerically stable scientific operators with runtime-boundary contracts.",
     summary:
-      "Prepare once, project everywhere — proving that text layout is instant deterministic arithmetic across a multi-domain corpus.",
-    runLabel: "Run Benchmark",
-    deepDivePath: "/demos/effect-text",
+      "Visualize statistical power across effect sizes and sample sizes using Distribution, Calculus, and Optimization domains.",
+    runLabel: "Run Power Analysis",
+    deepDivePath: "/demos/effect-math",
     group: "effect",
     releaseState: "published",
-    version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/effect-text",
-    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
+    version: "0.2.0",
+    npmUrl: "https://www.npmjs.com/package/effect-math",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
     license: "MIT",
-    interactiveLabel: "Live Reflow"
+    interactiveLabel: "Power Explorer"
   },
   {
     id: "effect-search",
@@ -121,24 +121,6 @@ export const cards: ReadonlyArray<Card> = [
     interactiveLabel: "Live Optimization"
   },
   {
-    id: "effect-math",
-    title: "effect-math",
-    packageName: "effect-math",
-    description: "Foundational numerics, linear algebra, statistics, and optimization for Effect",
-    useCase: "Numerically stable scientific operators with runtime-boundary contracts.",
-    summary:
-      "Visualize statistical power across effect sizes and sample sizes using Distribution, Calculus, and Optimization domains.",
-    runLabel: "Run Power Analysis",
-    deepDivePath: "/demos/effect-math",
-    group: "effect",
-    releaseState: "published",
-    version: "0.2.0",
-    npmUrl: "https://www.npmjs.com/package/effect-math",
-    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
-    license: "MIT",
-    interactiveLabel: "Power Explorer"
-  },
-  {
     id: "effect-dsp",
     title: "effect-dsp",
     packageName: "effect-dsp",
@@ -156,11 +138,29 @@ export const cards: ReadonlyArray<Card> = [
     interactiveLabel: "Typed Evaluation"
   },
   {
+    id: "effect-text",
+    title: "effect-text",
+    packageName: "effect-text",
+    description: "Effect-native text preparation, measurement, and greedy multiline layout",
+    useCase: "Instant, deterministic text layout that turns costly measurement into pure arithmetic.",
+    summary:
+      "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work through the shipped effect-text surfaces.",
+    runLabel: "Run Benchmark",
+    deepDivePath: "/demos/effect-text",
+    group: "effect",
+    releaseState: "published",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/effect-text",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
+    license: "MIT",
+    interactiveLabel: "Live Reflow"
+  },
+  {
     id: "digest",
     title: "@scenesystems/digest",
     packageName: "@scenesystems/digest",
     description: "Cryptographic content hashing and canonicalization built with Effect",
-    useCase: "Cryptographic content hashing with JCS canonicalization and algorithm-tagged output.",
+    useCase: "Content hashing with canonicalization and tagged digest output.",
     summary: "Hash a structured value with BLAKE3-256 and SHA-256, compare digest outputs and canonicalization.",
     runLabel: "Run Digest Benchmark",
     deepDivePath: "/demos/digest",
@@ -172,27 +172,11 @@ export const cards: ReadonlyArray<Card> = [
     license: "MIT"
   },
   {
-    id: "sign",
-    title: "@scenesystems/sign",
-    packageName: "@scenesystems/sign",
-    description: "Digital signatures, key agreement, and key encapsulation built with Effect",
-    useCase: "Digital signatures and verification across classical and post-quantum algorithms.",
-    summary: "Generate Ed25519 key pairs, sign a message, verify the signature, and inspect key sizes.",
-    runLabel: "Run Signature Demo",
-    deepDivePath: "/demos/sign",
-    group: "scenesystems",
-    releaseState: "coming-soon",
-    version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
-    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
-    license: "MIT"
-  },
-  {
     id: "seal",
     title: "@scenesystems/seal",
     packageName: "@scenesystems/seal",
     description: "Authenticated encryption built with Effect",
-    useCase: "Authenticated encryption with self-describing envelopes and algorithm selection.",
+    useCase: "Authenticated encryption with self-describing envelopes.",
     summary: "Encrypt and decrypt with XChaCha20-Poly1305, verify round-trip integrity and envelope structure.",
     runLabel: "Run Encryption Demo",
     deepDivePath: "/demos/seal",
@@ -201,6 +185,22 @@ export const cards: ReadonlyArray<Card> = [
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
+    license: "MIT"
+  },
+  {
+    id: "sign",
+    title: "@scenesystems/sign",
+    packageName: "@scenesystems/sign",
+    description: "Digital signatures, key agreement, and key encapsulation built with Effect",
+    useCase: "Classical and post-quantum signatures with typed verification.",
+    summary: "Generate Ed25519 key pairs, sign a message, verify the signature, and inspect key sizes.",
+    runLabel: "Run Signature Demo",
+    deepDivePath: "/demos/sign",
+    group: "scenesystems",
+    releaseState: "coming-soon",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
     license: "MIT"
   }
 ]

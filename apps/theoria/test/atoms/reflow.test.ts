@@ -80,7 +80,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("prepares corpus text and produces lines for a given width", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: reflowTestFont,
         whiteSpace: "normal"
@@ -97,7 +97,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("produces different line counts at different widths", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: reflowTestFont,
         whiteSpace: "normal"
@@ -112,7 +112,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("reuses prepared text across multiple layout calls", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: { family: "system-ui", size: 16, weight: 400 },
         whiteSpace: "normal"
@@ -129,7 +129,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("line heights match computed container height", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: { family: "system-ui", size: 16, weight: 400 },
         whiteSpace: "normal"
@@ -149,7 +149,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("projects obstacle-aware lines from the same prepared text handle", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: { family: "system-ui", size: 16, weight: 400 },
         whiteSpace: "normal"
@@ -173,7 +173,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("never assigns a projected line to a rail narrower than that line's measured width", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: reflowTestFont,
         whiteSpace: "normal"
@@ -223,7 +223,7 @@ describe("Reflow projection (pure layout)", () => {
           variant: "panel"
         }
       ]
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: { family: "system-ui", size: 16, weight: 400 },
         whiteSpace: "normal"
@@ -258,7 +258,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("keeps default obstacle tops stable as width changes", () =>
     Effect.gen(function*() {
       const entry = corpus.find((e) => e.id === "product-copy")!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: reflowTestFont,
         whiteSpace: "normal"
@@ -306,7 +306,7 @@ describe("Reflow projection (pure layout)", () => {
   it.effect("packs same-side obstacles into non-overlapping vertical bands", () =>
     Effect.gen(function*() {
       const entry = corpus[0]!
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: entry.text,
         font: reflowTestFont,
         whiteSpace: "normal"
@@ -339,7 +339,7 @@ describe("Reflow projection (pure layout)", () => {
 
   it.effect("keeps the generic custom scene geometrically valid", () =>
     Effect.gen(function*() {
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text:
           "Custom copy still needs believable rails so the same prepared text can be projected through a neutral but structurally honest layout.",
         font: reflowTestFont,

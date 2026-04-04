@@ -1,7 +1,7 @@
 /**
  * Prompt-to-trace text projection.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type * as Prompt from "@effect/ai/Prompt"
@@ -26,7 +26,7 @@ const messageContentToText = (message: unknown): Option.Option<string> =>
  * Handles string prompts directly and message-array prompts by extracting
  * and joining the `content` field of each message.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category formatters
  * @internal
  */

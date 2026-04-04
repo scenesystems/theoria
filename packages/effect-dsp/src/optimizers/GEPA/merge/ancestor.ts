@@ -3,7 +3,7 @@
  * candidate lineage.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option, Order, Tuple } from "effect"
 import type { ProgramCandidate } from "../model.js"
@@ -155,7 +155,7 @@ const sharedAncestorCandidates = (
  * Find the nearest shared ancestor between two candidates.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const findNearestCommonAncestor = (
@@ -182,7 +182,7 @@ export const findNearestCommonAncestor = (
 /**
  * Resolve the full parent/ancestor candidates required to construct a merge.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const resolveMergeInputs = (

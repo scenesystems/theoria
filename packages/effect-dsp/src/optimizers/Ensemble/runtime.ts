@@ -2,7 +2,7 @@
  * Ensemble runtime orchestration — runs sub-modules, collects outputs, and
  * reduces via the configured strategy.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Option, Record } from "effect"
 import type { Schema } from "effect"
@@ -38,7 +38,7 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
  * Fails with `AllTrialsFailed` when `programs` is empty.
  *
  * @see {@link import("./model.js").EnsembleOptions} for configuration
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const ensemble = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(

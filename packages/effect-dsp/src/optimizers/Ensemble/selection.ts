@@ -2,7 +2,7 @@
  * Ensemble candidate selection — picks the best parameter set from evaluated
  * candidates.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option, Order } from "effect"
 import type { Schema } from "effect"
@@ -23,7 +23,7 @@ type SamplingState<I extends Schema.Struct.Fields, O extends Schema.Struct.Field
  * Clamp the requested subset size to `[1, programCount]`, returning `0` only
  * when no programs exist.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const resolveSelectionSize = (programCount: number, requested: Option.Option<number>): number =>
@@ -47,7 +47,7 @@ export const resolveSelectionSize = (programCount: number, requested: Option.Opt
  * is scored with a seeded hash and the lowest-scored entries are returned,
  * guaranteeing reproducible selection across runs.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const choosePrograms = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(options: {

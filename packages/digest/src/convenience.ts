@@ -120,7 +120,7 @@ export const canonicalJsonBytes = (
  *
  * Equivalent to `canonicalJsonBytes(value)` followed by `digestBytes(algorithm, bytes)`.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestCanonicalJsonBytes = (
@@ -132,7 +132,7 @@ export const digestCanonicalJsonBytes = (
 /**
  * Canonicalize structured data via RFC 8785 JCS, hash, and base64url encode.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestCanonicalJsonBase64Url = (
@@ -144,7 +144,7 @@ export const digestCanonicalJsonBase64Url = (
 /**
  * Canonicalize structured data via RFC 8785 JCS, hash, and hex encode.
  *
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export const digestCanonicalJsonHex = (

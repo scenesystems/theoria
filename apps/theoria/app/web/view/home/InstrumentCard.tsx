@@ -13,8 +13,9 @@ import type { MetaItem } from "../primitives/CardMetaRow.js"
 import { CardMetaRow } from "../primitives/CardMetaRow.js"
 import { ContentCard } from "../primitives/ContentCard.js"
 import type { ToneClasses } from "../primitives/designSystem.js"
-import { Cluster, Layer } from "../primitives/Layout.js"
+import { Layer, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
+import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
@@ -32,7 +33,7 @@ const liftTransform = (progress: number): string | undefined =>
     : `translateY(${(-progress * liftPx).toFixed(2)}px) scale(${(1 + progress * liftScale).toFixed(4)})`
 
 const neutralBadgeClassName =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-stage-200/90 px-2.5 py-1"
+  "inline-flex shrink-0 items-center gap-1 rounded-full border border-stage-200/90 px-2 py-1"
 
 export const InstrumentCard = ({
   card,
@@ -58,10 +59,18 @@ export const InstrumentCard = ({
     })),
     Match.orElse(() => ({
       className:
-        `inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
+        `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
       icon: true,
       text: "Live Demo"
     }))
+  )
+  const badgeSlot = (
+    <Layer as="span" className={badge.className}>
+      <SemanticText as="span" role="tab-label" text={badge.text} variant="compact" />
+      {badge.icon
+        ? <ArrowTopRightOnSquareIcon aria-hidden className="h-3 w-3 shrink-0" />
+        : null}
+    </Layer>
   )
 
   return (
@@ -73,40 +82,42 @@ export const InstrumentCard = ({
       shape="left-accent"
       style={{ transform: liftTransform(progress) }}
     >
-      <Cluster className="items-start justify-between gap-3">
-        {titleIsLinked
-          ? (
-            <CardLink className="min-w-0 flex-1" href={card.deepDivePath}>
-              <SemanticText as="h3" className="text-ink-900" role="card-title" text={card.title} variant="compact" />
-            </CardLink>
-          )
-          : (
-            <SemanticText
-              as="h3"
-              className="min-w-0 flex-1 text-ink-900"
-              role="card-title"
-              text={card.title}
-              variant="compact"
-            />
-          )}
-        <Layer
-          as="span"
-          className={badge.className}
-        >
-          <SemanticText as="span" role="tab-label" text={badge.text} variant="compact" />
-          {badge.icon
-            ? <ArrowTopRightOnSquareIcon aria-hidden className="h-3 w-3 shrink-0" />
-            : null}
-        </Layer>
-      </Cluster>
+      <Stack className="min-w-0 gap-3">
+        <SelectionRail action={badgeSlot} className="gap-y-2">
+          {titleIsLinked
+            ? (
+              <CardLink className="block min-w-0" href={card.deepDivePath}>
+                <SemanticText
+                  as="h3"
+                  className="min-w-0 text-ink-900"
+                  role="catalog-title"
+                  text={card.title}
+                  variant="compact"
+                />
+              </CardLink>
+            )
+            : (
+              <SemanticText
+                as="h3"
+                className="min-w-0 text-ink-900"
+                role="catalog-title"
+                text={card.title}
+                variant="compact"
+              />
+            )}
+        </SelectionRail>
 
-      <SemanticText
-        as="p"
-        className="line-clamp-2 min-h-[2lh] min-w-0 text-ink-700"
-        role="card-summary"
-        text={card.useCase}
-        variant="compact"
-      />
+        <SemanticText
+          as="p"
+          className="min-w-0 text-ink-700"
+          lineLimit={2}
+          role="card-summary"
+          reserveLines={2}
+          text={card.useCase}
+          variant="compact"
+          wrapAuthority="effect-text-projected"
+        />
+      </Stack>
 
       <Separator className="mt-auto h-px bg-stage-200/80" />
 

@@ -1,7 +1,7 @@
 /**
  * Phase 2 diversity tip and cache-bust marker policies.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Option } from "effect"
@@ -14,7 +14,7 @@ import { buildIndices, normalizeCount, normalizeSeed } from "./random.js"
  * `"none"` (unconstrained), `"creative"`, `"simple"`, `"description"`,
  * `"high_stakes"`, and `"persona"`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_TIP_VOCABULARY = Arr.make(
@@ -29,7 +29,7 @@ export const DEFAULT_TIP_VOCABULARY = Arr.make(
 /**
  * Clamps an instruction candidate count to at least 1.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const normalizeInstructionCount = (count: number): number => normalizeCount(count)
@@ -38,7 +38,7 @@ export const normalizeInstructionCount = (count: number): number => normalizeCou
  * Resolves an optional seed to a deterministic positive integer, defaulting
  * to `1` when absent.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const resolveSeed = (seed?: number): number =>
@@ -48,7 +48,7 @@ export const resolveSeed = (seed?: number): number =>
  * Produces zero-based indices for instruction proposals, excluding the
  * first slot which is reserved for the baseline instruction.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const proposalIndices = (requestedInstructionCount: number): ReadonlyArray<number> =>
@@ -58,7 +58,7 @@ export const proposalIndices = (requestedInstructionCount: number): ReadonlyArra
  * Returns the provided tip vocabulary when non-empty, otherwise falls back
  * to {@link DEFAULT_TIP_VOCABULARY}.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const resolveTipVocabulary = (tipVocabulary?: ReadonlyArray<string>): ReadonlyArray<string> =>
@@ -71,7 +71,7 @@ export const resolveTipVocabulary = (tipVocabulary?: ReadonlyArray<string>): Rea
  * Selects a diversity tip by cycling through the vocabulary with modular
  * indexing. Returns `"none"` if the vocabulary is empty.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const tipAt = (tips: ReadonlyArray<string>, index: number): string =>
@@ -85,7 +85,7 @@ export const tipAt = (tips: ReadonlyArray<string>, index: number): string =>
  * proposal prompt. Encodes the predictor name, proposal index, and seed so
  * the LLM treats each call as distinct.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const proposalMarker = (predictorName: string, proposalIndex: number, seed: number): string =>
@@ -96,7 +96,7 @@ export const proposalMarker = (predictorName: string, proposalIndex: number, see
  * absent. Higher values encourage the meta-LLM to produce more varied
  * instruction proposals.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const resolveDiversityTemperature = (temperature?: number): number =>

@@ -1,7 +1,7 @@
 /**
  * Chain-of-thought module constructor.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Effect, Schema } from "effect"
 import type { SignatureError } from "../../Errors/signature.js"
@@ -22,7 +22,7 @@ const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
  * @see {@link predict}
  * @see {@link ChainOfThoughtOutputFields}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const chainOfThought = <
@@ -43,6 +43,6 @@ export const chainOfThought = <
  * Schema transformation — `ChainOfThoughtOutputFields` type and
  * `toChainOfThoughtSignature` combinator.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 export * from "./schema.js"

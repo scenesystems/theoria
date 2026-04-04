@@ -56,10 +56,12 @@ export const fontFamilyThemeTokens: ReadonlyArray<readonly [string, string]> = H
 export const TextRole = Schema.Literal(
   "hero-title",
   "hero-body",
+  "catalog-title",
   "card-title",
   "card-summary",
   "status",
   "tab-label",
+  "selection-title",
   "section-title",
   "row-label",
   "row-value",
@@ -81,12 +83,17 @@ export const LineBreakBehavior = Schema.Literal("wrap", "nowrap")
 
 export type LineBreakBehavior = typeof LineBreakBehavior.Type
 
+export const TextWrapAuthority = Schema.Literal("native-browser", "effect-text-projected")
+
+export type TextWrapAuthority = typeof TextWrapAuthority.Type
+
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
   fontSize: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
   weight: FontWeight,
   tracking: Schema.Number.pipe(Schema.finite()),
+  wrapAuthority: TextWrapAuthority,
   lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
   lineHeight: PositiveLineHeight,
@@ -108,6 +115,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 38,
     weight: "semibold",
     tracking: -0.02,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 44,
@@ -116,13 +124,26 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
   "hero-body": {
     role: "hero-body",
     family: "body",
-    fontSize: 17,
+    fontSize: 18,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
-    lineHeight: 27,
+    lineHeight: 30,
     maxWidth: { compact: 600, expanded: 880 }
+  },
+  "catalog-title": {
+    role: "catalog-title",
+    family: "display",
+    fontSize: 22,
+    weight: "semibold",
+    tracking: -0.01,
+    wrapAuthority: "native-browser",
+    lineBreaks: "nowrap",
+    whiteSpace: "normal",
+    lineHeight: 30,
+    maxWidth: { compact: 520, expanded: 1120 }
   },
   "card-title": {
     role: "card-title",
@@ -130,7 +151,8 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 24,
     weight: "semibold",
     tracking: -0.01,
-    lineBreaks: "nowrap",
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 32,
     maxWidth: { compact: 520, expanded: 1120 }
@@ -138,12 +160,13 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
   "card-summary": {
     role: "card-summary",
     family: "body",
-    fontSize: 15,
+    fontSize: 16,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
-    lineHeight: 24,
+    lineHeight: 26,
     maxWidth: { compact: 720, expanded: 1400 }
   },
   status: {
@@ -152,6 +175,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
@@ -163,20 +187,34 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "semibold",
     tracking: 0.02,
+    wrapAuthority: "native-browser",
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
     maxWidth: { compact: 180, expanded: 220 }
   },
-  "section-title": {
-    role: "section-title",
+  "selection-title": {
+    role: "selection-title",
     family: "display",
     fontSize: 14,
     weight: "semibold",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 20,
+    maxWidth: { compact: 900, expanded: 1400 }
+  },
+  "section-title": {
+    role: "section-title",
+    family: "display",
+    fontSize: 24,
+    weight: "semibold",
+    tracking: 0,
+    wrapAuthority: "native-browser",
+    lineBreaks: "wrap",
+    whiteSpace: "normal",
+    lineHeight: 32,
     maxWidth: { compact: 900, expanded: 1400 }
   },
   "row-label": {
@@ -185,6 +223,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 11,
     weight: "semibold",
     tracking: 0.04,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 16,
@@ -196,6 +235,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 14,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 22,
@@ -207,6 +247,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "native-browser",
     lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 18,
@@ -218,6 +259,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "normal",
     tracking: 0,
+    wrapAuthority: "effect-text-projected",
     lineBreaks: "wrap",
     whiteSpace: "pre-wrap",
     lineHeight: 18,
@@ -229,6 +271,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     fontSize: 12,
     weight: "semibold",
     tracking: 0.02,
+    wrapAuthority: "native-browser",
     lineBreaks: "nowrap",
     whiteSpace: "normal",
     lineHeight: 16,
@@ -239,11 +282,13 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
 export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["hero-title"],
   textSemanticsByRole["hero-body"],
+  textSemanticsByRole["catalog-title"],
   textSemanticsByRole["card-title"],
   textSemanticsByRole["card-summary"],
 
   textSemanticsByRole.status,
   textSemanticsByRole["tab-label"],
+  textSemanticsByRole["selection-title"],
   textSemanticsByRole["section-title"],
   textSemanticsByRole["row-label"],
   textSemanticsByRole["row-value"],

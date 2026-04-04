@@ -1,150 +1,305 @@
 /**
  * resolve-workspace-deps.ts
  *
- * Resolves `workspace:` protocol references in a packed package.json to real
- * semver ranges. Runs after `build-utils pack-v3` which copies dependencies
- * verbatim from the source package.json into dist/package.json.
- *
- * The workspace: protocol is understood by bun/pnpm during local development
- * but `changeset publish` calls `npm publish` internally, which does not
- * rewrite these references. This script bridges that gap.
- *
- * Mapping rules (matching bun/pnpm publish behavior):
- *   workspace:^  → ^{version}
- *   workspace:~  → ~{version}
- *   workspace:*  → ^{version}   (caret range — safest default for *)
- *
- * Usage:
- *   bun run scripts/resolve-workspace-deps.ts [--check]
- *
- * --check: verify dist/package.json has no workspace: references (for CI),
- *          exits non-zero if any remain.
+ * Resolves `workspace:` protocol references in packed package manifests to real
+ * semver ranges after `build-utils pack-v3`.
  */
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Console, Effect } from "effect"
 
-const ROOT = resolve(import.meta.dirname, "..")
-const PACKAGES_DIR = join(ROOT, "packages")
-const CHECK_MODE = process.argv.includes("--check")
+class WorkspaceDependencyResolutionError {
+  readonly _tag = "WorkspaceDependencyResolutionError"
 
-// ---------------------------------------------------------------------------
-// 1. Build a map of workspace package name → version
-// ---------------------------------------------------------------------------
-function buildVersionMap(): Map<string, string> {
-  const map = new Map<string, string>()
-  for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    const pkgPath = join(PACKAGES_DIR, entry.name, "package.json")
-    if (!existsSync(pkgPath)) continue
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
-    if (pkg.name && pkg.version) {
-      map.set(pkg.name, pkg.version)
-    }
-  }
-  return map
+  constructor(readonly message: string) {}
 }
 
-// ---------------------------------------------------------------------------
-// 2. Resolve a single workspace: specifier to a real semver range
-// ---------------------------------------------------------------------------
-function resolveSpec(spec: string, depName: string, versions: Map<string, string>): string {
-  if (!spec.startsWith("workspace:")) return spec
+const rootUrl = new URL("../", import.meta.url)
+const checkMode = process.argv.includes("--check")
 
-  const version = versions.get(depName)
-  if (!version) {
-    throw new Error(
-      `Cannot resolve workspace dependency "${depName}": not found in packages/. ` +
-      `Known packages: ${[...versions.keys()].join(", ")}`
-    )
+const parseManifest = (content: string): Record<string, unknown> => {
+  const parsed = JSON.parse(content)
+  return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : {}
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+
+const asString = (value: unknown): string | undefined =>
+  typeof value === "string"
+    ? value
+    : undefined
+
+const resolveProjectPaths = Effect.gen(function*() {
+  const path = yield* Path.Path
+  const root = yield* path.fromFileUrl(rootUrl).pipe(Effect.orDie)
+
+  return {
+    root,
+    packagesDir: path.join(root, "packages")
   }
+})
 
-  const protocol = spec.slice("workspace:".length)
-  switch (protocol) {
-    case "^": return `^${version}`
-    case "~": return `~${version}`
-    case "*": return `^${version}`
-    default:
-      throw new Error(
-        `Unsupported workspace protocol "${spec}" for "${depName}". ` +
-        `Supported: workspace:^, workspace:~, workspace:*`
+const listPackageDirectories = Effect.gen(function*() {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const { packagesDir } = yield* resolveProjectPaths
+  const entries = yield* fs.readDirectory(packagesDir).pipe(Effect.orDie)
+  const directoryEntries = yield* Effect.forEach(entries, (entry) =>
+    fs.stat(path.join(packagesDir, entry)).pipe(
+      Effect.orDie,
+      Effect.map((stat) =>
+        stat.type === "Directory"
+          ? entry
+          : undefined
       )
-  }
-}
+    ),
+    { concurrency: "unbounded" }
+  )
 
-// ---------------------------------------------------------------------------
-// 3. Process a single dist/package.json
-// ---------------------------------------------------------------------------
-function processPackage(pkgDir: string, versions: Map<string, string>): { name: string; resolved: number; errors: Array<string> } {
-  const distPkgPath = join(pkgDir, "dist", "package.json")
-  if (!existsSync(distPkgPath)) {
-    return { name: pkgDir, resolved: 0, errors: [] }
-  }
+  return directoryEntries.filter((entry): entry is string => entry !== undefined)
+})
 
-  const pkg = JSON.parse(readFileSync(distPkgPath, "utf-8"))
-  const errors: Array<string> = []
-  let resolved = 0
+const buildVersionMap = Effect.gen(function*() {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const { packagesDir } = yield* resolveProjectPaths
+  const entries = yield* listPackageDirectories
+  const discoveredPackages = yield* Effect.forEach(
+    entries,
+    (entry) =>
+      Effect.gen(function*() {
+        const packageJsonPath = path.join(packagesDir, entry, "package.json")
+        const exists = yield* fs.exists(packageJsonPath).pipe(Effect.orDie)
 
-  for (const field of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] as const) {
-    const deps = pkg[field]
-    if (!deps || typeof deps !== "object") continue
-    for (const [name, spec] of Object.entries(deps)) {
-      if (typeof spec !== "string" || !spec.startsWith("workspace:")) continue
-      if (CHECK_MODE) {
-        errors.push(`${pkg.name} ${field}.${name}: ${spec}`)
-      } else {
-        try {
-          pkg[field][name] = resolveSpec(spec, name, versions)
-          resolved++
-        } catch (e) {
-          errors.push((e as Error).message)
+        if (!exists) {
+          return undefined
         }
-      }
+
+        const manifest = parseManifest(yield* fs.readFileString(packageJsonPath).pipe(Effect.orDie))
+        const name = asString(manifest.name)
+        const version = asString(manifest.version)
+
+        if (name !== undefined && version !== undefined) {
+          return [name, version] as const
+        }
+
+        return undefined
+      }),
+    { concurrency: "unbounded" }
+  )
+
+  return new Map(discoveredPackages.filter((entry): entry is readonly [string, string] => entry !== undefined))
+})
+
+const resolveSpec = (spec: string, dependencyName: string, versions: Map<string, string>): Effect.Effect<string> =>
+  Effect.gen(function*() {
+    if (!spec.startsWith("workspace:")) {
+      return spec
     }
-  }
 
-  if (!CHECK_MODE && resolved > 0) {
-    writeFileSync(distPkgPath, JSON.stringify(pkg, null, 2) + "\n")
-  }
+    const version = versions.get(dependencyName)
 
-  return { name: pkg.name || pkgDir, resolved, errors }
-}
-
-// ---------------------------------------------------------------------------
-// 4. Main
-// ---------------------------------------------------------------------------
-const versions = buildVersionMap()
-let totalResolved = 0
-let totalErrors = 0
-
-for (const entry of readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue
-  const pkgDir = join(PACKAGES_DIR, entry.name)
-  const result = processPackage(pkgDir, versions)
-
-  if (result.errors.length > 0) {
-    for (const err of result.errors) {
-      console.error(`  ✗ ${err}`)
+    if (version === undefined) {
+      return yield* Effect.fail(
+        new WorkspaceDependencyResolutionError(
+          `Cannot resolve workspace dependency "${dependencyName}": not found in packages/.`
+        )
+      )
     }
-    totalErrors += result.errors.length
-  }
-  if (result.resolved > 0) {
-    console.log(`  ✓ ${result.name}: resolved ${result.resolved} workspace dep(s)`)
-    totalResolved += result.resolved
-  }
-}
 
-if (CHECK_MODE) {
-  if (totalErrors > 0) {
-    console.error(`\n✗ Found ${totalErrors} unresolved workspace: reference(s) in dist/`)
-    process.exit(1)
-  } else {
-    console.log("✓ No workspace: references in dist/")
+    const protocol = spec.slice("workspace:".length)
+
+    if (protocol === "^") {
+      return `^${version}`
+    }
+
+    if (protocol === "~") {
+      return `~${version}`
+    }
+
+    if (protocol === "*") {
+      return `^${version}`
+    }
+
+    return yield* Effect.fail(
+      new WorkspaceDependencyResolutionError(
+        `Unsupported workspace protocol "${spec}" for "${dependencyName}".`
+      )
+    )
+  })
+
+const dependencyFields = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"] as const
+
+const resolveDependencyField = (
+  packageName: string,
+  field: (typeof dependencyFields)[number],
+  fieldRecord: Record<string, unknown>,
+  versions: Map<string, string>
+) =>
+  Effect.gen(function*() {
+    const results = yield* Effect.forEach(
+      Object.entries(fieldRecord),
+      ([dependencyName, dependencySpec]) =>
+        Effect.gen(function*() {
+          if (typeof dependencySpec !== "string" || !dependencySpec.startsWith("workspace:")) {
+            return {
+              error: undefined,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          if (checkMode) {
+            return {
+              error: `${packageName} ${field}.${dependencyName}: ${dependencySpec}`,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          const resolution = yield* resolveSpec(dependencySpec, dependencyName, versions).pipe(
+            Effect.either
+          )
+
+          if (resolution._tag === "Left") {
+            return {
+              error: resolution.left.message,
+              resolvedEntry: undefined,
+              resolvedCount: 0
+            }
+          }
+
+          return {
+            error: undefined,
+            resolvedEntry:
+              resolution.right === dependencySpec
+                ? undefined
+                : ([dependencyName, resolution.right] as const),
+            resolvedCount: resolution.right === dependencySpec ? 0 : 1
+          }
+        }),
+      { concurrency: "unbounded" }
+    )
+
+    return {
+      errors: results.flatMap((result) => (result.error === undefined ? [] : [result.error])),
+      resolvedCount: results.reduce((sum, result) => sum + result.resolvedCount, 0),
+      updates: Object.fromEntries(
+        results.flatMap((result) => (result.resolvedEntry === undefined ? [] : [result.resolvedEntry]))
+      )
+    }
+  })
+
+const processPackage = (packageDirectory: string, versions: Map<string, string>) =>
+  Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const distPackageJsonPath = path.join(packageDirectory, "dist", "package.json")
+    const exists = yield* fs.exists(distPackageJsonPath).pipe(Effect.orDie)
+
+    if (!exists) {
+      return { name: packageDirectory, resolved: 0, errors: [] as Array<string> }
+    }
+
+    const manifest = parseManifest(yield* fs.readFileString(distPackageJsonPath).pipe(Effect.orDie))
+    const packageName = asString(manifest.name) ?? packageDirectory
+    const fieldResults = yield* Effect.forEach(
+      dependencyFields,
+      (field) =>
+        Effect.gen(function*() {
+          const fieldRecord = asRecord(manifest[field])
+
+          if (fieldRecord === undefined) {
+            return {
+              field,
+              nextFieldRecord: undefined,
+              errors: [] as Array<string>,
+              resolvedCount: 0
+            }
+          }
+
+          const result = yield* resolveDependencyField(packageName, field, fieldRecord, versions)
+
+          return {
+            field,
+            nextFieldRecord: { ...fieldRecord, ...result.updates },
+            errors: result.errors,
+            resolvedCount: result.resolvedCount
+          }
+        }),
+      { concurrency: "unbounded" }
+    )
+
+    const nextManifest = fieldResults.reduce<Record<string, unknown>>(
+      (currentManifest, result) =>
+        result.nextFieldRecord === undefined
+          ? currentManifest
+          : { ...currentManifest, [result.field]: result.nextFieldRecord },
+      manifest
+    )
+    const errors = fieldResults.flatMap((result) => result.errors)
+    const resolved = fieldResults.reduce((sum, result) => sum + result.resolvedCount, 0)
+
+    if (!checkMode && resolved > 0) {
+      yield* fs.writeFileString(distPackageJsonPath, `${JSON.stringify(nextManifest, null, 2)}\n`).pipe(Effect.orDie)
+    }
+
+    return {
+      name: packageName,
+      resolved,
+      errors
+    }
+  })
+
+const program = Effect.gen(function*() {
+  const path = yield* Path.Path
+  const { packagesDir } = yield* resolveProjectPaths
+  const versions = yield* buildVersionMap
+  const entries = yield* listPackageDirectories
+  const results = yield* Effect.forEach(entries, (entry) => processPackage(path.join(packagesDir, entry), versions), {
+    concurrency: "unbounded"
+  })
+
+  const totalResolved = results.reduce((sum, result) => sum + result.resolved, 0)
+  const totalErrors = results.reduce((sum, result) => sum + result.errors.length, 0)
+
+  yield* Effect.forEach(
+    results,
+    (result) =>
+      Effect.gen(function*() {
+        yield* Effect.forEach(result.errors, (error) => Console.error(`  ✗ ${error}`), { discard: true })
+
+        if (result.resolved > 0) {
+          yield* Console.log(`  ✓ ${result.name}: resolved ${result.resolved} workspace dep(s)`)
+        }
+      }),
+    { discard: true }
+  )
+
+  if (checkMode && totalErrors > 0) {
+    yield* Console.error(`\n✗ Found ${totalErrors} unresolved workspace: reference(s) in dist/`)
+    return yield* Effect.fail(new WorkspaceDependencyResolutionError("workspace dependency check failed"))
   }
-} else {
-  if (totalErrors > 0) {
-    console.error(`\n✗ ${totalErrors} error(s) resolving workspace deps`)
-    process.exit(1)
+
+  if (!checkMode && totalErrors > 0) {
+    yield* Console.error(`\n✗ ${totalErrors} error(s) resolving workspace deps`)
+    return yield* Effect.fail(new WorkspaceDependencyResolutionError("workspace dependency resolution failed"))
   }
-  console.log(`\n✓ Resolved ${totalResolved} workspace dep(s) across all packages`)
-}
+
+  yield* Console.log(
+    checkMode
+      ? "✓ No workspace: references in dist/"
+      : `\n✓ Resolved ${totalResolved} workspace dep(s) across all packages`
+  )
+})
+
+const main = program.pipe(
+  Effect.catchAll(() => Effect.sync(() => process.exit(1))),
+  Effect.provide(BunContext.layer)
+)
+
+BunRuntime.runMain(main)

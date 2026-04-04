@@ -1,7 +1,7 @@
 /**
  * Predict runtime policy contracts.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Match, Option } from "effect"
 import * as Schedule from "effect/Schedule"
@@ -11,7 +11,7 @@ import type { ParseOutputError } from "../../Errors/module.js"
  * Factory that produces a retry schedule for text output parse failures,
  * parameterized by maximum retry count.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ParseRetryScheduleFactory = (
@@ -24,7 +24,7 @@ export type ParseRetryScheduleFactory = (
  *
  * @see {@link ParsePolicy}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ParseFeedbackTemplate = (error: ParseOutputError) => string
@@ -35,7 +35,7 @@ export type ParseFeedbackTemplate = (error: ParseOutputError) => string
  *
  * @see {@link PredictPolicy}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ParsePolicy = Readonly<{
@@ -50,7 +50,7 @@ export type ParsePolicy = Readonly<{
  * @see {@link makePredictPolicy}
  * @see {@link DEFAULT_PREDICT_POLICY}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PredictPolicy = Readonly<{
@@ -63,7 +63,7 @@ export type PredictPolicy = Readonly<{
  *
  * @see {@link ParsePolicy}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ParsePolicyOverrides = Readonly<{
@@ -78,7 +78,7 @@ export type ParsePolicyOverrides = Readonly<{
  *
  * @see {@link PredictPolicy}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type PredictPolicyOverrides = Readonly<{
@@ -88,7 +88,7 @@ export type PredictPolicyOverrides = Readonly<{
 /**
  * Default maximum number of parse retries before giving up (3).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_PARSE_MAX_RETRIES = 3
@@ -96,7 +96,7 @@ export const DEFAULT_PARSE_MAX_RETRIES = 3
 /**
  * Initial backoff delay for parse retries (`"100 millis"`).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_PARSE_INITIAL_DELAY = "100 millis"
@@ -104,7 +104,7 @@ export const DEFAULT_PARSE_INITIAL_DELAY = "100 millis"
 /**
  * Exponential backoff multiplier for parse retries (2×).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_PARSE_BACKOFF_FACTOR = 2
@@ -124,7 +124,7 @@ const normalizeRetryCount = (value: number): number =>
  * @see {@link DEFAULT_PARSE_INITIAL_DELAY}
  * @see {@link DEFAULT_PARSE_BACKOFF_FACTOR}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const defaultParseRetrySchedule: ParseRetryScheduleFactory = (maxRetries) =>
@@ -141,7 +141,7 @@ const formatFieldDiagnostic = (diagnostic: ParseOutputError["fieldDiagnostics"][
  * per-field diagnostics into a multi-line string appended to the next
  * prompt attempt.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const defaultParseFeedbackTemplate: ParseFeedbackTemplate = (error) => {
@@ -183,7 +183,7 @@ const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy => ({
  * @see {@link PredictPolicy}
  * @see {@link DEFAULT_PREDICT_POLICY}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makePredictPolicy = (
@@ -203,7 +203,7 @@ export const makePredictPolicy = (
  *
  * @see {@link makePredictPolicy}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constants
  */
 export const DEFAULT_PREDICT_POLICY: PredictPolicy = makePredictPolicy()

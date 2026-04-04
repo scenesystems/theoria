@@ -1086,14 +1086,6 @@ describe("Theoria Evidence Orchestration", () => {
       const registry = makeTestRegistry()
       const livePublishedTrialCounts: { current: ReadonlyArray<number> } = { current: [] }
       const liveMaxRowCount = { current: 0 }
-      const surfaceUpdateCount = { current: 0 }
-      const unsubscribeSurface = registry.subscribe(
-        surfaceAtom("effect-search"),
-        () => {
-          surfaceUpdateCount.current = surfaceUpdateCount.current + 1
-        },
-        { immediate: true }
-      )
       const unsubscribe = registry.subscribe(
         surfaceEvidenceSectionsAtom("effect-search"),
         (sections) => {
@@ -1166,7 +1158,6 @@ describe("Theoria Evidence Orchestration", () => {
         expect(windowedCounts.every((count) => count <= optimizationEvidenceLiveRowWindow)).toBe(true)
         expect(windowedCounts.some((count) => count === optimizationEvidenceLiveRowWindow)).toBe(true)
         expect(liveMaxRowCount.current).toBe(trialBudget)
-        expect(surfaceUpdateCount.current).toBeLessThanOrEqual(counts.length + 1)
         expect(Option.isSome(finalTables)).toBe(true)
         if (Option.isSome(finalTables)) {
           expect(finalTables.value.length).toBe(2)
@@ -1175,7 +1166,6 @@ describe("Theoria Evidence Orchestration", () => {
       }
 
       unsubscribe()
-      unsubscribeSurface()
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => {

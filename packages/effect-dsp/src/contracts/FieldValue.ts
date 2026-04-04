@@ -2,7 +2,7 @@
  * Recursive JSON-like value type and record schema used as the universal
  * payload carrier across module I/O, trace entries, and optimizer events.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -13,7 +13,7 @@ import { Schema } from "effect"
  *
  * @see {@link FieldRecord} — record-shaped carrier built from FieldValue
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type FieldValue =
@@ -43,7 +43,7 @@ const FieldValueSchema: Schema.Schema<FieldValue, FieldValue, never> = Schema.su
  *
  * @see {@link FieldRecord} — the record-level schema built on this
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const FieldValue = FieldValueSchema
@@ -56,7 +56,7 @@ export const FieldValue = FieldValueSchema
  * @see {@link FieldValue} — the recursive value schema
  * @see {@link MetricPayload} — domain alias used by metric scorers
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const FieldRecord = Schema.Record({
@@ -68,7 +68,7 @@ export const FieldRecord = Schema.Record({
  * Inferred decoded type of {@link FieldRecord}.
  *
  * @see {@link FieldRecord}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type FieldRecord = typeof FieldRecord.Type
@@ -77,7 +77,7 @@ export type FieldRecord = typeof FieldRecord.Type
  * Inferred encoded (wire-format) type of {@link FieldRecord}.
  *
  * @see {@link FieldRecord}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type FieldRecordEncoded = typeof FieldRecord.Encoded

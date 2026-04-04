@@ -1,7 +1,7 @@
 /**
  * Branded module identifier used across runtime, cache keys, and optimizer state.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Schema } from "effect"
 
@@ -14,7 +14,7 @@ import { Schema } from "effect"
  * @see {@link CacheKey} — uses ModuleId as part of the memoization key
  * @see {@link ModuleNode} — carries ModuleId for graph traversal
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category schemas
  */
 export const ModuleId = Schema.String.pipe(
@@ -26,7 +26,7 @@ export const ModuleId = Schema.String.pipe(
  * Inferred runtime type of {@link ModuleId}.
  *
  * @see {@link ModuleId}
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type ModuleId = Schema.Schema.Type<typeof ModuleId>

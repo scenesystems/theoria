@@ -6,8 +6,9 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { createHash } from "node:crypto"
 import { Array as Arr, Console, Effect, Option, Schema } from "effect"
+import { sha256 } from "../src/algorithms/sha256.js"
+import { toHex } from "../src/encoding.js"
 import {
   decodeUnknownJson,
   EXTERNAL_FIXTURE_ROOT,
@@ -29,7 +30,7 @@ class FixtureCheckError {
 
 const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
 
-const toSha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex")
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => sha256(bytes).pipe(Effect.map(toHex))
 
 const normalizeRelativePath = (pathService: Path.Path, value: string): string =>
   value.split(pathService.sep).join("/")
@@ -108,7 +109,7 @@ const program = Effect.gen(function*() {
         Effect.mapError(() => new FixtureCheckError(source.id, source.fixturePath, "schema decode failed"))
       )
 
-      const actualSha256 = toSha256Hex(bytes)
+      const actualSha256 = yield* toSha256Hex(bytes)
       if (actualSha256 !== source.contentSha256) {
         return new FixtureCheckError(
           source.id,

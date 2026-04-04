@@ -15,7 +15,7 @@ import { executeKernel, matrixIsFinite, vectorIsFinite } from "../shared.js"
 /**
  * Policy-aware gradient evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const gradientWithPolicies = (
@@ -45,7 +45,7 @@ export const gradientWithPolicies = (
 /**
  * Policy-aware Jacobian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const jacobianWithPolicies = (
@@ -75,7 +75,7 @@ export const jacobianWithPolicies = (
 /**
  * Policy-aware Hessian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const hessianWithPolicies = (
@@ -104,7 +104,7 @@ export const hessianWithPolicies = (
 /**
  * Policy-aware directional derivative evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const directionalDerivativeWithPolicies = (
@@ -134,7 +134,7 @@ export const directionalDerivativeWithPolicies = (
 /**
  * Policy-aware divergence evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const divergenceWithPolicies = (
@@ -163,7 +163,7 @@ export const divergenceWithPolicies = (
 /**
  * Policy-aware Laplacian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const laplacianWithPolicies = (

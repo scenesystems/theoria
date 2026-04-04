@@ -1,0 +1,15 @@
+{
+  "name": "@fixtures/public-surface",
+  "version": "0.3.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./Widget": "./src/widget.ts",
+    "./Types": {
+      "types": "./src/types.ts",
+      "default": "./dist/types.js"
+    },
+    "./internal/*": null,
+    "./package.json": "./package.json"
+  }
+}

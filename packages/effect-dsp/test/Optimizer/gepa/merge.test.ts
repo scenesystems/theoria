@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.4 merge/crossover contracts.
+ * GEPA merge and crossover contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"

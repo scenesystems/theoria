@@ -12,8 +12,14 @@ export const preloadProgram: Effect.Effect<
   FileSystem.FileSystem | Path.Path
 > = Effect.all([
   executableProgramFile(new URL("./run.ts", import.meta.url).href),
-  executableProgramFile(new URL("../../../contracts/demo/text.ts", import.meta.url).href),
-  executableProgramFile(new URL("../../../web/atoms/animation.ts", import.meta.url).href)
+  executableProgramFile(new URL("./package-story.ts", import.meta.url).href),
+  executableProgramFile(new URL("../../../web/text/browserTextLayout.ts", import.meta.url).href),
+  executableProgramFile(new URL("../../../web/view/text/authority.ts", import.meta.url).href),
+  executableProgramFile(new URL("../../../web/atoms/text.ts", import.meta.url).href),
+  executableProgramFile(new URL("../../../web/atoms/reflow.ts", import.meta.url).href)
 ]).pipe(
-  Effect.map(([serverFile, contractFile, animationFile]) => multiFileProgram([serverFile, contractFile, animationFile]))
+  Effect.map(
+    ([runFile, packageStoryFile, browserLayerFile, authorityFile, textAtomFile, reflowAtomFile]) =>
+      multiFileProgram([runFile, packageStoryFile, browserLayerFile, authorityFile, textAtomFile, reflowAtomFile])
+  )
 )

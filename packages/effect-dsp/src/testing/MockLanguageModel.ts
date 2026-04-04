@@ -2,7 +2,7 @@
  * Deterministic `LanguageModel` test harness — fixed, mapped, sequenced, and
  * failing response strategies for unit tests.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
@@ -41,7 +41,7 @@ const mockError = (method: string, description: string, cause?: unknown): AiErro
  * A recorded method call against the mock language model — captures the method
  * (`generateText` or `generateObject`) and the rendered prompt text.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MockCall extends Schema.Class<MockCall>("MockCall")({
@@ -52,7 +52,7 @@ export class MockCall extends Schema.Class<MockCall>("MockCall")({
 /**
  * Strategy variants that determine how the mock model responds.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 class FixedResponseStrategy extends Data.TaggedClass("Fixed")<{
@@ -79,7 +79,7 @@ class FailingResponseStrategy extends Data.TaggedClass("Failing")<{
  * Discriminated union of response strategies that determine mock behavior. Each
  * variant controls how the mock resolves a prompt to a response.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ResponseStrategy =
@@ -92,7 +92,7 @@ export type ResponseStrategy =
 /**
  * Tagged-enum constructors for response strategy variants.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const ResponseStrategy = Data.taggedEnum<ResponseStrategy>()
@@ -101,7 +101,7 @@ export const ResponseStrategy = Data.taggedEnum<ResponseStrategy>()
  * Runtime handle returned by `MockLanguageModel.make` — provides the mock
  * service and a ref of recorded calls for assertions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class MockLanguageModelRuntime extends Data.TaggedClass("MockLanguageModelRuntime")<{
@@ -422,7 +422,7 @@ const makeService = (
  * )
  * ```
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const MockLanguageModel = {

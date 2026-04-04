@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.5 integration contract.
+ * GEPA integration contract.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"

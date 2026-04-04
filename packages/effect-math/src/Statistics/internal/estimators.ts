@@ -46,6 +46,50 @@ export const variance = (values: Chunk.Chunk<number>): number => {
 export const standardDeviation = (values: Chunk.Chunk<number>): number => Math.sqrt(variance(values))
 
 /**
+ * Descriptive statistics for a non-empty chunk using a one-pass Welford accumulator.
+ *
+ * Singleton chunks produce zero variance and standard deviation.
+ *
+ * @since 0.3.0
+ * @category internal
+ */
+export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>) => {
+  const first = Chunk.headNonEmpty(values)
+  const aggregated = Chunk.reduce(Chunk.tailNonEmpty(values), {
+    count: 1,
+    maximum: first,
+    mean: first,
+    minimum: first,
+    sumOfSquaredDistances: 0
+  }, (state, value) => {
+    const count = state.count + 1
+    const delta = value - state.mean
+    const mean = state.mean + (delta / count)
+    const deltaFromUpdatedMean = value - mean
+
+    return {
+      count,
+      maximum: Math.max(state.maximum, value),
+      mean,
+      minimum: Math.min(state.minimum, value),
+      sumOfSquaredDistances: state.sumOfSquaredDistances + (delta * deltaFromUpdatedMean)
+    }
+  })
+  const variance = aggregated.count === 1
+    ? 0
+    : aggregated.sumOfSquaredDistances / (aggregated.count - 1)
+
+  return {
+    count: aggregated.count,
+    maximum: aggregated.maximum,
+    mean: aggregated.mean,
+    minimum: aggregated.minimum,
+    standardDeviation: Math.sqrt(variance),
+    variance
+  }
+}
+
+/**
  * Minimum of a chunk, returns `Option.none()` for empty.
  *
  * @since 0.1.0

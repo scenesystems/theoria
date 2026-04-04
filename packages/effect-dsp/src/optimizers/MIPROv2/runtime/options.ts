@@ -2,7 +2,7 @@
  * MIPROv2 option adapters — normalizes user-facing options into
  * phase-specific configurations.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Option } from "effect"
@@ -24,7 +24,7 @@ import { phase3TrialBudget } from "./budget.js"
  * `toPhase3Options`) project this superset down to exactly the options
  * each phase requires.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link toPhase1Options} — demo-bootstrap projection
  * @see {@link toPhase2Options} — instruction-proposal projection
@@ -61,7 +61,7 @@ const maxCandidateCount = <Candidate>(
  * Returns the explicit validation set when provided, falling back to the
  * training set otherwise.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const resolveValset = (
@@ -75,7 +75,7 @@ export const resolveValset = (
  * otherwise computes a budget from the number of predictors and the
  * largest demo / instruction candidate set via `phase3TrialBudget`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const resolvePhase3TrialBudget = <
@@ -106,7 +106,7 @@ export const resolvePhase3TrialBudget = <
  * bootstrap-specific knobs (`seed`, `maxLabeledDemos`,
  * `maxBootstrappedDemos`).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  * @see {@link MIPROOptionLike}
  */
@@ -143,7 +143,7 @@ export const toPhase1Options = <
  * and any optional proposal-specific knobs (`seed`,
  * `diversityTemperature`, `tipVocabulary`).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  * @see {@link MIPROOptionLike}
  */
@@ -182,7 +182,7 @@ export const toPhase2Options = <
  * candidate sets, and any optional search-specific knobs
  * (`minibatchSize`, `fullEvalEvery`, `seed`, `emit`).
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  * @see {@link MIPROOptionLike}
  */

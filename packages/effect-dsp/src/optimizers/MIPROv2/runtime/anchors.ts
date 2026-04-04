@@ -2,7 +2,7 @@
  * Phase 1 anchor and candidate assembly — pairs labeled examples with module
  * trace demos.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import { Array as Arr, Option, Order, Record } from "effect"
@@ -22,7 +22,7 @@ import { buildIndices, normalizeCount, sampleBoundedCount, shuffleBySeed } from 
  * **Fill candidates:**
  * - `"bootstrap-shuffled"` — bootstrapped demos in a deterministic random order
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type Phase1CandidateKind = "zero-shot" | "labels-only" | "bootstrap-unshuffled" | "bootstrap-shuffled"
@@ -31,7 +31,7 @@ export type Phase1CandidateKind = "zero-shot" | "labels-only" | "bootstrap-unshu
  * A single Phase 1 candidate pairing a candidate kind with the concrete
  * `ModuleParams` (instructions + demos) it produced.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link Phase1CandidateKind}
  */
@@ -94,7 +94,7 @@ const bootstrapShuffledCandidates = (options: {
  * Extracts labeled examples from a training set, converting each into a
  * `Demo`. Unlabeled examples (those without output) are discarded.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<Demo> =>
@@ -107,7 +107,7 @@ export const labeledDemos = (trainset: ReadonlyArray<Example>): ReadonlyArray<De
  * Sorts demos by ascending field count (sum of input and output keys),
  * placing simpler demonstrations first.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category utils
  */
 export const sortDemos = (demos: ReadonlyArray<Demo>): ReadonlyArray<Demo> => Arr.sort(demos, demoOrder)
@@ -122,7 +122,7 @@ export const sortDemos = (demos: ReadonlyArray<Demo>): ReadonlyArray<Demo> => Ar
  * Each candidate embeds a cache-bust marker in its instructions so
  * downstream LLM calls produce distinct completions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  * @see {@link Phase1CandidateKind}
  * @see {@link CandidateAssembly}

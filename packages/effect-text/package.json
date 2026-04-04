@@ -29,20 +29,33 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./browser": "./src/Browser/index.ts",
+    "./react": "./src/React/index.ts",
     "./Text": "./src/Text/index.ts",
-    "./Contracts": "./src/Contracts/index.ts",
+    "./Browser": "./src/Browser/index.ts",
+    "./React": "./src/React/index.ts",
+    "./Contracts": "./src/contracts/index.ts",
     "./Errors": "./src/Errors/index.ts",
     "./Experimental": "./src/experimental/index.ts",
-    "./contracts": "./src/Contracts/index.ts",
+    "./contracts": "./src/contracts/index.ts",
     "./experimental": "./src/experimental/index.ts",
-    "./internal/*": null
+    "./internal/*": null,
+    "./Text/internal/*": null,
+    "./Browser/internal/*": null,
+    "./React/internal/*": null,
+    "./experimental/*/internal/*": null
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
-    "lint": "eslint --max-warnings=0 src test",
-    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "lint": "eslint --max-warnings=0 src test benchmarks examples",
+    "lint:fix": "eslint --max-warnings=0 --fix src test benchmarks examples",
     "test": "vitest run --root ../.. packages/effect-text/test",
+    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
+    "bench": "bun benchmarks/run.ts",
+    "verify:browser-parity": "bun examples/live/browserAccuracyHarness.ts",
+    "verify:calibration": "bun benchmarks/verifyCalibration.ts",
+    "verify:support-manifest": "bun benchmarks/verifySupportManifest.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
@@ -54,6 +67,10 @@
     "effect": "^3.20.0"
   },
   "dependencies": {
+    "effect-math": "workspace:^",
     "effect-search": "workspace:^"
+  },
+  "devDependencies": {
+    "@theoria/source-proof": "workspace:*"
   }
 }

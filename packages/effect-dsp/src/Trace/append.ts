@@ -1,7 +1,7 @@
 /**
  * Trace + usage append combinators.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, Effect, FiberRef } from "effect"
 import { accumulateUsage, type UsageSample } from "../contracts/Usage.js"
@@ -12,7 +12,7 @@ import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
  * Append a trace entry to the fiber-local collection when tracing is enabled.
  * No-ops silently when `TraceEnabledRef` is `false`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const append = (entry: Entry): Effect.Effect<void> =>
@@ -29,7 +29,7 @@ export const append = (entry: Entry): Effect.Effect<void> =>
  * Accumulate a usage sample into the fiber-local usage totals when tracking is
  * enabled.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
@@ -46,7 +46,7 @@ export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
  * Append both a trace entry and a usage sample in one call — the canonical
  * path for module forward functions.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const appendExecution = (options: {

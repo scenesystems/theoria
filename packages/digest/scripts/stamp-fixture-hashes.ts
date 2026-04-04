@@ -6,8 +6,9 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { createHash } from "node:crypto"
 import { Array as Arr, Console, Effect, Option } from "effect"
+import { sha256 } from "../src/algorithms/sha256.js"
+import { toHex } from "../src/encoding.js"
 import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
 
 class FixtureStampError {
@@ -19,7 +20,7 @@ class FixtureStampError {
   ) {}
 }
 
-const toSha256Hex = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex")
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => sha256(bytes).pipe(Effect.map(toHex))
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -41,7 +42,7 @@ const program = Effect.gen(function*() {
       const bytes = yield* fileSystem.readFile(absolutePath).pipe(
         Effect.mapError(() => new FixtureStampError(source.fixturePath, "fixture file not found"))
       )
-      const actualSha256 = toSha256Hex(bytes)
+      const actualSha256 = yield* toSha256Hex(bytes)
 
       yield* Console.log(
         source.contentSha256 === actualSha256

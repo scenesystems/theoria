@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import path from "node:path"
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Console, Effect } from "effect"
 
 export const INTERNAL_EXPORT_DENIAL_SUBPATH = "./internal/*"
 export const MONOREPO_TOPOLOGY_TODO_CODE = "metadata.monorepo.topology-todo"
@@ -473,17 +474,46 @@ export const publishReadinessReport = (input: PublishReadinessInput): PublishRea
   }
 }
 
-export const loadManifestFromFile = (filePath: string): PackageManifest => {
-  const content = readFileSync(filePath, "utf8")
+const parseManifestContent = (content: string): PackageManifest => {
   const parsed = JSON.parse(content)
 
   return asRecord(parsed) ?? {}
 }
 
-const loadManifestIfPresent = (filePath: string): PackageManifest | undefined =>
-  existsSync(filePath)
-    ? loadManifestFromFile(filePath)
-    : undefined
+export const loadManifestFromFile = (filePath: string): Effect.Effect<PackageManifest, never, FileSystem.FileSystem> =>
+  FileSystem.FileSystem.pipe(
+    Effect.flatMap((fileSystem) =>
+      fileSystem.readFileString(filePath).pipe(
+        Effect.orDie,
+        Effect.map(parseManifestContent)
+      ))
+  )
+
+const loadManifestIfPresent = (filePath: string): Effect.Effect<PackageManifest | undefined, never, FileSystem.FileSystem> =>
+  FileSystem.FileSystem.pipe(
+    Effect.flatMap((fileSystem) =>
+      fileSystem.exists(filePath).pipe(
+        Effect.orDie,
+        Effect.flatMap((exists) =>
+          exists
+            ? loadManifestFromFile(filePath)
+            : Effect.succeed(undefined)
+        )
+      ))
+  )
+
+const readFileStringIfPresent = (filePath: string): Effect.Effect<string | undefined, never, FileSystem.FileSystem> =>
+  FileSystem.FileSystem.pipe(
+    Effect.flatMap((fileSystem) =>
+      fileSystem.exists(filePath).pipe(
+        Effect.orDie,
+        Effect.flatMap((exists) =>
+          exists
+            ? fileSystem.readFileString(filePath).pipe(Effect.orDie, Effect.map((content) => content))
+            : Effect.succeed(undefined)
+        )
+      ))
+  )
 
 const sourcePathToPackedModule = (sourcePath: string): string | undefined => {
   if (!sourcePath.startsWith("./src/") || !sourcePath.endsWith(".ts")) {
@@ -552,19 +582,21 @@ export const buildPackedManifestFixture = (rootManifest: PackageManifest): Packa
   }
 }
 
-const synchronizePackedManifest = (packedPath: string): void => {
-  const packedManifest = loadManifestIfPresent(packedPath)
+const synchronizePackedManifest = (packedPath: string): Effect.Effect<void, never, FileSystem.FileSystem> =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const packedManifest = yield* loadManifestIfPresent(packedPath)
 
-  if (packedManifest === undefined) {
-    return
-  }
+    if (packedManifest === undefined) {
+      return
+    }
 
-  const nextPackedManifest = ensurePackedInternalDenial(packedManifest)
+    const nextPackedManifest = ensurePackedInternalDenial(packedManifest)
 
-  if (nextPackedManifest !== packedManifest) {
-    writeFileSync(packedPath, `${JSON.stringify(nextPackedManifest, null, 2)}\n`, "utf8")
-  }
-}
+    if (nextPackedManifest !== packedManifest) {
+      yield* fileSystem.writeFileString(packedPath, `${JSON.stringify(nextPackedManifest, null, 2)}\n`).pipe(Effect.orDie)
+    }
+  })
 
 const readFlagValue = (argv: ReadonlyArray<string>, flag: string): string | undefined =>
   argv.find((arg) => arg.startsWith(`${flag}=`))
@@ -583,34 +615,31 @@ const parseFlags = (argv: ReadonlyArray<string>) => {
   }
 }
 
-const printIssues = (label: string, issues: ReadonlyArray<PublishReadinessIssue>): void => {
-  if (issues.length === 0) {
-    return
-  }
+const printIssues = (label: string, issues: ReadonlyArray<PublishReadinessIssue>): Effect.Effect<void> =>
+  issues.length === 0
+    ? Effect.void
+    : Effect.gen(function*() {
+      yield* Console.error(`[publish:check] ${label}`)
+      yield* Effect.forEach(issues, (issue) => Console.error(`- [${issue.code}] ${issue.message}`), { discard: true })
+    })
 
-  console.error(`[publish:check] ${label}`)
-  issues.forEach((issue) => {
-    console.error(`- [${issue.code}] ${issue.message}`)
-  })
-}
-
-const runCli = (): void => {
+const runCli = Effect.gen(function*() {
+  const path = yield* Path.Path
+  const cwd = yield* Effect.sync(() => process.cwd())
   const flags = parseFlags(process.argv.slice(2))
-  const rootPath = flags.rootManifestPath ?? path.join(process.cwd(), ROOT_PACKAGE_JSON)
-  const packedPath = flags.packedManifestPath ?? path.join(process.cwd(), PACKED_PACKAGE_JSON)
-  const readmePath = flags.readmePath ?? path.join(process.cwd(), README_PATH)
+  const rootPath = flags.rootManifestPath ?? path.join(cwd, ROOT_PACKAGE_JSON)
+  const packedPath = flags.packedManifestPath ?? path.join(cwd, PACKED_PACKAGE_JSON)
+  const readmePath = flags.readmePath ?? path.join(cwd, README_PATH)
 
   if (flags.syncPackedManifest) {
-    synchronizePackedManifest(packedPath)
+    yield* synchronizePackedManifest(packedPath)
   }
 
-  const rootManifest = loadManifestFromFile(rootPath)
+  const rootManifest = yield* loadManifestFromFile(rootPath)
   const packedManifest = flags.requirePackedManifest || flags.packedManifestPath !== undefined
-    ? loadManifestIfPresent(packedPath)
+    ? yield* loadManifestIfPresent(packedPath)
     : undefined
-  const readmeText = existsSync(readmePath)
-    ? readFileSync(readmePath, "utf8")
-    : undefined
+  const readmeText = yield* readFileStringIfPresent(readmePath)
 
   const report = publishReadinessReport({
     rootManifest,
@@ -622,22 +651,25 @@ const runCli = (): void => {
     }
   })
 
-  printIssues("contract failures", report.errors)
+  yield* printIssues("contract failures", report.errors)
 
   if (report.todos.length > 0) {
-    console.error("[publish:check] deferred TODOs")
-    report.todos.forEach((issue) => {
-      console.error(`- [${issue.code}] ${issue.message}`)
-    })
+    yield* Console.error("[publish:check] deferred TODOs")
+    yield* Effect.forEach(report.todos, (issue) => Console.error(`- [${issue.code}] ${issue.message}`), { discard: true })
   }
 
   if (report.errors.length > 0) {
-    process.exit(1)
+    return yield* Effect.fail(report.errors)
   }
 
-  console.log("[publish:check] all enforced publish-readiness contracts passed")
-}
+  yield* Console.log("[publish:check] all enforced publish-readiness contracts passed")
+})
 
 if (import.meta.main) {
-  runCli()
+  BunRuntime.runMain(
+    runCli.pipe(
+      Effect.catchAll(() => Effect.sync(() => process.exit(1))),
+      Effect.provide(BunContext.layer)
+    )
+  )
 }

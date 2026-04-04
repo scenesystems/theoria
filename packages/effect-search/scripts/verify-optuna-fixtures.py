@@ -47,7 +47,7 @@ from optuna.samplers._tpe.sampler import (  # type: ignore[import-untyped]
 from optuna.trial import TrialState, create_trial
 
 # ---------------------------------------------------------------------------
-# Tolerance contracts (matching WP-3 numeric threshold spec)
+# Numeric tolerance contracts for fixture verification
 # ---------------------------------------------------------------------------
 PROB_ABS_TOL = 1e-12
 SIGMA_ABS_TOL = 1e-10

@@ -5,6 +5,7 @@ import type { ChoreographyCue, ChoreographyState } from "../../contracts/choreog
 import { initialChoreographyState, reduceChoreographyState } from "../../contracts/choreography.js"
 import { type DemoError, DemoExecutionError } from "../../contracts/demo-error.js"
 import { optimizationTrialBudgetMax, optimizationTrialBudgetMin } from "../../contracts/demo/objective.js"
+import { snapshotEffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
 import {
@@ -47,18 +48,27 @@ import {
   resetPowerAnimationStateEffect,
   snapshotEffectMathRunPlan
 } from "./power-animation.js"
-import { customTextAtom, reflowStageViewportWidthAtom, snapshotEffectTextRunPlan } from "./reflow.js"
+import { customTextAtom, reflowStageViewportWidthAtom } from "./reflow.js"
 import type { RunSignal } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 
 type CompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalStep | CompletionEvent
+type ServerEvidenceEvent = {
+  readonly _tag: "ServerEvidenceEvent"
+  readonly event: EvidenceEvent
+}
+type LocalDriverEvidenceEvent = {
+  readonly _tag: "LocalDriverEvidenceEvent"
+  readonly event: EvidenceEvent
+}
 type LocalRunFrameUpdatedEvent = {
   readonly _tag: "LocalRunFrameUpdated"
   readonly frame: LocalRunFrame
 }
-type LocalDriverStreamEvent = EvidenceEvent | LocalRunFrameUpdatedEvent | LocalDriverCompletedEvent
-type PipelineEvent = LocalDriverStreamEvent
+type RawLocalDriverStreamEvent = EvidenceEvent | LocalRunFrameUpdatedEvent | LocalDriverCompletedEvent
+type LocalDriverStreamEvent = LocalDriverEvidenceEvent | LocalRunFrameUpdatedEvent | LocalDriverCompletedEvent
+type PipelineEvent = ServerEvidenceEvent | LocalDriverStreamEvent
 
 export type LocalDriverSnapshot = {
   readonly manifest: StreamManifest | null
@@ -74,7 +84,7 @@ export type LocalDriverDescriptor = {
     snapshot: LocalDriverSnapshot,
     stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
     serverCompleted: Deferred.Deferred<CompletionEvent>
-  ) => Stream.Stream<LocalDriverStreamEvent, DemoError, never>
+  ) => Stream.Stream<RawLocalDriverStreamEvent, DemoError, never>
   readonly reset: (registry: RunRegistry) => Effect.Effect<void, never, never>
 }
 
@@ -212,38 +222,51 @@ const localEvidenceStreamFor = (
     onNone: () => Stream.empty,
     onSome: (driver) =>
       driver.makeStream(registry, signal, snapshot, stepQueue, serverCompleted).pipe(
+        Stream.map((event): LocalDriverStreamEvent =>
+          isLocalDriverLifecycleEvent(event)
+            ? event
+            : localDriverEvidenceEvent(event)
+        ),
         Stream.onDone(() => onLocalCompleted)
       )
   })
 
+const deferServerEvidenceVisibility = (
+  id: Id,
+  localDriver: Option.Option<LocalDriverDescriptor>
+): boolean => id === "effect-text" && Option.isSome(localDriver)
+
+const shouldExposeServerEvidence = (
+  deferVisibility: boolean,
+  localCompletion: boolean
+): boolean => !deferVisibility || localCompletion
+
+const localDriverEvidenceEvent = (event: EvidenceEvent): LocalDriverEvidenceEvent => ({
+  _tag: "LocalDriverEvidenceEvent",
+  event
+})
+
+const isLocalDriverLifecycleEvent = (
+  event: RawLocalDriverStreamEvent
+): event is LocalRunFrameUpdatedEvent | LocalDriverCompletedEvent =>
+  Match.value(event).pipe(
+    Match.tag("LocalRunFrameUpdated", () => true),
+    Match.tag("LocalDriverCompleted", () => true),
+    Match.orElse(() => false)
+  )
+
 const recordServerCompletion = (
   completionRef: Ref.Ref<Option.Option<CompletionEvent>>,
   serverCompleted: Deferred.Deferred<CompletionEvent>,
-  finalizationNotifiedRef: Ref.Ref<boolean>,
-  localCompletionRef: Ref.Ref<boolean>,
   storeRef: Ref.Ref<EvidenceStoreState>,
-  onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>,
-  onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>,
-  onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>,
-  event: PipelineEvent
+  event: EvidenceEvent
 ): Effect.Effect<void, never, never> =>
   Match.value(event).pipe(
     Match.tag("StreamComplete", (completion) =>
       Ref.update(storeRef, (store) =>
         applyEvidenceEventToStore(store, completion)).pipe(
           Effect.zipRight(Ref.set(completionRef, Option.some(completion))),
-          Effect.zipRight(Deferred.succeed(serverCompleted, completion)),
-          Effect.zipRight(onEvent(completion)),
-          Effect.zipRight(onServerCompleted(completion)),
-          Effect.zipRight(
-            finalizePipelineIfReady({
-              completionRef,
-              finalizationNotifiedRef,
-              localCompletionRef,
-              onReadyForFinalization,
-              storeRef
-            })
-          )
+          Effect.zipRight(Deferred.succeed(serverCompleted, completion))
         )),
     Match.orElse(() =>
       Effect.void
@@ -325,23 +348,39 @@ const finalizePipelineIfReady = ({
 
 const recordLocalCompletion = ({
   completionRef,
+  deferVisibility,
   finalizationNotifiedRef,
   localCompletionRef,
   onLocalCompleted,
   onReadyForFinalization,
+  onServerCompleted,
   storeRef
 }: {
   readonly completionRef: Ref.Ref<Option.Option<CompletionEvent>>
+  readonly deferVisibility: boolean
   readonly finalizationNotifiedRef: Ref.Ref<boolean>
   readonly localCompletionRef: Ref.Ref<boolean>
   readonly onLocalCompleted: () => Effect.Effect<void, never, never>
   readonly onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>
+  readonly onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>
   readonly storeRef: Ref.Ref<EvidenceStoreState>
 }): Effect.Effect<void, never, never> =>
   Ref.modify(localCompletionRef, claimLocalCompletion).pipe(
     Effect.flatMap((shouldRecordCompletion) =>
       shouldRecordCompletion
         ? onLocalCompleted().pipe(
+          Effect.zipRight(
+            deferVisibility
+              ? Ref.get(completionRef).pipe(
+                Effect.flatMap(
+                  Option.match({
+                    onNone: () => Effect.void,
+                    onSome: onServerCompleted
+                  })
+                )
+              )
+              : Effect.void
+          ),
           Effect.zipRight(
             finalizePipelineIfReady({
               completionRef,
@@ -356,34 +395,117 @@ const recordLocalCompletion = ({
     )
   )
 
-const recordPipelineEvent = (
-  onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>,
-  storeRef: Ref.Ref<EvidenceStoreState>,
-  choreographyRef: Ref.Ref<ChoreographyState>,
-  onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>,
-  onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>,
-  event: PipelineEvent
-): Effect.Effect<void, never, never> =>
-  Match.value(event).pipe(
-    Match.tag("LocalRunFrameUpdated", ({ frame }) => onFrame(frame)),
-    Match.tag("LocalDriverCompleted", () => Effect.void),
-    Match.tag("StreamComplete", () => Effect.void),
-    Match.tag("Choreography", ({ cue }) =>
-      Ref.update(choreographyRef, (state) =>
-        reduceChoreographyState(state, cue)).pipe(
-          Effect.zipRight(onCue(cue))
-        )),
-    Match.tag("Step", () =>
-      Effect.void),
-    Match.orElse((evidenceEvent) =>
-      Ref.update(storeRef, (store) => applyEvidenceEventToStore(store, evidenceEvent)).pipe(
-        Effect.zipRight(onEvent(evidenceEvent))
+const recordEvidenceEvent = ({
+  choreographyRef,
+  deferVisibility,
+  evidenceEvent,
+  localCompletionRef,
+  onCue,
+  onEvent,
+  onServerCompleted,
+  source,
+  storeRef
+}: {
+  readonly choreographyRef: Ref.Ref<ChoreographyState>
+  readonly deferVisibility: boolean
+  readonly evidenceEvent: EvidenceEvent
+  readonly localCompletionRef: Ref.Ref<boolean>
+  readonly onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>
+  readonly onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>
+  readonly onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>
+  readonly source: "local" | "server"
+  readonly storeRef: Ref.Ref<EvidenceStoreState>
+}): Effect.Effect<void, never, never> =>
+  Ref.update(storeRef, (store) => applyEvidenceEventToStore(store, evidenceEvent)).pipe(
+    Effect.zipRight(
+      Match.value(evidenceEvent).pipe(
+        Match.tag(
+          "Choreography",
+          ({ cue }) =>
+            Ref.update(choreographyRef, (state) => reduceChoreographyState(state, cue)).pipe(
+              Effect.zipRight(onCue(cue))
+            )
+        ),
+        Match.tag("Step", () => Effect.void),
+        Match.tag("StreamComplete", (completion) =>
+          source === "server"
+            ? Ref.get(localCompletionRef).pipe(
+              Effect.flatMap((localCompletion) =>
+                shouldExposeServerEvidence(deferVisibility, localCompletion)
+                  ? onEvent(completion).pipe(Effect.zipRight(onServerCompleted(completion)))
+                  : Effect.void
+              )
+            )
+            : onEvent(completion)),
+        Match.orElse((nextEvidenceEvent) =>
+          source === "server"
+            ? Ref.get(localCompletionRef).pipe(
+              Effect.flatMap((localCompletion) =>
+                shouldExposeServerEvidence(deferVisibility, localCompletion)
+                  ? onEvent(nextEvidenceEvent)
+                  : Effect.void
+              )
+            )
+            : onEvent(nextEvidenceEvent)
+        )
       )
     )
   )
 
+const recordPipelineEvent = ({
+  choreographyRef,
+  deferVisibility,
+  event,
+  localCompletionRef,
+  onCue,
+  onEvent,
+  onFrame,
+  onServerCompleted,
+  storeRef
+}: {
+  readonly choreographyRef: Ref.Ref<ChoreographyState>
+  readonly deferVisibility: boolean
+  readonly event: PipelineEvent
+  readonly localCompletionRef: Ref.Ref<boolean>
+  readonly onCue: (cue: ChoreographyCue) => Effect.Effect<void, never, never>
+  readonly onEvent: (event: EvidenceEvent) => Effect.Effect<void, never, never>
+  readonly onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>
+  readonly onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>
+  readonly storeRef: Ref.Ref<EvidenceStoreState>
+}): Effect.Effect<void, never, never> =>
+  Match.value(event).pipe(
+    Match.tag("ServerEvidenceEvent", ({ event: evidenceEvent }) =>
+      recordEvidenceEvent({
+        choreographyRef,
+        deferVisibility,
+        evidenceEvent,
+        localCompletionRef,
+        onCue,
+        onEvent,
+        onServerCompleted,
+        source: "server",
+        storeRef
+      })),
+    Match.tag("LocalDriverEvidenceEvent", ({ event: evidenceEvent }) =>
+      recordEvidenceEvent({
+        choreographyRef,
+        deferVisibility,
+        evidenceEvent,
+        localCompletionRef,
+        onCue,
+        onEvent,
+        onServerCompleted,
+        source: "local",
+        storeRef
+      })),
+    Match.tag("LocalRunFrameUpdated", ({ frame }) => onFrame(frame)),
+    Match.tag("LocalDriverCompleted", () => Effect.void),
+    Match.exhaustive
+  )
+
 const processPipelineEvent = ({
   completionRef,
+  deferVisibility,
   event,
   finalizationNotifiedRef,
   localCompletionRef,
@@ -392,10 +514,12 @@ const processPipelineEvent = ({
   onFrame,
   onLocalCompleted,
   onReadyForFinalization,
+  onServerCompleted,
   storeRef,
   choreographyRef
 }: {
   readonly completionRef: Ref.Ref<Option.Option<CompletionEvent>>
+  readonly deferVisibility: boolean
   readonly event: PipelineEvent
   readonly finalizationNotifiedRef: Ref.Ref<boolean>
   readonly localCompletionRef: Ref.Ref<boolean>
@@ -404,6 +528,7 @@ const processPipelineEvent = ({
   readonly onFrame: (frame: LocalRunFrame) => Effect.Effect<void, never, never>
   readonly onLocalCompleted: () => Effect.Effect<void, never, never>
   readonly onReadyForFinalization: (store: EvidenceStoreState) => Effect.Effect<void, never, never>
+  readonly onServerCompleted: (completion: CompletionEvent) => Effect.Effect<void, never, never>
   readonly storeRef: Ref.Ref<EvidenceStoreState>
   readonly choreographyRef: Ref.Ref<ChoreographyState>
 }): Effect.Effect<void, never, never> =>
@@ -411,21 +536,26 @@ const processPipelineEvent = ({
     Match.tag("LocalDriverCompleted", () =>
       recordLocalCompletion({
         completionRef,
+        deferVisibility,
         finalizationNotifiedRef,
         localCompletionRef,
         onLocalCompleted,
         onReadyForFinalization,
+        onServerCompleted,
         storeRef
       })),
     Match.orElse(() =>
-      recordPipelineEvent(
-        onFrame,
-        storeRef,
+      recordPipelineEvent({
         choreographyRef,
-        onEvent,
+        deferVisibility,
+        event,
+        localCompletionRef,
         onCue,
-        event
-      ).pipe(
+        onEvent,
+        onFrame,
+        onServerCompleted,
+        storeRef
+      }).pipe(
         Effect.zipRight(
           finalizePipelineIfReady({
             completionRef,
@@ -465,6 +595,7 @@ export const runEvidencePipeline = ({
   readonly signal: RunSignal
 }): Effect.Effect<EvidenceStoreState, DemoError, DemoClient> =>
   Effect.gen(function*() {
+    const deferVisibility = deferServerEvidenceVisibility(id, localDriver)
     const completionRef = yield* Ref.make<Option.Option<CompletionEvent>>(Option.none())
     const serverCompleted = yield* Deferred.make<CompletionEvent>()
     const finalizationNotifiedRef = yield* Ref.make(false)
@@ -476,26 +607,18 @@ export const runEvidencePipeline = ({
     const choreographyRef = yield* Ref.make(initialChoreographyState)
     const stepQueue = yield* Queue.unbounded<AuthoredStepQueueEvent>()
     const serverEvidenceStream = makeServerEvidenceStream(id, localDriverSnapshot.manifest).pipe(
-      Stream.tap((event) =>
-        recordServerCompletion(
-          completionRef,
-          serverCompleted,
-          finalizationNotifiedRef,
-          localCompletionRef,
-          storeRef,
-          onEvent,
-          onServerCompleted,
-          onReadyForFinalization,
-          event
-        ).pipe(
-          Effect.zipRight(enqueueAuthoredStep(stepQueue, event))
-        )
-      )
+      Stream.tap((event) => enqueueAuthoredStep(stepQueue, event)),
+      Stream.tap((event) => recordServerCompletion(completionRef, serverCompleted, storeRef, event)),
+      Stream.map((event): ServerEvidenceEvent => ({
+        _tag: "ServerEvidenceEvent",
+        event
+      }))
     )
 
     const handlePipelineEvent = (event: PipelineEvent): Effect.Effect<void, never, never> =>
       processPipelineEvent({
         completionRef,
+        deferVisibility,
         event,
         finalizationNotifiedRef,
         localCompletionRef,
@@ -504,16 +627,19 @@ export const runEvidencePipeline = ({
         onFrame,
         onLocalCompleted,
         onReadyForFinalization,
+        onServerCompleted,
         storeRef,
         choreographyRef
       })
 
     const localCompletionEffect = recordLocalCompletion({
       completionRef,
+      deferVisibility,
       finalizationNotifiedRef,
       localCompletionRef,
       onLocalCompleted,
       onReadyForFinalization,
+      onServerCompleted,
       storeRef
     })
 

@@ -1,7 +1,7 @@
 /**
  * Discovery registry FiberRef lifecycle and canonical dedupe logic.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { Ref } from "effect"
 import { Array as Arr, Effect, FiberRef, HashMap, Option, Schema } from "effect"
@@ -22,7 +22,7 @@ import {
  * by `registerRuntime` and drained by discovery combinators. Scoped via
  * `Effect.locally` for isolation.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category refs
  */
 export const ModuleRegistryRef: FiberRef.FiberRef<ReadonlyArray<ModuleRegistration>> = FiberRef.unsafeMake<
@@ -90,7 +90,7 @@ const moduleSubModuleIds = (module: Module): ReadonlyArray<ModuleId> =>
  * Append a module registration to the fiber-local registry. Detects
  * conflicts when two different modules share the same id.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const register = (
@@ -107,7 +107,7 @@ export const register = (
  * Register module metadata from within a `forward` execution path.
  * Validates the module name as a `ModuleId` before appending.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const registerRuntime = (options: {
@@ -132,7 +132,7 @@ export const registerRuntime = (options: {
 /**
  * Register a fully constructed `Module` value for discovery.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const registerModule = (module: Module): Effect.Effect<void, CompositionError> =>
@@ -149,7 +149,7 @@ export const registerModule = (module: Module): Effect.Effect<void, CompositionE
 /**
  * Read and canonicalize the current registry state.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const registrySnapshot: Effect.Effect<ReadonlyArray<ModuleRegistration>> = FiberRef.get(ModuleRegistryRef).pipe(

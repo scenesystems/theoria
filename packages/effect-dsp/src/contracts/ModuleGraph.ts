@@ -3,7 +3,7 @@
  * optimizers to discover learnable parameter surfaces and traverse
  * them in deterministic order.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import { Array as Arr, HashMap, Option, Order, Schema } from "effect"
 import { ModuleId } from "./ModuleId.js"
@@ -101,7 +101,7 @@ const findLineagePath = (
  * @see {@link ModuleGraphEdge} — explicit parent→child edge
  * @see {@link ModuleGraph} — the full graph containing nodes and edges
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleGraphNode extends Schema.Class<ModuleGraphNode>("ModuleGraphNode")({
@@ -118,7 +118,7 @@ export class ModuleGraphNode extends Schema.Class<ModuleGraphNode>("ModuleGraphN
  * @see {@link ModuleGraphNode} — the node endpoints
  * @see {@link ModuleGraph} — the full graph
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleGraphEdge extends Schema.Class<ModuleGraphEdge>("ModuleGraphEdge")({
@@ -135,7 +135,7 @@ export class ModuleGraphEdge extends Schema.Class<ModuleGraphEdge>("ModuleGraphE
  * @see {@link stableModuleGraphTraversal} — deterministic pre-order walk
  * @see {@link moduleGraphLineage} — root-to-target path resolution
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleGraph extends Schema.Class<ModuleGraph>("ModuleGraph")({
@@ -152,7 +152,7 @@ export class ModuleGraph extends Schema.Class<ModuleGraph>("ModuleGraph")({
  * @see {@link moduleGraphLineage} — resolves a lineage from a graph
  * @see {@link ModuleGraphProjection} — carries lineages for all nodes
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleLineage extends Schema.Class<ModuleLineage>("ModuleLineage")({
@@ -174,7 +174,7 @@ const normalizeNode = (node: ModuleGraphNode): ModuleGraphNode =>
  *
  * @see {@link ModuleGraph}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const makeModuleGraph = (options: {
@@ -196,7 +196,7 @@ export const makeModuleGraph = (options: {
  * @see {@link ModuleGraph}
  * @see {@link projectModuleGraph} — bundles traversal with lineage
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<ModuleId> =>
@@ -210,7 +210,7 @@ export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<Mo
  * @see {@link ModuleLineage} — the returned path model
  * @see {@link ModuleGraph}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const moduleGraphLineage = (
@@ -231,7 +231,7 @@ export const moduleGraphLineage = (
  * @see {@link projectModuleGraph} — the canonical projection constructor
  * @see {@link ModuleGraph} — the source graph
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class ModuleGraphProjection extends Schema.Class<ModuleGraphProjection>("ModuleGraphProjection")({
@@ -251,7 +251,7 @@ const graphLineages = (graph: ModuleGraph): ReadonlyArray<ModuleLineage> =>
  * @see {@link ModuleGraphProjection}
  * @see {@link stableModuleGraphTraversal}
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category combinators
  */
 export const projectModuleGraph = (graph: ModuleGraph): ModuleGraphProjection =>

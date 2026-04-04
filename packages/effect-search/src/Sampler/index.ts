@@ -31,14 +31,49 @@ export * from "./constructors.js"
  */
 export * from "./deterministic.js"
 /**
- * Schemas, tagged unions, and checkpoint definitions for the sampler algorithm
- * variants (Random, Grid, TPE).
+ * Checkpoint schemas and type aliases used to persist sampler state across
+ * study snapshots.
  *
  * @see {@link Sampler} for the runtime data class that wraps these variants
  * @since 0.1.0
  * @category re-exports
  */
-export * from "./kinds.js"
+export * from "./checkpoints.js"
+/**
+ * Option schemas and type aliases for each sampler algorithm family.
+ *
+ * @see {@link SamplerKindSchema} for the tagged union built from these options
+ * @since 0.1.0
+ * @category re-exports
+ */
+export * from "./options.js"
+/**
+ * Schemas and tagged constructors for the sampler algorithm variants.
+ *
+ * @see {@link Sampler} for the runtime data class that wraps these variants
+ * @since 0.1.0
+ * @category re-exports
+ */
+export {
+  /** @since 0.2.1 @category constructors */
+  CmaEs,
+  /** @since 0.2.1 @category constructors */
+  GpBo,
+  /** @since 0.2.1 @category constructors */
+  Grid,
+  /** @since 0.2.1 @category guards */
+  isSamplerKind,
+  /** @since 0.2.1 @category pattern-matching */
+  matchSamplerKind,
+  /** @since 0.2.1 @category constructors */
+  Random,
+  /** @since 0.1.0 @category type-level */
+  type SamplerKind,
+  /** @since 0.1.0 @category schemas */
+  SamplerKindSchema,
+  /** @since 0.2.1 @category constructors */
+  Tpe
+} from "./kinds.js"
 /**
  * Core Sampler data class defining the optimization algorithm contract for
  * suggesting, checkpointing, and restoring state.

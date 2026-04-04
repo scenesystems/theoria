@@ -8,7 +8,7 @@ export const SiteHeader = () => (
   <Header className="pb-2 pt-4">
     <Cluster className="items-center justify-between gap-4">
       <InternalLink href="/">
-        <TheoriaLogo className="text-2xl" />
+        <TheoriaLogo animation="glossary" className="text-2xl" />
       </InternalLink>
       <Cluster className="items-center gap-2">
         <GitHubStarButton />

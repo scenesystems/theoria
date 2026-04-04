@@ -207,13 +207,19 @@ const runDemoExecution = (
           observedAtMs
         })),
       onReadyForFinalization: (store) =>
-        dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
-          _tag: "RunSucceeded",
-          sequence: active.sequence,
-          finalizedAtMs,
-          data: runDataFromStore(id, program, store),
-          meta: store.meta
-        })),
+        Effect.sync(() => {
+          registry.set(surfaceEvidenceStoreAtom(id), store)
+        }).pipe(
+          Effect.zipRight(
+            dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
+              _tag: "RunSucceeded",
+              sequence: active.sequence,
+              finalizedAtMs,
+              data: runDataFromStore(id, program, store),
+              meta: store.meta
+            }))
+          )
+        ),
       onServerCompleted: ({ summary, meta }) =>
         dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
           _tag: "RunServerCompleted",

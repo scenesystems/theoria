@@ -4,6 +4,7 @@ import type { SurfaceVariant } from "../../../contracts/presentation.js"
 
 import { HintTooltip } from "./HintTooltip.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
+import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
 
 const planeShellClassName = "min-h-0 h-full flex-1 bg-stage-0"
@@ -43,11 +44,25 @@ export const SurfacePlaneFrame = ({
       className={`${planeHeaderClassName}${headerClassName !== undefined ? ` ${headerClassName}` : ""}`}
     >
       <Stack className="gap-3.5">
-        <Cluster className="items-start justify-between gap-3">
+        <SelectionRail
+          action={actions === undefined
+            ? undefined
+            : <Cluster className="items-center justify-end gap-2">{actions}</Cluster>}
+          actionBreakpoint="md"
+          actionClassName="col-span-full md:col-span-1"
+          className="gap-y-3"
+        >
           <Stack className="min-w-0 flex-1 gap-2.5">
-            <Cluster className="items-center gap-2">
+            <Cluster className="items-start gap-2">
               {badge ?? null}
-              <SemanticText as="h3" className="text-ink-900" role="section-title" text={title} variant={variant} />
+              <SemanticText
+                as="h3"
+                className="min-w-0 flex-1 text-ink-900"
+                role="section-title"
+                text={title}
+                variant={variant}
+                wrapAuthority="effect-text-projected"
+              />
               {hintText === undefined ? null : <HintTooltip text={hintText} />}
             </Cluster>
             {summaryText === undefined
@@ -62,10 +77,7 @@ export const SurfacePlaneFrame = ({
                 />
               )}
           </Stack>
-          {actions === undefined
-            ? null
-            : <Cluster className="items-center justify-end gap-2">{actions}</Cluster>}
-        </Cluster>
+        </SelectionRail>
         {meta === undefined ? null : <Layer>{meta}</Layer>}
       </Stack>
     </Layer>

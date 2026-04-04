@@ -1,7 +1,7 @@
 /**
  * Phase 3 runtime models — trial state, binding, and diagnostic snapshots.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 import type { Ref } from "effect"
@@ -14,7 +14,7 @@ import type { PredictorInstructionCandidates } from "../propose.js"
  * Finite index type representing a single categorical choice within a
  * Phase 3 search dimension. Limited to 0–9 to bound the candidate space.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category type-level
  */
 export type Phase3DimensionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -24,7 +24,7 @@ export type Phase3DimensionIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
  * chosen candidate index. Dimension names follow the pattern
  * `"<predictor>__demo"` and `"<predictor>__instruction"`.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link demoDimensionName}
  * @see {@link instructionDimensionName}
@@ -39,7 +39,7 @@ export type Phase3Config = Readonly<Record<string, Phase3DimensionIndex>>
  * The search loop writes to `paramsRef` each trial to apply the chosen
  * configuration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export class PredictorBinding extends Data.Class<{
@@ -54,7 +54,7 @@ export class PredictorBinding extends Data.Class<{
  * capturing both the dimension→index mapping and the averaged evaluation
  * score at the time it was recorded.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  * @see {@link Phase3Config}
  */
@@ -66,7 +66,7 @@ export class BestAveragingCandidate extends Data.Class<{
 /**
  * Derives the search-space dimension name for a predictor's demo candidates.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const demoDimensionName = (predictorName: string): string => `${predictorName}__demo`
@@ -75,7 +75,7 @@ export const demoDimensionName = (predictorName: string): string => `${predictor
  * Derives the search-space dimension name for a predictor's instruction
  * candidates.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category helpers
  */
 export const instructionDimensionName = (predictorName: string): string => `${predictorName}__instruction`

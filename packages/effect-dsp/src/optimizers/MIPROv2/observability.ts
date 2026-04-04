@@ -2,7 +2,7 @@
  * MIPROv2 observability — search quality and retained gain projections for
  * diagnostic reporting.
  *
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type { MIPROv2EventSummary } from "./progress.js"
 
@@ -12,7 +12,7 @@ import type { MIPROv2EventSummary } from "./progress.js"
  * `searchGain` captures best trial quality above baseline. `retainedGain`
  * captures end-state quality above baseline after optimization is applied.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type MIPROv2OptimizationObservability = Readonly<{
@@ -30,7 +30,7 @@ export type MIPROv2OptimizationObservability = Readonly<{
  * Build semantic MIPROv2 search observability from baseline/evaluation and
  * event-derived phase-3 best-trial signals.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const summarizeMIPROv2OptimizationObservability = (options: {

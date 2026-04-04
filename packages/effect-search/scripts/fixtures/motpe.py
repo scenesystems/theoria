@@ -192,9 +192,9 @@ def _motpe_study(generated_at: str) -> dict[str, Any]:
 
 
 def _motpe_split(generated_at: str) -> dict[str, Any]:
-    # Source: Optuna FM-4 trace for `_split_complete_trials_multi_objective`
-    # captured in WP-3 research evidence. The rank + HSSP scores are fixed
-    # expectations for this deterministic trial set.
+    # Source: Optuna trace for `_split_complete_trials_multi_objective`.
+    # The rank + HSSP scores are fixed expectations for this deterministic
+    # trial set.
     return {
         "fixture": "motpe-split.multi-rank-hssp",
         "file": "motpe-split/multi-rank-hssp.json",

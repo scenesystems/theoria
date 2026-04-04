@@ -50,6 +50,7 @@
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/effect-dsp/test",
+    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
@@ -61,6 +62,9 @@
     "@scenesystems/digest": "workspace:^",
     "effect-math": "workspace:^",
     "effect-search": "workspace:^"
+  },
+  "devDependencies": {
+    "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
     "@effect/ai": ">=0.35.0",

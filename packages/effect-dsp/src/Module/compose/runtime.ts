@@ -1,7 +1,7 @@
 /**
  * Compose-forward runtime orchestration.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category internal
  * @internal
  */
@@ -21,7 +21,7 @@ import type { Module } from "../model.js"
 /**
  * Compose-runtime callback context.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ComposeForwardContext<
@@ -35,7 +35,7 @@ export type ComposeForwardContext<
 /**
  * Compose-runtime callback contract.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category models
  */
 export type ComposeForward<
@@ -54,7 +54,7 @@ export type ComposeForward<
 /**
  * Build a typed `forward` function for a composed module.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @internal
  */
 export const makeComposeForward = <

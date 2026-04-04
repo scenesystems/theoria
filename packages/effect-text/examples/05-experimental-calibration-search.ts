@@ -14,49 +14,35 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 import { Sampler } from "effect-search"
 
-import { Contracts, Experimental, Text } from "effect-text"
+import { Experimental } from "effect-text"
 
-const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
-  measure: (_font, text: string) => Effect.succeed(text.length * 5)
-})
-
-const services = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
-)
+import {
+  calibrationServices,
+  canonicalCalibrationCases,
+  exploratorySearchDescriptor
+} from "./live/calibrationFixtures.js"
 
 const program = Effect.gen(function*() {
   const optimized = yield* Experimental.Calibration.optimizeProfile({
-    cases: [{
-      name: "tab-advance",
-      prepare: {
-        text: "a\tb",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      },
-      layout: { maxWidth: 100, lineHeight: 12 },
-      expected: {
-        lineCount: 1,
-        maxLineWidth: 15,
-        lines: [{ text: "a\tb", width: 15 }]
-      }
-    }],
-    services,
-    trials: 8,
-    sampler: Sampler.tpe({ seed: 7 }),
-    searchSpaceSpec: {
-      lineFitEpsilon: { low: 0.005, high: 0.005, step: 0.001 },
-      tabWidth: { low: 2, high: 4, step: 2 }
-    }
+    cases: canonicalCalibrationCases,
+    services: calibrationServices,
+    trials: 4,
+    sampler: Sampler.random({ seed: 91 }),
+    searchDescriptor: exploratorySearchDescriptor
   })
 
   yield* Effect.log("experimental calibration search", {
     bestProfile: optimized.bestProfile,
     bestReport: optimized.bestReport,
-    bestValue: optimized.studyResult.bestTrial.state.value
+    bestValue: optimized.studyResult.bestTrial.state.value,
+    bestLossSummary: optimized.optimization.bestLossSummary,
+    firstEvent: optimized.optimization.artifacts.eventLog[0]?._tag,
+    lastEvent: optimized.optimization.artifacts.eventLog.at(-1)?._tag,
+    eventCount: optimized.optimization.artifacts.eventLog.length,
+    snapshotNextTrialNumber: optimized.optimization.artifacts.snapshot.nextTrialNumber
   })
 })
 

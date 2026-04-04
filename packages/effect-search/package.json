@@ -65,12 +65,16 @@
     "fixtures:lock": "uv lock --script scripts/generate-optuna-fixtures.py && uv lock --script scripts/verify-optuna-fixtures.py",
     "fixtures:verify": "uv run scripts/verify-optuna-fixtures.py",
     "publish:check": "bun run scripts/verify-publish-readiness.ts",
+    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "changeset-version": "changeset version",
     "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
     "effect-math": "workspace:^"
+  },
+  "devDependencies": {
+    "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
     "@effect/experimental": "^0.60.0",

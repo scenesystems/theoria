@@ -29,7 +29,7 @@ export const DigestAlgorithm = Schema.Literal("blake3-256", "sha256")
 /**
  * Type-level view of {@link DigestAlgorithm}.
  *
- * @since 0.1.1
+ * @since 0.1.0
  * @category schemas
  */
 export type DigestAlgorithm = typeof DigestAlgorithm.Type

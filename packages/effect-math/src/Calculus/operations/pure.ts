@@ -25,7 +25,7 @@ export const loadCalculusDomain = Effect.succeed(CalculusDomainModel)
 /**
  * Ridder-method first-derivative estimate with convergence metadata.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const derivativeLimit = (
@@ -37,7 +37,7 @@ export const derivativeLimit = (
 /**
  * Ridder-method second-derivative estimate with convergence metadata.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivativeLimit = (
@@ -58,7 +58,7 @@ export const derivative = (f: (x: number) => number, x: number, config?: RidderM
 /**
  * Second derivative value projected from `secondDerivativeLimit`.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivative = (
@@ -86,7 +86,7 @@ export const simpson = IntegrationKernel.simpsonsRule
 /**
  * Adaptive Simpson integration with configurable tolerance and recursion bounds.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const adaptiveSimpson = (
@@ -109,7 +109,7 @@ export const adaptiveSimpson = (
 /**
  * Multivariate gradient evaluated via Ridder-limit directional probes.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const gradient = (
@@ -121,7 +121,7 @@ export const gradient = (
 /**
  * Multivariate Jacobian evaluated via Ridder-limit directional probes.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const jacobian = (
@@ -133,7 +133,7 @@ export const jacobian = (
 /**
  * Multivariate Hessian evaluated via Ridder-limit directional probes.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const hessian = (
@@ -145,7 +145,7 @@ export const hessian = (
 /**
  * Directional derivative along a supplied direction vector.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const directionalDerivative = (
@@ -158,7 +158,7 @@ export const directionalDerivative = (
 /**
  * Vector-field divergence from component-wise directional derivatives.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const divergence = (
@@ -170,7 +170,7 @@ export const divergence = (
 /**
  * Scalar-field Laplacian from summed second partial derivatives.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const laplacian = (

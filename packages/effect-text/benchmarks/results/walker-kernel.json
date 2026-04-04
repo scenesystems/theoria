@@ -1,0 +1,294 @@
+{
+  "benchmark": "effect-text-walker-kernel",
+  "iterations": 200,
+  "corpus": [
+    {
+      "name": "short-prose",
+      "request": { "maxWidth": 160, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 22031,
+          "meanDurationMs": 110.155,
+          "sample": { "segmentCount": 19 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 13,
+          "meanDurationMs": 0.065,
+          "sample": { "lineCount": 3, "maxLineWidth": 155.03999999999996 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 20,
+          "meanDurationMs": 0.1,
+          "sample": { "lineCount": 3 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 24,
+          "meanDurationMs": 0.12,
+          "sample": { "lineCount": 3 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 47,
+          "meanDurationMs": 0.235,
+          "sample": { "lineCount": 3 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 11,
+          "meanDurationMs": 0.055,
+          "sample": { "lineCount": 3 }
+        }
+      }
+    },
+    {
+      "name": "hard-breaks",
+      "request": { "maxWidth": 120, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 14321,
+          "meanDurationMs": 71.605,
+          "sample": { "segmentCount": 11 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 39,
+          "meanDurationMs": 0.195,
+          "sample": { "lineCount": 3, "maxLineWidth": 67.32 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 26,
+          "meanDurationMs": 0.13,
+          "sample": { "lineCount": 3 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 15,
+          "meanDurationMs": 0.075,
+          "sample": { "lineCount": 3 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 55,
+          "meanDurationMs": 0.275,
+          "sample": { "lineCount": 3 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 3 }
+        }
+      }
+    },
+    {
+      "name": "tabs",
+      "request": { "maxWidth": 140, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 10681,
+          "meanDurationMs": 53.405,
+          "sample": { "segmentCount": 5 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 1, "maxLineWidth": 91.91999999999999 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 11,
+          "meanDurationMs": 0.055,
+          "sample": { "lineCount": 1 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 1 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 23,
+          "meanDurationMs": 0.115,
+          "sample": { "lineCount": 1 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 1,
+          "meanDurationMs": 0.005,
+          "sample": { "lineCount": 1 }
+        }
+      }
+    },
+    {
+      "name": "bidi",
+      "request": { "maxWidth": 120, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 11006,
+          "meanDurationMs": 55.03,
+          "sample": { "segmentCount": 7 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2, "maxLineWidth": 116.27999999999994 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 6,
+          "meanDurationMs": 0.03,
+          "sample": { "lineCount": 2 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 6,
+          "meanDurationMs": 0.03,
+          "sample": { "lineCount": 2 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 30,
+          "meanDurationMs": 0.15,
+          "sample": { "lineCount": 2 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2 }
+        }
+      }
+    },
+    {
+      "name": "cjk",
+      "request": { "maxWidth": 80, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 10676,
+          "meanDurationMs": 53.38,
+          "sample": { "segmentCount": 1 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 1,
+          "meanDurationMs": 0.005,
+          "sample": { "lineCount": 2, "maxLineWidth": 76.55999999999999 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 2 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 5,
+          "meanDurationMs": 0.025,
+          "sample": { "lineCount": 2 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 30,
+          "meanDurationMs": 0.15,
+          "sample": { "lineCount": 2 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2 }
+        }
+      }
+    },
+    {
+      "name": "long-token-overflow",
+      "request": { "maxWidth": 50, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 10521,
+          "meanDurationMs": 52.605,
+          "sample": { "segmentCount": 1 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 5, "maxLineWidth": 48.72 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 9,
+          "meanDurationMs": 0.045,
+          "sample": { "lineCount": 5 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 15,
+          "meanDurationMs": 0.075,
+          "sample": { "lineCount": 5 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 38,
+          "meanDurationMs": 0.19,
+          "sample": { "lineCount": 5 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8,
+          "meanDurationMs": 0.04,
+          "sample": { "lineCount": 5 }
+        }
+      }
+    }
+  ]
+}

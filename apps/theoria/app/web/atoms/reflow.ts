@@ -3,27 +3,25 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Result } from "@effect-atom/atom"
 import { Effect, Layer, Option } from "effect"
 import { Text } from "effect-text"
-import * as Arr from "effect/Array"
 
 import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
 import {
-  partitionProjectionWidths,
   projectionMinWidthFor,
-  projectionStepCount,
   resolveCorpusEntry,
   resolveStageMaxWidth,
+  resolveStageWidth,
   stageFrameBorderPx,
   stageHorizontalInsetPx,
   stageSliderMaxWidth
 } from "../../contracts/demo/text.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 import { fontDescriptorFor, semanticsFor, type TextRole } from "../../contracts/text.js"
-import { browserTextLayoutLayer } from "../text/browserTextLayout.js"
 import {
   projectObstacleTextLayout,
   type ReflowStageLine,
   type ReflowStageObstacle
 } from "../text/obstacleProjection.js"
+import { prepareBrowserText } from "../view/text/authority.js"
 
 export const reflowRole: TextRole = "card-summary"
 
@@ -68,14 +66,12 @@ export const resolveReflowStageWidth = (
   viewportWidth: number,
   obstaclesEnabled = false,
   sceneObstacles: ReadonlyArray<Obstacle> = []
-): number => {
-  const stageMaxWidth = resolveStageMaxWidth(viewportWidth)
-  return clampNumber(
-    requestedWidth,
-    projectionMinWidthFor(stageMaxWidth, obstaclesEnabled, sceneObstacles),
-    stageMaxWidth
+): number =>
+  clampNumber(
+    resolveStageWidth(requestedWidth, viewportWidth, obstaclesEnabled, sceneObstacles),
+    0,
+    stageSliderMaxWidth
   )
-}
 
 export const customCorpusEntryAtom: AtomType.Atom<CorpusEntry | null> = Atom.make(
   (get: AtomType.Context) => {
@@ -95,32 +91,10 @@ const prepareInputForEntry = (entry: CorpusEntry): Text.PrepareInputType => ({
 const prepareInput = (corpusIndex: number): Text.PrepareInputType =>
   prepareInputForEntry(resolveReflowCorpusEntry(corpusIndex, ""))
 
-export type EffectTextRunPlanStep = {
-  readonly requestedWidthPx: number
-  readonly stageWidthPx: number
-  readonly obstaclesEnabled: boolean
-}
-
-export type EffectTextRunPlanEntry = {
-  readonly corpusIndex: number
-  readonly label: string
-  readonly steps: ReadonlyArray<EffectTextRunPlanStep>
-}
-
-export type EffectTextRunPlan = {
-  readonly _tag: "effect-text"
-  readonly customText: string
-  readonly viewportWidthPx: number
-  readonly entries: ReadonlyArray<EffectTextRunPlanEntry>
-}
-
 const preparedResultAtom = Atom.family(
   (corpusIndex: number) =>
     reflowRuntime.atom(
-      () =>
-        Text.prepare(prepareInput(corpusIndex)).pipe(
-          Effect.provide(browserTextLayoutLayer)
-        ),
+      () => prepareBrowserText(prepareInput(corpusIndex)),
       { initialValue: null }
     )
 )
@@ -130,11 +104,11 @@ const customPreparedResultAtom = Atom.family(
     reflowRuntime.atom(
       () =>
         text.trim().length > 0
-          ? Text.prepare({
+          ? prepareBrowserText({
             text: text.trim(),
             font: reflowFont,
             whiteSpace: reflowSemantics.whiteSpace
-          }).pipe(Effect.provide(browserTextLayoutLayer))
+          })
           : Effect.succeed(null),
       { initialValue: null }
     )
@@ -164,63 +138,8 @@ export type EffectTextRunFrame = {
   readonly projection: ReflowProjection
 }
 
-const reflowPlanStepsForEntry = (
-  entry: CorpusEntry,
-  viewportWidthPx: number
-): ReadonlyArray<EffectTextRunPlanStep> => {
-  const stageMaxWidth = resolveStageMaxWidth(viewportWidthPx)
-  const baseMinWidth = projectionMinWidthFor(stageMaxWidth, false, entry.scene.obstacles)
-  const obstacleMinWidth = projectionMinWidthFor(stageMaxWidth, true, entry.scene.obstacles)
-  const baseWidths = partitionProjectionWidths(baseMinWidth, stageMaxWidth, projectionStepCount)
-  const obstacleWidths = partitionProjectionWidths(obstacleMinWidth, stageMaxWidth, projectionStepCount)
-
-  return Arr.appendAll(
-    Arr.map(baseWidths, (widthPx): EffectTextRunPlanStep => ({
-      requestedWidthPx: widthPx,
-      stageWidthPx: widthPx,
-      obstaclesEnabled: false
-    })),
-    Arr.map(obstacleWidths, (widthPx): EffectTextRunPlanStep => ({
-      requestedWidthPx: widthPx,
-      stageWidthPx: widthPx,
-      obstaclesEnabled: true
-    }))
-  )
-}
-
-export const snapshotEffectTextRunPlan = ({
-  customText,
-  viewportWidthPx
-}: {
-  readonly customText: string
-  readonly viewportWidthPx: number
-}): EffectTextRunPlan => {
-  const corpusEntries = Arr.map(corpus, (_, corpusIndex) => corpusIndex)
-  const allEntries = customText.trim().length > 0
-    ? Arr.prepend(corpusEntries, corpus.length)
-    : corpusEntries
-
-  return {
-    _tag: "effect-text",
-    customText,
-    viewportWidthPx,
-    entries: Arr.map(allEntries, (corpusIndex): EffectTextRunPlanEntry => {
-      const entry = resolveCorpusEntry(corpusIndex, customText)
-
-      return {
-        corpusIndex,
-        label: entry.label,
-        steps: reflowPlanStepsForEntry(entry, viewportWidthPx)
-      }
-    })
-  }
-}
-
-export const prepareReflowEntry = (entry: CorpusEntry): Effect.Effect<Text.PreparedText, never, never> =>
-  Text.prepare(prepareInputForEntry(entry)).pipe(
-    Effect.provide(browserTextLayoutLayer),
-    Effect.orDie
-  )
+export const prepareReflowEntry = (entry: CorpusEntry): Effect.Effect<Text.PreparedTextWithSegments, never, never> =>
+  prepareBrowserText(prepareInputForEntry(entry)).pipe(Effect.orDie)
 
 export const projectReflowProjection = ({
   entry,
@@ -231,7 +150,7 @@ export const projectReflowProjection = ({
 }: {
   readonly entry: CorpusEntry
   readonly obstaclesEnabled: boolean
-  readonly prepared: Text.PreparedText
+  readonly prepared: Text.PreparedTextWithSegments
   readonly requestedWidthPx: number
   readonly stageWidthPx: number
 }): ReflowProjection => {

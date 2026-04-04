@@ -14,8 +14,11 @@ layer(BunContext.layer)("Theoria Demo Program Sources", (it) => {
 
       expect(program.files.map((file) => file.entry)).toEqual([
         "server/run.ts",
-        "contracts/demo/text.ts",
-        "web/atoms/animation.ts"
+        "server/package-story.ts",
+        "web/text/browserTextLayout.ts",
+        "web/view/text/authority.ts",
+        "web/atoms/text.ts",
+        "web/atoms/reflow.ts"
       ])
     }))
 

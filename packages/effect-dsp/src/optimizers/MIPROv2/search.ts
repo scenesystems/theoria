@@ -3,7 +3,7 @@
  * effect-search.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.0.0
+ * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Array as Arr, Effect, Option, Ref } from "effect"
@@ -32,7 +32,7 @@ export type { Phase3EventSink, Phase3SearchResult, RunPhase3SearchOptions } from
 /**
  * Deterministic trial-budget formula for Phase 3.
  *
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const phase3TrialBudget = phase3TrialBudgetFormula
@@ -42,7 +42,7 @@ export const phase3TrialBudget = phase3TrialBudgetFormula
  * effect-search seams.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
- * @since 0.0.0
+ * @since 0.1.0
  * @category constructors
  */
 export const runPhase3Search = <
