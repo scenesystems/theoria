@@ -12,12 +12,13 @@ import { ActionButton, ActionLink } from "./ActionControl.js"
 import { badgeThemeFromSurface, type SurfaceTheme } from "./designSystem.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"
 import { PackageBadge } from "./PackageBadge.js"
+import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
 import { ThemeToggle } from "./ThemeToggle.js"
 
 const headerClassName = (variant: SurfaceVariant): string =>
   Match.value(variant).pipe(
-    Match.when("expanded", () => "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"),
+    Match.when("expanded", () => "flex flex-col gap-3"),
     Match.orElse(() => "flex flex-col gap-3")
   )
 
@@ -142,32 +143,51 @@ export const SurfaceHeader = ({
 
   return (
     <Header className={headerClassName(variant)}>
-      <Stack className="min-w-0 flex-1 gap-2">
-        {variant === "expanded" ?
-          (
-            <PackageBadge
-              badge={badgeThemeFromSurface(theme)}
-              label={chrome.badgeLabel}
-              variant={variant}
-            />
-          ) :
-          null}
-        <Cluster className="gap-2.5">
-          {variant === "compact"
-            ? <Layer as="span" aria-hidden className={`inline-flex h-2 w-2 shrink-0 rounded-full ${theme.badgeDot}`} />
+      <SelectionRail
+        action={controlRow}
+        actionBreakpoint="lg"
+        actionClassName="col-span-full lg:col-span-1"
+        className="gap-y-3"
+      >
+        <Stack className="min-w-0 flex-1 gap-2">
+          {variant === "expanded"
+            ? (
+              <PackageBadge
+                badge={badgeThemeFromSurface(theme)}
+                label={chrome.badgeLabel}
+                variant={variant}
+              />
+            )
             : null}
-          <SemanticText as="h2" className="text-ink-900" role="card-title" text={chrome.title} variant={variant} />
-        </Cluster>
-        {metadata}
-        <SemanticText
-          as="p"
-          className={summaryClassName(variant)}
-          role="card-summary"
-          text={chrome.summary}
-          variant={variant}
-        />
-      </Stack>
-      {controlRow}
+          <Cluster className="items-start gap-2.5">
+            {variant === "compact"
+              ? (
+                <Layer
+                  as="span"
+                  aria-hidden
+                  className={`inline-flex h-2 w-2 shrink-0 rounded-full ${theme.badgeDot}`}
+                />
+              )
+              : null}
+            <SemanticText
+              as="h2"
+              className="min-w-0 flex-1 text-ink-900"
+              role="card-title"
+              text={chrome.title}
+              variant={variant}
+              wrapAuthority="effect-text-projected"
+            />
+          </Cluster>
+          {metadata}
+          <SemanticText
+            as="p"
+            className={summaryClassName(variant)}
+            role="card-summary"
+            text={chrome.summary}
+            variant={variant}
+          />
+        </Stack>
+      </SelectionRail>
     </Header>
   )
 }

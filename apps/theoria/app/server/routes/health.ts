@@ -1,5 +1,5 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Clock, Effect } from "effect"
+import { Clock, Effect, Option } from "effect"
 
 import { RuntimeInfo } from "../config/runtime.js"
 import { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
@@ -52,7 +52,23 @@ export const readyRoute = (requestId: string) =>
       data: {
         status: "ready",
         uptimeMs: now - runtimeInfo.startedAtMs,
-        dspEnabled: dspRuntime.capability.enabled
+        dspEnabled: dspRuntime.capability.enabled,
+        ...Option.match(dspRuntime.capability.provider, {
+          onNone: () => ({}),
+          onSome: (dspProvider) => ({ dspProvider })
+        }),
+        ...Option.match(dspRuntime.capability.model, {
+          onNone: () => ({}),
+          onSome: (dspModel) => ({ dspModel })
+        }),
+        ...Option.match(dspRuntime.capability.routeFamily, {
+          onNone: () => ({}),
+          onSome: (dspRouteFamily) => ({ dspRouteFamily })
+        }),
+        ...Option.match(dspRuntime.capability.baseUrl, {
+          onNone: () => ({}),
+          onSome: (dspBaseUrl) => ({ dspBaseUrl })
+        })
       }
     })
   })

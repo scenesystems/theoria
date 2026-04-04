@@ -1,8 +1,9 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
+import type { CSSProperties } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import { semanticsFor, type TextProjection, type TextRole } from "../../../contracts/text.js"
+import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
 import { useTextProjection } from "../../atoms/text.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code"
@@ -41,6 +42,53 @@ const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
 
 const projectedLineText = (text: string): string => text.length === 0 ? "\u00a0" : text
 
+type ProjectionLine = TextProjection["lines"][number]
+
+const reservedLineStyle = (role: TextRole, reserveLines: number | undefined): CSSProperties | undefined =>
+  reserveLines === undefined
+    ? undefined
+    : { minHeight: `calc(var(${lineHeightVar(role)}) * ${String(reserveLines)})` }
+
+const limitedProjectionLines = ({
+  maxLines,
+  projection
+}: {
+  readonly maxLines: number | undefined
+  readonly projection: TextProjection
+}): ReadonlyArray<ProjectionLine> => {
+  if (maxLines === undefined || projection.lines.length <= maxLines) {
+    return projection.lines
+  }
+
+  const visibleLines = projection.lines.slice(0, maxLines)
+
+  return visibleLines.length === 0 ? projection.lines : visibleLines
+}
+
+const lineClampStyle = ({
+  maxLines,
+  reserveLines,
+  role
+}: {
+  readonly maxLines: number | undefined
+  readonly reserveLines: number | undefined
+  readonly role: TextRole
+}): CSSProperties | undefined =>
+  maxLines === undefined && reserveLines === undefined
+    ? undefined
+    : {
+      ...reservedLineStyle(role, reserveLines),
+      ...(maxLines === undefined
+        ? {}
+        : {
+          overflow: "hidden",
+          maxHeight: `calc(var(${lineHeightVar(role)}) * ${String(maxLines)})`
+        })
+    }
+
+const combinedClassName = (contractClassName: string, className: string | undefined): string =>
+  className === undefined ? contractClassName : `${className} ${contractClassName}`
+
 const ProjectedLines = ({
   preserveWhitespace,
   projection
@@ -75,9 +123,8 @@ const InlineText = ({
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
   const base = `whitespace-nowrap ${glyph} ${leading}`
-  const combined = className === undefined ? base : `${base} ${className}`
 
-  return <Component className={combined}>{text}</Component>
+  return <Component className={combinedClassName(base, className)}>{text}</Component>
 }
 
 const NoWrapBlockText = ({
@@ -95,20 +142,23 @@ const NoWrapBlockText = ({
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
   const base = `whitespace-nowrap ${glyph} ${leading}`
-  const combined = className === undefined ? base : `${base} ${className}`
 
-  return <Component className={combined}>{text}</Component>
+  return <Component className={combinedClassName(base, className)}>{text}</Component>
 }
 
 const BrowserWrappedBlockText = ({
   as,
   className,
+  maxLines,
+  reserveLines,
   role,
   text,
   variant
 }: {
   readonly as: BlockElement
   readonly className: string | undefined
+  readonly maxLines: number | undefined
+  readonly reserveLines: number | undefined
   readonly role: TextRole
   readonly text: string
   readonly variant: SurfaceVariant
@@ -123,20 +173,30 @@ const BrowserWrappedBlockText = ({
     Match.orElse(() => "whitespace-normal")
   )
   const fallback = `${whiteSpace} ${glyph} ${leading} ${maxWidthClass}`
-  const combined = className === undefined ? fallback : `${fallback} ${className}`
 
-  return <Component className={combined}>{text}</Component>
+  return (
+    <Component
+      className={combinedClassName(fallback, className)}
+      style={lineClampStyle({ maxLines, reserveLines, role })}
+    >
+      {text}
+    </Component>
+  )
 }
 
 const ProjectedWrappedBlockText = ({
   as,
   className,
+  maxLines,
+  reserveLines,
   role,
   text,
   variant
 }: {
   readonly as: BlockElement
   readonly className: string | undefined
+  readonly maxLines: number | undefined
+  readonly reserveLines: number | undefined
   readonly role: TextRole
   readonly text: string
   readonly variant: SurfaceVariant
@@ -146,45 +206,64 @@ const ProjectedWrappedBlockText = ({
   const Component = as
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
+  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
 
   if (projection !== null) {
-    const projected = `${glyph} ${leading}`
-    const combined = className === undefined ? projected : `${projected} ${className}`
+    const projected = `${glyph} ${leading} ${maxWidthClass}`
+    const visibleLines = limitedProjectionLines({ maxLines, projection })
 
     return (
       <Component
         ref={ref}
-        className={combined}
-        data-lines={projection.summary.lineCount}
-        data-height={projection.summary.height}
+        className={combinedClassName(projected, className)}
+        data-lines={visibleLines.length}
+        data-height={visibleLines.length * semantics.lineHeight}
         data-max-line-width={projection.summary.maxLineWidth}
+        style={reservedLineStyle(role, reserveLines)}
       >
         <ProjectedLines
           preserveWhitespace={semantics.whiteSpace === "pre-wrap"}
-          projection={projection}
+          projection={{ ...projection, lines: visibleLines }}
         />
       </Component>
     )
   }
 
-  return <BrowserWrappedBlockText as={as} className={className} role={role} text={text} variant={variant} />
+  return (
+    <BrowserWrappedBlockText
+      as={as}
+      className={className}
+      maxLines={maxLines}
+      reserveLines={reserveLines}
+      role={role}
+      text={text}
+      variant={variant}
+    />
+  )
 }
 
 export const SemanticText = ({
   as,
   className,
+  lineLimit,
   role,
+  reserveLines,
   text,
+  wrapAuthority,
   variant = "expanded"
 }: {
   readonly as?: SemanticTextElement
   readonly className?: string
+  readonly lineLimit?: number
   readonly role: TextRole
+  readonly reserveLines?: number
   readonly text: string
+  readonly wrapAuthority?: TextWrapAuthority
   readonly variant?: SurfaceVariant
 }) => {
   const element = as ?? "p"
   const semantics = semanticsFor(role)
+  const resolvedWrapAuthority = wrapAuthority ?? semantics.wrapAuthority
 
   if (!isBlockElement(element)) {
     return <InlineText as={element} className={className} role={role} text={text} />
@@ -194,9 +273,29 @@ export const SemanticText = ({
     return <NoWrapBlockText as={element} className={className} role={role} text={text} />
   }
 
-  if (semantics.layoutEngine === "browser") {
-    return <BrowserWrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
+  if (resolvedWrapAuthority === "native-browser") {
+    return (
+      <BrowserWrappedBlockText
+        as={element}
+        className={className}
+        maxLines={lineLimit}
+        reserveLines={reserveLines}
+        role={role}
+        text={text}
+        variant={variant}
+      />
+    )
   }
 
-  return <ProjectedWrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
+  return (
+    <ProjectedWrappedBlockText
+      as={element}
+      className={className}
+      maxLines={lineLimit}
+      reserveLines={reserveLines}
+      role={role}
+      text={text}
+      variant={variant}
+    />
+  )
 }

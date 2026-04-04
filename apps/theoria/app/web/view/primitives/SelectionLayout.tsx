@@ -9,27 +9,75 @@ import { SemanticText } from "./SemanticText.js"
 const classes = (...entries: ReadonlyArray<string | undefined>): string =>
   entries.filter((entry) => entry !== undefined && entry.length > 0).join(" ")
 
+type ActionBreakpoint = "always" | "md" | "lg"
+
+const selectionRailColumns = ({
+  action,
+  accent,
+  actionBreakpoint
+}: {
+  readonly action: ReactNode | undefined
+  readonly accent: ReactNode | undefined
+  readonly actionBreakpoint: ActionBreakpoint
+}): string => {
+  if (actionBreakpoint === "md") {
+    if (accent !== undefined && action !== undefined) {
+      return "grid-cols-[auto_minmax(0,1fr)] md:grid-cols-[auto_minmax(0,1fr)_auto]"
+    }
+
+    if (action !== undefined) {
+      return "grid-cols-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_auto]"
+    }
+  }
+
+  if (actionBreakpoint === "lg") {
+    if (accent !== undefined && action !== undefined) {
+      return "grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto]"
+    }
+
+    if (action !== undefined) {
+      return "grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_auto]"
+    }
+  }
+
+  if (accent !== undefined && action !== undefined) {
+    return "grid-cols-[auto_minmax(0,1fr)_auto]"
+  }
+
+  if (accent !== undefined) {
+    return "grid-cols-[auto_minmax(0,1fr)]"
+  }
+
+  if (action !== undefined) {
+    return "grid-cols-[minmax(0,1fr)_auto]"
+  }
+
+  return "grid-cols-[minmax(0,1fr)]"
+}
+
 export const SelectionRail = ({
   action,
   actionClassName,
+  actionBreakpoint = "always",
   accent,
   children,
   className
 }: {
   readonly action?: ReactNode
   readonly actionClassName?: string
-  readonly accent: ReactNode
+  readonly actionBreakpoint?: ActionBreakpoint
+  readonly accent?: ReactNode
   readonly children: ReactNode
   readonly className?: string
 }) => (
   <Layer
     className={classes(
       "grid w-full min-w-0 items-start gap-x-3",
-      action === undefined ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[auto_minmax(0,1fr)_auto]",
+      selectionRailColumns({ action, accent, actionBreakpoint }),
       className
     )}
   >
-    {accent}
+    {accent === undefined ? null : accent}
     <Layer className="min-w-0 w-full">{children}</Layer>
     {action === undefined
       ? null

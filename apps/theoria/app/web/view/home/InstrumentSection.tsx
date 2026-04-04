@@ -39,7 +39,7 @@ export const InstrumentSection = ({
           variant="expanded"
         />
 
-        <Stack className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Stack className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {Arr.map(cards, (card) => <InstrumentCard card={card} key={card.id} tone={groupTone} />)}
         </Stack>
       </Stack>
