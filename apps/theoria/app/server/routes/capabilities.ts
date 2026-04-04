@@ -41,8 +41,6 @@ const dspProviderFields = (
     readonly capability: {
       readonly provider: Option.Option<"openai" | "anthropic" | "openrouter">
       readonly model: Option.Option<string>
-      readonly routeFamily: Option.Option<string>
-      readonly baseUrl: Option.Option<string>
     }
   }
 ) => ({
@@ -53,14 +51,6 @@ const dspProviderFields = (
   ...Option.match(runtime.capability.model, {
     onNone: () => ({}),
     onSome: (model) => ({ model })
-  }),
-  ...Option.match(runtime.capability.routeFamily, {
-    onNone: () => ({}),
-    onSome: (routeFamily) => ({ routeFamily })
-  }),
-  ...Option.match(runtime.capability.baseUrl, {
-    onNone: () => ({}),
-    onSome: (baseUrl) => ({ baseUrl })
   })
 })
 

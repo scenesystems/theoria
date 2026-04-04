@@ -1,5 +1,4 @@
 import { Schema } from "effect"
-import * as InferenceContracts from "../../../../packages/effect-inference/src/contracts/index.js"
 
 import { Id } from "./id.js"
 
@@ -19,9 +18,7 @@ export const Capabilities = Schema.Struct({
   demos: Schema.Array(DemoCapability),
   dsp: Schema.Struct({
     provider: Schema.optional(DspProvider),
-    model: Schema.optional(Schema.String),
-    routeFamily: Schema.optional(InferenceContracts.StableRouteFamilySchema),
-    baseUrl: Schema.optional(Schema.String)
+    model: Schema.optional(Schema.String)
   })
 })
 
