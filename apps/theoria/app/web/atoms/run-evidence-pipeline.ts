@@ -5,6 +5,7 @@ import type { ChoreographyCue, ChoreographyState } from "../../contracts/choreog
 import { initialChoreographyState, reduceChoreographyState } from "../../contracts/choreography.js"
 import { type DemoError, DemoExecutionError } from "../../contracts/demo-error.js"
 import { optimizationTrialBudgetMax, optimizationTrialBudgetMin } from "../../contracts/demo/objective.js"
+import { snapshotEffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
 import {
@@ -47,7 +48,7 @@ import {
   resetPowerAnimationStateEffect,
   snapshotEffectMathRunPlan
 } from "./power-animation.js"
-import { customTextAtom, reflowStageViewportWidthAtom, snapshotEffectTextRunPlan } from "./reflow.js"
+import { customTextAtom, reflowStageViewportWidthAtom } from "./reflow.js"
 import type { RunSignal } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 

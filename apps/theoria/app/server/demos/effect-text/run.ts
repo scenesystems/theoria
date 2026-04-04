@@ -6,13 +6,7 @@ import { effectTextProjectionWidths as widths } from "../../../contracts/demo/te
 import type { RunData } from "../../../contracts/run.js"
 import { baselineLayouts, focusWidth, measured, obstacleProjection, optimizedLayouts } from "./analysis.js"
 import { corpusMatrixProjection, corpusProjection, meanNaiveError, widthMetrics } from "./projection.js"
-import {
-  corpusMatrixSection,
-  corpusSection,
-  obstacleSection,
-  performanceSection,
-  widthMetricsSection
-} from "./sections.js"
+import { runSectionsForStory } from "./stage-story.js"
 import { streamElements, streamSections } from "./stream.js"
 
 import { preloadProgram } from "./preload.js"
@@ -38,19 +32,17 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
     id: "effect-text",
     packageName: "effect-text",
     summary:
-      "effect-text proved that text layout is amortized preparation plus pure projection — one prepared handle per corpus entry, then every width and obstacle variant becomes arithmetic.",
+      "effect-text v0.2 proved one package story: effect-text/react prepares once and projects many times, effect-text/browser names the browser parity envelope, obstacle-aware reflow stays pure after prepare, and Experimental.Calibration remains a downstream tuning lane.",
     durationMs: endedAt - startedAt,
     program: runnableProgram,
-    sections: [
-      performanceSection({
-        baselineDurationMs: baseline.durationMs,
-        optimizedDurationMs: optimized.durationMs,
-        naiveLineErrorMean
-      }),
-      obstacleSection(obstacles),
-      corpusSection(projectedCorpus.at(0)?.label ?? "none"),
-      corpusMatrixSection(projectedMatrix),
-      widthMetricsSection(widthMetricSnapshot)
-    ]
+    sections: runSectionsForStory({
+      baselineDurationMs: baseline.durationMs,
+      naiveLineErrorMean,
+      obstacleProjection: obstacles,
+      optimizedDurationMs: optimized.durationMs,
+      projectedMatrix,
+      sampleLabel: projectedCorpus.at(0)?.label ?? "none",
+      widthMetricSnapshot
+    })
   }
 })

@@ -27,10 +27,12 @@ const defaultProjectionPlaneHint: ProjectionPlaneHint = {
 export const projectionPlaneHintFor = (id: Id): ProjectionPlaneHint =>
   Match.value(id).pipe(
     Match.when("effect-text", () => ({
-      stage: "Drag width and toggle obstacles to see instant reflow — or press Run to animate the full corpus.",
+      stage:
+        "Generic text and deep-dive reflow both reuse prepared handles — drag width, toggle obstacle bands, or press Run to sweep the same prepare-once model across the corpus.",
       evidence:
-        "Every width and obstacle layout is a pure projection from one prepared handle — reproducible across the full corpus.",
-      source: defaultProjectionPlaneHint.source
+        "The live proof follows the shipped v0.2 package story: browser parity profiles, prepare-handle reuse, pure projection under obstacle-aware layout, and the downstream experimental calibration lane.",
+      source:
+        "Inspect the server proof, browser companion layer, React prepare identity, and the generic plus reflow consumers side by side."
     })),
     Match.when("effect-search", () => ({
       stage:

@@ -15,6 +15,18 @@ type TextPrepareRequest = Readonly<{
   readonly text: TextProjectionRequest["text"]
 }>
 
+const prepareInputFromIdentity = (identity: TextReact.PrepareIdentityType): Text.PrepareInputType => ({
+  text: identity.text,
+  font: identity.font,
+  whiteSpace: identity.whiteSpace,
+  ...Option.fromNullable(identity.hyphenationLocale).pipe(
+    Option.match({
+      onNone: () => ({}),
+      onSome: (hyphenationLocale) => ({ hyphenationLocale })
+    })
+  )
+})
+
 const layoutRequestWithWidth = (
   request: TextProjectionRequest,
   maxWidth: number | null
@@ -37,19 +49,12 @@ export const prepareIdentityForTextProjection = ({ role, text }: TextPrepareRequ
 export const prepareTextProjection = (
   identity: TextReact.PrepareIdentityType
 ): Effect.Effect<Text.PreparedTextWithSegments, unknown, never> =>
-  Text.prepareWithSegments({
-    text: identity.text,
-    font: identity.font,
-    whiteSpace: identity.whiteSpace,
-    ...Option.fromNullable(identity.hyphenationLocale).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (hyphenationLocale) => ({ hyphenationLocale })
-      })
-    )
-  }).pipe(
-    Effect.provide(browserTextLayoutLayer)
-  )
+  prepareBrowserText(prepareInputFromIdentity(identity))
+
+export const prepareBrowserText = (
+  prepare: Text.PrepareInputType
+): Effect.Effect<Text.PreparedTextWithSegments, unknown, never> =>
+  Text.prepareWithSegments(prepare).pipe(Effect.provide(browserTextLayoutLayer))
 
 export const projectPreparedText = ({
   prepared,

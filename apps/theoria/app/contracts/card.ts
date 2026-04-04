@@ -90,14 +90,15 @@ export const cards: ReadonlyArray<Card> = [
     title: "effect-text",
     packageName: "effect-text",
     description: "Effect-native text preparation, measurement, and greedy multiline layout",
-    useCase: "Instant, deterministic text layout that turns costly measurement into pure arithmetic.",
+    useCase:
+      "Prepare once, lay out many times across browser-backed text surfaces, obstacle-aware projections, and downstream calibration work.",
     summary:
-      "Prepare once, project everywhere — proving that text layout is instant deterministic arithmetic across a multi-domain corpus.",
+      "One v0.2 package story: browser parity envelope, prepare-handle reuse, pure obstacle reflow, and an explicit experimental calibration lane.",
     runLabel: "Run Benchmark",
     deepDivePath: "/demos/effect-text",
     group: "effect",
     releaseState: "published",
-    version: "0.1.0",
+    version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
     license: "MIT",

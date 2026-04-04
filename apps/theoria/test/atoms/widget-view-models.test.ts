@@ -4,6 +4,7 @@ import { Effect } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import { DspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
+import { snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeIndexAtom,
@@ -22,8 +23,7 @@ import {
   customTextAtom,
   reflowControlsAtom,
   reflowStageViewportWidthAtom,
-  resolveReflowStageMaxWidth,
-  snapshotEffectTextRunPlan
+  resolveReflowStageMaxWidth
 } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import {
