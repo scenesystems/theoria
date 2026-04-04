@@ -41,9 +41,11 @@ type PreparationContext = Readonly<{
 }>
 
 type GraphemeMeasurement = Readonly<{
+  fitPrefixWidths: ReadonlyArray<number>
+  fitWidth: number
   graphemeAdvances: ReadonlyArray<number>
   graphemes: ReadonlyArray<string>
-  width: number
+  paintWidth: number
 }>
 
 type PreparedBidiGraphemeData = Readonly<{
@@ -57,8 +59,13 @@ const preparedBreakKind = (value: PreparedBreakKindType): PreparedBreakKindType 
 const lastOrElse = <A>(values: ReadonlyArray<A>, fallback: A): A =>
   values.length === 0 ? fallback : values[values.length - 1] ?? fallback
 
+const sumWidths = (widths: ReadonlyArray<number>): number => Arr.reduce(widths, 0, (total, width) => total + width)
+
 const widthFromPrefixMeasurements = (measuredWidths: ReadonlyArray<number>, index: number): number =>
   (measuredWidths[index] ?? 0) - (measuredWidths[index - 1] ?? 0)
+
+const prefixWidthsFor = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
+  Arr.reduce(widths, Arr.empty<number>(), (prefixes, width) => Arr.append(prefixes, lastOrElse(prefixes, 0) + width))
 
 const resolvedTextDirection = (
   direction: TextDirection,
@@ -96,8 +103,10 @@ const compilePreparedBidiGraphemeData = (
 const makeTextSegment = (
   text: string,
   width: number,
+  fitWidth: number,
   graphemes: ReadonlyArray<string>,
   graphemeAdvances: ReadonlyArray<number>,
+  fitPrefixWidths: ReadonlyArray<number>,
   breakAfter: boolean,
   breakWidth: number,
   baseDirection: BaseTextDirectionType
@@ -110,6 +119,7 @@ const makeTextSegment = (
     kind: "text",
     text,
     width,
+    fitWidth,
     direction,
     bidiLevel: bidiLevelForDirection(direction, baseDirection),
     breakOpportunity: breakAfter ? "soft-hyphen" : "none",
@@ -117,6 +127,7 @@ const makeTextSegment = (
     breakWidth: breakAfter ? breakWidth : 0,
     graphemes,
     graphemeAdvances,
+    fitPrefixWidths,
     graphemeBidiLevels: bidiData.graphemeBidiLevels,
     mirroredGraphemes: bidiData.mirroredGraphemes
   }
@@ -131,6 +142,7 @@ const makeWhitespaceSegment = (
   kind,
   text,
   width,
+  fitWidth: width,
   direction: "neutral",
   bidiLevel: bidiLevelForDirection("neutral", baseDirection),
   breakOpportunity: "space",
@@ -138,6 +150,7 @@ const makeWhitespaceSegment = (
   breakWidth: 0,
   graphemes: [],
   graphemeAdvances: [],
+  fitPrefixWidths: [],
   graphemeBidiLevels: [],
   mirroredGraphemes: []
 })
@@ -146,6 +159,7 @@ const makeHardBreakSegment = (baseDirection: BaseTextDirectionType): PreparedSeg
   kind: "hard-break",
   text: "\n",
   width: 0,
+  fitWidth: 0,
   direction: "neutral",
   bidiLevel: bidiLevelForDirection("neutral", baseDirection),
   breakOpportunity: "none",
@@ -153,6 +167,7 @@ const makeHardBreakSegment = (baseDirection: BaseTextDirectionType): PreparedSeg
   breakWidth: 0,
   graphemes: [],
   graphemeAdvances: [],
+  fitPrefixWidths: [],
   graphemeBidiLevels: [],
   mirroredGraphemes: []
 })
@@ -170,9 +185,11 @@ const measureGraphemeData = (
 ): Effect.Effect<GraphemeMeasurement, MeasurementFailed> => {
   if (isZeroWidthControlText(text)) {
     return Effect.succeed({
+      fitPrefixWidths: Arr.make(0),
+      fitWidth: 0,
       graphemeAdvances: Arr.make(0),
       graphemes: Arr.make(text),
-      width: 0
+      paintWidth: 0
     })
   }
 
@@ -180,23 +197,40 @@ const measureGraphemeData = (
 
   if (graphemes.length === 0) {
     return Effect.succeed({
+      fitPrefixWidths: [],
+      fitWidth: 0,
       graphemeAdvances: [],
       graphemes,
-      width: 0
+      paintWidth: 0
     })
   }
 
-  const measurementTexts = preferPrefixWidthsForBreakableRuns ? cumulativeTexts(graphemes) : graphemes
+  return preferPrefixWidthsForBreakableRuns
+    ? Effect.all({
+      fitPrefixWidths: Effect.forEach(cumulativeTexts(graphemes), measure),
+      graphemeAdvances: Effect.forEach(graphemes, measure)
+    }).pipe(
+      Effect.map(({ fitPrefixWidths, graphemeAdvances }) => ({
+        fitPrefixWidths,
+        fitWidth: lastOrElse(fitPrefixWidths, 0),
+        graphemeAdvances,
+        graphemes,
+        paintWidth: sumWidths(graphemeAdvances)
+      }))
+    )
+    : Effect.forEach(graphemes, measure).pipe(
+      Effect.map((graphemeAdvances) => {
+        const fitPrefixWidths = prefixWidthsFor(graphemeAdvances)
 
-  return Effect.forEach(measurementTexts, measure).pipe(
-    Effect.map((measuredWidths) => ({
-      graphemeAdvances: preferPrefixWidthsForBreakableRuns
-        ? Arr.map(measuredWidths, (_width, index) => widthFromPrefixMeasurements(measuredWidths, index))
-        : measuredWidths,
-      graphemes,
-      width: lastOrElse(measuredWidths, 0)
-    }))
-  )
+        return {
+          fitPrefixWidths,
+          fitWidth: lastOrElse(fitPrefixWidths, 0),
+          graphemeAdvances,
+          graphemes,
+          paintWidth: sumWidths(graphemeAdvances)
+        }
+      })
+    )
 }
 
 const prepareTextSegment = (
@@ -209,31 +243,37 @@ const prepareTextSegment = (
     return Effect.succeed([])
   }
 
-  const measurementTexts = pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
+  const fitMeasurementTexts = pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
     ? cumulativePieceTexts(pieces)
     : Arr.map(pieces, (piece) => piece[0])
 
-  return Effect.forEach(measurementTexts, context.measure).pipe(
-    Effect.flatMap((measuredWidths) =>
+  return Effect.forEach(fitMeasurementTexts, context.measure).pipe(
+    Effect.flatMap((fitPieceWidths) =>
       Effect.forEach(
         pieces,
         (piece, index) =>
           measureGraphemeData(piece[0], context.measure, context.engineProfile.preferPrefixWidthsForBreakableRuns).pipe(
-            Effect.map((graphemeData) =>
-              makeTextSegment(
-                piece[0],
-                isZeroWidthControlText(piece[0])
-                  ? 0
-                  : pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
-                  ? widthFromPrefixMeasurements(measuredWidths, index)
-                  : graphemeData.width,
-                graphemeData.graphemes,
-                graphemeData.graphemeAdvances,
-                piece[1],
-                context.hyphenWidth,
-                context.baseDirection
+            Effect.map((graphemeData) => {
+              const fitWidth = isZeroWidthControlText(piece[0])
+                ? 0
+                : pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
+                ? widthFromPrefixMeasurements(fitPieceWidths, index)
+                : graphemeData.fitWidth
+
+              return (
+                makeTextSegment(
+                  piece[0],
+                  graphemeData.paintWidth,
+                  fitWidth,
+                  graphemeData.graphemes,
+                  graphemeData.graphemeAdvances,
+                  graphemeData.fitPrefixWidths,
+                  piece[1],
+                  context.hyphenWidth,
+                  context.baseDirection
+                )
               )
-            )
+            })
           )
       )
     )
@@ -281,14 +321,14 @@ const preparedBreakKindFor = (
 const breakableGraphemeWidthsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
   segment.kind === "text" ? segment.graphemeAdvances : []
 
+const fitPrefixWidthsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
+  segment.kind === "text" ? segment.fitPrefixWidths : []
+
 const graphemeBidiLevelsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
   segment.kind === "text" ? segment.graphemeBidiLevels : []
 
 const mirroredGraphemesFor = (segment: PreparedSegmentType): ReadonlyArray<string> =>
   segment.kind === "text" ? segment.mirroredGraphemes : []
-
-const prefixWidthsFor = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
-  Arr.reduce(widths, Arr.empty<number>(), (prefixes, width) => Arr.append(prefixes, lastOrElse(prefixes, 0) + width))
 
 const lineChunksFor = (segments: ReadonlyArray<PreparedSegmentType>): ReadonlyArray<PreparedLineChunkType> => {
   const indices = Arr.makeBy(segments.length, (index) => index)
@@ -332,12 +372,12 @@ const compileKernelRuntime = (
 
   return {
     breakKinds: Arr.map(segments, (segment) => preparedBreakKindFor(segment, whiteSpace)),
-    fitAdvances: Arr.map(segments, (segment) => segment.width),
+    fitAdvances: Arr.map(segments, (segment) => segment.fitWidth),
     paintAdvances: Arr.map(segments, (segment) => segment.width),
     chunkStartIndices: Arr.map(chunks, (chunk) => chunk.startSegmentIndex),
     chunkConsumedEndIndices: Arr.map(chunks, (chunk) => chunk.consumedEndSegmentIndex),
     breakableGraphemeWidths,
-    breakablePrefixWidths: Arr.map(breakableGraphemeWidths, prefixWidthsFor),
+    breakablePrefixWidths: Arr.map(segments, fitPrefixWidthsFor),
     graphemeBidiLevels: Arr.map(segments, graphemeBidiLevelsFor),
     mirroredGraphemes: Arr.map(segments, mirroredGraphemesFor),
     discretionaryHyphenWidth: hyphenWidth,

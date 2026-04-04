@@ -27,6 +27,7 @@ const PreparedSegmentSchema = Schema.Struct({
   kind: PreparedSegmentKindSchema,
   text: Schema.String,
   width: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
+  fitWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
   direction: PreparedSegmentDirectionSchema,
   bidiLevel: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   breakOpportunity: PreparedBreakOpportunitySchema,
@@ -34,6 +35,7 @@ const PreparedSegmentSchema = Schema.Struct({
   breakWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
   graphemes: Schema.Array(Schema.String),
   graphemeAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
+  fitPrefixWidths: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
   graphemeBidiLevels: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
   mirroredGraphemes: Schema.Array(Schema.String)
 })

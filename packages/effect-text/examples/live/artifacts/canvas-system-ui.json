@@ -1,0 +1,78 @@
+{
+  "profileId": "canvas-system-ui",
+  "fontFamily": "system-ui",
+  "fontSelection": "browser-default-stack",
+  "fontStack": ["system-ui", "sans-serif"],
+  "parityCases": [
+    "white-space-normal",
+    "white-space-pre-wrap",
+    "trailing-whitespace-hard-breaks",
+    "tab-advances",
+    "soft-hyphen",
+    "mixed-inline-punctuation",
+    "fit-paint-divergence"
+  ],
+  "cases": [
+    {
+      "caseId": "white-space-normal",
+      "prepare": { "text": "alpha beta gamma", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "normal" },
+      "request": { "maxWidth": 100, "lineHeight": 12 },
+      "summary": { "lineCount": 2, "height": 24, "maxLineWidth": 100 },
+      "lines": [
+        { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha beta", "width": 100 },
+        { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "gamma", "width": 50 }
+      ]
+    },
+    {
+      "caseId": "white-space-pre-wrap",
+      "prepare": { "text": "alpha  beta", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "pre-wrap" },
+      "request": { "maxWidth": 200, "lineHeight": 12 },
+      "summary": { "lineCount": 1, "height": 12, "maxLineWidth": 110 },
+      "lines": [{ "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha  beta", "width": 110 }]
+    },
+    {
+      "caseId": "trailing-whitespace-hard-breaks",
+      "prepare": { "text": "alpha  \nbeta", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "pre-wrap" },
+      "request": { "maxWidth": 200, "lineHeight": 12 },
+      "summary": { "lineCount": 2, "height": 24, "maxLineWidth": 70 },
+      "lines": [
+        { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha  ", "width": 70 },
+        { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "beta", "width": 40 }
+      ]
+    },
+    {
+      "caseId": "tab-advances",
+      "prepare": { "text": "a\tb", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "pre-wrap" },
+      "request": { "maxWidth": 100, "lineHeight": 12 },
+      "summary": { "lineCount": 1, "height": 12, "maxLineWidth": 50 },
+      "lines": [{ "index": 0, "order": "visual", "baseDirection": "ltr", "text": "a\tb", "width": 50 }]
+    },
+    {
+      "caseId": "soft-hyphen",
+      "prepare": { "text": "alpha­beta", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "normal" },
+      "request": { "maxWidth": 60, "lineHeight": 12 },
+      "summary": { "lineCount": 2, "height": 24, "maxLineWidth": 60 },
+      "lines": [
+        { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha-", "width": 60 },
+        { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "beta", "width": 40 }
+      ]
+    },
+    {
+      "caseId": "mixed-inline-punctuation",
+      "prepare": { "text": "(שלום) hello", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "normal" },
+      "request": { "maxWidth": 200, "lineHeight": 12 },
+      "summary": { "lineCount": 1, "height": 12, "maxLineWidth": 120 },
+      "lines": [{ "index": 0, "order": "visual", "baseDirection": "rtl", "text": "hello (םולש)", "width": 120 }]
+    },
+    {
+      "caseId": "fit-paint-divergence",
+      "prepare": { "text": "ffi", "font": { "family": "system-ui", "size": 10 }, "whiteSpace": "normal" },
+      "request": { "maxWidth": 24, "lineHeight": 12 },
+      "summary": { "lineCount": 2, "height": 24, "maxLineWidth": 20 },
+      "lines": [
+        { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "ff", "width": 20 },
+        { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "i", "width": 10 }
+      ]
+    }
+  ]
+}

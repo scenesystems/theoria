@@ -203,6 +203,15 @@ Each shipped profile also publishes the `Contracts.EngineProfile` data that the 
 
 The shipped `tabWidth` policy is explicit and shared across both browser profiles: `tabWidth: 4`, interpreted as CSS-style tab stops aligned to four space columns measured from the active space advance. The browser runtime and deterministic runtime both consume that same policy through `Contracts.EngineProfile`, so `a\tb` projects with the same tab semantics in both lanes.
 
+The shipped browser parity envelope also includes an explicit fit-vs-paint divergence case so browser-backed preparation can keep tighter fit-prefix widths and wider paint-side grapheme widths in the same compiled kernel when summary-only browser parity would otherwise lose visible width.
+
+### Browser accuracy artifacts
+
+The checked-in browser accuracy harness in [`examples/live/browserAccuracyHarness.ts`](./examples/live/browserAccuracyHarness.ts) is the source of truth for the shipped browser parity claims. It reads the release envelope from `Browser.BrowserSupportManifest`, evaluates every shipped parity case for every shipped browser profile, and verifies or refreshes the checked-in artifacts below.
+
+- [`canvas-monospace` accuracy artifact](./examples/live/artifacts/canvas-monospace.json)
+- [`canvas-system-ui` accuracy artifact](./examples/live/artifacts/canvas-system-ui.json)
+
 This is plain support data. It exists so the browser README/example/test surface can describe the same supported configuration without duplicating literals in multiple places.
 
 ## Per-line width resolution
@@ -391,13 +400,13 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 ## Current scope
 
-This first release is intentionally a foundation rather than full browser parity.
+This release ships a bounded browser parity envelope rather than full CSS and shaping parity.
 
-**Included:** deterministic measurement caching, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, one-time emoji correction fallback, checked-in browser accuracy artifacts for `canvas-monospace` and `canvas-system-ui`, fit-vs-paint browser kernel divergence for summary parity, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
 
 **Not yet included:** dictionary-driven hyphenation, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
 
-**Current named-font browser envelope:** the browser support data currently covers the checked-in `canvas-monospace` configuration with the `Mono` family. `system-ui`, generic browser font fallback stacks, and untested named fonts remain outside the current parity claims.
+**Current browser parity envelope:** the checked-in browser artifacts cover both shipped support profiles — `canvas-monospace` for the named `Mono` control family and `canvas-system-ui` for the browser-resolved default UI stack. Untested named fonts, alternate browser fallback stacks beyond those shipped profiles, and shaping-engine parity outside the recorded artifact set remain outside the current parity claims.
 
 **Explicit bidi non-goals for the current surface:** explicit Unicode bidi control characters, selection/copy-paste semantics, and shaping-engine parity outside the tested named-font envelope. Formatting controls are detected as an unsupported branch during preparation; `effect-text` does not claim control-aware Unicode bidi parity beyond the shipped mirror table and mixed-direction visual ordering tests.
 

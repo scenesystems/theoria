@@ -23,7 +23,8 @@ const BrowserParityCase = Schema.Literal(
   "trailing-whitespace-hard-breaks",
   "tab-advances",
   "soft-hyphen",
-  "mixed-inline-punctuation"
+  "mixed-inline-punctuation",
+  "fit-paint-divergence"
 )
 
 const NonEmptyStringArray = Schema.Array(Schema.String).pipe(Schema.minItems(1))
@@ -105,7 +106,8 @@ const parityCases: BrowserSupportProfileType["parityCases"] = [
   "trailing-whitespace-hard-breaks",
   "tab-advances",
   "soft-hyphen",
-  "mixed-inline-punctuation"
+  "mixed-inline-punctuation",
+  "fit-paint-divergence"
 ]
 
 const tabPolicy: BrowserSupportProfileType["tabPolicy"] = {
