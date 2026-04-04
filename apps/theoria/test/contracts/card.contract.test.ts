@@ -1,7 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Option from "effect/Option"
 
-import { cardByIdForReleaseStage, cardsForReleaseStage } from "../../app/contracts/card.js"
+import {
+  cardByIdForReleaseStage,
+  cardsForReleaseStage,
+  effectCards,
+  scenesystemsCards
+} from "../../app/contracts/card.js"
 
 const comingSoonIds: ReadonlyArray<"digest" | "sign" | "seal"> = ["digest", "sign", "seal"]
 
@@ -15,5 +20,10 @@ describe("Theoria Card Publication Contracts", () => {
 
     expect(comingSoonIds.every((id) => !productionIds.includes(id))).toBe(true)
     expect(comingSoonIds.every((id) => Option.isNone(cardByIdForReleaseStage(id, "production")))).toBe(true)
+  })
+
+  it("keeps landing-page card order aligned with the README package map", () => {
+    expect(effectCards.map((card) => card.id)).toEqual(["effect-math", "effect-search", "effect-dsp", "effect-text"])
+    expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign"])
   })
 })

@@ -251,7 +251,7 @@ export const ProjectionSurfaceChip = ({
           detailClassName="max-w-none text-ink-500"
           detailRole="status"
           title={option.label}
-          titleRole="section-title"
+          titleRole="selection-title"
         />
       </SelectionRail>
     </Layer>

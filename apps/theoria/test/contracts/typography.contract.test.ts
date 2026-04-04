@@ -7,7 +7,7 @@ import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {
   it("every role has weight, tracking, and family", () => {
-    expect(textSemantics.length).toBe(12)
+    expect(textSemantics.length).toBe(14)
 
     Arr.forEach(textSemantics, (semantics) => {
       expect(semantics.weight).toBeDefined()
@@ -36,21 +36,26 @@ describe("Typography contract", () => {
     })
   })
 
-  it("panel and card headings opt out of line wrapping", () => {
-    expect(semanticsFor("section-title").lineBreaks).toBe("nowrap")
-    expect(semanticsFor("card-title").lineBreaks).toBe("nowrap")
+  it("package titles stay on one line while broader surface titles may wrap", () => {
+    expect(semanticsFor("selection-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("section-title").lineBreaks).toBe("wrap")
+    expect(semanticsFor("catalog-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("card-title").lineBreaks).toBe("wrap")
     expect(semanticsFor("hero-title").lineBreaks).toBe("wrap")
   })
 
-  it("ordinary UI copy roles default to browser layout", () => {
-    expect(semanticsFor("hero-title").layoutEngine).toBe("browser")
-    expect(semanticsFor("hero-body").layoutEngine).toBe("browser")
-    expect(semanticsFor("card-summary").layoutEngine).toBe("browser")
-    expect(semanticsFor("status").layoutEngine).toBe("browser")
-    expect(semanticsFor("row-label").layoutEngine).toBe("browser")
-    expect(semanticsFor("row-value").layoutEngine).toBe("browser")
-    expect(semanticsFor("code-meta").layoutEngine).toBe("browser")
-    expect(semanticsFor("code-block").layoutEngine).toBe("projected")
+  it("ordinary copy defaults to native browser flow while code blocks stay projected", () => {
+    expect(semanticsFor("hero-title").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("hero-body").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("catalog-title").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("card-title").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("card-summary").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("status").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("row-label").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("row-value").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("selection-title").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("code-meta").wrapAuthority).toBe("native-browser")
+    expect(semanticsFor("code-block").wrapAuthority).toBe("effect-text-projected")
   })
 
   it("prepareInputFor produces valid effect-text input", () => {

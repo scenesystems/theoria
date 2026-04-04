@@ -131,7 +131,7 @@ export const ProjectionDock = ({
             detailClassName="max-w-none text-ink-500"
             detailRole="status"
             title={draggedSurfaceOption.label}
-            titleRole="section-title"
+            titleRole="selection-title"
           />
         </SelectionRail>
       </Layer>,

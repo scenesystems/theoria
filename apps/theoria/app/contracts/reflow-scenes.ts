@@ -381,7 +381,7 @@ export const customTextScene: ReflowScene = {
       label: "Evidence stack",
       heightPx: 96,
       tone: "digest",
-      topPx: 260,
+      topPx: 264,
       placement: "right",
       variant: "stack",
       widthPx: 154
