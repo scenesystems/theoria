@@ -1,5 +1,6 @@
 import { Effect } from "effect"
-import { Browser, Experimental } from "effect-text"
+import * as Browser from "effect-text/browser"
+import * as Experimental from "effect-text/experimental"
 import * as TextReact from "effect-text/react"
 
 import type { EvidenceSection } from "../../../contracts/evidence.js"
@@ -9,37 +10,37 @@ const browserProfileIds = Browser.BrowserSupportManifest.profiles.map((profile) 
 const whiteSpaceEnvelope = defaultBrowserProfile.whiteSpaceModes.join(", ")
 
 export const consumerProofSection = (): EvidenceSection => ({
-  title: "Consumer Proof",
+  title: "React Surface",
   items: [
     {
       _tag: "Text",
-      label: "Generic text path",
+      label: "Prepared handles",
       value:
-        "web/atoms/text.ts caches prepared handles from effect-text/react prepare identities, then reprojects on width-only changes without calling Text.prepare again."
+        "effect-text/react gives the app a stable prepare identity and pure projection helpers, so width-only changes can reuse prepared text instead of preparing again."
     },
     {
       _tag: "Text",
-      label: "Deep-dive reflow path",
+      label: "Reflow demo",
       value:
-        "web/atoms/reflow.ts prepares once per corpus entry or custom text, then reuses that handle for width sweeps and obstacle-aware projection."
+        "The reflow surface prepares a corpus entry or custom text once, then reprojects that handle across viewport widths and obstacle layouts."
     },
     {
       _tag: "Text",
-      label: "Shared authority",
+      label: "Shared boundary",
       value:
-        "web/view/text/authority.ts keeps one effectful prepare boundary and one pure prepared-layout projection boundary so the generic and reflow consumers teach the same model."
+        "The app keeps one effectful browser prepare boundary and one pure projection boundary so text surfaces can share the same runtime contract."
     },
     {
       _tag: "Text",
-      label: "React companion",
+      label: "Shipped surface",
       value:
-        `effect-text/react remains ${TextReact.ReactStability}: prepare identities plus pure prepared-layout helpers, with no runtime, DOM, or durable app-state ownership.`
+        `effect-text/react is ${TextReact.ReactStability}: identity and projection helpers only, with runtime, DOM observation, and app state still owned by the app.`
     }
   ]
 })
 
 export const browserEnvelopeSection = (): EvidenceSection => ({
-  title: "Browser Envelope",
+  title: "Browser Surface",
   items: [
     {
       _tag: "Scalar",
@@ -65,49 +66,49 @@ export const browserEnvelopeSection = (): EvidenceSection => ({
     {
       _tag: "Text",
       label: "Profiles",
-      value: `Default ${Browser.BrowserSupportManifest.defaultProfileId}; shipped envelope ${browserProfileIds}.`
+      value: `Default ${Browser.BrowserSupportManifest.defaultProfileId}; available profiles ${browserProfileIds}.`
     },
     {
       _tag: "Text",
-      label: "White-space support",
-      value: `${whiteSpaceEnvelope} via package-owned browser support data and engine-profile settings.`
+      label: "White-space modes",
+      value: `${whiteSpaceEnvelope} through the shipped browser support manifest and engine profile data.`
     },
     {
       _tag: "Text",
-      label: "Freshness boundary",
+      label: "Measurement runtime",
       value:
-        `effect-text/browser remains ${Browser.BrowserStability}: measurement layers, support data, parity harness helpers, and font-readiness-revision cache freshness stay package-owned.`
+        `effect-text/browser is ${Browser.BrowserStability}: it owns browser measurement layers, support data, parity helpers, and font-readiness cache freshness.`
     }
   ]
 })
 
 export const experimentalLaneSection = (): EvidenceSection => ({
-  title: "Experimental Lane",
+  title: "Calibration",
   items: [
     {
       _tag: "Scalar",
-      label: "Experimental seams",
+      label: "Calibration seams",
       value: Experimental.ExperimentalSeams.length,
       unit: "seams",
       format: "integer"
     },
     {
       _tag: "Text",
-      label: "Calibration evaluation",
+      label: "Evaluation",
       value:
-        "Experimental.Calibration.evaluateProfile stays downstream of Text.prepare plus pure layout, so runtime layout remains unchanged while calibration corpora score candidate engine profiles."
+        "Calibration evaluates candidate engine profiles on top of prepared text and pure layout, without changing the runtime layout path that the app uses."
     },
     {
       _tag: "Text",
-      label: "Optimization lane",
+      label: "Optimization",
       value:
-        "Experimental.Calibration.optimizeProfile composes that evaluation surface with effect-search rather than making the released layout API effectful."
+        "Optimization composes that evaluation surface with effect-search, so tuning stays separate from the released layout API."
     },
     {
       _tag: "Text",
       label: "Stability",
       value:
-        `Experimental remains ${Experimental.ExperimentalStability}, and Calibration remains ${Experimental.Calibration.CalibrationStability}, so tuning work stays visibly downstream of the shipped browser and React companion lanes.`
+        `Experimental is ${Experimental.ExperimentalStability}, and Calibration is ${Experimental.Calibration.CalibrationStability}, so tuning stays downstream of the browser and React surfaces the app uses today.`
     }
   ]
 })

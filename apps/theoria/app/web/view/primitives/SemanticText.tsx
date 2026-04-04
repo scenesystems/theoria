@@ -36,13 +36,27 @@ const shouldConstrainWidth = (role: TextRole): boolean =>
     Match.orElse(() => true)
   )
 
-const ProjectedLines = ({ projection }: { readonly projection: TextProjection }) => (
+const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
+  preserveWhitespace ? "whitespace-pre" : "whitespace-nowrap"
+
+const projectedLineText = (text: string): string => text.length === 0 ? "\u00a0" : text
+
+const ProjectedLines = ({
+  preserveWhitespace,
+  projection
+}: {
+  readonly preserveWhitespace: boolean
+  readonly projection: TextProjection
+}) => (
   <>
-    {Arr.map(projection.lines, (line) => (
-      <span key={line.index} className="block whitespace-nowrap">
-        {line.text}
-      </span>
-    ))}
+    {Arr.map(
+      projection.lines,
+      (line) => (
+        <span key={line.index} className={`block ${projectedLineWhitespaceClass(preserveWhitespace)}`}>
+          {projectedLineText(line.text)}
+        </span>
+      )
+    )}
   </>
 )
 
@@ -86,7 +100,35 @@ const NoWrapBlockText = ({
   return <Component className={combined}>{text}</Component>
 }
 
-const WrappedBlockText = ({
+const BrowserWrappedBlockText = ({
+  as,
+  className,
+  role,
+  text,
+  variant
+}: {
+  readonly as: BlockElement
+  readonly className: string | undefined
+  readonly role: TextRole
+  readonly text: string
+  readonly variant: SurfaceVariant
+}) => {
+  const semantics = semanticsFor(role)
+  const Component = as
+  const glyph = glyphClassName(role)
+  const leading = `leading-(${lineHeightVar(role)})`
+  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
+  const whiteSpace = Match.value(semantics.whiteSpace).pipe(
+    Match.when("pre-wrap", () => "whitespace-pre-wrap"),
+    Match.orElse(() => "whitespace-normal")
+  )
+  const fallback = `${whiteSpace} ${glyph} ${leading} ${maxWidthClass}`
+  const combined = className === undefined ? fallback : `${fallback} ${className}`
+
+  return <Component className={combined}>{text}</Component>
+}
+
+const ProjectedWrappedBlockText = ({
   as,
   className,
   role,
@@ -117,24 +159,15 @@ const WrappedBlockText = ({
         data-height={projection.summary.height}
         data-max-line-width={projection.summary.maxLineWidth}
       >
-        <ProjectedLines projection={projection} />
+        <ProjectedLines
+          preserveWhitespace={semantics.whiteSpace === "pre-wrap"}
+          projection={projection}
+        />
       </Component>
     )
   }
 
-  const whiteSpace = Match.value(semantics.whiteSpace).pipe(
-    Match.when("pre-wrap", () => "whitespace-pre-wrap break-words"),
-    Match.orElse(() => "whitespace-normal break-words")
-  )
-  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
-  const fallback = `${whiteSpace} ${glyph} ${leading} ${maxWidthClass}`
-  const combined = className === undefined ? fallback : `${fallback} ${className}`
-
-  return (
-    <Component ref={ref} className={combined}>
-      {text}
-    </Component>
-  )
+  return <BrowserWrappedBlockText as={as} className={className} role={role} text={text} variant={variant} />
 }
 
 export const SemanticText = ({
@@ -161,5 +194,9 @@ export const SemanticText = ({
     return <NoWrapBlockText as={element} className={className} role={role} text={text} />
   }
 
-  return <WrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
+  if (semantics.layoutEngine === "browser") {
+    return <BrowserWrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
+  }
+
+  return <ProjectedWrappedBlockText as={element} className={className} role={role} text={text} variant={variant} />
 }

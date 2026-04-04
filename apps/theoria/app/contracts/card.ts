@@ -93,7 +93,7 @@ export const cards: ReadonlyArray<Card> = [
     useCase:
       "Prepare once, lay out many times across browser-backed text surfaces, obstacle-aware projections, and downstream calibration work.",
     summary:
-      "One v0.2 package story: browser parity envelope, prepare-handle reuse, pure obstacle reflow, and an explicit experimental calibration lane.",
+      "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work through the shipped effect-text surfaces.",
     runLabel: "Run Benchmark",
     deepDivePath: "/demos/effect-text",
     group: "effect",

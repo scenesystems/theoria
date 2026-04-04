@@ -32,7 +32,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
     id: "effect-text",
     packageName: "effect-text",
     summary:
-      "effect-text v0.2 proved one package story: effect-text/react prepares once and projects many times, effect-text/browser names the browser parity envelope, obstacle-aware reflow stays pure after prepare, and Experimental.Calibration remains a downstream tuning lane.",
+      "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces.",
     durationMs: endedAt - startedAt,
     program: runnableProgram,
     sections: runSectionsForStory({

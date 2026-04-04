@@ -47,7 +47,7 @@ const metricNode = ({
         <Layer as="dt" className="min-w-0">
           <SemanticText
             as="span"
-            className="block max-w-none whitespace-nowrap text-ink-600"
+            className="block max-w-none whitespace-normal text-ink-600"
             role="row-label"
             text={metric.label}
             variant="expanded"
@@ -56,7 +56,7 @@ const metricNode = ({
         <Layer as="dd" className="min-w-0">
           <SemanticText
             as="span"
-            className="block max-w-none whitespace-nowrap text-ink-900"
+            className="block max-w-none whitespace-normal text-ink-900"
             role="row-value"
             text={metric.value}
             variant="expanded"
@@ -69,7 +69,7 @@ const metricNode = ({
         <Layer as="dt" className="min-w-0">
           <SemanticText
             as="span"
-            className="block max-w-none whitespace-nowrap text-ink-600"
+            className="block max-w-none whitespace-normal text-ink-600"
             role="row-label"
             text={metric.label}
             variant="expanded"
@@ -78,7 +78,7 @@ const metricNode = ({
         <Layer as="dd" className="min-w-0">
           <SemanticText
             as="span"
-            className="block max-w-none whitespace-nowrap text-ink-900"
+            className="block max-w-none whitespace-normal text-ink-900"
             role="row-value"
             text={metric.value}
             variant="expanded"

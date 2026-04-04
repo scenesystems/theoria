@@ -396,6 +396,20 @@ describe("Text edge cases and robustness", () => {
       })
     }))
 
+  it.effect("wraps at the last available word boundary before falling back to graphemes", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepareWithSegments({
+        text: "alpha beta gamma",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+
+      const lines = Text.layoutLines(prepared, { maxWidth: 35, lineHeight: 12 })
+
+      expect(Arr.map(lines, (line) => line.text)).toEqual(["alpha", "beta", "gamma"])
+    }))
+
   it.effect("walkLineRanges matches the widths produced by layoutLines", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext

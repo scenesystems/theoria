@@ -71,6 +71,11 @@ const customTextSectionEffects = (
 
 const effectTextStageDescriptors: ReadonlyArray<EffectTextStageDescriptor> = [
   {
+    _tag: "projection-steps",
+    stageId: "corpus-sweep",
+    projectionSteps: ({ projectionSteps }) => projectionSteps
+  },
+  {
     _tag: "sections",
     stageId: "consumer-proof",
     runSections: () => [consumerProofSection()],
@@ -93,11 +98,6 @@ const effectTextStageDescriptors: ReadonlyArray<EffectTextStageDescriptor> = [
     stageId: "custom-text",
     runSections: () => [],
     streamSections: ({ customText }) => customTextSectionEffects(customText)
-  },
-  {
-    _tag: "projection-steps",
-    stageId: "corpus-sweep",
-    projectionSteps: ({ projectionSteps }) => projectionSteps
   },
   {
     _tag: "sections",

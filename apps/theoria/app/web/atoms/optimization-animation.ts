@@ -48,12 +48,7 @@ export type EffectSearchRunPlan = {
 
 export type EffectSearchRunFrame = {
   readonly _tag: "effect-search"
-  readonly phase: OptimizationProjection["phase"]
-  readonly randomBestValue: number | null
-  readonly randomTrialCount: number
-  readonly tpeBestValue: number | null
-  readonly tpeTrialCount: number
-  readonly trialBudget: number
+  readonly projection: OptimizationProjection
 }
 
 export const snapshotEffectSearchRunPlan = (trialBudget: number): EffectSearchRunPlan => ({
@@ -85,24 +80,45 @@ export type OptimizationProjection = {
   readonly phase: "idle" | "running" | "complete"
 }
 
+const makeOptimizationProjection = ({
+  phase,
+  randomTrials,
+  tpeTrials,
+  trialBudget
+}: {
+  readonly phase: OptimizationProjection["phase"]
+  readonly randomTrials: ReadonlyArray<TrialPoint>
+  readonly tpeTrials: ReadonlyArray<TrialPoint>
+  readonly trialBudget: number
+}): OptimizationProjection => {
+  const tpeBest = bestTrialPoint(tpeTrials)
+  const randomBest = bestTrialPoint(randomTrials)
+
+  return {
+    trialBudget,
+    tpeTrials,
+    randomTrials,
+    tpeBestValue: Option.map(tpeBest, (point) => point.value),
+    randomBestValue: Option.map(randomBest, (point) => point.value),
+    tpeBestPoint: tpeBest,
+    randomBestPoint: randomBest,
+    phase
+  }
+}
+
 export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> = Atom.make(
   (get: AtomType.Context): OptimizationProjection => {
     const tpeTrials = get(tpeTrialsAtom)
     const randomTrials = get(randomTrialsAtom)
     const isAnimating = get(optimizationAnimatingAtom)
     const trialBudget = get(trialBudgetAtom)
-    const tpeBest = bestTrialPoint(tpeTrials)
-    const randomBest = bestTrialPoint(randomTrials)
-    return {
-      trialBudget,
-      tpeTrials,
+
+    return makeOptimizationProjection({
+      phase: isAnimating ? "running" : tpeTrials.length > 0 ? "complete" : "idle",
       randomTrials,
-      tpeBestValue: Option.map(tpeBest, (point) => point.value),
-      randomBestValue: Option.map(randomBest, (point) => point.value),
-      tpeBestPoint: tpeBest,
-      randomBestPoint: randomBest,
-      phase: isAnimating ? "running" : tpeTrials.length > 0 ? "complete" : "idle"
-    }
+      tpeTrials,
+      trialBudget
+    })
   }
 )
 
@@ -127,14 +143,43 @@ export const resetOptimizationAnimationState = (registry: RunRegistry): Effect.E
     registry.set(randomTrialsAtom, [])
   })
 
-type OptimizationAnimationEvent = EvidenceEvent | LocalDriverCompletedEvent
+type EffectSearchAnimationEvent = EvidenceEvent | {
+  readonly _tag: "LocalRunFrameUpdated"
+  readonly frame: EffectSearchRunFrame
+} | LocalDriverCompletedEvent
+
+const emitFrameUpdate = ({
+  emit,
+  phase,
+  randomTrials,
+  tpeTrials,
+  trialBudget
+}: {
+  readonly emit: (event: EffectSearchAnimationEvent) => Effect.Effect<void, never, never>
+  readonly phase: OptimizationProjection["phase"]
+  readonly randomTrials: ReadonlyArray<TrialPoint>
+  readonly tpeTrials: ReadonlyArray<TrialPoint>
+  readonly trialBudget: number
+}): Effect.Effect<void, never, never> =>
+  emit({
+    _tag: "LocalRunFrameUpdated",
+    frame: {
+      _tag: "effect-search",
+      projection: makeOptimizationProjection({
+        phase,
+        randomTrials,
+        tpeTrials,
+        trialBudget
+      })
+    }
+  })
 
 export const makeOptimizationAnimationStream = (
   registry: RunRegistry,
   signal: RunSignal,
   plan: EffectSearchRunPlan
-): Stream.Stream<OptimizationAnimationEvent, DemoExecutionError, never> =>
-  Study.streamFromEmitter<OptimizationAnimationEvent, void, DemoExecutionError, never>((emit) =>
+): Stream.Stream<EffectSearchAnimationEvent, DemoExecutionError, never> =>
+  Study.streamFromEmitter<EffectSearchAnimationEvent, void, DemoExecutionError, never>((emit) =>
     Effect.gen(function*() {
       registry.set(optimizationAnimatingAtom, true)
       registry.set(tpeTrialsAtom, [])
@@ -147,6 +192,14 @@ export const makeOptimizationAnimationStream = (
       const tpePointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
       const randomPointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
       const publishedTrialCountRef = yield* Ref.make(0)
+
+      yield* emitFrameUpdate({
+        emit,
+        phase: "running",
+        randomTrials: [],
+        tpeTrials: [],
+        trialBudget
+      })
 
       yield* Effect.scoped(
         Effect.gen(function*() {
@@ -206,8 +259,13 @@ export const makeOptimizationAnimationStream = (
                   trialRef: randomPointsRef
                 })
 
-                registry.set(tpeTrialsAtom, tpePoints)
-                registry.set(randomTrialsAtom, randomPoints)
+                yield* emitFrameUpdate({
+                  emit,
+                  phase: "running",
+                  randomTrials: randomPoints,
+                  tpeTrials: tpePoints,
+                  trialBudget
+                })
 
                 if (index === 0) {
                   yield* publishOptimizationEvidence({
@@ -238,6 +296,17 @@ export const makeOptimizationAnimationStream = (
             publishedTrialCountRef,
             randomPointsRef,
             tpePointsRef
+          })
+
+          const tpePoints = yield* Ref.get(tpePointsRef)
+          const randomPoints = yield* Ref.get(randomPointsRef)
+
+          yield* emitFrameUpdate({
+            emit,
+            phase: "complete",
+            randomTrials: randomPoints,
+            tpeTrials: tpePoints,
+            trialBudget
           })
         }).pipe(
           Effect.mapError(() => executionFailedError("effect-search animation failed before local completion."))

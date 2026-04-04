@@ -3,6 +3,7 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Match } from "effect"
 
 import type { Id } from "../../contracts/id.js"
+import { isEffectSearchRunFrame } from "../state/local-run.js"
 
 import { animatingAtom } from "./animation.js"
 import { dspWidgetViewModelAtom } from "./dsp-widget-model.js"
@@ -13,6 +14,7 @@ import {
   type RunRuntimeTelemetryRow,
   type RunRuntimeTelemetrySection,
   type RunRuntimeTelemetryViewModel,
+  surfaceLocalRunFrameAtom,
   surfaceRunRuntimeTelemetryViewModelAtom
 } from "./surface.js"
 
@@ -58,7 +60,10 @@ const effectTextSections = (get: AtomType.Context): ReadonlyArray<RunRuntimeTele
 const effectSearchRows = (
   get: AtomType.Context
 ): ReadonlyArray<RunRuntimeTelemetryRow> => {
-  const projection = get(optimizationProjectionAtom)
+  const localRunFrame = get(surfaceLocalRunFrameAtom("effect-search"))
+  const projection = isEffectSearchRunFrame(localRunFrame)
+    ? localRunFrame.projection
+    : get(optimizationProjectionAtom)
 
   return [
     row("Optimizer animation", get(optimizationAnimatingAtom) ? "active" : "idle"),

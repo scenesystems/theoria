@@ -1,6 +1,6 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import { DspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
@@ -12,7 +12,14 @@ import {
   dspScenarioIndexAtom,
   snapshotEffectDspRunPlan
 } from "../../app/web/atoms/dsp-widget.js"
-import { optimizationAnimatingAtom, trialBudgetAtom } from "../../app/web/atoms/optimization-animation.js"
+import {
+  type EffectSearchRunFrame,
+  optimizationAnimatingAtom,
+  randomTrialsAtom,
+  snapshotEffectSearchRunPlan,
+  tpeTrialsAtom,
+  trialBudgetAtom
+} from "../../app/web/atoms/optimization-animation.js"
 import {
   type EffectMathRunFrame,
   powerAnimatingAtom,
@@ -92,6 +99,25 @@ const effectMathFrameFixture: EffectMathRunFrame = {
     requiredN: 22,
     overlap: 0.48,
     nonCentrality: 8.38
+  }
+}
+
+const effectSearchFrameFixture: EffectSearchRunFrame = {
+  _tag: "effect-search",
+  projection: {
+    trialBudget: 30,
+    tpeTrials: [
+      { x: -1.25, y: 0.25, value: 0.12, index: 0 },
+      { x: -1.1, y: 0.4, value: 0.08, index: 1 }
+    ],
+    randomTrials: [
+      { x: 0.75, y: -0.5, value: 0.45, index: 0 }
+    ],
+    tpeBestValue: Option.some(0.08),
+    randomBestValue: Option.some(0.45),
+    tpeBestPoint: Option.some({ x: -1.1, y: 0.4, value: 0.08, index: 1 }),
+    randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
+    phase: "running"
   }
 }
 
@@ -181,6 +207,40 @@ describe("widget view models", () => {
       expect(viewModel.controls.alpha.value).toBe(0.07)
       expect(viewModel.projection.power).toBe(0.91)
       expect(viewModel.metrics[0]?.value).toBe("91.0%")
+    }))
+
+  it.effect("renders effect-search from canonical frame authority during an active run", () =>
+    Effect.gen(function*() {
+      const registry = makeTestRegistry()
+      const localRunPlan = snapshotEffectSearchRunPlan(30)
+      const running = runningRunState({
+        localRunPlan,
+        program: programPreviewFixture.program
+      })
+      const withFrame = reduceRunState(running, {
+        _tag: "RunFrameUpdated",
+        sequence: 1,
+        frame: effectSearchFrameFixture
+      })
+
+      registry.set(optimizationAnimatingAtom, true)
+      registry.set(trialBudgetAtom, 55)
+      registry.set(tpeTrialsAtom, [{ x: 9, y: 9, value: 9, index: 0 }])
+      registry.set(randomTrialsAtom, [{ x: 8, y: 8, value: 8, index: 0 }])
+      registry.update(surfaceAtom("effect-search"), (state) => ({
+        ...state,
+        run: withFrame
+      }))
+
+      const viewModel = registry.get(optimizationWidgetViewModelAtom)
+
+      expect(viewModel.budget.value).toBe(30)
+      expect(viewModel.projection.phase).toBe("running")
+      expect(viewModel.projection.tpeTrials.length).toBe(2)
+      expect(viewModel.projection.randomTrials.length).toBe(1)
+      expect(viewModel.metrics[0]?.value).toBe("0.0800")
+      expect(viewModel.metrics[1]?.value).toBe("0.4500")
+      expect(viewModel.metrics[3]?.value).toBe("2/30")
     }))
 
   it.effect("renders effect-dsp from canonical frame authority during an active run", () =>

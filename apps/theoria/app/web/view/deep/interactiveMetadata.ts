@@ -30,9 +30,9 @@ export const projectionPlaneHintFor = (id: Id): ProjectionPlaneHint =>
       stage:
         "Generic text and deep-dive reflow both reuse prepared handles — drag width, toggle obstacle bands, or press Run to sweep the same prepare-once model across the corpus.",
       evidence:
-        "The live proof follows the shipped v0.2 package story: browser parity profiles, prepare-handle reuse, pure projection under obstacle-aware layout, and the downstream experimental calibration lane.",
+        "The evidence stream tracks the browser surface, prepared-handle reuse, obstacle-aware projection, and optional calibration work without mixing those concerns together.",
       source:
-        "Inspect the server proof, browser companion layer, React prepare identity, and the generic plus reflow consumers side by side."
+        "Inspect the browser layer, React helper boundary, server run path, and the text consumers that share the same prepare-and-project model."
     })),
     Match.when("effect-search", () => ({
       stage:

@@ -264,6 +264,28 @@ const explicitBreakCandidate = (
   paintWidth: state.paintWidth
 })
 
+const breakCandidatesBeforeCommittedSegment = (
+  core: PreparedTextCore,
+  state: LineScanState,
+  currentCursor: LayoutCursorType
+): ReadonlyArray<BreakCandidate> =>
+  hasPendingWhitespace(state)
+    ? Arr.append(
+      Arr.empty<BreakCandidate>(),
+      core.kernel.whiteSpace === "pre-wrap"
+        ? {
+          end: state.pendingEnd,
+          fitWidth: state.fitWidth + state.pendingFitWidth,
+          insertedText: "",
+          insertedWidth: 0,
+          kind: "explicit",
+          nextCursor: currentCursor,
+          paintWidth: state.paintWidth + state.pendingPaintWidth
+        }
+        : explicitBreakCandidate(state, state.end, currentCursor)
+    )
+    : state.breakCandidates
+
 const chooseBreakCandidate = (
   candidates: ReadonlyArray<BreakCandidate>,
   maxWidth: number,
@@ -477,7 +499,7 @@ const appendCommittedSegment = (
   return {
     ...state,
     breakCandidates: appendDiscretionaryBreakCandidate(
-      hasPendingWhitespace(state) ? [] : state.breakCandidates,
+      breakCandidatesBeforeCommittedSegment(core, state, currentCursor),
       core,
       currentCursor,
       nextCursor,

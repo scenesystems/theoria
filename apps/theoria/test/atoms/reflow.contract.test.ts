@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Ref } from "effect"
-import { Contracts, Text } from "effect-text"
+import { Text } from "effect-text"
+import * as Contracts from "effect-text/contracts"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import { fontDescriptorFor, semanticsFor } from "../../app/contracts/text.js"

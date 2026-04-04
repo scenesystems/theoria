@@ -7,11 +7,16 @@ import {
   optimizationTrialBudgetMin,
   optimizationTrialBudgetStep
 } from "../../contracts/demo/objective.js"
-import { isEffectSearchRunPlan, type LocalRunPlan } from "../state/local-run.js"
+import {
+  isEffectSearchRunFrame,
+  isEffectSearchRunPlan,
+  type LocalRunFrame,
+  type LocalRunPlan
+} from "../state/local-run.js"
 import { runShowsAnimatingState } from "../state/run-interaction.js"
 import type { OptimizationProjection } from "./optimization-animation.js"
 import { optimizationAnimatingAtom, optimizationProjectionAtom } from "./optimization-animation.js"
-import { surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
+import { surfaceLocalRunFrameAtom, surfaceLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
 import { type WidgetMetric, widgetMetric } from "./widget-view-model-shared.js"
 
 export type OptimizationWidgetViewModel = {
@@ -33,23 +38,34 @@ const optionDisplay = (value: Option.Option<number>, digits: number): string =>
     onSome: (next) => next.toFixed(digits)
   })
 
-const resolveActiveEffectSearchAuthority = (
-  plan: LocalRunPlan | null
-): Extract<LocalRunPlan, { readonly _tag: "effect-search" }> | null => isEffectSearchRunPlan(plan) ? plan : null
+const resolveEffectSearchAuthority = ({
+  frame,
+  plan
+}: {
+  readonly frame: LocalRunFrame | null
+  readonly plan: LocalRunPlan | null
+}): {
+  readonly frame: Extract<LocalRunFrame, { readonly _tag: "effect-search" }>
+  readonly plan: Extract<LocalRunPlan, { readonly _tag: "effect-search" }>
+} | null =>
+  isEffectSearchRunPlan(plan) && isEffectSearchRunFrame(frame)
+    ? { frame, plan }
+    : null
 
 export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetViewModel> = Atom.make(
   (get: AtomType.Context): OptimizationWidgetViewModel => {
     const run = get(surfaceRunStateAtom("effect-search"))
-    const projection = get(optimizationProjectionAtom)
-    const activePlan = runShowsAnimatingState(run, get(optimizationAnimatingAtom))
-      ? resolveActiveEffectSearchAuthority(get(surfaceActiveLocalRunPlanAtom("effect-search")))
-      : null
+    const authority = resolveEffectSearchAuthority({
+      frame: get(surfaceLocalRunFrameAtom("effect-search")),
+      plan: get(surfaceLocalRunPlanAtom("effect-search"))
+    })
+    const projection = authority?.frame.projection ?? get(optimizationProjectionAtom)
     const improvement = Option.zipWith(
       projection.tpeBestValue,
       projection.randomBestValue,
       (tpeBest, randomBest) => `${((1 - tpeBest / randomBest) * 100).toFixed(1)}%`
     )
-    const trialBudget = activePlan?.trialBudget ?? projection.trialBudget
+    const trialBudget = authority?.plan.trialBudget ?? projection.trialBudget
 
     return {
       budget: {

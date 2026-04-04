@@ -42,6 +42,17 @@ describe("Typography contract", () => {
     expect(semanticsFor("hero-title").lineBreaks).toBe("wrap")
   })
 
+  it("ordinary UI copy roles default to browser layout", () => {
+    expect(semanticsFor("hero-title").layoutEngine).toBe("browser")
+    expect(semanticsFor("hero-body").layoutEngine).toBe("browser")
+    expect(semanticsFor("card-summary").layoutEngine).toBe("browser")
+    expect(semanticsFor("status").layoutEngine).toBe("browser")
+    expect(semanticsFor("row-label").layoutEngine).toBe("browser")
+    expect(semanticsFor("row-value").layoutEngine).toBe("browser")
+    expect(semanticsFor("code-meta").layoutEngine).toBe("browser")
+    expect(semanticsFor("code-block").layoutEngine).toBe("projected")
+  })
+
   it("prepareInputFor produces valid effect-text input", () => {
     const input = prepareInputFor("hero-title", "Test heading")
     expect(input.text).toBe("Test heading")

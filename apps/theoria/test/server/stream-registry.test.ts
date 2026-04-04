@@ -70,9 +70,9 @@ describe("Theoria Demo Stream Registry", () => {
 
       expect(sectionCount).toBe(8)
       expect(stepCount).toBe(effectTextProjectionSteps("").length)
-      expect(sectionTitles).toContain("Consumer Proof")
-      expect(sectionTitles).toContain("Browser Envelope")
-      expect(sectionTitles).toContain("Experimental Lane")
+      expect(sectionTitles).toContain("React Surface")
+      expect(sectionTitles).toContain("Browser Surface")
+      expect(sectionTitles).toContain("Calibration")
       expect(streamElements.some((element) => element._tag === "cue")).toBe(true)
     }))
 
