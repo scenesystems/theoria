@@ -146,14 +146,24 @@ export const LayoutCursor = Schema.Struct({
  */
 export type LayoutCursorType = typeof LayoutCursor.Type
 
+const LayoutVisualMetadataFields = {
+  order: Schema.Literal("visual"),
+  baseDirection: BaseTextDirection
+}
+
 /**
- * A laid out line of text.
+ * A laid out line of visually ordered text.
+ *
+ * `text` is emitted in visual order while `baseDirection` keeps the prepared
+ * paragraph direction available to consumers without leaking unstable
+ * permutation internals.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const LayoutLine = Schema.Struct({
   index: NonNegativeInt,
+  ...LayoutVisualMetadataFields,
   text: Schema.String,
   width: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
 })
@@ -167,12 +177,16 @@ export const LayoutLine = Schema.Struct({
 export type LayoutLineType = typeof LayoutLine.Type
 
 /**
- * Non-materialized line geometry and cursor bounds.
+ * Non-materialized line geometry and logical cursor bounds for visually ordered output.
+ *
+ * `start` and `end` stay in logical source order even when the materialized
+ * line text is visually reordered.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const LayoutLineRange = Schema.Struct({
+  ...LayoutVisualMetadataFields,
   width: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
   start: LayoutCursor,
   end: LayoutCursor
@@ -207,12 +221,12 @@ export const LayoutSummary = Schema.Struct({
 export type LayoutSummaryType = typeof LayoutSummary.Type
 
 /**
- * Browser or runtime-specific line fitting behavior.
+ * Runtime engine profile used during preparation and optional calibration.
  *
  * @since 0.1.0
  * @category schemas
  */
-export const EngineProfileSchema = Schema.Struct({
+export const EngineProfile = Schema.Struct({
   lineFitEpsilon: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
   tabWidth: PositiveInt,
   defaultDirection: BaseTextDirection,
@@ -221,9 +235,17 @@ export const EngineProfileSchema = Schema.Struct({
 })
 
 /**
+ * Backward-compatible schema alias for the released engine-profile surface.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const EngineProfileSchema = EngineProfile
+
+/**
  * Typed engine profile.
  *
  * @since 0.1.0
  * @category models
  */
-export type EngineProfileType = typeof EngineProfileSchema.Type
+export type EngineProfileType = typeof EngineProfile.Type

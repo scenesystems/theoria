@@ -49,7 +49,7 @@ const program = Effect.gen(function*() {
     )
   )
 
-  const prepared = yield* Text.prepare({
+  const prepared = yield* Text.prepareWithSegments({
     text: "A🙂B",
     font: { family: "Mono", size: 12 },
     whiteSpace: "normal"

@@ -3,9 +3,8 @@
  *
  * @since 0.1.0
  */
-import { Effect, Match, Option } from "effect"
+import { Effect, Match } from "effect"
 import * as Arr from "effect/Array"
-import * as Data from "effect/Data"
 
 import type { MeasurementFailed } from "../../Errors/index.js"
 import type {
@@ -13,7 +12,7 @@ import type {
   PreparedLineChunkType,
   PreparedRuntimeTablesType,
   PreparedSegmentType,
-  PreparedTextManualSurfaceType
+  PreparedTextLogicalSurfaceType
 } from "../model.js"
 import type { BaseTextDirectionType, EngineProfileType, TextSegmentType, WhiteSpaceModeType } from "../schema.js"
 import {
@@ -25,30 +24,46 @@ import {
   SOFT_HYPHEN,
   splitSoftHyphenPieces,
   splitWhitespaceTokens,
+  type TextDirection,
   WORD_JOINER,
   ZERO_WIDTH_SPACE
 } from "./analysis.js"
-
-// Decomposition note: WP1 is mid-kernel migration, so preparation and runtime-table compilation stay together here.
-// Split plan: move chunk/runtime-table compilation into a dedicated internal module when the canonical walker replaces legacy materialization.
+import { containsUnsupportedBidiControls, mirrorText } from "./bidi.js"
 
 type Measure = (text: string) => Effect.Effect<number, MeasurementFailed>
-type PreparationContext = readonly [
-  baseDirection: BaseTextDirectionType,
-  engineProfile: EngineProfileType,
-  hyphenWidth: number,
-  measure: Measure,
-  tabStopWidth: number
-]
+
+type PreparationContext = Readonly<{
+  baseDirection: BaseTextDirectionType
+  engineProfile: EngineProfileType
+  hyphenWidth: number
+  measure: Measure
+  tabStopAdvance: number
+}>
+
+type GraphemeMeasurement = Readonly<{
+  graphemeAdvances: ReadonlyArray<number>
+  graphemes: ReadonlyArray<string>
+  width: number
+}>
+
+type PreparedBidiGraphemeData = Readonly<{
+  graphemeBidiLevels: ReadonlyArray<number>
+  mirroredGraphemes: ReadonlyArray<string>
+}>
 
 const isZeroWidthControlText = (text: string): boolean => text === ZERO_WIDTH_SPACE || text === WORD_JOINER
 const preparedBreakKind = (value: PreparedBreakKindType): PreparedBreakKindType => value
 
 const lastOrElse = <A>(values: ReadonlyArray<A>, fallback: A): A =>
-  Arr.last(values).pipe(Option.getOrElse(() => fallback))
+  values.length === 0 ? fallback : values[values.length - 1] ?? fallback
 
 const widthFromPrefixMeasurements = (measuredWidths: ReadonlyArray<number>, index: number): number =>
   (measuredWidths[index] ?? 0) - (measuredWidths[index - 1] ?? 0)
+
+const resolvedTextDirection = (
+  direction: TextDirection,
+  fallback: BaseTextDirectionType
+): BaseTextDirectionType => direction === "neutral" ? fallback : direction
 
 const preparedTextBreakKindFor = (segment: PreparedSegmentType): PreparedBreakKindType =>
   Match.value(segment.text).pipe(
@@ -57,6 +72,26 @@ const preparedTextBreakKindFor = (segment: PreparedSegmentType): PreparedBreakKi
     Match.when(NO_BREAK_SPACE, () => preparedBreakKind("glue")),
     Match.orElse(() => preparedBreakKind(segment.breakOpportunity === "soft-hyphen" ? "soft-hyphen" : "text"))
   )
+
+const compilePreparedBidiGraphemeData = (
+  text: string,
+  graphemes: ReadonlyArray<string>,
+  segmentDirection: BaseTextDirectionType,
+  baseDirection: BaseTextDirectionType
+): PreparedBidiGraphemeData =>
+  containsUnsupportedBidiControls(text)
+    ? {
+      graphemeBidiLevels: Arr.makeBy(graphemes.length, () => bidiLevelForDirection(segmentDirection, baseDirection)),
+      mirroredGraphemes: graphemes
+    }
+    : {
+      graphemeBidiLevels: Arr.map(
+        graphemes,
+        (grapheme) =>
+          bidiLevelForDirection(resolvedTextDirection(detectTextDirection(grapheme), segmentDirection), baseDirection)
+      ),
+      mirroredGraphemes: Arr.map(graphemes, mirrorText)
+    }
 
 const makeTextSegment = (
   text: string,
@@ -68,6 +103,8 @@ const makeTextSegment = (
   baseDirection: BaseTextDirectionType
 ): PreparedSegmentType => {
   const direction = detectTextDirection(text)
+  const segmentDirection = resolvedTextDirection(direction, baseDirection)
+  const bidiData = compilePreparedBidiGraphemeData(text, graphemes, segmentDirection, baseDirection)
 
   return {
     kind: "text",
@@ -79,7 +116,9 @@ const makeTextSegment = (
     breakText: breakAfter ? "-" : "",
     breakWidth: breakAfter ? breakWidth : 0,
     graphemes,
-    graphemeAdvances
+    graphemeAdvances,
+    graphemeBidiLevels: bidiData.graphemeBidiLevels,
+    mirroredGraphemes: bidiData.mirroredGraphemes
   }
 }
 
@@ -98,7 +137,9 @@ const makeWhitespaceSegment = (
   breakText: "",
   breakWidth: 0,
   graphemes: [],
-  graphemeAdvances: []
+  graphemeAdvances: [],
+  graphemeBidiLevels: [],
+  mirroredGraphemes: []
 })
 
 const makeHardBreakSegment = (baseDirection: BaseTextDirectionType): PreparedSegmentType => ({
@@ -111,27 +152,22 @@ const makeHardBreakSegment = (baseDirection: BaseTextDirectionType): PreparedSeg
   breakText: "",
   breakWidth: 0,
   graphemes: [],
-  graphemeAdvances: []
+  graphemeAdvances: [],
+  graphemeBidiLevels: [],
+  mirroredGraphemes: []
 })
-
-const cumulativePieceTexts = (pieces: ReadonlyArray<readonly [string, boolean]>): ReadonlyArray<string> =>
-  Arr.reduce(pieces, Arr.empty<string>(), (texts, piece) => Arr.append(texts, lastOrElse(texts, "") + piece[0]))
 
 const cumulativeTexts = (parts: ReadonlyArray<string>): ReadonlyArray<string> =>
   Arr.reduce(parts, Arr.empty<string>(), (texts, part) => Arr.append(texts, lastOrElse(texts, "") + part))
+
+const cumulativePieceTexts = (pieces: ReadonlyArray<readonly [string, boolean]>): ReadonlyArray<string> =>
+  cumulativeTexts(Arr.map(pieces, (piece) => piece[0]))
 
 const measureGraphemeData = (
   text: string,
   measure: Measure,
   preferPrefixWidthsForBreakableRuns: boolean
-): Effect.Effect<
-  {
-    readonly graphemeAdvances: ReadonlyArray<number>
-    readonly graphemes: ReadonlyArray<string>
-    readonly width: number
-  },
-  MeasurementFailed
-> => {
+): Effect.Effect<GraphemeMeasurement, MeasurementFailed> => {
   if (isZeroWidthControlText(text)) {
     return Effect.succeed({
       graphemeAdvances: Arr.make(0),
@@ -153,17 +189,13 @@ const measureGraphemeData = (
   const measurementTexts = preferPrefixWidthsForBreakableRuns ? cumulativeTexts(graphemes) : graphemes
 
   return Effect.forEach(measurementTexts, measure).pipe(
-    Effect.map((measuredWidths) => {
-      const graphemeAdvances = preferPrefixWidthsForBreakableRuns
+    Effect.map((measuredWidths) => ({
+      graphemeAdvances: preferPrefixWidthsForBreakableRuns
         ? Arr.map(measuredWidths, (_width, index) => widthFromPrefixMeasurements(measuredWidths, index))
-        : measuredWidths
-
-      return {
-        graphemeAdvances,
-        graphemes,
-        width: lastOrElse(measuredWidths, 0)
-      }
-    })
+        : measuredWidths,
+      graphemes,
+      width: lastOrElse(measuredWidths, 0)
+    }))
   )
 }
 
@@ -172,33 +204,34 @@ const prepareTextSegment = (
   context: PreparationContext
 ): Effect.Effect<ReadonlyArray<PreparedSegmentType>, MeasurementFailed> => {
   const pieces = splitSoftHyphenPieces(segment.text)
+
   if (pieces.length === 0) {
     return Effect.succeed([])
   }
 
-  const measurementTexts = pieces.length > 1 && context[1].preferPrefixWidthsForBreakableRuns
+  const measurementTexts = pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
     ? cumulativePieceTexts(pieces)
     : Arr.map(pieces, (piece) => piece[0])
 
-  return Effect.forEach(measurementTexts, context[3]).pipe(
+  return Effect.forEach(measurementTexts, context.measure).pipe(
     Effect.flatMap((measuredWidths) =>
       Effect.forEach(
         pieces,
         (piece, index) =>
-          measureGraphemeData(piece[0], context[3], context[1].preferPrefixWidthsForBreakableRuns).pipe(
+          measureGraphemeData(piece[0], context.measure, context.engineProfile.preferPrefixWidthsForBreakableRuns).pipe(
             Effect.map((graphemeData) =>
               makeTextSegment(
                 piece[0],
                 isZeroWidthControlText(piece[0])
                   ? 0
-                  : pieces.length > 1 && context[1].preferPrefixWidthsForBreakableRuns
+                  : pieces.length > 1 && context.engineProfile.preferPrefixWidthsForBreakableRuns
                   ? widthFromPrefixMeasurements(measuredWidths, index)
                   : graphemeData.width,
                 graphemeData.graphemes,
                 graphemeData.graphemeAdvances,
                 piece[1],
-                context[2],
-                context[0]
+                context.hyphenWidth,
+                context.baseDirection
               )
             )
           )
@@ -213,10 +246,13 @@ const prepareWhitespaceSegment = (
 ): Effect.Effect<ReadonlyArray<PreparedSegmentType>, MeasurementFailed> =>
   Effect.forEach(splitWhitespaceTokens(segment.text), (token) =>
     Match.value(token[0]).pipe(
-      Match.when("tab", () => Effect.succeed(makeWhitespaceSegment("tab", token[1], context[4], context[0]))),
+      Match.when("tab", () =>
+        Effect.succeed(makeWhitespaceSegment("tab", token[1], context.tabStopAdvance, context.baseDirection))),
       Match.orElse(() =>
-        context[3](token[1]).pipe(
-          Effect.map((width) => makeWhitespaceSegment("space", token[1], width, context[0]))
+        context.measure(token[1]).pipe(
+          Effect.map((width) =>
+            makeWhitespaceSegment("space", token[1], width, context.baseDirection)
+          )
         )
       )
     ))
@@ -226,7 +262,7 @@ const prepareSegment = (
   context: PreparationContext
 ): Effect.Effect<ReadonlyArray<PreparedSegmentType>, MeasurementFailed> =>
   Match.value(segment.kind).pipe(
-    Match.when("hard-break", () => Effect.succeed(Arr.make(makeHardBreakSegment(context[0])))),
+    Match.when("hard-break", () => Effect.succeed(Arr.make(makeHardBreakSegment(context.baseDirection)))),
     Match.when("space", () => prepareWhitespaceSegment(segment, context)),
     Match.orElse(() => prepareTextSegment(segment, context))
   )
@@ -245,20 +281,27 @@ const preparedBreakKindFor = (
 const breakableGraphemeWidthsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
   segment.kind === "text" ? segment.graphemeAdvances : []
 
-const emptyChunks: ReadonlyArray<PreparedLineChunkType> = []
+const graphemeBidiLevelsFor = (segment: PreparedSegmentType): ReadonlyArray<number> =>
+  segment.kind === "text" ? segment.graphemeBidiLevels : []
+
+const mirroredGraphemesFor = (segment: PreparedSegmentType): ReadonlyArray<string> =>
+  segment.kind === "text" ? segment.mirroredGraphemes : []
 
 const prefixWidthsFor = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
   Arr.reduce(widths, Arr.empty<number>(), (prefixes, width) => Arr.append(prefixes, lastOrElse(prefixes, 0) + width))
 
 const lineChunksFor = (segments: ReadonlyArray<PreparedSegmentType>): ReadonlyArray<PreparedLineChunkType> => {
+  const indices = Arr.makeBy(segments.length, (index) => index)
   const reduced = Arr.reduce(
-    Arr.map(segments, (segment, index) => Data.tuple(segment, index)),
+    indices,
     {
-      chunks: emptyChunks,
+      chunks: Arr.empty<PreparedLineChunkType>(),
       startSegmentIndex: 0
     },
-    (state, [segment, index]) =>
-      segment.kind === "hard-break"
+    (state, index) => {
+      const segment = segments[index]
+
+      return segment?.kind === "hard-break"
         ? {
           chunks: Arr.append(state.chunks, {
             startSegmentIndex: state.startSegmentIndex,
@@ -268,6 +311,7 @@ const lineChunksFor = (segments: ReadonlyArray<PreparedSegmentType>): ReadonlyAr
           startSegmentIndex: index + 1
         }
         : state
+    }
   )
 
   return Arr.append(reduced.chunks, {
@@ -277,13 +321,13 @@ const lineChunksFor = (segments: ReadonlyArray<PreparedSegmentType>): ReadonlyAr
   })
 }
 
-const compileRuntimeTables = (
+const compileKernelRuntime = (
   segments: ReadonlyArray<PreparedSegmentType>,
-  chunks: ReadonlyArray<PreparedLineChunkType>,
   hyphenWidth: number,
-  tabStopWidth: number,
+  tabStopAdvance: number,
   whiteSpace: WhiteSpaceModeType
 ): PreparedRuntimeTablesType => {
+  const chunks = lineChunksFor(segments)
   const breakableGraphemeWidths = Arr.map(segments, breakableGraphemeWidthsFor)
 
   return {
@@ -294,10 +338,16 @@ const compileRuntimeTables = (
     chunkConsumedEndIndices: Arr.map(chunks, (chunk) => chunk.consumedEndSegmentIndex),
     breakableGraphemeWidths,
     breakablePrefixWidths: Arr.map(breakableGraphemeWidths, prefixWidthsFor),
+    graphemeBidiLevels: Arr.map(segments, graphemeBidiLevelsFor),
+    mirroredGraphemes: Arr.map(segments, mirroredGraphemesFor),
     discretionaryHyphenWidth: hyphenWidth,
-    tabStopAdvance: tabStopWidth
+    tabStopAdvance
   }
 }
+
+const retainLogicalSurface = (segments: ReadonlyArray<PreparedSegmentType>): PreparedTextLogicalSurfaceType => ({
+  segments
+})
 
 export const resolvePreparedBaseDirection = (
   text: string,
@@ -312,9 +362,8 @@ export const prepareSegments = (
   measure: Measure
 ): Effect.Effect<
   {
-    readonly tabStopWidth: number
-    readonly runtime: PreparedRuntimeTablesType
-    readonly manualSurface: PreparedTextManualSurfaceType
+    readonly kernelRuntime: PreparedRuntimeTablesType
+    readonly logicalSurface: PreparedTextLogicalSurfaceType
   },
   MeasurementFailed
 > =>
@@ -323,22 +372,21 @@ export const prepareSegments = (
       segments,
       (segment) => segment.kind === "text" && segment.text.includes(SOFT_HYPHEN)
     )
-    const needsTabStopWidth = Arr.some(segments, (segment) => segment.kind === "space" && segment.text.includes("\t"))
+    const needsTabStopAdvance = Arr.some(segments, (segment) => segment.kind === "space" && segment.text.includes("\t"))
     const hyphenWidth = needsSoftHyphenWidth ? yield* measure("-") : 0
-    const tabStopWidth = needsTabStopWidth ? (yield* measure(" ")) * engineProfile.tabWidth : 0
-    const prepared = yield* Effect.forEach(
-      segments,
-      (segment) => prepareSegment(segment, [baseDirection, engineProfile, hyphenWidth, measure, tabStopWidth])
-    )
+    const tabStopAdvance = needsTabStopAdvance ? (yield* measure(" ")) * engineProfile.tabWidth : 0
+    const context: PreparationContext = {
+      baseDirection,
+      engineProfile,
+      hyphenWidth,
+      measure,
+      tabStopAdvance
+    }
+    const prepared = yield* Effect.forEach(segments, (segment) => prepareSegment(segment, context))
     const flattenedSegments = Arr.flatten(prepared)
-    const chunks = lineChunksFor(flattenedSegments)
 
     return {
-      tabStopWidth,
-      runtime: compileRuntimeTables(flattenedSegments, chunks, hyphenWidth, tabStopWidth, whiteSpace),
-      manualSurface: {
-        segments: flattenedSegments,
-        chunks
-      }
+      kernelRuntime: compileKernelRuntime(flattenedSegments, hyphenWidth, tabStopAdvance, whiteSpace),
+      logicalSurface: retainLogicalSurface(flattenedSegments)
     }
   })

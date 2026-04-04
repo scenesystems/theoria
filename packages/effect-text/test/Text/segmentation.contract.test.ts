@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 import * as Data from "effect/Data"
 
 import { Contracts, Text } from "../../src/index.js"
-import { preparedTextCore } from "../../src/Text/model.js"
+import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
 
 const makeTestLayer = Layer.mergeAll(
   Text.WordSegmenterLive,
@@ -55,12 +55,12 @@ const prepareSurface = (
   }).pipe(
     Effect.provide(makeTestLayer),
     Effect.map((prepared) => {
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
       return {
-        breakKinds: core.runtime.breakKinds,
-        graphemeCounts: Arr.map(core.manualSurface.segments, (segment) => segment.graphemes.length),
-        segments: Arr.map(core.manualSurface.segments, (segment) => segment.text)
+        breakKinds: core.kernel.runtime.breakKinds,
+        graphemeCounts: Arr.map(core.logicalSurface.segments, (segment) => segment.graphemes.length),
+        segments: Arr.map(core.logicalSurface.segments, (segment) => segment.text)
       }
     })
   )
@@ -77,9 +77,9 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
-      expect(Arr.map(core.manualSurface.segments, (segment) => Data.tuple(segment.kind, segment.text))).toEqual([
+      expect(Arr.map(core.logicalSurface.segments, (segment) => Data.tuple(segment.kind, segment.text))).toEqual([
         ["text", "alpha"],
         ["space", "  "],
         ["text", "beta"],
@@ -89,7 +89,7 @@ describe("Text segmentation contracts", () => {
         ["tab", "\t"],
         ["text", "delta"]
       ])
-      expect(core.runtime.breakKinds).toEqual([
+      expect(core.kernel.runtime.breakKinds).toEqual([
         "text",
         "preserved-space",
         "text",
@@ -109,10 +109,10 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
       const lines = Text.layoutLines(prepared, { maxWidth: 12, lineHeight: 12 })
 
-      expect(core.runtime.breakableGraphemeWidths[0]?.length).toBeGreaterThan(1)
+      expect(core.kernel.runtime.breakableGraphemeWidths[0]?.length).toBeGreaterThan(1)
       expect(lines.length).toBeGreaterThan(1)
       expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("supercalifragilistic")
       expect(Arr.every(lines, (line) => line.width <= 12.01)).toBe(true)
@@ -126,10 +126,10 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
       const lines = Text.layoutLines(prepared, { maxWidth: 10, lineHeight: 12 })
 
-      expect(Arr.some(core.runtime.breakableGraphemeWidths, (widths) => widths.length > 1)).toBe(true)
+      expect(Arr.some(core.kernel.runtime.breakableGraphemeWidths, (widths) => widths.length > 1)).toBe(true)
       expect(lines.length).toBeGreaterThan(1)
       expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("你好世界再见")
       expect(Arr.every(lines, (line) => line.width <= 10.01)).toBe(true)
@@ -144,10 +144,10 @@ describe("Text segmentation contracts", () => {
           whiteSpace: "normal"
         }).pipe(Effect.provide(makeTestLayer))
 
-        const core = preparedTextCore(prepared)
+        const core = preparedTextWithSegmentsCore(prepared)
         const lines = Text.layoutLines(prepared, { maxWidth: 15, lineHeight: 12 })
 
-        expect(core.manualSurface.segments.length).toBeGreaterThan(1)
+        expect(core.logicalSurface.segments.length).toBeGreaterThan(1)
         expect(lines.length).toBeGreaterThan(1)
         expect(Arr.reduce(lines, "", (text, line) => text + line.text)).toBe("ภาษาไทยไม่มีช่องว่าง")
       })
@@ -186,20 +186,20 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
-      expect(Arr.some(core.manualSurface.segments, (segment) => segment.kind === "tab" && segment.text === "\t")).toBe(
+      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.kind === "tab" && segment.text === "\t")).toBe(
         true
       )
-      expect(Arr.some(core.manualSurface.segments, (segment) => segment.kind === "hard-break")).toBe(true)
-      expect(Arr.some(core.manualSurface.segments, (segment) => segment.breakOpportunity === "soft-hyphen")).toBe(true)
+      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.kind === "hard-break")).toBe(true)
+      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.breakOpportunity === "soft-hyphen")).toBe(true)
       expect(
         Arr.some(
-          core.manualSurface.segments,
+          core.logicalSurface.segments,
           (segment) => segment.kind === "text" && segment.graphemes.includes("👨‍👩‍👧‍👦")
         )
       ).toBe(true)
-      expect(Arr.some(core.manualSurface.segments, (segment) => segment.text.includes("\u00a0"))).toBe(true)
+      expect(Arr.some(core.logicalSurface.segments, (segment) => segment.text.includes("\u00a0"))).toBe(true)
     }))
 
   it.effect("compiles NBSP, WJ, and ZWSP into explicit runtime break kinds instead of hiding them inside generic text runs", () =>
@@ -210,9 +210,9 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
-      expect(Arr.map(core.manualSurface.segments, (segment) => segment.text)).toEqual([
+      expect(Arr.map(core.logicalSurface.segments, (segment) => segment.text)).toEqual([
         "no",
         "\u00a0",
         "break",
@@ -225,7 +225,7 @@ describe("Text segmentation contracts", () => {
         "\u200b",
         "b"
       ])
-      expect(core.runtime.breakKinds).toEqual([
+      expect(core.kernel.runtime.breakKinds).toEqual([
         "text",
         "glue",
         "text",
@@ -240,7 +240,7 @@ describe("Text segmentation contracts", () => {
       ])
     }))
 
-  it.effect("stores mixed RTL and LTR metadata without claiming visual reorder yet", () =>
+  it.effect("stores mixed RTL and LTR metadata that the visual-order layout plane reuses", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
         text: "שלום hello مرحبا",
@@ -248,16 +248,16 @@ describe("Text segmentation contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
       const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
 
-      expect(core.baseDirection).toBe("rtl")
+      expect(core.kernel.baseDirection).toBe("rtl")
       expect(
         Arr.map(
-          Arr.filter(core.manualSurface.segments, (segment) => segment.kind === "text"),
+          Arr.filter(core.logicalSurface.segments, (segment) => segment.kind === "text"),
           (segment) => segment.direction
         )
       ).toEqual(["rtl", "ltr", "rtl"])
-      expect(lines[0]?.text).toBe("שלום hello مرحبا")
+      expect(lines[0]?.text).toBe("ابحرم hello םולש")
     }))
 })

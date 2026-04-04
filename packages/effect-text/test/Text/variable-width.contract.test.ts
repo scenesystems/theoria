@@ -55,7 +55,7 @@ describe("Text variable-width contracts", () => {
     Effect.gen(function*() {
       const { measurements, layer } = yield* makeTestContext
       const request = { maxWidth: 80, lineHeight: 14 }
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "The quick brown fox jumps over the lazy dog near a stream of flowing water",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -74,7 +74,7 @@ describe("Text variable-width contracts", () => {
     Effect.gen(function*() {
       const { measurements, layer } = yield* makeTestContext
       const request = { maxWidth: 90, lineHeight: 14 }
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "Layout projections should stay pure after preparation finishes.",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -90,6 +90,8 @@ describe("Text variable-width contracts", () => {
 
       expect(afterProjection).toBe(afterPrepare)
       expect(Arr.map(narrow, (line) => line.text)).not.toEqual(Arr.map(wide, (line) => line.text))
-      expect(sortStrings(layoutLinesWithTargets)).toEqual(sortStrings(["materializeLines", "preparedTextCore"]))
+      expect(sortStrings(layoutLinesWithTargets)).toEqual(
+        sortStrings(["materializeLines", "preparedTextWithSegmentsCore"])
+      )
     }))
 })

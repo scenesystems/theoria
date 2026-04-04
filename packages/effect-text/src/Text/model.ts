@@ -4,6 +4,8 @@
  * @since 0.1.0
  */
 import { Schema } from "effect"
+import * as HashMap from "effect/HashMap"
+import * as MutableRef from "effect/MutableRef"
 
 import { BaseTextDirection, FontDescriptor, WhiteSpaceMode } from "./schema.js"
 
@@ -31,10 +33,12 @@ const PreparedSegmentSchema = Schema.Struct({
   breakText: Schema.String,
   breakWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
   graphemes: Schema.Array(Schema.String),
-  graphemeAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)))
+  graphemeAdvances: Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))),
+  graphemeBidiLevels: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
+  mirroredGraphemes: Schema.Array(Schema.String)
 })
 
-const PreparedLineChunkSchema = Schema.Struct({
+const _PreparedLineChunkSchema = Schema.Struct({
   startSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   endSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   consumedEndSegmentIndex: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
@@ -52,25 +56,40 @@ const PreparedRuntimeTablesSchema = Schema.Struct({
   breakablePrefixWidths: Schema.Array(
     Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)))
   ),
+  graphemeBidiLevels: Schema.Array(
+    Schema.Array(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)))
+  ),
+  mirroredGraphemes: Schema.Array(Schema.Array(Schema.String)),
   discretionaryHyphenWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
   tabStopAdvance: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
 })
 
-const PreparedTextManualSurfaceSchema = Schema.Struct({
-  segments: Schema.Array(PreparedSegmentSchema),
-  chunks: Schema.Array(PreparedLineChunkSchema)
+const PreparedTextMetaSchema = Schema.Struct({
+  text: Schema.String,
+  font: FontDescriptor
 })
 
-const _PreparedTextCoreSchema = Schema.Struct({
-  text: Schema.String,
-  font: FontDescriptor,
+const PreparedTextKernelSchema = Schema.Struct({
   whiteSpace: WhiteSpaceMode,
   baseDirection: BaseTextDirection,
   lineFitEpsilon: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
-  tabStopWidth: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0)),
   preferEarlySoftHyphenBreak: Schema.Boolean,
-  runtime: PreparedRuntimeTablesSchema,
-  manualSurface: PreparedTextManualSurfaceSchema
+  runtime: PreparedRuntimeTablesSchema
+})
+
+const PreparedTextLogicalSurfaceSchema = Schema.Struct({
+  segments: Schema.Array(PreparedSegmentSchema)
+})
+
+const _PreparedTextCoreSchema = Schema.Struct({
+  meta: PreparedTextMetaSchema,
+  kernel: PreparedTextKernelSchema
+})
+
+const _PreparedTextWithSegmentsCoreSchema = Schema.Struct({
+  meta: PreparedTextMetaSchema,
+  kernel: PreparedTextKernelSchema,
+  logicalSurface: PreparedTextLogicalSurfaceSchema
 })
 
 /**
@@ -98,12 +117,12 @@ export type PreparedBreakKindType = typeof PreparedBreakKindSchema.Type
 export type PreparedSegmentType = typeof PreparedSegmentSchema.Type
 
 /**
- * Internal hard-break chunk boundaries for sequential walking.
+ * Internal hard-break chunk boundaries used while compiling kernel tables.
  *
  * @since 0.1.0
  * @category internals
  */
-export type PreparedLineChunkType = typeof PreparedLineChunkSchema.Type
+export type PreparedLineChunkType = typeof _PreparedLineChunkSchema.Type
 
 /**
  * Internal parallel runtime tables compiled during preparation.
@@ -114,24 +133,61 @@ export type PreparedLineChunkType = typeof PreparedLineChunkSchema.Type
 export type PreparedRuntimeTablesType = typeof PreparedRuntimeTablesSchema.Type
 
 /**
- * Internal rich manual-layout surface retained for materialized line APIs.
+ * Internal stable metadata retained alongside the kernel.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category internals
  */
-export type PreparedTextManualSurfaceType = typeof PreparedTextManualSurfaceSchema.Type
+export type PreparedTextMetaType = typeof PreparedTextMetaSchema.Type
 
 /**
- * Internal prepared representation.
+ * Internal kernel authority used by the walker.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export type PreparedTextKernelType = typeof PreparedTextKernelSchema.Type
+
+/**
+ * Internal retained logical surface used only for materialization support.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export type PreparedTextLogicalSurfaceType = typeof PreparedTextLogicalSurfaceSchema.Type
+
+/**
+ * Internal summary prepared representation.
  *
  * @since 0.1.0
  * @category internals
  */
 export type PreparedTextCore = typeof _PreparedTextCoreSchema.Type
 
+/**
+ * Internal prepared representation that retains logical-surface materialization data.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export type PreparedTextWithSegmentsCore = typeof _PreparedTextWithSegmentsCoreSchema.Type
+
+type PreparedTextCursorHintKey = readonly [number, number, number]
+type PreparedTextCursorHints = MutableRef.MutableRef<HashMap.HashMap<PreparedTextCursorHintKey, number>>
+
 const preparedTextConstructionToken = Symbol("PreparedTextConstructionToken")
 type PreparedTextConstructionToken = typeof preparedTextConstructionToken
 const preparedTextCoreSymbol = Symbol("PreparedTextCore")
+const preparedTextWithSegmentsCoreSymbol = Symbol("PreparedTextWithSegmentsCore")
+const preparedTextCursorHintsSymbol = Symbol("PreparedTextCursorHints")
+
+const summaryCoreFromWithSegmentsCore = (core: PreparedTextWithSegmentsCore): PreparedTextCore => ({
+  kernel: core.kernel,
+  meta: core.meta
+})
+
+const preparedTextCursorHints = (): PreparedTextCursorHints =>
+  MutableRef.make(HashMap.empty<PreparedTextCursorHintKey, number>())
 
 /**
  * Prepared text handle returned by `Text.prepare`.
@@ -165,15 +221,53 @@ export class PreparedText {
  * @category models
  */
 export class PreparedTextWithSegments extends PreparedText {
-  constructor(token: PreparedTextConstructionToken, core: PreparedTextCore) {
-    super(token, core)
+  /**
+   * Opaque prepared representation used by visual materialization surfaces.
+   *
+   * @since 0.2.0
+   * @category models
+   */
+  declare readonly [preparedTextWithSegmentsCoreSymbol]: PreparedTextWithSegmentsCore
+
+  /**
+   * Internal sequential-walk hint cache scoped to the prepared handle.
+   *
+   * @since 0.2.0
+   * @category models
+   */
+  declare readonly [preparedTextCursorHintsSymbol]: PreparedTextCursorHints
+
+  constructor(token: PreparedTextConstructionToken, core: PreparedTextWithSegmentsCore) {
+    super(token, summaryCoreFromWithSegmentsCore(core))
+
+    Object.defineProperty(this, preparedTextWithSegmentsCoreSymbol, {
+      value: core,
+      enumerable: false,
+      configurable: false,
+      writable: false
+    })
+
+    Object.defineProperty(this, preparedTextCursorHintsSymbol, {
+      value: preparedTextCursorHints(),
+      enumerable: false,
+      configurable: false,
+      writable: false
+    })
   }
 }
 
 export const preparedTextFromCore = (core: PreparedTextCore): PreparedText =>
   new PreparedText(preparedTextConstructionToken, core)
 
-export const preparedTextWithSegmentsFromCore = (core: PreparedTextCore): PreparedTextWithSegments =>
+export const preparedTextWithSegmentsFromCore = (core: PreparedTextWithSegmentsCore): PreparedTextWithSegments =>
   new PreparedTextWithSegments(preparedTextConstructionToken, core)
 
 export const preparedTextCore = (self: PreparedText): PreparedTextCore => self[preparedTextCoreSymbol]
+
+export const preparedTextWithSegmentsCore = (
+  self: PreparedTextWithSegments
+): PreparedTextWithSegmentsCore => self[preparedTextWithSegmentsCoreSymbol]
+
+export const preparedTextWithSegmentsCursorHints = (
+  self: PreparedTextWithSegments
+): PreparedTextCursorHints => self[preparedTextCursorHintsSymbol]

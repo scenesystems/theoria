@@ -8,13 +8,24 @@ import { Effect, ParseResult, Schema } from "effect"
 import { EngineProfile, MeasurementCache, type TextPreparationServices, WordSegmenter } from "../contracts/index.js"
 import { type MeasurementFailed, type PrepareError, TextLayoutDecodeError } from "../Errors/index.js"
 import { prepareSegments, resolvePreparedBaseDirection } from "./internal/preparation.js"
-import type { PreparedText, PreparedTextCore, PreparedTextWithSegments } from "./model.js"
+import type {
+  PreparedText,
+  PreparedTextCore,
+  PreparedTextLogicalSurfaceType,
+  PreparedTextWithSegments,
+  PreparedTextWithSegmentsCore
+} from "./model.js"
 import { preparedTextFromCore, preparedTextWithSegmentsFromCore } from "./model.js"
 import { PrepareInput, type PrepareInputType } from "./schema.js"
 
+type PreparedTextCompilation = Readonly<{
+  core: PreparedTextCore
+  logicalSurface: PreparedTextLogicalSurfaceType
+}>
+
 const prepareCore = (
   input: PrepareInputType
-): Effect.Effect<PreparedTextCore, MeasurementFailed, TextPreparationServices> =>
+): Effect.Effect<PreparedTextCompilation, MeasurementFailed, TextPreparationServices> =>
   Effect.gen(function*() {
     const segmenter = yield* WordSegmenter
     const cache = yield* MeasurementCache
@@ -26,15 +37,20 @@ const prepareCore = (
       cache.measure(normalizedFont, text))
 
     return {
-      text: input.text,
-      font: normalizedFont,
-      whiteSpace: input.whiteSpace,
-      baseDirection,
-      lineFitEpsilon: engineProfile.lineFitEpsilon,
-      tabStopWidth: prepared.tabStopWidth,
-      preferEarlySoftHyphenBreak: engineProfile.preferEarlySoftHyphenBreak,
-      runtime: prepared.runtime,
-      manualSurface: prepared.manualSurface
+      core: {
+        kernel: {
+          baseDirection,
+          lineFitEpsilon: engineProfile.lineFitEpsilon,
+          preferEarlySoftHyphenBreak: engineProfile.preferEarlySoftHyphenBreak,
+          runtime: prepared.kernelRuntime,
+          whiteSpace: input.whiteSpace
+        },
+        meta: {
+          font: normalizedFont,
+          text: input.text
+        }
+      },
+      logicalSurface: prepared.logicalSurface
     }
   })
 
@@ -47,7 +63,16 @@ const prepareCore = (
 export const prepareWithSegments = (
   input: PrepareInputType
 ): Effect.Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices> =>
-  prepareCore(input).pipe(Effect.map(preparedTextWithSegmentsFromCore))
+  prepareCore(input).pipe(
+    Effect.map((compilation) => {
+      const core: PreparedTextWithSegmentsCore = {
+        ...compilation.core,
+        logicalSurface: compilation.logicalSurface
+      }
+
+      return preparedTextWithSegmentsFromCore(core)
+    })
+  )
 
 /**
  * Compiles text into an opaque prepared handle.
@@ -58,7 +83,7 @@ export const prepareWithSegments = (
 export const prepare = (
   input: PrepareInputType
 ): Effect.Effect<PreparedText, MeasurementFailed, TextPreparationServices> =>
-  prepareCore(input).pipe(Effect.map(preparedTextFromCore))
+  prepareCore(input).pipe(Effect.map((compilation) => preparedTextFromCore(compilation.core)))
 
 /**
  * Decodes unknown input, then compiles it into a prepared handle.

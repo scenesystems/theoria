@@ -14,7 +14,7 @@ import {
   walkLineRanges as walkLineRangesFromCore
 } from "./internal/layout.js"
 import type { PreparedText, PreparedTextWithSegments } from "./model.js"
-import { preparedTextCore } from "./model.js"
+import { preparedTextCore, preparedTextWithSegmentsCore } from "./model.js"
 import type {
   LayoutCursorType,
   LayoutLineRangeType,
@@ -42,11 +42,16 @@ export const initialCursor = (): LayoutCursorType => makeInitialCursor({ segment
 /**
  * Materializes all lines for the supplied width.
  *
+ * Requires `PreparedTextWithSegments` because visual text materialization needs
+ * retained logical-surface data in addition to the compiled summary kernel.
+ *
  * @since 0.1.0
  * @category layout
  */
-export const layoutLines = (prepared: PreparedText, request: LayoutRequestType): ReadonlyArray<LayoutLineType> =>
-  materializeLines(preparedTextCore(prepared), request)
+export const layoutLines = (
+  prepared: PreparedTextWithSegments,
+  request: LayoutRequestType
+): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request)
 
 /**
  * Materializes lines while allowing the caller to vary max width per line.
@@ -54,26 +59,33 @@ export const layoutLines = (prepared: PreparedText, request: LayoutRequestType):
  * This keeps `prepare` effectful and `layout` pure while letting downstream
  * projections reuse the prepared handle for staged or obstacle-aware layout.
  *
+ * Requires `PreparedTextWithSegments` because obstacle-aware materialization
+ * still projects full visual line text.
+ *
  * @since 0.1.0
  * @category layout
  */
 export const layoutLinesWith = (
-  prepared: PreparedText,
+  prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   resolveMaxWidth: LineWidthResolver
-): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextCore(prepared), request, resolveMaxWidth)
+): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
  * Walks laid out line ranges without materializing line text.
+ *
+ * Requires `PreparedTextWithSegments` because logical cursor bounds are walked
+ * against retained logical-surface data.
  *
  * @since 0.2.0
  * @category layout
  */
 export const walkLineRanges = (
-  prepared: PreparedText,
+  prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
   resolveMaxWidth: LineWidthResolver = () => request.maxWidth
-): ReadonlyArray<LayoutLineRangeType> => walkLineRangesFromCore(preparedTextCore(prepared), request, resolveMaxWidth)
+): ReadonlyArray<LayoutLineRangeType> =>
+  walkLineRangesFromCore(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
  * Measures the widest forced line produced by hard breaks in the prepared handle.
@@ -104,7 +116,7 @@ export const layoutNextLine = (
   request: LayoutRequestType,
   cursor: LayoutCursorType
 ): Option.Option<readonly [LayoutLineType, LayoutCursorType]> =>
-  materializeLineAtCursor(preparedTextCore(prepared), request, cursor).pipe(
+  materializeLineAtCursor(prepared, request, cursor).pipe(
     Option.map(([line, nextCursor]) => Tuple.make(line, nextCursor))
   )
 
@@ -118,8 +130,16 @@ export const streamLines = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType
 ): Stream.Stream<LayoutLineType> =>
-  Stream.unfold(initialCursor(), (cursor) =>
+  Stream.unfold({ cursor: initialCursor(), lineIndex: 0 }, (state) =>
     Option.map(
-      layoutNextLine(prepared, request, cursor),
-      ([line, nextCursor]): readonly [LayoutLineType, LayoutCursorType] => [line, nextCursor]
+      materializeLineAtCursor(prepared, request, state.cursor, state.lineIndex),
+      (
+        [line, nextCursor]
+      ): readonly [LayoutLineType, { readonly cursor: LayoutCursorType; readonly lineIndex: number }] => [
+        line,
+        {
+          cursor: nextCursor,
+          lineIndex: state.lineIndex + 1
+        }
+      ]
     ))

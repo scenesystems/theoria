@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 
 import { Contracts, Text } from "../../src/index.js"
-import { preparedTextCore } from "../../src/Text/model.js"
+import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
 import { wp2OverflowFixtures, wp2SegmentationFixtures } from "../fixtures/wp2.js"
 
 const makeTestLayer = Layer.mergeAll(
@@ -33,12 +33,12 @@ describe("Text unicode support fixtures", () => {
         }).pipe(
           Effect.provide(makeTestLayer),
           Effect.map((prepared) => {
-            const core = preparedTextCore(prepared)
+            const core = preparedTextWithSegmentsCore(prepared)
 
-            expect(Arr.map(core.manualSurface.segments, (segment) => segment.text), fixture.name).toEqual(
+            expect(Arr.map(core.logicalSurface.segments, (segment) => segment.text), fixture.name).toEqual(
               fixture.expectedSegments
             )
-            expect(core.runtime.breakKinds, fixture.name).toEqual(fixture.expectedBreakKinds)
+            expect(core.kernel.runtime.breakKinds, fixture.name).toEqual(fixture.expectedBreakKinds)
           })
         ),
       { discard: true }
@@ -87,8 +87,8 @@ describe("Text unicode support fixtures", () => {
       }).pipe(Effect.provide(oversizedLayer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 20, lineHeight: 12 })).toEqual([
-        { index: 0, text: "W", width: 40 },
-        { index: 1, text: "W", width: 40 }
+        { baseDirection: "ltr", index: 0, order: "visual", text: "W", width: 40 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: "W", width: 40 }
       ])
     }))
 })

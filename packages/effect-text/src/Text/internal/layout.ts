@@ -3,10 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Option } from "effect"
+import { Data, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as HashMap from "effect/HashMap"
+import * as MutableRef from "effect/MutableRef"
 
-import type { PreparedBreakKindType, PreparedTextCore } from "../model.js"
+import type {
+  PreparedBreakKindType,
+  PreparedTextCore,
+  PreparedTextWithSegments,
+  PreparedTextWithSegmentsCore
+} from "../model.js"
+import { preparedTextWithSegmentsCore, preparedTextWithSegmentsCursorHints } from "../model.js"
 import type {
   LayoutCursorType,
   LayoutLineRangeType,
@@ -14,27 +22,66 @@ import type {
   LayoutRequestType,
   LayoutSummaryType
 } from "../schema.js"
+import { projectVisualText, type VisualOrderUnit } from "./bidi.js"
 
-// Decomposition note: WP1 keeps the cursor walker, summary projection, and materialization bridge together
-// while the canonical kernel settles. Split plan: extract walker records and text materialization once WP2-WP4
-// extend the same runtime tables for grapheme fallback, bidi ordering, and browser-fit heuristics.
+type BreakCandidate = Readonly<{
+  kind: "dictionary-hyphen" | "explicit" | "soft-hyphen"
+  end: LayoutCursorType
+  nextCursor: LayoutCursorType
+  fitWidth: number
+  insertedText: string
+  insertedWidth: number
+  paintWidth: number
+}>
 
-type SoftBreakCandidate = readonly [
-  end: LayoutCursorType,
-  nextCursor: LayoutCursorType,
-  fitWidth: number,
-  paintWidth: number,
-  breakWidth: number,
-  breakText: string
-]
+type InternalLineRecord = Readonly<{
+  baseDirection: LayoutLineRangeType["baseDirection"]
+  end: LayoutCursorType
+  fitWidth: number
+  insertedBreakText: string
+  nextCursor: LayoutCursorType
+  order: LayoutLineRangeType["order"]
+  paintWidth: number
+  start: LayoutCursorType
+  width: number
+}>
 
-type WalkedLineRecord = LayoutLineRangeType & {
-  readonly breakText: string
-  readonly nextCursor: LayoutCursorType
-}
+type LineScanState = Readonly<{
+  breakCandidates: ReadonlyArray<BreakCandidate>
+  end: LayoutCursorType
+  fitWidth: number
+  paintWidth: number
+  pendingEnd: LayoutCursorType
+  pendingFitWidth: number
+  pendingPaintWidth: number
+  pendingStart: LayoutCursorType | null
+  start: LayoutCursorType
+}>
 
-const emptySoftBreakCandidates: ReadonlyArray<SoftBreakCandidate> = []
-const cursorLineIndexSymbol = Symbol.for("effect-text/LayoutCursorLineIndex")
+type LineWalkFrame = Readonly<{
+  cursor: LayoutCursorType
+  maxWidth: number
+  record: InternalLineRecord | null
+  scan: LineScanState
+  segmentLimit: number
+}>
+
+type ChunkSearchState = Readonly<{
+  lower: number
+  upper: number
+}>
+
+type VisualUnitCursorState = Readonly<{
+  cursor: LayoutCursorType
+  logicalIndex: number
+}>
+
+type CursorHintKey = readonly [number, number, number]
+
+const unfoldStep = <A, B>(value: A, state: B): readonly [A, B] => [value, state]
+
+const cursorHintKey = (maxWidth: number, cursor: LayoutCursorType): CursorHintKey =>
+  Data.tuple(maxWidth, cursor.segmentIndex, cursor.graphemeIndex)
 
 const cursorAt = (segmentIndex: number, graphemeIndex: number = 0): LayoutCursorType => ({
   segmentIndex,
@@ -43,154 +90,189 @@ const cursorAt = (segmentIndex: number, graphemeIndex: number = 0): LayoutCursor
 
 const zeroCursor = cursorAt(0)
 
-const emptyState = {
+const emptyState: LineScanState = {
+  breakCandidates: [],
   end: zeroCursor,
   fitWidth: 0,
   paintWidth: 0,
   pendingEnd: zeroCursor,
   pendingFitWidth: 0,
   pendingPaintWidth: 0,
-  pendingStart: Option.none<LayoutCursorType>(),
-  start: zeroCursor,
-  softBreakCandidates: emptySoftBreakCandidates
+  pendingStart: null,
+  start: zeroCursor
 }
 
-type LineScanState = typeof emptyState
-
-const rememberCursorLineIndex = (cursor: LayoutCursorType, lineIndex: number): LayoutCursorType => {
-  Object.defineProperty(cursor, cursorLineIndexSymbol, {
-    configurable: true,
-    enumerable: false,
-    value: lineIndex,
-    writable: false
-  })
-
-  return cursor
-}
-
-const rememberedCursorLineIndex = (cursor: LayoutCursorType): Option.Option<number> =>
-  Option.fromNullable(Object.getOwnPropertyDescriptor(cursor, cursorLineIndexSymbol)).pipe(
-    Option.flatMap((descriptor) => typeof descriptor.value === "number" ? Option.some(descriptor.value) : Option.none())
-  )
+const segmentCount = (core: PreparedTextCore): number => core.kernel.runtime.breakKinds.length
 
 const cursorEquals = (left: LayoutCursorType, right: LayoutCursorType): boolean =>
   left.segmentIndex === right.segmentIndex && left.graphemeIndex === right.graphemeIndex
 
-const endCursorFor = (core: PreparedTextCore): LayoutCursorType => cursorAt(core.manualSurface.segments.length)
+const endCursorFor = (core: PreparedTextCore): LayoutCursorType => cursorAt(segmentCount(core))
 
-const resolveTabAdvance = (currentWidth: number, tabStopWidth: number): number => {
-  if (tabStopWidth <= 0) {
+const resolveTabAdvance = (currentWidth: number, tabStopAdvance: number): number => {
+  if (tabStopAdvance <= 0) {
     return 0
   }
 
-  const remainder = currentWidth % tabStopWidth
-  return remainder === 0 ? tabStopWidth : tabStopWidth - remainder
+  const remainder = currentWidth % tabStopAdvance
+  return remainder === 0 ? tabStopAdvance : tabStopAdvance - remainder
 }
 
-const segmentAt = (core: PreparedTextCore, segmentIndex: number) => core.manualSurface.segments[segmentIndex]
+const segmentAt = (
+  core: PreparedTextWithSegmentsCore,
+  segmentIndex: number
+) => core.logicalSurface.segments[segmentIndex] ?? null
 
 const breakKindAt = (core: PreparedTextCore, segmentIndex: number): PreparedBreakKindType =>
-  core.runtime.breakKinds[segmentIndex] ?? "text"
+  core.kernel.runtime.breakKinds[segmentIndex] ?? "text"
 
-const textGraphemeCountAt = (core: PreparedTextCore, segmentIndex: number): number =>
-  segmentAt(core, segmentIndex)?.kind === "text"
-    ? Math.max(segmentAt(core, segmentIndex)?.graphemes.length ?? 0, 1)
-    : 1
+const breakableGraphemeWidthsAt = (core: PreparedTextCore, segmentIndex: number): ReadonlyArray<number> =>
+  core.kernel.runtime.breakableGraphemeWidths[segmentIndex] ?? []
 
-const advanceCursor = (core: PreparedTextCore, cursor: LayoutCursorType): LayoutCursorType =>
-  segmentAt(core, cursor.segmentIndex)?.kind === "text" &&
-    cursor.graphemeIndex + 1 < textGraphemeCountAt(core, cursor.segmentIndex)
+const breakablePrefixWidthsAt = (core: PreparedTextCore, segmentIndex: number): ReadonlyArray<number> =>
+  core.kernel.runtime.breakablePrefixWidths[segmentIndex] ?? []
+
+const graphemeBidiLevelsAt = (core: PreparedTextCore, segmentIndex: number): ReadonlyArray<number> =>
+  core.kernel.runtime.graphemeBidiLevels[segmentIndex] ?? []
+
+const mirroredGraphemesAt = (core: PreparedTextCore, segmentIndex: number): ReadonlyArray<string> =>
+  core.kernel.runtime.mirroredGraphemes[segmentIndex] ?? []
+
+const advanceFromPrefixWidths = (
+  prefixWidths: ReadonlyArray<number>,
+  graphemeIndex: number,
+  fallback: number
+): number =>
+  graphemeIndex === 0
+    ? prefixWidths[0] ?? fallback
+    : (prefixWidths[graphemeIndex] ?? fallback) - (prefixWidths[graphemeIndex - 1] ?? 0)
+
+const textGraphemeCountAt = (core: PreparedTextCore, segmentIndex: number): number => {
+  const graphemeWidths = breakableGraphemeWidthsAt(core, segmentIndex)
+
+  return graphemeWidths.length === 0 ? 1 : graphemeWidths.length
+}
+
+const advanceCursor = (core: PreparedTextCore, cursor: LayoutCursorType): LayoutCursorType => {
+  return (
+      breakableGraphemeWidthsAt(core, cursor.segmentIndex).length > 0 &&
+      cursor.graphemeIndex + 1 < textGraphemeCountAt(core, cursor.segmentIndex)
+    )
     ? cursorAt(cursor.segmentIndex, cursor.graphemeIndex + 1)
     : cursorAt(cursor.segmentIndex + 1)
+}
 
-const breakKindAtCursor = (core: PreparedTextCore, cursor: LayoutCursorType): PreparedBreakKindType =>
-  segmentAt(core, cursor.segmentIndex)?.kind === "text" &&
-    cursor.graphemeIndex < textGraphemeCountAt(core, cursor.segmentIndex) - 1
+const breakKindAtCursor = (core: PreparedTextCore, cursor: LayoutCursorType): PreparedBreakKindType => {
+  return (
+      breakableGraphemeWidthsAt(core, cursor.segmentIndex).length > 0 &&
+      cursor.graphemeIndex < textGraphemeCountAt(core, cursor.segmentIndex) - 1
+    )
     ? "text"
     : breakKindAt(core, cursor.segmentIndex)
+}
 
 const resolveFitAdvance = (core: PreparedTextCore, segmentIndex: number, currentFitWidth: number): number =>
   breakKindAt(core, segmentIndex) === "tab"
-    ? resolveTabAdvance(currentFitWidth, core.runtime.tabStopAdvance)
-    : core.runtime.fitAdvances[segmentIndex] ?? 0
+    ? resolveTabAdvance(currentFitWidth, core.kernel.runtime.tabStopAdvance)
+    : core.kernel.runtime.fitAdvances[segmentIndex] ?? 0
 
 const resolvePaintAdvance = (core: PreparedTextCore, segmentIndex: number, currentPaintWidth: number): number =>
   breakKindAt(core, segmentIndex) === "tab"
-    ? resolveTabAdvance(currentPaintWidth, core.runtime.tabStopAdvance)
-    : core.runtime.paintAdvances[segmentIndex] ?? 0
+    ? resolveTabAdvance(currentPaintWidth, core.kernel.runtime.tabStopAdvance)
+    : core.kernel.runtime.paintAdvances[segmentIndex] ?? 0
 
 const resolveFitAdvanceAtCursor = (
   core: PreparedTextCore,
   cursor: LayoutCursorType,
   currentFitWidth: number
-): number =>
-  breakKindAtCursor(core, cursor) === "tab"
-    ? resolveTabAdvance(currentFitWidth, core.runtime.tabStopAdvance)
-    : segmentAt(core, cursor.segmentIndex)?.kind === "text"
-    ? core.runtime.breakableGraphemeWidths[cursor.segmentIndex]?.[cursor.graphemeIndex] ??
-      core.runtime.fitAdvances[cursor.segmentIndex] ?? 0
-    : core.runtime.fitAdvances[cursor.segmentIndex] ?? 0
+): number => {
+  const prefixWidths = breakablePrefixWidthsAt(core, cursor.segmentIndex)
+  const fallbackWidth = core.kernel.runtime.fitAdvances[cursor.segmentIndex] ?? 0
+
+  return breakKindAtCursor(core, cursor) === "tab"
+    ? resolveTabAdvance(currentFitWidth, core.kernel.runtime.tabStopAdvance)
+    : prefixWidths.length > 0
+    ? advanceFromPrefixWidths(prefixWidths, cursor.graphemeIndex, fallbackWidth)
+    : fallbackWidth
+}
 
 const resolvePaintAdvanceAtCursor = (
   core: PreparedTextCore,
   cursor: LayoutCursorType,
   currentPaintWidth: number
-): number =>
-  breakKindAtCursor(core, cursor) === "tab"
-    ? resolveTabAdvance(currentPaintWidth, core.runtime.tabStopAdvance)
-    : segmentAt(core, cursor.segmentIndex)?.kind === "text"
-    ? core.runtime.breakableGraphemeWidths[cursor.segmentIndex]?.[cursor.graphemeIndex] ??
-      core.runtime.paintAdvances[cursor.segmentIndex] ?? 0
-    : core.runtime.paintAdvances[cursor.segmentIndex] ?? 0
+): number => {
+  const graphemeWidths = breakableGraphemeWidthsAt(core, cursor.segmentIndex)
 
-const appendSoftBreakCandidate = (
-  candidates: ReadonlyArray<SoftBreakCandidate>,
+  return breakKindAtCursor(core, cursor) === "tab"
+    ? resolveTabAdvance(currentPaintWidth, core.kernel.runtime.tabStopAdvance)
+    : graphemeWidths.length > 0
+    ? graphemeWidths[cursor.graphemeIndex] ?? core.kernel.runtime.paintAdvances[cursor.segmentIndex] ?? 0
+    : core.kernel.runtime.paintAdvances[cursor.segmentIndex] ?? 0
+}
+
+const appendBreakCandidate = (
+  candidates: ReadonlyArray<BreakCandidate>,
+  candidate: BreakCandidate
+): ReadonlyArray<BreakCandidate> => Arr.append(candidates, candidate)
+
+const appendSoftHyphenBreakCandidate = (
+  candidates: ReadonlyArray<BreakCandidate>,
   core: PreparedTextCore,
   cursor: LayoutCursorType,
   end: LayoutCursorType,
   fitWidth: number,
   paintWidth: number
-): ReadonlyArray<SoftBreakCandidate> =>
+): ReadonlyArray<BreakCandidate> =>
   breakKindAtCursor(core, cursor) === "soft-hyphen"
-    ? [...candidates, [end, end, fitWidth, paintWidth, core.runtime.discretionaryHyphenWidth, "-"]]
+    ? appendBreakCandidate(candidates, {
+      end,
+      fitWidth,
+      insertedText: "-",
+      insertedWidth: core.kernel.runtime.discretionaryHyphenWidth,
+      kind: "soft-hyphen",
+      nextCursor: end,
+      paintWidth
+    })
     : candidates
 
-const appendExplicitBreakCandidate = (
+const explicitBreakCandidate = (
   state: LineScanState,
   currentCursor: LayoutCursorType,
   nextCursor: LayoutCursorType
-): LineScanState => ({
-  ...state,
-  softBreakCandidates: [...state.softBreakCandidates, [
-    currentCursor,
-    nextCursor,
-    state.fitWidth,
-    state.paintWidth,
-    0,
-    ""
-  ]]
+): BreakCandidate => ({
+  end: currentCursor,
+  fitWidth: state.fitWidth,
+  insertedText: "",
+  insertedWidth: 0,
+  kind: "explicit",
+  nextCursor,
+  paintWidth: state.paintWidth
 })
 
-const chooseSoftBreakCandidate = (
-  candidates: ReadonlyArray<SoftBreakCandidate>,
+const chooseBreakCandidate = (
+  candidates: ReadonlyArray<BreakCandidate>,
   maxWidth: number,
   lineFitEpsilon: number,
   preferEarlySoftHyphenBreak: boolean
-): Option.Option<SoftBreakCandidate> => {
+): BreakCandidate | null => {
   const fittingCandidates = Arr.filter(
     candidates,
-    (candidate) => candidate[2] + candidate[4] <= maxWidth + lineFitEpsilon
+    (candidate) => candidate.fitWidth + candidate.insertedWidth <= maxWidth + lineFitEpsilon
   )
 
-  return Option.fromNullable(
-    preferEarlySoftHyphenBreak ? fittingCandidates[0] : fittingCandidates[fittingCandidates.length - 1]
-  )
+  if (fittingCandidates.length === 0) {
+    return null
+  }
+
+  return preferEarlySoftHyphenBreak
+    ? fittingCandidates[0] ?? null
+    : fittingCandidates[fittingCandidates.length - 1] ?? null
 }
 
 const lineHasCommittedContent = (state: LineScanState): boolean =>
   state.paintWidth > 0 || !cursorEquals(state.start, state.end)
 
-const hasPendingWhitespace = (state: LineScanState): boolean => Option.isSome(state.pendingStart)
+const hasPendingWhitespace = (state: LineScanState): boolean => state.pendingStart !== null
 
 const initialLineScanState = (cursor: LayoutCursorType): LineScanState => ({
   ...emptyState,
@@ -199,36 +281,53 @@ const initialLineScanState = (cursor: LayoutCursorType): LineScanState => ({
   start: cursor
 })
 
-const emitLineRecord = (
+const emitInternalLineRecord = (
+  core: PreparedTextCore,
   start: LayoutCursorType,
   end: LayoutCursorType,
   nextCursor: LayoutCursorType,
-  width: number,
-  breakText: string = ""
-): WalkedLineRecord => ({
-  breakText,
+  fitWidth: number,
+  paintWidth: number,
+  insertedBreakText: string = ""
+): InternalLineRecord => ({
+  baseDirection: core.kernel.baseDirection,
   end,
+  fitWidth,
+  insertedBreakText,
   nextCursor,
+  order: "visual",
+  paintWidth,
   start,
-  width
+  width: paintWidth
 })
 
-const finalizeAtEnd = (core: PreparedTextCore, state: LineScanState): Option.Option<WalkedLineRecord> => {
-  const preservePending = core.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
+const finalizeAtEnd = (core: PreparedTextCore, state: LineScanState): Option.Option<InternalLineRecord> => {
+  const preservePending = core.kernel.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
 
   if (lineHasCommittedContent(state)) {
     return Option.some(
-      emitLineRecord(
+      emitInternalLineRecord(
+        core,
         state.start,
         preservePending ? state.pendingEnd : state.end,
         endCursorFor(core),
+        state.fitWidth + (preservePending ? state.pendingFitWidth : 0),
         state.paintWidth + (preservePending ? state.pendingPaintWidth : 0)
       )
     )
   }
 
   return preservePending
-    ? Option.some(emitLineRecord(state.start, state.pendingEnd, endCursorFor(core), state.pendingPaintWidth))
+    ? Option.some(
+      emitInternalLineRecord(
+        core,
+        state.start,
+        state.pendingEnd,
+        endCursorFor(core),
+        state.pendingFitWidth,
+        state.pendingPaintWidth
+      )
+    )
     : Option.none()
 }
 
@@ -236,50 +335,70 @@ const finalizeAtHardBreak = (
   core: PreparedTextCore,
   state: LineScanState,
   nextCursor: LayoutCursorType
-): WalkedLineRecord => {
-  const preservePending = core.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
+): InternalLineRecord => {
+  const preservePending = core.kernel.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
 
   if (lineHasCommittedContent(state)) {
-    return emitLineRecord(
+    return emitInternalLineRecord(
+      core,
       state.start,
       preservePending ? state.pendingEnd : state.end,
       nextCursor,
+      state.fitWidth + (preservePending ? state.pendingFitWidth : 0),
       state.paintWidth + (preservePending ? state.pendingPaintWidth : 0)
     )
   }
 
   return preservePending
-    ? emitLineRecord(state.start, state.pendingEnd, nextCursor, state.pendingPaintWidth)
-    : emitLineRecord(state.start, state.start, nextCursor, 0)
+    ? emitInternalLineRecord(
+      core,
+      state.start,
+      state.pendingEnd,
+      nextCursor,
+      state.pendingFitWidth,
+      state.pendingPaintWidth
+    )
+    : emitInternalLineRecord(core, state.start, state.start, nextCursor, 0, 0)
 }
 
 const finalizeBeforeCurrent = (
+  core: PreparedTextCore,
   state: LineScanState,
   nextCursor: LayoutCursorType
-): WalkedLineRecord => emitLineRecord(state.start, state.end, nextCursor, state.paintWidth)
+): InternalLineRecord =>
+  emitInternalLineRecord(core, state.start, state.end, nextCursor, state.fitWidth, state.paintWidth)
 
 const finalizeBeforePending = (
   core: PreparedTextCore,
   state: LineScanState,
   currentCursor: LayoutCursorType
-): WalkedLineRecord =>
-  emitLineRecord(
+): InternalLineRecord =>
+  emitInternalLineRecord(
+    core,
     state.start,
     state.end,
-    Option.match(state.pendingStart, {
-      onNone: () => currentCursor,
-      onSome: (pendingStart) => (core.whiteSpace === "pre-wrap" ? pendingStart : currentCursor)
-    }),
+    state.pendingStart === null
+      ? currentCursor
+      : core.kernel.whiteSpace === "pre-wrap"
+      ? state.pendingStart
+      : currentCursor,
+    state.fitWidth,
     state.paintWidth
   )
 
-const finalizeSoftBreak = (state: LineScanState, candidate: SoftBreakCandidate): WalkedLineRecord =>
-  emitLineRecord(
-    state.start,
-    candidate[0],
-    candidate[1],
-    candidate[3] + candidate[4],
-    candidate[5]
+const finalizeBreakCandidate = (
+  core: PreparedTextCore,
+  candidate: BreakCandidate,
+  start: LayoutCursorType
+): InternalLineRecord =>
+  emitInternalLineRecord(
+    core,
+    start,
+    candidate.end,
+    candidate.nextCursor,
+    candidate.fitWidth + candidate.insertedWidth,
+    candidate.paintWidth + candidate.insertedWidth,
+    candidate.insertedText
   )
 
 const appendPendingWhitespace = (
@@ -293,14 +412,11 @@ const appendPendingWhitespace = (
 
   return {
     ...state,
+    breakCandidates: [],
     pendingEnd: nextCursor,
     pendingFitWidth: state.pendingFitWidth + fitAdvance,
     pendingPaintWidth: state.pendingPaintWidth + paintAdvance,
-    pendingStart: Option.match(state.pendingStart, {
-      onNone: () => Option.some(currentCursor),
-      onSome: () => state.pendingStart
-    }),
-    softBreakCandidates: []
+    pendingStart: state.pendingStart ?? currentCursor
   }
 }
 
@@ -310,21 +426,21 @@ const startLineWithSegment = (
   currentCursor: LayoutCursorType,
   nextCursor: LayoutCursorType
 ): LineScanState => {
-  const leadingFitWidth = core.whiteSpace === "pre-wrap" ? state.pendingFitWidth : 0
-  const leadingPaintWidth = core.whiteSpace === "pre-wrap" ? state.pendingPaintWidth : 0
+  const leadingFitWidth = core.kernel.whiteSpace === "pre-wrap" ? state.pendingFitWidth : 0
+  const leadingPaintWidth = core.kernel.whiteSpace === "pre-wrap" ? state.pendingPaintWidth : 0
   const fitWidth = leadingFitWidth + resolveFitAdvanceAtCursor(core, currentCursor, leadingFitWidth)
   const paintWidth = leadingPaintWidth + resolvePaintAdvanceAtCursor(core, currentCursor, leadingPaintWidth)
 
   return {
     ...state,
+    breakCandidates: appendSoftHyphenBreakCandidate([], core, currentCursor, nextCursor, fitWidth, paintWidth),
     end: nextCursor,
     fitWidth,
     paintWidth,
     pendingEnd: nextCursor,
     pendingFitWidth: 0,
     pendingPaintWidth: 0,
-    pendingStart: Option.none(),
-    softBreakCandidates: appendSoftBreakCandidate([], core, currentCursor, nextCursor, fitWidth, paintWidth)
+    pendingStart: null
   }
 }
 
@@ -341,128 +457,187 @@ const appendCommittedSegment = (
 
   return {
     ...state,
+    breakCandidates: appendSoftHyphenBreakCandidate(
+      hasPendingWhitespace(state) ? [] : state.breakCandidates,
+      core,
+      currentCursor,
+      nextCursor,
+      fitWidth,
+      paintWidth
+    ),
     end: nextCursor,
     fitWidth,
     paintWidth,
     pendingEnd: nextCursor,
     pendingFitWidth: 0,
     pendingPaintWidth: 0,
-    pendingStart: Option.none(),
-    softBreakCandidates: appendSoftBreakCandidate(
-      hasPendingWhitespace(state) ? [] : state.softBreakCandidates,
-      core,
-      currentCursor,
-      nextCursor,
-      fitWidth,
-      paintWidth
-    )
+    pendingStart: null
   }
 }
 
-const chunkIndexForCursor = (
-  core: PreparedTextCore,
-  cursor: LayoutCursorType,
-  chunkIndex: number = 0
-): number => {
-  const chunkCount = core.runtime.chunkStartIndices.length
+const chunkIndexForCursor = (core: PreparedTextCore, cursor: LayoutCursorType): number => {
+  const chunkCount = core.kernel.runtime.chunkConsumedEndIndices.length
+  const lastChunkIndex = Math.max(chunkCount - 1, 0)
 
-  if (chunkCount <= 1 || chunkIndex >= chunkCount - 1) {
-    return chunkCount === 0 ? 0 : chunkCount - 1
+  if (chunkCount <= 1) {
+    return 0
   }
 
-  return cursor.segmentIndex < (core.runtime.chunkConsumedEndIndices[chunkIndex] ?? core.manualSurface.segments.length)
-    ? chunkIndex
-    : chunkIndexForCursor(core, cursor, chunkIndex + 1)
+  const initialState: ChunkSearchState = {
+    lower: 0,
+    upper: lastChunkIndex
+  }
+  const states = Arr.unfold(initialState, (state) => {
+    if (state.lower >= state.upper) {
+      return Option.none()
+    }
+
+    const midpoint = Math.floor((state.lower + state.upper) / 2)
+    const midpointEnd = core.kernel.runtime.chunkConsumedEndIndices[midpoint] ?? segmentCount(core)
+    const nextState: ChunkSearchState = cursor.segmentIndex < midpointEnd
+      ? { lower: state.lower, upper: midpoint }
+      : { lower: midpoint + 1, upper: state.upper }
+
+    return Option.some(unfoldStep(nextState, nextState))
+  })
+  const finalState = Arr.last(states).pipe(Option.getOrElse(() => initialState))
+
+  return finalState.lower
 }
 
-const chunkConsumedEndForCursor = (core: PreparedTextCore, cursor: LayoutCursorType): number =>
-  core.runtime.chunkConsumedEndIndices[chunkIndexForCursor(core, cursor)] ?? core.manualSurface.segments.length
+const segmentLimitForCursor = (core: PreparedTextCore, cursor: LayoutCursorType): number =>
+  core.kernel.runtime.chunkConsumedEndIndices[chunkIndexForCursor(core, cursor)] ?? segmentCount(core)
+
+const lineFrameIsComplete = (core: PreparedTextCore, frame: LineWalkFrame): boolean =>
+  frame.record !== null || frame.cursor.segmentIndex >= segmentCount(core) ||
+  frame.cursor.segmentIndex >= frame.segmentLimit
+
+const advanceLineFrame = (core: PreparedTextCore, frame: LineWalkFrame): LineWalkFrame => {
+  const currentCursor = frame.cursor
+  const nextCursor = advanceCursor(core, currentCursor)
+  const breakKind = breakKindAtCursor(core, currentCursor)
+
+  if (breakKind === "hard-break") {
+    return {
+      ...frame,
+      cursor: nextCursor,
+      record: finalizeAtHardBreak(core, frame.scan, nextCursor)
+    }
+  }
+
+  if (breakKind === "space" || breakKind === "preserved-space" || breakKind === "tab") {
+    return !lineHasCommittedContent(frame.scan) && core.kernel.whiteSpace === "normal"
+      ? {
+        ...frame,
+        cursor: nextCursor,
+        scan: {
+          ...frame.scan,
+          end: nextCursor,
+          pendingEnd: nextCursor,
+          start: nextCursor
+        }
+      }
+      : {
+        ...frame,
+        cursor: nextCursor,
+        scan: appendPendingWhitespace(core, frame.scan, currentCursor, nextCursor)
+      }
+  }
+
+  if (breakKind === "zero-width-break") {
+    return !lineHasCommittedContent(frame.scan)
+      ? {
+        ...frame,
+        cursor: nextCursor,
+        scan: {
+          ...frame.scan,
+          end: nextCursor,
+          pendingEnd: nextCursor,
+          start: nextCursor
+        }
+      }
+      : {
+        ...frame,
+        cursor: nextCursor,
+        scan: {
+          ...frame.scan,
+          breakCandidates: appendBreakCandidate(
+            frame.scan.breakCandidates,
+            explicitBreakCandidate(frame.scan, currentCursor, nextCursor)
+          )
+        }
+      }
+  }
+
+  if (!lineHasCommittedContent(frame.scan)) {
+    return {
+      ...frame,
+      cursor: nextCursor,
+      scan: startLineWithSegment(core, frame.scan, currentCursor, nextCursor)
+    }
+  }
+
+  const candidateFitWidth = frame.scan.fitWidth + frame.scan.pendingFitWidth +
+    resolveFitAdvanceAtCursor(core, currentCursor, frame.scan.fitWidth + frame.scan.pendingFitWidth)
+
+  if (candidateFitWidth <= frame.maxWidth + core.kernel.lineFitEpsilon) {
+    return {
+      ...frame,
+      cursor: nextCursor,
+      scan: appendCommittedSegment(core, frame.scan, currentCursor, nextCursor)
+    }
+  }
+
+  if (hasPendingWhitespace(frame.scan)) {
+    return {
+      ...frame,
+      record: finalizeBeforePending(core, frame.scan, currentCursor)
+    }
+  }
+
+  const breakCandidate = chooseBreakCandidate(
+    frame.scan.breakCandidates,
+    frame.maxWidth,
+    core.kernel.lineFitEpsilon,
+    core.kernel.preferEarlySoftHyphenBreak
+  )
+
+  return {
+    ...frame,
+    record: breakCandidate === null
+      ? finalizeBeforeCurrent(core, frame.scan, currentCursor)
+      : finalizeBreakCandidate(core, breakCandidate, frame.scan.start)
+  }
+}
 
 const walkNextLineRecord = (
   core: PreparedTextCore,
   maxWidth: number,
   cursor: LayoutCursorType
-): Option.Option<WalkedLineRecord> => {
-  const scan = (
-    currentCursor: LayoutCursorType,
-    segmentLimit: number,
-    state: LineScanState
-  ): Option.Option<WalkedLineRecord> => {
-    if (
-      currentCursor.segmentIndex >= core.manualSurface.segments.length || currentCursor.segmentIndex >= segmentLimit
-    ) {
-      return finalizeAtEnd(core, state)
-    }
-
-    const breakKind = breakKindAtCursor(core, currentCursor)
-    const nextCursor = advanceCursor(core, currentCursor)
-
-    if (breakKind === "hard-break") {
-      return Option.some(finalizeAtHardBreak(core, state, nextCursor))
-    }
-
-    if (
-      breakKind === "space" ||
-      breakKind === "preserved-space" ||
-      breakKind === "tab"
-    ) {
-      return !lineHasCommittedContent(state) && core.whiteSpace === "normal"
-        ? scan(nextCursor, segmentLimit, {
-          ...state,
-          end: nextCursor,
-          pendingEnd: nextCursor,
-          start: nextCursor
-        })
-        : scan(
-          nextCursor,
-          segmentLimit,
-          appendPendingWhitespace(core, state, currentCursor, nextCursor)
-        )
-    }
-
-    if (breakKind === "zero-width-break") {
-      return !lineHasCommittedContent(state)
-        ? scan(nextCursor, segmentLimit, {
-          ...state,
-          end: nextCursor,
-          pendingEnd: nextCursor,
-          start: nextCursor
-        })
-        : scan(nextCursor, segmentLimit, appendExplicitBreakCandidate(state, currentCursor, nextCursor))
-    }
-
-    if (!lineHasCommittedContent(state)) {
-      return scan(nextCursor, segmentLimit, startLineWithSegment(core, state, currentCursor, nextCursor))
-    }
-
-    const candidateFitWidth = state.fitWidth + state.pendingFitWidth +
-      resolveFitAdvanceAtCursor(core, currentCursor, state.fitWidth + state.pendingFitWidth)
-
-    if (candidateFitWidth <= maxWidth + core.lineFitEpsilon) {
-      return scan(nextCursor, segmentLimit, appendCommittedSegment(core, state, currentCursor, nextCursor))
-    }
-
-    if (hasPendingWhitespace(state)) {
-      return Option.some(finalizeBeforePending(core, state, currentCursor))
-    }
-
-    return Option.match(
-      chooseSoftBreakCandidate(
-        state.softBreakCandidates,
-        maxWidth,
-        core.lineFitEpsilon,
-        core.preferEarlySoftHyphenBreak
-      ),
-      {
-        onNone: () => Option.some(finalizeBeforeCurrent(state, currentCursor)),
-        onSome: (softBreak) => Option.some(finalizeSoftBreak(state, softBreak))
-      }
-    )
+): Option.Option<InternalLineRecord> => {
+  if (cursor.segmentIndex >= segmentCount(core)) {
+    return Option.none()
   }
 
-  return cursor.segmentIndex >= core.manualSurface.segments.length
-    ? Option.none()
-    : scan(cursor, chunkConsumedEndForCursor(core, cursor), initialLineScanState(cursor))
+  const initialFrame: LineWalkFrame = {
+    cursor,
+    maxWidth,
+    record: null,
+    scan: initialLineScanState(cursor),
+    segmentLimit: segmentLimitForCursor(core, cursor)
+  }
+  const frames = Arr.unfold(initialFrame, (frame) => {
+    if (lineFrameIsComplete(core, frame)) {
+      return Option.none()
+    }
+
+    const nextFrame = advanceLineFrame(core, frame)
+
+    return Option.some(unfoldStep(nextFrame, nextFrame))
+  })
+  const terminalFrame = Arr.last(frames).pipe(Option.getOrElse(() => initialFrame))
+
+  return terminalFrame.record !== null ? Option.some(terminalFrame.record) : finalizeAtEnd(core, terminalFrame.scan)
 }
 
 const walkLineRecordArray = (
@@ -470,186 +645,211 @@ const walkLineRecordArray = (
   maxWidthAtLine: (lineIndex: number) => number,
   lineIndex: number = 0,
   cursor: LayoutCursorType = cursorAt(0)
-): ReadonlyArray<WalkedLineRecord> =>
-  Option.match(walkNextLineRecord(core, maxWidthAtLine(lineIndex), cursor), {
-    onNone: () => [],
-    onSome: (record) => [record, ...walkLineRecordArray(core, maxWidthAtLine, lineIndex + 1, record.nextCursor)]
-  })
-
-const materializeSegmentText = (core: PreparedTextCore, segmentIndex: number): string => {
-  const segment = segmentAt(core, segmentIndex)
-
-  return Option.fromNullable(segment).pipe(
-    Option.match({
-      onNone: () => "",
-      onSome: (value) => value.kind === "text" ? value.graphemes.join("") : value.text
-    })
+): ReadonlyArray<InternalLineRecord> =>
+  Arr.unfold(
+    { cursor, lineIndex },
+    (state) =>
+      walkNextLineRecord(core, maxWidthAtLine(state.lineIndex), state.cursor).pipe(
+        Option.map((record) =>
+          unfoldStep(record, {
+            cursor: record.nextCursor,
+            lineIndex: state.lineIndex + 1
+          })
+        )
+      )
   )
+
+const visualOrderUnitAtCursor = (
+  core: PreparedTextWithSegmentsCore,
+  cursor: LayoutCursorType,
+  logicalIndex: number
+): VisualOrderUnit => {
+  const segment = segmentAt(core, cursor.segmentIndex)
+  const fallbackLevel = core.kernel.baseDirection === "rtl" ? 1 : 0
+  const graphemeBidiLevels = graphemeBidiLevelsAt(core, cursor.segmentIndex)
+  const mirroredGraphemes = mirroredGraphemesAt(core, cursor.segmentIndex)
+
+  return segment === null
+    ? {
+      level: fallbackLevel,
+      logicalIndex,
+      mirroredText: "",
+      text: ""
+    }
+    : segment.kind === "text"
+    ? {
+      level: graphemeBidiLevels[cursor.graphemeIndex] ?? segment.bidiLevel,
+      logicalIndex,
+      mirroredText: mirroredGraphemes[cursor.graphemeIndex] ?? segment.graphemes[cursor.graphemeIndex] ?? "",
+      text: segment.graphemes[cursor.graphemeIndex] ?? ""
+    }
+    : {
+      level: segment.bidiLevel,
+      logicalIndex,
+      mirroredText: segment.text,
+      text: segment.text
+    }
 }
 
-const materializeTextSlice = (
-  core: PreparedTextCore,
-  segmentIndex: number,
-  startGraphemeIndex: number,
-  endGraphemeIndex: number
-): string => {
-  const segment = segmentAt(core, segmentIndex)
-
-  return Option.fromNullable(segment).pipe(
-    Option.match({
-      onNone: () => "",
-      onSome: (value) =>
-        value.kind === "text"
-          ? value.graphemes.slice(startGraphemeIndex, endGraphemeIndex).join("")
-          : value.text
-    })
+const visualUnitsForRecord = (
+  core: PreparedTextWithSegmentsCore,
+  record: InternalLineRecord
+): ReadonlyArray<VisualOrderUnit> =>
+  Arr.unfold(
+    { cursor: record.start, logicalIndex: 0 },
+    (state: VisualUnitCursorState) =>
+      cursorEquals(state.cursor, record.end)
+        ? Option.none()
+        : Option.some(
+          unfoldStep(
+            visualOrderUnitAtCursor(core, state.cursor, state.logicalIndex),
+            {
+              cursor: advanceCursor(core, state.cursor),
+              logicalIndex: state.logicalIndex + 1
+            }
+          )
+        )
   )
-}
 
-const materializeRangeText = (
-  core: PreparedTextCore,
-  start: LayoutCursorType,
-  end: LayoutCursorType
-): string => {
-  if (cursorEquals(start, end)) {
-    return ""
-  }
+const visualTextForRecord = (core: PreparedTextWithSegmentsCore, record: InternalLineRecord): string => {
+  const units = visualUnitsForRecord(core, record)
+  const fallbackLevel = units.length === 0
+    ? core.kernel.baseDirection === "rtl"
+      ? 1
+      : 0
+    : units[units.length - 1]?.level ?? 0
 
-  if (start.segmentIndex === end.segmentIndex) {
-    return materializeTextSlice(core, start.segmentIndex, start.graphemeIndex, end.graphemeIndex)
-  }
-
-  const leadingText = materializeTextSlice(
-    core,
-    start.segmentIndex,
-    start.graphemeIndex,
-    textGraphemeCountAt(core, start.segmentIndex)
-  )
-  const middleText = Arr.reduce(
-    core.manualSurface.segments.slice(start.segmentIndex + 1, end.segmentIndex),
-    "",
-    (text, _, index) => text + materializeSegmentText(core, start.segmentIndex + 1 + index)
-  )
-  const trailingText = end.graphemeIndex === 0 ? "" : materializeTextSlice(core, end.segmentIndex, 0, end.graphemeIndex)
-
-  return leadingText + middleText + trailingText
+  return projectVisualText(units, record.insertedBreakText, fallbackLevel)
 }
 
 const materializeLine = (
-  core: PreparedTextCore,
+  core: PreparedTextWithSegmentsCore,
   lineIndex: number,
-  record: WalkedLineRecord
+  record: InternalLineRecord
 ): LayoutLineType => ({
+  baseDirection: core.kernel.baseDirection,
   index: lineIndex,
-  text: materializeRangeText(core, record.start, record.end) + record.breakText,
+  order: "visual",
+  text: visualTextForRecord(core, record),
   width: record.width
 })
 
 const measureChunkWidth = (
   core: PreparedTextCore,
-  segmentIndex: number,
-  segmentLimit: number,
-  fitWidth: number = 0,
-  paintWidth: number = 0
+  startSegmentIndex: number,
+  segmentLimit: number
 ): number => {
-  if (segmentIndex >= core.manualSurface.segments.length || segmentIndex >= segmentLimit) {
-    return paintWidth
-  }
-
-  return breakKindAt(core, segmentIndex) === "hard-break"
-    ? paintWidth
-    : measureChunkWidth(
-      core,
-      segmentIndex + 1,
-      segmentLimit,
-      fitWidth + resolveFitAdvance(core, segmentIndex, fitWidth),
-      paintWidth + resolvePaintAdvance(core, segmentIndex, paintWidth)
-    )
-}
-
-const measureNaturalWidthFromChunk = (
-  core: PreparedTextCore,
-  chunkIndex: number = 0,
-  maxWidth: number = 0
-): number => {
-  if (chunkIndex >= core.runtime.chunkStartIndices.length) {
-    return maxWidth
-  }
-
-  const startSegmentIndex = core.runtime.chunkStartIndices[chunkIndex] ?? core.manualSurface.segments.length
-  const consumedEndIndex = core.runtime.chunkConsumedEndIndices[chunkIndex] ?? core.manualSurface.segments.length
-  const chunkWidth = measureChunkWidth(core, startSegmentIndex, consumedEndIndex)
-
-  return measureNaturalWidthFromChunk(core, chunkIndex + 1, Math.max(maxWidth, chunkWidth))
-}
-
-export const summarizeLines = (core: PreparedTextCore, request: LayoutRequestType): LayoutSummaryType => {
-  const summarizeFromCursor = (
-    cursor: LayoutCursorType,
-    lineCount: number,
-    maxLineWidth: number
-  ): LayoutSummaryType =>
-    Option.match(walkNextLineRecord(core, request.maxWidth, cursor), {
-      onNone: () => ({
-        height: lineCount * request.lineHeight,
-        lineCount,
-        maxLineWidth
-      }),
-      onSome: (record) => summarizeFromCursor(record.nextCursor, lineCount + 1, Math.max(maxLineWidth, record.width))
+  const segmentWidthCount = Math.max(segmentLimit - startSegmentIndex, 0)
+  const segmentIndices = Arr.makeBy(segmentWidthCount, (index) => startSegmentIndex + index)
+  const widths = Arr.reduce(
+    segmentIndices,
+    { fitWidth: 0, paintWidth: 0 },
+    (state, segmentIndex) => ({
+      fitWidth: state.fitWidth + resolveFitAdvance(core, segmentIndex, state.fitWidth),
+      paintWidth: state.paintWidth + resolvePaintAdvance(core, segmentIndex, state.paintWidth)
     })
+  )
 
-  return summarizeFromCursor(cursorAt(0), 0, 0)
+  return widths.paintWidth
 }
 
-export const makeInitialCursor = (cursor: LayoutCursorType): LayoutCursorType => rememberCursorLineIndex(cursor, 0)
+export const summarizeLines = (core: PreparedTextCore, request: LayoutRequestType): LayoutSummaryType =>
+  Arr.reduce(
+    walkLineRecordArray(core, () => request.maxWidth),
+    {
+      height: 0,
+      lineCount: 0,
+      maxLineWidth: 0
+    },
+    (summary, record) => ({
+      height: summary.height + request.lineHeight,
+      lineCount: summary.lineCount + 1,
+      maxLineWidth: Math.max(summary.maxLineWidth, record.width)
+    })
+  )
+
+export const makeInitialCursor = (cursor: LayoutCursorType): LayoutCursorType => ({
+  graphemeIndex: cursor.graphemeIndex,
+  segmentIndex: cursor.segmentIndex
+})
+
+const rememberCursorHint = (
+  cursor: LayoutCursorType,
+  cursorHints: MutableRef.MutableRef<HashMap.HashMap<CursorHintKey, number>>,
+  maxWidth: number,
+  lineIndex: number
+): LayoutCursorType => {
+  MutableRef.update(cursorHints, HashMap.set(cursorHintKey(maxWidth, cursor), lineIndex))
+
+  return cursor
+}
+
+const rememberedCursorLineIndex = (
+  cursor: LayoutCursorType,
+  cursorHints: MutableRef.MutableRef<HashMap.HashMap<CursorHintKey, number>>,
+  maxWidth: number
+): number => HashMap.get(MutableRef.get(cursorHints), cursorHintKey(maxWidth, cursor)).pipe(Option.getOrElse(() => -1))
 
 const countLinesBeforeCursor = (
-  core: PreparedTextCore,
+  core: PreparedTextWithSegmentsCore,
   request: LayoutRequestType,
-  targetCursor: LayoutCursorType,
-  cursor: LayoutCursorType = cursorAt(0),
-  lineCount: number = 0
+  targetCursor: LayoutCursorType
 ): number =>
-  cursorEquals(cursor, targetCursor)
-    ? lineCount
-    : Option.match(walkNextLineRecord(core, request.maxWidth, cursor), {
-      onNone: () => lineCount,
-      onSome: (record) => countLinesBeforeCursor(core, request, targetCursor, record.nextCursor, lineCount + 1)
-    })
+  Arr.unfold(cursorAt(0), (cursor) =>
+    cursorEquals(cursor, targetCursor)
+      ? Option.none()
+      : walkNextLineRecord(core, request.maxWidth, cursor).pipe(
+        Option.map((record) => unfoldStep(record.nextCursor, record.nextCursor))
+      )).length
 
 export const materializeLines = (
-  core: PreparedTextCore,
+  core: PreparedTextWithSegmentsCore,
   request: LayoutRequestType,
   maxWidthAtLine: (lineIndex: number) => number = () => request.maxWidth
 ): ReadonlyArray<LayoutLineType> =>
   Arr.map(walkLineRecordArray(core, maxWidthAtLine), (record, lineIndex) => materializeLine(core, lineIndex, record))
 
 export const materializeLineAtCursor = (
-  core: PreparedTextCore,
+  prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
-  cursor: LayoutCursorType
-): Option.Option<readonly [LayoutLineType, LayoutCursorType]> =>
-  walkNextLineRecord(core, request.maxWidth, cursor).pipe(
-    Option.map(
-      (record): readonly [LayoutLineType, LayoutCursorType] => {
-        const lineIndex = Option.getOrElse(
-          rememberedCursorLineIndex(cursor),
-          () => countLinesBeforeCursor(core, request, cursor)
-        )
+  cursor: LayoutCursorType,
+  lineIndexHint: number = -1
+): Option.Option<readonly [LayoutLineType, LayoutCursorType]> => {
+  const core = preparedTextWithSegmentsCore(prepared)
+  const cursorHints = preparedTextWithSegmentsCursorHints(prepared)
 
-        return [
-          materializeLine(core, lineIndex, record),
-          rememberCursorLineIndex(record.nextCursor, lineIndex + 1)
-        ]
-      }
-    )
+  return walkNextLineRecord(core, request.maxWidth, cursor).pipe(
+    Option.map((record): readonly [LayoutLineType, LayoutCursorType] => {
+      const hintedLineIndex = lineIndexHint >= 0
+        ? lineIndexHint
+        : rememberedCursorLineIndex(cursor, cursorHints, request.maxWidth)
+      const lineIndex = hintedLineIndex >= 0 ? hintedLineIndex : countLinesBeforeCursor(core, request, cursor)
+
+      return [
+        materializeLine(core, lineIndex, record),
+        rememberCursorHint(record.nextCursor, cursorHints, request.maxWidth, lineIndex + 1)
+      ]
+    })
   )
+}
 
 export const walkLineRanges = (
-  core: PreparedTextCore,
+  core: PreparedTextWithSegmentsCore,
   request: LayoutRequestType,
   maxWidthAtLine: (lineIndex: number) => number = () => request.maxWidth
 ): ReadonlyArray<LayoutLineRangeType> =>
-  Arr.map(walkLineRecordArray(core, maxWidthAtLine), ({ end, start, width }) => ({ end, start, width }))
+  Arr.map(walkLineRecordArray(core, maxWidthAtLine), (record) => ({
+    baseDirection: record.baseDirection,
+    end: record.end,
+    order: record.order,
+    start: record.start,
+    width: record.width
+  }))
 
-export const measureNaturalWidth = (core: PreparedTextCore): number => measureNaturalWidthFromChunk(core)
+export const measureNaturalWidth = (core: PreparedTextCore): number =>
+  Arr.reduce(core.kernel.runtime.chunkStartIndices, 0, (maxWidth, startSegmentIndex, chunkIndex) => {
+    const consumedEndIndex = core.kernel.runtime.chunkConsumedEndIndices[chunkIndex] ?? segmentCount(core)
+    const chunkWidth = measureChunkWidth(core, startSegmentIndex, consumedEndIndex)
+
+    return Math.max(maxWidth, chunkWidth)
+  })

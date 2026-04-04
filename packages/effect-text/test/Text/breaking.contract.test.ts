@@ -4,6 +4,14 @@ import * as Arr from "effect/Array"
 
 import { Contracts, Text } from "../../src/index.js"
 
+const visualLine = (index: number, text: string, width: number): Text.LayoutLineType => ({
+  baseDirection: "ltr",
+  index,
+  order: "visual",
+  text,
+  width
+})
+
 const makeTestLayer = Layer.mergeAll(
   Text.WordSegmenterLive,
   Text.EngineProfileLive,
@@ -77,8 +85,8 @@ describe("Text breaking contracts", () => {
       }).pipe(Effect.provide(makeTestLayer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
-        { index: 0, text: "alpha-", width: 30 },
-        { index: 1, text: "beta", width: 20 }
+        visualLine(0, "alpha-", 30),
+        visualLine(1, "beta", 20)
       ])
     }))
 
@@ -91,8 +99,8 @@ describe("Text breaking contracts", () => {
       }).pipe(Effect.provide(makeTestLayer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
-        { index: 0, text: "alpha", width: 25 },
-        { index: 1, text: "beta", width: 20 }
+        visualLine(0, "alpha", 25),
+        visualLine(1, "beta", 20)
       ])
     }))
 
@@ -114,9 +122,9 @@ describe("Text breaking contracts", () => {
       }).pipe(Effect.provide(makeTestLayer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
-        { index: 0, text: "alphab", width: 30 },
-        { index: 1, text: "et", width: 10 },
-        { index: 2, text: "a\tb", width: 25 }
+        visualLine(0, "alphab", 30),
+        visualLine(1, "et", 10),
+        visualLine(2, "a\tb", 25)
       ])
     }))
 })

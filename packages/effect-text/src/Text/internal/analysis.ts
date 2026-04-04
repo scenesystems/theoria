@@ -32,7 +32,7 @@ const CLOSING_PUNCTUATION_PATTERN =
   /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
 const RUN_CONNECTOR_PATTERN = /^[-._~,/:@?&=#%+]+$/u
 
-type TextDirection = "ltr" | "rtl" | "neutral"
+export type TextDirection = "ltr" | "rtl" | "neutral"
 type WhitespaceToken = readonly [kind: "space" | "tab", text: string]
 type SoftHyphenPiece = readonly [text: string, breakAfter: boolean]
 type TextBreakClass =
@@ -366,7 +366,17 @@ export const resolveBaseDirection = (text: string, fallback: BaseTextDirectionTy
 }
 
 export const bidiLevelForDirection = (direction: TextDirection, baseDirection: BaseTextDirectionType): number =>
-  direction === "neutral" ? (baseDirection === "rtl" ? 1 : 0) : direction === "rtl" ? 1 : 0
+  direction === "neutral"
+    ? baseDirection === "rtl"
+      ? 1
+      : 0
+    : direction === baseDirection
+    ? baseDirection === "rtl"
+      ? 1
+      : 0
+    : baseDirection === "rtl"
+    ? 2
+    : 1
 
 export const splitWhitespaceTokens = (text: string): ReadonlyArray<WhitespaceToken> =>
   Arr.fromIterable(text).reduce<ReadonlyArray<WhitespaceToken>>((tokens, char) => {

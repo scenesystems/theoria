@@ -72,6 +72,41 @@ const readDeclarationNames = (relativePath: string) =>
     Effect.map((source) => exportedDeclarationNames(parseTypeScript(relativePath, source)))
   )
 
+const exportedFunctionParameterTypes = (
+  sourceFile: ts.SourceFile,
+  declarationName: string
+): ReadonlyArray<string> => {
+  const collect = (node: ts.Node): ReadonlyArray<string> => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === declarationName) {
+      const initializer = node.initializer
+
+      return Option.match(Option.fromNullable(initializer), {
+        onNone: Arr.empty<string>,
+        onSome: (resolvedInitializer) =>
+          ts.isArrowFunction(resolvedInitializer) || ts.isFunctionExpression(resolvedInitializer)
+            ? Arr.map(
+              Arr.fromIterable(resolvedInitializer.parameters),
+              (parameter) => parameter.type?.getText(sourceFile) ?? "unknown"
+            )
+            : Arr.empty<string>()
+      })
+    }
+
+    return Arr.reduce(
+      Arr.fromIterable(node.getChildren(sourceFile)),
+      Arr.empty<string>(),
+      (names, child) => Arr.appendAll(names, collect(child))
+    )
+  }
+
+  return collect(sourceFile)
+}
+
+const readFunctionParameterTypes = (relativePath: string, declarationName: string) =>
+  readProjectFile(packageRootUrl, relativePath).pipe(
+    Effect.map((source) => exportedFunctionParameterTypes(parseTypeScript(relativePath, source), declarationName))
+  )
+
 const collectCursorLines = (
   prepared: Text.PreparedTextWithSegments,
   request: LayoutRequestType,
@@ -152,5 +187,31 @@ describe("Text hot-path contracts", () => {
       const layoutDeclarations = yield* readDeclarationNames("src/Text/layout.ts")
 
       expect(containsString(layoutDeclarations, "measureNaturalWidth")).toBe(true)
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("materialized and logical-bound projections require PreparedTextWithSegments", () =>
+    Effect.gen(function*() {
+      const {
+        layoutParameterTypes,
+        layoutLinesParameterTypes,
+        layoutLinesWithParameterTypes,
+        walkLineRangesParameterTypes,
+        layoutNextLineParameterTypes,
+        streamLinesParameterTypes
+      } = yield* Effect.all({
+        layoutParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "layout"),
+        layoutLinesParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "layoutLines"),
+        layoutLinesWithParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "layoutLinesWith"),
+        walkLineRangesParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "walkLineRanges"),
+        layoutNextLineParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "layoutNextLine"),
+        streamLinesParameterTypes: readFunctionParameterTypes("src/Text/layout.ts", "streamLines")
+      })
+
+      expect(layoutParameterTypes[0]).toBe("PreparedText")
+      expect(layoutLinesParameterTypes[0]).toBe("PreparedTextWithSegments")
+      expect(layoutLinesWithParameterTypes[0]).toBe("PreparedTextWithSegments")
+      expect(walkLineRangesParameterTypes[0]).toBe("PreparedTextWithSegments")
+      expect(layoutNextLineParameterTypes[0]).toBe("PreparedTextWithSegments")
+      expect(streamLinesParameterTypes[0]).toBe("PreparedTextWithSegments")
     }).pipe(Effect.provide(BunContext.layer)))
 })

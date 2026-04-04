@@ -5,6 +5,14 @@ import * as Arr from "effect/Array"
 
 import { Contracts, Experimental, Text } from "../../src/index.js"
 
+const visualLine = (index: number, text: string, width: number): Text.LayoutLineType => ({
+  baseDirection: "ltr",
+  index,
+  order: "visual",
+  text,
+  width
+})
+
 const calibrationLayer = Layer.mergeAll(
   Text.WordSegmenterLive,
   Text.MeasurementCacheLive.pipe(
@@ -73,8 +81,8 @@ describe("Experimental.Calibration", () => {
       expect(report.totalLineMismatchCount).toBe(0)
       expect(Arr.map(report.results, (result) => result.actual.maxLineWidth)).toEqual([15, 40])
       expect(report.results[1]?.actualLines).toEqual([
-        { index: 0, text: "hello he", width: 40 },
-        { index: 1, text: "llo", width: 15 }
+        visualLine(0, "hello he", 40),
+        visualLine(1, "llo", 15)
       ])
     }))
 

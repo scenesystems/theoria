@@ -1,9 +1,24 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Match, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Order from "effect/Order"
+import * as Record from "effect/Record"
 
 import { Browser, Contracts, Errors, Text } from "../../src/index.js"
-import { preparedTextCore } from "../../src/Text/model.js"
+import { preparedTextCore, preparedTextWithSegmentsCore } from "../../src/Text/model.js"
+
+const visualLine = (
+  index: number,
+  text: string,
+  width: number,
+  baseDirection: Text.BaseTextDirectionType = "ltr"
+): Text.LayoutLineType => ({
+  baseDirection,
+  index,
+  order: "visual",
+  text,
+  width
+})
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
@@ -42,7 +57,7 @@ describe("Text operations", () => {
   it.effect("prepares once, caches repeated measurements, and keeps layout pure", () =>
     Effect.gen(function*() {
       const { measurements, layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "hello hello",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -90,7 +105,7 @@ describe("Text operations", () => {
         )
       )
 
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "A🙂B",
         font: { family: "Mono", size: 12 },
         whiteSpace: "normal"
@@ -102,29 +117,29 @@ describe("Text operations", () => {
   it.effect("breaks on prepared soft hyphens without making layout effectful", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "alpha\u00adbeta",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
-        { index: 0, text: "alpha-", width: 30 },
-        { index: 1, text: "beta", width: 20 }
+        visualLine(0, "alpha-", 30),
+        visualLine(1, "beta", 20)
       ])
     }))
 
   it.effect("treats tabs as pure layout-time advances derived from prepared metadata", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "a\tb",
         font: { family: "Mono", size: 10 },
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
       expect(Text.layoutLines(prepared, { maxWidth: 100, lineHeight: 12 })).toEqual([
-        { index: 0, text: "a\tb", width: 25 }
+        visualLine(0, "a\tb", 25)
       ])
     }))
 
@@ -137,12 +152,12 @@ describe("Text operations", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
-      expect(core.baseDirection).toBe("rtl")
+      expect(core.kernel.baseDirection).toBe("rtl")
       expect(
         Arr.map(
-          Arr.filter(core.manualSurface.segments, (segment) => segment.kind === "text"),
+          Arr.filter(core.logicalSurface.segments, (segment) => segment.kind === "text"),
           (segment) => segment.direction
         )
       ).toEqual(["rtl", "ltr"])
@@ -157,14 +172,36 @@ describe("Text operations", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
-      const core = preparedTextCore(prepared)
+      const core = preparedTextWithSegmentsCore(prepared)
 
-      expect(core.runtime.breakKinds.length).toBe(core.manualSurface.segments.length)
-      expect(core.runtime.fitAdvances.length).toBe(core.manualSurface.segments.length)
-      expect(core.runtime.paintAdvances.length).toBe(core.manualSurface.segments.length)
-      expect(core.runtime.chunkStartIndices).toEqual([0, 2])
-      expect(core.runtime.chunkConsumedEndIndices).toEqual([2, 3])
-      expect(core.runtime.tabStopAdvance).toBe(0)
+      expect(core.kernel.runtime.breakKinds.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.fitAdvances.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.paintAdvances.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.breakablePrefixWidths.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.graphemeBidiLevels.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.mirroredGraphemes.length).toBe(core.logicalSurface.segments.length)
+      expect(core.kernel.runtime.chunkStartIndices).toEqual([0, 2])
+      expect(core.kernel.runtime.chunkConsumedEndIndices).toEqual([2, 3])
+      expect(core.kernel.runtime.tabStopAdvance).toBe(0)
+    }))
+
+  it.effect("keeps summary handles storage-distinct from materializing handles", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const input: Text.PrepareInputType = {
+        text: "alpha beta gamma",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }
+      const summaryPrepared = yield* Text.prepare(input).pipe(Effect.provide(layer))
+      const materializedPrepared = yield* Text.prepareWithSegments(input).pipe(Effect.provide(layer))
+      const summaryCore = preparedTextCore(summaryPrepared)
+      const materializedCore = preparedTextWithSegmentsCore(materializedPrepared)
+      const request = { maxWidth: 40, lineHeight: 12 }
+
+      expect(Object.prototype.hasOwnProperty.call(summaryCore, "logicalSurface")).toBe(false)
+      expect(Object.prototype.hasOwnProperty.call(materializedCore, "logicalSurface")).toBe(true)
+      expect(Text.layout(summaryPrepared, request)).toEqual(Text.layout(materializedPrepared, request))
     }))
 })
 
@@ -172,7 +209,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles empty string input", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -190,20 +227,20 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles single-character input", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "x",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
       const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
-      expect(lines).toEqual([{ index: 0, text: "x", width: 5 }])
+      expect(lines).toEqual([visualLine(0, "x", 5)])
     }))
 
   it.effect("handles whitespace-only input in normal mode", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "   ",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -216,7 +253,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles very narrow maxWidth forcing one word per line", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "ab cd ef",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -230,7 +267,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles text that exactly fills the line width", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "abcd efgh",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -244,7 +281,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles multiple consecutive spaces in pre-wrap mode", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "a   b",
         font: { family: "Mono", size: 10 },
         whiteSpace: "pre-wrap"
@@ -258,7 +295,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("handles multiple newlines in pre-wrap mode", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "a\n\nb",
         font: { family: "Mono", size: 10 },
         whiteSpace: "pre-wrap"
@@ -278,8 +315,8 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = preparedTextCore(prepared)
-      expect(core.font.weight).toBe(400)
+      const core = preparedTextWithSegmentsCore(prepared)
+      expect(core.meta.font.weight).toBe(400)
     }))
 
   it.effect("accepts explicit font weight in prepare input", () =>
@@ -291,14 +328,14 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const core = preparedTextCore(prepared)
-      expect(core.font.weight).toBe(700)
+      const core = preparedTextWithSegmentsCore(prepared)
+      expect(core.meta.font.weight).toBe(700)
     }))
 
   it.effect("layout is idempotent across repeated calls", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "The quick brown fox jumps over the lazy dog",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -316,7 +353,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("every line width is at most maxWidth", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "The quick brown fox jumps over the lazy dog near a stream of flowing water",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -333,7 +370,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("supports per-line max-width projection without re-preparing", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "The quick brown fox jumps over the lazy dog near a stream of flowing water",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
@@ -379,7 +416,7 @@ describe("Text edge cases and robustness", () => {
   it.effect("measureNaturalWidth returns the widest forced line width", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepare({
+      const prepared = yield* Text.prepareWithSegments({
         text: "a\tb\ncccc",
         font: { family: "Mono", size: 10 },
         whiteSpace: "pre-wrap"
@@ -402,6 +439,36 @@ describe("Text edge cases and robustness", () => {
       const streamedLines = yield* Stream.runCollect(Text.streamLines(prepared, request))
 
       expect(Arr.fromIterable(streamedLines)).toEqual(directLines)
+    }))
+
+  it.effect("keeps cursor optimization hints non-enumerable and scoped to prepared width", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepareWithSegments({
+        text: "one two three four five six",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+      const narrowRequest = { maxWidth: 35, lineHeight: 12 }
+      const wideRequest = { maxWidth: 80, lineHeight: 12 }
+      const first = Text.layoutNextLine(prepared, narrowRequest, Text.initialCursor())
+      const hintedCursor = Option.match(first, {
+        onNone: Text.initialCursor,
+        onSome: ([, cursor]) => cursor
+      })
+      const plainCursor = {
+        graphemeIndex: hintedCursor.graphemeIndex,
+        segmentIndex: hintedCursor.segmentIndex
+      }
+
+      expect(Arr.sort(Record.keys(hintedCursor), Order.string)).toEqual(["graphemeIndex", "segmentIndex"])
+      expect(Object.getOwnPropertySymbols(hintedCursor)).toEqual([])
+      expect({ ...hintedCursor }).toEqual(plainCursor)
+      expect(
+        Option.map(Text.layoutNextLine(prepared, wideRequest, hintedCursor), ([line]) => line.index)
+      ).toEqual(
+        Option.map(Text.layoutNextLine(prepared, wideRequest, plainCursor), ([line]) => line.index)
+      )
     }))
 
   it.effect("cursor-based iteration covers all lines", () =>
@@ -427,5 +494,21 @@ describe("Text edge cases and robustness", () => {
       const cursorLines = collectCursorLines(Text.initialCursor())
 
       expect(cursorLines).toEqual(directLines)
+    }))
+
+  it.effect("walks many hard-break chunks without recursive overflow", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const text = Arr.makeBy(1500, (index) => `line-${index}`).join("\n")
+      const prepared = yield* Text.prepareWithSegments({
+        text,
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(layer))
+      const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
+
+      expect(lines.length).toBe(1500)
+      expect(lines[0]?.text).toBe("line-0")
+      expect(lines[1499]?.text).toBe("line-1499")
     }))
 })

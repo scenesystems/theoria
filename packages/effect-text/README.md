@@ -28,7 +28,7 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Soft-hyphen, tab, and hard-break support** — preserved through segmentation and layout
 - **Compiled unicode break surface** — NBSP/WJ/ZWSP, URL-like runs, numeric runs, paired punctuation, and CJK punctuation pairs are compiled into explicit prepared break kinds before layout
 - **Released overflow policy** — hard breaks first, then soft hyphens and explicit break opportunities, then grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
-- **Bidi metadata** — per-segment direction and bidi level (visual reordering not yet included)
+- **Bidi visual ordering** — prepared bidi metadata drives pure mixed-direction visual output with mirrored paired punctuation inside rtl visual runs
 - **Experimental calibration** — typed corpora for engine-profile evaluation and `effect-search`-driven optimization
 - **No native deps** — pure TypeScript. Just `effect` as a peer dependency
 
@@ -53,7 +53,7 @@ import { Effect } from "effect"
 import { Text } from "effect-text"
 
 const program = Effect.gen(function* () {
-  const prepared = yield* Text.prepare({
+  const prepared = yield* Text.prepareWithSegments({
     text: "Effect keeps the hot path pure.",
     font: { family: "Mono", size: 16 },
     whiteSpace: "normal"
@@ -89,12 +89,15 @@ That yields a small public surface:
 | `Text.prepareWithSegments` | `(input) → Effect<PreparedTextWithSegments, MeasurementFailed, TextPreparationServices>` | Effectful |
 | `Text.prepareUnknown`      | `(input: unknown) → Effect<PreparedText, PrepareError, TextPreparationServices>`         | Effectful |
 | `Text.layout`              | `(prepared, request) → LayoutSummary`                                                    | Pure      |
-| `Text.layoutLines`         | `(prepared, request) → ReadonlyArray<LayoutLine>`                                        | Pure      |
-| `Text.layoutLinesWith`     | `(prepared, request, resolveMaxWidth) → ReadonlyArray<LayoutLine>`                       | Pure      |
+| `Text.layoutLines`         | `(preparedWithSegments, request) → ReadonlyArray<LayoutLine>`                            | Pure      |
+| `Text.layoutLinesWith`     | `(preparedWithSegments, request, resolveMaxWidth) → ReadonlyArray<LayoutLine>`           | Pure      |
+| `Text.walkLineRanges`      | `(preparedWithSegments, request, resolveMaxWidth?) → ReadonlyArray<LayoutLineRange>`     | Pure      |
 | `Text.layoutNextLine`      | `(preparedWithSegments, request, cursor) → Option<[LayoutLine, LayoutCursor]>`           | Pure      |
 | `Text.streamLines`         | `(preparedWithSegments, request) → Stream<LayoutLine>`                                   | Pure      |
 
-All pure layout functions reuse the same prepared handle. Prepare once, project many times at different widths.
+Use `Text.prepare` when the caller only needs summary projections such as `Text.layout` or `Text.measureNaturalWidth`. Use `Text.prepareWithSegments` when the caller needs materialized line text, logical cursor bounds, obstacle-aware width projection, cursor stepping, or streaming line projection.
+
+`LayoutLine.text` is always visual output text. `walkLineRanges`, `layoutNextLine`, and `streamLines` keep `start` / `end` cursors in logical source order so consumers can map visual output back to stable source bounds without depending on internal permutation tables.
 
 ## Services
 
@@ -211,6 +214,8 @@ const second = Option.flatMap(first, ([, cursor]) => Text.layoutNextLine(prepare
 // Stream projection — composes with Effect's Stream operators
 const allLines = yield * Text.streamLines(prepared, request).pipe(Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
 ```
+
+The returned cursor stays a plain logical source position. Internal stepping hints are scoped to the prepared handle and requested width and do not add enumerable fields to the public cursor object.
 
 ## Experimental calibration
 
@@ -366,9 +371,11 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 This first release is intentionally a foundation rather than full browser parity.
 
-**Included:** deterministic measurement caching, optional canvas measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi metadata, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, optional canvas measurement, one-time emoji correction fallback, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
 
-**Not yet included:** full bidi visual reordering, dictionary-driven hyphenation, canvas font-loading orchestration, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+**Not yet included:** dictionary-driven hyphenation, canvas font-loading orchestration, browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+
+**Explicit bidi non-goals for the current surface:** explicit Unicode bidi control characters, selection/copy-paste semantics, and shaping-engine parity outside the tested named-font envelope. Formatting controls are detected as an unsupported branch during preparation; `effect-text` does not claim control-aware Unicode bidi parity beyond the shipped mirror table and mixed-direction visual ordering tests.
 
 Those features belong behind the existing service seams rather than in a different architecture.
 

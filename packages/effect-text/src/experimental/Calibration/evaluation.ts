@@ -8,7 +8,7 @@ import { Effect } from "effect"
 import { EngineProfile } from "../../contracts/index.js"
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import type { MeasurementFailed } from "../../Errors/index.js"
-import { prepare } from "../../Text/constructors.js"
+import { prepareWithSegments } from "../../Text/constructors.js"
 import { layoutLines } from "../../Text/layout.js"
 import { emptyReport, makeCaseResult, summarizeLines } from "./internal/evaluation.js"
 import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
@@ -28,7 +28,7 @@ export const evaluateProfile = (
   cases: ReadonlyArray<CalibrationCaseType>
 ): Effect.Effect<CalibrationReportType, MeasurementFailed, WordSegmenter | MeasurementCache> =>
   Effect.forEach(cases, (calibrationCase) =>
-    prepare(calibrationCase.prepare).pipe(
+    prepareWithSegments(calibrationCase.prepare).pipe(
       Effect.provideService(EngineProfile, profile.engineProfile),
       Effect.map((prepared) => layoutLines(prepared, calibrationCase.layout)),
       Effect.map((actualLines) =>
