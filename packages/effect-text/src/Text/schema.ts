@@ -245,7 +245,7 @@ export type LayoutSummaryType = typeof LayoutSummary.Type
 /**
  * Runtime engine profile used during preparation and optional calibration.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const EngineProfile = Schema.Struct({

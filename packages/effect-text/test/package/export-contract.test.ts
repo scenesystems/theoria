@@ -14,6 +14,8 @@ describe("package export contracts", () => {
   it("exposes the canonical public and blocked subpath export set", () => {
     const expectedExportPaths = sortStrings(Arr.make(
       ".",
+      "./browser",
+      "./react",
       "./Text",
       "./Browser",
       "./React",

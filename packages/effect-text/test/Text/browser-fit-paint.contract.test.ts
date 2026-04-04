@@ -2,12 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { browserAccuracyCasesForProfile, browserAccuracyLayer } from "../../examples/live/browserAccuracyFixtures.js"
-import { Browser, Text } from "../../src/index.js"
+import * as Browser from "../../src/Browser/index.js"
+import { browserParityCasesForProfile, browserParityLayer } from "../../src/Browser/index.js"
+import { Text } from "../../src/index.js"
 import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
 
 const fitPaintCase = (profile: Browser.BrowserSupportProfileType) =>
-  Arr.findFirst(browserAccuracyCasesForProfile(profile), (entry) => entry.caseId === "fit-paint-divergence")
+  Arr.findFirst(browserParityCasesForProfile(profile), (entry) => entry.caseId === "fit-paint-divergence")
 
 describe("Text browser fit-paint kernel contracts", () => {
   it.effect("keeps fit and paint runtime tables distinct when browser measurement diverges", () =>
@@ -18,7 +19,7 @@ describe("Text browser fit-paint kernel contracts", () => {
         onSome: Effect.succeed
       })
       const prepared = yield* Text.prepareWithSegments(entry.prepare).pipe(
-        Effect.provide(browserAccuracyLayer(profile))
+        Effect.provide(browserParityLayer(profile))
       )
       const core = preparedTextWithSegmentsCore(prepared)
 

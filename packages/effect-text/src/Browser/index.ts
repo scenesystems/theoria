@@ -32,3 +32,10 @@ export * from "./fontReadiness.js"
  * @since 0.2.0
  */
 export * from "./supportManifest.js"
+
+/**
+ * Browser parity artifact schemas and harness helpers.
+ *
+ * @since 0.2.0
+ */
+export * from "./parity.js"

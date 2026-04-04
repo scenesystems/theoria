@@ -16,19 +16,20 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import { Browser, Text } from "effect-text"
-
+import { Text } from "effect-text"
 import {
-  browserAccuracyArtifactRelativePath,
-  browserAccuracyCasesForProfile,
-  browserAccuracyLayer
-} from "./live/browserAccuracyFixtures.js"
+  browserParityArtifactRelativePath,
+  browserParityCasesForProfile,
+  browserParityLayer,
+  BrowserSupportManifest,
+  type BrowserSupportProfileType
+} from "effect-text/browser"
 
-const renderProfileReport = (profile: Browser.BrowserSupportProfileType) =>
+const renderProfileReport = (profile: BrowserSupportProfileType) =>
   Effect.gen(function*() {
-    const cases = yield* Effect.forEach(browserAccuracyCasesForProfile(profile), (entry) =>
+    const cases = yield* Effect.forEach(browserParityCasesForProfile(profile), (entry) =>
       Text.prepareWithSegments(entry.prepare).pipe(
-        Effect.provide(browserAccuracyLayer(profile)),
+        Effect.provide(browserParityLayer(profile)),
         Effect.map((prepared) => ({
           caseId: entry.caseId,
           request: entry.request,
@@ -46,16 +47,16 @@ const renderProfileReport = (profile: Browser.BrowserSupportProfileType) =>
       tabPolicy: profile.tabPolicy,
       parityCases: profile.parityCases,
       caveats: profile.caveats,
-      accuracyArtifact: browserAccuracyArtifactRelativePath(profile.id),
+      accuracyArtifact: browserParityArtifactRelativePath(profile.id),
       cases
     }
   })
 
 const program = Effect.gen(function*() {
-  const reports = yield* Effect.forEach(Browser.BrowserSupportManifest.profiles, renderProfileReport)
+  const reports = yield* Effect.forEach(BrowserSupportManifest.profiles, renderProfileReport)
 
   yield* Effect.log("effect-text live browser parity", {
-    defaultProfileId: Browser.BrowserSupportManifest.defaultProfileId,
+    defaultProfileId: BrowserSupportManifest.defaultProfileId,
     reports
   })
 }).pipe(Effect.provide(BunContext.layer))

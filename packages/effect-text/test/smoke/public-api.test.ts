@@ -19,6 +19,9 @@ describe("effect-text public api", () => {
       expect(EffectText.Browser.initialFontReadinessRevision).toBeDefined()
       expect(EffectText.Browser.incrementFontReadinessRevision).toBeDefined()
       expect(EffectText.Browser.FontReadinessRevision).toBeDefined()
+      expect(EffectText.Browser.browserParityCaseIds).toBeDefined()
+      expect(EffectText.Browser.browserParityCasesForProfile).toBeDefined()
+      expect(EffectText.Browser.renderBrowserParityArtifact).toBeDefined()
 
       expect(EffectText.Text).toBeDefined()
       expect(EffectText.Text.TextStability).toBe("provisional")
@@ -54,5 +57,13 @@ describe("effect-text public api", () => {
       expect(EffectText.Experimental.Calibration.evaluateProfile).toBeDefined()
       expect(EffectText.Experimental.Calibration.makeProfileSearchSpace).toBeDefined()
       expect(EffectText.Experimental.Calibration.optimizeProfile).toBeDefined()
+
+      expect(EffectText.React).toBeDefined()
+      expect(EffectText.React.ReactStability).toBe("provisional")
+      expect(EffectText.React.PrepareIdentity).toBeDefined()
+      expect(EffectText.React.prepareIdentityFor).toBeDefined()
+      expect(EffectText.React.prepareIdentityKey).toBeDefined()
+      expect(EffectText.React.prepareIdentityFromKey).toBeDefined()
+      expect(EffectText.React.projectPreparedLayout).toBeDefined()
     }))
 })

@@ -84,7 +84,15 @@ describe("package structure contracts", () => {
 
       expect(sortStrings(srcEntries)).toStrictEqual(sortStrings(expectedSourceRoots))
       expect(sortStrings(browserEntries)).toStrictEqual(
-        sortStrings(["fontReadiness.ts", "index.ts", "internal", "layers.ts", "supportManifest.ts"])
+        sortStrings([
+          "fontReadiness.ts",
+          "index.ts",
+          "internal",
+          "layers.ts",
+          "parity.ts",
+          "paritySchema.ts",
+          "supportManifest.ts"
+        ])
       )
       expect(sortStrings(errorsEntries)).toStrictEqual(["index.ts"])
       expect(sortStrings(reactEntries)).toStrictEqual(sortStrings(["index.ts", "internal"]))
