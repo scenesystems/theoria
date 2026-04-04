@@ -9,8 +9,8 @@ import { EngineProfile } from "../../contracts/index.js"
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import type { MeasurementFailed } from "../../Errors/index.js"
 import { prepareWithSegments } from "../../Text/constructors.js"
-import { layoutLines } from "../../Text/layout.js"
-import { emptyReport, makeCaseResult, summarizeLines } from "./internal/evaluation.js"
+import { layout, layoutLines } from "../../Text/layout.js"
+import { makeCaseResult, summarizeReport } from "./internal/evaluation.js"
 import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
 
 /**
@@ -30,27 +30,11 @@ export const evaluateProfile = (
   Effect.forEach(cases, (calibrationCase) =>
     prepareWithSegments(calibrationCase.prepare).pipe(
       Effect.provideService(EngineProfile, profile.engineProfile),
-      Effect.map((prepared) => layoutLines(prepared, calibrationCase.layout)),
-      Effect.map((actualLines) =>
-        makeCaseResult(
-          calibrationCase,
-          summarizeLines(actualLines, calibrationCase.layout.lineHeight),
-          actualLines
-        )
-      )
+      Effect.map((prepared) => ({
+        actual: layout(prepared, calibrationCase.layout),
+        actualLines: layoutLines(prepared, calibrationCase.layout)
+      })),
+      Effect.map(({ actual, actualLines }) => makeCaseResult(calibrationCase, actual, actualLines))
     )).pipe(
-      Effect.map((results) =>
-        results.reduce(
-          (report, result) => ({
-            profile: report.profile,
-            caseCount: report.caseCount + 1,
-            matchedCaseCount: report.matchedCaseCount + (result.matched ? 1 : 0),
-            totalLineCountError: report.totalLineCountError + Math.abs(result.lineCountDelta),
-            totalMaxLineWidthError: report.totalMaxLineWidthError + Math.abs(result.maxLineWidthDelta),
-            totalLineMismatchCount: report.totalLineMismatchCount + result.lineMismatchCount,
-            results: [...report.results, result]
-          }),
-          emptyReport(profile)
-        )
-      )
+      Effect.map((results) => summarizeReport(profile, results))
     )

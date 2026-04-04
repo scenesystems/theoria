@@ -1,98 +1,147 @@
 /**
  * effect-search-backed calibration helpers for experimental engine-profile tuning.
  *
- * @since 0.1.0
+ * @since 0.2.0
  */
 import { Effect, Option } from "effect"
 import type { Layer } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import type { Study } from "effect-search"
+import { Sampler, SearchSpace } from "effect-search"
 
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import { evaluateProfile } from "./evaluation.js"
+import { scoreCalibrationReportSync } from "./internal/scoring.js"
 import {
+  booleanChoices,
   calibrationProfile,
-  defaultSearchSpaceSpec,
+  defaultObjectiveMetadata,
+  defaultSearchDescriptor,
+  directionChoices,
   floatOptions,
-  intOptions,
-  numericSearchScore
+  intOptions
 } from "./internal/search.js"
-import type { CalibrationCaseType, CalibrationSearchSpaceSpecType } from "./schema.js"
+import { runFreshCalibrationStudy, runResumedCalibrationStudy } from "./internal/study.js"
+import type {
+  CalibrationCaseType,
+  CalibrationObjectiveMetadataType,
+  CalibrationSearchDescriptorType,
+  CalibrationSearchSpaceSpecType
+} from "./schema.js"
 
 /**
- * Compiles a default `effect-search` search space for engine-profile tuning.
+ * Default experimental score policy for profile optimization.
  *
- * The resulting space always includes the boolean and direction switches used
- * by the current runtime profile, while numeric ranges are supplied by the
- * caller through `CalibrationSearchSpaceSpec`.
- *
- * @since 0.1.0
+ * @since 0.2.0
  * @category search
  */
-export const makeProfileSearchSpace = (searchSpaceSpec: CalibrationSearchSpaceSpecType = defaultSearchSpaceSpec) =>
+export const DefaultCalibrationObjective = defaultObjectiveMetadata
+
+/**
+ * Default search-descriptor authority for engine-profile tuning.
+ *
+ * @since 0.2.0
+ * @category search
+ */
+export const DefaultCalibrationSearchDescriptor = defaultSearchDescriptor
+
+/**
+ * Compiles the experimental engine-profile descriptor into an `effect-search`
+ * search space.
+ *
+ * @since 0.2.0
+ * @category search
+ */
+export const makeProfileSearchSpace = (
+  searchDescriptor: CalibrationSearchDescriptorType = DefaultCalibrationSearchDescriptor
+) =>
   SearchSpace.make({
     lineFitEpsilon: SearchSpace.float(
-      searchSpaceSpec.lineFitEpsilon.low,
-      searchSpaceSpec.lineFitEpsilon.high,
-      floatOptions(searchSpaceSpec.lineFitEpsilon)
+      searchDescriptor.lineFitEpsilon.low,
+      searchDescriptor.lineFitEpsilon.high,
+      floatOptions(searchDescriptor.lineFitEpsilon)
     ),
     tabWidth: SearchSpace.int(
-      searchSpaceSpec.tabWidth.low,
-      searchSpaceSpec.tabWidth.high,
-      intOptions(searchSpaceSpec.tabWidth)
+      searchDescriptor.tabWidth.low,
+      searchDescriptor.tabWidth.high,
+      intOptions(searchDescriptor.tabWidth)
     ),
-    defaultDirection: SearchSpace.categorical(["ltr", "rtl"]),
-    preferEarlySoftHyphenBreak: SearchSpace.boolean(),
-    preferPrefixWidthsForBreakableRuns: SearchSpace.boolean()
+    defaultDirection: SearchSpace.categorical(directionChoices(searchDescriptor.defaultDirection)),
+    preferEarlySoftHyphenBreak: SearchSpace.categorical(booleanChoices(searchDescriptor.preferEarlySoftHyphenBreak)),
+    preferPrefixWidthsForBreakableRuns: SearchSpace.categorical(
+      booleanChoices(searchDescriptor.preferPrefixWidthsForBreakableRuns)
+    )
   })
 
 /**
- * Runs an `effect-search` study over candidate engine profiles.
+ * Runs an experimental `effect-search` study over candidate engine profiles.
  *
- * The search objective is intentionally simple for the first experimental lane:
- * it reuses `evaluateProfile`, then minimizes a scalar score that heavily weights
- * exact line mismatches first, line-count mismatches second, and width error last.
+ * The runtime hot path stays unchanged: candidate profiles are evaluated by
+ * reusing `evaluateProfile`, which itself composes on top of `Text.prepare`
+ * plus the pure layout plane.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category search
  */
 export const optimizeProfile = (options: {
   readonly cases: ReadonlyArray<CalibrationCaseType>
   readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
   readonly trials: number
-  readonly concurrency?: number
+  readonly objective?: CalibrationObjectiveMetadataType
   readonly sampler?: Sampler.Sampler
+  readonly searchDescriptor?: CalibrationSearchDescriptorType
   readonly searchSpaceSpec?: CalibrationSearchSpaceSpecType
+  readonly snapshot?: Study.StudySnapshot
+  readonly studyStorage?: Study.StudyStorageApi
 }) =>
   Effect.gen(function*() {
-    const space = yield* makeProfileSearchSpace(options.searchSpaceSpec)
-    const concurrency = Option.fromNullable(options.concurrency).pipe(
+    const objective = options.objective ?? DefaultCalibrationObjective
+    const searchDescriptor = options.searchDescriptor ?? options.searchSpaceSpec ?? DefaultCalibrationSearchDescriptor
+    const sampler = options.sampler ?? Sampler.tpe({ seed: 0 })
+    const space = yield* makeProfileSearchSpace(searchDescriptor)
+    const study = yield* Option.fromNullable(options.snapshot).pipe(
       Option.match({
-        onNone: () => ({}),
-        onSome: (resolvedConcurrency) => ({ concurrency: resolvedConcurrency })
+        onNone: () =>
+          runFreshCalibrationStudy({
+            cases: options.cases,
+            objective,
+            sampler,
+            services: options.services,
+            storage: Option.fromNullable(options.studyStorage),
+            space,
+            trials: options.trials
+          }),
+        onSome: (snapshot) =>
+          runResumedCalibrationStudy({
+            cases: options.cases,
+            objective,
+            sampler,
+            services: options.services,
+            snapshot,
+            storage: Option.fromNullable(options.studyStorage),
+            space,
+            trials: options.trials
+          })
       })
     )
-    const studyResult = yield* Study.minimize({
-      space,
-      sampler: options.sampler ?? Sampler.tpe(),
-      trials: options.trials,
-      ...concurrency,
-      objective: (engineProfile) =>
-        evaluateProfile(calibrationProfile("candidate", engineProfile), options.cases).pipe(
-          Effect.provide(options.services),
-          Effect.map(numericSearchScore)
-        )
-    })
 
-    if (studyResult._tag !== "SingleObjective") {
-      return yield* Effect.die("effect-search Study.minimize returned a non-single-objective result")
-    }
-
-    const bestProfile = calibrationProfile("best", studyResult.bestTrial.config)
+    const bestProfile = calibrationProfile("best", study.studyResult.bestTrial.config)
     const bestReport = yield* evaluateProfile(bestProfile, options.cases).pipe(Effect.provide(options.services))
+    const bestScore = scoreCalibrationReportSync(bestReport, objective)
 
     return {
       bestProfile,
       bestReport,
-      studyResult
+      studyResult: study.studyResult,
+      optimization: {
+        objective,
+        searchDescriptor,
+        completionReason: study.studyResult.completionReason,
+        bestScore: bestScore.total,
+        bestLossSummary: bestScore.summary,
+        artifacts: {
+          snapshot: study.snapshot,
+          eventLog: study.eventLog
+        }
+      }
     }
   })

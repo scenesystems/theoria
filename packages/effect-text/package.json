@@ -54,6 +54,7 @@
     "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "bench": "bun benchmarks/run.ts",
     "verify:browser-parity": "bun examples/live/browserAccuracyHarness.ts",
+    "verify:calibration": "bun benchmarks/verifyCalibration.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
@@ -65,6 +66,7 @@
     "effect": "^3.20.0"
   },
   "dependencies": {
+    "effect-math": "workspace:^",
     "effect-search": "workspace:^"
   },
   "devDependencies": {

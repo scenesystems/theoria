@@ -1,0 +1,403 @@
+{
+  "corpusCaseNames": [
+    "browser-parity-tab-advances",
+    "soft-hyphen-wrap",
+    "long-token-grapheme-fallback",
+    "cjk-no-space-layout",
+    "mixed-direction-browser-case",
+    "dictionary-hyphenation"
+  ],
+  "scoringBenchmark": {
+    "iterations": 5000,
+    "maxSlowdownRatio": 1,
+    "expectations": [
+      {
+        "profile": {
+          "name": "default-engine-profile",
+          "engineProfile": {
+            "lineFitEpsilon": 0.005,
+            "tabWidth": 4,
+            "defaultDirection": "ltr",
+            "preferEarlySoftHyphenBreak": false,
+            "preferPrefixWidthsForBreakableRuns": true
+          }
+        },
+        "manualTotal": 0,
+        "effectMathTotal": 0,
+        "manualSummary": { "count": 6, "mean": 0, "minimum": 0, "maximum": 0, "variance": 0, "standardDeviation": 0 },
+        "effectMathSummary": {
+          "count": 6,
+          "mean": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "variance": 0,
+          "standardDeviation": 0
+        }
+      },
+      {
+        "profile": {
+          "name": "narrow-tabs",
+          "engineProfile": {
+            "lineFitEpsilon": 0.005,
+            "tabWidth": 2,
+            "defaultDirection": "ltr",
+            "preferEarlySoftHyphenBreak": false,
+            "preferPrefixWidthsForBreakableRuns": true
+          }
+        },
+        "manualTotal": 10020,
+        "effectMathTotal": 10020,
+        "manualSummary": {
+          "count": 6,
+          "mean": 1670,
+          "minimum": 0,
+          "maximum": 10020,
+          "variance": 16733400,
+          "standardDeviation": 4090.6478704479073
+        },
+        "effectMathSummary": {
+          "count": 6,
+          "mean": 1670,
+          "minimum": 0,
+          "maximum": 10020,
+          "variance": 16733400,
+          "standardDeviation": 4090.6478704479073
+        }
+      },
+      {
+        "profile": {
+          "name": "rtl-soft-hyphen",
+          "engineProfile": {
+            "lineFitEpsilon": 0.005,
+            "tabWidth": 4,
+            "defaultDirection": "rtl",
+            "preferEarlySoftHyphenBreak": true,
+            "preferPrefixWidthsForBreakableRuns": true
+          }
+        },
+        "manualTotal": 0,
+        "effectMathTotal": 0,
+        "manualSummary": { "count": 6, "mean": 0, "minimum": 0, "maximum": 0, "variance": 0, "standardDeviation": 0 },
+        "effectMathSummary": {
+          "count": 6,
+          "mean": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "variance": 0,
+          "standardDeviation": 0
+        }
+      }
+    ]
+  },
+  "optimization": {
+    "bestProfile": {
+      "name": "best",
+      "engineProfile": {
+        "lineFitEpsilon": 0.005,
+        "tabWidth": 2,
+        "defaultDirection": "rtl",
+        "preferEarlySoftHyphenBreak": false,
+        "preferPrefixWidthsForBreakableRuns": true
+      }
+    },
+    "bestReport": {
+      "profile": {
+        "name": "best",
+        "engineProfile": {
+          "lineFitEpsilon": 0.005,
+          "tabWidth": 2,
+          "defaultDirection": "rtl",
+          "preferEarlySoftHyphenBreak": false,
+          "preferPrefixWidthsForBreakableRuns": true
+        }
+      },
+      "caseCount": 6,
+      "matchedCaseCount": 5,
+      "totalLineCountError": 0,
+      "totalMaxLineWidthError": 20,
+      "totalLineMismatchCount": 1,
+      "results": [
+        {
+          "name": "browser-parity-tab-advances",
+          "expected": { "lineCount": 1, "maxLineWidth": 50, "lines": [{ "text": "a\tb", "width": 50 }] },
+          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 30 },
+          "actualLines": [{ "index": 0, "order": "visual", "baseDirection": "ltr", "text": "a\tb", "width": 30 }],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": -20,
+          "lineMismatchCount": 1,
+          "matched": false
+        },
+        {
+          "name": "soft-hyphen-wrap",
+          "expected": {
+            "lineCount": 2,
+            "maxLineWidth": 30,
+            "lines": [
+              { "text": "alpha-", "width": 30 },
+              { "text": "beta", "width": 20 }
+            ]
+          },
+          "actual": { "lineCount": 2, "height": 24, "maxLineWidth": 30 },
+          "actualLines": [
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "alpha-", "width": 30 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "beta", "width": 20 }
+          ],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": 0,
+          "lineMismatchCount": 0,
+          "matched": true
+        },
+        {
+          "name": "long-token-grapheme-fallback",
+          "expected": {
+            "lineCount": 6,
+            "maxLineWidth": 25,
+            "lines": [
+              { "text": "https", "width": 25 },
+              { "text": "://ex", "width": 25 },
+              { "text": "ample", "width": 25 },
+              { "text": ".com/", "width": 25 },
+              { "text": "a-b?x", "width": 25 },
+              { "text": "=1,2", "width": 20 }
+            ]
+          },
+          "actual": { "lineCount": 6, "height": 72, "maxLineWidth": 25 },
+          "actualLines": [
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "https", "width": 25 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "://ex", "width": 25 },
+            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "ample", "width": 25 },
+            { "index": 3, "order": "visual", "baseDirection": "ltr", "text": ".com/", "width": 25 },
+            { "index": 4, "order": "visual", "baseDirection": "ltr", "text": "a-b?x", "width": 25 },
+            { "index": 5, "order": "visual", "baseDirection": "ltr", "text": "=1,2", "width": 20 }
+          ],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": 0,
+          "lineMismatchCount": 0,
+          "matched": true
+        },
+        {
+          "name": "cjk-no-space-layout",
+          "expected": {
+            "lineCount": 2,
+            "maxLineWidth": 15,
+            "lines": [
+              { "text": "你好世", "width": 15 },
+              { "text": "界你好", "width": 15 }
+            ]
+          },
+          "actual": { "lineCount": 2, "height": 24, "maxLineWidth": 15 },
+          "actualLines": [
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "你好世", "width": 15 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "界你好", "width": 15 }
+          ],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": 0,
+          "lineMismatchCount": 0,
+          "matched": true
+        },
+        {
+          "name": "mixed-direction-browser-case",
+          "expected": { "lineCount": 1, "maxLineWidth": 120, "lines": [{ "text": "hello (םולש)", "width": 120 }] },
+          "actual": { "lineCount": 1, "height": 12, "maxLineWidth": 120 },
+          "actualLines": [
+            { "index": 0, "order": "visual", "baseDirection": "rtl", "text": "hello (םולש)", "width": 120 }
+          ],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": 0,
+          "lineMismatchCount": 0,
+          "matched": true
+        },
+        {
+          "name": "dictionary-hyphenation",
+          "expected": {
+            "lineCount": 3,
+            "maxLineWidth": 25,
+            "lines": [
+              { "text": "hy-", "width": 15 },
+              { "text": "phen-", "width": 25 },
+              { "text": "ation", "width": 25 }
+            ]
+          },
+          "actual": { "lineCount": 3, "height": 36, "maxLineWidth": 25 },
+          "actualLines": [
+            { "index": 0, "order": "visual", "baseDirection": "ltr", "text": "hy-", "width": 15 },
+            { "index": 1, "order": "visual", "baseDirection": "ltr", "text": "phen-", "width": 25 },
+            { "index": 2, "order": "visual", "baseDirection": "ltr", "text": "ation", "width": 25 }
+          ],
+          "lineCountDelta": 0,
+          "maxLineWidthDelta": 0,
+          "lineMismatchCount": 0,
+          "matched": true
+        }
+      ]
+    },
+    "optimization": {
+      "objective": {
+        "name": "weighted-layout-fidelity",
+        "direction": "minimize",
+        "scorer": "weighted-sum",
+        "primaryMetric": "lineMismatchCount",
+        "secondaryMetric": "lineCountError",
+        "tertiaryMetric": "maxLineWidthError",
+        "scoreWeights": { "lineMismatchCount": 10000, "lineCountError": 1000, "maxLineWidthError": 1 }
+      },
+      "searchDescriptor": {
+        "lineFitEpsilon": { "low": 0.005, "high": 0.005, "step": 0.001 },
+        "tabWidth": { "low": 2, "high": 4, "step": 2 },
+        "defaultDirection": { "values": ["ltr", "rtl"] },
+        "preferEarlySoftHyphenBreak": { "values": [false, true] },
+        "preferPrefixWidthsForBreakableRuns": { "values": [true] }
+      },
+      "completionReason": "budgetExhausted",
+      "bestScore": 10020,
+      "bestLossSummary": {
+        "count": 6,
+        "mean": 1670,
+        "minimum": 0,
+        "maximum": 10020,
+        "variance": 16733400,
+        "standardDeviation": 4090.6478704479073
+      },
+      "artifacts": {
+        "snapshot": {
+          "snapshotFormatVersion": 1,
+          "spaceFingerprint": "[{\"name\":\"lineFitEpsilon\",\"distribution\":{\"type\":\"float\",\"low\":0.005,\"high\":0.005,\"step\":0.001},\"activeWhen\":[]},{\"name\":\"tabWidth\",\"distribution\":{\"type\":\"int\",\"low\":2,\"high\":4,\"step\":2},\"activeWhen\":[]},{\"name\":\"defaultDirection\",\"distribution\":{\"type\":\"categorical\",\"choices\":[\"ltr\",\"rtl\"]},\"activeWhen\":[]},{\"name\":\"preferEarlySoftHyphenBreak\",\"distribution\":{\"type\":\"categorical\",\"choices\":[false,true]},\"activeWhen\":[]},{\"name\":\"preferPrefixWidthsForBreakableRuns\",\"distribution\":{\"type\":\"categorical\",\"choices\":[true]},\"activeWhen\":[]}]",
+          "objectiveSpec": { "_tag": "Single", "direction": "minimize" },
+          "stopMode": "Drain",
+          "samplerKind": { "_tag": "Random", "options": { "seed": 91 } },
+          "samplerCheckpoint": { "_tag": "Random", "seed": 91 },
+          "nextTrialNumber": 4,
+          "trials": [
+            {
+              "trialNumber": 0,
+              "config": {
+                "lineFitEpsilon": 0.005,
+                "tabWidth": 2,
+                "defaultDirection": "rtl",
+                "preferEarlySoftHyphenBreak": false,
+                "preferPrefixWidthsForBreakableRuns": true
+              },
+              "state": {
+                "_tag": "Completed",
+                "value": 10020,
+                "duration": 0,
+                "retryCount": 0,
+                "evaluationCount": 1,
+                "variance": 0
+              }
+            },
+            {
+              "trialNumber": 1,
+              "config": {
+                "lineFitEpsilon": 0.005,
+                "tabWidth": 2,
+                "defaultDirection": "rtl",
+                "preferEarlySoftHyphenBreak": true,
+                "preferPrefixWidthsForBreakableRuns": true
+              },
+              "state": {
+                "_tag": "Completed",
+                "value": 10020,
+                "duration": 0,
+                "retryCount": 0,
+                "evaluationCount": 1,
+                "variance": 0
+              }
+            },
+            {
+              "trialNumber": 2,
+              "config": {
+                "lineFitEpsilon": 0.005,
+                "tabWidth": 2,
+                "defaultDirection": "ltr",
+                "preferEarlySoftHyphenBreak": true,
+                "preferPrefixWidthsForBreakableRuns": true
+              },
+              "state": {
+                "_tag": "Completed",
+                "value": 10020,
+                "duration": 0,
+                "retryCount": 0,
+                "evaluationCount": 1,
+                "variance": 0
+              }
+            },
+            {
+              "trialNumber": 3,
+              "config": {
+                "lineFitEpsilon": 0.005,
+                "tabWidth": 2,
+                "defaultDirection": "rtl",
+                "preferEarlySoftHyphenBreak": true,
+                "preferPrefixWidthsForBreakableRuns": true
+              },
+              "state": {
+                "_tag": "Completed",
+                "value": 10020,
+                "duration": 0,
+                "retryCount": 0,
+                "evaluationCount": 1,
+                "variance": 0
+              }
+            }
+          ],
+          "completedCount": 4,
+          "studyDuration": 0,
+          "samplerMetrics": { "checkpointTag": "Random", "completedCount": 4, "retryCountTotal": 0, "priorCount": 0 }
+        },
+        "eventLog": [
+          {
+            "_tag": "TrialStarted",
+            "trialNumber": 0,
+            "config": {
+              "lineFitEpsilon": 0.005,
+              "tabWidth": 2,
+              "defaultDirection": "rtl",
+              "preferEarlySoftHyphenBreak": false,
+              "preferPrefixWidthsForBreakableRuns": true
+            }
+          },
+          { "_tag": "TrialCompleted", "trialNumber": 0, "value": 10020 },
+          { "_tag": "BestUpdated", "trialNumber": 0, "value": 10020 },
+          {
+            "_tag": "TrialStarted",
+            "trialNumber": 1,
+            "config": {
+              "lineFitEpsilon": 0.005,
+              "tabWidth": 2,
+              "defaultDirection": "rtl",
+              "preferEarlySoftHyphenBreak": true,
+              "preferPrefixWidthsForBreakableRuns": true
+            }
+          },
+          { "_tag": "TrialCompleted", "trialNumber": 1, "value": 10020 },
+          {
+            "_tag": "TrialStarted",
+            "trialNumber": 2,
+            "config": {
+              "lineFitEpsilon": 0.005,
+              "tabWidth": 2,
+              "defaultDirection": "ltr",
+              "preferEarlySoftHyphenBreak": true,
+              "preferPrefixWidthsForBreakableRuns": true
+            }
+          },
+          { "_tag": "TrialCompleted", "trialNumber": 2, "value": 10020 },
+          {
+            "_tag": "TrialStarted",
+            "trialNumber": 3,
+            "config": {
+              "lineFitEpsilon": 0.005,
+              "tabWidth": 2,
+              "defaultDirection": "rtl",
+              "preferEarlySoftHyphenBreak": true,
+              "preferPrefixWidthsForBreakableRuns": true
+            }
+          },
+          { "_tag": "TrialCompleted", "trialNumber": 3, "value": 10020 },
+          { "_tag": "StudyCompleted", "completionReason": "budgetExhausted" }
+        ]
+      }
+    }
+  }
+}

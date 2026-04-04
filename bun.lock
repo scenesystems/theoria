@@ -109,7 +109,7 @@
     },
     "packages/effect-math": {
       "name": "effect-math",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "devDependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -139,8 +139,9 @@
     },
     "packages/effect-text": {
       "name": "effect-text",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
+        "effect-math": "workspace:^",
         "effect-search": "workspace:^",
       },
       "devDependencies": {

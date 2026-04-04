@@ -304,7 +304,7 @@ The returned cursor stays a plain logical source position. Internal stepping hin
 
 ## Experimental calibration
 
-The `Experimental.Calibration` module lets you describe a typed calibration corpus and evaluate candidate `Contracts.EngineProfile` values by reusing the existing prepare/layout split. It does not change the runtime path or make `layout` effectful.
+The `Experimental.Calibration` module lets you describe a typed calibration corpus, evaluate candidate `Contracts.EngineProfile` values through the existing prepare/layout split, and run seeded `effect-search` studies whose scoring stays behind an internal `effect-math` adapter. It does not change the runtime path or make `layout` effectful.
 
 ### Evaluating a profile
 
@@ -355,7 +355,7 @@ Calibration targets can stay coarse with summary-level checks (`lineCount`, `max
 
 ### Search-driven profile optimization
 
-The `optimizeProfile` helper composes with `effect-search` to drive an optimization loop over candidate engine profiles using the same corpus format:
+The `optimizeProfile` helper composes with `effect-search` to drive a seeded optimization loop over candidate engine profiles using the same corpus format:
 
 ```ts
 import { Effect, Layer } from "effect"
@@ -381,10 +381,29 @@ const optimized =
     ],
     services,
     trials: 16,
-    sampler: Sampler.tpe({ seed: 7 })
+    sampler: Sampler.tpe({ seed: 7 }),
+    searchDescriptor: {
+      lineFitEpsilon: { low: 0.005, high: 0.005, step: 0.001 },
+      tabWidth: { low: 2, high: 4, step: 2 },
+      defaultDirection: { values: ["ltr", "rtl"] },
+      preferEarlySoftHyphenBreak: { values: [false, true] },
+      preferPrefixWidthsForBreakableRuns: { values: [true] }
+    }
   })
-// => { bestProfile, bestReport, studyResult }
+// => { bestProfile, bestReport, studyResult, optimization }
 ```
+
+`optimized.optimization` is the machine-readable study report. It includes:
+
+- `objective` — explicit score weights and metric ordering
+- `searchDescriptor` — the exact optimization descriptor compiled into `effect-search`
+- `bestScore` and `bestLossSummary` — the scalar winner plus per-case loss summary
+- `artifacts.snapshot` — a typed `StudySnapshot` for replay and resume
+- `artifacts.eventLog` — the ordered `StudyEvent` history for fresh and resumed runs
+
+Fresh and resumed optimization runs both emit the same artifact shape: a persisted `StudySnapshot` plus the ordered `StudyEvent` trace for that leg of the study. The checked-in verifier artifact at `benchmarks/results/calibration-verification.json` pins the deterministic optimization story and the scorer-parity expectations, while `bun run --filter 'effect-text' verify:calibration` checks drift and enforces the current slowdown gate against the pre-`effect-math` scorer.
+
+When the study artifacts must survive process boundaries, pass `studyStorage` from `effect-search`'s `Study.makeStudyStorage(...)` or `Study.StudyStorageLive(...)`. If you omit it, `optimizeProfile` still returns the same typed snapshot and event log, but it keeps the storage bridge transient to the current process.
 
 This keeps search integration explicitly experimental: the core `Text` module stays lightweight, while profile tuning composes on top through `Experimental.Calibration`.
 
@@ -432,7 +451,7 @@ import { Browser, Contracts, Errors, Experimental, Text } from "effect-text"
 | `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision`                                                                                   |
 | `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `HyphenationDictionary`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                                                                                 |
 | `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                                                                                                             |
-| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                                                                                                  |
+| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, `Calibration.DefaultCalibrationObjective`, `Calibration.DefaultCalibrationSearchDescriptor`, `Calibration.CalibrationStudyArtifacts`, `Calibration.CalibrationOptimizationReport`, calibration schemas                                               |
 
 Subpath imports are also available: `import * as Text from "effect-text/Text"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 
@@ -458,9 +477,9 @@ bun run packages/effect-text/examples/01-quick-start.ts
 
 This release ships a bounded browser parity envelope rather than full CSS and shaping parity.
 
-**Included:** deterministic measurement caching, checked-in hyphenation dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, deterministic fallback for every other locale, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, optional additive emoji correction, checked-in browser accuracy artifacts for `canvas-monospace` and `canvas-system-ui`, fit-vs-paint browser kernel divergence for summary parity, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora.
+**Included:** deterministic measurement caching, checked-in hyphenation dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, deterministic fallback for every other locale, optional canvas measurement, explicit font-readiness cache invalidation for browser-backed measurement, optional additive emoji correction, checked-in browser accuracy artifacts for `canvas-monospace` and `canvas-system-ui`, fit-vs-paint browser kernel divergence for summary parity, preserved hard breaks, tabs, soft-hyphen breaks, NBSP/WJ/ZWSP semantics, URL-like and numeric run preparation, paired punctuation handling for Latin and CJK copy, bidi visual ordering with mirrored punctuation inside rtl visual runs, logical source bounds that stay stable across visual reordering, greedy multiline wrapping, pure layout summaries, cursor and stream projections, per-line width resolution, experimental calibration corpora, seeded `effect-search` optimization studies, `StudySnapshot` artifacts, ordered `StudyEvent` logs for fresh runs, and internal `effect-math`-backed calibration scoring summaries.
 
-**Not yet included:** browser-engine-specific correction passes beyond the current emoji probe, search-driven calibration workflows across `effect-search` and `effect-math`.
+**Not yet included:** browser-engine-specific correction passes beyond the current emoji probe.
 
 **Current browser parity envelope:** the checked-in browser artifacts cover `canvas-monospace` and `canvas-system-ui` only. `canvas-monospace` is the control lane for the checked-in `Mono, monospace` stack. `canvas-system-ui` covers the browser-resolved `system-ui, sans-serif` stack on the released white-space modes and parity cases only. Untested named fonts, alternate fallback stacks, shaping-engine parity outside the recorded artifact set, and browser-specific correction passes beyond the optional emoji correction remain outside the current parity claims.
 
@@ -472,7 +491,7 @@ Those features belong behind the existing service seams rather than in a differe
 
 The prepare/layout architecture is inspired by [pretext](https://github.com/chenglou/pretext) by Cheng Lou — the insight that text layout decomposes into an expensive effectful preparation phase and a cheap pure projection phase. `effect-text` brings this architecture to Effect, replacing ambient globals with explicit `Context.Tag` services and `Layer` composition.
 
-Built on [Effect](https://effect.website). Experimental calibration uses [`effect-search`](https://github.com/scenesystems/theoria/tree/main/packages/effect-search) for Bayesian optimization over candidate engine profiles.
+Built on [Effect](https://effect.website). Experimental calibration uses [`effect-search`](https://github.com/scenesystems/theoria/tree/main/packages/effect-search) for seeded optimization studies over candidate engine profiles and [`effect-math`](https://github.com/scenesystems/theoria/tree/main/packages/effect-math) behind internal adapters for weighted loss aggregation plus calibration-loss summaries.
 
 ## Contributing
 

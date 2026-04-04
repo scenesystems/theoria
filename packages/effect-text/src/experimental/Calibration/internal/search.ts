@@ -2,29 +2,55 @@
  * Private calibration-search helpers.
  *
  * @internal
- * @since 0.1.0
+ * @since 0.2.0
  */
 import { Option } from "effect"
 
 import type { EngineProfileType } from "../../../Text/schema.js"
 import type {
+  CalibrationBooleanDimensionType,
+  CalibrationDirectionDimensionType,
   CalibrationFloatDimensionType,
   CalibrationIntDimensionType,
+  CalibrationObjectiveMetadataType,
   CalibrationProfileType,
-  CalibrationReportType,
-  CalibrationSearchSpaceSpecType
+  CalibrationSearchDescriptorType
 } from "../schema.js"
 
-const DEFAULT_LINE_MISMATCH_WEIGHT = 10_000
-const DEFAULT_LINE_COUNT_WEIGHT = 1_000
+const choiceTuple = <Choice>(
+  values: readonly [Choice, ...ReadonlyArray<Choice>]
+): readonly [Choice, ...Array<Choice>] => {
+  const [head, ...tail] = values
+  return [head, ...tail]
+}
 
 /**
- * Default search-space authority for the shipped experimental calibration knobs.
+ * Explicit default score policy for experimental calibration studies.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category internals
  */
-export const defaultSearchSpaceSpec: CalibrationSearchSpaceSpecType = {
+export const defaultObjectiveMetadata: CalibrationObjectiveMetadataType = {
+  name: "weighted-layout-fidelity",
+  direction: "minimize",
+  scorer: "weighted-sum",
+  primaryMetric: "lineMismatchCount",
+  secondaryMetric: "lineCountError",
+  tertiaryMetric: "maxLineWidthError",
+  scoreWeights: {
+    lineMismatchCount: 10_000,
+    lineCountError: 1_000,
+    maxLineWidthError: 1
+  }
+}
+
+/**
+ * Default search-descriptor authority for the shipped experimental calibration knobs.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const defaultSearchDescriptor: CalibrationSearchDescriptorType = {
   lineFitEpsilon: {
     low: 0,
     high: 0.05,
@@ -34,19 +60,17 @@ export const defaultSearchSpaceSpec: CalibrationSearchSpaceSpecType = {
     low: 2,
     high: 8,
     step: 1
+  },
+  defaultDirection: {
+    values: ["ltr", "rtl"]
+  },
+  preferEarlySoftHyphenBreak: {
+    values: [false, true]
+  },
+  preferPrefixWidthsForBreakableRuns: {
+    values: [true, false]
   }
 }
-
-/**
- * Collapses a calibration report into the scalar score minimized by search.
- *
- * @since 0.1.0
- * @category internals
- */
-export const numericSearchScore = (report: CalibrationReportType): number =>
-  (report.totalLineMismatchCount * DEFAULT_LINE_MISMATCH_WEIGHT) +
-  (report.totalLineCountError * DEFAULT_LINE_COUNT_WEIGHT) +
-  report.totalMaxLineWidthError
 
 /**
  * Wraps one engine profile in the experimental calibration profile shape.
@@ -86,3 +110,26 @@ export const intOptions = (dimension: CalibrationIntDimensionType): { readonly s
       onSome: (resolvedStep) => ({ step: resolvedStep })
     })
   )
+
+/**
+ * Unwrap a categorical direction-dimension into the choices consumed by
+ * `effect-search`.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const directionChoices = (
+  dimension: CalibrationDirectionDimensionType
+): readonly [EngineProfileType["defaultDirection"], ...Array<EngineProfileType["defaultDirection"]>] =>
+  choiceTuple(dimension.values)
+
+/**
+ * Unwrap a categorical boolean-dimension into the choices consumed by
+ * `effect-search`.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const booleanChoices = (
+  dimension: CalibrationBooleanDimensionType
+): readonly [boolean, ...Array<boolean>] => choiceTuple(dimension.values)

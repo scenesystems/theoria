@@ -4,7 +4,7 @@
  * @internal
  * @since 0.1.0
  */
-import { Option } from "effect"
+import { Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { LayoutLineType, LayoutSummaryType } from "../../../Text/schema.js"
@@ -51,20 +51,7 @@ const lineMismatchCount = (
     })
   )
 
-/**
- * Rebuilds a layout summary from concrete lines for experimental calibration scoring.
- *
- * @since 0.1.0
- * @category internals
- */
-export const summarizeLines = (
-  lines: ReadonlyArray<LayoutLineType>,
-  lineHeight: number
-): LayoutSummaryType => ({
-  lineCount: lines.length,
-  height: lines.length * lineHeight,
-  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width))
-})
+const absoluteValue = (value: number): number => Num.lessThan(value, 0) ? Num.negate(value) : value
 
 /**
  * Builds one case result by comparing expected calibration targets against actual layout output.
@@ -106,3 +93,26 @@ export const emptyReport = (profile: CalibrationProfileType): CalibrationReportT
   totalLineMismatchCount: 0,
   results: []
 })
+
+/**
+ * Reduces per-case calibration results into the released aggregate report shape.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const summarizeReport = (
+  profile: CalibrationProfileType,
+  results: ReadonlyArray<CalibrationCaseResultType>
+): CalibrationReportType =>
+  results.reduce(
+    (report, result) => ({
+      profile: report.profile,
+      caseCount: Num.increment(report.caseCount),
+      matchedCaseCount: result.matched ? Num.increment(report.matchedCaseCount) : report.matchedCaseCount,
+      totalLineCountError: Num.sum(report.totalLineCountError, absoluteValue(result.lineCountDelta)),
+      totalMaxLineWidthError: Num.sum(report.totalMaxLineWidthError, absoluteValue(result.maxLineWidthDelta)),
+      totalLineMismatchCount: Num.sum(report.totalLineMismatchCount, result.lineMismatchCount),
+      results: [...report.results, result]
+    }),
+    emptyReport(profile)
+  )
