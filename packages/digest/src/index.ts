@@ -74,7 +74,7 @@ export * from "./convenience.js"
 export * from "./digestSchemaValue.js"
 
 /**
- * @since 0.1.1
+ * @since 0.2.0
  * @category digest
  */
 export * from "./streaming.js"
