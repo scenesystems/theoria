@@ -160,6 +160,12 @@ const computeCalibrationReportScore = (
   }
 }
 
+/**
+ * Pure scoring kernel for experimental calibration reports with cache reuse.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const scoreCalibrationReportSync = (
   report: CalibrationReportType,
   objective: CalibrationObjectiveMetadataType

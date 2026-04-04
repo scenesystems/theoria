@@ -11,22 +11,72 @@ import * as Text from "../Text/index.js"
 import { initialFontReadinessRevision } from "./fontReadiness.js"
 import { BrowserMeasurementCacheLive, CanvasTextMeasurerLive } from "./layers.js"
 import {
-  type BrowserParityArtifactCaseType,
-  type BrowserParityArtifactType,
-  type BrowserParityCaseIdType
-} from "./paritySchema.js"
-export {
-  BrowserParityArtifactCaseSchema,
-  BrowserParityArtifactJsonSchema,
-  BrowserParityArtifactSchema,
-  BrowserParityCaseIdSchema
-} from "./paritySchema.js"
-export type {
-  BrowserParityArtifactCaseType,
-  BrowserParityArtifactType,
-  BrowserParityCaseIdType
+  BrowserParityArtifactCaseSchema as BrowserParityArtifactCaseSchemaInternal,
+  type BrowserParityArtifactCaseType as BrowserParityArtifactCaseTypeInternal,
+  BrowserParityArtifactJsonSchema as BrowserParityArtifactJsonSchemaInternal,
+  BrowserParityArtifactSchema as BrowserParityArtifactSchemaInternal,
+  type BrowserParityArtifactType as BrowserParityArtifactTypeInternal,
+  BrowserParityCaseIdSchema as BrowserParityCaseIdSchemaInternal,
+  type BrowserParityCaseIdType as BrowserParityCaseIdTypeInternal
 } from "./paritySchema.js"
 import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from "./supportManifest.js"
+
+/**
+ * Browser parity artifact case schema.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaInternal
+
+/**
+ * Browser parity artifact JSON schema.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaInternal
+
+/**
+ * Browser parity artifact schema.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
+
+/**
+ * Browser parity case identifier schema.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
+
+/**
+ * Browser parity artifact case type.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInternal
+
+/**
+ * Browser parity artifact type.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
+
+/**
+ * Browser parity case identifier type.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type BrowserParityCaseIdType = BrowserParityCaseIdTypeInternal
+
 const baseFontSize = 10
 type BrowserParityCaseTemplate = Readonly<{
   caseId: BrowserParityCaseIdType
@@ -162,6 +212,7 @@ export const browserParityCasesForProfile = (
     },
     request: template.request
   }))
+
 /**
  * Deterministic browser-style layer used by the parity artifact harness.
  *
@@ -192,6 +243,7 @@ export const browserParityLayer = (profile: BrowserSupportProfileType) =>
  */
 export const browserParityArtifactRelativePath = (profileId: BrowserSupportProfileIdType): string =>
   `examples/live/artifacts/${profileId}.json`
+
 /**
  * Renders one machine-readable parity artifact for a support profile.
  *

@@ -24,15 +24,8 @@
         },
         "manualTotal": 0,
         "effectMathTotal": 0,
-        "manualSummary": { "count": 6, "mean": 0, "minimum": 0, "maximum": 0, "variance": 0, "standardDeviation": 0 },
-        "effectMathSummary": {
-          "count": 6,
-          "mean": 0,
-          "minimum": 0,
-          "maximum": 0,
-          "variance": 0,
-          "standardDeviation": 0
-        }
+        "manualSummary": { "mean": 0, "variance": 0, "standardDeviation": 0, "min": 0, "max": 0, "count": 6 },
+        "effectMathSummary": { "mean": 0, "variance": 0, "standardDeviation": 0, "min": 0, "max": 0, "count": 6 }
       },
       {
         "profile": {
@@ -48,20 +41,20 @@
         "manualTotal": 10020,
         "effectMathTotal": 10020,
         "manualSummary": {
-          "count": 6,
           "mean": 1670,
-          "minimum": 0,
-          "maximum": 10020,
           "variance": 16733400,
-          "standardDeviation": 4090.6478704479073
+          "standardDeviation": 4090.6478704479073,
+          "min": 0,
+          "max": 10020,
+          "count": 6
         },
         "effectMathSummary": {
-          "count": 6,
           "mean": 1670,
-          "minimum": 0,
-          "maximum": 10020,
           "variance": 16733400,
-          "standardDeviation": 4090.6478704479073
+          "standardDeviation": 4090.6478704479073,
+          "min": 0,
+          "max": 10020,
+          "count": 6
         }
       },
       {
@@ -77,15 +70,8 @@
         },
         "manualTotal": 0,
         "effectMathTotal": 0,
-        "manualSummary": { "count": 6, "mean": 0, "minimum": 0, "maximum": 0, "variance": 0, "standardDeviation": 0 },
-        "effectMathSummary": {
-          "count": 6,
-          "mean": 0,
-          "minimum": 0,
-          "maximum": 0,
-          "variance": 0,
-          "standardDeviation": 0
-        }
+        "manualSummary": { "mean": 0, "variance": 0, "standardDeviation": 0, "min": 0, "max": 0, "count": 6 },
+        "effectMathSummary": { "mean": 0, "variance": 0, "standardDeviation": 0, "min": 0, "max": 0, "count": 6 }
       }
     ]
   },
@@ -251,12 +237,12 @@
       "completionReason": "budgetExhausted",
       "bestScore": 10020,
       "bestLossSummary": {
-        "count": 6,
         "mean": 1670,
-        "minimum": 0,
-        "maximum": 10020,
         "variance": 16733400,
-        "standardDeviation": 4090.6478704479073
+        "standardDeviation": 4090.6478704479073,
+        "min": 0,
+        "max": 10020,
+        "count": 6
       },
       "artifacts": {
         "snapshot": {

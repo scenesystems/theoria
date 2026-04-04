@@ -12,7 +12,7 @@
  * @since 0.1.0
  * @category stability
  */
-export const CalibrationStability = "experimental"
+export const CalibrationStability = "unstable"
 
 /**
  * Public schemas and schema-derived types for calibration corpora and reports.

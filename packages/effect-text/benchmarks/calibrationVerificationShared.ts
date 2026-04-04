@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 
 import { Experimental } from "../src/index.js"
 import { scoreCalibrationReportSync } from "../src/experimental/Calibration/internal/scoring.js"
+import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
 import {
   calibrationServices,
   canonicalCalibrationCases,
@@ -11,8 +12,8 @@ import {
   exploratorySearchDescriptor
 } from "../examples/live/calibrationFixtures.js"
 
-const verificationIterations = 5_000
-const maxSlowdownRatio = 1
+const verificationIterations = EffectTextSupportManifest.benchmarks.calibrationScoring.iterations
+const maxSlowdownRatio = EffectTextSupportManifest.benchmarks.calibrationScoring.maxSlowdownRatio
 
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 const PositiveNumber = Schema.Number.pipe(Schema.greaterThan(0))

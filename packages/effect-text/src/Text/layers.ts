@@ -16,6 +16,7 @@ import {
   TextMeasurer,
   WordSegmenter
 } from "../contracts/index.js"
+import { EffectTextSupportManifest } from "../contracts/supportManifest.js"
 import { MeasurementFailed } from "../Errors/index.js"
 import { segmentText } from "./internal/analysis.js"
 import {
@@ -25,8 +26,7 @@ import {
   hyphenationLocaleFallbackCandidates,
   normalizeHyphenationLocale,
   shippedHyphenationDictionarySourceForLocale,
-  shippedHyphenationDictionarySources,
-  shippedHyphenationSupport
+  shippedHyphenationDictionarySources
 } from "./internal/hyphenation.js"
 import type { FontDescriptorType } from "./schema.js"
 
@@ -300,4 +300,4 @@ export const TextLayoutLive = Layer.mergeAll(
  * @since 0.2.0
  * @category layers
  */
-export const HyphenationSupport = shippedHyphenationSupport
+export const HyphenationSupport = EffectTextSupportManifest.hyphenation

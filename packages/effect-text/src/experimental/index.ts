@@ -13,7 +13,7 @@ import * as Arr from "effect/Array"
  * @since 0.1.0
  * @category stability
  */
-export const ExperimentalStability = "experimental"
+export const ExperimentalStability = "unstable"
 
 /**
  * Experimental module catalog reserved for unstable integration work.

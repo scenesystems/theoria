@@ -43,6 +43,7 @@ const renderProfileReport = (profile: BrowserSupportProfileType) =>
       defaultFontFamily: profile.defaultFontFamily,
       fontSelection: profile.fontSelection,
       fontStack: profile.fontStack,
+      parityTolerancePx: profile.parityTolerancePx,
       whiteSpaceModes: profile.whiteSpaceModes,
       tabPolicy: profile.tabPolicy,
       parityCases: profile.parityCases,

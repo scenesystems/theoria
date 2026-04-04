@@ -9,6 +9,8 @@ import * as Option from "effect/Option"
 import * as Rec from "effect/Record"
 import * as Tuple from "effect/Tuple"
 
+import { HyphenationSupportManifest } from "../../contracts/hyphenationSupport.js"
+
 import { graphemeClusters } from "./analysis.js"
 import { deHyphenationPatternSource } from "./hyphenationPatterns/de.js"
 import { enGbHyphenationPatternSource } from "./hyphenationPatterns/enGb.js"
@@ -455,8 +457,8 @@ const shippedHyphenationLocaleEntries = Arr.map(shippedHyphenationPatternSources
  * @category internals
  */
 export const shippedHyphenationSupport: ShippedHyphenationSupport = {
-  localeFallback: "exact-or-base-language",
-  locales: Arr.map(shippedHyphenationLocaleEntries, (entry) => entry.primaryLocale)
+  localeFallback: HyphenationSupportManifest.localeFallback,
+  locales: HyphenationSupportManifest.locales
 }
 
 /**

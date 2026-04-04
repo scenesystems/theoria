@@ -1,5 +1,6 @@
 import { Schema } from "effect"
 
+import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
 import { LayoutRequest, type LayoutRequestType, PrepareInput, type PrepareInputType } from "../src/Text/schema.js"
 
 const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
@@ -128,7 +129,7 @@ export const BenchmarkComparisonReportSchema = Schema.Struct({
 
 export type BenchmarkComparisonReportType = typeof BenchmarkComparisonReportSchema.Type
 
-export const benchmarkIterations = 200
+export const benchmarkIterations = EffectTextSupportManifest.benchmarks.walkerKernel.iterations
 
 export const benchmarkCorpus: ReadonlyArray<BenchmarkCorpusCase> = [
   {

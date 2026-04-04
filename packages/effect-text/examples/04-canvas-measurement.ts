@@ -83,6 +83,7 @@ const program = Effect.gen(function*() {
   yield* Effect.log("canvas-backed measurement", {
     browserEngineProfile: browserProfile.engineProfile,
     browserFontSelection: browserProfile.fontSelection,
+    browserParityTolerancePx: browserProfile.parityTolerancePx,
     browserProfile: browserProfile.id,
     browserSupportCaveats: browserProfile.caveats,
     browserWhiteSpaceModes: browserProfile.whiteSpaceModes,

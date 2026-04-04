@@ -4,7 +4,7 @@ import { Chunk, Clock, Console, Effect, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { Text } from "../src/index.js"
-import { preparedTextCore } from "../src/Text/model.js"
+import { preparedTextWithSegmentsCore } from "../src/Text/model.js"
 import {
   BenchmarkComparisonReportSchema,
   BenchmarkReportSchema,
@@ -95,7 +95,7 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         prepare: yield* measureEffect(
           benchmarkIterations,
           () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
-          (preparedText) => ({ segmentCount: preparedTextCore(preparedText).manualSurface.segments.length })
+          (preparedText) => ({ segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length })
         ),
         layout: yield* measurePure(
           benchmarkIterations,

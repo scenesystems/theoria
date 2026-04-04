@@ -1,1 +1,294 @@
-{"benchmark":"effect-text-walker-kernel","iterations":200,"corpus":[{"name":"short-prose","request":{"maxWidth":160,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":313,"meanDurationMs":1.565,"sample":{"segmentCount":19}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":13,"meanDurationMs":0.065,"sample":{"lineCount":4,"maxLineWidth":148.07999999999998}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":3,"meanDurationMs":0.015,"sample":{"lineCount":4}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":3,"meanDurationMs":0.015,"sample":{"lineCount":4}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":57,"meanDurationMs":0.285,"sample":{"lineCount":4}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":4,"meanDurationMs":0.02,"sample":{"lineCount":4}}}},{"name":"hard-breaks","request":{"maxWidth":120,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":106,"meanDurationMs":0.53,"sample":{"segmentCount":11}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":3,"maxLineWidth":67.32}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":3}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":2,"meanDurationMs":0.01,"sample":{"lineCount":3}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":26,"meanDurationMs":0.13,"sample":{"lineCount":3}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":3}}}},{"name":"tabs","request":{"maxWidth":140,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":98,"meanDurationMs":0.49,"sample":{"segmentCount":5}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1,"maxLineWidth":91.91999999999999}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":1}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":14,"meanDurationMs":0.07,"sample":{"lineCount":1}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}}}},{"name":"bidi","request":{"maxWidth":120,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":102,"meanDurationMs":0.51,"sample":{"segmentCount":7}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":2,"maxLineWidth":98.39999999999998}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":2}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":2}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":36,"meanDurationMs":0.18,"sample":{"lineCount":2}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":2}}}},{"name":"cjk","request":{"maxWidth":80,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":103,"meanDurationMs":0.515,"sample":{"segmentCount":1}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1,"maxLineWidth":104.39999999999996}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":13,"meanDurationMs":0.065,"sample":{"lineCount":1}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":1}}}},{"name":"long-token-overflow","request":{"maxWidth":50,"lineHeight":18},"metrics":{"prepare":{"status":"recorded","iterations":200,"totalDurationMs":105,"meanDurationMs":0.525,"sample":{"segmentCount":1}},"layout":{"status":"recorded","iterations":200,"totalDurationMs":1,"meanDurationMs":0.005,"sample":{"lineCount":1,"maxLineWidth":236.64000000000007}},"layoutLines":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}},"layoutNextLine":{"status":"recorded","iterations":200,"totalDurationMs":0,"meanDurationMs":0,"sample":{"lineCount":1}},"streamLines":{"status":"recorded","iterations":200,"totalDurationMs":40,"meanDurationMs":0.2,"sample":{"lineCount":1}},"walkLineRanges":{"status":"recorded","iterations":200,"totalDurationMs":3,"meanDurationMs":0.015,"sample":{"lineCount":1}}}}]}
+{
+  "benchmark": "effect-text-walker-kernel",
+  "iterations": 200,
+  "corpus": [
+    {
+      "name": "short-prose",
+      "request": { "maxWidth": 160, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8211,
+          "meanDurationMs": 41.055,
+          "sample": { "segmentCount": 19 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 6,
+          "meanDurationMs": 0.03,
+          "sample": { "lineCount": 3, "maxLineWidth": 155.03999999999996 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 17,
+          "meanDurationMs": 0.085,
+          "sample": { "lineCount": 3 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 13,
+          "meanDurationMs": 0.065,
+          "sample": { "lineCount": 3 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 41,
+          "meanDurationMs": 0.205,
+          "sample": { "lineCount": 3 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 3 }
+        }
+      }
+    },
+    {
+      "name": "hard-breaks",
+      "request": { "maxWidth": 120, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 7974,
+          "meanDurationMs": 39.87,
+          "sample": { "segmentCount": 11 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 5,
+          "meanDurationMs": 0.025,
+          "sample": { "lineCount": 3, "maxLineWidth": 67.32 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 3 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 6,
+          "meanDurationMs": 0.03,
+          "sample": { "lineCount": 3 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 22,
+          "meanDurationMs": 0.11,
+          "sample": { "lineCount": 3 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 3 }
+        }
+      }
+    },
+    {
+      "name": "tabs",
+      "request": { "maxWidth": 140, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8454,
+          "meanDurationMs": 42.27,
+          "sample": { "segmentCount": 5 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 1, "maxLineWidth": 91.91999999999999 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 1,
+          "meanDurationMs": 0.005,
+          "sample": { "lineCount": 1 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 1 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 19,
+          "meanDurationMs": 0.095,
+          "sample": { "lineCount": 1 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 1,
+          "meanDurationMs": 0.005,
+          "sample": { "lineCount": 1 }
+        }
+      }
+    },
+    {
+      "name": "bidi",
+      "request": { "maxWidth": 120, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8217,
+          "meanDurationMs": 41.085,
+          "sample": { "segmentCount": 7 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2, "maxLineWidth": 116.27999999999994 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 2 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 2 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 18,
+          "meanDurationMs": 0.09,
+          "sample": { "lineCount": 2 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2 }
+        }
+      }
+    },
+    {
+      "name": "cjk",
+      "request": { "maxWidth": 80, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8189,
+          "meanDurationMs": 40.945,
+          "sample": { "segmentCount": 1 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2, "maxLineWidth": 76.55999999999999 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 2 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 2 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 20,
+          "meanDurationMs": 0.1,
+          "sample": { "lineCount": 2 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 2 }
+        }
+      }
+    },
+    {
+      "name": "long-token-overflow",
+      "request": { "maxWidth": 50, "lineHeight": 18 },
+      "metrics": {
+        "prepare": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 8134,
+          "meanDurationMs": 40.67,
+          "sample": { "segmentCount": 1 }
+        },
+        "layout": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 3,
+          "meanDurationMs": 0.015,
+          "sample": { "lineCount": 5, "maxLineWidth": 48.72 }
+        },
+        "layoutLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 4,
+          "meanDurationMs": 0.02,
+          "sample": { "lineCount": 5 }
+        },
+        "layoutNextLine": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 6,
+          "meanDurationMs": 0.03,
+          "sample": { "lineCount": 5 }
+        },
+        "streamLines": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 20,
+          "meanDurationMs": 0.1,
+          "sample": { "lineCount": 5 }
+        },
+        "walkLineRanges": {
+          "status": "recorded",
+          "iterations": 200,
+          "totalDurationMs": 2,
+          "meanDurationMs": 0.01,
+          "sample": { "lineCount": 5 }
+        }
+      }
+    }
+  ]
+}

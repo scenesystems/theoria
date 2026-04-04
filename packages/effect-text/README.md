@@ -244,9 +244,23 @@ Limits and non-goals:
 - It does not repair browser-specific kerning, mark positioning, or font fallback behavior outside emoji under-measurement.
 - It does not inspect user agents; it only consumes the configured browser measurer and support-profile data.
 
+### Browser and React companion surfaces
+
+`effect-text` ships two framework-adjacent companion subpaths with deliberately different ownership boundaries:
+
+- `effect-text/browser` owns support data, browser measurement layers, font-readiness refresh helpers, and the browser-parity harness helpers.
+- `effect-text/react` stays framework-thin and owns only prepare-identity composition plus pure prepared-layout projection helpers.
+
+```ts
+import * as Browser from "effect-text/browser"
+import * as React from "effect-text/react"
+```
+
+Reach for `effect-text/browser` when the app needs a browser profile, a canvas measurer, cache freshness keyed by font readiness, or browser-parity artifacts. Reach for `effect-text/react` when the app needs a stable prepare key or a pure projection helper after it already owns runtime wiring, atoms, and DOM observation.
+
 ### Browser support manifest
 
-`Browser.BrowserSupportManifest` is the shipped authority for browser profile names, font policy, released white-space coverage, parity cases, and explicit caveats.
+`Browser.BrowserSupportManifest` is the browser-facing slice of the checked-in release support manifest at [`src/contracts/supportManifest.ts`](./src/contracts/supportManifest.ts). It is the shipped authority for browser profile names, font policy, released white-space coverage, parity cases, parity tolerances, and explicit caveats.
 
 | Profile            | Font policy                                            | Covered surface                                                                                                                                                         | Explicit caveats and non-goals                                                                                                                                                                                                            |
 | ------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -254,6 +268,8 @@ Limits and non-goals:
 | `canvas-system-ui` | Browser-default UI stack using `system-ui, sans-serif` | The resolved browser-default UI stack for `whiteSpace: normal, pre-wrap`, the released parity case set, and a slightly looser fit epsilon for browser-resolved UI fonts | Covers the browser-resolved `system-ui` stack rather than one pinned font file. User-agent-specific fallback changes, alternate UI stacks, and shaping-engine parity outside the checked-in artifacts remain outside the shipped surface. |
 
 Each shipped profile also publishes the `Contracts.EngineProfile` data that the pure layout plane should consume. Browser-specific fit heuristics and break preferences stay in that profile data rather than in user-agent inspection or app-local conditionals.
+
+The current checked-in parity tolerance is `0px` for both shipped browser profiles, so the parity harness still expects exact agreement against the current package-owned artifacts.
 
 The shipped `tabWidth` policy is explicit and shared across both browser profiles: `tabWidth: 4`, interpreted as CSS-style tab stops aligned to four space columns measured from the active space advance. The browser runtime and deterministic runtime both consume that same policy through `Contracts.EngineProfile`, so `a\tb` projects with the same tab semantics in both lanes.
 
@@ -401,7 +417,7 @@ const optimized =
 - `artifacts.snapshot` — a typed `StudySnapshot` for replay and resume
 - `artifacts.eventLog` — the ordered `StudyEvent` history for fresh and resumed runs
 
-Fresh and resumed optimization runs both emit the same artifact shape: a persisted `StudySnapshot` plus the ordered `StudyEvent` trace for that leg of the study. The checked-in verifier artifact at `benchmarks/results/calibration-verification.json` pins the deterministic optimization story and the scorer-parity expectations, while `bun run --filter 'effect-text' verify:calibration` checks drift and enforces the current slowdown gate against the pre-`effect-math` scorer.
+Fresh and resumed optimization runs both emit the same artifact shape: a persisted `StudySnapshot` plus the ordered `StudyEvent` trace for that leg of the study. The checked-in verifier artifact at `benchmarks/results/calibration-verification.json` pins the deterministic optimization story and the scorer-parity expectations, while `bun run --filter 'effect-text' verify:calibration` checks drift and enforces the current slowdown gate against the checked-in release support manifest threshold.
 
 When the study artifacts must survive process boundaries, pass `studyStorage` from `effect-search`'s `Study.makeStudyStorage(...)` or `Study.StudyStorageLive(...)`. If you omit it, `optimizeProfile` still returns the same typed snapshot and event log, but it keeps the storage bridge transient to the current process.
 
@@ -485,7 +501,35 @@ This release ships a bounded browser parity envelope rather than full CSS and sh
 
 **Explicit bidi non-goals for the current surface:** explicit Unicode bidi control characters, selection/copy-paste semantics, and shaping-engine parity outside the tested named-font envelope. Formatting controls are detected as an unsupported branch during preparation; `effect-text` does not claim control-aware Unicode bidi parity beyond the shipped mirror table and mixed-direction visual ordering tests.
 
+**Release support manifest:** the checked-in manifest at [`src/contracts/supportManifest.ts`](./src/contracts/supportManifest.ts) is the single package-owned record for the browser profile set, hyphenation locale claims, overflow precedence, mirrored punctuation coverage, benchmark thresholds, and stability lanes that README prose and proof scripts must agree with.
+
 Those features belong behind the existing service seams rather than in a different architecture.
+
+## Proof Commands
+
+Run the shipped proof surface from the package root with Bun:
+
+```sh
+bun run check
+bun run check:tests
+bun run lint
+bun run test
+bun run bench
+bun run verify:browser-parity
+bun run verify:calibration
+bun run verify:support-manifest
+bun run build
+bun run docgen
+```
+
+Refresh the checked-in proof artifacts when intentional runtime changes land:
+
+```sh
+bun run verify:browser-parity --write
+bun run verify:calibration --write
+bun run bench
+bun run verify:support-manifest
+```
 
 ## Acknowledgments
 
@@ -499,6 +543,10 @@ Built on [Effect](https://effect.website). Experimental calibration uses [`effec
 bun run check    # Type check
 bun run test     # Run tests
 bun run lint     # Lint
+bun run bench    # Refresh benchmark artifacts
+bun run verify:browser-parity   # Verify browser parity artifacts
+bun run verify:calibration      # Verify calibration artifact + slowdown gate
+bun run verify:support-manifest # Verify the checked-in release support manifest
 bun run build    # Build ESM + CJS
 bun run docgen   # Generate API docs
 ```
