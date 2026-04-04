@@ -1,4 +1,4 @@
-"""M4 Task 4.5: mixed-space joint EI trace fixtures from Optuna internals."""
+"""Mixed-space joint EI trace fixtures from Optuna internals."""
 
 from __future__ import annotations
 

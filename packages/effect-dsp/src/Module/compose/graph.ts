@@ -5,11 +5,9 @@
  */
 
 /**
- * Decomposition rationale: Task 2.8 requires graph construction, identity validation,
- * cycle detection, and canonical edge/node emission to share one recursion kernel.
- *
- * Decomposition plan: split this file into `ids.ts`, `validation.ts`, and `builder.ts`
- * once Task 2.9 lands and compose+CoT graph contracts stabilize.
+ * Decomposition rationale: graph construction, identity validation, cycle detection,
+ * and canonical edge/node emission still share one recursion kernel, so they remain
+ * co-located until the compose graph surface stabilizes further.
  */
 import { Array as Arr, Data, Effect, HashMap, Option, Order, Record, Schema } from "effect"
 import type { Ref } from "effect"

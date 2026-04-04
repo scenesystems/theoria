@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.5 orchestration contracts.
+ * GEPA orchestration contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { FileSystem, Path } from "@effect/platform"

@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.1 Pareto kernel contracts.
+ * GEPA Pareto kernel contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"

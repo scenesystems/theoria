@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.5 streaming contracts.
+ * GEPA streaming contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"

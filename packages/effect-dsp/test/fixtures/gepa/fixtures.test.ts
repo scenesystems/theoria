@@ -1,5 +1,5 @@
 /**
- * GEPA Task 6.6 fixture-governance contracts.
+ * GEPA fixture-governance contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"

@@ -1,8 +1,8 @@
-# WP-4 Anti-Pattern Delta
+# Runtime Orchestration Hardening Delta
 
 Date: 2026-03-16
 
-## Scope Update (Work Package 6)
+## Scope Update
 
 1. Runtime/orchestration hotspots were hardened to Effect-native collection/control-flow in `src/Study/{api,best,pareto}.ts` and `src/internal/constantLiar.ts`.
 2. Residual sampler/math hardening landed in `src/internal/tpe/multivariateCategorical.ts` and `src/internal/tpe/continuousParzen/kernels.ts` (lookup composition and record assembly now use Effect structures).
@@ -13,10 +13,10 @@ Date: 2026-03-16
 
 ## Delta Summary
 
-1. The last open WP-4 done-when gate in M341 (runtime/orchestration anti-pattern hotspot replacement) is now satisfied in the tracked hotspot set.
+1. The tracked runtime and orchestration hotspot replacement work is complete for this hardening pass.
 2. FM-8 non-mixed continuous/truncated parity breadth now includes additional narrow-span, asymmetric-range, boundary-cluster, and micro-support far-mean stress families sourced from Optuna internals.
 3. Governance evidence remains synchronized through schema unions, FM matrix fixtures, manifest decode, replay suites, and live verifier checks.
 
 ## Remaining Hotspots
 
-1. None in the M341-scoped WP-4 hotspot inventory for this closure pass.
+1. None in the tracked hotspot inventory for this closure pass.
