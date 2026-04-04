@@ -24,6 +24,22 @@ const firstDocTagValueFromDeclarations = (
     )
   )
 
+const firstPreferredDocTagValue = (input: {
+  readonly localDoc: Option.Option<PublicExportDoc>
+  readonly exportDeclarations: ReadonlyArray<ts.Declaration>
+  readonly resolvedDeclarations: ReadonlyArray<ts.Declaration>
+  readonly field: "category" | "since"
+}): string | null =>
+  Option.match(input.localDoc, {
+    onNone: () =>
+      firstDocTagValueFromDeclarations(input.exportDeclarations, input.field) ??
+        firstDocTagValueFromDeclarations(input.resolvedDeclarations, input.field),
+    onSome: (doc) =>
+      doc[input.field] ??
+        firstDocTagValueFromDeclarations(input.exportDeclarations, input.field) ??
+        firstDocTagValueFromDeclarations(input.resolvedDeclarations, input.field)
+  })
+
 const aliasedSymbol = (checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol =>
   symbol.flags & ts.SymbolFlags.Alias
     ? checker.getAliasedSymbol(symbol)
@@ -55,16 +71,6 @@ const exportKindFromSymbol = (
     onSome: (doc) => doc.kind
   })
 
-const preferredDocField = (
-  localDoc: Option.Option<PublicExportDoc>,
-  field: "category" | "since",
-  declarations: ReadonlyArray<ts.Declaration>
-): string | null =>
-  Option.match(localDoc, {
-    onNone: () => firstDocTagValueFromDeclarations(declarations, field),
-    onSome: (doc) => doc[field] ?? firstDocTagValueFromDeclarations(declarations, field)
-  })
-
 const publicExportsFromEntrypoint = (
   checker: ts.TypeChecker,
   entrypoint: PackagePublicEntrypoint,
@@ -79,6 +85,7 @@ const publicExportsFromEntrypoint = (
     onSome: (resolvedModuleSymbol) =>
       Arr.map(checker.getExportsOfModule(resolvedModuleSymbol), (exportSymbol) => {
         const resolvedSymbol = aliasedSymbol(checker, exportSymbol)
+        const exportDeclarations = exportSymbol.getDeclarations() ?? []
         const resolvedDeclarations = resolvedSymbol.getDeclarations() ?? []
         const exportName = exportSymbol.getName()
         const localDoc = localDocFor(entrypointDocs, exportName)
@@ -88,8 +95,18 @@ const publicExportsFromEntrypoint = (
           subpath: entrypoint.subpath,
           exportName,
           kind,
-          since: preferredDocField(localDoc, "since", resolvedDeclarations),
-          category: preferredDocField(localDoc, "category", resolvedDeclarations)
+          since: firstPreferredDocTagValue({
+            localDoc,
+            exportDeclarations,
+            resolvedDeclarations,
+            field: "since"
+          }),
+          category: firstPreferredDocTagValue({
+            localDoc,
+            exportDeclarations,
+            resolvedDeclarations,
+            field: "category"
+          })
         })
       })
   })

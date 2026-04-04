@@ -7,6 +7,16 @@ import { packagePublicExports } from "./publicSurface.js"
 import { ReleaseSinceSnapshotJson, stampReleaseSinceSnapshot } from "./releaseSince.js"
 import { typeScriptProgramFromConfig, type TypeScriptProjectError } from "./typescriptProject.js"
 
+const loadReleaseSinceSnapshotFile = (
+  snapshotFile: string
+): Effect.Effect<ReleaseSinceSnapshot, never, FileSystem.FileSystem> =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const content = yield* fileSystem.readFileString(snapshotFile).pipe(Effect.orDie)
+
+    return yield* Schema.decodeUnknown(ReleaseSinceSnapshotJson)(content).pipe(Effect.orDie)
+  })
+
 const loadPackageReleaseManifest = (
   packageRoot: string
 ): Effect.Effect<Schema.Schema.Type<typeof PackageReleaseManifestJson>, never, FileSystem.FileSystem | Path.Path> =>
@@ -31,8 +41,8 @@ export const loadReleaseSinceSnapshotsFromDirectory = (
   snapshotsDirectory: string
 ): Effect.Effect<ReadonlyArray<ReleaseSinceSnapshot>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const fileSystem = yield* FileSystem.FileSystem
     const exists = yield* fileSystem.exists(snapshotsDirectory).pipe(Effect.orDie)
 
     if (!exists) {
@@ -45,12 +55,28 @@ export const loadReleaseSinceSnapshotsFromDirectory = (
 
     return yield* Effect.forEach(
       snapshotFiles,
-      (snapshotFile) =>
-        fileSystem.readFileString(path.join(snapshotsDirectory, snapshotFile)).pipe(
-          Effect.orDie,
-          Effect.flatMap((content) => Schema.decodeUnknown(ReleaseSinceSnapshotJson)(content).pipe(Effect.orDie))
-        )
+      (snapshotFile) => loadReleaseSinceSnapshotFile(path.join(snapshotsDirectory, snapshotFile))
     )
+  })
+
+/**
+ * Loads the checked-in release snapshot for one released package version.
+ *
+ * This makes the current-version snapshot a mechanical contract: package tests
+ * can require `${releasedVersion}.json` to exist and decode cleanly before any
+ * `@since` comparisons run.
+ *
+ * @since 0.0.0
+ * @category queries
+ */
+export const loadReleaseSinceSnapshotForVersion = (input: {
+  readonly snapshotsDirectory: string
+  readonly releasedVersion: string
+}): Effect.Effect<ReleaseSinceSnapshot, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+
+    return yield* loadReleaseSinceSnapshotFile(path.join(input.snapshotsDirectory, `${input.releasedVersion}.json`))
   })
 
 /**

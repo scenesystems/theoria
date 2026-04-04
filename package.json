@@ -27,7 +27,7 @@
     "docs": "bun run docgen && bun scripts/docs.ts",
     "docs:preview": "bun scripts/docs.ts && docker build -t theoria-docs docs && docker run --rm -p 4000:4000 -v \"$PWD/docs:/site\" theoria-docs",
     "changeset": "changeset",
-    "changeset:version": "changeset version",
+    "changeset:version": "node scripts/changeset-version-with-release-snapshots.mjs",
     "changeset:publish": "changeset publish",
     "prettier": "prettier --cache --cache-location node_modules/.cache/.prettiercache --check \"**/*.{md,json,yml,yaml}\"",
     "prettier:fix": "prettier --cache --cache-location node_modules/.cache/.prettiercache --write \"**/*.{md,json,yml,yaml}\"",
