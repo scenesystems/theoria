@@ -3,210 +3,78 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Effect libraries for optimization, language model programming, text layout, applied math, and cryptography.
+Effect-native libraries for applied math, optimization, language model
+programming, text layout, and cryptography.
 
 _Theoria_ (θεωρία) — observation that produces knowledge.
 
-[Packages](#packages) · [Development](#development) · [Frontend Demos](#frontend-demos) · [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
+[Package Map](#package-map) · [Theoria App](#theoria-app) ·
+[Development](#development) · [Contributing](./CONTRIBUTING.md) ·
+[Security](./SECURITY.md)
 
----
+## Package Map
 
-## Packages
+| Package                                     | Focus                                                                                      | Docs                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| [`effect-math`](./packages/effect-math)     | Numerics, linear algebra, statistics, probability, special functions, optimization kernels | [README](./packages/effect-math/README.md)   |
+| [`effect-search`](./packages/effect-search) | Typed search spaces, Bayesian optimization, studies, snapshots, replay                     | [README](./packages/effect-search/README.md) |
+| [`effect-dsp`](./packages/effect-dsp)       | Effect-native DSPy-style language model programming                                        | [README](./packages/effect-dsp/README.md)    |
+| [`effect-text`](./packages/effect-text)     | Effectful text preparation and pure multiline layout                                       | [README](./packages/effect-text/README.md)   |
+| [`@scenesystems/digest`](./packages/digest) | Hashing, HMAC, HKDF, JCS canonicalization                                                  | [README](./packages/digest/README.md)        |
+| [`@scenesystems/seal`](./packages/seal)     | Authenticated encryption and self-describing envelopes                                     | [README](./packages/seal/README.md)          |
+| [`@scenesystems/sign`](./packages/sign)     | Signatures, key exchange, and KEMs                                                         | [README](./packages/sign/README.md)          |
 
-```
-effect-math             Numerics, linear algebra, statistics, probability, special functions
-    ↑ uses
-effect-search           Bayesian optimization (TPE, multi-objective, constrained)
-    ↑ uses
-effect-dsp              Language model programming (DSPy for Effect)
+Workspace relationships stay explicit:
 
-effect-text             Text preparation, measurement seams, greedy multiline layout
-
-@scenesystems/digest    BLAKE3-256, SHA-256, JCS canonicalization
-@scenesystems/seal      XChaCha20-Poly1305, AES-256-GCM-SIV, AES-256-GCM
-@scenesystems/sign      Ed25519, ML-DSA, SLH-DSA, X25519, XWing
-```
-
-### [`effect-math`](./packages/effect-math) — Applied math
-
-Ten domains: numerics, linear algebra, geometry, probability, statistics, special functions, complex analysis, algebra, calculus, and optimization solvers. Pure kernels for the hot path, Effect wrappers when you need typed errors or runtime policies.
-
-```ts
-import { Chunk } from "effect"
-import { dot, normL2 } from "effect-math/LinearAlgebra"
-import { mean, variance } from "effect-math/Statistics"
-import { gamma, erf } from "effect-math/Special"
-
-dot(Chunk.fromIterable([1, 2, 3]), Chunk.fromIterable([4, 5, 6])) // 32
-mean(Chunk.fromIterable([2, 4, 6])) // 4
-gamma(5) // 24 (= 4!)
-erf(1) // ≈ 0.8427
-```
-
-Schema-validated boundaries, configurable precision policies via `Layer`, SciPy fixture parity across all domains. [README →](./packages/effect-math/README.md)
-
-### [`effect-search`](./packages/effect-search) — Bayesian optimization
-
-Black-box optimization with typed search spaces. When you can run a thing and measure how well it did but there's no gradient to follow, this replaces trial-and-error with algorithms that learn from previous results.
-
-```ts
-import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
-
-const program = Effect.gen(function* () {
-  const space = yield* SearchSpace.make({
-    temperature: SearchSpace.float(0, 2),
-    maxTokens: SearchSpace.int(50, 500),
-    model: SearchSpace.categorical(["gpt-4o", "gpt-4o-mini"])
-  })
-
-  return yield* Study.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 42 }),
-    objective: (params) => evaluate(params),
-    trials: 100
-  })
-})
-```
-
-TPE, MOTPE, Grid, Random, HyperBand/BOHB. Constraints, pruning, warm-starting, snapshot/resume, parallel evaluation. Mathematical correctness verified against [Optuna](https://github.com/optuna/optuna) via deterministic golden fixtures. [README →](./packages/effect-search/README.md)
-
-### [`effect-dsp`](./packages/effect-dsp) — Language model programming
-
-Effect-native [DSPy](https://dspy.ai/). Typed signatures, learnable modules, prompt optimization — without leaving the Effect ecosystem.
-
-```ts
-import { Effect, Schema } from "effect"
-import { Module, Signature } from "effect-dsp"
-
-const program = Effect.gen(function* () {
-  const qa = yield* Signature.make(
-    "Answer questions with short factual answers",
-    { question: Signature.describe(Schema.String, "The question to answer") },
-    { answer: Signature.describe(Schema.String, "A concise factual answer") }
-  )
-
-  return yield* Module.predict("qa", qa)
-})
-```
-
-LabeledFewShot, BootstrapFewShot, BootstrapRS, Ensemble, MIPROv2, GEPA. Uses `effect-search` for optimizer orchestration. [README →](./packages/effect-dsp/README.md)
-
-### [`effect-text`](./packages/effect-text) — Text preparation and layout
-
-```ts
-import { Effect } from "effect"
-import { TextLayoutLive, layout, layoutLines, prepare } from "effect-text"
-
-const program = Effect.gen(function* () {
-  const prepared = yield* prepare({
-    text: "Prepare once, layout many times.",
-    font: { family: "Mono", size: 16 },
-    whiteSpace: "normal"
-  })
-
-  const summary = layout(prepared, { maxWidth: 120, lineHeight: 20 })
-  const lines = layoutLines(prepared, { maxWidth: 120, lineHeight: 20 })
-
-  return { summary, lines }
-}).pipe(Effect.provide(TextLayoutLive))
-```
-
-`prepare` owns segmentation, measurement, and caching. `layout` stays pure, so it is safe to call in the hot path on resize. The default live layer is deterministic and swappable, which makes browser-accurate measurement a service concern rather than ambient global state. [README →](./packages/effect-text/README.md)
-
-### [`@scenesystems/digest`](./packages/digest) — Content hashing
-
-```ts
-import { digest } from "@scenesystems/digest"
-
-digest("blake3-256", { user: "alice", score: 42 })
-// "blake3-256:eT9Imnjd2CADODvozkIZQ3Cyt0k9yWL5A5rk3HlVTxo"
-```
-
-BLAKE3-256, SHA-256, HMAC, HKDF. RFC 8785 JCS canonicalization, base64url encoding. [README →](./packages/digest/README.md)
-
-### [`@scenesystems/seal`](./packages/seal) — Authenticated encryption
-
-```ts
-import { generateKey, seal, unseal } from "@scenesystems/seal"
-
-const key = generateKey(32)
-const envelope = seal("xchacha20-poly1305", key, plaintext)
-const recovered = unseal(key, envelope)
-```
-
-XChaCha20-Poly1305, AES-256-GCM-SIV, AES-256-GCM. Nonce generation, authentication, and self-describing envelopes handled for you. [README →](./packages/seal/README.md)
-
-### [`@scenesystems/sign`](./packages/sign) — Digital signatures and key exchange
-
-```ts
-import { generateKeyPair, sign, verify } from "@scenesystems/sign"
-
-const keys = generateKeyPair("ed25519")
-const sig = sign("ed25519", message, keys.secretKey, keys.publicKey)
-verify(sig, message)
-```
-
-Ed25519, secp256k1 (ECDSA + Schnorr), ML-DSA (FIPS 204), SLH-DSA (FIPS 205), X25519, XWing hybrid post-quantum KEM. [README →](./packages/sign/README.md)
-
-## Design
-
-`effect-math` exposes three tiers per domain: pure kernels (`dot`, `mean`, `gamma`), schema-validated boundaries (`dotValidated`), and policy-aware operations (`meanWithPolicies`) that read precision and diagnostics config from `Layer`. Import what you need — `effect-math/LinearAlgebra`, `effect-math/Statistics`, etc.
-
-`effect-search` and `effect-dsp` follow the same subpath convention. The `@scenesystems/*` crypto packages each have a single entrypoint.
+- `effect-search` depends on `effect-math` and `@scenesystems/digest`.
+- `effect-dsp` depends on `effect-search`, `effect-math`, and `@scenesystems/digest`.
+- `effect-text` depends on `effect-search` and `effect-math`, while still owning a separate prepare/layout runtime lane.
+- `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` are standalone single-entrypoint crypto packages.
 
 ## Theoria App
 
-The monorepo includes a first-class public app under [`apps/theoria/`](./apps/theoria/) as a single live surface with typed envelopes and executable Effect-native demos for `effect-text`, `effect-search`, `effect-math`, and `effect-dsp`.
+[`apps/theoria/`](./apps/theoria/) is the proving consumer for the published
+packages. It exposes live, typed demos for `effect-text`, `effect-search`,
+`effect-math`, and `effect-dsp`.
 
 ```sh
 bun run app:theoria
 ```
 
-Then open `http://127.0.0.1:3876`.
+Open `http://127.0.0.1:3876`.
 
-For tmux operations and route-level guidance, see [`apps/theoria/README.md`](./apps/theoria/README.md).
+For the tmux workflow and route-level app guidance, see
+[`apps/theoria/README.md`](./apps/theoria/README.md).
 
 ## Development
 
-Requires [bun](https://bun.sh) ≥ 1.3.
+Requires [bun](https://bun.sh) `>= 1.3`.
 
 ```sh
 bun install
-bun run check    # Type check
-bun run test     # Test
-bun run lint     # Lint (--max-warnings=0)
-bun run build    # ESM + CJS
+bun run check
+bun run check:tests
+bun run lint
+bun run test
+bun run build
 ```
 
-Per-package:
+Run one package at a time with Bun filters:
 
 ```sh
-bun run --filter effect-search test
+bun run --filter effect-text test
+bun run --filter effect-search build
 bun run --filter @scenesystems/digest test
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow and repository rules.
 
-## Acknowledgments
+## Notes
 
-### effect-search
-
-TPE implements [Bergstra et al. (2011)](https://papers.nips.cc/paper/2011/hash/86e8f7ab32cfd12577bc2619bc635690-Abstract.html) with bandwidth selection from [Watanabe (2023)](https://arxiv.org/abs/2304.11127). MOTPE follows [Ozaki et al. (2022)](https://doi.org/10.1613/jair.1.13188) with hypervolume weighting from [Guerreiro et al. (2021)](https://doi.org/10.1145/3453474). c-TPE follows [Watanabe & Hutter (2023)](https://doi.org/10.24963/ijcai.2023/486). HyperBand follows [Li et al. (2017)](https://jmlr.org/papers/v18/16-558.html), BOHB per [Falkner et al. (2018)](https://proceedings.mlr.press/v80/falkner18a.html). Parallel evaluation uses constant liar imputation from [Ginsbourger et al. (2010)](https://doi.org/10.1007/978-3-642-10701-6_6). Verified against [Optuna](https://github.com/optuna/optuna).
-
-### effect-dsp
-
-Implements the [DSPy](https://github.com/stanfordnlp/dspy) paradigm [(Khattab et al., ICLR 2024)](https://arxiv.org/abs/2310.03714), building on [(Khattab et al., 2022)](https://arxiv.org/abs/2212.14024). Chain-of-thought from [Wei et al. (NeurIPS 2022)](https://arxiv.org/abs/2201.11903). Optimizers from [MIPROv2 (Opsahl-Ong et al., EMNLP 2024)](https://arxiv.org/abs/2406.11695), [GEPA (Agrawal et al., ICLR 2026)](https://arxiv.org/abs/2507.19457), and [BetterTogether (Soylu et al., EMNLP 2024)](https://arxiv.org/abs/2407.10930). Ensemble majority voting follows [Wang et al. (ICLR 2023)](https://arxiv.org/abs/2203.11171).
-
-### effect-math
-
-Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses multi-region rational polynomial coefficients from the [Cephes Mathematical Library](https://www.netlib.org/cephes/) (Moshier, 1984–2000; BSD). Inverse error function uses rational Chebyshev approximations from [Blair, Edwards & Johnson (1976)](https://doi.org/10.1090/S0025-5718-1976-0421040-7) via [Boost.Math](https://www.boost.org/doc/libs/release/libs/math/) (Maddock, 2006; BSL-1.0). Regularized incomplete gamma and beta use modified Lentz continued fractions ([Lentz, 1976](https://doi.org/10.1364/AO.15.000668); [Thompson & Barnett, 1986](<https://doi.org/10.1016/0021-9991(86)90001-8>)). Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). Complex-step differentiation follows [Squire & Trapp (1998)](https://doi.org/10.1137/S003614459631241X). See `packages/effect-math/THIRD_PARTY_NOTICES` for full license texts. Verified against [SciPy](https://doi.org/10.1038/s41592-019-0686-2) golden-reference fixtures across all domains.
-
-### Cryptographic packages
-
-Built on the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — [@noble/hashes](https://github.com/paulmillr/noble-hashes), [@noble/ciphers](https://github.com/paulmillr/noble-ciphers), [@noble/curves](https://github.com/paulmillr/noble-curves), [@noble/post-quantum](https://github.com/paulmillr/noble-post-quantum). Noble has been through 6 independent security audits by [Cure53](https://cure53.de/) and [Trail of Bits](https://www.trailofbits.com/). Algorithms implement [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032) (Ed25519), [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748) (X25519), [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) (ChaCha20-Poly1305), [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452) (AES-GCM-SIV), [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) (HKDF), [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) (JCS), [FIPS 204](https://doi.org/10.6028/NIST.FIPS.204) (ML-DSA), [FIPS 205](https://doi.org/10.6028/NIST.FIPS.205) (SLH-DSA), and [XWing](https://doi.org/10.62056/a3qj89n4e) hybrid KEM.
-
-All packages are built on [Effect](https://effect.website).
+The monorepo is built on [Effect](https://effect.website). The crypto packages
+build on the [Noble](https://paulmillr.com/noble/) ecosystem. Package-specific
+algorithm references, prior art, and third-party notices live in the
+individual package READMEs and notice files rather than being duplicated here.
 
 ## License
 
