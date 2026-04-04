@@ -30,7 +30,6 @@
     "@scenesystems/sign": "workspace:^",
     "effect": "3.21.0",
     "effect-dsp": "workspace:^",
-    "effect-inference": "workspace:^",
     "effect-math": "workspace:^",
     "effect-search": "workspace:^",
     "effect-text": "workspace:^",
