@@ -69,7 +69,7 @@ export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estima
  *
  * @see {@link summaryStatisticsValidated} for boundary-validated input
  * @see {@link summaryStatisticsWithPolicies} for runtime-policy enforcement
- * @since 0.3.0
+ * @since 0.2.1
  * @category operations
  */
 export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryStatistics => {

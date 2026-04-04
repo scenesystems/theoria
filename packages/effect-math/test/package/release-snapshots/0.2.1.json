@@ -1,6 +1,6 @@
 {
   "packageName": "effect-math",
-  "releasedVersion": "0.3.0",
+  "releasedVersion": "0.2.1",
   "exports": [
     { "subpath": ".", "exportName": "AbsoluteTolerance", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "Algebra", "kind": "namespace", "firstReleasedIn": "0.1.0" },
@@ -1449,6 +1449,7 @@
       "firstReleasedIn": "0.1.0"
     },
     { "subpath": "./Statistics", "exportName": "StatisticsShapeError", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Statistics", "exportName": "summaryStatistics", "kind": "value", "firstReleasedIn": "0.2.1" },
     { "subpath": "./Statistics", "exportName": "SummaryStatistics", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Statistics",

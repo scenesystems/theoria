@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 
 import {
   PackagePublicExport,
+  releaseGovernedVersion,
   ReleaseSinceSnapshot,
   ReleaseSinceSnapshotEntry,
   ReleaseSinceSnapshotJson,
@@ -11,6 +12,37 @@ import {
 } from "../src/index.js"
 
 describe("release since governance", () => {
+  it.effect("derives the governed release version from the highest pending changeset bump", () =>
+    Effect.sync(() => {
+      expect(
+        releaseGovernedVersion({
+          currentVersion: "0.1.0",
+          packageName: "effect-text",
+          pendingReleases: [
+            ["effect-text", "patch"],
+            ["effect-text", "minor"],
+            ["effect-math", "major"]
+          ]
+        })
+      ).toBe("0.2.0")
+
+      expect(
+        releaseGovernedVersion({
+          currentVersion: "0.2.0",
+          packageName: "effect-math",
+          pendingReleases: [["effect-math", "patch"]]
+        })
+      ).toBe("0.2.1")
+
+      expect(
+        releaseGovernedVersion({
+          currentVersion: "0.2.1",
+          packageName: "effect-search",
+          pendingReleases: []
+        })
+      ).toBe("0.2.1")
+    }))
+
   it.effect("stamps next-release snapshots from prior truth and verifies release-accurate docstrings", () =>
     Effect.gen(function*() {
       const previousSnapshots = [

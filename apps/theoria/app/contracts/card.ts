@@ -98,7 +98,7 @@ export const cards: ReadonlyArray<Card> = [
     deepDivePath: "/demos/effect-text",
     group: "effect",
     releaseState: "published",
-    version: "0.2.0",
+    version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
     license: "MIT",

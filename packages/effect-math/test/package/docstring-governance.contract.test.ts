@@ -9,6 +9,7 @@ import {
   packagePublicExports,
   PackageReleaseManifestJson,
   ReleaseSinceSnapshotJson,
+  resolveReleaseGovernedVersion,
   resolveRootFrom,
   typeScriptProgramFromConfig,
   verifyReleaseSince
@@ -41,21 +42,26 @@ describe("package docstring governance", () => {
       const root = yield* resolveRootFrom(packageRootUrl)
       const manifestJson = yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
       const manifest = yield* Schema.decodeUnknown(PackageReleaseManifestJson)(manifestJson).pipe(Effect.orDie)
+      const releaseVersion = yield* resolveReleaseGovernedVersion({
+        workspaceRoot: path.dirname(path.dirname(root)),
+        packageName: manifest.name,
+        currentVersion: manifest.version
+      })
       const snapshotsDirectory = path.join(root, "test/package/release-snapshots")
       const entrypoints = yield* packagePublicEntrypoints(root, manifest)
       const program = yield* typeScriptProgramFromConfig(path.join(root, "tsconfig.src.json")).pipe(Effect.orDie)
       const currentSnapshot = yield* loadReleaseSinceSnapshotForVersion({
         snapshotsDirectory,
-        releasedVersion: manifest.version
+        releasedVersion: releaseVersion
       })
       const snapshots = yield* loadReleaseSinceSnapshots
 
       expect(currentSnapshot.packageName).toBe(manifest.name)
-      expect(currentSnapshot.releasedVersion).toBe(manifest.version)
+      expect(currentSnapshot.releasedVersion).toBe(releaseVersion)
 
       expect(
         verifyReleaseSince({
-          currentVersion: manifest.version,
+          currentVersion: releaseVersion,
           exports: packagePublicExports(program, entrypoints),
           snapshots
         })

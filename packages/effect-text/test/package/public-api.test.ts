@@ -9,6 +9,7 @@ import {
   packagePublicEntrypoints,
   packagePublicExports,
   PackageReleaseManifestJson,
+  resolveReleaseGovernedVersion,
   resolveRootFrom,
   typeScriptProgramFromConfig
 } from "@theoria/source-proof"
@@ -37,12 +38,17 @@ describe("package public api contracts", () => {
       const root = yield* resolveRootFrom(packageRootUrl)
       const manifestJson = yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
       const manifest = yield* Schema.decodeUnknown(PackageReleaseManifestJson)(manifestJson).pipe(Effect.orDie)
+      const releaseVersion = yield* resolveReleaseGovernedVersion({
+        workspaceRoot: path.dirname(path.dirname(root)),
+        packageName: manifest.name,
+        currentVersion: manifest.version
+      })
       const entrypoints = yield* packagePublicEntrypoints(root, manifest)
       const program = yield* typeScriptProgramFromConfig(path.join(root, "tsconfig.src.json")).pipe(Effect.orDie)
       const publicExports = packagePublicExports(program, entrypoints)
       const snapshot = yield* loadReleaseSinceSnapshotForVersion({
         snapshotsDirectory: path.join(root, "test/package/release-snapshots"),
-        releasedVersion: manifest.version
+        releasedVersion: releaseVersion
       })
 
       expect(exportedNamesFor(publicExports, ".")).toEqual(
