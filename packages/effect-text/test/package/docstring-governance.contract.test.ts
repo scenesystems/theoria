@@ -4,6 +4,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
 import {
+  loadReleaseSinceSnapshotForVersion,
   loadReleaseSinceSnapshotsFromDirectory,
   packagePublicEntrypoints,
   packagePublicExports,
@@ -23,9 +24,17 @@ describe("package docstring governance", () => {
       const root = yield* resolveRootFrom(packageRootUrl)
       const manifestJson = yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
       const manifest = yield* Schema.decodeUnknown(PackageReleaseManifestJson)(manifestJson).pipe(Effect.orDie)
+      const snapshotsDirectory = path.join(root, "test/package/release-snapshots")
       const entrypoints = yield* packagePublicEntrypoints(root, manifest)
       const program = yield* typeScriptProgramFromConfig(path.join(root, "tsconfig.src.json")).pipe(Effect.orDie)
-      const snapshots = yield* loadReleaseSinceSnapshotsFromDirectory(path.join(root, "test/package/release-snapshots"))
+      const currentSnapshot = yield* loadReleaseSinceSnapshotForVersion({
+        snapshotsDirectory,
+        releasedVersion: manifest.version
+      })
+      const snapshots = yield* loadReleaseSinceSnapshotsFromDirectory(snapshotsDirectory)
+
+      expect(currentSnapshot.packageName).toBe(manifest.name)
+      expect(currentSnapshot.releasedVersion).toBe(manifest.version)
 
       expect(
         verifyReleaseSince({
