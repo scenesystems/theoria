@@ -55,7 +55,7 @@ export const baselineLayouts = Effect.forEach(
     Effect.forEach(
       widths,
       (width) =>
-        Text.prepare(textInput(entry.text)).pipe(Effect.map((prepared) => {
+        Text.prepareWithSegments(textInput(entry.text)).pipe(Effect.map((prepared) => {
           const summary = Text.layout(prepared, {
             maxWidth: width,
             lineHeight: 20
@@ -89,7 +89,7 @@ export const baselineLayouts = Effect.forEach(
 export const optimizedLayouts = Effect.forEach(
   corpus,
   (entry) =>
-    Text.prepare(textInput(entry.text)).pipe(
+    Text.prepareWithSegments(textInput(entry.text)).pipe(
       Effect.flatMap((prepared) =>
         Effect.forEach(
           widths,
@@ -141,7 +141,7 @@ export const measured = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect
 
 export const obstacleProjection: Effect.Effect<ObstacleProjection, unknown, never> = Effect.gen(function*() {
   const sampleEntry = corpus[0] ?? null
-  const prepared = yield* Text.prepare(textInput(sampleEntry?.text ?? ""))
+  const prepared = yield* Text.prepareWithSegments(textInput(sampleEntry?.text ?? ""))
   const summary = Text.layout(prepared, { maxWidth: focusWidth, lineHeight: 20 })
 
   return {

@@ -118,7 +118,7 @@ const preparedResultAtom = Atom.family(
   (corpusIndex: number) =>
     reflowRuntime.atom(
       () =>
-        Text.prepare(prepareInput(corpusIndex)).pipe(
+        Text.prepareWithSegments(prepareInput(corpusIndex)).pipe(
           Effect.provide(browserTextLayoutLayer)
         ),
       { initialValue: null }
@@ -130,7 +130,7 @@ const customPreparedResultAtom = Atom.family(
     reflowRuntime.atom(
       () =>
         text.trim().length > 0
-          ? Text.prepare({
+          ? Text.prepareWithSegments({
             text: text.trim(),
             font: reflowFont,
             whiteSpace: reflowSemantics.whiteSpace
@@ -216,8 +216,8 @@ export const snapshotEffectTextRunPlan = ({
   }
 }
 
-export const prepareReflowEntry = (entry: CorpusEntry): Effect.Effect<Text.PreparedText, never, never> =>
-  Text.prepare(prepareInputForEntry(entry)).pipe(
+export const prepareReflowEntry = (entry: CorpusEntry): Effect.Effect<Text.PreparedTextWithSegments, never, never> =>
+  Text.prepareWithSegments(prepareInputForEntry(entry)).pipe(
     Effect.provide(browserTextLayoutLayer),
     Effect.orDie
   )
@@ -231,7 +231,7 @@ export const projectReflowProjection = ({
 }: {
   readonly entry: CorpusEntry
   readonly obstaclesEnabled: boolean
-  readonly prepared: Text.PreparedText
+  readonly prepared: Text.PreparedTextWithSegments
   readonly requestedWidthPx: number
   readonly stageWidthPx: number
 }): ReflowProjection => {

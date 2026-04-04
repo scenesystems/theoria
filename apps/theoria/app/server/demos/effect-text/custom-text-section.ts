@@ -15,7 +15,7 @@ const customCorpusEntryWith = (customText: string): CorpusEntry => ({
 export const customTextSection = (customText: string): Effect.Effect<EvidenceSection, unknown, never> =>
   Effect.gen(function*() {
     const entry = customCorpusEntryWith(customText)
-    const prepared = yield* Text.prepare(textInput(entry.text))
+    const prepared = yield* Text.prepareWithSegments(textInput(entry.text))
 
     const rows = Arr.map(widths, (width) => {
       const summary = Text.layout(prepared, { maxWidth: width, lineHeight: 20 })

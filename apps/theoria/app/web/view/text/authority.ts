@@ -11,7 +11,7 @@ import { browserTextLayoutLayer } from "../../text/browserTextLayout.js"
 
 export const projectText = (request: TextProjectionRequest, maxWidth: number | null = null) =>
   Effect.gen(function*() {
-    const prepared = yield* Text.prepare(prepareInputFor(request.role, request.text))
+    const prepared = yield* Text.prepareWithSegments(prepareInputFor(request.role, request.text))
     const contractLayout = layoutRequestFor(request.role, request.variant)
     const layout: Text.LayoutRequestType = maxWidth !== null
       ? { ...contractLayout, maxWidth: Math.min(contractLayout.maxWidth, maxWidth) }
