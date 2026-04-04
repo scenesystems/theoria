@@ -18,6 +18,9 @@ const artifactFileUrl = (profileId: BrowserParityArtifactType["profileId"]): URL
 const encodedArtifact = (artifact: BrowserParityArtifactType): Effect.Effect<string> =>
   Schema.encode(BrowserParityArtifactJsonSchema)(artifact).pipe(Effect.orDie, Effect.map((json) => `${json}\n`))
 
+const canonicalArtifactText = (text: string): Effect.Effect<string> =>
+  Schema.decode(BrowserParityArtifactJsonSchema)(text).pipe(Effect.orDie, Effect.flatMap(encodedArtifact))
+
 const writeArtifact = (
   artifact: BrowserParityArtifactType
 ): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
@@ -39,7 +42,9 @@ const verifyArtifact = (
     const pathService = yield* Path.Path
     const artifactPath = yield* pathService.fromFileUrl(artifactFileUrl(artifact.profileId)).pipe(Effect.orDie)
     const expected = normalizeArtifactText(yield* encodedArtifact(artifact))
-    const actual = normalizeArtifactText(yield* fileSystem.readFileString(artifactPath).pipe(Effect.orDie))
+    const actual = normalizeArtifactText(
+      yield* fileSystem.readFileString(artifactPath).pipe(Effect.orDie, Effect.flatMap(canonicalArtifactText))
+    )
 
     yield* actual === expected
       ? Console.log(`verified ${browserParityArtifactRelativePath(artifact.profileId)}`)
