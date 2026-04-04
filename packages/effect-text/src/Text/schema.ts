@@ -48,8 +48,10 @@ export type FontDescriptorType = typeof FontDescriptor.Type
 /**
  * Locale identifier used to request dictionary hyphenation during preparation.
  *
- * The package treats this as an opaque, non-empty locale key and leaves locale
- * normalization to the hyphenation service seam.
+ * The package treats this as an opaque, non-empty locale key, then lets the
+ * hyphenation seam canonicalize case and separator spellings. The shipped
+ * dictionary layer also falls back from tagged variants to a shipped base
+ * language when one exists.
  *
  * @since 0.2.0
  * @category schemas

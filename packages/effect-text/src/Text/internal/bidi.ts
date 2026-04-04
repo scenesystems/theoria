@@ -5,7 +5,11 @@
  */
 import * as Arr from "effect/Array"
 
-import { containsMirroredCharacters, containsUnsupportedBidiControls, mirrorCharacter } from "./bidiData.js"
+import {
+  containsMirroredCharacters,
+  containsUnsupportedBidiControls as containsUnsupportedBidiControlsFromData,
+  mirrorCharacter
+} from "./bidiData.js"
 
 type LevelSpan = readonly [number, number]
 
@@ -64,7 +68,13 @@ export const mirrorText = (text: string): string =>
     ? Arr.reduce(Arr.fromIterable(text), "", (mirrored, character) => mirrored + mirrorCharacter(character))
     : text
 
-export { containsUnsupportedBidiControls }
+/**
+ * Re-exports unsupported bidi-control detection so preparation and visual projection share one decision point.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const containsUnsupportedBidiControls = containsUnsupportedBidiControlsFromData
 
 const scanLevelBounds = (units: ReadonlyArray<VisualOrderUnit>): LevelBounds =>
   Arr.reduce(

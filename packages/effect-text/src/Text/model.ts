@@ -260,18 +260,48 @@ export class PreparedTextWithSegments extends PreparedText {
   }
 }
 
+/**
+ * Constructs the summary-only prepared handle used by `Text.prepare`.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const preparedTextFromCore = (core: PreparedTextCore): PreparedText =>
   new PreparedText(preparedTextConstructionToken, core)
 
+/**
+ * Constructs the materializing prepared handle used by `Text.prepareWithSegments`.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const preparedTextWithSegmentsFromCore = (core: PreparedTextWithSegmentsCore): PreparedTextWithSegments =>
   new PreparedTextWithSegments(preparedTextConstructionToken, core)
 
+/**
+ * Reads the hidden summary core from a prepared handle.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const preparedTextCore = (self: PreparedText): PreparedTextCore => self[preparedTextCoreSymbol]
 
+/**
+ * Reads the hidden materialization core from a rich prepared handle.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const preparedTextWithSegmentsCore = (
   self: PreparedTextWithSegments
 ): PreparedTextWithSegmentsCore => self[preparedTextWithSegmentsCoreSymbol]
 
+/**
+ * Reads the handle-scoped cursor-hint cache used for sequential walking.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const preparedTextWithSegmentsCursorHints = (
   self: PreparedTextWithSegments
 ): PreparedTextCursorHints => self[preparedTextCursorHintsSymbol]

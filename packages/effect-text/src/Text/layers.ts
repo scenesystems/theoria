@@ -5,6 +5,7 @@
  */
 import { Cache, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
 import * as Rec from "effect/Record"
 import * as Tuple from "effect/Tuple"
 
@@ -21,9 +22,11 @@ import {
   type CompiledHyphenationDictionary,
   compileHyphenationDictionary,
   type HyphenationDictionarySource,
+  hyphenationLocaleFallbackCandidates,
   normalizeHyphenationLocale,
-  normalizeHyphenationWord,
-  shippedHyphenationDictionarySources
+  shippedHyphenationDictionarySourceForLocale,
+  shippedHyphenationDictionarySources,
+  shippedHyphenationSupport
 } from "./internal/hyphenation.js"
 import type { FontDescriptorType } from "./schema.js"
 
@@ -32,6 +35,7 @@ type HyphenationDictionaries = Readonly<Record<string, LoadedHyphenationDictiona
 
 const emptyHyphenationBreaks = Arr.empty<number>()
 const emptyLoadedHyphenationDictionary: LoadedHyphenationDictionary = {}
+const emptyCompiledHyphenationDictionary = compileHyphenationDictionary(emptyLoadedHyphenationDictionary)
 
 const encodeMeasurementKey = (font: FontDescriptorType, text: string): string =>
   `${encodeURIComponent(font.family)}|${font.size}|${font.weight ?? 400}|${encodeURIComponent(text)}`
@@ -89,6 +93,19 @@ const compiledHyphenationDictionary = (
     ? dictionary
     : compileHyphenationDictionary(dictionary)
 
+const compiledHyphenationDictionaryForLocale = (
+  dictionaries: Readonly<Record<string, CompiledHyphenationDictionary>>,
+  locale: string
+): Option.Option<CompiledHyphenationDictionary> =>
+  Arr.reduce(
+    hyphenationLocaleFallbackCandidates(locale),
+    Option.none<CompiledHyphenationDictionary>(),
+    (resolved, candidate) =>
+      Option.isSome(resolved)
+        ? resolved
+        : Option.fromNullable(dictionaries[candidate])
+  )
+
 const encodeHyphenationLocaleKey = (revision: number, locale: string): string =>
   `${revision}|${encodeURIComponent(normalizeHyphenationLocale(locale))}`
 
@@ -102,7 +119,7 @@ const encodeHyphenationWordKey = (revision: number, locale: string, word: string
   [
     revision,
     encodeURIComponent(normalizeHyphenationLocale(locale)),
-    encodeURIComponent(normalizeHyphenationWord(word))
+    encodeURIComponent(word)
   ].join("|")
 
 const decodeHyphenationWordKey = (key: string): readonly [string, string] => {
@@ -112,7 +129,8 @@ const decodeHyphenationWordKey = (key: string): readonly [string, string] => {
 }
 
 const noHyphenationDictionary = {
-  hyphenateWord: () => Effect.succeed(emptyHyphenationBreaks)
+  hyphenateWord: () => Effect.succeed(emptyHyphenationBreaks),
+  supportsLocale: () => Effect.succeed(false)
 }
 
 const makeHyphenationDictionary = (options?: {
@@ -123,11 +141,21 @@ const makeHyphenationDictionary = (options?: {
   Effect.gen(function*() {
     const revision = options?.revision ?? 0
     const dictionaries = compiledHyphenationDictionaries(options?.dictionaries ?? shippedHyphenationDictionarySources)
+    const supportsStaticLocale = (locale: string): boolean =>
+      Option.isSome(compiledHyphenationDictionaryForLocale(dictionaries, locale))
     const loadDictionary = options?.loadDictionary ??
       ((locale: string) =>
         Effect.succeed(
-          dictionaries[normalizeHyphenationLocale(locale)] ??
-            compileHyphenationDictionary(emptyLoadedHyphenationDictionary)
+          Option.match(compiledHyphenationDictionaryForLocale(dictionaries, locale), {
+            onNone: () =>
+              shippedHyphenationDictionarySourceForLocale(locale).pipe(
+                Option.match({
+                  onNone: () => emptyCompiledHyphenationDictionary,
+                  onSome: compileHyphenationDictionary
+                })
+              ),
+            onSome: (dictionary) => dictionary
+          })
         ))
     const localeCache = yield* Cache.make({
       capacity: 32,
@@ -153,7 +181,14 @@ const makeHyphenationDictionary = (options?: {
       hyphenateWord: (locale: string, word: string) =>
         word.length === 0
           ? Effect.succeed(emptyHyphenationBreaks)
-          : hyphenationCache.get(encodeHyphenationWordKey(revision, locale, word))
+          : hyphenationCache.get(encodeHyphenationWordKey(revision, locale, word)),
+      supportsLocale: (locale: string) =>
+        Option.fromNullable(options?.loadDictionary).pipe(
+          Option.match({
+            onNone: () => Effect.succeed(supportsStaticLocale(locale)),
+            onSome: () => Effect.succeed(true)
+          })
+        )
     }
   })
 
@@ -184,8 +219,10 @@ export const NoHyphenationDictionaryLive = Layer.succeed(HyphenationDictionary, 
  * Rebuilding the layer with a new `revision` invalidates the loaded locale
  * dictionaries and cached word break opportunities without relying on global
  * singletons. When called without overrides, the layer ships checked-in
- * dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`; every other locale
- * deterministically falls back to the non-dictionary break path.
+ * dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, normalizes locale
+ * case plus `_`/`-` spellings, and falls back from tagged variants to a shipped
+ * base language when one exists. Every other locale deterministically falls
+ * back to the non-dictionary break path.
  *
  * @since 0.2.0
  * @category layers
@@ -256,3 +293,11 @@ export const TextLayoutLive = Layer.mergeAll(
   TextMeasurerLive,
   MeasurementCacheLive.pipe(Layer.provide(TextMeasurerLive))
 )
+
+/**
+ * Shipped hyphenation support data used by the built-in dictionary layer.
+ *
+ * @since 0.2.0
+ * @category layers
+ */
+export const HyphenationSupport = shippedHyphenationSupport

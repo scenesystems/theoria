@@ -40,7 +40,7 @@ type HyphenateWord = (word: string) => Effect.Effect<ReadonlyArray<number>>
 
 type PreparationContext = Readonly<{
   baseDirection: BaseTextDirectionType
-  dictionaryHyphenationEnabled: boolean
+  dictionaryHyphenationActive: boolean
   engineProfile: EngineProfileType
   hyphenWidth: number
   hyphenateWord: HyphenateWord
@@ -68,7 +68,7 @@ type HyphenationRun = Readonly<{
 
 const isZeroWidthControlText = (text: string): boolean => text === ZERO_WIDTH_SPACE || text === WORD_JOINER
 const preparedBreakKind = (value: PreparedBreakKindType): PreparedBreakKindType => value
-const hyphenatableTextPattern = /^[\p{Letter}\p{Mark}]+$/u
+const hyphenatableTextPattern = /^[\p{Letter}\p{Mark}\u200c\u200d]+$/u
 
 const lastOrElse = <A>(values: ReadonlyArray<A>, fallback: A): A =>
   values.length === 0 ? fallback : values[values.length - 1] ?? fallback
@@ -232,10 +232,10 @@ const hyphenatedRunPieces = (
 const hyphenatedTextPieces = (
   text: string,
   hyphenateWord: HyphenateWord,
-  dictionaryHyphenationEnabled: boolean
+  dictionaryHyphenationActive: boolean
 ): Effect.Effect<ReadonlyArray<HyphenatedPiece>> =>
   Effect.forEach(splitSoftHyphenPieces(text), (piece) => {
-    const runs = dictionaryHyphenationEnabled ? hyphenationRuns(piece[0]) : Arr.of({ hyphenate: false, text: piece[0] })
+    const runs = dictionaryHyphenationActive ? hyphenationRuns(piece[0]) : Arr.of({ hyphenate: false, text: piece[0] })
 
     return Effect.forEach(runs, (run, runIndex) =>
       hyphenatedRunPieces(
@@ -308,7 +308,7 @@ const prepareTextSegment = (
     const pieces = yield* hyphenatedTextPieces(
       segment.text,
       context.hyphenateWord,
-      context.dictionaryHyphenationEnabled
+      context.dictionaryHyphenationActive
     )
 
     if (pieces.length === 0) {
@@ -456,11 +456,23 @@ const retainLogicalSurface = (segments: ReadonlyArray<PreparedSegmentType>): Pre
   segments
 })
 
+/**
+ * Resolves the prepared base direction once from source text and engine defaults.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const resolvePreparedBaseDirection = (
   text: string,
   engineProfile: EngineProfileType
 ): BaseTextDirectionType => resolveBaseDirection(text, engineProfile.defaultDirection)
 
+/**
+ * Compiles analyzed segments into the walker kernel and retained logical surface.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const prepareSegments = (
   segments: ReadonlyArray<TextSegmentType>,
   whiteSpace: WhiteSpaceModeType,
@@ -468,7 +480,7 @@ export const prepareSegments = (
   baseDirection: BaseTextDirectionType,
   measure: Measure,
   hyphenateWord: HyphenateWord,
-  shouldMeasureDictionaryHyphenWidth: boolean
+  dictionaryHyphenationActive: boolean
 ): Effect.Effect<
   {
     readonly kernelRuntime: PreparedRuntimeTablesType
@@ -479,14 +491,14 @@ export const prepareSegments = (
   Effect.gen(function*() {
     const needsDiscretionaryHyphenWidth = Arr.some(
       segments,
-      (segment) => segment.kind === "text" && (segment.text.includes(SOFT_HYPHEN) || shouldMeasureDictionaryHyphenWidth)
+      (segment) => segment.kind === "text" && (segment.text.includes(SOFT_HYPHEN) || dictionaryHyphenationActive)
     )
     const needsTabStopAdvance = Arr.some(segments, (segment) => segment.kind === "space" && segment.text.includes("\t"))
     const hyphenWidth = needsDiscretionaryHyphenWidth ? yield* measure("-") : 0
     const tabStopAdvance = needsTabStopAdvance ? (yield* measure(" ")) * engineProfile.tabWidth : 0
     const context: PreparationContext = {
       baseDirection,
-      dictionaryHyphenationEnabled: shouldMeasureDictionaryHyphenWidth,
+      dictionaryHyphenationActive,
       engineProfile,
       hyphenWidth,
       hyphenateWord,

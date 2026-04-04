@@ -1,4 +1,4 @@
-export const wp2SegmentationFixtures = [
+export const unicodeSegmentationFixtures = [
   {
     expectedBreakKinds: [
       "text",
@@ -48,7 +48,7 @@ export const wp2SegmentationFixtures = [
   }
 ] as const
 
-export const wp2OverflowFixtures = [
+export const unicodeOverflowFixtures = [
   {
     maxWidth: 25,
     name: "url-like-run",

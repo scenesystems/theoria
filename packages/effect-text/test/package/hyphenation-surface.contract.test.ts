@@ -50,10 +50,15 @@ describe("package hyphenation surface contracts", () => {
   it.effect("keeps the hyphenation surface explicit on the public Text and Contracts lanes", () =>
     Effect.gen(function*() {
       expect(EffectText.Text.HyphenationDictionaryLive).toBe(Text.HyphenationDictionaryLive)
+      expect(EffectText.Text.HyphenationSupport).toBe(Text.HyphenationSupport)
       expect(EffectText.Text.NoHyphenationDictionaryLive).toBe(Text.NoHyphenationDictionaryLive)
       expect(EffectText.Text.HyphenationLocale).toBe(Text.HyphenationLocale)
       expect(EffectText.Contracts.HyphenationDictionary).toBe(Contracts.HyphenationDictionary)
       expect(Schema.is(Text.HyphenationLocale)(prepareInput.hyphenationLocale)).toBe(true)
+      expect(Text.HyphenationSupport).toEqual({
+        localeFallback: "exact-or-base-language",
+        locales: ["en-us", "en-gb", "de", "fr", "es"]
+      })
 
       const contractLines = yield* Text.prepareWithSegments(prepareInput).pipe(
         Effect.provide(contractDictionaryServices),

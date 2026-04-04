@@ -3,6 +3,8 @@
  *
  * Generated from https://raw.githubusercontent.com/bramstein/hyphenation-patterns/master/patterns/es.js.
  * See NOTICE.md in this directory for upstream attribution and licence notes.
+ *
+ * @since 0.2.0
  */
 export const esHyphenationPatternSource = {
   "id": "es",

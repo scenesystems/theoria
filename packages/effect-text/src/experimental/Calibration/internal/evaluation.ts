@@ -2,6 +2,7 @@
  * Private calibration-report helpers.
  *
  * @internal
+ * @since 0.1.0
  */
 import { Option } from "effect"
 import * as Arr from "effect/Array"
@@ -50,6 +51,12 @@ const lineMismatchCount = (
     })
   )
 
+/**
+ * Rebuilds a layout summary from concrete lines for experimental calibration scoring.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const summarizeLines = (
   lines: ReadonlyArray<LayoutLineType>,
   lineHeight: number
@@ -59,6 +66,12 @@ export const summarizeLines = (
   maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width))
 })
 
+/**
+ * Builds one case result by comparing expected calibration targets against actual layout output.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const makeCaseResult = (
   calibrationCase: CalibrationCaseType,
   actual: LayoutSummaryType,
@@ -78,6 +91,12 @@ export const makeCaseResult = (
   }
 }
 
+/**
+ * Creates an empty report accumulator for one experimental calibration profile.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const emptyReport = (profile: CalibrationProfileType): CalibrationReportType => ({
   profile,
   caseCount: 0,

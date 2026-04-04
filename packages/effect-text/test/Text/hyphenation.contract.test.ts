@@ -37,6 +37,20 @@ const builtInHyphenationLayer = Layer.mergeAll(
   Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
 )
 
+const precedenceLayer = Layer.mergeAll(
+  Text.WordSegmenterLive,
+  Text.EngineProfileLive,
+  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colour: [3] } } }),
+  Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+)
+
+const normalizationLayer = Layer.mergeAll(
+  Text.WordSegmenterLive,
+  Text.EngineProfileLive,
+  Text.HyphenationDictionaryLive({ dictionaries: { fr: { éducation: [2, 5] } } }),
+  Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+)
+
 const noHyphenationLayer = Layer.mergeAll(
   Text.WordSegmenterLive,
   Text.EngineProfileLive,
@@ -118,6 +132,11 @@ describe("Text hyphenation contracts", () => {
 
   it.effect("ships checked-in dictionaries for en-us, en-gb, de, fr, and es", () =>
     Effect.gen(function*() {
+      expect(Text.HyphenationSupport).toEqual({
+        localeFallback: "exact-or-base-language",
+        locales: ["en-us", "en-gb", "de", "fr", "es"]
+      })
+
       const cases: ReadonlyArray<{
         expected: ReadonlyArray<Text.LayoutLineType>
         input: Text.PrepareInputType
@@ -185,6 +204,44 @@ describe("Text hyphenation contracts", () => {
           ),
         { discard: true }
       )
+    }))
+
+  it.effect("normalizes locale spellings, falls back from tagged variants, and preserves decomposed source text", () =>
+    Effect.gen(function*() {
+      const normalizedEnUs = yield* Text.prepareWithSegments({
+        text: "hyphenation",
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "EN_US",
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(builtInHyphenationLayer))
+      const fallbackFrCa = yield* Text.prepareWithSegments({
+        text: "typographie",
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "fr-CA",
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(builtInHyphenationLayer))
+      const decomposedPrepared = yield* Text.prepareWithSegments({
+        text: "e\u0301ducation",
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "fr_CA",
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(normalizationLayer))
+
+      expect(Text.layoutLines(normalizedEnUs, { maxWidth: 30, lineHeight: 12 })).toEqual([
+        visualLine(0, "hy-", 15),
+        visualLine(1, "phen-", 25),
+        visualLine(2, "ation", 25)
+      ])
+      expect(Text.layoutLines(fallbackFrCa, { maxWidth: 25, lineHeight: 12 })).toEqual([
+        visualLine(0, "typo-", 25),
+        visualLine(1, "gra-", 20),
+        visualLine(2, "phie", 20)
+      ])
+      expect(Text.layoutLines(decomposedPrepared, { maxWidth: 25, lineHeight: 12 })).toEqual([
+        visualLine(0, "e\u0301d-", 20),
+        visualLine(1, "uca-", 20),
+        visualLine(2, "tion", 20)
+      ])
     }))
 
   it.effect("treats explicit soft hyphens as authoritative while still allowing later dictionary breaks", () =>
@@ -276,6 +333,19 @@ describe("Text hyphenation contracts", () => {
       expect(Text.layoutLines(dictionaryPrepared, request)).toEqual(Text.layoutLines(fallbackPrepared, request))
     }))
 
+  it.effect("prefers soft hyphens before dictionary and explicit break opportunities on overfull lines", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "ultra\u00adcolour\u200bation",
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "en-gb",
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(precedenceLayer))
+      const lines = Text.layoutLines(prepared, { maxWidth: 60, lineHeight: 12 })
+
+      expect(lines[0]).toEqual(visualLine(0, "ultra-", 30))
+    }))
+
   it.effect("keeps cursor stepping stable when a word is broken by dictionary hyphenation", () =>
     Effect.gen(function*() {
       const request = { maxWidth: 35, lineHeight: 12 }
@@ -303,6 +373,35 @@ describe("Text hyphenation contracts", () => {
       expect(firstCursor).toEqual(ranges[0]?.end)
       expect(secondLine).toEqual(visualLine(1, "ation", 25))
       expect(secondCursor).toEqual(ranges[1]?.end)
+    }))
+
+  it.effect("separates requested hyphenation from available locale capability", () =>
+    Effect.gen(function*() {
+      const unsupportedLookups = yield* Ref.make(0)
+      const unavailableDictionary = {
+        hyphenateWord: (_locale: string, _word: string) =>
+          Ref.update(unsupportedLookups, (count) => count + 1).pipe(Effect.as([3])),
+        supportsLocale: () => Effect.succeed(false)
+      }
+      const unavailableLayer = Layer.mergeAll(
+        Text.WordSegmenterLive,
+        Text.EngineProfileLive,
+        Layer.succeed(Contracts.HyphenationDictionary, unavailableDictionary),
+        Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+      )
+      const input: Text.PrepareInputType = {
+        text: "colouration",
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "fr-ca",
+        whiteSpace: "normal"
+      }
+      const unavailablePrepared = yield* Text.prepareWithSegments(input).pipe(Effect.provide(unavailableLayer))
+      const fallbackPrepared = yield* Text.prepareWithSegments(input).pipe(Effect.provide(noHyphenationLayer))
+
+      expect(yield* Ref.get(unsupportedLookups)).toBe(0)
+      expect(Text.layoutLines(unavailablePrepared, { maxWidth: 35, lineHeight: 12 })).toEqual(
+        Text.layoutLines(fallbackPrepared, { maxWidth: 35, lineHeight: 12 })
+      )
     }))
 
   it.effect("keeps hyphenation dictionary loading and cache refresh inside Layer-owned services", () =>
@@ -338,5 +437,19 @@ describe("Text hyphenation contracts", () => {
 
       yield* Text.prepareWithSegments(prepareInput).pipe(Effect.provide(makeLayer(1)))
       expect(yield* Ref.get(loads)).toBe(2)
+    }))
+
+  it.effect("keeps cold-word hyphenation stack-safe on long supported words", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "communication".repeat(96),
+        font: { family: "Mono", size: 10 },
+        hyphenationLocale: "en-us",
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(builtInHyphenationLayer))
+      const lines = Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })
+
+      expect(lines.length).toBeGreaterThan(20)
+      expect(lines.every((line) => line.width <= 30)).toBe(true)
     }))
 })

@@ -276,9 +276,26 @@ const chooseBreakCandidate = (
     return null
   }
 
-  return preferEarlySoftHyphenBreak
-    ? fittingCandidates[0] ?? null
-    : fittingCandidates[fittingCandidates.length - 1] ?? null
+  const softHyphenCandidates = Arr.filter(fittingCandidates, (candidate) => candidate.kind === "soft-hyphen")
+
+  if (softHyphenCandidates.length > 0) {
+    return preferEarlySoftHyphenBreak
+      ? softHyphenCandidates[0] ?? null
+      : softHyphenCandidates[softHyphenCandidates.length - 1] ?? null
+  }
+
+  const dictionaryHyphenCandidates = Arr.filter(
+    fittingCandidates,
+    (candidate) => candidate.kind === "dictionary-hyphen"
+  )
+
+  if (dictionaryHyphenCandidates.length > 0) {
+    return dictionaryHyphenCandidates[dictionaryHyphenCandidates.length - 1] ?? null
+  }
+
+  const explicitBreakCandidates = Arr.filter(fittingCandidates, (candidate) => candidate.kind === "explicit")
+
+  return explicitBreakCandidates[explicitBreakCandidates.length - 1] ?? null
 }
 
 const lineHasCommittedContent = (state: LineScanState): boolean =>
@@ -765,6 +782,12 @@ const measureChunkWidth = (
   return widths.paintWidth
 }
 
+/**
+ * Summarizes layout from the canonical walker without materializing line text.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const summarizeLines = (core: PreparedTextCore, request: LayoutRequestType): LayoutSummaryType =>
   Arr.reduce(
     walkLineRecordArray(core, () => request.maxWidth),
@@ -780,6 +803,12 @@ export const summarizeLines = (core: PreparedTextCore, request: LayoutRequestTyp
     })
   )
 
+/**
+ * Clones a public cursor into the canonical walker-owned cursor shape.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const makeInitialCursor = (cursor: LayoutCursorType): LayoutCursorType => ({
   graphemeIndex: cursor.graphemeIndex,
   segmentIndex: cursor.segmentIndex
@@ -814,6 +843,12 @@ const countLinesBeforeCursor = (
         Option.map((record) => unfoldStep(record.nextCursor, record.nextCursor))
       )).length
 
+/**
+ * Materializes visual line text from walked line records.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const materializeLines = (
   core: PreparedTextWithSegmentsCore,
   request: LayoutRequestType,
@@ -821,6 +856,12 @@ export const materializeLines = (
 ): ReadonlyArray<LayoutLineType> =>
   Arr.map(walkLineRecordArray(core, maxWidthAtLine), (record, lineIndex) => materializeLine(core, lineIndex, record))
 
+/**
+ * Materializes one walked line and records the next cursor hint for streaming callers.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const materializeLineAtCursor = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType,
@@ -845,6 +886,12 @@ export const materializeLineAtCursor = (
   )
 }
 
+/**
+ * Projects non-materialized line bounds from the canonical walker.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const walkLineRanges = (
   core: PreparedTextWithSegmentsCore,
   request: LayoutRequestType,
@@ -858,6 +905,12 @@ export const walkLineRanges = (
     width: record.width
   }))
 
+/**
+ * Measures the widest hard-break chunk in prepared text without re-walking line breaks.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const measureNaturalWidth = (core: PreparedTextCore): number =>
   Arr.reduce(core.kernel.runtime.chunkStartIndices, 0, (maxWidth, startSegmentIndex, chunkIndex) => {
     const consumedEndIndex = core.kernel.runtime.chunkConsumedEndIndices[chunkIndex] ?? segmentCount(core)

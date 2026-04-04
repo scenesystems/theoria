@@ -31,6 +31,19 @@ type PreparedTextCompilation = Readonly<{
   logicalSurface: PreparedTextLogicalSurfaceType
 }>
 
+type HyphenationDictionaryCapabilities = Readonly<{
+  hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
+  supportsLocale?: (locale: string) => Effect.Effect<boolean>
+}>
+
+const hyphenationLocaleIsAvailable = (
+  dictionary: HyphenationDictionaryCapabilities,
+  locale: string
+): Effect.Effect<boolean> =>
+  typeof dictionary.supportsLocale === "function"
+    ? dictionary.supportsLocale(locale)
+    : Effect.succeed(true)
+
 const prepareCore = (
   input: PrepareInputType
 ): Effect.Effect<PreparedTextCompilation, MeasurementFailed, TextPreparationServices> =>
@@ -43,6 +56,14 @@ const prepareCore = (
     const hyphenationLocaleOption = Option.fromNullable(input.hyphenationLocale).pipe(
       Option.map(normalizeHyphenationLocale)
     )
+    const dictionaryHyphenationActive = yield* Option.match(hyphenationLocaleOption, {
+      onNone: () => Effect.succeed(false),
+      onSome: (hyphenationLocale) =>
+        Option.match(hyphenationDictionaryOption, {
+          onNone: () => Effect.succeed(false),
+          onSome: (dictionary) => hyphenationLocaleIsAvailable(dictionary, hyphenationLocale)
+        })
+    })
     const segmentedText = yield* segmenter.segment(input.text, input.whiteSpace)
     const baseDirection = resolvePreparedBaseDirection(input.text, engineProfile)
     const prepared = yield* prepareSegments(
@@ -52,15 +73,17 @@ const prepareCore = (
       baseDirection,
       (text) => cache.measure(normalizedFont, text),
       (word) =>
-        Option.match(hyphenationLocaleOption, {
-          onNone: () => Effect.succeed(Arr.empty<number>()),
-          onSome: (hyphenationLocale) =>
-            Option.match(hyphenationDictionaryOption, {
-              onNone: () => Effect.succeed(Arr.empty<number>()),
-              onSome: (dictionary) => dictionary.hyphenateWord(hyphenationLocale, word)
-            })
-        }),
-      Option.isSome(hyphenationLocaleOption)
+        !dictionaryHyphenationActive
+          ? Effect.succeed(Arr.empty<number>())
+          : Option.match(hyphenationLocaleOption, {
+            onNone: () => Effect.succeed(Arr.empty<number>()),
+            onSome: (hyphenationLocale) =>
+              Option.match(hyphenationDictionaryOption, {
+                onNone: () => Effect.succeed(Arr.empty<number>()),
+                onSome: (dictionary) => dictionary.hyphenateWord(hyphenationLocale, word)
+              })
+          }),
+      dictionaryHyphenationActive
     )
 
     return {

@@ -42,6 +42,12 @@ const graphemeClusters = (text: string): ReadonlyArray<string> =>
 
 const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
 
+/**
+ * Removes emoji grapheme clusters while counting how many were stripped for corrective remeasurement.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const stripEmojiClusters = (text: string): readonly [string, number] => {
   const result = Arr.reduce(
     graphemeClusters(text),
@@ -78,14 +84,32 @@ const measurementFailure = (font: FontDescriptorType, text: string, reason: stri
     reason
   })
 
+/**
+ * Encodes a font descriptor into the cache key used by browser measurement helpers.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const encodeFontKey = (font: FontDescriptorType): string =>
   `${encodeURIComponent(font.family)}|${font.size}|${font.weight ?? 400}`
 
+/**
+ * Decodes a browser measurement cache key back into a font descriptor.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const decodeFontKey = (key: string): FontDescriptorType => {
   const [family = "", size = "0", weight = "400"] = key.split("|")
   return { family: decodeURIComponent(family), size: Number(size), weight: Number(weight) }
 }
 
+/**
+ * Renders a `FontDescriptor` into the canvas `font` string expected by `measureText`.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const toCanvasFont = (font: FontDescriptorType): string => {
   const w = font.weight ?? 400
   return Match.value(w).pipe(
@@ -94,6 +118,12 @@ export const toCanvasFont = (font: FontDescriptorType): string => {
   )
 }
 
+/**
+ * Normalizes the additive emoji-correction option into one internal tuple shape.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const normalizeEmojiCorrection = (emojiCorrection: unknown): Option.Option<NormalizedEmojiCorrection> =>
   Option.fromNullable(emojiCorrection).pipe(
     Option.flatMap((value) =>
@@ -114,6 +144,12 @@ export const normalizeEmojiCorrection = (emojiCorrection: unknown): Option.Optio
     )
   )
 
+/**
+ * Measures text on a canvas context while restoring prior context state afterward.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const measureCanvasText = (
   context: {
     direction: CanvasTextDirection
@@ -152,6 +188,12 @@ export const measureCanvasText = (
     (snapshot) => restoreContext(context, snapshot)
   )
 
+/**
+ * Applies the additive emoji-width floor when raw canvas measurement underestimates emoji clusters.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
 export const correctEmojiWidth = (
   text: string,
   rawWidth: number,

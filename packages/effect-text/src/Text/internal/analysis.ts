@@ -8,9 +8,36 @@ import * as Arr from "effect/Array"
 
 import type { BaseTextDirectionType, TextSegmentType, WhiteSpaceModeType } from "../schema.js"
 
+/**
+ * Author-provided discretionary hyphen marker preserved through preparation.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const SOFT_HYPHEN = "\u00ad"
+
+/**
+ * Non-breaking space character treated as glue by the segment classifier.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const NO_BREAK_SPACE = "\u00a0"
+
+/**
+ * Word-joiner control character that suppresses breaks inside a run.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const WORD_JOINER = "\u2060"
+
+/**
+ * Zero-width break marker preserved as an explicit break opportunity.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const ZERO_WIDTH_SPACE = "\u200b"
 
 const TAB = "\t"
@@ -32,7 +59,14 @@ const CLOSING_PUNCTUATION_PATTERN =
   /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
 const RUN_CONNECTOR_PATTERN = /^[-._~,/:@?&=#%+]+$/u
 
+/**
+ * Internal logical direction classification used by preparation and bidi projection.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export type TextDirection = "ltr" | "rtl" | "neutral"
+
 type WhitespaceToken = readonly [kind: "space" | "tab", text: string]
 type SoftHyphenPiece = readonly [text: string, breakAfter: boolean]
 type TextBreakClass =
@@ -240,6 +274,12 @@ const fallbackGraphemeClusters = (text: string): ReadonlyArray<string> =>
     )
   }, [])
 
+/**
+ * Splits text into grapheme clusters using `Intl.Segmenter` when present and a deterministic fallback otherwise.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const graphemeClusters = (text: string): ReadonlyArray<string> => {
   const segmenter = getSegmenter("grapheme")
 
@@ -349,6 +389,12 @@ export const segmentText = (text: string, whiteSpace: WhiteSpaceModeType): Reado
     ? segmentNormalText(text)
     : segmentPreWrapText(text)
 
+/**
+ * Detects the first strong text direction present in a string.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const detectTextDirection = (text: string): TextDirection => {
   const strongCharacter = Arr.fromIterable(text).find((char) => RTL_PATTERN.test(char) || STRONG_PATTERN.test(char))
 
@@ -360,11 +406,23 @@ export const detectTextDirection = (text: string): TextDirection => {
   )
 }
 
+/**
+ * Resolves the base direction for preparation, falling back when input is neutral.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const resolveBaseDirection = (text: string, fallback: BaseTextDirectionType): BaseTextDirectionType => {
   const direction = detectTextDirection(text)
   return direction === "neutral" ? fallback : direction
 }
 
+/**
+ * Maps logical text direction into the line-level bidi level used by the visual projector.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const bidiLevelForDirection = (direction: TextDirection, baseDirection: BaseTextDirectionType): number =>
   direction === "neutral"
     ? baseDirection === "rtl"
@@ -378,6 +436,12 @@ export const bidiLevelForDirection = (direction: TextDirection, baseDirection: B
     ? 2
     : 1
 
+/**
+ * Splits whitespace into grouped spaces and single tab tokens for later measurement.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const splitWhitespaceTokens = (text: string): ReadonlyArray<WhitespaceToken> =>
   Arr.fromIterable(text).reduce<ReadonlyArray<WhitespaceToken>>((tokens, char) => {
     const token: WhitespaceToken = char === TAB ? ["tab", char] : ["space", char]
@@ -393,6 +457,12 @@ export const splitWhitespaceTokens = (text: string): ReadonlyArray<WhitespaceTok
     )
   }, [])
 
+/**
+ * Splits author-provided soft hyphens into pieces while preserving discretionary break ownership.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const splitSoftHyphenPieces = (text: string): ReadonlyArray<SoftHyphenPiece> =>
   text.split(SOFT_HYPHEN).reduce<ReadonlyArray<SoftHyphenPiece>>((pieces, part, index, parts) => {
     if (part.length === 0) {
@@ -402,8 +472,20 @@ export const splitSoftHyphenPieces = (text: string): ReadonlyArray<SoftHyphenPie
     return [...pieces, [part, index < parts.length - 1]]
   }, [])
 
+/**
+ * Detects whether a string contains extended pictographic graphemes.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const containsEmoji = (text: string): boolean => EMOJI_PATTERN.test(text)
 
+/**
+ * Removes emoji grapheme clusters while counting how many clusters were stripped.
+ *
+ * @since 0.1.0
+ * @category internals
+ */
 export const stripEmojiClusters = (text: string): readonly [string, number] => {
   const result = graphemeClusters(text).reduce(
     (state, cluster) =>

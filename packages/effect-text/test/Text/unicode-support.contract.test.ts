@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import { Contracts, Text } from "../../src/index.js"
 import { preparedTextWithSegmentsCore } from "../../src/Text/model.js"
-import { wp2OverflowFixtures, wp2SegmentationFixtures } from "../fixtures/wp2.js"
+import { unicodeOverflowFixtures, unicodeSegmentationFixtures } from "../fixtures/unicodeSupport.js"
 
 const makeTestLayer = Layer.mergeAll(
   Text.WordSegmenterLive,
@@ -24,7 +24,7 @@ const normalizedVisibleText = (text: string): string => visibleText(text).replac
 describe("Text unicode support fixtures", () => {
   it.effect("matches the checked-in segmentation fixtures for the released unicode support envelope", () =>
     Effect.forEach(
-      wp2SegmentationFixtures,
+      unicodeSegmentationFixtures,
       (fixture) =>
         Text.prepareWithSegments({
           text: fixture.text,
@@ -46,7 +46,7 @@ describe("Text unicode support fixtures", () => {
 
   it.effect("keeps fixture-backed support cases within maxWidth whenever the overflow policy has a legal break", () =>
     Effect.forEach(
-      wp2OverflowFixtures,
+      unicodeOverflowFixtures,
       (fixture) =>
         Text.prepareWithSegments({
           text: fixture.text,

@@ -29,7 +29,7 @@ Text layout has two fundamentally different phases: expensive work (segmentation
 - **Soft-hyphen, tab, and hard-break support** — preserved through segmentation and layout
 - **Dictionary hyphenation** — checked-in dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`, with deterministic fallback for every other locale
 - **Compiled unicode break surface** — NBSP/WJ/ZWSP, URL-like runs, numeric runs, paired punctuation, and CJK punctuation pairs are compiled into explicit prepared break kinds before layout
-- **Released overflow policy** — hard breaks first, then soft hyphens and explicit break opportunities, then grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
+- **Released overflow policy** — hard breaks first, then author soft hyphens, dictionary hyphenation, explicit break opportunities, and finally grapheme fallback; a line only exceeds `maxWidth` when a single grapheme is itself wider than the requested width
 - **Bidi visual ordering** — prepared bidi metadata drives pure mixed-direction visual output with mirrored paired punctuation inside rtl visual runs
 - **Experimental calibration** — typed corpora for engine-profile evaluation and `effect-search`-driven optimization
 - **No native deps** — pure TypeScript. Just `effect` as a peer dependency
@@ -115,7 +115,7 @@ The live preparation surface is built from four required services plus one optio
 
 Browser-specific behavior is not ambient global state — it is data and services provided through `Layer`.
 
-`TextPreparationServices` is the required preparation environment. `Contracts.HyphenationDictionary` is additive: when the service is absent, preparation stays deterministic and falls back to the non-dictionary break path.
+`TextPreparationServices` is the required preparation environment. `Contracts.HyphenationDictionary` is additive: when the service is absent, preparation stays deterministic and falls back to the non-dictionary break path. `Text.HyphenationSupport` is the shipped support-data authority for the built-in locale set and its fallback policy.
 
 `Text.TextLayoutLive` composes the bundled preparation services with deterministic defaults. For custom wiring, compose the individual layers:
 
@@ -158,10 +158,11 @@ The deterministic `MeasurementCache` deduplicates calls to `TextMeasurer` by fon
 
 Dictionary hyphenation stays effectful during `prepare` and pure during `layout`.
 
-- The explicit public surface is `Contracts.HyphenationDictionary`, `Text.HyphenationDictionaryLive`, `Text.NoHyphenationDictionaryLive`, and `Text.HyphenationLocale`.
-- `Text.TextLayoutLive` and `Text.HyphenationDictionaryLive()` ship checked-in dictionaries for `en-us`, `en-gb`, `de`, `fr`, and `es`.
+- The explicit public surface is `Contracts.HyphenationDictionary`, `Text.HyphenationDictionaryLive`, `Text.HyphenationSupport`, `Text.NoHyphenationDictionaryLive`, and `Text.HyphenationLocale`.
+- `Text.TextLayoutLive` and `Text.HyphenationDictionaryLive()` ship checked-in dictionaries for the locales in `Text.HyphenationSupport.locales`: `en-us`, `en-gb`, `de`, `fr`, and `es`.
 - Set `hyphenationLocale` on `Text.prepare` or `Text.prepareWithSegments` to enable locale-aware dictionary breaks for a prepared handle.
 - Author-provided soft hyphens remain authoritative. Dictionary hyphenation can add later opportunities, but it does not erase or reinterpret explicit discretionary breaks already present in the source text.
+- The built-in dictionary layer canonicalizes locale case and `_`/`-` spellings, then falls back from tagged variants to a shipped base language when one exists, so requests such as `fr-CA` resolve through the shipped `fr` dictionary.
 - Any other locale falls back deterministically to the non-dictionary break path. `Text.NoHyphenationDictionaryLive` forces that fallback even for supported locales.
 
 ```ts
@@ -425,13 +426,13 @@ const safe = Text.prepareUnknown(untrustedInput).pipe(
 import { Browser, Contracts, Errors, Experimental, Text } from "effect-text"
 ```
 
-| Module         | Key exports                                                                                                                                                                                                                                                                                                                        |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `HyphenationDictionaryLive`, `NoHyphenationDictionaryLive`, `HyphenationLocale`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive` |
-| `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision`                                                             |
-| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `HyphenationDictionary`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                                                           |
-| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                                                                                       |
-| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                                                                            |
+| Module         | Key exports                                                                                                                                                                                                                                                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`         | `prepare`, `prepareUnknown`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines`, `initialCursor`, `PreparedText`, `TextLayoutLive`, `HyphenationDictionaryLive`, `HyphenationSupport`, `NoHyphenationDictionaryLive`, `HyphenationLocale`, `WordSegmenterLive`, `TextMeasurerLive`, `EngineProfileLive`, `MeasurementCacheLive` |
+| `Browser`      | `CanvasTextMeasurerLive`, `BrowserMeasurementCacheLive`, `DefaultBrowserSupportProfile`, `browserSupportProfile`, `BrowserSupportManifest`, `BrowserSupportProfileIdSchema`, `FontReadinessRevision`, `initialFontReadinessRevision`, `incrementFontReadinessRevision`                                                                                   |
+| `Contracts`    | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `HyphenationDictionary`, `EngineProfile`, `TextPreparationServices`                                                                                                                                                                                                                                 |
+| `Errors`       | `TextLayoutDecodeError`, `MeasurementFailed`, `PrepareError`                                                                                                                                                                                                                                                                                             |
+| `Experimental` | `Calibration.evaluateProfile`, `Calibration.optimizeProfile`, `Calibration.makeProfileSearchSpace`, calibration schemas                                                                                                                                                                                                                                  |
 
 Subpath imports are also available: `import * as Text from "effect-text/Text"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 
