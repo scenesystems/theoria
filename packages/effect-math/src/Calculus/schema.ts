@@ -92,7 +92,7 @@ const RidderSafetyFactor = GreaterThanOneFiniteNumber.pipe(Schema.brand("RidderS
 /**
  * Ridder-method tuning envelope shared across derivative-based operators.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const RidderMethodInput = Schema.Struct({
@@ -108,7 +108,7 @@ export const RidderMethodInput = Schema.Struct({
 /**
  * Ridder-method tuning envelope type.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
 export type RidderMethodInputType = typeof RidderMethodInput.Type
@@ -116,7 +116,7 @@ export type RidderMethodInputType = typeof RidderMethodInput.Type
 /**
  * First/second derivative limit estimate payload.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const DerivativeLimitEstimateSchema = Schema.Struct({
@@ -129,7 +129,7 @@ export const DerivativeLimitEstimateSchema = Schema.Struct({
 /**
  * First/second derivative limit estimate type.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
 export type DerivativeLimitEstimate = typeof DerivativeLimitEstimateSchema.Type
@@ -148,7 +148,7 @@ export const DerivativeInput = Schema.extend(
 /**
  * Univariate second-derivative input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const SecondDerivativeInput = Schema.extend(
@@ -181,7 +181,7 @@ export const SimpsonInput = Schema.Struct({
 /**
  * Adaptive-Simpson input with independent absolute and relative tolerances.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const AdaptiveSimpsonInput = Schema.Struct({
@@ -205,7 +205,7 @@ const PointInput = Schema.Struct({
 /**
  * Gradient input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const GradientInput = Schema.extend(PointInput, RidderMethodInput).annotations({
@@ -215,7 +215,7 @@ export const GradientInput = Schema.extend(PointInput, RidderMethodInput).annota
 /**
  * Jacobian input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const JacobianInput = Schema.extend(PointInput, RidderMethodInput).annotations({
@@ -225,7 +225,7 @@ export const JacobianInput = Schema.extend(PointInput, RidderMethodInput).annota
 /**
  * Hessian input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const HessianInput = Schema.extend(PointInput, RidderMethodInput).annotations({
@@ -235,7 +235,7 @@ export const HessianInput = Schema.extend(PointInput, RidderMethodInput).annotat
 /**
  * Directional-derivative input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const DirectionalDerivativeInput = Schema.extend(
@@ -249,7 +249,7 @@ export const DirectionalDerivativeInput = Schema.extend(
 /**
  * Divergence input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const DivergenceInput = Schema.extend(PointInput, RidderMethodInput).annotations({
@@ -259,7 +259,7 @@ export const DivergenceInput = Schema.extend(PointInput, RidderMethodInput).anno
 /**
  * Laplacian input envelope.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category schemas
  */
 export const LaplacianInput = Schema.extend(PointInput, RidderMethodInput).annotations({

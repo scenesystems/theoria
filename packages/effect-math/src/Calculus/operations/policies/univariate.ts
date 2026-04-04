@@ -15,7 +15,7 @@ import { estimateIsFinite, executeKernel } from "../shared.js"
 /**
  * Policy-aware first-derivative limit estimate.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const derivativeLimitWithPolicies = (
@@ -47,7 +47,7 @@ export const derivativeLimitWithPolicies = (
 /**
  * Policy-aware second-derivative limit estimate.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivativeLimitWithPolicies = (
@@ -91,7 +91,7 @@ export const derivativeWithPolicies = (
 /**
  * Policy-aware second derivative value projection.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivativeWithPolicies = (
@@ -155,7 +155,7 @@ export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
 /**
  * Policy-aware adaptive Simpson integration.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const adaptiveSimpsonWithPolicies = (

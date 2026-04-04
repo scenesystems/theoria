@@ -37,7 +37,7 @@ import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly
 /**
  * Schema-decoded boundary for `derivativeLimit`.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const derivativeLimitValidated = (f: (x: number) => number, input: unknown) =>
@@ -49,7 +49,7 @@ export const derivativeLimitValidated = (f: (x: number) => number, input: unknow
 /**
  * Schema-decoded boundary for `secondDerivativeLimit`.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivativeLimitValidated = (f: (x: number) => number, input: unknown) =>
@@ -71,7 +71,7 @@ export const derivativeValidated = (f: (x: number) => number, input: unknown) =>
 /**
  * Schema-decoded boundary for second derivative values.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const secondDerivativeValidated = (f: (x: number) => number, input: unknown) =>
@@ -104,7 +104,7 @@ export const simpsonValidated = (input: unknown) =>
 /**
  * Schema-decoded boundary for adaptive Simpson integration.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknown) =>
@@ -124,7 +124,7 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
 /**
  * Schema-decoded boundary for gradient evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, input: unknown) =>
@@ -137,7 +137,7 @@ export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, inp
 /**
  * Schema-decoded boundary for Jacobian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const jacobianValidated = (
@@ -153,7 +153,7 @@ export const jacobianValidated = (
 /**
  * Schema-decoded boundary for Hessian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, input: unknown) =>
@@ -166,7 +166,7 @@ export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, inpu
 /**
  * Schema-decoded boundary for directional derivative evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const directionalDerivativeValidated = (
@@ -195,7 +195,7 @@ export const directionalDerivativeValidated = (
 /**
  * Schema-decoded boundary for divergence evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const divergenceValidated = (
@@ -219,7 +219,7 @@ export const divergenceValidated = (
 /**
  * Schema-decoded boundary for Laplacian evaluation.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category operations
  */
 export const laplacianValidated = (f: (point: Chunk.Chunk<number>) => number, input: unknown) =>
