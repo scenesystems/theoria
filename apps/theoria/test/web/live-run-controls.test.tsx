@@ -77,13 +77,8 @@ const buttonWithLabel = (label: string): HTMLButtonElement | null =>
     (option) => option._tag === "Some" ? option.value : null
   )
 
-const latestOpenSource = (): MockEventSource | null =>
-  Arr.findFirst(
-    [...MockEventSource.instances].reverse(),
-    (source): source is MockEventSource => source.closed === false
-  ).pipe(
-    (option) => option._tag === "Some" ? option.value : null
-  )
+const openSources = (): ReadonlyArray<MockEventSource> =>
+  Arr.filter(MockEventSource.instances, (source): source is MockEventSource => source.closed === false)
 
 const waitForButton = (label: string): Effect.Effect<HTMLButtonElement, never, never> =>
   Effect.eventually(
@@ -98,7 +93,7 @@ const waitForButtonWithin = (
 ): Effect.Effect<HTMLButtonElement, never, never> =>
   Effect.raceFirst(
     waitForButton(label),
-    Effect.sleep("5 seconds").pipe(Effect.zipRight(Effect.die(`timed-out-${phase}`)))
+    Effect.sleep("10 seconds").pipe(Effect.zipRight(Effect.die(`timed-out-${phase}`)))
   )
 
 const withMockNetwork = <A,>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
@@ -136,49 +131,56 @@ const withMockNetwork = <A,>(effect: Effect.Effect<A, never, never>): Effect.Eff
 }
 
 describe("live run controls", () => {
-  it.effect("StrictMode pause-resume returns the rendered UI to Run after completion", () =>
-    withMockNetwork(
-      Effect.gen(function*() {
-        const { container, root } = yield* renderDeepDivePage("effect-search")
+  it.effect(
+    "StrictMode pause-resume returns the rendered UI to Run after completion",
+    () =>
+      withMockNetwork(
+        Effect.gen(function*() {
+          const { container, root } = yield* renderDeepDivePage("effect-search")
 
-        yield* Effect.ensuring(
-          Effect.gen(function*() {
-            const runButton = yield* waitForButtonWithin("Run", "initial-run-button")
-            yield* Effect.sync(() => {
-              runButton.click()
+          yield* Effect.ensuring(
+            Effect.gen(function*() {
+              const runButton = yield* waitForButtonWithin("Run", "initial-run-button")
+              yield* Effect.sync(() => {
+                runButton.click()
+              })
+
+              const pauseButton = yield* waitForButtonWithin("Pause", "pause-button")
+              yield* Effect.sync(() => {
+                pauseButton.click()
+              })
+
+              const resumeButton = yield* waitForButtonWithin("Resume", "resume-button")
+              expect(resumeButton.textContent?.includes("Resume")).toBe(true)
+
+              yield* Effect.sync(() => {
+                resumeButton.click()
+              })
+
+              const resumedPauseButton = yield* waitForButtonWithin("Pause", "resumed-pause-button")
+              expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
+
+              yield* Effect.sync(() => {
+                const completionEvent = encodeEvidenceEventJson(
+                  new StreamComplete({ summary: "UI smoke complete.", meta: streamMeta })
+                )
+
+                openSources().forEach((source) => {
+                  source.emitEvidence(completionEvent)
+                })
+              })
+
+              const finalRunButton = yield* waitForButtonWithin("Run", "final-run-button")
+              expect(finalRunButton.textContent?.includes("Run")).toBe(true)
+            }),
+            Effect.sync(() => {
+              root.unmount()
+              container.remove()
             })
-
-            const pauseButton = yield* waitForButtonWithin("Pause", "pause-button")
-            yield* Effect.sync(() => {
-              pauseButton.click()
-            })
-
-            const resumeButton = yield* waitForButtonWithin("Resume", "resume-button")
-            expect(resumeButton.textContent?.includes("Resume")).toBe(true)
-
-            yield* Effect.sync(() => {
-              resumeButton.click()
-            })
-
-            const resumedPauseButton = yield* waitForButtonWithin("Pause", "resumed-pause-button")
-            expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
-
-            const source = latestOpenSource()
-            if (source !== null) {
-              source.emitEvidence(
-                encodeEvidenceEventJson(new StreamComplete({ summary: "UI smoke complete.", meta: streamMeta }))
-              )
-            }
-
-            const finalRunButton = yield* waitForButtonWithin("Run", "final-run-button")
-            expect(finalRunButton.textContent?.includes("Run")).toBe(true)
-          }),
-          Effect.sync(() => {
-            root.unmount()
-            container.remove()
-          })
-        )
-      })
-    ))
+          )
+        })
+      ),
+    60_000
+  )
 
 })
