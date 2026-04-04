@@ -9,6 +9,7 @@ import {
   makeInitialCursor,
   materializeLineAtCursor,
   materializeLines,
+  materializeLinesWithSummary,
   measureNaturalWidth as measureNaturalWidthFromCore,
   summarizeLines,
   walkLineRanges as walkLineRangesFromCore
@@ -95,6 +96,18 @@ export const walkLineRanges = (
  */
 export const measureNaturalWidth = (prepared: PreparedText): number =>
   measureNaturalWidthFromCore(preparedTextCore(prepared))
+
+/**
+ * Materializes lines and derives summary from one walk pass.
+ *
+ * @since 0.2.0
+ * @category layout
+ */
+export const layoutLinesWithSummary = (
+  prepared: PreparedTextWithSegments,
+  request: LayoutRequestType
+): { readonly summary: LayoutSummaryType; readonly lines: ReadonlyArray<LayoutLineType> } =>
+  materializeLinesWithSummary(preparedTextWithSegmentsCore(prepared), request)
 
 /**
  * Computes line count and height without exposing line text.

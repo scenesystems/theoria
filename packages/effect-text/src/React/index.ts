@@ -10,7 +10,7 @@ import type { FontReadinessRevisionType } from "../Browser/fontReadiness.js"
 import { FontReadinessRevision } from "../Browser/fontReadiness.js"
 import type { BrowserSupportProfileIdType } from "../Browser/supportManifest.js"
 import { BrowserSupportProfileIdSchema } from "../Browser/supportManifest.js"
-import { layout, layoutLines } from "../Text/layout.js"
+import { layoutLinesWithSummary } from "../Text/layout.js"
 import type { PreparedTextWithSegments } from "../Text/model.js"
 import {
   type EngineProfileType,
@@ -201,7 +201,4 @@ export const layoutSummaryFromLines = (
 export const projectPreparedLayout = (
   prepared: PreparedTextWithSegments,
   request: LayoutRequestType
-): PreparedLayoutProjectionType => ({
-  summary: layout(prepared, request),
-  lines: layoutLines(prepared, request)
-})
+): PreparedLayoutProjectionType => layoutLinesWithSummary(prepared, request)

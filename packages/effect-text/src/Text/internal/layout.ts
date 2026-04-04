@@ -6,6 +6,7 @@
 import { Data, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
+import * as Iterable from "effect/Iterable"
 import * as MutableRef from "effect/MutableRef"
 
 import type {
@@ -64,11 +65,6 @@ type LineWalkFrame = Readonly<{
   record: InternalLineRecord | null
   scan: LineScanState
   segmentLimit: number
-}>
-
-type ChunkSearchState = Readonly<{
-  lower: number
-  upper: number
 }>
 
 type VisualUnitCursorState = Readonly<{
@@ -181,17 +177,22 @@ const resolvePaintAdvance = (core: PreparedTextCore, segmentIndex: number, curre
     ? resolveTabAdvance(currentPaintWidth, core.kernel.runtime.tabStopAdvance)
     : core.kernel.runtime.paintAdvances[segmentIndex] ?? 0
 
+const isTabAtCursor = (core: PreparedTextCore, cursor: LayoutCursorType): boolean =>
+  breakKindAtCursor(core, cursor) === "tab"
+
 const resolveFitAdvanceAtCursor = (
   core: PreparedTextCore,
   cursor: LayoutCursorType,
   currentFitWidth: number
 ): number => {
+  if (isTabAtCursor(core, cursor)) {
+    return resolveTabAdvance(currentFitWidth, core.kernel.runtime.tabStopAdvance)
+  }
+
   const prefixWidths = breakablePrefixWidthsAt(core, cursor.segmentIndex)
   const fallbackWidth = core.kernel.runtime.fitAdvances[cursor.segmentIndex] ?? 0
 
-  return breakKindAtCursor(core, cursor) === "tab"
-    ? resolveTabAdvance(currentFitWidth, core.kernel.runtime.tabStopAdvance)
-    : prefixWidths.length > 0
+  return prefixWidths.length > 0
     ? advanceFromPrefixWidths(prefixWidths, cursor.graphemeIndex, fallbackWidth)
     : fallbackWidth
 }
@@ -201,11 +202,13 @@ const resolvePaintAdvanceAtCursor = (
   cursor: LayoutCursorType,
   currentPaintWidth: number
 ): number => {
+  if (isTabAtCursor(core, cursor)) {
+    return resolveTabAdvance(currentPaintWidth, core.kernel.runtime.tabStopAdvance)
+  }
+
   const graphemeWidths = breakableGraphemeWidthsAt(core, cursor.segmentIndex)
 
-  return breakKindAtCursor(core, cursor) === "tab"
-    ? resolveTabAdvance(currentPaintWidth, core.kernel.runtime.tabStopAdvance)
-    : graphemeWidths.length > 0
+  return graphemeWidths.length > 0
     ? graphemeWidths[cursor.graphemeIndex] ?? core.kernel.runtime.paintAdvances[cursor.segmentIndex] ?? 0
     : core.kernel.runtime.paintAdvances[cursor.segmentIndex] ?? 0
 }
@@ -330,34 +333,41 @@ const emitInternalLineRecord = (
   width: paintWidth
 })
 
-const finalizeAtEnd = (core: PreparedTextCore, state: LineScanState): Option.Option<InternalLineRecord> => {
+type ResolvedPendingState = Readonly<{
+  end: LayoutCursorType
+  fitWidth: number
+  paintWidth: number
+}>
+
+const resolvePendingState = (
+  core: PreparedTextCore,
+  state: LineScanState
+): ResolvedPendingState => {
   const preservePending = core.kernel.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
 
   if (lineHasCommittedContent(state)) {
-    return Option.some(
-      emitInternalLineRecord(
-        core,
-        state.start,
-        preservePending ? state.pendingEnd : state.end,
-        endCursorFor(core),
-        state.fitWidth + (preservePending ? state.pendingFitWidth : 0),
-        state.paintWidth + (preservePending ? state.pendingPaintWidth : 0)
-      )
-    )
+    return {
+      end: preservePending ? state.pendingEnd : state.end,
+      fitWidth: state.fitWidth + (preservePending ? state.pendingFitWidth : 0),
+      paintWidth: state.paintWidth + (preservePending ? state.pendingPaintWidth : 0)
+    }
   }
 
   return preservePending
-    ? Option.some(
-      emitInternalLineRecord(
-        core,
-        state.start,
-        state.pendingEnd,
-        endCursorFor(core),
-        state.pendingFitWidth,
-        state.pendingPaintWidth
-      )
-    )
-    : Option.none()
+    ? { end: state.pendingEnd, fitWidth: state.pendingFitWidth, paintWidth: state.pendingPaintWidth }
+    : { end: state.start, fitWidth: 0, paintWidth: 0 }
+}
+
+const finalizeAtEnd = (core: PreparedTextCore, state: LineScanState): Option.Option<InternalLineRecord> => {
+  const resolved = resolvePendingState(core, state)
+
+  if (!lineHasCommittedContent(state) && resolved.fitWidth === 0 && resolved.paintWidth === 0) {
+    return Option.none()
+  }
+
+  return Option.some(
+    emitInternalLineRecord(core, state.start, resolved.end, endCursorFor(core), resolved.fitWidth, resolved.paintWidth)
+  )
 }
 
 const finalizeAtHardBreak = (
@@ -365,29 +375,9 @@ const finalizeAtHardBreak = (
   state: LineScanState,
   nextCursor: LayoutCursorType
 ): InternalLineRecord => {
-  const preservePending = core.kernel.whiteSpace === "pre-wrap" && hasPendingWhitespace(state)
+  const resolved = resolvePendingState(core, state)
 
-  if (lineHasCommittedContent(state)) {
-    return emitInternalLineRecord(
-      core,
-      state.start,
-      preservePending ? state.pendingEnd : state.end,
-      nextCursor,
-      state.fitWidth + (preservePending ? state.pendingFitWidth : 0),
-      state.paintWidth + (preservePending ? state.pendingPaintWidth : 0)
-    )
-  }
-
-  return preservePending
-    ? emitInternalLineRecord(
-      core,
-      state.start,
-      state.pendingEnd,
-      nextCursor,
-      state.pendingFitWidth,
-      state.pendingPaintWidth
-    )
-    : emitInternalLineRecord(core, state.start, state.start, nextCursor, 0, 0)
+  return emitInternalLineRecord(core, state.start, resolved.end, nextCursor, resolved.fitWidth, resolved.paintWidth)
 }
 
 const finalizeBeforeCurrent = (
@@ -506,32 +496,28 @@ const appendCommittedSegment = (
 
 const chunkIndexForCursor = (core: PreparedTextCore, cursor: LayoutCursorType): number => {
   const chunkCount = core.kernel.runtime.chunkConsumedEndIndices.length
-  const lastChunkIndex = Math.max(chunkCount - 1, 0)
 
   if (chunkCount <= 1) {
     return 0
   }
 
-  const initialState: ChunkSearchState = {
-    lower: 0,
-    upper: lastChunkIndex
-  }
-  const states = Arr.unfold(initialState, (state) => {
-    if (state.lower >= state.upper) {
-      return Option.none()
-    }
+  return Iterable.reduce(
+    Iterable.unfold({ lower: 0, upper: chunkCount - 1 }, (state) => {
+      if (state.lower >= state.upper) {
+        return Option.none()
+      }
 
-    const midpoint = Math.floor((state.lower + state.upper) / 2)
-    const midpointEnd = core.kernel.runtime.chunkConsumedEndIndices[midpoint] ?? segmentCount(core)
-    const nextState: ChunkSearchState = cursor.segmentIndex < midpointEnd
-      ? { lower: state.lower, upper: midpoint }
-      : { lower: midpoint + 1, upper: state.upper }
+      const midpoint = (state.lower + state.upper) >> 1
+      const midpointEnd = core.kernel.runtime.chunkConsumedEndIndices[midpoint] ?? segmentCount(core)
+      const next = cursor.segmentIndex < midpointEnd
+        ? { lower: state.lower, upper: midpoint }
+        : { lower: midpoint + 1, upper: state.upper }
 
-    return Option.some(unfoldStep(nextState, nextState))
-  })
-  const finalState = Arr.last(states).pipe(Option.getOrElse(() => initialState))
-
-  return finalState.lower
+      return Option.some(unfoldStep(next, next))
+    }),
+    { lower: 0, upper: chunkCount - 1 },
+    (_previous, current) => current
+  ).lower
 }
 
 const segmentLimitForCursor = (core: PreparedTextCore, cursor: LayoutCursorType): number =>
@@ -648,23 +634,26 @@ const walkNextLineRecord = (
     return Option.none()
   }
 
-  const initialFrame: LineWalkFrame = {
+  const initial: LineWalkFrame = {
     cursor,
     maxWidth,
     record: null,
     scan: initialLineScanState(cursor),
     segmentLimit: segmentLimitForCursor(core, cursor)
   }
-  const frames = Arr.unfold(initialFrame, (frame) => {
-    if (lineFrameIsComplete(core, frame)) {
-      return Option.none()
-    }
+  const terminalFrame = Iterable.reduce(
+    Iterable.unfold(initial, (frame) => {
+      if (lineFrameIsComplete(core, frame)) {
+        return Option.none()
+      }
 
-    const nextFrame = advanceLineFrame(core, frame)
+      const next = advanceLineFrame(core, frame)
 
-    return Option.some(unfoldStep(nextFrame, nextFrame))
-  })
-  const terminalFrame = Arr.last(frames).pipe(Option.getOrElse(() => initialFrame))
+      return Option.some(unfoldStep(next, next))
+    }),
+    initial,
+    (_previous, current) => current
+  )
 
   return terminalFrame.record !== null ? Option.some(terminalFrame.record) : finalizeAtEnd(core, terminalFrame.scan)
 }
@@ -767,20 +756,16 @@ const measureChunkWidth = (
   core: PreparedTextCore,
   startSegmentIndex: number,
   segmentLimit: number
-): number => {
-  const segmentWidthCount = Math.max(segmentLimit - startSegmentIndex, 0)
-  const segmentIndices = Arr.makeBy(segmentWidthCount, (index) => startSegmentIndex + index)
-  const widths = Arr.reduce(
-    segmentIndices,
+): number =>
+  Iterable.reduce(
+    Iterable.unfold(startSegmentIndex, (index) =>
+      index < segmentLimit ? Option.some(unfoldStep(index, index + 1)) : Option.none()),
     { fitWidth: 0, paintWidth: 0 },
     (state, segmentIndex) => ({
       fitWidth: state.fitWidth + resolveFitAdvance(core, segmentIndex, state.fitWidth),
       paintWidth: state.paintWidth + resolvePaintAdvance(core, segmentIndex, state.paintWidth)
     })
-  )
-
-  return widths.paintWidth
-}
+  ).paintWidth
 
 /**
  * Summarizes layout from the canonical walker without materializing line text.
@@ -855,6 +840,29 @@ export const materializeLines = (
   maxWidthAtLine: (lineIndex: number) => number = () => request.maxWidth
 ): ReadonlyArray<LayoutLineType> =>
   Arr.map(walkLineRecordArray(core, maxWidthAtLine), (record, lineIndex) => materializeLine(core, lineIndex, record))
+
+/**
+ * Materializes lines and derives summary from one walk pass.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export const materializeLinesWithSummary = (
+  core: PreparedTextWithSegmentsCore,
+  request: LayoutRequestType
+): { readonly summary: LayoutSummaryType; readonly lines: ReadonlyArray<LayoutLineType> } => {
+  const records = walkLineRecordArray(core, () => request.maxWidth)
+  const lines = Arr.map(records, (record, lineIndex) => materializeLine(core, lineIndex, record))
+
+  return {
+    summary: {
+      height: records.length * request.lineHeight,
+      lineCount: records.length,
+      maxLineWidth: Arr.reduce(records, 0, (maxWidth, record) => Math.max(maxWidth, record.width))
+    },
+    lines
+  }
+}
 
 /**
  * Materializes one walked line and records the next cursor hint for streaming callers.

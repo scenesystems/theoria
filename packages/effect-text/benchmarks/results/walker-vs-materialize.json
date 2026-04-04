@@ -10,28 +10,12 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 1.055,
-          "walkerMeanDurationMs": 41.055,
-          "deltaMeanDurationMs": 40,
+          "walkerMeanDurationMs": 110.155,
+          "deltaMeanDurationMs": 109.1,
           "baselineTotalDurationMs": 211,
-          "walkerTotalDurationMs": 8211
+          "walkerTotalDurationMs": 22031
         },
         "layout": {
-          "status": "compared",
-          "baselineMeanDurationMs": 0.025,
-          "walkerMeanDurationMs": 0.03,
-          "deltaMeanDurationMs": 0.0049999999999999975,
-          "baselineTotalDurationMs": 5,
-          "walkerTotalDurationMs": 6
-        },
-        "layoutLines": {
-          "status": "compared",
-          "baselineMeanDurationMs": 0.015,
-          "walkerMeanDurationMs": 0.085,
-          "deltaMeanDurationMs": 0.07,
-          "baselineTotalDurationMs": 3,
-          "walkerTotalDurationMs": 17
-        },
-        "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0.025,
           "walkerMeanDurationMs": 0.065,
@@ -39,19 +23,35 @@
           "baselineTotalDurationMs": 5,
           "walkerTotalDurationMs": 13
         },
+        "layoutLines": {
+          "status": "compared",
+          "baselineMeanDurationMs": 0.015,
+          "walkerMeanDurationMs": 0.1,
+          "deltaMeanDurationMs": 0.085,
+          "baselineTotalDurationMs": 3,
+          "walkerTotalDurationMs": 20
+        },
+        "layoutNextLine": {
+          "status": "compared",
+          "baselineMeanDurationMs": 0.025,
+          "walkerMeanDurationMs": 0.12,
+          "deltaMeanDurationMs": 0.095,
+          "baselineTotalDurationMs": 5,
+          "walkerTotalDurationMs": 24
+        },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.39,
-          "walkerMeanDurationMs": 0.205,
-          "deltaMeanDurationMs": -0.18500000000000003,
+          "walkerMeanDurationMs": 0.235,
+          "deltaMeanDurationMs": -0.15500000000000003,
           "baselineTotalDurationMs": 78,
-          "walkerTotalDurationMs": 41
+          "walkerTotalDurationMs": 47
         },
         "walkLineRanges": {
           "status": "new-surface",
           "baselineStatus": "missing-api",
-          "walkerMeanDurationMs": 0.02,
-          "walkerTotalDurationMs": 4,
+          "walkerMeanDurationMs": 0.055,
+          "walkerTotalDurationMs": 11,
           "sample": { "lineCount": 3 }
         }
       }
@@ -63,48 +63,48 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 0.59,
-          "walkerMeanDurationMs": 39.87,
-          "deltaMeanDurationMs": 39.279999999999994,
+          "walkerMeanDurationMs": 71.605,
+          "deltaMeanDurationMs": 71.015,
           "baselineTotalDurationMs": 118,
-          "walkerTotalDurationMs": 7974
+          "walkerTotalDurationMs": 14321
         },
         "layout": {
           "status": "compared",
           "baselineMeanDurationMs": 0.005,
-          "walkerMeanDurationMs": 0.025,
-          "deltaMeanDurationMs": 0.02,
+          "walkerMeanDurationMs": 0.195,
+          "deltaMeanDurationMs": 0.19,
           "baselineTotalDurationMs": 1,
-          "walkerTotalDurationMs": 5
+          "walkerTotalDurationMs": 39
         },
         "layoutLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.02,
-          "walkerMeanDurationMs": 0.02,
-          "deltaMeanDurationMs": 0,
+          "walkerMeanDurationMs": 0.13,
+          "deltaMeanDurationMs": 0.11,
           "baselineTotalDurationMs": 4,
-          "walkerTotalDurationMs": 4
+          "walkerTotalDurationMs": 26
         },
         "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0.005,
-          "walkerMeanDurationMs": 0.03,
-          "deltaMeanDurationMs": 0.024999999999999998,
+          "walkerMeanDurationMs": 0.075,
+          "deltaMeanDurationMs": 0.06999999999999999,
           "baselineTotalDurationMs": 1,
-          "walkerTotalDurationMs": 6
+          "walkerTotalDurationMs": 15
         },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.19,
-          "walkerMeanDurationMs": 0.11,
-          "deltaMeanDurationMs": -0.08,
+          "walkerMeanDurationMs": 0.275,
+          "deltaMeanDurationMs": 0.08500000000000002,
           "baselineTotalDurationMs": 38,
-          "walkerTotalDurationMs": 22
+          "walkerTotalDurationMs": 55
         },
         "walkLineRanges": {
           "status": "new-surface",
           "baselineStatus": "missing-api",
-          "walkerMeanDurationMs": 0.01,
-          "walkerTotalDurationMs": 2,
+          "walkerMeanDurationMs": 0.015,
+          "walkerTotalDurationMs": 3,
           "sample": { "lineCount": 3 }
         }
       }
@@ -116,42 +116,42 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 0.455,
-          "walkerMeanDurationMs": 42.27,
-          "deltaMeanDurationMs": 41.815000000000005,
+          "walkerMeanDurationMs": 53.405,
+          "deltaMeanDurationMs": 52.95,
           "baselineTotalDurationMs": 91,
-          "walkerTotalDurationMs": 8454
+          "walkerTotalDurationMs": 10681
         },
         "layout": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.01,
-          "deltaMeanDurationMs": 0.01,
+          "walkerMeanDurationMs": 0.015,
+          "deltaMeanDurationMs": 0.015,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 2
+          "walkerTotalDurationMs": 3
         },
         "layoutLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.005,
-          "walkerMeanDurationMs": 0.005,
-          "deltaMeanDurationMs": 0,
+          "walkerMeanDurationMs": 0.055,
+          "deltaMeanDurationMs": 0.05,
           "baselineTotalDurationMs": 1,
-          "walkerTotalDurationMs": 1
+          "walkerTotalDurationMs": 11
         },
         "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.01,
-          "deltaMeanDurationMs": 0.01,
+          "walkerMeanDurationMs": 0.02,
+          "deltaMeanDurationMs": 0.02,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 2
+          "walkerTotalDurationMs": 4
         },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.18,
-          "walkerMeanDurationMs": 0.095,
-          "deltaMeanDurationMs": -0.08499999999999999,
+          "walkerMeanDurationMs": 0.115,
+          "deltaMeanDurationMs": -0.06499999999999999,
           "baselineTotalDurationMs": 36,
-          "walkerTotalDurationMs": 19
+          "walkerTotalDurationMs": 23
         },
         "walkLineRanges": {
           "status": "new-surface",
@@ -169,10 +169,10 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 0.6,
-          "walkerMeanDurationMs": 41.085,
-          "deltaMeanDurationMs": 40.485,
+          "walkerMeanDurationMs": 55.03,
+          "deltaMeanDurationMs": 54.43,
           "baselineTotalDurationMs": 120,
-          "walkerTotalDurationMs": 8217
+          "walkerTotalDurationMs": 11006
         },
         "layout": {
           "status": "compared",
@@ -185,26 +185,26 @@
         "layoutLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.02,
-          "deltaMeanDurationMs": 0.02,
+          "walkerMeanDurationMs": 0.03,
+          "deltaMeanDurationMs": 0.03,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 4
+          "walkerTotalDurationMs": 6
         },
         "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.015,
-          "deltaMeanDurationMs": 0.015,
+          "walkerMeanDurationMs": 0.03,
+          "deltaMeanDurationMs": 0.03,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 3
+          "walkerTotalDurationMs": 6
         },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.19,
-          "walkerMeanDurationMs": 0.09,
-          "deltaMeanDurationMs": -0.1,
+          "walkerMeanDurationMs": 0.15,
+          "deltaMeanDurationMs": -0.04000000000000001,
           "baselineTotalDurationMs": 38,
-          "walkerTotalDurationMs": 18
+          "walkerTotalDurationMs": 30
         },
         "walkLineRanges": {
           "status": "new-surface",
@@ -222,42 +222,42 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 0.375,
-          "walkerMeanDurationMs": 40.945,
-          "deltaMeanDurationMs": 40.57,
+          "walkerMeanDurationMs": 53.38,
+          "deltaMeanDurationMs": 53.005,
           "baselineTotalDurationMs": 75,
-          "walkerTotalDurationMs": 8189
+          "walkerTotalDurationMs": 10676
         },
         "layout": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.01,
-          "deltaMeanDurationMs": 0.01,
+          "walkerMeanDurationMs": 0.005,
+          "deltaMeanDurationMs": 0.005,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 2
+          "walkerTotalDurationMs": 1
         },
         "layoutLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.015,
-          "deltaMeanDurationMs": 0.015,
+          "walkerMeanDurationMs": 0.02,
+          "deltaMeanDurationMs": 0.02,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 3
+          "walkerTotalDurationMs": 4
         },
         "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.015,
-          "deltaMeanDurationMs": 0.015,
+          "walkerMeanDurationMs": 0.025,
+          "deltaMeanDurationMs": 0.025,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 3
+          "walkerTotalDurationMs": 5
         },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.19,
-          "walkerMeanDurationMs": 0.1,
-          "deltaMeanDurationMs": -0.09,
+          "walkerMeanDurationMs": 0.15,
+          "deltaMeanDurationMs": -0.04000000000000001,
           "baselineTotalDurationMs": 38,
-          "walkerTotalDurationMs": 20
+          "walkerTotalDurationMs": 30
         },
         "walkLineRanges": {
           "status": "new-surface",
@@ -275,10 +275,10 @@
         "prepare": {
           "status": "compared",
           "baselineMeanDurationMs": 0.41,
-          "walkerMeanDurationMs": 40.67,
-          "deltaMeanDurationMs": 40.260000000000005,
+          "walkerMeanDurationMs": 52.605,
+          "deltaMeanDurationMs": 52.195,
           "baselineTotalDurationMs": 82,
-          "walkerTotalDurationMs": 8134
+          "walkerTotalDurationMs": 10521
         },
         "layout": {
           "status": "compared",
@@ -291,32 +291,32 @@
         "layoutLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.02,
-          "deltaMeanDurationMs": 0.02,
+          "walkerMeanDurationMs": 0.045,
+          "deltaMeanDurationMs": 0.045,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 4
+          "walkerTotalDurationMs": 9
         },
         "layoutNextLine": {
           "status": "compared",
           "baselineMeanDurationMs": 0,
-          "walkerMeanDurationMs": 0.03,
-          "deltaMeanDurationMs": 0.03,
+          "walkerMeanDurationMs": 0.075,
+          "deltaMeanDurationMs": 0.075,
           "baselineTotalDurationMs": 0,
-          "walkerTotalDurationMs": 6
+          "walkerTotalDurationMs": 15
         },
         "streamLines": {
           "status": "compared",
           "baselineMeanDurationMs": 0.095,
-          "walkerMeanDurationMs": 0.1,
-          "deltaMeanDurationMs": 0.0050000000000000044,
+          "walkerMeanDurationMs": 0.19,
+          "deltaMeanDurationMs": 0.095,
           "baselineTotalDurationMs": 19,
-          "walkerTotalDurationMs": 20
+          "walkerTotalDurationMs": 38
         },
         "walkLineRanges": {
           "status": "new-surface",
           "baselineStatus": "missing-api",
-          "walkerMeanDurationMs": 0.01,
-          "walkerTotalDurationMs": 2,
+          "walkerMeanDurationMs": 0.04,
+          "walkerTotalDurationMs": 8,
           "sample": { "lineCount": 5 }
         }
       }

@@ -9,6 +9,7 @@ import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
 import type { FontDescriptorType } from "../Text/schema.js"
 import { type FontReadinessRevisionType, initialFontReadinessRevision } from "./fontReadiness.js"
 import {
+  type CanvasMeasurementContext,
   correctEmojiWidth,
   decodeFontKey,
   encodeFontKey,
@@ -71,17 +72,14 @@ const makeBrowserMeasurementCache = (options: {
     }
   })
 
-const makeCanvasTextMeasurer = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}) =>
+type CanvasTextMeasurerOptions = Readonly<{
+  context: CanvasMeasurementContext
+  direction?: "ltr" | "rtl" | "inherit"
+  emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
+  textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
+}>
+
+const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   Effect.gen(function*() {
     const contextSemaphore = yield* Effect.makeSemaphore(1)
     const emojiCorrection = normalizeEmojiCorrection(options.emojiCorrection)
@@ -142,17 +140,8 @@ const makeCanvasTextMeasurer = (options: {
  * @since 0.2.0
  * @category layers
  */
-export const CanvasTextMeasurerLive = (options: {
-  readonly context: {
-    direction: "ltr" | "rtl" | "inherit"
-    font: string
-    textBaseline: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-    measureText: (text: string) => { readonly width: number }
-  }
-  readonly direction?: "ltr" | "rtl" | "inherit"
-  readonly emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
-  readonly textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
-}) => Layer.effect(TextMeasurer, makeCanvasTextMeasurer(options))
+export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
+  Layer.effect(TextMeasurer, makeCanvasTextMeasurer(options))
 
 /**
  * Browser measurement cache keyed by support profile, font signature, text, and font-readiness revision.

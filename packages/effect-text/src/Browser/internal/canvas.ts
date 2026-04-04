@@ -6,6 +6,7 @@
 import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Data from "effect/Data"
+import type * as Types from "effect/Types"
 
 import { MeasurementFailed } from "../../Errors/index.js"
 import type { FontDescriptorType } from "../../Text/schema.js"
@@ -13,6 +14,22 @@ import type { FontDescriptorType } from "../../Text/schema.js"
 type CanvasTextDirection = "ltr" | "rtl" | "inherit"
 type CanvasTextBaseline = "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
 type ContextSnapshot = readonly [font: string, direction: CanvasTextDirection, textBaseline: CanvasTextBaseline]
+
+type CanvasMeasurementContextReadonly = Readonly<{
+  direction: CanvasTextDirection
+  font: string
+  textBaseline: CanvasTextBaseline
+  measureText: (text: string) => { readonly width: number }
+}>
+
+/**
+ * Mutable canvas rendering context used by measurement helpers.
+ *
+ * @since 0.2.0
+ * @category internals
+ */
+export type CanvasMeasurementContext = Types.Mutable<CanvasMeasurementContextReadonly>
+
 type NormalizedEmojiCorrection = readonly [probe: string, minimumAdvanceMultiplier: number]
 
 const EMOJI_PATTERN = /\p{Extended_Pictographic}/u
@@ -62,12 +79,7 @@ export const stripEmojiClusters = (text: string): readonly [string, number] => {
 }
 
 const restoreContext = (
-  context: {
-    direction: CanvasTextDirection
-    font: string
-    textBaseline: CanvasTextBaseline
-    measureText: (text: string) => { readonly width: number }
-  },
+  context: CanvasMeasurementContext,
   snapshot: ContextSnapshot
 ) =>
   Effect.sync(() => {
@@ -151,12 +163,7 @@ export const normalizeEmojiCorrection = (emojiCorrection: unknown): Option.Optio
  * @category internals
  */
 export const measureCanvasText = (
-  context: {
-    direction: CanvasTextDirection
-    font: string
-    textBaseline: CanvasTextBaseline
-    measureText: (text: string) => { readonly width: number }
-  },
+  context: CanvasMeasurementContext,
   font: FontDescriptorType,
   text: string,
   direction?: CanvasTextDirection,
