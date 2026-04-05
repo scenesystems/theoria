@@ -59,6 +59,7 @@
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
+    "check:examples": "tsc -b tsconfig.examples.json",
     "lint": "eslint --max-warnings=0 src test examples",
     "lint:fix": "eslint --max-warnings=0 --fix src test examples",
     "test": "vitest run --root ../.. packages/effect-math/test",
