@@ -20,7 +20,7 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Console, Effect, Number as N } from "effect"
+import { Array as Arr, Chunk, Console, Effect, Number as N, Schema } from "effect"
 
 import {
   adaptiveSimpson,
@@ -43,7 +43,15 @@ import {
   trapezoidValidated,
   trapezoidWithPolicies
 } from "effect-math/Calculus"
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import {
+  AbsoluteTolerance,
+  makeDeterministicRuntimePoliciesLayer,
+  RelativeTolerance,
+  Seed
+} from "effect-math/contracts"
+
+const absoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-12)
+const relativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-12)
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — derivative operators ─────────────────────────
@@ -60,8 +68,8 @@ const program = Effect.gen(function*() {
   // Output: d²/dx²(x³)|₂: ≈ 12
 
   const firstLimit = derivativeLimit(Math.sin, Math.PI / 3, {
-    absoluteTolerance: 1e-12,
-    relativeTolerance: 1e-12
+    absoluteTolerance,
+    relativeTolerance
   })
   yield* Console.log("derivativeLimit d/dx(sin)|π/3:", firstLimit)
   // Output: value ≈ 0.5 with bounded absoluteError and convergence flag
