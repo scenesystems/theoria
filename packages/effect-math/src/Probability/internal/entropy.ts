@@ -2,7 +2,7 @@
  * Pure kernel for Shannon entropy computation over discrete probability
  * distributions represented as `Chunk<number>`.
  *
- * Delegates to `xlogy` from `Numeric/internal/logspace.ts` for the
+ * Delegates to `xlogy` from the Numeric-domain owner surface for the
  * 0·ln(0) = 0 convention — single source of truth for that identity.
  *
  * @since 0.1.0
@@ -10,7 +10,7 @@
  */
 import { Chunk, Number as N } from "effect"
 
-import { xlogy } from "../../Numeric/internal/logspace.js"
+import { xlogy } from "../../Numeric/operations.js"
 
 /**
  * Shannon entropy: −Σ pᵢ · ln(pᵢ) for pᵢ > 0.

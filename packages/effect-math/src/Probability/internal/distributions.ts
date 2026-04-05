@@ -3,16 +3,15 @@
  * All functions are deterministic IEEE 754 leaf computations over
  * scalar arguments — no Effect context, no allocations.
  *
- * The standard normal CDF delegates to the `erf` kernel in
- * `Special/internal/erf.ts` via the identity Φ(x) = ½(1 + erf(x/√2)).
+ * The standard normal CDF delegates to the Special-domain `erf`
+ * owner surface via the identity Φ(x) = ½(1 + erf(x/√2)).
  *
  * @since 0.1.0
  * @category internal
  */
 import { Number as N } from "effect"
 
-import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
+import { erf, erfinv } from "../../Special/operations.js"
 
 /**
  * Precomputed √(2π) for the standard normal PDF denominator.
@@ -64,15 +63,14 @@ export const normalPdf = (x: number, mu: number, sigma: number): number => {
 /**
  * Standard normal CDF: Φ(x) = ½(1 + erf(x / √2)).
  *
- * Delegates to `erfAbramowitzStegun` from the Special domain — the
+ * Delegates to `erf` from the Special domain — the
  * single source of truth for the A&S 7.1.26 rational approximation.
  * Accurate to ~1.5 × 10⁻⁷ for all real x.
  *
  * @since 0.1.0
  * @category internal
  */
-export const standardNormalCdf = (x: number): number =>
-  N.multiply(0.5, N.sum(1, erfAbramowitzStegun(N.unsafeDivide(x, Math.SQRT2))))
+export const standardNormalCdf = (x: number): number => N.multiply(0.5, N.sum(1, erf(N.unsafeDivide(x, Math.SQRT2))))
 
 /**
  * Standard-normal transform `u ↦ z` for `u ∈ (0, 1)` using the inverse-CDF
@@ -85,7 +83,7 @@ export const standardNormalCdf = (x: number): number =>
  * @category internal
  */
 export const standardNormalTransform = (roll: number): number =>
-  N.multiply(Math.SQRT2, erfinvKernel(N.subtract(N.multiply(2, clampUnitRoll(roll)), 1)))
+  N.multiply(Math.SQRT2, erfinv(N.subtract(N.multiply(2, clampUnitRoll(roll)), 1)))
 
 /**
  * Normal CDF with parameters mu and sigma:

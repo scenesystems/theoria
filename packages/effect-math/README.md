@@ -38,7 +38,7 @@ Pure kernels work directly — no Effect runtime needed:
 import { Chunk } from "effect"
 import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
 import { euclideanDistance } from "effect-math/Geometry"
-import { mean, variance } from "effect-math/Statistics"
+import { lossSummary, mean, normalizeBeneficial, normalizeInverseBudget, variance, weightedMean } from "effect-math/Statistics"
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
 import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
@@ -55,6 +55,10 @@ euclideanDistance(Chunk.fromIterable([0, 0]), Chunk.fromIterable([3, 4])) // 5
 
 mean(Chunk.fromIterable([2, 4, 6])) // 4
 variance(Chunk.fromIterable([2, 4, 6])) // 4
+weightedMean(Chunk.make(0.9, 0.6, 0.3), Chunk.make(2, 1, 1)) // 0.675
+normalizeBeneficial(75, { minimum: 50, maximum: 100 }) // 0.5
+normalizeInverseBudget(75, { budget: 100 }) // 0.25
+lossSummary(Chunk.make(0.1, 0.2, 0.5)).mean // ≈ 0.2667
 
 normalPdf(0, 0, 1) // ≈ 0.3989
 standardNormalCdf(0) // 0.5
@@ -108,7 +112,7 @@ Each domain is a self-contained subpath export with its own schemas, typed error
 | **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
 | **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max                                                                                                                                                                 |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max, generic weighted aggregation, bounded normalization, loss summaries                                                                                            |
 | **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
 | **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
 | **Calculus**      | `effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration |
@@ -174,7 +178,18 @@ Each domain also defines a `DomainViolationError` raised under `"strict"` precis
 // Pure kernels — no Effect wrapper
 import { dot, normL2, vectorAdd, vectorScale, matvec, transpose, frobeniusNorm } from "effect-math/LinearAlgebra"
 import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "effect-math/Geometry"
-import { mean, variance, standardDeviation, covariance, minimum, maximum } from "effect-math/Statistics"
+import {
+  lossSummary,
+  mean,
+  variance,
+  standardDeviation,
+  covariance,
+  minimum,
+  maximum,
+  weightedMean,
+  normalizeBeneficial,
+  normalizeInverseBudget
+} from "effect-math/Statistics"
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
 import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
 import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"

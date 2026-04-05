@@ -2,17 +2,15 @@
  * Beta distribution kernels.
  * Parameters: alpha > 0, beta > 0. Support: x ∈ [0, 1].
  *
- * CDF delegates to betainc from Special/internal/betainc.js.
- * Log-normalisation uses lnGamma from Special/internal/gamma.js.
+ * CDF delegates to the Special-domain betainc owner surface.
+ * Log-normalisation uses the Special-domain lnGamma owner surface.
  *
  * @since 0.1.0
  * @category internal
  */
 import { Number as N } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { digammaKernel } from "../../Special/internal/digamma.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { betainc, digamma, lnGamma } from "../../Special/operations.js"
 
 /**
  * Log of the Beta function B(a,b) = Γ(a)Γ(b)/Γ(a+b).
@@ -22,8 +20,8 @@ import { lnGammaLanczos } from "../../Special/internal/gamma.js"
  */
 export const betaLogNorm = (a: number, b: number): number =>
   N.subtract(
-    N.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
-    lnGammaLanczos(N.sum(a, b))
+    N.sum(lnGamma(a), lnGamma(b)),
+    lnGamma(N.sum(a, b))
   )
 
 /**
@@ -77,7 +75,7 @@ export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
 export const betaCdf = (x: number, alpha: number, beta: number): number => {
   if (x <= 0) return 0
   if (x >= 1) return 1
-  return betaincKernel(alpha, beta, x)
+  return betainc(alpha, beta, x)
 }
 
 /**
@@ -150,9 +148,9 @@ export const betaEntropy = (alpha: number, beta: number): number =>
     N.subtract(
       betaLogNorm(alpha, beta),
       N.sum(
-        N.multiply(N.subtract(alpha, 1), digammaKernel(alpha)),
-        N.multiply(N.subtract(beta, 1), digammaKernel(beta))
+        N.multiply(N.subtract(alpha, 1), digamma(alpha)),
+        N.multiply(N.subtract(beta, 1), digamma(beta))
       )
     ),
-    N.multiply(N.subtract(N.sum(alpha, beta), 2), digammaKernel(N.sum(alpha, beta)))
+    N.multiply(N.subtract(N.sum(alpha, beta), 2), digamma(N.sum(alpha, beta)))
   )

@@ -1,9 +1,9 @@
 /**
- * Generic score-kernel helpers for downstream workflow scoring.
+ * Generic score-kernel helpers for bounded multi-component evaluation.
  *
  * These kernels stay numeric and package-generic: they normalize and aggregate
- * bounded numeric evidence without importing workflow score vocabularies or
- * report semantics.
+ * bounded numeric evidence without importing component vocabularies or
+ * report semantics from downstream consumers.
  *
  * @since 0.3.0
  * @category operations
@@ -17,8 +17,8 @@ import type { SummaryStatistics } from "./schema.js"
  * Weighted arithmetic mean over aligned value and weight vectors.
  *
  * Callers are responsible for supplying matching vector lengths and a positive
- * total weight; downstream workflow adapters validate those invariants at their
- * own boundaries.
+ * total weight; downstream evaluation adapters validate those invariants at
+ * their own boundaries.
  *
  * @since 0.3.0
  * @category operations
@@ -65,7 +65,7 @@ export const normalizeInverseBudget = (value: number, options: { readonly budget
  *
  * This keeps downstream loss reporting on the same `SummaryStatistics` surface
  * already used elsewhere in the package instead of introducing a second report
- * type for score-oriented numeric summaries.
+ * type for evaluation-oriented numeric summaries.
  *
  * @since 0.3.0
  * @category operations
