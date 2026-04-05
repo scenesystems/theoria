@@ -15,7 +15,7 @@ This is the main value of the package: callers work against `@effect/ai` `Langua
 
 ## Quick Start
 
-```ts
+```ts typecheck
 import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Redacted } from "effect"
@@ -41,11 +41,7 @@ const program = Effect.gen(function* () {
   const evidence = Runtime.makeRuntimeEvidence({
     resolution,
     resolvedRuntime: {
-      responseModel: summary.modelId,
-      responseId: summary.id,
-      finishReason: summary.finishReason,
-      providerMetadata: summary.providerMetadata,
-      usage: summary.usage
+      responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef
     }
   })
 
@@ -53,7 +49,8 @@ const program = Effect.gen(function* () {
     requested: evidence.desired.artifact.modelRef,
     routeFamily: evidence.resolvedRoute.route.family,
     responseModel: evidence.resolvedRuntime.responseModel,
-    embeddingDimensions: embeddings[0]?.embeddings.length
+    finishReason: summary.finishReason,
+    embeddingDimensions: embeddings[0]?.length
   })
 })
 ```
