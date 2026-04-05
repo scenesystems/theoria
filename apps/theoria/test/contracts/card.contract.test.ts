@@ -23,7 +23,13 @@ describe("Theoria Card Publication Contracts", () => {
   })
 
   it("keeps landing-page card order aligned with the README package map", () => {
-    expect(effectCards.map((card) => card.id)).toEqual(["effect-math", "effect-search", "effect-dsp", "effect-text"])
+    expect(effectCards.map((card) => card.id)).toEqual([
+      "effect-math",
+      "effect-search",
+      "effect-dsp",
+      "effect-text",
+      "effect-inference"
+    ])
     expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign"])
   })
 })

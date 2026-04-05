@@ -1,0 +1,16 @@
+# Theoria — Scene Systems
+
+> Interactive demonstrations of typed, composable libraries for scientific computing, optimization, and language model programming built with Effect.
+
+## Packages
+
+- effect-math: Foundational numerics, linear algebra, statistics, and optimization for Effect
+- effect-search: Effect-native black-box optimization for TypeScript
+- effect-dsp: Effect-native DSPy — programming, not prompting, language models
+- effect-text: Effect-native text preparation, measurement, and greedy multiline layout
+
+## Links
+
+- Home: https://theoria.scenesystems.io
+- Source: https://github.com/scenesystems/theoria
+- Organization: https://scenesystems.io
