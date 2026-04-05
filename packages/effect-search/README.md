@@ -65,8 +65,8 @@ bun add effect-search effect @effect/platform @effect/experimental
 
 Tell it what to search, how to score, and how many tries you want:
 
-```ts
-import { Effect } from "effect"
+```ts typecheck
+import { Effect, Match } from "effect"
 import { Sampler, SearchSpace, Study } from "effect-search"
 
 const program = Effect.gen(function* () {
@@ -84,8 +84,16 @@ const program = Effect.gen(function* () {
     trials: 50
   })
 
-  yield* Effect.log("Best value:", result.bestTrial.state.value)
-  // Best value: ≈ 0.0 (finds x ≈ 2, y ≈ -1)
+  yield* Match.value(result).pipe(
+    Match.tag("SingleObjective", ({ bestTrial }) =>
+      Effect.log({
+        bestValue: bestTrial.state.value,
+        bestConfig: bestTrial.config
+      })
+    ),
+    Match.tag("MultiObjective", () => Effect.void),
+    Match.exhaustive
+  )
 })
 
 Effect.runPromise(program)
