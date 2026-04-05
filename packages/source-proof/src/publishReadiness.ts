@@ -1,6 +1,9 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Console, Data, Effect, Option, Record as Rec, Schema } from "effect"
 
+import { packageNameFromString, packageNameOption, PackageNameSchema, ReleaseVersionSchema } from "./identifiers.js"
+import type { PackageName } from "./identifiers.js"
+
 const RepositoryMetadataSchema = Schema.Struct({
   type: Schema.optional(Schema.Unknown),
   url: Schema.optional(Schema.Unknown),
@@ -16,8 +19,8 @@ const UnknownRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Un
  * @category schemas
  */
 export const PublishReadinessManifestSchema = Schema.Struct({
-  name: Schema.String,
-  version: Schema.String,
+  name: PackageNameSchema,
+  version: ReleaseVersionSchema,
   exports: Schema.optional(UnknownRecordSchema),
   scripts: Schema.optional(UnknownRecordSchema),
   keywords: Schema.optional(Schema.Array(Schema.String)),
@@ -51,7 +54,7 @@ export class PublishReadinessIssue extends Data.Class<{
  * @category models
  */
 export class PublishReadinessProfile extends Data.Class<{
-  readonly packageName: string
+  readonly packageName: PackageName
   readonly packageDirectory: string
   readonly requiredKeywords: ReadonlyArray<string>
   readonly requiredRootExports: Readonly<Record<string, string | null>>
@@ -172,7 +175,7 @@ const effectSearchRequiredRootExports: Readonly<Record<string, string | null>> =
 }
 
 const effectMathProfile = new PublishReadinessProfile({
-  packageName: "effect-math",
+  packageName: packageNameFromString("effect-math"),
   packageDirectory: "packages/effect-math",
   requiredKeywords: [
     "effect",
@@ -189,7 +192,7 @@ const effectMathProfile = new PublishReadinessProfile({
 })
 
 const effectSearchProfile = new PublishReadinessProfile({
-  packageName: "effect-search",
+  packageName: packageNameFromString("effect-search"),
   packageDirectory: "packages/effect-search",
   requiredKeywords: [
     "effect",
@@ -263,7 +266,7 @@ const dedupeIssues = (issues: ReadonlyArray<PublishReadinessIssue>): ReadonlyArr
         : [...accumulator, issue]
   )
 
-const packageProfile = (packageName: string): Option.Option<PublishReadinessProfile> =>
+const packageProfile = (packageName: PackageName): Option.Option<PublishReadinessProfile> =>
   Arr.findFirst(TheoriaReleaseFrameworkAuthority.governedPackages, (profile) => profile.packageName === packageName)
 
 const issue = (code: string, message: string): PublishReadinessIssue => new PublishReadinessIssue({ code, message })
@@ -650,7 +653,7 @@ const checkReleaseDocs = (
  * @since 0.0.0
  * @category queries
  */
-export const publishReadinessProfile = (packageName: string): Option.Option<PublishReadinessProfile> =>
+export const publishReadinessProfile = (packageName: PackageName): Option.Option<PublishReadinessProfile> =>
   packageProfile(packageName)
 
 /**
@@ -858,7 +861,19 @@ export const runPublishReadinessCli = (
       onSome: (rootManifestValue) => path.resolve(cwd, rootManifestValue)
     })
     const rootManifest = yield* loadPublishReadinessManifest(rootManifestPath)
-    const profileName = Option.getOrElse(flags.packageName, () => rootManifest.name)
+    const profileName = yield* Option.match(flags.packageName, {
+      onNone: () => Effect.succeed(rootManifest.name),
+      onSome: (value) =>
+        Option.match(packageNameOption(value), {
+          onNone: () =>
+            Effect.fail(
+              new PublishReadinessCliError({
+                message: `invalid package identifier: ${value}`
+              })
+            ),
+          onSome: Effect.succeed
+        })
+    })
     const profile = yield* Option.match(packageProfile(profileName), {
       onNone: () =>
         Effect.fail(

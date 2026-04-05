@@ -1,6 +1,7 @@
 import { Array as Arr, Option } from "effect"
 import * as ts from "typescript"
 
+import { nullableReleaseVersion } from "./identifiers.js"
 import { PublicExportDoc, type PublicExportKind } from "./model.js"
 
 const hasModifier = (node: ts.Node, kind: ts.SyntaxKind): boolean =>
@@ -78,7 +79,7 @@ const makePublicExportDoc = (
   new PublicExportDoc({
     exportName,
     kind,
-    since: firstTagValue(node, "since"),
+    since: nullableReleaseVersion(firstTagValue(node, "since")),
     category: firstTagValue(node, "category")
   })
 
@@ -90,7 +91,7 @@ const makePublicExportDocFromNodes = (
   new PublicExportDoc({
     exportName,
     kind,
-    since: firstTagValueFromNodes(nodes, "since"),
+    since: nullableReleaseVersion(firstTagValueFromNodes(nodes, "since")),
     category: firstTagValueFromNodes(nodes, "category")
   })
 

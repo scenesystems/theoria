@@ -7,6 +7,7 @@ import {
   packageDocsBundle,
   PackageDocsBundleSchema,
   PackageDocsCorpusSchema,
+  packageNameFromString,
   resolveRootFrom
 } from "../src/index.js"
 
@@ -34,7 +35,7 @@ describe("package docs contracts", () => {
 
       yield* Effect.forEach(expectedPackageIds, (packageId) =>
         Effect.gen(function*() {
-          const bundle = packageDocsBundle(decodedCorpus, packageId)
+          const bundle = packageDocsBundle(decodedCorpus, packageNameFromString(packageId))
 
           expect(Option.isSome(bundle)).toBe(true)
 

@@ -2,6 +2,9 @@ import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Match, Option } from "effect"
 import * as Tuple from "effect/Tuple"
 
+import { packageNameOption, releaseVersionFromString } from "./identifiers.js"
+import type { PackageName, ReleaseVersion } from "./identifiers.js"
+
 export type ReleaseBump = "patch" | "minor" | "major"
 
 const BUMP_RANK: Readonly<Record<ReleaseBump, number>> = {
@@ -18,7 +21,7 @@ const decodeReleaseBump = (value: string): Option.Option<ReleaseBump> =>
     Match.orElse(() => Option.none<ReleaseBump>())
   )
 
-const parseChangesetFrontmatter = (content: string): ReadonlyArray<readonly [string, ReleaseBump]> => {
+const parseChangesetFrontmatter = (content: string): ReadonlyArray<readonly [PackageName, ReleaseBump]> => {
   return Option.fromNullable(content.match(/^---\n([\s\S]*?)\n---/)).pipe(
     Option.flatMap((match) => Option.fromNullable(match[1])),
     Option.match({
@@ -28,7 +31,7 @@ const parseChangesetFrontmatter = (content: string): ReadonlyArray<readonly [str
           Option.fromNullable(line.match(/^\s*"([^"]+)"\s*:\s*(patch|minor|major)\s*$/)).pipe(
             Option.flatMap((entry) =>
               Option.all({
-                packageName: Option.fromNullable(entry[1]),
+                packageName: Option.fromNullable(entry[1]).pipe(Option.flatMap(packageNameOption)),
                 releaseBump: Option.fromNullable(entry[2]).pipe(Option.flatMap(decodeReleaseBump))
               })
             ),
@@ -51,16 +54,16 @@ const highestBump = (
     onSome: (value) => Option.some(BUMP_RANK[next] > BUMP_RANK[value] ? next : value)
   })
 
-const applyReleaseBump = (version: string, bump: ReleaseBump): string => {
+const applyReleaseBump = (version: ReleaseVersion, bump: ReleaseBump): ReleaseVersion => {
   const [majorRaw = "0", minorRaw = "0", patchRaw = "0"] = version.split(".")
   const major = Number.parseInt(majorRaw, 10)
   const minor = Number.parseInt(minorRaw, 10)
   const patch = Number.parseInt(patchRaw, 10)
 
   return Match.value(bump).pipe(
-    Match.when("patch", () => `${major}.${minor}.${patch + 1}`),
-    Match.when("minor", () => `${major}.${minor + 1}.0`),
-    Match.when("major", () => `${major + 1}.0.0`),
+    Match.when("patch", () => releaseVersionFromString(`${major}.${minor}.${patch + 1}`)),
+    Match.when("minor", () => releaseVersionFromString(`${major}.${minor + 1}.0`)),
+    Match.when("major", () => releaseVersionFromString(`${major + 1}.0.0`)),
     Match.exhaustive
   )
 }
@@ -76,10 +79,10 @@ const applyReleaseBump = (version: string, bump: ReleaseBump): string => {
  * @category queries
  */
 export const resolveReleaseGovernedVersion = (input: {
-  readonly currentVersion: string
-  readonly packageName: string
+  readonly currentVersion: ReleaseVersion
+  readonly packageName: PackageName
   readonly workspaceRoot: string
-}): Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<ReleaseVersion, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -122,10 +125,10 @@ export const resolveReleaseGovernedVersion = (input: {
  * @category constructors
  */
 export const releaseGovernedVersion = (input: {
-  readonly currentVersion: string
-  readonly packageName: string
-  readonly pendingReleases: ReadonlyArray<readonly [string, ReleaseBump]>
-}): string => {
+  readonly currentVersion: ReleaseVersion
+  readonly packageName: PackageName
+  readonly pendingReleases: ReadonlyArray<readonly [PackageName, ReleaseBump]>
+}): ReleaseVersion => {
   const bump = Arr.reduce(
     Arr.filter(input.pendingReleases, ([packageName]) => packageName === input.packageName),
     Option.none<ReleaseBump>(),

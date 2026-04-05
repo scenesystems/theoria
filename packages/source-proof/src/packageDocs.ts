@@ -1,6 +1,8 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Option, Record as Rec, Schema } from "effect"
 
+import { PackageNameSchema, ReleaseVersionSchema } from "./identifiers.js"
+import type { PackageName, ReleaseVersion } from "./identifiers.js"
 import { markdownSectionBlocks, normalizePackageDocsAnchor } from "./internal/packageDocsMarkdown.js"
 import {
   type PackageDocsBundle,
@@ -22,8 +24,8 @@ import { ReleaseSinceSnapshotJson } from "./releaseSince.js"
 const repositoryRootUrl = new URL("../../../", import.meta.url)
 
 const PackageDocsManifestSchema = Schema.Struct({
-  name: Schema.String,
-  version: Schema.String,
+  name: PackageNameSchema,
+  version: ReleaseVersionSchema,
   private: Schema.optional(Schema.Boolean),
   description: Schema.optional(Schema.String),
   scripts: Schema.optional(
@@ -144,7 +146,7 @@ const loadShippedPackageRoots = (
   })
 
 const documentSource = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly kind: PackageDocsSourceKind
   readonly path: string
   readonly title: string
@@ -164,7 +166,7 @@ const documentTitleFromRelativePath = (input: {
 }): string => withoutSuffix(trimPrefix(input.relativePath, `${input.packageDirectory}/${input.prefix}`), input.suffix)
 
 const makeExampleBlock = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly path: string
   readonly title: string
   readonly content: string
@@ -183,9 +185,9 @@ const makeExampleBlock = (input: {
 })
 
 const makeSnapshotBlock = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly path: string
-  readonly releasedVersion: string
+  readonly releasedVersion: ReleaseVersion
   readonly exportCount: number
 }): PackageDocsSectionBlock => ({
   id: `${input.path}#${normalizePackageDocsAnchor(input.releasedVersion)}`,
@@ -202,7 +204,7 @@ const makeSnapshotBlock = (input: {
 })
 
 const makeProofCommand = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly manifestPath: string
   readonly name: string
   readonly command: string
@@ -237,7 +239,7 @@ const makeProofCommand = (input: {
 
 const loadMarkdownDocument = (input: {
   readonly repositoryRoot: string
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly kind: PackageDocsSourceKind
   readonly absolutePath: string
   readonly relativePath: string
@@ -267,7 +269,7 @@ const loadMarkdownDocument = (input: {
   })
 
 const loadExample = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly absolutePath: string
   readonly relativePath: string
   readonly title: string
@@ -293,7 +295,7 @@ const loadExample = (input: {
   })
 
 const loadReleaseSnapshot = (input: {
-  readonly packageId: string
+  readonly packageId: PackageName
   readonly absolutePath: string
   readonly relativePath: string
 }): Effect.Effect<PackageDocsReleaseSnapshot, never, FileSystem.FileSystem> =>
@@ -478,7 +480,7 @@ export const packageDocsCatalog = (corpus: PackageDocsCorpus): ReadonlyArray<Pac
  */
 export const packageDocsBundle = (
   corpus: PackageDocsCorpus,
-  packageId: string
+  packageId: PackageName
 ): Option.Option<PackageDocsBundle> =>
   Option.fromNullable(corpus.bundles.find((bundle) => bundle.packageId === packageId))
 

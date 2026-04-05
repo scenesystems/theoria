@@ -4,6 +4,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema, Stream } from "effect"
 
 import {
+  packageNameFromString,
+  PublishReadinessManifestSchema,
   publishReadinessProfile,
   publishReadinessReport,
   ReleaseSinceSnapshotJson,
@@ -55,8 +57,8 @@ describe("publish readiness", () => {
 
   it.effect("models shared issue taxonomy from one root engine while preserving package variance", () =>
     Effect.sync(() => {
-      const effectMathProfile = publishReadinessProfile("effect-math")
-      const effectSearchProfile = publishReadinessProfile("effect-search")
+      const effectMathProfile = publishReadinessProfile(packageNameFromString("effect-math"))
+      const effectSearchProfile = publishReadinessProfile(packageNameFromString("effect-search"))
 
       expect(Option.isSome(effectMathProfile)).toBe(true)
       expect(Option.isSome(effectSearchProfile)).toBe(true)
@@ -67,7 +69,7 @@ describe("publish readiness", () => {
 
       const mathReport = publishReadinessReport({
         profile: effectMathProfile.value,
-        rootManifest: {
+        rootManifest: Schema.decodeUnknownSync(PublishReadinessManifestSchema)({
           name: "effect-math",
           version: "0.2.1",
           exports: effectMathProfile.value.requiredRootExports,
@@ -81,12 +83,12 @@ describe("publish readiness", () => {
             directory: "packages/effect-math"
           },
           homepage: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math"
-        }
+        })
       })
 
       const searchReport = publishReadinessReport({
         profile: effectSearchProfile.value,
-        rootManifest: {
+        rootManifest: Schema.decodeUnknownSync(PublishReadinessManifestSchema)({
           name: "effect-search",
           version: "0.2.1",
           exports: effectSearchProfile.value.requiredRootExports,
@@ -100,7 +102,7 @@ describe("publish readiness", () => {
             directory: "packages/effect-search"
           },
           homepage: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search"
-        },
+        }),
         readmeText: "Run `publish:check` first."
       })
 

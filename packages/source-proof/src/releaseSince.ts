@@ -1,5 +1,7 @@
 import { Array as Arr, Option, Schema } from "effect"
 
+import { PackageNameSchema, ReleaseVersionSchema } from "./identifiers.js"
+import type { PackageName, ReleaseVersion } from "./identifiers.js"
 import {
   type PublicExportKind,
   ReleaseSinceGovernanceFinding,
@@ -27,7 +29,7 @@ export const ReleaseSinceSnapshotEntrySchema = Schema.Struct({
   subpath: Schema.String,
   exportName: Schema.String,
   kind: PublicExportKindSchema,
-  firstReleasedIn: Schema.String
+  firstReleasedIn: ReleaseVersionSchema
 })
 
 /**
@@ -37,8 +39,8 @@ export const ReleaseSinceSnapshotEntrySchema = Schema.Struct({
  * @category schemas
  */
 export const ReleaseSinceSnapshotSchema = Schema.Struct({
-  packageName: Schema.String,
-  releasedVersion: Schema.String,
+  packageName: PackageNameSchema,
+  releasedVersion: ReleaseVersionSchema,
   exports: Schema.Array(ReleaseSinceSnapshotEntrySchema)
 })
 
@@ -50,7 +52,7 @@ export const ReleaseSinceSnapshotSchema = Schema.Struct({
  */
 export const ReleaseSinceSnapshotJson = Schema.parseJson(ReleaseSinceSnapshotSchema)
 
-const compareReleaseVersion = (left: string, right: string): number => {
+const compareReleaseVersion = (left: ReleaseVersion, right: ReleaseVersion): number => {
   const leftParts = left.split(".").map((part) => Number.parseInt(part, 10))
   const rightParts = right.split(".").map((part) => Number.parseInt(part, 10))
   const maxLength = Math.max(leftParts.length, rightParts.length)
@@ -74,11 +76,11 @@ const snapshotKey = (input: {
 
 const firstReleasedVersionByKey = (
   snapshots: ReadonlyArray<ReleaseSinceSnapshot>
-): Readonly<{ readonly [key: string]: string }> =>
+): Readonly<{ readonly [key: string]: ReleaseVersion }> =>
   Arr.fromIterable(snapshots)
     .sort((left, right) => compareReleaseVersion(left.releasedVersion, right.releasedVersion))
-    .reduce<{ readonly [key: string]: string }>((accumulator, snapshot) =>
-      Arr.fromIterable(snapshot.exports).reduce<{ readonly [key: string]: string }>((entries, entry) => {
+    .reduce<{ readonly [key: string]: ReleaseVersion }>((accumulator, snapshot) =>
+      Arr.fromIterable(snapshot.exports).reduce<{ readonly [key: string]: ReleaseVersion }>((entries, entry) => {
         const key = snapshotKey(entry)
 
         return key in entries
@@ -87,10 +89,10 @@ const firstReleasedVersionByKey = (
       }, accumulator), {})
 
 const expectedSince = (
-  snapshotVersions: Readonly<{ readonly [key: string]: string }>,
-  currentVersion: string,
+  snapshotVersions: Readonly<{ readonly [key: string]: ReleaseVersion }>,
+  currentVersion: ReleaseVersion,
   entry: PackagePublicExport
-): string => snapshotVersions[snapshotKey(entry)] ?? currentVersion
+): ReleaseVersion => snapshotVersions[snapshotKey(entry)] ?? currentVersion
 
 const dedupeSnapshotEntries = (
   entries: ReadonlyArray<ReleaseSinceSnapshotEntry>
@@ -112,8 +114,8 @@ const dedupeSnapshotEntries = (
  * @category constructors
  */
 export const stampReleaseSinceSnapshot = (input: {
-  readonly packageName: string
-  readonly releasedVersion: string
+  readonly packageName: PackageName
+  readonly releasedVersion: ReleaseVersion
   readonly exports: ReadonlyArray<PackagePublicExport>
   readonly previousSnapshots: ReadonlyArray<ReleaseSinceSnapshot>
 }): ReleaseSinceSnapshot => {
@@ -141,7 +143,7 @@ export const stampReleaseSinceSnapshot = (input: {
  * @category queries
  */
 export const verifyReleaseSince = (input: {
-  readonly currentVersion: string
+  readonly currentVersion: ReleaseVersion
   readonly exports: ReadonlyArray<PackagePublicExport>
   readonly snapshots: ReadonlyArray<ReleaseSinceSnapshot>
 }): ReadonlyArray<ReleaseSinceGovernanceFinding> => {

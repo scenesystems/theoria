@@ -42,7 +42,7 @@ export const normalizePackageDocsAnchor = (value: string): string =>
     .replace(/-+$/u, "") || "section"
 
 const finalizeBlock = (input: {
-  readonly packageId: string
+  readonly packageId: PackageDocsSectionBlock["source"]["packageId"]
   readonly path: string
   readonly sourceKind: PackageDocsSourceKind
   readonly excerptKind: PackageDocsExcerptKind
@@ -71,7 +71,7 @@ const finalizeBlock = (input: {
  * Splits a markdown document into source-linked normalized section blocks.
  */
 export const markdownSectionBlocks = (input: {
-  readonly packageId: string
+  readonly packageId: PackageDocsSectionBlock["source"]["packageId"]
   readonly path: string
   readonly documentTitle: string
   readonly sourceKind: PackageDocsSourceKind

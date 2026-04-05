@@ -4,6 +4,7 @@
  * @since 0.0.0
  */
 export * from "./changesets.js"
+export * from "./identifiers.js"
 export * from "./literalQueries.js"
 export * from "./model.js"
 export * from "./packageDocs.js"

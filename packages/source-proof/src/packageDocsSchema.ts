@@ -1,5 +1,7 @@
 import { Schema } from "effect"
 
+import { PackageNameSchema, ReleaseVersionSchema } from "./identifiers.js"
+
 const NullableString = Schema.Union(Schema.String, Schema.Null)
 
 /**
@@ -8,7 +10,7 @@ const NullableString = Schema.Union(Schema.String, Schema.Null)
  * @since 0.0.0
  * @category schemas
  */
-export const PackageDocsPackageIdSchema = Schema.String
+export const PackageDocsPackageIdSchema = PackageNameSchema
 
 /**
  * Source-surface kinds that participate in package-doc normalization.
@@ -98,7 +100,7 @@ export const PackageDocsExampleSchema = Schema.Struct({
  * @category schemas
  */
 export const PackageDocsReleaseSnapshotSchema = Schema.Struct({
-  releasedVersion: Schema.String,
+  releasedVersion: ReleaseVersionSchema,
   source: PackageDocsSourceRefSchema,
   block: PackageDocsSectionBlockSchema
 })
@@ -125,7 +127,7 @@ export const PackageDocsProofCommandSchema = Schema.Struct({
 export const PackageDocsBundleSchema = Schema.Struct({
   packageId: PackageDocsPackageIdSchema,
   packageDirectory: Schema.String,
-  version: Schema.String,
+  version: ReleaseVersionSchema,
   description: NullableString,
   manifestSource: PackageDocsSourceRefSchema,
   readme: PackageDocsDocumentSchema,
@@ -144,7 +146,7 @@ export const PackageDocsBundleSchema = Schema.Struct({
 export const PackageDocsCatalogEntrySchema = Schema.Struct({
   packageId: PackageDocsPackageIdSchema,
   packageDirectory: Schema.String,
-  version: Schema.String,
+  version: ReleaseVersionSchema,
   description: NullableString,
   readmePath: Schema.String,
   moduleDocCount: Schema.Number,
@@ -161,7 +163,7 @@ export const PackageDocsCatalogEntrySchema = Schema.Struct({
  */
 export const PackageDocsQuerySchema = Schema.Struct({
   query: Schema.String,
-  packageId: NullableString,
+  packageId: Schema.Union(PackageNameSchema, Schema.Null),
   limit: Schema.Number
 })
 
