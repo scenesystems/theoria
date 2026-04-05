@@ -47,6 +47,7 @@
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
+    "check:examples": "tsc -b tsconfig.examples.json",
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/effect-dsp/test",
@@ -64,6 +65,7 @@
     "effect-search": "workspace:^"
   },
   "devDependencies": {
+    "effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {

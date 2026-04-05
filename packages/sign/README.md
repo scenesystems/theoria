@@ -69,7 +69,7 @@ Use **XWing** KEM for quantum-resistant key establishment. It combines X25519 an
 
 ## Quick start
 
-```ts
+```ts typecheck
 import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
 import { Effect } from "effect"
 

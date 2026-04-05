@@ -1,4 +1,6 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { readProjectFile } from "@theoria/source-proof"
 import { Effect } from "effect"
 
 import { DemoDecodeError, DemoExecutionError, DemoRequestError } from "../../app/contracts/demo-error.js"
@@ -21,6 +23,23 @@ import {
   stoppedRunState,
   succeededRunState
 } from "../helpers/run-state.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
+
+describe("status runtime-boundary", () => {
+  it.effect("keeps status copy free of app-local provider enums and provider-client wiring", () =>
+    Effect.gen(function*() {
+      const statusPath = "app/web/state/status.ts"
+      const source = yield* readProjectFile(appRootUrl, statusPath)
+
+      expect(source).not.toContain("\"openai\"")
+      expect(source).not.toContain("\"anthropic\"")
+      expect(source).not.toContain("\"openrouter\"")
+      expect(source).not.toContain("@effect/ai-openai")
+      expect(source).not.toContain("@effect/ai-anthropic")
+      expect(source).not.toContain("@effect/ai-openrouter")
+    }).pipe(Effect.provide(BunContext.layer)))
+})
 
 const statusStateFrom = (id: "effect-text") => {
   const state = initialSurfaceState(id)

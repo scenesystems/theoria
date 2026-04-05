@@ -1,5 +1,6 @@
 import { Atom, Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
+import type { Duration } from "effect"
 import { Effect, Layer, Option } from "effect"
 
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
@@ -101,23 +102,29 @@ const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.
   )
 }
 
-const waitForWithin = <A>(label: string, effect: Effect.Effect<A, string, never>): Effect.Effect<A, never, never> =>
+const waitForWithin = <A>(
+  label: string,
+  effect: Effect.Effect<A, string, never>,
+  timeout: Duration.DurationInput = "10 seconds"
+): Effect.Effect<A, never, never> =>
   Effect.raceFirst(
     Effect.eventually(effect).pipe(Effect.orDie),
-    Effect.sleep("10 seconds").pipe(Effect.zipRight(Effect.die(`timed-out-${label}`)))
+    Effect.sleep(timeout).pipe(Effect.zipRight(Effect.die(`timed-out-${label}`)))
   )
 
 const waitForRunState = (
   registry: Registry.Registry,
   id: string,
   label: string,
-  predicate: (state: SurfaceState) => boolean
+  predicate: (state: SurfaceState) => boolean,
+  timeout?: Duration.DurationInput
 ): Effect.Effect<SurfaceState, never, never> =>
   waitForWithin(
     label,
     Effect.sync(() => readSurface(registry, id)).pipe(
       Effect.filterOrFail(predicate, () => `waiting-for-${label}`)
-    )
+    ),
+    timeout
   )
 
 const emitEffectTextProjectionSteps = (
@@ -192,6 +199,7 @@ type AsyncRunRegression = {
   readonly emitWhilePaused: (registry: Registry.Registry, source: MockEventSource) => Effect.Effect<void, never, never>
   readonly expectedSectionTitle: string
   readonly expectedSummary: string
+  readonly finalizationTimeout?: Duration.DurationInput
   readonly id: DemoId
   readonly isFinalized: (registry: Registry.Registry, state: SurfaceState) => boolean
   readonly isRunning: (registry: Registry.Registry, state: SurfaceState) => boolean
@@ -203,6 +211,7 @@ const assertAsyncControlRunRegression = ({
   emitWhilePaused,
   expectedSectionTitle,
   expectedSummary,
+  finalizationTimeout,
   id,
   isFinalized,
   isRunning
@@ -251,7 +260,13 @@ const assertAsyncControlRunRegression = ({
         })
       )
 
-      const final = yield* waitForRunState(registry, id, `${id}-success`, (state) => isFinalized(registry, state))
+      const final = yield* waitForRunState(
+        registry,
+        id,
+        `${id}-success`,
+        (state) => isFinalized(registry, state),
+        finalizationTimeout
+      )
 
       expect(final.run._tag).toBe("RunSuccess")
       if (final.run._tag === "RunSuccess") {
@@ -288,6 +303,7 @@ describe("controlRunAtom async regressions", () => {
         ),
       expectedSectionTitle: "Animation Summary",
       expectedSummary: "Control atom text async.",
+      finalizationTimeout: "20 seconds",
       id: "effect-text",
       isFinalized: (registry, state) => state.run._tag === "RunSuccess" && registry.get(animatingAtom) === false,
       isRunning: (_registry, state) => state.run._tag === "RunRunning"

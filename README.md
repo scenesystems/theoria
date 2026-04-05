@@ -14,21 +14,23 @@ _Theoria_ (θεωρία) — observation that produces knowledge.
 
 ## Package Map
 
-| Package                                     | Focus                                                                                      | Docs                                         |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| [`effect-math`](./packages/effect-math)     | Numerics, linear algebra, statistics, probability, special functions, optimization kernels | [README](./packages/effect-math/README.md)   |
-| [`effect-search`](./packages/effect-search) | Typed search spaces, Bayesian optimization, studies, snapshots, replay                     | [README](./packages/effect-search/README.md) |
-| [`effect-dsp`](./packages/effect-dsp)       | Effect-native DSPy-style language model programming                                        | [README](./packages/effect-dsp/README.md)    |
-| [`effect-text`](./packages/effect-text)     | Effectful text preparation and pure multiline layout                                       | [README](./packages/effect-text/README.md)   |
-| [`@scenesystems/digest`](./packages/digest) | Hashing, HMAC, HKDF, JCS canonicalization                                                  | [README](./packages/digest/README.md)        |
-| [`@scenesystems/seal`](./packages/seal)     | Authenticated encryption and self-describing envelopes                                     | [README](./packages/seal/README.md)          |
-| [`@scenesystems/sign`](./packages/sign)     | Signatures, key exchange, and KEMs                                                         | [README](./packages/sign/README.md)          |
+| Package                                           | Focus                                                                                      | Docs                                            |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| [`effect-math`](./packages/effect-math)           | Numerics, linear algebra, statistics, probability, special functions, optimization kernels | [README](./packages/effect-math/README.md)      |
+| [`effect-search`](./packages/effect-search)       | Typed search spaces, Bayesian optimization, studies, snapshots, replay                     | [README](./packages/effect-search/README.md)    |
+| [`effect-dsp`](./packages/effect-dsp)             | Effect-native DSPy-style language model programming                                        | [README](./packages/effect-dsp/README.md)       |
+| [`effect-text`](./packages/effect-text)           | Effectful text preparation and pure multiline layout                                       | [README](./packages/effect-text/README.md)      |
+| [`effect-inference`](./packages/effect-inference) | Provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence     | [README](./packages/effect-inference/README.md) |
+| [`@scenesystems/digest`](./packages/digest)       | Hashing, HMAC, HKDF, JCS canonicalization                                                  | [README](./packages/digest/README.md)           |
+| [`@scenesystems/seal`](./packages/seal)           | Authenticated encryption and self-describing envelopes                                     | [README](./packages/seal/README.md)             |
+| [`@scenesystems/sign`](./packages/sign)           | Signatures, key exchange, and KEMs                                                         | [README](./packages/sign/README.md)             |
 
 Workspace relationships stay explicit:
 
 - `effect-search` depends on `effect-math` and `@scenesystems/digest`.
 - `effect-dsp` depends on `effect-search`, `effect-math`, and `@scenesystems/digest`.
 - `effect-text` depends on `effect-search` and `effect-math`, while still owning a separate prepare/layout runtime lane.
+- `effect-inference` owns provider-blind runtime descriptors and route resolution, while `effect-dsp`, `effect-search`, and `apps/theoria` consume that substrate without re-hosting provider clients.
 - `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` are standalone single-entrypoint crypto packages.
 
 ## Theoria App
@@ -54,6 +56,7 @@ Requires [bun](https://bun.sh) `>= 1.3`.
 bun install
 bun run check
 bun run check:tests
+bun run check:readmes
 bun run lint
 bun run test
 bun run build

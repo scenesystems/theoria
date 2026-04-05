@@ -6,6 +6,7 @@ import { capabilitiesRoute } from "./routes/capabilities.js"
 import { demoRoute } from "./routes/demos.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { packageVersionsRoute } from "./routes/package-versions.js"
+import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
 
@@ -53,6 +54,7 @@ export const app = Effect.gen(function*() {
     Match.when("/api/version", () => versionRoute(requestId)),
     Match.when("/api/versions/packages", () => packageVersionsRoute(requestId)),
     Match.when("/api/capabilities", () => capabilitiesRoute(requestId)),
+    Match.when("/sitemap.xml", () => sitemapRoute),
     Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
     Match.orElse(() => staticResponse(pathname))
   )

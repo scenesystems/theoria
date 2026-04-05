@@ -155,7 +155,19 @@ export const prepareExecution = (request: DspRunRequest) =>
     const demoBudget = Math.max(1, Math.min(request.optimizationBudget, examples.length))
     const startedAt = yield* Clock.currentTimeMillis
 
-    return { request, scenario, provider, model, module, metric, examples, metrics, layer, demoBudget, startedAt }
+    return {
+      request,
+      scenario,
+      provider,
+      model,
+      module,
+      metric,
+      examples,
+      metrics,
+      layer,
+      demoBudget,
+      startedAt
+    }
   })
 
 type _PrepareResult = typeof prepareExecution extends (arg: DspRunRequest) => infer R ? R : never

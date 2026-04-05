@@ -1,6 +1,8 @@
 import { Atom, Registry } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { readProjectFile } from "@theoria/source-proof"
 import { Effect, Layer, Option } from "effect"
 
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
@@ -30,6 +32,23 @@ import {
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
+
+describe("evidence orchestration runtime-boundary", () => {
+  it.effect("keeps web orchestration free of provider-client imports and provider enums", () =>
+    Effect.gen(function*() {
+      const surfacePath = "app/web/atoms/surface.ts"
+      const source = yield* readProjectFile(appRootUrl, surfacePath)
+
+      expect(source).not.toContain("\"openai\"")
+      expect(source).not.toContain("\"anthropic\"")
+      expect(source).not.toContain("\"openrouter\"")
+      expect(source).not.toContain("@effect/ai-openai")
+      expect(source).not.toContain("@effect/ai-anthropic")
+      expect(source).not.toContain("@effect/ai-openrouter")
+    }).pipe(Effect.provide(BunContext.layer)))
+})
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 

@@ -7,7 +7,7 @@ import { type Card, cardsForReleaseStage } from "../../contracts/card.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
-import { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
+import { DspProviderRuntime, dspRuntimeProjection } from "../demos/effect-dsp/provider.js"
 
 const jsonResponse = (body: unknown) =>
   HttpServerResponse.json(body, {
@@ -36,24 +36,6 @@ const dspDemoCapability = (
   })
 })
 
-const dspProviderFields = (
-  runtime: {
-    readonly capability: {
-      readonly provider: Option.Option<"openai" | "anthropic" | "openrouter">
-      readonly model: Option.Option<string>
-    }
-  }
-) => ({
-  ...Option.match(runtime.capability.provider, {
-    onNone: () => ({}),
-    onSome: (provider) => ({ provider })
-  }),
-  ...Option.match(runtime.capability.model, {
-    onNone: () => ({}),
-    onSome: (model) => ({ model })
-  })
-})
-
 const capabilityEntry = (id: Card["id"]) =>
   Match.value(id).pipe(
     Match.when("effect-dsp", () => ({
@@ -73,6 +55,7 @@ export const capabilitiesRoute = (requestId: string) =>
     const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
     const dspRuntime = yield* DspProviderRuntime
+    const dsp = yield* dspRuntimeProjection(dspRuntime)
     const endedAtMs = yield* Clock.currentTimeMillis
 
     const data = yield* Schema.decodeUnknown(Capabilities)({
@@ -80,7 +63,7 @@ export const capabilitiesRoute = (requestId: string) =>
         ...Arr.map(nonDspCapabilities(releaseStage), (card) => capabilityEntry(card.id)),
         dspDemoCapability(dspRuntime)
       ],
-      dsp: dspProviderFields(dspRuntime)
+      dsp
     })
 
     return jsonResponse({

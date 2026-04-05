@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 
 import { cardByIdForReleaseStage } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
+import { fullCanonicalUrl, metadataForHome, metadataForId } from "../../contracts/metadata.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -95,6 +96,40 @@ const headerPath = (pathname: string, stage: ReleaseStage): string =>
 const injectReleaseStage = (html: string, stage: ReleaseStage): string =>
   html.replace(htmlTagPattern, `<html$1 data-theoria-release-stage="${stage}">`)
 
+const titlePattern = /<title>[^<]*<\/title>/u
+const metaPattern = (nameOrProperty: string): RegExp =>
+  new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
+const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
+
+const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): string => {
+  const metadata = Match.value(pathname).pipe(
+    Match.when("/", () => metadataForHome()),
+    Match.when("/index.html", () => metadataForHome()),
+    Match.orElse((value) =>
+      Option.match(deepDiveId(value), {
+        onNone: () => metadataForHome(),
+        onSome: (id) => metadataForId(id)
+      })
+    )
+  )
+
+  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
+
+  return html
+    .replace(titlePattern, `<title>${metadata.title}</title>`)
+    .replace(metaPattern("description"), `<meta name="description" content="${metadata.description}" />`)
+    .replace(metaPattern("og:title"), `<meta property="og:title" content="${metadata.title}" />`)
+    .replace(metaPattern("og:description"), `<meta property="og:description" content="${metadata.description}" />`)
+    .replace(metaPattern("og:url"), `<meta property="og:url" content="${canonicalUrl}" />`)
+    .replace(metaPattern("og:type"), `<meta property="og:type" content="${metadata.ogType}" />`)
+    .replace(metaPattern("twitter:title"), `<meta name="twitter:title" content="${metadata.title}" />`)
+    .replace(
+      metaPattern("twitter:description"),
+      `<meta name="twitter:description" content="${metadata.description}" />`
+    )
+    .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
+}
+
 export const staticResponse = (pathname: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -111,7 +146,9 @@ export const staticResponse = (pathname: string) =>
               Match.when(true, () =>
                 isHtmlPath(pathname, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) => injectReleaseStage(html, releaseStage)),
+                    Effect.map((html) =>
+                      injectMetadata(injectReleaseStage(html, releaseStage), pathname, releaseStage)
+                    ),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {
                         status: 200,

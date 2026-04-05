@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://theoria.scenesystems.io/sitemap.xml

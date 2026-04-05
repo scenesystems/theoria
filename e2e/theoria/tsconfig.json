@@ -5,5 +5,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["@types/node", "@playwright/test"]
   },
-  "include": ["./**/*.ts", "../../apps/theoria/app/contracts/**/*.ts"]
+  "include": [
+    "./**/*.ts",
+    "../../apps/theoria/app/contracts/**/*.ts",
+    "../../packages/effect-inference/src/contracts/**/*.ts"
+  ]
 }

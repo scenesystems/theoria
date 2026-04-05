@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { DspRuntimeProjection } from "./dsp-runtime-projection.js"
 
 const NonNegativeNumber = Schema.Number.pipe(
   Schema.finite(),
@@ -14,7 +15,7 @@ export type Live = typeof Live.Type
 export const Ready = Schema.Struct({
   status: Schema.Literal("ready"),
   uptimeMs: NonNegativeNumber,
-  dspEnabled: Schema.Boolean
+  dsp: DspRuntimeProjection
 })
 
 export type Ready = typeof Ready.Type

@@ -1,0 +1,72 @@
+{
+  "name": "effect-inference",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Effect-native provider-blind inference runtime descriptors and resolution",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-inference",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-inference"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "inference",
+    "llm",
+    "embeddings",
+    "huggingface",
+    "openai-compatible",
+    "runtime-resolution"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": "./src/index.ts",
+    "./Contracts": "./src/contracts/index.ts",
+    "./Errors": "./src/Errors/index.ts",
+    "./Runtime": "./src/Runtime/index.ts",
+    "./OpenAiCompatible": "./src/OpenAiCompatible/index.ts",
+    "./HuggingFace": "./src/HuggingFace/index.ts",
+    "./Testing": "./src/testing/index.ts",
+    "./experimental": "./src/experimental/index.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "check:examples": "tsc -b tsconfig.examples.json",
+    "lint": "eslint --max-warnings=0 src test examples",
+    "lint:fix": "eslint --max-warnings=0 --fix src test examples",
+    "test": "vitest run --root ../.. packages/effect-inference/test",
+    "examples:verify": "bun --env-file=../../.env run scripts/verify-live-examples.ts",
+    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo",
+    "docgen": "docgen"
+  },
+  "devDependencies": {
+    "@theoria/source-proof": "workspace:*"
+  },
+  "peerDependencies": {
+    "@effect/ai": ">=0.35.0",
+    "effect": "^3.20.0"
+  },
+  "dependencies": {
+    "@effect/ai-anthropic": "0.25.0",
+    "@effect/ai-openai": "0.39.0",
+    "@effect/ai-openrouter": "0.10.0",
+    "@effect/platform": "0.96.0",
+    "@huggingface/inference": "^4.13.15"
+  }
+}

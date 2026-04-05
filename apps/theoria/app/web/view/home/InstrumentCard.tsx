@@ -113,7 +113,7 @@ export const InstrumentCard = ({
           lineLimit={2}
           role="card-summary"
           reserveLines={2}
-          text={card.useCase}
+          text={card.description}
           variant="compact"
           wrapAuthority="effect-text-projected"
         />

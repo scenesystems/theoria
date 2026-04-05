@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.9064 -0.7569 1.8127 1.5138" fill="none">
+  <style>
+    polygon { fill: #0f172a; stroke: #0f172a }
+    @media (prefers-color-scheme: dark) {
+      polygon { fill: #f8fafc; stroke: #f8fafc }
+    }
+  </style>
+  <polygon fill-opacity="0.8758" points="-0.4381,0.6969 0.2690,0.6969 0.8464,0.1196 0.1392,0.1196" stroke-linejoin="round" stroke-opacity="0.3" stroke-width="0.02"/>
+  <polygon fill-opacity="0.8433" points="-0.2690,-0.6969 0.1392,0.1196 0.8464,0.1196 0.4381,-0.6969" stroke-linejoin="round" stroke-opacity="0.3" stroke-width="0.02"/>
+  <polygon fill-opacity="0.8290" points="-0.4381,0.6969 -0.8464,-0.1196 -0.2690,-0.6969 0.1392,0.1196" stroke-linejoin="round" stroke-opacity="0.3" stroke-width="0.02"/>
+</svg>
