@@ -1,6 +1,6 @@
 {
   "name": "effect-math",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Foundational numerics, linear algebra, statistics, and optimization for Effect",
   "license": "MIT",

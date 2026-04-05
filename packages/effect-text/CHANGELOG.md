@@ -1,5 +1,24 @@
 # effect-text
 
+## 0.2.0
+
+### Minor Changes
+
+- [#23](https://github.com/scenesystems/theoria/pull/23) [`ee3ebec`](https://github.com/scenesystems/theoria/commit/ee3ebeccaaddf56f56b86ab154fa50bdda3f99c9) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Adds prepared text handles, richer layout APIs, browser helpers, and experimental calibration tools.
+  - adds prepared text handles and expands the pure layout API with cursor stepping, streaming line projection, variable-width layout, fit-vs-paint handling, and width-only reprojection
+  - improves Unicode and line breaking with deterministic segmentation fallback, bidi visual ordering, mirrored punctuation, and overflow precedence of `hard-break -> soft-hyphen -> dictionary-hyphen -> explicit-break -> grapheme-fallback`
+  - adds dictionary hyphenation for `en-us`, `en-gb`, `de`, `fr`, and `es`, including locale fallback and explicit soft-hyphen precedence
+  - adds `effect-text/browser` with canvas measurement layers, font-readiness helpers, support-manifest data, parity utilities, and checked-in parity artifacts for `canvas-monospace` and `canvas-system-ui`
+  - adds `effect-text/react` helpers for prepare identity and pure prepared-layout projection
+  - expands `Experimental.Calibration` with seeded `effect-search` studies, `StudySnapshot` artifacts, ordered `StudyEvent` logs, canonical calibration fixtures, and `effect-math`-backed scoring
+  - refreshes the README, examples, and generated docs to match the new browser, React, hyphenation, and calibration features
+
+### Patch Changes
+
+- Updated dependencies [[`ee3ebec`](https://github.com/scenesystems/theoria/commit/ee3ebeccaaddf56f56b86ab154fa50bdda3f99c9)]:
+  - effect-math@0.2.1
+  - effect-search@0.2.1
+
 ## 0.1.0
 
 ### Minor Changes

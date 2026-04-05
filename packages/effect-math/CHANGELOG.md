@@ -1,5 +1,14 @@
 # effect-math
 
+## 0.2.1
+
+### Patch Changes
+
+- [#23](https://github.com/scenesystems/theoria/pull/23) [`ee3ebec`](https://github.com/scenesystems/theoria/commit/ee3ebeccaaddf56f56b86ab154fa50bdda3f99c9) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Adds `Statistics.summaryStatistics(values)` for non-empty chunks.
+  - returns the existing `SummaryStatistics` tagged class in one pass
+  - treats singleton chunks deterministically with zero variance and standard deviation
+  - includes tests to keep its results aligned with the validated and runtime-policy variants
+
 ## 0.2.0
 
 ### Minor Changes

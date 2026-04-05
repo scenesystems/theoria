@@ -138,7 +138,19 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "descriptorForLiveRuntime",
+      "kind": "value",
+      "firstReleasedIn": "0.1.0"
+    },
     { "subpath": "./HuggingFace", "exportName": "embeddingModelLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "EndpointLiveRuntimeOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.1.0"
+    },
     {
       "subpath": "./HuggingFace",
       "exportName": "HuggingFaceEndpointEmbeddingsLive",
@@ -159,6 +171,13 @@
     },
     { "subpath": "./HuggingFace", "exportName": "HuggingFaceRoutedLive", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./HuggingFace", "exportName": "languageModelLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "LiveRuntimeConfigOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.1.0"
+    },
+    { "subpath": "./HuggingFace", "exportName": "LiveRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./HuggingFace", "exportName": "LiveRuntimeOptions", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
@@ -184,7 +203,31 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "ResolvedLiveRuntimeConfig",
+      "kind": "type",
+      "firstReleasedIn": "0.1.0"
+    },
     { "subpath": "./HuggingFace", "exportName": "resolveLiveRuntime", "kind": "value", "firstReleasedIn": "0.1.0" },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "resolveLiveRuntimeConfig",
+      "kind": "value",
+      "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "resolveLiveRuntimeFromConfig",
+      "kind": "value",
+      "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "RoutedLiveRuntimeOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.1.0"
+    },
     {
       "subpath": "./OpenAiCompatible",
       "exportName": "CompatibleTransport",

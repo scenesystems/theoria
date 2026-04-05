@@ -277,6 +277,7 @@
     { "subpath": "./Text", "exportName": "LayoutLineRangeType", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Text", "exportName": "layoutLines", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Text", "exportName": "layoutLinesWith", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Text", "exportName": "layoutLinesWithSummary", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./Text", "exportName": "LayoutLineType", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Text", "exportName": "layoutNextLine", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Text", "exportName": "LayoutRequest", "kind": "value", "firstReleasedIn": "0.1.0" },

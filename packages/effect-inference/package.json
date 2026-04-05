@@ -1,6 +1,6 @@
 {
   "name": "effect-inference",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Effect-native provider-blind inference runtime descriptors and resolution",
   "license": "MIT",
