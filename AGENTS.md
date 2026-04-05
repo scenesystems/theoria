@@ -143,7 +143,7 @@ bun run changeset:version      # Apply version bumps
 bun run changeset:publish      # Publish to npm
 ```
 
-Each package runs `publish:check` before release to enforce repository metadata, export boundaries, and keyword coverage.
+Release-governed package seams are profile-driven under the root framework. Every governed package delegates `release-snapshots:stamp` to the root CLI, while only packages whose profile explicitly requires `publish:check` or `changeset-publish` expose those scripts, and those scripts must stay as thin manifest-level adapters over the root-owned framework.
 
 ---
 
