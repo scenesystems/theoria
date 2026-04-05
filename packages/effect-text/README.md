@@ -23,7 +23,7 @@ manager. `effect` is a required peer dependency.
 
 ## Quick Start
 
-```ts
+```ts typecheck
 import { Effect } from "effect"
 import { Text } from "effect-text"
 

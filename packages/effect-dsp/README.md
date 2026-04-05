@@ -56,7 +56,7 @@ bun add effect-dsp effect @effect/ai
 
 ## Quick start
 
-```ts
+```ts typecheck
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Layer, Schema } from "effect"
 import { Module, Signature, Trace } from "effect-dsp"

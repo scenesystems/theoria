@@ -34,7 +34,7 @@ Use **SHA-256** when interacting with external systems that expect it: webhook s
 
 ## Quick start
 
-```ts
+```ts typecheck
 import { digest, durableFingerprint } from "@scenesystems/digest"
 import { Effect } from "effect"
 

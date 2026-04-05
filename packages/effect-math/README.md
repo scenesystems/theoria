@@ -34,7 +34,7 @@ Peer dependency: `effect >= 3.20.0`
 
 Pure kernels work directly — no Effect runtime needed:
 
-```ts
+```ts typecheck
 import { Chunk } from "effect"
 import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
 import { euclideanDistance } from "effect-math/Geometry"

@@ -35,7 +35,7 @@ Use **AES-256-GCM** when interoperating with systems that mandate AES (hardware 
 
 ## Quick start
 
-```ts
+```ts typecheck
 import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
 import { Effect } from "effect"
 
