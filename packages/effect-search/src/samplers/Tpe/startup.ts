@@ -24,6 +24,7 @@ import { suggestIntParameter } from "./dimensions/int.js"
 import { GroupedMixedSettings, suggestGroupedMixedJoint } from "./groupedMixed.js"
 import { suggestMixedJoint } from "./mixed.js"
 import type { TpeConstraintEvaluator } from "./options.js"
+import { type PreparedTpeModelContext, preparedTpeParameterObservations } from "./preparedModel.js"
 import { splitByObjectiveSpec } from "./split/index.js"
 
 const suggestIndependentParameter = (
@@ -32,11 +33,20 @@ const suggestIndependentParameter = (
   parameter: SearchSpace.ParameterMetadata,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions,
-  acquisition: AcquisitionImplementation
+  acquisition: AcquisitionImplementation,
+  preparedModelContext: Option.Option<PreparedTpeModelContext>
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "categorical" }, ({ choices }) =>
-      suggestCategoricalParameter(rng, nCandidates, parameter, choices, split, acquisition)),
+      suggestCategoricalParameter(
+        rng,
+        nCandidates,
+        parameter,
+        choices,
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      )),
     Match.when({ type: "float" }, ({ low, high, scale, step }) =>
       suggestFloatParameter(
         rng,
@@ -48,12 +58,33 @@ const suggestIndependentParameter = (
         Option.fromNullable(step),
         split,
         noiseOptions,
-        acquisition
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
       )),
     Match.when({ type: "int" }, ({ low, high, step }) =>
-      suggestIntParameter(rng, nCandidates, parameter, low, high, Option.fromNullable(step), split, acquisition)),
+      suggestIntParameter(
+        rng,
+        nCandidates,
+        parameter,
+        low,
+        high,
+        Option.fromNullable(step),
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      )),
     Match.when({ type: "fidelity" }, ({ low, high }) =>
-      suggestIntParameter(rng, nCandidates, parameter, low, high, Option.none(), split, acquisition)),
+      suggestIntParameter(
+        rng,
+        nCandidates,
+        parameter,
+        low,
+        high,
+        Option.none(),
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      )),
     Match.exhaustive
   )
 
@@ -63,7 +94,8 @@ const suggestIndependent = (
   space: SearchSpace.SearchSpace,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions,
-  acquisition: AcquisitionImplementation
+  acquisition: AcquisitionImplementation,
+  preparedModelContext: Option.Option<PreparedTpeModelContext>
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const configObject = (raw: HashMap.HashMap<string, unknown>): unknown => Record.fromEntries(HashMap.toEntries(raw))
@@ -85,7 +117,8 @@ const suggestIndependent = (
                   parameter,
                   split,
                   noiseOptions,
-                  acquisition
+                  acquisition,
+                  preparedModelContext
                 ).pipe(
                   Effect.flatMap((value) => go(index + 1, HashMap.set(raw, parameter.name, value)))
                 )
@@ -111,12 +144,18 @@ const suggestModelDriven = (
   constraints: ReadonlyArray<TpeConstraintEvaluator>,
   acquisition: AcquisitionImplementation,
   space: SearchSpace.SearchSpace,
-  context: SuggestContext
+  context: SuggestContext,
+  preparedModelContext: Option.Option<PreparedTpeModelContext>
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
-    const completed = yield* enrichCompletedTrialsWithConstraints(context.completed, constraints)
     const rng = rngByTrial("tpe", seed, context.nextTrialNumber)
-    const split = splitByObjectiveSpec(completed, context.objectiveSpec, context.epsilon)
+    const split = yield* Option.match(preparedModelContext, {
+      onNone: () =>
+        enrichCompletedTrialsWithConstraints(context.completed, constraints).pipe(
+          Effect.map((completed) => splitByObjectiveSpec(completed, context.objectiveSpec, context.epsilon))
+        ),
+      onSome: (prepared) => Effect.succeed(prepared.split)
+    })
     const dimensions = categoricalDimensions(space)
     const containsConditionalParameters = hasConditionalParameters(space)
     const groupedSettings = new GroupedMixedSettings({
@@ -131,7 +170,8 @@ const suggestModelDriven = (
           Match.value(multivariate).pipe(
             Match.when(true, () =>
               Match.value(containsConditionalParameters && !groupDimensions).pipe(
-                Match.when(true, () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
+                Match.when(true, () =>
+                  suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition, preparedModelContext)),
                 Match.orElse(() =>
                   suggestGroupedMixedJoint(
                     rng,
@@ -140,14 +180,18 @@ const suggestModelDriven = (
                     split,
                     groupedSettings,
                     noiseOptions,
-                    acquisition
+                    acquisition,
+                    preparedModelContext
                   )
                 )
               )),
             Match.orElse(() =>
               Match.value(containsConditionalParameters).pipe(
-                Match.when(true, () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
-                Match.orElse(() => suggestMixedJoint(rng, nCandidates, space, split, noiseOptions, acquisition))
+                Match.when(true, () =>
+                  suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition, preparedModelContext)),
+                Match.orElse(() =>
+                  suggestMixedJoint(rng, nCandidates, space, split, noiseOptions, acquisition, preparedModelContext)
+                )
               )
             )
           )
@@ -179,7 +223,8 @@ export const suggestWithStartup = (
   constraints: ReadonlyArray<TpeConstraintEvaluator>,
   acquisition: AcquisitionImplementation,
   space: SearchSpace.SearchSpace,
-  context: SuggestContext
+  context: SuggestContext,
+  preparedModelContext: Option.Option<PreparedTpeModelContext> = Option.none()
 ): Effect.Effect<unknown, SearchError> =>
   Match.value(Num.lessThan(context.completed.length, startupTrials)).pipe(
     Match.when(true, () => randomSampler.suggest(space, context)),
@@ -193,7 +238,8 @@ export const suggestWithStartup = (
         constraints,
         acquisition,
         space,
-        context
+        context,
+        preparedModelContext
       )
     )
   )

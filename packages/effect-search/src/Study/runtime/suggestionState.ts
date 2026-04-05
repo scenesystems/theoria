@@ -15,6 +15,7 @@ import {
   SuggestContext,
   type SuggestPendingTrial
 } from "../../Sampler/index.js"
+import type { PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
 import * as Trial from "../../Trial/index.js"
 import { completedTrialsFromState, maxTrialNumberFromState, pendingTrialsFromState, type StudyState } from "../state.js"
 
@@ -100,6 +101,8 @@ export class SuggestionState extends Data.Class<{
   readonly priorWeight: number
   readonly epsilon: number
   readonly nextTrialNumber: number
+  readonly preparedSuggestion: Option.Option<PreparedSuggestionState>
+  readonly lastSuggestionDiagnostics: Option.Option<SuggestionDiagnostics>
 }> {}
 
 /**
@@ -120,7 +123,9 @@ export const suggestionStateFromStudyState = <Config>(
     objectiveSpec,
     priorWeight,
     epsilon,
-    nextTrialNumber: Num.increment(maxTrialNumberFromState(state))
+    nextTrialNumber: Num.increment(maxTrialNumberFromState(state)),
+    preparedSuggestion: Option.none(),
+    lastSuggestionDiagnostics: Option.none()
   })
 
 const imputedCompleted = (
@@ -180,7 +185,9 @@ export const withReservedTrialSuggestionState = <Config>(
     objectiveSpec: state.objectiveSpec,
     priorWeight: state.priorWeight,
     epsilon: state.epsilon,
-    nextTrialNumber: Num.max(state.nextTrialNumber, Num.increment(trial.trialNumber))
+    nextTrialNumber: Num.max(state.nextTrialNumber, Num.increment(trial.trialNumber)),
+    preparedSuggestion: state.preparedSuggestion,
+    lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
   })
 
 /**
@@ -203,5 +210,29 @@ export const withFinalizedTrialSuggestionState = <Config>(
     objectiveSpec: state.objectiveSpec,
     priorWeight: state.priorWeight,
     epsilon: state.epsilon,
-    nextTrialNumber: state.nextTrialNumber
+    nextTrialNumber: state.nextTrialNumber,
+    preparedSuggestion: state.preparedSuggestion,
+    lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
+  })
+
+/**
+ * Updates runtime-only prepared suggestion state and the latest suggestion diagnostics.
+ *
+ * @since 0.3.0
+ * @category combinators
+ */
+export const withPreparedSuggestionState = (
+  state: SuggestionState,
+  preparedSuggestion: Option.Option<PreparedSuggestionState>,
+  lastSuggestionDiagnostics: SuggestionDiagnostics
+): SuggestionState =>
+  new SuggestionState({
+    observedCompleted: state.observedCompleted,
+    pending: state.pending,
+    objectiveSpec: state.objectiveSpec,
+    priorWeight: state.priorWeight,
+    epsilon: state.epsilon,
+    nextTrialNumber: state.nextTrialNumber,
+    preparedSuggestion,
+    lastSuggestionDiagnostics: Option.some(lastSuggestionDiagnostics)
   })

@@ -13,7 +13,12 @@ export {
   /** @since 0.1.0 */ AskedTrial,
   /** @since 0.1.0 */ askTellProcedureCatalog,
   /** @since 0.1.0 */ cancel,
-  /** @since 0.1.0 */ events,
+  /**
+   * Stream typed lifecycle events, including sampler-start diagnostics when the active sampler emits them.
+   *
+   * @since 0.1.0
+   */
+  events,
   /** @since 0.1.0 */ fail,
   /** @since 0.1.0 */ isStudyHandle,
   /**
@@ -60,7 +65,7 @@ export {
   /** @since 0.1.0 */ resumeStream,
   /** @since 0.1.0 */ SingleObjectiveResult,
   /**
-   * Capture study state for persistence.
+   * Capture study state for persistence, including typed sampler metrics such as pending-trial truth.
    *
    * @since 0.1.0
    */

@@ -16,6 +16,7 @@ import type * as SearchSpace from "../../../SearchSpace/index.js"
 import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "../acquisition/index.js"
 import { chooseBestCandidate, drawRolls } from "../candidates.js"
 import { invalidConfig } from "../options.js"
+import type { PreparedTpeParameterObservations } from "../preparedModel.js"
 import { logProbability } from "../scoring.js"
 import { DimensionScoreTrace } from "./trace.js"
 import { primitiveValuesForParameter } from "./values.js"
@@ -82,10 +83,19 @@ export const suggestCategoricalParameter = (
   parameter: SearchSpace.ParameterMetadata,
   choices: ReadonlyArray<PrimitiveChoice>,
   split: TrialSplit,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<PrimitiveChoice, InvalidSamplerConfig> =>
   Effect.gen(function*() {
-    const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
+    const trace = yield* categoricalCandidateTrace(
+      rng,
+      nCandidates,
+      parameter,
+      choices,
+      split,
+      acquisition,
+      preparedObservations
+    )
 
     return yield* chooseBestCandidate(
       trace.candidates,
@@ -111,11 +121,18 @@ export const categoricalCandidateTraceFromRolls = (
   choices: ReadonlyArray<PrimitiveChoice>,
   split: TrialSplit,
   rolls: ReadonlyArray<number>,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<PrimitiveChoice>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
-    const belowValues = primitiveValuesForParameter(parameter, split.below)
-    const aboveValues = primitiveValuesForParameter(parameter, split.above)
+    const belowValues = Option.match(preparedObservations, {
+      onNone: () => primitiveValuesForParameter(parameter, split.below),
+      onSome: (observations) => observations.belowPrimitive
+    })
+    const aboveValues = Option.match(preparedObservations, {
+      onNone: () => primitiveValuesForParameter(parameter, split.above),
+      onSome: (observations) => observations.abovePrimitive
+    })
     const belowDensity = yield* buildCategoricalParzen(Arr.fromIterable(choices), belowValues)
     const aboveDensity = yield* buildCategoricalParzen(Arr.fromIterable(choices), aboveValues)
     const candidates = sampleWeightedCategoricalCandidatesFromRolls(
@@ -165,10 +182,13 @@ export const categoricalCandidateTrace = (
   parameter: SearchSpace.ParameterMetadata,
   choices: ReadonlyArray<PrimitiveChoice>,
   split: TrialSplit,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<PrimitiveChoice>, InvalidSamplerConfig> =>
   drawRolls(rng, nCandidates).pipe(
-    Effect.flatMap((rolls) => categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition))
+    Effect.flatMap((rolls) =>
+      categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition, preparedObservations)
+    )
   )
 
 /**

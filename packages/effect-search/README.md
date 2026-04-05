@@ -462,6 +462,8 @@ Effect.runPromise(program)
 
 The full manual surface is `Study.open`, `Study.ask`, `Study.tell`, `Study.fail`, `Study.cancel`, `Study.result`, `Study.snapshot`, and `Study.events`.
 
+When the sampler exposes prepared-state diagnostics, `TrialStarted` events include a typed `diagnostics` payload. TPE uses that surface after startup to report the prepared-state kind, whether the prepared state was reused, completed versus pending observation counts, and the effective below/above split sizes that drove the suggestion.
+
 ## Going deeper
 
 ### Conditional search spaces
@@ -828,6 +830,8 @@ Study.optimizeStream({
 }).pipe(Study.tapTerminalProgress({ sink }), Stream.runDrain)
 ```
 
+The same event stream is the package-owned diagnostics surface. Consumers can pattern-match on `TrialStarted` to inspect typed sampler diagnostics, and snapshots preserve pending-trial truth through `StudySnapshot.samplerMetrics.pendingCount` so resume and UI consumers do not have to infer running-trial state from ad hoc local bookkeeping.
+
 For one-shot event emission (for example, in manual orchestration adapters), use `Study.reportTerminalProgress`:
 
 ```ts
@@ -1095,7 +1099,7 @@ bun run fixtures:verify     # Re-derive expected values and assert parity
 
 Fixture generation uses [uv](https://docs.astral.sh/uv/) — no manual `pip install` or virtualenv needed.
 
-## Release Checklist (Script-First)
+## Release Checklist (effect-search root profile)
 
 Run the release gates as executable contracts, not memory-based checklist steps:
 
@@ -1106,10 +1110,11 @@ bun run lint
 bun run test
 bun run build
 bun run fixtures:check
+bun run release-snapshots:stamp
 bun run changeset-publish --dry-run
 ```
 
-`publish:check` is the single-source release contract for package metadata, export boundaries, keyword coverage, and script wiring. `changeset-publish` re-runs `publish:check --require-packed-manifest` after build so packed-manifest export boundaries are enforced before publish.
+`effect-search` participates in an opt-in root release profile. Not every shipped Theoria package exposes `publish:check` or `changeset-publish`, but when those seams exist they delegate to the repository root CLIs. For this package, `publish:check` is the single-source release contract for package metadata, export boundaries, keyword coverage, and script wiring; `release-snapshots:stamp` refreshes the checked-in package snapshot through the shared root stamping CLI; and `changeset-publish` re-runs the root publish-readiness path with `--require-packed-manifest` after build so packed-manifest export boundaries are enforced before publish.
 
 ## Acknowledgments
 

@@ -16,6 +16,7 @@ import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from
 import { chooseBestCandidate, drawRollPairs } from "../candidates.js"
 import { objectiveVarianceFromSplit } from "../costModel.js"
 import { invalidConfig } from "../options.js"
+import type { PreparedTpeParameterObservations } from "../preparedModel.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
 import { numericValuesForParameter } from "./values.js"
@@ -154,7 +155,8 @@ export const suggestFloatParameter = (
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<number, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const trace = yield* floatCandidateTrace(
@@ -167,7 +169,8 @@ export const suggestFloatParameter = (
       step,
       split,
       noiseOptions,
-      acquisition
+      acquisition,
+      preparedObservations
     )
 
     return yield* chooseBestCandidate(
@@ -198,20 +201,29 @@ export const floatCandidateTraceFromRolls = (
   split: TrialSplit,
   rolls: ReadonlyArray<CandidateRollPair>,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const model = yield* floatModel(parameter.name, low, high, scale, step)
     const empiricalVariance = objectiveVarianceFromSplit(split)
+    const belowValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.below),
+      onSome: (observations) => observations.belowNumeric
+    })
+    const aboveValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.above),
+      onSome: (observations) => observations.aboveNumeric
+    })
     const belowParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.below).map(model.toModel),
+      Arr.map(belowValues, model.toModel),
       model.low,
       model.high,
       noiseOptions,
       empiricalVariance
     )
     const aboveParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.above).map(model.toModel),
+      Arr.map(aboveValues, model.toModel),
       model.low,
       model.high,
       noiseOptions,
@@ -261,10 +273,22 @@ export const floatCandidateTrace = (
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   drawRollPairs(rng, nCandidates).pipe(
     Effect.flatMap((rolls) =>
-      floatCandidateTraceFromRolls(parameter, low, high, scale, step, split, rolls, noiseOptions, acquisition)
+      floatCandidateTraceFromRolls(
+        parameter,
+        low,
+        high,
+        scale,
+        step,
+        split,
+        rolls,
+        noiseOptions,
+        acquisition,
+        preparedObservations
+      )
     )
   )

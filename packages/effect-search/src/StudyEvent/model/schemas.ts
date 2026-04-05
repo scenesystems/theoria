@@ -7,6 +7,7 @@ import { Schema } from "effect"
 
 import { ObjectiveValueSchema } from "../../contracts/ObjectiveValue.js"
 import { TrialError } from "../../Errors/index.js"
+import { SuggestionDiagnosticsSchema } from "../../Sampler/preparation.js"
 import { PruneDecisionSchema, StopModeSchema } from "../../Study/runtime/pruning.js"
 
 /**
@@ -32,7 +33,8 @@ export type CompletionReason = Schema.Schema.Type<typeof CompletionReasonSchema>
 /** @since 0.1.0 @category schemas */
 export const TrialStartedSchema = Schema.TaggedStruct("TrialStarted", {
   trialNumber: Schema.Number,
-  config: Schema.Unknown
+  config: Schema.Unknown,
+  diagnostics: Schema.optional(SuggestionDiagnosticsSchema)
 })
 
 /** @since 0.1.0 @category schemas */

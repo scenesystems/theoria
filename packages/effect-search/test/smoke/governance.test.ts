@@ -53,6 +53,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
     "src/samplers/Tpe/options.ts",
     "TPE option parsing co-locates default resolution, validation, and checkpoint projection for all sampler configuration fields. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/startup.ts",
+    "TPE startup routing now co-locates startup gating, prepared-model split reuse, and dispatch across independent, grouped, and mixed-space suggestion modes so one module remains the auditable handoff between cold-start exploration and model-driven suggestion. Follow-up: extract prepared-model-aware independent dispatch into `samplers/Tpe/startup/independent.ts` and grouped/mixed routing into `samplers/Tpe/startup/modelDriven.ts` while keeping `startup.ts` as the public phase router."
   ]
 ]
 

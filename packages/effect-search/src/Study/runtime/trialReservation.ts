@@ -8,6 +8,11 @@ import { Effect, Option, Tuple } from "effect"
 import type { SearchError } from "../../Errors/index.js"
 import { PendingImputationPolicySpiLayer } from "../../Sampler/index.js"
 import * as Sampler from "../../Sampler/index.js"
+import {
+  makeSuggestionDiagnostics,
+  type PreparedSuggestionState,
+  type SuggestionDiagnostics
+} from "../../Sampler/preparation.js"
 import { decodeConfig } from "../../Sampler/shared/decodeConfig.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import * as Trial from "../../Trial/index.js"
@@ -17,9 +22,52 @@ import { markSpaceExhausted } from "./completion.js"
 import { contextForSuggestionState } from "./context.js"
 import { RuntimeState } from "./runtimeState.js"
 import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
-import { withReservedTrialSuggestionState } from "./suggestionState.js"
+import { withPreparedSuggestionState, withReservedTrialSuggestionState } from "./suggestionState.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
+
+const suggestWithPreparedState = <Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<ConfigFor<Space>, Space>,
+  sampler: Sampler.Sampler,
+  suggestionContext: Sampler.SuggestContext,
+  previous: Option.Option<PreparedSuggestionState>
+): Effect.Effect<
+  readonly [unknown, Option.Option<PreparedSuggestionState>, SuggestionDiagnostics],
+  SearchError
+> =>
+  Option.fromNullable(sampler.prepareSuggestion).pipe(
+    Option.match({
+      onNone: () =>
+        Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
+          Effect.provide(Sampler.SamplerSpiLayer(sampler)),
+          Effect.map((rawConfig) =>
+            Tuple.make(
+              rawConfig,
+              previous,
+              makeSuggestionDiagnostics(sampler.kind._tag, "none", false, suggestionContext)
+            )
+          )
+        ),
+      onSome: (prepareSuggestion) =>
+        prepareSuggestion(options.space, suggestionContext, previous).pipe(
+          Effect.flatMap(([preparedSuggestion, diagnostics]) =>
+            Option.fromNullable(sampler.suggestPrepared).pipe(
+              Option.match({
+                onNone: () =>
+                  Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
+                    Effect.provide(Sampler.SamplerSpiLayer(sampler)),
+                    Effect.map((rawConfig) => Tuple.make(rawConfig, Option.some(preparedSuggestion), diagnostics))
+                  ),
+                onSome: (suggestPrepared) =>
+                  suggestPrepared(options.space, suggestionContext, preparedSuggestion).pipe(
+                    Effect.map((rawConfig) => Tuple.make(rawConfig, Option.some(preparedSuggestion), diagnostics))
+                  )
+              })
+            )
+          )
+        )
+    })
+  )
 
 /**
  * Samples a single configuration from the search space using the plan's default sampler.
@@ -50,8 +98,11 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
       const suggestionContext = yield* contextForSuggestionState(state.suggestionState).pipe(
         Effect.provide(PendingImputationPolicySpiLayer(sampler.pendingImputationPolicy))
       )
-      const rawConfig = yield* Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
-        Effect.provide(Sampler.SamplerSpiLayer(sampler))
+      const [rawConfig, preparedSuggestion, diagnostics] = yield* suggestWithPreparedState(
+        options,
+        sampler,
+        suggestionContext,
+        state.suggestionState.preparedSuggestion
       )
 
       const config = yield* decodeConfig(
@@ -61,7 +112,14 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
         `sampler ${sampler.kind._tag} generated a config that failed search-space decoding`
       )
 
-      return Tuple.make(config, state)
+      return Tuple.make(
+        config,
+        new RuntimeState({
+          lifecycle: state.lifecycle,
+          studyState: state.studyState,
+          suggestionState: withPreparedSuggestionState(state.suggestionState, preparedSuggestion, diagnostics)
+        })
+      )
     }))
 
 const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
@@ -77,8 +135,11 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
         const suggestionContext = yield* contextForSuggestionState(state.suggestionState).pipe(
           Effect.provide(PendingImputationPolicySpiLayer(options.sampler.pendingImputationPolicy))
         )
-        const rawConfig = yield* Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
-          Effect.provide(Sampler.SamplerSpiLayer(options.sampler))
+        const [rawConfig, preparedSuggestion, diagnostics] = yield* suggestWithPreparedState(
+          options,
+          options.sampler,
+          suggestionContext,
+          state.suggestionState.preparedSuggestion
         )
         const config = yield* decodeConfig(
           options.sampler.kind._tag,
@@ -97,7 +158,7 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
           new RuntimeState({
             lifecycle: state.lifecycle,
             studyState: nextStudyState,
-            suggestionState: nextSuggestionState
+            suggestionState: withPreparedSuggestionState(nextSuggestionState, preparedSuggestion, diagnostics)
           })
         )
       }))

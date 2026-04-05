@@ -136,12 +136,18 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
           )
         ),
       onSome: (running) =>
-        appendEvent(
-          state.runtime,
-          StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config })
-        ).pipe(
-          Effect.as(new AskedTrial({ trialNumber: running.trialNumber, config: running.config }))
-        )
+        Effect.gen(function*() {
+          const reservedState = yield* readRuntimeState(state.runtime)
+          const event = Option.match(reservedState.suggestionState.lastSuggestionDiagnostics, {
+            onNone: () => StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config }),
+            onSome: (diagnostics) =>
+              StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config, diagnostics })
+          })
+
+          yield* appendEvent(state.runtime, event)
+
+          return new AskedTrial({ trialNumber: running.trialNumber, config: running.config })
+        })
     })
   })
 

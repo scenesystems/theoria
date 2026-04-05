@@ -7,6 +7,7 @@ import type { Schema } from "effect"
 
 import type { ObjectiveValue } from "../../contracts/ObjectiveValue.js"
 import type { TrialError } from "../../Errors/index.js"
+import type { SuggestionDiagnostics } from "../../Sampler/preparation.js"
 import type { PruneDecision, StopMode } from "../../Study/runtime/pruning.js"
 import type {
   BestUpdatedSchema,
@@ -31,6 +32,7 @@ import type {
 export const TrialStarted = (fields: {
   readonly trialNumber: number
   readonly config: unknown
+  readonly diagnostics?: SuggestionDiagnostics
 }): Schema.Schema.Type<typeof TrialStartedSchema> => ({
   _tag: "TrialStarted",
   ...fields

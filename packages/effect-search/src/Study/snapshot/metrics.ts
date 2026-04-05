@@ -18,6 +18,7 @@ import { stateDuration } from "./stateCodec.js"
 export const SamplerMetricsSchema = Schema.Struct({
   checkpointTag: Schema.String,
   completedCount: Schema.Number,
+  pendingCount: Schema.Number,
   retryCountTotal: Schema.Number,
   priorCount: Schema.Number
 })
@@ -55,6 +56,17 @@ const priorCountFromTrials = (trials: ReadonlyArray<SnapshotTrial>): number =>
       )
   )
 
+const pendingCountFromTrials = (trials: ReadonlyArray<SnapshotTrial>): number =>
+  Arr.reduce(
+    trials,
+    0,
+    (count, trial) =>
+      Match.value(trial.state._tag).pipe(
+        Match.when("Running", () => Num.increment(count)),
+        Match.orElse(() => count)
+      )
+  )
+
 /**
  * @since 0.1.0
  * @category constructors
@@ -66,6 +78,7 @@ export const samplerMetricsFromTrials = (
 ): SamplerMetrics => ({
   checkpointTag: samplerCheckpoint._tag,
   completedCount,
+  pendingCount: pendingCountFromTrials(trials),
   retryCountTotal: retryCountTotalFromTrials(trials),
   priorCount: priorCountFromTrials(trials)
 })

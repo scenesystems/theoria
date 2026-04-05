@@ -103,7 +103,13 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
           )
       })
 
-      yield* appendEvent(runtime, StudyEvent.TrialStarted({ trialNumber, config: running.config }))
+      const runtimeState = yield* runtime.stateActor.get
+      const event = Option.match(runtimeState.suggestionState.lastSuggestionDiagnostics, {
+        onNone: () => StudyEvent.TrialStarted({ trialNumber, config: running.config }),
+        onSome: (diagnostics) => StudyEvent.TrialStarted({ trialNumber, config: running.config, diagnostics })
+      })
+
+      yield* appendEvent(runtime, event)
 
       const objectiveExitOption = yield* evaluateObjectiveWithPolicy(
         options,

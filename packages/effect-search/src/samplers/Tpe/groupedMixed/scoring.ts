@@ -16,6 +16,7 @@ import { estimateCostForConfig } from "../costModel.js"
 import { type NamedDimensionScoreTrace, traceForParameter } from "../mixed.js"
 import { multivariateContinuousCandidateTrace, type MultivariateContinuousTrace } from "../multivariateContinuous.js"
 import { invalidConfig } from "../options.js"
+import type { PreparedTpeModelContext } from "../preparedModel.js"
 import { isContinuousParameter, splitForParameters } from "./groups.js"
 import type { GroupedMixedSettings } from "./model.js"
 
@@ -181,7 +182,8 @@ export const suggestGroup = (
   split: TrialSplit,
   settings: GroupedMixedSettings,
   noiseOptions: NoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedModelContext: Option.Option<PreparedTpeModelContext> = Option.none()
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const groupSplit = splitForParameters(split, parameters)
@@ -198,7 +200,7 @@ export const suggestGroup = (
       onSome: () => Arr.filter(parameters, (parameter) => !isContinuousParameter(parameter))
     })
     const independentTraces = yield* Effect.forEach(independentParameters, (parameter) =>
-      traceForParameter(rng, nCandidates, parameter, groupSplit, noiseOptions, acquisition))
+      traceForParameter(rng, nCandidates, parameter, groupSplit, noiseOptions, acquisition, preparedModelContext))
     const resolvedCount = yield* candidateCount(independentTraces, multivariateTrace).pipe(
       Option.match({
         onNone: () =>
@@ -206,7 +208,8 @@ export const suggestGroup = (
         onSome: Effect.succeed
       })
     )
-    const indices = Arr.makeBy(resolvedCount, (index) => index)
+    const indices = Arr.makeBy(resolvedCount, (index) =>
+      index)
     const scoredCandidates = yield* Effect.forEach(indices, (index) =>
       groupCandidateAtIndex(independentTraces, multivariateTrace, groupSplit, index, acquisition))
     const candidateConfigs = Arr.map(scoredCandidates, (candidate) =>

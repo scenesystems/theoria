@@ -22,6 +22,7 @@ import {
   type TpeRuntimeOptions,
   validateOptions
 } from "./options.js"
+import { preparedTpeModelContext, prepareTpeModelContext } from "./preparedModel.js"
 import { suggestWithStartup } from "./startup.js"
 
 /**
@@ -61,7 +62,30 @@ export const make = (
       nStartupTrials: startupTrials,
       nEiCandidates: nCandidates
     }),
+    prepareSuggestion: (space, context, previous) =>
+      validateOptions(snapshotOptions).pipe(
+        Effect.flatMap(() => prepareTpeModelContext(space, context, constraints, previous))
+      ),
     restore: (checkpoint) => restoreCheckpoint(seed, startupTrials, nCandidates, checkpoint),
+    suggestPrepared: (space, context, prepared) =>
+      validateOptions(snapshotOptions).pipe(
+        Effect.flatMap(() =>
+          suggestWithStartup(
+            randomSampler,
+            seed,
+            startupTrials,
+            nCandidates,
+            multivariate,
+            groupDimensions,
+            noiseOptions,
+            constraints,
+            acquisition,
+            space,
+            context,
+            preparedTpeModelContext(prepared)
+          )
+        )
+      ),
     suggest: (space, context) =>
       validateOptions(snapshotOptions).pipe(
         Effect.flatMap(() =>
