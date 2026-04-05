@@ -21,13 +21,12 @@ import {
 import { mergeSeedWithPriorTrials, RuntimeSeed } from "../../runtime/priorSeed.js"
 import {
   initializeRuntime,
-  readStudyState,
+  readRuntimeState,
   setRuntimeLifecycle,
   StudyClock,
   StudyClockLayer
 } from "../../runtime/runtimeState.js"
 import { reserveTrialOrMarkSpaceExhausted } from "../../runtime/trialReservation.js"
-import { trialCountFromState } from "../../state.js"
 import { completeIfBudgetReached, ensureRunning, invalid, publishCompletion } from "./lifecycle.js"
 import { AskedTrial, HandleRuntime, makeStudyHandle, stateOf, type StudyHandle } from "./model.js"
 import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js"
@@ -116,7 +115,7 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
     yield* ensureRunning(state.runtime, "ask")
     yield* completeIfBudgetReached(state)
 
-    const trialNumber = trialCountFromState(yield* readStudyState(state.runtime))
+    const trialNumber = (yield* readRuntimeState(state.runtime)).suggestionState.nextTrialNumber
     yield* Effect.when(
       Effect.fail(invalid("Study.ask cannot reserve a trial because the configured trial budget is exhausted")),
       () => trialNumber >= state.settings.trials

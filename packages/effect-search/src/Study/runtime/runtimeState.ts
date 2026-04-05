@@ -9,6 +9,7 @@ import type { Stream } from "effect"
 import type { StudyState } from "../state.js"
 import { runtimeMutation, RuntimeState, type StudyRuntime } from "./bootstrap.js"
 import { canTransitionLifecycle, type StudyLifecycle } from "./lifecycle.js"
+import { suggestionStateFromStudyState } from "./suggestionState.js"
 
 export {
   /** @since 0.1.0 */
@@ -80,7 +81,13 @@ export const modifyStudyState = <Config, A, E>(
           response,
           new RuntimeState({
             lifecycle: state.lifecycle,
-            studyState: nextStudyState
+            studyState: nextStudyState,
+            suggestionState: suggestionStateFromStudyState(
+              state.suggestionState.objectiveSpec,
+              nextStudyState,
+              state.suggestionState.priorWeight,
+              state.suggestionState.epsilon
+            )
           })
         )
       )
@@ -124,7 +131,8 @@ export const setRuntimeLifecycle = <Config>(
               undefined,
               new RuntimeState({
                 lifecycle,
-                studyState: state.studyState
+                studyState: state.studyState,
+                suggestionState: state.suggestionState
               })
             )
           )

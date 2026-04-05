@@ -14,8 +14,10 @@ import * as Trial from "../../Trial/index.js"
 import type { OptimizePlan, OptimizeSettings } from "../options.js"
 import { withReservedTrial } from "../state.js"
 import { markSpaceExhausted } from "./completion.js"
-import { contextForSuggestion } from "./context.js"
-import { modifyStudyState, StudyClock, type StudyRuntime } from "./runtimeState.js"
+import { contextForSuggestionState } from "./context.js"
+import { RuntimeState } from "./runtimeState.js"
+import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
+import { withReservedTrialSuggestionState } from "./suggestionState.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
@@ -39,18 +41,13 @@ export const suggestConfig = <Space extends SearchSpace.SearchSpace>(
  */
 export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
-  settings: OptimizeSettings,
+  _settings: OptimizeSettings,
   runtime: StudyRuntime<ConfigFor<Space>>,
   sampler: Sampler.Sampler
 ): Effect.Effect<ConfigFor<Space>, SearchError> =>
-  modifyStudyState(runtime, (state) =>
+  modifyRuntimeState(runtime, (state) =>
     Effect.gen(function*() {
-      const suggestionContext = yield* contextForSuggestion(
-        settings.objectiveSpec,
-        state,
-        settings.priorWeight,
-        settings.epsilon
-      ).pipe(
+      const suggestionContext = yield* contextForSuggestionState(state.suggestionState).pipe(
         Effect.provide(PendingImputationPolicySpiLayer(sampler.pendingImputationPolicy))
       )
       const rawConfig = yield* Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
@@ -70,19 +67,14 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
 const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
   <Space extends SearchSpace.SearchSpace>(
     options: OptimizePlan<ConfigFor<Space>, Space>,
-    settings: OptimizeSettings,
+    _settings: OptimizeSettings,
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>
   ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, SearchError, StudyClock> =>
-    modifyStudyState(runtime, (state) =>
+    modifyRuntimeState(runtime, (state) =>
       Effect.gen(function*() {
         const clock = yield* StudyClock
-        const suggestionContext = yield* contextForSuggestion(
-          settings.objectiveSpec,
-          state,
-          settings.priorWeight,
-          settings.epsilon
-        ).pipe(
+        const suggestionContext = yield* contextForSuggestionState(state.suggestionState).pipe(
           Effect.provide(PendingImputationPolicySpiLayer(options.sampler.pendingImputationPolicy))
         )
         const rawConfig = yield* Sampler.SamplerSpi.suggest(options.space, suggestionContext).pipe(
@@ -97,7 +89,17 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
         const startedAt = yield* clock.now
         const running = Trial.makeRunning(trialNumber, config, startedAt)
 
-        return Tuple.make(running, withReservedTrial(state, running))
+        const nextStudyState = withReservedTrial(state.studyState, running)
+        const nextSuggestionState = withReservedTrialSuggestionState(state.suggestionState, running)
+
+        return Tuple.make(
+          running,
+          new RuntimeState({
+            lifecycle: state.lifecycle,
+            studyState: nextStudyState,
+            suggestionState: nextSuggestionState
+          })
+        )
       }))
 )
 

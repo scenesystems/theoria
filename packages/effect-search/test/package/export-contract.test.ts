@@ -13,7 +13,7 @@ const resolvePackageRoot = Effect.gen(function*() {
 
 const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
   Effect.gen(function*() {
-    const command = Command.make("bun", "run", "scripts/verify-publish-readiness.ts", ...args).pipe(
+    const command = Command.make("bun", "../../scripts/publish-readiness.ts", "--package=effect-search", ...args).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),
       Command.stderr("pipe")
@@ -30,6 +30,7 @@ const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
 
     return {
       exitCode: Number(exitCode),
+      output: `${stdout}${stderr}`,
       stdout,
       stderr
     }
@@ -62,6 +63,6 @@ describe("package/export-contract", () => {
       ])
 
       expect(result.exitCode).toBe(1)
-      expect(result.stderr).toContain("exports.packed.internal-denial")
+      expect(result.output).toContain("exports.packed.missing-subpaths")
     }).pipe(Effect.provide(BunContext.layer)))
 })

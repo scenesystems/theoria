@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Option } from "effect"
+import { Array as Arr, Effect, Match, Option, Tuple } from "effect"
 
 import { matchObjectiveSpec } from "../../../contracts/ObjectiveSpec.js"
 import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
@@ -12,7 +12,8 @@ import type * as SearchSpace from "../../../SearchSpace/index.js"
 import type * as Trial from "../../../Trial/index.js"
 import { emitLifecycleEvents } from "../../events.js"
 import type { OptimizeSettings } from "../../options.js"
-import { modifyStudyState, readStudyState } from "../../runtime/runtimeState.js"
+import { modifyRuntimeState, readStudyState, RuntimeState } from "../../runtime/runtimeState.js"
+import { withFinalizedTrialSuggestionState } from "../../runtime/suggestionState.js"
 import { trialToSnapshot } from "../../snapshot/stateCodec.js"
 import { pendingTrialByNumber, withFinalizedTrial } from "../../state.js"
 import { appendTrialIfAvailable } from "../../studyStorage.js"
@@ -78,8 +79,17 @@ export const finalizeTrial = <Space extends SearchSpace.SearchSpace>(
 ): Effect.Effect<void> =>
   Effect.gen(function*() {
     const state = stateOf(handle)
-    yield* modifyStudyState(state.runtime, (studyState) =>
-      Effect.succeed([undefined, withFinalizedTrial(studyState, trial)]))
+    yield* modifyRuntimeState(state.runtime, (runtimeState) =>
+      Effect.succeed(
+        Tuple.make(
+          undefined,
+          new RuntimeState({
+            lifecycle: runtimeState.lifecycle,
+            studyState: withFinalizedTrial(runtimeState.studyState, trial),
+            suggestionState: withFinalizedTrialSuggestionState(runtimeState.suggestionState, trial)
+          })
+        )
+      ))
     yield* appendTrialIfAvailable(trialToSnapshot(trial))
     yield* emitLifecycleEvents(state.settings.objectiveSpec, trial, state.runtime)
     yield* completeIfBudgetReached(state)

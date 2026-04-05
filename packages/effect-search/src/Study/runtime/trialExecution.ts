@@ -29,8 +29,10 @@ import {
   objectiveVariance
 } from "./objectiveResult.js"
 import type { PruningPolicy } from "./pruning.js"
-import { modifyStudyState, StudyClock, type StudyRuntime } from "./runtimeState.js"
+import { RuntimeState } from "./runtimeState.js"
+import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
 import { applyTrialStoppingPolicies } from "./stopping.js"
+import { withFinalizedTrialSuggestionState, withReservedTrialSuggestionState } from "./suggestionState.js"
 import { TrialContext } from "./trialContext.js"
 import { evaluateObjectiveWithPolicy } from "./trialEvaluation.js"
 import type { CacheResolveAsTrialError } from "./trialEvaluation/model.js"
@@ -52,7 +54,17 @@ const recordFinalizedTrial = <Config>(
   runtime: StudyRuntime<Config>,
   finalized: Trial.Trial<Config>
 ): Effect.Effect<void> =>
-  modifyStudyState(runtime, (state) => Effect.succeed(Tuple.make(undefined, withFinalizedTrial(state, finalized))))
+  modifyRuntimeState(runtime, (state) =>
+    Effect.succeed(
+      Tuple.make(
+        undefined,
+        new RuntimeState({
+          lifecycle: state.lifecycle,
+          studyState: withFinalizedTrial(state.studyState, finalized),
+          suggestionState: withFinalizedTrialSuggestionState(state.suggestionState, finalized)
+        })
+      )
+    ))
 
 const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial")(
   <Space extends SearchSpace.SearchSpace>(
@@ -146,13 +158,20 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
 ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, never, StudyClock> =>
-  modifyStudyState(runtime, (state) =>
+  modifyRuntimeState(runtime, (state) =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
       const startedAt = yield* clock.now
       const running = Trial.makeRunning(trialNumber, config, startedAt)
 
-      return Tuple.make(running, withReservedTrial(state, running))
+      return Tuple.make(
+        running,
+        new RuntimeState({
+          lifecycle: state.lifecycle,
+          studyState: withReservedTrial(state.studyState, running),
+          suggestionState: withReservedTrialSuggestionState(state.suggestionState, running)
+        })
+      )
     }))
 
 /**

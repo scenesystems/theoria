@@ -27,6 +27,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Study public API barrel re-exports all study surface types, constructors, and operations. Follow-up: reduce by splitting ask/tell and snapshot re-exports into sub-barrels."
   ],
   [
+    "src/Study/runtime/trialExecution.ts",
+    "Trial execution still co-locates reservation state transitions, objective evaluation orchestration, timeout cancellation, cache integration, and finalization policy wiring so the runtime keeps one auditable trial lifecycle kernel. Follow-up: extract runtime state transition helpers into `Study/runtime/trialStateTransitions.ts` and move configured-trial reservation into a focused module once the incremental runtime boundary settles."
+  ],
+  [
     "src/contracts/ArtifactRelation.ts",
     "Artifact relation schemas and constructors co-located for tagged union coherence. Follow-up: split relation constructors into focused modules after contract stabilization."
   ],

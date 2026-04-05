@@ -1,4 +1,6 @@
 {
+  "name": "effect-search",
+  "version": "0.2.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/scenesystems/theoria.git",
@@ -36,7 +38,9 @@
     "./internal/*": null
   },
   "scripts": {
-    "publish:check": "bun run scripts/verify-publish-readiness.ts",
-    "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
+    "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-search",
+    "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
+    "changeset-publish": "bun run build && bun run publish:check -- --require-packed-manifest --enforce-monorepo-topology && bun run test && changeset publish",
+    "docgen": "docgen"
   }
 }
