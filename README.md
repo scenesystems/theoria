@@ -56,6 +56,7 @@ Requires [bun](https://bun.sh) `>= 1.3`.
 bun install
 bun run check
 bun run check:tests
+bun run check:readmes
 bun run lint
 bun run test
 bun run build
