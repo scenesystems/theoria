@@ -1,3 +1,5 @@
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
@@ -21,6 +23,26 @@ import {
   stoppedRunState,
   succeededRunState
 } from "../helpers/run-state.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
+
+describe("status runtime-boundary", () => {
+  it.effect("keeps status copy free of app-local provider enums and provider-client wiring", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const statusPath = "app/web/state/status.ts"
+      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
+      const source = yield* fileSystem.readFileString(path.join(root, statusPath)).pipe(Effect.orDie)
+
+      expect(source).not.toContain("\"openai\"")
+      expect(source).not.toContain("\"anthropic\"")
+      expect(source).not.toContain("\"openrouter\"")
+      expect(source).not.toContain("@effect/ai-openai")
+      expect(source).not.toContain("@effect/ai-anthropic")
+      expect(source).not.toContain("@effect/ai-openrouter")
+    }).pipe(Effect.provide(BunContext.layer)))
+})
 
 const statusStateFrom = (id: "effect-text") => {
   const state = initialSurfaceState(id)

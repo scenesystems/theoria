@@ -1,12 +1,17 @@
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Option, Stream } from "effect"
 
+import { moduleSpecifiers, parseTypeScript } from "@theoria/source-proof"
 import { scenarioById } from "../../app/contracts/demo/dsp.js"
 import { effectTextProjectionSteps } from "../../app/contracts/demo/text.js"
 import { defaultDspRunRequest, type DspExecutionStory } from "../../app/server/demos/effect-dsp/runtime.js"
 import { buildDspStageStories } from "../../app/server/demos/effect-dsp/stage-story.js"
 import { streamElementsForStageStories } from "../../app/server/demos/effect-dsp/stream.js"
 import { lookup } from "../../app/server/demos/registry.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
 
 const dspStoryFixture: DspExecutionStory = {
   request: {
@@ -102,4 +107,20 @@ describe("Theoria Demo Stream Registry", () => {
       expect(sectionTitles).toContain("Baseline Evaluation")
       expect(sectionTitles).toContain("Optimized Evaluation")
     }))
+
+  it.effect("keeps the effect-dsp deep-dive runtime delegated to the effect-inference-backed provider service", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const runtimePath = "app/server/demos/effect-dsp/runtime.ts"
+      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
+      const source = yield* fileSystem.readFileString(path.join(root, runtimePath)).pipe(Effect.orDie)
+      const parsed = parseTypeScript(runtimePath, source)
+      const imports = moduleSpecifiers(parsed)
+
+      expect(imports).toContain("./provider.js")
+      expect(imports).not.toContain("@effect/ai-openai/OpenAiClient")
+      expect(imports).not.toContain("@effect/ai-anthropic/AnthropicClient")
+      expect(imports).not.toContain("@effect/ai-openrouter/OpenRouterClient")
+    }).pipe(Effect.provide(BunContext.layer)))
 })

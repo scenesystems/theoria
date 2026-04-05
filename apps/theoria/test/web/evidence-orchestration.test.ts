@@ -1,5 +1,7 @@
 import { Atom, Registry } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
@@ -30,6 +32,26 @@ import {
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
+
+describe("evidence orchestration runtime-boundary", () => {
+  it.effect("keeps web orchestration free of provider-client imports and provider enums", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const surfacePath = "app/web/atoms/surface.ts"
+      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
+      const source = yield* fileSystem.readFileString(path.join(root, surfacePath)).pipe(Effect.orDie)
+
+      expect(source).not.toContain("\"openai\"")
+      expect(source).not.toContain("\"anthropic\"")
+      expect(source).not.toContain("\"openrouter\"")
+      expect(source).not.toContain("@effect/ai-openai")
+      expect(source).not.toContain("@effect/ai-anthropic")
+      expect(source).not.toContain("@effect/ai-openrouter")
+    }).pipe(Effect.provide(BunContext.layer)))
+})
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 

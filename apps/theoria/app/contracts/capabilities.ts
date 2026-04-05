@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-
+import { DspRuntimeProjection } from "./dsp-runtime-projection.js"
 import { Id } from "./id.js"
 
 export const DspProvider = Schema.Literal("openai", "anthropic", "openrouter")
@@ -16,10 +16,7 @@ export type DemoCapability = typeof DemoCapability.Type
 
 export const Capabilities = Schema.Struct({
   demos: Schema.Array(DemoCapability),
-  dsp: Schema.Struct({
-    provider: Schema.optional(DspProvider),
-    model: Schema.optional(Schema.String)
-  })
+  dsp: DspRuntimeProjection
 })
 
 export type Capabilities = typeof Capabilities.Type
