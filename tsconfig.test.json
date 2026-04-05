@@ -11,6 +11,7 @@
   "references": [
     { "path": "./packages/digest/tsconfig.test.json" },
     { "path": "./packages/effect-dsp/tsconfig.test.json" },
+    { "path": "./packages/effect-inference/tsconfig.test.json" },
     { "path": "./packages/effect-math/tsconfig.test.json" },
     { "path": "./packages/effect-search/tsconfig.test.json" },
     { "path": "./packages/effect-text/tsconfig.test.json" },
