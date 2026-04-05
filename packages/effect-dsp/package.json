@@ -64,6 +64,7 @@
     "effect-search": "workspace:^"
   },
   "devDependencies": {
+    "effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
