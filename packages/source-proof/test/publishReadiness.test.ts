@@ -51,7 +51,13 @@ describe("publish readiness", () => {
       expect(TheoriaReleaseFrameworkAuthority.releaseSnapshotCli).toBe("scripts/stamp-release-snapshot.ts")
       expect(TheoriaReleaseFrameworkAuthority.governedPackages.map((profile) => profile.packageName)).toEqual([
         "effect-math",
-        "effect-search"
+        "effect-search",
+        "effect-dsp",
+        "effect-text",
+        "effect-inference",
+        "@scenesystems/digest",
+        "@scenesystems/seal",
+        "@scenesystems/sign"
       ])
     }))
 
@@ -72,9 +78,15 @@ describe("publish readiness", () => {
         rootManifest: Schema.decodeUnknownSync(PublishReadinessManifestSchema)({
           name: "effect-math",
           version: "0.2.1",
-          exports: effectMathProfile.value.requiredRootExports,
+          exports: {
+            ".": "./src/index.ts",
+            "./contracts": "./src/contracts/index.ts",
+            "./internal/*": null
+          },
           scripts: {
-            "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-math"
+            "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-math",
+            "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
+            "docgen": "docgen"
           },
           keywords: effectMathProfile.value.requiredKeywords,
           repository: {
@@ -91,9 +103,15 @@ describe("publish readiness", () => {
         rootManifest: Schema.decodeUnknownSync(PublishReadinessManifestSchema)({
           name: "effect-search",
           version: "0.2.1",
-          exports: effectSearchProfile.value.requiredRootExports,
+          exports: {
+            ".": "./src/index.ts",
+            "./Cache": "./src/Cache/index.ts",
+            "./internal/*": null
+          },
           scripts: {
-            "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-search"
+            "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-search",
+            "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
+            "docgen": "docgen"
           },
           keywords: effectSearchProfile.value.requiredKeywords,
           repository: {

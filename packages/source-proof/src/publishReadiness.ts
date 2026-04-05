@@ -57,9 +57,9 @@ export class PublishReadinessProfile extends Data.Class<{
   readonly packageName: PackageName
   readonly packageDirectory: string
   readonly requiredKeywords: ReadonlyArray<string>
-  readonly requiredRootExports: Readonly<Record<string, string | null>>
   readonly requiredReleaseReadmePhrases: ReadonlyArray<string>
   readonly requiredScriptNames: ReadonlyArray<string>
+  readonly requiredScriptCommandFragments: Readonly<Record<string, ReadonlyArray<string>>>
   readonly requiresChangesetPublishContract: boolean
 }> {}
 
@@ -126,73 +126,50 @@ const FORBIDDEN_REPOSITORY_URL_FRAGMENTS: ReadonlyArray<string> = [
   "github.com/scenesystems/eva.git"
 ]
 
-const effectMathRequiredRootExports: Readonly<Record<string, string | null>> = {
-  ".": "./src/index.ts",
-  "./contracts": "./src/contracts/index.ts",
-  "./experimental": "./src/experimental/index.ts",
-  "./Numeric": "./src/Numeric/index.ts",
-  "./Algebra": "./src/Algebra/index.ts",
-  "./LinearAlgebra": "./src/LinearAlgebra/index.ts",
-  "./Calculus": "./src/Calculus/index.ts",
-  "./Special": "./src/Special/index.ts",
-  "./Probability": "./src/Probability/index.ts",
-  "./Statistics": "./src/Statistics/index.ts",
-  "./Optimization": "./src/Optimization/index.ts",
-  "./Geometry": "./src/Geometry/index.ts",
-  "./Complex": "./src/Complex/index.ts",
-  "./Distribution": "./src/Distribution/index.ts",
-  "./internal/*": null,
-  "./Numeric/internal/*": null,
-  "./Algebra/internal/*": null,
-  "./LinearAlgebra/internal/*": null,
-  "./Calculus/internal/*": null,
-  "./Special/internal/*": null,
-  "./Probability/internal/*": null,
-  "./Statistics/internal/*": null,
-  "./Optimization/internal/*": null,
-  "./Geometry/internal/*": null,
-  "./Complex/internal/*": null,
-  "./Distribution/internal/*": null
-}
+type SupportedRootExports = Readonly<Record<string, string | null>>
 
-const effectSearchRequiredRootExports: Readonly<Record<string, string | null>> = {
-  "./package.json": "./package.json",
-  ".": "./src/index.ts",
-  "./Cache": "./src/Cache/index.ts",
-  "./Contracts": "./src/contracts/index.ts",
-  "./Errors": "./src/Errors/index.ts",
-  "./Experimental": "./src/experimental/index.ts",
-  "./Pareto": "./src/Pareto/index.ts",
-  "./Sampler": "./src/Sampler/index.ts",
-  "./Scheduler": "./src/Scheduler/index.ts",
-  "./SearchSpace": "./src/SearchSpace/index.ts",
-  "./Study": "./src/Study/index.ts",
-  "./StudyEvent": "./src/StudyEvent/index.ts",
-  "./Trial": "./src/Trial/index.ts",
-  "./contracts": "./src/contracts/index.ts",
-  "./experimental": "./src/experimental/index.ts",
-  "./internal/*": null
-}
+const ROOT_PUBLISH_READINESS_SCRIPT = "../../scripts/publish-readiness.ts"
+const ROOT_RELEASE_SNAPSHOT_SCRIPT = "../../scripts/stamp-release-snapshot.ts"
 
-const effectMathProfile = new PublishReadinessProfile({
-  packageName: packageNameFromString("effect-math"),
+const publishReadinessCommandFragments = (packageName: string): ReadonlyArray<string> => [
+  ROOT_PUBLISH_READINESS_SCRIPT,
+  `--package=${packageName}`
+]
+
+const releaseSnapshotCommandFragments = (): ReadonlyArray<string> => [ROOT_RELEASE_SNAPSHOT_SCRIPT]
+
+const makePublishReadinessProfile = (input: {
+  readonly packageName: string
+  readonly packageDirectory: string
+  readonly requiredKeywords: ReadonlyArray<string>
+  readonly requiredReleaseReadmePhrases?: ReadonlyArray<string>
+  readonly requiredScriptNames: ReadonlyArray<string>
+  readonly requiredScriptCommandFragments?: Readonly<Record<string, ReadonlyArray<string>>>
+  readonly requiresChangesetPublishContract?: boolean
+}): PublishReadinessProfile =>
+  new PublishReadinessProfile({
+    packageName: packageNameFromString(input.packageName),
+    packageDirectory: input.packageDirectory,
+    requiredKeywords: input.requiredKeywords,
+    requiredReleaseReadmePhrases: input.requiredReleaseReadmePhrases ?? [],
+    requiredScriptNames: input.requiredScriptNames,
+    requiredScriptCommandFragments: input.requiredScriptCommandFragments ?? {},
+    requiresChangesetPublishContract: input.requiresChangesetPublishContract ?? false
+  })
+
+const effectMathProfile = makePublishReadinessProfile({
+  packageName: "effect-math",
   packageDirectory: "packages/effect-math",
-  requiredKeywords: [
-    "effect",
-    "numerics",
-    "linear-algebra",
-    "statistics",
-    "probability",
-    "mathematics"
-  ],
-  requiredRootExports: effectMathRequiredRootExports,
-  requiredReleaseReadmePhrases: [],
-  requiredScriptNames: ["publish:check"],
-  requiresChangesetPublishContract: false
+  requiredKeywords: ["effect", "numerics", "linear-algebra", "statistics", "probability", "mathematics"],
+  requiredScriptNames: ["publish:check", "release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "publish:check": publishReadinessCommandFragments("effect-math"),
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
 })
 
-const effectSearchProfile = new PublishReadinessProfile({
-  packageName: packageNameFromString("effect-search"),
+const effectSearchProfile = makePublishReadinessProfile({
+  packageName: "effect-search",
   packageDirectory: "packages/effect-search",
   requiredKeywords: [
     "effect",
@@ -206,10 +183,79 @@ const effectSearchProfile = new PublishReadinessProfile({
     "bohb",
     "pareto"
   ],
-  requiredRootExports: effectSearchRequiredRootExports,
   requiredReleaseReadmePhrases: ["publish:check", "changeset-publish --dry-run"],
-  requiredScriptNames: ["publish:check", "changeset-publish"],
+  requiredScriptNames: ["publish:check", "release-snapshots:stamp", "changeset-publish", "docgen"],
+  requiredScriptCommandFragments: {
+    "publish:check": publishReadinessCommandFragments("effect-search"),
+    "release-snapshots:stamp": releaseSnapshotCommandFragments(),
+    "changeset-publish": [
+      "publish:check",
+      "--require-packed-manifest",
+      "--enforce-monorepo-topology",
+      "changeset publish"
+    ]
+  },
   requiresChangesetPublishContract: true
+})
+
+const effectDspProfile = makePublishReadinessProfile({
+  packageName: "effect-dsp",
+  packageDirectory: "packages/effect-dsp",
+  requiredKeywords: ["effect", "dspy", "prompt-optimization", "llm"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
+})
+
+const effectTextProfile = makePublishReadinessProfile({
+  packageName: "effect-text",
+  packageDirectory: "packages/effect-text",
+  requiredKeywords: ["effect", "text-layout", "text-measurement", "line-breaking", "typography"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
+})
+
+const effectInferenceProfile = makePublishReadinessProfile({
+  packageName: "effect-inference",
+  packageDirectory: "packages/effect-inference",
+  requiredKeywords: ["effect", "inference", "llm", "runtime-resolution"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
+})
+
+const digestProfile = makePublishReadinessProfile({
+  packageName: "@scenesystems/digest",
+  packageDirectory: "packages/digest",
+  requiredKeywords: ["effect", "digest", "content-addressing", "canonicalization"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
+})
+
+const sealProfile = makePublishReadinessProfile({
+  packageName: "@scenesystems/seal",
+  packageDirectory: "packages/seal",
+  requiredKeywords: ["effect", "aead", "encryption", "authenticated-encryption"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
+})
+
+const signProfile = makePublishReadinessProfile({
+  packageName: "@scenesystems/sign",
+  packageDirectory: "packages/sign",
+  requiredKeywords: ["effect", "digital-signature", "key-agreement", "key-encapsulation"],
+  requiredScriptNames: ["release-snapshots:stamp", "docgen"],
+  requiredScriptCommandFragments: {
+    "release-snapshots:stamp": releaseSnapshotCommandFragments()
+  }
 })
 
 /**
@@ -237,7 +283,16 @@ export const TheoriaReleaseFrameworkAuthority = new ReleaseFrameworkAuthority({
   ],
   publishReadinessCli: "scripts/publish-readiness.ts",
   releaseSnapshotCli: "scripts/stamp-release-snapshot.ts",
-  governedPackages: [effectMathProfile, effectSearchProfile]
+  governedPackages: [
+    effectMathProfile,
+    effectSearchProfile,
+    effectDspProfile,
+    effectTextProfile,
+    effectInferenceProfile,
+    digestProfile,
+    sealProfile,
+    signProfile
+  ]
 })
 
 const hasOwn = (record: Readonly<Record<string, unknown>>, key: string): boolean =>
@@ -270,6 +325,38 @@ const packageProfile = (packageName: PackageName): Option.Option<PublishReadines
   Arr.findFirst(TheoriaReleaseFrameworkAuthority.governedPackages, (profile) => profile.packageName === packageName)
 
 const issue = (code: string, message: string): PublishReadinessIssue => new PublishReadinessIssue({ code, message })
+
+const emptySupportedRootExports = (): Record<string, string | null> => ({})
+
+const supportedRootExports = (
+  exportMap: Readonly<Record<string, unknown>>
+): {
+  readonly rootExports: SupportedRootExports
+  readonly unsupportedSubpaths: ReadonlyArray<string>
+} =>
+  Arr.reduce(
+    Rec.toEntries(exportMap),
+    {
+      rootExports: emptySupportedRootExports(),
+      unsupportedSubpaths: new Array<string>()
+    },
+    (accumulator, [subpath, target]) => {
+      if (typeof target === "string" || target === null) {
+        return {
+          rootExports: {
+            ...accumulator.rootExports,
+            [subpath]: target
+          },
+          unsupportedSubpaths: accumulator.unsupportedSubpaths
+        }
+      }
+
+      return {
+        rootExports: accumulator.rootExports,
+        unsupportedSubpaths: [...accumulator.unsupportedSubpaths, subpath]
+      }
+    }
+  )
 
 const sourcePathToPackedModule = (sourcePath: string): Option.Option<string> => {
   if (!sourcePath.startsWith("./src/")) {
@@ -337,7 +424,7 @@ const matchesPackedTarget = (
 }
 
 const missingRequiredExports = (
-  requiredRootExports: Readonly<Record<string, string | null>>,
+  requiredRootExports: SupportedRootExports,
   exportMap: Readonly<Record<string, unknown>>
 ): ReadonlyArray<string> =>
   Arr.filterMap(Rec.toEntries(requiredRootExports), ([subpath]) =>
@@ -345,20 +432,8 @@ const missingRequiredExports = (
       ? Option.none<string>()
       : Option.some(subpath))
 
-const rootExportTargetDrift = (
-  requiredRootExports: Readonly<Record<string, string | null>>,
-  exportMap: Readonly<Record<string, unknown>>
-): ReadonlyArray<string> =>
-  Arr.filterMap(
-    Rec.toEntries(requiredRootExports),
-    ([subpath, expectedTarget]) =>
-      hasOwn(exportMap, subpath) && exportMap[subpath] !== expectedTarget
-        ? Option.some(`${subpath}: expected ${String(expectedTarget)} but found ${String(exportMap[subpath])}`)
-        : Option.none<string>()
-  )
-
 const malformedPackedTargets = (
-  requiredRootExports: Readonly<Record<string, string | null>>,
+  requiredRootExports: SupportedRootExports,
   exportMap: Readonly<Record<string, unknown>>
 ): ReadonlyArray<string> =>
   Arr.filterMap(
@@ -449,32 +524,33 @@ const checkRootExportContract = (
         todos: []
       }),
     onSome: (exportMap) => {
-      const missingSubpaths = missingRequiredExports(profile.requiredRootExports, exportMap)
-      const targetDrift = rootExportTargetDrift(profile.requiredRootExports, exportMap)
+      const normalized = supportedRootExports(exportMap)
 
       return new PublishReadinessReport({
         profile,
         errors: dedupeIssues(
           Arr.filterMap(
             [
+              !hasOwn(exportMap, ".")
+                ? Option.some(
+                  issue(
+                    "exports.root.entrypoint-missing",
+                    "package.json.exports must define '.' as the public entrypoint"
+                  )
+                )
+                : Option.none<PublishReadinessIssue>(),
               hasOwn(exportMap, "./*")
                 ? Option.some(
                   issue("exports.root.wildcard-forbidden", "package.json.exports cannot include wildcard subpath './*'")
                 )
                 : Option.none<PublishReadinessIssue>(),
-              missingSubpaths.length > 0
+              normalized.unsupportedSubpaths.length > 0
                 ? Option.some(issue(
-                  "exports.root.missing-subpaths",
-                  `package.json.exports is missing required subpaths: ${missingSubpaths.join(", ")}`
+                  "exports.root.target-unsupported",
+                  `package.json.exports contains non-string or non-null targets for: ${
+                    normalized.unsupportedSubpaths.join(", ")
+                  }`
                 ))
-                : Option.none<PublishReadinessIssue>(),
-              targetDrift.length > 0
-                ? Option.some(
-                  issue(
-                    "exports.root.target-mismatch",
-                    `package.json.exports has target drift (${targetDrift.join("; ")})`
-                  )
-                )
                 : Option.none<PublishReadinessIssue>()
             ],
             (candidate) => candidate
@@ -488,6 +564,7 @@ const checkRootExportContract = (
 
 const checkPackedExportContract = (
   profile: PublishReadinessProfile,
+  rootManifest: typeof PublishReadinessManifestSchema.Type,
   packedManifest: Option.Option<typeof PublishReadinessManifestSchema.Type>,
   requirePackedManifest: boolean
 ): PublishReadinessReport => {
@@ -511,8 +588,12 @@ const checkPackedExportContract = (
             todos: []
           }),
         onSome: (exportMap) => {
-          const missingSubpaths = missingRequiredExports(profile.requiredRootExports, exportMap)
-          const malformedTargets = malformedPackedTargets(profile.requiredRootExports, exportMap)
+          const requiredRootExports = Option.fromNullable(rootManifest.exports).pipe(
+            Option.map((rootExports) => supportedRootExports(rootExports).rootExports),
+            Option.getOrElse(() => ({}))
+          )
+          const missingSubpaths = missingRequiredExports(requiredRootExports, exportMap)
+          const malformedTargets = malformedPackedTargets(requiredRootExports, exportMap)
 
           return new PublishReadinessReport({
             profile,
@@ -578,6 +659,8 @@ const checkScriptWiring = (
   profile: PublishReadinessProfile,
   rootManifest: typeof PublishReadinessManifestSchema.Type
 ): PublishReadinessReport => {
+  const scriptCode = (scriptName: string): string => scriptName.replace(/:/gu, "-")
+
   return Option.match(Option.fromNullable(rootManifest.scripts), {
     onNone: () =>
       new PublishReadinessReport({
@@ -586,18 +669,44 @@ const checkScriptWiring = (
         todos: []
       }),
     onSome: (scripts) => {
-      const missingScripts = Arr.filter(profile.requiredScriptNames, (scriptName) => !hasOwn(scripts, scriptName))
+      const missingScripts = Arr.filter(
+        profile.requiredScriptNames,
+        (scriptName) => Option.isNone(asString(scripts[scriptName]))
+      )
       const changesetPublish = asString(scripts["changeset-publish"])
+      const delegateDrift = Arr.filterMap(
+        Rec.toEntries(profile.requiredScriptCommandFragments),
+        ([scriptName, fragments]) => {
+          const command = asString(scripts[scriptName])
+
+          if (Option.isNone(command)) {
+            return Option.none<PublishReadinessIssue>()
+          }
+
+          const missingFragments = Arr.filter(fragments, (fragment) => !command.value.includes(fragment))
+
+          return missingFragments.length > 0
+            ? Option.some(
+              issue(
+                `scripts.${scriptCode(scriptName)}.delegate-mismatch`,
+                `${scriptName} must delegate through ${missingFragments.join(", ")}`
+              )
+            )
+            : Option.none<PublishReadinessIssue>()
+        }
+      )
 
       return new PublishReadinessReport({
         profile,
         errors: dedupeIssues([
           ...Arr.map(
             missingScripts,
-            (scriptName) => issue(`scripts.${scriptName}.missing`, `package.json.scripts must define ${scriptName}`)
+            (scriptName) =>
+              issue(`scripts.${scriptCode(scriptName)}.missing`, `package.json.scripts must define ${scriptName}`)
           ),
           ...Arr.filterMap(
             [
+              ...delegateDrift.map(Option.some),
               profile.requiresChangesetPublishContract && Option.isSome(changesetPublish) &&
                 !changesetPublish.value.includes("publish:check")
                 ? Option.some(issue(
@@ -725,7 +834,10 @@ export const readOptionalTextFile = (
 export const buildPackedManifestFixture = (
   rootManifest: typeof PublishReadinessManifestSchema.Type
 ): typeof PublishReadinessManifestSchema.Type => {
-  const rootExports = rootManifest.exports ?? {}
+  const rootExports = Option.fromNullable(rootManifest.exports).pipe(
+    Option.map((exports) => supportedRootExports(exports).rootExports),
+    Option.getOrElse(() => ({}))
+  )
   const packedExports = Arr.reduce(
     Rec.toEntries(rootExports),
     emptyUnknownRecord(),
@@ -770,6 +882,7 @@ export const publishReadinessReport = (input: {
   const rootExportReport = checkRootExportContract(input.profile, input.rootManifest)
   const packedExportReport = checkPackedExportContract(
     input.profile,
+    input.rootManifest,
     Option.fromNullable(input.packedManifest),
     input.requirePackedManifest === true
   )
