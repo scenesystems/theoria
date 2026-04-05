@@ -4,7 +4,7 @@
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import type { Effect, Layer } from "effect"
 
-import { InvalidRuntimeConfig } from "../../../effect-inference/src/Errors/index.js"
+import { InvalidRuntimeConfig } from "effect-inference/Errors"
 import {
   type LiveTextProvider as LiveProvider,
   liveTextProviderLayer,
@@ -12,7 +12,7 @@ import {
   type ResolvedLiveTextProviderRuntime as ResolvedLiveProviderConfig,
   resolveLiveTextProviderRuntime,
   withLiveTextProvider
-} from "../../../effect-inference/src/Runtime/index.js"
+} from "effect-inference/Runtime"
 
 export { InvalidRuntimeConfig as LiveProviderRuntimeError }
 
