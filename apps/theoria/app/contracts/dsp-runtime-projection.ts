@@ -5,8 +5,7 @@ export const DspRuntimeProjection = Schema.Struct({
   enabled: Schema.Boolean,
   reason: Schema.optional(Schema.String),
   requestedRuntime: Schema.optional(InferenceContracts.DesiredRuntimeDescriptorSchema),
-  resolvedRoute: Schema.optional(InferenceContracts.ResolvedRouteDescriptorSchema),
-  resolvedRuntime: Schema.optional(InferenceContracts.ResolvedRuntimeDescriptorSchema)
+  resolvedRoute: Schema.optional(InferenceContracts.ResolvedRouteDescriptorSchema)
 })
 
 export type DspRuntimeProjection = typeof DspRuntimeProjection.Type

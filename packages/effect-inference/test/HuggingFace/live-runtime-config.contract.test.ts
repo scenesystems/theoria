@@ -8,10 +8,14 @@ describe("HuggingFace/live-runtime-config", () => {
     Effect.gen(function*() {
       const config = yield* HuggingFace.resolveLiveRuntimeConfig({
         serveMode: "routed-marketplace",
-        model: "meta-llama/Llama-3.3-70B-Instruct",
         configProvider: ConfigProvider.fromJson({
           HUGGINGFACE_ACCESS_TOKEN: "hf_test_token",
-          HUGGINGFACE_SELECTION_POLICY: "provider:together"
+          HUGGINGFACE_MODEL: "global-model",
+          HUGGINGFACE_ROUTED_MODEL: "meta-llama/Llama-3.3-70B-Instruct",
+          HUGGINGFACE_BASE_URL: "https://global.example.com/v1",
+          HUGGINGFACE_ROUTED_BASE_URL: "https://router.huggingface.co/v1",
+          HUGGINGFACE_SELECTION_POLICY: "provider:global",
+          HUGGINGFACE_ROUTED_SELECTION_POLICY: "provider:together"
         }).pipe(ConfigProvider.constantCase)
       })
 
@@ -28,9 +32,11 @@ describe("HuggingFace/live-runtime-config", () => {
     Effect.gen(function*() {
       const resolution = yield* HuggingFace.resolveLiveRuntimeFromConfig({
         serveMode: "dedicated-endpoint",
-        model: "sentence-transformers/all-MiniLM-L6-v2",
         configProvider: ConfigProvider.fromJson({
           HUGGINGFACE_ACCESS_TOKEN: "hf_test_token",
+          HUGGINGFACE_MODEL: "global-endpoint-model",
+          HUGGINGFACE_ENDPOINT_MODEL: "sentence-transformers/all-MiniLM-L6-v2",
+          HUGGINGFACE_BASE_URL: "https://global-endpoint.example.com/v1",
           HUGGINGFACE_ENDPOINT_BASE_URL: "https://endpoint.example.com/v1",
           HUGGINGFACE_ENDPOINT_ID: "mini-lm-prod",
           HUGGINGFACE_DEPLOYMENT_ID: "endpoint-1",

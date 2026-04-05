@@ -1,9 +1,8 @@
-import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { moduleSpecifiers, parseTypeScript } from "@theoria/source-proof"
+import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 
 const appRootUrl = new URL("../../", import.meta.url)
 const providerRuntimePath = "app/server/demos/effect-dsp/provider.ts"
@@ -11,10 +10,7 @@ const providerRuntimePath = "app/server/demos/effect-dsp/provider.ts"
 describe("server/inference-runtime-boundary", () => {
   it.effect("keeps the DSP provider runtime on the effect-inference substrate", () =>
     Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
-      const source = yield* fileSystem.readFileString(path.join(root, providerRuntimePath)).pipe(Effect.orDie)
+      const source = yield* readProjectFile(appRootUrl, providerRuntimePath)
       const parsed = parseTypeScript(providerRuntimePath, source)
       const imports = moduleSpecifiers(parsed)
 

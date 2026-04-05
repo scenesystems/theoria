@@ -263,20 +263,20 @@ const routedConfig = (
 ): Effect.Effect<ResolvedLiveRuntimeConfig, ConfigError.ConfigError> =>
   Effect.gen(function*() {
     const configuredModel = firstDefinedOption(
-      yield* optionalString("huggingfaceModel"),
-      yield* optionalString("huggingfaceRoutedModel")
+      yield* optionalString("huggingfaceRoutedModel"),
+      yield* optionalString("huggingfaceModel")
     )
     const configuredBaseUrl = firstDefinedOption(
-      yield* optionalString("huggingfaceBaseUrl"),
-      yield* optionalString("huggingfaceRoutedBaseUrl")
+      yield* optionalString("huggingfaceRoutedBaseUrl"),
+      yield* optionalString("huggingfaceBaseUrl")
     )
     const configuredGatewayId = firstDefinedOption(
-      yield* optionalString("huggingfaceGatewayId"),
-      yield* optionalString("huggingfaceRoutedGatewayId")
+      yield* optionalString("huggingfaceRoutedGatewayId"),
+      yield* optionalString("huggingfaceGatewayId")
     )
     const configuredSelectionPolicy = firstDefinedOption(
-      yield* optionalString("huggingfaceSelectionPolicy"),
-      yield* optionalString("huggingfaceRoutedSelectionPolicy")
+      yield* optionalString("huggingfaceRoutedSelectionPolicy"),
+      yield* optionalString("huggingfaceSelectionPolicy")
     )
     const model = yield* requiredOption(
       mergeOptional(Option.fromNullable(options.model), configuredModel),
@@ -313,12 +313,12 @@ const endpointConfig = (
 ): Effect.Effect<ResolvedLiveRuntimeConfig, ConfigError.ConfigError> =>
   Effect.gen(function*() {
     const configuredModel = firstDefinedOption(
-      yield* optionalString("huggingfaceModel"),
-      yield* optionalString("huggingfaceEndpointModel")
+      yield* optionalString("huggingfaceEndpointModel"),
+      yield* optionalString("huggingfaceModel")
     )
     const configuredBaseUrl = firstDefinedOption(
-      yield* optionalString("huggingfaceBaseUrl"),
-      yield* optionalString("huggingfaceEndpointBaseUrl")
+      yield* optionalString("huggingfaceEndpointBaseUrl"),
+      yield* optionalString("huggingfaceBaseUrl")
     )
     const configuredEndpointId = yield* optionalString("huggingfaceEndpointId")
     const configuredDeploymentId = yield* optionalString("huggingfaceDeploymentId")

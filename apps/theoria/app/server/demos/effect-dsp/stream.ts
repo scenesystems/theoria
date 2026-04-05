@@ -21,14 +21,7 @@ import {
 } from "../stream-element.js"
 import type { DspProviderRuntime } from "./provider.js"
 import type { DspEvaluationReport, DspExecutionContext, DspOptimizationSummary, DspRunRequest } from "./runtime.js"
-import {
-  prepareExecution,
-  recordResolvedRuntime,
-  reportScore,
-  runBaseline,
-  runOptimization,
-  runOptimizedEval
-} from "./runtime.js"
+import { prepareExecution, reportScore, runBaseline, runOptimization, runOptimizedEval } from "./runtime.js"
 import { dspExecutionStory } from "./runtime.js"
 import {
   comparisonSection,
@@ -316,25 +309,21 @@ export const streamElementsForRequest = (
                             runOptimizedEval(ctx).pipe(
                               Effect.flatMap((optimizedReport) =>
                                 Clock.currentTimeMillis.pipe(
-                                  Effect.flatMap((endedAt) => {
+                                  Effect.map((endedAt) => {
                                     const optimizedScore = reportScore(ctx.scenario.metricName, optimizedReport)
                                     const durationMs = endedAt - ctx.startedAt
-                                    return recordResolvedRuntime(ctx, endedAt).pipe(
-                                      Effect.as(
-                                        concatStreams([
-                                          optimizedEvalStage(
-                                            ctx,
-                                            baselineScore,
-                                            optimization,
-                                            optimizedReport,
-                                            optimizedScore
-                                          ),
+                                    return concatStreams([
+                                      optimizedEvalStage(
+                                        ctx,
+                                        baselineScore,
+                                        optimization,
+                                        optimizedReport,
+                                        optimizedScore
+                                      ),
 
-                                          // Phase 4: Comparison — immediate from accumulated data
-                                          comparisonStage(ctx, baselineScore, optimizedScore, optimization, durationMs)
-                                        ])
-                                      )
-                                    )
+                                      // Phase 4: Comparison — immediate from accumulated data
+                                      comparisonStage(ctx, baselineScore, optimizedScore, optimization, durationMs)
+                                    ])
                                   })
                                 )
                               )

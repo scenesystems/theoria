@@ -1,6 +1,6 @@
-import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { readProjectFile } from "@theoria/source-proof"
 import { Effect } from "effect"
 
 import { DemoDecodeError, DemoExecutionError, DemoRequestError } from "../../app/contracts/demo-error.js"
@@ -29,11 +29,8 @@ const appRootUrl = new URL("../../", import.meta.url)
 describe("status runtime-boundary", () => {
   it.effect("keeps status copy free of app-local provider enums and provider-client wiring", () =>
     Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
       const statusPath = "app/web/state/status.ts"
-      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
-      const source = yield* fileSystem.readFileString(path.join(root, statusPath)).pipe(Effect.orDie)
+      const source = yield* readProjectFile(appRootUrl, statusPath)
 
       expect(source).not.toContain("\"openai\"")
       expect(source).not.toContain("\"anthropic\"")

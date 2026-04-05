@@ -1,5 +1,5 @@
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { ConfigProvider, Context, Effect, Either, Layer, Option, Ref, Schema } from "effect"
+import { ConfigProvider, Context, Effect, Either, Layer, Option, Schema } from "effect"
 
 import type * as InferenceContracts from "../../../../../../packages/effect-inference/src/contracts/index.js"
 import * as InferenceRuntime from "../../../../../../packages/effect-inference/src/Runtime/index.js"
@@ -33,10 +33,6 @@ export class DspProviderRuntime extends Context.Tag("@theoria/app/server/demos/e
   {
     readonly capability: ProviderCapability
     readonly resolution: ProviderResolution
-    readonly readResolvedRuntime: Effect.Effect<Option.Option<InferenceContracts.ResolvedRuntimeDescriptor>>
-    readonly recordResolvedRuntime: (
-      resolvedRuntime: InferenceContracts.ResolvedRuntimeDescriptor
-    ) => Effect.Effect<void>
     readonly layer: Option.Option<
       Layer.Layer<LanguageModel.LanguageModel, never, never>
     >
@@ -72,21 +68,11 @@ const makeProviderRuntime = (options: {
   readonly resolution: ProviderResolution
   readonly layer: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
 }) =>
-  Ref.make(Option.none<InferenceContracts.ResolvedRuntimeDescriptor>()).pipe(
-    Effect.map((resolvedRuntimeRef) =>
-      DspProviderRuntime.of({
-        capability: options.capability,
-        resolution: options.resolution,
-        readResolvedRuntime: Ref.get(resolvedRuntimeRef),
-        recordResolvedRuntime: (resolvedRuntime) =>
-          Ref.set(
-            resolvedRuntimeRef,
-            Option.some(resolvedRuntime)
-          ),
-        layer: options.layer
-      })
-    )
-  )
+  DspProviderRuntime.of({
+    capability: options.capability,
+    resolution: options.resolution,
+    layer: options.layer
+  })
 
 const disabledRuntime = (reason: string) =>
   makeProviderRuntime({
@@ -111,7 +97,7 @@ const resolvedProviderRuntime = Effect.gen(function*() {
   )
   const resolution = yield* resolver.resolve(runtime.desired)
 
-  return yield* makeProviderRuntime({
+  return makeProviderRuntime({
     capability: {
       enabled: true,
       provider: Option.some(providerForRuntime(runtime.provider)),
@@ -131,36 +117,27 @@ const resolvedProviderRuntime = Effect.gen(function*() {
 export const dspRuntimeProjection = (runtime: {
   readonly capability: ProviderCapability
   readonly resolution: ProviderResolution
-  readonly readResolvedRuntime: Effect.Effect<Option.Option<InferenceContracts.ResolvedRuntimeDescriptor>>
 }): Effect.Effect<DspRuntimeProjection> =>
-  Effect.gen(function*() {
-    const resolvedRuntime = yield* runtime.readResolvedRuntime
-
-    return {
-      enabled: runtime.capability.enabled,
-      ...Option.match(runtime.capability.reason, {
-        onNone: () => ({}),
-        onSome: (reason) => ({ reason })
-      }),
-      ...Option.match(runtime.resolution.desired, {
-        onNone: () => ({}),
-        onSome: (requestedRuntime) => ({ requestedRuntime })
-      }),
-      ...Option.match(runtime.resolution.resolvedRoute, {
-        onNone: () => ({}),
-        onSome: (resolvedRoute) => ({ resolvedRoute })
-      }),
-      ...Option.match(resolvedRuntime, {
-        onNone: () => ({}),
-        onSome: (resolvedRuntimeValue) => ({ resolvedRuntime: resolvedRuntimeValue })
-      })
-    }
+  Effect.succeed({
+    enabled: runtime.capability.enabled,
+    ...Option.match(runtime.capability.reason, {
+      onNone: () => ({}),
+      onSome: (reason) => ({ reason })
+    }),
+    ...Option.match(runtime.resolution.desired, {
+      onNone: () => ({}),
+      onSome: (requestedRuntime) => ({ requestedRuntime })
+    }),
+    ...Option.match(runtime.resolution.resolvedRoute, {
+      onNone: () => ({}),
+      onSome: (resolvedRoute) => ({ resolvedRoute })
+    })
   })
 
 const makeRuntime = Effect.either(resolvedProviderRuntime).pipe(
   Effect.flatMap(
     Either.match({
-      onLeft: (error) => disabledRuntime(reasonFromError(error)),
+      onLeft: (error) => Effect.succeed(disabledRuntime(reasonFromError(error))),
       onRight: Effect.succeed
     })
   )

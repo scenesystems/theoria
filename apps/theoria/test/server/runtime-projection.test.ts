@@ -5,7 +5,7 @@ import * as InferenceTesting from "../../../../packages/effect-inference/src/Run
 import { dspRuntimeProjection } from "../../app/server/demos/effect-dsp/provider.js"
 
 describe("server/runtime-projection", () => {
-  it.effect("projects requested, resolved-route, and resolved-runtime truth from the effect-inference substrate", () =>
+  it.effect("projects requested and resolved-route truth from the effect-inference substrate", () =>
     Effect.gen(function*() {
       const desired = InferenceTesting.makeDesiredRuntimeDescriptor({
         modelRef: "meta-llama/Llama-3.3-70B-Instruct"
@@ -24,10 +24,6 @@ describe("server/runtime-projection", () => {
         selectedDeployment: "deployment-1",
         providerModel: "meta-llama/Llama-3.3-70B-Instruct"
       })
-      const resolvedRuntime = InferenceTesting.makeResolvedRuntimeDescriptor({
-        responseModel: "meta-llama/Llama-3.3-70B-Instruct",
-        responseId: "resp_123"
-      })
       const projection = yield* dspRuntimeProjection({
         capability: {
           enabled: true,
@@ -40,14 +36,12 @@ describe("server/runtime-projection", () => {
         resolution: {
           desired: Option.some(desired),
           resolvedRoute: Option.some(resolvedRoute)
-        },
-        readResolvedRuntime: Effect.succeed(Option.some(resolvedRuntime))
+        }
       })
 
       expect(projection.requestedRuntime?.artifact.modelRef).toBe("meta-llama/Llama-3.3-70B-Instruct")
       expect(projection.resolvedRoute?.route.endpointId).toBe("llama-prod")
       expect(projection.resolvedRoute?.selectedDeployment).toBe("deployment-1")
-      expect(projection.resolvedRuntime?.responseId).toBe("resp_123")
     }))
 
   it.effect("keeps disabled provider state honest when no runtime descriptor resolved", () =>
@@ -64,14 +58,12 @@ describe("server/runtime-projection", () => {
         resolution: {
           desired: Option.none(),
           resolvedRoute: Option.none()
-        },
-        readResolvedRuntime: Effect.succeed(Option.none())
+        }
       })
 
       expect(projection.enabled).toBe(false)
       expect(projection.reason).toBe("DSP runtime resolution failed.")
       expect(projection.requestedRuntime).toBeUndefined()
       expect(projection.resolvedRoute).toBeUndefined()
-      expect(projection.resolvedRuntime).toBeUndefined()
     }))
 })

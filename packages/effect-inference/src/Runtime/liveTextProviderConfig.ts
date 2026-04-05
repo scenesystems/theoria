@@ -135,28 +135,28 @@ const providerConfig = Effect.gen(function*() {
   return {
     provider,
     model: Option.match(
-      firstDefinedOption(yield* optionalString("dspProviderModel"), yield* optionalString(providerModelKey(provider))),
+      firstDefinedOption(yield* optionalString(providerModelKey(provider)), yield* optionalString("dspProviderModel")),
       { onNone: () => defaultModel(provider), onSome: (value) => value }
     ),
     apiKey: firstDefinedOption(
-      yield* optionalRedacted("dspProviderApiKey"),
-      yield* optionalRedacted(providerApiKeyKey(provider))
+      yield* optionalRedacted(providerApiKeyKey(provider)),
+      yield* optionalRedacted("dspProviderApiKey")
     ),
     apiUrl: firstDefinedOption(
-      yield* optionalString("dspProviderApiUrl"),
-      yield* optionalString(providerApiUrlKey(provider))
+      yield* optionalString(providerApiUrlKey(provider)),
+      yield* optionalString("dspProviderApiUrl")
     ),
     anthropicVersion: firstDefinedOption(
-      yield* optionalString("dspProviderAnthropicVersion"),
-      yield* optionalString("anthropicVersion")
+      yield* optionalString("anthropicVersion"),
+      yield* optionalString("dspProviderAnthropicVersion")
     ),
     openrouterReferrer: firstDefinedOption(
-      yield* optionalString("dspProviderOpenrouterReferrer"),
-      yield* optionalString("openrouterReferrer")
+      yield* optionalString("openrouterReferrer"),
+      yield* optionalString("dspProviderOpenrouterReferrer")
     ),
     openrouterTitle: firstDefinedOption(
-      yield* optionalString("dspProviderOpenrouterTitle"),
-      yield* optionalString("openrouterTitle")
+      yield* optionalString("openrouterTitle"),
+      yield* optionalString("dspProviderOpenrouterTitle")
     )
   }
 })

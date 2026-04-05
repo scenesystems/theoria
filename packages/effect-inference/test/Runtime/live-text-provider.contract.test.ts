@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Redacted } from "effect"
+import { ConfigProvider, Effect, Option, Redacted } from "effect"
 import type { Layer } from "effect"
 
 import * as Runtime from "../../src/Runtime/index.js"
@@ -38,5 +38,24 @@ describe("Runtime/live-text-provider", () => {
         model: "openai/gpt-4o-mini",
         apiKey: Redacted.make("test-key")
       }))).toBe(true)
+    }))
+
+  it.effect("prefers provider-specific env overrides over generic DSP provider defaults", () =>
+    Effect.gen(function*() {
+      const config = yield* Runtime.resolveLiveTextProviderConfig({
+        provider: "openai",
+        configProvider: ConfigProvider.fromJson({
+          DSP_PROVIDER_MODEL: "global-model",
+          OPENAI_MODEL: "provider-model",
+          DSP_PROVIDER_API_KEY: "global-key",
+          OPENAI_API_KEY: "provider-key",
+          DSP_PROVIDER_API_URL: "https://global.example.com/v1",
+          OPENAI_API_URL: "https://provider.example.com/v1"
+        }).pipe(ConfigProvider.constantCase)
+      })
+
+      expect(config.model).toBe("provider-model")
+      expect(Redacted.value(config.apiKey)).toBe("provider-key")
+      expect(config.apiUrl).toEqual(Option.some("https://provider.example.com/v1"))
     }))
 })

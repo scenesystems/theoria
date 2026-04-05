@@ -3,7 +3,6 @@ import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
-import type * as InferenceContracts from "../../../../../../packages/effect-inference/src/contracts/index.js"
 
 import {
   defaultDspModuleType,
@@ -98,50 +97,12 @@ const resolveProvider = Effect.gen(function*() {
     onSome: Effect.succeed
   })
 
-  const desired = yield* Option.match(runtime.resolution.desired, {
-    onNone: () =>
-      Effect.fail(
-        new DspProviderUnavailable({
-          message: Option.getOrElse(runtime.capability.reason, () => "DSP runtime descriptor is unavailable.")
-        })
-      ),
-    onSome: Effect.succeed
-  })
-
-  const resolvedRoute = yield* Option.match(runtime.resolution.resolvedRoute, {
-    onNone: () =>
-      Effect.fail(
-        new DspProviderUnavailable({
-          message: Option.getOrElse(runtime.capability.reason, () => "DSP resolved route is unavailable.")
-        })
-      ),
-    onSome: Effect.succeed
-  })
-
   return {
     layer,
     provider,
-    model: Option.getOrElse(runtime.capability.model, () => "unknown"),
-    desired,
-    resolvedRoute,
-    recordResolvedRuntime: runtime.recordResolvedRuntime
+    model: Option.getOrElse(runtime.capability.model, () => "unknown")
   }
 })
-
-const observedResponseModel = (ctx: DspExecutionContext): string => ctx.resolvedRoute.providerModel ?? ctx.model
-
-export const recordResolvedRuntime = (
-  ctx: DspExecutionContext,
-  completedAtMs: number
-): Effect.Effect<void, never, never> => {
-  const resolvedRuntime: InferenceContracts.ResolvedRuntimeDescriptor = {
-    responseModel: observedResponseModel(ctx),
-    startedAtMs: ctx.startedAt,
-    completedAtMs
-  }
-
-  return ctx.recordResolvedRuntime(resolvedRuntime)
-}
 
 const buildSignatureAndModule = (scenario: DspScenarioDefinition, moduleType: DspModuleType) =>
   Effect.gen(function*() {
@@ -186,7 +147,7 @@ export const reportScore = (metricName: string, report: DspEvaluationReport): nu
 export const prepareExecution = (request: DspRunRequest) =>
   Effect.gen(function*() {
     const scenario = scenarioById(request.scenarioId)
-    const { desired, layer, model, provider, recordResolvedRuntime, resolvedRoute } = yield* resolveProvider
+    const { layer, model, provider } = yield* resolveProvider
     const module = yield* buildSignatureAndModule(scenario, request.moduleType)
     const metric = metricForScenario(scenario)
     const examples = scenarioExamples(scenario)
@@ -199,9 +160,6 @@ export const prepareExecution = (request: DspRunRequest) =>
       scenario,
       provider,
       model,
-      desired,
-      resolvedRoute,
-      recordResolvedRuntime,
       module,
       metric,
       examples,
@@ -286,7 +244,6 @@ export const dspExecutionStory = (
     const optimizedReport = yield* runOptimizedEval(ctx)
     const optimizedScore = reportScore(ctx.scenario.metricName, optimizedReport)
     const endedAt = yield* Clock.currentTimeMillis
-    yield* recordResolvedRuntime(ctx, endedAt)
 
     return {
       request: ctx.request,

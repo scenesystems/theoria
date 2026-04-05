@@ -1,9 +1,8 @@
-import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Option, Stream } from "effect"
 
-import { moduleSpecifiers, parseTypeScript } from "@theoria/source-proof"
+import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 import { scenarioById } from "../../app/contracts/demo/dsp.js"
 import { effectTextProjectionSteps } from "../../app/contracts/demo/text.js"
 import { defaultDspRunRequest, type DspExecutionStory } from "../../app/server/demos/effect-dsp/runtime.js"
@@ -110,11 +109,8 @@ describe("Theoria Demo Stream Registry", () => {
 
   it.effect("keeps the effect-dsp deep-dive runtime delegated to the effect-inference-backed provider service", () =>
     Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
       const runtimePath = "app/server/demos/effect-dsp/runtime.ts"
-      const root = yield* path.fromFileUrl(appRootUrl).pipe(Effect.orDie)
-      const source = yield* fileSystem.readFileString(path.join(root, runtimePath)).pipe(Effect.orDie)
+      const source = yield* readProjectFile(appRootUrl, runtimePath)
       const parsed = parseTypeScript(runtimePath, source)
       const imports = moduleSpecifiers(parsed)
 
