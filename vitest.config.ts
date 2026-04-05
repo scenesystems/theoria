@@ -13,6 +13,7 @@ export default defineConfig({
     maxConcurrency: 10,
 
     include: [
+      "test/**/*.test.ts",
       "packages/*/test/**/*.test.ts",
       "apps/*/test/**/*.test.ts"
     ],

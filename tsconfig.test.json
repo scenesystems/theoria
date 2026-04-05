@@ -9,6 +9,7 @@
   },
   "files": [],
   "references": [
+    { "path": "./test/tsconfig.json" },
     { "path": "./packages/digest/tsconfig.test.json" },
     { "path": "./packages/effect-dsp/tsconfig.test.json" },
     { "path": "./packages/effect-inference/tsconfig.test.json" },

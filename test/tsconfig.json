@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["@types/node", "@effect/vitest", "vitest/globals"],
+    "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
+  },
+  "include": ["release-framework/**/*.ts"],
+  "references": [{ "path": "../packages/source-proof/tsconfig.src.json" }]
+}
