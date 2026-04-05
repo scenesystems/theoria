@@ -41,3 +41,9 @@ export * from "./errors.js"
  * @category operations
  */
 export * from "./operations.js"
+
+/**
+ * @since 0.3.0
+ * @category operations
+ */
+export * from "./score.js"

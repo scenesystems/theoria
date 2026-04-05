@@ -67,7 +67,7 @@
     "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
-    "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
+    "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py && bun run fixtures:stamp",
     "fixtures:lock": "uv lock --script scripts/generate-scipy-fixtures.py",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",

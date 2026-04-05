@@ -1,9 +1,11 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { Console, Effect, Schema } from "effect"
 
 import {
+  PackageReleaseManifestJson,
   renderReleaseSinceSnapshotJson,
+  resolveReleaseGovernedVersion,
   resolveRootFrom,
   stampCurrentPackageReleaseSinceSnapshot
 } from "../source-proof/src/index.js"
@@ -14,8 +16,18 @@ const main = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const root = yield* resolveRootFrom(packageRootUrl)
+  const manifestJson = yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
+  const manifest = yield* Schema.decodeUnknown(PackageReleaseManifestJson)(manifestJson).pipe(Effect.orDie)
+  const releaseVersion = yield* resolveReleaseGovernedVersion({
+    workspaceRoot: path.dirname(path.dirname(root)),
+    packageName: manifest.name,
+    currentVersion: manifest.version
+  })
   const snapshotsDirectory = path.join(root, "test/package/release-snapshots")
-  const snapshot = yield* stampCurrentPackageReleaseSinceSnapshot({ packageRoot: root })
+  const snapshot = yield* stampCurrentPackageReleaseSinceSnapshot({
+    packageRoot: root,
+    releasedVersion: releaseVersion
+  })
   const encoded = yield* renderReleaseSinceSnapshotJson(snapshot)
   const outputPath = path.join(snapshotsDirectory, `${snapshot.releasedVersion}.json`)
 

@@ -28,6 +28,13 @@ export class FixtureSchemaDecodeError extends Data.TaggedError("FixtureSchemaDec
   readonly cause: unknown
 }> {}
 
+export class FixtureHashMismatchError extends Data.TaggedError("FixtureHashMismatchError")<{
+  readonly actualHash: string
+  readonly expectedHash: string
+  readonly fixture: FixtureName
+  readonly path: string
+}> {}
+
 export class FixtureNotFoundError extends Data.TaggedError("FixtureNotFoundError")<{
   readonly fixture: FixtureName
 }> {}
@@ -37,5 +44,6 @@ export type FixtureRegistryError =
   | FixtureFileReadError
   | FixtureMalformedJsonError
   | FixtureManifestDecodeError
+  | FixtureHashMismatchError
   | FixtureSchemaDecodeError
   | FixtureNotFoundError

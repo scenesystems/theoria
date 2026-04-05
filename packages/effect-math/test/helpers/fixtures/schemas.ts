@@ -1793,7 +1793,8 @@ export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>
 
 export const FixtureManifestEntrySchema = Schema.Struct({
   name: FixtureNameSchema,
-  file: Schema.String
+  file: Schema.String,
+  hash: Schema.String
 })
 
 export const FixtureManifestSchema = Schema.Struct({
