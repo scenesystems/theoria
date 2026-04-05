@@ -42,7 +42,8 @@
     "test:apps": "bun run --filter @theoria/theoria-app test",
     "vendor:sync": "bash scripts/vendor-sync.sh",
     "vendor:check": "bash scripts/vendor-sync.sh --check",
-    "test:e2e:theoria": "playwright test --config e2e/theoria/playwright.config.ts"
+    "test:e2e:theoria": "playwright test --config e2e/theoria/playwright.config.ts",
+    "docs:packages": "bun scripts/docs-packages.ts"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.6",
