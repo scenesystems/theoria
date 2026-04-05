@@ -7,29 +7,7 @@ import { Schema } from "effect"
 
 import { CapabilityRequirementsSchema } from "./CapabilityRequirements.js"
 import { RuntimeRoleSchema } from "./DesiredRuntimeDescriptor.js"
-
-const WorkflowNodeKindSchema = Schema.Literal(
-  "planner",
-  "drafter",
-  "critic",
-  "synthesizer",
-  "responder",
-  "tool",
-  "retrieval",
-  "chat-handoff",
-  "render-evaluator"
-)
-
-const WorkflowStateLaneSchema = Schema.Literal(
-  "task",
-  "context",
-  "conversation",
-  "retrieval",
-  "tool-results",
-  "render"
-)
-
-const WorkflowLoopPolicySchema = Schema.Literal("single-pass", "bounded-critique", "bounded-retry")
+import { WorkflowLoopPolicySchema, WorkflowNodeKindSchema, WorkflowStateLaneSchema } from "./WorkflowVocabulary.js"
 
 /**
  * Package-owned node contract tying graph roles to runtime-role and capability

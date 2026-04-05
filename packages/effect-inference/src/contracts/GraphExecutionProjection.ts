@@ -6,14 +6,7 @@
  */
 import { Schema } from "effect"
 
-const WorkflowStateLaneSchema = Schema.Literal(
-  "task",
-  "context",
-  "conversation",
-  "retrieval",
-  "tool-results",
-  "render"
-)
+import { WorkflowStateLaneSchema } from "./WorkflowVocabulary.js"
 
 /**
  * Minimal projection shape for graph consumers that need entry, terminal, and

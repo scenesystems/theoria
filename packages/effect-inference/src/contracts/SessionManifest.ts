@@ -6,25 +6,27 @@
 import { Schema } from "effect"
 
 import { WorkflowKindSchema } from "./WorkflowKind.js"
+import { SessionTurnRoleSchema, WorkflowStateLaneSchema } from "./WorkflowVocabulary.js"
 
-const SessionTurnRoleSchema = Schema.Literal("system", "user", "assistant", "tool")
-
-const WorkflowStateLaneSchema = Schema.Literal(
-  "task",
-  "context",
-  "conversation",
-  "retrieval",
-  "tool-results",
-  "render"
-)
-
-const SessionTurnSchema = Schema.Struct({
+/**
+ * One replay-safe turn in a workflow session.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const SessionTurnSchema = Schema.Struct({
   turnId: Schema.String,
   role: SessionTurnRoleSchema,
   content: Schema.String
 })
 
-const SessionStateLaneSchema = Schema.Struct({
+/**
+ * Entries stored in one released workflow state lane.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const SessionStateLaneSchema = Schema.Struct({
   lane: WorkflowStateLaneSchema,
   entries: Schema.Array(Schema.String)
 })
@@ -49,3 +51,19 @@ export const SessionManifestSchema = Schema.Struct({
  * @category type-level
  */
 export type SessionManifest = Schema.Schema.Type<typeof SessionManifestSchema>
+
+/**
+ * Session turn extracted from {@link SessionTurnSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type SessionTurn = Schema.Schema.Type<typeof SessionTurnSchema>
+
+/**
+ * Session state lane extracted from {@link SessionStateLaneSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type SessionStateLane = Schema.Schema.Type<typeof SessionStateLaneSchema>

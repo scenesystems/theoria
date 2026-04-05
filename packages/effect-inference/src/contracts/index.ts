@@ -37,6 +37,8 @@ export * from "./RuntimeEvidence.js"
 /** @since 0.2.0 */
 export * from "./WorkflowKind.js"
 /** @since 0.2.0 */
+export * from "./WorkflowVocabulary.js"
+/** @since 0.2.0 */
 export * from "./SessionManifest.js"
 /** @since 0.2.0 */
 export * from "./NodeExecutionContract.js"
@@ -48,3 +50,9 @@ export * from "./GraphExecutionProjection.js"
 export * from "./EvaluationContract.js"
 /** @since 0.2.0 */
 export * from "./WorkflowExecutionRecord.js"
+/** @since 0.2.0 */
+export * from "./ScoreComponentKind.js"
+/** @since 0.2.0 */
+export * from "./ScoreProfile.js"
+/** @since 0.2.0 */
+export * from "./WorkflowEvaluationReport.js"

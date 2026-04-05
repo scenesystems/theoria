@@ -7,39 +7,28 @@ import { Schema } from "effect"
 
 import { NodeExecutionContractSchema } from "./NodeExecutionContract.js"
 import { WorkflowKindSchema } from "./WorkflowKind.js"
+import { GraphVariantSchema, OptimizationKnobKindSchema, WorkflowEdgeKindSchema } from "./WorkflowVocabulary.js"
 
-const WorkflowEdgeKindSchema = Schema.Literal(
-  "next",
-  "branch",
-  "feedback",
-  "tool-call",
-  "retrieval",
-  "handoff",
-  "render-check"
-)
-
-const GraphVariantSchema = Schema.Literal("baseline", "optimized")
-
-const OptimizationKnobKindSchema = Schema.Literal(
-  "instruction-profile",
-  "runtime-profile",
-  "candidate-count",
-  "critique-pass-budget",
-  "response-length-target",
-  "tool-routing",
-  "retrieval-depth",
-  "node-enabled",
-  "surface-profile"
-)
-
-const GraphExecutionEdgeSchema = Schema.Struct({
+/**
+ * One released edge in a workflow graph manifest.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const GraphExecutionEdgeSchema = Schema.Struct({
   edgeId: Schema.String,
   kind: WorkflowEdgeKindSchema,
   fromNodeId: Schema.String,
   toNodeId: Schema.String
 })
 
-const OptimizationKnobSchema = Schema.Struct({
+/**
+ * One explicit optimization knob available to a workflow graph manifest.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const OptimizationKnobSchema = Schema.Struct({
   key: Schema.String,
   kind: OptimizationKnobKindSchema,
   choices: Schema.Array(Schema.String)
@@ -67,3 +56,19 @@ export const GraphExecutionManifestSchema = Schema.Struct({
  * @category type-level
  */
 export type GraphExecutionManifest = Schema.Schema.Type<typeof GraphExecutionManifestSchema>
+
+/**
+ * Workflow graph edge extracted from {@link GraphExecutionEdgeSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type GraphExecutionEdge = Schema.Schema.Type<typeof GraphExecutionEdgeSchema>
+
+/**
+ * Optimization knob extracted from {@link OptimizationKnobSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type OptimizationKnob = Schema.Schema.Type<typeof OptimizationKnobSchema>

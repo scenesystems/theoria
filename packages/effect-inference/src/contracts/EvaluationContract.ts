@@ -6,8 +6,15 @@
 import { Schema } from "effect"
 
 import { WorkflowKindSchema } from "./WorkflowKind.js"
+import { EvaluationProfileFamilySchema } from "./WorkflowVocabulary.js"
 
-const EvaluationCaseSchema = Schema.Struct({
+/**
+ * One reusable evaluation case inside a workflow evaluation bundle.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const EvaluationCaseSchema = Schema.Struct({
   caseId: Schema.String,
   prompt: Schema.String,
   expectedSignals: Schema.Array(Schema.String),
@@ -23,6 +30,7 @@ const EvaluationCaseSchema = Schema.Struct({
 export const EvaluationContractSchema = Schema.Struct({
   workflowKind: WorkflowKindSchema,
   profileId: Schema.String,
+  profileFamily: EvaluationProfileFamilySchema,
   cases: Schema.Array(EvaluationCaseSchema)
 })
 
@@ -33,3 +41,11 @@ export const EvaluationContractSchema = Schema.Struct({
  * @category type-level
  */
 export type EvaluationContract = Schema.Schema.Type<typeof EvaluationContractSchema>
+
+/**
+ * Evaluation case extracted from {@link EvaluationCaseSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type EvaluationCase = Schema.Schema.Type<typeof EvaluationCaseSchema>

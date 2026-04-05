@@ -56,6 +56,7 @@ const taskFirstRecord = {
   evaluation: {
     workflowKind: "task-first",
     profileId: "task-default",
+    profileFamily: "task-oriented",
     cases: [
       {
         caseId: "case-task-1",
@@ -126,6 +127,7 @@ const chatContinuationRecord = {
   evaluation: {
     workflowKind: "chat-continuation",
     profileId: "chat-default",
+    profileFamily: "chat-oriented",
     cases: [
       {
         caseId: "case-chat-1",
