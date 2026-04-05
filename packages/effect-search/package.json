@@ -74,6 +74,7 @@
     "effect-math": "workspace:^"
   },
   "devDependencies": {
+    "effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
