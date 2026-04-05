@@ -122,6 +122,14 @@ export * from "./ModuleNode.js"
 export * from "./ModuleGraph.js"
 
 /**
+ * LM-only adapters over the extracted workflow family owned by
+ * `effect-inference/Contracts`.
+ *
+ * @since 0.2.0
+ */
+export * from "./WorkflowInterop.js"
+
+/**
  * Typed-to-FieldRecord projection helpers for trace and event emission.
  *
  * @since 0.1.0

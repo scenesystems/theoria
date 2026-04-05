@@ -61,11 +61,11 @@
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
+    "effect-inference": "workspace:^",
     "effect-math": "workspace:^",
     "effect-search": "workspace:^"
   },
   "devDependencies": {
-    "effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
