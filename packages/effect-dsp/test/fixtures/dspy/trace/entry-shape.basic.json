@@ -14,9 +14,15 @@
   "payload": {
     "traceEntryTupleLength": 3,
     "moduleClassName": "Predict",
-    "moduleOutputFieldOrder": ["answer"],
-    "inputKeys": ["question"],
-    "predictionKeys": ["answer"],
+    "moduleOutputFieldOrder": [
+      "answer"
+    ],
+    "inputKeys": [
+      "question"
+    ],
+    "predictionKeys": [
+      "answer"
+    ],
     "sampleInput": {
       "question": "What is the capital of France?"
     },

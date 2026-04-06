@@ -14,27 +14,52 @@
   "payload": {
     "objectiveDirection": "maximize",
     "scores": [
-      [0.7, 0.7, 0.7],
-      [0.7, 0.7, 0.7],
-      [0.6, 0.8, 0.7]
+      [
+        0.7,
+        0.7,
+        0.7
+      ],
+      [
+        0.7,
+        0.7,
+        0.7
+      ],
+      [
+        0.6,
+        0.8,
+        0.7
+      ]
     ],
-    "expectedFrontierIndices": [0, 1, 2],
+    "expectedFrontierIndices": [
+      0,
+      1,
+      2
+    ],
     "expectedDominatedIndices": [],
     "expectedHoldings": [
       {
         "exampleIndex": 0,
         "bestScore": 0.7,
-        "holders": [0, 1]
+        "holders": [
+          0,
+          1
+        ]
       },
       {
         "exampleIndex": 1,
         "bestScore": 0.8,
-        "holders": [2]
+        "holders": [
+          2
+        ]
       },
       {
         "exampleIndex": 2,
         "bestScore": 0.7,
-        "holders": [0, 1, 2]
+        "holders": [
+          0,
+          1,
+          2
+        ]
       }
     ],
     "expectedSelectionWeights": [

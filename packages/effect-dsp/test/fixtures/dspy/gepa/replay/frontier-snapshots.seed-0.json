@@ -16,8 +16,15 @@
     "snapshots": [
       {
         "iteration": 0,
-        "frontierIndices": [0, 1, 2],
-        "dominatedIndices": [3, 4],
+        "frontierIndices": [
+          0,
+          1,
+          2
+        ],
+        "dominatedIndices": [
+          3,
+          4
+        ],
         "parentWeights": [
           {
             "candidateIndex": 0,
@@ -43,7 +50,11 @@
       },
       {
         "iteration": 1,
-        "frontierIndices": [0, 1, 2],
+        "frontierIndices": [
+          0,
+          1,
+          2
+        ],
         "dominatedIndices": [],
         "parentWeights": [
           {
@@ -61,6 +72,10 @@
         ]
       }
     ],
-    "byteStableFields": ["frontierIndices", "dominatedIndices", "parentWeights"]
+    "byteStableFields": [
+      "frontierIndices",
+      "dominatedIndices",
+      "parentWeights"
+    ]
   }
 }

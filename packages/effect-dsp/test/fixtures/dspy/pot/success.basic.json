@@ -1,0 +1,57 @@
+{
+  "fixture": "dspy.pot.success.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "maxIterations": 3,
+    "sampleInput": {
+      "question": "What is 1+1?"
+    },
+    "responses": {
+      "generate": {
+        "reasoning": "Represent the arithmetic as executable Python and submit the computed answer.",
+        "generated_code": "```python\nresult = 1 + 1\nSUBMIT({'answer': result})\n```"
+      },
+      "answer": {
+        "reasoning": "The executed program computed the answer directly.",
+        "answer": "2"
+      }
+    },
+    "codeOutput": "{\"answer\": 2}",
+    "dspyPredictionKeys": [
+      "reasoning",
+      "answer"
+    ],
+    "traceEntries": [
+      {
+        "inputKeys": [
+          "question"
+        ],
+        "predictionKeys": [
+          "reasoning",
+          "generated_code"
+        ]
+      },
+      {
+        "inputKeys": [
+          "question",
+          "final_generated_code",
+          "code_output"
+        ],
+        "predictionKeys": [
+          "reasoning",
+          "answer"
+        ]
+      }
+    ]
+  }
+}

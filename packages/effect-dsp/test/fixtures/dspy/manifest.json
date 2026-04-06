@@ -158,6 +158,22 @@
       "file": "mipro/trial-budget-cases.json"
     },
     {
+      "name": "dspy.multiChainComparison.basic",
+      "file": "multiChainComparison/basic.json"
+    },
+    {
+      "name": "dspy.pot.parse-error.basic",
+      "file": "pot/parse-error.basic.json"
+    },
+    {
+      "name": "dspy.pot.repair-cycle.basic",
+      "file": "pot/repair-cycle.basic.json"
+    },
+    {
+      "name": "dspy.pot.success.basic",
+      "file": "pot/success.basic.json"
+    },
+    {
       "name": "dspy.trace.entry-shape.basic",
       "file": "trace/entry-shape.basic.json"
     },

@@ -31,7 +31,13 @@
         "maxIterations": 3
       }
     },
-    "stableJsonKeys": ["version", "modules", "metadata"],
-    "expectedInstructionContains": ["Answer questions with concise facts"]
+    "stableJsonKeys": [
+      "version",
+      "modules",
+      "metadata"
+    ],
+    "expectedInstructionContains": [
+      "Answer questions with concise facts"
+    ]
   }
 }

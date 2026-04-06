@@ -28,6 +28,9 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 - Signature construction and validation (`Signature.make`, `Signature.describe`, derived field metadata and instructions)
 - Predictor module (`Module.predict`) with dual output strategy resolution (`text` / `structured` / `auto`) and DSPy-compatible `[[ ## field ## ]]` delimiters<sup>[1](#ref-1)</sup>
 - Chain-of-thought module (`Module.chainOfThought`) — prepends `reasoning` field to output signature<sup>[6](#ref-6)</sup>
+- Program-of-thought module (`Module.programOfThought`) — plans executable code through a captured `ProgramInterpreter`, repairs failures, and projects the final typed answer back onto the base signature<sup>[1](#ref-1)</sup>
+- Multi-chain comparison module (`Module.multiChainComparison`) — compares multiple reasoning candidates with explicit candidate-count, concurrency, and seed controls before selecting the final typed answer<sup>[1](#ref-1)</sup>
+- Parallel batch module (`Module.parallel`) — fans one module over ordered inputs with explicit concurrency, explicit failure policy, and stable optimization plus artifact-envelope-ready evidence projections
 - Module composition (`Module.compose`) — graph-based sub-module wiring with typed `forward` callbacks
 - Parsing retry pipeline for text-mode outputs with structured feedback loops
 - Fiber-local tracing (`Trace.withTracing`, `Trace.append`, `Trace.get`)
@@ -80,6 +83,12 @@ const runnable = program.pipe(Effect.provide(Layer.succeed(LanguageModel.Languag
 
 For a real provider runtime using Effect Config (OpenAI / Anthropic / OpenRouter), see [`examples/shared/live-provider-runtime.ts`](./examples/shared/live-provider-runtime.ts) and [`examples/03-basic-classify-live-openai.ts`](./examples/03-basic-classify-live-openai.ts).
 
+Mock-backed module examples:
+
+- [`examples/16-program-of-thought-mock.ts`](./examples/16-program-of-thought-mock.ts) — typed numeric reasoning through a deterministic `ProgramInterpreter` layer
+- [`examples/17-multi-chain-comparison-mock.ts`](./examples/17-multi-chain-comparison-mock.ts) — side-by-side reasoning comparison with a traced verdict pass
+- [`examples/18-parallel-batch-mock.ts`](./examples/18-parallel-batch-mock.ts) — ordered batch inference plus optimization and artifact-envelope-ready evidence projections
+
 Live optimization examples:
 
 - [`examples/11-gepa-teacher-student-debate.ts`](./examples/11-gepa-teacher-student-debate.ts) — GEPA reflective evolution in a teacher/student debate panel
@@ -130,7 +139,7 @@ import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace 
 | Namespace   | Key exports                                                                                                                                  |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Signature` | `make`, `describe`, `FieldInfo`, `Signature`, `Input`, `Output`                                                                              |
-| `Module`    | `Params`, `SavedState`, `Module`, `predict`, `chainOfThought`, `compose`                                                                     |
+| `Module`    | `Params`, `SavedState`, `Module`, `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `compose`            |
 | `Trace`     | `Entry`, `TraceRef`, `TraceEnabledRef`, `append`, `get`, `withTracing`, `noScore`                                                            |
 | `Example`   | `Example`, `Demo`                                                                                                                            |
 | `Metric`    | `Metric`, `Result`, `exactMatch`, `f1`, `contains`, `compose`                                                                                |
@@ -141,14 +150,6 @@ import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace 
 Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
 
 ## Roadmap
-
-### Planned modules
-
-| Module                 | DSPy equivalent             | Description                                                | Reference                     |
-| ---------------------- | --------------------------- | ---------------------------------------------------------- | ----------------------------- |
-| `programOfThought`     | `dspy.ProgramOfThought`     | Generate executable code to derive the answer              | [1](#ref-1)                   |
-| `multiChainComparison` | `dspy.MultiChainComparison` | Compare multiple CoT outputs to produce a final prediction | [1](#ref-1)                   |
-| `parallel`             | `dspy.Parallel`             | Parallel execution of module over multiple inputs          | [DSPy docs](https://dspy.ai/) |
 
 ### Planned optimizers
 
@@ -162,7 +163,7 @@ Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.
 
 ## Status
 
-`effect-dsp` is in active development. Core modules — `predict`, `chainOfThought`, `bestOfN`, `refine`, `react`, and `compose` — are implemented along with all six optimizers (`LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, `GEPA`), evaluation, tracing, and caching.
+`effect-dsp` is in active development. Core modules — `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `bestOfN`, `refine`, `react`, and `compose` — are implemented along with all six optimizers (`LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, `GEPA`), evaluation, tracing, and caching.
 
 ## Acknowledgements
 

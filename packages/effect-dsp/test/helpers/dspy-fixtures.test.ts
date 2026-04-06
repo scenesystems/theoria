@@ -40,6 +40,7 @@ import {
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema,
+  MultiChainComparisonFixtureSchema,
   TraceEntryShapeFixtureSchema,
   TraceFiberIsolationFixtureSchema
 } from "./dspy-fixtures/index.js"
@@ -94,6 +95,7 @@ describe("DSPy fixture registry", () => {
       const cotReasoning = yield* registry.load("dspy.cot.reasoning-field.basic")
       const traceEntryShape = yield* registry.load("dspy.trace.entry-shape.basic")
       const traceFiberIsolation = yield* registry.load("dspy.trace.fiber-isolation.seed-0")
+      const multiChainComparison = yield* registry.load("dspy.multiChainComparison.basic")
       const evaluateReportShape = yield* registry.load("dspy.evaluate.report-shape.basic")
       const evaluateEventOrder = yield* registry.load("dspy.evaluate.event-order.basic")
       const metricScoreFeedback = yield* registry.load("dspy.metric.score-feedback.contract")
@@ -141,6 +143,9 @@ describe("DSPy fixture registry", () => {
       const decodedTraceEntryShape = yield* Schema.decodeUnknown(TraceEntryShapeFixtureSchema)(traceEntryShape)
       const decodedTraceFiberIsolation = yield* Schema.decodeUnknown(TraceFiberIsolationFixtureSchema)(
         traceFiberIsolation
+      )
+      const decodedMultiChainComparison = yield* Schema.decodeUnknown(MultiChainComparisonFixtureSchema)(
+        multiChainComparison
       )
       const decodedEvaluateReportShape = yield* Schema.decodeUnknown(EvaluateReportShapeFixtureSchema)(
         evaluateReportShape
@@ -245,6 +250,9 @@ describe("DSPy fixture registry", () => {
       expect(decodedCotReasoning.payload.outputFieldOrder[0]).toBe("reasoning")
       expect(decodedTraceEntryShape.payload.traceEntryTupleLength).toBe(3)
       expect(decodedTraceFiberIsolation.payload.crossScopeTraceLeakDetected).toBe(false)
+      expect(decodedMultiChainComparison.payload.reasoningAttempts).toHaveLength(
+        decodedMultiChainComparison.payload.candidateCount
+      )
       expect(decodedEvaluateReportShape.payload.totalExamples).toBe(decodedEvaluateReportShape.payload.examples.length)
       expect(decodedEvaluateEventOrder.payload.eventCount).toBe(decodedEvaluateEventOrder.payload.events.length)
       expect(decodedMetricScoreFeedback.payload.cases.length).toBeGreaterThan(0)

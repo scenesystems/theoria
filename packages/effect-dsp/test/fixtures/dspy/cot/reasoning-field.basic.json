@@ -13,7 +13,10 @@
   },
   "payload": {
     "reasoningFieldName": "reasoning",
-    "outputFieldOrder": ["reasoning", "answer"],
+    "outputFieldOrder": [
+      "reasoning",
+      "answer"
+    ],
     "reasoningFieldDescription": "${reasoning}",
     "reasoningFieldPrefix": "Reasoning: Let's think step by step in order to",
     "sampleInput": {
@@ -24,7 +27,12 @@
       "answer": "Paris"
     },
     "traceLength": 1,
-    "traceInputKeys": ["question"],
-    "tracePredictionKeys": ["reasoning", "answer"]
+    "traceInputKeys": [
+      "question"
+    ],
+    "tracePredictionKeys": [
+      "reasoning",
+      "answer"
+    ]
   }
 }

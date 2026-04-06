@@ -1,7 +1,7 @@
 /**
  * Learnable LLM program modules — constructors for `predict`, `chainOfThought`,
- * `react`, `bestOfN`, `refine`, and `compose` modules, plus discovery and
- * parameter persistence.
+ * `programOfThought`, `multiChainComparison`, `parallel`, `react`, `bestOfN`,
+ * `refine`, and `compose` modules, plus discovery and parameter persistence.
  *
  * @since 0.1.0
  */
@@ -28,6 +28,32 @@ export * from "./predict/index.js"
  * @since 0.1.0
  */
 export * from "./chainOfThought/index.js"
+
+/**
+ * The `programOfThought` constructor — generates executable code, runs it
+ * through an injected interpreter boundary, repairs failures, and projects
+ * the final answer back onto the original signature.
+ *
+ * @since 0.2.0
+ */
+export * from "./programOfThought/index.js"
+
+/**
+ * The `multiChainComparison` constructor — runs multiple reasoning chains,
+ * compares them in a final verdict pass, and projects the best answer back
+ * onto the original signature.
+ *
+ * @since 0.2.0
+ */
+export * from "./multiChainComparison/index.js"
+
+/**
+ * The `parallel` constructor — fans out a wrapped module over ordered batch
+ * inputs with explicit concurrency and failure-policy control.
+ *
+ * @since 0.2.0
+ */
+export * from "./parallel/index.js"
 
 /**
  * The `react` constructor — creates a module that interleaves tool calls

@@ -50,6 +50,11 @@
         }
       }
     ],
-    "expectedPromptSections": ["## Inputs", "## Generated Outputs", "## Expected Output", "## Feedback"]
+    "expectedPromptSections": [
+      "## Inputs",
+      "## Generated Outputs",
+      "## Expected Output",
+      "## Feedback"
+    ]
   }
 }

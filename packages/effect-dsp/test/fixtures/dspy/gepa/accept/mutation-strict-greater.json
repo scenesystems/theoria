@@ -15,27 +15,54 @@
     "cases": [
       {
         "name": "equal-minibatch-rejected",
-        "previousSubsampleScores": [0.4, 0.6],
-        "mutatedSubsampleScores": [0.4, 0.6],
-        "fullValsetScores": [0.9, 1.0],
+        "previousSubsampleScores": [
+          0.4,
+          0.6
+        ],
+        "mutatedSubsampleScores": [
+          0.4,
+          0.6
+        ],
+        "fullValsetScores": [
+          0.9,
+          1.0
+        ],
         "expectedGate1Passed": false,
         "expectedFullValsetEvaluated": false,
         "expectedAccepted": false
       },
       {
         "name": "strict-greater-accepted",
-        "previousSubsampleScores": [0.2, 0.3],
-        "mutatedSubsampleScores": [0.4, 0.3],
-        "fullValsetScores": [0.8, 0.9],
+        "previousSubsampleScores": [
+          0.2,
+          0.3
+        ],
+        "mutatedSubsampleScores": [
+          0.4,
+          0.3
+        ],
+        "fullValsetScores": [
+          0.8,
+          0.9
+        ],
         "expectedGate1Passed": true,
         "expectedFullValsetEvaluated": true,
         "expectedAccepted": true
       },
       {
         "name": "strict-lower-rejected",
-        "previousSubsampleScores": [0.6, 0.6],
-        "mutatedSubsampleScores": [0.5, 0.6],
-        "fullValsetScores": [1.0, 1.0],
+        "previousSubsampleScores": [
+          0.6,
+          0.6
+        ],
+        "mutatedSubsampleScores": [
+          0.5,
+          0.6
+        ],
+        "fullValsetScores": [
+          1.0,
+          1.0
+        ],
         "expectedGate1Passed": false,
         "expectedFullValsetEvaluated": false,
         "expectedAccepted": false

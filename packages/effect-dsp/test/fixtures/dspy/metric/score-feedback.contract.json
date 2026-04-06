@@ -56,7 +56,10 @@
         "name": "tuple-feedback-trimmed",
         "raw": {
           "kind": "tuple",
-          "value": [0.4, "  Needs citation support  "]
+          "value": [
+            0.4,
+            "  Needs citation support  "
+          ]
         },
         "normalized": {
           "score": 0.4,
@@ -67,7 +70,10 @@
         "name": "tuple-empty-feedback-preserved",
         "raw": {
           "kind": "tuple",
-          "value": [0.2, "   "]
+          "value": [
+            0.2,
+            "   "
+          ]
         },
         "normalized": {
           "score": 0.2,

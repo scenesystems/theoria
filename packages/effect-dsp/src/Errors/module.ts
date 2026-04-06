@@ -54,3 +54,85 @@ export class CompositionError extends Schema.TaggedError<CompositionError>()(
     moduleName: Schema.optional(Schema.String)
   }
 ) {}
+
+/**
+ * Structured failure record for a single `Module.parallel` branch.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export class ParallelBranchFailure extends Schema.Class<ParallelBranchFailure>("ParallelBranchFailure")({
+  branchIndex: Schema.Number,
+  branchModuleName: Schema.String,
+  errorTag: Schema.String,
+  message: Schema.String
+}) {}
+
+/**
+ * Raised when `Module.parallel` fails under an explicit failure policy.
+ * Captures the selected policy and the structured failures that occurred.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class ParallelExecutionError extends Schema.TaggedError<ParallelExecutionError>()(
+  "ParallelExecutionError",
+  {
+    message: Schema.String,
+    moduleName: Schema.String,
+    failurePolicy: Schema.Literal("fail-fast", "collect-all"),
+    failures: Schema.Array(ParallelBranchFailure)
+  }
+) {}
+
+/**
+ * Raised when a `programOfThought` planning step produces malformed code that
+ * cannot be normalized into an executable program body.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class ProgramCodeParseError extends Schema.TaggedError<ProgramCodeParseError>()(
+  "ProgramCodeParseError",
+  {
+    message: Schema.String,
+    moduleName: Schema.String,
+    attempt: Schema.Number,
+    rawCode: Schema.String,
+    parsedCode: Schema.String
+  }
+) {}
+
+/**
+ * Raised when the injected program-execution boundary accepts a program body
+ * but reports an execution failure for that attempt.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class ProgramExecutionError extends Schema.TaggedError<ProgramExecutionError>()(
+  "ProgramExecutionError",
+  {
+    message: Schema.String,
+    moduleName: Schema.String,
+    attempt: Schema.Number,
+    code: Schema.String
+  }
+) {}
+
+/**
+ * Raised when the injected program-execution boundary itself fails before it
+ * can return an execution result for the current attempt.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class ProgramRuntimeBoundaryError extends Schema.TaggedError<ProgramRuntimeBoundaryError>()(
+  "ProgramRuntimeBoundaryError",
+  {
+    message: Schema.String,
+    moduleName: Schema.String,
+    attempt: Schema.Number,
+    code: Schema.String
+  }
+) {}

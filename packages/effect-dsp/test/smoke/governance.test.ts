@@ -47,6 +47,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Module graph traversal co-locates DAG construction, cycle detection, topological sort, and serialization for deterministic compose module wiring. Follow-up: extract traversal into graph/traversal.ts."
   ],
   [
+    "src/Module/parallel/runtime.ts",
+    "Parallel batch execution currently co-locates branch failure-policy handling, nested trace and usage accumulation, and ordered result projection. Follow-up: extract branch evidence accumulation into runtime/evidence.ts."
+  ],
+  [
     "src/Optimizer/progress.ts",
     "Optimizer progress co-locates heterogeneous event streaming, terminal formatting, and progress aggregation. Follow-up: split terminal formatting into progress/format.ts."
   ],

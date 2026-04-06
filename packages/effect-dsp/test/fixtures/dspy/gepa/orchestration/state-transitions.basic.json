@@ -38,7 +38,15 @@
         "expectedShouldAttemptMerge": false
       }
     ],
-    "expectedCandidateCountProgression": [1, 2, 2],
-    "expectedLastIterationFoundNew": [false, true, true]
+    "expectedCandidateCountProgression": [
+      1,
+      2,
+      2
+    ],
+    "expectedLastIterationFoundNew": [
+      false,
+      true,
+      true
+    ]
   }
 }

@@ -16,7 +16,13 @@
     "parentAId": "parent-a",
     "parentBId": "parent-b",
     "expectedCommonAncestorId": "seed",
-    "expectedBalancedSubsampleIds": ["example-0", "example-1", "example-2", "example-3", "example-4"],
+    "expectedBalancedSubsampleIds": [
+      "example-0",
+      "example-1",
+      "example-2",
+      "example-3",
+      "example-4"
+    ],
     "candidates": [
       {
         "candidateId": "seed",
@@ -34,7 +40,9 @@
       },
       {
         "candidateId": "parent-a",
-        "parentIds": ["seed"],
+        "parentIds": [
+          "seed"
+        ],
         "predictorInstructions": [
           {
             "predictorName": "qa",
@@ -48,7 +56,9 @@
       },
       {
         "candidateId": "parent-b",
-        "parentIds": ["seed"],
+        "parentIds": [
+          "seed"
+        ],
         "predictorInstructions": [
           {
             "predictorName": "qa",

@@ -15,23 +15,50 @@
     "cases": [
       {
         "name": "merge-tie-accepted",
-        "mergedSubsampleScores": [0.5, 0.4],
-        "parentASubsampleScores": [0.4, 0.5],
-        "parentBSubsampleScores": [0.5, 0.4],
+        "mergedSubsampleScores": [
+          0.5,
+          0.4
+        ],
+        "parentASubsampleScores": [
+          0.4,
+          0.5
+        ],
+        "parentBSubsampleScores": [
+          0.5,
+          0.4
+        ],
         "expectedAccepted": true
       },
       {
         "name": "merge-worse-rejected",
-        "mergedSubsampleScores": [0.2, 0.3],
-        "parentASubsampleScores": [0.4, 0.4],
-        "parentBSubsampleScores": [0.3, 0.4],
+        "mergedSubsampleScores": [
+          0.2,
+          0.3
+        ],
+        "parentASubsampleScores": [
+          0.4,
+          0.4
+        ],
+        "parentBSubsampleScores": [
+          0.3,
+          0.4
+        ],
         "expectedAccepted": false
       },
       {
         "name": "merge-better-accepted",
-        "mergedSubsampleScores": [0.6, 0.5],
-        "parentASubsampleScores": [0.4, 0.4],
-        "parentBSubsampleScores": [0.3, 0.4],
+        "mergedSubsampleScores": [
+          0.6,
+          0.5
+        ],
+        "parentASubsampleScores": [
+          0.4,
+          0.4
+        ],
+        "parentBSubsampleScores": [
+          0.3,
+          0.4
+        ],
         "expectedAccepted": true
       }
     ]

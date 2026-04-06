@@ -20,7 +20,7 @@ from typing import Any
 
 import dspy
 
-from fixtures import bootstrap_family, evaluate_runtime, gepa, mipro_v2, predict_runtime
+from fixtures import bootstrap_family, evaluate_runtime, gepa, mipro_v2, multi_chain_comparison, predict_runtime, program_of_thought
 from fixtures._common import (
     DEFAULT_GENERATED_AT,
     GENERATOR_SCRIPT,
@@ -356,6 +356,18 @@ def expected_fixtures(generated_at: str) -> dict[str, dict[str, Any]]:
             "document": {k: v for k, v in doc.items() if k != "file"},
         }
 
+    for doc in program_of_thought.generate(generated_at):
+        fixtures[str(doc["fixture"])] = {
+            "file": fixture_file_path(doc),
+            "document": {k: v for k, v in doc.items() if k != "file"},
+        }
+
+    for doc in multi_chain_comparison.generate(generated_at):
+        fixtures[str(doc["fixture"])] = {
+            "file": fixture_file_path(doc),
+            "document": {k: v for k, v in doc.items() if k != "file"},
+        }
+
     for doc in evaluate_runtime.generate(generated_at):
         fixtures[str(doc["fixture"])] = {
             "file": fixture_file_path(doc),
@@ -439,6 +451,78 @@ def verify_predict_runtime_contracts(name: str, document: dict[str, Any]) -> lis
 
             if run.get("traceInputQuestion") != run.get("question"):
                 errors.append(f"{name}: scopeRuns[{index}] traceInputQuestion must match question")
+
+    return errors
+
+
+def verify_program_of_thought_contracts(name: str, document: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    payload = document.get("payload")
+
+    if not isinstance(payload, dict):
+        return [f"{name}: payload is missing or invalid"]
+
+    if name == "dspy.pot.success.basic":
+        trace_entries = payload.get("traceEntries")
+        prediction_keys = payload.get("dspyPredictionKeys")
+
+        if payload.get("codeOutput") != '{"answer": 2}':
+            errors.append(f"{name}: codeOutput must be the submitted answer JSON")
+
+        if not isinstance(trace_entries, list) or len(trace_entries) != 2:
+            errors.append(f"{name}: traceEntries must contain the generate and answer phases")
+        elif "generated_code" not in trace_entries[0].get("predictionKeys", []):
+            errors.append(f"{name}: first trace entry must expose generated_code")
+
+        if not isinstance(prediction_keys, list) or "reasoning" not in prediction_keys or "answer" not in prediction_keys:
+            errors.append(f"{name}: dspyPredictionKeys must include reasoning and answer")
+
+    if name == "dspy.pot.repair-cycle.basic":
+        trace_entries = payload.get("traceEntries")
+
+        if payload.get("executionError") != "ZeroDivisionError: division by zero":
+            errors.append(f"{name}: executionError must preserve the deterministic repair message")
+
+        if not isinstance(trace_entries, list) or len(trace_entries) != 3:
+            errors.append(f"{name}: traceEntries must contain generate, repair, and answer phases")
+        elif "previous_code" not in trace_entries[1].get("inputKeys", []) or "error" not in trace_entries[1].get("inputKeys", []):
+            errors.append(f"{name}: repair trace entry must include previous_code and error inputs")
+
+    if name == "dspy.pot.parse-error.basic" and payload.get("expectedError") != "Error: Code format is not correct.":
+        errors.append(f"{name}: expectedError must match DSPy parse-code diagnostics")
+
+    return errors
+
+
+def verify_multi_chain_comparison_contracts(name: str, document: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    payload = document.get("payload")
+
+    if not isinstance(payload, dict):
+        return [f"{name}: payload is missing or invalid"]
+
+    if name == "dspy.multiChainComparison.basic":
+        candidate_count = payload.get("candidateCount")
+        candidate_responses = payload.get("candidateResponses")
+        reasoning_attempts = payload.get("reasoningAttempts")
+        trace_entries = payload.get("traceEntries")
+        prediction_keys = payload.get("dspyPredictionKeys")
+        candidate_comparisons = payload.get("candidateComparisons")
+
+        if not isinstance(candidate_responses, list) or candidate_count != len(candidate_responses):
+            errors.append(f"{name}: candidateCount must equal candidateResponses length")
+
+        if not isinstance(reasoning_attempts, list) or candidate_count != len(reasoning_attempts):
+            errors.append(f"{name}: reasoningAttempts must match the candidate count")
+
+        if not isinstance(trace_entries, list) or len(trace_entries) != candidate_count + 1:
+            errors.append(f"{name}: traceEntries must contain each candidate plus one final comparison pass")
+
+        if not isinstance(prediction_keys, list) or "rationale" not in prediction_keys or "answer" not in prediction_keys:
+            errors.append(f"{name}: dspyPredictionKeys must include rationale and answer")
+
+        if not isinstance(candidate_comparisons, str) or "Candidate 1" not in candidate_comparisons:
+            errors.append(f"{name}: candidateComparisons must preserve ordered candidate summaries")
 
     return errors
 
@@ -1187,6 +1271,8 @@ def verify_files(expected: dict[str, dict[str, Any]]) -> list[str]:
             )
 
         errors.extend(verify_predict_runtime_contracts(name, actual))
+        errors.extend(verify_program_of_thought_contracts(name, actual))
+        errors.extend(verify_multi_chain_comparison_contracts(name, actual))
         errors.extend(verify_evaluate_runtime_contracts(name, actual))
         errors.extend(verify_bootstrap_family_contracts(name, actual))
         errors.extend(verify_mipro_v2_contracts(name, actual))

@@ -5,7 +5,14 @@
  */
 import { Schema } from "effect"
 import { EvaluationFailed, MetricError } from "./metric.js"
-import { CompositionError, ParseOutputError } from "./module.js"
+import {
+  CompositionError,
+  ParallelExecutionError,
+  ParseOutputError,
+  ProgramCodeParseError,
+  ProgramExecutionError,
+  ProgramRuntimeBoundaryError
+} from "./module.js"
 import { AllTrialsFailed, BootstrapFailed, InstructionProposalFailed, MergeRejected } from "./optimizer.js"
 import { SaveLoadError } from "./save-load.js"
 import { SignatureError } from "./signature.js"
@@ -22,6 +29,10 @@ export const DspError = Schema.Union(
   SignatureError,
   ParseOutputError,
   CompositionError,
+  ParallelExecutionError,
+  ProgramCodeParseError,
+  ProgramExecutionError,
+  ProgramRuntimeBoundaryError,
   BootstrapFailed,
   InstructionProposalFailed,
   AllTrialsFailed,

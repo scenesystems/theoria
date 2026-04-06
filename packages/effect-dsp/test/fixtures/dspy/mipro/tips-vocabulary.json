@@ -12,7 +12,14 @@
     }
   },
   "payload": {
-    "defaultTips": ["none", "creative", "simple", "description", "high_stakes", "persona"],
+    "defaultTips": [
+      "none",
+      "creative",
+      "simple",
+      "description",
+      "high_stakes",
+      "persona"
+    ],
     "baselineTip": "baseline",
     "proposalMarkerTemplate": "[miprov2-proposal:{predictorName}:{proposalIndex}:seed:{seed}]",
     "diversityTemperatureDefault": 1
