@@ -11,30 +11,24 @@ import {
 } from "../../contracts/evidence-stream.js"
 import type { Id } from "../../contracts/id.js"
 import { encodeStreamManifest, type StreamManifest } from "../../contracts/stream-manifest.js"
+import { surfaceUsesSseTransport } from "../runtime/surface-runtime.js"
 import { DemoClient } from "../services/DemoClient.js"
-
-const sseStreamIds: ReadonlyArray<Id> = ["effect-text", "effect-search", "effect-math", "effect-dsp"]
-const eventPacingDelay = "180 millis"
 
 const decodeSseEvent = (data: string): Either.Either<EvidenceEvent, DemoError> =>
   decodeEvidenceEventJson(data).pipe(
     Either.mapLeft((error) => new DemoDecodeError({ message: ParseResult.TreeFormatter.formatErrorSync(error) }))
   )
 
-const pacedState = (hasDeliveredSection: boolean, event: EvidenceEvent): readonly [boolean, EvidenceEvent] => [
-  hasDeliveredSection,
-  event
-]
-
 const makeSseEvidenceStream = (
   id: Id,
-  manifest: string | null = null
+  manifest: string | null = null,
+  runToken: string | null = null
 ): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
   Stream.asyncPush<EvidenceEvent, DemoError, DemoClient>((emit) =>
     Effect.acquireRelease(
       Effect.gen(function*() {
         const client = yield* DemoClient
-        const eventSource = new EventSource(client.streamUrl(id, manifest))
+        const eventSource = new EventSource(client.streamUrl(id, manifest, runToken))
         const streamState = { closed: false, deliveredEvent: false, terminalEvent: false }
 
         const close = () => {
@@ -113,26 +107,12 @@ const makeFetchEvidenceStream = (id: Id): Stream.Stream<EvidenceEvent, DemoError
 
 export const makeServerEvidenceStream = (
   id: Id,
-  manifest: StreamManifest | null = null
+  manifest: StreamManifest | null = null,
+  runToken: string | null = null
 ): Stream.Stream<EvidenceEvent, DemoError, DemoClient> => {
   const encoded = manifest !== null ? encodeStreamManifest(manifest) : null
 
-  return sseStreamIds.includes(id)
-    ? makeSseEvidenceStream(id, encoded)
-    : paceEvidenceStream(makeFetchEvidenceStream(id))
+  return surfaceUsesSseTransport(id)
+    ? makeSseEvidenceStream(id, encoded, runToken)
+    : makeFetchEvidenceStream(id)
 }
-
-export const paceEvidenceStream = <E, R>(
-  stream: Stream.Stream<EvidenceEvent, E, R>
-): Stream.Stream<EvidenceEvent, E, R> =>
-  stream.pipe(
-    Stream.mapAccumEffect(false, (hasDeliveredSection, event) =>
-      Match.value(event).pipe(
-        Match.tag("SectionAppend", () =>
-          Effect.if(hasDeliveredSection, {
-            onTrue: () => Effect.sleep(eventPacingDelay),
-            onFalse: () => Effect.void
-          }).pipe(Effect.as(pacedState(true, event)))),
-        Match.orElse(() => Effect.succeed(pacedState(hasDeliveredSection, event)))
-      ))
-  )

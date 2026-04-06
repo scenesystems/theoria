@@ -26,8 +26,8 @@ export const ReflowStagePanel = ({
   vm.stage === null
     ? (
       <Stack className="gap-4">
-        <LoadingIndicator active text="Preparing text…" tone={tone} />
-        <ContentPlaceholder text="Preparing text…" />
+        <LoadingIndicator active={vm.isAnimating} text={vm.statusText ?? "Preparing text…"} tone={tone} />
+        <ContentPlaceholder text={vm.statusText ?? "Preparing text…"} />
       </Stack>
     )
     : (

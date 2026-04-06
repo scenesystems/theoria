@@ -21,7 +21,7 @@ const LiveOptimizationView = () => {
       controls={
         <Stack className="gap-4">
           <SliderRow
-            disabled={vm.isAnimating}
+            disabled={vm.controlsLocked}
             display={vm.budget.display}
             label="Trials"
             max={vm.budget.max}
@@ -31,7 +31,11 @@ const LiveOptimizationView = () => {
             tone={tone}
             value={vm.budget.value}
           />
-          <LoadingIndicator active={vm.isAnimating} text="Optimizing…" tone={tone} />
+          <LoadingIndicator
+            active={vm.isAnimating}
+            text={vm.statusText ?? "Streaming optimization evidence…"}
+            tone={tone}
+          />
         </Stack>
       }
       metrics={vm.metrics}

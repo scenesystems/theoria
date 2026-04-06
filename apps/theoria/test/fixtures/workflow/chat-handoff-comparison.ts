@@ -1,6 +1,9 @@
 import { Array as Arr } from "effect"
 
-import type { WorkflowComparison } from "../../../app/contracts/workflow/comparison.js"
+import {
+  type WorkflowComparison,
+  workflowComparisonAuthorityBindings
+} from "../../../app/contracts/workflow/comparison.js"
 import { makeWorkflowEvaluationReport, makeWorkflowExecutionRecord } from "./decode.js"
 import { workflowProfileLibrary } from "./profile-library.js"
 
@@ -141,7 +144,11 @@ const optimizedRecord = makeWorkflowExecutionRecord({
 })
 
 export const chatHandoffWorkflowComparison: WorkflowComparison = {
-  id: "chat-handoff",
+  publication: {
+    comparisonId: "workflow-comparison/chat-handoff",
+    consumerId: "workflow-comparison"
+  },
+  authorities: workflowComparisonAuthorityBindings,
   label: "Chat Handoff",
   summary: "Compares a direct chat handoff against a retrieval-and-render aware continuation graph.",
   workflowKind: "chat-continuation",

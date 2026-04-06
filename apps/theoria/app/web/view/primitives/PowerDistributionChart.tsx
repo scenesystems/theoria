@@ -1,4 +1,3 @@
-import { nonCentrality } from "../../../contracts/demo/power.js"
 import type { PowerWidgetViewModel } from "../../atoms/widget-view-models.js"
 import { POWER_SVG, powerChartModel } from "../data/powerChartModel.js"
 import { dangerSubtleLegendTheme, type LegendTheme, neutralLegendTheme, surfaceMaterials } from "./designSystem.js"
@@ -11,7 +10,7 @@ const powerTheme: LegendTheme = { swatch: "bg-tone-math-400/50", label: "text-in
 
 export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewModel }) => {
   const model = powerChartModel(vm.projection)
-  const delta = nonCentrality(vm.projection.d, vm.projection.n)
+  const delta = vm.projection.powerReport.noncentrality
 
   return (
     <Stack className="gap-1.5">
@@ -23,7 +22,7 @@ export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewMod
           text={model.critLeftText}
           variant="expanded"
         />
-        <SemanticText as="span" className="text-ink-700" role="code-meta" text="z-statistic" variant="expanded" />
+        <SemanticText as="span" className="text-ink-700" role="code-meta" text="critical t" variant="expanded" />
         <SemanticText
           as="span"
           className="text-danger-600/80"

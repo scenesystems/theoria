@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 
 import {
+  type ChoreographyProtocolViolation,
   type ChoreographyState,
   Idle,
   initialChoreographyState,
@@ -17,6 +18,24 @@ import {
   StageEnter,
   StageExit
 } from "../../app/contracts/evidence-stream.js"
+
+const expectRight = <A>(result: Either.Either<A, ChoreographyProtocolViolation>): A => {
+  expect(Either.isRight(result)).toBe(true)
+  return Either.match(result, {
+    onLeft: (violation) => expect.fail(violation.message),
+    onRight: (value) => value
+  })
+}
+
+const expectLeftMessage = (
+  result: Either.Either<ChoreographyState, ChoreographyProtocolViolation>
+): string => {
+  expect(Either.isLeft(result)).toBe(true)
+  return Either.match(result, {
+    onLeft: (violation) => violation.message,
+    onRight: () => expect.fail("expected choreography violation")
+  })
+}
 
 describe("Choreography Contract", () => {
   describe("ChoreographyState", () => {
@@ -41,10 +60,10 @@ describe("Choreography Contract", () => {
     const idle: ChoreographyState = initialChoreographyState
 
     it("StageEnter transitions Idle to InStage", () => {
-      const next = reduceChoreographyState(
+      const next = expectRight(reduceChoreographyState(
         idle,
         new StageEnter({ stageId: "corpus-sweep", params: { corpusIndex: 0 } })
-      )
+      ))
       expect(next._tag).toBe("InStage")
       if (next._tag === "InStage") {
         expect(next.stageId).toBe("corpus-sweep")
@@ -54,10 +73,10 @@ describe("Choreography Contract", () => {
     })
 
     it("StageEnter with no params defaults to empty object", () => {
-      const next = reduceChoreographyState(
+      const next = expectRight(reduceChoreographyState(
         idle,
         new StageEnter({ stageId: "test-stage" })
-      )
+      ))
       expect(next._tag).toBe("InStage")
       if (next._tag === "InStage") {
         expect(next.params).toEqual({})
@@ -66,10 +85,10 @@ describe("Choreography Contract", () => {
 
     it("StageAdvance updates step and merges params within matching stage", () => {
       const inStage = InStage({ stageId: "sweep", step: 0, params: { d: 0.2 } })
-      const next = reduceChoreographyState(
+      const next = expectRight(reduceChoreographyState(
         inStage,
         new StageAdvance({ stageId: "sweep", step: 3, params: { n: 30 } })
-      )
+      ))
       expect(next._tag).toBe("InStage")
       if (next._tag === "InStage") {
         expect(next.step).toBe(3)
@@ -77,51 +96,49 @@ describe("Choreography Contract", () => {
       }
     })
 
-    it("StageAdvance is ignored when stageId does not match", () => {
+    it("StageAdvance fails when stageId does not match the active stage", () => {
       const inStage = InStage({ stageId: "sweep", step: 0, params: {} })
-      const next = reduceChoreographyState(
+      const message = expectLeftMessage(reduceChoreographyState(
         inStage,
         new StageAdvance({ stageId: "other", step: 1 })
-      )
-      expect(next._tag).toBe("InStage")
-      if (next._tag === "InStage") {
-        expect(next.stageId).toBe("sweep")
-        expect(next.step).toBe(0)
-      }
+      ))
+      expect(message).toContain("other")
+      expect(message).toContain("sweep")
     })
 
-    it("StageAdvance is ignored when state is Idle", () => {
-      const next = reduceChoreographyState(
+    it("StageAdvance fails when no stage has been entered", () => {
+      const message = expectLeftMessage(reduceChoreographyState(
         idle,
         new StageAdvance({ stageId: "sweep", step: 1 })
-      )
-      expect(next._tag).toBe("Idle")
+      ))
+      expect(message).toContain("before any stage was entered")
     })
 
     it("StageExit transitions InStage to Idle when stageId matches", () => {
       const inStage = InStage({ stageId: "sweep", step: 5, params: { d: 1.0 } })
-      const next = reduceChoreographyState(
+      const next = expectRight(reduceChoreographyState(
         inStage,
         new StageExit({ stageId: "sweep" })
-      )
+      ))
       expect(next._tag).toBe("Idle")
     })
 
-    it("StageExit is ignored when stageId does not match", () => {
+    it("StageExit fails when stageId does not match", () => {
       const inStage = InStage({ stageId: "sweep", step: 5, params: {} })
-      const next = reduceChoreographyState(
+      const message = expectLeftMessage(reduceChoreographyState(
         inStage,
         new StageExit({ stageId: "other" })
-      )
-      expect(next._tag).toBe("InStage")
+      ))
+      expect(message).toContain("other")
+      expect(message).toContain("sweep")
     })
 
     it("Highlight does not change state", () => {
       const inStage = InStage({ stageId: "sweep", step: 2, params: {} })
-      const next = reduceChoreographyState(
+      const next = expectRight(reduceChoreographyState(
         inStage,
         new Highlight({ target: "tpe-best", params: { trialIndex: 12 } })
-      )
+      ))
       expect(next._tag).toBe("InStage")
       if (next._tag === "InStage") {
         expect(next.step).toBe(2)
@@ -129,31 +146,31 @@ describe("Choreography Contract", () => {
     })
 
     it("full stage lifecycle: enter → advance → advance → exit", () => {
-      const s0 = reduceChoreographyState(
+      const s0 = expectRight(reduceChoreographyState(
         idle,
         new StageEnter({ stageId: "corpus-sweep", params: { corpusIndex: 0 } })
-      )
+      ))
       expect(s0._tag).toBe("InStage")
 
-      const s1 = reduceChoreographyState(
+      const s1 = expectRight(reduceChoreographyState(
         s0,
         new StageAdvance({ stageId: "corpus-sweep", step: 1, params: { width: 280 } })
-      )
+      ))
       if (s1._tag === "InStage") {
         expect(s1.step).toBe(1)
         expect(s1.params).toEqual({ corpusIndex: 0, width: 280 })
       }
 
-      const s2 = reduceChoreographyState(
+      const s2 = expectRight(reduceChoreographyState(
         s1,
         new StageAdvance({ stageId: "corpus-sweep", step: 2, params: { width: 480 } })
-      )
+      ))
       if (s2._tag === "InStage") {
         expect(s2.step).toBe(2)
         expect(s2.params).toEqual({ corpusIndex: 0, width: 480 })
       }
 
-      const s3 = reduceChoreographyState(s2, new StageExit({ stageId: "corpus-sweep" }))
+      const s3 = expectRight(reduceChoreographyState(s2, new StageExit({ stageId: "corpus-sweep" })))
       expect(s3._tag).toBe("Idle")
     })
   })

@@ -2,7 +2,10 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Match } from "effect"
 
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
 import {
+  type EffectMathRunPlan,
+  isEffectMathRunPlan,
   powerAlphaMax,
   powerAlphaMin,
   powerAlphaStep,
@@ -11,15 +14,19 @@ import {
   powerEffectSizeStep,
   powerSampleSizeMax,
   powerSampleSizeMin,
-  powerSampleSizeStep
+  powerSampleSizeStep,
+  projectPowerProjection
 } from "../../contracts/demo/power.js"
-import { isEffectMathRunFrame, isEffectMathRunPlan, type LocalRunFrame, type LocalRunPlan } from "../state/local-run.js"
-import { runShowsAnimatingState, runUsesActiveFrameAuthority } from "../state/run-interaction.js"
+import type { EffectMathCanonicalStep } from "../../contracts/demo/power.js"
+import { runUsesActiveFrameAuthority } from "../state/run-interaction.js"
 import type { MetricAppearance } from "../view/primitives/designSystem.js"
 import type { PowerProjection } from "./power-animation.js"
-import { powerAnimatingAtom, powerProjectionAtom } from "./power-animation.js"
-import { surfaceActiveLocalRunFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
-import { type WidgetMetric, widgetMetric } from "./widget-view-model-shared.js"
+import { powerProjectionAtom } from "./power-animation.js"
+import { surfaceActiveCanonicalFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
+import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+
+const firstPlannedPowerControls = (plan: EffectMathRunPlan): EffectMathRunPlan["baseControls"] =>
+  plan.phases[0]?.steps[0] ?? plan.baseControls
 
 export type PowerWidgetViewModel = {
   readonly controls: {
@@ -45,23 +52,29 @@ export type PowerWidgetViewModel = {
       readonly display: string
     }
   }
+  readonly controlsLocked: boolean
   readonly isAnimating: boolean
+  readonly statusText: string | null
   readonly metrics: ReadonlyArray<WidgetMetric>
   readonly projection: PowerProjection
 }
 
+const isEffectMathCanonicalStep = (
+  step: { readonly _tag: string }
+): step is typeof EffectMathCanonicalStep.Type => step._tag === "EffectMathCanonicalStep"
+
 const resolveActiveEffectMathAuthority = ({
-  frame,
+  canonicalFrame,
   plan
 }: {
-  readonly frame: LocalRunFrame | null
-  readonly plan: LocalRunPlan | null
+  readonly canonicalFrame: CanonicalFrame | null
+  readonly plan: { readonly _tag: string } | null
 }): {
-  readonly frame: Extract<LocalRunFrame, { readonly _tag: "effect-math" }>
-  readonly plan: Extract<LocalRunPlan, { readonly _tag: "effect-math" }>
+  readonly step: typeof EffectMathCanonicalStep.Type
+  readonly plan: EffectMathRunPlan
 } | null =>
-  isEffectMathRunPlan(plan) && isEffectMathRunFrame(frame)
-    ? { frame, plan }
+  isEffectMathRunPlan(plan) && canonicalFrame !== null && isEffectMathCanonicalStep(canonicalFrame.step)
+    ? { step: canonicalFrame.step, plan }
     : null
 
 const mathMetricAppearance: MetricAppearance = { _tag: "tone", tone: "math" }
@@ -82,17 +95,27 @@ const powerMetricAppearance = (powerValue: number): MetricAppearance =>
 export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Atom.make(
   (get: AtomType.Context): PowerWidgetViewModel => {
     const run = get(surfaceRunStateAtom("effect-math"))
+    const runtime = widgetRuntimeState(run)
+    const frozenPlan = runUsesActiveFrameAuthority(run)
+      ? get(surfaceActiveLocalRunPlanAtom("effect-math"))
+      : null
     const activeAuthority = runUsesActiveFrameAuthority(run)
       ? resolveActiveEffectMathAuthority({
-        frame: get(surfaceActiveLocalRunFrameAtom("effect-math")),
-        plan: get(surfaceActiveLocalRunPlanAtom("effect-math"))
+        canonicalFrame: get(surfaceActiveCanonicalFrameAtom("effect-math")),
+        plan: frozenPlan
       })
       : null
-    const projection = activeAuthority?.frame.projection ?? get(powerProjectionAtom)
-    const controls = activeAuthority?.frame.controls ?? {
-      d: projection.d,
-      n: projection.n,
-      alpha: projection.alpha
+    const frozenControls = isEffectMathRunPlan(frozenPlan)
+      ? firstPlannedPowerControls(frozenPlan)
+      : null
+    const projection = activeAuthority?.step.projection
+      ?? (frozenControls === null ? get(powerProjectionAtom) : projectPowerProjection(frozenControls))
+    const powerReport = projection.powerReport
+    const sampleSizeReport = projection.sampleSizeReport
+    const controls = activeAuthority?.step.controls ?? frozenControls ?? {
+      d: powerReport.effectSize,
+      n: powerReport.sampleSize,
+      alpha: powerReport.alpha
     }
 
     return {
@@ -119,14 +142,19 @@ export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Ato
           display: controls.alpha.toFixed(2)
         }
       },
-      isAnimating: runShowsAnimatingState(run, get(powerAnimatingAtom)),
+      controlsLocked: runtime.controlsLocked,
+      isAnimating: runtime.isAnimating,
+      statusText: runtime.statusText,
       metrics: [
-        widgetMetric("Power", `${(projection.power * 100).toFixed(1)}%`, {
-          appearance: powerMetricAppearance(projection.power)
+        widgetMetric("Power", `${(powerReport.power * 100).toFixed(1)}%`, {
+          appearance: powerMetricAppearance(powerReport.power)
         }),
-        widgetMetric("N for 80%", Number.isFinite(projection.requiredN) ? `${projection.requiredN}` : "∞"),
+        widgetMetric(
+          "N for 80%",
+          sampleSizeReport.solver.status === "converged" ? `${sampleSizeReport.sampleSize}` : "∞"
+        ),
         widgetMetric("Overlap", `${(projection.overlap * 100).toFixed(1)}%`),
-        widgetMetric("δ", projection.nonCentrality.toFixed(2))
+        widgetMetric("δ", powerReport.noncentrality.toFixed(2))
       ],
       projection
     }

@@ -2,22 +2,28 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Option } from "effect"
 
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
+import type { EffectSearchCanonicalStep } from "../../contracts/demo/objective.js"
 import {
+  type EffectSearchRunPlan,
+  isEffectSearchRunPlan,
   optimizationTrialBudgetMax,
   optimizationTrialBudgetMin,
   optimizationTrialBudgetStep
 } from "../../contracts/demo/objective.js"
-import {
-  isEffectSearchRunFrame,
-  isEffectSearchRunPlan,
-  type LocalRunFrame,
-  type LocalRunPlan
-} from "../state/local-run.js"
-import { runShowsAnimatingState } from "../state/run-interaction.js"
+import { runUsesActiveFrameAuthority } from "../state/run-interaction.js"
 import type { OptimizationProjection } from "./optimization-animation.js"
-import { optimizationAnimatingAtom, optimizationProjectionAtom } from "./optimization-animation.js"
-import { surfaceLocalRunFrameAtom, surfaceLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
-import { type WidgetMetric, widgetMetric } from "./widget-view-model-shared.js"
+import { makeOptimizationProjection, optimizationProjectionAtom } from "./optimization-animation.js"
+import { surfaceActiveCanonicalFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
+import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+
+const frozenOptimizationProjection = (plan: EffectSearchRunPlan): OptimizationProjection =>
+  makeOptimizationProjection({
+    phase: "running",
+    randomTrials: [],
+    tpeTrials: [],
+    trialBudget: plan.trialBudget
+  })
 
 export type OptimizationWidgetViewModel = {
   readonly budget: {
@@ -27,7 +33,9 @@ export type OptimizationWidgetViewModel = {
     readonly step: number
     readonly display: string
   }
+  readonly controlsLocked: boolean
   readonly isAnimating: boolean
+  readonly statusText: string | null
   readonly metrics: ReadonlyArray<WidgetMetric>
   readonly projection: OptimizationProjection
 }
@@ -39,33 +47,50 @@ const optionDisplay = (value: Option.Option<number>, digits: number): string =>
   })
 
 const resolveEffectSearchAuthority = ({
-  frame,
+  canonicalFrame,
   plan
 }: {
-  readonly frame: LocalRunFrame | null
-  readonly plan: LocalRunPlan | null
+  readonly canonicalFrame: CanonicalFrame | null
+  readonly plan: { readonly _tag: string } | null
 }): {
-  readonly frame: Extract<LocalRunFrame, { readonly _tag: "effect-search" }>
-  readonly plan: Extract<LocalRunPlan, { readonly _tag: "effect-search" }>
+  readonly step: typeof EffectSearchCanonicalStep.Type
+  readonly plan: EffectSearchRunPlan
 } | null =>
-  isEffectSearchRunPlan(plan) && isEffectSearchRunFrame(frame)
-    ? { frame, plan }
+  isEffectSearchRunPlan(plan) && canonicalFrame !== null && canonicalFrame.step._tag === "EffectSearchCanonicalStep"
+    ? { step: canonicalFrame.step, plan }
     : null
 
 export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetViewModel> = Atom.make(
   (get: AtomType.Context): OptimizationWidgetViewModel => {
     const run = get(surfaceRunStateAtom("effect-search"))
-    const authority = resolveEffectSearchAuthority({
-      frame: get(surfaceLocalRunFrameAtom("effect-search")),
-      plan: get(surfaceLocalRunPlanAtom("effect-search"))
-    })
-    const projection = authority?.frame.projection ?? get(optimizationProjectionAtom)
+    const runtime = widgetRuntimeState(run)
+    const frozenPlan = runUsesActiveFrameAuthority(run)
+      ? get(surfaceActiveLocalRunPlanAtom("effect-search"))
+      : null
+    const authority = runUsesActiveFrameAuthority(run)
+      ? resolveEffectSearchAuthority({
+        canonicalFrame: get(surfaceActiveCanonicalFrameAtom("effect-search")),
+        plan: frozenPlan
+      })
+      : null
+    const projection = authority === null
+      ? isEffectSearchRunPlan(frozenPlan)
+        ? frozenOptimizationProjection(frozenPlan)
+        : get(optimizationProjectionAtom)
+      : makeOptimizationProjection({
+        phase: authority.step.phase,
+        randomTrials: authority.step.randomTrials,
+        tpeTrials: authority.step.tpeTrials,
+        trialBudget: authority.step.trialBudget
+      })
     const improvement = Option.zipWith(
       projection.tpeBestValue,
       projection.randomBestValue,
       (tpeBest, randomBest) => `${((1 - tpeBest / randomBest) * 100).toFixed(1)}%`
     )
-    const trialBudget = authority?.plan.trialBudget ?? projection.trialBudget
+    const trialBudget = authority?.step.trialBudget
+      ?? (isEffectSearchRunPlan(frozenPlan) ? frozenPlan.trialBudget : null)
+      ?? projection.trialBudget
 
     return {
       budget: {
@@ -75,7 +100,9 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
         step: optimizationTrialBudgetStep,
         display: `${trialBudget}`
       },
-      isAnimating: runShowsAnimatingState(run, get(optimizationAnimatingAtom)),
+      controlsLocked: runtime.controlsLocked,
+      isAnimating: runtime.isAnimating,
+      statusText: runtime.statusText,
       metrics: [
         widgetMetric("TPE best", optionDisplay(projection.tpeBestValue, 4), {
           appearance: { _tag: "tone", tone: "search" }

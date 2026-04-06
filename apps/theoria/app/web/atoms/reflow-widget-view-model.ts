@@ -3,16 +3,19 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Text } from "effect-text"
 import * as Arr from "effect/Array"
 
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
 import { corpus } from "../../contracts/corpus.js"
+import type { EffectTextProjectionStep } from "../../contracts/demo/text.js"
+import { type EffectTextRunPlan, isEffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
-import { isEffectTextRunFrame, isEffectTextRunPlan, type LocalRunFrame, type LocalRunPlan } from "../state/local-run.js"
-import { runShowsAnimatingState, runUsesActiveFrameAuthority } from "../state/run-interaction.js"
+import { runUsesActiveFrameAuthority } from "../state/run-interaction.js"
 import { browserSupportProfileId } from "../text/browserTextLayout.js"
 import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleProjection.js"
 import type { MetricAppearance } from "../view/primitives/designSystem.js"
-import { animatingAtom } from "./animation.js"
 import {
   customTextAtom,
+  type EffectTextRunFrame,
+  isEffectTextRunFrame,
   reflowControlsAtom,
   reflowMinWidthFor,
   type ReflowProjection,
@@ -22,8 +25,13 @@ import {
   resolveReflowStageMaxWidth,
   resolveReflowStageWidth
 } from "./reflow.js"
-import { surfaceActiveLocalRunFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
-import { type WidgetMetric, widgetMetric } from "./widget-view-model-shared.js"
+import {
+  surfaceActiveCanonicalFrameAtom,
+  surfaceActiveLocalRunFrameAtom,
+  surfaceActiveLocalRunPlanAtom,
+  surfaceRunStateAtom
+} from "./surface.js"
+import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
 
 export type ReflowWidgetViewModel = {
   readonly corpusOptions: ReadonlyArray<{ readonly index: number; readonly label: string }>
@@ -37,7 +45,9 @@ export type ReflowWidgetViewModel = {
     readonly display: string
   }
   readonly obstaclesEnabled: boolean
+  readonly controlsLocked: boolean
   readonly isAnimating: boolean
+  readonly statusText: string | null
   readonly metrics: ReadonlyArray<WidgetMetric>
   readonly lines: ReadonlyArray<ReflowStageLine>
   readonly stage: {
@@ -108,53 +118,87 @@ const resolveReflowProjection = ({
   activeFrame,
   manualProjection
 }: {
-  readonly activeFrame: Extract<LocalRunFrame, { readonly _tag: "effect-text" }> | null
+  readonly activeFrame: EffectTextRunFrame | null
   readonly manualProjection: ReflowProjection | null
 }): ReflowProjection | null => activeFrame?.projection ?? manualProjection
 
 const resolveActiveEffectTextAuthority = ({
-  frame,
+  canonicalFrame,
+  localFrame,
   plan
 }: {
-  readonly frame: LocalRunFrame | null
-  readonly plan: LocalRunPlan | null
+  readonly canonicalFrame: CanonicalFrame | null
+  readonly localFrame: { readonly _tag: string } | null
+  readonly plan: { readonly _tag: string } | null
 }): {
-  readonly frame: Extract<LocalRunFrame, { readonly _tag: "effect-text" }>
-  readonly plan: Extract<LocalRunPlan, { readonly _tag: "effect-text" }>
+  readonly step: typeof EffectTextProjectionStep.Type
+  readonly localFrame: EffectTextRunFrame | null
+  readonly plan: EffectTextRunPlan
 } | null =>
-  isEffectTextRunPlan(plan) && isEffectTextRunFrame(frame)
-    ? { frame, plan }
+  isEffectTextRunPlan(plan) && canonicalFrame !== null && canonicalFrame.step._tag === "EffectTextProjectionStep"
+    ? {
+      step: canonicalFrame.step,
+      localFrame: isEffectTextRunFrame(localFrame) ? localFrame : null,
+      plan
+    }
     : null
+
+const firstPlannedReflowStep = (
+  plan: EffectTextRunPlan
+): EffectTextRunPlan["entries"][number]["steps"][number] | null => plan.entries[0]?.steps[0] ?? null
+
+const firstPlannedCorpusIndex = (plan: EffectTextRunPlan): number => plan.entries[0]?.corpusIndex ?? 0
 
 export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = Atom.make(
   (get: AtomType.Context): ReflowWidgetViewModel => {
     const controls = get(reflowControlsAtom)
     const run = get(surfaceRunStateAtom("effect-text"))
-    const isAnimating = get(animatingAtom)
+    const runtime = widgetRuntimeState(run)
     const manualProjection = get(reflowProjectionAtom)
+    const frozenPlan = runUsesActiveFrameAuthority(run)
+      ? get(surfaceActiveLocalRunPlanAtom("effect-text"))
+      : null
     const activeAuthority = runUsesActiveFrameAuthority(run)
       ? resolveActiveEffectTextAuthority({
-        frame: get(surfaceActiveLocalRunFrameAtom("effect-text")),
-        plan: get(surfaceActiveLocalRunPlanAtom("effect-text"))
+        canonicalFrame: get(surfaceActiveCanonicalFrameAtom("effect-text")),
+        localFrame: get(surfaceActiveLocalRunFrameAtom("effect-text")),
+        plan: frozenPlan
       })
       : null
-    const projection = resolveReflowProjection({
-      activeFrame: activeAuthority?.frame ?? null,
-      manualProjection
-    })
-    const selectedCorpusIndex = activeAuthority?.frame.controls.corpusIndex ?? controls.corpusIndex
+    const plannedStep = isEffectTextRunPlan(frozenPlan) ? firstPlannedReflowStep(frozenPlan) : null
+    const projection = runUsesActiveFrameAuthority(run)
+      ? activeAuthority?.localFrame?.projection ?? null
+      : resolveReflowProjection({
+        activeFrame: activeAuthority?.localFrame ?? null,
+        manualProjection
+      })
+    const selectedCorpusIndex = activeAuthority?.step.corpusIndex
+      ?? (isEffectTextRunPlan(frozenPlan) ? firstPlannedCorpusIndex(frozenPlan) : null)
+      ?? activeAuthority?.localFrame?.controls.corpusIndex
+      ?? controls.corpusIndex
     const customText = get(customTextAtom)
-    const entry = resolveReflowCorpusEntry(selectedCorpusIndex, activeAuthority?.plan.customText ?? customText)
-    const viewportWidthPx = activeAuthority?.plan.viewportWidthPx ?? get(reflowStageViewportWidthAtom)
-    const stageMaxWidth = resolveReflowStageMaxWidth(viewportWidthPx)
-    const obstaclesEnabled = activeAuthority?.frame.controls.obstaclesEnabled ?? controls.obstaclesEnabled
-    const stageMinWidth = reflowMinWidthFor(stageMaxWidth, obstaclesEnabled, entry.scene.obstacles)
-    const width = activeAuthority?.frame.projection.stageWidthPx ?? resolveReflowStageWidth(
-      controls.width,
-      viewportWidthPx,
-      controls.obstaclesEnabled,
-      entry.scene.obstacles
+    const entry = resolveReflowCorpusEntry(
+      selectedCorpusIndex,
+      activeAuthority?.plan.customText ?? (isEffectTextRunPlan(frozenPlan) ? frozenPlan.customText : customText)
     )
+    const viewportWidthPx = activeAuthority?.plan.viewportWidthPx
+      ?? (isEffectTextRunPlan(frozenPlan) ? frozenPlan.viewportWidthPx : null)
+      ?? get(reflowStageViewportWidthAtom)
+    const stageMaxWidth = resolveReflowStageMaxWidth(viewportWidthPx)
+    const obstaclesEnabled = activeAuthority?.step.obstaclesEnabled
+      ?? plannedStep?.obstaclesEnabled
+      ?? activeAuthority?.localFrame?.controls.obstaclesEnabled
+      ?? controls.obstaclesEnabled
+    const stageMinWidth = reflowMinWidthFor(stageMaxWidth, obstaclesEnabled, entry.scene.obstacles)
+    const width = activeAuthority?.step.stageWidthPx
+      ?? plannedStep?.stageWidthPx
+      ?? activeAuthority?.localFrame?.projection.stageWidthPx
+      ?? resolveReflowStageWidth(
+        controls.width,
+        viewportWidthPx,
+        controls.obstaclesEnabled,
+        entry.scene.obstacles
+      )
     const usingCustomText = selectedCorpusIndex >= corpus.length
     const stage = projection === null ? null : reflowStage(projection)
 
@@ -166,7 +210,9 @@ export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = A
       selectedCorpusIndex,
       usingCustomText,
       customText: usingCustomText && activeAuthority !== null
-        ? activeAuthority.frame.projection.corpusText
+        ? activeAuthority.localFrame?.projection.corpusText ?? activeAuthority.plan.customText
+        : usingCustomText && isEffectTextRunPlan(frozenPlan)
+        ? frozenPlan.customText
         : customText,
       width: {
         value: width,
@@ -175,7 +221,9 @@ export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = A
         display: `${width}px`
       },
       obstaclesEnabled,
-      isAnimating: runShowsAnimatingState(run, isAnimating),
+      controlsLocked: runtime.controlsLocked,
+      isAnimating: runtime.isAnimating,
+      statusText: runtime.statusText,
       metrics: stage === null ? [] : reflowMetrics({ obstaclesEnabled, projection: stage }),
       lines: projection?.lines ?? [],
       stage

@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import { Envelope } from "./envelope.js"
 
 import { EvidenceSection } from "./evidence.js"
+import { PublishedConsumerId } from "./id.js"
 import { Program } from "./presentation.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -13,7 +14,7 @@ const NonNegativeNumber = Schema.Number.pipe(
 )
 
 export const RunData = Schema.Struct({
-  id: NonEmptyString,
+  id: PublishedConsumerId,
   packageName: NonEmptyString,
   summary: NonEmptyString,
   durationMs: NonNegativeNumber,

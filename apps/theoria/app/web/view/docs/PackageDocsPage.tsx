@@ -1,6 +1,6 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
-import type { PackageName } from "@theoria/source-proof"
+import type { PackageName } from "@theoria/source-proof/contracts"
 import { Match, Option } from "effect"
 
 import { cards } from "../../../contracts/card.js"

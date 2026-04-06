@@ -138,6 +138,9 @@ export type EffectTextRunFrame = {
   readonly projection: ReflowProjection
 }
 
+export const isEffectTextRunFrame = (frame: { readonly _tag: string } | null): frame is EffectTextRunFrame =>
+  frame !== null && frame._tag === "effect-text"
+
 export const prepareReflowEntry = (entry: CorpusEntry): Effect.Effect<Text.PreparedTextWithSegments, never, never> =>
   prepareBrowserText(prepareInputForEntry(entry)).pipe(Effect.orDie)
 

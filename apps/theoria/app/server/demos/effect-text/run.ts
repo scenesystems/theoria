@@ -7,11 +7,11 @@ import type { RunData } from "../../../contracts/run.js"
 import { baselineLayouts, focusWidth, measured, obstacleProjection, optimizedLayouts } from "./analysis.js"
 import { corpusMatrixProjection, corpusProjection, meanNaiveError, widthMetrics } from "./projection.js"
 import { runSectionsForStory } from "./stage-story.js"
-import { streamElements, streamSections } from "./stream.js"
+import { runSummary, streamElements, streamPlan, streamSections } from "./stream.js"
 
 import { preloadProgram } from "./preload.js"
 
-export { preloadProgram, streamElements, streamSections }
+export { preloadProgram, runSummary, streamElements, streamPlan, streamSections }
 
 export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
@@ -31,8 +31,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   return {
     id: "effect-text",
     packageName: "effect-text",
-    summary:
-      "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces.",
+    summary: runSummary,
     durationMs: endedAt - startedAt,
     program: runnableProgram,
     sections: runSectionsForStory({

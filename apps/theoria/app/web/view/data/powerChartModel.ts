@@ -1,8 +1,7 @@
 import * as Arr from "effect/Array"
 
-import { normalPdf, normalQuantile } from "effect-math/Distribution"
+import { normalPdf } from "effect-math/Distribution"
 
-import { nonCentrality } from "../../../contracts/demo/power.js"
 import type { PowerProjection } from "../../atoms/power-animation.js"
 
 export type PlotPoint = {
@@ -85,9 +84,9 @@ export type PowerChartModel = {
 }
 
 export const powerChartModel = (projection: PowerProjection): PowerChartModel => {
-  const delta = nonCentrality(projection.d, projection.n)
-  const critZ = normalQuantile(1 - projection.alpha / 2, 0, 1)
-  const xMin = Math.min(-4, -critZ - 1.5)
+  const delta = projection.powerReport.noncentrality
+  const criticalValue = projection.powerReport.criticalValue
+  const xMin = Math.min(-4, -criticalValue - 1.5)
   const xMax = Math.max(4, delta + 4)
   const xRange = xMax - xMin
   const xs = linspace(xMin, xMax, 200)
@@ -95,18 +94,18 @@ export const powerChartModel = (projection: PowerProjection): PowerChartModel =>
   const h1Points = samplePdf(xs, delta, 1)
   const yMax = Math.max(...h0Points.map((point) => point.y), ...h1Points.map((point) => point.y)) * 1.2
 
-  const h0RightTail = withinRange(h0Points, critZ, xMax)
-  const h0LeftTail = withinRange(h0Points, xMin, -critZ)
-  const h1PowerRight = withinRange(h1Points, critZ, xMax)
-  const h1PowerLeft = withinRange(h1Points, xMin, -critZ)
+  const h0RightTail = withinRange(h0Points, criticalValue, xMax)
+  const h0LeftTail = withinRange(h0Points, xMin, -criticalValue)
+  const h1PowerRight = withinRange(h1Points, criticalValue, xMax)
+  const h1PowerLeft = withinRange(h1Points, xMin, -criticalValue)
 
   return {
-    alphaText: `α = ${projection.alpha.toFixed(2)}`,
+    alphaText: `α = ${projection.powerReport.alpha.toFixed(2)}`,
     baseline: POWER_SVG.padding.top + PLOT_HEIGHT,
-    critLeftText: `z = ${(-critZ).toFixed(2)}`,
-    critLeftX: mapPowerX(-critZ, xMin, xRange),
-    critRightText: `z = ${critZ.toFixed(2)}`,
-    critRightX: mapPowerX(critZ, xMin, xRange),
+    critLeftText: `t = ${(-criticalValue).toFixed(2)}`,
+    critLeftX: mapPowerX(-criticalValue, xMin, xRange),
+    critRightText: `t = ${criticalValue.toFixed(2)}`,
+    critRightX: mapPowerX(criticalValue, xMin, xRange),
     deltaText: `δ = ${delta.toFixed(2)}`,
     h0Fill: filledRegion(h0Points, xMin, xRange, yMax),
     h0Line: pathFromPoints(h0Points, xMin, xRange, yMax),

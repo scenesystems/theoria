@@ -229,6 +229,7 @@ describe("Evidence Stream State", () => {
             sequence: 1,
             ownership: { localDriver: true, serverStream: true },
             startedAtMs: 0,
+            runPlan: { id: "effect-text", manifest: null },
             localRunPlan: null,
             program: {
               files: [{ language: "ts", entry: "demo.ts", name: "demo.ts", source: "export const demo = true" }]
@@ -257,6 +258,7 @@ describe("Evidence Stream State", () => {
             sequence: 1,
             ownership: { localDriver: true, serverStream: true },
             startedAtMs: 0,
+            runPlan: { id: "effect-text", manifest: null },
             localRunPlan: null,
             program: {
               files: [{ language: "ts", entry: "demo.ts", name: "demo.ts", source: "export const demo = true" }]

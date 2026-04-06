@@ -1,0 +1,20 @@
+export {
+  type AuthoredStepQueueEvent,
+  type CompletionEvent,
+  type ProjectionDriverDescriptor,
+  type ProjectionDriverEvent,
+  projectionDriverFor,
+  type ProjectionDriverSnapshot,
+  resetProjectionDriverState,
+  runOwnershipFor,
+  setProjectionPlayback,
+  snapshotProjectionDriver,
+  streamingSurfaceIds,
+  type SurfaceRuntime,
+  surfaceRuntimeFor,
+  type SurfaceRuntimeSnapshot,
+  surfaceRuntimeSnapshotFor,
+  type SurfaceTransport,
+  surfaceUsesSseTransport,
+  syncProjectionFrameToControls
+} from "./proving-consumer.js"

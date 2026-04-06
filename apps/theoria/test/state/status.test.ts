@@ -16,11 +16,10 @@ import {
 import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import {
   failedRunState,
-  localCompletedRunState,
   pausedRunState,
   runningRunState,
-  serverCompletedRunState,
-  stoppedRunState,
+  stepQueueDrainedRunState,
+  streamCompletedRunState,
   succeededRunState
 } from "../helpers/run-state.js"
 
@@ -255,7 +254,7 @@ describe("statusText", () => {
       )
     }))
 
-  it.effect("RunPaused reports paused-after-complete status once server completion is recorded", () =>
+  it.effect("RunPaused keeps stream-owned pause copy once stream completion is recorded", () =>
     Effect.gen(function*() {
       const stream: EvidenceStreamState = {
         sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
@@ -263,17 +262,17 @@ describe("statusText", () => {
         summary: null,
         meta: null
       }
-      const run = serverCompletedRunState({
+      const run = streamCompletedRunState({
         run: pausedRunState({ program: programPreviewFixture.program }),
         summary: "Server done."
       })
       const state = { ...initialSurfaceState("effect-text"), run }
       expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Run paused after server completion. Resume to finish the local stage."
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
-  it.effect("RunRunning distinguishes local completion from server completion without relying on stream.complete", () =>
+  it.effect("RunRunning keeps user-facing copy on the stream ledger even when only stream completion remains", () =>
     Effect.gen(function*() {
       const stream: EvidenceStreamState = {
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
@@ -281,17 +280,17 @@ describe("statusText", () => {
         summary: null,
         meta: null
       }
-      const run = localCompletedRunState({
+      const run = stepQueueDrainedRunState({
         run: runningRunState({ program: programPreviewFixture.program })
       })
       const state = { ...initialSurfaceState("effect-text"), run }
 
       expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Local stage complete. Waiting for server completion…"
+        "Streaming results… 1 section loaded."
       )
     }))
 
-  it.effect("RunPaused does not ask for resume once only server completion is outstanding", () =>
+  it.effect("RunPaused keeps the same evidence-led pause copy once only stream completion is outstanding", () =>
     Effect.gen(function*() {
       const stream: EvidenceStreamState = {
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
@@ -299,17 +298,17 @@ describe("statusText", () => {
         summary: null,
         meta: null
       }
-      const run = localCompletedRunState({
+      const run = stepQueueDrainedRunState({
         run: pausedRunState({ program: programPreviewFixture.program })
       })
       const state = { ...initialSurfaceState("effect-text"), run }
 
       expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Local stage complete. Waiting for server completion…"
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
-  it.effect("RunPaused switches to finalizing copy once both completion facts are present", () =>
+  it.effect("RunPaused stays on neutral pause copy once both completion facts are present", () =>
     Effect.gen(function*() {
       const stream: EvidenceStreamState = {
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
@@ -317,8 +316,8 @@ describe("statusText", () => {
         summary: "Server done.",
         meta: null
       }
-      const run = localCompletedRunState({
-        run: serverCompletedRunState({
+      const run = stepQueueDrainedRunState({
+        run: streamCompletedRunState({
           run: pausedRunState({ program: programPreviewFixture.program }),
           summary: "Server done."
         })
@@ -326,7 +325,7 @@ describe("statusText", () => {
       const state = { ...initialSurfaceState("effect-text"), run }
 
       expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Finalizing live stage…"
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
@@ -361,21 +360,6 @@ describe("statusText", () => {
       const state = { ...initialSurfaceState("effect-text"), run }
       expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
         `${statusFromError(errorFixture)} Partial results remain visible.`
-      )
-    }))
-
-  it.effect("RunStopped preserves partial-results context when evidence is already present", () =>
-    Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
-        sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
-        complete: false,
-        summary: null,
-        meta: null
-      }
-      const run = stoppedRunState({ program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Run stopped. Partial results remain visible."
       )
     }))
 })

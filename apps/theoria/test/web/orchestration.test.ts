@@ -4,6 +4,7 @@ import { Deferred, Effect, Layer, Ref } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
+import type { Id } from "../../app/contracts/id.js"
 import { makeRunControlAtom, makeRunDemoAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
 import {
@@ -19,11 +20,11 @@ import type { SurfaceState } from "../../app/web/state/types.js"
 import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import { failedRunState, runningRunState, succeededRunState } from "../helpers/run-state.js"
 
-const readSurface = (registry: Registry.Registry, id: string): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
 
 const updateSurface = (
   registry: Registry.Registry,
-  id: string,
+  id: Id,
   f: (s: SurfaceState) => SurfaceState
 ): void => {
   registry.update(surfaceAtom(id), f)
@@ -134,7 +135,7 @@ describe("Theoria Orchestration", () => {
       const holdFirstRun = yield* Deferred.make<void, never>()
       const callCount = yield* Ref.make(0)
 
-      const runWithMeta = (_id: string) =>
+      const runWithMeta = (_id: Id) =>
         Ref.updateAndGet(callCount, (count) => count + 1).pipe(
           Effect.flatMap((count) =>
             count === 1
@@ -187,7 +188,8 @@ describe("Theoria Orchestration", () => {
       expect(final.run._tag).toBe("RunSuccess")
       if (final.run._tag === "RunSuccess") {
         expect(final.run.data.summary).toBe("latest")
-        expect(final.run.data.durationMs).toBe(41)
+        expect(final.run.data.durationMs).toBe(3)
+        expect(final.run.meta?.durationMs).toBe(41)
         expect(final.run.meta?.requestId).toBe("req-latest")
       }
     }))
@@ -236,7 +238,7 @@ describe("Theoria Orchestration", () => {
 
       const stopped = yield* Effect.eventually(
         Effect.sync(() => readSurface(registry, "digest")).pipe(
-          Effect.filterOrFail((state) => state.run._tag === "RunStopped", () => "waiting-for-stopped")
+          Effect.filterOrFail((state) => state.run._tag === "RunIdle", () => "waiting-for-stopped")
         )
       )
 

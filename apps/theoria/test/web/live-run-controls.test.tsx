@@ -6,8 +6,10 @@ import * as Arr from "effect/Array"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
+import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
+import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js"
 import type { Id } from "../../app/contracts/id.js"
-import { encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence-stream.js"
+import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence-stream.js"
 import { DeepDivePage } from "../../app/web/view/deep/DeepDivePage.js"
 import { programPreviewFixture } from "../helpers/demo-fixtures.js"
 
@@ -161,11 +163,30 @@ describe("live run controls", () => {
               expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
 
               yield* Effect.sync(() => {
+                const telemetry = makeEffectSearchStudyTelemetry({
+                  randomEvents: [],
+                  randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
+                  trialBudget: 30,
+                  tpeEvents: [],
+                  tpeTrialPoints: [{ x: -1.25, y: 0.25, value: 0.12, index: 0 }]
+                })
+                const stepEvent = encodeEvidenceEventJson(
+                  canonicalStepEvent(
+                    new EffectSearchCanonicalStep({
+                      trialBudget: 30,
+                      phase: "running",
+                      tpeTrials: [{ x: -1.25, y: 0.25, value: 0.12, index: 0 }],
+                      randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
+                      telemetry
+                    })
+                  )
+                )
                 const completionEvent = encodeEvidenceEventJson(
                   new StreamComplete({ summary: "UI smoke complete.", meta: streamMeta })
                 )
 
                 openSources().forEach((source) => {
+                  source.emitEvidence(stepEvent)
                   source.emitEvidence(completionEvent)
                 })
               })

@@ -5,13 +5,13 @@ import { StageEnter } from "../../app/contracts/choreography.js"
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
 import { EffectTextProjectionStep } from "../../app/contracts/demo/text.js"
 import {
+  canonicalStepEvent,
   Choreography,
   decodeEvidenceEventJson,
   encodeEvidenceEventJson,
   EvidenceEvent,
   SectionAppend,
   SectionUpsert,
-  Step,
   StreamComplete,
   StreamFailed
 } from "../../app/contracts/evidence-stream.js"
@@ -169,41 +169,46 @@ describe("EvidenceEvent Contract", () => {
     Effect.gen(function*() {
       const decoded = yield* Schema.decodeUnknown(EvidenceEvent)({
         _tag: "Step",
-        step: {
-          _tag: "EffectTextProjectionStep",
-          corpusIndex: 0,
-          requestedWidthPx: 280,
-          stageWidthPx: 280,
-          obstaclesEnabled: true
+        frame: {
+          version: "v1",
+          step: {
+            _tag: "EffectTextProjectionStep",
+            corpusIndex: 0,
+            requestedWidthPx: 280,
+            stageWidthPx: 280,
+            obstaclesEnabled: true
+          }
         }
       })
 
       expect(decoded._tag).toBe("Step")
       if (decoded._tag === "Step") {
-        expect(decoded.step._tag).toBe("EffectTextProjectionStep")
+        expect(decoded.frame.version).toBe("v1")
+        expect(decoded.frame.step._tag).toBe("EffectTextProjectionStep")
       }
     }))
 
   it.effect("Step wraps authored effect-text projection cues", () =>
     Effect.gen(function*() {
-      const event = new Step({
-        step: new EffectTextProjectionStep({
+      const event = canonicalStepEvent(
+        new EffectTextProjectionStep({
           corpusIndex: 2,
           requestedWidthPx: 340,
           stageWidthPx: 340,
           obstaclesEnabled: false
         })
-      })
+      )
 
       expect(event._tag).toBe("Step")
-      expect(event.step._tag).toBe("EffectTextProjectionStep")
+      expect(event.frame.version).toBe("v1")
+      expect(event.frame.step._tag).toBe("EffectTextProjectionStep")
     }))
 
   it.effect("DSP canonical steps round-trip through the shared evidence stream contract", () =>
     Effect.sync(() => {
       const encoded = encodeEvidenceEventJson(
-        new Step({
-          step: new DspCanonicalStep({
+        canonicalStepEvent(
+          new DspCanonicalStep({
             scenarioId: "intervention-classifier",
             moduleType: "chainOfThought",
             stageId: "optimizing",
@@ -216,7 +221,7 @@ describe("EvidenceEvent Contract", () => {
               improvementDelta: null
             }
           })
-        })
+        )
       )
       const decoded = decodeEvidenceEventJson(encoded)
 
@@ -224,10 +229,11 @@ describe("EvidenceEvent Contract", () => {
       if (decoded._tag === "Right") {
         expect(decoded.right._tag).toBe("Step")
         if (decoded.right._tag === "Step") {
-          expect(decoded.right.step._tag).toBe("DspCanonicalStep")
-          if (decoded.right.step._tag === "DspCanonicalStep") {
-            expect(decoded.right.step.stageId).toBe("optimizing")
-            expect(decoded.right.step.metrics.demosLearned).toBe(1)
+          expect(decoded.right.frame.version).toBe("v1")
+          expect(decoded.right.frame.step._tag).toBe("DspCanonicalStep")
+          if (decoded.right.frame.step._tag === "DspCanonicalStep") {
+            expect(decoded.right.frame.step.stageId).toBe("optimizing")
+            expect(decoded.right.frame.step.metrics.demosLearned).toBe(1)
           }
         }
       }

@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { CanonicalStep, DspCanonicalStep, EffectTextProjectionStep } from "./canonical-step.js"
+import { CanonicalFrame, canonicalFrameV1, DspCanonicalStep, EffectTextProjectionStep } from "./canonical-step.js"
 import { ChoreographyCue, Highlight, StageAdvance, StageEnter, StageExit } from "./choreography.js"
 import { Metadata } from "./envelope.js"
 import { ErrorModel } from "./error.js"
@@ -26,12 +26,14 @@ export class Choreography extends Schema.TaggedClass<Choreography>()("Choreograp
 }) {}
 
 /**
- * A canonical run-step wrapper for the evidence stream. Carries the
- * authored projection inputs that local demo drivers turn into frames
- * and synchronized evidence updates.
+ * The canonical run-frame event for the shared runtime spine.
+ *
+ * `Step` is the only transport that carries authoritative in-flight frame
+ * progression. The enclosed frame is versioned so browser projection logic can
+ * evolve without relying on widget-local interpretation of bare step payloads.
  */
 export class Step extends Schema.TaggedClass<Step>()("Step", {
-  step: CanonicalStep
+  frame: CanonicalFrame
 }) {}
 
 export class StreamComplete extends Schema.TaggedClass<StreamComplete>()("StreamComplete", {
@@ -59,8 +61,20 @@ export const encodeEvidenceEventJson = Schema.encodeSync(EvidenceEventJson)
 
 export const decodeEvidenceEventJson = Schema.decodeUnknownEither(EvidenceEventJson)
 
+export const canonicalStepEvent = (step: ConstructorParameters<typeof CanonicalFrame>[0]["step"]): Step =>
+  new Step({ frame: canonicalFrameV1(step) })
+
 // ---------------------------------------------------------------------------
 // Choreography cue constructors — convenience for server demo authors
 // ---------------------------------------------------------------------------
 
-export { ChoreographyCue, DspCanonicalStep, EffectTextProjectionStep, Highlight, StageAdvance, StageEnter, StageExit }
+export {
+  CanonicalFrame,
+  ChoreographyCue,
+  DspCanonicalStep,
+  EffectTextProjectionStep,
+  Highlight,
+  StageAdvance,
+  StageEnter,
+  StageExit
+}

@@ -1,4 +1,4 @@
-import type { PackageName } from "@theoria/source-proof"
+import type { PackageName } from "@theoria/source-proof/contracts"
 import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 

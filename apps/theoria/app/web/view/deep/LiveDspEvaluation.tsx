@@ -1,7 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 
-import { type DspEvaluationExample, type DspFieldMeta, type DspSignatureContract } from "../../../contracts/demo/dsp.js"
+import {
+  type DspEvaluationExample,
+  type DspFieldMeta,
+  type DspModuleType,
+  type DspSignatureContract
+} from "../../../contracts/demo/dsp.js"
 import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
 import { selectDspModuleTypeAtom, selectDspScenarioAtom, setDspOptimizationBudgetAtom } from "../../atoms/dsp-widget.js"
 import { AccentBorder } from "../primitives/AccentBorder.js"
@@ -100,17 +105,31 @@ const RuntimeStatusPanel = ({
   </AccentBorder>
 )
 
+const RuntimeEvidencePanel = () => (
+  <AccentBorder tone={tone}>
+    <Stack className="gap-1.5">
+      <SemanticText as="p" className={tone.text} role="row-label" text="Runtime evidence contract" />
+      <SemanticText
+        as="p"
+        className="text-ink-800"
+        role="row-value"
+        text="The deep dive consumes package-authored prompt text, raw responses, parsed outputs, token totals, and optimizer events from the shared effect-dsp stream."
+      />
+    </Stack>
+  </AccentBorder>
+)
+
 const ModuleConfigurationPanel = ({
   controlsLocked,
-  moduleTypeIndex,
+  moduleType,
   moduleTypeOptions,
   optimizationBudget,
   onSelectModuleType,
   onSetBudget
 }: {
   readonly controlsLocked: boolean
-  readonly moduleTypeIndex: number
-  readonly moduleTypeOptions: ReadonlyArray<{ readonly index: number; readonly label: string }>
+  readonly moduleType: DspModuleType
+  readonly moduleTypeOptions: ReadonlyArray<{ readonly value: DspModuleType; readonly label: string }>
   readonly optimizationBudget: {
     readonly value: number
     readonly min: number
@@ -118,7 +137,7 @@ const ModuleConfigurationPanel = ({
     readonly step: number
     readonly display: string
   }
-  readonly onSelectModuleType: (index: number) => void
+  readonly onSelectModuleType: (moduleType: DspModuleType) => void
   readonly onSetBudget: (value: number) => void
 }) => (
   <Stack className="gap-3">
@@ -136,7 +155,7 @@ const ModuleConfigurationPanel = ({
         : null}
     </Stack>
     <ChoicePills
-      activeIndex={moduleTypeIndex}
+      activeValue={moduleType}
       disabled={controlsLocked}
       onSelect={onSelectModuleType}
       options={moduleTypeOptions}
@@ -170,7 +189,7 @@ export const LiveDspEvaluation = () => {
       controls={
         <Stack className="gap-4">
           <ChoicePills
-            activeIndex={vm.scenarioIndex}
+            activeValue={vm.scenarioId}
             className="w-full gap-2 xl:justify-center"
             disabled={vm.controlsLocked}
             onSelect={selectScenario}
@@ -180,9 +199,10 @@ export const LiveDspEvaluation = () => {
           {vm.runtimeStatus !== null
             ? <RuntimeStatusPanel detail={vm.runtimeStatus.detail} title={vm.runtimeStatus.title} />
             : null}
+          <RuntimeEvidencePanel />
           <ModuleConfigurationPanel
             controlsLocked={vm.controlsLocked}
-            moduleTypeIndex={vm.moduleTypeIndex}
+            moduleType={vm.moduleType}
             moduleTypeOptions={vm.moduleTypeOptions}
             onSelectModuleType={selectModuleType}
             onSetBudget={setBudget}

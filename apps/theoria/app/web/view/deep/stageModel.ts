@@ -2,16 +2,7 @@ import { Match } from "effect"
 
 import type { EvidenceSection } from "../../../contracts/evidence.js"
 import { statusFromError } from "../../state/status.js"
-import {
-  type EvidenceStreamState,
-  runAwaitsLocalCompletion,
-  runAwaitsServerCompletion,
-  runHasLocalCompletion,
-  runHasServerCompletion,
-  runReadyForFinalization,
-  type RunState,
-  type StageTab
-} from "../../state/types.js"
+import { type EvidenceStreamState, type RunState, type StageTab } from "../../state/types.js"
 
 import type { TabHint } from "./interactiveMetadata.js"
 
@@ -35,12 +26,6 @@ type EvidenceStateViewModel =
   }
   | {
     readonly _tag: "paused"
-    readonly description: string
-    readonly sections: ReadonlyArray<EvidenceSection>
-    readonly banner: StageBannerViewModel | null
-  }
-  | {
-    readonly _tag: "stopped"
     readonly description: string
     readonly sections: ReadonlyArray<EvidenceSection>
     readonly banner: StageBannerViewModel | null
@@ -112,21 +97,6 @@ const pausedEvidenceState = ({
   banner
 })
 
-const stoppedEvidenceState = ({
-  banner,
-  description,
-  sections
-}: {
-  readonly banner: StageBannerViewModel | null
-  readonly description: string
-  readonly sections: ReadonlyArray<EvidenceSection>
-}): EvidenceStateViewModel => ({
-  _tag: "stopped",
-  description,
-  sections,
-  banner
-})
-
 const failureEvidenceState = ({
   banner,
   description,
@@ -155,31 +125,26 @@ const resultEvidenceState = ({
   banner: null
 })
 
-const isReadyForFinalizationRun = (run: RunState): boolean => runReadyForFinalization(run)
+const formatStageId = (stageId: string): string => stageId.replace(/-/gu, " ")
 
-const isAwaitingLocalAfterServerRun = (run: RunState): boolean =>
-  runHasServerCompletion(run) && runAwaitsLocalCompletion(run)
-
-const isAwaitingServerRun = (run: RunState): boolean => runHasLocalCompletion(run) && runAwaitsServerCompletion(run)
+const stageBanner = (run: RunState): StageBannerViewModel | null =>
+  run.session.choreography._tag === "InStage"
+    ? {
+      tone: "live",
+      text: `${formatStageId(run.session.choreography.stageId)} · step ${run.session.choreography.step + 1}`
+    }
+    : null
 
 const runningDescription = (run: RunState, stream: EvidenceStreamState): string =>
-  isReadyForFinalizationRun(run)
-    ? "Finalizing the live stage…"
-    : isAwaitingLocalAfterServerRun(run)
-    ? "Server stream complete. Finalizing the live stage…"
-    : isAwaitingServerRun(run)
-    ? "Waiting for server completion…"
+  run.session.choreography._tag === "InStage"
+    ? `Streaming ${formatStageId(run.session.choreography.stageId)}…`
     : stream.sections.length === 0
     ? "Generating evidence…"
     : "Collecting evidence…"
 
 const pausedDescription = (run: RunState, stream: EvidenceStreamState): string =>
-  isReadyForFinalizationRun(run)
-    ? "Finalizing the live stage…"
-    : isAwaitingLocalAfterServerRun(run)
-    ? "Resume to finish the local stage."
-    : isAwaitingServerRun(run)
-    ? "Waiting for server completion…"
+  run.session.choreography._tag === "InStage"
+    ? `Run paused at ${formatStageId(run.session.choreography.stageId)}. Resume to continue.`
     : stream.sections.length === 0
     ? "Run paused. Resume to continue collecting evidence."
     : "Resume to continue streaming evidence."
@@ -194,59 +159,36 @@ export const demoEvidenceViewModel = ({
   Match.value(run).pipe(
     Match.tag("RunIdle", () => emptyEvidenceState(stream.sections)),
     Match.tag("RunRunning", (activeRun) =>
-      stream.sections.length === 0
+      activeRun.session.control === "paused"
+        ? stream.sections.length === 0
+          ? pausedEvidenceState({
+            banner: stageBanner(activeRun),
+            description: pausedDescription(activeRun, stream),
+            sections: stream.sections
+          })
+          : pausedEvidenceState({
+            banner: stageBanner(activeRun),
+            description: pausedDescription(activeRun, stream),
+            sections: stream.sections
+          })
+        : stream.sections.length === 0
         ? runningEvidenceState({
-          banner: null,
-          description: runningDescription(activeRun, stream),
+          banner: stageBanner(activeRun),
+          description: activeRun.session.control === "stopping"
+            ? "Stopping run…"
+            : runningDescription(activeRun, stream),
           sections: stream.sections
         })
         : runningEvidenceState({
-          banner: {
-            tone: "live",
-            text: runningDescription(activeRun, stream)
-          },
-          description: runningDescription(activeRun, stream),
-          sections: stream.sections
-        })),
-    Match.tag("RunPaused", (activeRun) =>
-      stream.sections.length === 0
-        ? pausedEvidenceState({
-          banner: null,
-          description: pausedDescription(activeRun, stream),
-          sections: stream.sections
-        })
-        : pausedEvidenceState({
-          banner: {
-            tone: "live",
-            text: pausedDescription(activeRun, stream)
-          },
-          description: pausedDescription(activeRun, stream),
-          sections: stream.sections
-        })),
-    Match.tag("RunStopping", () =>
-      runningEvidenceState({
-        banner: stream.sections.length === 0
-          ? null
-          : {
-            tone: "live",
-            text: "Stopping run…"
-          },
-        description: "Stopping run…",
-        sections: stream.sections
-      })),
-    Match.tag("RunStopped", () =>
-      stream.sections.length === 0
-        ? stoppedEvidenceState({
-          banner: null,
-          description: "Run stopped before evidence arrived.",
-          sections: stream.sections
-        })
-        : stoppedEvidenceState({
-          banner: {
-            tone: "live",
-            text: "Run stopped."
-          },
-          description: "Partial results remain visible.",
+          banner: activeRun.session.control === "stopping"
+            ? {
+              tone: "live",
+              text: "Stopping run…"
+            }
+            : stageBanner(activeRun),
+          description: activeRun.session.control === "stopping"
+            ? "Stopping run…"
+            : runningDescription(activeRun, stream),
           sections: stream.sections
         })),
     Match.tag("RunFailed", ({ error }) => {

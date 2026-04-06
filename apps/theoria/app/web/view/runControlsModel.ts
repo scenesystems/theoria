@@ -9,7 +9,7 @@ export type RunControlActionViewModel = {
 }
 
 export type RunControlsViewModel = {
-  readonly phase: "idle" | "running" | "paused" | "stopping" | "stopped" | "failed" | "success"
+  readonly phase: "idle" | "running" | "paused" | "stopping" | "failed" | "success"
   readonly primary: RunControlActionViewModel
   readonly secondary: Option.Option<RunControlActionViewModel>
 }
@@ -47,11 +47,6 @@ export const runControlsViewModel = ({
       phase: "stopping",
       primary: action("stop", "Stopping…", true),
       secondary: Option.none()
-    })),
-    Match.when("stopped", (): RunControlsViewModel => ({
-      phase: "stopped",
-      primary: action("run", runLabel),
-      secondary: Option.some(action("reset", "Reset"))
     })),
     Match.when("failed", (): RunControlsViewModel => ({
       phase: "failed",

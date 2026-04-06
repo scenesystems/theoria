@@ -1,23 +1,34 @@
-import { type DspModuleType, type DspScenarioId, dspScenarios, moduleTypeFromIndex } from "../../contracts/demo/dsp.js"
+import { Schema } from "effect"
 
-export type EffectDspRunPlan = {
-  readonly _tag: "effect-dsp"
-  readonly scenarioId: DspScenarioId
-  readonly moduleType: DspModuleType
-  readonly optimizationBudget: number
-}
+import {
+  DspModuleType,
+  type DspModuleType as DspModuleTypeValue,
+  DspScenarioId,
+  type DspScenarioId as DspScenarioIdValue
+} from "../../contracts/demo/dsp.js"
+
+export const EffectDspRunPlan = Schema.Struct({
+  _tag: Schema.Literal("effect-dsp"),
+  scenarioId: DspScenarioId,
+  moduleType: DspModuleType,
+  optimizationBudget: Schema.Number.pipe(Schema.int(), Schema.between(1, 5))
+})
+
+export type EffectDspRunPlan = typeof EffectDspRunPlan.Type
+
+export const isEffectDspRunPlan = Schema.is(EffectDspRunPlan)
 
 export const snapshotEffectDspRunPlan = ({
-  scenarioIndex,
-  moduleTypeIndex,
+  scenarioId,
+  moduleType,
   optimizationBudget
 }: {
-  readonly scenarioIndex: number
-  readonly moduleTypeIndex: number
+  readonly scenarioId: DspScenarioIdValue
+  readonly moduleType: DspModuleTypeValue
   readonly optimizationBudget: number
 }): EffectDspRunPlan => ({
   _tag: "effect-dsp",
-  scenarioId: (dspScenarios[scenarioIndex] ?? dspScenarios[0]!).id,
-  moduleType: moduleTypeFromIndex(moduleTypeIndex),
+  scenarioId,
+  moduleType,
   optimizationBudget
 })

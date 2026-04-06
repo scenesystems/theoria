@@ -1,16 +1,30 @@
 /**
- * Pure power analysis computations built on effect-math Distribution kernels.
+ * Power-demo projections backed by released effect-math report surfaces.
  *
- * Provides standard error, non-centrality parameter, two-sided power,
- * required sample size (binary search), overlap coefficient, PDF curve
- * generation, and power curves — all as pure functions with no Effect wrapper.
+ * The app freezes control plans and chart-ready projections, but the numerical
+ * authority now lives in `effect-math/Statistics`, `effect-math/Optimization`,
+ * and `effect-math/Distribution` rather than in app-local formulas.
  *
  * @since 0.1.0
  * @module
  */
+import { Chunk, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { normalCdf, normalPdf, normalQuantile } from "effect-math/Distribution"
+import { normalCdf, normalPdf } from "effect-math/Distribution"
+import {
+  confidenceIntervalMean,
+  MeanConfidenceIntervalReport,
+  oneSampleTTest,
+  PowerAnalysisReport,
+  powerForMeanDifference,
+  sampleSizeForTargetPower,
+  SampleSizeForTargetPowerReport,
+  TTestReport,
+  twoSampleTTest
+} from "effect-math/Statistics"
+
+const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
 export const defaultPowerControls: {
   readonly d: 0.5
@@ -30,6 +44,167 @@ export const powerSampleSizeStep = 1
 export const powerAlphaMin = 0.01
 export const powerAlphaMax = 0.1
 export const powerAlphaStep = 0.01
+
+export const powerEffectSizeSweepValues: ReadonlyArray<number> = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0]
+export const powerSampleSizeSweepValues: ReadonlyArray<number> = [5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 150, 200]
+export const powerAlphaSweepValues: ReadonlyArray<number> = [0.01, 0.05, 0.10]
+
+export const PowerControls = Schema.Struct({
+  d: Schema.Number,
+  n: PositiveInt,
+  alpha: Schema.Number
+})
+
+export type PowerControls = typeof PowerControls.Type
+
+export const PowerProjection = Schema.Struct({
+  d: Schema.Number,
+  n: PositiveInt,
+  alpha: Schema.Number,
+  power: Schema.Number,
+  requiredN: Schema.Number,
+  overlap: Schema.Number,
+  nonCentrality: Schema.Number,
+  powerReport: PowerAnalysisReport,
+  sampleSizeReport: SampleSizeForTargetPowerReport,
+  confidenceIntervalReport: MeanConfidenceIntervalReport,
+  oneSampleReport: TTestReport,
+  twoSampleReport: TTestReport
+})
+
+export type PowerProjection = typeof PowerProjection.Type
+
+export const EffectMathRunPhase = Schema.Struct({
+  title: Schema.String,
+  label: Schema.String,
+  steps: Schema.Array(PowerControls)
+})
+
+export type EffectMathRunPhase = typeof EffectMathRunPhase.Type
+
+export const EffectMathRunPlan = Schema.Struct({
+  _tag: Schema.Literal("effect-math"),
+  baseControls: PowerControls,
+  phases: Schema.Array(EffectMathRunPhase)
+})
+
+export type EffectMathRunPlan = typeof EffectMathRunPlan.Type
+
+export const isEffectMathRunPlan = Schema.is(EffectMathRunPlan)
+
+const fixedSampleSizeLabel = (n: number): string => `Power by effect size (fixed N=${n})`
+const fixedSampleSizeTitle = ({ alpha, n }: PowerControls): string =>
+  `Effect size sweep — N=${n}, α=${alpha.toFixed(2)}`
+const fixedEffectSizeLabel = (d: number): string => `Power by sample size (fixed d=${d.toFixed(2)})`
+const fixedEffectSizeTitle = ({ alpha, d }: PowerControls): string =>
+  `Sample size sweep — d=${d.toFixed(2)}, α=${alpha.toFixed(2)}`
+
+export const snapshotEffectMathRunPlan = (baseControls: PowerControls): EffectMathRunPlan => ({
+  _tag: "effect-math",
+  baseControls,
+  phases: [
+    {
+      title: fixedSampleSizeTitle(baseControls),
+      label: fixedSampleSizeLabel(baseControls.n),
+      steps: Arr.map(
+        powerEffectSizeSweepValues,
+        (d): PowerControls => ({ d, n: baseControls.n, alpha: baseControls.alpha })
+      )
+    },
+    {
+      title: fixedEffectSizeTitle(baseControls),
+      label: fixedEffectSizeLabel(baseControls.d),
+      steps: Arr.map(
+        powerSampleSizeSweepValues,
+        (n): PowerControls => ({ d: baseControls.d, n, alpha: baseControls.alpha })
+      )
+    },
+    {
+      title: "Required N at 80% power — across α levels",
+      label: "Required N by effect size and α",
+      steps: Arr.flatMap(powerAlphaSweepValues, (alpha) =>
+        Arr.map(powerEffectSizeSweepValues, (d): PowerControls => {
+          const requiredSampleSize = requiredN(d, 0.80, alpha)
+
+          return {
+            d,
+            n: Number.isFinite(requiredSampleSize) ? requiredSampleSize : 200,
+            alpha
+          }
+        }))
+    }
+  ]
+})
+
+export class EffectMathCanonicalStep extends Schema.TaggedClass<EffectMathCanonicalStep>()("EffectMathCanonicalStep", {
+  controls: PowerControls,
+  projection: PowerProjection
+}) {}
+
+const targetPower = 0.8
+const representativeOffsets: ReadonlyArray<number> = [-1.2, -0.85, -0.4, -0.1, 0.15, 0.45, 0.9, 1.25]
+
+const repeatedOffset = (index: number): number => {
+  const cycle = representativeOffsets[index % representativeOffsets.length] ?? 0
+  const block = Math.floor(index / representativeOffsets.length)
+
+  return cycle + block * 0.035
+}
+
+const representativeSample = ({
+  meanShift,
+  sampleSize
+}: {
+  readonly meanShift: number
+  readonly sampleSize: number
+}): Chunk.Chunk<number> =>
+  Chunk.fromIterable(
+    Arr.map(Arr.range(0, sampleSize - 1), (index) => meanShift + repeatedOffset(index))
+  )
+
+const powerReportFor = ({ alpha, d, n }: PowerControls) =>
+  powerForMeanDifference(d, n, {
+    alpha,
+    alternative: "twoSided"
+  })
+
+const sampleSizeReportFor = (
+  {
+    alpha,
+    d
+  }: {
+    readonly alpha: PowerControls["alpha"]
+    readonly d: PowerControls["d"]
+  },
+  desiredPower: number
+) =>
+  sampleSizeForTargetPower(d, desiredPower, {
+    alpha,
+    alternative: "twoSided",
+    maxSampleSize: 10_000
+  })
+
+const inferenceReportsFor = ({ alpha, d, n }: PowerControls) => {
+  const controlSample = representativeSample({ meanShift: 0, sampleSize: n })
+  const treatmentSample = representativeSample({ meanShift: d, sampleSize: n })
+
+  return {
+    confidenceIntervalReport: confidenceIntervalMean(treatmentSample, {
+      confidenceLevel: 1 - alpha,
+      alternative: "twoSided"
+    }),
+    oneSampleReport: oneSampleTTest(treatmentSample, {
+      alpha,
+      alternative: "twoSided",
+      nullValue: 0
+    }),
+    twoSampleReport: twoSampleTTest(treatmentSample, controlSample, {
+      alpha,
+      alternative: "twoSided",
+      nullValue: 0
+    })
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Core power analysis kernels
@@ -62,14 +237,38 @@ export const nonCentrality = (d: number, n: number): number => d * Math.sqrt(n /
  * @category power analysis
  */
 export const power = (d: number, n: number, alpha: number): number => {
-  const criticalZ = normalQuantile(1 - alpha / 2, 0, 1)
-  const delta = nonCentrality(d, n)
-  return 1 - normalCdf(criticalZ - delta, 0, 1) + normalCdf(-criticalZ - delta, 0, 1)
+  const report = powerForMeanDifference(d, n, {
+    alpha,
+    alternative: "twoSided"
+  })
+
+  return report.power
+}
+
+export const projectPowerProjection = ({ d, n, alpha }: PowerControls): PowerProjection => {
+  const powerReport = powerReportFor({ d, n, alpha })
+  const sampleSizeReport = sampleSizeReportFor({ d, alpha }, targetPower)
+  const reports = inferenceReportsFor({ d, n, alpha })
+
+  return {
+    d,
+    n,
+    alpha,
+    power: powerReport.power,
+    requiredN: sampleSizeReport.solver.status === "converged" ? sampleSizeReport.sampleSize : Infinity,
+    overlap: overlapCoefficient(d),
+    nonCentrality: powerReport.noncentrality,
+    powerReport,
+    sampleSizeReport,
+    confidenceIntervalReport: reports.confidenceIntervalReport,
+    oneSampleReport: reports.oneSampleReport,
+    twoSampleReport: reports.twoSampleReport
+  }
 }
 
 /**
- * Minimum per-group sample size achieving `targetPower` via binary search
- * over N ∈ [2, 10000].
+ * Minimum per-group sample size achieving `targetPower` via the package-owned
+ * bracketed root solver over N ∈ [2, 10000].
  *
  * Returns `Infinity` when the target is unreachable (e.g. d ≈ 0 or
  * targetPower ≤ alpha), since no finite sample size can deliver power
@@ -79,24 +278,9 @@ export const power = (d: number, n: number, alpha: number): number => {
  * @category power analysis
  */
 export const requiredN = (d: number, targetPower: number, alpha: number): number => {
-  if (Math.abs(d) < 1e-12) return Infinity
-  if (targetPower <= alpha) return 2
+  const report = sampleSizeReportFor({ alpha, d }, targetPower)
 
-  const upperBound = 10_000
-
-  if (power(d, upperBound, alpha) < targetPower) return Infinity
-
-  const search = (low: number, high: number): number =>
-    low >= high
-      ? low
-      : (() => {
-        const mid = (low + high) >>> 1
-        return power(d, mid, alpha) >= targetPower
-          ? search(low, mid)
-          : search(mid + 1, high)
-      })()
-
-  return search(2, upperBound)
+  return report.solver.status === "converged" ? report.sampleSize : Infinity
 }
 
 // ---------------------------------------------------------------------------

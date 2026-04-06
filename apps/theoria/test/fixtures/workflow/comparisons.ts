@@ -5,6 +5,7 @@ import type {
   WorkflowComparisonCatalog,
   WorkflowComparisonId
 } from "../../../app/contracts/workflow/comparison.js"
+import { workflowComparisonId } from "../../../app/contracts/workflow/comparison.js"
 import { chatHandoffWorkflowComparison } from "./chat-handoff-comparison.js"
 import { taskBriefingWorkflowComparison } from "./task-briefing-comparison.js"
 
@@ -13,10 +14,10 @@ export const workflowComparisons: WorkflowComparisonCatalog = Arr.make(
   chatHandoffWorkflowComparison
 )
 
-export const defaultWorkflowComparisonId: WorkflowComparisonId = taskBriefingWorkflowComparison.id
+export const defaultWorkflowComparisonId: WorkflowComparisonId = workflowComparisonId(taskBriefingWorkflowComparison)
 
 export const workflowComparisonById = (id: WorkflowComparisonId): WorkflowComparison =>
   Option.getOrElse(
-    Arr.findFirst(workflowComparisons, (comparison) => comparison.id === id),
+    Arr.findFirst(workflowComparisons, (comparison) => workflowComparisonId(comparison) === id),
     () => taskBriefingWorkflowComparison
   )

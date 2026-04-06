@@ -300,6 +300,21 @@ export const dspScenarios: ReadonlyArray<DspScenarioDefinition> = [
   probeFollowUp
 ]
 
+export const dspScenariosById: Readonly<Record<DspScenarioId, DspScenarioDefinition>> = {
+  "intervention-classifier": interventionClassifier,
+  "member-check-summary": memberCheckSummary,
+  "probe-follow-up": probeFollowUp
+}
+
+export const dspScenarioIds: ReadonlyArray<DspScenarioId> = Arr.map(dspScenarios, (scenario) => scenario.id)
+
+export const dspModuleTypes: ReadonlyArray<DspModuleType> = ["chainOfThought", "predict"]
+
+export const dspModuleLabels: Readonly<Record<DspModuleType, string>> = {
+  chainOfThought: "Chain of Thought",
+  predict: "Predict"
+}
+
 export const defaultDspScenarioId: DspScenarioId = "intervention-classifier"
 
 export const defaultDspModuleType: DspModuleType = "chainOfThought"
@@ -309,25 +324,18 @@ export const defaultOptimizationBudget = 2
 /**
  * Look up a scenario by ID.
  */
-export const scenarioById = (id: DspScenarioId): DspScenarioDefinition =>
-  Arr.findFirst(dspScenarios, (s) => s.id === id).pipe(
-    (opt) => opt._tag === "Some" ? opt.value : interventionClassifier
-  )
+export const scenarioById = (id: DspScenarioId): DspScenarioDefinition => dspScenariosById[id]
 
 // ---------------------------------------------------------------------------
-// Scenario options for ChoicePills
+// Scenario and module options for app consumers
 // ---------------------------------------------------------------------------
 
-export const dspScenarioOptions: ReadonlyArray<{ readonly index: number; readonly label: string }> = Arr.map(
+export const dspScenarioOptions: ReadonlyArray<{ readonly value: DspScenarioId; readonly label: string }> = Arr.map(
   dspScenarios,
-  (s, index) => ({ index, label: s.label })
+  (scenario) => ({ value: scenario.id, label: scenario.label })
 )
 
-export const dspModuleTypeOptions: ReadonlyArray<{ readonly index: number; readonly label: string }> = [
-  { index: 0, label: "Chain of Thought" },
-  { index: 1, label: "Predict" }
-]
-
-export const moduleTypeFromIndex = (index: number): DspModuleType => index === 1 ? "predict" : "chainOfThought"
-
-export const moduleTypeToIndex = (moduleType: DspModuleType): number => moduleType === "predict" ? 1 : 0
+export const dspModuleTypeOptions: ReadonlyArray<{ readonly value: DspModuleType; readonly label: string }> = Arr.map(
+  dspModuleTypes,
+  (moduleType) => ({ value: moduleType, label: dspModuleLabels[moduleType] })
+)

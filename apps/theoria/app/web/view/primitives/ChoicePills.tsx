@@ -12,8 +12,8 @@ import { SemanticText } from "./SemanticText.js"
 
 type ChoicePillsAppearance = "pill" | "segment"
 
-export const ChoicePills = ({
-  activeIndex,
+export const ChoicePills = <Value extends number | string>({
+  activeValue,
   appearance = "pill",
   className,
   disabled,
@@ -21,27 +21,27 @@ export const ChoicePills = ({
   options,
   tone
 }: {
-  readonly activeIndex: number
+  readonly activeValue: Value
   readonly appearance?: ChoicePillsAppearance
   readonly className?: string
   readonly disabled: boolean
-  readonly onSelect: (index: number) => void
-  readonly options: ReadonlyArray<{ readonly index: number; readonly label: string }>
+  readonly onSelect: (value: Value) => void
+  readonly options: ReadonlyArray<{ readonly value: Value; readonly label: string }>
   readonly tone: ToneClasses
 }) => {
   const optionNodes = Arr.map(options, (option) => {
-    const active = option.index === activeIndex
+    const active = option.value === activeValue
     const buttonClassName = appearance === "segment"
       ? segmentedControlButtonClassName({ active, tone })
       : pillButtonClassName({ active, tone })
 
     return (
       <Button
-        key={option.index}
+        key={option.value}
         className={buttonClassName}
         disabled={disabled}
         onClick={() => {
-          onSelect(option.index)
+          onSelect(option.value)
         }}
         type="button"
       >

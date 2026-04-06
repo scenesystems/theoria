@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
-import type { PackageName } from "@theoria/source-proof"
+import type { PackageName } from "@theoria/source-proof/contracts"
 import type { Metadata } from "../../contracts/envelope.js"
 import type { ErrorModel } from "../../contracts/error.js"
 import {

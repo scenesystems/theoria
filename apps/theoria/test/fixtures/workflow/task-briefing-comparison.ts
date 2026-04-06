@@ -1,6 +1,9 @@
 import { Array as Arr } from "effect"
 
-import type { WorkflowComparison } from "../../../app/contracts/workflow/comparison.js"
+import {
+  type WorkflowComparison,
+  workflowComparisonAuthorityBindings
+} from "../../../app/contracts/workflow/comparison.js"
 import { makeWorkflowEvaluationReport, makeWorkflowExecutionRecord } from "./decode.js"
 import { workflowProfileLibrary } from "./profile-library.js"
 
@@ -101,7 +104,11 @@ const optimizedRecord = makeWorkflowExecutionRecord({
 })
 
 export const taskBriefingWorkflowComparison: WorkflowComparison = {
-  id: "task-briefing",
+  publication: {
+    comparisonId: "workflow-comparison/task-briefing",
+    consumerId: "workflow-comparison"
+  },
+  authorities: workflowComparisonAuthorityBindings,
   label: "Task Briefing",
   summary: "Compares a concise task graph against a critique-assisted variant on the same execution cases.",
   workflowKind: "task-first",

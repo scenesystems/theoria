@@ -231,6 +231,8 @@ export const EffectTextRunPlan = Schema.Struct({
 
 export type EffectTextRunPlan = typeof EffectTextRunPlan.Type
 
+export const isEffectTextRunPlan = Schema.is(EffectTextRunPlan)
+
 const effectTextRunPlanStepsForEntry = (
   entry: CorpusEntry,
   viewportWidthPx: number

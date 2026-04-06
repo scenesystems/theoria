@@ -54,3 +54,5 @@ export class DspRunFrame extends Schema.TaggedClass<DspRunFrame>()("effect-dsp",
   stepCount: PositiveInt,
   metrics: DspRunMetrics
 }) {}
+
+export const isDspRunFrame = Schema.is(DspRunFrame)

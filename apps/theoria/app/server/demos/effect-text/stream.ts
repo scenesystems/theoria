@@ -4,8 +4,13 @@ import type { CanonicalStep } from "../../../contracts/canonical-step.js"
 import { effectTextProjectionSteps, viewportProjectionSteps } from "../../../contracts/demo/text.js"
 import type { StreamManifest } from "../../../contracts/stream-manifest.js"
 import { concatStreams, sectionEffectsToStream, type StreamElement } from "../stream-element.js"
+import { makeStreamPlan, phaseFromElementStream } from "../stream-plan.js"
 import { cachedEffectTextMeasurements } from "./analysis.js"
-import { streamSectionEffectsForStory, streamStageStreamsForStory } from "./stage-story.js"
+import { preloadProgram } from "./preload.js"
+import { streamSectionEffectsForStory, streamStagePlansForStory, streamStageStreamsForStory } from "./stage-story.js"
+
+export const runSummary =
+  "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces."
 
 const normalizeCustomText = (customText: Option.Option<string>): Option.Option<string> =>
   customText.pipe(
@@ -59,3 +64,20 @@ export const streamElements = (manifest: StreamManifest | null): Stream.Stream<S
       )
     })
   )
+
+export const streamPlan = (manifest: StreamManifest | null) =>
+  Effect.gen(function*() {
+    const request = requestFromManifest(manifest)
+    const measurements = yield* cachedEffectTextMeasurements
+
+    return makeStreamPlan({
+      packageName: "effect-text",
+      program: preloadProgram,
+      summary: runSummary,
+      phases: streamStagePlansForStory({
+        customText: request.customText,
+        measurements,
+        projectionSteps: request.projectionSteps
+      }).map(({ stageId, stream }) => phaseFromElementStream(stageId, stream))
+    })
+  })

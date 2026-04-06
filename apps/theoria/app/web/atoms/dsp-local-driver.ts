@@ -1,7 +1,7 @@
 import { Effect, Queue } from "effect"
 import { Study } from "effect-search"
 
-import type { CanonicalStep } from "../../contracts/canonical-step.js"
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
 import { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 
@@ -9,13 +9,20 @@ import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./loc
 import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
-type AuthoredStepQueueEvent = CanonicalStep | StreamCompletionEvent
+type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
 type DspLocalDriverEvent = {
   readonly _tag: "LocalRunFrameUpdated"
   readonly frame: DspRunFrame
 } | LocalDriverCompletedEvent
 
-const frameForStep = (step: Extract<CanonicalStep, { readonly _tag: "DspCanonicalStep" }>) =>
+const isStreamCompletionEvent = (event: AuthoredStepQueueEvent): event is StreamCompletionEvent =>
+  "_tag" in event && event._tag === "StreamComplete"
+
+const isDspCanonicalStep = (
+  step: CanonicalFrame["step"]
+): step is Extract<CanonicalFrame["step"], { readonly _tag: "DspCanonicalStep" }> => step._tag === "DspCanonicalStep"
+
+const frameForStep = (step: Extract<CanonicalFrame["step"], { readonly _tag: "DspCanonicalStep" }>) =>
   new DspRunFrame({
     scenarioId: step.scenarioId,
     stageId: step.stageId,
@@ -50,14 +57,14 @@ const drainAuthoredSteps = ({
 }): Effect.Effect<void, never, never> =>
   takeAuthoredStepQueueEvent({ signal, stepQueue }).pipe(
     Effect.flatMap((nextEvent) =>
-      nextEvent._tag === "StreamComplete"
+      isStreamCompletionEvent(nextEvent)
         ? emit(localDriverCompletedEvent)
-        : nextEvent._tag === "DspCanonicalStep"
+        : isDspCanonicalStep(nextEvent.step)
         ? awaitRunSignal(signal).pipe(
           Effect.zipRight(
             emit({
               _tag: "LocalRunFrameUpdated",
-              frame: frameForStep(nextEvent)
+              frame: frameForStep(nextEvent.step)
             })
           ),
           Effect.zipRight(drainAuthoredSteps({ emit, signal, stepQueue }))

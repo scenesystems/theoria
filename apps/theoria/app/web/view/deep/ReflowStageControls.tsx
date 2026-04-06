@@ -33,7 +33,7 @@ export const ReflowStageControls = ({
           <SemanticText as="p" className="text-ink-700" role="row-label" text="Custom text" variant="expanded" />
           <TextAreaField
             active
-            disabled={vm.isAnimating}
+            disabled={vm.controlsLocked}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               onSetCustomText(event.target.value)
             }}
@@ -47,18 +47,18 @@ export const ReflowStageControls = ({
       : null}
 
     <ChoicePills
-      activeIndex={vm.selectedCorpusIndex}
+      activeValue={vm.selectedCorpusIndex}
       className="w-full gap-2 xl:justify-center"
-      disabled={vm.isAnimating}
+      disabled={vm.controlsLocked}
       onSelect={onSelectCorpus}
-      options={vm.corpusOptions}
+      options={vm.corpusOptions.map((option) => ({ value: option.index, label: option.label }))}
       tone={tone}
     />
 
     <Layer className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <Layer className="min-w-0 flex-1">
         <SliderRow
-          disabled={vm.isAnimating}
+          disabled={vm.controlsLocked}
           display={vm.width.display}
           label="Width"
           max={vm.width.max}
@@ -70,10 +70,14 @@ export const ReflowStageControls = ({
         />
       </Layer>
       <Rail className="w-full justify-end gap-3 lg:w-auto lg:flex-nowrap">
-        <LoadingIndicator active={vm.isAnimating} text="Animating…" tone={tone} />
+        <LoadingIndicator
+          active={vm.isAnimating}
+          text={vm.statusText ?? "Streaming authored projection…"}
+          tone={tone}
+        />
         <ToggleSwitch
           checked={vm.obstaclesEnabled}
-          disabled={vm.isAnimating}
+          disabled={vm.controlsLocked}
           label="Obstacles"
           onToggle={onToggleObstacles}
           tone={tone}

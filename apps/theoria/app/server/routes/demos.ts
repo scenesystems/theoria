@@ -1,28 +1,21 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Match, Option, Schedule, Schema, Stream } from "effect"
+import { WorkflowEngine } from "@effect/workflow"
+import { Effect, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import type * as ParseResult from "effect/ParseResult"
 
-import {
-  Choreography,
-  encodeEvidenceEventJson,
-  type EvidenceEvent,
-  SectionAppend,
-  Step,
-  StreamComplete,
-  StreamFailed
-} from "../../contracts/evidence-stream.js"
+import { encodeEvidenceEventJson, type EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { Id } from "../../contracts/id.js"
 import { ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
+import { resolveRunWorkflowIdentity } from "../../contracts/run-plan.js"
 import { RunEnvelope } from "../../contracts/run.js"
 import { decodeStreamManifest, type StreamManifest } from "../../contracts/stream-manifest.js"
 import { serverReleaseStage } from "../config/release-stage.js"
-import { RuntimeInfo } from "../config/runtime.js"
 
 import { execute } from "../demos/executor.js"
 import { preload } from "../demos/preload.js"
 import { lookupForReleaseStage } from "../demos/registry.js"
-import type { StreamElement } from "../demos/stream-element.js"
+import { DemoStreamSessionRegistry } from "../demos/stream-session-registry.js"
 
 const DemoEndpoint = Schema.Literal("run", "preload", "stream")
 
@@ -110,6 +103,20 @@ const invalidDemoEnvelope = (requestId: string) => ({
   }
 })
 
+const invalidStreamRequestEnvelope = (requestId: string, message: string) => ({
+  ok: false,
+  meta: {
+    requestId,
+    buildSha: "unknown",
+    durationMs: 0
+  },
+  error: {
+    code: "invalid-query",
+    message,
+    retryable: false
+  }
+})
+
 const executionFailureEnvelope = (requestId: string) => ({
   ok: false,
   meta: {
@@ -135,94 +142,105 @@ const sseEvent = (event: EvidenceEvent): Uint8Array =>
 const sseHeartbeat = encoder.encode(`: heartbeat\n\n`)
 const heartbeatStream = Stream.repeat(Stream.make(sseHeartbeat), Schedule.spaced("8 seconds"))
 
-const describeStreamFailure = (error: unknown): string => {
-  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
-    const message = error.message.trim()
+const isTerminalEvent = (event: EvidenceEvent): boolean =>
+  event._tag === "StreamComplete" || event._tag === "StreamFailed"
 
-    return message.length > 0 ? message : "Demo stream failed."
-  }
-
-  return "Demo stream failed."
-}
-
-const elementToEvent = (element: StreamElement): EvidenceEvent =>
-  Match.value(element).pipe(
-    Match.when({ _tag: "cue" }, ({ cue }) => new Choreography({ cue })),
-    Match.when({ _tag: "step" }, ({ step }) => new Step({ step })),
-    Match.orElse(({ section }) => new SectionAppend({ section }))
-  )
-
-const streamResponse = (id: typeof Id.Type, requestId: string, manifest: StreamManifest | null) =>
+const streamResponse = ({
+  id,
+  requestId,
+  manifest,
+  runToken
+}: {
+  readonly id: typeof Id.Type
+  readonly requestId: string
+  readonly manifest: StreamManifest | null
+  readonly runToken: string
+}) =>
   Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
     const releaseStage = yield* serverReleaseStage
-    const runtimeInfo = yield* RuntimeInfo
     const definition = lookupForReleaseStage(id, releaseStage)
 
     return Option.match(definition, {
       onNone: () => jsonResponse(invalidDemoEnvelope(requestId)),
-      onSome: (def) => {
-        const elements = def.streamElements(manifest)
-
-        if (elements === null) {
-          return jsonResponse(failureEnvelope(requestId))
-        }
-
-        const dataStream = Stream.concat(
-          Stream.map(elements, elementToEvent),
-          Stream.fromEffect(
-            Effect.gen(function*() {
-              const endedAtMs = yield* Clock.currentTimeMillis
-
-              return new StreamComplete({
-                summary: def.card.summary,
-                meta: {
-                  requestId,
-                  buildSha: runtimeInfo.buildSha,
-                  durationMs: endedAtMs - startedAtMs
-                }
-              })
-            })
-          )
-        ).pipe(
-          Stream.catchAll((error) =>
-            Stream.make(
-              new StreamFailed({
-                error: {
-                  code: "execution-failed",
-                  message: describeStreamFailure(error),
-                  retryable: true
-                }
-              })
-            )
-          ),
-          Stream.map(sseEvent)
-        )
-
-        const sseStream = Stream.merge(dataStream, heartbeatStream, { haltStrategy: "left" })
-
-        return HttpServerResponse.stream(sseStream, {
-          headers: {
-            "content-type": "text/event-stream",
-            "cache-control": "no-cache",
-            "connection": "keep-alive"
+      onSome: (def) =>
+        Effect.gen(function*() {
+          const request = {
+            runToken,
+            plan: {
+              id: def.id,
+              manifest
+            }
           }
+          const identity = yield* resolveRunWorkflowIdentity(request)
+          const sessionKey = identity.requestFingerprint
+          const registry = yield* DemoStreamSessionRegistry
+
+          yield* registry.ensureSession(sessionKey)
+
+          const executionId = yield* def.workflow.executionId(request)
+          const started = yield* registry.markStarted({ executionId, sessionKey })
+          const workflowEngine = started
+            ? Option.some(yield* WorkflowEngine.WorkflowEngine)
+            : Option.none()
+
+          const startWorkflow = Option.match(workflowEngine, {
+            onNone: () => Effect.void,
+            onSome: (workflowEngine) =>
+              def.workflow.execute(request).pipe(
+                Effect.asVoid,
+                Effect.catchAll(() => Effect.void),
+                Effect.forkDaemon,
+                Effect.asVoid,
+                Effect.provideService(WorkflowEngine.WorkflowEngine, workflowEngine)
+              )
+          })
+
+          const dataStream = Stream.unwrapScoped(
+            registry.subscribe(sessionKey).pipe(Effect.tap(() => startWorkflow))
+          ).pipe(Stream.takeUntil(isTerminalEvent), Stream.map(sseEvent))
+
+          const sseStream = Stream.merge(dataStream, heartbeatStream, { haltStrategy: "left" })
+
+          return HttpServerResponse.stream(sseStream, {
+            headers: {
+              "content-type": "text/event-stream",
+              "cache-control": "no-cache",
+              "connection": "keep-alive"
+            }
+          })
         })
-      }
     })
   })
 
-const parseManifest = (rawUrl: string | null): StreamManifest | null =>
-  Match.value(rawUrl).pipe(
-    Match.when(null, (): StreamManifest | null => null),
-    Match.orElse((resolvedUrl): StreamManifest | null => {
-      const raw = new URL(resolvedUrl, "http://127.0.0.1").searchParams.get("manifest")
+const parseStreamQuery = (rawUrl: string | null):
+  | { readonly _tag: "ParsedStreamQuery"; readonly manifest: StreamManifest | null; readonly runToken: string }
+  | { readonly _tag: "InvalidStreamQuery"; readonly message: string } =>
+{
+  if (rawUrl === null) {
+    return { _tag: "InvalidStreamQuery", message: "Streaming runs require a run token." }
+  }
 
-      return raw !== null && raw.trim().length > 0
-        ? Option.getOrElse(decodeStreamManifest(raw.trim()), () => null)
-        : null
-    })
-  )
+  const url = new URL(rawUrl, "http://127.0.0.1")
+  const rawRunToken = url.searchParams.get("runToken")
+  const rawManifest = url.searchParams.get("manifest")
+  const manifest = rawManifest !== null && rawManifest.trim().length > 0
+    ? Option.getOrElse(decodeStreamManifest(rawManifest.trim()), () => null)
+    : null
+
+  if (rawManifest !== null && rawManifest.trim().length > 0 && manifest === null) {
+    return { _tag: "InvalidStreamQuery", message: "Stream manifest did not decode against the contract." }
+  }
+
+  if (rawRunToken === null || rawRunToken.trim().length === 0) {
+    return { _tag: "InvalidStreamQuery", message: "Streaming runs require a run token." }
+  }
+
+  return {
+    _tag: "ParsedStreamQuery",
+    manifest,
+    runToken: rawRunToken.trim()
+  }
+}
 
 export const demoRoute = (pathname: string, requestId: string, rawUrl: string | null = null) =>
   decodeRoute(pathname).pipe(
@@ -230,7 +248,18 @@ export const demoRoute = (pathname: string, requestId: string, rawUrl: string | 
       Match.value(route.endpoint).pipe(
         Match.when(
           "stream",
-          () => streamResponse(route.id, requestId, parseManifest(rawUrl))
+          () =>
+            Match.value(parseStreamQuery(rawUrl)).pipe(
+              Match.tag(
+                "InvalidStreamQuery",
+                ({ message }) => Effect.succeed(jsonResponse(invalidStreamRequestEnvelope(requestId, message)))
+              ),
+              Match.tag(
+                "ParsedStreamQuery",
+                ({ manifest, runToken }) => streamResponse({ id: route.id, requestId, manifest, runToken })
+              ),
+              Match.exhaustive
+            )
         ),
         Match.when("run", () =>
           execute(route.id, requestId).pipe(

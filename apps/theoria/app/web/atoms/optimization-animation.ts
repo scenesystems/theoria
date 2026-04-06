@@ -1,31 +1,23 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Stream } from "effect"
-import { Clock, Effect, Option, Ref, Schema } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
-import * as Arr from "effect/Array"
+import { Effect, Queue } from "effect"
+import { Study } from "effect-search"
+import * as Option from "effect/Option"
 
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
 import { DemoExecutionError } from "../../contracts/demo-error.js"
+import type { EffectSearchStudyTelemetry } from "../../contracts/demo/effect-search-study-telemetry.js"
+import type { EffectSearchCanonicalStep } from "../../contracts/demo/objective.js"
 import {
-  bestTrialPoint,
-  defaultSamplerSeed,
-  defaultTrialBudget,
-  objectiveAt,
-  objectiveExpression,
-  optimum,
-  searchBounds,
+  type EffectSearchRunPlan,
+  snapshotEffectSearchRunPlan,
   type TrialPoint
 } from "../../contracts/demo/objective.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
-import { SectionAppend } from "../../contracts/evidence-stream.js"
 import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
-import { publishOptimizationEvidence } from "./optimization-evidence.js"
-import { awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
-
-import type { Config2D } from "../../contracts/demo/objective.js"
-
-const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
 
 const executionFailedError = (message: string): DemoExecutionError =>
   new DemoExecutionError({
@@ -34,40 +26,22 @@ const executionFailedError = (message: string): DemoExecutionError =>
     retryable: true
   })
 
-// ---------------------------------------------------------------------------
-// Atoms
-// ---------------------------------------------------------------------------
-
-export type { TrialPoint } from "../../contracts/demo/objective.js"
-
-export type EffectSearchRunPlan = {
-  readonly _tag: "effect-search"
-  readonly samplerSeed: number
-  readonly trialBudget: number
-}
+export { snapshotEffectSearchRunPlan }
+export type { EffectSearchRunPlan, TrialPoint }
 
 export type EffectSearchRunFrame = {
   readonly _tag: "effect-search"
   readonly projection: OptimizationProjection
+  readonly telemetry: EffectSearchStudyTelemetry
 }
 
-export const snapshotEffectSearchRunPlan = (trialBudget: number): EffectSearchRunPlan => ({
-  _tag: "effect-search",
-  samplerSeed: defaultSamplerSeed,
-  trialBudget
-})
+export const isEffectSearchRunFrame = (frame: { readonly _tag: string } | null): frame is EffectSearchRunFrame =>
+  frame !== null && frame._tag === "effect-search"
 
-export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(defaultTrialBudget)
-
+export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(30)
 export const optimizationAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
-
 export const tpeTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
-
 export const randomTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
-
-// ---------------------------------------------------------------------------
-// Derived projection
-// ---------------------------------------------------------------------------
 
 export type OptimizationProjection = {
   readonly trialBudget: number
@@ -80,7 +54,17 @@ export type OptimizationProjection = {
   readonly phase: "idle" | "running" | "complete"
 }
 
-const makeOptimizationProjection = ({
+const bestTrialPoint = (trials: ReadonlyArray<TrialPoint>): Option.Option<TrialPoint> =>
+  trials.reduce<Option.Option<TrialPoint>>(
+    (best, trial) =>
+      Option.match(best, {
+        onNone: () => Option.some(trial),
+        onSome: (currentBest) => Option.some(trial.value < currentBest.value ? trial : currentBest)
+      }),
+    Option.none()
+  )
+
+export const makeOptimizationProjection = ({
   phase,
   randomTrials,
   tpeTrials,
@@ -122,12 +106,6 @@ export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> =
   }
 )
 
-// ---------------------------------------------------------------------------
-// Ask/tell animation — step-by-step trial sweep with render yields
-// ---------------------------------------------------------------------------
-
-const stepDelayMs = 40
-
 export const setOptimizationAnimationPlayback = (
   registry: RunRegistry,
   isAnimating: boolean
@@ -143,200 +121,139 @@ export const resetOptimizationAnimationState = (registry: RunRegistry): Effect.E
     registry.set(randomTrialsAtom, [])
   })
 
-type EffectSearchAnimationEvent = EvidenceEvent | {
-  readonly _tag: "LocalRunFrameUpdated"
-  readonly frame: EffectSearchRunFrame
-} | LocalDriverCompletedEvent
+type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
+type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
+type EffectSearchAnimationEvent =
+  | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: EffectSearchRunFrame }
+  | LocalDriverCompletedEvent
+
+const isStreamCompletionEvent = (event: AuthoredStepQueueEvent): event is StreamCompletionEvent =>
+  "_tag" in event && event._tag === "StreamComplete"
+
+const isEffectSearchCanonicalStep = (
+  step: CanonicalFrame["step"]
+): step is typeof EffectSearchCanonicalStep.Type => step._tag === "EffectSearchCanonicalStep"
+
+const takeAuthoredStepQueueEvent = ({
+  signal,
+  stepQueue
+}: {
+  readonly signal: RunSignal
+  readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
+}): Effect.Effect<AuthoredStepQueueEvent, never, never> =>
+  Effect.raceFirst(
+    Queue.take(stepQueue),
+    awaitNextRunSignalChange(signal).pipe(
+      Effect.zipRight(awaitRunSignal(signal)),
+      Effect.flatMap(() => takeAuthoredStepQueueEvent({ signal, stepQueue }))
+    )
+  )
 
 const emitFrameUpdate = ({
   emit,
-  phase,
-  randomTrials,
-  tpeTrials,
-  trialBudget
+  registry,
+  step
 }: {
   readonly emit: (event: EffectSearchAnimationEvent) => Effect.Effect<void, never, never>
-  readonly phase: OptimizationProjection["phase"]
-  readonly randomTrials: ReadonlyArray<TrialPoint>
-  readonly tpeTrials: ReadonlyArray<TrialPoint>
-  readonly trialBudget: number
-}): Effect.Effect<void, never, never> =>
-  emit({
-    _tag: "LocalRunFrameUpdated",
-    frame: {
-      _tag: "effect-search",
-      projection: makeOptimizationProjection({
-        phase,
-        randomTrials,
-        tpeTrials,
-        trialBudget
-      })
-    }
+  readonly registry: RunRegistry
+  readonly step: typeof EffectSearchCanonicalStep.Type
+}): Effect.Effect<void, never, never> => {
+  const projection = makeOptimizationProjection({
+    phase: step.phase,
+    randomTrials: step.randomTrials,
+    tpeTrials: step.tpeTrials,
+    trialBudget: step.trialBudget
   })
+
+  return Effect.sync(() => {
+    registry.set(tpeTrialsAtom, step.tpeTrials)
+    registry.set(randomTrialsAtom, step.randomTrials)
+  }).pipe(
+    Effect.zipRight(
+      emit({
+        _tag: "LocalRunFrameUpdated",
+        frame: {
+          _tag: "effect-search",
+          projection,
+          telemetry: step.telemetry
+        }
+      })
+    )
+  )
+}
+
+const drainSearchFrames = ({
+  emit,
+  plan,
+  registry,
+  remaining,
+  signal,
+  stepQueue
+}: {
+  readonly emit: (event: EffectSearchAnimationEvent) => Effect.Effect<void, never, never>
+  readonly plan: EffectSearchRunPlan
+  readonly registry: RunRegistry
+  readonly remaining: number
+  readonly signal: RunSignal
+  readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
+}): Effect.Effect<void, DemoExecutionError, never> =>
+  awaitRunSignal(signal).pipe(
+    Effect.zipRight(takeAuthoredStepQueueEvent({ signal, stepQueue })),
+    Effect.flatMap((nextEvent) =>
+      isStreamCompletionEvent(nextEvent)
+        ? remaining === 0
+          ? emit(localDriverCompletedEvent)
+          : Effect.fail(
+            executionFailedError("effect-search run ended before every authored optimization frame arrived.")
+          )
+        : isEffectSearchCanonicalStep(nextEvent.step)
+        ? nextEvent.step.trialBudget !== plan.trialBudget
+          ? Effect.fail(
+            executionFailedError(
+              `effect-search authored step drifted from the frozen run plan (expected trialBudget=${plan.trialBudget}; received ${nextEvent.step.trialBudget}).`
+            )
+          )
+          : emitFrameUpdate({ emit, registry, step: nextEvent.step }).pipe(
+            Effect.zipRight(
+              remaining > 1
+                ? drainSearchFrames({
+                  emit,
+                  plan,
+                  registry,
+                  remaining: remaining - 1,
+                  signal,
+                  stepQueue
+                })
+                : emit(localDriverCompletedEvent)
+            )
+          )
+        : drainSearchFrames({ emit, plan, registry, remaining, signal, stepQueue })
+    )
+  )
 
 export const makeOptimizationAnimationStream = (
   registry: RunRegistry,
   signal: RunSignal,
-  plan: EffectSearchRunPlan
+  plan: EffectSearchRunPlan,
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>
 ): Stream.Stream<EffectSearchAnimationEvent, DemoExecutionError, never> =>
-  Study.streamFromEmitter<EffectSearchAnimationEvent, void, DemoExecutionError, never>((emit) =>
-    Effect.gen(function*() {
-      registry.set(optimizationAnimatingAtom, true)
-      registry.set(tpeTrialsAtom, [])
-      registry.set(randomTrialsAtom, [])
-
-      const startedAt = yield* Clock.currentTimeMillis
-      const trialBudget = plan.trialBudget
-      const seed = plan.samplerSeed
-
-      const tpePointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
-      const randomPointsRef = yield* Ref.make<ReadonlyArray<TrialPoint>>([])
-      const publishedTrialCountRef = yield* Ref.make(0)
-
-      yield* emitFrameUpdate({
-        emit,
-        phase: "running",
-        randomTrials: [],
-        tpeTrials: [],
-        trialBudget
-      })
-
-      yield* Effect.scoped(
-        Effect.gen(function*() {
-          const space = yield* SearchSpace.make({
-            x: SearchSpace.float(searchBounds.xMin, searchBounds.xMax),
-            y: SearchSpace.float(searchBounds.yMin, searchBounds.yMax)
-          })
-          const tpeHandle = yield* Study.open({
-            space,
-            sampler: Sampler.tpe({ seed }),
-            objective,
-            trials: trialBudget,
-            direction: "minimize"
-          })
-          const randomHandle = yield* Study.open({
-            space,
-            sampler: Sampler.random({ seed }),
-            objective,
-            trials: trialBudget,
-            direction: "minimize"
-          })
-
-          const recordSamplerStep = ({
-            handle,
-            index,
-            trialRef
-          }: {
-            readonly handle: Study.StudyHandle<typeof space>
-            readonly index: number
-            readonly trialRef: Ref.Ref<ReadonlyArray<TrialPoint>>
-          }) =>
-            Effect.gen(function*() {
-              const asked = yield* Study.ask(handle)
-              const config = yield* Schema.decodeUnknown(space.schema)(asked.config)
-              const value = yield* objective(config)
-              yield* Study.tell(handle, asked.trialNumber, value)
-
-              const point: TrialPoint = { x: config.x, y: config.y, value, index }
-              return yield* Ref.updateAndGet(trialRef, Arr.append(point))
-            })
-
-          yield* Effect.forEach(
-            Arr.range(0, trialBudget - 1),
-            (index) =>
-              Effect.gen(function*() {
-                // Advance both samplers in one frame so the optimizer page stays interruptible.
-                yield* awaitRunSignal(signal)
-                const tpePoints = yield* recordSamplerStep({
-                  handle: tpeHandle,
-                  index,
-                  trialRef: tpePointsRef
-                })
-                yield* awaitRunSignal(signal)
-                const randomPoints = yield* recordSamplerStep({
-                  handle: randomHandle,
-                  index,
-                  trialRef: randomPointsRef
-                })
-
-                yield* emitFrameUpdate({
-                  emit,
-                  phase: "running",
-                  randomTrials: randomPoints,
-                  tpeTrials: tpePoints,
-                  trialBudget
-                })
-
-                if (index === 0) {
-                  yield* publishOptimizationEvidence({
-                    emit,
-                    force: false,
-                    publishedTrialCountRef,
-                    randomPointsRef,
-                    tpePointsRef
-                  })
-                  yield* sleepWithRunSignal(signal, stepDelayMs)
-                } else {
-                  yield* sleepWithRunSignal(signal, stepDelayMs)
-                  yield* publishOptimizationEvidence({
-                    emit,
-                    force: false,
-                    publishedTrialCountRef,
-                    randomPointsRef,
-                    tpePointsRef
-                  })
-                }
-              }),
-            { concurrency: 1, discard: true }
-          )
-
-          yield* publishOptimizationEvidence({
-            emit,
-            force: true,
-            publishedTrialCountRef,
-            randomPointsRef,
-            tpePointsRef
-          })
-
-          const tpePoints = yield* Ref.get(tpePointsRef)
-          const randomPoints = yield* Ref.get(randomPointsRef)
-
-          yield* emitFrameUpdate({
-            emit,
-            phase: "complete",
-            randomTrials: randomPoints,
-            tpeTrials: tpePoints,
-            trialBudget
-          })
-        }).pipe(
-          Effect.mapError(() => executionFailedError("effect-search animation failed before local completion."))
-        )
-      )
-
-      const endedAt = yield* Clock.currentTimeMillis
-
-      yield* emit(
-        new SectionAppend({
-          section: {
-            title: "Animation Summary",
-            items: [
-              { _tag: "Scalar", label: "Trials per sampler", value: trialBudget, unit: "trials", format: "integer" },
-              { _tag: "Scalar", label: "Animation duration", value: endedAt - startedAt, unit: "ms", format: "fixed" },
-              { _tag: "Text", label: "Objective", value: objectiveExpression },
-              { _tag: "Text", label: "Optimum", value: `(${optimum.x}, ${optimum.y}) → 0` },
-              {
-                _tag: "Text",
-                label: "Proof",
-                value:
-                  "Both optimizations advanced in lockstep via ask/tell while the transcript coalesced trial-table upserts into batched checkpoints so the live controls stayed responsive under load."
-              }
-            ]
-          }
+  Study.streamFromEmitter<
+    EffectSearchAnimationEvent,
+    void,
+    DemoExecutionError,
+    never
+  >((emit) =>
+    setOptimizationAnimationPlayback(registry, true).pipe(
+      Effect.zipRight(
+        drainSearchFrames({
+          emit,
+          plan,
+          registry,
+          remaining: plan.trialBudget,
+          signal,
+          stepQueue
         })
-      )
-      yield* setOptimizationAnimationPlayback(registry, false)
-      yield* emit(localDriverCompletedEvent)
-    }).pipe(
+      ),
       Effect.ensuring(resetOptimizationAnimationState(registry))
     )
   )

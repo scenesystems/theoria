@@ -105,16 +105,6 @@ export const EvidenceStage = ({
         plane,
         sections
       })),
-    Match.tag("stopped", ({ banner, description, plane, sections }) =>
-      retainedEvidenceNode({
-        banner,
-        emptyNode: <EmptyState description={description} />,
-        onSelectFilter: onSelectEvidenceFilter,
-        onSelectOrder: onSelectEvidenceOrder,
-        onSelectSection: onSelectEvidenceSection,
-        plane,
-        sections
-      })),
     Match.tag("failure", ({ banner, description, plane, sections }) =>
       retainedEvidenceNode({
         banner,

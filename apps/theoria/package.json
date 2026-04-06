@@ -24,6 +24,7 @@
     "@effect/ai": "0.35.0",
     "@effect/platform": "0.96.0",
     "@effect/platform-bun": "0.89.0",
+    "@effect/workflow": "0.18.0",
     "@heroicons/react": "^2.2.0",
     "@scenesystems/digest": "workspace:^",
     "@scenesystems/seal": "workspace:^",

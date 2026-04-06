@@ -1,6 +1,7 @@
 import type { DemoError } from "../../app/contracts/demo-error.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
 import type { Program } from "../../app/contracts/presentation.js"
+import type { RunPlan } from "../../app/contracts/run-plan.js"
 import type { RunData } from "../../app/contracts/run.js"
 import type { LocalRunPlan } from "../../app/web/state/local-run.js"
 import { initialSurfaceState, reduceRunState, type RunOwnership, type RunState } from "../../app/web/state/types.js"
@@ -12,7 +13,7 @@ const defaultRunOwnership: RunOwnership = {
 
 const baseRunState = (): RunState => initialSurfaceState("effect-text").run
 
-export const serverCompletedRunState = ({
+export const streamCompletedRunState = ({
   observedAtMs = 1,
   meta = null,
   run,
@@ -26,14 +27,14 @@ export const serverCompletedRunState = ({
   readonly summary: string
 }): RunState =>
   reduceRunState(run, {
-    _tag: "RunServerCompleted",
+    _tag: "RunStreamCompleteObserved",
     sequence,
     observedAtMs,
     summary,
     meta
   })
 
-export const localCompletedRunState = ({
+export const stepQueueDrainedRunState = ({
   observedAtMs = 1,
   run,
   sequence = 1
@@ -43,7 +44,7 @@ export const localCompletedRunState = ({
   readonly sequence?: number
 }): RunState =>
   reduceRunState(run, {
-    _tag: "RunLocalCompleted",
+    _tag: "RunStepQueueDrained",
     sequence,
     observedAtMs
   })
@@ -52,6 +53,7 @@ export const runningRunState = ({
   localRunPlan = null,
   ownership = defaultRunOwnership,
   program,
+  runPlan = { id: "effect-text", manifest: null },
   sequence = 1,
   startedAtMs = 0,
   token = 1
@@ -59,6 +61,7 @@ export const runningRunState = ({
   readonly localRunPlan?: LocalRunPlan | null
   readonly ownership?: RunOwnership
   readonly program: Program
+  readonly runPlan?: RunPlan
   readonly sequence?: number
   readonly startedAtMs?: number
   readonly token?: number
@@ -69,6 +72,7 @@ export const runningRunState = ({
     sequence,
     ownership,
     startedAtMs,
+    runPlan,
     localRunPlan,
     program
   })
@@ -114,25 +118,6 @@ export const failedRunState = ({
     error
   })
 
-export const stoppedRunState = ({
-  finalizedAtMs = 2,
-  ownership = defaultRunOwnership,
-  program,
-  sequence = 1,
-  token = 1
-}: {
-  readonly finalizedAtMs?: number
-  readonly ownership?: RunOwnership
-  readonly program: Program
-  readonly sequence?: number
-  readonly token?: number
-}): RunState =>
-  reduceRunState(runningRunState({ ownership, program, sequence, token }), {
-    _tag: "RunStopped",
-    sequence,
-    finalizedAtMs
-  })
-
 export const succeededRunState = ({
   data,
   finalizedAtMs = 2,
@@ -149,14 +134,14 @@ export const succeededRunState = ({
   readonly token?: number
 }): RunState => {
   const started = runningRunState({ ownership, program: data.program, sequence, token })
-  const withServerCompletion = ownership.serverStream
-    ? serverCompletedRunState({ run: started, sequence, summary: data.summary, meta })
+  const withStreamCompletion = ownership.serverStream
+    ? streamCompletedRunState({ run: started, sequence, summary: data.summary, meta })
     : started
-  const withAllCompletions = ownership.localDriver
-    ? localCompletedRunState({ run: withServerCompletion, sequence })
-    : withServerCompletion
+  const withSuccessGate = ownership.localDriver
+    ? stepQueueDrainedRunState({ run: withStreamCompletion, sequence })
+    : withStreamCompletion
 
-  return reduceRunState(withAllCompletions, {
+  return reduceRunState(withSuccessGate, {
     _tag: "RunSucceeded",
     sequence,
     finalizedAtMs,

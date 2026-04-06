@@ -5,12 +5,15 @@ import * as Arr from "effect/Array"
 import type { Program } from "../../../contracts/presentation.js"
 import type { RunData } from "../../../contracts/run.js"
 import type { StreamManifest } from "../../../contracts/stream-manifest.js"
+import { type DemoStreamPlan, makeStreamPlan, phaseFromElementStream } from "../stream-plan.js"
 
 import { multiFileProgram } from "../presentation.js"
 import { executableProgramFile, type ProgramSourceReadError } from "../program-source.js"
 import type { StreamElement } from "../stream-element.js"
 import { type DspProviderRuntime, DspProviderRuntimeLive } from "./provider.js"
-import { defaultDspRunRequest, requestFromManifest } from "./runtime.js"
+import { defaultDspRunRequest, dspExecutionStory, requestFromManifest } from "./runtime.js"
+import { buildDspStageStories } from "./stage-story.js"
+import { stageStream } from "./stream-support.js"
 import { streamElementsForRequest, streamSections } from "./stream.js"
 
 // ---------------------------------------------------------------------------
@@ -25,6 +28,9 @@ export const preloadProgram: Effect.Effect<
   executableProgramFile(new URL("./run.ts", import.meta.url).href),
   executableProgramFile(new URL("../../../contracts/demo/dsp.ts", import.meta.url).href)
 ]).pipe(Effect.map(([serverFile, contractFile]) => multiFileProgram([serverFile, contractFile])))
+
+export const runSummary =
+  "effect-dsp froze the approved DSP manifest, evaluated a typed module, optimized demonstrations, and re-evaluated the same scenario under shared runtime authority."
 
 // ---------------------------------------------------------------------------
 // Exports
@@ -42,8 +48,7 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
     return {
       id: "effect-dsp",
       packageName: "effect-dsp",
-      summary:
-        "effect-dsp froze the approved DSP manifest, evaluated a typed module, optimized demonstrations, and re-evaluated the same scenario under shared runtime authority.",
+      summary: runSummary,
       durationMs: endedAt - startedAt,
       program: runnableProgram,
       sections
@@ -54,4 +59,24 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
 export const streamElements = (manifest: StreamManifest | null): Stream.Stream<StreamElement, unknown, never> =>
   streamElementsForRequest(requestFromManifest(manifest)).pipe(
     Stream.provideLayer(DspProviderRuntimeLive)
+  )
+
+export const streamPlan = (
+  manifest: StreamManifest | null
+): Effect.Effect<
+  DemoStreamPlan<DspProviderRuntime | FileSystem.FileSystem | Path.Path, unknown>,
+  unknown,
+  DspProviderRuntime
+> =>
+  dspExecutionStory(requestFromManifest(manifest)).pipe(
+    Effect.map((story) =>
+      makeStreamPlan({
+        packageName: "effect-dsp",
+        program: preloadProgram,
+        summary: runSummary,
+        phases: buildDspStageStories(story).map(({ stageId, steps, sectionEffects }) =>
+          phaseFromElementStream(stageId, stageStream({ stageId, steps, sectionEffects }))
+        )
+      })
+    )
   )

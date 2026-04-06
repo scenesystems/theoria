@@ -8,8 +8,15 @@
  * @since 0.1.0
  * @module
  */
+import { Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
+
+import type { EvidenceSection } from "../evidence.js"
+import { EffectSearchStudyTelemetry } from "./effect-search-study-telemetry.js"
+
+const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
 // ---------------------------------------------------------------------------
 // Search configuration
@@ -27,7 +34,12 @@ export const searchBounds: Readonly<{
   yMax: 5
 }
 
-export type Config2D = { readonly x: number; readonly y: number }
+export const Config2DSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number
+})
+
+export type Config2D = typeof Config2DSchema.Type
 
 export const optimum: Config2D = { x: 2, y: -1 }
 
@@ -39,6 +51,24 @@ export const optimizationTrialBudgetMax = 100
 export const optimizationTrialBudgetStep = 5
 
 export const defaultSamplerSeed = 42
+export const optimizationEvidenceBatchSize = 5
+export const optimizationEvidenceLiveRowWindow = 12
+
+export const EffectSearchRunPlan = Schema.Struct({
+  _tag: Schema.Literal("effect-search"),
+  samplerSeed: NonNegativeInt,
+  trialBudget: PositiveInt
+})
+
+export type EffectSearchRunPlan = typeof EffectSearchRunPlan.Type
+
+export const isEffectSearchRunPlan = Schema.is(EffectSearchRunPlan)
+
+export const snapshotEffectSearchRunPlan = (trialBudget: number): EffectSearchRunPlan => ({
+  _tag: "effect-search",
+  samplerSeed: defaultSamplerSeed,
+  trialBudget
+})
 
 // ---------------------------------------------------------------------------
 // Objective function (pure)
@@ -70,6 +100,132 @@ export type TrialPoint = {
   readonly value: number
   readonly index: number
 }
+
+export const TrialPoint = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  value: Schema.Number,
+  index: NonNegativeInt
+})
+
+export class EffectSearchCanonicalStep extends Schema.TaggedClass<EffectSearchCanonicalStep>()(
+  "EffectSearchCanonicalStep",
+  {
+    trialBudget: PositiveInt,
+    phase: Schema.Literal("running", "complete"),
+    tpeTrials: Schema.Array(TrialPoint),
+    randomTrials: Schema.Array(TrialPoint),
+    telemetry: EffectSearchStudyTelemetry
+  }
+) {}
+
+const visibleTrialPoints = ({
+  force,
+  points
+}: {
+  readonly force: boolean
+  readonly points: ReadonlyArray<TrialPoint>
+}): ReadonlyArray<TrialPoint> =>
+  force || points.length <= optimizationEvidenceLiveRowWindow
+    ? points
+    : points.slice(-optimizationEvidenceLiveRowWindow)
+
+const trialTableLabel = ({
+  force,
+  prefix,
+  totalCount,
+  visibleCount
+}: {
+  readonly force: boolean
+  readonly prefix: string
+  readonly totalCount: number
+  readonly visibleCount: number
+}): string =>
+  force || visibleCount === totalCount
+    ? `${prefix} trial coordinates`
+    : `${prefix} trial coordinates (latest ${visibleCount} of ${totalCount})`
+
+export const trialPositionsSection = ({
+  force,
+  randomPoints,
+  tpePoints
+}: {
+  readonly force: boolean
+  readonly randomPoints: ReadonlyArray<TrialPoint>
+  readonly tpePoints: ReadonlyArray<TrialPoint>
+}): EvidenceSection => {
+  const visibleTpePoints = visibleTrialPoints({ force, points: tpePoints })
+  const visibleRandomPoints = visibleTrialPoints({ force, points: randomPoints })
+
+  return {
+    title: "Trial Positions",
+    items: [
+      {
+        _tag: "Table",
+        label: trialTableLabel({
+          force,
+          prefix: "TPE",
+          totalCount: tpePoints.length,
+          visibleCount: visibleTpePoints.length
+        }),
+        columns: ["Trial", "x", "y", "Objective"],
+        rows: Arr.map(visibleTpePoints, (point) => [
+          String(point.index + 1),
+          point.x.toFixed(4),
+          point.y.toFixed(4),
+          point.value.toFixed(6)
+        ])
+      },
+      {
+        _tag: "Table",
+        label: trialTableLabel({
+          force,
+          prefix: "Random",
+          totalCount: randomPoints.length,
+          visibleCount: visibleRandomPoints.length
+        }),
+        columns: ["Trial", "x", "y", "Objective"],
+        rows: Arr.map(visibleRandomPoints, (point) => [
+          String(point.index + 1),
+          point.x.toFixed(4),
+          point.y.toFixed(4),
+          point.value.toFixed(6)
+        ])
+      }
+    ]
+  }
+}
+
+export const bestFoundSection = (
+  tpePoints: ReadonlyArray<TrialPoint>,
+  randomPoints: ReadonlyArray<TrialPoint>
+): Option.Option<EvidenceSection> =>
+  Option.map(
+    Option.zipWith(bestTrialPoint(tpePoints), bestTrialPoint(randomPoints), (tpe, random) => ({ tpe, random })),
+    ({ tpe, random }) => ({
+      title: "Best Found",
+      items: [
+        {
+          _tag: "Text",
+          label: "TPE best",
+          value: `(${tpe.x.toFixed(4)}, ${tpe.y.toFixed(4)}) → ${tpe.value.toFixed(6)}`
+        },
+        {
+          _tag: "Text",
+          label: "Random best",
+          value: `(${random.x.toFixed(4)}, ${random.y.toFixed(4)}) → ${random.value.toFixed(6)}`
+        },
+        {
+          _tag: "Comparison",
+          label: "Best objective value",
+          baseline: random.value,
+          improved: tpe.value,
+          unit: "loss",
+          direction: "lower-is-better"
+        }
+      ]
+    })
+  )
 
 type TrialState =
   | { readonly _tag: string }

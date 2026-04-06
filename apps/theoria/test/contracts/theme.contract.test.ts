@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Arr from "effect/Array"
 
+import type { Id as CardId } from "../../app/contracts/id.js"
 import { toneForCard } from "../../app/contracts/theme.js"
 
-const knownIds = ["effect-text", "effect-search", "effect-math", "effect-dsp"]
+const knownIds: ReadonlyArray<CardId> = ["effect-text", "effect-search", "effect-math", "effect-dsp"]
 
 describe("Theoria Theme Contracts", () => {
   it("maps every demo id to a tone", () => {

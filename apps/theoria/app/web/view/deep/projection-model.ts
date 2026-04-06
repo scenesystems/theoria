@@ -65,7 +65,7 @@ export const deepDiveProjectionSurfaceDescriptorFor = (surface: DeepDiveProjecti
       label: "Source"
     })),
     Match.when(DeepDiveDiagnosticsPlaneValue, () => ({
-      description: "Development-only lifecycle telemetry and local driver state.",
+      description: "Development-only lifecycle telemetry and canonical-frame reactor state.",
       id: DeepDiveDiagnosticsPlaneValue,
       label: "Diagnostics"
     })),

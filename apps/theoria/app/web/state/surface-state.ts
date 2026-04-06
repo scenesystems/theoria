@@ -1,15 +1,32 @@
-import { Match, Option } from "effect"
+import { Match } from "effect"
 
+import type { CanonicalFrame } from "../../contracts/canonical-step.js"
+import { type ChoreographyCue, type ChoreographyState, initialChoreographyState } from "../../contracts/choreography.js"
 import type { DemoError } from "../../contracts/demo-error.js"
 import type { Metadata } from "../../contracts/envelope.js"
+import {
+  appendEvidenceSectionToStore,
+  applyEvidenceEventToStore,
+  emptyEvidenceStoreState,
+  evidenceSectionsFromStore,
+  type EvidenceStoreState
+} from "../../contracts/evidence-store.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../contracts/evidence.js"
-import type { Id } from "../../contracts/id.js"
+import type { SurfaceId } from "../../contracts/id.js"
 import type { Program, ProgramSourceScope } from "../../contracts/presentation.js"
 import type { ProgramPreview } from "../../contracts/program-preview.js"
+import type { SurfaceRunPlan } from "../../contracts/run-plan.js"
 import type { RunData } from "../../contracts/run.js"
 import type { LocalRunFrame, LocalRunPlan } from "./local-run.js"
 
+export {
+  appendEvidenceSectionToStore,
+  applyEvidenceEventToStore,
+  emptyEvidenceStoreState,
+  evidenceSectionsFromStore
+} from "../../contracts/evidence-store.js"
+export type { EvidenceStoreState } from "../../contracts/evidence-store.js"
 export type { LocalRunFrame, LocalRunPlan } from "./local-run.js"
 
 export type StageTab = "interactive" | "evidence"
@@ -28,44 +45,36 @@ export type EvidenceStreamState = {
   readonly meta: Metadata | null
 }
 
-export type EvidenceStoreState = {
-  readonly nextSectionId: number
-  readonly sectionOrder: ReadonlyArray<string>
-  readonly sectionsById: Readonly<Record<string, EvidenceSection>>
-  readonly sectionIdsByTitle: Readonly<Record<string, string>>
-  readonly complete: boolean
-  readonly summary: string | null
-  readonly meta: Metadata | null
-}
-
 export type EvidenceStatusState = {
   readonly complete: boolean
   readonly sectionCount: number
 }
 
 export type RunControlState = "idle" | "running" | "paused" | "stopping"
-export type RunOutcome = "none" | "stopped" | "failed" | "succeeded"
+export type RunOutcome = "none" | "failed" | "succeeded"
 
 export type RunOwnership = {
   readonly localDriver: boolean
   readonly serverStream: boolean
 }
 
-export type RunBoundaryCompletionState = "inactive" | "pending" | "completed"
+export type RunInternalFactState = "inactive" | "pending" | "observed"
 
-export type RunServerCompletion = {
-  readonly state: RunBoundaryCompletionState
+export type RunStreamCompletionFact = {
+  readonly state: RunInternalFactState
+  readonly observedAtMs: number | null
   readonly summary: string | null
   readonly meta: Metadata | null
 }
 
-export type RunLocalCompletion = {
-  readonly state: RunBoundaryCompletionState
+export type RunStepQueueDrainFact = {
+  readonly state: RunInternalFactState
+  readonly observedAtMs: number | null
 }
 
-export type RunCompletion = {
-  readonly server: RunServerCompletion
-  readonly local: RunLocalCompletion
+export type RunInternalFacts = {
+  readonly streamComplete: RunStreamCompletionFact
+  readonly stepQueueDrain: RunStepQueueDrainFact
 }
 
 export type RunRuntimeTelemetryKind =
@@ -74,8 +83,8 @@ export type RunRuntimeTelemetryKind =
   | "resume-requested"
   | "stop-requested"
   | "checkpoint-reached"
-  | "server-completed"
-  | "local-completed"
+  | "stream-complete-observed"
+  | "step-queue-drained"
   | "run-finalized"
 
 export type RunRuntimeTelemetryEvent = {
@@ -95,10 +104,13 @@ export type RunSession = {
   readonly control: RunControlState
   readonly outcome: RunOutcome
   readonly ownership: RunOwnership
-  readonly completion: RunCompletion
+  readonly facts: RunInternalFacts
   readonly telemetry: RunRuntimeTelemetryState
+  readonly runPlan: SurfaceRunPlan | null
   readonly localRunPlan: LocalRunPlan | null
   readonly localRunFrame: LocalRunFrame | null
+  readonly canonicalFrame: CanonicalFrame | null
+  readonly choreography: ChoreographyState
   readonly program: Program | null
 }
 
@@ -108,20 +120,11 @@ type ActiveRunSession = RunSession & {
   readonly program: Program
 }
 
+type InFlightRunControlState = Exclude<RunControlState, "idle">
+
 type InFlightRunSession = ActiveRunSession & {
   readonly outcome: "none"
-}
-
-type RunningRunSession = InFlightRunSession & {
-  readonly control: "running"
-}
-
-type PausedRunSession = InFlightRunSession & {
-  readonly control: "paused"
-}
-
-type StoppingRunSession = InFlightRunSession & {
-  readonly control: "stopping"
+  readonly control: InFlightRunControlState
 }
 
 type TerminalRunSession = ActiveRunSession & {
@@ -129,25 +132,12 @@ type TerminalRunSession = ActiveRunSession & {
   readonly outcome: Exclude<RunOutcome, "none">
 }
 
-export type RunInFlightState =
-  | {
-    readonly _tag: "RunRunning"
-    readonly session: RunningRunSession
-    readonly sequence: number
-    readonly program: Program
-  }
-  | {
-    readonly _tag: "RunPaused"
-    readonly session: PausedRunSession
-    readonly sequence: number
-    readonly program: Program
-  }
-  | {
-    readonly _tag: "RunStopping"
-    readonly session: StoppingRunSession
-    readonly sequence: number
-    readonly program: Program
-  }
+export type RunInFlightState = {
+  readonly _tag: "RunRunning"
+  readonly session: InFlightRunSession
+  readonly sequence: number
+  readonly program: Program
+}
 
 export type RunState =
   | { readonly _tag: "RunIdle"; readonly session: RunSession }
@@ -160,12 +150,6 @@ export type RunState =
     readonly error: DemoError
   }
   | {
-    readonly _tag: "RunStopped"
-    readonly session: TerminalRunSession & { readonly outcome: "stopped" }
-    readonly sequence: number
-    readonly program: Program
-  }
-  | {
     readonly _tag: "RunSuccess"
     readonly session: TerminalRunSession & { readonly outcome: "succeeded" }
     readonly sequence: number
@@ -173,26 +157,16 @@ export type RunState =
     readonly meta: Metadata | null
   }
 
-export type RunPhase = "idle" | "running" | "paused" | "stopping" | "stopped" | "failed" | "success"
+export type RunPhase = "idle" | "running" | "paused" | "stopping" | "failed" | "success"
 
 export type SurfaceState = {
-  readonly id: Id
+  readonly id: SurfaceId
   readonly stageTab: StageTab
   readonly preload: PreloadState
   readonly run: RunState
   readonly nextSequence: number
   readonly programSourceScope: ProgramSourceScope
   readonly programFileIndex: number
-}
-
-export const emptyEvidenceStoreState: EvidenceStoreState = {
-  nextSectionId: 1,
-  sectionOrder: [],
-  sectionsById: {},
-  sectionIdsByTitle: {},
-  complete: false,
-  summary: null,
-  meta: null
 }
 
 export const emptyEvidenceStreamState: EvidenceStreamState = {
@@ -207,57 +181,6 @@ export const emptyEvidenceStatusState: EvidenceStatusState = {
   sectionCount: 0
 }
 
-const nextEvidenceSectionId = (state: EvidenceStoreState): string => `section-${state.nextSectionId}`
-
-const appendSectionToStore = (state: EvidenceStoreState, section: EvidenceSection): EvidenceStoreState => {
-  const sectionId = nextEvidenceSectionId(state)
-  const existingId = state.sectionIdsByTitle[section.title]
-
-  return Option.fromNullable(existingId).pipe(
-    Option.match({
-      onNone: () => ({
-        ...state,
-        nextSectionId: state.nextSectionId + 1,
-        sectionOrder: [...state.sectionOrder, sectionId],
-        sectionsById: {
-          ...state.sectionsById,
-          [sectionId]: section
-        },
-        sectionIdsByTitle: {
-          ...state.sectionIdsByTitle,
-          [section.title]: sectionId
-        }
-      }),
-      onSome: () => ({
-        ...state,
-        nextSectionId: state.nextSectionId + 1,
-        sectionOrder: [...state.sectionOrder, sectionId],
-        sectionsById: {
-          ...state.sectionsById,
-          [sectionId]: section
-        }
-      })
-    })
-  )
-}
-
-const upsertSectionInStore = (state: EvidenceStoreState, section: EvidenceSection): EvidenceStoreState => {
-  const existingId = state.sectionIdsByTitle[section.title]
-
-  return Option.fromNullable(existingId).pipe(
-    Option.match({
-      onNone: () => appendSectionToStore(state, section),
-      onSome: (sectionId) => ({
-        ...state,
-        sectionsById: {
-          ...state.sectionsById,
-          [sectionId]: section
-        }
-      })
-    })
-  )
-}
-
 const upsertSection = (
   sections: ReadonlyArray<EvidenceSection>,
   section: EvidenceSection
@@ -268,19 +191,6 @@ const upsertSection = (
     ? [...sections, section]
     : sections.map((current, currentIndex) => (currentIndex === index ? section : current))
 }
-
-export const applyEvidenceEventToStore = (state: EvidenceStoreState, event: EvidenceEvent): EvidenceStoreState =>
-  Match.value(event).pipe(
-    Match.tag("SectionAppend", ({ section }) => appendSectionToStore(state, section)),
-    Match.tag("SectionUpsert", ({ section }) => upsertSectionInStore(state, section)),
-    Match.tag("StreamComplete", ({ summary, meta }) => ({
-      ...state,
-      complete: true,
-      summary,
-      meta
-    })),
-    Match.orElse(() => state)
-  )
 
 const applyEvidenceEventToStream = (state: EvidenceStreamState, event: EvidenceEvent): EvidenceStreamState =>
   Match.value(event).pipe(
@@ -315,17 +225,6 @@ export function applyEvidenceEvent(
     ? applyEvidenceEventToStore(state, event)
     : applyEvidenceEventToStream(state, event)
 }
-
-export const evidenceSectionsFromStore = (state: EvidenceStoreState): ReadonlyArray<EvidenceSection> =>
-  state.sectionOrder.flatMap((sectionId) => {
-    const section = state.sectionsById[sectionId]
-    return Option.fromNullable(section).pipe(
-      Option.match({
-        onNone: () => [],
-        onSome: (value) => [value]
-      })
-    )
-  })
 
 export const evidenceStatusFromStore = (state: EvidenceStoreState): EvidenceStatusState => ({
   complete: state.complete,
@@ -364,7 +263,7 @@ export const evidenceStoreFromSuccess = ({
   readonly data: RunData
   readonly meta: Metadata | null
 }): EvidenceStoreState => {
-  const stateWithSections = data.sections.reduce(appendSectionToStore, emptyEvidenceStoreState)
+  const stateWithSections = data.sections.reduce(appendEvidenceSectionToStore, emptyEvidenceStoreState)
 
   return {
     ...stateWithSections,
@@ -386,31 +285,30 @@ export const evidenceStoreFromRunState = (run: RunState): EvidenceStoreState =>
     Match.orElse(() => emptyEvidenceStoreState)
   )
 
-const isBoundaryCompletionPending = (state: RunBoundaryCompletionState): boolean => state === "pending"
+const isRunInternalFactPending = (state: RunInternalFactState): boolean => state === "pending"
 
-const isBoundaryCompletionCompleted = (state: RunBoundaryCompletionState): boolean => state === "completed"
+const isRunInternalFactObserved = (state: RunInternalFactState): boolean => state === "observed"
 
-const runCompletionReady = (completion: RunCompletion): boolean =>
-  !isBoundaryCompletionPending(completion.server.state) && !isBoundaryCompletionPending(completion.local.state)
+const runFactsReady = (facts: RunInternalFacts): boolean =>
+  !isRunInternalFactPending(facts.streamComplete.state) && !isRunInternalFactPending(facts.stepQueueDrain.state)
 
-export const runHasServerCompletion = (run: RunState): boolean =>
-  isBoundaryCompletionCompleted(run.session.completion.server.state)
+export const runHasStreamCompletion = (run: RunState): boolean =>
+  isRunInternalFactObserved(run.session.facts.streamComplete.state)
 
-export const runHasLocalCompletion = (run: RunState): boolean =>
-  isBoundaryCompletionCompleted(run.session.completion.local.state)
+export const runHasStepQueueDrain = (run: RunState): boolean =>
+  isRunInternalFactObserved(run.session.facts.stepQueueDrain.state)
 
-export const runAwaitsServerCompletion = (run: RunState): boolean =>
-  isBoundaryCompletionPending(run.session.completion.server.state)
+export const runAwaitsStreamCompletion = (run: RunState): boolean =>
+  isRunInternalFactPending(run.session.facts.streamComplete.state)
 
-export const runAwaitsLocalCompletion = (run: RunState): boolean =>
-  isBoundaryCompletionPending(run.session.completion.local.state)
+export const runAwaitsStepQueueDrain = (run: RunState): boolean =>
+  isRunInternalFactPending(run.session.facts.stepQueueDrain.state)
 
-export const runServerCompletionSummary = (run: RunState): string | null => run.session.completion.server.summary
+export const runStreamCompletionSummary = (run: RunState): string | null => run.session.facts.streamComplete.summary
 
 export const runPhase = (run: RunState): RunPhase =>
   Match.value(run.session.outcome).pipe(
     Match.withReturnType<RunPhase>(),
-    Match.when("stopped", () => "stopped"),
     Match.when("failed", () => "failed"),
     Match.when("succeeded", () => "success"),
     Match.orElse(() =>
@@ -430,10 +328,7 @@ export const hasActiveRunSequence = (run: RunState, sequence: number): boolean =
 export const programFromRunState = (run: RunState): Program | null =>
   Match.value(run).pipe(
     Match.tag("RunRunning", ({ program }) => program),
-    Match.tag("RunPaused", ({ program }) => program),
-    Match.tag("RunStopping", ({ program }) => program),
     Match.tag("RunFailed", ({ program }) => program),
-    Match.tag("RunStopped", ({ program }) => program),
     Match.tag("RunSuccess", ({ data }) => data.program),
     Match.orElse(() => null)
   )
@@ -443,14 +338,16 @@ const emptyRunOwnership: RunOwnership = {
   serverStream: false
 }
 
-const inactiveRunCompletion: RunCompletion = {
-  server: {
+const inactiveRunFacts: RunInternalFacts = {
+  streamComplete: {
     state: "inactive",
+    observedAtMs: null,
     summary: null,
     meta: null
   },
-  local: {
-    state: "inactive"
+  stepQueueDrain: {
+    state: "inactive",
+    observedAtMs: null
   }
 }
 
@@ -484,19 +381,21 @@ const appendRunRuntimeTelemetryEvent = (
       events: [...telemetry.events, event]
     }
 
-const runCompletionFromOwnership = (ownership: RunOwnership): RunCompletion => ({
-  server: ownership.serverStream
+const runFactsFromOwnership = (ownership: RunOwnership): RunInternalFacts => ({
+  streamComplete: ownership.serverStream
     ? {
       state: "pending",
+      observedAtMs: null,
       summary: null,
       meta: null
     }
-    : inactiveRunCompletion.server,
-  local: ownership.localDriver
+    : inactiveRunFacts.streamComplete,
+  stepQueueDrain: ownership.localDriver
     ? {
-      state: "pending"
+      state: "pending",
+      observedAtMs: null
     }
-    : inactiveRunCompletion.local
+    : inactiveRunFacts.stepQueueDrain
 })
 
 const idleRunSession: RunSession = {
@@ -505,10 +404,13 @@ const idleRunSession: RunSession = {
   control: "idle",
   outcome: "none",
   ownership: emptyRunOwnership,
-  completion: inactiveRunCompletion,
+  facts: inactiveRunFacts,
   telemetry: emptyRunRuntimeTelemetryState,
+  runPlan: null,
   localRunPlan: null,
   localRunFrame: null,
+  canonicalFrame: null,
+  choreography: initialChoreographyState,
   program: null
 }
 
@@ -521,10 +423,13 @@ const makeRunSession = <Control extends RunControlState, Outcome extends RunOutc
   control,
   outcome,
   ownership,
-  completion,
+  facts,
   telemetry,
+  runPlan,
   localRunPlan,
   localRunFrame,
+  canonicalFrame,
+  choreography,
   program,
   sequence,
   token
@@ -532,10 +437,13 @@ const makeRunSession = <Control extends RunControlState, Outcome extends RunOutc
   readonly control: Control
   readonly outcome: Outcome
   readonly ownership: RunOwnership
-  readonly completion: RunCompletion
+  readonly facts: RunInternalFacts
   readonly telemetry: RunRuntimeTelemetryState
+  readonly runPlan: SurfaceRunPlan | null
   readonly localRunPlan: LocalRunPlan | null
   readonly localRunFrame: LocalRunFrame | null
+  readonly canonicalFrame: CanonicalFrame | null
+  readonly choreography: ChoreographyState
   readonly program: Program
   readonly sequence: number
   readonly token: number
@@ -545,99 +453,72 @@ const makeRunSession = <Control extends RunControlState, Outcome extends RunOutc
   control,
   outcome,
   ownership,
-  completion,
+  facts,
   telemetry,
+  runPlan,
   localRunPlan,
   localRunFrame,
+  canonicalFrame,
+  choreography,
   program
 })
 
 const runInFlightState = (
-  tag: RunInFlightState["_tag"],
   token: number,
   sequence: number,
+  control: InFlightRunControlState,
   ownership: RunOwnership,
   program: Program,
-  completion: RunCompletion = runCompletionFromOwnership(ownership),
+  facts: RunInternalFacts = runFactsFromOwnership(ownership),
   telemetry: RunRuntimeTelemetryState = emptyRunRuntimeTelemetryState,
+  runPlan: SurfaceRunPlan | null = null,
   localRunPlan: LocalRunPlan | null = null,
-  localRunFrame: LocalRunFrame | null = null
-): RunInFlightState =>
-  Match.value(tag).pipe(
-    Match.withReturnType<RunInFlightState>(),
-    Match.when("RunRunning", () => ({
-      _tag: "RunRunning",
-      session: makeRunSession({
-        token,
-        sequence,
-        control: "running",
-        outcome: "none",
-        ownership,
-        completion,
-        telemetry,
-        localRunPlan,
-        localRunFrame,
-        program
-      }),
-      sequence,
-      program
-    })),
-    Match.when("RunPaused", () => ({
-      _tag: "RunPaused",
-      session: makeRunSession({
-        token,
-        sequence,
-        control: "paused",
-        outcome: "none",
-        ownership,
-        completion,
-        telemetry,
-        localRunPlan,
-        localRunFrame,
-        program
-      }),
-      sequence,
-      program
-    })),
-    Match.orElse(() => ({
-      _tag: "RunStopping",
-      session: makeRunSession({
-        token,
-        sequence,
-        control: "stopping",
-        outcome: "none",
-        ownership,
-        completion,
-        telemetry,
-        localRunPlan,
-        localRunFrame,
-        program
-      }),
-      sequence,
-      program
-    }))
-  )
+  localRunFrame: LocalRunFrame | null = null,
+  canonicalFrame: CanonicalFrame | null = null,
+  choreography: ChoreographyState = initialChoreographyState
+): RunInFlightState => ({
+  _tag: "RunRunning",
+  session: makeRunSession({
+    token,
+    sequence,
+    control,
+    outcome: "none",
+    ownership,
+    facts,
+    telemetry,
+    runPlan,
+    localRunPlan,
+    localRunFrame,
+    canonicalFrame,
+    choreography,
+    program
+  }),
+  sequence,
+  program
+})
 
-const isRunInFlightState = (state: RunState): state is RunInFlightState =>
-  state.session.outcome === "none" && state.session.control !== "idle"
+const isRunInFlightState = (state: RunState): state is RunInFlightState => state._tag === "RunRunning"
 
 const hasMatchingSequence = (state: RunState, sequence: number): state is RunInFlightState =>
   isRunInFlightState(state) && state.session.sequence === sequence
 
-export const runReadyForFinalization = (run: RunState): boolean =>
-  isRunInFlightState(run) && runCompletionReady(run.session.completion)
+export const runSuccessGateSatisfied = (run: RunState): boolean =>
+  isRunInFlightState(run) && runFactsReady(run.session.facts)
 
-const updateRunInFlightCompletion = (state: RunInFlightState, completion: RunCompletion): RunInFlightState =>
+const updateRunInFlightFacts = (state: RunInFlightState, facts: RunInternalFacts): RunInFlightState =>
   runInFlightState(
-    state._tag,
     state.session.token,
     state.sequence,
+    state.session.control,
     state.session.ownership,
     state.program,
-    completion,
+    facts,
     state.session.telemetry,
+    state.session.runPlan,
     state.session.localRunPlan,
-    state.session.localRunFrame
+    state.session.localRunFrame,
+    state.session.canonicalFrame,
+    state.session.choreography
   )
 
 const updateRunInFlightTelemetry = (
@@ -645,15 +526,18 @@ const updateRunInFlightTelemetry = (
   event: RunRuntimeTelemetryEvent
 ): RunInFlightState =>
   runInFlightState(
-    state._tag,
     state.session.token,
     state.sequence,
+    state.session.control,
     state.session.ownership,
     state.program,
-    state.session.completion,
+    state.session.facts,
     appendRunRuntimeTelemetryEvent(state.session.telemetry, event),
+    state.session.runPlan,
     state.session.localRunPlan,
-    state.session.localRunFrame
+    state.session.localRunFrame,
+    state.session.canonicalFrame,
+    state.session.choreography
   )
 
 const updateRunInFlightFrame = (
@@ -661,34 +545,81 @@ const updateRunInFlightFrame = (
   localRunFrame: LocalRunFrame
 ): RunInFlightState =>
   runInFlightState(
-    state._tag,
     state.session.token,
     state.sequence,
+    state.session.control,
     state.session.ownership,
     state.program,
-    state.session.completion,
+    state.session.facts,
     state.session.telemetry,
+    state.session.runPlan,
     state.session.localRunPlan,
-    localRunFrame
+    localRunFrame,
+    state.session.canonicalFrame,
+    state.session.choreography
   )
 
-const completeServerRunCompletion = (
-  completion: RunCompletion,
+const updateRunInFlightCanonicalFrame = (
+  state: RunInFlightState,
+  canonicalFrame: CanonicalFrame
+): RunInFlightState =>
+  runInFlightState(
+    state.session.token,
+    state.sequence,
+    state.session.control,
+    state.session.ownership,
+    state.program,
+    state.session.facts,
+    state.session.telemetry,
+    state.session.runPlan,
+    state.session.localRunPlan,
+    state.session.localRunFrame,
+    canonicalFrame,
+    state.session.choreography
+  )
+
+const updateRunInFlightChoreography = (
+  state: RunInFlightState,
+  choreography: ChoreographyState
+): RunInFlightState =>
+  runInFlightState(
+    state.session.token,
+    state.sequence,
+    state.session.control,
+    state.session.ownership,
+    state.program,
+    state.session.facts,
+    state.session.telemetry,
+    state.session.runPlan,
+    state.session.localRunPlan,
+    state.session.localRunFrame,
+    state.session.canonicalFrame,
+    choreography
+  )
+
+const observeStreamCompletionFact = (
+  facts: RunInternalFacts,
+  observedAtMs: number,
   summary: string,
   meta: Metadata | null
-): RunCompletion => ({
-  ...completion,
-  server: {
-    state: completion.server.state === "inactive" ? "inactive" : "completed",
+): RunInternalFacts => ({
+  ...facts,
+  streamComplete: {
+    state: facts.streamComplete.state === "inactive" ? "inactive" : "observed",
+    observedAtMs: facts.streamComplete.state === "inactive" ? null : observedAtMs,
     summary,
     meta
   }
 })
 
-const completeLocalRunCompletion = (completion: RunCompletion): RunCompletion => ({
-  ...completion,
-  local: {
-    state: completion.local.state === "inactive" ? "inactive" : "completed"
+const observeStepQueueDrainFact = (
+  facts: RunInternalFacts,
+  observedAtMs: number
+): RunInternalFacts => ({
+  ...facts,
+  stepQueueDrain: {
+    state: facts.stepQueueDrain.state === "inactive" ? "inactive" : "observed",
+    observedAtMs: facts.stepQueueDrain.state === "inactive" ? null : observedAtMs
   }
 })
 
@@ -702,10 +633,13 @@ const terminalRunSession = <Outcome extends Exclude<RunOutcome, "none">>(
     control: "idle",
     outcome,
     ownership: state.session.ownership,
-    completion: state.session.completion,
+    facts: state.session.facts,
     telemetry: state.session.telemetry,
+    runPlan: state.session.runPlan,
     localRunPlan: state.session.localRunPlan,
     localRunFrame: state.session.localRunFrame,
+    canonicalFrame: state.session.canonicalFrame,
+    choreography: state.session.choreography,
     program: state.program
   })
 
@@ -715,13 +649,6 @@ const failedRunState = (state: RunInFlightState, error: DemoError): RunState => 
   sequence: state.sequence,
   program: state.program,
   error
-})
-
-const stoppedRunState = (state: RunInFlightState): RunState => ({
-  _tag: "RunStopped",
-  session: terminalRunSession(state, "stopped"),
-  sequence: state.sequence,
-  program: state.program
 })
 
 const succeededRunState = (state: RunInFlightState, data: RunData, meta: Metadata | null): RunState => ({
@@ -739,6 +666,7 @@ export type RunMessage =
     readonly sequence: number
     readonly ownership: RunOwnership
     readonly startedAtMs: number
+    readonly runPlan: SurfaceRunPlan
     readonly localRunPlan: LocalRunPlan | null
     readonly program: Program
   }
@@ -748,18 +676,28 @@ export type RunMessage =
     readonly frame: LocalRunFrame
   }
   | {
-    readonly _tag: "RunServerCompleted"
+    readonly _tag: "RunCanonicalFrameObserved"
+    readonly sequence: number
+    readonly frame: CanonicalFrame
+  }
+  | {
+    readonly _tag: "RunChoreographyObserved"
+    readonly sequence: number
+    readonly cue: ChoreographyCue
+    readonly state: ChoreographyState
+  }
+  | {
+    readonly _tag: "RunStreamCompleteObserved"
     readonly sequence: number
     readonly observedAtMs: number
     readonly summary: string
     readonly meta: Metadata | null
   }
-  | { readonly _tag: "RunLocalCompleted"; readonly sequence: number; readonly observedAtMs: number }
+  | { readonly _tag: "RunStepQueueDrained"; readonly sequence: number; readonly observedAtMs: number }
   | { readonly _tag: "RunPauseCheckpointReached"; readonly sequence: number; readonly observedAtMs: number }
   | { readonly _tag: "RunPaused"; readonly sequence: number; readonly requestedAtMs: number }
   | { readonly _tag: "RunResumed"; readonly sequence: number; readonly requestedAtMs: number }
   | { readonly _tag: "RunStopping"; readonly sequence: number; readonly requestedAtMs: number }
-  | { readonly _tag: "RunStopped"; readonly sequence: number; readonly finalizedAtMs: number }
   | { readonly _tag: "RunFailed"; readonly sequence: number; readonly finalizedAtMs: number; readonly error: DemoError }
   | {
     readonly _tag: "RunSucceeded"
@@ -772,15 +710,16 @@ export type RunMessage =
 
 export const reduceRunState = (state: RunState, message: RunMessage): RunState =>
   Match.value(message).pipe(
-    Match.tag("RunStarted", ({ token, sequence, ownership, startedAtMs, localRunPlan, program }): RunState =>
+    Match.tag("RunStarted", ({ token, sequence, ownership, startedAtMs, runPlan, localRunPlan, program }): RunState =>
       runInFlightState(
-        "RunRunning",
         token,
         sequence,
+        "running",
         ownership,
         program,
-        runCompletionFromOwnership(ownership),
+        runFactsFromOwnership(ownership),
         startedRunRuntimeTelemetryState({ ownership, startedAtMs }),
+        runPlan,
         localRunPlan,
         null
       )),
@@ -788,18 +727,26 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
       hasMatchingSequence(state, sequence)
         ? updateRunInFlightFrame(state, frame)
         : state),
-    Match.tag("RunServerCompleted", ({ sequence, observedAtMs, summary, meta }): RunState =>
+    Match.tag("RunCanonicalFrameObserved", ({ sequence, frame }): RunState =>
+      hasMatchingSequence(state, sequence)
+        ? updateRunInFlightCanonicalFrame(state, frame)
+        : state),
+    Match.tag("RunChoreographyObserved", ({ sequence, state: choreography }): RunState =>
+      hasMatchingSequence(state, sequence)
+        ? updateRunInFlightChoreography(state, choreography)
+        : state),
+    Match.tag("RunStreamCompleteObserved", ({ sequence, observedAtMs, summary, meta }): RunState =>
       hasMatchingSequence(state, sequence)
         ? updateRunInFlightTelemetry(
-          updateRunInFlightCompletion(state, completeServerRunCompletion(state.session.completion, summary, meta)),
-          { kind: "server-completed", atMs: observedAtMs, detail: null }
+          updateRunInFlightFacts(state, observeStreamCompletionFact(state.session.facts, observedAtMs, summary, meta)),
+          { kind: "stream-complete-observed", atMs: observedAtMs, detail: null }
         )
         : state),
-    Match.tag("RunLocalCompleted", ({ sequence, observedAtMs }): RunState =>
+    Match.tag("RunStepQueueDrained", ({ sequence, observedAtMs }): RunState =>
       hasMatchingSequence(state, sequence)
         ? updateRunInFlightTelemetry(
-          updateRunInFlightCompletion(state, completeLocalRunCompletion(state.session.completion)),
-          { kind: "local-completed", atMs: observedAtMs, detail: null }
+          updateRunInFlightFacts(state, observeStepQueueDrainFact(state.session.facts, observedAtMs)),
+          { kind: "step-queue-drained", atMs: observedAtMs, detail: null }
         )
         : state),
     Match.tag("RunPauseCheckpointReached", ({ sequence, observedAtMs }): RunState =>
@@ -807,35 +754,41 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
         ? updateRunInFlightTelemetry(state, { kind: "checkpoint-reached", atMs: observedAtMs, detail: null })
         : state),
     Match.tag("RunPaused", ({ sequence, requestedAtMs }): RunState =>
-      state._tag === "RunRunning" && state.sequence === sequence
+      state._tag === "RunRunning" && state.sequence === sequence && state.session.control === "running"
         ? updateRunInFlightTelemetry(
           runInFlightState(
-            "RunPaused",
             state.session.token,
             sequence,
+            "paused",
             state.session.ownership,
             state.program,
-            state.session.completion,
+            state.session.facts,
             state.session.telemetry,
+            state.session.runPlan,
             state.session.localRunPlan,
-            state.session.localRunFrame
+            state.session.localRunFrame,
+            state.session.canonicalFrame,
+            state.session.choreography
           ),
           { kind: "pause-requested", atMs: requestedAtMs, detail: null }
         )
         : state),
     Match.tag("RunResumed", ({ sequence, requestedAtMs }): RunState =>
-      state._tag === "RunPaused" && state.sequence === sequence
+      state._tag === "RunRunning" && state.sequence === sequence && state.session.control === "paused"
         ? updateRunInFlightTelemetry(
           runInFlightState(
-            "RunRunning",
             state.session.token,
             sequence,
+            "running",
             state.session.ownership,
             state.program,
-            state.session.completion,
+            state.session.facts,
             state.session.telemetry,
+            state.session.runPlan,
             state.session.localRunPlan,
-            state.session.localRunFrame
+            state.session.localRunFrame,
+            state.session.canonicalFrame,
+            state.session.choreography
           ),
           { kind: "resume-requested", atMs: requestedAtMs, detail: null }
         )
@@ -844,27 +797,20 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
       hasMatchingSequence(state, sequence)
         ? updateRunInFlightTelemetry(
           runInFlightState(
-            "RunStopping",
             state.session.token,
             sequence,
+            "stopping",
             state.session.ownership,
             state.program,
-            state.session.completion,
+            state.session.facts,
             state.session.telemetry,
+            state.session.runPlan,
             state.session.localRunPlan,
-            state.session.localRunFrame
+            state.session.localRunFrame,
+            state.session.canonicalFrame,
+            state.session.choreography
           ),
           { kind: "stop-requested", atMs: requestedAtMs, detail: null }
-        )
-        : state),
-    Match.tag("RunStopped", ({ sequence, finalizedAtMs }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? stoppedRunState(
-          updateRunInFlightTelemetry(state, {
-            kind: "run-finalized",
-            atMs: finalizedAtMs,
-            detail: "stopped"
-          })
         )
         : state),
     Match.tag("RunFailed", ({ sequence, finalizedAtMs, error }): RunState =>
@@ -880,22 +826,24 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
         : state),
     Match.tag("RunSucceeded", ({ sequence, finalizedAtMs, data, meta }): RunState =>
       hasMatchingSequence(state, sequence)
-        ? succeededRunState(
-          updateRunInFlightTelemetry(state, {
-            kind: "run-finalized",
-            atMs: finalizedAtMs,
-            detail: "succeeded"
-          }),
-          data,
-          meta
-        )
+        ? runSuccessGateSatisfied(state)
+          ? succeededRunState(
+            updateRunInFlightTelemetry(state, {
+              kind: "run-finalized",
+              atMs: finalizedAtMs,
+              detail: "succeeded"
+            }),
+            data,
+            meta
+          )
+          : state
         : state),
     Match.tag("RunReset", (): RunState =>
       idleRunState()),
     Match.exhaustive
   )
 
-export const initialSurfaceState = (id: Id): SurfaceState => ({
+export const initialSurfaceState = (id: SurfaceId): SurfaceState => ({
   id,
   stageTab: "interactive",
   preload: { _tag: "PreloadIdle" },

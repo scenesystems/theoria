@@ -1,19 +1,15 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Deferred, Stream } from "effect"
-import { Clock, Effect, Queue } from "effect"
+import { Effect, Queue } from "effect"
 import { Study } from "effect-search"
-import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
 
-import type { CanonicalStep } from "../../contracts/canonical-step.js"
-import type { EffectTextProjectionStep } from "../../contracts/canonical-step.js"
+import type { CanonicalFrame, EffectTextProjectionStep } from "../../contracts/canonical-step.js"
 import { corpus } from "../../contracts/corpus.js"
 import { DemoExecutionError } from "../../contracts/demo-error.js"
 import type { EffectTextRunPlan } from "../../contracts/demo/text.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
-import { SectionAppend, SectionUpsert } from "../../contracts/evidence-stream.js"
-import type { EvidenceItem } from "../../contracts/evidence.js"
+import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -23,17 +19,18 @@ import {
   reflowSliderMaxWidth,
   resolveReflowCorpusEntry
 } from "./reflow.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, sleepWithRunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 
 export const animatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 
 const defaultReflowWidth = Math.round(reflowSliderMaxWidth / 2)
-const stepDelayMs = 10
-const corpusPauseMs = 96
-const obstaclePauseMs = 120
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
+type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
+type EffectTextAnimationEvent =
+  | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: EffectTextRunFrame }
+  | LocalDriverCompletedEvent
 
 const executionFailedError = (message: string): DemoExecutionError =>
   new DemoExecutionError({
@@ -42,87 +39,16 @@ const executionFailedError = (message: string): DemoExecutionError =>
     retryable: true
   })
 
-type EffectTextAnimationEvent = EvidenceEvent | {
-  readonly _tag: "LocalRunFrameUpdated"
-  readonly frame: EffectTextRunFrame
+const isStreamCompletionEvent = (
+  event: AuthoredStepQueueEvent
+): event is StreamCompletionEvent => "_tag" in event && event._tag === "StreamComplete"
+
+const setFrameControls = (
+  registry: RunRegistry,
+  frame: EffectTextRunFrame
+): void => {
+  registry.set(reflowControlsAtom, frame.controls)
 }
-
-type TrialAccumulator = {
-  readonly rows: ReadonlyArray<TrialRow>
-  readonly index: number
-}
-
-const initialTrialAccumulator: TrialAccumulator = {
-  rows: [],
-  index: 0
-}
-
-type TrialRow = {
-  readonly corpusLabel: string
-  readonly width: number
-  readonly obstacles: boolean
-  readonly lineCount: number
-  readonly height: number
-  readonly maxLineWidth: number
-}
-
-const trialColumns: ReadonlyArray<string> = [
-  "Corpus",
-  "Width",
-  "Obstacles",
-  "Lines",
-  "Height (px)",
-  "Max Line Width (px)"
-]
-
-const rowToStrings = (row: TrialRow): ReadonlyArray<string> => [
-  row.corpusLabel,
-  String(row.width),
-  row.obstacles ? "yes" : "no",
-  String(row.lineCount),
-  row.height.toFixed(1),
-  row.maxLineWidth.toFixed(1)
-]
-
-const makeTrialTable = (
-  label: string,
-  rows: ReadonlyArray<TrialRow>
-): EvidenceItem => ({
-  _tag: "Table",
-  label,
-  columns: trialColumns,
-  rows: Arr.map(rows, rowToStrings)
-})
-
-const upsertProjectionSection = ({
-  emit,
-  label,
-  rows
-}: {
-  readonly emit: (event: EffectTextAnimationEvent) => Effect.Effect<void, never, never>
-  readonly label: string
-  readonly rows: ReadonlyArray<TrialRow>
-}): Effect.Effect<void, never, never> =>
-  emit(
-    new SectionUpsert({
-      section: {
-        title: `${label} — live projections`,
-        items: [makeTrialTable(`${label} projection matrix`, rows)]
-      }
-    })
-  )
-
-const emitFrameUpdate = ({
-  emit,
-  frame
-}: {
-  readonly emit: (event: EffectTextAnimationEvent) => Effect.Effect<void, never, never>
-  readonly frame: EffectTextRunFrame
-}): Effect.Effect<void, never, never> =>
-  emit({
-    _tag: "LocalRunFrameUpdated",
-    frame
-  })
 
 export const setAnimationPlayback = (
   registry: RunRegistry,
@@ -137,7 +63,7 @@ export const syncAnimationFrameToControls = (
   frame: EffectTextRunFrame
 ): Effect.Effect<void, never, never> =>
   Effect.sync(() => {
-    registry.set(reflowControlsAtom, frame.controls)
+    setFrameControls(registry, frame)
   })
 
 export const resetAnimationState = (registry: RunRegistry): Effect.Effect<void, never, never> =>
@@ -152,32 +78,30 @@ export const resetAnimationState = (registry: RunRegistry): Effect.Effect<void, 
     })
   })
 
-const takeEffectTextQueueEvent = (
+const takeAuthoredStepQueueEvent = (
   signal: RunSignal,
-  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>
-): Effect.Effect<CanonicalStep | StreamCompletionEvent, never, never> =>
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>
+): Effect.Effect<AuthoredStepQueueEvent, never, never> =>
   Effect.raceFirst(
     Queue.take(stepQueue),
     awaitNextRunSignalChange(signal).pipe(
       Effect.zipRight(awaitRunSignal(signal)),
-      Effect.flatMap(() => takeEffectTextQueueEvent(signal, stepQueue))
+      Effect.flatMap(() => takeAuthoredStepQueueEvent(signal, stepQueue))
     )
   )
 
 const takeEffectTextProjectionStep = (
   signal: RunSignal,
-  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>
 ): Effect.Effect<EffectTextProjectionStep, DemoExecutionError, never> =>
-  takeEffectTextQueueEvent(signal, stepQueue).pipe(
-    Effect.flatMap((step) =>
-      step._tag === "StreamComplete"
+  takeAuthoredStepQueueEvent(signal, stepQueue).pipe(
+    Effect.flatMap((nextEvent) =>
+      isStreamCompletionEvent(nextEvent)
         ? Effect.fail(
-          executionFailedError(
-            "effect-text run ended before all authored projection steps arrived."
-          )
+          executionFailedError("effect-text run ended before all authored projection steps arrived.")
         )
-        : step._tag === "EffectTextProjectionStep"
-        ? Effect.succeed(step)
+        : nextEvent.step._tag === "EffectTextProjectionStep"
+        ? Effect.succeed(nextEvent.step)
         : takeEffectTextProjectionStep(signal, stepQueue)
     )
   )
@@ -206,115 +130,65 @@ export const makeAnimationStream = (
   registry: RunRegistry,
   signal: RunSignal,
   plan: EffectTextRunPlan,
-  stepQueue: Queue.Queue<CanonicalStep | StreamCompletionEvent>,
+  stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
   _serverCompleted: Deferred.Deferred<StreamCompletionEvent>
 ): Stream.Stream<EffectTextAnimationEvent, DemoExecutionError, never> =>
-  Study.streamFromEmitter<EffectTextAnimationEvent, void, DemoExecutionError, never>((emit) =>
-    Effect.gen(function*() {
-      registry.set(animatingAtom, true)
+  Study.streamFromEmitter<
+    EffectTextAnimationEvent,
+    void,
+    DemoExecutionError,
+    never
+  >((emit) =>
+    setAnimationPlayback(registry, true).pipe(
+      Effect.zipRight(
+        Effect.forEach(
+          plan.entries,
+          (planEntry) =>
+            Effect.gen(function*() {
+              const entry = resolveReflowCorpusEntry(planEntry.corpusIndex, plan.customText)
+              const prepared = yield* prepareReflowEntry(entry)
 
-      const startedAt = yield* Clock.currentTimeMillis
-      const frameCount = Arr.reduce(plan.entries, 0, (count, entry) => count + entry.steps.length)
+              yield* Effect.forEach(
+                planEntry.steps,
+                (plannedStep) =>
+                  Effect.gen(function*() {
+                    yield* awaitRunSignal(signal)
+                    const authoredStep = yield* takeEffectTextProjectionStep(signal, stepQueue)
 
-      yield* Effect.forEach(
-        plan.entries,
-        (planEntry, entryIndex) =>
-          Effect.gen(function*() {
-            const entry = resolveReflowCorpusEntry(planEntry.corpusIndex, plan.customText)
-            const prepared = yield* prepareReflowEntry(entry)
-
-            const trialRows = yield* Effect.reduce(
-              planEntry.steps,
-              initialTrialAccumulator,
-              (acc, plannedStep) =>
-                Effect.gen(function*() {
-                  yield* awaitRunSignal(signal)
-                  const authoredStep = yield* takeEffectTextProjectionStep(signal, stepQueue)
-                  yield* validateAuthoredStep({ authoredStep, plannedCorpusIndex: planEntry.corpusIndex, plannedStep })
-
-                  const projection = projectReflowProjection({
-                    entry,
-                    obstaclesEnabled: plannedStep.obstaclesEnabled,
-                    prepared,
-                    requestedWidthPx: plannedStep.requestedWidthPx,
-                    stageWidthPx: plannedStep.stageWidthPx
-                  })
-                  const frame: EffectTextRunFrame = {
-                    _tag: "effect-text",
-                    controls: {
-                      corpusIndex: planEntry.corpusIndex,
-                      width: plannedStep.stageWidthPx,
-                      obstaclesEnabled: plannedStep.obstaclesEnabled
-                    },
-                    projection
-                  }
-
-                  yield* emitFrameUpdate({ emit, frame })
-
-                  yield* sleepWithRunSignal(signal, stepDelayMs)
-
-                  const updatedRows = Arr.append(acc.rows, {
-                    corpusLabel: entry.label,
-                    width: projection.stageWidthPx,
-                    obstacles: plannedStep.obstaclesEnabled,
-                    lineCount: projection.summary.lineCount,
-                    height: projection.summary.height,
-                    maxLineWidth: projection.summary.maxLineWidth
-                  })
-
-                  yield* upsertProjectionSection({ emit, label: entry.label, rows: updatedRows })
-
-                  const isObstacleTransition = Option.fromNullable(planEntry.steps[acc.index + 1]).pipe(
-                    Option.match({
-                      onNone: () => false,
-                      onSome: (nextStep) => nextStep.obstaclesEnabled !== plannedStep.obstaclesEnabled
+                    yield* validateAuthoredStep({
+                      authoredStep,
+                      plannedCorpusIndex: planEntry.corpusIndex,
+                      plannedStep
                     })
-                  )
-                  const isLastForEntry = acc.index + 1 >= planEntry.steps.length
 
-                  if (isObstacleTransition) {
-                    yield* sleepWithRunSignal(signal, obstaclePauseMs)
-                  } else if (isLastForEntry && entryIndex + 1 < plan.entries.length) {
-                    yield* sleepWithRunSignal(signal, corpusPauseMs)
-                  }
+                    const projection = projectReflowProjection({
+                      entry,
+                      obstaclesEnabled: plannedStep.obstaclesEnabled,
+                      prepared,
+                      requestedWidthPx: plannedStep.requestedWidthPx,
+                      stageWidthPx: plannedStep.stageWidthPx
+                    })
 
-                  return { rows: updatedRows, index: acc.index + 1 }
-                })
-            )
-
-            yield* upsertProjectionSection({ emit, label: entry.label, rows: trialRows.rows })
-          }),
-        { concurrency: 1, discard: true }
-      )
-
-      const endedAt = yield* Clock.currentTimeMillis
-      const durationMs = endedAt - startedAt
-
-      yield* emit(
-        new SectionAppend({
-          section: {
-            title: "Animation Summary",
-            items: [
-              { _tag: "Scalar", label: "Total frames", value: frameCount, unit: "frames", format: "integer" },
-              {
-                _tag: "Scalar",
-                label: "Corpus entries",
-                value: plan.entries.length,
-                unit: "entries",
-                format: "integer"
-              },
-              { _tag: "Scalar", label: "Animation duration", value: durationMs, unit: "ms", format: "fixed" },
-              {
-                _tag: "Text",
-                label: "Proof",
-                value:
-                  "The run froze browser-only context up front, then rendered each server-authored projection step into both the live stage and the projection transcript."
-              }
-            ]
-          }
-        })
-      )
-    }).pipe(
-      Effect.ensuring(setAnimationPlayback(registry, false))
+                    yield* emit({
+                      _tag: "LocalRunFrameUpdated",
+                      frame: {
+                        _tag: "effect-text",
+                        controls: {
+                          corpusIndex: planEntry.corpusIndex,
+                          width: plannedStep.stageWidthPx,
+                          obstaclesEnabled: plannedStep.obstaclesEnabled
+                        },
+                        projection
+                      }
+                    })
+                  }),
+                { discard: true }
+              )
+            }),
+          { discard: true }
+        )
+      ),
+      Effect.zipRight(emit(localDriverCompletedEvent)),
+      Effect.ensuring(resetAnimationState(registry))
     )
   )

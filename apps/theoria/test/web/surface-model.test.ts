@@ -14,8 +14,8 @@ import { surfaceViewModel } from "../../app/web/view/surfaceModel.js"
 import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import {
   failedRunState as makeFailedRunState,
-  localCompletedRunState,
   pausedRunState as makePausedRunState,
+  stepQueueDrainedRunState,
   succeededRunState as makeSucceededRunState
 } from "../helpers/run-state.js"
 
@@ -176,11 +176,11 @@ describe("Theoria Surface Model", () => {
       expect(model.stage.evidence._tag).toBe("paused")
     }))
 
-  it.effect("keeps paused stage copy aligned with server-owned completion while local work is already done", () =>
+  it.effect("keeps paused stage copy on stream-owned evidence even while the reducer waits for stream completion", () =>
     Effect.gen(function*() {
       const state: SurfaceState = {
         ...runPausedState,
-        run: localCompletedRunState({ run: runPausedState.run })
+        run: stepQueueDrainedRunState({ run: runPausedState.run })
       }
 
       const model = surfaceViewModel({
@@ -191,10 +191,10 @@ describe("Theoria Surface Model", () => {
         variant: "expanded"
       })
 
-      expect(model.status).toBe("Local stage complete. Waiting for server completion…")
+      expect(model.status).toBe("Run paused. Resume to continue streaming evidence.")
       expect(model.stage.evidence._tag).toBe("paused")
       if (model.stage.evidence._tag === "paused") {
-        expect(model.stage.evidence.description).toBe("Waiting for server completion…")
+        expect(model.stage.evidence.description).toBe("Resume to continue streaming evidence.")
       }
     }))
 

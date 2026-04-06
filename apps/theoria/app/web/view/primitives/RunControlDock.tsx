@@ -125,7 +125,6 @@ const statusLabel = (phase: RunControlsViewModel["phase"]): string =>
     Match.when("stopping", () => "Stopping"),
     Match.when("failed", () => "Failed"),
     Match.when("success", () => "Complete"),
-    Match.when("stopped", () => "Stopped"),
     Match.orElse(() => "Ready")
   )
 

@@ -76,6 +76,28 @@ const runPath = (id: Id): string => `/api/demos/${id}/run`
 const preloadPath = (id: Id): string => `/api/demos/${id}/preload`
 const streamPath = (id: Id): string => `/api/demos/${id}/stream`
 
+const streamQuery = ({
+  manifest,
+  runToken
+}: {
+  readonly manifest: string | null
+  readonly runToken: string | null
+}): string => {
+  const params = new URLSearchParams()
+
+  if (runToken !== null && runToken.trim().length > 0) {
+    params.set("runToken", runToken.trim())
+  }
+
+  if (manifest !== null && manifest.trim().length > 0) {
+    params.set("manifest", manifest.trim())
+  }
+
+  const encoded = params.toString()
+
+  return encoded.length > 0 ? `?${encoded}` : ""
+}
+
 export class DemoClient extends Effect.Service<DemoClient>()("theoria/DemoClient", {
   succeed: {
     run: (id: Id): Effect.Effect<RunData, DemoError> =>
@@ -86,12 +108,7 @@ export class DemoClient extends Effect.Service<DemoClient>()("theoria/DemoClient
       requestEnvelope(preloadPath(id), ProgramPreviewEnvelope).pipe(Effect.map(({ data }) => data)),
     versions: (): Effect.Effect<PackageVersions, DemoError> =>
       requestEnvelope("/api/versions/packages", PackageVersionsEnvelope).pipe(Effect.map(({ data }) => data)),
-    streamUrl: (id: Id, manifest: string | null = null): string => {
-      const base = streamPath(id)
-
-      return manifest !== null && manifest.trim().length > 0
-        ? `${base}?manifest=${encodeURIComponent(manifest.trim())}`
-        : base
-    }
+    streamUrl: (id: Id, manifest: string | null = null, runToken: string | null = null): string =>
+      `${streamPath(id)}${streamQuery({ manifest, runToken })}`
   }
 }) {}

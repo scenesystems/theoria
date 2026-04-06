@@ -1,14 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
+import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
+import { InStage, StageEnter } from "../../app/contracts/choreography.js"
+import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
+import { EffectTextProjectionStep, snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
 import { type EffectMathRunFrame, snapshotEffectMathRunPlan } from "../../app/web/atoms/power-animation.js"
-import { type LocalRunFrame } from "../../app/web/state/local-run.js"
-import { reduceRunState } from "../../app/web/state/types.js"
+import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
+import { reduceRunState, type RunMessage } from "../../app/web/state/types.js"
 import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
-import { runningRunState, stoppedRunState } from "../helpers/run-state.js"
+import { runningRunState } from "../helpers/run-state.js"
 
-const effectTextFrameFixture: LocalRunFrame = {
+const effectTextFrameFixture: EffectTextRunFrame = {
   _tag: "effect-text",
   controls: {
     corpusIndex: 0,
@@ -49,16 +52,40 @@ const effectMathFrameFixture: EffectMathRunFrame = {
     n: 77,
     alpha: 0.07
   },
-  projection: {
-    d: 1.35,
-    n: 77,
-    alpha: 0.07,
-    power: 0.91,
-    requiredN: 22,
-    overlap: 0.48,
-    nonCentrality: 8.38
+  projection: projectPowerProjection({ d: 1.35, n: 77, alpha: 0.07 })
+}
+
+const staleEffectTextFrameFixture: EffectTextRunFrame = {
+  ...effectTextFrameFixture,
+  controls: {
+    ...effectTextFrameFixture.controls,
+    width: 180
   }
 }
+
+const staleEffectMathFrameFixture: EffectMathRunFrame = {
+  ...effectMathFrameFixture,
+  controls: {
+    ...effectMathFrameFixture.controls,
+    alpha: 0.02
+  }
+}
+
+const canonicalTextFrameFixture = canonicalFrameV1(
+  new EffectTextProjectionStep({
+    corpusIndex: 0,
+    requestedWidthPx: 280,
+    stageWidthPx: 280,
+    obstaclesEnabled: false
+  })
+)
+
+const canonicalMathFrameFixture = canonicalFrameV1(
+  new EffectMathCanonicalStep({
+    controls: effectMathFrameFixture.controls,
+    projection: effectMathFrameFixture.projection
+  })
+)
 
 describe("surface-state reducer", () => {
   it.effect("ignores stale terminal messages from an older run sequence", () =>
@@ -70,7 +97,7 @@ describe("surface-state reducer", () => {
       })
 
       const afterServerCompletion = reduceRunState(state, {
-        _tag: "RunServerCompleted",
+        _tag: "RunStreamCompleteObserved",
         sequence: 1,
         observedAtMs: 1,
         summary: "stale",
@@ -89,35 +116,49 @@ describe("surface-state reducer", () => {
       expect(afterSuccess).toEqual(state)
     }))
 
-  it.effect("ignores late terminal messages once a run has stopped", () =>
+  it.effect("requires the stream-complete and step-queue facts before sealing success", () =>
     Effect.gen(function*() {
-      const state = stoppedRunState({ program: programPreviewFixture.program })
-
-      const afterServerCompletion = reduceRunState(state, {
-        _tag: "RunServerCompleted",
-        sequence: 1,
-        observedAtMs: 1,
-        summary: "late",
+      const running = runningRunState({
+        program: programPreviewFixture.program,
+        sequence: 6,
+        token: 13
+      })
+      const streamOnly = reduceRunState(running, {
+        _tag: "RunStreamCompleteObserved",
+        sequence: 6,
+        observedAtMs: 10,
+        summary: "stream only",
         meta: null
       })
-
-      const afterLocalCompletion = reduceRunState(state, {
-        _tag: "RunLocalCompleted",
-        sequence: 1,
-        observedAtMs: 1
+      const stepQueueOnly = reduceRunState(running, {
+        _tag: "RunStepQueueDrained",
+        sequence: 6,
+        observedAtMs: 11
       })
-
-      const afterSuccess = reduceRunState(state, {
+      const successMessage: RunMessage = {
         _tag: "RunSucceeded",
-        sequence: 1,
-        finalizedAtMs: 2,
-        data: runDataFixture("late"),
+        sequence: 6,
+        finalizedAtMs: 12,
+        data: runDataFixture("sealed"),
         meta: null
-      })
+      }
 
-      expect(afterServerCompletion).toEqual(state)
-      expect(afterLocalCompletion).toEqual(state)
-      expect(afterSuccess).toEqual(state)
+      const beforeGate = reduceRunState(running, successMessage)
+      const afterStreamOnly = reduceRunState(streamOnly, successMessage)
+      const afterStepQueueOnly = reduceRunState(stepQueueOnly, successMessage)
+      const afterBothFacts = reduceRunState(
+        reduceRunState(streamOnly, {
+          _tag: "RunStepQueueDrained",
+          sequence: 6,
+          observedAtMs: 11
+        }),
+        successMessage
+      )
+
+      expect(beforeGate).toEqual(running)
+      expect(afterStreamOnly).toEqual(streamOnly)
+      expect(afterStepQueueOnly).toEqual(stepQueueOnly)
+      expect(afterBothFacts._tag).toBe("RunSuccess")
     }))
 
   it.effect("records telemetry inside the reducer-owned run session", () =>
@@ -134,20 +175,22 @@ describe("surface-state reducer", () => {
         sequence: 3,
         requestedAtMs: 120
       })
+      expect(paused._tag).toBe("RunRunning")
+      expect(paused.session.control).toBe("paused")
       const checkpointed = reduceRunState(paused, {
         _tag: "RunPauseCheckpointReached",
         sequence: 3,
         observedAtMs: 150
       })
       const serverCompleted = reduceRunState(checkpointed, {
-        _tag: "RunServerCompleted",
+        _tag: "RunStreamCompleteObserved",
         sequence: 3,
         observedAtMs: 180,
         summary: "done",
         meta: null
       })
       const localCompleted = reduceRunState(serverCompleted, {
-        _tag: "RunLocalCompleted",
+        _tag: "RunStepQueueDrained",
         sequence: 3,
         observedAtMs: 210
       })
@@ -164,8 +207,8 @@ describe("surface-state reducer", () => {
         "run-started",
         "pause-requested",
         "checkpoint-reached",
-        "server-completed",
-        "local-completed",
+        "stream-complete-observed",
+        "step-queue-drained",
         "run-finalized"
       ])
       expect(succeeded.session.telemetry.events[5]?.detail).toBe("succeeded")
@@ -192,13 +235,7 @@ describe("surface-state reducer", () => {
       const afterStaleFrame = reduceRunState(withFrame, {
         _tag: "RunFrameUpdated",
         sequence: 3,
-        frame: {
-          ...effectTextFrameFixture,
-          controls: {
-            ...effectTextFrameFixture.controls,
-            width: 180
-          }
-        }
+        frame: staleEffectTextFrameFixture
       })
       const reset = reduceRunState(withFrame, { _tag: "RunReset" })
 
@@ -207,6 +244,40 @@ describe("surface-state reducer", () => {
       expect(afterStaleFrame).toEqual(withFrame)
       expect(reset.session.localRunPlan).toBeNull()
       expect(reset.session.localRunFrame).toBeNull()
+    }))
+
+  it.effect("tracks canonical frame and choreography as reducer-owned stream authority", () =>
+    Effect.gen(function*() {
+      const running = runningRunState({
+        program: programPreviewFixture.program,
+        sequence: 8,
+        token: 21
+      })
+      const entered = reduceRunState(
+        reduceRunState(running, {
+          _tag: "RunCanonicalFrameObserved",
+          sequence: 8,
+          frame: canonicalTextFrameFixture
+        }),
+        {
+          _tag: "RunChoreographyObserved",
+          sequence: 8,
+          cue: new StageEnter({ stageId: "corpus-sweep" }),
+          state: InStage({ stageId: "corpus-sweep", step: 0, params: {} })
+        }
+      )
+      const staleUpdate = reduceRunState(entered, {
+        _tag: "RunCanonicalFrameObserved",
+        sequence: 7,
+        frame: canonicalMathFrameFixture
+      })
+      const reset = reduceRunState(entered, { _tag: "RunReset" })
+
+      expect(entered.session.canonicalFrame).toEqual(canonicalTextFrameFixture)
+      expect(entered.session.choreography).toEqual(InStage({ stageId: "corpus-sweep", step: 0, params: {} }))
+      expect(staleUpdate).toEqual(entered)
+      expect(reset.session.canonicalFrame).toBeNull()
+      expect(reset.session.choreography._tag).toBe("Idle")
     }))
 
   it.effect("keeps effect-math local frame authority sequence-scoped and clears it on reset", () =>
@@ -231,13 +302,7 @@ describe("surface-state reducer", () => {
       const afterStaleFrame = reduceRunState(withFrame, {
         _tag: "RunFrameUpdated",
         sequence: 4,
-        frame: {
-          ...effectMathFrameFixture,
-          controls: {
-            ...effectMathFrameFixture.controls,
-            alpha: 0.02
-          }
-        }
+        frame: staleEffectMathFrameFixture
       })
       const reset = reduceRunState(withFrame, { _tag: "RunReset" })
 

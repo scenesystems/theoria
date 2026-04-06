@@ -10,7 +10,7 @@ import {
   PackageDocsSearchResultSchema,
   type PackageName,
   PackageNameSchema
-} from "@theoria/source-proof"
+} from "@theoria/source-proof/contracts"
 import { Schema } from "effect"
 
 import { Envelope } from "./envelope.js"

@@ -2,7 +2,7 @@ import { Separator } from "@base-ui-components/react/separator"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { packageNameFromString } from "@theoria/source-proof"
+import { packageNameFromString } from "@theoria/source-proof/contracts"
 import { Match } from "effect"
 
 import { type Card, cardVisibleInReleaseStage } from "../../../contracts/card.js"

@@ -1,4 +1,4 @@
-import type { PackageName } from "@theoria/source-proof"
+import type { PackageName } from "@theoria/source-proof/contracts"
 import { Option, Schema } from "effect"
 
 import { type Card, cardById, cards } from "./card.js"

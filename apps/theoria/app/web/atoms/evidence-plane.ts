@@ -1,7 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
-import type { Id } from "../../contracts/id.js"
+import type { SurfaceId } from "../../contracts/id.js"
 import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../view/data/evidence-layout.js"
 
 export type EvidencePlanePreferences = {
@@ -16,12 +16,12 @@ const defaultEvidencePlanePreferences: EvidencePlanePreferences = {
   sectionKey: null
 }
 
-export const surfaceEvidencePlaneAtom: (id: Id) => AtomType.Writable<EvidencePlanePreferences> = Atom.family(
-  (_id: Id) => Atom.make(defaultEvidencePlanePreferences).pipe(Atom.keepAlive)
+export const surfaceEvidencePlaneAtom: (id: SurfaceId) => AtomType.Writable<EvidencePlanePreferences> = Atom.family(
+  (_id: SurfaceId) => Atom.make(defaultEvidencePlanePreferences).pipe(Atom.keepAlive)
 )
 
 export const selectEvidencePlaneFilterAtom = Atom.fnSync<{
-  readonly id: Id
+  readonly id: SurfaceId
   readonly filter: EvidencePlaneFilter
 }>()(({ filter, id }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))
@@ -33,7 +33,7 @@ export const selectEvidencePlaneFilterAtom = Atom.fnSync<{
 })
 
 export const selectEvidencePlaneOrderAtom = Atom.fnSync<{
-  readonly id: Id
+  readonly id: SurfaceId
   readonly order: EvidencePlaneOrder
 }>()(({ id, order }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))
@@ -44,7 +44,7 @@ export const selectEvidencePlaneOrderAtom = Atom.fnSync<{
 })
 
 export const selectEvidencePlaneSectionAtom = Atom.fnSync<{
-  readonly id: Id
+  readonly id: SurfaceId
   readonly sectionKey: string | null
 }>()(({ id, sectionKey }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))

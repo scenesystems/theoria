@@ -3,11 +3,11 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Clock, Effect, Match, Option } from "effect"
 
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
-import type { Id } from "../../contracts/id.js"
+import type { SurfaceId } from "../../contracts/id.js"
 import type { Program, ProgramSourceScope } from "../../contracts/presentation.js"
-import type { DemoClient } from "../services/DemoClient.js"
 import {
   applyEvidenceEventToStore,
+  evidenceStoreFromSuccess,
   type EvidenceStoreState,
   evidenceStreamFromStore,
   hasActiveRunSequence,
@@ -16,17 +16,19 @@ import {
   type StageTab
 } from "../state/types.js"
 
-import { setAnimationPlayback, syncAnimationFrameToControls } from "./animation.js"
-import { dispatchRunMessage, modifySurface, preloadSurface, resetSurfaceEvidenceStore } from "./internal.js"
-import { setOptimizationAnimationPlayback } from "./optimization-animation.js"
-import { setPowerAnimationPlayback, syncPowerFrameToControls } from "./power-animation.js"
+import type { SurfaceRuntimeServices } from "../runtime/proving-consumer-shared.js"
 import {
-  localDriverFor,
-  resetLocalDriverState,
-  runEvidencePipeline,
+  projectionDriverFor,
+  resetProjectionDriverState,
   runOwnershipFor,
-  snapshotLocalDriver
-} from "./run-evidence-pipeline.js"
+  setProjectionPlayback,
+  snapshotProjectionDriver,
+  surfaceRuntimeFor,
+  surfaceRuntimeSnapshotFor,
+  syncProjectionFrameToControls
+} from "../runtime/surface-runtime.js"
+import { dispatchRunMessage, modifySurface, preloadSurface, resetSurfaceEvidenceStore } from "./internal.js"
+import { runEvidencePipeline } from "./run-evidence-pipeline.js"
 import {
   type ActiveRun,
   activeRunFor,
@@ -36,8 +38,7 @@ import {
   pauseActiveRun,
   registerActiveRun,
   releaseActiveRun,
-  resumeActiveRun,
-  stopActiveRun
+  resumeActiveRun
 } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 import { appRuntime } from "./runtime.js"
@@ -47,7 +48,14 @@ const pendingProgram: Program = {
   files: [{ source: "// pending", entry: "pending", language: "ts", name: "pending" }]
 }
 
-const applyEvidenceEventToSurface = (registry: RunRegistry, id: Id, sequence: number, event: EvidenceEvent): void =>
+const runPackageName = (id: SurfaceId): string => id === "workflow-comparison" ? "@theoria/theoria-app" : id
+
+const applyEvidenceEventToSurface = (
+  registry: RunRegistry,
+  id: SurfaceId,
+  sequence: number,
+  event: EvidenceEvent
+): void =>
   Match.value(registry.get(surfaceAtom(id)).run).pipe(
     Match.when(
       (run) => hasActiveRunSequence(run, sequence),
@@ -60,7 +68,7 @@ const applyEvidenceEventToSurface = (registry: RunRegistry, id: Id, sequence: nu
 
 const dispatchCurrentTimeRunMessage = (
   registry: RunRegistry,
-  id: Id,
+  id: SurfaceId,
   buildMessage: (atMs: number) => RunMessage
 ): Effect.Effect<void, never, never> =>
   Clock.currentTimeMillis.pipe(
@@ -72,12 +80,12 @@ const dispatchCurrentTimeRunMessage = (
     Effect.asVoid
   )
 
-const runDataFromStore = (id: Id, program: Program, store: EvidenceStoreState) => {
+const runDataFromStore = (id: SurfaceId, program: Program, store: EvidenceStoreState) => {
   const stream = evidenceStreamFromStore(store)
 
   return {
     id,
-    packageName: id,
+    packageName: runPackageName(id),
     summary: stream.summary ?? "Run complete.",
     durationMs: stream.meta?.durationMs ?? 0,
     program,
@@ -91,75 +99,57 @@ type RunningExecution = {
   readonly token: number
 }
 
-const runIsPaused = (id: Id, registry: RunRegistry): boolean => registry.get(surfaceAtom(id)).run._tag === "RunPaused"
+const runIsPaused = (id: SurfaceId, registry: RunRegistry): boolean =>
+  registry.get(surfaceAtom(id)).run.session.control === "paused"
 
-const syncEffectTextPlayback = ({
-  registry,
-  id,
-  isAnimating
-}: {
-  readonly registry: RunRegistry
-  readonly id: Id
-  readonly isAnimating: boolean
-}): Effect.Effect<void, never, never> =>
-  id === "effect-text"
-    ? setAnimationPlayback(registry, isAnimating)
-    : Effect.void
-
-const syncLocalAnimationPlayback = ({
-  registry,
-  id,
-  isAnimating
-}: {
-  readonly registry: RunRegistry
-  readonly id: Id
-  readonly isAnimating: boolean
-}): Effect.Effect<void, never, never> =>
-  Match.value(id).pipe(
-    Match.when("effect-text", () => syncEffectTextPlayback({ registry, id, isAnimating })),
-    Match.when("effect-search", () => setOptimizationAnimationPlayback(registry, isAnimating)),
-    Match.when("effect-math", () => setPowerAnimationPlayback(registry, isAnimating)),
-    Match.orElse(() => Effect.void)
-  )
-
-const syncCurrentEffectTextFrameToControls = (
+const syncCurrentProjectionFrameToControls = (
   registry: RunRegistry,
-  id: Id
+  id: SurfaceId
 ): Effect.Effect<void, never, never> =>
   Effect.sync(() => registry.get(surfaceAtom(id)).run.session.localRunFrame).pipe(
-    Effect.flatMap((localRunFrame) =>
-      id === "effect-text" && localRunFrame?._tag === "effect-text"
-        ? syncAnimationFrameToControls(registry, localRunFrame)
-        : Effect.void
+    Effect.flatMap((localRunFrame) => syncProjectionFrameToControls(projectionDriverFor(id), registry, localRunFrame))
+  )
+
+const interruptRunAuthority = ({
+  id,
+  registry
+}: {
+  readonly id: SurfaceId
+  readonly registry: RunRegistry
+}): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
+  interruptActiveRun(id, registry).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.succeed(Option.none()),
+        onSome: (active) => {
+          const projectionDriver = projectionDriverFor(id)
+
+          return syncCurrentProjectionFrameToControls(registry, id).pipe(
+            Effect.zipRight(setProjectionPlayback(projectionDriver, registry, false)),
+            Effect.zipRight(resetProjectionDriverState(projectionDriver, registry)),
+            Effect.as(Option.some(active))
+          )
+        }
+      })
     )
   )
 
-const syncCurrentLocalRunFrameToControls = (
-  registry: RunRegistry,
-  id: Id
-): Effect.Effect<void, never, never> =>
-  Effect.sync(() => registry.get(surfaceAtom(id)).run.session.localRunFrame).pipe(
-    Effect.flatMap((localRunFrame) =>
-      Match.value(id).pipe(
-        Match.when("effect-text", () => syncCurrentEffectTextFrameToControls(registry, id)),
-        Match.when("effect-math", () =>
-          localRunFrame?._tag === "effect-math"
-            ? syncPowerFrameToControls(registry, localRunFrame)
-            : Effect.void),
-        Match.orElse(() => Effect.void)
-      )
-    )
-  )
-
-const runDemoExecution = (
-  id: Id,
+const runSurfaceExecution = (
+  id: SurfaceId,
   active: RunningExecution,
   registry: RunRegistry
-): Effect.Effect<void, never, DemoClient> =>
+): Effect.Effect<void, never, SurfaceRuntimeServices> =>
   Effect.gen(function*() {
     yield* preloadSurface(id, registry)
-    const localDriver = localDriverFor(id)
-    const localDriverSnapshot = snapshotLocalDriver(localDriver, registry)
+    const runtime = surfaceRuntimeFor(id)
+    const runtimeSnapshot = surfaceRuntimeSnapshotFor(id, registry)
+
+    if (runtimeSnapshot.runPlan === null) {
+      return
+    }
+
+    const projectionDriver = projectionDriverFor(id)
+    const projectionDriverSnapshot = snapshotProjectionDriver(projectionDriver, registry)
 
     const program = Match.value(registry.get(surfaceAtom(id)).preload).pipe(
       Match.tag("PreloadReady", ({ data }) => data.program),
@@ -174,62 +164,113 @@ const runDemoExecution = (
       _tag: "RunStarted",
       token: active.token,
       sequence: active.sequence,
-      ownership: runOwnershipFor(localDriver),
+      ownership: runOwnershipFor(projectionDriver),
       startedAtMs,
-      localRunPlan: localDriverSnapshot.localRunPlan,
+      runPlan: runtimeSnapshot.runPlan,
+      localRunPlan: runtimeSnapshot.localRunPlan,
       program
     }))
     resetSurfaceEvidenceStore(registry, id)
 
-    yield* runEvidencePipeline({
-      registry,
-      id,
-      localDriver,
-      localDriverSnapshot,
-      signal: active.signal,
-      onCue: () => Effect.void,
-      onEvent: (event) =>
-        Effect.sync(() => {
-          applyEvidenceEventToSurface(registry, id, active.sequence, event)
-        }),
-      onFrame: (frame) =>
-        Effect.sync(() => {
-          dispatchRunMessage(registry, id, {
-            _tag: "RunFrameUpdated",
-            sequence: active.sequence,
-            frame
-          })
-        }),
-      onLocalCompleted: () =>
-        dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
-          _tag: "RunLocalCompleted",
-          sequence: active.sequence,
-          observedAtMs
-        })),
-      onReadyForFinalization: (store) =>
-        Effect.sync(() => {
+    yield* Match.value(runtime.transport).pipe(
+      Match.when("fetch", () =>
+        Effect.gen(function*() {
+          const runWithMeta = runtime.runWithMeta
+
+          if (Option.isNone(runWithMeta)) {
+            return
+          }
+
+          const { data, meta } = yield* runWithMeta.value(runtimeSnapshot)
+          const store = evidenceStoreFromSuccess({ data, meta })
+
           registry.set(surfaceEvidenceStoreAtom(id), store)
-        }).pipe(
-          Effect.zipRight(
-            dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
-              _tag: "RunSucceeded",
+          yield* dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
+            _tag: "RunStreamCompleteObserved",
+            sequence: active.sequence,
+            observedAtMs,
+            summary: data.summary,
+            meta
+          }))
+          yield* dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
+            _tag: "RunSucceeded",
+            sequence: active.sequence,
+            finalizedAtMs,
+            data,
+            meta
+          }))
+        })),
+      Match.orElse(() =>
+        runEvidencePipeline({
+          registry,
+          id,
+          runtime,
+          runtimeSnapshot,
+          projectionDriver,
+          projectionDriverSnapshot,
+          onCue: (cue, state) =>
+            Effect.sync(() => {
+              dispatchRunMessage(registry, id, {
+                _tag: "RunChoreographyObserved",
+                sequence: active.sequence,
+                cue,
+                state
+              })
+            }),
+          onCanonicalFrameObserved: (frame) =>
+            Effect.sync(() => {
+              dispatchRunMessage(registry, id, {
+                _tag: "RunCanonicalFrameObserved",
+                sequence: active.sequence,
+                frame
+              })
+            }),
+          onEvent: (event) =>
+            Effect.sync(() => {
+              applyEvidenceEventToSurface(registry, id, active.sequence, event)
+            }),
+          onFrame: (frame) =>
+            Effect.sync(() => {
+              dispatchRunMessage(registry, id, {
+                _tag: "RunFrameUpdated",
+                sequence: active.sequence,
+                frame
+              })
+            }),
+          onStepQueueDrained: () =>
+            dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
+              _tag: "RunStepQueueDrained",
               sequence: active.sequence,
-              finalizedAtMs,
-              data: runDataFromStore(id, program, store),
-              meta: store.meta
-            }))
-          )
-        ),
-      onServerCompleted: ({ summary, meta }) =>
-        dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
-          _tag: "RunServerCompleted",
-          sequence: active.sequence,
-          observedAtMs,
-          summary,
-          meta
-        }))
-    }).pipe(
-      Effect.ensuring(resetLocalDriverState(localDriver, registry)),
+              observedAtMs
+            })),
+          onSuccessGateSatisfied: (store) =>
+            Effect.sync(() => {
+              registry.set(surfaceEvidenceStoreAtom(id), store)
+            }).pipe(
+              Effect.zipRight(
+                dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
+                  _tag: "RunSucceeded",
+                  sequence: active.sequence,
+                  finalizedAtMs,
+                  data: runDataFromStore(id, program, store),
+                  meta: store.meta
+                }))
+              )
+            ),
+          onStreamCompleteObserved: ({ summary, meta }) =>
+            dispatchCurrentTimeRunMessage(registry, id, (observedAtMs) => ({
+              _tag: "RunStreamCompleteObserved",
+              sequence: active.sequence,
+              observedAtMs,
+              summary,
+              meta
+            })),
+          runToken: `${id}:${active.token}`,
+          signal: active.signal
+        })
+      )
+    ).pipe(
+      Effect.ensuring(resetProjectionDriverState(projectionDriver, registry)),
       Effect.matchEffect({
         onFailure: (error) =>
           dispatchCurrentTimeRunMessage(registry, id, (finalizedAtMs) => ({
@@ -249,11 +290,11 @@ const runDemoExecution = (
     )
   )
 
-const startRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, DemoClient> =>
+const startRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, never, SurfaceRuntimeServices> =>
   Effect.gen(function*() {
     const registry = ctx.registry
 
-    yield* interruptActiveRun(id, registry)
+    yield* interruptRunAuthority({ id, registry })
 
     const sequence = registry.get(surfaceAtom(id)).nextSequence
     const token = allocateRunToken(registry, id)
@@ -265,25 +306,25 @@ const startRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, D
             sequence,
             observedAtMs
           })).pipe(
-            Effect.zipRight(syncCurrentLocalRunFrameToControls(registry, id)),
-            Effect.zipRight(syncLocalAnimationPlayback({ registry, id, isAnimating: false }))
+            Effect.zipRight(syncCurrentProjectionFrameToControls(registry, id)),
+            Effect.zipRight(setProjectionPlayback(projectionDriverFor(id), registry, false))
           )
           : Effect.void
       )
     })
-    const fiber = yield* Effect.forkDaemon(runDemoExecution(id, { sequence, signal, token }, registry))
+    const fiber = yield* Effect.forkDaemon(runSurfaceExecution(id, { sequence, signal, token }, registry))
 
     registerActiveRun(registry, id, { fiber, sequence, signal, token })
   })
 
-const pauseRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+const pauseRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
   pauseActiveRun(ctx.registry, id).pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,
         onSome: (active) =>
-          syncCurrentLocalRunFrameToControls(ctx.registry, id).pipe(
-            Effect.zipRight(syncLocalAnimationPlayback({ registry: ctx.registry, id, isAnimating: false })),
+          syncCurrentProjectionFrameToControls(ctx.registry, id).pipe(
+            Effect.zipRight(setProjectionPlayback(projectionDriverFor(id), ctx.registry, false)),
             Effect.zipRight(
               dispatchCurrentTimeRunMessage(ctx.registry, id, (requestedAtMs) => ({
                 _tag: "RunPaused",
@@ -296,13 +337,13 @@ const pauseRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, n
     )
   )
 
-const resumeRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+const resumeRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
   resumeActiveRun(ctx.registry, id).pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,
         onSome: (active) =>
-          syncLocalAnimationPlayback({ registry: ctx.registry, id, isAnimating: true }).pipe(
+          setProjectionPlayback(projectionDriverFor(id), ctx.registry, true).pipe(
             Effect.zipRight(
               dispatchCurrentTimeRunMessage(ctx.registry, id, (requestedAtMs) => ({
                 _tag: "RunResumed",
@@ -315,7 +356,7 @@ const resumeRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, 
     )
   )
 
-const stopRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+const stopRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
   Option.match(activeRunFor(ctx.registry, id), {
     onNone: () => Effect.void,
     onSome: (active) =>
@@ -326,28 +367,25 @@ const stopRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, ne
           requestedAtMs
         }))
 
-        yield* syncCurrentLocalRunFrameToControls(ctx.registry, id)
-        yield* syncLocalAnimationPlayback({ registry: ctx.registry, id, isAnimating: false })
-        yield* stopActiveRun(id, ctx.registry)
-
-        yield* dispatchCurrentTimeRunMessage(ctx.registry, id, (finalizedAtMs) => ({
-          _tag: "RunStopped",
-          sequence: active.sequence,
-          finalizedAtMs
-        }))
+        yield* interruptRunAuthority({ id, registry: ctx.registry })
+        resetSurfaceEvidenceStore(ctx.registry, id)
+        dispatchRunMessage(ctx.registry, id, { _tag: "RunReset" })
       })
   })
 
-const resetRun = (id: Id, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
+const resetRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
-    yield* interruptActiveRun(id, ctx.registry)
-    yield* resetLocalDriverState(localDriverFor(id), ctx.registry)
+    const projectionDriver = projectionDriverFor(id)
+
+    yield* interruptRunAuthority({ id, registry: ctx.registry })
+    yield* resetProjectionDriverState(projectionDriver, ctx.registry)
+    yield* setProjectionPlayback(projectionDriver, ctx.registry, false)
     resetSurfaceEvidenceStore(ctx.registry, id)
 
     dispatchRunMessage(ctx.registry, id, { _tag: "RunReset" })
   })
 
-type RunControlCommand = { readonly action: RunControlActionKind; readonly id: Id }
+type RunControlCommand = { readonly action: RunControlActionKind; readonly id: SurfaceId }
 
 export const makeRunControlAtom = (runtime: typeof appRuntime) =>
   runtime.fn<RunControlCommand>()(
@@ -361,12 +399,12 @@ export const makeRunControlAtom = (runtime: typeof appRuntime) =>
       )
   )
 
-export const makeRunDemoAtom = (runtime: typeof appRuntime) => runtime.fn<Id>()((id, ctx) => startRun(id, ctx))
+export const makeRunDemoAtom = (runtime: typeof appRuntime) => runtime.fn<SurfaceId>()((id, ctx) => startRun(id, ctx))
 
 export const runDemoAtom = makeRunDemoAtom(appRuntime)
 export const controlRunAtom = makeRunControlAtom(appRuntime)
 
-type StageTabSelection = { readonly id: Id; readonly tab: StageTab }
+type StageTabSelection = { readonly id: SurfaceId; readonly tab: StageTab }
 
 export const selectStageTabAtom = Atom.fnSync<StageTabSelection>()(
   ({ id, tab }, ctx) => {
@@ -374,7 +412,7 @@ export const selectStageTabAtom = Atom.fnSync<StageTabSelection>()(
   }
 )
 
-type ProgramFileSelection = { readonly id: Id; readonly fileIndex: number }
+type ProgramFileSelection = { readonly id: SurfaceId; readonly fileIndex: number }
 
 export const selectProgramFileAtom = Atom.fnSync<ProgramFileSelection>()(
   ({ id, fileIndex }, ctx) => {
@@ -385,7 +423,7 @@ export const selectProgramFileAtom = Atom.fnSync<ProgramFileSelection>()(
   }
 )
 
-type ProgramSourceScopeSelection = { readonly id: Id; readonly scope: ProgramSourceScope }
+type ProgramSourceScopeSelection = { readonly id: SurfaceId; readonly scope: ProgramSourceScope }
 
 export const selectProgramSourceScopeAtom = Atom.fnSync<ProgramSourceScopeSelection>()(
   ({ id, scope }, ctx) => {

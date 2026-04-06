@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
+
 import {
   DspCanonicalStep,
   type DspRunMetrics,
@@ -7,6 +8,7 @@ import {
   emptyDspRunMetrics
 } from "../../../contracts/demo/dsp-runtime.js"
 import type { EvidenceSection } from "../../../contracts/evidence.js"
+import { evaluationEvidenceSection, optimizationEventSection } from "./package-evidence.js"
 import type { DspExecutionStory } from "./runtime.js"
 import {
   comparisonSection,
@@ -17,36 +19,12 @@ import {
   scenarioSection,
   signatureSection
 } from "./sections.js"
+import { averageScoreThrough, learnedDemosThrough, resultRows } from "./stream-support.js"
 
 export type DspStageStory = {
   readonly stageId: DspStageId
   readonly steps: ReadonlyArray<DspCanonicalStep>
   readonly sectionEffects: ReadonlyArray<Effect.Effect<EvidenceSection, never, never>>
-}
-
-const resultRows = (
-  metricName: string,
-  report: DspExecutionStory["baselineReport"]
-): ReadonlyArray<ReadonlyArray<string>> =>
-  Arr.map(report.results, (result) => [
-    `${result.index + 1}`,
-    (result.scores[metricName] ?? 0).toFixed(2),
-    result.durationMs.toFixed(0)
-  ])
-
-const averageScoreThrough = ({
-  metricName,
-  report,
-  stepIndex
-}: {
-  readonly metricName: string
-  readonly report: DspExecutionStory["baselineReport"]
-  readonly stepIndex: number
-}): number => {
-  const completed = report.results.slice(0, stepIndex)
-  return completed.length === 0
-    ? 0
-    : completed.reduce((score, result) => score + (result.scores[metricName] ?? 0), 0) / completed.length
 }
 
 const finalMetrics = (story: DspExecutionStory): DspRunMetrics => ({
@@ -56,13 +34,7 @@ const finalMetrics = (story: DspExecutionStory): DspRunMetrics => ({
   improvementDelta: story.optimizedScore - story.baselineScore
 })
 
-const makeStep = ({
-  metrics,
-  stageId,
-  stepCount,
-  stepIndex,
-  story
-}: {
+const makeStep = (options: {
   readonly metrics: DspRunMetrics
   readonly stageId: DspStageId
   readonly stepCount: number
@@ -70,44 +42,22 @@ const makeStep = ({
   readonly story: DspExecutionStory
 }): DspCanonicalStep =>
   new DspCanonicalStep({
-    scenarioId: story.request.scenarioId,
-    moduleType: story.request.moduleType,
-    stageId,
-    stepIndex,
-    stepCount,
-    metrics
+    scenarioId: options.story.request.scenarioId,
+    moduleType: options.story.request.moduleType,
+    stageId: options.stageId,
+    stepIndex: options.stepIndex,
+    stepCount: options.stepCount,
+    metrics: options.metrics
   })
-
-const optimizationStepCount = (story: DspExecutionStory): number => Math.max(story.optimization.roundsUsed, 1)
-
-const learnedDemosThrough = ({
-  learnedDemos,
-  stepCount,
-  stepIndex
-}: {
-  readonly learnedDemos: number
-  readonly stepCount: number
-  readonly stepIndex: number
-}): number =>
-  learnedDemos === 0
-    ? 0
-    : Math.min(learnedDemos, Math.ceil((learnedDemos * stepIndex) / stepCount))
 
 export const buildDspStageStories = (story: DspExecutionStory): ReadonlyArray<DspStageStory> => {
   const metricName = story.scenario.metricName
-  const optimizingSteps = optimizationStepCount(story)
+  const optimizingSteps = Math.max(story.optimization.roundsUsed, 1)
+
   return [
     {
       stageId: "signature",
-      steps: [
-        makeStep({
-          story,
-          stageId: "signature",
-          stepIndex: 1,
-          stepCount: 1,
-          metrics: emptyDspRunMetrics
-        })
-      ],
+      steps: [makeStep({ story, stageId: "signature", stepIndex: 1, stepCount: 1, metrics: emptyDspRunMetrics })],
       sectionEffects: [
         Effect.succeed(
           scenarioSection({
@@ -147,9 +97,10 @@ export const buildDspStageStories = (story: DspExecutionStory): ReadonlyArray<Ds
             overallScore: story.baselineScore,
             successCount: story.baselineReport.successCount,
             totalExamples: story.baselineReport.totalExamples,
-            resultRows: resultRows(metricName, story.baselineReport)
+            resultRows: resultRows({ metricName, report: story.baselineReport })
           })
-        )
+        ),
+        Effect.succeed(evaluationEvidenceSection({ evidence: story.baselineEvidence, label: "Baseline" }))
       ]
     },
     {
@@ -181,7 +132,8 @@ export const buildDspStageStories = (story: DspExecutionStory): ReadonlyArray<Ds
             rejectedTraces: story.optimization.traceRejectedCount,
             fallbackUsed: story.optimization.fallbackUsed
           })
-        )
+        ),
+        Effect.succeed(optimizationEventSection(story.optimizationEvidence))
       ]
     },
     {
@@ -214,22 +166,15 @@ export const buildDspStageStories = (story: DspExecutionStory): ReadonlyArray<Ds
             overallScore: story.optimizedScore,
             successCount: story.optimizedReport.successCount,
             totalExamples: story.optimizedReport.totalExamples,
-            resultRows: resultRows(metricName, story.optimizedReport)
+            resultRows: resultRows({ metricName, report: story.optimizedReport })
           })
-        )
+        ),
+        Effect.succeed(evaluationEvidenceSection({ evidence: story.optimizedEvidence, label: "Optimized" }))
       ]
     },
     {
       stageId: "comparison",
-      steps: [
-        makeStep({
-          story,
-          stageId: "comparison",
-          stepIndex: 1,
-          stepCount: 1,
-          metrics: finalMetrics(story)
-        })
-      ],
+      steps: [makeStep({ story, stageId: "comparison", stepIndex: 1, stepCount: 1, metrics: finalMetrics(story) })],
       sectionEffects: [
         Effect.succeed(
           comparisonSection({

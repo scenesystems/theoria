@@ -1,21 +1,34 @@
 import { Atom, Registry } from "@effect-atom/atom"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 import type { Duration } from "effect"
 import { Effect, Layer, Option } from "effect"
 
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
-import { EffectTextProjectionStep } from "../../app/contracts/demo/text.js"
-import { encodeEvidenceEventJson, SectionAppend, Step, StreamComplete } from "../../app/contracts/evidence-stream.js"
+import {
+  canonicalStepEvent,
+  encodeEvidenceEventJson,
+  SectionAppend,
+  StreamComplete
+} from "../../app/contracts/evidence-stream.js"
+import type { Id } from "../../app/contracts/id.js"
 import { makeRunControlAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
+import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
 import { powerAnimatingAtom } from "../../app/web/atoms/power-animation.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom, surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface.js"
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { emitEffectMathAuthoredStream, emitEffectTextAuthoredStream } from "../helpers/mock-authored-stream.js"
+
+const appRootUrl = new URL("../../", import.meta.url)
 
 type EventListener = (event: Event | MessageEvent<string>) => void
+
+type DemoId = Extract<Id, "effect-text" | "effect-math" | "effect-dsp">
 
 class MockEventSource {
   static instances: ReadonlyArray<MockEventSource> = []
@@ -55,7 +68,7 @@ const makeAsyncTestRegistry = (): Registry.Registry =>
     }
   })
 
-const readSurface = (registry: Registry.Registry, id: string): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
 
 const makeRuntime = () =>
   Atom.runtime(
@@ -114,7 +127,7 @@ const waitForWithin = <A>(
 
 const waitForRunState = (
   registry: Registry.Registry,
-  id: string,
+  id: DemoId,
   label: string,
   predicate: (state: SurfaceState) => boolean,
   timeout?: Duration.DurationInput
@@ -127,52 +140,20 @@ const waitForRunState = (
     timeout
   )
 
-const emitEffectTextProjectionSteps = (
-  registry: Registry.Registry,
-  source: MockEventSource
-): Effect.Effect<void, never, never> =>
-  Effect.gen(function*() {
-    const run = readSurface(registry, "effect-text").run
-
-    if (run.session.localRunPlan === null || run.session.localRunPlan._tag !== "effect-text") {
-      return yield* Effect.die("missing-effect-text-plan")
-    }
-
-    const projectionSteps = run.session.localRunPlan.entries.flatMap((entry) =>
-      entry.steps.map((planStep) =>
-        new EffectTextProjectionStep({
-          corpusIndex: entry.corpusIndex,
-          requestedWidthPx: planStep.requestedWidthPx,
-          stageWidthPx: planStep.stageWidthPx,
-          obstaclesEnabled: planStep.obstaclesEnabled
-        })
-      )
-    )
-
-    yield* Effect.forEach(
-      projectionSteps,
-      (step) =>
-        Effect.sync(() => {
-          source.emitEvidence(encodeEvidenceEventJson(new Step({ step })))
-        }),
-      { discard: true }
-    )
-  }).pipe(Effect.orDie)
-
 const emitDspProgressStep = (registry: Registry.Registry, source: MockEventSource): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
     const run = readSurface(registry, "effect-dsp").run
     const plan = run.session.localRunPlan
 
-    if (plan === null || plan._tag !== "effect-dsp") {
+    if (!isEffectDspRunPlan(plan)) {
       return yield* Effect.die("missing-effect-dsp-plan")
     }
 
     yield* Effect.sync(() => {
       source.emitEvidence(
         encodeEvidenceEventJson(
-          new Step({
-            step: new DspCanonicalStep({
+          canonicalStepEvent(
+            new DspCanonicalStep({
               scenarioId: plan.scenarioId,
               moduleType: plan.moduleType,
               stageId: "baseline",
@@ -185,13 +166,23 @@ const emitDspProgressStep = (registry: Registry.Registry, source: MockEventSourc
                 improvementDelta: null
               }
             })
-          })
+          )
         )
       )
     })
   }).pipe(Effect.orDie)
 
-type DemoId = "effect-text" | "effect-math" | "effect-dsp"
+describe("control-run async authority boundary", () => {
+  it.effect("keeps DSP graph projections and workflow score contracts split across effect-dsp and effect-inference authorities", () =>
+    Effect.gen(function*() {
+      const contractPath = "app/contracts/workflow/comparison-run.ts"
+      const source = yield* readProjectFile(appRootUrl, contractPath)
+      const imports = moduleSpecifiers(parseTypeScript(contractPath, source))
+
+      expect(imports).toContain("effect-dsp/contracts")
+      expect(imports).toContain("effect-inference/Contracts")
+    }).pipe(Effect.provide(BunContext.layer)))
+})
 
 type AsyncRunRegression = {
   readonly configureRegistry?: (registry: Registry.Registry) => void
@@ -241,9 +232,15 @@ const assertAsyncControlRunRegression = ({
 
       registry.set(runControlAtom, { action: "pause", id })
 
-      const paused = yield* waitForRunState(registry, id, `${id}-paused`, (state) => state.run._tag === "RunPaused")
+      const paused = yield* waitForRunState(
+        registry,
+        id,
+        `${id}-paused`,
+        (state) => state.run._tag === "RunRunning" && state.run.session.control === "paused"
+      )
 
-      expect(paused.run._tag).toBe("RunPaused")
+      expect(paused.run._tag).toBe("RunRunning")
+      expect(paused.run.session.control).toBe("paused")
 
       yield* emitWhilePaused(registry, source)
 
@@ -279,8 +276,8 @@ const assertAsyncControlRunRegression = ({
       expect(telemetryKinds).toContain("run-started")
       expect(telemetryKinds).toContain("pause-requested")
       expect(telemetryKinds).toContain("resume-requested")
-      expect(telemetryKinds).toContain("server-completed")
-      expect(telemetryKinds).toContain("local-completed")
+      expect(telemetryKinds).toContain("stream-complete-observed")
+      expect(telemetryKinds).toContain("step-queue-drained")
       expect(telemetryKinds).toContain("run-finalized")
     })
   )
@@ -292,16 +289,8 @@ describe("controlRunAtom async regressions", () => {
         registry.set(reflowStageViewportWidthAtom, 960)
       },
       emitWhilePaused: (registry, source) =>
-        emitEffectTextProjectionSteps(registry, source).pipe(
-          Effect.zipRight(
-            Effect.sync(() => {
-              source.emitEvidence(
-                encodeEvidenceEventJson(new StreamComplete({ summary: "Control atom text async.", meta: streamMeta }))
-              )
-            })
-          )
-        ),
-      expectedSectionTitle: "Animation Summary",
+        emitEffectTextAuthoredStream({ meta: streamMeta, registry, source, summary: "Control atom text async." }),
+      expectedSectionTitle: "Performance",
       expectedSummary: "Control atom text async.",
       finalizationTimeout: "20 seconds",
       id: "effect-text",
@@ -311,13 +300,9 @@ describe("controlRunAtom async regressions", () => {
 
   it.live("effect-math launched through controlRunAtom survives pause-resume under async registry scheduling", () =>
     assertAsyncControlRunRegression({
-      emitWhilePaused: (_registry, source) =>
-        Effect.sync(() => {
-          source.emitEvidence(
-            encodeEvidenceEventJson(new StreamComplete({ summary: "Control atom math async.", meta: streamMeta }))
-          )
-        }),
-      expectedSectionTitle: "Animation Summary",
+      emitWhilePaused: (registry, source) =>
+        emitEffectMathAuthoredStream({ meta: streamMeta, registry, source, summary: "Control atom math async." }),
+      expectedSectionTitle: "Runtime Summary",
       expectedSummary: "Control atom math async.",
       id: "effect-math",
       isFinalized: (registry, state) => state.run._tag === "RunSuccess" && registry.get(powerAnimatingAtom) === false,
@@ -332,8 +317,8 @@ describe("controlRunAtom async regressions", () => {
             encodeEvidenceEventJson(
               new SectionAppend({
                 section: {
-                  title: "DSP Async Resume",
-                  items: [{ _tag: "Text", label: "Stage", value: "baseline 2/4" }]
+                  title: "Optimizer Event Evidence",
+                  items: [{ _tag: "Text", label: "Event", value: "RoundCompleted round=1 demosCollected=1" }]
                 }
               })
             )
@@ -343,7 +328,7 @@ describe("controlRunAtom async regressions", () => {
           )
         }),
       emitWhilePaused: emitDspProgressStep,
-      expectedSectionTitle: "DSP Async Resume",
+      expectedSectionTitle: "Optimizer Event Evidence",
       expectedSummary: "Control atom dsp async.",
       id: "effect-dsp",
       isFinalized: (_registry, state) => state.run._tag === "RunSuccess",

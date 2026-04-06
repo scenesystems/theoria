@@ -1,16 +1,7 @@
-import { Match } from "effect"
+import { Match, Option } from "effect"
 
 import type { DemoError } from "../../contracts/demo-error.js"
-import {
-  type EvidenceStatusState,
-  type PreloadState,
-  runAwaitsLocalCompletion,
-  runAwaitsServerCompletion,
-  runHasLocalCompletion,
-  runHasServerCompletion,
-  runReadyForFinalization,
-  type RunState
-} from "./types.js"
+import { type EvidenceStatusState, type PreloadState, type RunState } from "./types.js"
 
 export type SurfaceStatusState = {
   readonly preload: PreloadState
@@ -54,45 +45,46 @@ export const statusFromPreload = (preload: PreloadState): string =>
     Match.orElse(() => "Run the demo to generate evidence and inspect code provenance.")
   )
 
-const runAwaitingLocalAfterServer = (run: RunState): boolean =>
-  runHasServerCompletion(run) && runAwaitsLocalCompletion(run)
+const formatStageId = (stageId: string): string => stageId.replace(/-/gu, " ")
 
-const runAwaitingServerAfterLocal = (run: RunState): boolean =>
-  runHasLocalCompletion(run) && runAwaitsServerCompletion(run)
+const stageStatusText = (run: RunState): string | null =>
+  run.session.choreography._tag === "InStage"
+    ? `Streaming ${formatStageId(run.session.choreography.stageId)}…`
+    : null
 
 const runningStatusText = (run: RunState, evidence: EvidenceStatusState): string =>
-  runReadyForFinalization(run)
-    ? "Finalizing live stage…"
-    : runAwaitingLocalAfterServer(run)
-    ? "Server stream complete. Finalizing live stage…"
-    : runAwaitingServerAfterLocal(run)
-    ? evidence.sectionCount === 0
-      ? "Live stage ready. Waiting for server completion…"
-      : "Local stage complete. Waiting for server completion…"
-    : evidence.sectionCount === 0
-    ? "Running demo now…"
-    : `Streaming results… ${evidence.sectionCount} section${evidence.sectionCount === 1 ? "" : "s"} loaded.`
+  Option.match(Option.fromNullable(stageStatusText(run)), {
+    onSome: (stageText) => stageText,
+    onNone: () =>
+      evidence.sectionCount === 0
+        ? "Running demo now…"
+        : `Streaming results… ${evidence.sectionCount} section${evidence.sectionCount === 1 ? "" : "s"} loaded.`
+  })
 
 const pausedStatusText = (run: RunState, evidence: EvidenceStatusState): string =>
-  runReadyForFinalization(run)
-    ? "Finalizing live stage…"
-    : runAwaitingLocalAfterServer(run)
-    ? "Run paused after server completion. Resume to finish the local stage."
-    : runAwaitingServerAfterLocal(run)
-    ? "Local stage complete. Waiting for server completion…"
-    : evidence.sectionCount === 0
-    ? "Run paused before evidence arrived. Resume to continue."
-    : "Run paused. Resume to continue streaming evidence."
+  Option.match(
+    run.session.choreography._tag === "InStage"
+      ? Option.some(run.session.choreography.stageId)
+      : Option.none<string>(),
+    {
+      onSome: (stageId) => `Run paused at ${formatStageId(stageId)}. Resume to continue.`,
+      onNone: () =>
+        evidence.sectionCount === 0
+          ? "Run paused before evidence arrived. Resume to continue."
+          : "Run paused. Resume to continue streaming evidence."
+    }
+  )
+
+const runningControlStatusText = (run: RunState, evidence: EvidenceStatusState): string =>
+  run.session.control === "paused"
+    ? pausedStatusText(run, evidence)
+    : run.session.control === "stopping"
+    ? "Stopping run…"
+    : runningStatusText(run, evidence)
 
 export const statusText = (state: SurfaceStatusState, evidence: EvidenceStatusState): string =>
   Match.value(state.run).pipe(
-    Match.tag("RunRunning", (run) => runningStatusText(run, evidence)),
-    Match.tag("RunPaused", (run) => pausedStatusText(run, evidence)),
-    Match.tag("RunStopping", () => "Stopping run…"),
-    Match.tag("RunStopped", () =>
-      evidence.sectionCount === 0
-        ? "Run stopped."
-        : "Run stopped. Partial results remain visible."),
+    Match.tag("RunRunning", (run) => runningControlStatusText(run, evidence)),
     Match.tag("RunFailed", ({ error }) => {
       const baseMessage = statusFromError(error)
 

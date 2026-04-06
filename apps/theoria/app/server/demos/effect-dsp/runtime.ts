@@ -1,8 +1,8 @@
-import { Clock, Effect, Match, Option, Ref, Schema, Stream } from "effect"
-import * as Arr from "effect/Array"
-import * as Record from "effect/Record"
+import { Clock, Effect, Ref, Stream } from "effect"
+import * as Trace from "effect-dsp/Trace"
 
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
+import { Evaluate, Optimizer } from "effect-dsp"
+import * as Contracts from "effect-dsp/contracts"
 
 import {
   defaultDspModuleType,
@@ -10,12 +10,23 @@ import {
   defaultOptimizationBudget,
   type DspModuleType,
   type DspScenarioDefinition,
-  type DspScenarioId,
-  scenarioById
+  type DspScenarioId
 } from "../../../contracts/demo/dsp.js"
 import type { StreamManifest } from "../../../contracts/stream-manifest.js"
 
-import { DspProviderRuntime, DspProviderUnavailable } from "./provider.js"
+import {
+  buildSignatureAndModule,
+  metricForScenario,
+  resolveProvider,
+  resolveScenario,
+  scenarioExamples
+} from "./execution-preparation.js"
+import {
+  type DspEvaluationEvidence,
+  type DspOptimizationEventEvidence,
+  projectEvaluationEvidence
+} from "./package-evidence.js"
+import type { DspProviderRuntime } from "./provider.js"
 
 export type DspRunRequest = {
   readonly scenarioId: DspScenarioId
@@ -57,6 +68,16 @@ export type DspOptimizationSummary = {
   readonly traceRejectedCount: number
 }
 
+export type DspEvaluationPhase = {
+  readonly report: DspEvaluationReport
+  readonly evidence: DspEvaluationEvidence
+}
+
+export type DspOptimizationPhase = {
+  readonly summary: DspOptimizationSummary
+  readonly evidence: DspOptimizationEventEvidence
+}
+
 export type DspExecutionStory = {
   readonly request: DspRunRequest
   readonly scenario: DspScenarioDefinition
@@ -64,96 +85,59 @@ export type DspExecutionStory = {
   readonly model: string
   readonly durationMs: number
   readonly baselineReport: DspEvaluationReport
+  readonly baselineEvidence: DspEvaluationEvidence
   readonly optimizedReport: DspEvaluationReport
+  readonly optimizedEvidence: DspEvaluationEvidence
   readonly baselineScore: number
   readonly optimizedScore: number
   readonly optimization: DspOptimizationSummary
+  readonly optimizationEvidence: DspOptimizationEventEvidence
 }
 
-// ---------------------------------------------------------------------------
-// Progressive execution context — resolved once, shared across phases
-// ---------------------------------------------------------------------------
-
-const resolveProvider = Effect.gen(function*() {
-  const runtime = yield* DspProviderRuntime
-
-  const layer = yield* Option.match(runtime.layer, {
-    onNone: () =>
-      Effect.fail(
-        new DspProviderUnavailable({
-          message: Option.getOrElse(runtime.capability.reason, () => "DSP provider is not configured.")
-        })
-      ),
-    onSome: Effect.succeed
+const toUsage = (usage: {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly callCount: number
+  readonly cachedCount: number
+}): Contracts.Usage =>
+  new Contracts.Usage({
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    callCount: usage.callCount,
+    cachedCount: usage.cachedCount
   })
 
-  const provider = yield* Option.match(runtime.capability.provider, {
-    onNone: () =>
-      Effect.fail(
-        new DspProviderUnavailable({
-          message: Option.getOrElse(runtime.capability.reason, () => "DSP provider is not configured.")
-        })
-      ),
-    onSome: Effect.succeed
-  })
-
-  return {
-    layer,
-    provider,
-    model: Option.getOrElse(runtime.capability.model, () => "unknown")
-  }
-})
-
-const buildSignatureAndModule = (scenario: DspScenarioDefinition, moduleType: DspModuleType) =>
-  Effect.gen(function*() {
-    const inputFields = Record.fromEntries(
-      Arr.map(scenario.contract.inputFields, (field) => [
-        field.name,
-        Signature.describe(Schema.String, field.description)
-      ])
+const runEvaluationPhase = (ctx: DspExecutionContext) =>
+  Trace.withUsageTracking(
+    Trace.withTracing(
+      Evaluate.run({
+        module: ctx.module,
+        examples: ctx.examples,
+        metrics: ctx.metrics,
+        concurrency: 1
+      }).pipe(Effect.provide(ctx.layer))
     )
-    const outputFields = Record.fromEntries(
-      Arr.map(scenario.contract.outputFields, (field) => [
-        field.name,
-        Signature.describe(Schema.String, field.description)
-      ])
+  ).pipe(
+    Effect.flatMap((execution) =>
+      projectEvaluationEvidence({
+        moduleName: ctx.module.name,
+        traces: execution[0][1],
+        usage: toUsage(execution[1])
+      }).pipe(Effect.map((evidence) => ({ report: execution[0][0], evidence })))
     )
-    const signature = yield* Signature.make(scenario.contract.instruction, inputFields, outputFields)
-
-    return yield* Match.value(moduleType).pipe(
-      Match.when("chainOfThought", () => Module.chainOfThought(`theoria-${scenario.id}-cot`, signature)),
-      Match.orElse(() => Module.predict(`theoria-${scenario.id}-predict`, signature))
-    )
-  })
-
-const metricForScenario = (scenario: DspScenarioDefinition) =>
-  Match.value(scenario.id).pipe(
-    Match.when("intervention-classifier", () => Metric.exactMatch("intervention")),
-    Match.when("member-check-summary", () => Metric.f1("keyThemes")),
-    Match.when("probe-follow-up", () => Metric.exactMatch("probeType")),
-    Match.exhaustive
   )
-
-const scenarioExamples = (scenario: DspScenarioDefinition): ReadonlyArray<Example.Example> =>
-  Arr.map(scenario.examples, (example) => new Example.Example({ input: example.input, output: example.expected }))
 
 export const reportScore = (metricName: string, report: DspEvaluationReport): number =>
   report.overallScores[metricName] ?? 0
 
-// ---------------------------------------------------------------------------
-// Phase 0: Prepare execution context (no LLM calls)
-// ---------------------------------------------------------------------------
-
 export const prepareExecution = (request: DspRunRequest) =>
   Effect.gen(function*() {
-    const scenario = scenarioById(request.scenarioId)
+    const scenario = resolveScenario(request.scenarioId)
     const { layer, model, provider } = yield* resolveProvider
     const module = yield* buildSignatureAndModule(scenario, request.moduleType)
     const metric = metricForScenario(scenario)
     const examples = scenarioExamples(scenario)
     const metrics = { [scenario.metricName]: metric }
-    const demoBudget = Math.max(1, Math.min(request.optimizationBudget, examples.length))
-    const startedAt = yield* Clock.currentTimeMillis
 
     return {
       request,
@@ -165,8 +149,8 @@ export const prepareExecution = (request: DspRunRequest) =>
       examples,
       metrics,
       layer,
-      demoBudget,
-      startedAt
+      demoBudget: Math.max(1, Math.min(request.optimizationBudget, examples.length)),
+      startedAt: yield* Clock.currentTimeMillis
     }
   })
 
@@ -174,25 +158,11 @@ type _PrepareResult = typeof prepareExecution extends (arg: DspRunRequest) => in
 
 export type DspExecutionContext = Effect.Effect.Success<_PrepareResult>
 
-// ---------------------------------------------------------------------------
-// Phase 1: Baseline evaluation
-// ---------------------------------------------------------------------------
-
-export const runBaseline = (ctx: DspExecutionContext) =>
-  Evaluate.run({
-    module: ctx.module,
-    examples: ctx.examples,
-    metrics: ctx.metrics,
-    concurrency: 1
-  }).pipe(Effect.provide(ctx.layer))
-
-// ---------------------------------------------------------------------------
-// Phase 2: Optimization
-// ---------------------------------------------------------------------------
+export const runBaseline = (ctx: DspExecutionContext) => runEvaluationPhase(ctx)
 
 export const runOptimization = (ctx: DspExecutionContext) =>
   Effect.gen(function*() {
-    const bootstrapEvents = yield* Optimizer.bootstrapFewShotStream({
+    const events = yield* Optimizer.bootstrapFewShotStream({
       module: ctx.module,
       trainset: ctx.examples,
       metric: ctx.metric,
@@ -200,49 +170,37 @@ export const runOptimization = (ctx: DspExecutionContext) =>
       maxBootstrappedDemos: ctx.demoBudget,
       fallbackLabeledDemoCount: ctx.demoBudget,
       threshold: 1
-    }).pipe(
-      Stream.provideLayer(ctx.layer),
-      Stream.runCollect,
-      Effect.map(Arr.fromIterable)
-    )
+    }).pipe(Stream.provideLayer(ctx.layer), Stream.runCollect)
+    const eventList = [...events]
     const optimizedParams = yield* Ref.get(ctx.module.params)
-    const bootstrapSummary = Optimizer.summarizeBootstrapEvents(bootstrapEvents)
+    const summary = Optimizer.summarizeBootstrapEvents(eventList)
 
     return {
-      fallbackUsed: bootstrapSummary.fallbackUsed,
-      learnedDemos: optimizedParams.demos.length,
-      roundsUsed: bootstrapSummary.roundsUsed,
-      traceAcceptedCount: bootstrapSummary.traceAcceptedCount,
-      traceRejectedCount: bootstrapSummary.traceRejectedCount
+      summary: {
+        fallbackUsed: summary.fallbackUsed,
+        learnedDemos: optimizedParams.demos.length,
+        roundsUsed: summary.roundsUsed,
+        traceAcceptedCount: summary.traceAcceptedCount,
+        traceRejectedCount: summary.traceRejectedCount
+      },
+      evidence: {
+        events: eventList
+      }
     }
   })
 
-// ---------------------------------------------------------------------------
-// Phase 3: Optimized evaluation (module already has learned demos)
-// ---------------------------------------------------------------------------
-
-export const runOptimizedEval = (ctx: DspExecutionContext) =>
-  Evaluate.run({
-    module: ctx.module,
-    examples: ctx.examples,
-    metrics: ctx.metrics,
-    concurrency: 1
-  }).pipe(Effect.provide(ctx.layer))
-
-// ---------------------------------------------------------------------------
-// Monolithic execution story (used by run.ts for non-streaming path)
-// ---------------------------------------------------------------------------
+export const runOptimizedEval = (ctx: DspExecutionContext) => runEvaluationPhase(ctx)
 
 export const dspExecutionStory = (
   request: DspRunRequest
 ): Effect.Effect<DspExecutionStory, unknown, DspProviderRuntime> =>
   Effect.gen(function*() {
     const ctx = yield* prepareExecution(request)
-    const baselineReport = yield* runBaseline(ctx)
-    const baselineScore = reportScore(ctx.scenario.metricName, baselineReport)
+    const baseline = yield* runBaseline(ctx)
+    const baselineScore = reportScore(ctx.scenario.metricName, baseline.report)
     const optimization = yield* runOptimization(ctx)
-    const optimizedReport = yield* runOptimizedEval(ctx)
-    const optimizedScore = reportScore(ctx.scenario.metricName, optimizedReport)
+    const optimized = yield* runOptimizedEval(ctx)
+    const optimizedScore = reportScore(ctx.scenario.metricName, optimized.report)
     const endedAt = yield* Clock.currentTimeMillis
 
     return {
@@ -251,10 +209,13 @@ export const dspExecutionStory = (
       provider: ctx.provider,
       model: ctx.model,
       durationMs: endedAt - ctx.startedAt,
-      baselineReport,
-      optimizedReport,
+      baselineReport: baseline.report,
+      baselineEvidence: baseline.evidence,
+      optimizedReport: optimized.report,
+      optimizedEvidence: optimized.evidence,
       baselineScore,
       optimizedScore,
-      optimization
+      optimization: optimization.summary,
+      optimizationEvidence: optimization.evidence
     }
   })

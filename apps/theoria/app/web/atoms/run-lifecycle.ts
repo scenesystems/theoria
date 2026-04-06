@@ -2,7 +2,7 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Clock, Deferred, Duration, Effect, Fiber, Match, Option, SynchronizedRef } from "effect"
 
-import type { Id } from "../../contracts/id.js"
+import type { SurfaceId } from "../../contracts/id.js"
 
 import type { RunRegistry } from "./run-registry-context.js"
 
@@ -42,19 +42,19 @@ type RunController = {
 
 const initialRunController: RunController = { nextToken: 1, active: Option.none() }
 
-const runControllerAtom: (id: Id) => AtomType.Writable<RunController> = Atom.family((_id: Id) =>
+const runControllerAtom: (id: SurfaceId) => AtomType.Writable<RunController> = Atom.family((_id: SurfaceId) =>
   Atom.make(initialRunController).pipe(Atom.keepAlive)
 )
 
 const updateRunController = (
   registry: RunRegistry,
-  id: Id,
+  id: SurfaceId,
   f: (controller: RunController) => RunController
 ): void => {
   registry.update(runControllerAtom(id), f)
 }
 
-const clearActiveRun = (registry: RunRegistry, id: Id, token: number): void => {
+const clearActiveRun = (registry: RunRegistry, id: SurfaceId, token: number): void => {
   updateRunController(registry, id, (controller) =>
     Option.match(controller.active, {
       onNone: () => controller,
@@ -68,12 +68,12 @@ const clearActiveRun = (registry: RunRegistry, id: Id, token: number): void => {
     }))
 }
 
-const activeRun = (registry: RunRegistry, id: Id): Option.Option<ActiveRun> =>
+const activeRun = (registry: RunRegistry, id: SurfaceId): Option.Option<ActiveRun> =>
   registry.get(runControllerAtom(id)).active
 
 const withActiveRun = <A>(
   registry: RunRegistry,
-  id: Id,
+  id: SurfaceId,
   onNone: () => A,
   onSome: (active: ActiveRun) => A
 ): A =>
@@ -296,7 +296,7 @@ export const markRunSignalStopping = (signal: RunSignal): Effect.Effect<void, ne
       )
     )).pipe(Effect.flatMap(notifyRunSignalUpdate), Effect.asVoid)
 
-export const allocateRunToken = (registry: RunRegistry, id: Id): number => {
+export const allocateRunToken = (registry: RunRegistry, id: SurfaceId): number => {
   const controller = registry.get(runControllerAtom(id))
   const token = controller.nextToken
 
@@ -308,19 +308,19 @@ export const allocateRunToken = (registry: RunRegistry, id: Id): number => {
   return token
 }
 
-export const registerActiveRun = (registry: RunRegistry, id: Id, active: ActiveRun): void => {
+export const registerActiveRun = (registry: RunRegistry, id: SurfaceId, active: ActiveRun): void => {
   updateRunController(registry, id, (controller) => ({ ...controller, active: Option.some(active) }))
 }
 
-export const releaseActiveRun = (registry: RunRegistry, id: Id, token: number): void => {
+export const releaseActiveRun = (registry: RunRegistry, id: SurfaceId, token: number): void => {
   clearActiveRun(registry, id, token)
 }
 
-export const activeRunFor = (registry: RunRegistry, id: Id): Option.Option<ActiveRun> => activeRun(registry, id)
+export const activeRunFor = (registry: RunRegistry, id: SurfaceId): Option.Option<ActiveRun> => activeRun(registry, id)
 
 export const pauseActiveRun = (
   registry: RunRegistry,
-  id: Id
+  id: SurfaceId
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(
     registry,
@@ -334,7 +334,7 @@ export const pauseActiveRun = (
 
 export const resumeActiveRun = (
   registry: RunRegistry,
-  id: Id
+  id: SurfaceId
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(
     registry,
@@ -346,24 +346,8 @@ export const resumeActiveRun = (
       )
   )
 
-export const interruptActiveRun = (id: Id, registry: RunRegistry): Effect.Effect<void, never, never> =>
-  withActiveRun(
-    registry,
-    id,
-    () => Effect.void,
-    (active) =>
-      markRunSignalStopping(active.signal).pipe(
-        Effect.zipRight(Fiber.interrupt(active.fiber)),
-        Effect.ensuring(
-          Effect.sync(() => {
-            clearActiveRun(registry, id, active.token)
-          })
-        )
-      )
-  )
-
-export const stopActiveRun = (
-  id: Id,
+export const interruptActiveRun = (
+  id: SurfaceId,
   registry: RunRegistry
 ): Effect.Effect<Option.Option<ActiveRun>, never, never> =>
   withActiveRun(

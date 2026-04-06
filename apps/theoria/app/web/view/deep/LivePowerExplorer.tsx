@@ -22,7 +22,7 @@ export const LivePowerExplorer = () => {
       controls={
         <Stack className="gap-1.5">
           <SliderRow
-            disabled={vm.isAnimating}
+            disabled={vm.controlsLocked}
             display={vm.controls.effectSize.display}
             label="d"
             max={vm.controls.effectSize.max}
@@ -33,7 +33,7 @@ export const LivePowerExplorer = () => {
             value={vm.controls.effectSize.value}
           />
           <SliderRow
-            disabled={vm.isAnimating}
+            disabled={vm.controlsLocked}
             display={vm.controls.sampleSize.display}
             label="N"
             max={vm.controls.sampleSize.max}
@@ -44,7 +44,7 @@ export const LivePowerExplorer = () => {
             value={vm.controls.sampleSize.value}
           />
           <SliderRow
-            disabled={vm.isAnimating}
+            disabled={vm.controlsLocked}
             display={vm.controls.alpha.display}
             label="α"
             max={vm.controls.alpha.max}
@@ -54,7 +54,7 @@ export const LivePowerExplorer = () => {
             tone={tone}
             value={vm.controls.alpha.value}
           />
-          <LoadingIndicator active={vm.isAnimating} text="Sweeping parameter space…" tone={tone} />
+          <LoadingIndicator active={vm.isAnimating} text={vm.statusText ?? "Streaming power analysis…"} tone={tone} />
         </Stack>
       }
       metrics={vm.metrics}

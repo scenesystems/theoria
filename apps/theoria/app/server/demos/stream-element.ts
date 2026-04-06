@@ -2,6 +2,13 @@ import { type Effect, Stream } from "effect"
 
 import type { CanonicalStep } from "../../contracts/canonical-step.js"
 import { type ChoreographyCue, StageEnter, StageExit, type StageId } from "../../contracts/choreography.js"
+import {
+  canonicalStepEvent,
+  Choreography,
+  type EvidenceEvent,
+  SectionAppend,
+  SectionUpsert
+} from "../../contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../contracts/evidence.js"
 
 /**
@@ -13,11 +20,17 @@ import type { EvidenceSection } from "../../contracts/evidence.js"
  */
 export type StreamElement =
   | { readonly _tag: "section"; readonly section: EvidenceSection }
+  | { readonly _tag: "section-upsert"; readonly section: EvidenceSection }
   | { readonly _tag: "cue"; readonly cue: ChoreographyCue }
   | { readonly _tag: "step"; readonly step: CanonicalStep }
 
 export const section = (resolvedSection: EvidenceSection): StreamElement => ({
   _tag: "section",
+  section: resolvedSection
+})
+
+export const sectionUpsert = (resolvedSection: EvidenceSection): StreamElement => ({
+  _tag: "section-upsert",
   section: resolvedSection
 })
 
@@ -30,6 +43,15 @@ export const step = (resolvedStep: CanonicalStep): StreamElement => ({
   _tag: "step",
   step: resolvedStep
 })
+
+export const evidenceEventForStreamElement = (element: StreamElement): EvidenceEvent =>
+  element._tag === "cue"
+    ? new Choreography({ cue: element.cue })
+    : element._tag === "step"
+    ? canonicalStepEvent(element.step)
+    : element._tag === "section-upsert"
+    ? new SectionUpsert({ section: element.section })
+    : new SectionAppend({ section: element.section })
 
 export const concatStreams = <A, E, R>(
   streams: ReadonlyArray<Stream.Stream<A, E, R>>

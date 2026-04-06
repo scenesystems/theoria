@@ -167,3 +167,14 @@ export const streamStageStreamsForStory = (
   story: EffectTextStreamStory
 ): ReadonlyArray<Stream.Stream<StreamElement, unknown, never>> =>
   Arr.map(effectTextStageDescriptors, (descriptor) => stageStreamFor(descriptor, story))
+
+export const streamStagePlansForStory = (
+  story: EffectTextStreamStory
+): ReadonlyArray<{
+  readonly stageId: string
+  readonly stream: Stream.Stream<StreamElement, unknown, never>
+}> =>
+  Arr.map(effectTextStageDescriptors, (descriptor) => ({
+    stageId: descriptor.stageId,
+    stream: stageStreamFor(descriptor, story)
+  }))
