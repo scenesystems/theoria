@@ -4,7 +4,8 @@ import * as Arr from "effect/Array"
 
 import { cardByIdForReleaseStage } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
-import { fullCanonicalUrl, metadataForHome, metadataForId } from "../../contracts/metadata.js"
+import { fullCanonicalUrl, metadataForHome, metadataForId, metadataForPackageDocs } from "../../contracts/metadata.js"
+import { PackageDocsPagePathname, packageDocsQueryPackage } from "../../contracts/package-docs.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -38,6 +39,7 @@ const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
   Match.value(pathname).pipe(
     Match.when("/", () => true),
     Match.when("/index.html", () => true),
+    Match.when(PackageDocsPagePathname, () => true),
     Match.orElse((value) =>
       Option.match(deepDiveId(value), {
         onNone: () => false,
@@ -101,10 +103,12 @@ const metaPattern = (nameOrProperty: string): RegExp =>
   new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
 const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
 
-const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): string => {
+const injectMetadata = (html: string, pathname: string, rawUrl: string, _stage: ReleaseStage): string => {
+  const search = new URL(rawUrl, "http://127.0.0.1").search
   const metadata = Match.value(pathname).pipe(
     Match.when("/", () => metadataForHome()),
     Match.when("/index.html", () => metadataForHome()),
+    Match.when(PackageDocsPagePathname, () => metadataForPackageDocs(packageDocsQueryPackage(search))),
     Match.orElse((value) =>
       Option.match(deepDiveId(value), {
         onNone: () => metadataForHome(),
@@ -130,7 +134,7 @@ const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): s
     .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
 }
 
-export const staticResponse = (pathname: string) =>
+export const staticResponse = (pathname: string, rawUrl: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const releaseStage = yield* serverReleaseStage
@@ -147,7 +151,7 @@ export const staticResponse = (pathname: string) =>
                 isHtmlPath(pathname, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
                     Effect.map((html) =>
-                      injectMetadata(injectReleaseStage(html, releaseStage), pathname, releaseStage)
+                      injectMetadata(injectReleaseStage(html, releaseStage), pathname, rawUrl, releaseStage)
                     ),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {

@@ -17,14 +17,17 @@ import { appRuntime } from "./runtime.js"
 const homeRoute: PageRoute = { _tag: "HomeRoute" }
 const isId = Schema.is(Id)
 
-type PreloadRouteKey = "home" | `deep:${IdType}`
+type PreloadRouteKey = "home" | "docs" | `deep:${IdType}`
 
 const visibleIdsForRoute = (route: PageRoute): ReadonlyArray<IdType> =>
   route._tag === "HomeRoute"
     ? Arr.map(cardsForReleaseStage(runtimeReleaseStage()), (card) => card.id)
-    : [route.id]
+    : route._tag === "DeepRoute"
+    ? [route.id]
+    : []
 
 const deepRoute = (id: IdType): PageRoute => ({ _tag: "DeepRoute", id })
+const docsRoute: PageRoute = { _tag: "PackageDocsRoute", packageId: null }
 
 const preloadVisibleIds = (
   route: PageRoute,
@@ -39,6 +42,7 @@ const preloadVisibleIds = (
 const routeFromPreloadKey = (key: PreloadRouteKey): PageRoute =>
   Match.value(key).pipe(
     Match.when("home", () => homeRoute),
+    Match.when("docs", () => docsRoute),
     Match.orElse((value) => {
       const rawId = value.slice(5)
       return isId(rawId) ? deepRoute(rawId) : homeRoute
@@ -46,7 +50,11 @@ const routeFromPreloadKey = (key: PreloadRouteKey): PageRoute =>
   )
 
 export const preloadRouteKey = (route: PageRoute): PreloadRouteKey =>
-  route._tag === "DeepRoute" ? `deep:${route.id}` : "home"
+  route._tag === "DeepRoute"
+    ? `deep:${route.id}`
+    : route._tag === "PackageDocsRoute"
+    ? "docs"
+    : "home"
 
 export const preloadForRouteAtom = appRuntime.fn<PageRoute>()(
   (route, ctx) => preloadVisibleIds(route, ctx.registry)

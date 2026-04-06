@@ -80,7 +80,55 @@ const waitForRootElement = (container: HTMLDivElement): Effect.Effect<HTMLDivEle
     )
   ).pipe(Effect.orDie)
 
+const waitForDocsLink = (container: HTMLDivElement): Effect.Effect<HTMLAnchorElement, never, never> =>
+  Effect.eventually(
+    Effect.sync(() => container.querySelector('a[href="/packages?package=effect-search"]')).pipe(
+      Effect.filterOrFail(
+        (element): element is HTMLAnchorElement => element instanceof HTMLAnchorElement,
+        () => "waiting-for-package-docs-link"
+      )
+    )
+  ).pipe(Effect.orDie)
+
 describe("InstrumentCard spring", () => {
+  it.live("keeps package docs navigation visible beside package metadata", () =>
+    withMockVersionsFetch(
+      Effect.gen(function*() {
+        const cardOption = cardById("effect-search")
+
+        if (Option.isNone(cardOption)) {
+          return yield* Effect.die("missing-effect-search-card")
+        }
+
+        const card = cardOption.value
+        const container = document.createElement("div")
+        document.body.appendChild(container)
+        const root = createRoot(container)
+
+        yield* Effect.sync(() => {
+          root.render(
+            <StrictMode>
+              <RegistryProvider defaultIdleTTL={400}>
+                <InstrumentCard card={card} tone={toneClassesForCard(card.id)} />
+              </RegistryProvider>
+            </StrictMode>
+          )
+        })
+
+        yield* Effect.ensuring(
+          Effect.gen(function*() {
+            const docsLink = yield* waitForDocsLink(container)
+
+            expect(docsLink.textContent).toBe("Docs")
+          }),
+          Effect.sync(() => {
+            root.unmount()
+            container.remove()
+          })
+        )
+      })
+    ))
+
   it.live("rapid hover reversals settle back to rest under StrictMode", () =>
     withMockVersionsFetch(
       Effect.gen(function*() {

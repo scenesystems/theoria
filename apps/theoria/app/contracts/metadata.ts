@@ -1,6 +1,8 @@
+import type { PackageName } from "@theoria/source-proof"
 import { Option, Schema } from "effect"
 
-import { type Card, cardById } from "./card.js"
+import { type Card, cardById, cards } from "./card.js"
+import { packageDocsPagePath } from "./package-docs.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -81,6 +83,25 @@ export const metadataForDemo = (card: Card): PageMetadata => ({
   canonicalPath: card.deepDivePath,
   ogType: "article"
 })
+
+const cardByPackageName = (packageName: PackageName): Option.Option<Card> =>
+  Option.fromNullable(cards.find((card) => card.packageName === packageName))
+
+export const metadataForPackageDocs = (packageId: PackageName | null): PageMetadata =>
+  Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(cardByPackageName)), {
+    onNone: () => ({
+      title: "Package Docs — Theoria",
+      description: "Source-linked package documentation projected from the canonical Theoria release surfaces.",
+      canonicalPath: packageDocsPagePath(packageId),
+      ogType: "article"
+    }),
+    onSome: (card) => ({
+      title: `${card.title} Docs — Theoria`,
+      description: `${card.description} Source-linked package docs, examples, release snapshots, and proof commands.`,
+      canonicalPath: packageDocsPagePath(packageId),
+      ogType: "article"
+    })
+  })
 
 /**
  * Page metadata for a demo identified by card ID, falling back to home

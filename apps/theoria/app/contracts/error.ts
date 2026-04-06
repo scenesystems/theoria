@@ -2,6 +2,8 @@ import { Schema } from "effect"
 
 export const ErrorCode = Schema.Literal(
   "invalid-demo-id",
+  "invalid-package-id",
+  "invalid-query",
   "execution-timeout",
   "execution-failed",
   "provider-unavailable",

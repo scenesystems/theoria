@@ -5,6 +5,7 @@ import { RuntimeInfo } from "./config/runtime.js"
 import { capabilitiesRoute } from "./routes/capabilities.js"
 import { demoRoute } from "./routes/demos.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
+import { packageDocsRoute } from "./routes/package-docs.js"
 import { packageVersionsRoute } from "./routes/package-versions.js"
 import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
@@ -53,10 +54,14 @@ export const app = Effect.gen(function*() {
     Match.when("/api/health/ready", () => readyRoute(requestId)),
     Match.when("/api/version", () => versionRoute(requestId)),
     Match.when("/api/versions/packages", () => packageVersionsRoute(requestId)),
+    Match.when(
+      (value) => value.startsWith("/api/package-docs"),
+      () => packageDocsRoute(pathname, requestId, request.url)
+    ),
     Match.when("/api/capabilities", () => capabilitiesRoute(requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),
     Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
-    Match.orElse(() => staticResponse(pathname))
+    Match.orElse(() => staticResponse(pathname, request.url))
   )
 
   return yield* Effect.flatten(routeEffect)

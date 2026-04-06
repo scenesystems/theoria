@@ -2,9 +2,11 @@ import { Separator } from "@base-ui-components/react/separator"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
+import { packageNameFromString } from "@theoria/source-proof"
 import { Match } from "effect"
 
 import { type Card, cardVisibleInReleaseStage } from "../../../contracts/card.js"
+import { packageDocsPagePath } from "../../../contracts/package-docs.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
 import { packageVersionsAtom } from "../../atoms/package-versions.js"
 import { useSpringLift } from "../../atoms/spring.js"
@@ -19,8 +21,9 @@ import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
-  { _tag: "link", label: `npm@${version}`, href: card.npmUrl },
-  { _tag: "link", label: "Source", href: card.repoUrl },
+  { _tag: "internal-link", label: "Docs", href: packageDocsPagePath(packageNameFromString(card.packageName)) },
+  { _tag: "external-link", label: `npm@${version}`, href: card.npmUrl },
+  { _tag: "external-link", label: "Source", href: card.repoUrl },
   { _tag: "text", label: card.license }
 ]
 

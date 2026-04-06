@@ -7,7 +7,7 @@ import { parsePathname } from "./services/path.js"
 const mountNode = document.getElementById("root")
 
 if (mountNode !== null) {
-  const route = parsePathname(window.location.pathname)
+  const route = parsePathname(window.location.pathname, window.location.search)
 
   createRoot(mountNode).render(
     <StrictMode>

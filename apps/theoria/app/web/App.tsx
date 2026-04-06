@@ -6,6 +6,7 @@ import { preloadRouteKey, routePreloadMountAtom } from "./atoms/preload.js"
 import { colorModeAtom } from "./atoms/theme.js"
 import type { PageRoute } from "./services/path.js"
 import { DeepDivePage } from "./view/deep/DeepDivePage.js"
+import { PackageDocsPage } from "./view/docs/PackageDocsPage.js"
 import { HomePage } from "./view/home/HomePage.js"
 
 import "./styles.css"
@@ -31,6 +32,8 @@ const AppShell = ({ route }: { readonly route: PageRoute }) => (
     <RoutePreloader route={route} />
     {route._tag === "DeepRoute"
       ? <DeepDivePage id={route.id} />
+      : route._tag === "PackageDocsRoute"
+      ? <PackageDocsPage packageId={route.packageId} />
       : <HomePage />}
   </>
 )

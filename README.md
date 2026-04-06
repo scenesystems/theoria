@@ -37,13 +37,21 @@ Workspace relationships stay explicit:
 
 [`apps/theoria/`](./apps/theoria/) is the proving consumer for the published
 packages. It exposes live, typed demos for `effect-text`, `effect-search`,
-`effect-math`, and `effect-dsp`.
+`effect-math`, and `effect-dsp`, plus a source-linked `/packages` docs route
+projected from the root-owned package-doc corpus.
 
 ```sh
 bun run app:theoria
 ```
 
 Open `http://127.0.0.1:3876`.
+
+The same normalized package-doc corpus is available to humans and agents from
+the repository root:
+
+```sh
+bun run docs:packages -- --catalog
+```
 
 For the tmux workflow and route-level app guidance, see
 [`apps/theoria/README.md`](./apps/theoria/README.md).

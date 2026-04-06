@@ -2,6 +2,10 @@
 
 `apps/theoria` is a single live surface for running real package APIs directly.
 
+It also projects source-linked package documentation at `/packages`, backed by
+the root-owned `bun run docs:packages` corpus rather than app-local markdown
+copies.
+
 It is intentionally minimal:
 
 1. No showcase/lab/catalog route taxonomy.
@@ -58,9 +62,22 @@ Runtime knobs:
 1. `app/contracts/*` is the schema authority for IDs, envelopes, demo payloads, health/version, and capabilities.
 1. `app/server/router.ts` owns route composition for static shell/modules and typed API endpoints.
 1. `app/server/demos/*` implements registry-driven vertical slices, bounded execution policy, and live DSP provider composition.
+1. `app/server/routes/package-docs.ts` is a thin HTTP adapter over the root-owned package-doc query engine from `@theoria/source-proof`.
 1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole state authority. `Atom.fn` atoms handle orchestration (preload-before-run, sequence guards). `DemoClient` is an `Effect.Service` wired through `Atom.runtime`.
-1. `app/web/view/*` projects contracts + run state to the single live card surface.
+1. `app/web/view/*` projects contracts + run state to the single live card surface, including the `/packages` docs projection.
 1. `app/web/main.tsx` routes `/demos/:id` into deep dive pages, rendered from the same typed contracts as the home cards.
+
+## Package Docs
+
+From repository root:
+
+```sh
+bun run docs:packages -- --catalog
+bun run docs:packages -- --package effect-search --view agent
+```
+
+In the app, open `http://127.0.0.1:3876/packages` or follow the `Docs` link on
+any package card.
 
 ## Verification
 
