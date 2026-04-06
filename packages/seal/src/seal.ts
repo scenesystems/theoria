@@ -45,7 +45,7 @@ import { xchacha20Decrypt, xchacha20Encrypt } from "./algorithms/xchacha20.js"
 import { packEnvelope, unpackEnvelope } from "./encoding.js"
 import { DecryptionFailed, type InvalidKey } from "./schemas/errors.js"
 import type { SealAlgorithm } from "./schemas/SealAlgorithm.js"
-import type { SealedEnvelope } from "./schemas/SealedEnvelope.js"
+import type { EnvelopeKeyMetadataType, SealedEnvelope } from "./schemas/SealedEnvelope.js"
 
 /**
  * Encrypt `plaintext` and wrap in a self-describing envelope.
@@ -59,7 +59,8 @@ import type { SealedEnvelope } from "./schemas/SealedEnvelope.js"
 export const seal = (
   algorithm: typeof SealAlgorithm.Type,
   key: Uint8Array,
-  plaintext: Uint8Array
+  plaintext: Uint8Array,
+  metadata: EnvelopeKeyMetadataType = {}
 ): Effect.Effect<SealedEnvelope, InvalidKey> =>
   Effect.gen(function*() {
     const raw = yield* Match.value(algorithm).pipe(
@@ -68,7 +69,7 @@ export const seal = (
       Match.when("aes-256-gcm", () => aesgcmEncrypt(key, plaintext)),
       Match.exhaustive
     )
-    return yield* packEnvelope(algorithm, raw)
+    return yield* packEnvelope(algorithm, raw, metadata)
   })
 
 /**

@@ -24,6 +24,7 @@ Symmetric encryption is easy to get wrong. Nonce reuse destroys AES-GCM security
 - **XChaCha20-Poly1305** — recommended default. 192-bit random nonce eliminates nonce-reuse risk even at high volume
 - **AES-256-GCM-SIV** — nonce-misuse resistant. Safe even if nonces repeat (leaks only equality, not plaintext)
 - **AES-256-GCM** — widely deployed AEAD for systems that require AES compatibility
+- **Envelope key metadata** — optional `keyId` and `keyVersion` hints for key selection and rotation workflows
 
 ### Choosing an algorithm
 
@@ -57,7 +58,7 @@ const program = Effect.gen(function* () {
 
 | Function                          | Description                                         |
 | --------------------------------- | --------------------------------------------------- |
-| `seal(algorithm, key, plaintext)` | Encrypt and wrap in a `SealedEnvelope`              |
+| `seal(algorithm, key, plaintext, metadata?)` | Encrypt and wrap in a `SealedEnvelope`              |
 | `unseal(key, envelope)`           | Decrypt a `SealedEnvelope` (algorithm read from it) |
 
 ### Direct algorithm access
@@ -85,7 +86,8 @@ const program = Effect.gen(function* () {
 | Type             | Description                                                      |
 | ---------------- | ---------------------------------------------------------------- |
 | `SealAlgorithm`  | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`     |
-| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext` |
+| `EnvelopeKeyMetadata` | Schema.Struct with optional `keyId` and `keyVersion`       |
+| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext`, optional `keyId`, and optional `keyVersion` |
 
 ### Errors
 
@@ -95,6 +97,12 @@ const program = Effect.gen(function* () {
 | `DecryptionFailed` | `unseal`         | Authentication failed — wrong key or tampered data |
 
 ## Examples
+
+Runnable example files:
+
+- [`examples/01-encrypt-decrypt.ts`](./examples/01-encrypt-decrypt.ts) — baseline envelope round-trip
+- [`examples/02-algorithm-comparison.ts`](./examples/02-algorithm-comparison.ts) — compare the three shipped AEAD choices
+- [`examples/03-envelope-metadata.ts`](./examples/03-envelope-metadata.ts) — stamp `keyId` and `keyVersion` for key rotation workflows
 
 ### Encrypt and decrypt
 
@@ -113,6 +121,33 @@ const program = Effect.gen(function* () {
   // "hello, encryption!"
 })
 ```
+
+### Key rotation metadata
+
+```ts
+import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
+import { Effect } from "effect"
+
+const program = Effect.gen(function* () {
+  const key = yield* generateKey(32)
+  const plaintext = utf8ToBytes("rotate me safely")
+
+  const envelope = yield* seal("xchacha20-poly1305", key, plaintext, {
+    keyId: "primary-signing-key",
+    keyVersion: 7
+  })
+  const recovered = yield* unseal(key, envelope)
+
+  return {
+    keyId: envelope.keyId,
+    keyVersion: envelope.keyVersion,
+    text: utf8FromBytes(recovered)
+  }
+})
+```
+
+`keyId` and `keyVersion` are transport-only envelope hints. They help callers
+select the right key material before decryption, but they are not cryptographically authenticated and must not be treated as trusted security claims on their own.
 
 ### Algorithm comparison
 
