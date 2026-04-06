@@ -13,7 +13,11 @@ import {
 import * as Contracts from "../../src/contracts/index.js"
 
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
-const appWorkflowComparisonContractPath = "apps/theoria/app/contracts/workflow/comparison.ts"
+const appWorkflowComparisonContractPaths = [
+  "apps/theoria/app/contracts/workflow/comparison-run.ts",
+  "apps/theoria/app/contracts/workflow/comparison-step.ts",
+  "apps/theoria/app/contracts/workflow/comparison.ts"
+]
 
 const workflowContractExports = [
   "WorkflowKindSchema",
@@ -94,6 +98,6 @@ describe("package/workflow-contract-ownership", () => {
           contractUsage,
           (entry) => entry.importsWorkflowContracts ? Option.some(entry.file) : Option.none()
         )
-      ).toEqual([appWorkflowComparisonContractPath])
+      ).toEqual(appWorkflowComparisonContractPaths)
     }).pipe(Effect.provide(BunContext.layer)))
 })

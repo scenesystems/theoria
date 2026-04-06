@@ -1,18 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 
+import { Contracts as TextContracts } from "effect-text"
 import * as Browser from "effect-text/Browser"
 import * as ReactText from "effect-text/React"
 
 import * as Contracts from "../../src/contracts/index.js"
 
 import { renderSensitiveProfile } from "./workflowFixtures.js"
-
-const fontIdentityRef = (identity: ReactText.PrepareIdentityType): string =>
-  `${identity.font.family}:${identity.font.size}:${identity.font.weight ?? "default"}`
-
-const toleranceRef = (profile: Browser.BrowserSupportProfileType): string =>
-  `${profile.id}:${profile.parityTolerancePx}`
 
 describe("integration/workflow-render-seam", () => {
   it.effect("pins render-fitness normalization to stable effect-text support and projection identities", () =>
@@ -29,6 +24,27 @@ describe("integration/workflow-render-seam", () => {
         engineProfile: supportProfile.engineProfile,
         supportProfileId: supportProfile.id,
         fontReadinessRevision: Browser.initialFontReadinessRevision()
+      })
+      const renderFitnessInput = TextContracts.renderFitnessInputFor({
+        supportProfileRef: supportProfile.id,
+        font: Option.fromNullable(prepareIdentity.font.weight).pipe(
+          Option.match({
+            onNone: () => ({
+              family: prepareIdentity.font.family,
+              size: prepareIdentity.font.size
+            }),
+            onSome: (weight) => ({
+              family: prepareIdentity.font.family,
+              size: prepareIdentity.font.size,
+              weight
+            })
+          })
+        ),
+        fontReadinessRevision: prepareIdentity.fontReadinessRevision,
+        tolerancePx: supportProfile.parityTolerancePx,
+        targetWidthPx: 420,
+        lineHeightPx: 20,
+        aboveFoldHeightPx: 120
       })
       const projection = yield* Schema.decodeUnknown(ReactText.PreparedLayoutProjection)({
         summary: {
@@ -50,23 +66,19 @@ describe("integration/workflow-render-seam", () => {
         ...baseProfile,
         normalization: {
           ...baseProfile.normalization,
-          renderFitness: {
-            kind: "support-profile-tolerance",
-            direction: "higher-is-better",
-            supportProfileRef: supportProfile.id,
-            fontIdentityRef: fontIdentityRef(prepareIdentity),
-            fontReadinessRevision: String(prepareIdentity.fontReadinessRevision),
-            toleranceRef: toleranceRef(supportProfile)
-          }
+          renderFitness: TextContracts.renderFitnessNormalizationFor(renderFitnessInput)
         }
       })
+      const evidence = TextContracts.renderFitnessEvidenceFromSummary(renderFitnessInput, projection.summary)
 
       expect(projection.summary.lineCount).toBe(1)
-      expect(profile.normalization.renderFitness.supportProfileRef).toBe(supportProfile.id)
-      expect(profile.normalization.renderFitness.fontIdentityRef).toBe(fontIdentityRef(prepareIdentity))
+      expect(profile.normalization.renderFitness.supportProfileRef).toBe(renderFitnessInput.supportProfileRef)
+      expect(profile.normalization.renderFitness.fontIdentityRef).toBe(renderFitnessInput.fontIdentityRef)
       expect(profile.normalization.renderFitness.fontReadinessRevision).toBe(
-        String(prepareIdentity.fontReadinessRevision)
+        renderFitnessInput.fontReadinessRevision
       )
-      expect(profile.normalization.renderFitness.toleranceRef).toBe(toleranceRef(supportProfile))
+      expect(profile.normalization.renderFitness.toleranceRef).toBe(renderFitnessInput.toleranceRef)
+      expect(evidence.input.toleranceRef).toBe(renderFitnessInput.toleranceRef)
+      expect(evidence.widthOverflowPx).toBe(0)
     }))
 })
