@@ -886,6 +886,70 @@ export const ComplexArithmeticParityFixtureSchema = Schema.Struct({
 })
 
 // ---------------------------------------------------------------------------
+// Fft: transform-parity
+// ---------------------------------------------------------------------------
+
+const FftNormalizationInputSchema = Schema.Literal("backward", "forward", "ortho")
+
+const FftComplexSequenceInputSchema = Schema.Struct({
+  real: Schema.Array(Schema.Number),
+  imaginary: Schema.Array(Schema.Number),
+  normalization: FftNormalizationInputSchema
+})
+
+const FftRealSignalInputSchema = Schema.Struct({
+  values: Schema.Array(Schema.Number),
+  normalization: FftNormalizationInputSchema
+})
+
+const FftRealSpectrumInputSchema = Schema.Struct({
+  signalLength: Schema.Number,
+  real: Schema.Array(Schema.Number),
+  imaginary: Schema.Array(Schema.Number),
+  normalization: FftNormalizationInputSchema
+})
+
+const FftComplexExpectedSchema = Schema.Struct({
+  real: Schema.Array(Schema.Number),
+  imaginary: Schema.Array(Schema.Number)
+})
+
+const FftTransformCaseSchema = Schema.Union(
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("fft"),
+    input: FftComplexSequenceInputSchema,
+    expected: FftComplexExpectedSchema
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("ifft"),
+    input: FftComplexSequenceInputSchema,
+    expected: FftComplexExpectedSchema
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("rfft"),
+    input: FftRealSignalInputSchema,
+    expected: FftComplexExpectedSchema
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("irfft"),
+    input: FftRealSpectrumInputSchema,
+    expected: Schema.Array(Schema.Number)
+  })
+)
+
+export const FftTransformParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("fft.transform-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(FftTransformCaseSchema)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Distribution: algebra-parity
 // ---------------------------------------------------------------------------
 
@@ -1755,6 +1819,7 @@ export const FixtureNameSchema = Schema.Literal(
   "algebra.polynomial-parity",
   "calculus.numerical-parity",
   "complex.arithmetic-parity",
+  "fft.transform-parity",
   "distribution.algebra-parity",
   "numeric.scalar-parity",
   "numeric.logspace-parity",
@@ -1773,6 +1838,7 @@ export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
   ComplexArithmeticParityFixtureSchema,
+  FftTransformParityFixtureSchema,
   DistributionAlgebraParityFixtureSchema,
   NumericScalarParityFixtureSchema,
   NumericLogspaceParityFixtureSchema,

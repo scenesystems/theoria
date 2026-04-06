@@ -47,6 +47,7 @@ const EXPECTED_FIXTURE_GENERATOR_MODULES = Arr.make(
   "calculus.py",
   "complex.py",
   "distribution.py",
+  "fft.py",
   "geometry.py",
   "linalg.py",
   "numeric.py",

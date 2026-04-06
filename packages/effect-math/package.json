@@ -42,6 +42,7 @@
     "./Optimization": "./src/Optimization/index.ts",
     "./Geometry": "./src/Geometry/index.ts",
     "./Complex": "./src/Complex/index.ts",
+    "./Fft": "./src/Fft/index.ts",
     "./Distribution": "./src/Distribution/index.ts",
     "./internal/*": null,
     "./Numeric/internal/*": null,
@@ -54,6 +55,7 @@
     "./Optimization/internal/*": null,
     "./Geometry/internal/*": null,
     "./Complex/internal/*": null,
+    "./Fft/internal/*": null,
     "./Distribution/internal/*": null
   },
   "scripts": {
