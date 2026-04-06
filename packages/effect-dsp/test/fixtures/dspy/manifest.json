@@ -50,6 +50,14 @@
       "file": "chat/system-message.basic.json"
     },
     {
+      "name": "dspy.copro.progression.basic",
+      "file": "copro/progression.basic.json"
+    },
+    {
+      "name": "dspy.copro.resume.seed-17",
+      "file": "copro/resume.seed-17.json"
+    },
+    {
       "name": "dspy.cot.reasoning-field.basic",
       "file": "cot/reasoning-field.basic.json"
     },

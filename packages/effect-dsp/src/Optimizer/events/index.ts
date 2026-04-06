@@ -28,6 +28,13 @@ export * from "./bootstrap.js"
 export * from "./miprov2.js"
 
 /**
+ * COPRO events — step progression, candidate proposals, and accepted updates.
+ *
+ * @since 0.2.0
+ */
+export * from "./copro.js"
+
+/**
  * GEPA events — generation progress, merge/crossover, acceptance gates.
  *
  * @since 0.1.0

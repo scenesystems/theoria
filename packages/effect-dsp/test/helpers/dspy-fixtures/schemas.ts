@@ -566,6 +566,57 @@ export const MiproTrialBudgetCasesFixtureSchema = Schema.Struct({
 
 export type MiproTrialBudgetCasesFixture = Schema.Schema.Type<typeof MiproTrialBudgetCasesFixtureSchema>
 
+const CoproAcceptedUpdateSchema = Schema.Struct({
+  step: Schema.Number,
+  instruction: Schema.String,
+  score: Schema.Number,
+  changed: Schema.Boolean
+})
+
+const CoproTrialRecordSchema = Schema.Struct({
+  trialNumber: Schema.Number,
+  step: Schema.Number,
+  candidateIndex: Schema.Number,
+  instruction: Schema.String,
+  score: Schema.Number,
+  improved: Schema.Boolean
+})
+
+export const CoproProgressionFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.copro.progression.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    seed: Schema.Number,
+    numCandidates: Schema.Number,
+    maxSteps: Schema.Number,
+    baselineInstruction: Schema.String,
+    baselineScore: Schema.Number,
+    seedCandidates: Schema.Array(Schema.String),
+    refinementCandidates: Schema.Array(Schema.String),
+    acceptedUpdates: Schema.Array(CoproAcceptedUpdateSchema),
+    trials: Schema.Array(CoproTrialRecordSchema),
+    expectedBestInstruction: Schema.String,
+    expectedBestScore: Schema.Number
+  })
+})
+
+export type CoproProgressionFixture = Schema.Schema.Type<typeof CoproProgressionFixtureSchema>
+
+export const CoproResumeFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.copro.resume.seed-17"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    seed: Schema.Number,
+    interruptionAfterStep: Schema.Number,
+    expectedNextStep: Schema.Number,
+    expectedTotalTrials: Schema.Number,
+    expectedBestInstruction: Schema.String,
+    expectedBestScore: Schema.Number
+  })
+})
+
+export type CoproResumeFixture = Schema.Schema.Type<typeof CoproResumeFixtureSchema>
+
 const GepaCatalogFixtureEntrySchema = Schema.Struct({
   name: Schema.String,
   file: Schema.String
@@ -980,6 +1031,8 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.mipro.phase-config",
   "dspy.mipro.tips-vocabulary",
   "dspy.mipro.trial-budget-cases",
+  "dspy.copro.progression.basic",
+  "dspy.copro.resume.seed-17",
   "dspy.gepa.pareto.score-matrix.basic",
   "dspy.gepa.pareto.score-matrix.ties",
   "dspy.gepa.selection.weights.seed-42",
@@ -1049,6 +1102,8 @@ export const KnownFixtureSchema = Schema.Union(
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema,
+  CoproProgressionFixtureSchema,
+  CoproResumeFixtureSchema,
   GepaParetoScoreMatrixFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
   GepaReflectDatasetShapeFixtureSchema,

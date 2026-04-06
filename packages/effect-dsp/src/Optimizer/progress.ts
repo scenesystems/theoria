@@ -11,6 +11,12 @@ import {
   tapBootstrapProgress
 } from "../optimizers/BootstrapFewShot/progress.js"
 import {
+  type COPROProgressSink,
+  formatCOPROProgressEvent,
+  summarizeCOPROEvents,
+  tapCOPROProgress
+} from "../optimizers/COPRO/progress.js"
+import {
   formatGEPAProgressEvent,
   type GEPAEventSummary,
   type GEPAProgressSink,
@@ -43,6 +49,14 @@ export const formatMIPROv2Event = formatMIPROv2ProgressEvent
 export const formatBootstrapEvent = formatBootstrapProgressEvent
 
 /**
+ * Format one COPRO event for deterministic progress logging.
+ *
+ * @since 0.2.0
+ * @category formatters
+ */
+export const formatCOPROEvent = formatCOPROProgressEvent
+
+/**
  * Format one GEPA event for deterministic progress logging.
  *
  * @since 0.1.0
@@ -66,6 +80,23 @@ export {
    */
   tapMIPROv2Progress
 } from "../optimizers/MIPROv2/progress.js"
+
+export {
+  /**
+   * Summarize COPRO events into a semantic outcome report.
+   *
+   * @since 0.2.0
+   * @category combinators
+   */
+  summarizeCOPROEvents,
+  /**
+   * Tap formatted COPRO progress lines from a COPRO stream.
+   *
+   * @since 0.2.0
+   * @category combinators
+   */
+  tapCOPROProgress
+} from "../optimizers/COPRO/progress.js"
 
 export {
   /**
@@ -190,6 +221,9 @@ export const progress = {
   formatBootstrapEvent,
   tapBootstrapProgress,
   summarizeBootstrapEvents,
+  formatCOPROEvent,
+  tapCOPROProgress,
+  summarizeCOPROEvents,
   formatMIPROv2Event,
   tapMIPROv2Progress,
   summarizeMIPROv2Events,
@@ -227,6 +261,23 @@ export {
    */
   type MIPROv2ProgressSink
 } from "../optimizers/MIPROv2/progress.js"
+
+export {
+  /**
+   * COPRO event summary.
+   *
+   * @since 0.2.0
+   * @category models
+   */
+  type COPROEventSummary,
+  /**
+   * COPRO progress sink callback.
+   *
+   * @since 0.2.0
+   * @category models
+   */
+  type COPROProgressSink
+} from "../optimizers/COPRO/progress.js"
 
 export {
   /**
@@ -278,6 +329,14 @@ const noOpProgressEffect = Effect.void
  * @category constants
  */
 export const noBootstrapProgress: BootstrapProgressSink = () => noOpProgressEffect
+
+/**
+ * No-op progress sink for COPRO streams.
+ *
+ * @since 0.2.0
+ * @category constants
+ */
+export const noCOPROProgress: COPROProgressSink = () => noOpProgressEffect
 
 /**
  * No-op progress sink for MIPROv2 streams.

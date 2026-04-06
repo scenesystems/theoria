@@ -5,11 +5,14 @@
  * @since 0.1.0
  */
 import type { Effect, ParseResult } from "effect"
-import { Schema } from "effect"
+import { Option, Schema } from "effect"
 import type { Entry } from "../Trace/model.js"
 import { FieldRecord } from "./FieldValue.js"
 import { ModuleId } from "./ModuleId.js"
 import { UsageSample } from "./Usage.js"
+
+const totalTokens = (entry: Entry): number =>
+  Option.getOrElse(entry.inputTokens, () => 0) + Option.getOrElse(entry.outputTokens, () => 0)
 
 /**
  * Deterministic, schema-validated projection of a single trace entry into
@@ -32,6 +35,7 @@ export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProject
   score: Schema.OptionFromSelf(Schema.Number),
   rawResponse: Schema.String,
   usage: UsageSample,
+  totalTokens: Schema.Number,
   durationMs: Schema.Number,
   timestamp: Schema.Number
 }) {}
@@ -63,6 +67,7 @@ export const projectTraceObjectiveProjection = (
       outputTokens: entry.outputTokens,
       cached: false
     }),
+    totalTokens: totalTokens(entry),
     durationMs: entry.durationMs,
     timestamp: entry.timestamp
   })

@@ -46,7 +46,7 @@ const lineForOptionalBoolean = (label: string, value?: boolean): string =>
     })
   )
 
-export type ExampleOptimizerKind = "miprov2" | "gepa" | "study"
+export type ExampleOptimizerKind = "copro" | "miprov2" | "gepa" | "study"
 
 export type StandardExampleSummary = Readonly<{
   readonly schemaVersion: "effect-dsp-example-report/v1"

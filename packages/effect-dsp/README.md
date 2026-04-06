@@ -43,6 +43,7 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 - `BootstrapRS` — random search over bootstrapped demo candidates<sup>[1](#ref-1)</sup>
 - `Ensemble` — run N programs, aggregate via `majorityVote` or custom reduce function<sup>[1](#ref-1)</sup><sup>[8](#ref-8)</sup>
 - `MIPROv2` — instruction + demo co-optimization via Bayesian search<sup>[2](#ref-2)</sup>
+- `COPRO` — coordinate-ascent instruction refinement with typed progress events, resumable snapshots, and effect-search-compatible study envelopes<sup>[1](#ref-1)</sup>
 - `GEPA` — reflective prompt evolution with Pareto frontier analysis, two-gate acceptance, weighted parent sampling, and merge/crossover phases<sup>[3](#ref-3)</sup>
 
 ## Installation
@@ -88,6 +89,10 @@ Mock-backed module examples:
 - [`examples/16-program-of-thought-mock.ts`](./examples/16-program-of-thought-mock.ts) — typed numeric reasoning through a deterministic `ProgramInterpreter` layer
 - [`examples/17-multi-chain-comparison-mock.ts`](./examples/17-multi-chain-comparison-mock.ts) — side-by-side reasoning comparison with a traced verdict pass
 - [`examples/18-parallel-batch-mock.ts`](./examples/18-parallel-batch-mock.ts) — ordered batch inference plus optimization and artifact-envelope-ready evidence projections
+
+Mock-backed optimizer example:
+
+- [`examples/19-copro-mock.ts`](./examples/19-copro-mock.ts) — deterministic coordinate-ascent optimization with typed progress summaries, step-boundary snapshots, and effect-search-compatible study-event plus snapshot envelopes
 
 Live optimization examples:
 
@@ -140,14 +145,22 @@ import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace 
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Signature` | `make`, `describe`, `FieldInfo`, `Signature`, `Input`, `Output`                                                                              |
 | `Module`    | `Params`, `SavedState`, `Module`, `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `compose`            |
-| `Trace`     | `Entry`, `TraceRef`, `TraceEnabledRef`, `append`, `get`, `withTracing`, `noScore`                                                            |
+| `Trace`     | `Entry`, `appendExecution`, `get`, `withTracing`, `withUsageTracking`, `noScore`                                                             |
 | `Example`   | `Example`, `Demo`                                                                                                                            |
 | `Metric`    | `Metric`, `Result`, `exactMatch`, `f1`, `contains`, `compose`                                                                                |
 | `Evaluate`  | `run`, `stream`, `Report`, `ExampleResult`                                                                                                   |
-| `Optimizer` | `labeledFewShot`, `bootstrapFewShot`, `bootstrapRS`, `ensemble`, `miprov2`, `effectSearchInterop` plus event schemas and tagged constructors |
+| `Optimizer` | `labeledFewShot`, `bootstrapFewShot`, `bootstrapRS`, `ensemble`, `miprov2`, `copro`, `coproStream`, `effectSearchInterop` plus event schemas and typed progress constructors |
 | `Errors`    | Tagged error variants (`SignatureError`, `ParseOutputError`, `BootstrapFailed`, ...) and `DspError` union                                    |
 
 Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
+
+The preferred public evidence path is `Trace.withTracing(...)`, `Trace.withUsageTracking(...)`, `Contracts.projectOptimizationObjective(...)`, and `Contracts.ArtifactEnvelopeSchema`. That surface keeps prompt text, delimiter-preserving `rawResponse`, parsed output, per-call usage, `totalTokens`, and replay-safe optimizer artifacts on the stable public contract. Low-level refs remain exported for advanced integration, but README examples and contracts treat them as implementation details rather than the default consumer story.
+
+## Subpath Stability
+
+- `effect-dsp/contracts` is the stable release lane for optimizer projections, artifact envelopes, trace projections, `totalTokens` accounting, and workflow interop adapters.
+- `effect-dsp/test` is the stable consumer-test lane for deterministic mock layers such as `MockLanguageModel`; use it for consumer proofs, not package internals.
+- `effect-dsp/experimental` is intentionally unstable until it carries a real exported feature surface; treat it as exploratory and outside the main compatibility promise.
 
 ## Roadmap
 
@@ -155,7 +168,6 @@ Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.
 
 | Optimizer           | DSPy equivalent          | Description                                                           | Reference                                                  |
 | ------------------- | ------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `COPRO`             | `dspy.COPRO`             | Coordinate-ascent instruction optimization                            | [1](#ref-1)                                                |
 | `SIMBA`             | `dspy.SIMBA`             | Stochastic mini-batch sampling with self-reflective improvement rules | [DSPy docs](https://dspy.ai/learn/optimization/optimizers) |
 | `KNNFewShot`        | `dspy.KNNFewShot`        | k-Nearest Neighbors demo selection + `BootstrapFewShot`               | [DSPy docs](https://dspy.ai/learn/optimization/optimizers) |
 | `BootstrapFinetune` | `dspy.BootstrapFinetune` | Distill prompt-based program into LM weight updates                   | [4](#ref-4)                                                |
@@ -163,7 +175,7 @@ Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.
 
 ## Status
 
-`effect-dsp` is in active development. Core modules — `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `bestOfN`, `refine`, `react`, and `compose` — are implemented along with all six optimizers (`LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, `GEPA`), evaluation, tracing, and caching.
+`effect-dsp` is in active development. Core modules — `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `bestOfN`, `refine`, `react`, and `compose` — are implemented along with seven optimizers (`LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`, `Ensemble`, `MIPROv2`, `COPRO`, `GEPA`), evaluation, tracing, and caching.
 
 ## Acknowledgements
 

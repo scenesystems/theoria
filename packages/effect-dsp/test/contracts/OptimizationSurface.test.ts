@@ -76,6 +76,7 @@ describe("contracts/OptimizationSurface", () => {
       expect(projected.durationMs).toBe(traceEntry.durationMs)
       expect(projected.usage.inputTokens).toEqual(traceEntry.inputTokens)
       expect(projected.usage.outputTokens).toEqual(traceEntry.outputTokens)
+      expect(projected.totalTokens).toBe(20)
       expect(projected.usage.cached).toBe(false)
       expect(reEncoded).toEqual(encoded)
     }))

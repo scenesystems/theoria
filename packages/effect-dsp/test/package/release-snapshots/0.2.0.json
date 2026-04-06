@@ -604,6 +604,12 @@
     },
     {
       "subpath": "./contracts",
+      "exportName": "projectWorkflowModuleGraph",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
       "exportName": "ProtocolRef",
       "kind": "value",
       "firstReleasedIn": "0.1.4"
@@ -717,6 +723,42 @@
       "firstReleasedIn": "0.1.0"
     },
     {
+      "subpath": "./contracts",
+      "exportName": "workflowInteropOwnership",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
+      "exportName": "WorkflowInteropOwnership",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
+      "exportName": "WorkflowModuleGraphInput",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
+      "exportName": "WorkflowModuleGraphInputSchema",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
+      "exportName": "WorkflowModuleGraphProjection",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./contracts",
+      "exportName": "WorkflowNodeLineage",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
       "subpath": "./Errors",
       "exportName": "AllTrialsFailed",
       "kind": "value",
@@ -766,6 +808,18 @@
     },
     {
       "subpath": "./Errors",
+      "exportName": "ParallelBranchFailure",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Errors",
+      "exportName": "ParallelExecutionError",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Errors",
       "exportName": "ParseFieldDiagnostic",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -775,6 +829,24 @@
       "exportName": "ParseOutputError",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Errors",
+      "exportName": "ProgramCodeParseError",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Errors",
+      "exportName": "ProgramExecutionError",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Errors",
+      "exportName": "ProgramRuntimeBoundaryError",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Errors",
@@ -988,6 +1060,36 @@
     },
     {
       "subpath": "./Module",
+      "exportName": "DEFAULT_MULTI_CHAIN_COMPARISON_CANDIDATE_COUNT",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "DEFAULT_MULTI_CHAIN_COMPARISON_CONCURRENCY",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "DEFAULT_MULTI_CHAIN_COMPARISON_SEED",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "DEFAULT_PARALLEL_CONCURRENCY",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "DEFAULT_PARALLEL_FAILURE_POLICY",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
       "exportName": "DEFAULT_PARSE_BACKOFF_FACTOR",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -1009,6 +1111,12 @@
       "exportName": "DEFAULT_PREDICT_POLICY",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "DEFAULT_PROGRAM_OF_THOUGHT_MAX_ITERATIONS",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Module",
@@ -1048,6 +1156,12 @@
     },
     {
       "subpath": "./Module",
+      "exportName": "makeParallelSignature",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
       "exportName": "makePredictPolicy",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -1069,6 +1183,66 @@
       "exportName": "ModuleRegistryRef",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "multiChainComparison",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "MultiChainComparisonOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "PARALLEL_INPUTS_FIELD",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "PARALLEL_OUTPUTS_FIELD",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "parallel",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ParallelFailurePolicy",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ParallelFailurePolicySchema",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ParallelInputFields",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ParallelOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ParallelOutputFields",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Module",
@@ -1117,6 +1291,42 @@
       "exportName": "PredictPolicyOverrides",
       "kind": "type",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ProgramExecutionRequest",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ProgramExecutionResult",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ProgramInterpreter",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ProgramInterpreterApi",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "programOfThought",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Module",
+      "exportName": "ProgramOfThoughtOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Module",
@@ -1288,6 +1498,102 @@
     },
     {
       "subpath": "./Optimizer",
+      "exportName": "copro",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROAcceptedUpdate",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROEvent",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "coproEventEnvelope",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROEventSchema",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROEventSink",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROEventSummary",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROOptions",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROProgressLine",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROProgressSink",
+      "kind": "type",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPRORecordedTrial",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "COPROSnapshot",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "coproStream",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "coproStudyEventEnvelope",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "coproStudySnapshotEnvelope",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "coproWithEvents",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
       "exportName": "DemoCandidate",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -1363,6 +1669,18 @@
       "exportName": "formatBootstrapProgressEvent",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "formatCOPROEvent",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "formatCOPROProgressEvent",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Optimizer",
@@ -1576,6 +1894,18 @@
     },
     {
       "subpath": "./Optimizer",
+      "exportName": "noCOPROEvents",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "noCOPROProgress",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
       "exportName": "noGEPAEvents",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -1660,6 +1990,18 @@
     },
     {
       "subpath": "./Optimizer",
+      "exportName": "projectCOPROStudyEvents",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "projectCOPROStudySnapshot",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./Optimizer",
       "exportName": "proposeInstructionCandidates",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -1687,6 +2029,12 @@
       "exportName": "summarizeBootstrapEvents",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "summarizeCOPROEvents",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Optimizer",
@@ -1723,6 +2071,12 @@
       "exportName": "tapBootstrapProgress",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./Optimizer",
+      "exportName": "tapCOPROProgress",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./Optimizer",
@@ -1879,48 +2233,6 @@
       "exportName": "withUsageTracking",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "projectWorkflowModuleGraph",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "workflowInteropOwnership",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "WorkflowInteropOwnership",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "WorkflowModuleGraphInput",
-      "kind": "type",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "WorkflowModuleGraphInputSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "WorkflowModuleGraphProjection",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
-    },
-    {
-      "subpath": "./contracts",
-      "exportName": "WorkflowNodeLineage",
-      "kind": "value",
-      "firstReleasedIn": "0.2.0"
     }
   ]
 }

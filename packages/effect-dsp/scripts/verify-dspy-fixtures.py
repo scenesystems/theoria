@@ -20,7 +20,7 @@ from typing import Any
 
 import dspy
 
-from fixtures import bootstrap_family, evaluate_runtime, gepa, mipro_v2, multi_chain_comparison, predict_runtime, program_of_thought
+from fixtures import bootstrap_family, copro, evaluate_runtime, gepa, mipro_v2, multi_chain_comparison, predict_runtime, program_of_thought
 from fixtures._common import (
     DEFAULT_GENERATED_AT,
     GENERATOR_SCRIPT,
@@ -381,6 +381,12 @@ def expected_fixtures(generated_at: str) -> dict[str, dict[str, Any]]:
         }
 
     for doc in mipro_v2.generate(generated_at):
+        fixtures[str(doc["fixture"])] = {
+            "file": fixture_file_path(doc),
+            "document": {k: v for k, v in doc.items() if k != "file"},
+        }
+
+    for doc in copro.generate(generated_at):
         fixtures[str(doc["fixture"])] = {
             "file": fixture_file_path(doc),
             "document": {k: v for k, v in doc.items() if k != "file"},
@@ -1104,6 +1110,56 @@ def verify_mipro_v2_contracts(name: str, document: dict[str, Any]) -> list[str]:
     return errors
 
 
+def verify_copro_contracts(name: str, document: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    payload = document.get("payload")
+
+    if not isinstance(payload, dict):
+        return [f"{name}: payload is missing or invalid"]
+
+    if name == "dspy.copro.progression.basic":
+        num_candidates = payload.get("numCandidates")
+        max_steps = payload.get("maxSteps")
+        seed_candidates = payload.get("seedCandidates")
+        refinement_candidates = payload.get("refinementCandidates")
+        trials = payload.get("trials")
+        accepted_updates = payload.get("acceptedUpdates")
+
+        if not isinstance(num_candidates, int):
+            errors.append(f"{name}: numCandidates must be an integer")
+        if not isinstance(max_steps, int):
+            errors.append(f"{name}: maxSteps must be an integer")
+        if not isinstance(seed_candidates, list) or len(seed_candidates) != num_candidates:
+            errors.append(f"{name}: seedCandidates must match numCandidates")
+        if not isinstance(refinement_candidates, list) or len(refinement_candidates) != num_candidates:
+            errors.append(f"{name}: refinementCandidates must match numCandidates")
+        if not isinstance(trials, list) or len(trials) != (num_candidates * max_steps if isinstance(num_candidates, int) and isinstance(max_steps, int) else -1):
+            errors.append(f"{name}: trials must cover every candidate evaluation across steps")
+        if not isinstance(accepted_updates, list) or len(accepted_updates) != max_steps:
+            errors.append(f"{name}: acceptedUpdates must include one entry per step")
+
+        best_instruction = payload.get("expectedBestInstruction")
+        best_score = payload.get("expectedBestScore")
+        if isinstance(accepted_updates, list) and len(accepted_updates) > 0:
+            last_update = accepted_updates[-1]
+            if isinstance(last_update, dict):
+                if last_update.get("instruction") != best_instruction:
+                    errors.append(f"{name}: final accepted instruction must match expectedBestInstruction")
+                if last_update.get("score") != best_score:
+                    errors.append(f"{name}: final accepted score must match expectedBestScore")
+
+    if name == "dspy.copro.resume.seed-17":
+        interruption_after_step = payload.get("interruptionAfterStep")
+        expected_next_step = payload.get("expectedNextStep")
+
+        if not isinstance(interruption_after_step, int) or not isinstance(expected_next_step, int):
+            errors.append(f"{name}: interruptionAfterStep and expectedNextStep must be integers")
+        elif expected_next_step != interruption_after_step + 1:
+            errors.append(f"{name}: expectedNextStep must advance exactly one step past interruptionAfterStep")
+
+    return errors
+
+
 def load_gepa_manifest() -> dict[str, Any]:
     expected = expected_fixtures(DEFAULT_GENERATED_AT)
     catalog = expected.get("dspy.gepa.catalog.versioned-fixtures")
@@ -1276,6 +1332,7 @@ def verify_files(expected: dict[str, dict[str, Any]]) -> list[str]:
         errors.extend(verify_evaluate_runtime_contracts(name, actual))
         errors.extend(verify_bootstrap_family_contracts(name, actual))
         errors.extend(verify_mipro_v2_contracts(name, actual))
+        errors.extend(verify_copro_contracts(name, actual))
         errors.extend(verify_gepa_fixture_contracts(name, actual))
 
     return errors

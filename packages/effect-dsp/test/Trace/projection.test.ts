@@ -41,6 +41,7 @@ describe("Trace projection", () => {
       const reEncoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(decoded)
 
       expect(reEncoded).toEqual(encoded)
+      expect(projection.totalTokens).toBe(20)
       expect(projection.usage.cached).toBe(false)
     }))
 })

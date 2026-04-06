@@ -8,6 +8,7 @@ import { StudyEventSchema as EffectSearchInteropEventSchema } from "effect-searc
 import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
 import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from "./bootstrap.js"
+import { type COPROEvent as COPROEventType, COPROEventSchema } from "./copro.js"
 import { EvaluationEventSchema } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
 import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./miprov2.js"
@@ -32,6 +33,9 @@ export {
 export const OptimizerEventSchema = Schema.Union(
   Schema.TaggedStruct("Bootstrap", {
     event: BootstrapEventSchema
+  }),
+  Schema.TaggedStruct("COPRO", {
+    event: COPROEventSchema
   }),
   Schema.TaggedStruct("MIPRO", {
     event: MIPROv2EventSchema
@@ -82,6 +86,30 @@ export const bootstrapEventEnvelope = (
     Effect.map((payload) =>
       new OptimizerEventEnvelope({
         optimizer: "bootstrapFewShot",
+        eventTag: event._tag,
+        payload
+      })
+    )
+  )
+
+/**
+ * Project a COPRO event into the canonical optimizer event envelope.
+ *
+ * @since 0.2.0
+ * @category constructors
+ */
+export const coproEventEnvelope = (
+  event: COPROEventType
+): Effect.Effect<OptimizerEventEnvelope> =>
+  encodeAndProjectFieldRecord(
+    COPROEventSchema,
+    event,
+    () => Data.struct({ message: "COPRO event payload projection failed" })
+  ).pipe(
+    Effect.orDie,
+    Effect.map((payload) =>
+      new OptimizerEventEnvelope({
+        optimizer: "copro",
         eventTag: event._tag,
         payload
       })

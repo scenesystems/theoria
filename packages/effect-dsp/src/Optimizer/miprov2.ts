@@ -1,5 +1,5 @@
 /**
- * MIPROv2 — multi-phase instruction proposal and demonstration selection via
+ * MIPROv2 (Multiprompt Instruction PRoposal Optimizer v2) — instruction and demonstration selection via
  * Bayesian optimization.
  *
  * @since 0.1.0

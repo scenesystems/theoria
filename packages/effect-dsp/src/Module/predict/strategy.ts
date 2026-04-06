@@ -5,10 +5,14 @@
  * @category internal
  * @internal
  */
+import type * as AiError from "@effect/ai/AiError"
+import type * as LanguageModel from "@effect/ai/LanguageModel"
 import type { Schema } from "effect"
-import { Effect, Option, Ref } from "effect"
+import { Effect, Option, Ref, Schedule } from "effect"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
 import { resolveStrategy } from "../../contracts/OutputStrategy.js"
+import type { ParseOutputError } from "../../Errors/module.js"
+import type { TraceError } from "../../Errors/trace.js"
 import { callLmResponse, callLmTextResponse } from "../../internal/lm.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../internal/parse/retry.js"
 import { buildPrompt } from "../../internal/prompt/render.js"
@@ -18,7 +22,15 @@ import { ForwardExecution } from "./model.js"
 import type { PredictPolicy } from "./policy.js"
 import { tracePayloadFromEncoded } from "./trace.js"
 
-const runStructuredForward = <
+type StructuredOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<Schema.Struct<O>>
+
+type ForwardStrategyEffect<O extends Schema.Struct.Fields> = Effect.Effect<
+  ForwardExecution<StructuredOutput<O>>,
+  AiError.AiError | ParseOutputError | TraceError,
+  LanguageModel.LanguageModel | Schema.Schema.Context<Schema.Struct<O>>
+>
+
+const runStructuredForwardOnce = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: {
@@ -27,7 +39,7 @@ const runStructuredForward = <
   readonly params: ModuleParams
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Schema.Struct<O>
-}) =>
+}): ForwardStrategyEffect<O> =>
   Effect.gen(function*() {
     const prompt = buildPrompt(options.signature, options.params, options.input)
     const response = yield* callLmResponse(prompt, options.outputSchema)
@@ -48,6 +60,37 @@ const runStructuredForward = <
     })
   })
 
+const runStructuredForward = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields
+>(options: {
+  readonly moduleName: string
+  readonly signature: Signature<I, O>
+  readonly params: ModuleParams
+  readonly input: Schema.Schema.Type<Schema.Struct<I>>
+  readonly outputSchema: Schema.Struct<O>
+  readonly policy: PredictPolicy
+}): ForwardStrategyEffect<O> =>
+  Effect.gen(function*() {
+    const retryDriver = yield* Schedule.driver(options.policy.parse.retrySchedule(options.policy.parse.maxRetries))
+
+    const retryLoop = (): ForwardStrategyEffect<O> =>
+      runStructuredForwardOnce(options).pipe(
+        Effect.catchTag(
+          "MalformedOutput",
+          (error) =>
+            retryDriver.next(error).pipe(
+              Effect.matchEffect({
+                onFailure: () => Effect.fail(error),
+                onSuccess: () => retryLoop()
+              })
+            )
+        )
+      )
+
+    return yield* retryLoop()
+  })
+
 const runTextForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
@@ -58,7 +101,7 @@ const runTextForward = <
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Schema.Struct<O>
   readonly policy: PredictPolicy
-}) =>
+}): ForwardStrategyEffect<O> =>
   Effect.gen(function*() {
     const parsePolicy = options.policy.parse
     const latestPromptText = yield* Ref.make("")
@@ -121,7 +164,7 @@ export const runForward = <
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Schema.Struct<O>
   readonly policy: PredictPolicy
-}) =>
+}): ForwardStrategyEffect<O> =>
   Effect.if(
     resolveStrategy(options.params.outputStrategy, options.params.demos.length) === "structured",
     {

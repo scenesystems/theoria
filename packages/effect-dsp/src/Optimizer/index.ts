@@ -43,7 +43,7 @@ export * from "./bootstrapRS.js"
 export * from "./ensemble.js"
 
 /**
- * `miprov2` — multi-phase instruction proposal and demonstration selection via
+ * `miprov2` — Multiprompt Instruction PRoposal Optimizer v2: instruction and demonstration selection via
  * Bayesian optimization.
  *
  * @since 0.1.0
@@ -51,8 +51,16 @@ export * from "./ensemble.js"
 export * from "./miprov2.js"
 
 /**
- * `gepa` and `gepaWithEvents` — evolutionary prompt optimization with
- * teacher-student debate.
+ * `copro` — coordinate-ascent instruction optimization with step-boundary
+ * snapshots and typed progress events.
+ *
+ * @since 0.2.0
+ */
+export * from "./copro.js"
+
+/**
+ * `gepa` and `gepaWithEvents` — Genetic-Pareto reflective prompt evolution
+ * with LM-based reflection and evolutionary crossover.
  *
  * @since 0.1.0
  */

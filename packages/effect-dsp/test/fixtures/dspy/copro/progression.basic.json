@@ -1,0 +1,97 @@
+{
+  "fixture": "dspy.copro.progression.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "seed": 17,
+    "numCandidates": 3,
+    "maxSteps": 2,
+    "baselineInstruction": "Answer questions with concise facts",
+    "baselineScore": 0.5,
+    "seedCandidates": [
+      "Answer questions with concise facts",
+      "Always answer Paris.",
+      "Answer questions with concise facts and verify the city against geographic knowledge."
+    ],
+    "refinementCandidates": [
+      "Answer questions with concise facts and verify the city against geographic knowledge.",
+      "Answer questions with concise facts and prefer exact country-capital matches.",
+      "Always answer Paris."
+    ],
+    "acceptedUpdates": [
+      {
+        "step": 0,
+        "instruction": "Answer questions with concise facts and verify the city against geographic knowledge.",
+        "score": 1.0,
+        "changed": true
+      },
+      {
+        "step": 1,
+        "instruction": "Answer questions with concise facts and verify the city against geographic knowledge.",
+        "score": 1.0,
+        "changed": false
+      }
+    ],
+    "trials": [
+      {
+        "trialNumber": 0,
+        "step": 0,
+        "candidateIndex": 0,
+        "instruction": "Answer questions with concise facts",
+        "score": 0.5,
+        "improved": false
+      },
+      {
+        "trialNumber": 1,
+        "step": 0,
+        "candidateIndex": 1,
+        "instruction": "Always answer Paris.",
+        "score": 0.5,
+        "improved": false
+      },
+      {
+        "trialNumber": 2,
+        "step": 0,
+        "candidateIndex": 2,
+        "instruction": "Answer questions with concise facts and verify the city against geographic knowledge.",
+        "score": 1.0,
+        "improved": true
+      },
+      {
+        "trialNumber": 3,
+        "step": 1,
+        "candidateIndex": 0,
+        "instruction": "Answer questions with concise facts and verify the city against geographic knowledge.",
+        "score": 1.0,
+        "improved": false
+      },
+      {
+        "trialNumber": 4,
+        "step": 1,
+        "candidateIndex": 1,
+        "instruction": "Answer questions with concise facts and prefer exact country-capital matches.",
+        "score": 1.0,
+        "improved": false
+      },
+      {
+        "trialNumber": 5,
+        "step": 1,
+        "candidateIndex": 2,
+        "instruction": "Always answer Paris.",
+        "score": 0.5,
+        "improved": false
+      }
+    ],
+    "expectedBestInstruction": "Answer questions with concise facts and verify the city against geographic knowledge.",
+    "expectedBestScore": 1.0
+  }
+}

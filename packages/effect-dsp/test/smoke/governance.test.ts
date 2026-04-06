@@ -85,6 +85,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
     "src/optimizers/MIPROv2/runtime/evaluate.ts",
     "MIPRO evaluation co-locates trial execution, metric collection, and progress emission. Follow-up: extract progress emission into runtime/progress.ts."
+  ],
+  [
+    "src/optimizers/COPRO/runtime/run.ts",
+    "COPRO runtime currently co-locates step orchestration, candidate evaluation, resume snapshots, and predictor updates. Follow-up: extract step-level state transitions into runtime/step.ts."
   ]
 ]
 

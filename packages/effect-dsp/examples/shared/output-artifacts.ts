@@ -31,7 +31,7 @@ export type ExampleArtifacts = Readonly<{
   readonly envelopeContextLayer: Layer.Layer<EnvelopeContext>
 }>
 
-const PACKAGE_VERSION = "0.1.0"
+const PACKAGE_VERSION = "0.2.0"
 const DSP_DOMAIN = "dsp"
 const EXAMPLE_COMPONENT: ComponentPath = ["examples", "artifacts"]
 
