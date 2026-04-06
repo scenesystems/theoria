@@ -25,6 +25,8 @@ Digital signatures prove who sent a message. Key agreement lets two parties deri
 - **ML-DSA + SLH-DSA** — NIST post-quantum signatures (FIPS 204/205) at multiple security levels
 - **X25519** — elliptic-curve Diffie–Hellman key agreement
 - **XWing** — hybrid KEM combining X25519 + ML-KEM-768 for quantum-resistant key transport
+- **Detached signatures** — portable proofs with explicit-key verification and base64url-safe transport helpers
+- **Batch verification** — order-preserving per-item verification outcomes over mixed self-describing and detached carriers
 
 ## Algorithms
 
@@ -91,6 +93,9 @@ const program = Effect.gen(function* () {
 | ------------------------------------------------ | ------------------------------------------------------ |
 | `sign(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<Signature>`                   |
 | `verify(signature, message)`                     | Verify a self-describing signature → `Effect<boolean>` |
+| `signDetached(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<DetachedSignature>` |
+| `verifyDetached(signature, message, publicKey)` | Verify a detached signature with explicit key → `Effect<boolean>` |
+| `batchVerify(requests)` | Verify mixed self-describing and detached requests → `Effect<BatchVerifyReport>` |
 
 ### Key agreement
 
@@ -113,11 +118,13 @@ const program = Effect.gen(function* () {
 
 ### Encoding utilities
 
-| Function           | Description                            |
-| ------------------ | -------------------------------------- |
-| `utf8ToBytes(str)` | Convert a UTF-8 string to `Uint8Array` |
-| `toHex(bytes)`     | Encode bytes to lowercase hex string   |
-| `equalBytes(a, b)` | Constant-time byte array comparison    |
+| Function                 | Description                                  |
+| ------------------------ | -------------------------------------------- |
+| `utf8ToBytes(str)`       | Convert a UTF-8 string to `Uint8Array`       |
+| `toHex(bytes)`           | Encode bytes to lowercase hex string         |
+| `toBase64Url(bytes)`     | Encode bytes to base64url without padding    |
+| `fromBase64Url(encoded)` | Decode base64url text to `Uint8Array` safely |
+| `equalBytes(a, b)`       | Constant-time byte array comparison          |
 
 ### Schema types
 
@@ -127,6 +134,10 @@ const program = Effect.gen(function* () {
 | `AgreementAlgorithm` | `"x25519"`                                               |
 | `KemAlgorithm`       | `"xwing"`                                                |
 | `Signature`          | Schema.Class — `algorithm`, `signature`, `publicKey`     |
+| `DetachedSignature`  | Schema.Class — `algorithm`, `signature`                  |
+| `BatchVerifySignatureRequest` | Schema.Class — self-describing batch item        |
+| `BatchVerifyDetachedSignatureRequest` | Schema.Class — detached batch item with explicit key |
+| `BatchVerifyReport`  | Schema.Class — aggregate counts plus ordered results     |
 | `SharedSecret`       | Schema.Class — `algorithm`, `sharedSecret`               |
 | `KemCiphertext`      | Schema.Class — `algorithm`, `ciphertext`, `sharedSecret` |
 | `KeyPair`            | Schema.Class — `algorithm`, `publicKey`, `secretKey`     |
@@ -141,6 +152,14 @@ const program = Effect.gen(function* () {
 | `KeyGenerationFailed` | `generateKeyPair` | Key generation failed                |
 
 ## Examples
+
+Runnable example files:
+
+- [`examples/01-sign-verify.ts`](./examples/01-sign-verify.ts) — Ed25519 signing and tamper detection
+- [`examples/02-key-agreement.ts`](./examples/02-key-agreement.ts) — X25519 shared-secret derivation
+- [`examples/03-post-quantum.ts`](./examples/03-post-quantum.ts) — ML-DSA signatures plus XWing KEM
+- [`examples/04-detached-signature.ts`](./examples/04-detached-signature.ts) — detached signatures with base64url public-key transport
+- [`examples/05-batch-verify.ts`](./examples/05-batch-verify.ts) — mixed self-describing and detached batch verification
 
 ### Sign and verify
 
@@ -159,6 +178,84 @@ const program = Effect.gen(function* () {
   const tampered = utf8ToBytes("transfer 999 tokens")
   const invalid = yield* verify(sig, tampered)
   // false
+})
+```
+
+### Detached sign and verify
+
+```ts
+import {
+  fromBase64Url,
+  generateKeyPair,
+  signDetached,
+  toBase64Url,
+  utf8ToBytes,
+  verifyDetached
+} from "@scenesystems/sign"
+import { Effect, Either } from "effect"
+
+const program = Effect.gen(function* () {
+  const keys = yield* generateKeyPair("ed25519")
+  const message = utf8ToBytes("release artifact v1")
+
+  const detached = yield* signDetached("ed25519", message, keys.secretKey, keys.publicKey)
+  const encodedPublicKey = toBase64Url(keys.publicKey)
+
+  const decodedPublicKey = yield* Either.match(fromBase64Url(encodedPublicKey), {
+    onLeft: () => Effect.fail("invalid-public-key"),
+    onRight: Effect.succeed
+  })
+
+  const valid = yield* verifyDetached(detached, message, decodedPublicKey)
+  // true
+})
+```
+
+### Batch verify mixed carriers
+
+```ts
+import {
+  BatchVerifyDetachedSignatureRequest,
+  BatchVerifySignatureRequest,
+  batchVerify,
+  generateKeyPair,
+  sign,
+  signDetached,
+  utf8ToBytes
+} from "@scenesystems/sign"
+import { Effect } from "effect"
+
+const program = Effect.gen(function* () {
+  const ed25519 = yield* generateKeyPair("ed25519")
+  const secp256k1 = yield* generateKeyPair("secp256k1-ecdsa")
+
+  const releaseMessage = utf8ToBytes("release artifact")
+  const policyMessage = utf8ToBytes("security policy")
+
+  const signedRelease = yield* sign("ed25519", releaseMessage, ed25519.secretKey, ed25519.publicKey)
+  const signedPolicy = yield* signDetached(
+    "secp256k1-ecdsa",
+    policyMessage,
+    secp256k1.secretKey,
+    secp256k1.publicKey
+  )
+
+  const report = yield* batchVerify([
+    new BatchVerifySignatureRequest({
+      kind: "self-describing",
+      message: releaseMessage,
+      signature: signedRelease
+    }),
+    new BatchVerifyDetachedSignatureRequest({
+      kind: "detached",
+      message: policyMessage,
+      signature: signedPolicy,
+      publicKey: secp256k1.publicKey
+    })
+  ])
+
+  // report.allValid === true
+  // report.results preserve input order and per-item outcomes
 })
 ```
 

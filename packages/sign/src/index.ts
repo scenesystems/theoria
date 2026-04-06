@@ -117,6 +117,18 @@ export * from "./schemas/KeyPair.js"
 export * from "./schemas/Signature.js"
 
 /**
+ * @since 0.2.0
+ * @category schemas
+ */
+export * from "./schemas/DetachedSignature.js"
+
+/**
+ * @since 0.2.0
+ * @category schemas
+ */
+export * from "./schemas/BatchVerification.js"
+
+/**
  * @since 0.1.0
  * @category schemas
  */
