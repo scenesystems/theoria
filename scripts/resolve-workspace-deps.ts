@@ -33,6 +33,38 @@ const asString = (value: unknown): string | undefined =>
     ? value
     : undefined
 
+const restoreNullExportBarriers = (
+  rootManifest: Record<string, unknown>,
+  packedManifest: Record<string, unknown>
+): {
+  readonly exports: Record<string, unknown> | undefined
+  readonly restoredCount: number
+} => {
+  const rootExports = asRecord(rootManifest.exports)
+  const packedExports = asRecord(packedManifest.exports)
+
+  if (rootExports === undefined || packedExports === undefined) {
+    return {
+      exports: packedExports,
+      restoredCount: 0
+    }
+  }
+
+  const nullExportEntries = Object.entries(rootExports).filter(([, target]) => target === null)
+  const restoredCount = nullExportEntries.reduce(
+    (count, [subpath]) => (packedExports[subpath] === null ? count : count + 1),
+    0
+  )
+
+  return {
+    exports: nullExportEntries.reduce<Record<string, unknown>>(
+      (currentExports, [subpath, target]) => ({ ...currentExports, [subpath]: target }),
+      packedExports
+    ),
+    restoredCount
+  }
+}
+
 const resolveProjectPaths = Effect.gen(function*() {
   const path = yield* Path.Path
   const root = yield* path.fromFileUrl(rootUrl).pipe(Effect.orDie)
@@ -198,13 +230,20 @@ const processPackage = (packageDirectory: string, versions: Map<string, string>)
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const rootPackageJsonPath = path.join(packageDirectory, "package.json")
     const distPackageJsonPath = path.join(packageDirectory, "dist", "package.json")
     const exists = yield* fs.exists(distPackageJsonPath).pipe(Effect.orDie)
 
     if (!exists) {
-      return { name: packageDirectory, resolved: 0, errors: [] as Array<string> }
+      return {
+        name: packageDirectory,
+        resolved: 0,
+        restoredExportBarriers: 0,
+        errors: [] as Array<string>
+      }
     }
 
+    const rootManifest = parseManifest(yield* fs.readFileString(rootPackageJsonPath).pipe(Effect.orDie))
     const manifest = parseManifest(yield* fs.readFileString(distPackageJsonPath).pipe(Effect.orDie))
     const packageName = asString(manifest.name) ?? packageDirectory
     const fieldResults = yield* Effect.forEach(
@@ -241,16 +280,23 @@ const processPackage = (packageDirectory: string, versions: Map<string, string>)
           : { ...currentManifest, [result.field]: result.nextFieldRecord },
       manifest
     )
+    const exportBarrierRepair = restoreNullExportBarriers(rootManifest, nextManifest)
+    const nextManifestWithExports = exportBarrierRepair.exports === undefined
+      ? nextManifest
+      : { ...nextManifest, exports: exportBarrierRepair.exports }
     const errors = fieldResults.flatMap((result) => result.errors)
     const resolved = fieldResults.reduce((sum, result) => sum + result.resolvedCount, 0)
 
-    if (!checkMode && resolved > 0) {
-      yield* fs.writeFileString(distPackageJsonPath, `${JSON.stringify(nextManifest, null, 2)}\n`).pipe(Effect.orDie)
+    if (!checkMode && (resolved > 0 || exportBarrierRepair.restoredCount > 0)) {
+      yield* fs.writeFileString(distPackageJsonPath, `${JSON.stringify(nextManifestWithExports, null, 2)}\n`).pipe(
+        Effect.orDie
+      )
     }
 
     return {
       name: packageName,
       resolved,
+      restoredExportBarriers: exportBarrierRepair.restoredCount,
       errors
     }
   })
@@ -265,6 +311,7 @@ const program = Effect.gen(function*() {
   })
 
   const totalResolved = results.reduce((sum, result) => sum + result.resolved, 0)
+  const totalRestoredExportBarriers = results.reduce((sum, result) => sum + result.restoredExportBarriers, 0)
   const totalErrors = results.reduce((sum, result) => sum + result.errors.length, 0)
 
   yield* Effect.forEach(
@@ -275,6 +322,12 @@ const program = Effect.gen(function*() {
 
         if (result.resolved > 0) {
           yield* Console.log(`  ✓ ${result.name}: resolved ${result.resolved} workspace dep(s)`)
+        }
+
+        if (result.restoredExportBarriers > 0) {
+          yield* Console.log(
+            `  ✓ ${result.name}: restored ${result.restoredExportBarriers} packed export barrier${result.restoredExportBarriers === 1 ? "" : "s"}`
+          )
         }
       }),
     { discard: true }
@@ -293,7 +346,9 @@ const program = Effect.gen(function*() {
   yield* Console.log(
     checkMode
       ? "✓ No workspace: references in dist/"
-      : `\n✓ Resolved ${totalResolved} workspace dep(s) across all packages`
+      : `\n✓ Resolved ${totalResolved} workspace dep(s) and restored ${totalRestoredExportBarriers} packed export barrier${
+        totalRestoredExportBarriers === 1 ? "" : "s"
+      } across all packages`
   )
 })
 

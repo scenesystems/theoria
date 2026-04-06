@@ -54,6 +54,7 @@
         "@effect/ai": "0.35.0",
         "@effect/platform": "0.96.0",
         "@effect/platform-bun": "0.89.0",
+        "@effect/workflow": "0.18.0",
         "@heroicons/react": "^2.2.0",
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/seal": "workspace:^",
@@ -79,6 +80,19 @@
         "vite": "^7.3.1",
       },
     },
+    "e2e/theoria": {
+      "name": "@theoria/theoria-e2e",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "3.21.0",
+        "effect-inference": "workspace:^",
+        "effect-search": "workspace:^",
+      },
+      "devDependencies": {
+        "@effect/vitest": "^0.29.0",
+        "@playwright/test": "^1.59.1",
+      },
+    },
     "packages/digest": {
       "name": "@scenesystems/digest",
       "version": "0.2.0",
@@ -94,7 +108,7 @@
     },
     "packages/effect-dsp": {
       "name": "effect-dsp",
-      "version": "0.1.4",
+      "version": "0.2.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "effect-inference": "workspace:^",
@@ -149,7 +163,6 @@
       },
       "devDependencies": {
         "@theoria/source-proof": "workspace:*",
-        "effect-inference": "workspace:^",
       },
       "peerDependencies": {
         "@effect/experimental": "^0.60.0",
@@ -637,6 +650,8 @@
     "@theoria/source-proof": ["@theoria/source-proof@workspace:packages/source-proof"],
 
     "@theoria/theoria-app": ["@theoria/theoria-app@workspace:apps/theoria"],
+
+    "@theoria/theoria-e2e": ["@theoria/theoria-e2e@workspace:e2e/theoria"],
 
     "@types/babel__core": ["@types/babel__core@7.20.5", "", { "dependencies": { "@babel/parser": "^7.20.7", "@babel/types": "^7.20.7", "@types/babel__generator": "*", "@types/babel__template": "*", "@types/babel__traverse": "*" } }, "sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA=="],
 
