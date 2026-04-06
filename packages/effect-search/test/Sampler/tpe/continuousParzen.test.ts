@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Number as Num } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
-import * as Float64 from "../../../src/internal/float64.js"
 import {
   buildContinuousParzen,
   ContinuousKernel,
@@ -57,7 +57,7 @@ describe("tpe continuous parzen", () => {
       })
       const probe = 0.6
       const componentScores = parzen.kernels.map((kernel) =>
-        Float64.log(kernel.weight) +
+        logStrict(kernel.weight) +
         truncatedLogPdf(
           probe,
           new TruncatedNormalParams({
@@ -73,8 +73,8 @@ describe("tpe continuous parzen", () => {
         Number.NEGATIVE_INFINITY
       )
       const expected = maxScore +
-        Float64.log(
-          componentScores.reduce((total, score) => total + Float64.exp(score - maxScore), 0)
+        logStrict(
+          componentScores.reduce((total, score) => total + exp(score - maxScore), 0)
         )
 
       expect(logDensity(parzen, probe)).toBeCloseTo(expected, 12)

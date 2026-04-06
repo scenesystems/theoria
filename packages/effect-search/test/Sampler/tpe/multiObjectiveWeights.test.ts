@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Number as Num, Order, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../../src/internal/float64.js"
 import { hypervolumeContribution2d } from "../../../src/internal/hypervolume.js"
 import { nonDominatedRanks } from "../../../src/internal/pareto.js"
 import { computeMultiObjectiveWeights, computeReferencePoint } from "../../../src/internal/tpe/multiObjectiveWeights.js"
@@ -17,7 +17,7 @@ import {
 } from "../../helpers/fixtures.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
 describe("Wave 2 / MOTPE selection-depth parity", () => {

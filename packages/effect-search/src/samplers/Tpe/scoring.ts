@@ -4,9 +4,9 @@
  * @since 0.1.0
  */
 import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+import { logStrict } from "effect-math/Numeric"
 
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
-import * as Float64 from "../../internal/float64.js"
 
 /**
  * Computes the log-probability of a categorical value under a Parzen density
@@ -29,6 +29,6 @@ export const logProbability = (
 
   return Match.value(Num.lessThanOrEqualTo(probability, 0)).pipe(
     Match.when(true, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() => Float64.log(probability))
+    Match.orElse(() => logStrict(probability))
   )
 }

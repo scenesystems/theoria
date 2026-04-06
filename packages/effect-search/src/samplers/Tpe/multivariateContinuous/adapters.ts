@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Record, Tuple } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
@@ -90,8 +91,8 @@ export const adapterForParameter = (
                   Effect.succeed(
                     new ContinuousAdapter({
                       name: parameter.name,
-                      toModel: (value: number) => Math.log(value),
-                      normalize: (modelValue: number) => normalizeFloat(Math.exp(modelValue), low, high, stepOption)
+                      toModel: (value: number) => logStrict(value),
+                      normalize: (modelValue: number) => normalizeFloat(exp(modelValue), low, high, stepOption)
                     })
                   )
                 )

@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
+import { sqrt } from "effect-math/Numeric"
 import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "effect-math/Probability"
 
 import * as Rng from "../../internal/rng.js"
@@ -47,19 +48,19 @@ const sampleUniformVector = (rng: Rng.Rng, dimensions: number): Effect.Effect<Ar
     : Effect.forEach(Arr.makeBy(dimensions, (index) => index), () => Rng.nextFloat(rng, 0, 1))
 
 const expectedImprovementScore = (mean: number, best: number, variance: number): number => {
-  const standardDeviation = Math.sqrt(Num.max(variance, 1e-12))
+  const standardDeviation = sqrt(Num.max(variance, 1e-12))
   const improvement = best - mean - EXPLORATION_EPSILON
   const z = improvement / standardDeviation
   return (improvement * standardNormalCdf(z)) + (standardDeviation * standardNormalPdf(z))
 }
 
 const probabilityImprovementScore = (mean: number, best: number, variance: number): number => {
-  const standardDeviation = Math.sqrt(Num.max(variance, 1e-12))
+  const standardDeviation = sqrt(Num.max(variance, 1e-12))
   return standardNormalCdf((best - mean - EXPLORATION_EPSILON) / standardDeviation)
 }
 
 const thompsonScore = (mean: number, best: number, variance: number, roll: number): number => {
-  const standardDeviation = Math.sqrt(Num.max(variance, 1e-12))
+  const standardDeviation = sqrt(Num.max(variance, 1e-12))
   const sampledValue = mean + (standardDeviation * standardNormalTransform(roll))
   return best - sampledValue
 }

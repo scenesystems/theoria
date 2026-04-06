@@ -1,8 +1,8 @@
 import { Array as Arr, Effect, Either, Equal, Match, Number as Num, Option, Predicate, Schema, Tuple } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import { type PrimitiveChoice, PrimitiveChoiceSchema } from "../../contracts/Distribution.js"
 import { InvalidSamplerConfig } from "../../Errors/index.js"
-import * as Float64 from "../float64.js"
 import { defaultWeights } from "./recencyWeights.js"
 
 export const CategoricalKernelSchema = Schema.Struct({
@@ -136,11 +136,11 @@ const distanceKernelRaw = (
     Match.when(true, () => Arr.map(distances, () => 0)),
     Match.orElse(() => Arr.map(distances, (value) => Num.unsafeDivide(value, maxDistance)))
   )
-  const coefficient = Float64.log(Num.unsafeDivide(nKernels, priorWeight)) *
-    Num.unsafeDivide(Float64.log(choices.length), Float64.log(6))
+  const coefficient = logStrict(Num.unsafeDivide(nKernels, priorWeight)) *
+    Num.unsafeDivide(logStrict(choices.length), logStrict(6))
 
   return Arr.map(normalizedDistances, (distanceValue) =>
-    Float64.exp(
+    exp(
       Num.multiply(
         Num.multiply(distanceValue, distanceValue),
         Num.multiply(coefficient, -1)

@@ -1,10 +1,10 @@
 import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Schema, Stream } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import * as Cache from "../../src/Cache/index.js"
 import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -85,7 +85,7 @@ describe("Study.optimize", () => {
         objective: (raw) => {
           const config = decodeObjectiveConfig(raw)
           const optimizerPenalty = config.optimizer === "adam" ? 0 : 0.25
-          const score = Float64.abs(config.x) + config.depth + optimizerPenalty
+          const score = abs(config.x) + config.depth + optimizerPenalty
           return Effect.succeed(score)
         }
       })
@@ -167,7 +167,7 @@ describe("Study.optimize", () => {
         trials: 20,
         objective: (raw) => {
           const config = decodeObjectiveConfig(raw)
-          return Effect.succeed(config.x > 0 ? Number.NaN : Float64.abs(config.x))
+          return Effect.succeed(config.x > 0 ? Number.NaN : abs(config.x))
         }
       })
 
@@ -193,7 +193,7 @@ describe("Study.optimize", () => {
         trials: 20,
         objective: (raw) => {
           const config = decodeObjectiveConfig(raw)
-          return Effect.succeed(config.x > 0 ? Number.POSITIVE_INFINITY : Float64.abs(config.x))
+          return Effect.succeed(config.x > 0 ? Number.POSITIVE_INFINITY : abs(config.x))
         }
       })
 
@@ -261,7 +261,7 @@ describe("Study.optimize", () => {
           retrySchedule: Schedule.recurs(0),
           objective: (raw) => {
             const config = decodeObjectiveConfig(raw)
-            return Effect.succeed(Float64.abs(config.x) + config.depth)
+            return Effect.succeed(abs(config.x) + config.depth)
           }
         }).pipe(
           Stream.provideLayer(objectiveCacheLayer)
@@ -312,7 +312,7 @@ describe("Study.optimize", () => {
           retrySchedule: Schedule.recurs(0),
           objective: (raw) => {
             const config = decodeObjectiveConfig(raw)
-            return Effect.succeed(Float64.abs(config.x) + config.depth)
+            return Effect.succeed(abs(config.x) + config.depth)
           }
         }).pipe(
           Stream.provideLayer(objectiveCacheLayer)

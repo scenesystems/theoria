@@ -1,4 +1,5 @@
 import { Match, Number as Num, Schema } from "effect"
+import { sqrt } from "effect-math/Numeric"
 
 export const GammaValueSchema = Schema.NonNegative
 
@@ -17,7 +18,7 @@ export const defaultGamma = (nCompletedTrials: number): GammaValue => boundedGam
 export const hyperoptDefaultGamma = (nCompletedTrials: number): GammaValue =>
   Match.value(Num.lessThanOrEqualTo(nCompletedTrials, 0)).pipe(
     Match.when(true, () => 0),
-    Match.orElse(() => boundedGamma(Math.ceil(0.25 * Math.sqrt(nCompletedTrials))))
+    Match.orElse(() => boundedGamma(Math.ceil(0.25 * sqrt(nCompletedTrials))))
   )
 
 export const hyperoptGamma = hyperoptDefaultGamma

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Number as Num, Option } from "effect"
+import { abs } from "effect-math/Numeric"
 import fc from "fast-check"
 
-import * as Float64 from "../../src/internal/float64.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../src/internal/tpe/continuousParzen.js"
 
 const boundsInputArbitrary = fc.record({
@@ -129,7 +129,7 @@ describe("continuous KDE invariants", () => {
           const weightSum = Arr.reduce(parzen.kernels, 0, (total, kernel) => total + kernel.weight)
 
           expect(parzen.kernels.length).toBe(observations.length + 1)
-          expect(Float64.abs(weightSum - 1)).toBeLessThanOrEqual(WEIGHT_ABSOLUTE_TOLERANCE)
+          expect(abs(weightSum - 1)).toBeLessThanOrEqual(WEIGHT_ABSOLUTE_TOLERANCE)
           expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.weight) && kernel.weight >= 0)).toBe(true)
           expect(Arr.every(parzen.kernels, (kernel) => Number.isFinite(kernel.sigma) && kernel.sigma > 0)).toBe(true)
         })
@@ -154,7 +154,7 @@ describe("continuous KDE invariants", () => {
             onSome: (priorKernel) => priorKernel.mean
           })
 
-          expect(Float64.abs(priorMean - midpoint)).toBeLessThanOrEqual(MIDPOINT_ABSOLUTE_TOLERANCE)
+          expect(abs(priorMean - midpoint)).toBeLessThanOrEqual(MIDPOINT_ABSOLUTE_TOLERANCE)
         })
       )
     }))
@@ -174,7 +174,7 @@ describe("continuous KDE invariants", () => {
 
             expect(Arr.every(probes, (probe) => Number.isFinite(logDensity(parzen, probe)))).toBe(true)
             expect(
-              Arr.every(probes, (probe) => Float64.abs(logDensity(parzen, probe) - logDensity(parzen, probe)) <= 0)
+              Arr.every(probes, (probe) => abs(logDensity(parzen, probe) - logDensity(parzen, probe)) <= 0)
             ).toBe(true)
           }
         )
@@ -203,7 +203,7 @@ describe("continuous KDE invariants", () => {
 
             expect(Arr.every(draws, (value) => value >= low && value <= high)).toBe(true)
             expect(
-              Arr.every(draws, (value, index) => Float64.abs(value - (replay[index] ?? Number.NaN)) <= 0)
+              Arr.every(draws, (value, index) => abs(value - (replay[index] ?? Number.NaN)) <= 0)
             ).toBe(true)
           }
         )
@@ -234,7 +234,7 @@ describe("continuous KDE invariants", () => {
                 })
 
                 return (
-                  Float64.abs(
+                  abs(
                     sampleFromParzen(parzen, kernelRoll, valueRoll) -
                       sampleFromParzen(parzen, clampedKernelRoll, clampedValueRoll)
                   ) <= 0

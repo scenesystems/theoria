@@ -5,7 +5,7 @@
 
 Bayesian optimization for TypeScript, built on [Effect](https://effect.website). Find better configurations in fewer tries — whether you're tuning LLM prompts, infrastructure settings, or ML hyperparameters.
 
-[Quick start](#quick-start) · [Choosing a sampler](#choosing-a-sampler) · [How TPE works](#how-tpe-works) · [Recipes](#recipes) · [Pareto utilities](#pareto-utilities) · [Manual ask/tell](#manual-asktell-orchestration) · [Going deeper](#going-deeper) · [API at a glance](#api-at-a-glance) · [FAQ](#faq) · [Examples](#examples)
+[Quick start](#quick-start) · [Choosing a sampler](#choosing-a-sampler) · [How TPE works](#how-tpe-works) · [Benchmark envelope](#benchmark-envelope) · [Recipes](#recipes) · [Pareto utilities](#pareto-utilities) · [Manual ask/tell](#manual-asktell-orchestration) · [Going deeper](#going-deeper) · [API at a glance](#api-at-a-glance) · [FAQ](#faq) · [Examples](#examples)
 
 ---
 
@@ -24,6 +24,7 @@ Sometimes you can't write a formula for what you're optimizing. You can run a th
 
 - **Typed search spaces** — `float`, `int`, `categorical`, `boolean`, and tree-structured conditionals with full type inference
 - **Five samplers** — Random (baseline), Grid (exhaustive), TPE (Bayesian), CMA-ES (continuous evolution strategy), GP-BO (continuous Bayesian surrogate), plus HyperBand/BOHB multi-fidelity scheduling
+- **Public `effect-math` alignment** — stable numeric, probability, geometry, linear-algebra, and summary-statistics kernels, including the scalar constants and transforms behind TPE log-space and GP posterior scoring, flow through public `effect-math` surfaces, while optimizer-specific acquisition, density, and scheduling logic stay package-owned
 - **Multi-objective** — MOTPE finds Pareto-optimal trade-offs when you have competing goals
 - **Warm-starting** — inject trials from prior studies to skip the cold-start phase
 - **Multivariate TPE** — joint density estimation for correlated parameter spaces
@@ -246,6 +247,26 @@ const result =
 ```
 
 Use EI as the default baseline. Try PI when you want greedier exploitation near likely improvements, and Thompson when you want more stochastic exploration while remaining deterministic under fixed seeds.
+
+## Benchmark envelope
+
+`effect-search` ships one package-owned benchmark lane for the released performance envelope:
+
+```sh
+bun run bench
+```
+
+That command emits one machine-readable benchmark artifact with three timing kinds that map to distinct performance questions:
+
+- `sampler` measures isolated model-fit and suggestion growth for the canonical mixed-space TPE problem.
+- `engine` measures `Study.ask` and `Study.tell` orchestration overhead for UI-bound ask/tell loops after short and long seeded histories.
+- `objective` measures end-to-end `Study.optimize` wall clock on the same canonical problem, so full study runtime never gets conflated with sampler-only work.
+
+The artifact is versioned and aggregated as `mean-of-seeds`, and each timing kind also records worst-seed observations for diagnosis. That keeps variance visible without falling back to single-seed folklore or quietly loosening thresholds when seeded runs diverge.
+
+Every engine and objective record carries `StudySnapshot.samplerMetrics`, which is the canonical package telemetry for completed and pending counts. Package tests and the `bench` gate treat those typed metrics as the timing truth rather than relying on ad hoc log output.
+
+Treat the benchmark envelope as a bounded contract for the shipped canonical benchmark problems, not as a generic throughput claim for every objective. Use the `sampler` lane when judging history-growth behavior, the `engine` lane when evaluating interactive ask/tell responsiveness, and the `objective` lane when budgeting full long-running studies under snapshot + resume semantics.
 
 ## Recipes
 
@@ -865,6 +886,21 @@ Effect.runPromise(program.pipe(Effect.provide(DevTools.layer())))
 
 All public `Study` APIs are wrapped with named `Effect.fn` spans, so calls like `Study.optimize`, `Study.resume`, and `Study.snapshot` appear with explicit span names in DevTools.
 
+### Study service seams
+
+`effect-search/Study` also ships three released extension seams for consumers
+that need to compose around package-owned execution without re-hosting the
+runtime:
+
+- `SamplerEngine` owns sampler suggestion, checkpoint, and restore.
+- `SnapshotCodec` owns `StudySnapshot` encode and restore.
+- `StudyKernel` owns one-shot study execution behind `Study.optimize*` and `Study.resume*`.
+
+These seams are extensions, not alternate authorities: `Study`, `StudyEvent`,
+and `StudySnapshot` remain the public package truth, and the package `bench`,
+`publish:check`, and `release-snapshots:stamp` scripts stay thin adapters over
+the root release framework rather than becoming a second release model.
+
 ### Rate-limited objectives
 
 When your objective hits external APIs (LLMs, embedding endpoints, evaluators), wrap it with `RateLimiter` so study concurrency never exceeds provider quotas.
@@ -979,7 +1015,7 @@ import {
 | `SearchSpace`  | `make`, `makeConditional`, `float`, `int`, `categorical`, `boolean`, `fidelity`, `switch`, `when`, `extend`, `pick`, `omit`, `Type`                                                                                                                                                                                                                                                                                                                                                      |
 | `Sampler`      | `random`, `grid`, `tpe`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `Scheduler`    | `hyperband`, `bohb`, `Scheduler`, `totalTrials`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `Study`        | `minimize`, `maximize`, `optimize`, `optimizeStream`, `resumeStream`, `snapshot`, `resume`, `resumeFromStorage`, `resumeFromStorageStream`, `pareto`, `tapTerminalProgress`, `reportTerminalProgress`, `makeTerminalSink`, `formatTerminalProgressEvent`, `StudySnapshot`, `PriorTrial`, `ObjectiveReport`, `StudyObjectiveCache`, `StudyObjectiveCacheMemory`, `StudyObjectiveCacheFileSystem`, `StudyStorage`, `StudyStorageLive`, `thresholdPruningPolicy`, `shouldPruneByPercentile` |
+| `Study`        | `minimize`, `maximize`, `optimize`, `optimizeStream`, `resumeStream`, `snapshot`, `resume`, `resumeFromStorage`, `resumeFromStorageStream`, `pareto`, `tapTerminalProgress`, `reportTerminalProgress`, `makeTerminalSink`, `formatTerminalProgressEvent`, `StudySnapshot`, `PriorTrial`, `ObjectiveReport`, `StudyObjectiveCache`, `StudyObjectiveCacheMemory`, `StudyObjectiveCacheFileSystem`, `StudyStorage`, `StudyStorageLive`, `SamplerEngine`, `SnapshotCodec`, `StudyKernel`, `thresholdPruningPolicy`, `shouldPruneByPercentile` |
 | `Trial`        | `matchState`, trial state types (`Running`, `Completed`, `Failed`, `Pruned`, `Cancelled`)                                                                                                                                                                                                                                                                                                                                                                                                |
 | `StudyEvent`   | `matchStudyEvent`, `isStudyEvent`, event types (`TrialStarted`, `TrialCompleted`, `TrialReported`, `TrialCosted`, `TrialPruned`, `TrialRetried`, `TrialCancelled`, `TrialFailed`, `BestUpdated`, `StudyStopRequested`, `BracketStarted`, `RoundStarted`, `RoundCompleted`, `BracketCompleted`, `StudyCompleted`)                                                                                                                                                                         |
 | `Errors`       | Tagged errors: `InvalidSearchSpace`, `InvalidSamplerConfig`, `InvalidStudyConfig`, `NoSuccessfulTrials`, `TrialError`, `NotImplemented`, …; union: `SearchErrorSchema`, `isSearchError`                                                                                                                                                                                                                                                                                                  |
@@ -1110,11 +1146,13 @@ bun run lint
 bun run test
 bun run build
 bun run fixtures:check
-bun run release-snapshots:stamp
+# repository root: declare the release target and stamp governed snapshots
+bun run changeset
+bun run changeset:version
 bun run changeset-publish --dry-run
 ```
 
-`effect-search` participates in an opt-in root release profile. Not every shipped Theoria package exposes `publish:check` or `changeset-publish`, but when those seams exist they delegate to the repository root CLIs. For this package, `publish:check` is the single-source release contract for package metadata, export boundaries, keyword coverage, and script wiring; `release-snapshots:stamp` refreshes the checked-in package snapshot through the shared root stamping CLI; and `changeset-publish` re-runs the root publish-readiness path with `--require-packed-manifest` after build so packed-manifest export boundaries are enforced before publish.
+`effect-search` participates in an opt-in root release profile. Not every shipped Theoria package exposes `publish:check` or `changeset-publish`, but when those seams exist they delegate to the repository root CLIs. For this package, `publish:check` is the single-source release contract for package metadata, export boundaries, keyword coverage, and script wiring; `release-snapshots:stamp` remains a thin package adapter over the shared root stamping CLI, but normal release work should prefer root `changeset:version` so manifest bumps and governed snapshot stamping stay aligned; and `changeset-publish` re-runs the root publish-readiness path with `--require-packed-manifest` after build so packed-manifest export boundaries are enforced before publish.
 
 ## Acknowledgments
 

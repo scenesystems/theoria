@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Clock, Effect, Option } from "effect"
+import { abs, logStrict } from "effect-math/Numeric"
 
 import {
   decodeLogLearningRateConfig,
   makeLogLearningRateSpace
 } from "../../src/experimental/scenarios/randomTraining.js"
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
@@ -21,7 +21,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 const objective = (raw: unknown) => {
   const config = decodeLogLearningRateConfig(raw)
 
-  return Effect.succeed(Float64.abs(Float64.log(config.lr) - Float64.log(0.02)))
+  return Effect.succeed(abs(logStrict(config.lr) - logStrict(0.02)))
 }
 
 describe("deterministic TPE performance harness", () => {

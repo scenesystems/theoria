@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -29,7 +29,7 @@ const objectiveForSpace = (space: SearchSpace.SearchSpace) => {
     Effect.sync(() => {
       const config = decode(raw)
 
-      return Float64.abs(config.x - 0.32) + branchPenalty(config.branch)
+      return abs(config.x - 0.32) + branchPenalty(config.branch)
     })
 }
 

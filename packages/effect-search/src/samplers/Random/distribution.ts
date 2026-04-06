@@ -4,10 +4,10 @@
  * @since 0.1.0
  */
 import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import type { Distribution } from "../../contracts/Distribution.js"
 import { InvalidSamplerConfig } from "../../Errors/index.js"
-import * as Float64 from "../../internal/float64.js"
 import * as Rng from "../../internal/rng.js"
 
 const quantize = (value: number, low: number, high: number, step: number): number => {
@@ -112,11 +112,11 @@ const sampleLogFloat = (
         )
     ),
     Match.orElse(() => {
-      const logLow = Float64.log(low)
-      const logHigh = Float64.log(high)
+      const logLow = logStrict(low)
+      const logHigh = logStrict(high)
 
       return Rng.nextFloat(rng, logLow, logHigh).pipe(
-        Effect.map((raw) => Float64.exp(raw)),
+        Effect.map((raw) => exp(raw)),
         Effect.map((value) =>
           Option.match(step, {
             onNone: () => value,

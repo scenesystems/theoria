@@ -1,6 +1,5 @@
 import { Array as Arr, Data, Match, Number as Num, Option, Schema } from "effect"
-
-import * as Float64 from "../float64.js"
+import { logStrict } from "effect-math/Numeric"
 
 export const ExpectedImprovementScoreSchema = Schema.Number
 
@@ -22,7 +21,7 @@ export const scoreWithEstimatedCost = (
     Option.filter(finitePositiveCost),
     Option.match({
       onNone: () => score,
-      onSome: (cost) => score - Float64.log(cost)
+      onSome: (cost) => score - logStrict(cost)
     })
   )
 

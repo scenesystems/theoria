@@ -1,4 +1,5 @@
 import { Chunk, Effect, Match, Option, Ref, Schema, Stream } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import { normalizeObjectiveVector, objectiveSpecFromOptions } from "../../../src/contracts/index.js"
 import {
@@ -8,7 +9,6 @@ import {
   PromptCategoricalConfigSchema
 } from "../../../src/experimental/scenarios/promptCategorical.js"
 import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
-import * as Float64 from "../../../src/internal/float64.js"
 import { pendingAsZeroImputationPolicy } from "../../../src/Sampler/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
@@ -71,7 +71,7 @@ export const singleObjective = (raw: unknown) => {
   const config = decodeConfig(raw)
 
   return Effect.succeed(
-    Float64.abs(config.x) + config.depth + (config.optimizer === "adam" ? 0 : 0.25)
+    abs(config.x) + config.depth + (config.optimizer === "adam" ? 0 : 0.25)
   )
 }
 

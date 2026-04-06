@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Number as Num, Option, Schedule, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import { NoSuccessfulTrials } from "../../src/Errors/index.js"
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -61,7 +61,7 @@ describe("Study.optimize regression edge cases", () => {
         trials: 1,
         objective: (raw) => {
           const config = decodeConfig(raw)
-          return Effect.succeed(Float64.abs(config.x) + config.depth)
+          return Effect.succeed(abs(config.x) + config.depth)
         }
       })
 

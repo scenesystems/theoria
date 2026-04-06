@@ -4,9 +4,9 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
-import * as Float64 from "../../../internal/float64.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
@@ -112,10 +112,10 @@ const floatModel = (
             Match.orElse(() =>
               Effect.succeed(
                 new FloatModel({
-                  low: Float64.log(low),
-                  high: Float64.log(high),
-                  toModel: (value: number) => Float64.log(value),
-                  fromModel: (value: number) => Float64.exp(value)
+                  low: logStrict(low),
+                  high: logStrict(high),
+                  toModel: (value: number) => logStrict(value),
+                  fromModel: (value: number) => exp(value)
                 })
               )
             )

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../src/Errors/index.js"
 import {
   decodeMixedOptimizerConfigEffect,
   makeMixedOptimizerSpace
 } from "../../../src/experimental/scenarios/mixedOptimizer.js"
-import * as Float64 from "../../../src/internal/float64.js"
 import { CompletedTrialForSplit, type TrialSplit } from "../../../src/internal/tpe/splitTrials.js"
 import { categoricalCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/categorical.js"
 import { floatCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/float.js"
@@ -48,7 +48,7 @@ const expectWithinTolerance = (
   tolerance: number,
   label: string
 ): void => {
-  expect(Float64.abs(actual - expected), label).toBeLessThanOrEqual(tolerance)
+  expect(abs(actual - expected), label).toBeLessThanOrEqual(tolerance)
 }
 
 const splitFromFixture = (

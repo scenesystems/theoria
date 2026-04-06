@@ -1,4 +1,5 @@
 import { Array as Arr, Data, Match, Number as Num, Option } from "effect"
+import { sqrt } from "effect-math/Numeric"
 
 const NOISE_FLOOR = 1e-12
 const BOOTSTRAP_REPLICATES = 8
@@ -59,7 +60,7 @@ const bandwidthFromSample = (
   Match.value(values.length <= 1).pipe(
     Match.when(true, () => span),
     Match.orElse(() => {
-      const stddev = Math.sqrt(variance(values))
+      const stddev = sqrt(variance(values))
       const scottFactor = Math.pow(values.length, -0.2)
       return Num.max(stddev * scottFactor, NOISE_FLOOR)
     })

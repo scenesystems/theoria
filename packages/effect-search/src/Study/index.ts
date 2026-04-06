@@ -65,7 +65,8 @@ export {
   /** @since 0.1.0 */ resumeStream,
   /** @since 0.1.0 */ SingleObjectiveResult,
   /**
-   * Capture study state for persistence, including typed sampler metrics such as pending-trial truth.
+   * Capture study state for persistence, including typed sampler metrics that power pending-trial truth,
+   * benchmark artifacts, and consumer diagnostics.
    *
    * @since 0.1.0
    */

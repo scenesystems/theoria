@@ -5,6 +5,7 @@
  */
 import { Array as Arr, Chunk, Data, Option } from "effect"
 import { backwardSubstitutionUpper, cholesky, forwardSubstitutionLower, transpose } from "effect-math/LinearAlgebra"
+import { exp } from "effect-math/Numeric"
 
 import { dotProduct, squaredDistance } from "../shared/math.js"
 
@@ -30,7 +31,7 @@ class PosteriorModel extends Data.Class<{
 const EPSILON = 1e-12
 
 const rbfKernel = (left: ReadonlyArray<number>, right: ReadonlyArray<number>, lengthScale: number): number =>
-  Math.exp(-(squaredDistance(left, right) / (2 * lengthScale * lengthScale)))
+  exp(-(squaredDistance(left, right) / (2 * lengthScale * lengthScale)))
 
 const buildKernelMatrix = (
   observations: ReadonlyArray<GpObservationLike>,

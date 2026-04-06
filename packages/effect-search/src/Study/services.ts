@@ -29,6 +29,12 @@ import { restoreSnapshot } from "./snapshot/restore.js"
 import { snapshotFromTrials, type StudySnapshot } from "./snapshot/versioning.js"
 
 /**
+ * Released sampler execution seam for custom study integrations.
+ *
+ * `SamplerEngine` is the supported boundary for suggestion, checkpoint, and
+ * restore. Consumers should depend on this service instead of reaching into
+ * sampler-local internals.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -59,6 +65,12 @@ export const SamplerEngineLive = Layer.succeed(SamplerEngine, {
 })
 
 /**
+ * Released snapshot encode and restore seam for study persistence.
+ *
+ * `SnapshotCodec` owns the translation between canonical `StudySnapshot`
+ * values and the execution seeds consumed by `Study.resume*`. Swapping the
+ * service is allowed, but `StudySnapshot` remains the serialized package truth.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -103,6 +115,12 @@ export class ExecuteRequest<
 }> {}
 
 /**
+ * Released one-shot execution seam behind `Study.optimize*` and `Study.resume*`.
+ *
+ * `StudyKernel` is the package-owned boundary for integrations that need to
+ * wrap full study execution while preserving canonical event ordering,
+ * interruption checkpoints, and result semantics.
+ *
  * @since 0.1.0
  * @category services
  */

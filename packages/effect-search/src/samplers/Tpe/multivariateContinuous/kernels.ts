@@ -4,6 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
+import { sqrt } from "effect-math/Numeric"
 
 import * as Rng from "../../../internal/rng.js"
 
@@ -61,7 +62,7 @@ const stddev = (values: ReadonlyArray<number>, mean: number): number =>
         values.length
       )
 
-      return Math.sqrt(variance)
+      return sqrt(variance)
     })
   )
 

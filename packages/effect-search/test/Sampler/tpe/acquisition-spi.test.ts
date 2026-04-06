@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../../src/internal/float64.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import { scoreAcquisition } from "../../../src/samplers/Tpe/acquisition/index.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
@@ -22,7 +22,7 @@ const objectiveForSpace = (space: SearchSpace.SearchSpace) => {
     Effect.sync(() => {
       const config = decode(raw)
 
-      return Float64.abs(config.x - 0.35)
+      return abs(config.x - 0.35)
     })
 }
 
@@ -97,7 +97,7 @@ describe("tpe acquisition SPI", () => {
           trials: 12,
           objective: (raw) =>
             objective(raw).pipe(
-              Effect.map((distance) => [distance, Float64.abs(distance - 0.2)])
+              Effect.map((distance) => [distance, abs(distance - 0.2)])
             )
         })
 

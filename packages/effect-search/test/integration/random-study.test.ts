@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number as Num, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import { makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
@@ -36,9 +36,9 @@ const runStudy = (seed: number, direction: "minimize" | "maximize") => {
     trials: 18,
     objective: (raw) => {
       const config = decode(raw)
-      const lrPenalty = Float64.abs(config.lr - 0.02) * 100
+      const lrPenalty = abs(config.lr - 0.02) * 100
       const optimizerPenalty = config.optimizer === "adam" ? 0 : config.optimizer === "adamw" ? 0.15 : 0.35
-      const batchPenalty = Float64.abs(config.batchSize - 32) / 16
+      const batchPenalty = abs(config.batchSize - 32) / 16
       const normPenalty = config.useBatchNorm ? 0.05 : 0.2
 
       return Effect.succeed(lrPenalty + optimizerPenalty + batchPenalty + normPenalty)
