@@ -3,11 +3,12 @@
   "compilerOptions": {
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["@types/node", "@playwright/test"]
+    "types": ["@types/node", "@playwright/test", "@effect/vitest", "vitest/globals"]
   },
   "include": [
     "./**/*.ts",
     "../../apps/theoria/app/contracts/**/*.ts",
-    "../../packages/effect-inference/src/contracts/**/*.ts"
+    "../../packages/effect-inference/src/**/*.ts",
+    "../../packages/effect-search/src/**/*.ts"
   ]
 }

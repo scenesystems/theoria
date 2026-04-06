@@ -15,7 +15,8 @@ export default defineConfig({
     include: [
       "test/**/*.test.ts",
       "packages/*/test/**/*.test.ts",
-      "apps/*/test/**/*.test.ts"
+      "apps/*/test/**/*.test.ts",
+      "e2e/**/*.test.ts"
     ],
     passWithNoTests: true,
     testTimeout: 30_000,
