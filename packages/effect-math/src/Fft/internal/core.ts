@@ -1,6 +1,9 @@
-import { Chunk } from "effect"
+import { Chunk, Number as N } from "effect"
 import * as Arr from "effect/Array"
 
+import type { Complex } from "../../Complex/model.js"
+import { add as addComplex, fromPolar, multiply as multiplyComplex, of } from "../../Complex/operations.js"
+import { PI, sqrt } from "../../Numeric/operations.js"
 import type { FftNormalizationMode } from "../schema.js"
 
 export type ComplexPair = Readonly<{
@@ -10,17 +13,30 @@ export type ComplexPair = Readonly<{
 
 const toPair = (real: number, imaginary: number): ComplexPair => ({ real, imaginary })
 
+const pairFromComplex = (value: Complex): ComplexPair => toPair(value.re, value.im)
+
+const phaseAngle = (
+  outputIndex: number,
+  inputIndex: number,
+  size: number,
+  direction: "forward" | "inverse"
+): number => {
+  const sign = direction === "forward" ? -1 : 1
+
+  return N.unsafeDivide(N.multiply(N.multiply(N.multiply(N.multiply(sign, 2), PI), outputIndex), inputIndex), size)
+}
+
 const normalizationScale = (
   direction: "forward" | "inverse",
   normalization: FftNormalizationMode,
   length: number
 ): number =>
   normalization === "ortho"
-    ? 1 / Math.sqrt(length)
+    ? N.unsafeDivide(1, sqrt(length))
     : normalization === "forward"
-    ? direction === "forward" ? 1 / length : 1
+    ? direction === "forward" ? N.unsafeDivide(1, length) : 1
     : direction === "inverse"
-    ? 1 / length
+    ? N.unsafeDivide(1, length)
     : 1
 
 const dftAtIndex = (
@@ -30,20 +46,15 @@ const dftAtIndex = (
   direction: "forward" | "inverse"
 ): ComplexPair => {
   const size = real.length
-  const sign = direction === "forward" ? -1 : 1
 
-  return real.reduce<ComplexPair>((accumulator, value, inputIndex) => {
-    const angle = sign * ((2 * Math.PI * outputIndex * inputIndex) / size)
-    const cosine = Math.cos(angle)
-    const sine = Math.sin(angle)
-    const contributionReal = value * cosine - imaginary[inputIndex]! * sine
-    const contributionImaginary = value * sine + imaginary[inputIndex]! * cosine
+  return pairFromComplex(
+    real.reduce<Complex>((accumulator, value, inputIndex) => {
+      const sample = of(value, imaginary[inputIndex]!)
+      const phase = fromPolar(1, phaseAngle(outputIndex, inputIndex, size, direction))
 
-    return toPair(
-      accumulator.real + contributionReal,
-      accumulator.imaginary + contributionImaginary
-    )
-  }, toPair(0, 0))
+      return addComplex(accumulator, multiplyComplex(sample, phase))
+    }, of(0, 0))
+  )
 }
 
 export const dft = (options: {
@@ -58,7 +69,7 @@ export const dft = (options: {
 
   return Arr.map(Arr.range(0, real.length - 1), (outputIndex) => {
     const value = dftAtIndex(real, imaginary, outputIndex, options.direction)
-    return toPair(value.real * scale, value.imaginary * scale)
+    return toPair(N.multiply(value.real, scale), N.multiply(value.imaginary, scale))
   })
 }
 

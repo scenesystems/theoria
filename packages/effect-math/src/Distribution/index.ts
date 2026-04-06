@@ -1,7 +1,7 @@
 /**
- * Full algebra of statistical distributions — 10 distribution families
+ * Full algebra of statistical distributions — 11 distribution families
  * (Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT,
- * Categorical, Binomial, Poisson) with PDF, CDF, logPDF, quantile, and
+ * NoncentralT, Categorical, Binomial, Poisson) with PDF, CDF, logPDF, quantile, and
  * summary-statistic kernels. All kernels operate on scalar arguments
  * using Effect primitives with Schema-validated inputs.
  *

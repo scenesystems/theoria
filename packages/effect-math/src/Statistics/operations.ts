@@ -9,12 +9,186 @@
  */
 import { Chunk, Effect, Match, Option, Schema } from "effect"
 
-import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
+import { withCustomPolicyGuards, withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "../contracts/shared/RuntimePolicies.js"
-import { StatisticsDecodeError, StatisticsDomainViolationError, StatisticsShapeError } from "./errors.js"
+import { abs } from "../Numeric/operations.js"
+import {
+  StatisticsDecodeError,
+  StatisticsDomainViolationError,
+  StatisticsParameterError,
+  StatisticsShapeError
+} from "./errors.js"
 import * as Estimators from "./internal/estimators.js"
+import * as Inference from "./internal/inference.js"
+import * as Power from "./internal/power.js"
 import { StatisticsDomainModel } from "./model.js"
-import { SampleInput, SummaryStatistics, TwoSampleInput } from "./schema.js"
+import {
+  MeanConfidenceIntervalInput,
+  OneSampleTTestInput,
+  PowerForMeanDifferenceInput,
+  SampleInput,
+  SampleSizeForTargetPowerInput,
+  SummaryStatistics,
+  TwoSampleInput,
+  TwoSampleTTestInput
+} from "./schema.js"
+import type {
+  HypothesisAlternativeType,
+  MeanConfidenceIntervalReport,
+  PowerAnalysisReport,
+  SampleSizeForTargetPowerReport,
+  TTestReport
+} from "./schema.js"
+
+type MeanConfidenceIntervalOptions = Readonly<{
+  readonly confidenceLevel?: number
+  readonly alternative?: HypothesisAlternativeType
+}>
+
+type TTestOptions = Readonly<{
+  readonly nullValue?: number
+  readonly alpha?: number
+  readonly alternative?: HypothesisAlternativeType
+}>
+
+type PowerAnalysisOptions = Readonly<{
+  readonly alpha?: number
+  readonly alternative?: HypothesisAlternativeType
+}>
+
+type SampleSizeForTargetPowerOptions =
+  & Readonly<{
+    readonly maxSampleSize?: number
+  }>
+  & PowerAnalysisOptions
+
+const EFFECT_SIZE_ZERO_TOLERANCE = 1e-12
+
+const decodeStatisticsInput = <A, I>(schema: Schema.Schema<A, I, never>, input: unknown, operation: string) =>
+  Schema.decodeUnknown(schema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
+    Effect.mapError((error) =>
+      new StatisticsDecodeError({
+        operation,
+        message: error.message
+      })
+    )
+  )
+
+const requireSampleSize = (operation: string, sampleSize: number, message: string) =>
+  Effect.filterOrFail(
+    Effect.succeed(sampleSize),
+    (value) => value >= 2,
+    (value) =>
+      new StatisticsShapeError({
+        operation,
+        expected: "at least 2 samples",
+        actual: `${value} sample(s)`,
+        message
+      })
+  )
+
+const requireNonZeroEffectSize = (operation: string, effectSize: number) =>
+  Effect.filterOrFail(
+    Effect.succeed(effectSize),
+    (value) => abs(value) > EFFECT_SIZE_ZERO_TOLERANCE,
+    () =>
+      new StatisticsParameterError({
+        operation,
+        message: "Sample-size inversion requires a non-zero standardized effect size"
+      })
+  )
+
+const meanConfidenceIntervalReportIsFinite = (report: MeanConfidenceIntervalReport): boolean =>
+  Number.isFinite(report.estimate) &&
+  Number.isFinite(report.standardError) &&
+  Number.isFinite(report.degreesOfFreedom) &&
+  (report.interval.lower === null || Number.isFinite(report.interval.lower)) &&
+  (report.interval.upper === null || Number.isFinite(report.interval.upper))
+
+const tTestReportIsFinite = (report: TTestReport): boolean =>
+  meanConfidenceIntervalReportIsFinite(report) &&
+  Number.isFinite(report.statistic) &&
+  Number.isFinite(report.effectSize) &&
+  Number.isFinite(report.pValue)
+
+const powerReportIsFinite = (report: PowerAnalysisReport): boolean =>
+  Number.isFinite(report.effectSize) &&
+  Number.isFinite(report.sampleSize) &&
+  Number.isFinite(report.alpha) &&
+  Number.isFinite(report.degreesOfFreedom) &&
+  Number.isFinite(report.criticalValue) &&
+  Number.isFinite(report.noncentrality) &&
+  Number.isFinite(report.power)
+
+const sampleSizePowerReportIsFinite = (report: SampleSizeForTargetPowerReport): boolean =>
+  Number.isFinite(report.effectSize) &&
+  Number.isFinite(report.targetPower) &&
+  Number.isFinite(report.alpha) &&
+  Number.isFinite(report.sampleSize) &&
+  Number.isFinite(report.achievedPower) &&
+  Number.isFinite(report.solver.root) &&
+  Number.isFinite(report.solver.residual)
+
+const compactMeanConfidenceIntervalOptions = (
+  confidenceLevel?: number,
+  alternative?: HypothesisAlternativeType
+): MeanConfidenceIntervalOptions => ({
+  ...Option.match(Option.fromNullable(confidenceLevel), {
+    onNone: () => ({}),
+    onSome: (confidenceLevel) => ({ confidenceLevel })
+  }),
+  ...Option.match(Option.fromNullable(alternative), {
+    onNone: () => ({}),
+    onSome: (alternative) => ({ alternative })
+  })
+})
+
+const compactTTestOptions = (
+  nullValue?: number,
+  alpha?: number,
+  alternative?: HypothesisAlternativeType
+): TTestOptions => ({
+  ...Option.match(Option.fromNullable(nullValue), {
+    onNone: () => ({}),
+    onSome: (nullValue) => ({ nullValue })
+  }),
+  ...Option.match(Option.fromNullable(alpha), {
+    onNone: () => ({}),
+    onSome: (alpha) => ({ alpha })
+  }),
+  ...Option.match(Option.fromNullable(alternative), {
+    onNone: () => ({}),
+    onSome: (alternative) => ({ alternative })
+  })
+})
+
+const compactPowerOptions = (
+  alpha?: number,
+  alternative?: HypothesisAlternativeType
+): PowerAnalysisOptions => ({
+  ...Option.match(Option.fromNullable(alpha), {
+    onNone: () => ({}),
+    onSome: (alpha) => ({ alpha })
+  }),
+  ...Option.match(Option.fromNullable(alternative), {
+    onNone: () => ({}),
+    onSome: (alternative) => ({ alternative })
+  })
+})
+
+const compactSampleSizeOptions = (
+  alpha?: number,
+  alternative?: HypothesisAlternativeType,
+  maxSampleSize?: number
+): SampleSizeForTargetPowerOptions => ({
+  ...compactPowerOptions(alpha, alternative),
+  ...Option.match(Option.fromNullable(maxSampleSize), {
+    onNone: () => ({}),
+    onSome: (maxSampleSize) => ({ maxSampleSize })
+  })
+})
 
 /**
  * Lifts the static `StatisticsDomainModel` into an Effect so it can be
@@ -115,6 +289,64 @@ export const minimum: (values: Chunk.Chunk<number>) => Option.Option<number> = E
  * @category operations
  */
 export const maximum: (values: Chunk.Chunk<number>) => Option.Option<number> = Estimators.maximum
+
+/**
+ * Confidence interval for a one-sample mean.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const confidenceIntervalMean = (
+  values: Chunk.Chunk<number>,
+  options?: MeanConfidenceIntervalOptions
+) => Inference.confidenceIntervalMean(values, options)
+
+/**
+ * One-sample t-test over a released report envelope.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const oneSampleTTest = (
+  values: Chunk.Chunk<number>,
+  options?: TTestOptions
+) => Inference.oneSampleTTest(values, options)
+
+/**
+ * Two-sample Welch t-test over a released report envelope.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const twoSampleTTest = (
+  a: Chunk.Chunk<number>,
+  b: Chunk.Chunk<number>,
+  options?: TTestOptions
+) => Inference.twoSampleTTest(a, b, options)
+
+/**
+ * Power analysis for an equal-group standardized mean-difference test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const powerForMeanDifference = (
+  effectSize: number,
+  sampleSize: number,
+  options?: PowerAnalysisOptions
+) => Power.powerForMeanDifference(effectSize, sampleSize, options)
+
+/**
+ * Sample-size inversion for an equal-group standardized mean-difference test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sampleSizeForTargetPower = (
+  effectSize: number,
+  targetPower: number,
+  options?: SampleSizeForTargetPowerOptions
+) => Power.sampleSizeForTargetPower(effectSize, targetPower, options)
 
 // ---------------------------------------------------------------------------
 // Schema-validated operations with boundary input checking
@@ -391,6 +623,126 @@ export const maximumValidated = (input: unknown) =>
     return Estimators.maximum(Chunk.fromIterable(decoded.values))
   })
 
+/**
+ * Boundary-validated confidence interval for a one-sample mean.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const confidenceIntervalMeanValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeStatisticsInput(MeanConfidenceIntervalInput, input, "confidenceIntervalMean")
+    yield* requireSampleSize(
+      "confidenceIntervalMean",
+      decoded.values.length,
+      "Confidence intervals require at least 2 samples"
+    )
+
+    return Inference.confidenceIntervalMean(
+      Chunk.fromIterable(decoded.values),
+      compactMeanConfidenceIntervalOptions(decoded.confidenceLevel, decoded.alternative)
+    )
+  })
+
+/**
+ * Boundary-validated one-sample t-test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const oneSampleTTestValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeStatisticsInput(OneSampleTTestInput, input, "oneSampleTTest")
+    yield* requireSampleSize(
+      "oneSampleTTest",
+      decoded.values.length,
+      "One-sample t-tests require at least 2 samples"
+    )
+
+    return Inference.oneSampleTTest(
+      Chunk.fromIterable(decoded.values),
+      compactTTestOptions(decoded.nullValue, decoded.alpha, decoded.alternative)
+    )
+  })
+
+/**
+ * Boundary-validated two-sample Welch t-test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const twoSampleTTestValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeStatisticsInput(TwoSampleTTestInput, input, "twoSampleTTest")
+    yield* requireSampleSize(
+      "twoSampleTTest",
+      decoded.a.length,
+      "Two-sample t-tests require at least 2 observations in the first sample"
+    )
+    yield* requireSampleSize(
+      "twoSampleTTest",
+      decoded.b.length,
+      "Two-sample t-tests require at least 2 observations in the second sample"
+    )
+
+    return Inference.twoSampleTTest(
+      Chunk.fromIterable(decoded.a),
+      Chunk.fromIterable(decoded.b),
+      compactTTestOptions(decoded.nullValue, decoded.alpha, decoded.alternative)
+    )
+  })
+
+/**
+ * Boundary-validated power analysis for an equal-group mean difference.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const powerForMeanDifferenceValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeStatisticsInput(PowerForMeanDifferenceInput, input, "powerForMeanDifference")
+
+    return Power.powerForMeanDifference(
+      decoded.effectSize,
+      decoded.sampleSize,
+      compactPowerOptions(decoded.alpha, decoded.alternative)
+    )
+  })
+
+/**
+ * Boundary-validated sample-size inversion for an equal-group mean difference.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sampleSizeForTargetPowerValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeStatisticsInput(
+      SampleSizeForTargetPowerInput,
+      input,
+      "sampleSizeForTargetPower"
+    )
+    yield* requireNonZeroEffectSize("sampleSizeForTargetPower", decoded.effectSize)
+
+    const report = Power.sampleSizeForTargetPower(
+      decoded.effectSize,
+      decoded.targetPower,
+      compactSampleSizeOptions(decoded.alpha, decoded.alternative, decoded.maxSampleSize)
+    )
+
+    yield* Effect.filterOrFail(
+      Effect.succeed(report),
+      (value) => value.achievedPower >= decoded.targetPower,
+      () =>
+        new StatisticsParameterError({
+          operation: "sampleSizeForTargetPower",
+          message: "Target power is not achievable within the declared maximum sample size"
+        })
+    )
+
+    return report
+  })
+
 // ---------------------------------------------------------------------------
 // Policy-aware operations
 // ---------------------------------------------------------------------------
@@ -657,5 +1009,171 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
       compute: () => Estimators.covariance(a, b),
       makeError: (message) => new StatisticsDomainViolationError({ operation: "covarianceWithPolicies", message }),
       annotations: (result) => ({ sampleSize: String(Chunk.size(a)), result: String(result) })
+    })
+  })
+
+/**
+ * Policy-aware one-sample mean confidence interval.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const confidenceIntervalMeanWithPolicies = (
+  values: Chunk.Chunk<number>,
+  options?: MeanConfidenceIntervalOptions
+) =>
+  Effect.gen(function*() {
+    yield* requireSampleSize(
+      "confidenceIntervalMeanWithPolicies",
+      Chunk.size(values),
+      "Confidence intervals require at least 2 samples"
+    )
+
+    const report = Inference.confidenceIntervalMean(values, options)
+
+    return yield* withCustomPolicyGuards({
+      operation: "Statistics.confidenceIntervalMeanWithPolicies",
+      compute: () => report,
+      isValid: meanConfidenceIntervalReportIsFinite,
+      makeError: (message) =>
+        new StatisticsDomainViolationError({ operation: "confidenceIntervalMeanWithPolicies", message }),
+      annotations: (value) => ({
+        sampleSize: String(Chunk.size(values)),
+        estimate: String(value.estimate),
+        standardError: String(value.standardError)
+      })
+    })
+  })
+
+/**
+ * Policy-aware one-sample t-test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const oneSampleTTestWithPolicies = (
+  values: Chunk.Chunk<number>,
+  options?: TTestOptions
+) =>
+  Effect.gen(function*() {
+    yield* requireSampleSize(
+      "oneSampleTTestWithPolicies",
+      Chunk.size(values),
+      "One-sample t-tests require at least 2 samples"
+    )
+
+    const report = Inference.oneSampleTTest(values, options)
+
+    return yield* withCustomPolicyGuards({
+      operation: "Statistics.oneSampleTTestWithPolicies",
+      compute: () => report,
+      isValid: tTestReportIsFinite,
+      makeError: (message) => new StatisticsDomainViolationError({ operation: "oneSampleTTestWithPolicies", message }),
+      annotations: (value) => ({
+        sampleSize: String(Chunk.size(values)),
+        statistic: String(value.statistic),
+        pValue: String(value.pValue)
+      })
+    })
+  })
+
+/**
+ * Policy-aware two-sample Welch t-test.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const twoSampleTTestWithPolicies = (
+  a: Chunk.Chunk<number>,
+  b: Chunk.Chunk<number>,
+  options?: TTestOptions
+) =>
+  Effect.gen(function*() {
+    yield* requireSampleSize(
+      "twoSampleTTestWithPolicies",
+      Chunk.size(a),
+      "Two-sample t-tests require at least 2 observations in the first sample"
+    )
+    yield* requireSampleSize(
+      "twoSampleTTestWithPolicies",
+      Chunk.size(b),
+      "Two-sample t-tests require at least 2 observations in the second sample"
+    )
+
+    const report = Inference.twoSampleTTest(a, b, options)
+
+    return yield* withCustomPolicyGuards({
+      operation: "Statistics.twoSampleTTestWithPolicies",
+      compute: () => report,
+      isValid: tTestReportIsFinite,
+      makeError: (message) => new StatisticsDomainViolationError({ operation: "twoSampleTTestWithPolicies", message }),
+      annotations: (value) => ({
+        sampleSizeA: String(Chunk.size(a)),
+        sampleSizeB: String(Chunk.size(b)),
+        statistic: String(value.statistic),
+        pValue: String(value.pValue)
+      })
+    })
+  })
+
+/**
+ * Policy-aware power analysis for an equal-group mean difference.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const powerForMeanDifferenceWithPolicies = (
+  effectSize: number,
+  sampleSize: number,
+  options?: PowerAnalysisOptions
+) => {
+  const report = Power.powerForMeanDifference(effectSize, sampleSize, options)
+
+  return withCustomPolicyGuards({
+    operation: "Statistics.powerForMeanDifferenceWithPolicies",
+    compute: () => report,
+    isValid: powerReportIsFinite,
+    makeError: (message) =>
+      new StatisticsDomainViolationError({ operation: "powerForMeanDifferenceWithPolicies", message }),
+    annotations: (value) => ({
+      sampleSize: String(value.sampleSize),
+      effectSize: String(value.effectSize),
+      power: String(value.power)
+    })
+  })
+}
+
+/**
+ * Policy-aware sample-size inversion for an equal-group mean difference.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sampleSizeForTargetPowerWithPolicies = (
+  effectSize: number,
+  targetPower: number,
+  options?: SampleSizeForTargetPowerOptions
+) =>
+  Effect.gen(function*() {
+    const report = yield* sampleSizeForTargetPowerValidated({
+      effectSize,
+      targetPower,
+      alpha: options?.alpha,
+      alternative: options?.alternative,
+      maxSampleSize: options?.maxSampleSize
+    })
+
+    return yield* withCustomPolicyGuards({
+      operation: "Statistics.sampleSizeForTargetPowerWithPolicies",
+      compute: () => report,
+      isValid: sampleSizePowerReportIsFinite,
+      makeError: (message) =>
+        new StatisticsDomainViolationError({ operation: "sampleSizeForTargetPowerWithPolicies", message }),
+      annotations: (value) => ({
+        effectSize: String(value.effectSize),
+        targetPower: String(value.targetPower),
+        sampleSize: String(value.sampleSize),
+        achievedPower: String(value.achievedPower)
+      })
     })
   })

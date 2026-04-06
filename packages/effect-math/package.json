@@ -74,7 +74,7 @@
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3 && bun ../../scripts/resolve-workspace-deps.ts",
     "clean": "rm -rf build dist .tsbuildinfo",
     "docgen": "docgen"
   },

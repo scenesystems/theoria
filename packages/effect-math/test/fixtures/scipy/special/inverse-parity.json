@@ -235,7 +235,7 @@
         "operation": "gammaincc"
       },
       {
-        "expected": 4.539992976248486e-5,
+        "expected": 4.539992976248486e-05,
         "id": "gammaincc-1-10",
         "input": {
           "a": 1.0,

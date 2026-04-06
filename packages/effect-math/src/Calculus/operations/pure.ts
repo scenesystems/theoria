@@ -10,9 +10,18 @@ import type { Chunk } from "effect"
 import * as AdaptiveSimpsonKernel from "../internal/adaptive-simpson.js"
 import * as IntegrationKernel from "../internal/integration.js"
 import * as MultivariateKernel from "../internal/multivariate.js"
+import * as AdaptiveOdeKernel from "../internal/ode/adaptive.js"
+import * as FixedOdeKernel from "../internal/ode/fixed.js"
 import * as RidderKernel from "../internal/ridder.js"
 import { CalculusDomainModel } from "../model.js"
-import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.js"
+import type {
+  AdaptiveRk45InputType,
+  DerivativeLimitEstimate,
+  EulerInputType,
+  OdeSolveResult,
+  RidderMethodInputType,
+  Rk4InputType
+} from "../schema.js"
 
 /**
  * Lifts the static `CalculusDomainModel` into an Effect for runtime discovery.
@@ -105,6 +114,39 @@ export const adaptiveSimpson = (
     relativeTolerance,
     maxDepth
   )
+
+/**
+ * Fixed-step Euler solver over a canonical IVP envelope.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveEuler = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: EulerInputType
+): OdeSolveResult => FixedOdeKernel.solveFixedStepOde({ field: f, input, method: "euler" })
+
+/**
+ * Fixed-step classical Runge-Kutta order-4 solver over a canonical IVP envelope.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveRk4 = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: Rk4InputType
+): OdeSolveResult => FixedOdeKernel.solveFixedStepOde({ field: f, input, method: "rk4" })
+
+/**
+ * Adaptive Dormand-Prince RK45 solver over a canonical IVP envelope.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveAdaptiveRk45 = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: AdaptiveRk45InputType
+): OdeSolveResult => AdaptiveOdeKernel.solveAdaptiveRk45Internal({ field: f, input })
 
 /**
  * Multivariate gradient evaluated via Ridder-limit directional probes.

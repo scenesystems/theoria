@@ -1,13 +1,24 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect } from "effect"
+import { Chunk, Effect, Layer } from "effect"
 
+import { BackendPolicyService, DiagnosticsPolicyService, PrecisionPolicyService } from "../../src/contracts/index.js"
 import {
   circularConvolutionValidated,
+  circularConvolutionWithPolicies,
   fftValidated,
+  fftWithPolicies,
   ifftValidated,
   irfftValidated,
-  rfftValidated
+  rfftValidated,
+  rfftWithPolicies
 } from "../../src/Fft/index.js"
+
+const strictBackendLayer = (backend: "scalar" | "typed-array") =>
+  Layer.mergeAll(
+    Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
+    Layer.succeed(BackendPolicyService, { policy: backend }),
+    Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
+  )
 
 describe("Fft / runtime boundary contracts", () => {
   it.effect("accepts canonical valid FFT and real-spectrum boundary payloads", () =>
@@ -86,5 +97,30 @@ describe("Fft / runtime boundary contracts", () => {
 
       expect(fftResult._tag).toStrictEqual("Left")
       expect(irfftResult._tag).toStrictEqual("Left")
+    }))
+
+  it.effect("keeps FFT policy-aware entrypoints on shared dispatch while honoring backend policy", () =>
+    Effect.gen(function*() {
+      const sequence = yield* fftValidated({
+        real: [1, 0, -1, 0],
+        imaginary: [0, 0, 0, 0],
+        normalization: "backward"
+      })
+      const signal = Chunk.fromIterable([1, 2, 1, 0])
+      const kernel = Chunk.fromIterable([1, 0, -1, 0])
+
+      const scalarSpectrum = yield* fftWithPolicies(sequence).pipe(Effect.provide(strictBackendLayer("scalar")))
+      const typedSpectrum = yield* fftWithPolicies(sequence).pipe(Effect.provide(strictBackendLayer("typed-array")))
+      const typedRealSpectrum = yield* rfftWithPolicies(signal).pipe(Effect.provide(strictBackendLayer("typed-array")))
+      const typedConvolution = yield* circularConvolutionWithPolicies(signal, kernel).pipe(
+        Effect.provide(strictBackendLayer("typed-array"))
+      )
+
+      expect(Chunk.toReadonlyArray(typedSpectrum.real)).toStrictEqual(Chunk.toReadonlyArray(scalarSpectrum.real))
+      expect(Chunk.toReadonlyArray(typedSpectrum.imaginary)).toStrictEqual(
+        Chunk.toReadonlyArray(scalarSpectrum.imaginary)
+      )
+      expect(typedRealSpectrum.signalLength).toBe(4)
+      expect(Chunk.toReadonlyArray(typedConvolution)).toHaveLength(4)
     }))
 })

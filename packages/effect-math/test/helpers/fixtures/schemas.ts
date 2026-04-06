@@ -668,6 +668,79 @@ export const CalculusNumericalParityFixtureSchema = Schema.Struct({
   })
 })
 
+const CalculusOdeExpectedSchema = Schema.Struct({
+  status: Schema.Literal("finished", "maxStepsExceeded", "stepSizeTooSmall"),
+  finalState: Schema.Array(Schema.Number),
+  trajectory: Schema.Array(
+    Schema.Struct({
+      time: Schema.Number,
+      state: Schema.Array(Schema.Number)
+    })
+  )
+})
+
+const CalculusFixedOdeInputSchema = Schema.Struct({
+  function: Schema.String,
+  initialTime: Schema.Number,
+  finalTime: Schema.Number,
+  initialState: Schema.Array(Schema.Number),
+  stepSize: Schema.Number
+})
+
+const CalculusAdaptiveOdeInputSchema = Schema.Struct({
+  function: Schema.String,
+  initialTime: Schema.Number,
+  finalTime: Schema.Number,
+  initialState: Schema.Array(Schema.Number),
+  initialStep: Schema.Number,
+  maxStep: Schema.Number,
+  absoluteTolerance: Schema.Number,
+  relativeTolerance: Schema.Number
+})
+
+const CalculusOdeAssertionSchema = Schema.Struct({
+  absoluteTolerance: Schema.Number.pipe(Schema.greaterThan(0)),
+  relativeTolerance: Schema.Number.pipe(Schema.greaterThan(0))
+})
+
+const CalculusEulerCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("solveEuler"),
+  input: CalculusFixedOdeInputSchema,
+  expected: CalculusOdeExpectedSchema,
+  assertion: CalculusOdeAssertionSchema
+})
+
+const CalculusRk4CaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("solveRk4"),
+  input: CalculusFixedOdeInputSchema,
+  expected: CalculusOdeExpectedSchema,
+  assertion: CalculusOdeAssertionSchema
+})
+
+const CalculusAdaptiveOdeCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("solveAdaptiveRk45"),
+  input: CalculusAdaptiveOdeInputSchema,
+  expected: CalculusOdeExpectedSchema,
+  assertion: CalculusOdeAssertionSchema
+})
+
+const CalculusOdeParityCaseSchema = Schema.Union(
+  CalculusEulerCaseSchema,
+  CalculusRk4CaseSchema,
+  CalculusAdaptiveOdeCaseSchema
+)
+
+export const CalculusOdeParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("calculus.ode-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(CalculusOdeParityCaseSchema)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Optimization: solver-parity
 // ---------------------------------------------------------------------------
@@ -696,6 +769,59 @@ export const OptimizationSolverParityFixtureSchema = Schema.Struct({
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     cases: Schema.Array(OptimizationSolverCaseSchema)
+  })
+})
+
+const OptimizationRootFindingExpectedSchema = Schema.Struct({
+  root: Schema.Number,
+  rootTolerance: Schema.Number,
+  residualTolerance: Schema.Number
+})
+
+const OptimizationBrentRootCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("brent"),
+  input: Schema.Struct({
+    function: Schema.String,
+    lowerBound: Schema.Number,
+    upperBound: Schema.Number
+  }),
+  expected: OptimizationRootFindingExpectedSchema
+})
+
+const OptimizationSecantRootCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("secant"),
+  input: Schema.Struct({
+    function: Schema.String,
+    previousEstimate: Schema.Number,
+    currentEstimate: Schema.Number
+  }),
+  expected: OptimizationRootFindingExpectedSchema
+})
+
+const OptimizationNewtonRootCaseSchema = Schema.Struct({
+  id: Schema.String,
+  operation: Schema.Literal("newtonRaphson"),
+  input: Schema.Struct({
+    function: Schema.String,
+    derivative: Schema.String,
+    initialGuess: Schema.Number
+  }),
+  expected: OptimizationRootFindingExpectedSchema
+})
+
+const OptimizationRootFindingCaseSchema = Schema.Union(
+  OptimizationBrentRootCaseSchema,
+  OptimizationSecantRootCaseSchema,
+  OptimizationNewtonRootCaseSchema
+)
+
+export const OptimizationRootFindingParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("optimization.root-finding-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(OptimizationRootFindingCaseSchema)
   })
 })
 
@@ -980,6 +1106,16 @@ const DistGammaQuantileInputSchema = Schema.Struct({ p: Schema.Number, shape: Sc
 const DistStudentTEvalInputSchema = Schema.Struct({ x: Schema.Number, df: Schema.Number })
 const DistStudentTParamsInputSchema = Schema.Struct({ df: Schema.Number })
 const DistStudentTQuantileInputSchema = Schema.Struct({ p: Schema.Number, df: Schema.Number })
+const DistNoncentralTEvalInputSchema = Schema.Struct({
+  x: Schema.Number,
+  df: Schema.Number,
+  noncentrality: Schema.Number
+})
+const DistNoncentralTQuantileInputSchema = Schema.Struct({
+  p: Schema.Number,
+  df: Schema.Number,
+  noncentrality: Schema.Number
+})
 
 const DistCategoricalEvalInputSchema = Schema.Struct({ k: Schema.Number, probs: Schema.Array(Schema.Number) })
 const DistCategoricalParamsInputSchema = Schema.Struct({ probs: Schema.Array(Schema.Number) })
@@ -1702,6 +1838,37 @@ const DistributionAlgebraParityCaseSchema = Schema.Union(
     input: DistStudentTParamsInputSchema,
     expected: Schema.Number
   }),
+  // NoncentralT (5)
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("noncentralTCdf"),
+    input: DistNoncentralTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("noncentralTCdf"),
+    input: DistNoncentralTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("noncentralTCdf"),
+    input: DistNoncentralTEvalInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("noncentralTQuantile"),
+    input: DistNoncentralTQuantileInputSchema,
+    expected: Schema.Number
+  }),
+  Schema.Struct({
+    id: Schema.String,
+    operation: Schema.Literal("noncentralTQuantile"),
+    input: DistNoncentralTQuantileInputSchema,
+    expected: Schema.Number
+  }),
   // Categorical (6)
   Schema.Struct({
     id: Schema.String,
@@ -1818,6 +1985,7 @@ export const DistributionAlgebraParityFixtureSchema = Schema.Struct({
 export const FixtureNameSchema = Schema.Literal(
   "algebra.polynomial-parity",
   "calculus.numerical-parity",
+  "calculus.ode-parity",
   "complex.arithmetic-parity",
   "fft.transform-parity",
   "distribution.algebra-parity",
@@ -1829,7 +1997,8 @@ export const FixtureNameSchema = Schema.Literal(
   "statistics.estimator-parity",
   "special.function-parity",
   "special.inverse-parity",
-  "optimization.solver-parity"
+  "optimization.solver-parity",
+  "optimization.root-finding-parity"
 )
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
@@ -1837,6 +2006,7 @@ export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
 export const KnownFixtureSchema = Schema.Union(
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
+  CalculusOdeParityFixtureSchema,
   ComplexArithmeticParityFixtureSchema,
   FftTransformParityFixtureSchema,
   DistributionAlgebraParityFixtureSchema,
@@ -1848,7 +2018,8 @@ export const KnownFixtureSchema = Schema.Union(
   StatisticsEstimatorParityFixtureSchema,
   SpecialFunctionParityFixtureSchema,
   SpecialInverseParityFixtureSchema,
-  OptimizationSolverParityFixtureSchema
+  OptimizationSolverParityFixtureSchema,
+  OptimizationRootFindingParityFixtureSchema
 )
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>

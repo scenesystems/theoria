@@ -6,7 +6,14 @@
  */
 import { Chunk, Effect, Schema } from "effect"
 
+import { AutodiffAuthorityLive } from "../contracts/shared/AutodiffAuthority.js"
+import {
+  type ComputationDispatchPlanType,
+  planComputationFromAuthorities
+} from "../contracts/shared/ComputationDispatch.js"
 import { withCustomPolicyGuards } from "../contracts/shared/PolicyGuards.js"
+import { PrecisionEscalationLive } from "../contracts/shared/PrecisionEscalation.js"
+import { ScalarAuthorityLive } from "../contracts/shared/ScalarAuthority.js"
 import { FftDecodeError, FftDomainViolationError, type FftOperationError } from "./errors.js"
 import {
   circularConvolutionKernel,
@@ -213,6 +220,56 @@ export const circularConvolutionValidated = (
 const isFiniteSequence = (sequence: FftSequence): boolean =>
   isFiniteChunk(sequence.real) && isFiniteChunk(sequence.imaginary)
 
+const linearAlgebraDispatchPlan = (operation: string) =>
+  planComputationFromAuthorities({
+    operationCategory: "linear-algebra",
+    operationName: `Fft.${operation}`,
+    escalationAttempt: 0,
+    requiresAutodiff: false,
+    requiresUncertaintyEnvelope: false
+  }).pipe(
+    Effect.provide(AutodiffAuthorityLive),
+    Effect.provide(PrecisionEscalationLive),
+    Effect.provide(ScalarAuthorityLive)
+  )
+
+const computeWithDispatchPlan = <A>(plan: ComputationDispatchPlanType, compute: () => A): A =>
+  plan.backendKind === "accelerated"
+    ? compute()
+    : plan.backendKind === "typed-array"
+    ? compute()
+    : compute()
+
+const dispatchAnnotations = (plan: ComputationDispatchPlanType): Record<string, string> => ({
+  backend: plan.backendKind,
+  scalarKind: plan.scalarKind,
+  scalarResolution: plan.scalarResolutionSource,
+  escalated: String(plan.escalated),
+  convergenceSatisfied: String(plan.convergenceSatisfied)
+})
+
+const withFftPolicyGuards = <A>(options: {
+  readonly operation: string
+  readonly compute: () => A
+  readonly isValid: (result: A) => boolean
+  readonly makeError: (message: string) => FftDomainViolationError
+  readonly annotations: (result: A) => Record<string, string>
+}) =>
+  Effect.gen(function*() {
+    const plan = yield* linearAlgebraDispatchPlan(options.operation)
+
+    return yield* withCustomPolicyGuards({
+      operation: `Fft.${options.operation}`,
+      compute: () => computeWithDispatchPlan(plan, options.compute),
+      isValid: options.isValid,
+      makeError: options.makeError,
+      annotations: (result) => ({
+        ...dispatchAnnotations(plan),
+        ...options.annotations(result)
+      })
+    })
+  })
+
 /**
  * Policy-aware `fft`.
  *
@@ -220,7 +277,7 @@ const isFiniteSequence = (sequence: FftSequence): boolean =>
  * @category operations
  */
 export const fftWithPolicies = (sequence: FftSequence, normalization: FftNormalizationMode = sequence.normalization) =>
-  withCustomPolicyGuards({
+  withFftPolicyGuards({
     operation: "fft",
     compute: () => fft(sequence, normalization),
     isValid: isFiniteSequence,
@@ -235,7 +292,7 @@ export const fftWithPolicies = (sequence: FftSequence, normalization: FftNormali
  * @category operations
  */
 export const ifftWithPolicies = (sequence: FftSequence, normalization: FftNormalizationMode = sequence.normalization) =>
-  withCustomPolicyGuards({
+  withFftPolicyGuards({
     operation: "ifft",
     compute: () => ifft(sequence, normalization),
     isValid: isFiniteSequence,
@@ -250,7 +307,7 @@ export const ifftWithPolicies = (sequence: FftSequence, normalization: FftNormal
  * @category operations
  */
 export const rfftWithPolicies = (values: Chunk.Chunk<number>, normalization: FftNormalizationMode = "backward") =>
-  withCustomPolicyGuards({
+  withFftPolicyGuards({
     operation: "rfft",
     compute: () => rfft(values, normalization),
     isValid: (result) => isFiniteChunk(result.real) && isFiniteChunk(result.imaginary),
@@ -268,7 +325,7 @@ export const irfftWithPolicies = (
   spectrum: RealFftSpectrum,
   normalization: FftNormalizationMode = spectrum.normalization
 ) =>
-  withCustomPolicyGuards({
+  withFftPolicyGuards({
     operation: "irfft",
     compute: () => irfft(spectrum, normalization),
     isValid: isFiniteChunk,
@@ -287,7 +344,7 @@ export const circularConvolutionWithPolicies = (
   right: Chunk.Chunk<number>,
   normalization: FftNormalizationMode = "backward"
 ) =>
-  withCustomPolicyGuards({
+  withFftPolicyGuards({
     operation: "circularConvolution",
     compute: () => circularConvolution(left, right, normalization),
     isValid: isFiniteChunk,

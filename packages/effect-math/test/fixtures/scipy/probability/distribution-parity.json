@@ -54,7 +54,7 @@
         "operation": "normalPdf"
       },
       {
-        "expected": 6.075882849823286e-9,
+        "expected": 6.075882849823286e-09,
         "id": "normal-pdf-tail-6sigma",
         "input": {
           "mu": 0.0,
@@ -277,7 +277,10 @@
         "expected": 0.6931471805599453,
         "id": "entropy-uniform-2",
         "input": {
-          "probabilities": [0.5, 0.5]
+          "probabilities": [
+            0.5,
+            0.5
+          ]
         },
         "operation": "entropy"
       },
@@ -285,7 +288,12 @@
         "expected": 1.3862943611198906,
         "id": "entropy-uniform-4",
         "input": {
-          "probabilities": [0.25, 0.25, 0.25, 0.25]
+          "probabilities": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
         },
         "operation": "entropy"
       },
@@ -293,7 +301,10 @@
         "expected": 0.0,
         "id": "entropy-degenerate",
         "input": {
-          "probabilities": [1.0, 0.0]
+          "probabilities": [
+            1.0,
+            0.0
+          ]
         },
         "operation": "entropy"
       },
@@ -301,7 +312,11 @@
         "expected": 0.39439769144744274,
         "id": "entropy-skewed",
         "input": {
-          "probabilities": [0.9, 0.05, 0.05]
+          "probabilities": [
+            0.9,
+            0.05,
+            0.05
+          ]
         },
         "operation": "entropy"
       }

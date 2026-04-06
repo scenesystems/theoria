@@ -62,7 +62,7 @@
         "operation": "gamma"
       },
       {
-        "expected": 1.21645100408832e17,
+        "expected": 1.21645100408832e+17,
         "id": "gamma-large",
         "input": {
           "x": 20.0
@@ -179,7 +179,7 @@
         "operation": "beta"
       },
       {
-        "expected": 1.0825088224469029e-6,
+        "expected": 1.0825088224469029e-06,
         "id": "beta-large",
         "input": {
           "a": 10.0,

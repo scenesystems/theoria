@@ -62,7 +62,14 @@ describe("package publish governance", () => {
         "./Special",
         "./Distribution",
         "./Complex",
+        "./Fft",
         "./contracts"
+      )
+      const blockedInternalSubpaths = Arr.make(
+        "./internal/*",
+        "./Complex/internal/*",
+        "./Fft/internal/*",
+        "./Distribution/internal/*"
       )
 
       yield* Effect.forEach(
@@ -80,13 +87,31 @@ describe("package publish governance", () => {
         { discard: true }
       )
 
-      expect(rootManifest.exports?.["./internal/*"]).toBeNull()
-      expect(packedManifest.exports?.["./internal/*"]).toBeNull()
+      yield* Effect.forEach(
+        blockedInternalSubpaths,
+        (subpath) =>
+          Effect.sync(() => {
+            expect(rootManifest.exports?.[subpath]).toBeNull()
+            expect(packedManifest.exports?.[subpath]).toBeNull()
+          }),
+        { discard: true }
+      )
+
       expect(readmeText).not.toContain("effect-math/internal")
+      expect(readmeText).not.toContain("effect-math/Complex/internal")
+      expect(readmeText).not.toContain("effect-math/Fft/internal")
+      expect(readmeText).not.toContain("effect-math/Distribution/internal")
+      expect(readmeText).toContain("effect-math/Complex")
+      expect(readmeText).toContain("effect-math/Fft")
+      expect(readmeText).toContain("effect-math/Distribution")
       expect(readmeText).toContain("weightedMean")
       expect(readmeText).toContain("normalizeBeneficial")
       expect(readmeText).toContain("normalizeInverseBudget")
       expect(readmeText).toContain("lossSummary")
+      expect(readmeText).toContain("PowerAnalysisReport")
+      expect(readmeText).toContain("SampleSizeForTargetPowerReport")
+      expect(readmeText).toContain("examples/11-fft-transforms.ts")
+      expect(readmeText).toContain("examples/12-statistics-inference.ts")
       expect(readmeText).not.toContain("ScoreProfile")
       expect(readmeText).not.toContain("WorkflowEvaluationReport")
       expect(readmeText).not.toContain("ScoreComponentKind")

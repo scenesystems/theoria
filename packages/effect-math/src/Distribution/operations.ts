@@ -3,8 +3,8 @@
  * variants with boundary input checking, and policy-aware operations
  * that respect `PrecisionPolicyService` and `DiagnosticsPolicyService`.
  *
- * Covers 10 distribution families: Normal, LogNormal, Exponential, Uniform,
- * Beta, Gamma, StudentT, Categorical, Binomial, Poisson.
+ * Covers 11 distribution families: Normal, LogNormal, Exponential, Uniform,
+ * Beta, Gamma, StudentT, NoncentralT, Categorical, Binomial, Poisson.
  *
  * @since 0.1.0
  * @category operations
@@ -19,6 +19,7 @@ import * as CategoricalKernel from "./internal/categorical.js"
 import * as ExponentialKernel from "./internal/exponential.js"
 import * as GammaKernel from "./internal/gamma.js"
 import * as LogNormalKernel from "./internal/logNormal.js"
+import * as NoncentralTKernel from "./internal/noncentralT.js"
 import * as NormalKernel from "./internal/normal.js"
 import * as PoissonKernel from "./internal/poisson.js"
 import * as StudentTKernel from "./internal/studentT.js"
@@ -28,6 +29,8 @@ import {
   BetaDistEvalInput,
   BetaQuantileInput,
   CategoricalDistEvalInput,
+  NoncentralTDistEvalInput,
+  NoncentralTQuantileInput,
   NormalDistEvalInput,
   NormalQuantileInput,
   UniformDistEvalInput
@@ -455,6 +458,23 @@ export const studentTMean: (df: number) => number = StudentTKernel.studentTMean
  */
 export const studentTVariance: (df: number) => number = StudentTKernel.studentTVariance
 
+/**
+ * Noncentral Student's t CDF.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTCdf: (x: number, df: number, noncentrality: number) => number = NoncentralTKernel.noncentralTCdf
+
+/**
+ * Noncentral Student's t quantile.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTQuantile: (p: number, df: number, noncentrality: number) => number =
+  NoncentralTKernel.noncentralTQuantile
+
 // ---------------------------------------------------------------------------
 // Pure kernel re-exports — Categorical
 // ---------------------------------------------------------------------------
@@ -763,6 +783,50 @@ export const categoricalPmfValidated = (input: unknown) =>
     return CategoricalKernel.categoricalPmf(decoded.k, Chunk.fromIterable(decoded.probs))
   })
 
+/**
+ * Boundary-validated noncentral Student's t CDF.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTCdfValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(NoncentralTDistEvalInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new DistributionDecodeError({
+          operation: "noncentralTCdf",
+          message: error.message
+        })
+      )
+    )
+
+    return NoncentralTKernel.noncentralTCdf(decoded.x, decoded.df, decoded.noncentrality)
+  })
+
+/**
+ * Boundary-validated noncentral Student's t quantile.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTQuantileValidated = (input: unknown) =>
+  Effect.gen(function*() {
+    const decoded = yield* Schema.decodeUnknown(NoncentralTQuantileInput)(input, {
+      onExcessProperty: "error"
+    }).pipe(
+      Effect.mapError((error) =>
+        new DistributionDecodeError({
+          operation: "noncentralTQuantile",
+          message: error.message
+        })
+      )
+    )
+
+    return NoncentralTKernel.noncentralTQuantile(decoded.p, decoded.df, decoded.noncentrality)
+  })
+
 // ---------------------------------------------------------------------------
 // Policy-aware operations
 // ---------------------------------------------------------------------------
@@ -794,6 +858,45 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
     compute: () => NormalKernel.normalCdf(x, mu, sigma),
     makeError: (message) => new DistributionDomainViolationError({ operation: "normalCdfWithPolicies", message }),
     annotations: (result) => ({ x: String(x), mu: String(mu), sigma: String(sigma), result: String(result) })
+  })
+
+/**
+ * Policy-aware noncentral Student's t CDF.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTCdfWithPolicies = (x: number, df: number, noncentrality: number) =>
+  withScalarPolicyGuards({
+    operation: "Distribution.noncentralTCdfWithPolicies",
+    compute: () => NoncentralTKernel.noncentralTCdf(x, df, noncentrality),
+    makeError: (message) => new DistributionDomainViolationError({ operation: "noncentralTCdfWithPolicies", message }),
+    annotations: (result) => ({
+      x: String(x),
+      df: String(df),
+      noncentrality: String(noncentrality),
+      result: String(result)
+    })
+  })
+
+/**
+ * Policy-aware noncentral Student's t quantile.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const noncentralTQuantileWithPolicies = (p: number, df: number, noncentrality: number) =>
+  withScalarPolicyGuards({
+    operation: "Distribution.noncentralTQuantileWithPolicies",
+    compute: () => NoncentralTKernel.noncentralTQuantile(p, df, noncentrality),
+    makeError: (message) =>
+      new DistributionDomainViolationError({ operation: "noncentralTQuantileWithPolicies", message }),
+    annotations: (result) => ({
+      p: String(p),
+      df: String(df),
+      noncentrality: String(noncentrality),
+      result: String(result)
+    })
   })
 
 /**

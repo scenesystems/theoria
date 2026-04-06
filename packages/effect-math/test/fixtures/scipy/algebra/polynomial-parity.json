@@ -17,7 +17,9 @@
         "expected": 5.0,
         "id": "polyEval-constant",
         "input": {
-          "coefficients": [5.0],
+          "coefficients": [
+            5.0
+          ],
           "x": 3.0
         },
         "operation": "polyEval"
@@ -26,7 +28,10 @@
         "expected": 5.0,
         "id": "polyEval-linear",
         "input": {
-          "coefficients": [2.0, 3.0],
+          "coefficients": [
+            2.0,
+            3.0
+          ],
           "x": 1.0
         },
         "operation": "polyEval"
@@ -35,7 +40,11 @@
         "expected": 4.0,
         "id": "polyEval-quadratic",
         "input": {
-          "coefficients": [1.0, -2.0, 1.0],
+          "coefficients": [
+            1.0,
+            -2.0,
+            1.0
+          ],
           "x": 3.0
         },
         "operation": "polyEval"
@@ -44,7 +53,12 @@
         "expected": 13.0,
         "id": "polyEval-cubic",
         "input": {
-          "coefficients": [1.0, 0.0, -1.0, 2.0],
+          "coefficients": [
+            1.0,
+            0.0,
+            -1.0,
+            2.0
+          ],
           "x": 2.0
         },
         "operation": "polyEval"
@@ -53,7 +67,11 @@
         "expected": 1.0,
         "id": "polyEval-zero",
         "input": {
-          "coefficients": [1.0, 2.0, 3.0],
+          "coefficients": [
+            1.0,
+            2.0,
+            3.0
+          ],
           "x": 0.0
         },
         "operation": "polyEval"
@@ -62,7 +80,11 @@
         "expected": 3.0,
         "id": "polyEval-negative-x",
         "input": {
-          "coefficients": [1.0, 1.0, 1.0],
+          "coefficients": [
+            1.0,
+            1.0,
+            1.0
+          ],
           "x": -2.0
         },
         "operation": "polyEval"
@@ -71,7 +93,13 @@
         "expected": 17.0,
         "id": "polyEval-high-degree",
         "input": {
-          "coefficients": [1.0, 0.0, 0.0, 0.0, 1.0],
+          "coefficients": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
           "x": 2.0
         },
         "operation": "polyEval"
@@ -80,48 +108,88 @@
         "expected": 2.75,
         "id": "polyEval-fractional",
         "input": {
-          "coefficients": [0.5, -1.5, 2.0],
+          "coefficients": [
+            0.5,
+            -1.5,
+            2.0
+          ],
           "x": 1.5
         },
         "operation": "polyEval"
       },
       {
-        "expected": [0.0],
+        "expected": [
+          0.0
+        ],
         "id": "polyDeriv-constant",
         "input": {
-          "coefficients": [5.0]
+          "coefficients": [
+            5.0
+          ]
         },
         "operation": "polyDerivative"
       },
       {
-        "expected": [2.0],
+        "expected": [
+          2.0
+        ],
         "id": "polyDeriv-linear",
         "input": {
-          "coefficients": [3.0, 2.0]
+          "coefficients": [
+            3.0,
+            2.0
+          ]
         },
         "operation": "polyDerivative"
       },
       {
-        "expected": [-2.0, 2.0],
+        "expected": [
+          -2.0,
+          2.0
+        ],
         "id": "polyDeriv-quadratic",
         "input": {
-          "coefficients": [1.0, -2.0, 1.0]
+          "coefficients": [
+            1.0,
+            -2.0,
+            1.0
+          ]
         },
         "operation": "polyDerivative"
       },
       {
-        "expected": [0.0, -6.0, 3.0],
+        "expected": [
+          0.0,
+          -6.0,
+          3.0
+        ],
         "id": "polyDeriv-cubic",
         "input": {
-          "coefficients": [2.0, 0.0, -3.0, 1.0]
+          "coefficients": [
+            2.0,
+            0.0,
+            -3.0,
+            1.0
+          ]
         },
         "operation": "polyDerivative"
       },
       {
-        "expected": [0.0, 0.0, 0.0, 4.0],
+        "expected": [
+          0.0,
+          0.0,
+          0.0,
+          4.0
+        ],
         "id": "polyDeriv-quartic",
         "input": {
-          "coefficients": [1.0, 0.0, 0.0, 0.0, 1.0]
+          "coefficients": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
         },
         "operation": "polyDerivative"
       },
@@ -282,7 +350,7 @@
         "operation": "factorial"
       },
       {
-        "expected": 2.43290200817664e18,
+        "expected": 2.43290200817664e+18,
         "id": "factorial-20",
         "input": {
           "n": 20

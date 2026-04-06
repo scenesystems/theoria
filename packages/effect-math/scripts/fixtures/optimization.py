@@ -33,6 +33,24 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _golden_section_case("golden-abs-x", "abs_x", -3.0, 3.0),
                 ]
             },
+        },
+        {
+            "fixture": "optimization.root-finding-parity",
+            "file": "optimization/root-finding-parity.json",
+            "metadata": metadata(generated_at),
+            "payload": {
+                "cases": [
+                    _root_case_brent("brent-x-squared-minus-2", "x_squared_minus_2", 0.0, 2.0),
+                    _root_case_brent("brent-cos", "cos", 0.0, 2.0),
+                    _root_case_brent("brent-exp-minus-2", "exp_minus_2", 0.0, 2.0),
+                    _root_case_secant("secant-x-squared-minus-2", "x_squared_minus_2", 1.0, 2.0),
+                    _root_case_secant("secant-cos", "cos", 1.0, 2.0),
+                    _root_case_secant("secant-linear", "linear_2x_minus_3", 0.0, 2.0),
+                    _root_case_newton("newton-x-squared-minus-2", "x_squared_minus_2", "dx_squared_minus_2", 1.5),
+                    _root_case_newton("newton-cos", "cos", "dcos", 1.0),
+                    _root_case_newton("newton-exp-minus-2", "exp_minus_2", "dexp_minus_2", 0.5),
+                ]
+            },
         }
     ]
 
@@ -44,6 +62,12 @@ _ROOT_FUNCTIONS = {
     "sin": math.sin,
     "exp_minus_2": lambda x: math.exp(x) - 2,
     "linear_2x_minus_3": lambda x: 2 * x - 3,
+}
+
+_ROOT_DERIVATIVES = {
+    "dx_squared_minus_2": lambda x: 2 * x,
+    "dcos": lambda x: -math.sin(x),
+    "dexp_minus_2": math.exp,
 }
 
 _MINIMIZE_FUNCTIONS = {
@@ -74,4 +98,57 @@ def _golden_section_case(case_id: str, func_name: str, a: float, b: float) -> di
         "operation": "goldenSection",
         "input": {"function": func_name, "a": a, "b": b},
         "expected": float(result.x),
+    }
+
+
+def _root_expectation(value: float, residual: float) -> dict[str, float]:
+    return {
+        "root": float(value),
+        "rootTolerance": 1e-8,
+        "residualTolerance": max(float(residual), 1e-10),
+    }
+
+
+def _root_case_brent(case_id: str, func_name: str, lower_bound: float, upper_bound: float) -> dict[str, Any]:
+    f = _ROOT_FUNCTIONS[func_name]
+    result = optimize.root_scalar(f, bracket=(lower_bound, upper_bound), method="brentq", xtol=1e-12, rtol=1e-12)
+    root = float(result.root)
+    return {
+        "id": case_id,
+        "operation": "brent",
+        "input": {"function": func_name, "lowerBound": lower_bound, "upperBound": upper_bound},
+        "expected": _root_expectation(root, abs(f(root))),
+    }
+
+
+def _root_case_secant(case_id: str, func_name: str, previous_estimate: float, current_estimate: float) -> dict[str, Any]:
+    f = _ROOT_FUNCTIONS[func_name]
+    result = optimize.root_scalar(f, x0=previous_estimate, x1=current_estimate, method="secant", xtol=1e-12)
+    root = float(result.root)
+    return {
+        "id": case_id,
+        "operation": "secant",
+        "input": {
+            "function": func_name,
+            "previousEstimate": previous_estimate,
+            "currentEstimate": current_estimate,
+        },
+        "expected": _root_expectation(root, abs(f(root))),
+    }
+
+
+def _root_case_newton(case_id: str, func_name: str, derivative_name: str, initial_guess: float) -> dict[str, Any]:
+    f = _ROOT_FUNCTIONS[func_name]
+    derivative = _ROOT_DERIVATIVES[derivative_name]
+    result = optimize.root_scalar(f, fprime=derivative, x0=initial_guess, method="newton", xtol=1e-12)
+    root = float(result.root)
+    return {
+        "id": case_id,
+        "operation": "newtonRaphson",
+        "input": {
+            "function": func_name,
+            "derivative": derivative_name,
+            "initialGuess": initial_guess,
+        },
+        "expected": _root_expectation(root, abs(f(root))),
     }

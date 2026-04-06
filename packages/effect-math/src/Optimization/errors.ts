@@ -10,6 +10,7 @@
  */
 import { Schema } from "effect"
 
+import type { KernelExecutionError } from "../contracts/shared/AdvancedComputationErrors.js"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
@@ -86,6 +87,20 @@ export class OptimizationConvergenceError
 {}
 
 /**
+ * Raised when a root-finding workflow requires derivative authority that
+ * is either unavailable or becomes numerically singular at runtime.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class OptimizationDerivativeAuthorityError
+  extends Schema.TaggedError<OptimizationDerivativeAuthorityError>()("OptimizationDerivativeAuthorityError", {
+    operation: Schema.String,
+    message: Schema.String
+  })
+{}
+
+/**
  * Union of all boundary-level errors.
  *
  * @since 0.1.0
@@ -104,3 +119,5 @@ export type OptimizationOperationError =
   | OptimizationDomainViolationError
   | OptimizationParameterError
   | OptimizationConvergenceError
+  | OptimizationDerivativeAuthorityError
+  | KernelExecutionError

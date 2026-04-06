@@ -121,6 +121,12 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _studentt_mean("studentt-mean-df3", 3.0),
                     _studentt_variance("studentt-variance-df3", 3.0),
                     _studentt_variance("studentt-variance-df30", 30.0),
+                    # NoncentralT
+                    _noncentralt_cdf("noncentralt-cdf-origin", 0.0, 10.0, 1.5),
+                    _noncentralt_cdf("noncentralt-cdf-positive", 1.2, 5.0, 0.75),
+                    _noncentralt_cdf("noncentralt-cdf-negative", -0.5, 8.0, 1.25),
+                    _noncentralt_quantile("noncentralt-quantile-upper", 0.8, 10.0, 1.5),
+                    _noncentralt_quantile("noncentralt-quantile-lower", 0.2, 8.0, -1.0),
                     # Categorical
                     _cat_pmf("cat-pmf-k0", 0, [0.1, 0.2, 0.3, 0.4]),
                     _cat_pmf("cat-pmf-k3", 3, [0.1, 0.2, 0.3, 0.4]),
@@ -322,6 +328,14 @@ def _studentt_mean(cid: str, df: float) -> dict[str, Any]:
 
 def _studentt_variance(cid: str, df: float) -> dict[str, Any]:
     return {"id": cid, "operation": "studentTVariance", "input": {"df": df}, "expected": float(stats.t.var(df))}
+
+
+# --- NoncentralT ---
+def _noncentralt_cdf(cid: str, x: float, df: float, noncentrality: float) -> dict[str, Any]:
+    return {"id": cid, "operation": "noncentralTCdf", "input": {"x": x, "df": df, "noncentrality": noncentrality}, "expected": float(stats.nct.cdf(x, df, noncentrality))}
+
+def _noncentralt_quantile(cid: str, p: float, df: float, noncentrality: float) -> dict[str, Any]:
+    return {"id": cid, "operation": "noncentralTQuantile", "input": {"p": p, "df": df, "noncentrality": noncentrality}, "expected": float(stats.nct.ppf(p, df, noncentrality))}
 
 
 # --- Categorical ---

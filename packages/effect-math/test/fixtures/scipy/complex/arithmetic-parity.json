@@ -211,8 +211,8 @@
       },
       {
         "expected": {
-          "im": -1e16,
-          "re": 5e16
+          "im": -1e+16,
+          "re": 5e+16
         },
         "id": "multiply-large",
         "input": {

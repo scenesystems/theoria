@@ -86,6 +86,71 @@ export const unsafeDivide: {
 export const safeDivideFinite: (dividend: number, divisor: number) => Option.Option<number> = Scalar.safeDivideFinite
 
 /**
+ * Canonical circle constant used by downstream samplers and density kernels.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const PI = Math.PI
+
+/**
+ * Canonical base of the natural logarithm used by downstream log-space
+ * transforms.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const E = Transcendental.E
+
+/**
+ * Canonical natural logarithm of two used by strict logarithm kernels.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const LN_2 = Transcendental.LN_2
+
+/**
+ * Canonical square root of two used by Gaussian and Fourier-domain helpers.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const SQRT_2 = Math.SQRT2
+
+/**
+ * Canonical IEEE-754 machine epsilon for float64 computations.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const EPSILON = Number.EPSILON
+
+/**
+ * Absolute value on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const abs: (value: number) => number = Transcendental.abs
+
+/**
+ * Square root on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const sqrt: (value: number) => number = Math.sqrt
+
+/**
+ * Natural exponential on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const exp: (value: number) => number = Transcendental.exp
+
+/**
  * Natural logarithm delegating directly to `Math.log`. Returns `NaN` for
  * negative input and `-Infinity` for zero — callers that need domain
  * enforcement should use {@link logValidated} which rejects non-positive

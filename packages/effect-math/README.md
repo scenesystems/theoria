@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, distributions, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
+Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, distributions, FFTs, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
 
 [Quick start](#quick-start) · [Domains](#domains) · [Runtime policies](#runtime-policies) · [Error handling](#error-handling) · [API at a glance](#api-at-a-glance)
 
@@ -43,6 +43,8 @@ import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
 import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
 import { of, add, abs, sin, complexDerivative } from "effect-math/Complex"
+import { circularConvolution, rfft } from "effect-math/Fft"
+import { solveAdaptiveRk45, solveRk4 } from "effect-math/Calculus"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
@@ -76,6 +78,37 @@ const z = add(of(1, 2), of(3, 4)) // 4 + 6i
 abs(of(3, 4)) // 5
 sin(of(1, 1)) // sin(1)cosh(1) + i·cos(1)sinh(1)
 complexDerivative(sin, 0) // cos(0) = 1 (machine-precision)
+
+const spectrum = rfft(Chunk.fromIterable([0, 1, 0, -1]))
+spectrum.signalLength // 4
+
+circularConvolution(
+  Chunk.fromIterable([1, 2, 1, 0]),
+  Chunk.fromIterable([1, 0, -1, 0])
+) // Chunk(0, 2, 0, -2)
+
+solveRk4(
+  (_time, state) => Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)]),
+  {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: Chunk.fromIterable([1, 0]),
+    stepSize: 0.05
+  }
+) // finalState ≈ [cos(1), -sin(1)]
+
+solveAdaptiveRk45(
+  (_time, state) => Chunk.fromIterable([-Chunk.unsafeGet(state, 0)]),
+  {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: Chunk.fromIterable([1]),
+    initialStep: 0.1,
+    maxStep: 0.2,
+    absoluteTolerance: 1e-8,
+    relativeTolerance: 1e-8
+  }
+) // finalState ≈ [e^-1]
 ```
 
 When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
@@ -102,23 +135,31 @@ Effect.runSync(program.pipe(Effect.provide(policies)))
 
 Under `"strict"` precision, non-finite results fail with a typed error instead of silently returning `NaN` or `Infinity`.
 
+### Selected workflows
+
+- **FFT** — `rfft`, `irfft`, and `circularConvolution` keep one real-signal and convolution path over `Chunk<number>` carriers. See [`examples/11-fft-transforms.ts`](./examples/11-fft-transforms.ts).
+- **Optimization** — `brent`, `secant`, `newtonRaphson`, `findRootValidated`, and `findRootWithPolicies` share one canonical result envelope and reuse autodiff authority when Newton-Raphson omits an explicit derivative. See [`examples/09-optimization-solvers.ts`](./examples/09-optimization-solvers.ts).
+- **Statistics and Distribution** — `MeanConfidenceIntervalReport`, `TTestReport`, `PowerAnalysisReport`, `SampleSizeForTargetPowerReport`, `confidenceIntervalMean`, `oneSampleTTest`, `twoSampleTTest`, `powerForMeanDifference`, `sampleSizeForTargetPower`, `noncentralTCdf`, and `noncentralTQuantile` now cover inferential and power-analysis workflows on package-owned report and distribution surfaces. See [`examples/12-statistics-inference.ts`](./examples/12-statistics-inference.ts).
+- **ODE** — `solveEuler`, `solveRk4`, and `solveAdaptiveRk45` keep the released sample cadence on `Chunk<number>` state carriers while policy-aware entrypoints still route through shared computation dispatch. See [`examples/08-calculus-numerical.ts`](./examples/08-calculus-numerical.ts).
+
 ## Domains
 
 Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
 
 | Domain            | Import                      | What it does                                                                                                                                                                                                            |
 | ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`                                                                                                                                                            |
+| **Numeric**       | `effect-math/Numeric`       | Scalar constants and transforms — `PI`, `E`, `safeDivide`, `log`, `log1p`, `exp`, `expm1`, `sqrt`, `clamp`                                                                                                              |
 | **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
 | **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max, generic weighted aggregation, bounded normalization, loss summaries                                                                                            |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max, generic weighted aggregation, bounded normalization, loss summaries, confidence intervals, t-tests, power analysis, and sample-size inversion                |
 | **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
 | **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
-| **Calculus**      | `effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration |
-| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization                                                                                                                                                                     |
-| **Distribution**  | `effect-math/Distribution`  | 10-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, entropy                                                     |
+| **Calculus**      | `effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration, and ODE solvers (`solveEuler`, `solveRk4`, `solveAdaptiveRk45`) |
+| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization, and canonical Brent/secant/Newton-Raphson result-envelope solving                                                                                                   |
+| **Distribution**  | `effect-math/Distribution`  | 11-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Noncentral-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, and entropy                                    |
 | **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                |
+| **Fft**           | `effect-math/Fft`           | Complex FFT, Hermitian real-spectrum FFT, and circular convolution over `Chunk<number>` carriers                                                                                                                        |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -179,8 +220,13 @@ Each domain also defines a `DomainViolationError` raised under `"strict"` precis
 import { dot, normL2, vectorAdd, vectorScale, matvec, transpose, frobeniusNorm } from "effect-math/LinearAlgebra"
 import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "effect-math/Geometry"
 import {
+  confidenceIntervalMean,
   lossSummary,
   mean,
+  oneSampleTTest,
+  powerForMeanDifference,
+  sampleSizeForTargetPower,
+  twoSampleTTest,
   variance,
   standardDeviation,
   covariance,
@@ -191,7 +237,7 @@ import {
   normalizeInverseBudget
 } from "effect-math/Statistics"
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
-import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
+import { PI, E, LN_2, SQRT_2, EPSILON, safeDivide, log, log1p, exp, expm1, sum, abs as scalarAbs, sqrt as scalarSqrt, clamp, between } from "effect-math/Numeric"
 import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
 import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
 import {
@@ -207,9 +253,12 @@ import {
   laplacian,
   trapezoid,
   simpson,
-  adaptiveSimpson
+  adaptiveSimpson,
+  solveEuler,
+  solveRk4,
+  solveAdaptiveRk45
 } from "effect-math/Calculus"
-import { bisect, goldenSection } from "effect-math/Optimization"
+import { bisect, brent, findRoot, goldenSection, newtonRaphson, secant } from "effect-math/Optimization"
 import {
   normalPdf as dNormalPdf,
   normalCdf as dNormalCdf,
@@ -220,6 +269,8 @@ import {
   gammaPdf,
   gammaCdf,
   exponentialPdf,
+  noncentralTCdf,
+  noncentralTQuantile,
   uniformPdf,
   studentTPdf,
   categoricalPmf,
@@ -258,13 +309,27 @@ import {
   fromRealChunk,
   toRealChunk
 } from "effect-math/Complex"
+import {
+  circularConvolution,
+  fft,
+  fromRealSignal,
+  ifft,
+  irfft,
+  rfft,
+  toComplexChunk
+} from "effect-math/Fft"
 
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
 import { distanceWithPolicies } from "effect-math/Geometry"
 import {
+  confidenceIntervalMeanWithPolicies,
+  oneSampleTTestWithPolicies,
+  powerForMeanDifferenceWithPolicies,
+  sampleSizeForTargetPowerWithPolicies,
   summaryStatisticsWithPolicies,
   meanWithPolicies,
+  twoSampleTTestWithPolicies,
   varianceWithPolicies,
   covarianceWithPolicies
 } from "effect-math/Statistics"
@@ -304,10 +369,26 @@ import {
   laplacianWithPolicies,
   trapezoidWithPolicies,
   simpsonWithPolicies,
-  adaptiveSimpsonWithPolicies
+  adaptiveSimpsonWithPolicies,
+  solveEulerWithPolicies,
+  solveRk4WithPolicies,
+  solveAdaptiveRk45WithPolicies
 } from "effect-math/Calculus"
-import { bisectWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
-import { normalPdfWithPolicies, normalCdfWithPolicies, betaCdfWithPolicies } from "effect-math/Distribution"
+import { bisectWithPolicies, findRootWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
+import {
+  betaCdfWithPolicies,
+  noncentralTCdfWithPolicies,
+  noncentralTQuantileWithPolicies,
+  normalCdfWithPolicies,
+  normalPdfWithPolicies
+} from "effect-math/Distribution"
+import {
+  circularConvolutionWithPolicies,
+  fftWithPolicies,
+  ifftWithPolicies,
+  irfftWithPolicies,
+  rfftWithPolicies
+} from "effect-math/Fft"
 
 // Runtime policy services and layer constructors
 import {
@@ -323,7 +404,7 @@ import {
 
 | Tier            | Domains                                                                                                                    | Meaning                           |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Distribution, Complex | Functional and tested, may evolve |
+| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Distribution, Complex, Fft | Functional and tested, may evolve |
 
 ## Calculus Fixture Provenance
 

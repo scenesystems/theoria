@@ -917,11 +917,66 @@
         "operation": "studentTVariance"
       },
       {
+        "expected": 0.06680720126885809,
+        "id": "noncentralt-cdf-origin",
+        "input": {
+          "df": 10.0,
+          "noncentrality": 1.5,
+          "x": 0.0
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 0.6426249085997777,
+        "id": "noncentralt-cdf-positive",
+        "input": {
+          "df": 5.0,
+          "noncentrality": 0.75,
+          "x": 1.2
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 0.04254766255904942,
+        "id": "noncentralt-cdf-negative",
+        "input": {
+          "df": 8.0,
+          "noncentrality": 1.25,
+          "x": -0.5
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 2.5275221266253096,
+        "id": "noncentralt-quantile-upper",
+        "input": {
+          "df": 10.0,
+          "noncentrality": 1.5,
+          "p": 0.8
+        },
+        "operation": "noncentralTQuantile"
+      },
+      {
+        "expected": -2.0005452435170508,
+        "id": "noncentralt-quantile-lower",
+        "input": {
+          "df": 8.0,
+          "noncentrality": -1.0,
+          "p": 0.2
+        },
+        "operation": "noncentralTQuantile"
+      },
+      {
         "expected": 0.1,
         "id": "cat-pmf-k0",
         "input": {
           "k": 0,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalPmf"
       },
@@ -930,7 +985,12 @@
         "id": "cat-pmf-k3",
         "input": {
           "k": 3,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalPmf"
       },
@@ -939,7 +999,10 @@
         "id": "cat-pmf-fair",
         "input": {
           "k": 0,
-          "probs": [0.5, 0.5]
+          "probs": [
+            0.5,
+            0.5
+          ]
         },
         "operation": "categoricalPmf"
       },
@@ -948,7 +1011,12 @@
         "id": "cat-logpmf-k0",
         "input": {
           "k": 0,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalLogpmf"
       },
@@ -957,7 +1025,12 @@
         "id": "cat-logpmf-k3",
         "input": {
           "k": 3,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalLogpmf"
       },
@@ -966,7 +1039,12 @@
         "id": "cat-cdf-k0",
         "input": {
           "k": 0,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalCdf"
       },
@@ -975,7 +1053,12 @@
         "id": "cat-cdf-k2",
         "input": {
           "k": 2,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalCdf"
       },
@@ -984,7 +1067,12 @@
         "id": "cat-cdf-k3",
         "input": {
           "k": 3,
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalCdf"
       },
@@ -992,7 +1080,12 @@
         "expected": 2.0,
         "id": "cat-mean-4class",
         "input": {
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalMean"
       },
@@ -1000,7 +1093,12 @@
         "expected": 1.0,
         "id": "cat-variance-4class",
         "input": {
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalVariance"
       },
@@ -1008,7 +1106,12 @@
         "expected": 1.2798542258336676,
         "id": "cat-entropy-4class",
         "input": {
-          "probs": [0.1, 0.2, 0.3, 0.4]
+          "probs": [
+            0.1,
+            0.2,
+            0.3,
+            0.4
+          ]
         },
         "operation": "categoricalEntropy"
       },
@@ -1016,7 +1119,10 @@
         "expected": 0.6931471805599453,
         "id": "cat-entropy-fair",
         "input": {
-          "probs": [0.5, 0.5]
+          "probs": [
+            0.5,
+            0.5
+          ]
         },
         "operation": "categoricalEntropy"
       },
