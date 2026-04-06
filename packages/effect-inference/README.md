@@ -13,6 +13,46 @@ Effect-native provider-blind runtime descriptors, route resolution, and replay-s
 
 This is the main value of the package: callers work against `@effect/ai` `LanguageModel` and `EmbeddingModel`, while `effect-inference` keeps the runtime metadata around those calls explicit and serializable.
 
+## Workflow And Score Contracts
+
+`effect-inference/Contracts` also owns the reusable workflow, session,
+evaluation, and score family that sits on top of the frozen
+runtime-provenance lane. Runtime resolution still lives on `Runtime` and the
+route-family helpers, while graph/session/evaluation/score semantics stay on
+`effect-inference/Contracts`.
+
+```ts typecheck
+import { Effect, Schema } from "effect"
+import * as Contracts from "effect-inference/Contracts"
+
+const summarizeWorkflow = (workflowRecordJson: unknown, workflowReportJson: unknown) =>
+  Effect.gen(function* () {
+    const record = yield* Schema.decodeUnknown(Contracts.WorkflowExecutionRecordSchema)(workflowRecordJson)
+    const report = yield* Schema.decodeUnknown(Contracts.WorkflowEvaluationReportSchema)(workflowReportJson)
+
+    return {
+      workflowKind: record.workflowKind,
+      entryNodeId: record.projection.entryNodeId,
+      profileId: report.profile.profileId,
+      aggregateScore: report.aggregateScore
+    }
+  })
+```
+
+The released workflow surface includes:
+
+- `WorkflowKind`, `WorkflowVocabulary`, `SessionManifest`,
+  `NodeExecutionContract`, `GraphExecutionManifest`,
+  `GraphExecutionProjection`, `EvaluationContract`, and
+  `WorkflowExecutionRecord`
+- `ScoreComponentKind`, `ScoreWeights`, `ScoreProfile`,
+  `ScoreComponentResult`, `ScoreLossSummary`, and
+  `WorkflowEvaluationReport`
+
+See `examples/05-workflow-contracts.ts` for a concrete package-owned example
+that decodes a reusable workflow record and workflow evaluation report without
+booting a live provider runtime.
+
 ## Quick Start
 
 ```ts typecheck
@@ -84,6 +124,7 @@ The Hugging Face config helper reads env-backed keys such as `HUGGINGFACE_ACCESS
 - `examples/02-hugging-face-routed-runtime.ts` — Hugging Face routed-provider live runtime resolution plus `LanguageModel.generateText`
 - `examples/03-runtime-config-decoding.ts` — config-driven direct provider runtime construction through `Runtime.resolveLiveTextProviderRuntime`
 - `examples/04-hugging-face-endpoint-runtime.ts` — Hugging Face dedicated endpoint live runtime resolution plus embeddings execution
+- `examples/05-workflow-contracts.ts` — package-owned workflow/session/evaluation/score decoding distinct from live runtime resolution
 
 ## Entry Points
 

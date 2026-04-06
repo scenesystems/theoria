@@ -97,12 +97,12 @@
       "version": "0.1.4",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
+        "effect-inference": "workspace:^",
         "effect-math": "workspace:^",
         "effect-search": "workspace:^",
       },
       "devDependencies": {
         "@theoria/source-proof": "workspace:*",
-        "effect-inference": "workspace:^",
       },
       "peerDependencies": {
         "@effect/ai": ">=0.35.0",
@@ -121,6 +121,9 @@
       },
       "devDependencies": {
         "@theoria/source-proof": "workspace:*",
+        "effect-math": "workspace:^",
+        "effect-search": "workspace:^",
+        "effect-text": "workspace:^",
       },
       "peerDependencies": {
         "@effect/ai": ">=0.35.0",
@@ -129,7 +132,7 @@
     },
     "packages/effect-math": {
       "name": "effect-math",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "devDependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -160,7 +163,7 @@
     },
     "packages/effect-text": {
       "name": "effect-text",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "effect-math": "workspace:^",
         "effect-search": "workspace:^",

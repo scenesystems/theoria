@@ -1,6 +1,6 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Record } from "effect"
+import { Array as Arr, Effect, Option, Record } from "effect"
 
 import {
   listTypeScriptFilesInDir,
@@ -13,6 +13,7 @@ import {
 import * as Contracts from "../../src/contracts/index.js"
 
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
+const appWorkflowComparisonContractPath = "apps/theoria/app/contracts/workflow/comparison.ts"
 
 const workflowContractExports = [
   "WorkflowKindSchema",
@@ -53,12 +54,7 @@ const forbiddenDuplicateExports = [
   "WorkflowEvaluationReportSchema"
 ]
 
-const forbiddenWorkflowModuleSpecifiers = [
-  "effect-inference/Contracts",
-  "effect-inference/contracts",
-  "../../effect-inference/src/contracts/index.js",
-  "../../../effect-inference/src/contracts/index.js"
-]
+const workflowContractModuleSpecifiers = ["effect-inference/Contracts", "effect-inference/contracts"]
 
 describe("package/workflow-contract-ownership", () => {
   it.effect("exports the reusable workflow and score family from effect-inference/contracts", () =>
@@ -71,16 +67,14 @@ describe("package/workflow-contract-ownership", () => {
         )
     }))
 
-  it.effect("keeps effect-dsp/contracts and app demo contracts free of duplicate workflow-family exports", () =>
+  it.effect("keeps app demo contracts on selector and fixture roles over the package-owned workflow family", () =>
     Effect.gen(function*() {
-      const effectDspContractFiles = yield* listTypeScriptFilesInDir(
-        repositoryRootUrl,
-        "packages/effect-dsp/src/contracts"
-      )
-      const appDemoContractFiles = yield* listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/demo")
-      const filesToInspect = [...effectDspContractFiles, ...appDemoContractFiles]
+      const appContractFiles = yield* Effect.all([
+        listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/demo"),
+        listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/workflow")
+      ]).pipe(Effect.map(([demoFiles, workflowFiles]) => Arr.appendAll(demoFiles, workflowFiles)))
 
-      const duplicateExports = yield* Effect.forEach(filesToInspect, (file) =>
+      const contractUsage = yield* Effect.forEach(appContractFiles, (file) =>
         Effect.gen(function*() {
           const source = yield* readProjectFile(repositoryRootUrl, file.relative)
           const parsed = parseTypeScript(file.relative, source)
@@ -90,13 +84,16 @@ describe("package/workflow-contract-ownership", () => {
           return {
             file: file.relative,
             exportsWorkflowFamily: forbiddenDuplicateExports.some((name) => exportNames.includes(name)),
-            reexportsWorkflowContracts: forbiddenWorkflowModuleSpecifiers.some((specifier) =>
-              imports.includes(specifier)
-            )
+            importsWorkflowContracts: workflowContractModuleSpecifiers.some((specifier) => imports.includes(specifier))
           }
         }))
 
-      expect(duplicateExports.some((entry) => entry.exportsWorkflowFamily)).toBe(false)
-      expect(duplicateExports.some((entry) => entry.reexportsWorkflowContracts)).toBe(false)
+      expect(contractUsage.some((entry) => entry.exportsWorkflowFamily)).toBe(false)
+      expect(
+        Arr.filterMap(
+          contractUsage,
+          (entry) => entry.importsWorkflowContracts ? Option.some(entry.file) : Option.none()
+        )
+      ).toEqual([appWorkflowComparisonContractPath])
     }).pipe(Effect.provide(BunContext.layer)))
 })
