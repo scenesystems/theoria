@@ -5,7 +5,8 @@
   "type": "module",
   "description": "AST-backed source structure proofs for Theoria workspace tests",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",

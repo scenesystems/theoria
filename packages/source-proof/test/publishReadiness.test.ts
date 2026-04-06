@@ -171,4 +171,99 @@ describe("publish readiness", () => {
       expect(decodedSnapshot.releasedVersion).toBe("0.3.0")
       expect(decodedSnapshot.exports.length).toBeGreaterThan(0)
     }).pipe(Effect.provide(BunContext.layer)))
+
+  it.scoped("stamps the governed release version from pending changesets", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const repositoryRoot = yield* resolveRepositoryRoot
+      const workspaceRoot = yield* fileSystem.makeTempDirectoryScoped({ prefix: "source-proof-governed-release-" })
+      const changesetDirectory = path.join(workspaceRoot, ".changeset")
+      const packageRoot = path.join(workspaceRoot, "packages", "fixture-package")
+      const sourceDirectory = path.join(packageRoot, "src")
+      const snapshotsDirectory = path.join(packageRoot, "test", "package", "release-snapshots")
+      const governedSnapshotPath = path.join(snapshotsDirectory, "0.3.0.json")
+      const manifestSnapshotPath = path.join(snapshotsDirectory, "0.2.1.json")
+
+      yield* fileSystem.makeDirectory(changesetDirectory, { recursive: true }).pipe(Effect.orDie)
+      yield* fileSystem.makeDirectory(sourceDirectory, { recursive: true }).pipe(Effect.orDie)
+      yield* fileSystem.writeFileString(
+        path.join(changesetDirectory, "config.json"),
+        "{}\n"
+      ).pipe(Effect.orDie)
+      yield* fileSystem.writeFileString(
+        path.join(changesetDirectory, "fixture-package-release.md"),
+        [
+          "---",
+          "\"fixture-package\": minor",
+          "---",
+          "",
+          "Promote the next governed fixture release.",
+          ""
+        ].join("\n")
+      ).pipe(Effect.orDie)
+      yield* fileSystem.writeFileString(
+        path.join(packageRoot, "package.json"),
+        [
+          "{",
+          "  \"name\": \"fixture-package\",",
+          "  \"version\": \"0.2.1\",",
+          "  \"type\": \"module\",",
+          "  \"exports\": {",
+          "    \".\": \"./src/index.ts\"",
+          "  }",
+          "}",
+          ""
+        ].join("\n")
+      ).pipe(Effect.orDie)
+      yield* fileSystem.writeFileString(
+        path.join(packageRoot, "tsconfig.src.json"),
+        [
+          "{",
+          "  \"compilerOptions\": {",
+          "    \"strict\": true,",
+          "    \"noEmit\": true,",
+          "    \"target\": \"ES2022\",",
+          "    \"module\": \"NodeNext\",",
+          "    \"moduleResolution\": \"NodeNext\",",
+          "    \"lib\": [\"ES2022\"]",
+          "  },",
+          "  \"include\": [\"src\"]",
+          "}",
+          ""
+        ].join("\n")
+      ).pipe(Effect.orDie)
+      yield* fileSystem.writeFileString(
+        path.join(sourceDirectory, "index.ts"),
+        [
+          "/**",
+          " * @since 0.3.0",
+          " * @category values",
+          " */",
+          "export const releaseAuthority = \"governed\"",
+          ""
+        ].join("\n")
+      ).pipe(Effect.orDie)
+
+      const result = yield* runCommand(repositoryRoot, [
+        "scripts/stamp-release-snapshot.ts",
+        `--package-root=${packageRoot}`
+      ])
+      const governedSnapshot = yield* fileSystem.readFileString(governedSnapshotPath).pipe(Effect.orDie)
+      const decodedSnapshot = yield* Schema.decodeUnknown(ReleaseSinceSnapshotJson)(governedSnapshot).pipe(Effect.orDie)
+      const manifestSnapshotExists = yield* fileSystem.exists(manifestSnapshotPath).pipe(Effect.orDie)
+
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain(governedSnapshotPath)
+      expect(manifestSnapshotExists).toBe(false)
+      expect(decodedSnapshot.releasedVersion).toBe("0.3.0")
+      expect(decodedSnapshot.exports).toEqual([
+        {
+          subpath: ".",
+          exportName: "releaseAuthority",
+          kind: "value",
+          firstReleasedIn: "0.3.0"
+        }
+      ])
+    }).pipe(Effect.provide(BunContext.layer)))
 })

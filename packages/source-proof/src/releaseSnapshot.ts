@@ -86,8 +86,9 @@ export const loadReleaseSinceSnapshotForVersion = (input: {
  * Stamps the current package release snapshot from package manifest and checker truth.
  *
  * This keeps release-governance authority singular: `package.json` owns the
- * public surface and current version, the TypeScript program owns consumer
- * resolution, and checked-in snapshots preserve prior first-release history.
+ * public surface, pending changesets own the next release target when they
+ * exist, the TypeScript program owns consumer resolution, and checked-in
+ * snapshots preserve prior first-release history.
  *
  * @since 0.0.0
  * @category constructors
@@ -101,6 +102,12 @@ export const stampCurrentPackageReleaseSinceSnapshot = (input: {
   Effect.gen(function*() {
     const path = yield* Path.Path
     const manifest = yield* loadPackageReleaseManifest(input.packageRoot)
+    const workspaceRoot = path.dirname(path.dirname(input.packageRoot))
+    const releaseVersion = input.releasedVersion ?? (yield* resolveReleaseGovernedVersion({
+      workspaceRoot,
+      packageName: manifest.name,
+      currentVersion: manifest.version
+    }))
     const entrypoints = yield* packagePublicEntrypoints(input.packageRoot, manifest)
     const snapshotsDirectory = input.snapshotsDirectory
       ?? path.join(input.packageRoot, "test/package/release-snapshots")
@@ -110,7 +117,7 @@ export const stampCurrentPackageReleaseSinceSnapshot = (input: {
 
     return stampReleaseSinceSnapshot({
       packageName: manifest.name,
-      releasedVersion: input.releasedVersion ?? manifest.version,
+      releasedVersion: releaseVersion,
       exports: packagePublicExports(program, entrypoints),
       previousSnapshots
     })
