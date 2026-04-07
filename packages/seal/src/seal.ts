@@ -43,7 +43,7 @@ import { aesgcmDecrypt, aesgcmEncrypt } from "./algorithms/aesgcm.js"
 import { aesgcmsivDecrypt, aesgcmsivEncrypt } from "./algorithms/aesgcmsiv.js"
 import { xchacha20Decrypt, xchacha20Encrypt } from "./algorithms/xchacha20.js"
 import { packEnvelope, unpackEnvelope } from "./encoding.js"
-import { DecryptionFailed, type InvalidKey } from "./schemas/errors.js"
+import { DecryptionFailed, type InvalidAssociatedData, type InvalidKey } from "./schemas/errors.js"
 import type { SealAlgorithm } from "./schemas/SealAlgorithm.js"
 import type { EnvelopeKeyMetadataType, SealedEnvelope } from "./schemas/SealedEnvelope.js"
 
@@ -60,13 +60,14 @@ export const seal = (
   algorithm: typeof SealAlgorithm.Type,
   key: Uint8Array,
   plaintext: Uint8Array,
-  metadata: EnvelopeKeyMetadataType = {}
-): Effect.Effect<SealedEnvelope, InvalidKey> =>
+  metadata: EnvelopeKeyMetadataType = {},
+  associatedData?: Uint8Array
+): Effect.Effect<SealedEnvelope, InvalidAssociatedData | InvalidKey> =>
   Effect.gen(function*() {
     const raw = yield* Match.value(algorithm).pipe(
-      Match.when("xchacha20-poly1305", () => xchacha20Encrypt(key, plaintext)),
-      Match.when("aes-256-gcm-siv", () => aesgcmsivEncrypt(key, plaintext)),
-      Match.when("aes-256-gcm", () => aesgcmEncrypt(key, plaintext)),
+      Match.when("xchacha20-poly1305", () => xchacha20Encrypt(key, plaintext, associatedData)),
+      Match.when("aes-256-gcm-siv", () => aesgcmsivEncrypt(key, plaintext, associatedData)),
+      Match.when("aes-256-gcm", () => aesgcmEncrypt(key, plaintext, associatedData)),
       Match.exhaustive
     )
     return yield* packEnvelope(algorithm, raw, metadata)
@@ -83,8 +84,9 @@ export const seal = (
  */
 export const unseal = (
   key: Uint8Array,
-  envelope: SealedEnvelope
-): Effect.Effect<Uint8Array, DecryptionFailed | InvalidKey> =>
+  envelope: SealedEnvelope,
+  associatedData?: Uint8Array
+): Effect.Effect<Uint8Array, DecryptionFailed | InvalidAssociatedData | InvalidKey> =>
   Effect.gen(function*() {
     const raw = yield* unpackEnvelope(envelope).pipe(
       Effect.mapError(() =>
@@ -95,9 +97,9 @@ export const unseal = (
       )
     )
     return yield* Match.value(envelope.algorithm).pipe(
-      Match.when("xchacha20-poly1305", () => xchacha20Decrypt(key, raw)),
-      Match.when("aes-256-gcm-siv", () => aesgcmsivDecrypt(key, raw)),
-      Match.when("aes-256-gcm", () => aesgcmDecrypt(key, raw)),
+      Match.when("xchacha20-poly1305", () => xchacha20Decrypt(key, raw, associatedData)),
+      Match.when("aes-256-gcm-siv", () => aesgcmsivDecrypt(key, raw, associatedData)),
+      Match.when("aes-256-gcm", () => aesgcmDecrypt(key, raw, associatedData)),
       Match.exhaustive
     )
   })

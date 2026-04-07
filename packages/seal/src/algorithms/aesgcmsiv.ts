@@ -30,9 +30,10 @@
 
 import { gcmsiv } from "@noble/ciphers/aes.js"
 import { managedNonce } from "@noble/ciphers/utils.js"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
+import { validateAssociatedData } from "../internal/associatedData.js"
 import { validateKey } from "../internal/keyValidation.js"
-import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
+import { DecryptionFailed, type InvalidAssociatedData, type InvalidKey } from "../schemas/errors.js"
 
 /**
  * Encrypt `plaintext` using AES-256-GCM-SIV.
@@ -45,11 +46,16 @@ import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
  */
 export const aesgcmsivEncrypt = (
   key: Uint8Array,
-  plaintext: Uint8Array
-): Effect.Effect<Uint8Array, InvalidKey> =>
+  plaintext: Uint8Array,
+  associatedData?: Uint8Array
+): Effect.Effect<Uint8Array, InvalidAssociatedData | InvalidKey> =>
   Effect.gen(function*() {
     yield* validateKey(key)
-    return yield* Effect.sync(() => managedNonce(gcmsiv)(key).encrypt(plaintext))
+    const aad = yield* validateAssociatedData("aes-256-gcm-siv", Option.fromNullable(associatedData))
+    return yield* Option.match(aad, {
+      onNone: () => Effect.sync(() => managedNonce(gcmsiv)(key).encrypt(plaintext)),
+      onSome: (value) => Effect.sync(() => managedNonce(gcmsiv)(key, value).encrypt(plaintext))
+    })
   })
 
 /**
@@ -64,16 +70,30 @@ export const aesgcmsivEncrypt = (
  */
 export const aesgcmsivDecrypt = (
   key: Uint8Array,
-  ciphertext: Uint8Array
-): Effect.Effect<Uint8Array, DecryptionFailed | InvalidKey> =>
+  ciphertext: Uint8Array,
+  associatedData?: Uint8Array
+): Effect.Effect<Uint8Array, DecryptionFailed | InvalidAssociatedData | InvalidKey> =>
   Effect.gen(function*() {
     yield* validateKey(key)
-    return yield* Effect.try({
-      try: () => managedNonce(gcmsiv)(key).decrypt(ciphertext),
-      catch: () =>
-        new DecryptionFailed({
-          algorithm: "aes-256-gcm-siv",
-          reason: "authentication failed"
+    const aad = yield* validateAssociatedData("aes-256-gcm-siv", Option.fromNullable(associatedData))
+    return yield* Option.match(aad, {
+      onNone: () =>
+        Effect.try({
+          try: () => managedNonce(gcmsiv)(key).decrypt(ciphertext),
+          catch: () =>
+            new DecryptionFailed({
+              algorithm: "aes-256-gcm-siv",
+              reason: "authentication failed"
+            })
+        }),
+      onSome: (value) =>
+        Effect.try({
+          try: () => managedNonce(gcmsiv)(key, value).decrypt(ciphertext),
+          catch: () =>
+            new DecryptionFailed({
+              algorithm: "aes-256-gcm-siv",
+              reason: "authentication failed"
+            })
         })
     })
   })

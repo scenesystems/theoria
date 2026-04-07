@@ -1,0 +1,20 @@
+{
+  "version": "1",
+  "fixtures": [
+    {
+      "fixture": "xchacha20-poly1305.noble-raw.v1",
+      "file": "xchacha20-poly1305.noble-raw.v1.json",
+      "algorithm": "xchacha20-poly1305"
+    },
+    {
+      "fixture": "aes-256-gcm-siv.noble-raw.v1",
+      "file": "aes-256-gcm-siv.noble-raw.v1.json",
+      "algorithm": "aes-256-gcm-siv"
+    },
+    {
+      "fixture": "aes-256-gcm.noble-raw.v1",
+      "file": "aes-256-gcm.noble-raw.v1.json",
+      "algorithm": "aes-256-gcm"
+    }
+  ]
+}

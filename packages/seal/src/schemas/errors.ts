@@ -14,6 +14,10 @@
  * encryption or decryption is attempted. Carries expected and
  * received key lengths for diagnostics.
  *
+ * **`InvalidAssociatedData`** — raised when associated data is
+ * provided in an invalid runtime form before encryption or decryption
+ * is attempted.
+ *
  * @see {@link seal} — encrypt operation that produces these errors
  * @see {@link unseal} — decrypt operation that produces these errors
  * @see {@link SealAlgorithm} — algorithm field on DecryptionFailed
@@ -57,6 +61,23 @@ export class InvalidKey extends Schema.TaggedError<InvalidKey>()(
   {
     expected: Schema.Number,
     received: Schema.Number,
+    reason: Schema.String
+  }
+) {}
+
+/**
+ * Associated-data validation failed before encryption or decryption.
+ *
+ * Carries the attempted `algorithm` together with a human-readable `reason`
+ * so protocol-bound AAD failures stay typed and algorithm-scoped.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class InvalidAssociatedData extends Schema.TaggedError<InvalidAssociatedData>()(
+  "InvalidAssociatedData",
+  {
+    algorithm: SealAlgorithm,
     reason: Schema.String
   }
 ) {}

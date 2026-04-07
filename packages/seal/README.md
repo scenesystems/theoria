@@ -24,6 +24,7 @@ Symmetric encryption is easy to get wrong. Nonce reuse destroys AES-GCM security
 - **XChaCha20-Poly1305** — recommended default. 192-bit random nonce eliminates nonce-reuse risk even at high volume
 - **AES-256-GCM-SIV** — nonce-misuse resistant. Safe even if nonces repeat (leaks only equality, not plaintext)
 - **AES-256-GCM** — widely deployed AEAD for systems that require AES compatibility
+- **Associated data (AAD)** — authenticate protocol context without persisting it inside the envelope
 - **Envelope key metadata** — optional `keyId` and `keyVersion` hints for key selection and rotation workflows
 
 ### Choosing an algorithm
@@ -58,19 +59,19 @@ const program = Effect.gen(function* () {
 
 | Function                          | Description                                         |
 | --------------------------------- | --------------------------------------------------- |
-| `seal(algorithm, key, plaintext, metadata?)` | Encrypt and wrap in a `SealedEnvelope`              |
-| `unseal(key, envelope)`           | Decrypt a `SealedEnvelope` (algorithm read from it) |
+| `seal(algorithm, key, plaintext, metadata?, associatedData?)` | Encrypt and wrap in a `SealedEnvelope` while keeping optional AAD external |
+| `unseal(key, envelope, associatedData?)` | Decrypt a `SealedEnvelope` with the matching optional AAD |
 
 ### Direct algorithm access
 
 | Function                            | Description                              |
 | ----------------------------------- | ---------------------------------------- |
-| `xchacha20Encrypt(key, plaintext)`  | XChaCha20-Poly1305 — recommended         |
-| `xchacha20Decrypt(key, ciphertext)` | Decrypt XChaCha20-Poly1305               |
-| `aesgcmsivEncrypt(key, plaintext)`  | AES-256-GCM-SIV — nonce-misuse resistant |
-| `aesgcmsivDecrypt(key, ciphertext)` | Decrypt AES-256-GCM-SIV                  |
-| `aesgcmEncrypt(key, plaintext)`     | AES-256-GCM — compatibility              |
-| `aesgcmDecrypt(key, ciphertext)`    | Decrypt AES-256-GCM                      |
+| `xchacha20Encrypt(key, plaintext, associatedData?)`  | XChaCha20-Poly1305 — recommended         |
+| `xchacha20Decrypt(key, ciphertext, associatedData?)` | Decrypt XChaCha20-Poly1305               |
+| `aesgcmsivEncrypt(key, plaintext, associatedData?)`  | AES-256-GCM-SIV — nonce-misuse resistant |
+| `aesgcmsivDecrypt(key, ciphertext, associatedData?)` | Decrypt AES-256-GCM-SIV                  |
+| `aesgcmEncrypt(key, plaintext, associatedData?)`     | AES-256-GCM — compatibility              |
+| `aesgcmDecrypt(key, ciphertext, associatedData?)`    | Decrypt AES-256-GCM                      |
 
 ### Encoding and key generation
 
@@ -94,6 +95,7 @@ const program = Effect.gen(function* () {
 | Error              | Raised by        | Description                                        |
 | ------------------ | ---------------- | -------------------------------------------------- |
 | `InvalidKey`       | `seal`, `unseal` | Key is wrong length (expected 32 bytes)            |
+| `InvalidAssociatedData` | `seal`, `unseal`, direct helpers | Associated data is empty or malformed when provided |
 | `DecryptionFailed` | `unseal`         | Authentication failed — wrong key or tampered data |
 
 ## Examples
@@ -103,6 +105,7 @@ Runnable example files:
 - [`examples/01-encrypt-decrypt.ts`](./examples/01-encrypt-decrypt.ts) — baseline envelope round-trip
 - [`examples/02-algorithm-comparison.ts`](./examples/02-algorithm-comparison.ts) — compare the three shipped AEAD choices
 - [`examples/03-envelope-metadata.ts`](./examples/03-envelope-metadata.ts) — stamp `keyId` and `keyVersion` for key rotation workflows
+- [`examples/04-associated-data.ts`](./examples/04-associated-data.ts) — bind ciphertext authentication to external protocol context
 
 ### Encrypt and decrypt
 
@@ -148,6 +151,30 @@ const program = Effect.gen(function* () {
 
 `keyId` and `keyVersion` are transport-only envelope hints. They help callers
 select the right key material before decryption, but they are not cryptographically authenticated and must not be treated as trusted security claims on their own.
+
+### Associated data (AAD)
+
+```ts
+import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
+import { Effect } from "effect"
+
+const program = Effect.gen(function* () {
+  const key = yield* generateKey(32)
+  const associatedData = utf8ToBytes("workflow-comparison:baseline:v1")
+  const plaintext = utf8ToBytes("bind this ciphertext to protocol context")
+
+  const envelope = yield* seal("xchacha20-poly1305", key, plaintext, {}, associatedData)
+  const recovered = yield* unseal(key, envelope, associatedData)
+
+  return utf8FromBytes(recovered)
+})
+```
+
+Associated data (AAD) is authenticated but not encrypted, and it stays external
+to the `SealedEnvelope`. That makes it the right place for stable protocol
+context such as tenant IDs, workflow IDs, or transcript revisions. Unlike
+`keyId` and `keyVersion`, AAD participates in authentication: decryption fails
+if callers omit it, change it, or bind the wrong value.
 
 ### Algorithm comparison
 
@@ -214,6 +241,16 @@ All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecos
 | XChaCha20         | [draft-irtf-cfrg-xchacha-03](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03) |
 | AES-GCM-SIV       | [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)                                             |
 | AES-GCM           | [NIST SP 800-38D](https://doi.org/10.6028/NIST.SP.800-38D)                                     |
+
+### Runtime interoperability proof
+
+The package test surface keeps pinned raw `@noble/ciphers` fixtures for all
+three shipped algorithms. Those fixtures carry deterministic key, nonce,
+plaintext, associated-data, and provenance metadata so the package can prove
+two released invariants without exposing deterministic nonce hooks on the
+public API: `unseal(...)` decrypts externally generated envelopes with matching
+AAD, and `packEnvelope(...)` reconstructs the same released wire format after
+the additive metadata and AAD lanes.
 
 ## License
 

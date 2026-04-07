@@ -8,7 +8,7 @@ import { resolveRootFrom } from "@theoria/source-proof"
 const packageRootUrl = new URL("../../", import.meta.url)
 
 describe("package/release-notes", () => {
-  it.effect("keeps the changelog, pending release notes, and README aligned with the shipped AEAD and envelope story", () =>
+  it.effect("keeps the changelog, pending release notes, and README aligned with the shipped AEAD, AAD, and envelope story", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -34,8 +34,17 @@ describe("package/release-notes", () => {
       expect(changeset).toContain("key-rotation example coverage")
 
       expect(readme).toContain("Envelope key metadata")
+      expect(readme).toContain("Associated data (AAD)")
+      expect(readme).toContain("authenticated but not encrypted")
+      expect(readme).toContain("it stays external")
+      expect(readme).toContain("to the `SealedEnvelope`")
       expect(readme).toContain("transport-only envelope hints")
       expect(readme).toContain("not cryptographically authenticated")
       expect(readme).toContain("examples/03-envelope-metadata.ts")
+      expect(readme).toContain("examples/04-associated-data.ts")
+      expect(readme).toContain("Runtime interoperability proof")
+      expect(readme).toContain("pinned raw `@noble/ciphers` fixtures")
+      expect(readme).toContain("`unseal(...)` decrypts externally generated envelopes")
+      expect(readme).toContain("`packEnvelope(...)` reconstructs the same released wire format")
     }).pipe(Effect.provide(BunContext.layer)))
 })
