@@ -2,4 +2,4 @@
 "@scenesystems/sign": minor
 ---
 
-Add the released detached-signature surface with `DetachedSignature`, `signDetached`, `verifyDetached`, and base64url-safe public-key codecs, plus correctness-first `batchVerify(...)` with structured mixed-carrier requests and ordered per-item results, together with root-governed release-snapshot truth, README guidance, examples, and docgen coverage.
+Add the released detached-signature surface with `DetachedSignature`, `signDetached`, `verifyDetached`, correctness-first `batchVerify(...)`, a canonical algorithm support matrix, and portable base64url-safe codecs for `KeyPair`, `Signature`, `SharedSecret`, and `KemCiphertext`, together with known-answer governance proof, README guidance, examples, and docgen coverage.

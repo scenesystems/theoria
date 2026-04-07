@@ -32,7 +32,11 @@ export const makePqOps = (
   algorithm: SignatureAlgorithmType & CryptoAlgorithmType,
   primitive: {
     readonly keygen: () => { readonly publicKey: Uint8Array; readonly secretKey: Uint8Array }
-    readonly sign: (message: Uint8Array, secretKey: Uint8Array) => Uint8Array
+    readonly sign: (
+      message: Uint8Array,
+      secretKey: Uint8Array,
+      options?: { readonly extraEntropy?: false | Uint8Array }
+    ) => Uint8Array
     readonly verify: (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) => boolean
   }
 ) => ({
@@ -41,7 +45,7 @@ export const makePqOps = (
       try: () =>
         new Signature({
           algorithm,
-          signature: primitive.sign(message, secretKey),
+          signature: primitive.sign(message, secretKey, { extraEntropy: false }),
           publicKey
         }),
       catch: (error) => new SigningFailed({ algorithm, reason: String(error) })

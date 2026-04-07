@@ -25,6 +25,7 @@ Digital signatures prove who sent a message. Key agreement lets two parties deri
 - **ML-DSA + SLH-DSA** — NIST post-quantum signatures (FIPS 204/205) at multiple security levels
 - **X25519** — elliptic-curve Diffie–Hellman key agreement
 - **XWing** — hybrid KEM combining X25519 + ML-KEM-768 for quantum-resistant key transport
+- **Portable codecs** — schema-backed base64url carriers for `KeyPair`, `Signature`, `SharedSecret`, and `KemCiphertext`
 - **Detached signatures** — portable proofs with explicit-key verification and base64url-safe transport helpers
 - **Batch verification** — order-preserving per-item verification outcomes over mixed self-describing and detached carriers
 
@@ -32,30 +33,30 @@ Digital signatures prove who sent a message. Key agreement lets two parties deri
 
 ### Signatures
 
-| Algorithm           | Family          | Security | Signature size | Use case                       |
-| ------------------- | --------------- | -------- | -------------- | ------------------------------ |
-| `ed25519`           | EdDSA           | 128-bit  | 64 B           | General purpose, fast          |
-| `secp256k1-ecdsa`   | ECDSA           | 128-bit  | 64 B           | Bitcoin/Ethereum compatibility |
-| `secp256k1-schnorr` | Schnorr         | 128-bit  | 64 B           | Taproot/batch verification     |
-| `ml-dsa-44`         | Lattice (PQ)    | NIST 2   | 2,420 B        | Post-quantum, smallest         |
-| `ml-dsa-65`         | Lattice (PQ)    | NIST 3   | 3,309 B        | Post-quantum, recommended      |
-| `ml-dsa-87`         | Lattice (PQ)    | NIST 5   | 4,627 B        | Post-quantum, highest security |
-| `slh-dsa-sha2-128f` | Hash-based (PQ) | NIST 1   | ~7,856 B       | Post-quantum, fast signing     |
-| `slh-dsa-sha2-128s` | Hash-based (PQ) | NIST 1   | ~7,856 B       | Post-quantum, small signatures |
-| `slh-dsa-sha2-192f` | Hash-based (PQ) | NIST 3   | ~16,224 B      | Post-quantum, higher security  |
-| `slh-dsa-sha2-256f` | Hash-based (PQ) | NIST 5   | ~29,792 B      | Post-quantum, maximum security |
+| Algorithm           | Family          | Standard | Security | Signature size | Status |
+| ------------------- | --------------- | -------- | -------- | -------------- | ------ |
+| `ed25519`           | EdDSA           | RFC 8032 | 128-bit  | 64 B           | Stable |
+| `secp256k1-ecdsa`   | ECDSA           | RFC 6979 | 128-bit  | 64 B           | Stable |
+| `secp256k1-schnorr` | Schnorr         | BIP-340  | 128-bit  | 64 B           | Stable |
+| `ml-dsa-44`         | Lattice (PQ)    | FIPS 204 | NIST 2   | 2,420 B        | Stable |
+| `ml-dsa-65`         | Lattice (PQ)    | FIPS 204 | NIST 3   | 3,309 B        | Stable |
+| `ml-dsa-87`         | Lattice (PQ)    | FIPS 204 | NIST 5   | 4,627 B        | Stable |
+| `slh-dsa-sha2-128f` | Hash-based (PQ) | FIPS 205 | NIST 1   | ~7,856 B       | Stable |
+| `slh-dsa-sha2-128s` | Hash-based (PQ) | FIPS 205 | NIST 1   | ~7,856 B       | Stable |
+| `slh-dsa-sha2-192f` | Hash-based (PQ) | FIPS 205 | NIST 3   | ~16,224 B      | Stable |
+| `slh-dsa-sha2-256f` | Hash-based (PQ) | FIPS 205 | NIST 5   | ~29,792 B      | Stable |
 
 ### Key agreement
 
-| Algorithm | Family | Security | Shared secret |
-| --------- | ------ | -------- | ------------- |
-| `x25519`  | ECDH   | 128-bit  | 32 B          |
+| Algorithm | Family | Standard | Security | Shared secret | Status |
+| --------- | ------ | -------- | -------- | ------------- | ------ |
+| `x25519`  | ECDH   | RFC 7748 | 128-bit  | 32 B          | Stable |
 
 ### Key encapsulation (KEM)
 
-| Algorithm | Family          | Security  | Ciphertext |
-| --------- | --------------- | --------- | ---------- |
-| `xwing`   | X25519 + ML-KEM | Hybrid PQ | ~1,121 B   |
+| Algorithm | Family          | Standard                | Security  | Ciphertext | Status |
+| --------- | --------------- | ----------------------- | --------- | ---------- | ------ |
+| `xwing`   | X25519 + ML-KEM | X-Wing / CFRG hybrid KEM | Hybrid PQ | ~1,121 B   | Stable |
 
 ### Choosing an algorithm
 
@@ -116,6 +117,19 @@ const program = Effect.gen(function* () {
 | ---------------------------- | --------------------------------------------------- |
 | `generateKeyPair(algorithm)` | Generate keys for any algorithm → `Effect<KeyPair>` |
 
+### Portable codecs
+
+| Function                         | Description                                                        |
+| -------------------------------- | ------------------------------------------------------------------ |
+| `encodeKeyPair(keyPair)`         | Convert `KeyPair` to `PortableKeyPair`                             |
+| `decodeKeyPair(value)`           | Decode `PortableKeyPair` → `Effect<KeyPair, PortableCodecDecodeFailed>` |
+| `encodeSignature(signature)`     | Convert `Signature` to `PortableSignature`                         |
+| `decodeSignature(value)`         | Decode `PortableSignature` → `Effect<Signature, PortableCodecDecodeFailed>` |
+| `encodeSharedSecret(secret)`     | Convert `SharedSecret` to `PortableSharedSecret`                   |
+| `decodeSharedSecret(value)`      | Decode `PortableSharedSecret` → `Effect<SharedSecret, PortableCodecDecodeFailed>` |
+| `encodeKemCiphertext(ciphertext)` | Convert `KemCiphertext` to `PortableKemCiphertext`                |
+| `decodeKemCiphertext(value)`     | Decode `PortableKemCiphertext` → `Effect<KemCiphertext, PortableCodecDecodeFailed>` |
+
 ### Encoding utilities
 
 | Function                 | Description                                  |
@@ -134,6 +148,10 @@ const program = Effect.gen(function* () {
 | `AgreementAlgorithm` | `"x25519"`                                               |
 | `KemAlgorithm`       | `"xwing"`                                                |
 | `Signature`          | Schema.Class — `algorithm`, `signature`, `publicKey`     |
+| `PortableKeyPair`    | Schema.Class — base64url-safe `KeyPair` carrier          |
+| `PortableSignature`  | Schema.Class — base64url-safe `Signature` carrier        |
+| `PortableSharedSecret` | Schema.Class — base64url-safe `SharedSecret` carrier   |
+| `PortableKemCiphertext` | Schema.Class — base64url-safe `KemCiphertext` carrier |
 | `DetachedSignature`  | Schema.Class — `algorithm`, `signature`                  |
 | `BatchVerifySignatureRequest` | Schema.Class — self-describing batch item        |
 | `BatchVerifyDetachedSignatureRequest` | Schema.Class — detached batch item with explicit key |
@@ -149,6 +167,7 @@ const program = Effect.gen(function* () {
 | `SigningFailed`       | `sign`            | Signing operation failed             |
 | `VerificationFailed`  | `verify`          | Signature is valid but doesn't match |
 | `InvalidSignature`    | `verify`          | Signature data is malformed          |
+| `PortableCodecDecodeFailed` | `decode*`   | Portable carrier failed schema or base64url decoding |
 | `KeyGenerationFailed` | `generateKeyPair` | Key generation failed                |
 
 ## Examples
@@ -160,6 +179,54 @@ Runnable example files:
 - [`examples/03-post-quantum.ts`](./examples/03-post-quantum.ts) — ML-DSA signatures plus XWing KEM
 - [`examples/04-detached-signature.ts`](./examples/04-detached-signature.ts) — detached signatures with base64url public-key transport
 - [`examples/05-batch-verify.ts`](./examples/05-batch-verify.ts) — mixed self-describing and detached batch verification
+- [`examples/06-key-codecs.ts`](./examples/06-key-codecs.ts) — portable codec workflows for signing artifacts and X25519 shared secrets
+
+### Portable codec workflows
+
+```ts
+import {
+  decodeKeyPair,
+  decodeSharedSecret,
+  decodeSignature,
+  deriveSharedSecret,
+  encodeKeyPair,
+  encodeSharedSecret,
+  encodeSignature,
+  equalBytes,
+  generateKeyPair,
+  sign,
+  utf8ToBytes,
+  verify
+} from "@scenesystems/sign"
+import { Effect } from "effect"
+
+const program = Effect.gen(function* () {
+  const signingKeys = yield* generateKeyPair("ed25519")
+  const portableKeys = encodeKeyPair(signingKeys)
+  const restoredKeys = yield* decodeKeyPair(portableKeys)
+  const message = utf8ToBytes("portable signature")
+  const signature = yield* sign("ed25519", message, restoredKeys.secretKey, restoredKeys.publicKey)
+  const portableSignature = encodeSignature(signature)
+  const restoredSignature = yield* decodeSignature(portableSignature)
+
+  const alice = yield* generateKeyPair("x25519")
+  const bob = yield* generateKeyPair("x25519")
+  const sharedSecret = yield* deriveSharedSecret("x25519", alice.secretKey, bob.publicKey)
+  const portableSharedSecret = encodeSharedSecret(sharedSecret)
+  const restoredSharedSecret = yield* decodeSharedSecret(portableSharedSecret)
+
+  return {
+    keysRoundTrip: equalBytes(signingKeys.publicKey, restoredKeys.publicKey),
+    signatureRoundTrip: yield* verify(restoredSignature, message),
+    sharedSecretRoundTrip: equalBytes(sharedSecret.sharedSecret, restoredSharedSecret.sharedSecret)
+  }
+})
+```
+
+The portable carriers stay JSON-safe and base64url-safe while preserving the
+same algorithm discrimination as the in-memory `KeyPair`, `Signature`,
+`SharedSecret`, and `KemCiphertext` classes. That keeps artifact exchange safe
+for downstream chat, workflow, and storage boundaries.
 
 ### Sign and verify
 

@@ -5,15 +5,27 @@ import { Effect, Schema } from "effect"
 import packageJson from "../../package.json" with { type: "json" }
 
 import {
+  AgreementSupportMatrix,
+  AlgorithmSupportMatrix,
   batchVerify,
   BatchVerifyDetachedSignatureRequest,
   BatchVerifyReport,
   BatchVerifySignatureRequest,
   decapsulate,
+  decodeKeyPair,
+  decodeSharedSecret,
+  decodeSignature,
   deriveSharedSecret,
   DetachedSignature,
   encapsulate,
+  encodeKeyPair,
+  encodeSharedSecret,
+  encodeSignature,
   fromBase64Url,
+  PortableKeyPair,
+  PortableSharedSecret,
+  PortableSignature,
+  SignatureSupportMatrix,
   signDetached,
   toBase64Url,
   verifyDetached
@@ -27,7 +39,7 @@ const manifest = Schema.decodeUnknownSync(PackageManifestSchema)(packageJson)
 const packageRootUrl = new URL("../../", import.meta.url)
 
 describe("package/readme-surface", () => {
-  it.effect("documents only the shipped signing, agreement, kem, codec, and detached portability surface", () =>
+  it.effect("documents only the shipped signing, agreement, kem, portable codec, and detached portability surface", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -41,9 +53,21 @@ describe("package/readme-surface", () => {
       expect(typeof deriveSharedSecret).toBe("function")
       expect(typeof encapsulate).toBe("function")
       expect(typeof decapsulate).toBe("function")
+      expect(typeof encodeKeyPair).toBe("function")
+      expect(typeof decodeKeyPair).toBe("function")
+      expect(typeof encodeSignature).toBe("function")
+      expect(typeof decodeSignature).toBe("function")
+      expect(typeof encodeSharedSecret).toBe("function")
+      expect(typeof decodeSharedSecret).toBe("function")
       expect(typeof toBase64Url).toBe("function")
       expect(typeof fromBase64Url).toBe("function")
+      expect(SignatureSupportMatrix.length).toBeGreaterThan(0)
+      expect(AgreementSupportMatrix.length).toBe(1)
+      expect(AlgorithmSupportMatrix.length).toBeGreaterThan(SignatureSupportMatrix.length)
       expect(DetachedSignature).toBeDefined()
+      expect(PortableKeyPair).toBeDefined()
+      expect(PortableSignature).toBeDefined()
+      expect(PortableSharedSecret).toBeDefined()
       expect(BatchVerifySignatureRequest).toBeDefined()
       expect(BatchVerifyDetachedSignatureRequest).toBeDefined()
       expect(BatchVerifyReport).toBeDefined()
@@ -53,13 +77,20 @@ describe("package/readme-surface", () => {
       expect(readme).toContain("### Key encapsulation (KEM)")
       expect(readme).toContain("Detached signatures")
       expect(readme).toContain("Batch verification")
+      expect(readme).toContain("Portable codecs")
       expect(readme).toContain("signDetached")
       expect(readme).toContain("verifyDetached")
       expect(readme).toContain("batchVerify")
+      expect(readme).toContain("encodeKeyPair")
+      expect(readme).toContain("decodeKeyPair")
+      expect(readme).toContain("PortableKeyPair")
+      expect(readme).toContain("PortableSignature")
+      expect(readme).toContain("PortableSharedSecret")
       expect(readme).toContain("toBase64Url")
       expect(readme).toContain("fromBase64Url")
       expect(readme).toContain("examples/04-detached-signature.ts")
       expect(readme).toContain("examples/05-batch-verify.ts")
+      expect(readme).toContain("examples/06-key-codecs.ts")
       expect(readme).toContain("explicit-key verification")
       expect(readme).toContain("per-item outcomes")
 

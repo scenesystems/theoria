@@ -15,6 +15,10 @@ import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
+// Zeroed auxiliary randomness keeps the released Schnorr surface deterministic
+// so package-owned governance fixtures can prove exact signature bytes.
+const deterministicSchnorrAuxRand = new Uint8Array(32)
+
 /**
  * Sign a message with secp256k1 ECDSA (RFC 6979 deterministic k).
  *
@@ -79,7 +83,7 @@ export const secp256k1SchnorrSign = (
     try: () =>
       new Signature({
         algorithm: "secp256k1-schnorr",
-        signature: schnorr.sign(message, secretKey),
+        signature: schnorr.sign(message, secretKey, deterministicSchnorrAuxRand),
         publicKey
       }),
     catch: (error) => new SigningFailed({ algorithm: "secp256k1-schnorr", reason: String(error) })
