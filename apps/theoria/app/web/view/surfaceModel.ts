@@ -1,12 +1,12 @@
 import * as Arr from "effect/Array"
 
-import type { Card } from "../../contracts/card.js"
 import type {
   ProgramSourceScope,
   SourceFileTab,
   SourceWorkspaceTab,
   SurfaceVariant
 } from "../../contracts/presentation.js"
+import type { PublishedConsumerPresentation } from "../../contracts/proving-substrate.js"
 import { statusText } from "../state/status.js"
 import { evidenceStatusFromStream, type EvidenceStreamState, runPhase, type SurfaceState } from "../state/types.js"
 
@@ -63,9 +63,11 @@ export type DeepDiveSurfaceFrameViewModel = {
   readonly stageFrame: DemoStageFrameViewModel
 }
 
-const packageUseCaseRow = (card: Card): { readonly label: string; readonly value: string } => ({
-  label: "Package Use Case",
-  value: `${card.packageName}: ${card.useCase}`
+const packageUseCaseRow = (
+  surface: PublishedConsumerPresentation
+): { readonly label: string; readonly value: string } => ({
+  label: surface.group === "application" ? "Application Use Case" : "Package Use Case",
+  value: `${surface.packageName}: ${surface.useCase}`
 })
 
 const selectedSectionRows = (
@@ -78,30 +80,30 @@ const selectedSectionRows = (
   )
 
 const compactRows = ({
-  card,
+  surface,
   rows,
   state
 }: {
-  readonly card: Card
+  readonly surface: PublishedConsumerPresentation
   readonly rows: ReadonlyArray<{ readonly label: string; readonly value: string }>
   readonly state: SurfaceState
 }): ReadonlyArray<{ readonly label: string; readonly value: string }> => {
-  const packageRow = packageUseCaseRow(card)
+  const packageRow = packageUseCaseRow(surface)
   const rowsWithUseCase = rows[0]?.label === packageRow.label ? rows : [packageRow, ...rows]
 
   return state.run._tag === "RunSuccess" || rows.length > 0
     ? Arr.take(rowsWithUseCase, compactEvidenceRowLimit + 1)
-    : [packageRow, { label: "Run Intent", value: card.summary }]
+    : [packageRow, { label: "Run Intent", value: surface.summary }]
 }
 
 export const surfaceViewModel = ({
-  card,
+  surface,
   presented,
   state,
   stream,
   variant
 }: {
-  readonly card: Card
+  readonly surface: PublishedConsumerPresentation
   readonly presented: PresentedRun | null
   readonly state: SurfaceState
   readonly stream: EvidenceStreamState
@@ -112,36 +114,36 @@ export const surfaceViewModel = ({
 
   return {
     running: runPhase(state.run) === "running",
-    runControls: runControlsViewModel({ run: state.run, runLabel: card.runLabel }),
+    runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
     statusTone: compact ? "panel" : "strip",
     evidenceDensity: compact ? "compact" : "expanded",
     status: statusText({ preload: state.preload, run: state.run }, evidenceStatusFromStream(stream)),
-    chrome: surfaceChromeContentModel(card),
-    evidenceRows: compact ? compactRows({ card, rows, state }) : rows,
+    chrome: surfaceChromeContentModel(surface),
+    evidenceRows: compact ? compactRows({ surface, rows, state }) : rows,
     code: surfaceCodeModel(state, variant),
     stage: demoStageViewModel({
       activeTab: state.stageTab,
-      interactiveLabel: card.interactiveLabel ?? null,
+      interactiveLabel: surface.interactiveLabel,
       run: state.run,
       stream,
-      tabHint: tabHintFor(card.id)
+      tabHint: tabHintFor(surface.consumerId)
     })
   }
 }
 
 export const deepDiveSurfaceFrameViewModel = ({
-  card,
+  surface,
   state
 }: {
-  readonly card: Card
+  readonly surface: PublishedConsumerPresentation
   readonly state: SurfaceState
 }): DeepDiveSurfaceFrameViewModel => ({
-  runControls: runControlsViewModel({ run: state.run, runLabel: card.runLabel }),
-  chrome: surfaceChromeContentModel(card),
+  runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
+  chrome: surfaceChromeContentModel(surface),
   code: surfaceCodeModel(state, "expanded"),
   stageFrame: demoStageFrameViewModel({
     activeTab: state.stageTab,
-    interactiveLabel: card.interactiveLabel ?? null,
-    tabHint: tabHintFor(card.id)
+    interactiveLabel: surface.interactiveLabel,
+    tabHint: tabHintFor(surface.consumerId)
   })
 })

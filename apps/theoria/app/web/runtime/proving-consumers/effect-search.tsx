@@ -7,6 +7,7 @@ import {
   optimizationTrialBudgetMin,
   snapshotEffectSearchRunPlan
 } from "../../../contracts/demo/objective.js"
+import { isDemoSurfaceRunPlan } from "../../../contracts/run-plan.js"
 import { encodeStreamManifest } from "../../../contracts/stream-manifest.js"
 import { EffectSearchManifest } from "../../../contracts/stream-manifest.js"
 import {
@@ -17,6 +18,7 @@ import {
   trialBudgetAtom
 } from "../../atoms/optimization-animation.js"
 import { type RunRuntimeTelemetrySection, surfaceLocalRunFrameAtom } from "../../atoms/surface.js"
+import { DemoClient } from "../../services/DemoClient.js"
 import { LiveOptimization } from "../../view/deep/LiveOptimization.js"
 import {
   defaultProjectionPlaneHint,
@@ -25,11 +27,11 @@ import {
   noProjectionFrameSync,
   type ProvingConsumerLaneDescriptor,
   sharedStreamingOwnership,
+  type SurfaceRuntimeSnapshot,
   type SurfaceViewExtensionContext,
   telemetryRow,
   telemetrySection
 } from "../proving-consumer-shared.js"
-import { DemoClient } from "../../services/DemoClient.js"
 
 const effectSearchId = "effect-search"
 
@@ -40,8 +42,20 @@ const effectSearchPreload = Option.some(
   })
 )
 
+const effectSearchManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): EffectSearchManifest | null => {
+  const runPlan = snapshot.runPlan
+
+  return runPlan !== null
+      && isDemoSurfaceRunPlan(runPlan)
+      && runPlan.id === effectSearchId
+      && runPlan.manifest !== null
+      && runPlan.manifest._tag === effectSearchId
+    ? runPlan.manifest
+    : null
+}
+
 const effectSearchStreamUrl = (
-  snapshot: { readonly runPlan: { readonly id: "effect-search"; readonly manifest: EffectSearchManifest | null } | null },
+  snapshot: SurfaceRuntimeSnapshot,
   runToken: string | null
 ): string => {
   const params = new URLSearchParams()
@@ -50,8 +64,10 @@ const effectSearchStreamUrl = (
     params.set("runToken", runToken.trim())
   }
 
-  if (snapshot.runPlan?.manifest !== null) {
-    params.set("manifest", encodeStreamManifest(snapshot.runPlan.manifest))
+  const manifest = effectSearchManifestFromSnapshot(snapshot)
+
+  if (manifest !== null) {
+    params.set("manifest", encodeStreamManifest(manifest))
   }
 
   const query = params.toString()
@@ -104,17 +120,16 @@ const effectSearchDiagnosticsSections = (
   ]
 }
 
-export const effectSearchProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor =
-  makeProvingConsumerLaneDescriptor({
-    consumerId: effectSearchId,
-    diagnosticsKey: "effect-search/study-runtime",
-    interactiveWidgetKey: "effect-search/live-optimization",
-    projectionDriverKey: "effect-search/optimization-animation",
-    runtime: makeStreamingSurfaceRuntime({
-      preload: effectSearchPreload,
-      projectionDriver: {
-        ownership: sharedStreamingOwnership,
-        snapshot: (registry) => {
+const effectSearchProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor({
+  consumerId: effectSearchId,
+  diagnosticsKey: "effect-search/study-runtime",
+  interactiveWidgetKey: "effect-search/live-optimization",
+  projectionDriverKey: "effect-search/optimization-animation",
+  runtime: makeStreamingSurfaceRuntime({
+    preload: effectSearchPreload,
+    projectionDriver: {
+      ownership: sharedStreamingOwnership,
+      snapshot: (registry) => {
         const trialBudget = registry.get(trialBudgetAtom)
         const manifestTrialBudget = Math.max(
           optimizationTrialBudgetMin,
@@ -125,7 +140,6 @@ export const effectSearchProvingConsumerLaneDescriptor: ProvingConsumerLaneDescr
           manifest: new EffectSearchManifest({ trialBudget: manifestTrialBudget }),
           localRunPlan: snapshotEffectSearchRunPlan(trialBudget)
         }
-        }
       },
       makeStream: (registry, signal, snapshot, stepQueue, _serverCompleted) =>
         isEffectSearchRunPlan(snapshot.localRunPlan)
@@ -134,33 +148,37 @@ export const effectSearchProvingConsumerLaneDescriptor: ProvingConsumerLaneDescr
       reset: resetOptimizationAnimationState,
       setPlayback: setOptimizationAnimationPlayback,
       syncFrameToControls: noProjectionFrameSync
-      },
-      snapshot: (registry) => {
-        const trialBudget = registry.get(trialBudgetAtom)
-        const manifestTrialBudget = Math.max(
-          optimizationTrialBudgetMin,
-          Math.min(trialBudget, optimizationTrialBudgetMax)
-        )
+    },
+    snapshot: (registry) => {
+      const trialBudget = registry.get(trialBudgetAtom)
+      const manifestTrialBudget = Math.max(
+        optimizationTrialBudgetMin,
+        Math.min(trialBudget, optimizationTrialBudgetMax)
+      )
 
-        return {
-          runPlan: {
-            id: effectSearchId,
-            manifest: new EffectSearchManifest({ trialBudget: manifestTrialBudget })
-          },
-          localRunPlan: snapshotEffectSearchRunPlan(trialBudget)
-        }
-      },
-      streamUrl: effectSearchStreamUrl
-    }),
-    surface: {
-      interactiveWidget: <LiveOptimization />,
-      projectionPlaneHint: {
-        stage:
-          "Set a trial budget, press Run, and watch authored TPE and Random checkpoints arrive on one shared study stream while the browser only projects the current frame.",
-        evidence:
-          "Full optimization results comparing TPE vs Random search — every trial coordinate and convergence curve is reproducible from a fixed seed.",
-        source: defaultProjectionPlaneHint.source
-      },
-      diagnosticsSections: effectSearchDiagnosticsSections
-    }
-  })
+      return {
+        runPlan: {
+          id: effectSearchId,
+          manifest: new EffectSearchManifest({ trialBudget: manifestTrialBudget })
+        },
+        localRunPlan: snapshotEffectSearchRunPlan(trialBudget)
+      }
+    },
+    streamUrl: effectSearchStreamUrl
+  }),
+  surface: {
+    interactiveWidget: <LiveOptimization />,
+    projectionPlaneHint: {
+      stage:
+        "Set a trial budget, press Run, and watch authored TPE and Random checkpoints arrive on one shared study stream while the browser only projects the current frame.",
+      evidence:
+        "Full optimization results comparing TPE vs Random search — every trial coordinate and convergence curve is reproducible from a fixed seed.",
+      source: defaultProjectionPlaneHint.source
+    },
+    diagnosticsSections: effectSearchDiagnosticsSections
+  }
+})
+
+export const provingConsumerLaneDescriptor = effectSearchProvingConsumerLaneDescriptor
+
+export { effectSearchProvingConsumerLaneDescriptor }

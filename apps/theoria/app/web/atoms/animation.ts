@@ -19,7 +19,7 @@ import {
   reflowSliderMaxWidth,
   resolveReflowCorpusEntry
 } from "./reflow.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 
 export const animatingAtom: AtomType.Writable<boolean> = Atom.make(false)
@@ -181,6 +181,7 @@ export const makeAnimationStream = (
                         projection
                       }
                     })
+                    yield* yieldProjectionFrame(signal)
                   }),
                 { discard: true }
               )

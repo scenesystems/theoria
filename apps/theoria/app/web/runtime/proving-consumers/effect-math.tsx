@@ -1,6 +1,7 @@
 import { Effect, Option, Stream } from "effect"
 
 import { isEffectMathRunPlan, snapshotEffectMathRunPlan } from "../../../contracts/demo/power.js"
+import { isDemoSurfaceRunPlan } from "../../../contracts/run-plan.js"
 import { encodeStreamManifest } from "../../../contracts/stream-manifest.js"
 import { EffectMathManifest } from "../../../contracts/stream-manifest.js"
 import {
@@ -21,6 +22,7 @@ import {
   makeStreamingSurfaceRuntime,
   type ProvingConsumerLaneDescriptor,
   sharedStreamingOwnership,
+  type SurfaceRuntimeSnapshot,
   telemetryRow,
   telemetrySection
 } from "../proving-consumer-shared.js"
@@ -34,8 +36,20 @@ const effectMathPreload = Option.some(
   })
 )
 
+const effectMathManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): EffectMathManifest | null => {
+  const runPlan = snapshot.runPlan
+
+  return runPlan !== null
+      && isDemoSurfaceRunPlan(runPlan)
+      && runPlan.id === effectMathId
+      && runPlan.manifest !== null
+      && runPlan.manifest._tag === effectMathId
+    ? runPlan.manifest
+    : null
+}
+
 const effectMathStreamUrl = (
-  snapshot: { readonly runPlan: { readonly id: "effect-math"; readonly manifest: EffectMathManifest | null } | null },
+  snapshot: SurfaceRuntimeSnapshot,
   runToken: string | null
 ): string => {
   const params = new URLSearchParams()
@@ -44,8 +58,10 @@ const effectMathStreamUrl = (
     params.set("runToken", runToken.trim())
   }
 
-  if (snapshot.runPlan?.manifest !== null) {
-    params.set("manifest", encodeStreamManifest(snapshot.runPlan.manifest))
+  const manifest = effectMathManifestFromSnapshot(snapshot)
+
+  if (manifest !== null) {
+    params.set("manifest", encodeStreamManifest(manifest))
   }
 
   const query = params.toString()
@@ -53,7 +69,7 @@ const effectMathStreamUrl = (
   return query.length === 0 ? `/api/demos/${effectMathId}/stream` : `/api/demos/${effectMathId}/stream?${query}`
 }
 
-export const effectMathProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor(
+const effectMathProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor(
   {
     consumerId: effectMathId,
     diagnosticsKey: "effect-math/power-runtime",
@@ -132,3 +148,7 @@ export const effectMathProvingConsumerLaneDescriptor: ProvingConsumerLaneDescrip
     }
   }
 )
+
+export const provingConsumerLaneDescriptor = effectMathProvingConsumerLaneDescriptor
+
+export { effectMathProvingConsumerLaneDescriptor }

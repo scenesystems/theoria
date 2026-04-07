@@ -1,9 +1,9 @@
-import { Atom, Registry } from "@effect-atom/atom"
+import { Registry } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
-import { Effect, Layer, Option, Ref } from "effect"
+import { Effect, Option, Ref } from "effect"
 
 import { DspCanonicalStep, isDspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
 import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
@@ -15,7 +15,8 @@ import {
   StreamComplete
 } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceItem, EvidenceSection } from "../../app/contracts/evidence.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { SurfaceId } from "../../app/contracts/id.js"
+import { isDemoSurfaceRunPlan } from "../../app/contracts/run-plan.js"
 import { makeRunControlAtom, makeRunDemoAtom, selectStageTabAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
 import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
@@ -39,8 +40,8 @@ import {
 } from "../../app/web/atoms/surface.js"
 import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
 import { streamingSurfaceIds } from "../../app/web/runtime/surface-runtime.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
+import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
 import {
   emitEffectMathAuthoredStream,
@@ -132,9 +133,10 @@ const makeAsyncTestRegistry = (): Registry.Registry =>
     }
   })
 
-const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
-const readEvidenceStream = (registry: Registry.Registry, id: Id) => registry.get(surfaceEvidenceStreamAtom(id))
-const readRuntimeTelemetry = (registry: Registry.Registry, id: Id) => registry.get(surfaceRunRuntimeTelemetryAtom(id))
+const readSurface = (registry: Registry.Registry, id: SurfaceId): SurfaceState => registry.get(surfaceAtom(id))
+const readEvidenceStream = (registry: Registry.Registry, id: SurfaceId) => registry.get(surfaceEvidenceStreamAtom(id))
+const readRuntimeTelemetry = (registry: Registry.Registry, id: SurfaceId) =>
+  registry.get(surfaceRunRuntimeTelemetryAtom(id))
 
 const isTableItem = (
   item: EvidenceItem
@@ -187,18 +189,12 @@ const waitForSource = Effect.eventually(
 )
 
 const makeRuntime = () =>
-  Atom.runtime(
-    Layer.succeed(
-      DemoClient,
-      DemoClient.make({
-        run: () => Effect.fail(errorFixture),
-        runWithMeta: () => Effect.fail(errorFixture),
-        preload: () => Effect.succeed(programPreviewFixture),
-        versions: () => Effect.succeed({}),
-        streamUrl: (id) => `/api/demos/${id}/stream`
-      })
-    )
-  )
+  makeAppClientTestRuntime({
+    run: () => Effect.fail(errorFixture),
+    runWithMeta: () => Effect.fail(errorFixture),
+    preload: () => Effect.succeed(programPreviewFixture),
+    streamUrl: (id) => `/api/demos/${id}/stream`
+  })
 
 const makeRuntimeWithTransportCounters = ({
   runCountRef,
@@ -207,24 +203,18 @@ const makeRuntimeWithTransportCounters = ({
   readonly runCountRef: Ref.Ref<number>
   readonly runWithMetaCountRef: Ref.Ref<number>
 }) =>
-  Atom.runtime(
-    Layer.succeed(
-      DemoClient,
-      DemoClient.make({
-        run: () =>
-          Ref.update(runCountRef, (count) => count + 1).pipe(
-            Effect.zipRight(Effect.fail(errorFixture))
-          ),
-        runWithMeta: () =>
-          Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
-            Effect.zipRight(Effect.fail(errorFixture))
-          ),
-        preload: () => Effect.succeed(programPreviewFixture),
-        versions: () => Effect.succeed({}),
-        streamUrl: (id) => `/api/demos/${id}/stream`
-      })
-    )
-  )
+  makeAppClientTestRuntime({
+    run: () =>
+      Ref.update(runCountRef, (count) => count + 1).pipe(
+        Effect.zipRight(Effect.fail(errorFixture))
+      ),
+    runWithMeta: () =>
+      Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
+        Effect.zipRight(Effect.fail(errorFixture))
+      ),
+    preload: () => Effect.succeed(programPreviewFixture),
+    streamUrl: (id) => `/api/demos/${id}/stream`
+  })
 
 const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
   const previousEventSource = globalThis.EventSource
@@ -596,16 +586,22 @@ describe("Theoria Evidence Orchestration", () => {
         )
 
         expect(running.run.session.localRunPlan?._tag).toBe("effect-dsp")
-        expect(running.run.session.runPlan?.id).toBe("effect-dsp")
+        const runningRunPlan = running.run.session.runPlan
+
+        expect(runningRunPlan !== null && isDemoSurfaceRunPlan(runningRunPlan)).toBe(true)
+        if (runningRunPlan === null || !isDemoSurfaceRunPlan(runningRunPlan)) {
+          return
+        }
+        expect(runningRunPlan.id).toBe("effect-dsp")
 
         if (!isEffectDspRunPlan(running.run.session.localRunPlan)) {
           return
         }
 
         const frozenPlan = running.run.session.localRunPlan
-        const frozenRunPlan = running.run.session.runPlan
+        const frozenRunPlan = runningRunPlan
 
-        if (frozenRunPlan !== null && frozenRunPlan.manifest !== null && frozenRunPlan.manifest._tag === "effect-dsp") {
+        if (frozenRunPlan.manifest !== null && frozenRunPlan.manifest._tag === "effect-dsp") {
           expect(frozenRunPlan.manifest.scenarioId).toBe(frozenPlan.scenarioId)
           expect(frozenRunPlan.manifest.moduleType).toBe(frozenPlan.moduleType)
           expect(frozenRunPlan.manifest.optimizationBudget).toBe(2)
@@ -721,14 +717,16 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        expect(running.run.session.runPlan?.id).toBe("effect-text")
-        const initialRunPlan = running.run.session.runPlan
+        const runningRunPlan = running.run.session.runPlan
 
-        if (
-          initialRunPlan !== null
-          && initialRunPlan.manifest !== null
-          && initialRunPlan.manifest._tag === "effect-text"
-        ) {
+        expect(runningRunPlan !== null && isDemoSurfaceRunPlan(runningRunPlan)).toBe(true)
+        if (runningRunPlan === null || !isDemoSurfaceRunPlan(runningRunPlan)) {
+          return
+        }
+        expect(runningRunPlan.id).toBe("effect-text")
+        const initialRunPlan = runningRunPlan
+
+        if (initialRunPlan.manifest !== null && initialRunPlan.manifest._tag === "effect-text") {
           expect(initialRunPlan.manifest.viewportWidthPx).toBe(frozenViewportWidthPx)
         }
 
@@ -739,6 +737,7 @@ describe("Theoria Evidence Orchestration", () => {
 
         if (
           runPlanAfterViewportChange !== null
+          && isDemoSurfaceRunPlan(runPlanAfterViewportChange)
           && runPlanAfterViewportChange.manifest !== null
           && runPlanAfterViewportChange.manifest._tag === "effect-text"
         ) {
@@ -1459,18 +1458,12 @@ describe("Theoria Evidence Orchestration", () => {
       )
 
       registry.set(trialBudgetAtom, trialBudget)
-      const runtime = Atom.runtime(
-        Layer.succeed(
-          DemoClient,
-          DemoClient.make({
-            run: () => Effect.fail(errorFixture),
-            runWithMeta: () => Effect.fail(errorFixture),
-            preload: () => Effect.succeed(programPreviewFixture),
-            versions: () => Effect.succeed({}),
-            streamUrl: (id) => `/api/demos/${id}/stream`
-          })
-        )
-      )
+      const runtime = makeAppClientTestRuntime({
+        run: () => Effect.fail(errorFixture),
+        runWithMeta: () => Effect.fail(errorFixture),
+        preload: () => Effect.succeed(programPreviewFixture),
+        streamUrl: (id) => `/api/demos/${id}/stream`
+      })
 
       const runDemoAtom = makeRunDemoAtom(runtime)
 
@@ -1545,18 +1538,12 @@ describe("Theoria Evidence Orchestration", () => {
 
       const registry = makeTestRegistry()
       registry.set(trialBudgetAtom, 8)
-      const runtime = Atom.runtime(
-        Layer.succeed(
-          DemoClient,
-          DemoClient.make({
-            run: () => Effect.fail(errorFixture),
-            runWithMeta: () => Effect.fail(errorFixture),
-            preload: () => Effect.succeed(programPreviewFixture),
-            versions: () => Effect.succeed({}),
-            streamUrl: (id) => `/api/demos/${id}/stream`
-          })
-        )
-      )
+      const runtime = makeAppClientTestRuntime({
+        run: () => Effect.fail(errorFixture),
+        runWithMeta: () => Effect.fail(errorFixture),
+        preload: () => Effect.succeed(programPreviewFixture),
+        streamUrl: (id) => `/api/demos/${id}/stream`
+      })
 
       const runDemoAtom = makeRunDemoAtom(runtime)
 

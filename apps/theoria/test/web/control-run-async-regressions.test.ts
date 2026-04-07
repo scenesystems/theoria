@@ -1,9 +1,9 @@
-import { Atom, Registry } from "@effect-atom/atom"
+import { Registry } from "@effect-atom/atom"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 import type { Duration } from "effect"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Option } from "effect"
 
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
 import {
@@ -19,8 +19,8 @@ import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
 import { powerAnimatingAtom } from "../../app/web/atoms/power-animation.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom, surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
+import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
 import { emitEffectMathAuthoredStream, emitEffectTextAuthoredStream } from "../helpers/mock-authored-stream.js"
 
@@ -71,18 +71,12 @@ const makeAsyncTestRegistry = (): Registry.Registry =>
 const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
 
 const makeRuntime = () =>
-  Atom.runtime(
-    Layer.succeed(
-      DemoClient,
-      DemoClient.make({
-        run: () => Effect.fail(errorFixture),
-        runWithMeta: () => Effect.fail(errorFixture),
-        preload: () => Effect.succeed(programPreviewFixture),
-        versions: () => Effect.succeed({}),
-        streamUrl: (id) => `/api/demos/${id}/stream`
-      })
-    )
-  )
+  makeAppClientTestRuntime({
+    run: () => Effect.fail(errorFixture),
+    runWithMeta: () => Effect.fail(errorFixture),
+    preload: () => Effect.succeed(programPreviewFixture),
+    streamUrl: (id) => `/api/demos/${id}/stream`
+  })
 
 const waitForSource = Effect.eventually(
   Effect.sync(() => Option.fromNullable(MockEventSource.instances[0])).pipe(

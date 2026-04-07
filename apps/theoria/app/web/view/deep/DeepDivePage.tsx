@@ -1,9 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import * as Option from "effect/Option"
 
-import { cardById } from "../../../contracts/card.js"
-import type { Id } from "../../../contracts/id.js"
-import { metadataForHome, metadataForId } from "../../../contracts/metadata.js"
+import type { SurfaceId } from "../../../contracts/id.js"
+import { metadataForPublishedConsumerId } from "../../../contracts/metadata.js"
 import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/actions.js"
 import {
   deepDiveFocusedSurfaceAtom,
@@ -24,13 +22,11 @@ import {
 import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
 import type { RunControlActionKind } from "../../state/types.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
-import { Layer } from "../primitives/Layout.js"
-import { SemanticText } from "../primitives/SemanticText.js"
 import { PresentationSurface } from "../surfaces/PresentationSurface.js"
 
 import { deepDiveProjectionSurfaceFor } from "./projection-surface.js"
 
-export const DeepDivePage = ({ id }: { readonly id: Id }) => {
+export const DeepDivePage = ({ id }: { readonly id: SurfaceId }) => {
   const frameViewModel = useAtomValue(deepDiveSurfaceFrameAtom(id))
   const focusedSurface = useAtomValue(deepDiveFocusedSurfaceAtom)
   const maxProjectedSurfaceCount = useAtomValue(deepDiveMaxProjectedSurfaceCountAtom)
@@ -49,30 +45,11 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
   const dispatchSelectSourceScope = useAtomSet(selectProgramSourceScopeAtom)
   const dispatchWorkspaceWidth = useAtomSet(setDeepDiveWorkspaceWidthAtom)
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
-  const card = Option.getOrUndefined(cardById(id))
-  const pageMetadata = metadataForId(id)
+  const pageMetadata = metadataForPublishedConsumerId(id)
   const visibleProjectedSurfaceCount = Math.min(projectedSurfaceCount, maxProjectedSurfaceCount)
 
   const onRunControlAction = (action: RunControlActionKind): void => {
     dispatchRunControl({ action, id })
-  }
-
-  if (card === undefined || frameViewModel === null) {
-    return (
-      <>
-        <DocumentHead metadata={metadataForHome()} />
-
-        <Layer className="flex min-h-dvh items-center justify-center bg-stage-50 text-ink-900">
-          <SemanticText
-            as="p"
-            className="text-ink-700"
-            role="status"
-            text={`Demo not found: ${id}`}
-            variant="expanded"
-          />
-        </Layer>
-      </>
-    )
   }
 
   const surfaces = surfaceOrder.map((surface, index) => {
@@ -107,8 +84,8 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
 
       <PresentationSurface
         backHref="/"
-        card={card}
         chromeContent={frameViewModel.chrome}
+        consumerId={id}
         onFocusSurface={(surface) => {
           dispatchFocusSurface(surface)
         }}

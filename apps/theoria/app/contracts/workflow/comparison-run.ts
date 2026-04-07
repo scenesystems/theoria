@@ -18,21 +18,130 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 const RunToken = Schema.String.pipe(Schema.minLength(1))
 
-export const WorkflowComparisonExecutionLaneSchema = Schema.Literal("deterministic-fallback")
+export const WorkflowComparisonExecutionLaneSchema = Schema.Literal("deterministic-fallback", "provider")
 
 export type WorkflowComparisonExecutionLane = Schema.Schema.Type<typeof WorkflowComparisonExecutionLaneSchema>
 
 export const workflowComparisonExecutionLanes: ReadonlyArray<WorkflowComparisonExecutionLane> = [
-  "deterministic-fallback"
+  "deterministic-fallback",
+  "provider"
 ]
+
+export const WorkflowComparisonComparisonModeSchema = Schema.Literal(
+  "authored-optimized",
+  "search-winner"
+)
+
+export type WorkflowComparisonComparisonMode = Schema.Schema.Type<typeof WorkflowComparisonComparisonModeSchema>
+
+export const workflowComparisonComparisonModes: ReadonlyArray<WorkflowComparisonComparisonMode> = [
+  "authored-optimized",
+  "search-winner"
+]
+
+export const WorkflowComparisonRuntimeProfileSchema = Schema.Literal("authored", "preferred", "fastest")
+
+export type WorkflowComparisonRuntimeProfile = Schema.Schema.Type<typeof WorkflowComparisonRuntimeProfileSchema>
+
+export const workflowComparisonRuntimeProfiles: ReadonlyArray<WorkflowComparisonRuntimeProfile> = [
+  "authored",
+  "preferred",
+  "fastest"
+]
+
+export const WorkflowComparisonSurfaceProfileSchema = Schema.Literal("authored", "sidebar", "full-panel")
+
+export type WorkflowComparisonSurfaceProfile = Schema.Schema.Type<typeof WorkflowComparisonSurfaceProfileSchema>
+
+export const workflowComparisonSurfaceProfiles: ReadonlyArray<WorkflowComparisonSurfaceProfile> = [
+  "authored",
+  "sidebar",
+  "full-panel"
+]
+
+export type WorkflowComparisonRunPlanControls = {
+  readonly lane: WorkflowComparisonExecutionLane
+  readonly optimize: boolean
+  readonly comparisonMode: WorkflowComparisonComparisonMode
+  readonly runtimeProfile: WorkflowComparisonRuntimeProfile
+  readonly surfaceProfile: WorkflowComparisonSurfaceProfile
+}
+
+export const defaultWorkflowComparisonRunPlanControls: WorkflowComparisonRunPlanControls = {
+  lane: workflowComparisonExecutionLanes[0] ?? "deterministic-fallback",
+  optimize: true,
+  comparisonMode: "search-winner",
+  runtimeProfile: "authored",
+  surfaceProfile: "authored"
+}
+
+export const workflowComparisonExecutionLaneLabel = (
+  lane: WorkflowComparisonExecutionLane
+): string =>
+  lane === "deterministic-fallback"
+    ? "Deterministic Proof Fallback"
+    : "Live Provider Runtime"
+
+export const workflowComparisonComparisonModeLabel = (
+  comparisonMode: WorkflowComparisonComparisonMode
+): string => (comparisonMode === "authored-optimized" ? "Authored Optimized" : "Search Winner")
+
+export const workflowComparisonOptimizeLabel = (optimize: boolean): string =>
+  optimize ? "Optimization Study On" : "Optimization Study Off"
+
+export const workflowComparisonRuntimeProfileLabel = (
+  runtimeProfile: WorkflowComparisonRuntimeProfile
+): string =>
+  runtimeProfile === "authored"
+    ? "Authored Default"
+    : runtimeProfile === "preferred"
+    ? "Preferred Runtime"
+    : "Fastest Runtime"
+
+export const workflowComparisonSurfaceProfileLabel = (
+  surfaceProfile: WorkflowComparisonSurfaceProfile
+): string =>
+  surfaceProfile === "authored"
+    ? "Authored Default"
+    : surfaceProfile === "sidebar"
+    ? "Sidebar"
+    : "Full Panel"
 
 export const WorkflowComparisonRunPlan = Schema.Struct({
   consumerId: Schema.Literal("workflow-comparison"),
   comparisonId: WorkflowComparisonIdSchema,
-  lane: WorkflowComparisonExecutionLaneSchema
+  lane: WorkflowComparisonExecutionLaneSchema,
+  optimize: Schema.Boolean,
+  comparisonMode: WorkflowComparisonComparisonModeSchema,
+  runtimeProfile: WorkflowComparisonRuntimeProfileSchema,
+  surfaceProfile: WorkflowComparisonSurfaceProfileSchema
 })
 
 export type WorkflowComparisonRunPlan = typeof WorkflowComparisonRunPlan.Type
+
+export const makeWorkflowComparisonRunPlan = ({
+  comparisonId,
+  comparisonMode = defaultWorkflowComparisonRunPlanControls.comparisonMode,
+  lane = defaultWorkflowComparisonRunPlanControls.lane,
+  optimize = defaultWorkflowComparisonRunPlanControls.optimize,
+  runtimeProfile = defaultWorkflowComparisonRunPlanControls.runtimeProfile,
+  surfaceProfile = defaultWorkflowComparisonRunPlanControls.surfaceProfile
+}: {
+  readonly comparisonId: WorkflowComparisonId
+  readonly comparisonMode?: WorkflowComparisonComparisonMode
+  readonly lane?: WorkflowComparisonExecutionLane
+  readonly optimize?: boolean
+  readonly runtimeProfile?: WorkflowComparisonRuntimeProfile
+  readonly surfaceProfile?: WorkflowComparisonSurfaceProfile
+}): WorkflowComparisonRunPlan => ({
+  consumerId: "workflow-comparison",
+  comparisonId,
+  lane,
+  optimize,
+  comparisonMode,
+  runtimeProfile,
+  surfaceProfile
+})
 
 export const WorkflowComparisonRunRequest = Schema.Struct({
   runToken: RunToken,
@@ -45,6 +154,10 @@ export const WorkflowComparisonRunIdentity = Schema.Struct({
   consumerId: Schema.Literal("workflow-comparison"),
   comparisonId: WorkflowComparisonIdSchema,
   lane: WorkflowComparisonExecutionLaneSchema,
+  optimize: Schema.Boolean,
+  comparisonMode: WorkflowComparisonComparisonModeSchema,
+  runtimeProfile: WorkflowComparisonRuntimeProfileSchema,
+  surfaceProfile: WorkflowComparisonSurfaceProfileSchema,
   runToken: RunToken,
   planFingerprint: DurableFingerprint,
   requestFingerprint: DurableFingerprint
@@ -148,6 +261,10 @@ export const resolveWorkflowComparisonRunIdentity = (
       consumerId: request.plan.consumerId,
       comparisonId: request.plan.comparisonId,
       lane: request.plan.lane,
+      optimize: request.plan.optimize,
+      comparisonMode: request.plan.comparisonMode,
+      runtimeProfile: request.plan.runtimeProfile,
+      surfaceProfile: request.plan.surfaceProfile,
       runToken: request.runToken,
       planFingerprint,
       requestFingerprint
@@ -155,8 +272,15 @@ export const resolveWorkflowComparisonRunIdentity = (
   )
 
 export const fingerprintWorkflowComparisonSelection = (
-  comparisonId: WorkflowComparisonId,
-  lane: WorkflowComparisonExecutionLane
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf({ comparisonId, lane })
+  plan: WorkflowComparisonRunPlan
+): Effect.Effect<typeof DurableFingerprint.Type, never, never> =>
+  fingerprintOf({
+    comparisonId: plan.comparisonId,
+    lane: plan.lane,
+    optimize: plan.optimize,
+    comparisonMode: plan.comparisonMode,
+    runtimeProfile: plan.runtimeProfile,
+    surfaceProfile: plan.surfaceProfile
+  })
 
 export { workflowComparisonFingerprint }

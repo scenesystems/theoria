@@ -8,6 +8,7 @@ import type { PageRoute } from "./services/path.js"
 import { DeepDivePage } from "./view/deep/DeepDivePage.js"
 import { PackageDocsPage } from "./view/docs/PackageDocsPage.js"
 import { HomePage } from "./view/home/HomePage.js"
+import { OpenAgentTracePage } from "./view/open-agent-trace/OpenAgentTracePage.js"
 
 import "./styles.css"
 
@@ -34,6 +35,8 @@ const AppShell = ({ route }: { readonly route: PageRoute }) => (
       ? <DeepDivePage id={route.id} />
       : route._tag === "PackageDocsRoute"
       ? <PackageDocsPage packageId={route.packageId} />
+      : route._tag === "OpenAgentTraceRoute"
+      ? <OpenAgentTracePage />
       : <HomePage />}
   </>
 )

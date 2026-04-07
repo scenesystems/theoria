@@ -1,18 +1,22 @@
+import * as LanguageModel from "@effect/ai/LanguageModel"
 import { HttpServerResponse } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { WorkflowEngine } from "@effect/workflow"
 import { Chunk, Effect, Either, Fiber, Layer, Option, Schema, Stream } from "effect"
+import { MockLanguageModel } from "effect-dsp/test"
 
 import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 
 import { decodeEvidenceEventJson } from "../../app/contracts/evidence-stream.js"
 import {
+  makeWorkflowComparisonRunPlan,
   resolveWorkflowComparisonRunIdentity,
   WorkflowComparisonRunEnvelope,
   type WorkflowComparisonRunRequest as WorkflowComparisonRunRequestType
 } from "../../app/contracts/workflow/comparison-run.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
+import { DspProviderRuntime } from "../../app/server/demos/effect-dsp/provider.js"
 import { workflowComparisonRoute } from "../../app/server/routes/workflow-comparison.js"
 import { RunStreamSessionRegistry } from "../../app/server/runtime/stream-session-registry.js"
 import { frozenComparisonForRequest } from "../../app/server/workflow-comparison/frozen.js"
@@ -36,7 +40,32 @@ class ResponseTextError extends Schema.TaggedError<ResponseTextError>()("Respons
   message: Schema.String
 }) {}
 
+const mockDspLanguageModelLayer = MockLanguageModel.layer(
+  LanguageModel.LanguageModel,
+  MockLanguageModel.fixed({
+    intervention: "workflow-comparison",
+    rationale: "Mock workflow comparison runtime."
+  })
+)
+
+const mockDspProviderRuntime = DspProviderRuntime.of({
+  capability: {
+    enabled: true,
+    provider: Option.some("openai"),
+    model: Option.some("mock-model"),
+    routeFamily: Option.none(),
+    baseUrl: Option.none(),
+    reason: Option.none()
+  },
+  resolution: {
+    desired: Option.none(),
+    resolvedRoute: Option.none()
+  },
+  layer: Option.some(mockDspLanguageModelLayer)
+})
+
 const runtimeDependencies = Layer.mergeAll(
+  Layer.succeed(DspProviderRuntime, mockDspProviderRuntime),
   RunStreamSessionRegistry.Default,
   RuntimeInfoLive,
   WorkflowEngine.layerMemory
@@ -90,26 +119,40 @@ const decodeSseEvents = (response: HttpServerResponse.HttpServerResponse) =>
   })
 
 describe("server/workflow-comparison-runtime", () => {
-  it.effect("executes task and chat workflow comparisons through the workflow engine seam and shared stream registry", () =>
+  it.effect("executes task, chat, retrieval, and render-sensitive workflow comparisons through the workflow engine seam and shared stream registry", () =>
     provideWorkflowComparisonServer(
       Effect.gen(function*() {
         const registry = yield* RunStreamSessionRegistry
         const requests: ReadonlyArray<WorkflowComparisonRunRequestType> = [
           {
             runToken: "workflow-comparison-task",
-            plan: {
-              consumerId: "workflow-comparison",
-              comparisonId: "workflow-comparison/task-briefing",
-              lane: "deterministic-fallback"
-            }
+            plan: makeWorkflowComparisonRunPlan({ comparisonId: "workflow-comparison/task-briefing" })
           },
           {
             runToken: "workflow-comparison-chat",
-            plan: {
-              consumerId: "workflow-comparison",
+            plan: makeWorkflowComparisonRunPlan({
               comparisonId: "workflow-comparison/chat-handoff",
-              lane: "deterministic-fallback"
-            }
+              comparisonMode: "authored-optimized",
+              optimize: false,
+              runtimeProfile: "preferred",
+              surfaceProfile: "full-panel"
+            })
+          },
+          {
+            runToken: "workflow-comparison-retrieval",
+            plan: makeWorkflowComparisonRunPlan({
+              comparisonId: "workflow-comparison/retrieval-required",
+              runtimeProfile: "preferred"
+            })
+          },
+          {
+            runToken: "workflow-comparison-render",
+            plan: makeWorkflowComparisonRunPlan({
+              comparisonId: "workflow-comparison/render-sensitive",
+              comparisonMode: "authored-optimized",
+              optimize: false,
+              surfaceProfile: "sidebar"
+            })
           }
         ]
 
@@ -165,7 +208,7 @@ describe("server/workflow-comparison-runtime", () => {
         const response = yield* workflowComparisonRoute(
           "/api/workflow-comparison/run",
           "request-run",
-          "http://127.0.0.1/api/workflow-comparison/run?comparisonId=workflow-comparison/task-briefing&runToken=route-proof"
+          "http://127.0.0.1/api/workflow-comparison/run?comparisonId=workflow-comparison/task-briefing&runToken=route-proof&optimize=false&comparisonMode=authored-optimized&runtimeProfile=preferred&surfaceProfile=full-panel"
         )
         const envelope = yield* decodeWebJson(response, WorkflowComparisonRunEnvelope)
 
@@ -179,6 +222,10 @@ describe("server/workflow-comparison-runtime", () => {
         expect(envelope.decoded.data.identity.runToken).toBe("route-proof")
         expect(envelope.decoded.data.workflowKind).toBe("task-first")
         expect(envelope.decoded.data.runData.id).toBe("workflow-comparison")
+        expect(envelope.decoded.data.identity.optimize).toBe(false)
+        expect(envelope.decoded.data.identity.comparisonMode).toBe("authored-optimized")
+        expect(envelope.decoded.data.identity.runtimeProfile).toBe("preferred")
+        expect(envelope.decoded.data.identity.surfaceProfile).toBe("full-panel")
         expect(envelope.decoded.data.baseline.nodeExecutions.length).toBeGreaterThan(0)
         expect(envelope.decoded.data.baseline.nodeExecutions[0]?.trace.prompt.length).toBeGreaterThan(0)
       })
@@ -194,9 +241,16 @@ describe("server/workflow-comparison-runtime", () => {
         )
         const events = yield* decodeSseEvents(response)
         const eventTags = events.map((event) => event._tag)
+        const optimizationStudyAdvances = events.filter(
+          (event) =>
+            event._tag === "Choreography"
+            && event.cue._tag === "StageAdvance"
+            && event.cue.stageId === "optimization-study"
+        )
 
         expect(eventTags.filter((tag) => tag === "Step").length).toBeGreaterThan(0)
         expect(eventTags.filter((tag) => tag === "StreamComplete").length).toBe(1)
+        expect(optimizationStudyAdvances.length).toBeGreaterThan(0)
         expect(eventTags.includes("StreamFailed")).toBe(false)
       })
     ))
@@ -222,17 +276,45 @@ describe("server/workflow-comparison-runtime", () => {
       })
     ))
 
-  it.effect("wires the workflow-comparison workflow into the app server layer and router boundary", () =>
+  it.effect("terminates the workflow-comparison stream with a typed StreamFailed event when the query is invalid", () =>
+    provideWorkflowComparisonServer(
+      Effect.gen(function*() {
+        const response = yield* workflowComparisonRoute(
+          "/api/workflow-comparison/stream",
+          "request-stream-invalid",
+          "http://127.0.0.1/api/workflow-comparison/stream?comparisonId=workflow-comparison/task-briefing&optimize=maybe"
+        )
+        const events = yield* decodeSseEvents(response)
+
+        expect(events).toHaveLength(1)
+        expect(events[0]?._tag).toBe("StreamFailed")
+
+        if (events[0]?._tag !== "StreamFailed") {
+          return
+        }
+
+        expect(events[0].error.code).toBe("invalid-query")
+      })
+    ))
+
+  it.effect("wires the workflow-comparison workflow into the app server layer, router boundary, and activity-backed execution path", () =>
     Effect.gen(function*() {
       const appSource = yield* readProjectFile(appRootUrl, "app/server/app.ts")
       const routerSource = yield* readProjectFile(appRootUrl, "app/server/router.ts")
+      const workflowSource = yield* readProjectFile(appRootUrl, "app/server/workflow-comparison/workflow.ts")
       const appImports = moduleSpecifiers(parseTypeScript("app/server/app.ts", appSource))
       const routerImports = moduleSpecifiers(parseTypeScript("app/server/router.ts", routerSource))
+      const workflowImports = moduleSpecifiers(
+        parseTypeScript("app/server/workflow-comparison/workflow.ts", workflowSource)
+      )
 
       expect(appImports).toContain("./workflow-comparison/workflow.js")
       expect(appSource).toContain("Layer.merge(DemoWorkflowLive, WorkflowComparisonWorkflowLive)")
       expect(routerImports).toContain("./routes/workflow-comparison.js")
       expect(routerSource).toContain("/api/workflow-comparison/")
+      expect(workflowImports).toContain("@effect/workflow")
+      expect(workflowSource).toContain("Workflow.make({")
+      expect(workflowSource).toContain("Activity.make({")
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("opens an effect-search study, checkpoints a canonical StudySnapshot, and recovers or improves on the authored optimized manifest", () =>
@@ -240,7 +322,8 @@ describe("server/workflow-comparison-runtime", () => {
       const comparison = yield* frozenComparisonForRequest("workflow-comparison/task-briefing")
       const outcome = yield* runWorkflowComparisonSearchStudy({
         comparison,
-        lane: "deterministic-fallback"
+        lane: "deterministic-fallback",
+        plan: makeWorkflowComparisonRunPlan({ comparisonId: "workflow-comparison/task-briefing" })
       })
       const eventTags = outcome.events.map((event) => event._tag)
 
@@ -252,15 +335,21 @@ describe("server/workflow-comparison-runtime", () => {
       expect(outcome.winner.execution.report.aggregateScore).toBeGreaterThanOrEqual(
         outcome.authored.execution.report.aggregateScore
       )
-    }))
+    }).pipe(Effect.provideService(DspProviderRuntime, mockDspProviderRuntime)))
 
   it.effect("replays the winning manifest under the deterministic fallback lane with the same score report", () =>
     Effect.gen(function*() {
       const comparison = yield* frozenComparisonForRequest("workflow-comparison/chat-handoff")
-      const dimensions = yield* workflowComparisonSearchDimensions(comparison)
+      const plan = makeWorkflowComparisonRunPlan({
+        comparisonId: "workflow-comparison/chat-handoff",
+        runtimeProfile: "preferred",
+        surfaceProfile: "full-panel"
+      })
+      const dimensions = yield* workflowComparisonSearchDimensions(comparison, plan)
       const outcome = yield* runWorkflowComparisonSearchStudy({
         comparison,
-        lane: "deterministic-fallback"
+        lane: "deterministic-fallback",
+        plan
       })
       const replay = yield* replayWorkflowComparisonSearchSelection({
         comparison,
@@ -272,18 +361,18 @@ describe("server/workflow-comparison-runtime", () => {
       expect(replay.execution.report.aggregateScore).toBe(outcome.winner.execution.report.aggregateScore)
       expect(replay.execution.record.graph.nodes).toEqual(outcome.winner.execution.record.graph.nodes)
       expect(replay.execution.graphProjection.traversal).toEqual(outcome.winner.execution.graphProjection.traversal)
-    }))
+    }).pipe(Effect.provideService(DspProviderRuntime, mockDspProviderRuntime)))
 
   it.effect("streams study-backed optimization evidence on the same workflow execution record as the canonical winner run", () =>
     provideWorkflowComparisonServer(
       Effect.gen(function*() {
         const success = yield* workflowComparisonWorkflow.execute({
           runToken: "study-evidence-proof",
-          plan: {
-            consumerId: "workflow-comparison",
+          plan: makeWorkflowComparisonRunPlan({
             comparisonId: "workflow-comparison/task-briefing",
-            lane: "deterministic-fallback"
-          }
+            runtimeProfile: "preferred",
+            surfaceProfile: "sidebar"
+          })
         })
         const sectionTitles = success.runData.sections.map((section) => section.title)
 

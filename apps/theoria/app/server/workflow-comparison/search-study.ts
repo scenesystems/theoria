@@ -1,8 +1,4 @@
-import { Effect, Match, Option, Ref, Schema, Stream } from "effect"
-import * as Arr from "effect/Array"
-import { Sampler, SearchSpace, Study } from "effect-search"
-import * as SearchStudyEvent from "effect-search/StudyEvent"
-import type { StudyEvent } from "effect-search/StudyEvent"
+import { Chunk, Effect, Either, Fiber, Match, Option, Ref, Schema, Stream } from "effect"
 import {
   type GraphExecutionManifest,
   type GraphExecutionProjection,
@@ -10,21 +6,40 @@ import {
   type WorkflowExecutionRecord,
   type WorkflowStateLane
 } from "effect-inference/Contracts"
+import { Sampler, SearchSpace, Study } from "effect-search"
+import * as SearchStudyEvent from "effect-search/StudyEvent"
+import type { StudyEvent } from "effect-search/StudyEvent"
+import * as Arr from "effect/Array"
+import * as Record from "effect/Record"
 
-import { canonicalStepEvent, Choreography, SectionAppend, StageEnter, StageExit, type EvidenceEvent } from "../../contracts/evidence-stream.js"
+import {
+  canonicalStepEvent,
+  Choreography,
+  type EvidenceEvent,
+  SectionAppend,
+  SectionUpsert,
+  StageAdvance,
+  StageEnter,
+  StageExit
+} from "../../contracts/evidence-stream.js"
 import type { EvidenceItem, EvidenceSection } from "../../contracts/evidence.js"
+import {
+  workflowComparisonEvidenceItemKeys,
+  workflowComparisonEvidenceSectionKeys
+} from "../../contracts/workflow/comparison-evidence-keys.js"
 import {
   WorkflowComparisonExecutionError,
   type WorkflowComparisonExecutionLane,
-  type WorkflowComparisonVariantExecution,
+  type WorkflowComparisonRunPlan,
   WorkflowComparisonVariantExecution as WorkflowComparisonVariantExecutionSchema
 } from "../../contracts/workflow/comparison-run.js"
 import { WorkflowComparisonCanonicalStep } from "../../contracts/workflow/comparison-step.js"
+import type { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 import { makeWorkflowExecutionRecord } from "./decode.js"
-import type { FrozenWorkflowComparisonRun } from "./frozen.js"
 import { evaluateVariantExecutionEffect } from "./evaluation.js"
+import type { FrozenWorkflowComparisonRun } from "./frozen.js"
+import { workflowComparisonChoicesForPlan, workflowComparisonSelectedKnobsForRecord } from "./run-controls.js"
 import {
-  activeStateLanesForState,
   advanceExecutionState,
   finalizeVariantExecution,
   initialExecutionState,
@@ -34,7 +49,14 @@ import {
   WorkflowComparisonSelectedKnobsSchema
 } from "./runtime.js"
 
+// Decomposition plan: this module still owns search-space projection, ask/tell execution,
+// and evidence projection so the workflow-comparison optimization lane can converge on one
+// server authority. Split along those three seams once the published knob family stabilizes.
+
 const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+const encodeUnknownJson = Schema.encodeSync(Schema.parseJson(Schema.Unknown))
+const encodeStudySnapshotJson = Schema.encodeSync(Schema.parseJson(Study.StudySnapshot))
+const decodeSelectedKnobsEither = Schema.decodeUnknownEither(WorkflowComparisonSelectedKnobsSchema)
 
 const WorkflowComparisonSearchEvaluationSchema = Schema.Struct({
   selection: WorkflowComparisonSelectedKnobsSchema,
@@ -54,6 +76,10 @@ export const WorkflowComparisonSearchStudyOutcomeSchema = Schema.Struct({
 
 export type WorkflowComparisonSearchStudyOutcome = Schema.Schema.Type<typeof WorkflowComparisonSearchStudyOutcomeSchema>
 
+type WorkflowComparisonSearchProgressPublisher<R> = (
+  events: ReadonlyArray<EvidenceEvent>
+) => Effect.Effect<void, never, R>
+
 type WorkflowComparisonSearchDimension = {
   readonly key: string
   readonly choices: ReadonlyArray<string>
@@ -70,6 +96,8 @@ const searchSeedForComparison = (comparison: FrozenWorkflowComparisonRun): numbe
   Match.value(comparison.comparisonId).pipe(
     Match.when("workflow-comparison/task-briefing", () => 410),
     Match.when("workflow-comparison/chat-handoff", () => 411),
+    Match.when("workflow-comparison/retrieval-required", () => 412),
+    Match.when("workflow-comparison/render-sensitive", () => 413),
     Match.exhaustive
   )
 
@@ -80,11 +108,16 @@ const categoricalDimension = (choices: ReadonlyArray<string>) =>
   })
 
 const searchDimensionsForComparison = (
-  comparison: FrozenWorkflowComparisonRun
+  comparison: FrozenWorkflowComparisonRun,
+  plan: WorkflowComparisonRunPlan
 ): Effect.Effect<ReadonlyArray<WorkflowComparisonSearchDimension>, WorkflowComparisonExecutionError, never> => {
   const dimensions = comparison.optimized.record.graph.optimizationKnobs.map((knob) => ({
     key: knob.key,
-    choices: knob.choices
+    choices: workflowComparisonChoicesForPlan({
+      choices: knob.choices,
+      key: knob.key,
+      plan
+    })
   }))
 
   return Arr.some(dimensions, (dimension) => dimension.choices.length === 0)
@@ -96,7 +129,7 @@ const searchDimensionsForComparison = (
 
 const searchSpaceForDimensions = (dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>) =>
   SearchSpace.unsafeMake(
-    dimensions.reduce<Readonly<Record<string, Schema.Schema<string>>>>(
+    dimensions.reduce<Readonly<Record<string, Schema.Schema.AnyNoContext>>>(
       (definition, dimension) => ({
         ...definition,
         [dimension.key]: categoricalDimension(dimension.choices)
@@ -106,15 +139,13 @@ const searchSpaceForDimensions = (dimensions: ReadonlyArray<WorkflowComparisonSe
   )
 
 const authoredOptimizedSelection = (
-  comparison: FrozenWorkflowComparisonRun
+  comparison: FrozenWorkflowComparisonRun,
+  plan: WorkflowComparisonRunPlan
 ): WorkflowComparisonSelectedKnobs =>
-  comparison.optimized.record.graph.optimizationKnobs.reduce<WorkflowComparisonSelectedKnobs>(
-    (selection, knob) => ({
-      ...selection,
-      [knob.key]: knob.choices[0] ?? ""
-    }),
-    {}
-  )
+  workflowComparisonSelectedKnobsForRecord({
+    plan,
+    record: comparison.optimized.record
+  })
 
 const selectionValue = ({
   fallback,
@@ -146,10 +177,11 @@ const manifestSuffix = ({
 }: {
   readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
   readonly selection: WorkflowComparisonSelectedKnobs
-}): string =>
-  selectionKey({ dimensions, selection }).replace(/[^a-z0-9]+/giu, "-").replace(/^-|-$/gu, "")
+}): string => selectionKey({ dimensions, selection }).replace(/[^a-z0-9]+/giu, "-").replace(/^-|-$/gu, "")
 
-const optimizationKnobByKey = (manifest: GraphExecutionManifest): Readonly<Record<string, GraphExecutionManifest["optimizationKnobs"][number]>> =>
+const optimizationKnobByKey = (
+  manifest: GraphExecutionManifest
+): Readonly<Record<string, GraphExecutionManifest["optimizationKnobs"][number]>> =>
   manifest.optimizationKnobs.reduce<Readonly<Record<string, GraphExecutionManifest["optimizationKnobs"][number]>>>(
     (lookup, knob) => ({
       ...lookup,
@@ -176,12 +208,12 @@ const nodeIsEnabled = ({
           onSome: (knob) =>
             knob.kind !== "node-enabled"
             || selectionValue({ fallback: "enabled", key: knob.key, selection }) !== "disabled"
-        })),
+        })
+      ),
     true
   )
 
-const nodeIds = (nodes: ReadonlyArray<NodeExecutionContract>): ReadonlyArray<string> =>
-  nodes.map((node) => node.nodeId)
+const nodeIds = (nodes: ReadonlyArray<NodeExecutionContract>): ReadonlyArray<string> => nodes.map((node) => node.nodeId)
 
 const activeStateLanesForRecord = (record: WorkflowExecutionRecord): ReadonlyArray<WorkflowStateLane> =>
   record.projection.activeStateLanes.filter((lane, index, lanes) => lanes.indexOf(lane) === index)
@@ -263,7 +295,7 @@ const evaluateSelection = ({
   readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
   readonly lane: WorkflowComparisonExecutionLane
   readonly selection: WorkflowComparisonSelectedKnobs
-}): Effect.Effect<WorkflowComparisonSearchEvaluation, WorkflowComparisonExecutionError, never> =>
+}): Effect.Effect<WorkflowComparisonSearchEvaluation, WorkflowComparisonExecutionError, DspProviderRuntime> =>
   Effect.gen(function*() {
     const record = recordForSelection({ comparison, dimensions, selection })
     const plan = yield* prepareVariantPlanForRecord({
@@ -278,31 +310,33 @@ const evaluateSelection = ({
       stepIndex: index + 1,
       stepCount: plan.graphProjection.traversal.length
     }))
-    const nodeExecutions = yield* Effect.forEach(indexedTraversal, ({ nodeId, stepCount, stepIndex }) =>
-      Ref.get(stateRef).pipe(
-        Effect.flatMap((state) =>
-          nodeExecutionForVariant({
-            comparison,
-            lane,
-            plan,
-            state,
-            nodeId,
-            stepCount,
-            stepIndex
-          }).pipe(
-            Effect.tap((nodeExecution) =>
-              Ref.set(
-                stateRef,
-                advanceExecutionState({
-                  state,
-                  node: nodeExecution.node,
-                  outputText: nodeExecution.outputText
-                })
+    const nodeExecutions = yield* Effect.forEach(
+      indexedTraversal,
+      ({ nodeId, stepCount, stepIndex }) =>
+        Ref.get(stateRef).pipe(
+          Effect.flatMap((state) =>
+            nodeExecutionForVariant({
+              comparison,
+              lane,
+              plan,
+              state,
+              nodeId,
+              stepCount,
+              stepIndex
+            }).pipe(
+              Effect.tap((nodeExecution) =>
+                Ref.set(
+                  stateRef,
+                  advanceExecutionState({
+                    state,
+                    node: nodeExecution.node,
+                    outputText: nodeExecution.outputText
+                  })
+                )
               )
             )
           )
         )
-      )
     )
     const report = yield* evaluateVariantExecutionEffect({
       comparison,
@@ -322,39 +356,43 @@ const evaluateSelection = ({
     }
   })
 
-const selectionFromConfig = (config: Readonly<Record<string, unknown>>): WorkflowComparisonSelectedKnobs =>
-  Object.entries(config).reduce<WorkflowComparisonSelectedKnobs>(
-    (selection, [key, value]) =>
-      typeof value === "string"
-        ? {
-          ...selection,
-          [key]: value
-        }
-        : selection,
-    {}
-  )
+const selectionFromConfig = (
+  config: unknown
+): Effect.Effect<WorkflowComparisonSelectedKnobs, WorkflowComparisonExecutionError, never> =>
+  Either.match(decodeSelectedKnobsEither(config), {
+    onLeft: () =>
+      Effect.fail(
+        executionError("Workflow comparison study produced an invalid knob-selection config.")
+      ),
+    onRight: Effect.succeed
+  })
 
-const singleObjectiveBestSelectionKey = ({
+const formatSelectionFromConfig = ({
+  config,
+  dimensions
+}: {
+  readonly config: unknown
+  readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
+}): string =>
+  Either.match(decodeSelectedKnobsEither(config), {
+    onLeft: () => encodeUnknownJson(config),
+    onRight: (selection) => formatSelection({ dimensions, selection })
+  })
+
+const singleObjectiveBestSelectionKey = <Config>({
   dimensions,
   outcome
 }: {
   readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
-  readonly outcome: Awaited<ReturnType<typeof Study.result>>
+  readonly outcome: Study.StudyResult<Config>
 }): Effect.Effect<string, WorkflowComparisonExecutionError, never> =>
-  Match.value(outcome).pipe(
-    Match.tag("SingleObjective", ({ bestTrial }) =>
-      Effect.succeed(
-        selectionKey({
-          dimensions,
-          selection: selectionFromConfig(bestTrial.config)
-        })
-      )),
-    Match.tag("MultiObjective", () =>
-      Effect.fail(
-        executionError("Workflow comparison search opened a multi-objective study for a single-score optimization lane.")
-      )),
-    Match.exhaustive
-  )
+  outcome._tag === "SingleObjective"
+    ? selectionFromConfig(outcome.bestTrial.config).pipe(
+      Effect.map((selection) => selectionKey({ dimensions, selection }))
+    )
+    : Effect.fail(
+      executionError("Workflow comparison search opened a multi-objective study for a single-score optimization lane.")
+    )
 
 const formatSelection = ({
   dimensions,
@@ -367,6 +405,13 @@ const formatSelection = ({
     .map((dimension) => `${dimension.key}=${selectionValue({ fallback: "unset", key: dimension.key, selection })}`)
     .join(" · ")
 
+const formatObjectiveValue = (value: number | ReadonlyArray<number>): string =>
+  typeof value === "number"
+    ? value.toFixed(6)
+    : Arr.isNonEmptyReadonlyArray(value)
+    ? value.map((entry) => entry.toFixed(6)).join(", ")
+    : "n/a"
+
 const formatEventDetail = ({
   dimensions,
   event
@@ -376,11 +421,12 @@ const formatEventDetail = ({
 }): string =>
   SearchStudyEvent.matchStudyEvent<string>({
     TrialStarted: ({ config, trialNumber }) =>
-      `trial ${trialNumber} reserved · ${formatSelection({ dimensions, selection: selectionFromConfig(config) })}`,
-    TrialCompleted: ({ trialNumber, value }) => `trial ${trialNumber} completed · score ${value.toFixed(6)}`,
-    BestUpdated: ({ trialNumber, value }) => `best updated by trial ${trialNumber} · score ${value.toFixed(6)}`,
+      `trial ${trialNumber} reserved · ${formatSelectionFromConfig({ config, dimensions })}`,
+    TrialCompleted: ({ trialNumber, value }) => `trial ${trialNumber} completed · score ${formatObjectiveValue(value)}`,
+    BestUpdated: ({ trialNumber, value }) =>
+      `best updated by trial ${trialNumber} · score ${formatObjectiveValue(value)}`,
     TrialReported: ({ decision, step, trialNumber, value }) =>
-      `trial ${trialNumber} reported ${value.toFixed(6)} at step ${step} · ${decision._tag}`,
+      `trial ${trialNumber} reported ${formatObjectiveValue(value)} at step ${step} · ${decision._tag}`,
     TrialPruned: ({ trialNumber, reason }) => `trial ${trialNumber} pruned · ${reason}`,
     TrialRetried: ({ attempt, trialNumber }) => `trial ${trialNumber} retried · attempt ${attempt}`,
     TrialCancelled: ({ reason, trialNumber }) => `trial ${trialNumber} cancelled · ${reason}`,
@@ -398,7 +444,8 @@ const formatEventDetail = ({
       Option.fromNullable(bestValue).pipe(
         Option.match({
           onNone: () => `bracket ${bracketIndex} completed · ${rounds} rounds`,
-          onSome: (value) => `bracket ${bracketIndex} completed · best ${value.toFixed(6)} · ${rounds} rounds`
+          onSome: (value) =>
+            `bracket ${bracketIndex} completed · best ${formatObjectiveValue(value)} · ${rounds} rounds`
         })
       ),
     StudyCompleted: ({ completionReason }) => `study completed · ${completionReason}`
@@ -416,11 +463,151 @@ const selectionRows = ({
     selectionValue({ fallback: "unset", key: dimension.key, selection })
   ])
 
-const itemText = (label: string, value: string): EvidenceItem => ({
+const aggregateScoreForEvaluation = (evaluation: WorkflowComparisonSearchEvaluation): number =>
+  evaluation.execution.report.aggregateScore
+
+const bestEvaluation = (
+  evaluations: Readonly<Record<string, WorkflowComparisonSearchEvaluation>>
+): Option.Option<WorkflowComparisonSearchEvaluation> =>
+  Record.values(evaluations).reduce<Option.Option<WorkflowComparisonSearchEvaluation>>(
+    (best, evaluation) =>
+      Option.match(best, {
+        onNone: () => Option.some(evaluation),
+        onSome: (currentBest) =>
+          Option.some(
+            aggregateScoreForEvaluation(evaluation) > aggregateScoreForEvaluation(currentBest)
+              ? evaluation
+              : currentBest
+          )
+      }),
+    Option.none()
+  )
+
+const itemText = (label: string, value: string, key?: string): EvidenceItem => ({
   _tag: "Text",
+  key,
   label,
   value
 })
+
+const optimizationStudyProgressSection = ({
+  best,
+  completedTrials,
+  current,
+  dimensions,
+  trialBudget
+}: {
+  readonly best: WorkflowComparisonSearchEvaluation
+  readonly completedTrials: number
+  readonly current: WorkflowComparisonSearchEvaluation
+  readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
+  readonly trialBudget: number
+}): EvidenceSection => ({
+  key: workflowComparisonEvidenceSectionKeys.optimizationStudyProgress,
+  title: "Optimization Study Progress",
+  items: [
+    {
+      _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.completedTrials,
+      label: "Completed trials",
+      value: completedTrials,
+      unit: "trials",
+      format: "integer"
+    },
+    {
+      _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.trialBudget,
+      label: "Trial budget",
+      value: trialBudget,
+      unit: "trials",
+      format: "integer"
+    },
+    itemText(
+      "Current selection",
+      formatSelection({ dimensions, selection: current.selection }),
+      workflowComparisonEvidenceItemKeys.currentSelection
+    ),
+    {
+      _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.currentScore,
+      label: "Current score",
+      value: aggregateScoreForEvaluation(current),
+      unit: "score",
+      format: "fixed"
+    },
+    itemText(
+      "Best selection",
+      formatSelection({ dimensions, selection: best.selection }),
+      workflowComparisonEvidenceItemKeys.bestSelection
+    ),
+    {
+      _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.bestScore,
+      label: "Best score",
+      value: aggregateScoreForEvaluation(best),
+      unit: "score",
+      format: "fixed"
+    }
+  ]
+})
+
+export const optimizationStudyStartedEvents = ({
+  trialBudget
+}: {
+  readonly trialBudget: number
+}): ReadonlyArray<EvidenceEvent> => [
+  new Choreography({
+    cue: new StageEnter({ stageId: "optimization-study", params: { trialBudget, stepCount: trialBudget } })
+  })
+]
+
+const optimizationStudyProgressEvents = ({
+  best,
+  comparison,
+  completedTrials,
+  current,
+  dimensions,
+  trialBudget
+}: {
+  readonly best: WorkflowComparisonSearchEvaluation
+  readonly comparison: FrozenWorkflowComparisonRun
+  readonly completedTrials: number
+  readonly current: WorkflowComparisonSearchEvaluation
+  readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
+  readonly trialBudget: number
+}): ReadonlyArray<EvidenceEvent> => [
+  new Choreography({
+    cue: new StageAdvance({ stageId: "optimization-study", step: completedTrials - 1 })
+  }),
+  canonicalStepEvent(
+    new WorkflowComparisonCanonicalStep({
+      comparisonId: comparison.comparisonId,
+      workflowKind: comparison.workflowKind,
+      variant: "optimized",
+      nodeId: "optimization-study",
+      nodeKind: "critic",
+      runtimeRole: "critic",
+      stepIndex: completedTrials,
+      stepCount: trialBudget,
+      lineage: ["optimization-study"],
+      activeStateLanes: ["conversation"],
+      outputText:
+        `Completed ${completedTrials}/${trialBudget} optimization trials. Current ${current.selectionKey} scored ${
+          aggregateScoreForEvaluation(current).toFixed(6)
+        }; best so far is ${best.selectionKey} at ${aggregateScoreForEvaluation(best).toFixed(6)}.`,
+      aggregateScore: aggregateScoreForEvaluation(best)
+    })
+  ),
+  new SectionUpsert({
+    section: optimizationStudyProgressSection({
+      best,
+      completedTrials,
+      current,
+      dimensions,
+      trialBudget
+    })
+  })
+]
 
 const optimizationStudySections = ({
   comparison,
@@ -436,10 +623,12 @@ const optimizationStudySections = ({
 
   return [
     {
+      key: workflowComparisonEvidenceSectionKeys.optimizationStudySummary,
       title: "Optimization Study Summary",
       items: [
         {
           _tag: "Scalar",
+          key: workflowComparisonEvidenceItemKeys.trialBudget,
           label: "Trial budget",
           value: outcome.trialBudget,
           unit: "trials",
@@ -447,6 +636,7 @@ const optimizationStudySections = ({
         },
         {
           _tag: "Scalar",
+          key: workflowComparisonEvidenceItemKeys.completedTrials,
           label: "Completed trials",
           value: outcome.snapshot.completedCount,
           unit: "trials",
@@ -454,6 +644,7 @@ const optimizationStudySections = ({
         },
         {
           _tag: "Comparison",
+          key: workflowComparisonEvidenceItemKeys.winnerVsAuthoredOptimizedScore,
           label: "Winner vs authored optimized score",
           baseline: authoredScore,
           improved: winnerScore,
@@ -462,6 +653,7 @@ const optimizationStudySections = ({
         },
         {
           _tag: "Comparison",
+          key: workflowComparisonEvidenceItemKeys.winnerVsAuthoredOptimizedNodeCount,
           label: "Winner vs authored optimized node count",
           baseline: outcome.authored.execution.record.graph.nodes.length,
           improved: outcome.winner.execution.record.graph.nodes.length,
@@ -470,28 +662,41 @@ const optimizationStudySections = ({
         },
         itemText(
           "Recovered or improved authored optimized",
-          winnerScore >= authoredScore ? "yes" : "no"
+          winnerScore >= authoredScore ? "yes" : "no",
+          workflowComparisonEvidenceItemKeys.recoveredOrImprovedAuthoredOptimized
         )
       ]
     },
     {
+      key: workflowComparisonEvidenceSectionKeys.optimizationWinner,
       title: "Optimization Winner",
       items: [
         {
           _tag: "Table",
+          key: workflowComparisonEvidenceItemKeys.selectedKnobs,
           label: "Selected knobs",
           columns: ["Knob", "Choice"],
           rows: selectionRows({ dimensions, selection: outcome.winner.selection })
         },
-        itemText("Winner record", outcome.winner.execution.record.recordId),
-        itemText("Winner traversal", outcome.winner.execution.graphProjection.traversal.join(" -> "))
+        itemText(
+          "Winner record",
+          outcome.winner.execution.record.recordId,
+          workflowComparisonEvidenceItemKeys.winnerRecord
+        ),
+        itemText(
+          "Winner traversal",
+          outcome.winner.execution.graphProjection.traversal.join(" -> "),
+          workflowComparisonEvidenceItemKeys.winnerTraversal
+        )
       ]
     },
     {
+      key: workflowComparisonEvidenceSectionKeys.optimizationSnapshot,
       title: "Optimization Snapshot",
       items: [
         {
           _tag: "Table",
+          key: workflowComparisonEvidenceItemKeys.snapshotFacts,
           label: "Snapshot facts",
           columns: ["Field", "Value"],
           rows: [
@@ -501,18 +706,24 @@ const optimizationStudySections = ({
             ["completed count", `${outcome.snapshot.completedCount}`],
             ["trial count", `${outcome.snapshot.trials.length}`],
             ["study duration", `${outcome.snapshot.studyDuration}`],
-            ["sampler kind", outcome.snapshot.samplerKind],
+            ["sampler kind", outcome.snapshot.samplerKind._tag],
             ["space fingerprint", outcome.snapshot.spaceFingerprint]
           ]
         },
-        itemText("Snapshot JSON", JSON.stringify(outcome.snapshot))
+        itemText(
+          "Snapshot JSON",
+          encodeStudySnapshotJson(outcome.snapshot),
+          workflowComparisonEvidenceItemKeys.snapshotJson
+        )
       ]
     },
     {
+      key: workflowComparisonEvidenceSectionKeys.optimizationStudyEventTrace,
       title: "Optimization Study Event Trace",
       items: [
         {
           _tag: "Table",
+          key: workflowComparisonEvidenceItemKeys.studyEvents,
           label: "Study events",
           columns: ["#", "Event", "Detail"],
           rows: outcome.events.map((event, index) => [
@@ -526,7 +737,7 @@ const optimizationStudySections = ({
   ]
 }
 
-export const optimizationStudyEvidenceEvents = ({
+export const optimizationStudyCompletedEvents = ({
   comparison,
   dimensions,
   outcome
@@ -535,35 +746,17 @@ export const optimizationStudyEvidenceEvents = ({
   readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
   readonly outcome: WorkflowComparisonSearchStudyOutcome
 }): ReadonlyArray<EvidenceEvent> => {
-  const winnerScore = outcome.winner.execution.report.aggregateScore
-
   return [
-    new Choreography({ cue: new StageEnter({ stageId: "optimization-study", params: { trialBudget: outcome.trialBudget } }) }),
     ...optimizationStudySections({ comparison, dimensions, outcome }).map((section) => new SectionAppend({ section })),
-    canonicalStepEvent(
-      new WorkflowComparisonCanonicalStep({
-        comparisonId: comparison.comparisonId,
-        workflowKind: comparison.workflowKind,
-        variant: "optimized",
-        nodeId: "optimization-study",
-        nodeKind: "critic",
-        runtimeRole: "critic",
-        stepIndex: 0,
-        stepCount: 0,
-        lineage: ["optimization-study"],
-        activeStateLanes: ["conversation"],
-        outputText: `Optimization study selected ${outcome.winner.execution.record.recordId} with score ${winnerScore.toFixed(6)}.`,
-        aggregateScore: winnerScore
-      })
-    ),
     new Choreography({ cue: new StageExit({ stageId: "optimization-study" }) })
   ]
 }
 
 export const workflowComparisonSearchDimensions = (
-  comparison: FrozenWorkflowComparisonRun
+  comparison: FrozenWorkflowComparisonRun,
+  plan: WorkflowComparisonRunPlan
 ): Effect.Effect<ReadonlyArray<WorkflowComparisonSearchDimension>, WorkflowComparisonExecutionError, never> =>
-  searchDimensionsForComparison(comparison)
+  searchDimensionsForComparison(comparison, plan)
 
 export const replayWorkflowComparisonSearchSelection = ({
   comparison,
@@ -575,19 +768,23 @@ export const replayWorkflowComparisonSearchSelection = ({
   readonly dimensions: ReadonlyArray<WorkflowComparisonSearchDimension>
   readonly lane: WorkflowComparisonExecutionLane
   readonly selection: WorkflowComparisonSelectedKnobs
-}): Effect.Effect<WorkflowComparisonSearchEvaluation, WorkflowComparisonExecutionError, never> =>
+}): Effect.Effect<WorkflowComparisonSearchEvaluation, WorkflowComparisonExecutionError, DspProviderRuntime> =>
   evaluateSelection({ comparison, dimensions, lane, selection })
 
-export const runWorkflowComparisonSearchStudy = ({
+export const runWorkflowComparisonSearchStudy = <R = never>({
   comparison,
-  lane
+  lane,
+  plan,
+  publishProgress = () => Effect.void
 }: {
   readonly comparison: FrozenWorkflowComparisonRun
   readonly lane: WorkflowComparisonExecutionLane
-}): Effect.Effect<WorkflowComparisonSearchStudyOutcome, WorkflowComparisonExecutionError, never> =>
+  readonly plan: WorkflowComparisonRunPlan
+  readonly publishProgress?: WorkflowComparisonSearchProgressPublisher<R>
+}): Effect.Effect<WorkflowComparisonSearchStudyOutcome, WorkflowComparisonExecutionError, R | DspProviderRuntime> =>
   Effect.scoped(
     Effect.gen(function*() {
-      const dimensions = yield* searchDimensionsForComparison(comparison)
+      const dimensions = yield* searchDimensionsForComparison(comparison, plan)
       const space = searchSpaceForDimensions(dimensions)
       const trialBudget = dimensions.reduce((product, dimension) => product * dimension.choices.length, 1)
       const sampler = Sampler.tpe({
@@ -608,43 +805,69 @@ export const runWorkflowComparisonSearchStudy = ({
       const eventFiber = yield* Effect.fork(Stream.runCollect(Study.events(handle)))
 
       yield* Effect.forEach(
-        Array.from({ length: trialBudget }, (_unused, index) => index),
+        Arr.range(0, trialBudget - 1),
         () =>
           Study.ask(handle).pipe(
-            Effect.mapError(() => executionError(`Workflow comparison study reservation failed for ${comparison.comparisonId}.`)),
-            Effect.flatMap((asked) => {
-              const selection = selectionFromConfig(asked.config)
-
-              return evaluateSelection({ comparison, dimensions, lane, selection }).pipe(
-                Effect.tap((evaluation) =>
-                  Ref.update(evaluationByKeyRef, (current) => ({
-                    ...current,
-                    [evaluation.selectionKey]: evaluation
-                  }))
-                ),
-                Effect.flatMap((evaluation) =>
-                  Study.tell(handle, asked.trialNumber, evaluation.execution.report.aggregateScore).pipe(
-                    Effect.mapError(() =>
-                      executionError(`Workflow comparison study scoring failed for ${comparison.comparisonId}.`)
+            Effect.mapError(() =>
+              executionError(`Workflow comparison study reservation failed for ${comparison.comparisonId}.`)
+            ),
+            Effect.flatMap((asked) =>
+              selectionFromConfig(asked.config).pipe(
+                Effect.flatMap((selection) =>
+                  evaluateSelection({ comparison, dimensions, lane, selection }).pipe(
+                    Effect.tap((evaluation) =>
+                      Ref.update(evaluationByKeyRef, (current) => ({
+                        ...current,
+                        [evaluation.selectionKey]: evaluation
+                      }))
+                    ),
+                    Effect.flatMap((evaluation) =>
+                      Study.tell(handle, asked.trialNumber, evaluation.execution.report.aggregateScore).pipe(
+                        Effect.mapError(() =>
+                          executionError(`Workflow comparison study scoring failed for ${comparison.comparisonId}.`)
+                        ),
+                        Effect.zipRight(Ref.get(evaluationByKeyRef)),
+                        Effect.flatMap((evaluations) =>
+                          Option.match(bestEvaluation(evaluations), {
+                            onNone: () => Effect.void,
+                            onSome: (best) =>
+                              publishProgress(
+                                optimizationStudyProgressEvents({
+                                  best,
+                                  comparison,
+                                  completedTrials: Record.keys(evaluations).length,
+                                  current: evaluation,
+                                  dimensions,
+                                  trialBudget
+                                })
+                              )
+                          })
+                        )
+                      )
                     )
                   )
                 )
               )
-            }),
+            )
+          ),
         { discard: true }
       )
 
       const outcome = yield* Study.result(handle).pipe(
-        Effect.mapError(() => executionError(`Workflow comparison study result assembly failed for ${comparison.comparisonId}.`))
+        Effect.mapError(() =>
+          executionError(`Workflow comparison study result assembly failed for ${comparison.comparisonId}.`)
+        )
       )
       const snapshot = yield* Study.snapshot(handle).pipe(
-        Effect.mapError(() => executionError(`Workflow comparison study snapshot failed for ${comparison.comparisonId}.`))
+        Effect.mapError(() =>
+          executionError(`Workflow comparison study snapshot failed for ${comparison.comparisonId}.`)
+        )
       )
       const bestSelectionKey = yield* singleObjectiveBestSelectionKey({ dimensions, outcome })
-      const authoredSelection = authoredOptimizedSelection(comparison)
+      const authoredSelection = authoredOptimizedSelection(comparison, plan)
       const authoredSelectionKey = selectionKey({ dimensions, selection: authoredSelection })
       const evaluations = yield* Ref.get(evaluationByKeyRef)
-      const events = Chunk.toReadonlyArray(yield* Effect.join(eventFiber))
+      const events = Chunk.toReadonlyArray(yield* Fiber.join(eventFiber))
       const winner = evaluations[bestSelectionKey]
       const authored = evaluations[authoredSelectionKey]
 

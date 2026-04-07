@@ -8,11 +8,15 @@ import type {
 } from "../../contracts/workflow/comparison.js"
 import { workflowComparisonId } from "../../contracts/workflow/comparison.js"
 import { chatHandoffWorkflowComparison } from "./chat-handoff.js"
+import { renderSensitiveWorkflowComparison } from "./render-sensitive.js"
+import { retrievalRequiredWorkflowComparison } from "./retrieval-required.js"
 import { taskBriefingWorkflowComparison } from "./task-briefing.js"
 
 export const workflowComparisons: WorkflowComparisonCatalog = Arr.make(
   taskBriefingWorkflowComparison,
-  chatHandoffWorkflowComparison
+  chatHandoffWorkflowComparison,
+  retrievalRequiredWorkflowComparison,
+  renderSensitiveWorkflowComparison
 )
 
 export const defaultWorkflowComparisonId: WorkflowComparisonId = workflowComparisonId(taskBriefingWorkflowComparison)

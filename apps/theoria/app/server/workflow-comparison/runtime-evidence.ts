@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 import type { Usage } from "effect-dsp/contracts"
 import {
   type ExecutionRoute,
@@ -14,6 +14,8 @@ import type {
   WorkflowComparisonExecutionLane,
   WorkflowComparisonTraceProjection
 } from "../../contracts/workflow/comparison-run.js"
+import { WorkflowComparisonExecutionError } from "../../contracts/workflow/comparison-run.js"
+import { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 import type { FrozenWorkflowComparisonRun } from "./frozen.js"
 
 const decodeRuntimeCapabilities = Schema.decodeUnknownSync(RuntimeCapabilitiesSchema)
@@ -64,7 +66,38 @@ const desiredRuntimeForNode = ({
   tags: [comparison.workflowKind, variant, node.nodeKind]
 })
 
-export const runtimeEvidenceForNodeExecution = ({
+const executionError = (message: string) =>
+  new WorkflowComparisonExecutionError({
+    code: "execution-failed",
+    message,
+    retryable: false
+  })
+
+const normalizedUsageForNodeExecution = (usage: Usage) => ({
+  inputTokens: usage.inputTokens,
+  outputTokens: usage.outputTokens,
+  totalTokens: usage.inputTokens + usage.outputTokens,
+  ...Option.fromNullable(usage.cachedCount > 0 ? 0 : undefined).pipe(
+    Option.match({
+      onNone: () => ({}),
+      onSome: (cacheReadTokens) => ({ cacheReadTokens })
+    })
+  )
+})
+
+const responseIdForNodeExecution = ({
+  comparison,
+  node,
+  trace,
+  variant
+}: {
+  readonly comparison: FrozenWorkflowComparisonRun
+  readonly node: NodeExecutionContract
+  readonly trace: WorkflowComparisonTraceProjection
+  readonly variant: GraphVariant
+}): string => `${comparison.comparisonId}-${variant}-${node.nodeId}-${trace.timestamp}`
+
+const deterministicRuntimeEvidenceForNodeExecution = ({
   comparison,
   lane,
   node,
@@ -95,22 +128,90 @@ export const runtimeEvidenceForNodeExecution = ({
   })
   const resolvedRuntime = InferenceTesting.makeResolvedRuntimeDescriptor({
     responseModel: trace.moduleId,
-    responseId: `${comparison.comparisonId}-${variant}-${node.nodeId}-${trace.timestamp}`,
+    responseId: responseIdForNodeExecution({ comparison, node, trace, variant }),
     startedAtMs: Math.max(trace.timestamp - trace.durationMs, 0),
     completedAtMs: trace.timestamp,
     finishReason: "stop",
-    usage: {
-      inputTokens: usage.inputTokens,
-      outputTokens: usage.outputTokens,
-      totalTokens: usage.inputTokens + usage.outputTokens,
-      ...Option.fromNullable(usage.cachedCount > 0 ? 0 : undefined).pipe(
-        Option.match({
-          onNone: () => ({}),
-          onSome: (cacheReadTokens) => ({ cacheReadTokens })
-        })
-      )
-    }
+    usage: normalizedUsageForNodeExecution(usage)
   })
 
   return InferenceRuntime.makeRuntimeEvidence({ resolution, resolvedRuntime })
 }
+
+const providerRuntimeEvidenceForNodeExecution = ({
+  comparison,
+  node,
+  trace,
+  usage,
+  variant
+}: {
+  readonly comparison: FrozenWorkflowComparisonRun
+  readonly node: NodeExecutionContract
+  readonly trace: WorkflowComparisonTraceProjection
+  readonly usage: Usage
+  readonly variant: GraphVariant
+}): Effect.Effect<RuntimeEvidence, WorkflowComparisonExecutionError, DspProviderRuntime> =>
+  DspProviderRuntime.pipe(
+    Effect.flatMap((runtime) =>
+      Option.all({
+        desired: runtime.resolution.desired,
+        resolvedRoute: runtime.resolution.resolvedRoute
+      }).pipe(
+        Option.match({
+          onNone: () =>
+            Effect.fail(
+              executionError(
+                Option.getOrElse(runtime.capability.reason, () =>
+                  "Workflow comparison live provider runtime is not configured.")
+              )
+            ),
+          onSome: ({ desired, resolvedRoute }) => {
+            const resolution = new InferenceRuntime.RuntimeResolution({
+              desired: {
+                ...desired,
+                role: node.runtimeRole,
+                tags: [...(desired.tags ?? []), comparison.workflowKind, variant, node.nodeKind]
+              },
+              resolvedRoute,
+              capabilities: runtimeCapabilitiesForNode(node),
+              layers: InferenceRuntime.emptyResolvedModelLayers()
+            })
+
+            return Effect.succeed(
+              InferenceRuntime.makeRuntimeEvidence({
+                resolution,
+                resolvedRuntime: {
+                  responseModel: Option.getOrElse(runtime.capability.model, () =>
+                    desired.artifact.modelRef),
+                  responseId: responseIdForNodeExecution({ comparison, node, trace, variant }),
+                  startedAtMs: Math.max(trace.timestamp - trace.durationMs, 0),
+                  completedAtMs: trace.timestamp,
+                  finishReason: "stop",
+                  usage: normalizedUsageForNodeExecution(usage)
+                }
+              })
+            )
+          }
+        })
+      )
+    )
+  )
+
+export const runtimeEvidenceForNodeExecution = ({
+  comparison,
+  lane,
+  node,
+  trace,
+  usage,
+  variant
+}: {
+  readonly comparison: FrozenWorkflowComparisonRun
+  readonly lane: WorkflowComparisonExecutionLane
+  readonly node: NodeExecutionContract
+  readonly trace: WorkflowComparisonTraceProjection
+  readonly usage: Usage
+  readonly variant: GraphVariant
+}): Effect.Effect<RuntimeEvidence, WorkflowComparisonExecutionError, DspProviderRuntime> =>
+  lane === "provider"
+    ? providerRuntimeEvidenceForNodeExecution({ comparison, node, trace, usage, variant })
+    : Effect.succeed(deterministicRuntimeEvidenceForNodeExecution({ comparison, lane, node, trace, usage, variant }))

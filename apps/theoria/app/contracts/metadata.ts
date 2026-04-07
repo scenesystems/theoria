@@ -1,8 +1,11 @@
 import type { PackageName } from "@theoria/source-proof/contracts"
 import { Option, Schema } from "effect"
 
-import { type Card, cardById, cards } from "./card.js"
+import { type Card, cards } from "./card.js"
+import { isPublishedConsumerId, type PublishedConsumerId } from "./id.js"
+import { openAgentTracePagePath } from "./open-agent-trace.js"
 import { packageDocsPagePath } from "./package-docs.js"
+import { type PublishedConsumerPresentation, publishedConsumerPresentationForId } from "./proving-substrate.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -73,14 +76,16 @@ export const metadataForHome = (): PageMetadata => ({
 })
 
 /**
- * Page metadata derived from a `Card` for deep-dive demo pages.
+ * Page metadata derived from a published consumer presentation.
  *
  * @since 0.1.0
  */
-export const metadataForDemo = (card: Card): PageMetadata => ({
-  title: `${card.title} — Theoria`,
-  description: card.description,
-  canonicalPath: card.deepDivePath,
+export const metadataForPublishedConsumer = (
+  presentation: PublishedConsumerPresentation
+): PageMetadata => ({
+  title: `${presentation.title} — Theoria`,
+  description: presentation.description,
+  canonicalPath: presentation.deepDivePath,
   ogType: "article"
 })
 
@@ -103,17 +108,27 @@ export const metadataForPackageDocs = (packageId: PackageName | null): PageMetad
     })
   })
 
+export const metadataForOpenAgentTracePage = (): PageMetadata => ({
+  title: "Open Agent Trace — Theoria",
+  description:
+    "Read-only evidentiary inspection over the experimental effect-dsp open-agent-trace corpus lane, consuming package-owned normalization, workflow projection, coverage, and digest truth.",
+  canonicalPath: openAgentTracePagePath(),
+  ogType: "article"
+})
+
 /**
- * Page metadata for a demo identified by card ID, falling back to home
+ * Page metadata for a published consumer identified by id, falling back to home
  * metadata when the ID is unknown.
  *
  * @since 0.1.0
  */
 export const metadataForId = (id: string): PageMetadata =>
-  Option.match(cardById(id), {
-    onNone: () => metadataForHome(),
-    onSome: (card) => metadataForDemo(card)
-  })
+  isPublishedConsumerId(id)
+    ? metadataForPublishedConsumerId(id)
+    : metadataForHome()
+
+export const metadataForPublishedConsumerId = (id: PublishedConsumerId): PageMetadata =>
+  metadataForPublishedConsumer(publishedConsumerPresentationForId(id))
 
 /**
  * Join a canonical path with the site URL to produce a fully-qualified URL.

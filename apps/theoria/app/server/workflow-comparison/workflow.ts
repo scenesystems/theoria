@@ -17,12 +17,19 @@ import {
   type WorkflowComparisonRunSuccess as WorkflowComparisonRunSuccessType
 } from "../../contracts/workflow/comparison-run.js"
 import { RuntimeInfo } from "../config/runtime.js"
+import type { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 import type { RunStreamSessionRegistry } from "../runtime/stream-session-registry.js"
 import { comparisonSummaryEvents, overviewEventsForComparison, runDataFromStore } from "./evidence.js"
 import { frozenWorkflowComparisonFingerprint, FrozenWorkflowComparisonRunSchema } from "./frozen.js"
 import { programForWorkflowComparison } from "./program.js"
 import {
-  optimizationStudyEvidenceEvents,
+  workflowComparisonRunPlanUsesOptimization,
+  workflowComparisonRunPlanUsesSearchWinner,
+  workflowComparisonSelectedKnobsForRecord
+} from "./run-controls.js"
+import {
+  optimizationStudyCompletedEvents,
+  optimizationStudyStartedEvents,
   runWorkflowComparisonSearchStudy,
   workflowComparisonSearchDimensions,
   WorkflowComparisonSearchStudyOutcomeSchema
@@ -49,6 +56,7 @@ export const workflowComparisonWorkflow = Workflow.make({
 })
 
 type WorkflowComparisonWorkflowRequirements =
+  | DspProviderRuntime
   | RuntimeInfo
   | RunStreamSessionRegistry
   | WorkflowEngine.WorkflowEngine
@@ -96,38 +104,78 @@ const executeWorkflowComparisonRun = (
         storeRef
       })
 
+      const baselineSelectedKnobs = workflowComparisonSelectedKnobsForRecord({
+        plan: request.plan,
+        record: comparison.baseline.record
+      })
+      const authoredOptimizedSelectedKnobs = workflowComparisonSelectedKnobsForRecord({
+        plan: request.plan,
+        record: comparison.optimized.record
+      })
+
       const baseline = yield* executeVariant({
         batchIndexRef,
         comparison,
         lane: request.plan.lane,
         phasePrefix: "baseline",
+        selectedKnobs: baselineSelectedKnobs,
         sessionKey,
         storeRef,
         variant: "baseline"
       })
 
-      const searchStudy = yield* Activity.make({
-        error: WorkflowComparisonExecutionError,
-        name: "optimize-graph-manifest",
-        success: WorkflowComparisonSearchStudyOutcomeSchema,
-        execute: runWorkflowComparisonSearchStudy({
-          comparison,
-          lane: request.plan.lane
-        })
-      })
-      const searchDimensions = yield* workflowComparisonSearchDimensions(comparison)
+      const searchStudy = yield* (
+        workflowComparisonRunPlanUsesOptimization(request.plan)
+          ? Effect.gen(function*() {
+            const searchDimensions = yield* workflowComparisonSearchDimensions(comparison, request.plan)
+            const searchTrialBudget = searchDimensions.reduce(
+              (product, dimension) => product * dimension.choices.length,
+              1
+            )
 
-      yield* appendEvents({
-        batchIndexRef,
-        events: optimizationStudyEvidenceEvents({
-          comparison,
-          dimensions: searchDimensions,
-          outcome: searchStudy
-        }),
-        phaseName: "optimization-study",
-        sessionKey,
-        storeRef
-      })
+            yield* appendEvents({
+              batchIndexRef,
+              events: optimizationStudyStartedEvents({ trialBudget: searchTrialBudget }),
+              phaseName: "optimization-study-start",
+              sessionKey,
+              storeRef
+            })
+
+            const outcome = yield* Activity.make({
+              error: WorkflowComparisonExecutionError,
+              name: "optimize-graph-manifest",
+              success: WorkflowComparisonSearchStudyOutcomeSchema,
+              execute: runWorkflowComparisonSearchStudy({
+                comparison,
+                lane: request.plan.lane,
+                plan: request.plan,
+                publishProgress: (events) =>
+                  appendEvents({
+                    batchIndexRef,
+                    events,
+                    phaseName: "optimization-study-progress",
+                    sessionKey,
+                    storeRef
+                  })
+              })
+            })
+
+            yield* appendEvents({
+              batchIndexRef,
+              events: optimizationStudyCompletedEvents({
+                comparison,
+                dimensions: searchDimensions,
+                outcome
+              }),
+              phaseName: "optimization-study-complete",
+              sessionKey,
+              storeRef
+            })
+
+            return outcome
+          })
+          : Effect.succeed(null)
+      )
 
       const optimized = yield* executeVariant({
         batchIndexRef,
@@ -135,8 +183,12 @@ const executeWorkflowComparisonRun = (
         lane: request.plan.lane,
         phasePrefix: "optimized",
         profile: comparison.optimized.profile,
-        record: searchStudy.winner.execution.record,
-        selectedKnobs: searchStudy.winner.selection,
+        record: searchStudy !== null && workflowComparisonRunPlanUsesSearchWinner(request.plan)
+          ? searchStudy.winner.execution.record
+          : comparison.optimized.record,
+        selectedKnobs: searchStudy !== null && workflowComparisonRunPlanUsesSearchWinner(request.plan)
+          ? searchStudy.winner.selection
+          : authoredOptimizedSelectedKnobs,
         sessionKey,
         storeRef,
         variant: "optimized"

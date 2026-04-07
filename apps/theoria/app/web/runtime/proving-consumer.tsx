@@ -1,5 +1,6 @@
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as RecordUtils from "effect/Record"
 
 import {
   type ConsumerId,
@@ -34,11 +35,6 @@ import {
   type SurfaceViewExtensionContext,
   type TabHint
 } from "./proving-consumer-shared.js"
-import { effectDspProvingConsumerLaneDescriptor } from "./proving-consumers/effect-dsp.js"
-import { effectMathProvingConsumerLaneDescriptor } from "./proving-consumers/effect-math.js"
-import { effectSearchProvingConsumerLaneDescriptor } from "./proving-consumers/effect-search.js"
-import { effectTextProvingConsumerLaneDescriptor } from "./proving-consumers/effect-text.js"
-import { workflowComparisonProvingConsumerLaneDescriptor } from "./proving-consumers/workflow-comparison.js"
 
 export type {
   AuthoredStepQueueEvent,
@@ -52,6 +48,8 @@ export type {
   ProvingConsumerLaneDescriptor,
   ProvingConsumerLaneProvenance,
   SurfaceRuntime,
+  SurfaceRuntimeServices,
+  SurfaceRuntimeSnapshot,
   SurfaceTransport,
   SurfaceViewExtension,
   TabHint
@@ -67,6 +65,10 @@ export {
   provingConsumerRegistryFingerprint,
   resolveProvingConsumerRuntimeProvenance
 } from "./proving-consumer-shared.js"
+
+type ProvingConsumerLaneModule = {
+  readonly provingConsumerLaneDescriptor?: ProvingConsumerLaneDescriptor
+}
 
 const passiveSnapshotFor = (consumerId: ConsumerId): SurfaceRuntimeSnapshot => ({
   runPlan: isRunnableDemoId(consumerId) ? { id: consumerId, manifest: null } : null,
@@ -99,43 +101,75 @@ const makePassiveProvingConsumerLaneDescriptor = (consumerId: ConsumerId): Provi
     surface: defaultSurfaceViewExtension
   })
 
-const provingConsumerLaneById: Readonly<Record<PublishedConsumerId, ProvingConsumerLaneDescriptor>> = {
-  "effect-math": effectMathProvingConsumerLaneDescriptor,
-  "effect-search": effectSearchProvingConsumerLaneDescriptor,
-  "effect-dsp": effectDspProvingConsumerLaneDescriptor,
-  "effect-text": effectTextProvingConsumerLaneDescriptor,
-  "effect-inference": makePassiveProvingConsumerLaneDescriptor("effect-inference"),
-  digest: makePassiveProvingConsumerLaneDescriptor("digest"),
-  seal: makePassiveProvingConsumerLaneDescriptor("seal"),
-  sign: makePassiveProvingConsumerLaneDescriptor("sign"),
-  "workflow-comparison": workflowComparisonProvingConsumerLaneDescriptor
-}
+const provingConsumerLaneModules = import.meta.glob<ProvingConsumerLaneModule>(
+  "./proving-consumers/*.{ts,tsx}",
+  { eager: true }
+)
+
+const dedicatedLaneDescriptors: ReadonlyArray<ProvingConsumerLaneDescriptor> = Arr.filterMap(
+  RecordUtils.values(provingConsumerLaneModules),
+  (module) => Option.fromNullable(module.provingConsumerLaneDescriptor)
+)
+
+const dedicatedLaneDescriptorOptionFor = (
+  id: PublishedConsumerId
+): Option.Option<ProvingConsumerLaneDescriptor> =>
+  Arr.findFirst(dedicatedLaneDescriptors, (lane) => lane.consumerId === id)
+
+const fallbackLaneDescriptorFor = (
+  consumer: PublishedConsumerDescriptor
+): ProvingConsumerLaneDescriptor =>
+  consumer.kind === "package"
+    ? makePassiveProvingConsumerLaneDescriptor(consumer.publication.consumerId)
+    : makeProvingConsumerLaneDescriptor({
+      consumerId: consumer.publication.consumerId,
+      runtime: fetchSurfaceRuntime,
+      surface: defaultSurfaceViewExtension
+    })
+
+const laneDescriptorForConsumer = (
+  consumer: PublishedConsumerDescriptor
+): ProvingConsumerLaneDescriptor =>
+  Option.getOrElse(
+    dedicatedLaneDescriptorOptionFor(consumer.publication.consumerId),
+    () => fallbackLaneDescriptorFor(consumer)
+  )
 
 const descriptorForConsumer = (consumer: PublishedConsumerDescriptor): ProvingConsumerDescriptor =>
   makeProvingConsumerDescriptor({
     consumer,
-    lane: provingConsumerLaneById[consumer.publication.consumerId]
+    lane: laneDescriptorForConsumer(consumer)
   })
-
-const provingConsumerDescriptorById: Readonly<Record<PublishedConsumerId, ProvingConsumerDescriptor>> = {
-  "effect-math": descriptorForConsumer(publishedConsumerDescriptorForId("effect-math")),
-  "effect-search": descriptorForConsumer(publishedConsumerDescriptorForId("effect-search")),
-  "effect-dsp": descriptorForConsumer(publishedConsumerDescriptorForId("effect-dsp")),
-  "effect-text": descriptorForConsumer(publishedConsumerDescriptorForId("effect-text")),
-  "effect-inference": descriptorForConsumer(publishedConsumerDescriptorForId("effect-inference")),
-  digest: descriptorForConsumer(publishedConsumerDescriptorForId("digest")),
-  seal: descriptorForConsumer(publishedConsumerDescriptorForId("seal")),
-  sign: descriptorForConsumer(publishedConsumerDescriptorForId("sign")),
-  "workflow-comparison": descriptorForConsumer(publishedConsumerDescriptorForId("workflow-comparison"))
-}
 
 export const provingConsumerDescriptors: ReadonlyArray<ProvingConsumerDescriptor> = Arr.map(
   publishedConsumerDescriptors,
   descriptorForConsumer
 )
 
+export const dedicatedLaneConsumerIds: ReadonlyArray<PublishedConsumerId> = Arr.map(
+  dedicatedLaneDescriptors,
+  (lane) => lane.consumerId
+)
+
+export const missingDedicatedApplicationConsumerIds: ReadonlyArray<PublishedConsumerId> = Arr.filterMap(
+  publishedConsumerDescriptors,
+  (consumer) =>
+    consumer.kind === "application"
+      && Option.isNone(dedicatedLaneDescriptorOptionFor(consumer.publication.consumerId))
+      ? Option.some(consumer.publication.consumerId)
+      : Option.none()
+)
+
+const provingConsumerDescriptorOptionFor = (
+  id: PublishedConsumerId
+): Option.Option<ProvingConsumerDescriptor> =>
+  Arr.findFirst(provingConsumerDescriptors, (descriptor) => descriptor.consumerId === id)
+
 export const provingConsumerDescriptorFor = (id: PublishedConsumerId): ProvingConsumerDescriptor =>
-  provingConsumerDescriptorById[id]
+  Option.getOrElse(
+    provingConsumerDescriptorOptionFor(id),
+    () => descriptorForConsumer(publishedConsumerDescriptorForId(id))
+  )
 
 export const surfaceRuntimeFor = (id: PublishedConsumerId): SurfaceRuntime => provingConsumerDescriptorFor(id).runtime
 

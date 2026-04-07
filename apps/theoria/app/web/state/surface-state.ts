@@ -1,4 +1,4 @@
-import { Match } from "effect"
+import { Match, Option } from "effect"
 
 import type { CanonicalFrame } from "../../contracts/canonical-step.js"
 import { type ChoreographyCue, type ChoreographyState, initialChoreographyState } from "../../contracts/choreography.js"
@@ -181,11 +181,24 @@ export const emptyEvidenceStatusState: EvidenceStatusState = {
   sectionCount: 0
 }
 
+const hasSharedSectionKey = (current: EvidenceSection, section: EvidenceSection): boolean =>
+  Option.all({
+    currentKey: Option.fromNullable(current.key),
+    nextKey: Option.fromNullable(section.key)
+  }).pipe(
+    Option.match({
+      onNone: () => false,
+      onSome: ({ currentKey, nextKey }) => currentKey === nextKey
+    })
+  )
+
 const upsertSection = (
   sections: ReadonlyArray<EvidenceSection>,
   section: EvidenceSection
 ): ReadonlyArray<EvidenceSection> => {
-  const index = sections.findIndex((current) => current.title === section.title)
+  const index = sections.findIndex((current) =>
+    hasSharedSectionKey(current, section) || current.title === section.title
+  )
 
   return index === -1
     ? [...sections, section]
@@ -651,6 +664,29 @@ const failedRunState = (state: RunInFlightState, error: DemoError): RunState => 
   error
 })
 
+const stoppedRunState = (state: RunInFlightState, stoppedAtMs: number): RunState => ({
+  _tag: "RunIdle",
+  session: makeRunSession({
+    token: state.session.token,
+    sequence: state.session.sequence,
+    control: "idle",
+    outcome: "none",
+    ownership: state.session.ownership,
+    facts: state.session.facts,
+    telemetry: appendRunRuntimeTelemetryEvent(state.session.telemetry, {
+      kind: "run-finalized",
+      atMs: stoppedAtMs,
+      detail: "stopped"
+    }),
+    runPlan: state.session.runPlan,
+    localRunPlan: state.session.localRunPlan,
+    localRunFrame: state.session.localRunFrame,
+    canonicalFrame: state.session.canonicalFrame,
+    choreography: state.session.choreography,
+    program: state.program
+  })
+})
+
 const succeededRunState = (state: RunInFlightState, data: RunData, meta: Metadata | null): RunState => ({
   _tag: "RunSuccess",
   session: terminalRunSession(state, "succeeded"),
@@ -698,6 +734,7 @@ export type RunMessage =
   | { readonly _tag: "RunPaused"; readonly sequence: number; readonly requestedAtMs: number }
   | { readonly _tag: "RunResumed"; readonly sequence: number; readonly requestedAtMs: number }
   | { readonly _tag: "RunStopping"; readonly sequence: number; readonly requestedAtMs: number }
+  | { readonly _tag: "RunStopped"; readonly sequence: number; readonly stoppedAtMs: number }
   | { readonly _tag: "RunFailed"; readonly sequence: number; readonly finalizedAtMs: number; readonly error: DemoError }
   | {
     readonly _tag: "RunSucceeded"
@@ -812,6 +849,10 @@ export const reduceRunState = (state: RunState, message: RunMessage): RunState =
           ),
           { kind: "stop-requested", atMs: requestedAtMs, detail: null }
         )
+        : state),
+    Match.tag("RunStopped", ({ sequence, stoppedAtMs }): RunState =>
+      hasMatchingSequence(state, sequence)
+        ? stoppedRunState(state, stoppedAtMs)
         : state),
     Match.tag("RunFailed", ({ sequence, finalizedAtMs, error }): RunState =>
       hasMatchingSequence(state, sequence)

@@ -4,15 +4,21 @@ import { Clock, Effect, Match, Option, Schedule, Schema, Stream } from "effect"
 
 import type * as ParseResult from "effect/ParseResult"
 
-import { encodeEvidenceEventJson, type EvidenceEvent } from "../../contracts/evidence-stream.js"
+import { encodeEvidenceEventJson, type EvidenceEvent, StreamFailed } from "../../contracts/evidence-stream.js"
 import {
+  defaultWorkflowComparisonRunPlanControls,
+  makeWorkflowComparisonRunPlan,
   resolveWorkflowComparisonRunIdentity,
+  WorkflowComparisonComparisonModeSchema,
   WorkflowComparisonExecutionError,
-  workflowComparisonExecutionLanes,
+  WorkflowComparisonExecutionLaneSchema,
   WorkflowComparisonRunEnvelope,
   WorkflowComparisonRunRequest,
-  type WorkflowComparisonRunRequest as WorkflowComparisonRunRequestType
+  type WorkflowComparisonRunRequest as WorkflowComparisonRunRequestType,
+  WorkflowComparisonRuntimeProfileSchema,
+  WorkflowComparisonSurfaceProfileSchema
 } from "../../contracts/workflow/comparison-run.js"
+import { WorkflowComparisonIdSchema } from "../../contracts/workflow/comparison.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import { RunStreamSessionRegistry } from "../runtime/stream-session-registry.js"
 import { workflowComparisonWorkflow } from "../workflow-comparison/workflow.js"
@@ -94,6 +100,62 @@ const sseEvent = (event: EvidenceEvent): Uint8Array =>
 const isTerminalEvent = (event: EvidenceEvent): boolean =>
   event._tag === "StreamComplete" || event._tag === "StreamFailed"
 
+const sseFailureResponse = (error: WorkflowComparisonExecutionError) =>
+  HttpServerResponse.stream(
+    Stream.make(
+      sseEvent(
+        new StreamFailed({
+          error: {
+            code: error.code,
+            message: error.message,
+            retryable: error.retryable
+          }
+        })
+      )
+    ),
+    {
+      headers: {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive"
+      }
+    }
+  )
+
+const decodeBooleanQuery = ({
+  defaultValue,
+  field,
+  rawValue
+}: {
+  readonly defaultValue: boolean
+  readonly field: string
+  readonly rawValue: string | null
+}): Effect.Effect<boolean, WorkflowComparisonExecutionError, never> =>
+  rawValue === null
+    ? Effect.succeed(defaultValue)
+    : rawValue === "true"
+    ? Effect.succeed(true)
+    : rawValue === "false"
+    ? Effect.succeed(false)
+    : Effect.fail(invalidQueryError(`${field} must be true or false.`))
+
+const decodeSchemaQuery = <A, I>({
+  defaultValue,
+  field,
+  rawValue,
+  schema
+}: {
+  readonly defaultValue: A
+  readonly field: string
+  readonly rawValue: string | null
+  readonly schema: Schema.Schema<A, I>
+}): Effect.Effect<A, WorkflowComparisonExecutionError, never> =>
+  rawValue === null
+    ? Effect.succeed(defaultValue)
+    : Schema.decodeUnknown(schema)(rawValue).pipe(
+      Effect.mapError(() => invalidQueryError(`${field} did not decode against the contract.`))
+    )
+
 const parseRunRequest = (
   rawUrl: string | null,
   requestId: string,
@@ -105,7 +167,6 @@ const parseRunRequest = (
   }).pipe(
     Effect.flatMap((url) => {
       const comparisonId = url.searchParams.get("comparisonId")
-      const lane = url.searchParams.get("lane") ?? workflowComparisonExecutionLanes[0]
       const runToken = requireRunToken
         ? url.searchParams.get("runToken")
         : url.searchParams.get("runToken") ?? requestId
@@ -114,20 +175,68 @@ const parseRunRequest = (
         ? Effect.fail(invalidQueryError("Workflow comparison runs require a comparisonId."))
         : runToken === null || runToken.trim().length === 0
         ? Effect.fail(invalidQueryError("Workflow comparison streams require a runToken."))
-        : Schema.decodeUnknown(WorkflowComparisonRunRequest)({
-          runToken: runToken.trim(),
-          plan: {
-            consumerId: "workflow-comparison",
-            comparisonId: comparisonId.trim(),
-            lane
-          }
+        : Effect.all({
+          comparisonId: Schema.decodeUnknown(WorkflowComparisonIdSchema)(comparisonId.trim()).pipe(
+            Effect.mapError(() => invalidQueryError("Workflow comparison query did not decode against the contract."))
+          ),
+          comparisonMode: decodeSchemaQuery({
+            defaultValue: defaultWorkflowComparisonRunPlanControls.comparisonMode,
+            field: "comparisonMode",
+            rawValue: url.searchParams.get("comparisonMode"),
+            schema: WorkflowComparisonComparisonModeSchema
+          }),
+          lane: decodeSchemaQuery({
+            defaultValue: defaultWorkflowComparisonRunPlanControls.lane,
+            field: "lane",
+            rawValue: url.searchParams.get("lane"),
+            schema: WorkflowComparisonExecutionLaneSchema
+          }),
+          optimize: decodeBooleanQuery({
+            defaultValue: defaultWorkflowComparisonRunPlanControls.optimize,
+            field: "optimize",
+            rawValue: url.searchParams.get("optimize")
+          }),
+          runtimeProfile: decodeSchemaQuery({
+            defaultValue: defaultWorkflowComparisonRunPlanControls.runtimeProfile,
+            field: "runtimeProfile",
+            rawValue: url.searchParams.get("runtimeProfile"),
+            schema: WorkflowComparisonRuntimeProfileSchema
+          }),
+          surfaceProfile: decodeSchemaQuery({
+            defaultValue: defaultWorkflowComparisonRunPlanControls.surfaceProfile,
+            field: "surfaceProfile",
+            rawValue: url.searchParams.get("surfaceProfile"),
+            schema: WorkflowComparisonSurfaceProfileSchema
+          })
         }).pipe(
-          Effect.mapError(() => invalidQueryError("Workflow comparison query did not decode against the contract."))
+          Effect.flatMap(({ comparisonId, comparisonMode, lane, optimize, runtimeProfile, surfaceProfile }) =>
+            !optimize && comparisonMode === "search-winner"
+              ? Effect.fail(
+                invalidQueryError(
+                  "Workflow comparison comparisonMode=search-winner requires optimize=true."
+                )
+              )
+              : Schema.decodeUnknown(WorkflowComparisonRunRequest)({
+                runToken: runToken.trim(),
+                plan: makeWorkflowComparisonRunPlan({
+                  comparisonId,
+                  comparisonMode,
+                  lane,
+                  optimize,
+                  runtimeProfile,
+                  surfaceProfile
+                })
+              }).pipe(
+                Effect.mapError(() =>
+                  invalidQueryError("Workflow comparison query did not decode against the contract.")
+                )
+              )
+          )
         )
     })
   )
 
-const streamResponse = (requestId: string, request: WorkflowComparisonRunRequestType) =>
+const streamResponse = (request: WorkflowComparisonRunRequestType) =>
   Effect.gen(function*() {
     const identity = yield* resolveWorkflowComparisonRunIdentity(request)
     const sessionKey = identity.requestFingerprint
@@ -190,8 +299,8 @@ export const workflowComparisonRoute = (pathname: string, requestId: string, raw
           )),
         Match.when("stream", () =>
           parseRunRequest(rawUrl, requestId, true).pipe(
-            Effect.flatMap((request) => streamResponse(requestId, request)),
-            Effect.catchAll((error) => failureResponse(requestId, error))
+            Effect.flatMap(streamResponse),
+            Effect.catchAll((error) => Effect.succeed(sseFailureResponse(error)))
           )),
         Match.exhaustive
       )

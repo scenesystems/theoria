@@ -148,6 +148,8 @@ const runSurfaceExecution = (
       return
     }
 
+    const runPlan = runtimeSnapshot.runPlan
+
     const projectionDriver = projectionDriverFor(id)
     const projectionDriverSnapshot = snapshotProjectionDriver(projectionDriver, registry)
 
@@ -166,7 +168,7 @@ const runSurfaceExecution = (
       sequence: active.sequence,
       ownership: runOwnershipFor(projectionDriver),
       startedAtMs,
-      runPlan: runtimeSnapshot.runPlan,
+      runPlan,
       localRunPlan: runtimeSnapshot.localRunPlan,
       program
     }))
@@ -368,8 +370,11 @@ const stopRun = (id: SurfaceId, ctx: AtomType.FnContext): Effect.Effect<void, ne
         }))
 
         yield* interruptRunAuthority({ id, registry: ctx.registry })
-        resetSurfaceEvidenceStore(ctx.registry, id)
-        dispatchRunMessage(ctx.registry, id, { _tag: "RunReset" })
+        yield* dispatchCurrentTimeRunMessage(ctx.registry, id, (stoppedAtMs) => ({
+          _tag: "RunStopped",
+          sequence: active.sequence,
+          stoppedAtMs
+        }))
       })
   })
 

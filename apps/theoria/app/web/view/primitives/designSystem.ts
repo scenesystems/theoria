@@ -1,7 +1,7 @@
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
-import type { Id as CardId } from "../../../contracts/id.js"
+import type { PublishedConsumerId } from "../../../contracts/id.js"
 import { type CardTone, toneForCard } from "../../../contracts/theme.js"
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ export const toneClassesFor = (tone: CardTone): ToneClasses =>
     Match.exhaustive
   )
 
-export const toneClassesForCard = (id: CardId): ToneClasses => toneClassesFor(toneForCard(id))
+export const toneClassesForCard = (id: PublishedConsumerId): ToneClasses => toneClassesFor(toneForCard(id))
 
 // ---------------------------------------------------------------------------
 // MetricAppearance — semantic styling contract for metric values.
@@ -607,7 +607,7 @@ const surfaceThemeForTone = (tone: CardTone): SurfaceTheme => {
   }
 }
 
-export const surfaceThemeForCard = (id: CardId): SurfaceTheme => surfaceThemeForTone(toneForCard(id))
+export const surfaceThemeForCard = (id: PublishedConsumerId): SurfaceTheme => surfaceThemeForTone(toneForCard(id))
 
 // ---------------------------------------------------------------------------
 // BadgeTheme — resolved styling for PackageBadge.

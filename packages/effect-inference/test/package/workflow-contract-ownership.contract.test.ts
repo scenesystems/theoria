@@ -13,7 +13,7 @@ import {
 import * as Contracts from "../../src/contracts/index.js"
 
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
-const appWorkflowComparisonContractPaths = [
+const appWorkflowComparisonAuthorityContractPaths = [
   "apps/theoria/app/contracts/workflow/comparison-run.ts",
   "apps/theoria/app/contracts/workflow/comparison-step.ts",
   "apps/theoria/app/contracts/workflow/comparison.ts"
@@ -71,7 +71,7 @@ describe("package/workflow-contract-ownership", () => {
         )
     }))
 
-  it.effect("keeps app demo contracts on selector and fixture roles over the package-owned workflow family", () =>
+  it.effect("keeps app workflow authority on the route, run, and step contracts only", () =>
     Effect.gen(function*() {
       const appContractFiles = yield* Effect.all([
         listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/demo"),
@@ -98,6 +98,6 @@ describe("package/workflow-contract-ownership", () => {
           contractUsage,
           (entry) => entry.importsWorkflowContracts ? Option.some(entry.file) : Option.none()
         )
-      ).toEqual(appWorkflowComparisonContractPaths)
+      ).toEqual(appWorkflowComparisonAuthorityContractPaths)
     }).pipe(Effect.provide(BunContext.layer)))
 })

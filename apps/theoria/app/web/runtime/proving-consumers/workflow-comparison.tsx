@@ -1,54 +1,56 @@
-import { type WorkflowComparisonId, workflowComparisonOptionForId } from "../../../contracts/workflow/comparison.js"
-import { workflowComparisonRunPlan, workflowComparisonSelectionAtom } from "../../atoms/workflow-comparison.js"
-import { makeProvingConsumerLaneDescriptor, makeServerOnlyStreamingSurfaceRuntime } from "../proving-consumer-shared.js"
+import { isWorkflowComparisonSurfaceRunPlan } from "../../../contracts/run-plan.js"
+import { workflowComparisonOptionForId } from "../../../contracts/workflow/comparison.js"
+import { surfaceRunStateAtom } from "../../atoms/surface.js"
+import { workflowComparisonDraftRunPlanAtom, workflowComparisonRunPlan } from "../../atoms/workflow-comparison.js"
+import { workflowComparisonStreamPath } from "../../services/WorkflowComparisonClient.js"
+import { WorkflowComparisonControl } from "../../view/deep/WorkflowComparisonControl.js"
+import {
+  makeProvingConsumerLaneDescriptor,
+  makeServerOnlyStreamingSurfaceRuntime,
+  type SurfaceRuntimeSnapshot
+} from "../proving-consumer-shared.js"
 
 const workflowComparisonId = "workflow-comparison"
 const defaultWorkflowComparisonOption = workflowComparisonOptionForId("workflow-comparison/task-briefing")
 
-const workflowComparisonStreamUrl = (
-  snapshot: {
-    readonly runPlan:
-      | {
-        readonly consumerId: "workflow-comparison"
-        readonly comparisonId: WorkflowComparisonId
-        readonly lane: "deterministic-fallback"
-      }
-      | null
-  },
-  runToken: string | null
-): string => {
-  const params = new URLSearchParams()
+const workflowComparisonRunPlanFromSnapshot = (snapshot: SurfaceRuntimeSnapshot) => {
+  const runPlan = snapshot.runPlan
 
-  if (snapshot.runPlan !== null) {
-    params.set("comparisonId", snapshot.runPlan.comparisonId)
-    params.set("lane", snapshot.runPlan.lane)
-  }
-
-  if (runToken !== null && runToken.trim().length > 0) {
-    params.set("runToken", runToken.trim())
-  }
-
-  return `/api/workflow-comparison/stream?${params.toString()}`
+  return runPlan !== null && isWorkflowComparisonSurfaceRunPlan(runPlan) ? runPlan : null
 }
 
-export const workflowComparisonProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor({
+const workflowComparisonStreamUrl = (
+  snapshot: SurfaceRuntimeSnapshot,
+  runToken: string | null
+): string => {
+  const runPlan = workflowComparisonRunPlanFromSnapshot(snapshot)
+
+  return workflowComparisonStreamPath(
+    runPlan ?? workflowComparisonRunPlan(defaultWorkflowComparisonOption.id),
+    runToken
+  )
+}
+
+const workflowComparisonProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor({
   consumerId: workflowComparisonId,
   diagnosticsKey: "workflow-comparison/runtime",
-  interactiveWidgetKey: null,
+  interactiveWidgetKey: "workflow-comparison/control",
   projectionDriverKey: null,
   runtime: makeServerOnlyStreamingSurfaceRuntime({
     snapshot: (registry) => {
-      const comparisonId = registry.get(workflowComparisonSelectionAtom)
+      const frozenRunPlan = registry.get(surfaceRunStateAtom(workflowComparisonId)).session.runPlan
 
       return {
-        runPlan: workflowComparisonRunPlan(comparisonId),
+        runPlan: frozenRunPlan !== null && isWorkflowComparisonSurfaceRunPlan(frozenRunPlan)
+          ? frozenRunPlan
+          : registry.get(workflowComparisonDraftRunPlanAtom),
         localRunPlan: null
       }
     },
     streamUrl: workflowComparisonStreamUrl
   }),
   surface: {
-    interactiveWidget: null,
+    interactiveWidget: <WorkflowComparisonControl />,
     projectionPlaneHint: {
       stage:
         "Run one frozen workflow comparison at a time and let the browser project canonical graph steps, transcript outputs, and rendered comparisons from the same server-authored stream.",
@@ -60,3 +62,7 @@ export const workflowComparisonProvingConsumerLaneDescriptor = makeProvingConsum
     diagnosticsSections: () => []
   }
 })
+
+export const provingConsumerLaneDescriptor = workflowComparisonProvingConsumerLaneDescriptor
+
+export { workflowComparisonProvingConsumerLaneDescriptor }

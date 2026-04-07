@@ -1,14 +1,14 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
-import type { Id } from "../../contracts/id.js"
+import type { SurfaceId } from "../../contracts/id.js"
 import { runLifecycleDiagnosticsSectionsFor } from "../runtime/surface-view-extension.js"
 import { type RunRuntimeTelemetryViewModel, surfaceRunRuntimeTelemetryViewModelAtom } from "./surface.js"
 
 export const surfaceRunLifecycleDiagnosticsViewModelAtom: (
-  id: Id
+  id: SurfaceId
 ) => AtomType.Atom<RunRuntimeTelemetryViewModel | null> = Atom.family(
-  (id: Id) =>
+  (id: SurfaceId) =>
     Atom.make((get: AtomType.Context) => {
       const base = get(surfaceRunRuntimeTelemetryViewModelAtom(id))
 

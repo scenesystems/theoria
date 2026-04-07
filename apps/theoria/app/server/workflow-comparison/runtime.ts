@@ -19,6 +19,7 @@ import {
   type WorkflowComparisonVariantExecution,
   WorkflowComparisonVariantExecution as WorkflowComparisonVariantExecutionSchema
 } from "../../contracts/workflow/comparison-run.js"
+import type { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 import type { FrozenWorkflowComparisonRun } from "./frozen.js"
 import { executeWorkflowNode } from "./node-execution.js"
 
@@ -210,7 +211,7 @@ export const nodeExecutionForVariant = ({
   readonly stepIndex: number
   readonly stepCount: number
   readonly nodeId: string
-}): Effect.Effect<WorkflowComparisonNodeExecution, WorkflowComparisonExecutionError, never> =>
+}): Effect.Effect<WorkflowComparisonNodeExecution, WorkflowComparisonExecutionError, DspProviderRuntime> =>
   Effect.gen(function*() {
     const node = yield* nodeForId(plan.record, nodeId)
     const nodeExecution = yield* executeWorkflowNode({

@@ -1,5 +1,5 @@
 import type { Effect } from "effect"
-import { Schema } from "effect"
+import { Match, Schema } from "effect"
 import {
   ScoreProfileSchema,
   WorkflowEvaluationReportSchema,
@@ -22,14 +22,18 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
 export const WorkflowComparisonIdSchema = Schema.Literal(
   "workflow-comparison/task-briefing",
-  "workflow-comparison/chat-handoff"
+  "workflow-comparison/chat-handoff",
+  "workflow-comparison/retrieval-required",
+  "workflow-comparison/render-sensitive"
 )
 
 export type WorkflowComparisonId = Schema.Schema.Type<typeof WorkflowComparisonIdSchema>
 
 export const workflowComparisonIds: ReadonlyArray<WorkflowComparisonId> = [
   "workflow-comparison/task-briefing",
-  "workflow-comparison/chat-handoff"
+  "workflow-comparison/chat-handoff",
+  "workflow-comparison/retrieval-required",
+  "workflow-comparison/render-sensitive"
 ]
 
 export const WorkflowComparisonOptionSchema = Schema.Struct({
@@ -53,6 +57,18 @@ export const workflowComparisonOptionForId = (id: WorkflowComparisonId): Workflo
       label: "Chat Handoff",
       summary:
         "Compares a baseline conversation-handoff graph against an optimized multi-role continuation flow with the same runtime envelope."
+    })),
+    Match.when("workflow-comparison/retrieval-required", () => ({
+      id,
+      label: "Retrieval Required",
+      summary:
+        "Compares an ungrounded route summary against a retrieval-backed workflow that searches over evidence depth and bounded critique topology."
+    })),
+    Match.when("workflow-comparison/render-sensitive", () => ({
+      id,
+      label: "Render Sensitive",
+      summary:
+        "Compares a surface-agnostic reply against a render-aware workflow that searches over critique depth, render checks, and surface policy."
     })),
     Match.exhaustive
   )

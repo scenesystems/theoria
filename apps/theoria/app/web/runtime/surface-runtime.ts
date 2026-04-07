@@ -12,6 +12,7 @@ export {
   streamingSurfaceIds,
   type SurfaceRuntime,
   surfaceRuntimeFor,
+  type SurfaceRuntimeServices,
   type SurfaceRuntimeSnapshot,
   surfaceRuntimeSnapshotFor,
   type SurfaceTransport,

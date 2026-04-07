@@ -1,12 +1,20 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Fiber, Layer, Option, Ref, Stream } from "effect"
+import { Chunk, Effect, Fiber, Option, Ref, Stream } from "effect"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
 import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../app/contracts/evidence.js"
+import { isRunnableDemoId, type SurfaceId } from "../../app/contracts/id.js"
 import { makeServerEvidenceStream } from "../../app/web/atoms/evidence-stream.js"
-import { streamingSurfaceIds } from "../../app/web/runtime/surface-runtime.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
+import { workflowComparisonRunPlan } from "../../app/web/atoms/workflow-comparison.js"
+import {
+  streamingSurfaceIds,
+  type SurfaceRuntime,
+  surfaceRuntimeFor,
+  type SurfaceRuntimeSnapshot
+} from "../../app/web/runtime/surface-runtime.js"
+import { workflowComparisonStreamPath } from "../../app/web/services/WorkflowComparisonClient.js"
+import { makeAppClientTestLayer } from "../helpers/demo-client.test-layer.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -57,6 +65,36 @@ const waitForLatestSource = Effect.eventually(
   )
 )
 
+type RuntimeStreamRequest = {
+  readonly id: SurfaceId
+  readonly runtime: SurfaceRuntime
+  readonly runtimeSnapshot: SurfaceRuntimeSnapshot
+  readonly runToken: string | null
+}
+
+const runtimeStreamRequestFor = (id: SurfaceId): RuntimeStreamRequest | null =>
+  id === "workflow-comparison"
+    ? {
+      id,
+      runtime: surfaceRuntimeFor(id),
+      runtimeSnapshot: {
+        runPlan: workflowComparisonRunPlan("workflow-comparison/task-briefing"),
+        localRunPlan: null
+      },
+      runToken: null
+    }
+    : isRunnableDemoId(id)
+    ? {
+      id,
+      runtime: surfaceRuntimeFor(id),
+      runtimeSnapshot: {
+        runPlan: { id, manifest: null },
+        localRunPlan: null
+      },
+      runToken: null
+    }
+    : null
+
 const withMockEventSource = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
   const previousEventSource = globalThis.EventSource
 
@@ -84,22 +122,18 @@ const streamingProofLayer = ({
   readonly runCountRef: Ref.Ref<number>
   readonly runWithMetaCountRef: Ref.Ref<number>
 }) =>
-  Layer.succeed(
-    DemoClient,
-    DemoClient.make({
-      run: () =>
-        Ref.update(runCountRef, (count) => count + 1).pipe(
-          Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run data path" })))
-        ),
-      runWithMeta: () =>
-        Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
-          Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run terminal path" })))
-        ),
-      preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
-      versions: () => Effect.succeed({}),
-      streamUrl: (id) => `/api/demos/${id}/stream`
-    })
-  )
+  makeAppClientTestLayer({
+    run: () =>
+      Ref.update(runCountRef, (count) => count + 1).pipe(
+        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run data path" })))
+      ),
+    runWithMeta: () =>
+      Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
+        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run terminal path" })))
+      ),
+    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
+    streamUrl: (id) => `/api/demos/${id}/stream`
+  })
 
 const fetchProofLayer = ({
   runCountRef,
@@ -108,34 +142,30 @@ const fetchProofLayer = ({
   readonly runCountRef: Ref.Ref<number>
   readonly runWithMetaCountRef: Ref.Ref<number>
 }) =>
-  Layer.succeed(
-    DemoClient,
-    DemoClient.make({
-      run: () =>
-        Ref.update(runCountRef, (count) => count + 1).pipe(
-          Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unused /run data path" })))
-        ),
-      runWithMeta: () =>
-        Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
-          Effect.as({
-            data: {
-              id: "digest",
-              packageName: "digest",
-              summary: "Fetched terminal result.",
-              durationMs: streamMeta.durationMs,
-              program: {
-                files: [{ language: "ts", entry: "server/run.ts", name: "run.ts", source: "export const run = true" }]
-              },
-              sections: [performanceSection]
+  makeAppClientTestLayer({
+    run: () =>
+      Ref.update(runCountRef, (count) => count + 1).pipe(
+        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unused /run data path" })))
+      ),
+    runWithMeta: () =>
+      Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
+        Effect.as({
+          data: {
+            id: "digest",
+            packageName: "digest",
+            summary: "Fetched terminal result.",
+            durationMs: streamMeta.durationMs,
+            program: {
+              files: [{ language: "ts", entry: "server/run.ts", name: "run.ts", source: "export const run = true" }]
             },
-            meta: streamMeta
-          })
-        ),
-      preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
-      versions: () => Effect.succeed({}),
-      streamUrl: (id) => `/api/demos/${id}/stream`
-    })
-  )
+            sections: [performanceSection]
+          },
+          meta: streamMeta
+        })
+      ),
+    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
+    streamUrl: (id) => `/api/demos/${id}/stream`
+  })
 
 describe("evidence stream transport proof", () => {
   it.effect("keeps every hardened streaming surface on the SSE ledger instead of the /run terminal path", () =>
@@ -151,14 +181,24 @@ describe("evidence stream transport proof", () => {
               MockEventSource.instances = []
             })
 
-            const fiber = yield* makeServerEvidenceStream(id).pipe(
+            const request = runtimeStreamRequestFor(id)
+
+            if (request === null) {
+              return
+            }
+
+            const fiber = yield* makeServerEvidenceStream(request).pipe(
               Stream.runCollect,
               Effect.provide(layer),
               Effect.fork
             )
             const source = yield* waitForLatestSource
 
-            expect(source.url).toBe(`/api/demos/${id}/stream`)
+            expect(source.url).toBe(
+              id === "workflow-comparison"
+                ? workflowComparisonStreamPath(workflowComparisonRunPlan("workflow-comparison/task-briefing"))
+                : `/api/demos/${id}/stream`
+            )
 
             source.emitEvidence(encodeEvidenceEventJson(new SectionAppend({ section: performanceSection })))
             source.emitEvidence(

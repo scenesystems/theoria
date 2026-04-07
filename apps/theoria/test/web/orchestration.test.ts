@@ -1,6 +1,6 @@
-import { Atom, Registry } from "@effect-atom/atom"
+import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Layer, Ref } from "effect"
+import { Deferred, Effect, Ref } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
@@ -15,8 +15,8 @@ import {
 import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
 import { customTextAtom, reflowControlsAtom, reflowSliderMaxWidth } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
+import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import { failedRunState, runningRunState, succeededRunState } from "../helpers/run-state.js"
 
@@ -155,18 +155,12 @@ describe("Theoria Orchestration", () => {
         )
 
       const runDemoAtom = makeRunDemoAtom(
-        Atom.runtime(
-          Layer.succeed(
-            DemoClient,
-            DemoClient.make({
-              run: (id) => runWithMeta(id).pipe(Effect.map(({ data }) => data)),
-              runWithMeta,
-              preload: () => Effect.succeed(programPreviewFixture),
-              versions: () => Effect.succeed({}),
-              streamUrl: (id) => `/api/demos/${id}/stream`
-            })
-          )
-        )
+        makeAppClientTestRuntime({
+          run: (id) => runWithMeta(id).pipe(Effect.map(({ data }) => data)),
+          runWithMeta,
+          preload: () => Effect.succeed(programPreviewFixture),
+          streamUrl: (id) => `/api/demos/${id}/stream`
+        })
       )
 
       registry.mount(runDemoAtom)
@@ -200,29 +194,23 @@ describe("Theoria Orchestration", () => {
       const runStarted = yield* Deferred.make<void, never>()
       const runInterrupted = yield* Deferred.make<void, never>()
       const holdRun = yield* Deferred.make<void, never>()
-      const runtime = Atom.runtime(
-        Layer.succeed(
-          DemoClient,
-          DemoClient.make({
-            run: () => Effect.fail(errorFixture),
-            runWithMeta: () =>
-              Deferred.succeed(runStarted, undefined).pipe(
-                Effect.zipRight(Deferred.await(holdRun)),
-                Effect.as({
-                  data: runDataFixture("ignored"),
-                  meta: streamMeta("req-stop", 17)
-                }),
-                Effect.onInterrupt(() => Deferred.succeed(runInterrupted, undefined))
-              ),
-            preload: () => Effect.succeed(programPreviewFixture),
-            versions: () => Effect.succeed({}),
-            streamUrl: (id, customText = null) =>
-              customText === null
-                ? `/api/demos/${id}/stream`
-                : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
-          })
-        )
-      )
+      const runtime = makeAppClientTestRuntime({
+        run: () => Effect.fail(errorFixture),
+        runWithMeta: () =>
+          Deferred.succeed(runStarted, undefined).pipe(
+            Effect.zipRight(Deferred.await(holdRun)),
+            Effect.as({
+              data: runDataFixture("ignored"),
+              meta: streamMeta("req-stop", 17)
+            }),
+            Effect.onInterrupt(() => Deferred.succeed(runInterrupted, undefined))
+          ),
+        preload: () => Effect.succeed(programPreviewFixture),
+        streamUrl: (id, customText = null) =>
+          customText === null
+            ? `/api/demos/${id}/stream`
+            : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
+      })
       const runDemoAtom = makeRunDemoAtom(runtime)
       const runControlAtom = makeRunControlAtom(runtime)
 
@@ -254,21 +242,15 @@ describe("Theoria Orchestration", () => {
   it.effect("reset routes local interactive cleanup through the shared driver boundary", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const runtime = Atom.runtime(
-        Layer.succeed(
-          DemoClient,
-          DemoClient.make({
-            run: () => Effect.fail(errorFixture),
-            runWithMeta: () => Effect.fail(errorFixture),
-            preload: () => Effect.succeed(programPreviewFixture),
-            versions: () => Effect.succeed({}),
-            streamUrl: (id, customText = null) =>
-              customText === null
-                ? `/api/demos/${id}/stream`
-                : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
-          })
-        )
-      )
+      const runtime = makeAppClientTestRuntime({
+        run: () => Effect.fail(errorFixture),
+        runWithMeta: () => Effect.fail(errorFixture),
+        preload: () => Effect.succeed(programPreviewFixture),
+        streamUrl: (id, customText = null) =>
+          customText === null
+            ? `/api/demos/${id}/stream`
+            : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
+      })
       const runControlAtom = makeRunControlAtom(runtime)
 
       registry.mount(runControlAtom)

@@ -21,6 +21,7 @@ import type {
   WorkflowComparisonTraceProjection
 } from "../../contracts/workflow/comparison-run.js"
 import { WorkflowComparisonExecutionError } from "../../contracts/workflow/comparison-run.js"
+import { DspProviderRuntime } from "../demos/effect-dsp/provider.js"
 import type { FrozenWorkflowComparisonRun } from "./frozen.js"
 import { runtimeEvidenceForNodeExecution } from "./runtime-evidence.js"
 import type { WorkflowComparisonSelectedKnobs } from "./runtime.js"
@@ -214,6 +215,35 @@ const authoredAnswerForNode = ({
 
 const responseEnvelopeFor = (answer: string): string => `[[ ## answer ## ]]\n${answer}`
 
+const languageModelLayerForExecution = ({
+  authoredAnswer,
+  lane
+}: {
+  readonly authoredAnswer: string
+  readonly lane: WorkflowComparisonExecutionLane
+}) =>
+  lane === "provider"
+    ? DspProviderRuntime.pipe(
+      Effect.flatMap((runtime) =>
+        Option.match(runtime.layer, {
+          onNone: () =>
+            Effect.fail(
+              executionError(
+                Option.getOrElse(runtime.capability.reason, () =>
+                  "Workflow comparison live provider runtime is not configured.")
+              )
+            ),
+          onSome: Effect.succeed
+        })
+      )
+    )
+    : Effect.succeed(
+      MockLanguageModel.layer(
+        LanguageModel.LanguageModel,
+        MockLanguageModel.fixed(responseEnvelopeFor(authoredAnswer))
+      )
+    )
+
 const nodeInstructionFor = ({
   comparison,
   node,
@@ -315,7 +345,7 @@ export const executeWorkflowNode = ({
     readonly trace: WorkflowComparisonTraceProjection
   },
   WorkflowComparisonExecutionError,
-  never
+  DspProviderRuntime
 > =>
   Module.withDiscoveryScope(
     Effect.gen(function*() {
@@ -340,18 +370,14 @@ export const executeWorkflowNode = ({
       const module = yield* Module.predict(moduleName, signature).pipe(
         Effect.mapError(() => executionError(`effect-dsp module construction failed for workflow node ${node.nodeId}.`))
       )
+      const languageModelLayer = yield* languageModelLayerForExecution({ authoredAnswer, lane })
 
       yield* Ref.update(module.params, moduleParamsWithTextOutput)
 
       const runtime = yield* Trace.withUsageTracking(
         Trace.withTracing(
           module.forward({ context: inputContextForNode({ node, record, state }) }).pipe(
-            Effect.provide(
-              MockLanguageModel.layer(
-                LanguageModel.LanguageModel,
-                MockLanguageModel.fixed(responseEnvelopeFor(authoredAnswer))
-              )
-            )
+            Effect.provide(languageModelLayer)
           )
         )
       ).pipe(
@@ -365,7 +391,7 @@ export const executeWorkflowNode = ({
 
       return {
         outputText: output.answer,
-        runtimeEvidence: runtimeEvidenceForNodeExecution({
+        runtimeEvidence: yield* runtimeEvidenceForNodeExecution({
           comparison,
           lane,
           node,

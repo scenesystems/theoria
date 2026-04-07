@@ -18,8 +18,8 @@ import {
   defaultWorkflowComparisonId,
   workflowComparisonById,
   workflowComparisons
-} from "../fixtures/workflow/comparisons.js"
-import { workflowProfileLibrary } from "../fixtures/workflow/profile-library.js"
+} from "../../app/server/workflow-comparison/catalog.js"
+import { workflowProfileLibrary } from "../../app/server/workflow-comparison/profile-library.js"
 
 describe("Theoria Workflow Comparison Contracts", () => {
   it.effect("decodes the released task, chat, retrieval, and render-sensitive workflow profile library", () =>
@@ -34,19 +34,28 @@ describe("Theoria Workflow Comparison Contracts", () => {
       ])
     }))
 
-  it.effect("decodes task-first and chat-continuation baseline-versus-optimized workflow comparisons", () =>
+  it.effect("decodes task, chat, retrieval, and render-sensitive baseline-versus-optimized workflow comparisons", () =>
     Effect.gen(function*() {
       const decoded = yield* Schema.decodeUnknown(WorkflowComparisonCatalogSchema)(workflowComparisons)
 
       expect(decoded.map(workflowComparisonId)).toEqual([
         "workflow-comparison/task-briefing",
-        "workflow-comparison/chat-handoff"
+        "workflow-comparison/chat-handoff",
+        "workflow-comparison/retrieval-required",
+        "workflow-comparison/render-sensitive"
       ])
       expect(decoded.map((comparison) => comparison.publication.consumerId)).toEqual([
         workflowComparisonConsumerPublication.consumerId,
+        workflowComparisonConsumerPublication.consumerId,
+        workflowComparisonConsumerPublication.consumerId,
         workflowComparisonConsumerPublication.consumerId
       ])
-      expect(decoded.map((comparison) => comparison.workflowKind)).toEqual(["task-first", "chat-continuation"])
+      expect(decoded.map((comparison) => comparison.workflowKind)).toEqual([
+        "task-first",
+        "chat-continuation",
+        "retrieval-required",
+        "render-sensitive"
+      ])
       expect(decoded.every((comparison) => comparison.authorities.runtime === "effect-inference")).toBe(true)
       expect(decoded.every((comparison) => comparison.authorities.search === "effect-search")).toBe(true)
       expect(decoded.every((comparison) => comparison.authorities.program === "effect-dsp")).toBe(true)

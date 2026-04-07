@@ -7,6 +7,7 @@ import type { EvidenceSection } from "./evidence.js"
 export type EvidenceStoreState = {
   readonly nextSectionId: number
   readonly sectionOrder: ReadonlyArray<string>
+  readonly sectionIdsByKey: Readonly<Record<string, string>>
   readonly sectionsById: Readonly<Record<string, EvidenceSection>>
   readonly sectionIdsByTitle: Readonly<Record<string, string>>
   readonly complete: boolean
@@ -17,6 +18,7 @@ export type EvidenceStoreState = {
 export const emptyEvidenceStoreState: EvidenceStoreState = {
   nextSectionId: 1,
   sectionOrder: [],
+  sectionIdsByKey: {},
   sectionsById: {},
   sectionIdsByTitle: {},
   complete: false,
@@ -26,14 +28,52 @@ export const emptyEvidenceStoreState: EvidenceStoreState = {
 
 const nextEvidenceSectionId = (state: EvidenceStoreState): string => `section-${state.nextSectionId}`
 
+const sectionIdByTitle = (state: EvidenceStoreState, title: string): Option.Option<string> =>
+  Option.fromNullable(state.sectionIdsByTitle[title])
+
+const existingSectionId = (
+  state: EvidenceStoreState,
+  section: EvidenceSection
+): Option.Option<string> =>
+  Option.fromNullable(section.key).pipe(
+    Option.match({
+      onNone: () => sectionIdByTitle(state, section.title),
+      onSome: (key) =>
+        Option.fromNullable(state.sectionIdsByKey[key]).pipe(
+          Option.orElse(() => sectionIdByTitle(state, section.title))
+        )
+    })
+  )
+
+const appendSectionKeyIndex = (
+  state: EvidenceStoreState,
+  section: EvidenceSection,
+  sectionId: string
+): EvidenceStoreState["sectionIdsByKey"] =>
+  Option.fromNullable(section.key).pipe(
+    Option.match({
+      onNone: () => state.sectionIdsByKey,
+      onSome: (key) =>
+        Option.fromNullable(state.sectionIdsByKey[key]).pipe(
+          Option.match({
+            onNone: () => ({
+              ...state.sectionIdsByKey,
+              [key]: sectionId
+            }),
+            onSome: () => state.sectionIdsByKey
+          })
+        )
+    })
+  )
+
 export const appendEvidenceSectionToStore = (
   state: EvidenceStoreState,
   section: EvidenceSection
 ): EvidenceStoreState => {
   const sectionId = nextEvidenceSectionId(state)
-  const existingId = state.sectionIdsByTitle[section.title]
+  const existingId = existingSectionId(state, section)
 
-  return Option.fromNullable(existingId).pipe(
+  return existingId.pipe(
     Option.match({
       onNone: () => ({
         ...state,
@@ -43,6 +83,7 @@ export const appendEvidenceSectionToStore = (
           ...state.sectionsById,
           [sectionId]: section
         },
+        sectionIdsByKey: appendSectionKeyIndex(state, section, sectionId),
         sectionIdsByTitle: {
           ...state.sectionIdsByTitle,
           [section.title]: sectionId
@@ -65,9 +106,9 @@ const upsertEvidenceSectionInStore = (
   state: EvidenceStoreState,
   section: EvidenceSection
 ): EvidenceStoreState => {
-  const existingId = state.sectionIdsByTitle[section.title]
+  const existingId = existingSectionId(state, section)
 
-  return Option.fromNullable(existingId).pipe(
+  return existingId.pipe(
     Option.match({
       onNone: () => appendEvidenceSectionToStore(state, section),
       onSome: (sectionId) => ({

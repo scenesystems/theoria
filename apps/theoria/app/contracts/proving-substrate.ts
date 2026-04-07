@@ -137,6 +137,28 @@ export const PublishedConsumerRegistry = Schema.Array(PublishedConsumerDescripto
 
 export type PublishedConsumerRegistry = typeof PublishedConsumerRegistry.Type
 
+export type PublishedConsumerPresentation = {
+  readonly consumerId: PublishedConsumerId
+  readonly title: string
+  readonly packageName: string
+  readonly description: string
+  readonly useCase: string
+  readonly summary: string
+  readonly runLabel: string
+  readonly deepDivePath: string
+  readonly interactiveLabel: string | null
+  readonly group: ConsumerGroup
+  readonly releaseState: CardReleaseState
+}
+
+type ApplicationConsumerPresentationSeed = {
+  readonly title: string
+  readonly packageName: string
+  readonly description: string
+  readonly useCase: string
+  readonly summary: string
+}
+
 export const consumerGroupMeta = (group: ConsumerGroup): ConsumerGroupMeta =>
   Match.value(group).pipe(
     Match.when("effect", () => ({
@@ -422,11 +444,25 @@ export const workflowComparisonConsumerDescriptor: ApplicationConsumerDescriptor
   runLabel: "Run Workflow Comparison",
   deepDivePath: "/workflow-comparison",
   group: "application",
-  releaseState: "coming-soon",
+  releaseState: "published",
   interactiveLabel: "Graph Workflow Comparison",
   primaryAuthorityId: "effect-inference",
   authorityIds: ["effect-inference", "effect-search", "effect-dsp", "effect-text", "effect-math"]
 })
+
+const applicationConsumerPresentationSeedById: Readonly<
+  Record<WorkflowComparisonConsumerId, ApplicationConsumerPresentationSeed>
+> = {
+  "workflow-comparison": {
+    title: "Workflow Comparison",
+    packageName: "@theoria/theoria-app",
+    description:
+      "Compare baseline and optimized graph-backed workflow manifests on the same evaluation set, render envelope, and study-backed runtime spine.",
+    useCase: "Prove prompt, routing, and chat-agent improvement from one published application consumer.",
+    summary:
+      "Run a baseline-versus-optimized workflow comparison, inspect the winning study selection, and trace why the graph improved."
+  }
+}
 
 const applicationConsumerDescriptorById: Readonly<Record<WorkflowComparisonConsumerId, ApplicationConsumerDescriptor>> =
   {
@@ -455,6 +491,63 @@ export const applicationConsumerDescriptorForId = (id: WorkflowComparisonConsume
 
 export const publishedConsumerDescriptorForId = (id: PublishedConsumerId): PublishedConsumerDescriptor =>
   publishedConsumerDescriptorById[id]
+
+const normalizedPublishedConsumerPath = (pathname: string): string =>
+  pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname
+
+export const publishedConsumerVisibleInReleaseStage = (
+  descriptor: PublishedConsumerDescriptor,
+  stage: "preview" | "production"
+): boolean => stage === "preview" || descriptor.publication.releaseState === "published"
+
+export const publishedConsumerDescriptorForPath = (pathname: string): Option.Option<PublishedConsumerDescriptor> => {
+  const normalizedPath = normalizedPublishedConsumerPath(pathname)
+
+  return Arr.findFirst(
+    publishedConsumerDescriptors,
+    (descriptor) => normalizedPublishedConsumerPath(descriptor.publication.deepDivePath) === normalizedPath
+  )
+}
+
+export const publishedConsumerIdForPath = (pathname: string): Option.Option<PublishedConsumerId> =>
+  publishedConsumerDescriptorForPath(pathname).pipe(Option.map((descriptor) => descriptor.publication.consumerId))
+
+export const publishedConsumerPresentationForDescriptor = (
+  descriptor: PublishedConsumerDescriptor
+): PublishedConsumerPresentation => {
+  if (descriptor.kind === "package") {
+    const publication = descriptor.publication
+    const authority = primaryAuthorityCatalogForDescriptor(descriptor)
+
+    return {
+      consumerId: publication.consumerId,
+      title: authority.title,
+      packageName: authority.packageName,
+      description: authority.description,
+      useCase: authority.useCase,
+      summary: authority.summary,
+      runLabel: publication.runLabel,
+      deepDivePath: publication.deepDivePath,
+      interactiveLabel: publication.interactiveLabel ?? null,
+      group: publication.group,
+      releaseState: publication.releaseState
+    }
+  }
+
+  return {
+    consumerId: descriptor.publication.consumerId,
+    ...applicationConsumerPresentationSeedById[descriptor.publication.consumerId],
+    runLabel: descriptor.publication.runLabel,
+    deepDivePath: descriptor.publication.deepDivePath,
+    interactiveLabel: descriptor.publication.interactiveLabel ?? null,
+    group: descriptor.publication.group,
+    releaseState: descriptor.publication.releaseState
+  }
+}
+
+export const publishedConsumerPresentationForId = (
+  id: PublishedConsumerId
+): PublishedConsumerPresentation => publishedConsumerPresentationForDescriptor(publishedConsumerDescriptorForId(id))
 
 export const authorityIdsForDescriptor = (
   descriptor: PublishedConsumerDescriptor

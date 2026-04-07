@@ -55,7 +55,12 @@ describe("runtime spine run authority", () => {
         sequence: 1,
         requestedAtMs: 2
       })
-      const reset = reduceRunState(stopping, { _tag: "RunReset" })
+      const stopped = reduceRunState(stopping, {
+        _tag: "RunStopped",
+        sequence: 1,
+        stoppedAtMs: 3
+      })
+      const reset = reduceRunState(stopped, { _tag: "RunReset" })
       const replay = reduceRunState(reset, {
         _tag: "RunStarted",
         token: 2,
@@ -64,7 +69,7 @@ describe("runtime spine run authority", () => {
           localDriver: true,
           serverStream: true
         },
-        startedAtMs: 3,
+        startedAtMs: 4,
         runPlan: {
           id: "effect-text",
           manifest: null
@@ -109,7 +114,11 @@ describe("runtime spine run authority", () => {
 
       expect(stopping._tag).toBe("RunRunning")
       expect(stopping.session.control).toBe("stopping")
+      expect(stopped._tag).toBe("RunIdle")
+      expect(stopped.session.runPlan).toEqual(firstRun.session.runPlan)
+      expect(stopped.session.telemetry.events.at(-1)?.detail).toBe("stopped")
       expect(reset._tag).toBe("RunIdle")
+      expect(reset.session.runPlan).toBeNull()
       expect(replay._tag).toBe("RunRunning")
       if (replay._tag === "RunRunning") {
         expect(replay.sequence).toBe(2)

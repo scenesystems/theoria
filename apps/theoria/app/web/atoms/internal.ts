@@ -1,7 +1,7 @@
 import { Effect, Either, Option } from "effect"
 
 import type { SurfaceId } from "../../contracts/id.js"
-import { surfaceRuntimeFor, type SurfaceRuntimeServices } from "../runtime/proving-consumer-shared.js"
+import { surfaceRuntimeFor, type SurfaceRuntimeServices } from "../runtime/surface-runtime.js"
 import { emptyEvidenceStoreState, reduceRunState, type RunMessage, type SurfaceState } from "../state/types.js"
 
 import type { RunRegistry } from "./run-registry-context.js"

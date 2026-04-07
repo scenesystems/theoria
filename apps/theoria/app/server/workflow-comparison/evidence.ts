@@ -11,6 +11,12 @@ import { canonicalStepEvent, Choreography, type EvidenceEvent, SectionAppend } f
 import type { EvidenceSection } from "../../contracts/evidence.js"
 import type { Program } from "../../contracts/presentation.js"
 import type { RunData } from "../../contracts/run.js"
+import {
+  workflowComparisonEvidenceItemKeys,
+  workflowComparisonEvidenceSectionKeys,
+  workflowComparisonNodeExecutionSectionKey,
+  workflowComparisonVariantOverviewSectionKey
+} from "../../contracts/workflow/comparison-evidence-keys.js"
 import type { WorkflowComparisonNodeExecution } from "../../contracts/workflow/comparison-run.js"
 import type { WorkflowComparisonVariantExecution } from "../../contracts/workflow/comparison-run.js"
 import { WorkflowComparisonCanonicalStep } from "../../contracts/workflow/comparison-step.js"
@@ -38,6 +44,7 @@ const optionalValue = (value: Option.Option<string | number>): string =>
   )
 
 const workflowOverviewSection = (comparison: FrozenWorkflowComparisonRun): EvidenceSection => ({
+  key: workflowComparisonEvidenceSectionKeys.overview,
   title: "Workflow Comparison Overview",
   items: [
     { _tag: "Text", label: "Workflow", value: comparison.label },
@@ -54,10 +61,12 @@ const workflowOverviewSection = (comparison: FrozenWorkflowComparisonRun): Evide
 })
 
 const variantOverviewSection = (execution: WorkflowComparisonVariantOverview): EvidenceSection => ({
+  key: workflowComparisonVariantOverviewSectionKey(execution.variant),
   title: `${variantLabel(execution.variant)} Graph`,
   items: [
     {
       _tag: "Table",
+      key: workflowComparisonEvidenceItemKeys.traversal,
       label: "Traversal",
       columns: ["Node", "Kind", "Role"],
       rows: execution.graphProjection.traversal.map((nodeId) => {
@@ -68,6 +77,7 @@ const variantOverviewSection = (execution: WorkflowComparisonVariantOverview): E
     },
     {
       _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.traversalSteps,
       label: "Traversal Steps",
       value: execution.graphProjection.traversal.length,
       unit: "steps",
@@ -77,13 +87,24 @@ const variantOverviewSection = (execution: WorkflowComparisonVariantOverview): E
 })
 
 const nodeExecutionSection = (execution: WorkflowComparisonNodeExecution): EvidenceSection => ({
+  key: workflowComparisonNodeExecutionSectionKey({
+    nodeId: execution.node.nodeId,
+    nodeKind: execution.node.nodeKind,
+    variant: execution.variant
+  }),
   title: `${variantLabel(execution.variant)} · ${execution.node.nodeId}`,
   items: [
-    { _tag: "Text", label: "Output", value: execution.outputText },
-    { _tag: "Text", label: "Prompt", value: execution.trace.prompt },
-    { _tag: "Text", label: "Raw response", value: execution.trace.rawResponse },
+    { _tag: "Text", key: workflowComparisonEvidenceItemKeys.output, label: "Output", value: execution.outputText },
+    { _tag: "Text", key: workflowComparisonEvidenceItemKeys.prompt, label: "Prompt", value: execution.trace.prompt },
+    {
+      _tag: "Text",
+      key: workflowComparisonEvidenceItemKeys.rawResponse,
+      label: "Raw response",
+      value: execution.trace.rawResponse
+    },
     {
       _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.traceDuration,
       label: "Trace duration",
       value: execution.trace.durationMs,
       unit: "ms",
@@ -91,6 +112,7 @@ const nodeExecutionSection = (execution: WorkflowComparisonNodeExecution): Evide
     },
     {
       _tag: "Scalar",
+      key: workflowComparisonEvidenceItemKeys.totalTokens,
       label: "Total tokens",
       value: execution.runtimeEvidence.resolvedRuntime.usage?.totalTokens ?? execution.trace.totalTokens,
       unit: "tokens",
@@ -127,10 +149,12 @@ const comparisonDeltaSection = (
   baseline: WorkflowComparisonVariantExecution,
   optimized: WorkflowComparisonVariantExecution
 ): EvidenceSection => ({
+  key: workflowComparisonEvidenceSectionKeys.comparisonDelta,
   title: "Comparison Delta",
   items: [
     {
       _tag: "Comparison",
+      key: workflowComparisonEvidenceItemKeys.aggregateScore,
       label: "Aggregate Score",
       baseline: baseline.report.aggregateScore,
       improved: optimized.report.aggregateScore,
@@ -139,6 +163,7 @@ const comparisonDeltaSection = (
     },
     {
       _tag: "Comparison",
+      key: workflowComparisonEvidenceItemKeys.graphNodes,
       label: "Graph Nodes",
       baseline: baseline.record.graph.nodes.length,
       improved: optimized.record.graph.nodes.length,

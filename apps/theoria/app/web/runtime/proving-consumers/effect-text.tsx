@@ -1,6 +1,7 @@
 import { Effect, Option, Stream } from "effect"
 
 import { isEffectTextRunPlan, snapshotEffectTextRunPlan } from "../../../contracts/demo/text.js"
+import { isDemoSurfaceRunPlan } from "../../../contracts/run-plan.js"
 import { encodeStreamManifest } from "../../../contracts/stream-manifest.js"
 import { EffectTextManifest } from "../../../contracts/stream-manifest.js"
 import {
@@ -23,6 +24,7 @@ import {
   makeStreamingSurfaceRuntime,
   type ProvingConsumerLaneDescriptor,
   sharedStreamingOwnership,
+  type SurfaceRuntimeSnapshot,
   telemetryRow,
   telemetrySection
 } from "../proving-consumer-shared.js"
@@ -36,8 +38,20 @@ const effectTextPreload = Option.some(
   })
 )
 
+const effectTextManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): EffectTextManifest | null => {
+  const runPlan = snapshot.runPlan
+
+  return runPlan !== null
+      && isDemoSurfaceRunPlan(runPlan)
+      && runPlan.id === effectTextId
+      && runPlan.manifest !== null
+      && runPlan.manifest._tag === effectTextId
+    ? runPlan.manifest
+    : null
+}
+
 const effectTextStreamUrl = (
-  snapshot: { readonly runPlan: { readonly id: "effect-text"; readonly manifest: EffectTextManifest | null } | null },
+  snapshot: SurfaceRuntimeSnapshot,
   runToken: string | null
 ): string => {
   const params = new URLSearchParams()
@@ -46,8 +60,10 @@ const effectTextStreamUrl = (
     params.set("runToken", runToken.trim())
   }
 
-  if (snapshot.runPlan?.manifest !== null) {
-    params.set("manifest", encodeStreamManifest(snapshot.runPlan.manifest))
+  const manifest = effectTextManifestFromSnapshot(snapshot)
+
+  if (manifest !== null) {
+    params.set("manifest", encodeStreamManifest(manifest))
   }
 
   const query = params.toString()
@@ -55,7 +71,7 @@ const effectTextStreamUrl = (
   return query.length === 0 ? `/api/demos/${effectTextId}/stream` : `/api/demos/${effectTextId}/stream?${query}`
 }
 
-export const effectTextProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor(
+const effectTextProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor(
   {
     consumerId: effectTextId,
     diagnosticsKey: "effect-text/local-driver",
@@ -131,3 +147,7 @@ export const effectTextProvingConsumerLaneDescriptor: ProvingConsumerLaneDescrip
     }
   }
 )
+
+export const provingConsumerLaneDescriptor = effectTextProvingConsumerLaneDescriptor
+
+export { effectTextProvingConsumerLaneDescriptor }

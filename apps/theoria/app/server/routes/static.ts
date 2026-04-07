@@ -1,11 +1,17 @@
 import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
-import * as Arr from "effect/Array"
 
-import { cardByIdForReleaseStage } from "../../contracts/card.js"
-import { Id } from "../../contracts/id.js"
-import { fullCanonicalUrl, metadataForHome, metadataForId, metadataForPackageDocs } from "../../contracts/metadata.js"
+import {
+  fullCanonicalUrl,
+  metadataForHome,
+  metadataForPackageDocs,
+  metadataForPublishedConsumerId
+} from "../../contracts/metadata.js"
 import { PackageDocsPagePathname, packageDocsQueryPackage } from "../../contracts/package-docs.js"
+import {
+  publishedConsumerDescriptorForPath,
+  publishedConsumerVisibleInReleaseStage
+} from "../../contracts/proving-substrate.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -26,14 +32,7 @@ const RelativeAssetPath = Schema.String.pipe(
 )
 
 const isRelativeAssetPath = Schema.is(RelativeAssetPath)
-const isKnownDemoId = Schema.is(Id)
-const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
 const htmlTagPattern = /<html\b([^>]*)>/u
-
-const deepDiveId = (pathname: string): Option.Option<string> =>
-  Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
-    Option.flatMap((matches) => Arr.get(matches, 1))
-  )
 
 const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
   Match.value(pathname).pipe(
@@ -41,9 +40,9 @@ const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
     Match.when("/index.html", () => true),
     Match.when(PackageDocsPagePathname, () => true),
     Match.orElse((value) =>
-      Option.match(deepDiveId(value), {
+      Option.match(publishedConsumerDescriptorForPath(value), {
         onNone: () => false,
-        onSome: (id) => isKnownDemoId(id) && Option.isSome(cardByIdForReleaseStage(id, stage))
+        onSome: (descriptor) => publishedConsumerVisibleInReleaseStage(descriptor, stage)
       })
     )
   )
@@ -110,9 +109,9 @@ const injectMetadata = (html: string, pathname: string, rawUrl: string, _stage: 
     Match.when("/index.html", () => metadataForHome()),
     Match.when(PackageDocsPagePathname, () => metadataForPackageDocs(packageDocsQueryPackage(search))),
     Match.orElse((value) =>
-      Option.match(deepDiveId(value), {
+      Option.match(publishedConsumerDescriptorForPath(value), {
         onNone: () => metadataForHome(),
-        onSome: (id) => metadataForId(id)
+        onSome: (descriptor) => metadataForPublishedConsumerId(descriptor.publication.consumerId)
       })
     )
   )

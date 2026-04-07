@@ -15,7 +15,7 @@ import {
 } from "../../contracts/demo/power.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./run-lifecycle.js"
 import type { RunRegistry } from "./run-registry-context.js"
 
 const executionFailedError = (message: string): DemoExecutionError =>
@@ -147,12 +147,16 @@ const drainPowerFrames = ({
           ? emitFrameUpdate({ emit, step: nextEvent.step }).pipe(
             Effect.zipRight(
               remainingSteps.length > 1
-                ? drainPowerFrames({
-                  emit,
-                  remainingSteps: remainingSteps.slice(1),
-                  signal,
-                  stepQueue
-                })
+                ? yieldProjectionFrame(signal).pipe(
+                  Effect.zipRight(
+                    drainPowerFrames({
+                      emit,
+                      remainingSteps: remainingSteps.slice(1),
+                      signal,
+                      stepQueue
+                    })
+                  )
+                )
                 : emit(localDriverCompletedEvent)
             )
           )

@@ -1,6 +1,6 @@
-import { Atom, Registry } from "@effect-atom/atom"
+import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Option } from "effect"
 
 import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
 import {
@@ -14,8 +14,8 @@ import type { Id } from "../../app/contracts/id.js"
 import { makeRunDemoAtom } from "../../app/web/atoms/actions.js"
 import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
+import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
@@ -96,18 +96,12 @@ describe("runtime spine proof", () => {
     withMockEventSource(
       Effect.gen(function*() {
         const registry = makeTestRegistry()
-        const runtime = Atom.runtime(
-          Layer.succeed(
-            DemoClient,
-            DemoClient.make({
-              run: () => Effect.fail(errorFixture),
-              runWithMeta: () => Effect.fail(errorFixture),
-              preload: () => Effect.succeed(programPreviewFixture),
-              versions: () => Effect.succeed({}),
-              streamUrl: (id) => `/api/demos/${id}/stream`
-            })
-          )
-        )
+        const runtime = makeAppClientTestRuntime({
+          run: () => Effect.fail(errorFixture),
+          runWithMeta: () => Effect.fail(errorFixture),
+          preload: () => Effect.succeed(programPreviewFixture),
+          streamUrl: (id) => `/api/demos/${id}/stream`
+        })
         const runDemoAtom = makeRunDemoAtom(runtime)
 
         registry.mount(runDemoAtom)

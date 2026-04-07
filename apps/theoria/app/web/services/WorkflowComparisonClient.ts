@@ -73,14 +73,18 @@ const requestEnvelope = <A, I>(
     )
   )
 
-const workflowComparisonPath = (
+export const workflowComparisonPath = (
   endpoint: "run" | "stream",
   plan: WorkflowComparisonRunPlan,
   runToken: string | null
-) => {
+): string => {
   const params = new URLSearchParams({
     comparisonId: plan.comparisonId,
-    lane: plan.lane
+    lane: plan.lane,
+    optimize: `${plan.optimize}`,
+    comparisonMode: plan.comparisonMode,
+    runtimeProfile: plan.runtimeProfile,
+    surfaceProfile: plan.surfaceProfile
   })
 
   if (runToken !== null && runToken.trim().length > 0) {
@@ -89,6 +93,11 @@ const workflowComparisonPath = (
 
   return `/api/workflow-comparison/${endpoint}?${params.toString()}`
 }
+
+export const workflowComparisonStreamPath = (
+  plan: WorkflowComparisonRunPlan,
+  runToken: string | null = null
+): string => workflowComparisonPath("stream", plan, runToken)
 
 export class WorkflowComparisonClient extends Effect.Service<WorkflowComparisonClient>()(
   "theoria/WorkflowComparisonClient",

@@ -1,6 +1,6 @@
 import type * as Option from "effect/Option"
 
-import type { Card } from "../../contracts/card.js"
+import type { PublishedConsumerPresentation } from "../../contracts/proving-substrate.js"
 
 export type SurfaceChromeContentModel = {
   readonly badgeLabel: string
@@ -39,19 +39,19 @@ export type SurfaceChromeModel = SurfaceChromeContentModel & {
   }
 }
 
-export const surfaceChromeContentModel = (card: Card): SurfaceChromeContentModel => ({
-  badgeLabel: card.id,
-  title: card.title,
+export const surfaceChromeContentModel = (surface: PublishedConsumerPresentation): SurfaceChromeContentModel => ({
+  badgeLabel: surface.consumerId,
+  title: surface.title,
   packageMeta: {
-    label: "Package",
-    value: card.packageName
+    label: surface.group === "application" ? "Application" : "Package",
+    value: surface.packageName
   },
-  compactPackageValue: card.title === card.packageName ? null : card.packageName,
+  compactPackageValue: surface.title === surface.packageName ? null : surface.packageName,
   useCaseMeta: {
     label: "Use Case",
-    value: card.useCase
+    value: surface.useCase
   },
-  summary: card.summary,
+  summary: surface.summary,
   runtimeBadge: {
     label: "Browser",
     visible: true
@@ -60,7 +60,7 @@ export const surfaceChromeContentModel = (card: Card): SurfaceChromeContentModel
     visible: true
   },
   primaryAction: {
-    label: card.runLabel,
+    label: surface.runLabel,
     pendingLabel: "Running…"
   }
 })

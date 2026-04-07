@@ -15,18 +15,25 @@ const tabInactiveClass =
 export const TabButton = ({
   active,
   className,
+  disabled = false,
   icon,
   label,
   onClick
 }: {
   readonly active: boolean
   readonly className?: string
+  readonly disabled?: boolean
   readonly icon?: ReactNode
   readonly label: string
   readonly onClick: () => void
 }) => (
   <Button
-    className={`${active ? tabActiveClass : tabInactiveClass}${className !== undefined ? ` ${className}` : ""}`}
+    className={`${active ? tabActiveClass : tabInactiveClass}${
+      disabled
+        ? " cursor-not-allowed opacity-70 hover:border-transparent hover:bg-transparent hover:text-ink-700"
+        : ""
+    }${className !== undefined ? ` ${className}` : ""}`}
+    disabled={disabled}
     onClick={onClick}
     type="button"
   >

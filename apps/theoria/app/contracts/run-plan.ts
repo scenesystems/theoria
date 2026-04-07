@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Predicate, Schema } from "effect"
 
 import { DurableFingerprint, fingerprintOf } from "./fingerprint.js"
 import { RunnableDemoId, type SurfaceId } from "./id.js"
@@ -25,7 +25,15 @@ export const SurfaceRunPlan = Schema.Union(RunPlan, WorkflowComparisonRunPlan)
 
 export type SurfaceRunPlan = typeof SurfaceRunPlan.Type
 
-export const surfaceRunPlanId = (plan: SurfaceRunPlan): SurfaceId => plan.consumerId ?? plan.id
+export const isDemoSurfaceRunPlan = (plan: SurfaceRunPlan | null): plan is RunPlan =>
+  Predicate.isRecord(plan) && Predicate.hasProperty(plan, "id")
+
+export const isWorkflowComparisonSurfaceRunPlan = (
+  plan: SurfaceRunPlan | null
+): plan is WorkflowComparisonRunPlan => Predicate.isRecord(plan) && Predicate.hasProperty(plan, "consumerId")
+
+export const surfaceRunPlanId = (plan: SurfaceRunPlan): SurfaceId =>
+  isWorkflowComparisonSurfaceRunPlan(plan) ? plan.consumerId : plan.id
 
 export const RunWorkflowIdentity = Schema.Struct({
   consumerId: RunnableDemoId,

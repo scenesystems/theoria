@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect"
 
 import { isDspRunFrame } from "../../../contracts/demo/dsp-runtime.js"
+import { isDemoSurfaceRunPlan } from "../../../contracts/run-plan.js"
 import { encodeStreamManifest } from "../../../contracts/stream-manifest.js"
 import { EffectDspManifest } from "../../../contracts/stream-manifest.js"
 import { makeDspRunStream } from "../../atoms/dsp-local-driver.js"
@@ -16,6 +17,7 @@ import {
   noProjectionPlayback,
   type ProvingConsumerLaneDescriptor,
   sharedStreamingOwnership,
+  type SurfaceRuntimeSnapshot,
   telemetryRow,
   telemetrySection
 } from "../proving-consumer-shared.js"
@@ -29,8 +31,20 @@ const effectDspPreload = Option.some(
   })
 )
 
+const effectDspManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): EffectDspManifest | null => {
+  const runPlan = snapshot.runPlan
+
+  return runPlan !== null
+      && isDemoSurfaceRunPlan(runPlan)
+      && runPlan.id === effectDspId
+      && runPlan.manifest !== null
+      && runPlan.manifest._tag === effectDspId
+    ? runPlan.manifest
+    : null
+}
+
 const effectDspStreamUrl = (
-  snapshot: { readonly runPlan: { readonly id: "effect-dsp"; readonly manifest: EffectDspManifest | null } | null },
+  snapshot: SurfaceRuntimeSnapshot,
   runToken: string | null
 ): string => {
   const params = new URLSearchParams()
@@ -39,8 +53,10 @@ const effectDspStreamUrl = (
     params.set("runToken", runToken.trim())
   }
 
-  if (snapshot.runPlan?.manifest !== null) {
-    params.set("manifest", encodeStreamManifest(snapshot.runPlan.manifest))
+  const manifest = effectDspManifestFromSnapshot(snapshot)
+
+  if (manifest !== null) {
+    params.set("manifest", encodeStreamManifest(manifest))
   }
 
   const query = params.toString()
@@ -48,7 +64,7 @@ const effectDspStreamUrl = (
   return query.length === 0 ? `/api/demos/${effectDspId}/stream` : `/api/demos/${effectDspId}/stream?${query}`
 }
 
-export const effectDspProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor({
+const effectDspProvingConsumerLaneDescriptor: ProvingConsumerLaneDescriptor = makeProvingConsumerLaneDescriptor({
   consumerId: effectDspId,
   diagnosticsKey: "effect-dsp/runtime",
   interactiveWidgetKey: "effect-dsp/live-evaluation",
@@ -131,3 +147,7 @@ export const effectDspProvingConsumerLaneDescriptor: ProvingConsumerLaneDescript
     }
   }
 })
+
+export const provingConsumerLaneDescriptor = effectDspProvingConsumerLaneDescriptor
+
+export { effectDspProvingConsumerLaneDescriptor }

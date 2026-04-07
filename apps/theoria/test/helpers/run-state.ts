@@ -1,7 +1,7 @@
 import type { DemoError } from "../../app/contracts/demo-error.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
 import type { Program } from "../../app/contracts/presentation.js"
-import type { RunPlan } from "../../app/contracts/run-plan.js"
+import type { SurfaceRunPlan } from "../../app/contracts/run-plan.js"
 import type { RunData } from "../../app/contracts/run.js"
 import type { LocalRunPlan } from "../../app/web/state/local-run.js"
 import { initialSurfaceState, reduceRunState, type RunOwnership, type RunState } from "../../app/web/state/types.js"
@@ -61,7 +61,7 @@ export const runningRunState = ({
   readonly localRunPlan?: LocalRunPlan | null
   readonly ownership?: RunOwnership
   readonly program: Program
-  readonly runPlan?: RunPlan
+  readonly runPlan?: SurfaceRunPlan
   readonly sequence?: number
   readonly startedAtMs?: number
   readonly token?: number

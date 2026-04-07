@@ -1,6 +1,6 @@
 import * as Option from "effect/Option"
 
-import type { Id } from "../../../contracts/id.js"
+import type { PublishedConsumerId } from "../../../contracts/id.js"
 import type { RunControlActionKind } from "../../state/types.js"
 import type { RunControlsViewModel } from "../runControlsModel.js"
 import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
@@ -18,14 +18,14 @@ import type { DeepDiveProjectionControlModel } from "./projection-model.js"
 import { ProjectionMenu } from "./ProjectionMenu.js"
 
 export const CompactNav = ({
-  cardId,
+  consumerId,
   chrome,
   onRunControlAction,
   projection,
   runControls,
   theme
 }: {
-  readonly cardId: Id
+  readonly consumerId: PublishedConsumerId
   readonly chrome: SurfaceChromeModel
   readonly onRunControlAction: (action: RunControlActionKind) => void
   readonly projection?: {
@@ -37,7 +37,7 @@ export const CompactNav = ({
   readonly runControls: RunControlsViewModel
   readonly theme: SurfaceTheme
 }) => {
-  const tone = toneClassesForCard(cardId)
+  const tone = toneClassesForCard(consumerId)
   const backControl = Option.match(chrome.backLink.href, {
     onNone: () => null,
     onSome: (href) => (

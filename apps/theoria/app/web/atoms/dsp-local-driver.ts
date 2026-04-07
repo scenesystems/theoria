@@ -6,7 +6,7 @@ import { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"
 import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
 
 import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./run-lifecycle.js"
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
@@ -67,6 +67,7 @@ const drainAuthoredSteps = ({
               frame: frameForStep(nextEvent.step)
             })
           ),
+          Effect.zipRight(yieldProjectionFrame(signal)),
           Effect.zipRight(drainAuthoredSteps({ emit, signal, stepQueue }))
         )
         : drainAuthoredSteps({ emit, signal, stepQueue })

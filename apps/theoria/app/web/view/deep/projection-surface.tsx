@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import { lazy, Suspense } from "react"
 
-import type { Id } from "../../../contracts/id.js"
+import type { SurfaceId } from "../../../contracts/id.js"
 import { DeepDiveSurfacePlaneValue } from "../../../contracts/layout.js"
 import type { ProgramSourceScope } from "../../../contracts/presentation.js"
 import { deepDiveEvidenceAtom } from "../../atoms/derived.js"
@@ -37,7 +37,7 @@ const RunLifecycleDiagnosticsDevPane = import.meta.env.DEV
 
 type DeepDiveProjectionSurfaceContext = {
   readonly frameViewModel: DeepDiveSurfaceFrameViewModel
-  readonly id: Id
+  readonly id: SurfaceId
   readonly onSelectFile: (fileIndex: number) => void
   readonly onSelectSourceScope: (scope: ProgramSourceScope) => void
   readonly projectionIndex: number | null
@@ -77,29 +77,27 @@ const projectionBadge = ({
 const ConnectedEvidenceStage = ({
   id
 }: {
-  readonly id: Id
+  readonly id: SurfaceId
 }) => {
   const evidence = useAtomValue(deepDiveEvidenceAtom(id))
   const selectEvidenceFilter = useAtomSet(selectEvidencePlaneFilterAtom)
   const selectEvidenceOrder = useAtomSet(selectEvidencePlaneOrderAtom)
   const selectEvidenceSection = useAtomSet(selectEvidencePlaneSectionAtom)
 
-  return evidence === null
-    ? null
-    : (
-      <EvidenceStage
-        onSelectEvidenceFilter={(filter) => {
-          selectEvidenceFilter({ filter, id })
-        }}
-        onSelectEvidenceOrder={(order) => {
-          selectEvidenceOrder({ id, order })
-        }}
-        onSelectEvidenceSection={(sectionKey) => {
-          selectEvidenceSection({ id, sectionKey })
-        }}
-        viewModel={evidence}
-      />
-    )
+  return (
+    <EvidenceStage
+      onSelectEvidenceFilter={(filter) => {
+        selectEvidenceFilter({ filter, id })
+      }}
+      onSelectEvidenceOrder={(order) => {
+        selectEvidenceOrder({ id, order })
+      }}
+      onSelectEvidenceSection={(sectionKey) => {
+        selectEvidenceSection({ id, sectionKey })
+      }}
+      viewModel={evidence}
+    />
+  )
 }
 
 const StageProjectionFallback = () => (
@@ -109,7 +107,7 @@ const StageProjectionFallback = () => (
       as="p"
       className="text-ink-700"
       role="status"
-      text="This package projects directly into the evidence and source planes. Run the demo to materialize the reproducible outputs side by side."
+      text="This surface projects directly into the evidence and source planes. Run it to materialize the canonical outputs side by side."
       variant="expanded"
     />
   </Stack>

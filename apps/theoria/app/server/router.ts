@@ -5,6 +5,7 @@ import { RuntimeInfo } from "./config/runtime.js"
 import { capabilitiesRoute } from "./routes/capabilities.js"
 import { demoRoute } from "./routes/demos.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
+import { openAgentTraceRoute } from "./routes/open-agent-trace.js"
 import { packageDocsRoute } from "./routes/package-docs.js"
 import { packageVersionsRoute } from "./routes/package-versions.js"
 import { sitemapRoute } from "./routes/sitemap.js"
@@ -62,6 +63,10 @@ export const app = Effect.gen(function*() {
     Match.when(
       (value) => value.startsWith("/api/package-docs"),
       () => packageDocsRoute(pathname, requestId, request.url)
+    ),
+    Match.when(
+      (value) => value.startsWith("/api/open-agent-trace"),
+      () => openAgentTraceRoute(pathname, requestId)
     ),
     Match.when("/api/capabilities", () => capabilitiesRoute(requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),

@@ -1,4 +1,4 @@
-import { Effect, Either, Match, Stream } from "effect"
+import { Effect, Either, Match, Option, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as ParseResult from "effect/ParseResult"
 
@@ -9,9 +9,14 @@ import {
   SectionAppend,
   StreamComplete
 } from "../../contracts/evidence-stream.js"
-import type { Id } from "../../contracts/id.js"
+import type { Id, SurfaceId } from "../../contracts/id.js"
 import { encodeStreamManifest, type StreamManifest } from "../../contracts/stream-manifest.js"
-import { surfaceUsesSseTransport } from "../runtime/surface-runtime.js"
+import {
+  type SurfaceRuntime,
+  type SurfaceRuntimeServices,
+  type SurfaceRuntimeSnapshot,
+  surfaceUsesSseTransport
+} from "../runtime/surface-runtime.js"
 import { DemoClient } from "../services/DemoClient.js"
 
 const decodeSseEvent = (data: string): Either.Either<EvidenceEvent, DemoError> =>
@@ -19,16 +24,30 @@ const decodeSseEvent = (data: string): Either.Either<EvidenceEvent, DemoError> =
     Either.mapLeft((error) => new DemoDecodeError({ message: ParseResult.TreeFormatter.formatErrorSync(error) }))
   )
 
-const makeSseEvidenceStream = (
-  id: Id,
-  manifest: string | null = null,
-  runToken: string | null = null
-): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
-  Stream.asyncPush<EvidenceEvent, DemoError, DemoClient>((emit) =>
+type RuntimeStreamRequest = {
+  readonly id: SurfaceId
+  readonly runtime: SurfaceRuntime
+  readonly runtimeSnapshot: SurfaceRuntimeSnapshot
+  readonly runToken: string | null
+}
+
+type RuntimeFetchRequest = {
+  readonly id: SurfaceId
+  readonly runtime: SurfaceRuntime
+  readonly runtimeSnapshot: SurfaceRuntimeSnapshot
+}
+
+const makeSseEvidenceStreamFromUrl = <R>({
+  failureLabel,
+  resolveUrl
+}: {
+  readonly failureLabel: string
+  readonly resolveUrl: Effect.Effect<string, DemoError, R>
+}): Stream.Stream<EvidenceEvent, DemoError, R> =>
+  Stream.asyncPush<EvidenceEvent, DemoError, R>((emit) =>
     Effect.acquireRelease(
       Effect.gen(function*() {
-        const client = yield* DemoClient
-        const eventSource = new EventSource(client.streamUrl(id, manifest, runToken))
+        const eventSource = new EventSource(yield* resolveUrl)
         const streamState = { closed: false, deliveredEvent: false, terminalEvent: false }
 
         const close = () => {
@@ -72,8 +91,8 @@ const makeSseEvidenceStream = (
             emit.fail(
               new DemoRequestError({
                 message: streamState.deliveredEvent
-                  ? `Evidence stream for ${id} ended before completion metadata arrived.`
-                  : `Failed to stream evidence for ${id}.`
+                  ? `Evidence stream for ${failureLabel} ended before completion metadata arrived.`
+                  : `Failed to stream evidence for ${failureLabel}.`
               })
             )
             close()
@@ -92,6 +111,19 @@ const makeSseEvidenceStream = (
     )
   )
 
+const makeSseEvidenceStream = (
+  id: Id,
+  manifest: string | null = null,
+  runToken: string | null = null
+): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
+  makeSseEvidenceStreamFromUrl({
+    failureLabel: id,
+    resolveUrl: Effect.gen(function*() {
+      const client = yield* DemoClient
+      return client.streamUrl(id, manifest, runToken)
+    })
+  })
+
 const makeFetchEvidenceStream = (id: Id): Stream.Stream<EvidenceEvent, DemoError, DemoClient> =>
   Stream.unwrap(
     Effect.gen(function*() {
@@ -105,14 +137,72 @@ const makeFetchEvidenceStream = (id: Id): Stream.Stream<EvidenceEvent, DemoError
     })
   )
 
-export const makeServerEvidenceStream = (
+const makeRuntimeSseEvidenceStream = ({
+  id,
+  runtime,
+  runtimeSnapshot,
+  runToken
+}: RuntimeStreamRequest): Stream.Stream<EvidenceEvent, DemoError, SurfaceRuntimeServices> =>
+  makeSseEvidenceStreamFromUrl({
+    failureLabel: id,
+    resolveUrl: Option.match(runtime.streamUrl, {
+      onNone: () =>
+        Effect.fail(
+          new DemoRequestError({ message: `Evidence stream for ${id} is missing a runtime stream URL.` })
+        ),
+      onSome: (streamUrl) => Effect.succeed(streamUrl(runtimeSnapshot, runToken))
+    })
+  })
+
+const makeRuntimeFetchEvidenceStream = ({
+  id,
+  runtime,
+  runtimeSnapshot
+}: RuntimeFetchRequest): Stream.Stream<EvidenceEvent, DemoError, SurfaceRuntimeServices> =>
+  Stream.unwrap(
+    Option.match(runtime.runWithMeta, {
+      onNone: () =>
+        Effect.fail(
+          new DemoRequestError({ message: `Evidence stream for ${id} is missing a runtime fetch transport.` })
+        ),
+      onSome: (runWithMeta) =>
+        runWithMeta(runtimeSnapshot).pipe(
+          Effect.map(({ data, meta }) =>
+            Stream.concat(
+              Stream.fromIterable(Arr.map(data.sections, (section) => new SectionAppend({ section }))),
+              Stream.succeed(new StreamComplete({ summary: data.summary, meta }))
+            )
+          )
+        )
+    })
+  )
+
+export function makeServerEvidenceStream(
+  request: RuntimeStreamRequest
+): Stream.Stream<EvidenceEvent, DemoError, SurfaceRuntimeServices>
+export function makeServerEvidenceStream(
   id: Id,
+  manifest?: StreamManifest | null,
+  runToken?: string | null
+): Stream.Stream<EvidenceEvent, DemoError, DemoClient>
+
+export function makeServerEvidenceStream(
+  requestOrId: RuntimeStreamRequest | Id,
   manifest: StreamManifest | null = null,
   runToken: string | null = null
-): Stream.Stream<EvidenceEvent, DemoError, DemoClient> => {
+):
+  | Stream.Stream<EvidenceEvent, DemoError, DemoClient>
+  | Stream.Stream<EvidenceEvent, DemoError, SurfaceRuntimeServices>
+{
+  if (typeof requestOrId !== "string") {
+    return requestOrId.runtime.transport === "sse"
+      ? makeRuntimeSseEvidenceStream(requestOrId)
+      : makeRuntimeFetchEvidenceStream(requestOrId)
+  }
+
   const encoded = manifest !== null ? encodeStreamManifest(manifest) : null
 
-  return surfaceUsesSseTransport(id)
-    ? makeSseEvidenceStream(id, encoded, runToken)
-    : makeFetchEvidenceStream(id)
+  return surfaceUsesSseTransport(requestOrId)
+    ? makeSseEvidenceStream(requestOrId, encoded, runToken)
+    : makeFetchEvidenceStream(requestOrId)
 }

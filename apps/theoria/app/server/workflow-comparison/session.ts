@@ -1,5 +1,5 @@
 import { Activity } from "@effect/workflow"
-import { Effect, Ref } from "effect"
+import { Effect, Option, Ref } from "effect"
 import type { ScoreProfileSchema, WorkflowExecutionRecordSchema } from "effect-inference/Contracts"
 import { WorkflowEvaluationReportSchema } from "effect-inference/Contracts"
 
@@ -89,7 +89,22 @@ export const executeVariant = ({
       error: WorkflowComparisonExecutionError,
       name: `${phasePrefix}-prepare-graph`,
       success: WorkflowComparisonVariantPlanSchema,
-      execute: prepareVariantPlan({ comparison, profile, record, selectedKnobs, variant })
+      execute: prepareVariantPlan({
+        comparison,
+        variant,
+        ...Option.match(Option.fromNullable(profile), {
+          onNone: () => ({}),
+          onSome: (value) => ({ profile: value })
+        }),
+        ...Option.match(Option.fromNullable(record), {
+          onNone: () => ({}),
+          onSome: (value) => ({ record: value })
+        }),
+        ...Option.match(Option.fromNullable(selectedKnobs), {
+          onNone: () => ({}),
+          onSome: (value) => ({ selectedKnobs: value })
+        })
+      })
     })
     const stateRef = yield* Ref.make(initialExecutionState(plan.record))
     const nodeExecutionsRef = yield* Ref.make<ReadonlyArray<WorkflowComparisonNodeExecutionType>>([])

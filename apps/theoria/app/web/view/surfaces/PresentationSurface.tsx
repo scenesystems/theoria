@@ -1,6 +1,6 @@
 import * as Option from "effect/Option"
 
-import type { Card } from "../../../contracts/card.js"
+import type { PublishedConsumerId } from "../../../contracts/id.js"
 import type { RunControlActionKind } from "../../state/types.js"
 
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
@@ -14,8 +14,8 @@ import { type SurfaceChromeContentModel, surfaceChromeModel } from "../surfaceCh
 
 export const PresentationSurface = ({
   backHref,
-  card,
   chromeContent,
+  consumerId,
   onFocusSurface,
   onHideSurface,
   onPanePercentChange,
@@ -27,8 +27,8 @@ export const PresentationSurface = ({
   runControls
 }: {
   readonly backHref: string | undefined
-  readonly card: Card
   readonly chromeContent: SurfaceChromeContentModel
+  readonly consumerId: PublishedConsumerId
   readonly onFocusSurface: (surface: DeepDiveProjectionControlModel["focusedSurface"]) => void
   readonly onHideSurface: (surface: DeepDiveProjectionControlModel["focusedSurface"]) => void
   readonly onPanePercentChange: (nextPercent: number) => void
@@ -39,7 +39,7 @@ export const PresentationSurface = ({
   readonly projection: DeepDiveProjectionModel
   readonly runControls: RunControlsViewModel
 }) => {
-  const theme = surfaceThemeForCard(card.id)
+  const theme = surfaceThemeForCard(consumerId)
   const observeProjectionWorkspace = useElementWidthReporter(onWorkspaceWidthChange)
   const projectionControlModel: DeepDiveProjectionControlModel = {
     focusedSurface: projection.focusedSurface,
@@ -58,7 +58,7 @@ export const PresentationSurface = ({
       <Layer className={appTheme.atmosphericGlowA} />
       <Layer className={appTheme.atmosphericGlowB} />
       <CompactNav
-        cardId={card.id}
+        consumerId={consumerId}
         chrome={chrome}
         onRunControlAction={onRunControlAction}
         projection={{

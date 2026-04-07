@@ -3,6 +3,7 @@ import { Effect } from "effect"
 
 import { DemoExecutionError } from "../../app/contracts/demo-error.js"
 import type { Program } from "../../app/contracts/presentation.js"
+import { publishedConsumerPresentationForId } from "../../app/contracts/proving-substrate.js"
 import {
   emptyEvidenceStreamState,
   type EvidenceStreamState,
@@ -21,6 +22,7 @@ import {
 
 const fixtureRunData = runDataFixture("surface model fixture")
 const fixturePresented = presentRun(fixtureRunData)
+const fixtureSurface = publishedConsumerPresentationForId(effectTextCardFixture.id)
 const pausedEvidenceStream: EvidenceStreamState = {
   sections: fixtureRunData.sections,
   complete: false,
@@ -84,7 +86,7 @@ describe("Theoria Surface Model", () => {
   it.effect("uses compact mode for summary cards while keeping the deep-stage projection available", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: null,
         state: idleState,
         stream: emptyEvidenceStreamState,
@@ -107,7 +109,7 @@ describe("Theoria Surface Model", () => {
   it.effect("builds the expanded surface from code and stage view models", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: fixturePresented,
         state: runSuccessState,
         stream: pausedEvidenceStream,
@@ -118,7 +120,7 @@ describe("Theoria Surface Model", () => {
       expect(model.statusTone).toBe("strip")
       expect(model.evidenceDensity).toBe("expanded")
       expect(model.chrome.badgeLabel).toBe(effectTextCardFixture.id)
-      expect(model.chrome.useCaseMeta.value).toBe(effectTextCardFixture.useCase)
+      expect(model.chrome.useCaseMeta.value).toBe(fixtureSurface.useCase)
       expect(model.code.entry).toBe("server/run.ts")
       expect(model.code.fileName).toBe("run.ts")
       expect(model.code.selectedSourceScope).toBe("run")
@@ -133,7 +135,7 @@ describe("Theoria Surface Model", () => {
   it.effect("keeps compact evidence rows focused on the package use case after success", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: fixturePresented,
         state: runSuccessState,
         stream: pausedEvidenceStream,
@@ -147,7 +149,7 @@ describe("Theoria Surface Model", () => {
   it.effect("summarizes verbose runtime failures for status readability", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: null,
         state: runFailedState,
         stream: emptyEvidenceStreamState,
@@ -162,7 +164,7 @@ describe("Theoria Surface Model", () => {
   it.effect("derives resume and stop controls from paused run state", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: null,
         state: runPausedState,
         stream: pausedEvidenceStream,
@@ -184,7 +186,7 @@ describe("Theoria Surface Model", () => {
       }
 
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: null,
         state,
         stream: pausedEvidenceStream,
@@ -228,7 +230,7 @@ describe("Theoria Surface Model", () => {
       }
 
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: null,
         state,
         stream: emptyEvidenceStreamState,
@@ -288,7 +290,7 @@ describe("Theoria Surface Model", () => {
       }
 
       const model = surfaceViewModel({
-        card: effectTextCardFixture,
+        surface: fixtureSurface,
         presented: fixturePresented,
         state,
         stream: pausedEvidenceStream,

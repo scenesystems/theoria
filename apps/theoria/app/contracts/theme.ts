@@ -2,7 +2,7 @@ import { Option, Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 
 import type { PackageGroup } from "./card.js"
-import type { Id as CardId } from "./id.js"
+import type { PublishedConsumerId } from "./id.js"
 
 export const CardTone = Schema.Literal("text", "search", "math", "dsp", "digest", "sign", "seal")
 
@@ -15,6 +15,7 @@ const toneByCard: HashMap.HashMap<string, CardTone> = HashMap.make(
   entry("effect-search", "search"),
   entry("effect-math", "math"),
   entry("effect-dsp", "dsp"),
+  entry("workflow-comparison", "search"),
   entry("digest", "digest"),
   entry("sign", "sign"),
   entry("seal", "seal")
@@ -22,7 +23,8 @@ const toneByCard: HashMap.HashMap<string, CardTone> = HashMap.make(
 
 const defaultTone: CardTone = "text"
 
-export const toneForCard = (id: CardId): CardTone => Option.getOrElse(HashMap.get(toneByCard, id), () => defaultTone)
+export const toneForCard = (id: PublishedConsumerId): CardTone =>
+  Option.getOrElse(HashMap.get(toneByCard, id), () => defaultTone)
 
 /**
  * The brand tone for a package group — all cards within a group share this

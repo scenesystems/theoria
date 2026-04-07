@@ -190,6 +190,8 @@ const makeSignalState = ({
 
 const remainingSleepMs = (remainingMs: number, elapsedMs: number): number => Math.max(remainingMs - elapsedMs, 0)
 
+const projectionFrameIntervalMs = 16
+
 const sleepRemainingWithRunSignal = (signal: RunSignal, remainingMs: number): Effect.Effect<void, never, never> =>
   remainingMs <= 0
     ? Effect.void
@@ -236,6 +238,9 @@ export const awaitNextRunSignalChange = (signal: RunSignal): Effect.Effect<void,
 
 export const sleepWithRunSignal = (signal: RunSignal, ms: number): Effect.Effect<void, never, never> =>
   sleepRemainingWithRunSignal(signal, ms)
+
+export const yieldProjectionFrame = (signal: RunSignal): Effect.Effect<void, never, never> =>
+  sleepWithRunSignal(signal, projectionFrameIntervalMs)
 
 export const pauseRunSignal = (signal: RunSignal): Effect.Effect<boolean, never, never> =>
   SynchronizedRef.modifyEffect(signal.stateRef, (state) =>
