@@ -42,6 +42,7 @@ import { lossSummary, mean, normalizeBeneficial, normalizeInverseBudget, varianc
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
 import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
+import { TAU, degreesToRadians, hypot, imul, sin as scalarSin } from "effect-math/Numeric"
 import { of, add, abs, sin, complexDerivative } from "effect-math/Complex"
 import { circularConvolution, rfft } from "effect-math/Fft"
 import { solveAdaptiveRk45, solveRk4 } from "effect-math/Calculus"
@@ -73,6 +74,12 @@ beta(0.5, 0.5) // π
 distNormalCdf(1.96, 0, 1) // ≈ 0.975
 betaMean(2, 5) // ≈ 0.2857
 poissonPmf(3, 5) // ≈ 0.1404
+
+TAU // 2π
+degreesToRadians(180) // π
+scalarSin(TAU / 4) // 1
+hypot(3, 4) // 5
+imul(0x7fffffff, 2) // -2
 
 const z = add(of(1, 2), of(3, 4)) // 4 + 6i
 abs(of(3, 4)) // 5
@@ -148,7 +155,7 @@ Each domain is a self-contained subpath export with its own schemas, typed error
 
 | Domain            | Import                      | What it does                                                                                                                                                                                                            |
 | ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar constants and transforms — `PI`, `E`, `safeDivide`, `log`, `log1p`, `exp`, `expm1`, `sqrt`, `clamp`                                                                                                              |
+| **Numeric**       | `effect-math/Numeric`       | Real-scalar leaf math — `PI`, `TAU`, angle conversion, circular and hyperbolic trig, `hypot`, IEEE-754 rounding, deterministic `imul`, plus safe division and log/exp transforms                                       |
 | **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
 | **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
 | **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
@@ -237,7 +244,45 @@ import {
   normalizeInverseBudget
 } from "effect-math/Statistics"
 import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
-import { PI, E, LN_2, SQRT_2, EPSILON, safeDivide, log, log1p, exp, expm1, sum, abs as scalarAbs, sqrt as scalarSqrt, clamp, between } from "effect-math/Numeric"
+import {
+  PI,
+  TAU,
+  E,
+  LN_2,
+  SQRT_2,
+  EPSILON,
+  degreesToRadians,
+  radiansToDegrees,
+  sin,
+  cos,
+  tan,
+  asin,
+  acos,
+  atan,
+  atan2,
+  sinh,
+  cosh,
+  tanh,
+  asinh,
+  acosh,
+  atanh,
+  hypot,
+  floor,
+  ceil,
+  round,
+  trunc,
+  imul,
+  safeDivide,
+  log,
+  log1p,
+  exp,
+  expm1,
+  sum,
+  abs as scalarAbs,
+  sqrt as scalarSqrt,
+  clamp,
+  between
+} from "effect-math/Numeric"
 import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
 import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
 import {

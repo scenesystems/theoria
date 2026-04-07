@@ -105,6 +105,62 @@ export const FinitePositiveScalar = Schema.Number.pipe(Schema.finite(), Schema.g
 }).pipe(Schema.brand("FinitePositiveScalar"))
 
 /**
+ * Finite scalar constrained to `[-1, 1]`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const ClosedUnitScalar = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.greaterThanOrEqualTo(-1),
+  Schema.lessThanOrEqualTo(1)
+).annotations({
+  identifier: "ClosedUnitScalar"
+}).pipe(Schema.brand("ClosedUnitScalar"))
+
+/**
+ * Finite scalar constrained to `(-1, 1)`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OpenUnitScalar = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.greaterThan(-1),
+  Schema.lessThan(1)
+).annotations({
+  identifier: "OpenUnitScalar"
+}).pipe(Schema.brand("OpenUnitScalar"))
+
+/**
+ * Finite scalar constrained to `[1, +∞)`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const FiniteScalarAtLeastOne = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.greaterThanOrEqualTo(1)
+).annotations({
+  identifier: "FiniteScalarAtLeastOne"
+}).pipe(Schema.brand("FiniteScalarAtLeastOne"))
+
+/**
+ * Signed 32-bit integer scalar.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const Int32Scalar = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.int(),
+  Schema.greaterThanOrEqualTo(-2_147_483_648),
+  Schema.lessThanOrEqualTo(2_147_483_647)
+).annotations({
+  identifier: "Int32Scalar"
+}).pipe(Schema.brand("Int32Scalar"))
+
+/**
  * Non-empty finite vector — `ReadonlyArray<FiniteScalar>` with at least one element.
  *
  * @since 0.1.0
@@ -125,6 +181,100 @@ export const PositiveFiniteVector = Schema.NonEmptyArray(
 ).annotations({
   identifier: "PositiveFiniteVector"
 })
+
+/**
+ * Reusable unary finite-scalar input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const UnaryFiniteScalarInput = Schema.Struct({
+  value: FiniteScalar
+}).annotations({ identifier: "UnaryFiniteScalarInput" })
+
+/**
+ * Reusable binary finite-scalar input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const BinaryFiniteScalarInput = Schema.Struct({
+  left: FiniteScalar,
+  right: FiniteScalar
+}).annotations({ identifier: "BinaryFiniteScalarInput" })
+
+/**
+ * Reusable bounded unary scalar input contract over `[-1, 1]`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const ClosedUnitScalarInput = Schema.Struct({
+  value: ClosedUnitScalar
+}).annotations({ identifier: "ClosedUnitScalarInput" })
+
+/**
+ * Reusable bounded unary scalar input contract over `(-1, 1)`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OpenUnitScalarInput = Schema.Struct({
+  value: OpenUnitScalar
+}).annotations({ identifier: "OpenUnitScalarInput" })
+
+/**
+ * Reusable bounded unary scalar input contract over `[1, +∞)`.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const ScalarAtLeastOneInput = Schema.Struct({
+  value: FiniteScalarAtLeastOne
+}).annotations({ identifier: "ScalarAtLeastOneInput" })
+
+/**
+ * Angle-conversion input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const AngleConversionInput = Schema.Struct({
+  value: FiniteScalar
+}).annotations({ identifier: "AngleConversionInput" })
+
+/**
+ * Quadrant-sensitive inverse tangent input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const Atan2Input = Schema.Struct({
+  y: FiniteScalar,
+  x: FiniteScalar
+}).annotations({ identifier: "Atan2Input" })
+
+/**
+ * Euclidean magnitude input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const HypotInput = Schema.Struct({
+  left: FiniteScalar,
+  right: FiniteScalar
+}).annotations({ identifier: "HypotInput" })
+
+/**
+ * Deterministic signed 32-bit multiply input contract.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const Int32MultiplyInput = Schema.Struct({
+  left: Int32Scalar,
+  right: Int32Scalar
+}).annotations({ identifier: "Int32MultiplyInput" })
 
 /**
  * Division input contract.

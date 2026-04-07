@@ -55,6 +55,7 @@ describe("package publish governance", () => {
       const packedManifest = buildPackedManifestFixture(rootManifest)
       const readmeText = yield* fileSystem.readFileString(path.join(root, "README.md")).pipe(Effect.orDie)
       const advertisedSubpaths = Arr.make(
+        "./Numeric",
         "./Statistics",
         "./LinearAlgebra",
         "./Geometry",
@@ -67,6 +68,7 @@ describe("package publish governance", () => {
       )
       const blockedInternalSubpaths = Arr.make(
         "./internal/*",
+        "./Numeric/internal/*",
         "./Complex/internal/*",
         "./Fft/internal/*",
         "./Distribution/internal/*"
@@ -98,12 +100,19 @@ describe("package publish governance", () => {
       )
 
       expect(readmeText).not.toContain("effect-math/internal")
+      expect(readmeText).not.toContain("effect-math/Numeric/internal")
       expect(readmeText).not.toContain("effect-math/Complex/internal")
       expect(readmeText).not.toContain("effect-math/Fft/internal")
       expect(readmeText).not.toContain("effect-math/Distribution/internal")
+      expect(readmeText).toContain("effect-math/Numeric")
       expect(readmeText).toContain("effect-math/Complex")
       expect(readmeText).toContain("effect-math/Fft")
       expect(readmeText).toContain("effect-math/Distribution")
+      expect(readmeText).toContain("TAU")
+      expect(readmeText).toContain("degreesToRadians")
+      expect(readmeText).toContain("atan2")
+      expect(readmeText).toContain("acosh")
+      expect(readmeText).toContain("imul")
       expect(readmeText).toContain("weightedMean")
       expect(readmeText).toContain("normalizeBeneficial")
       expect(readmeText).toContain("normalizeInverseBudget")
