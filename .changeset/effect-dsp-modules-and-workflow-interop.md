@@ -2,4 +2,4 @@
 "effect-dsp": minor
 ---
 
-Add the released program-of-thought, multi-chain-comparison, and parallel modules; ship the COPRO optimizer with resumable progress artifacts; and expose workflow-interop projections plus public evidence contracts for downstream graph-based agent runtimes.
+Add the released `Module.programOfThought`, `Module.multiChainComparison`, and `Module.parallel` surfaces; ship `Optimizer.copro` with resumable event and snapshot artifacts; and expose the stable `effect-dsp/contracts` workflow-interop plus public-evidence lanes for downstream graph-based agent runtimes.

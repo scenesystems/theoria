@@ -28,6 +28,14 @@ describe("Module.programOfThought", () => {
       const rawFixture = yield* registry.load("dspy.pot.success.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtSuccessFixtureSchema)(rawFixture)
       const signature = yield* makeQaSignature()
+      const interpreterRequests = yield* Ref.make<
+        ReadonlyArray<{
+          readonly attempt: number
+          readonly code: string
+          readonly moduleName: string
+          readonly question: unknown
+        }>
+      >([])
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           fixture.payload.responses.generate,
@@ -35,12 +43,24 @@ describe("Module.programOfThought", () => {
         ])
       )
       const interpreterLayer = Layer.succeed(Module.ProgramInterpreter, {
-        execute: () =>
-          Effect.succeed(
-            new Module.ProgramExecutionResult({
-              codeOutput: fixture.payload.codeOutput,
-              submission: null
-            })
+        execute: (request) =>
+          Ref.update(interpreterRequests, (requests) => [
+            ...requests,
+            {
+              attempt: request.attempt,
+              code: request.code,
+              moduleName: request.moduleName,
+              question: request.input.question
+            }
+          ]).pipe(
+            Effect.zipRight(
+              Effect.succeed(
+                new Module.ProgramExecutionResult({
+                  codeOutput: fixture.payload.codeOutput,
+                  submission: null
+                })
+              )
+            )
           )
       })
       const program = yield* Module.programOfThought({
@@ -53,9 +73,16 @@ describe("Module.programOfThought", () => {
         Effect.provide(Layer.succeed(LanguageModel.LanguageModel, lm.service))
       )
       const calls = yield* Ref.get(lm.calls)
+      const requests = yield* Ref.get(interpreterRequests)
 
       expect(result).toStrictEqual({ answer: fixture.payload.responses.answer.answer })
       expect(calls.length).toBe(2)
+      expect(requests).toHaveLength(1)
+      expect(requests[0]?.attempt).toBe(1)
+      expect(requests[0]?.moduleName).toBe("qa-program-of-thought")
+      expect(requests[0]?.question).toBe(fixture.payload.sampleInput.question)
+      expect(requests[0]?.code).toContain("result = 1 + 1")
+      expect(requests[0]?.code).toContain("SUBMIT({'answer': result})")
       expect(fixture.payload.dspyPredictionKeys).toContain("reasoning")
       expect(fixture.payload.dspyPredictionKeys).toContain("answer")
     }))

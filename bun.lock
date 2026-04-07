@@ -108,9 +108,11 @@
     },
     "packages/effect-dsp": {
       "name": "effect-dsp",
-      "version": "0.2.0",
+      "version": "0.1.4",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
+        "@scenesystems/seal": "workspace:^",
+        "@scenesystems/sign": "workspace:^",
         "effect-inference": "workspace:^",
         "effect-math": "workspace:^",
         "effect-search": "workspace:^",

@@ -160,7 +160,15 @@ The preferred public evidence path is `Trace.withTracing(...)`, `Trace.withUsage
 
 - `effect-dsp/contracts` is the stable release lane for optimizer projections, artifact envelopes, trace projections, `totalTokens` accounting, and workflow interop adapters.
 - `effect-dsp/test` is the stable consumer-test lane for deterministic mock layers such as `MockLanguageModel`; use it for consumer proofs, not package internals.
-- `effect-dsp/experimental` is intentionally unstable until it carries a real exported feature surface; treat it as exploratory and outside the main compatibility promise.
+- `effect-dsp/experimental` is intentionally unstable; it currently hosts the fixture-backed OpenAgentTrace corpus lane and stays outside the main compatibility promise until the promotion rule is met.
+
+## Experimental Open-Agent-Trace Lane
+
+`effect-dsp/experimental` currently hosts the fixture-backed OpenAgentTrace corpus lane over `badlogicgames/pi-mono`.
+
+- Stable promotion requires a second public dataset with a materially different event grammar decoding through the same normalized corpus family while keeping projection coverage explicit.
+- If branch lineage, redaction provenance, or workflow projection cannot remain explicit without app-local heuristics, the lane stays experimental and read-only.
+- The first app surface for this lane is evidentiary only: corpus source, branch tree, projected workflow graph, redaction posture, coverage gaps, and digests ship before any optimization controls.
 
 ## Roadmap
 

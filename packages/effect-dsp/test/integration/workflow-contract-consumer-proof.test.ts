@@ -8,8 +8,8 @@ import {
 
 import {
   projectWorkflowModuleGraph,
-  WorkflowModuleGraphInputSchema,
-  workflowInteropOwnership
+  workflowInteropOwnership,
+  WorkflowModuleGraphInputSchema
 } from "effect-dsp/contracts"
 
 const workflowManifestFixture = {
@@ -77,7 +77,7 @@ const workflowProjectionFixture = {
 
 describe("integration/workflow-contract-consumer-proof", () => {
   it.effect("consumes effect-inference workflow contracts before crossing into DSP interop projections", () =>
-    Effect.gen(function* () {
+    Effect.gen(function*() {
       const workflowKind = yield* Schema.decodeUnknown(WorkflowKindSchema)(workflowManifestFixture.workflowKind)
       const manifest = yield* Schema.decodeUnknown(GraphExecutionManifestSchema)({
         ...workflowManifestFixture,
@@ -92,10 +92,12 @@ describe("integration/workflow-contract-consumer-proof", () => {
 
       expect(workflowInteropOwnership.sessionAndRouting).toBe("effect-inference")
       expect(graphProjection.traversal).toEqual(["router", "handoff", "answer"])
-      expect(graphProjection.lineages.map((lineage) => ({
-        targetNodeId: lineage.targetNodeId,
-        path: lineage.path
-      }))).toEqual([
+      expect(
+        graphProjection.lineages.map((lineage) => ({
+          targetNodeId: lineage.targetNodeId,
+          path: lineage.path
+        }))
+      ).toEqual([
         { targetNodeId: "answer", path: ["router", "handoff", "answer"] },
         { targetNodeId: "handoff", path: ["router", "handoff"] },
         { targetNodeId: "router", path: ["router"] }

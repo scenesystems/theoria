@@ -61,6 +61,8 @@
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
+    "@scenesystems/seal": "workspace:*",
+    "@scenesystems/sign": "workspace:*",
     "effect-inference": "workspace:^",
     "effect-math": "workspace:^",
     "effect-search": "workspace:^"

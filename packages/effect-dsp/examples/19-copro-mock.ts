@@ -21,8 +21,7 @@ import { createExampleArtifacts, noopArtifactSinkLayer } from "./shared/output-a
 
 const EXAMPLE_NAME = "19-copro-mock"
 const BASELINE_INSTRUCTION = "Answer questions with concise facts"
-const IMPROVED_INSTRUCTION =
-  "Answer questions with concise facts and verify the city against geographic knowledge."
+const IMPROVED_INSTRUCTION = "Answer questions with concise facts and verify the city against geographic knowledge."
 
 const trainset = Arr.make(
   new Example.Example({

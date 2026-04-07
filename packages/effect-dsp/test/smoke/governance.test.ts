@@ -55,6 +55,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Optimizer progress co-locates heterogeneous event streaming, terminal formatting, and progress aggregation. Follow-up: split terminal formatting into progress/format.ts."
   ],
   [
+    "src/OpenAgentTrace/projectionShared.ts",
+    "Open-agent-trace projection helpers currently co-locate coverage-gap synthesis, workflow-kind derivation, bounded content flattening, and JSON-safe usage provenance shaping so the workflow/example projectors share one authority. Follow-up: extract coverage synthesis into OpenAgentTrace/projectionCoverage.ts once WP4 proving-consumer requirements settle."
+  ],
+  [
     "src/optimizers/BootstrapFewShot/runtime/round.ts",
     "Bootstrap round execution co-locates demo collection, threshold filtering, and teacher invocation. Follow-up: extract threshold filtering into runtime/threshold.ts."
   ],
