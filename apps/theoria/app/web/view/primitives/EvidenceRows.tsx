@@ -2,7 +2,7 @@ import { Separator } from "@base-ui-components/react/separator"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import type { EvidenceDensity } from "../surfaceModel.js"
 import type { EvidenceRow } from "./evidence-row.js"

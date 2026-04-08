@@ -3,7 +3,7 @@ import { Effect } from "effect"
 
 import { reduceRunState, runHasStepQueueDrain, runHasStreamCompletion } from "../../app/web/state/types.js"
 import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
-import { runningRunState } from "../helpers/run-state.js"
+import { runningRunState, runStartedMessage } from "../helpers/run-state.js"
 
 describe("runtime spine run authority", () => {
   it.effect("keeps the public lifecycle on RunRunning until the single success gate seals the run", () =>
@@ -61,22 +61,19 @@ describe("runtime spine run authority", () => {
         stoppedAtMs: 3
       })
       const reset = reduceRunState(stopped, { _tag: "RunReset" })
-      const replay = reduceRunState(reset, {
-        _tag: "RunStarted",
-        token: 2,
-        sequence: 2,
-        ownership: {
-          localDriver: true,
-          serverStream: true
-        },
-        startedAtMs: 4,
-        runPlan: {
-          id: "effect-text",
-          manifest: null
-        },
-        localRunPlan: null,
-        program: programPreviewFixture.program
-      })
+      const replay = reduceRunState(
+        reset,
+        runStartedMessage({
+          token: 2,
+          sequence: 2,
+          ownership: {
+            localDriver: true,
+            serverStream: true
+          },
+          startedAtMs: 4,
+          program: programPreviewFixture.program
+        })
+      )
       const staleFailure = reduceRunState(replay, {
         _tag: "RunFailed",
         sequence: 1,
@@ -115,10 +112,12 @@ describe("runtime spine run authority", () => {
       expect(stopping._tag).toBe("RunRunning")
       expect(stopping.session.control).toBe("stopping")
       expect(stopped._tag).toBe("RunIdle")
-      expect(stopped.session.runPlan).toEqual(firstRun.session.runPlan)
+      expect(stopped.session.draft).toEqual(firstRun.session.draft)
+      expect(stopped.session.identity).toEqual(firstRun.session.identity)
       expect(stopped.session.telemetry.events.at(-1)?.detail).toBe("stopped")
       expect(reset._tag).toBe("RunIdle")
-      expect(reset.session.runPlan).toBeNull()
+      expect(reset.session.draft).toBeNull()
+      expect(reset.session.identity).toBeNull()
       expect(replay._tag).toBe("RunRunning")
       if (replay._tag === "RunRunning") {
         expect(replay.sequence).toBe(2)

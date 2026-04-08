@@ -1,17 +1,87 @@
+import { Schema } from "effect"
+
 import type { DemoError } from "../../app/contracts/demo-error.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
+import { DurableFingerprint } from "../../app/contracts/fingerprint.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import type { Program } from "../../app/contracts/presentation.js"
-import type { SurfaceRunPlan } from "../../app/contracts/run-plan.js"
+import type { EntryDraft } from "../../app/contracts/proving-substrate.js"
+import type { EntryRunIdentity } from "../../app/contracts/run-plan.js"
 import type { RunData } from "../../app/contracts/run.js"
-import type { LocalRunPlan } from "../../app/web/state/local-run.js"
-import { initialSurfaceState, reduceRunState, type RunOwnership, type RunState } from "../../app/web/state/types.js"
+import type { LocalProjectionScript } from "../../app/web/state/local-run.js"
+import {
+  initialSurfaceState,
+  reduceRunState,
+  type RunMessage,
+  type RunOwnership,
+  type RunState
+} from "../../app/web/state/types.js"
 
 const defaultRunOwnership: RunOwnership = {
   localDriver: true,
   serverStream: true
 }
 
-const baseRunState = (): RunState => initialSurfaceState("effect-text").run
+const durableFingerprint = (fill: string) =>
+  Schema.decodeUnknownSync(DurableFingerprint)(`blake3-256:${fill.repeat(43).slice(0, 43)}`)
+
+const identityForDraft = ({
+  draft,
+  runToken
+}: {
+  readonly draft: EntryDraft
+  readonly runToken: string
+}): EntryRunIdentity => ({
+  entryId: draft.entryId,
+  seedId: draft.seedId,
+  runToken,
+  inputFingerprint: durableFingerprint("a"),
+  controlsFingerprint: durableFingerprint("b"),
+  requestFingerprint: durableFingerprint("c")
+})
+
+const resolvedEntryId = ({
+  draft,
+  localProjectionScript
+}: {
+  readonly draft: EntryDraft | null
+  readonly localProjectionScript: LocalProjectionScript | null
+}): EntryId => draft?.entryId ?? localProjectionScript?._tag ?? "effect-text"
+
+const baseRunState = (id: EntryId): RunState => initialSurfaceState(id).run
+
+export const runStartedMessage = ({
+  draft,
+  localProjectionScript = null,
+  ownership = defaultRunOwnership,
+  program,
+  sequence = 1,
+  startedAtMs = 0,
+  token = 1
+}: {
+  readonly draft?: EntryDraft
+  readonly localProjectionScript?: LocalProjectionScript | null
+  readonly ownership?: RunOwnership
+  readonly program: Program
+  readonly sequence?: number
+  readonly startedAtMs?: number
+  readonly token?: number
+}): RunMessage => {
+  const entryId = resolvedEntryId({ draft: draft ?? null, localProjectionScript })
+  const resolvedDraft = draft ?? initialSurfaceState(entryId).draft
+
+  return {
+    _tag: "RunStarted",
+    token,
+    sequence,
+    ownership,
+    startedAtMs,
+    draft: resolvedDraft,
+    identity: identityForDraft({ draft: resolvedDraft, runToken: `${resolvedDraft.entryId}:${token}` }),
+    localProjectionScript,
+    program
+  }
+}
 
 export const streamCompletedRunState = ({
   observedAtMs = 1,
@@ -50,32 +120,39 @@ export const stepQueueDrainedRunState = ({
   })
 
 export const runningRunState = ({
-  localRunPlan = null,
+  draft,
+  localProjectionScript = null,
   ownership = defaultRunOwnership,
   program,
-  runPlan = { id: "effect-text", manifest: null },
   sequence = 1,
   startedAtMs = 0,
   token = 1
 }: {
-  readonly localRunPlan?: LocalRunPlan | null
+  readonly draft?: EntryDraft
+  readonly localProjectionScript?: LocalProjectionScript | null
   readonly ownership?: RunOwnership
   readonly program: Program
-  readonly runPlan?: SurfaceRunPlan
   readonly sequence?: number
   readonly startedAtMs?: number
   readonly token?: number
 }): RunState =>
-  reduceRunState(baseRunState(), {
-    _tag: "RunStarted",
-    token,
-    sequence,
-    ownership,
-    startedAtMs,
-    runPlan,
-    localRunPlan,
-    program
-  })
+  (() => {
+    const resolvedDraft = draft ??
+      initialSurfaceState(resolvedEntryId({ draft: draft ?? null, localProjectionScript })).draft
+
+    return reduceRunState(
+      baseRunState(resolvedDraft.entryId),
+      runStartedMessage({
+        draft: resolvedDraft,
+        localProjectionScript,
+        ownership,
+        program,
+        sequence,
+        startedAtMs,
+        token
+      })
+    )
+  })()
 
 export const pausedRunState = ({
   ownership = defaultRunOwnership,

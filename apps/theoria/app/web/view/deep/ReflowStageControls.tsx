@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react"
 
 import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
-import type { ToneClasses } from "../primitives/designSystem.js"
+import type { Tone } from "../primitives/designSystem.js"
 
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { Layer, Rail, Stack } from "../primitives/Layout.js"
@@ -23,7 +23,7 @@ export const ReflowStageControls = ({
   readonly onSetCustomText: (text: string) => void
   readonly onSetWidth: (value: number) => void
   readonly onToggleObstacles: () => void
-  readonly tone: ToneClasses
+  readonly tone: Tone
   readonly vm: ReflowWidgetViewModel
 }) => (
   <Stack className="gap-4">

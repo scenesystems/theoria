@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import type { ToneClasses } from "./designSystem.js"
+import type { Tone } from "./designSystem.js"
 import { Stack } from "./Layout.js"
 
 /**
@@ -19,7 +19,7 @@ export const AccentBorder = ({
 }: {
   readonly children: ReactNode
   readonly className?: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Stack className={`border-l-2 pl-3 ${tone.border} ${className ?? "gap-1"}`}>
     {children}

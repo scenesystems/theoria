@@ -1,7 +1,7 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import { objectiveAt, optimum, searchBounds } from "../../../contracts/demo/objective.js"
+import { objectiveAt, optimum, searchBounds } from "../../../contracts/capability/effect-search.js"
 
 export type Segment = {
   readonly x1: number

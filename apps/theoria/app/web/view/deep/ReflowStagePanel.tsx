@@ -1,5 +1,5 @@
 import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
-import type { ToneClasses } from "../primitives/designSystem.js"
+import type { Tone } from "../primitives/designSystem.js"
 
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
@@ -20,7 +20,7 @@ export const ReflowStagePanel = ({
   readonly onSetCustomText: (text: string) => void
   readonly onSetWidth: (value: number) => void
   readonly onToggleObstacles: () => void
-  readonly tone: ToneClasses
+  readonly tone: Tone
   readonly vm: ReflowWidgetViewModel
 }) =>
   vm.stage === null

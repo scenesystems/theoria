@@ -9,13 +9,23 @@ import {
 } from "../../app/contracts/demo/effect-search-study-telemetry.js"
 import {
   EffectSearchCanonicalStep,
-  isEffectSearchRunPlan,
+  isEffectSearchProjectionScript,
   optimizationEvidenceBatchSize,
+  snapshotEffectSearchProjectionScript,
   type TrialPoint,
   trialPositionsSection
 } from "../../app/contracts/demo/objective.js"
-import { EffectMathCanonicalStep, isEffectMathRunPlan, projectPowerProjection } from "../../app/contracts/demo/power.js"
-import { EffectTextProjectionStep, isEffectTextRunPlan } from "../../app/contracts/demo/text.js"
+import {
+  EffectMathCanonicalStep,
+  isEffectMathProjectionScript,
+  projectPowerProjection,
+  snapshotEffectMathProjectionScript
+} from "../../app/contracts/demo/power.js"
+import {
+  EffectTextProjectionStep,
+  isEffectTextTraversalScript,
+  snapshotEffectTextTraversalScript
+} from "../../app/contracts/demo/text.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
@@ -25,7 +35,7 @@ import {
   StreamComplete
 } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import {
   computeDistributionGeometry,
   computeInferenceSummary,
@@ -35,8 +45,9 @@ import {
   computeSensitivity,
   computeSolverStatus,
   configurationSection
-} from "../../app/server/demos/effect-math/stream.js"
+} from "../../app/server/entries/effect-math/stream.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
+import type { SurfaceState } from "../../app/web/state/types.js"
 
 type EvidenceSource = {
   readonly emitEvidence: (data: string) => void
@@ -62,7 +73,44 @@ const emitEvent = (source: EvidenceSource, event: EvidenceEvent): Effect.Effect<
     source.emitEvidence(encodeEvidenceEventJson(event))
   })
 
-const readSurface = (registry: Registry.Registry, id: Id) => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
+
+const effectTextScriptForSurface = (surface: SurfaceState) => {
+  const draft = surface.run.session.draft ?? surface.draft
+
+  return isEffectTextTraversalScript(surface.run.session.localProjectionScript)
+    ? surface.run.session.localProjectionScript
+    : draft.entryId === "effect-text"
+    ? snapshotEffectTextTraversalScript({
+      customText: draft.input.customText,
+      viewportWidthPx: draft.input.viewportWidthPx
+    })
+    : null
+}
+
+const effectMathScriptForSurface = (surface: SurfaceState) => {
+  const draft = surface.run.session.draft ?? surface.draft
+
+  return isEffectMathProjectionScript(surface.run.session.localProjectionScript)
+    ? surface.run.session.localProjectionScript
+    : draft.entryId === "effect-math"
+    ? snapshotEffectMathProjectionScript({
+      d: draft.input.d,
+      n: draft.input.n,
+      alpha: draft.input.alpha
+    })
+    : null
+}
+
+const effectSearchScriptForSurface = (surface: SurfaceState) => {
+  const draft = surface.run.session.draft ?? surface.draft
+
+  return isEffectSearchProjectionScript(surface.run.session.localProjectionScript)
+    ? surface.run.session.localProjectionScript
+    : draft.entryId === "effect-search"
+    ? snapshotEffectSearchProjectionScript(draft.input.trialBudget)
+    : null
+}
 
 const uniqueStageWidths = (widths: ReadonlyArray<number>): ReadonlyArray<number> =>
   widths.reduce<ReadonlyArray<number>>(
@@ -147,14 +195,13 @@ export const emitEffectTextAuthoredStream = ({
   readonly summary: string
 }): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
-    const run = readSurface(registry, "effect-text").run
+    const script = effectTextScriptForSurface(readSurface(registry, "effect-text"))
 
-    if (!isEffectTextRunPlan(run.session.localRunPlan)) {
-      return yield* Effect.die("missing-effect-text-plan")
+    if (script === null) {
+      return yield* Effect.die("missing-effect-text-projection-script")
     }
 
-    const plan = run.session.localRunPlan
-    const projectionSteps = plan.entries.flatMap((entry) =>
+    const projectionSteps = script.entries.flatMap((entry) =>
       entry.steps.map((planStep) =>
         new EffectTextProjectionStep({
           corpusIndex: entry.corpusIndex,
@@ -165,7 +212,7 @@ export const emitEffectTextAuthoredStream = ({
       )
     )
     const stageWidths = uniqueStageWidths(
-      plan.entries.flatMap((entry) => entry.steps.map((step) => step.stageWidthPx))
+      script.entries.flatMap((entry) => entry.steps.map((step) => step.stageWidthPx))
     )
 
     yield* Effect.forEach(projectionSteps, (nextStep) => emitEvent(source, canonicalStepEvent(nextStep)), {
@@ -179,7 +226,7 @@ export const emitEffectTextAuthoredStream = ({
           items: [{
             _tag: "Text",
             label: "Proof",
-            value: "Server-authored projection widths streamed under one frozen run plan."
+            value: "Server-authored projection widths streamed under one frozen projection script."
           }]
         }
       })
@@ -212,15 +259,14 @@ export const emitEffectMathAuthoredStream = ({
   readonly summary: string
 }): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
-    const run = readSurface(registry, "effect-math").run
+    const script = effectMathScriptForSurface(readSurface(registry, "effect-math"))
 
-    if (!isEffectMathRunPlan(run.session.localRunPlan)) {
-      return yield* Effect.die("missing-effect-math-plan")
+    if (script === null) {
+      return yield* Effect.die("missing-effect-math-projection-script")
     }
 
-    const plan = run.session.localRunPlan
-    const request = { controls: plan.baseControls }
-    const sections = yield* Effect.all([
+    const request = { controls: script.baseControls }
+    const sections: ReadonlyArray<EvidenceSection> = yield* Effect.all([
       computeSensitivity(request),
       computePowerBySampleSize(request),
       computeRequiredNGrid,
@@ -232,7 +278,7 @@ export const emitEffectMathAuthoredStream = ({
     ])
 
     yield* Effect.forEach(
-      plan.phases.flatMap((phase) => phase.steps),
+      script.phases.flatMap((phase) => phase.steps),
       (controls) =>
         emitEvent(
           source,
@@ -278,13 +324,13 @@ export const emitEffectSearchAuthoredStream = ({
   readonly source: EvidenceSource
 }): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
-    const run = readSurface(registry, "effect-search").run
+    const script = effectSearchScriptForSurface(readSurface(registry, "effect-search"))
 
-    if (!isEffectSearchRunPlan(run.session.localRunPlan)) {
-      return yield* Effect.die("missing-effect-search-plan")
+    if (script === null) {
+      return yield* Effect.die("missing-effect-search-projection-script")
     }
 
-    const trialBudget = run.session.localRunPlan.trialBudget
+    const trialBudget = script.trialBudget
     const totalSteps = Math.min(stepCount ?? trialBudget, trialBudget)
     const indices = Arr.range(0, totalSteps - 1)
 

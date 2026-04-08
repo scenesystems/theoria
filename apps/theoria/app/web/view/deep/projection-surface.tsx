@@ -2,22 +2,22 @@ import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import { lazy, Suspense } from "react"
 
-import type { SurfaceId } from "../../../contracts/id.js"
-import { DeepDiveSurfacePlaneValue } from "../../../contracts/layout.js"
-import type { ProgramSourceScope } from "../../../contracts/presentation.js"
+import type { EntryId } from "../../../contracts/entry/id.js"
+import { DeepDiveSurfacePlaneValue } from "../../../contracts/presentation/layout.js"
+import type { ProgramSourceScope } from "../../../contracts/presentation/program.js"
 import { deepDiveEvidenceAtom } from "../../atoms/derived.js"
 import {
   selectEvidencePlaneFilterAtom,
   selectEvidencePlaneOrderAtom,
   selectEvidencePlaneSectionAtom
-} from "../../atoms/evidence-plane.js"
+} from "../../atoms/evidence/plane.js"
 import {
   DeepDiveDiagnosticsPlaneValue,
   type DeepDiveProjectionPlane,
   diagnosticsProjectionEnabled
-} from "../../state/deep-dive-surface.js"
+} from "../../state/surface/deep-dive.js"
 import { Pane } from "../containers/Pane.js"
-import { badgeThemeFromSurface, type SurfaceTheme, surfaceThemeForCard } from "../primitives/designSystem.js"
+import { badgeFromSurface, type Surface, surfaceForCard } from "../primitives/designSystem.js"
 import { Stack } from "../primitives/Layout.js"
 import { ProgramCodePanel } from "../primitives/ProgramCodePanel.js"
 import { ProjectionOrdinal } from "../primitives/ProjectionOrdinal.js"
@@ -37,7 +37,7 @@ const RunLifecycleDiagnosticsDevPane = import.meta.env.DEV
 
 type DeepDiveProjectionSurfaceContext = {
   readonly frameViewModel: DeepDiveSurfaceFrameViewModel
-  readonly id: SurfaceId
+  readonly id: EntryId
   readonly onSelectFile: (fileIndex: number) => void
   readonly onSelectSourceScope: (scope: ProgramSourceScope) => void
   readonly projectionIndex: number | null
@@ -62,13 +62,13 @@ const projectionBadge = ({
   theme
 }: {
   readonly projectionIndex: number | null
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
 }) =>
   projectionIndex === null
     ? null
     : (
       <ProjectionOrdinal
-        badge={badgeThemeFromSurface(theme)}
+        badge={badgeFromSurface(theme)}
         label={`P${projectionIndex + 1}`}
         variant="expanded"
       />
@@ -77,7 +77,7 @@ const projectionBadge = ({
 const ConnectedEvidenceStage = ({
   id
 }: {
-  readonly id: SurfaceId
+  readonly id: EntryId
 }) => {
   const evidence = useAtomValue(deepDiveEvidenceAtom(id))
   const selectEvidenceFilter = useAtomSet(selectEvidencePlaneFilterAtom)
@@ -122,7 +122,7 @@ const stagePane = ({
 }): DeepDiveProjectionSurface["pane"] => {
   const hints = projectionPlaneHintFor(context.id)
   const interactiveContent = interactiveWidgetFor(context.id)
-  const theme = surfaceThemeForCard(context.id)
+  const theme = surfaceForCard(context.id)
 
   return (
     <Pane className={projectionPaneClassName} scroll="vertical">
@@ -147,7 +147,7 @@ const evidencePane = ({
   readonly descriptor: DeepDiveProjectionSurfaceDescriptor
 }): DeepDiveProjectionSurface["pane"] => {
   const hints = projectionPlaneHintFor(context.id)
-  const theme = surfaceThemeForCard(context.id)
+  const theme = surfaceForCard(context.id)
 
   return (
     <Pane className={projectionPaneClassName} scroll="vertical">
@@ -174,14 +174,14 @@ const sourcePane = ({
   readonly descriptor: DeepDiveProjectionSurfaceDescriptor
 }): DeepDiveProjectionSurface["pane"] => {
   const hints = projectionPlaneHintFor(context.id)
-  const theme = surfaceThemeForCard(context.id)
+  const theme = surfaceForCard(context.id)
 
   return (
     <Pane className={projectionPaneClassName} scroll="none">
       <ProgramCodePanel
         badge={projectionBadge({ projectionIndex: context.projectionIndex, theme })}
         codeClassName={theme.codePanel.codeContainer}
-        codePanelTheme={theme.codePanel}
+        codePanel={theme.codePanel}
         entry={context.frameViewModel.code.entry}
         fileName={context.frameViewModel.code.fileName}
         filesVisible={context.sourceExplorerVisible}
@@ -208,7 +208,7 @@ const diagnosticsPane = ({
   readonly context: DeepDiveProjectionSurfaceContext
   readonly descriptor: DeepDiveProjectionSurfaceDescriptor
 }): DeepDiveProjectionSurface["pane"] => {
-  const theme = surfaceThemeForCard(context.id)
+  const theme = surfaceForCard(context.id)
 
   return (
     <Pane className={projectionPaneClassName} scroll="vertical">

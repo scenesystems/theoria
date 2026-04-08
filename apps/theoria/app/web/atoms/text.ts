@@ -8,8 +8,8 @@ import type { Text } from "effect-text"
 import * as TextReact from "effect-text/react"
 import { useMemo } from "react"
 
-import { SurfaceVariant } from "../../contracts/presentation.js"
-import { maxWidthFor, type TextProjection, TextRole } from "../../contracts/text.js"
+import { SurfaceVariant } from "../../contracts/presentation/program.js"
+import { maxWidthFor, type TextProjection, TextRole } from "../../contracts/presentation/text.js"
 import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
 
 import {
@@ -17,7 +17,7 @@ import {
   type ElementWidthHandle,
   type ElementWidthSlot,
   useElementWidthHandle
-} from "./element-observation.js"
+} from "./surface/element-observation.js"
 
 type TextProjectionRequest = {
   readonly role: typeof TextRole.Type

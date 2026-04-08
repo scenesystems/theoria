@@ -2,13 +2,13 @@ import { useAtomSet } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import { useElementWidthReporter } from "../../atoms/element-observation.js"
 import {
   reflowStageFrameBorderPx,
   reflowStageHorizontalInsetPx,
   reflowStageVerticalInsetPx,
   reflowStageViewportWidthAtom
 } from "../../atoms/reflow.js"
+import { useElementWidthReporter } from "../../atoms/surface/element-observation.js"
 import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
 
 import { ArtifactStage } from "./ArtifactStage.js"

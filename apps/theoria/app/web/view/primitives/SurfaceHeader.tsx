@@ -2,14 +2,14 @@ import { Toolbar } from "@base-ui-components/react/toolbar"
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import type { RunControlActionKind } from "../../state/types.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 
 import type { RunControlsViewModel } from "../runControlsModel.js"
 import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
 
 import { ActionButton, ActionLink } from "./ActionControl.js"
-import { badgeThemeFromSurface, type SurfaceTheme } from "./designSystem.js"
+import { badgeFromSurface, type Surface } from "./designSystem.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"
 import { PackageBadge } from "./PackageBadge.js"
 import { SelectionRail } from "./SelectionLayout.js"
@@ -41,7 +41,7 @@ export const SurfaceHeader = ({
   readonly chrome: SurfaceChromeModel
   readonly controls: RunControlsViewModel
   readonly onRunControlAction: (action: RunControlActionKind) => void
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
   readonly variant: SurfaceVariant
 }) => {
   const controlRow = (
@@ -153,7 +153,7 @@ export const SurfaceHeader = ({
           {variant === "expanded"
             ? (
               <PackageBadge
-                badge={badgeThemeFromSurface(theme)}
+                badge={badgeFromSurface(theme)}
                 label={chrome.badgeLabel}
                 variant={variant}
               />

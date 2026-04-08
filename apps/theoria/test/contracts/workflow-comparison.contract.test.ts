@@ -2,23 +2,21 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Record, Schema } from "effect"
 
 import {
+  defaultWorkflowComparisonId,
   resolveWorkflowComparisonAuthorityCatalog,
   workflowComparisonAuthorityCatalogFingerprint,
   workflowComparisonBindingsWithinPublishedConsumerScope,
   workflowComparisonCatalogFingerprint,
   WorkflowComparisonCatalogSchema,
-  workflowComparisonConsumerDescriptorFingerprint,
-  workflowComparisonConsumerPublication,
+  workflowComparisonEntryFingerprint,
   workflowComparisonFingerprint,
   workflowComparisonId,
-  workflowComparisonPublicationFingerprint,
+  workflowComparisonIds,
+  workflowComparisonOptions,
+  workflowEntryDescriptorFingerprint,
   WorkflowProfileLibrarySchema
 } from "../../app/contracts/workflow/comparison.js"
-import {
-  defaultWorkflowComparisonId,
-  workflowComparisonById,
-  workflowComparisons
-} from "../../app/server/workflow-comparison/catalog.js"
+import { workflowComparisonById, workflowComparisons } from "../../app/server/workflow-comparison/catalog.js"
 import { workflowProfileLibrary } from "../../app/server/workflow-comparison/profile-library.js"
 
 describe("Theoria Workflow Comparison Contracts", () => {
@@ -38,17 +36,13 @@ describe("Theoria Workflow Comparison Contracts", () => {
     Effect.gen(function*() {
       const decoded = yield* Schema.decodeUnknown(WorkflowComparisonCatalogSchema)(workflowComparisons)
 
-      expect(decoded.map(workflowComparisonId)).toEqual([
-        "workflow-comparison/task-briefing",
-        "workflow-comparison/chat-handoff",
-        "workflow-comparison/retrieval-required",
-        "workflow-comparison/render-sensitive"
-      ])
-      expect(decoded.map((comparison) => comparison.publication.consumerId)).toEqual([
-        workflowComparisonConsumerPublication.consumerId,
-        workflowComparisonConsumerPublication.consumerId,
-        workflowComparisonConsumerPublication.consumerId,
-        workflowComparisonConsumerPublication.consumerId
+      expect(workflowComparisonOptions.map((option) => option.id)).toEqual(workflowComparisonIds)
+      expect(decoded.map(workflowComparisonId)).toEqual(workflowComparisonIds)
+      expect(decoded.map((comparison) => comparison.entry.entryId)).toEqual([
+        "workflow",
+        "workflow",
+        "workflow",
+        "workflow"
       ])
       expect(decoded.map((comparison) => comparison.workflowKind)).toEqual([
         "task-first",
@@ -91,11 +85,11 @@ describe("Theoria Workflow Comparison Contracts", () => {
     Effect.gen(function*() {
       const catalogFingerprint = yield* workflowComparisonCatalogFingerprint(workflowComparisons)
       const repeatedCatalogFingerprint = yield* workflowComparisonCatalogFingerprint(workflowComparisons)
-      const consumerDescriptorFingerprint = yield* workflowComparisonConsumerDescriptorFingerprint()
-      const repeatedConsumerDescriptorFingerprint = yield* workflowComparisonConsumerDescriptorFingerprint()
-      const publicationFingerprints = yield* Effect.forEach(
+      const workflowDescriptorFingerprint = yield* workflowEntryDescriptorFingerprint()
+      const repeatedWorkflowDescriptorFingerprint = yield* workflowEntryDescriptorFingerprint()
+      const entryFingerprints = yield* Effect.forEach(
         workflowComparisons,
-        (comparison) => workflowComparisonPublicationFingerprint(comparison.publication)
+        (comparison) => workflowComparisonEntryFingerprint(comparison.entry)
       )
       const authorityFingerprints = yield* Effect.forEach(
         workflowComparisons,
@@ -110,9 +104,9 @@ describe("Theoria Workflow Comparison Contracts", () => {
       )
 
       expect(catalogFingerprint).toBe(repeatedCatalogFingerprint)
-      expect(consumerDescriptorFingerprint).toBe(repeatedConsumerDescriptorFingerprint)
+      expect(workflowDescriptorFingerprint).toBe(repeatedWorkflowDescriptorFingerprint)
       expect(uniqueFingerprints.length).toBe(comparisonFingerprints.length)
-      expect(publicationFingerprints.length).toBe(workflowComparisons.length)
+      expect(entryFingerprints.length).toBe(workflowComparisons.length)
       expect(authorityFingerprints.every((fingerprint) => fingerprint === authorityFingerprints[0])).toBe(true)
     }))
 
@@ -120,7 +114,7 @@ describe("Theoria Workflow Comparison Contracts", () => {
     Effect.sync(() => {
       const comparison = workflowComparisonById(defaultWorkflowComparisonId)
 
-      expect(workflowComparisonId(comparison)).toBe("workflow-comparison/task-briefing")
+      expect(workflowComparisonId(comparison)).toBe(defaultWorkflowComparisonId)
       expect(comparison.records.optimized.graph.nodes.length).toBeGreaterThan(
         comparison.records.baseline.graph.nodes.length
       )

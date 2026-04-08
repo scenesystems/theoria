@@ -2,8 +2,8 @@ import { Match } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
-import { type DeepDivePanePercent, DeepDiveSurfacePlaneValue } from "../../../contracts/layout.js"
-import { DeepDiveDiagnosticsPlaneValue, type DeepDiveProjectionPlane } from "../../state/deep-dive-surface.js"
+import { type DeepDivePanePercent, DeepDiveSurfacePlaneValue } from "../../../contracts/presentation/layout.js"
+import { DeepDiveDiagnosticsPlaneValue, type DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
 
 export type DeepDiveProjectionSurfaceOption = {
   readonly description: string

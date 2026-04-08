@@ -1,6 +1,6 @@
 import { Button } from "@base-ui-components/react/button"
 
-import { toggleTrackClassName, type ToneClasses } from "./designSystem.js"
+import { toggleTrackClassName, type Tone } from "./designSystem.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -17,7 +17,7 @@ export const ToggleSwitch = ({
   readonly disabled: boolean
   readonly label: string
   readonly onToggle: () => void
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Cluster className="w-full flex-nowrap items-center justify-between gap-3">
     <Cluster className="min-w-0 flex-1 flex-nowrap items-center gap-2">

@@ -2,8 +2,13 @@ import { Match } from "effect"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import {
+  semanticsFor,
+  type TextProjection,
+  type TextRole,
+  type TextWrapAuthority
+} from "../../../contracts/presentation/text.js"
 import { useTextProjection } from "../../atoms/text.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code"

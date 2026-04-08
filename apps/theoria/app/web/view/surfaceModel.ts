@@ -1,14 +1,16 @@
 import * as Arr from "effect/Array"
 
+import type { EntryPresentation } from "../../contracts/entry/routing.js"
 import type {
   ProgramSourceScope,
   SourceFileTab,
   SourceWorkspaceTab,
   SurfaceVariant
-} from "../../contracts/presentation.js"
-import type { PublishedConsumerPresentation } from "../../contracts/proving-substrate.js"
-import { statusText } from "../state/status.js"
-import { evidenceStatusFromStream, type EvidenceStreamState, runPhase, type SurfaceState } from "../state/types.js"
+} from "../../contracts/presentation/program.js"
+import { evidenceStatusFromStream, type EvidenceStreamState } from "../state/evidence/stream.js"
+import { statusText } from "../state/run/status.js"
+import { runPhase } from "../state/run/types.js"
+import type { SurfaceState } from "../state/surface/state.js"
 
 import { tabHintFor } from "./deep/interactiveMetadata.js"
 import {
@@ -64,9 +66,9 @@ export type DeepDiveSurfaceFrameViewModel = {
 }
 
 const packageUseCaseRow = (
-  surface: PublishedConsumerPresentation
+  surface: EntryPresentation
 ): { readonly label: string; readonly value: string } => ({
-  label: surface.group === "application" ? "Application Use Case" : "Package Use Case",
+  label: "Entry Use Case",
   value: `${surface.packageName}: ${surface.useCase}`
 })
 
@@ -84,7 +86,7 @@ const compactRows = ({
   rows,
   state
 }: {
-  readonly surface: PublishedConsumerPresentation
+  readonly surface: EntryPresentation
   readonly rows: ReadonlyArray<{ readonly label: string; readonly value: string }>
   readonly state: SurfaceState
 }): ReadonlyArray<{ readonly label: string; readonly value: string }> => {
@@ -103,7 +105,7 @@ export const surfaceViewModel = ({
   stream,
   variant
 }: {
-  readonly surface: PublishedConsumerPresentation
+  readonly surface: EntryPresentation
   readonly presented: PresentedRun | null
   readonly state: SurfaceState
   readonly stream: EvidenceStreamState
@@ -126,7 +128,7 @@ export const surfaceViewModel = ({
       interactiveLabel: surface.interactiveLabel,
       run: state.run,
       stream,
-      tabHint: tabHintFor(surface.consumerId)
+      tabHint: tabHintFor(surface.entryId)
     })
   }
 }
@@ -135,7 +137,7 @@ export const deepDiveSurfaceFrameViewModel = ({
   surface,
   state
 }: {
-  readonly surface: PublishedConsumerPresentation
+  readonly surface: EntryPresentation
   readonly state: SurfaceState
 }): DeepDiveSurfaceFrameViewModel => ({
   runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
@@ -144,6 +146,6 @@ export const deepDiveSurfaceFrameViewModel = ({
   stageFrame: demoStageFrameViewModel({
     activeTab: state.stageTab,
     interactiveLabel: surface.interactiveLabel,
-    tabHint: tabHintFor(surface.consumerId)
+    tabHint: tabHintFor(surface.entryId)
   })
 })

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
 import * as InferenceTesting from "../../../../packages/effect-inference/src/Runtime/testing.js"
-import { dspRuntimeProjection } from "../../app/server/demos/effect-dsp/provider.js"
+import { dspRuntimeProjection } from "../../app/server/entries/effect-dsp/provider.js"
 
 describe("server/runtime-projection", () => {
   it.effect("projects requested and resolved-route truth from the effect-inference substrate", () =>

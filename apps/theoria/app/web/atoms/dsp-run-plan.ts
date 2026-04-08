@@ -5,20 +5,20 @@ import {
   type DspModuleType as DspModuleTypeValue,
   DspScenarioId,
   type DspScenarioId as DspScenarioIdValue
-} from "../../contracts/demo/dsp.js"
+} from "../../contracts/capability/effect-dsp.js"
 
-export const EffectDspRunPlan = Schema.Struct({
+export const EffectDspProjectionScript = Schema.Struct({
   _tag: Schema.Literal("effect-dsp"),
   scenarioId: DspScenarioId,
   moduleType: DspModuleType,
   optimizationBudget: Schema.Number.pipe(Schema.int(), Schema.between(1, 5))
 })
 
-export type EffectDspRunPlan = typeof EffectDspRunPlan.Type
+export type EffectDspProjectionScript = typeof EffectDspProjectionScript.Type
 
-export const isEffectDspRunPlan = Schema.is(EffectDspRunPlan)
+export const isEffectDspProjectionScript = Schema.is(EffectDspProjectionScript)
 
-export const snapshotEffectDspRunPlan = ({
+export const snapshotEffectDspProjectionScript = ({
   scenarioId,
   moduleType,
   optimizationBudget
@@ -26,7 +26,7 @@ export const snapshotEffectDspRunPlan = ({
   readonly scenarioId: DspScenarioIdValue
   readonly moduleType: DspModuleTypeValue
   readonly optimizationBudget: number
-}): EffectDspRunPlan => ({
+}): EffectDspProjectionScript => ({
   _tag: "effect-dsp",
   scenarioId,
   moduleType,

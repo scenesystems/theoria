@@ -3,13 +3,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
 import { Choreography, encodeEvidenceEventJson, StageAdvance } from "../../app/contracts/evidence-stream.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeRunDemoAtom } from "../../app/web/atoms/actions.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -53,7 +53,7 @@ const waitForSource = Effect.eventually(
   )
 )
 
-const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
 
 const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
   const previousEventSource = globalThis.EventSource
@@ -83,8 +83,7 @@ describe("runtime spine choreography authority", () => {
         const runtime = makeAppClientTestRuntime({
           run: () => Effect.fail(errorFixture),
           runWithMeta: () => Effect.fail(errorFixture),
-          preload: () => Effect.succeed(programPreviewFixture),
-          streamUrl: (id) => `/api/demos/${id}/stream`
+          preload: () => Effect.succeed(programPreviewFixture)
         })
         const runDemoAtom = makeRunDemoAtom(runtime)
 

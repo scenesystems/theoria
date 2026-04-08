@@ -1,12 +1,12 @@
 import type { PowerWidgetViewModel } from "../../atoms/widget-view-models.js"
 import { POWER_SVG, powerChartModel } from "../data/powerChartModel.js"
-import { dangerSubtleLegendTheme, type LegendTheme, neutralLegendTheme, surfaceMaterials } from "./designSystem.js"
+import { dangerSubtleLegend, type Legend, neutralLegend, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
 
-const h1Theme: LegendTheme = { swatch: "bg-tone-math-500", label: "text-ink-700" }
-const powerTheme: LegendTheme = { swatch: "bg-tone-math-400/50", label: "text-ink-700" }
+const h1Legend: Legend = { swatch: "bg-tone-math-500", label: "text-ink-700" }
+const powerLegend: Legend = { swatch: "bg-tone-math-400/50", label: "text-ink-700" }
 
 export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewModel }) => {
   const model = powerChartModel(vm.projection)
@@ -101,10 +101,10 @@ export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewMod
 
       <LegendRail
         items={[
-          { label: "H₀: no effect", shape: "circle", theme: neutralLegendTheme },
-          { label: model.h1MeanText, shape: "circle", theme: h1Theme },
-          { label: model.alphaText, shape: "square", theme: dangerSubtleLegendTheme },
-          { label: "Power", shape: "square", theme: powerTheme }
+          { label: "H₀: no effect", shape: "circle", legend: neutralLegend },
+          { label: model.h1MeanText, shape: "circle", legend: h1Legend },
+          { label: model.alphaText, shape: "square", legend: dangerSubtleLegend },
+          { label: "Power", shape: "square", legend: powerLegend }
         ]}
       />
     </Stack>

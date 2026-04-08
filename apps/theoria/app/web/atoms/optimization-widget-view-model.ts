@@ -2,22 +2,26 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Option } from "effect"
 
-import type { CanonicalFrame } from "../../contracts/canonical-step.js"
-import type { EffectSearchCanonicalStep } from "../../contracts/demo/objective.js"
+import type { EffectSearchCanonicalStep } from "../../contracts/capability/effect-search.js"
 import {
-  type EffectSearchRunPlan,
-  isEffectSearchRunPlan,
+  type EffectSearchProjectionScript,
+  isEffectSearchProjectionScript,
   optimizationTrialBudgetMax,
   optimizationTrialBudgetMin,
   optimizationTrialBudgetStep
-} from "../../contracts/demo/objective.js"
-import { runUsesActiveFrameAuthority } from "../state/run-interaction.js"
-import type { OptimizationProjection } from "./optimization-animation.js"
-import { makeOptimizationProjection, optimizationProjectionAtom } from "./optimization-animation.js"
-import { surfaceActiveCanonicalFrameAtom, surfaceActiveLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
+} from "../../contracts/capability/effect-search.js"
+import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
+import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
+import type { OptimizationProjection } from "./run/optimization-animation.js"
+import { makeOptimizationProjection, optimizationProjectionAtom } from "./run/optimization-animation.js"
+import {
+  surfaceActiveCanonicalFrameAtom,
+  surfaceActiveLocalProjectionScriptAtom,
+  surfaceRunStateAtom
+} from "./surface/state.js"
 import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
 
-const frozenOptimizationProjection = (plan: EffectSearchRunPlan): OptimizationProjection =>
+const frozenOptimizationProjection = (plan: EffectSearchProjectionScript): OptimizationProjection =>
   makeOptimizationProjection({
     phase: "running",
     randomTrials: [],
@@ -54,9 +58,10 @@ const resolveEffectSearchAuthority = ({
   readonly plan: { readonly _tag: string } | null
 }): {
   readonly step: typeof EffectSearchCanonicalStep.Type
-  readonly plan: EffectSearchRunPlan
+  readonly plan: EffectSearchProjectionScript
 } | null =>
-  isEffectSearchRunPlan(plan) && canonicalFrame !== null && canonicalFrame.step._tag === "EffectSearchCanonicalStep"
+  isEffectSearchProjectionScript(plan) && canonicalFrame !== null &&
+    canonicalFrame.step._tag === "EffectSearchCanonicalStep"
     ? { step: canonicalFrame.step, plan }
     : null
 
@@ -65,7 +70,7 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
     const run = get(surfaceRunStateAtom("effect-search"))
     const runtime = widgetRuntimeState(run)
     const frozenPlan = runUsesActiveFrameAuthority(run)
-      ? get(surfaceActiveLocalRunPlanAtom("effect-search"))
+      ? get(surfaceActiveLocalProjectionScriptAtom("effect-search"))
       : null
     const authority = runUsesActiveFrameAuthority(run)
       ? resolveEffectSearchAuthority({
@@ -74,7 +79,7 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
       })
       : null
     const projection = authority === null
-      ? isEffectSearchRunPlan(frozenPlan)
+      ? isEffectSearchProjectionScript(frozenPlan)
         ? frozenOptimizationProjection(frozenPlan)
         : get(optimizationProjectionAtom)
       : makeOptimizationProjection({
@@ -89,7 +94,7 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
       (tpeBest, randomBest) => `${((1 - tpeBest / randomBest) * 100).toFixed(1)}%`
     )
     const trialBudget = authority?.step.trialBudget
-      ?? (isEffectSearchRunPlan(frozenPlan) ? frozenPlan.trialBudget : null)
+      ?? (isEffectSearchProjectionScript(frozenPlan) ? frozenPlan.trialBudget : null)
       ?? projection.trialBudget
 
     return {

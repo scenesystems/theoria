@@ -48,25 +48,27 @@ const emitEvent = (
     source.emitEvidence(eventJson)
   })
 
+const taskBriefingWorkflowScenarioFixture: WorkflowScenarioFixture = {
+  baselineReplyNodeId: "responder",
+  baselinePrompt: "Summarize the runtime route in one concise paragraph.",
+  baselineOutput: "Baseline route briefing: the runtime selected the direct path but omitted critique context.",
+  baselineTraversal: [["planner", "planner", "proposer"], ["responder", "responder", "task"]],
+  optimizedRenderCheckOutput: null,
+  optimizedReplyNodeId: "responder",
+  optimizedPrompt: "Return the route reason with critique feedback and the supporting runtime evidence.",
+  optimizedOutput:
+    "Search winner route briefing: the graph adds a critique pass, keeps the response concise, and grounds the chosen runtime in the supporting evidence ledger.",
+  workflowKind: "task-first",
+  winnerTraversal: [["planner", "planner", "proposer"], ["critic", "critic", "critic"], [
+    "responder",
+    "responder",
+    "task"
+  ]]
+}
+
 const workflowScenarioFixtureById: Readonly<Record<WorkflowComparisonId, WorkflowScenarioFixture>> = {
-  "workflow-comparison/task-briefing": {
-    baselineReplyNodeId: "responder",
-    baselinePrompt: "Summarize the runtime route in one concise paragraph.",
-    baselineOutput: "Baseline route briefing: the runtime selected the direct path but omitted critique context.",
-    baselineTraversal: [["planner", "planner", "proposer"], ["responder", "responder", "task"]],
-    optimizedRenderCheckOutput: null,
-    optimizedReplyNodeId: "responder",
-    optimizedPrompt: "Return the route reason with critique feedback and the supporting runtime evidence.",
-    optimizedOutput:
-      "Search winner route briefing: the graph adds a critique pass, keeps the response concise, and grounds the chosen runtime in the supporting evidence ledger.",
-    workflowKind: "task-first",
-    winnerTraversal: [["planner", "planner", "proposer"], ["critic", "critic", "critic"], [
-      "responder",
-      "responder",
-      "task"
-    ]]
-  },
-  "workflow-comparison/chat-handoff": {
+  "task-briefing": taskBriefingWorkflowScenarioFixture,
+  "chat-handoff": {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Continue the handoff with the route reason in one short paragraph.",
     baselineOutput: "Baseline chat handoff: the reply stays concise but misses the retrieval-backed justification.",
@@ -85,7 +87,7 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowComparisonId, Workflo
       ["render-check", "render-evaluator", "evaluator"]
     ]
   },
-  "workflow-comparison/retrieval-required": {
+  "retrieval-required": {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Explain the selected route and cite the supporting evidence.",
     baselineOutput:
@@ -104,7 +106,7 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowComparisonId, Workflo
       ["reply", "responder", "task"]
     ]
   },
-  "workflow-comparison/render-sensitive": {
+  "render-sensitive": {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Draft a sidebar-ready runtime summary with the route reason above the fold.",
     baselineOutput:
@@ -126,8 +128,10 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowComparisonId, Workflo
   }
 }
 
+const defaultWorkflowScenarioFixture = taskBriefingWorkflowScenarioFixture
+
 const fixtureForComparison = (comparisonId: WorkflowComparisonId): WorkflowScenarioFixture =>
-  workflowScenarioFixtureById[comparisonId]
+  workflowScenarioFixtureById[comparisonId] ?? defaultWorkflowScenarioFixture
 
 const traversalText = (rows: ReadonlyArray<ReadonlyArray<string>>): string => rows.map((row) => row[0]).join(" -> ")
 

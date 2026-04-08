@@ -4,8 +4,9 @@ import { Effect } from "effect"
 import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
 import { InStage, StageEnter } from "../../app/contracts/choreography.js"
 import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
-import { EffectTextProjectionStep, snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
-import { type EffectMathRunFrame, snapshotEffectMathRunPlan } from "../../app/web/atoms/power-animation.js"
+import { type PowerControls, snapshotEffectMathProjectionScript } from "../../app/contracts/demo/power.js"
+import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
+import type { EffectMathRunFrame } from "../../app/web/atoms/power-animation.js"
 import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
 import { reduceRunState, type RunMessage } from "../../app/web/state/types.js"
 import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
@@ -216,12 +217,12 @@ describe("surface-state reducer", () => {
 
   it.effect("keeps local frame authority sequence-scoped and clears it on reset", () =>
     Effect.gen(function*() {
-      const localRunPlan = snapshotEffectTextRunPlan({
+      const localProjectionScript = snapshotEffectTextTraversalScript({
         customText: "Frozen text",
         viewportWidthPx: 960
       })
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program,
         sequence: 4,
         token: 11
@@ -239,10 +240,10 @@ describe("surface-state reducer", () => {
       })
       const reset = reduceRunState(withFrame, { _tag: "RunReset" })
 
-      expect(withFrame.session.localRunPlan).toEqual(localRunPlan)
+      expect(withFrame.session.localProjectionScript).toEqual(localProjectionScript)
       expect(withFrame.session.localRunFrame).toEqual(effectTextFrameFixture)
       expect(afterStaleFrame).toEqual(withFrame)
-      expect(reset.session.localRunPlan).toBeNull()
+      expect(reset.session.localProjectionScript).toBeNull()
       expect(reset.session.localRunFrame).toBeNull()
     }))
 
@@ -282,13 +283,14 @@ describe("surface-state reducer", () => {
 
   it.effect("keeps effect-math local frame authority sequence-scoped and clears it on reset", () =>
     Effect.gen(function*() {
-      const localRunPlan = snapshotEffectMathRunPlan({
+      const controls: PowerControls = {
         d: 1.35,
         n: 77,
         alpha: 0.07
-      })
+      }
+      const localProjectionScript = snapshotEffectMathProjectionScript(controls)
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program,
         sequence: 5,
         token: 12
@@ -306,10 +308,10 @@ describe("surface-state reducer", () => {
       })
       const reset = reduceRunState(withFrame, { _tag: "RunReset" })
 
-      expect(withFrame.session.localRunPlan).toEqual(localRunPlan)
+      expect(withFrame.session.localProjectionScript).toEqual(localProjectionScript)
       expect(withFrame.session.localRunFrame).toEqual(effectMathFrameFixture)
       expect(afterStaleFrame).toEqual(withFrame)
-      expect(reset.session.localRunPlan).toBeNull()
+      expect(reset.session.localProjectionScript).toBeNull()
       expect(reset.session.localRunFrame).toBeNull()
     }))
 })

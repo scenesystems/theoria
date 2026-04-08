@@ -9,7 +9,7 @@ import {
   PackageDocsBundleEnvelope,
   PackageDocsCatalogEnvelope,
   PackageDocsSearchEnvelope
-} from "../../contracts/package-docs.js"
+} from "../../contracts/presentation/package-docs.js"
 import { PackageDocsInfo } from "../config/package-docs.js"
 import { RuntimeInfo } from "../config/runtime.js"
 

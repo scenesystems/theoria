@@ -3,12 +3,12 @@ import { ArrowPathIcon, PauseIcon, PlayIcon, StopIcon } from "@heroicons/react/2
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import type { RunControlActionKind } from "../../state/types.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 
 import type { RunControlsViewModel } from "../runControlsModel.js"
 
-import type { SurfaceTheme } from "./designSystem.js"
+import type { Surface } from "./designSystem.js"
 import { headerChromeSurfaceClassName } from "./HeaderChrome.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -36,7 +36,7 @@ const dockAccessoryControl = (
   disabled: boolean
 ): DockAccessoryControl => ({ action, disabled, label })
 
-const dockPrimaryButtonClassName = (theme: SurfaceTheme): string =>
+const dockPrimaryButtonClassName = (theme: Surface): string =>
   classes(
     "relative z-10 inline-flex h-11 min-w-0 items-center justify-center gap-2.5 rounded-none border px-5 shadow-chip",
     "transition-[transform,border-color,background-color,color] duration-200 ease-out",
@@ -146,7 +146,7 @@ export const RunControlDock = ({
 }: {
   readonly controls: RunControlsViewModel
   readonly onRunControlAction: (action: RunControlActionKind) => void
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
   readonly variant: SurfaceVariant
 }) => {
   const accessory = resolvedDockAccessoryControl(controls)

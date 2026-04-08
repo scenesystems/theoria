@@ -19,7 +19,7 @@ import {
   packageDocsSearchApiPath,
   PackageDocsSearchEnvelope,
   type PackageDocsSearchResult
-} from "../../contracts/package-docs.js"
+} from "../../contracts/presentation/package-docs.js"
 
 const formatParseError = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
 

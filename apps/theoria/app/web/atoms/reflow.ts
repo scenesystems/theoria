@@ -4,7 +4,6 @@ import { Result } from "@effect-atom/atom"
 import { Effect, Layer, Option } from "effect"
 import { Text } from "effect-text"
 
-import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
 import {
   projectionMinWidthFor,
   resolveCorpusEntry,
@@ -13,9 +12,10 @@ import {
   stageFrameBorderPx,
   stageHorizontalInsetPx,
   stageSliderMaxWidth
-} from "../../contracts/demo/text.js"
+} from "../../contracts/capability/effect-text.js"
+import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
-import { fontDescriptorFor, semanticsFor, type TextRole } from "../../contracts/text.js"
+import { fontDescriptorFor, semanticsFor, type TextRole } from "../../contracts/presentation/text.js"
 import {
   projectObstacleTextLayout,
   type ReflowStageLine,

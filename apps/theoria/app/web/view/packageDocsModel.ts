@@ -1,7 +1,11 @@
 import * as Option from "effect/Option"
-import { cards } from "../../contracts/card.js"
-import type { PackageDocsBundle, PackageDocsCatalogEntry } from "../../contracts/package-docs.js"
-import { packageDocsPagePath } from "../../contracts/package-docs.js"
+
+import { authorityCatalogForId } from "../../contracts/capability/catalog.js"
+import { primaryAuthorityIdForEntry } from "../../contracts/entry/focus.js"
+import { entryDescriptors } from "../../contracts/entry/registry.js"
+import { entryPresentationForId } from "../../contracts/entry/routing.js"
+import type { PackageDocsBundle, PackageDocsCatalogEntry } from "../../contracts/presentation/package-docs.js"
+import { packageDocsPagePath } from "../../contracts/presentation/package-docs.js"
 
 type PackageDocsNavItem = {
   readonly href: string
@@ -52,7 +56,13 @@ export type PackageDocsPageModel = {
 
 const repositorySourceHref = (path: string): string => `https://github.com/scenesystems/theoria/blob/main/${path}`
 
-const packageCard = (packageId: string) => cards.find((card) => card.packageName === packageId)
+const packageSurface = (packageId: string) =>
+  Option.fromNullable(entryDescriptors.find((descriptor) => descriptor.packageName === packageId)).pipe(
+    Option.map((descriptor) => ({
+      presentation: entryPresentationForId(descriptor.entryId),
+      authority: authorityCatalogForId(primaryAuthorityIdForEntry(descriptor.entryId))
+    }))
+  )
 
 const proseSection = (
   title: string,
@@ -98,7 +108,7 @@ export const packageDocsPageModel = (input: {
   readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
   readonly selectedPackageId: string
 }): PackageDocsPageModel => {
-  const card = packageCard(input.bundle.packageId)
+  const card = packageSurface(input.bundle.packageId)
   const navigation = input.catalog.map((entry) => ({
     href: packageDocsPagePath(entry.packageId),
     label: entry.packageId,
@@ -114,18 +124,21 @@ export const packageDocsPageModel = (input: {
     proseSection(snapshot.block.title, snapshot.block)
   )
   const proofSections = input.bundle.proofCommands.map((command) => codeSection(command.block.title, command.block))
-  const links: ReadonlyArray<PackageDocsLink> = Option.match(Option.fromNullable(card), {
+  const links: ReadonlyArray<PackageDocsLink> = Option.match(card, {
     onNone: () => [],
-    onSome: (resolvedCard) => [
-      { external: true, href: resolvedCard.npmUrl, label: "npm" },
-      { external: true, href: resolvedCard.repoUrl, label: "Repository" },
-      { external: false, href: resolvedCard.deepDivePath, label: "Deep Dive" }
+    onSome: ({ authority, presentation }) => [
+      { external: true, href: authority.npmUrl, label: "npm" },
+      { external: true, href: authority.repoUrl, label: "Repository" },
+      { external: false, href: presentation.path, label: "Deep Dive" }
     ]
   })
 
   return {
     description: input.bundle.description ??
-      (card?.description ?? "Source-linked package documentation for the shipped package surface."),
+      Option.match(card, {
+        onNone: () => "Source-linked package documentation for the shipped package surface.",
+        onSome: ({ presentation }) => presentation.description
+      }),
     groups: [
       ...groupIfAny("README", readmeSections),
       ...groupIfAny("Module Docs", moduleSections),

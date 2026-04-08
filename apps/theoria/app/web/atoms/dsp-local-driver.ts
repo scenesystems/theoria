@@ -1,12 +1,12 @@
 import { Effect, Queue } from "effect"
 import { Study } from "effect-search"
 
-import type { CanonicalFrame } from "../../contracts/canonical-step.js"
-import { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"
-import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
+import { DspRunFrame } from "../../contracts/capability/effect-dsp-runtime.js"
+import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
+import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 
 import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "./local-driver-events.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./run-lifecycle.js"
+import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./run/lifecycle.js"
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent

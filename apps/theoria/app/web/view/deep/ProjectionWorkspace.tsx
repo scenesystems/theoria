@@ -1,4 +1,4 @@
-import { DeepDivePanePercentMax, DeepDivePanePercentMin } from "../../../contracts/layout.js"
+import { DeepDivePanePercentMax, DeepDivePanePercentMin } from "../../../contracts/presentation/layout.js"
 
 import { SplitPane } from "../containers/SplitPane.js"
 import { Layer } from "../primitives/Layout.js"

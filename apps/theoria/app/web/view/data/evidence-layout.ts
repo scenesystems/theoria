@@ -1,6 +1,6 @@
 import { Match } from "effect"
 
-import type { EvidenceItem } from "../../../contracts/evidence.js"
+import type { EvidenceItem } from "../../../contracts/evidence/item.js"
 
 export * from "./evidence-plane-model.js"
 

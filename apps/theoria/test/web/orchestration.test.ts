@@ -4,7 +4,7 @@ import { Deferred, Effect, Ref } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeRunControlAtom, makeRunDemoAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
 import {
@@ -16,15 +16,15 @@ import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power
 import { customTextAtom, reflowControlsAtom, reflowSliderMaxWidth } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 import { failedRunState, runningRunState, succeededRunState } from "../helpers/run-state.js"
 
-const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
 
 const updateSurface = (
   registry: Registry.Registry,
-  id: Id,
+  id: EntryId,
   f: (s: SurfaceState) => SurfaceState
 ): void => {
   registry.update(surfaceAtom(id), f)
@@ -135,7 +135,7 @@ describe("Theoria Orchestration", () => {
       const holdFirstRun = yield* Deferred.make<void, never>()
       const callCount = yield* Ref.make(0)
 
-      const runWithMeta = (_id: Id) =>
+      const runWithMeta = (_id: EntryId) =>
         Ref.updateAndGet(callCount, (count) => count + 1).pipe(
           Effect.flatMap((count) =>
             count === 1
@@ -158,8 +158,7 @@ describe("Theoria Orchestration", () => {
         makeAppClientTestRuntime({
           run: (id) => runWithMeta(id).pipe(Effect.map(({ data }) => data)),
           runWithMeta,
-          preload: () => Effect.succeed(programPreviewFixture),
-          streamUrl: (id) => `/api/demos/${id}/stream`
+          preload: () => Effect.succeed(programPreviewFixture)
         })
       )
 
@@ -205,11 +204,7 @@ describe("Theoria Orchestration", () => {
             }),
             Effect.onInterrupt(() => Deferred.succeed(runInterrupted, undefined))
           ),
-        preload: () => Effect.succeed(programPreviewFixture),
-        streamUrl: (id, customText = null) =>
-          customText === null
-            ? `/api/demos/${id}/stream`
-            : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
+        preload: () => Effect.succeed(programPreviewFixture)
       })
       const runDemoAtom = makeRunDemoAtom(runtime)
       const runControlAtom = makeRunControlAtom(runtime)
@@ -245,11 +240,7 @@ describe("Theoria Orchestration", () => {
       const runtime = makeAppClientTestRuntime({
         run: () => Effect.fail(errorFixture),
         runWithMeta: () => Effect.fail(errorFixture),
-        preload: () => Effect.succeed(programPreviewFixture),
-        streamUrl: (id, customText = null) =>
-          customText === null
-            ? `/api/demos/${id}/stream`
-            : `/api/demos/${id}/stream?customText=${encodeURIComponent(customText)}`
+        preload: () => Effect.succeed(programPreviewFixture)
       })
       const runControlAtom = makeRunControlAtom(runtime)
 

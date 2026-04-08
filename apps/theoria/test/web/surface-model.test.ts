@@ -3,7 +3,7 @@ import { Effect } from "effect"
 
 import { DemoExecutionError } from "../../app/contracts/demo-error.js"
 import type { Program } from "../../app/contracts/presentation.js"
-import { publishedConsumerPresentationForId } from "../../app/contracts/proving-substrate.js"
+import { entryPresentationForId } from "../../app/contracts/proving-substrate.js"
 import {
   emptyEvidenceStreamState,
   type EvidenceStreamState,
@@ -22,7 +22,7 @@ import {
 
 const fixtureRunData = runDataFixture("surface model fixture")
 const fixturePresented = presentRun(fixtureRunData)
-const fixtureSurface = publishedConsumerPresentationForId(effectTextCardFixture.id)
+const fixtureSurface = entryPresentationForId(effectTextCardFixture.id)
 const pausedEvidenceStream: EvidenceStreamState = {
   sections: fixtureRunData.sections,
   complete: false,

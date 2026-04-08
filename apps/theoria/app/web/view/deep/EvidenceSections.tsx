@@ -8,6 +8,16 @@ import { SemanticText } from "../primitives/SemanticText.js"
 
 import { EvidenceSectionCard } from "./EvidenceSectionCard.js"
 
+type RenderedLane = {
+  readonly lane: EvidencePlaneLane
+  readonly startIndex: number
+}
+
+type RenderedLaneState = {
+  readonly entries: ReadonlyArray<RenderedLane>
+  readonly nextIndex: number
+}
+
 const emptyFilterState = (
   <Layer className="border-t border-stage-200/72 py-4">
     <SemanticText
@@ -72,38 +82,51 @@ const laneColumn = ({
   </Stack>
 )
 
+const renderedLaneState = (nextIndex: number): RenderedLaneState => ({
+  entries: [],
+  nextIndex
+})
+
+const renderedLanes = ({
+  lanes,
+  startIndex
+}: {
+  readonly lanes: ReadonlyArray<EvidencePlaneLane>
+  readonly startIndex: number
+}): ReadonlyArray<RenderedLane> =>
+  lanes.reduce<RenderedLaneState>(
+    (state, lane) => ({
+      entries: [...state.entries, { lane, startIndex: state.nextIndex }],
+      nextIndex: state.nextIndex + lane.sections.length
+    }),
+    renderedLaneState(startIndex)
+  ).entries
+
+const laneLayout = ({
+  lanes,
+  spotlight
+}: {
+  readonly lanes: ReadonlyArray<EvidencePlaneLane>
+  readonly spotlight: ReadonlyArray<EvidenceSectionViewModel>
+}) => (
+  <Stack className="gap-8">
+    {spotlight.length === 0 ? null : sectionList({ sections: spotlight, spotlight: true, startIndex: 0 })}
+    {Arr.map(
+      renderedLanes({
+        lanes,
+        startIndex: spotlight.length
+      }),
+      ({ lane, startIndex }) => <Stack key={lane.title}>{laneColumn({ lane, startIndex })}</Stack>
+    )}
+  </Stack>
+)
+
 export const EvidenceSections = ({ plane }: { readonly plane: EvidencePlaneViewModel }) =>
   plane.sections.length === 0
     ? emptyFilterState
     : Match.value(plane.layout).pipe(
       Match.tag("Focused", ({ section }) => sectionList({ sections: [section], spotlight: true, startIndex: 0 })),
-      Match.tag("Live", ({ spotlight, stream }) => (
-        <Stack className="gap-8">
-          {spotlight === null ? null : sectionList({ sections: [spotlight], spotlight: true, startIndex: 0 })}
-          {stream === null
-            ? null
-            : laneColumn({ lane: stream, startIndex: spotlight === null ? 0 : 1 })}
-        </Stack>
-      )),
-      Match.tag("Narrative", ({ spotlight, narrative, reference }) => (
-        <Stack className="gap-8">
-          {spotlight === null ? null : sectionList({ sections: [spotlight], spotlight: true, startIndex: 0 })}
-          {narrative === null && reference === null
-            ? null
-            : narrative === null
-            ? laneColumn({ lane: reference!, startIndex: spotlight === null ? 0 : 1 })
-            : reference === null
-            ? laneColumn({ lane: narrative, startIndex: spotlight === null ? 0 : 1 })
-            : (
-              <Stack className="gap-8">
-                {laneColumn({ lane: narrative, startIndex: spotlight === null ? 0 : 1 })}
-                {laneColumn({
-                  lane: reference,
-                  startIndex: spotlight === null ? narrative.sections.length : narrative.sections.length + 1
-                })}
-              </Stack>
-            )}
-        </Stack>
-      )),
+      Match.tag("Live", ({ lanes, spotlight }) => laneLayout({ lanes, spotlight })),
+      Match.tag("Narrative", ({ lanes, spotlight }) => laneLayout({ lanes, spotlight })),
       Match.exhaustive
     )

@@ -1,12 +1,12 @@
 import { Slider } from "@base-ui-components/react/slider"
 
-import type { ToneClasses } from "./designSystem.js"
+import type { Tone } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 // ---------------------------------------------------------------------------
 // SliderRow — compact inline control: label | slider | value
-// Takes ToneClasses for consistent per-tone theming.
+// Takes Tone for consistent per-tone theming.
 // ---------------------------------------------------------------------------
 
 type SliderRowLayout = "inline" | "stacked"
@@ -16,7 +16,7 @@ const sliderControl = ({
   thumbClassName,
   trackClassName
 }: {
-  readonly tone: ToneClasses
+  readonly tone: Tone
   readonly thumbClassName: string
   readonly trackClassName: string
 }) => (
@@ -53,7 +53,7 @@ export const SliderRow = ({
   readonly hintNoWrap?: boolean
   readonly layout?: SliderRowLayout
   readonly onChange: (v: number) => void
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) =>
   layout === "stacked"
     ? (

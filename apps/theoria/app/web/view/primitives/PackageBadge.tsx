@@ -1,8 +1,8 @@
 import { Match } from "effect"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
-import type { BadgeTheme } from "./designSystem.js"
+import type { Badge } from "./designSystem.js"
 import { headerChromeButtonClassName } from "./HeaderChrome.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -11,7 +11,7 @@ const badgeShellClassName = ({
   badge,
   variant
 }: {
-  readonly badge: BadgeTheme
+  readonly badge: Badge
   readonly variant: SurfaceVariant
 }): string =>
   Match.value(variant).pipe(
@@ -30,7 +30,7 @@ export const PackageBadge = ({
   label,
   variant
 }: {
-  readonly badge: BadgeTheme
+  readonly badge: Badge
   readonly label: string
   readonly variant: SurfaceVariant
 }) => (

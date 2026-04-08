@@ -1,4 +1,4 @@
-import type { ToneClasses } from "./designSystem.js"
+import type { Tone } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -18,7 +18,7 @@ export const TagBadge = ({
 }: {
   readonly description?: string
   readonly name: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Cluster
     className={`min-w-0 items-baseline gap-1.5 rounded-md border px-2.5 py-1.5 ${tone.borderSubtle} bg-stage-100/60`}

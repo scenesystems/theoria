@@ -4,7 +4,7 @@ import { Effect } from "effect"
 
 import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
 import { corpus } from "../../app/contracts/corpus.js"
-import { EffectTextProjectionStep, snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
+import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -72,7 +72,7 @@ describe("runtime spine playground authority", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const running = runningRunState({
-        localRunPlan: snapshotEffectTextRunPlan({
+        localProjectionScript: snapshotEffectTextTraversalScript({
           customText: "Frozen runtime text",
           viewportWidthPx: 960
         }),

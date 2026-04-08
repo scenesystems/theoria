@@ -104,9 +104,9 @@ const optimizedRecord = makeWorkflowExecutionRecord({
 })
 
 export const taskBriefingWorkflowComparison: WorkflowComparison = {
-  publication: {
-    comparisonId: "workflow-comparison/task-briefing",
-    consumerId: "workflow-comparison"
+  entry: {
+    comparisonId: "task-briefing",
+    entryId: "workflow"
   },
   authorities: workflowComparisonAuthorityBindings,
   label: "Task Briefing",

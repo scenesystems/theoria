@@ -1,6 +1,6 @@
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
-import type { BadgeTheme } from "./designSystem.js"
+import type { Badge } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -9,7 +9,7 @@ export const ProjectionOrdinal = ({
   label,
   variant
 }: {
-  readonly badge: BadgeTheme
+  readonly badge: Badge
   readonly label: string
   readonly variant: SurfaceVariant
 }) => (

@@ -5,7 +5,7 @@ import type { CSSProperties } from "react"
 import type { ObstacleVariant } from "../../../contracts/obstacle.js"
 import type { ReflowStageObstacle } from "../../text/obstacleProjection.js"
 
-import { type ObstacleToneClasses, obstacleToneClassesFor } from "./designSystem.js"
+import { type ObstacleTone, obstacleToneFor } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -50,7 +50,7 @@ const badgeClassName = "w-fit rounded-full border px-2 py-0.5"
 // Glyph — decorative miniature chart driven by obstacle variant.
 // ---------------------------------------------------------------------------
 
-const glyphFor = (variant: ObstacleVariant, tone: ObstacleToneClasses) =>
+const glyphFor = (variant: ObstacleVariant, tone: ObstacleTone) =>
   Match.value(variant).pipe(
     Match.when("figure", () => (
       <Cluster className={`${tone.glyphPanel} items-end gap-1`}>
@@ -104,7 +104,7 @@ const AccentStrip = ({
   tone
 }: {
   readonly showDot: boolean
-  readonly tone: ObstacleToneClasses
+  readonly tone: ObstacleTone
 }) => (
   <Cluster className="items-center gap-1">
     <Layer className={`h-0.5 flex-1 rounded-full ${tone.accent}`} />
@@ -118,7 +118,7 @@ const AccentStrip = ({
 
 export const ReflowStageObstacleCard = ({ obstacle }: { readonly obstacle: ReflowStageObstacle }) => {
   const density = densityFor(obstacle)
-  const tone = obstacleToneClassesFor(obstacle.tone)
+  const tone = obstacleToneFor(obstacle.tone)
   const hasGlyph = canShowGlyph(obstacle, density)
   const hasDetail = canShowDetail(obstacle, density)
   const padding = density === "compact" ? "p-2.5" : "p-3"

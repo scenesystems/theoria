@@ -9,28 +9,24 @@ import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js
 import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
 
 import { corpus } from "../../app/contracts/corpus.js"
-import { EffectTextProjectionStep, snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
+import { snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
+import { snapshotEffectMathProjectionScript } from "../../app/contracts/demo/power.js"
+import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeAtom,
   dspOptimizationBudgetAtom,
   dspScenarioIdAtom,
-  snapshotEffectDspRunPlan
+  snapshotEffectDspProjectionScript
 } from "../../app/web/atoms/dsp-widget.js"
 import {
   type EffectSearchRunFrame,
   optimizationAnimatingAtom,
   randomTrialsAtom,
-  snapshotEffectSearchRunPlan,
   tpeTrialsAtom,
   trialBudgetAtom
 } from "../../app/web/atoms/optimization-animation.js"
-import {
-  type EffectMathRunFrame,
-  powerAnimatingAtom,
-  powerControlsAtom,
-  snapshotEffectMathRunPlan
-} from "../../app/web/atoms/power-animation.js"
+import { type EffectMathRunFrame, powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -217,12 +213,12 @@ describe("widget view models", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const viewportWidthPx = 960
-      const localRunPlan = snapshotEffectTextRunPlan({
+      const localProjectionScript = snapshotEffectTextTraversalScript({
         customText: "Frozen runtime text",
         viewportWidthPx
       })
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program
       })
       const withFrame = reduceRunState(
@@ -264,13 +260,13 @@ describe("widget view models", () => {
   it.effect("renders effect-math from canonical frame authority during an active run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localRunPlan = snapshotEffectMathRunPlan({
+      const localProjectionScript = snapshotEffectMathProjectionScript({
         d: 1.35,
         n: 77,
         alpha: 0.07
       })
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program
       })
       const withFrame = reduceRunState(running, {
@@ -302,9 +298,9 @@ describe("widget view models", () => {
   it.effect("renders effect-search from canonical frame authority during an active run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localRunPlan = snapshotEffectSearchRunPlan(30)
+      const localProjectionScript = snapshotEffectSearchProjectionScript(30)
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program
       })
       const withFrame = reduceRunState(running, {
@@ -336,13 +332,13 @@ describe("widget view models", () => {
   it.effect("renders effect-dsp from canonical frame authority during an active run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localRunPlan = snapshotEffectDspRunPlan({
+      const localProjectionScript = snapshotEffectDspProjectionScript({
         scenarioId: "intervention-classifier",
         moduleType: "chainOfThought",
         optimizationBudget: 2
       })
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program
       })
       const withFrame = reduceRunState(running, {
@@ -376,7 +372,7 @@ describe("widget view models", () => {
   it.effect("keeps paused effect-dsp runs on frozen canonical authority while halting animation", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localRunPlan = snapshotEffectDspRunPlan({
+      const localProjectionScript = snapshotEffectDspProjectionScript({
         scenarioId: "intervention-classifier",
         moduleType: "chainOfThought",
         optimizationBudget: 2
@@ -385,7 +381,7 @@ describe("widget view models", () => {
         reduceRunState(
           reduceRunState(
             runningRunState({
-              localRunPlan,
+              localProjectionScript,
               program: programPreviewFixture.program
             }),
             {
@@ -439,7 +435,7 @@ describe("widget view models", () => {
   it.effect("keeps paused local-driver demos on canonical authority while halting animation", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const effectMathPlan = snapshotEffectMathRunPlan({
+      const effectMathPlan = snapshotEffectMathProjectionScript({
         d: 1.35,
         n: 77,
         alpha: 0.07
@@ -448,7 +444,7 @@ describe("widget view models", () => {
         reduceRunState(
           reduceRunState(
             runningRunState({
-              localRunPlan: effectMathPlan,
+              localProjectionScript: effectMathPlan,
               program: programPreviewFixture.program
             }),
             {
@@ -473,7 +469,7 @@ describe("widget view models", () => {
         reduceRunState(
           reduceRunState(
             runningRunState({
-              localRunPlan: snapshotEffectSearchRunPlan(30),
+              localProjectionScript: snapshotEffectSearchProjectionScript(30),
               program: programPreviewFixture.program
             }),
             {
@@ -536,7 +532,7 @@ describe("widget view models", () => {
         }),
         frame: frameFixture,
         running: runningRunState({
-          localRunPlan: snapshotEffectTextRunPlan({
+          localProjectionScript: snapshotEffectTextTraversalScript({
             customText: "Frozen runtime text",
             viewportWidthPx: 960
           }),

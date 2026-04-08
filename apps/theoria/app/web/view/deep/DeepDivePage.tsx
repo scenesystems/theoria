@@ -1,33 +1,37 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 
-import type { SurfaceId } from "../../../contracts/id.js"
-import { metadataForPublishedConsumerId } from "../../../contracts/metadata.js"
-import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/actions.js"
+import type { EntryId } from "../../../contracts/entry/id.js"
+import { metadataForEntryId } from "../../../contracts/presentation/metadata.js"
+import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
 import {
-  deepDiveFocusedSurfaceAtom,
-  deepDiveMaxProjectedSurfaceCountAtom,
   deepDivePanePercentAtom,
-  deepDiveProjectedSurfaceCountAtom,
   deepDiveSecondaryPanePercentAtom,
   deepDiveSourceExplorerVisibleAtom,
+  setDeepDivePanePercentAtom,
+  setDeepDiveSecondaryPanePercentAtom,
+  toggleDeepDiveSourceExplorerVisibleAtom
+} from "../../atoms/layout/deep-dive-pane.js"
+import {
+  deepDiveFocusedSurfaceAtom,
+  deepDiveProjectedSurfaceCountAtom,
   deepDiveSurfaceOrderAtom,
   focusDeepDiveSurfaceAtom,
   hideDeepDiveProjectedSurfaceAtom,
-  projectDeepDiveSurfaceAtom,
-  setDeepDivePanePercentAtom,
-  setDeepDiveSecondaryPanePercentAtom,
-  setDeepDiveWorkspaceWidthAtom,
-  toggleDeepDiveSourceExplorerVisibleAtom
-} from "../../atoms/deep-dive-layout.js"
-import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
-import type { RunControlActionKind } from "../../state/types.js"
+  projectDeepDiveSurfaceAtom
+} from "../../atoms/layout/deep-dive-surface-projection.js"
+import {
+  deepDiveMaxProjectedSurfaceCountAtom,
+  setDeepDiveWorkspaceWidthAtom
+} from "../../atoms/layout/deep-dive-viewport.js"
+import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/run/actions.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { PresentationSurface } from "../surfaces/PresentationSurface.js"
 
 import { deepDiveProjectionSurfaceFor } from "./projection-surface.js"
 
-export const DeepDivePage = ({ id }: { readonly id: SurfaceId }) => {
-  const frameViewModel = useAtomValue(deepDiveSurfaceFrameAtom(id))
+export const DeepDivePage = ({ entryId }: { readonly entryId: EntryId }) => {
+  const frameViewModel = useAtomValue(deepDiveSurfaceFrameAtom(entryId))
   const focusedSurface = useAtomValue(deepDiveFocusedSurfaceAtom)
   const maxProjectedSurfaceCount = useAtomValue(deepDiveMaxProjectedSurfaceCountAtom)
   const panePercent = useAtomValue(deepDivePanePercentAtom)
@@ -45,23 +49,23 @@ export const DeepDivePage = ({ id }: { readonly id: SurfaceId }) => {
   const dispatchSelectSourceScope = useAtomSet(selectProgramSourceScopeAtom)
   const dispatchWorkspaceWidth = useAtomSet(setDeepDiveWorkspaceWidthAtom)
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
-  const pageMetadata = metadataForPublishedConsumerId(id)
+  const pageMetadata = metadataForEntryId(entryId)
   const visibleProjectedSurfaceCount = Math.min(projectedSurfaceCount, maxProjectedSurfaceCount)
 
   const onRunControlAction = (action: RunControlActionKind): void => {
-    dispatchRunControl({ action, id })
+    dispatchRunControl({ action, id: entryId })
   }
 
   const surfaces = surfaceOrder.map((surface, index) => {
     const projected = index < visibleProjectedSurfaceCount
     const descriptor = deepDiveProjectionSurfaceFor(surface, {
       frameViewModel,
-      id,
+      id: entryId,
       onSelectFile: (fileIndex) => {
-        dispatchSelectFile({ id, fileIndex })
+        dispatchSelectFile({ id: entryId, fileIndex })
       },
       onSelectSourceScope: (scope) => {
-        dispatchSelectSourceScope({ id, scope })
+        dispatchSelectSourceScope({ id: entryId, scope })
       },
       projectionIndex: projected ? index : null,
       onToggleSourceExplorerVisible: () => {
@@ -85,7 +89,7 @@ export const DeepDivePage = ({ id }: { readonly id: SurfaceId }) => {
       <PresentationSurface
         backHref="/"
         chromeContent={frameViewModel.chrome}
-        consumerId={id}
+        entryId={entryId}
         onFocusSurface={(surface) => {
           dispatchFocusSurface(surface)
         }}

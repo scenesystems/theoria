@@ -1,25 +1,30 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, Schema } from "effect"
 
-import { isWorkflowComparisonSurfaceRunPlan } from "../../app/contracts/run-plan.js"
-import { makeRunControlAtom } from "../../app/web/atoms/actions.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { workflowComparisonSurfaceViewModelAtom } from "../../app/web/atoms/workflow-comparison-surface.js"
-import {
-  selectWorkflowComparisonComparisonModeAtom,
-  selectWorkflowComparisonOptimizeAtom,
-  selectWorkflowComparisonRuntimeProfileAtom,
-  selectWorkflowComparisonSurfaceProfileAtom,
-  workflowComparisonDraftRunPlanAtom,
-  workflowComparisonSelectionAtom
-} from "../../app/web/atoms/workflow-comparison.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
-import { emitWorkflowComparisonAuthoredStream } from "../helpers/mock-workflow-comparison-stream.js"
-
+import { workflowEntryDescriptor } from "../../app/contracts/proving-substrate.js"
+import { makeWorkflowEntrySelection } from "../../app/contracts/workflow/comparison-run.js"
 import type { WorkflowComparisonId } from "../../app/contracts/workflow/comparison.js"
+import {
+  makeRunControlAtom,
+  selectWorkflowComparisonModeAtom,
+  selectWorkflowOptimizeAtom,
+  selectWorkflowRuntimeProfileAtom,
+  selectWorkflowSeedAtom,
+  selectWorkflowSurfaceProfileAtom
+} from "../../app/web/atoms/actions.js"
+import {
+  surfaceAtom,
+  surfaceCanonicalFrameAtom,
+  surfaceDraftAtom,
+  surfaceEvidenceSectionsAtom,
+  surfaceRunStateAtom
+} from "../../app/web/atoms/surface.js"
+import type { SurfaceState } from "../../app/web/state/types.js"
+import { workflowComparisonSurfaceViewModel } from "../../app/web/view/deep/workflow-comparison-surface-model.js"
+import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { emitWorkflowComparisonAuthoredStream } from "../helpers/mock-workflow-comparison-stream.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -48,6 +53,9 @@ class MockEventSource {
   }
 }
 
+const WorkflowEntryRequestJson = Schema.parseJson(workflowEntryDescriptor.runRequestSchema)
+const decodeWorkflowEntryRequestJson = Schema.decodeUnknownSync(WorkflowEntryRequestJson)
+
 const makeAsyncTestRegistry = (): Registry.Registry =>
   Registry.make({
     scheduleTask: (f) => {
@@ -59,11 +67,24 @@ const makeRuntime = () =>
   makeAppClientTestRuntime({
     run: () => Effect.fail(errorFixture),
     runWithMeta: () => Effect.fail(errorFixture),
-    preload: () => Effect.succeed(programPreviewFixture),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.succeed(programPreviewFixture)
   })
 
-const readSurface = (registry: Registry.Registry): SurfaceState => registry.get(surfaceAtom("workflow-comparison"))
+const readSurface = (registry: Registry.Registry): SurfaceState => registry.get(surfaceAtom("workflow"))
+
+const readWorkflowComparisonViewModel = (registry: Registry.Registry) => {
+  const draft = registry.get(surfaceDraftAtom("workflow"))
+
+  return workflowComparisonSurfaceViewModel({
+    draftPlan: draft.entryId === "workflow" ? draft : makeWorkflowEntrySelection(),
+    frame: registry.get(surfaceCanonicalFrameAtom("workflow")),
+    run: registry.get(surfaceRunStateAtom("workflow")),
+    sections: registry.get(surfaceEvidenceSectionsAtom("workflow"))
+  })
+}
+
+const workflowRequestFromStreamUrl = (url: string) =>
+  decodeWorkflowEntryRequestJson(new URL(url, "http://127.0.0.1").searchParams.get("request") ?? "")
 
 const waitForSource = (index: number) =>
   Effect.eventually(
@@ -97,132 +118,106 @@ const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.
   )
 }
 
-const workflowManifestCases: ReadonlyArray<{
-  readonly comparisonId: WorkflowComparisonId
+const workflowSeedCases: ReadonlyArray<{
+  readonly seedId: WorkflowComparisonId
   readonly label: string
 }> = [
-  { comparisonId: "workflow-comparison/task-briefing", label: "Task Briefing" },
-  { comparisonId: "workflow-comparison/chat-handoff", label: "Chat Handoff" },
-  { comparisonId: "workflow-comparison/retrieval-required", label: "Retrieval Required" },
-  { comparisonId: "workflow-comparison/render-sensitive", label: "Render Sensitive" }
+  { seedId: "task-briefing", label: "Task Briefing" },
+  { seedId: "chat-handoff", label: "Chat Handoff" },
+  { seedId: "retrieval-required", label: "Retrieval Required" },
+  { seedId: "render-sensitive", label: "Render Sensitive" }
 ]
 
-describe("workflow-comparison browser proof", () => {
-  it.live("preserves frozen manifest identity across interruption and picks up the new scenario only after reset and replay", () =>
+describe("workflow browser proof", () => {
+  it.live("preserves frozen workflow seed across interruption and only adopts the next seed after reset", () =>
     withMockEventSource(
       Effect.gen(function*() {
         const registry = makeAsyncTestRegistry()
-        const runtime = makeRuntime()
-        const runControlAtom = makeRunControlAtom(runtime)
+        const runControlAtom = makeRunControlAtom(makeRuntime())
 
         registry.mount(runControlAtom)
-        registry.set(workflowComparisonSelectionAtom, "workflow-comparison/task-briefing")
-        registry.set(runControlAtom, { action: "run", id: "workflow-comparison" })
+        registry.mount(selectWorkflowSeedAtom)
+        registry.set(selectWorkflowSeedAtom, "task-briefing")
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
 
         const firstSource = yield* waitForSource(0)
-        expect(firstSource.url).toContain("comparisonId=workflow-comparison%2Ftask-briefing")
 
-        registry.set(workflowComparisonSelectionAtom, "workflow-comparison/render-sensitive")
-        registry.set(runControlAtom, { action: "stop", id: "workflow-comparison" })
+        expect(workflowRequestFromStreamUrl(firstSource.url).draft.seedId).toBe("task-briefing")
+
+        registry.set(selectWorkflowSeedAtom, "render-sensitive")
+        registry.set(runControlAtom, { action: "stop", id: "workflow" })
 
         const stopped = yield* Effect.eventually(
           Effect.sync(() => readSurface(registry)).pipe(
-            Effect.filterOrFail((state) => state.run._tag === "RunIdle", () => "waiting-for-workflow-comparison-stop")
+            Effect.filterOrFail((state) => state.run._tag === "RunIdle", () => "waiting-for-workflow-stop")
           )
         )
-        const stoppedViewModel = registry.get(workflowComparisonSurfaceViewModelAtom)
 
-        expect(stopped.run._tag).toBe("RunIdle")
         expect(firstSource.closed).toBe(true)
-        expect(stoppedViewModel.selection.label).toBe("Task Briefing")
-        expect(stoppedViewModel.selectionLocked).toBe(true)
-        const stoppedRunPlan = yield* Effect.sync(() => stopped.run.session.runPlan).pipe(
-          Effect.flatMap((runPlan) =>
-            isWorkflowComparisonSurfaceRunPlan(runPlan)
-              ? Effect.succeed(runPlan)
-              : Effect.dieMessage("expected workflow-comparison run plan to remain frozen after stop")
-          )
-        )
+        expect(stopped.run.session.draft?.seedId).toBe("task-briefing")
+        expect(readWorkflowComparisonViewModel(registry).selection.label).toBe("Task Briefing")
+        expect(readWorkflowComparisonViewModel(registry).selectionLocked).toBe(true)
 
-        expect(stoppedRunPlan.comparisonId).toBe("workflow-comparison/task-briefing")
+        registry.set(runControlAtom, { action: "reset", id: "workflow" })
 
-        registry.set(runControlAtom, { action: "reset", id: "workflow-comparison" })
-        expect(registry.get(workflowComparisonSurfaceViewModelAtom).selection.label).toBe("Render Sensitive")
+        expect(readWorkflowComparisonViewModel(registry).selection.label).toBe("Render Sensitive")
+        expect(readSurface(registry).run.session.draft).toBeNull()
 
-        registry.set(runControlAtom, { action: "run", id: "workflow-comparison" })
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
 
         const secondSource = yield* waitForSource(1)
-        expect(secondSource.url).toContain("comparisonId=workflow-comparison%2Frender-sensitive")
+
+        expect(workflowRequestFromStreamUrl(secondSource.url).draft.seedId).toBe("render-sensitive")
       })
     ))
 
-  it.live("runs all published workflow manifests through the same published-consumer stream lane", () =>
+  it.live("routes every published workflow seed through the shared workflow entry stream lane", () =>
     withMockEventSource(
       Effect.gen(function*() {
         const registry = makeAsyncTestRegistry()
-        const runtime = makeRuntime()
-        const runControlAtom = makeRunControlAtom(runtime)
+        const runControlAtom = makeRunControlAtom(makeRuntime())
 
         registry.mount(runControlAtom)
+        registry.mount(selectWorkflowSeedAtom)
 
         yield* Effect.forEach(
-          workflowManifestCases,
-          ({ comparisonId, label }, index) =>
+          workflowSeedCases,
+          ({ label, seedId }, index) =>
             Effect.gen(function*() {
-              registry.set(workflowComparisonSelectionAtom, comparisonId)
-              yield* Effect.eventually(
-                Effect.sync(() => registry.get(workflowComparisonDraftRunPlanAtom)).pipe(
-                  Effect.filterOrFail(
-                    (draftPlan) => draftPlan.comparisonId === comparisonId,
-                    () => `waiting-for-${comparisonId}-draft-plan`
-                  )
-                )
-              )
-              registry.set(runControlAtom, { action: "run", id: "workflow-comparison" })
+              registry.set(selectWorkflowSeedAtom, seedId)
+              registry.set(runControlAtom, { action: "run", id: "workflow" })
 
               const source = yield* waitForSource(index)
+              const request = workflowRequestFromStreamUrl(source.url)
 
-              expect(source.url.startsWith("/api/workflow-comparison/stream?")).toBe(true)
-              expect(source.url).toContain(`comparisonId=${encodeURIComponent(comparisonId)}`)
+              expect(source.url.startsWith("/api/entries/workflow/stream?request=")).toBe(true)
+              expect(request.draft.seedId).toBe(seedId)
 
               yield* emitWorkflowComparisonAuthoredStream({
-                comparisonId,
+                comparisonId: seedId,
                 meta: {
-                  requestId: `workflow-comparison-${index}`,
-                  buildSha: `build-workflow-comparison-${index}`,
+                  requestId: `workflow-${seedId}`,
+                  buildSha: `build-${seedId}`,
                   durationMs: index + 17
                 },
                 source,
-                summary: `${label} browser reuse proof.`
+                summary: `${label} browser proof.`
               })
 
               const succeeded = yield* Effect.eventually(
                 Effect.sync(() => readSurface(registry)).pipe(
-                  Effect.filterOrFail(
-                    (state) => state.run._tag === "RunSuccess",
-                    () => `waiting-for-${comparisonId}-success`
-                  )
+                  Effect.filterOrFail((state) => state.run._tag === "RunSuccess", () => `waiting-for-${seedId}-success`)
                 )
               )
 
-              const runPlan = yield* Effect.sync(() => succeeded.run.session.runPlan).pipe(
-                Effect.flatMap((plan) =>
-                  isWorkflowComparisonSurfaceRunPlan(plan)
-                    ? Effect.succeed(plan)
-                    : Effect.dieMessage("expected workflow-comparison run plan after success")
-                )
-              )
+              expect(succeeded.run.session.draft?.seedId).toBe(seedId)
+              expect(readWorkflowComparisonViewModel(registry).selection.label).toBe(label)
 
-              expect(runPlan.comparisonId).toBe(comparisonId)
-              expect(registry.get(workflowComparisonSurfaceViewModelAtom).selection.label).toBe(label)
+              registry.set(runControlAtom, { action: "reset", id: "workflow" })
 
-              registry.set(runControlAtom, { action: "reset", id: "workflow-comparison" })
               yield* Effect.eventually(
                 Effect.sync(() => readSurface(registry)).pipe(
-                  Effect.filterOrFail(
-                    (state) => state.run.session.runPlan === null,
-                    () => `waiting-for-${comparisonId}-reset`
-                  )
+                  Effect.filterOrFail((state) => state.run.session.draft === null, () => `waiting-for-${seedId}-reset`)
                 )
               )
             }),
@@ -231,113 +226,76 @@ describe("workflow-comparison browser proof", () => {
       })
     ))
 
-  it.live("projects baseline, authored optimized, and search-winner browser surfaces from one shared run ledger", () =>
+  it.live("freezes workflow control choices into the shared entry draft and reflected surface view model", () =>
     withMockEventSource(
       Effect.gen(function*() {
         const registry = makeAsyncTestRegistry()
-        const runtime = makeRuntime()
-        const runControlAtom = makeRunControlAtom(runtime)
+        const runControlAtom = makeRunControlAtom(makeRuntime())
 
         registry.mount(runControlAtom)
-        registry.set(workflowComparisonSelectionAtom, "workflow-comparison/chat-handoff")
-        registry.set(runControlAtom, { action: "run", id: "workflow-comparison" })
+        registry.mount(selectWorkflowSeedAtom)
+        registry.mount(selectWorkflowComparisonModeAtom)
+        registry.mount(selectWorkflowOptimizeAtom)
+        registry.mount(selectWorkflowRuntimeProfileAtom)
+        registry.mount(selectWorkflowSurfaceProfileAtom)
+
+        registry.set(selectWorkflowSeedAtom, "chat-handoff")
+        registry.set(selectWorkflowComparisonModeAtom, "search-winner")
+        registry.set(selectWorkflowOptimizeAtom, false)
+        registry.set(selectWorkflowRuntimeProfileAtom, "preferred")
+        registry.set(selectWorkflowSurfaceProfileAtom, "full-panel")
+
+        const draft = readSurface(registry).draft
+
+        expect(draft.entryId).toBe("workflow")
+        if (draft.entryId !== "workflow") {
+          return
+        }
+
+        expect(draft.seedId).toBe("chat-handoff")
+        expect(draft.controls.optimize).toBe(false)
+        expect(draft.controls.comparisonMode).toBe("authored-optimized")
+        expect(draft.controls.runtimeProfile).toBe("preferred")
+        expect(draft.controls.surfaceProfile).toBe("full-panel")
+
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
 
         const source = yield* waitForSource(0)
+        const request = workflowRequestFromStreamUrl(source.url)
+
+        expect(request.draft.seedId).toBe("chat-handoff")
+        expect(request.draft.controls.optimize).toBe(false)
+        expect(request.draft.controls.comparisonMode).toBe("authored-optimized")
+        expect(request.draft.controls.runtimeProfile).toBe("preferred")
+        expect(request.draft.controls.surfaceProfile).toBe("full-panel")
 
         yield* emitWorkflowComparisonAuthoredStream({
-          comparisonId: "workflow-comparison/chat-handoff",
+          comparisonId: "chat-handoff",
           meta: {
-            requestId: "workflow-comparison-proof",
-            buildSha: "build-workflow-comparison-proof",
-            durationMs: 23
-          },
-          source,
-          summary: "Workflow comparison browser proof."
-        })
-
-        yield* Effect.eventually(
-          Effect.sync(() => readSurface(registry)).pipe(
-            Effect.filterOrFail(
-              (state) => state.run._tag === "RunSuccess",
-              () => "waiting-for-workflow-comparison-success"
-            )
-          )
-        )
-
-        const viewModel = registry.get(workflowComparisonSurfaceViewModelAtom)
-
-        expect(viewModel.phaseLabel).toBe("Succeeded")
-        expect(viewModel.selection.label).toBe("Chat Handoff")
-        expect(viewModel.graph.cards[0]?.score).toBe("0.620")
-        expect(viewModel.graph.cards[1]?.score).toBe("0.840")
-        expect(viewModel.graph.cards[2]?.score).toBe("0.910")
-        expect(viewModel.graph.cards[2]?.detail).toContain("instruction-profile=stepwise")
-        expect(viewModel.transcript.entries.map((entry) => entry.nodeId)).toEqual(["reply", "reply", "render-check"])
-        expect(viewModel.renderedPreview.panes[1]?.body).toContain("Search winner chat handoff")
-        expect(viewModel.renderedPreview.panes[1]?.body).not.toContain("Render check")
-        expect(viewModel.renderedPreview.panes[1]?.note).toContain("reply")
-        expect(viewModel.renderedPreview.metrics[3]?.value).toBe("+0.290")
-        expect(viewModel.renderedPreview.metrics[4]?.value).toBe("+0.070")
-      })
-    ))
-
-  it.live("freezes bounded workflow controls into an authored-optimized run plan when optimization is disabled", () =>
-    withMockEventSource(
-      Effect.gen(function*() {
-        const registry = makeAsyncTestRegistry()
-        const runtime = makeRuntime()
-        const runControlAtom = makeRunControlAtom(runtime)
-
-        registry.mount(runControlAtom)
-        registry.set(workflowComparisonSelectionAtom, "workflow-comparison/chat-handoff")
-        registry.set(selectWorkflowComparisonComparisonModeAtom, "search-winner")
-        registry.set(selectWorkflowComparisonOptimizeAtom, false)
-        registry.set(selectWorkflowComparisonRuntimeProfileAtom, "preferred")
-        registry.set(selectWorkflowComparisonSurfaceProfileAtom, "full-panel")
-
-        const draftPlan = registry.get(workflowComparisonDraftRunPlanAtom)
-
-        expect(draftPlan.optimize).toBe(false)
-        expect(draftPlan.comparisonMode).toBe("authored-optimized")
-        expect(draftPlan.runtimeProfile).toBe("preferred")
-        expect(draftPlan.surfaceProfile).toBe("full-panel")
-
-        registry.set(runControlAtom, { action: "run", id: "workflow-comparison" })
-
-        const source = yield* waitForSource(0)
-
-        expect(source.url).toContain("comparisonId=workflow-comparison%2Fchat-handoff")
-        expect(source.url).toContain("optimize=false")
-        expect(source.url).toContain("comparisonMode=authored-optimized")
-        expect(source.url).toContain("runtimeProfile=preferred")
-        expect(source.url).toContain("surfaceProfile=full-panel")
-
-        yield* emitWorkflowComparisonAuthoredStream({
-          comparisonId: "workflow-comparison/chat-handoff",
-          meta: {
-            requestId: "workflow-comparison-controls-proof",
-            buildSha: "build-workflow-comparison-controls-proof",
+            requestId: "workflow-controls",
+            buildSha: "build-workflow-controls",
             durationMs: 19
           },
           source,
-          summary: "Workflow comparison optimize-off control proof."
+          summary: "Workflow controls proof."
         })
 
         yield* Effect.eventually(
           Effect.sync(() => readSurface(registry)).pipe(
             Effect.filterOrFail(
               (state) => state.run._tag === "RunSuccess",
-              () => "waiting-for-workflow-comparison-optimize-off-success"
+              () => "waiting-for-workflow-controls-success"
             )
           )
         )
 
-        const viewModel = registry.get(workflowComparisonSurfaceViewModelAtom)
+        const viewModel = readWorkflowComparisonViewModel(registry)
 
-        expect(viewModel.plan.optimize).toBe(false)
-        expect(viewModel.plan.comparisonMode).toBe("authored-optimized")
+        expect(viewModel.plan.controls.optimize).toBe(false)
+        expect(viewModel.plan.controls.comparisonMode).toBe("authored-optimized")
+        expect(viewModel.plan.controls.runtimeProfile).toBe("preferred")
+        expect(viewModel.plan.controls.surfaceProfile).toBe("full-panel")
         expect(viewModel.runStory).toBe("baseline -> authored optimized replay")
-        expect(viewModel.renderedPreview.panes[1]?.label).toBe("Authored Optimized Output")
       })
     ))
 })

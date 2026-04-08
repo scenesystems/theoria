@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import type { TextRole } from "../../../contracts/text.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { TextRole } from "../../../contracts/presentation/text.js"
 
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

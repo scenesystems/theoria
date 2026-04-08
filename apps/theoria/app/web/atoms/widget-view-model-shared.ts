@@ -1,6 +1,6 @@
 import { Match, Option } from "effect"
 
-import type { RunState } from "../state/types.js"
+import type { RunState } from "../state/run/types.js"
 import type { MetricAppearance } from "../view/primitives/designSystem.js"
 
 export type WidgetMetric = {

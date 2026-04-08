@@ -5,7 +5,7 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import { cardById } from "../../app/contracts/card.js"
-import { toneClassesForCard } from "../../app/web/view/primitives/designSystem.js"
+import { toneForCard } from "../../app/web/view/primitives/designSystem.js"
 import { InstrumentCard } from "../../app/web/view/home/InstrumentCard.js"
 
 const versionsEnvelope = {
@@ -109,7 +109,7 @@ describe("InstrumentCard spring", () => {
           root.render(
             <StrictMode>
               <RegistryProvider defaultIdleTTL={400}>
-                <InstrumentCard card={card} tone={toneClassesForCard(card.id)} />
+                <InstrumentCard card={card} tone={toneForCard(card.id)} />
               </RegistryProvider>
             </StrictMode>
           )
@@ -147,7 +147,7 @@ describe("InstrumentCard spring", () => {
           root.render(
             <StrictMode>
               <RegistryProvider defaultIdleTTL={400}>
-                <InstrumentCard card={card} tone={toneClassesForCard(card.id)} />
+                <InstrumentCard card={card} tone={toneForCard(card.id)} />
               </RegistryProvider>
             </StrictMode>
           )

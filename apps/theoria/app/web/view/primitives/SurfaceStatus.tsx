@@ -1,9 +1,9 @@
 import { Match } from "effect"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 import type { StatusTone } from "../surfaceModel.js"
 
-import type { SurfaceTheme } from "./designSystem.js"
+import type { Surface } from "./designSystem.js"
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -28,7 +28,7 @@ export const SurfaceStatus = ({
   variant
 }: {
   readonly status: string
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
   readonly tone: StatusTone
   readonly variant: SurfaceVariant
 }) => (

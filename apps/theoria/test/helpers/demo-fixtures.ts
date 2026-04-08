@@ -12,7 +12,7 @@ export const effectTextCardFixture: Card = {
   summary: "Browser-backed measurement and prepared-handle reuse across a multi-domain text corpus.",
   runLabel: "Run Benchmark",
   interactiveLabel: "Live Reflow",
-  deepDivePath: "/demos/effect-text",
+  deepDivePath: "/effect-text",
   group: "effect",
   releaseState: "published",
   version: "0.0.0",

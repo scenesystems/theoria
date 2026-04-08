@@ -11,7 +11,7 @@ import {
   releaseNotesScene,
   researchAbstractScene,
   supportChatScene
-} from "./reflow-scenes.js"
+} from "./presentation/reflow-scenes.js"
 
 export const CorpusEntry = Schema.Struct({
   id: Schema.String.pipe(Schema.minLength(1)),

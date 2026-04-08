@@ -7,11 +7,11 @@ import {
   toggleReflowObstaclesAtom
 } from "../../atoms/widget-controls.js"
 import { reflowWidgetViewModelAtom } from "../../atoms/widget-view-models.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { toneFor } from "../primitives/designSystem.js"
 
 import { ReflowStagePanel } from "./ReflowStagePanel.js"
 
-const tone = toneClassesFor("text")
+const tone = toneFor("text")
 
 export const LiveReflow = () => {
   const vm = useAtomValue(reflowWidgetViewModelAtom)

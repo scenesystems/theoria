@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Text } from "effect-text"
 import * as TextReact from "effect-text/react"
 
-import { layoutRequestFor, prepareInputFor, type TextProjectionRequest } from "../../../contracts/text.js"
+import { layoutRequestFor, prepareInputFor, type TextProjectionRequest } from "../../../contracts/presentation/text.js"
 import {
   browserEngineProfile,
   browserFontReadinessRevision,

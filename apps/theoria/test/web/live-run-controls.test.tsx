@@ -8,7 +8,7 @@ import { createRoot } from "react-dom/client"
 
 import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
 import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence-stream.js"
 import { DeepDivePage } from "../../app/web/view/deep/DeepDivePage.js"
 import { programPreviewFixture } from "../helpers/demo-fixtures.js"
@@ -52,7 +52,7 @@ const streamMeta = {
   durationMs: 1
 }
 
-const renderDeepDivePage = (id: Id): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
+const renderDeepDivePage = (id: EntryId): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
   Effect.sync(() => {
     const container = document.createElement("div")
     document.body.appendChild(container)
@@ -62,7 +62,7 @@ const renderDeepDivePage = (id: Id): Effect.Effect<{ readonly container: HTMLDiv
       <StrictMode>
         <RegistryProvider defaultIdleTTL={400}>
           <Tooltip.Provider>
-            <DeepDivePage id={id} />
+            <DeepDivePage entryId={id} />
           </Tooltip.Provider>
         </RegistryProvider>
       </StrictMode>

@@ -1,4 +1,4 @@
-import type { ToneClasses } from "./designSystem.js"
+import type { Tone } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -19,7 +19,7 @@ const ContractFieldSection = ({
 }: {
   readonly fields: ReadonlyArray<ContractField>
   readonly label: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Stack className="gap-2.5">
     <Cluster className="items-center justify-between gap-3">
@@ -69,7 +69,7 @@ export const SignatureContractPanel = ({
   readonly instruction: string
   readonly outputFields: ReadonlyArray<ContractField>
   readonly title: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Stack className="gap-4">
     <Cluster className="items-center justify-between gap-3">

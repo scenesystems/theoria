@@ -3,11 +3,11 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import type { PackageName } from "@theoria/source-proof/contracts"
 import { Match, Option } from "effect"
 
-import { cards } from "../../../contracts/card.js"
-import { metadataForPackageDocs } from "../../../contracts/metadata.js"
-import { packageDocsPagePath } from "../../../contracts/package-docs.js"
+import { entryDescriptors } from "../../../contracts/entry/registry.js"
+import { metadataForPackageDocs } from "../../../contracts/presentation/metadata.js"
+import { packageDocsPagePath } from "../../../contracts/presentation/package-docs.js"
 import { packageDocsBundleAtom, packageDocsCatalogAtom } from "../../atoms/package-docs.js"
-import { appTheme, neutralToneClasses, toneClassesForCard } from "../primitives/designSystem.js"
+import { app, neutralTone, toneForCard } from "../primitives/designSystem.js"
 import { ContentCard } from "../primitives/ContentCard.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { ExternalLink, InternalLink } from "../primitives/Link.js"
@@ -98,8 +98,8 @@ const PackageDocsLoaded = ({ packageId }: { readonly packageId: PackageName | nu
                 catalog: catalogSuccess.value,
                 selectedPackageId: selectedPackageId ?? bundle.packageId
               })
-              const card = cards.find((candidate) => candidate.packageName === model.packageId)
-              const tone = card === undefined ? neutralToneClasses : toneClassesForCard(card.id)
+              const descriptor = entryDescriptors.find((candidate) => candidate.packageName === model.packageId)
+              const tone = descriptor === undefined ? neutralTone : toneForCard(descriptor.entryId)
 
               return (
                 <Stack className="gap-6">
@@ -191,11 +191,11 @@ export const PackageDocsPage = ({ packageId }: { readonly packageId: PackageName
   <>
     <DocumentHead metadata={metadataForPackageDocs(packageId)} />
 
-    <Layer as="main" className={appTheme.root}>
-      <Layer aria-hidden className={appTheme.atmosphericGlowA} />
-      <Layer aria-hidden className={appTheme.atmosphericGlowB} />
+    <Layer as="main" className={app.root}>
+      <Layer aria-hidden className={app.atmosphericGlowA} />
+      <Layer aria-hidden className={app.atmosphericGlowB} />
 
-      <Layer className={appTheme.content}>
+      <Layer className={app.content}>
         <SiteHeader />
         <PackageDocsLoaded packageId={packageId} />
         <SiteFooter />

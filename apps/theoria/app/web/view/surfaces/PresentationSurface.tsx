@@ -1,13 +1,13 @@
 import * as Option from "effect/Option"
 
-import type { PublishedConsumerId } from "../../../contracts/id.js"
-import type { RunControlActionKind } from "../../state/types.js"
+import type { EntryId } from "../../../contracts/entry/id.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 
-import { useElementWidthReporter } from "../../atoms/element-observation.js"
+import { useElementWidthReporter } from "../../atoms/surface/element-observation.js"
 import { CompactNav } from "../deep/CompactNav.js"
 import type { DeepDiveProjectionControlModel, DeepDiveProjectionModel } from "../deep/projection-model.js"
 import { ProjectionWorkspace } from "../deep/ProjectionWorkspace.js"
-import { appTheme, surfaceThemeForCard } from "../primitives/designSystem.js"
+import { app, surfaceForCard } from "../primitives/designSystem.js"
 import { Layer, Section } from "../primitives/Layout.js"
 import type { RunControlsViewModel } from "../runControlsModel.js"
 import { type SurfaceChromeContentModel, surfaceChromeModel } from "../surfaceChromeModel.js"
@@ -15,7 +15,7 @@ import { type SurfaceChromeContentModel, surfaceChromeModel } from "../surfaceCh
 export const PresentationSurface = ({
   backHref,
   chromeContent,
-  consumerId,
+  entryId,
   onFocusSurface,
   onHideSurface,
   onPanePercentChange,
@@ -28,7 +28,7 @@ export const PresentationSurface = ({
 }: {
   readonly backHref: string | undefined
   readonly chromeContent: SurfaceChromeContentModel
-  readonly consumerId: PublishedConsumerId
+  readonly entryId: EntryId
   readonly onFocusSurface: (surface: DeepDiveProjectionControlModel["focusedSurface"]) => void
   readonly onHideSurface: (surface: DeepDiveProjectionControlModel["focusedSurface"]) => void
   readonly onPanePercentChange: (nextPercent: number) => void
@@ -39,7 +39,7 @@ export const PresentationSurface = ({
   readonly projection: DeepDiveProjectionModel
   readonly runControls: RunControlsViewModel
 }) => {
-  const theme = surfaceThemeForCard(consumerId)
+  const theme = surfaceForCard(entryId)
   const observeProjectionWorkspace = useElementWidthReporter(onWorkspaceWidthChange)
   const projectionControlModel: DeepDiveProjectionControlModel = {
     focusedSurface: projection.focusedSurface,
@@ -55,10 +55,10 @@ export const PresentationSurface = ({
 
   return (
     <Layer className="relative flex h-dvh flex-col overflow-hidden bg-stage-50 text-ink-900 antialiased">
-      <Layer className={appTheme.atmosphericGlowA} />
-      <Layer className={appTheme.atmosphericGlowB} />
+      <Layer className={app.atmosphericGlowA} />
+      <Layer className={app.atmosphericGlowB} />
       <CompactNav
-        consumerId={consumerId}
+        entryId={entryId}
         chrome={chrome}
         onRunControlAction={onRunControlAction}
         projection={{

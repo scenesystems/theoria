@@ -1,12 +1,12 @@
 import * as Option from "effect/Option"
 
-import type { PublishedConsumerId } from "../../../contracts/id.js"
-import type { RunControlActionKind } from "../../state/types.js"
+import type { EntryId } from "../../../contracts/entry/id.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 import type { RunControlsViewModel } from "../runControlsModel.js"
 import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
 
 import { ActionLink } from "../primitives/ActionControl.js"
-import { appTheme, neutralBadgeTheme, type SurfaceTheme, toneClassesForCard } from "../primitives/designSystem.js"
+import { app, neutralBadge, type Surface, toneForCard } from "../primitives/designSystem.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
 import { PackageBadge } from "../primitives/PackageBadge.js"
 import { RunControlDock } from "../primitives/RunControlDock.js"
@@ -18,14 +18,14 @@ import type { DeepDiveProjectionControlModel } from "./projection-model.js"
 import { ProjectionMenu } from "./ProjectionMenu.js"
 
 export const CompactNav = ({
-  consumerId,
+  entryId,
   chrome,
   onRunControlAction,
   projection,
   runControls,
   theme
 }: {
-  readonly consumerId: PublishedConsumerId
+  readonly entryId: EntryId
   readonly chrome: SurfaceChromeModel
   readonly onRunControlAction: (action: RunControlActionKind) => void
   readonly projection?: {
@@ -35,9 +35,9 @@ export const CompactNav = ({
     readonly onProjectSurface: (surface: DeepDiveProjectionControlModel["focusedSurface"], index?: number) => void
   }
   readonly runControls: RunControlsViewModel
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
 }) => {
-  const tone = toneClassesForCard(consumerId)
+  const tone = toneForCard(entryId)
   const backControl = Option.match(chrome.backLink.href, {
     onNone: () => null,
     onSome: (href) => (
@@ -64,7 +64,7 @@ export const CompactNav = ({
         : chrome.runtimeBadge.visible
         ? (
           <PackageBadge
-            badge={neutralBadgeTheme}
+            badge={neutralBadge}
             label={chrome.runtimeBadge.label}
             variant="compact"
           />
@@ -89,7 +89,7 @@ export const CompactNav = ({
   )
 
   return (
-    <Header className={`${appTheme.compactNav} relative z-20`}>
+    <Header className={`${app.compactNav} relative z-20`}>
       <Layer className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-4">
         <Cluster className="min-w-0 items-center gap-3 sm:gap-4 sm:justify-self-start">
           <Layer className="shrink-0">{backControl}</Layer>

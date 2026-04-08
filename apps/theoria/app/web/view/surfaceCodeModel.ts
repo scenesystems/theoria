@@ -8,8 +8,9 @@ import {
   type SourceFileTab,
   type SourceWorkspaceTab,
   type SurfaceVariant
-} from "../../contracts/presentation.js"
-import { programFromRunState, type SurfaceState } from "../state/types.js"
+} from "../../contracts/presentation/program.js"
+import { programFromRunState } from "../state/run/types.js"
+import type { SurfaceState } from "../state/surface/state.js"
 
 import type { SurfaceCodeModel } from "./surfaceModel.js"
 

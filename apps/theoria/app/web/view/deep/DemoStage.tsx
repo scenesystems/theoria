@@ -8,7 +8,8 @@ import {
   type EvidencePlaneViewModel
 } from "../data/evidence-layout.js"
 import { EvidenceToolbar } from "../primitives/EvidenceToolbar.js"
-import type { DemoEvidenceViewModel, DemoStageViewModel } from "./stageModel.js"
+import type { DemoEvidenceViewModel } from "./stageEvidenceModel.js"
+import type { DemoStageViewModel } from "./stageModel.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
 import { EmptyState, FailureState, RunningState } from "../primitives/Skeleton.js"

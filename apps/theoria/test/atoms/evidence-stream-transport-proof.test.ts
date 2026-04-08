@@ -4,17 +4,16 @@ import { Chunk, Effect, Fiber, Option, Ref, Stream } from "effect"
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
 import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import { isRunnableDemoId, type SurfaceId } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeServerEvidenceStream } from "../../app/web/atoms/evidence-stream.js"
-import { workflowComparisonRunPlan } from "../../app/web/atoms/workflow-comparison.js"
 import {
-  streamingSurfaceIds,
+  streamingEntryIds,
   type SurfaceRuntime,
   surfaceRuntimeFor,
   type SurfaceRuntimeSnapshot
-} from "../../app/web/runtime/surface-runtime.js"
-import { workflowComparisonStreamPath } from "../../app/web/services/WorkflowComparisonClient.js"
-import { makeAppClientTestLayer } from "../helpers/demo-client.test-layer.js"
+} from "../../app/web/runtime/kernel/surface-runtime.js"
+import { initialSurfaceState } from "../../app/web/state/types.js"
+import { makeAppClientTestLayer } from "../helpers/entry-client.test-layer.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -66,34 +65,27 @@ const waitForLatestSource = Effect.eventually(
 )
 
 type RuntimeStreamRequest = {
-  readonly id: SurfaceId
+  readonly id: EntryId
   readonly runtime: SurfaceRuntime
   readonly runtimeSnapshot: SurfaceRuntimeSnapshot
   readonly runToken: string | null
 }
 
-const runtimeStreamRequestFor = (id: SurfaceId): RuntimeStreamRequest | null =>
-  id === "workflow-comparison"
-    ? {
-      id,
-      runtime: surfaceRuntimeFor(id),
-      runtimeSnapshot: {
-        runPlan: workflowComparisonRunPlan("workflow-comparison/task-briefing"),
-        localRunPlan: null
-      },
-      runToken: null
-    }
-    : isRunnableDemoId(id)
-    ? {
-      id,
-      runtime: surfaceRuntimeFor(id),
-      runtimeSnapshot: {
-        runPlan: { id, manifest: null },
-        localRunPlan: null
-      },
-      runToken: null
-    }
-    : null
+const runtimeStreamRequestFor = (id: EntryId): RuntimeStreamRequest => ({
+  id,
+  runtime: surfaceRuntimeFor(id),
+  runtimeSnapshot: {
+    draft: initialSurfaceState(id).draft,
+    localProjectionScript: null
+  },
+  runToken: null
+})
+
+const runtimeStreamUrlFor = (request: RuntimeStreamRequest): string | null =>
+  Option.match(request.runtime.streamUrl, {
+    onNone: () => null,
+    onSome: (streamUrl) => streamUrl(request.runtimeSnapshot, request.runToken)
+  })
 
 const withMockEventSource = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
   const previousEventSource = globalThis.EventSource
@@ -131,8 +123,7 @@ const streamingProofLayer = ({
       Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
         Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run terminal path" })))
       ),
-    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" }))
   })
 
 const fetchProofLayer = ({
@@ -163,8 +154,7 @@ const fetchProofLayer = ({
           meta: streamMeta
         })
       ),
-    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" })),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" }))
   })
 
 describe("evidence stream transport proof", () => {
@@ -175,7 +165,7 @@ describe("evidence stream transport proof", () => {
         const runWithMetaCountRef = yield* Ref.make(0)
         const layer = streamingProofLayer({ runCountRef, runWithMetaCountRef })
 
-        yield* Effect.forEach(streamingSurfaceIds, (id) =>
+        yield* Effect.forEach(streamingEntryIds, (id) =>
           Effect.gen(function*() {
             yield* Effect.sync(() => {
               MockEventSource.instances = []
@@ -183,22 +173,16 @@ describe("evidence stream transport proof", () => {
 
             const request = runtimeStreamRequestFor(id)
 
-            if (request === null) {
-              return
-            }
-
             const fiber = yield* makeServerEvidenceStream(request).pipe(
               Stream.runCollect,
               Effect.provide(layer),
               Effect.fork
             )
             const source = yield* waitForLatestSource
+            const expectedUrl = runtimeStreamUrlFor(request)
 
-            expect(source.url).toBe(
-              id === "workflow-comparison"
-                ? workflowComparisonStreamPath(workflowComparisonRunPlan("workflow-comparison/task-briefing"))
-                : `/api/demos/${id}/stream`
-            )
+            expect(expectedUrl).not.toBeNull()
+            expect(source.url).toBe(expectedUrl)
 
             source.emitEvidence(encodeEvidenceEventJson(new SectionAppend({ section: performanceSection })))
             source.emitEvidence(
@@ -222,7 +206,7 @@ describe("evidence stream transport proof", () => {
     Effect.gen(function*() {
       const runCountRef = yield* Ref.make(0)
       const runWithMetaCountRef = yield* Ref.make(0)
-      const events = yield* makeServerEvidenceStream("digest").pipe(
+      const events = yield* makeServerEvidenceStream(runtimeStreamRequestFor("digest")).pipe(
         Stream.runCollect,
         Effect.provide(fetchProofLayer({ runCountRef, runWithMetaCountRef }))
       )

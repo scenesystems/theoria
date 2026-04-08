@@ -5,13 +5,12 @@ import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
 import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
 
 import { corpus } from "../../app/contracts/corpus.js"
-import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js"
-import { EffectTextProjectionStep, snapshotEffectTextRunPlan } from "../../app/contracts/demo/text.js"
+import { EffectSearchCanonicalStep, snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
+import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
 import {
   type EffectSearchRunFrame,
   optimizationAnimatingAtom,
   randomTrialsAtom,
-  snapshotEffectSearchRunPlan,
   tpeTrialsAtom,
   trialBudgetAtom
 } from "../../app/web/atoms/optimization-animation.js"
@@ -136,9 +135,12 @@ describe("widget authority switch", () => {
   it.effect("keeps effect-text on the frozen run plan before the first authored frame arrives", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const runPlan = snapshotEffectTextRunPlan({ customText: "Frozen runtime text", viewportWidthPx: 960 })
+      const projectionScript = snapshotEffectTextTraversalScript({
+        customText: "Frozen runtime text",
+        viewportWidthPx: 960
+      })
       const running = runningRunState({
-        localRunPlan: runPlan,
+        localProjectionScript: projectionScript,
         program: programPreviewFixture.program
       })
 
@@ -153,7 +155,7 @@ describe("widget authority switch", () => {
       expect(activeView.isAnimating).toBe(true)
       expect(activeView.selectedCorpusIndex).toBe(corpus.length)
       expect(activeView.customText).toBe("Frozen runtime text")
-      expect(activeView.width.value).toBe(runPlan.entries[0]?.steps[0]?.stageWidthPx)
+      expect(activeView.width.value).toBe(projectionScript.entries[0]?.steps[0]?.stageWidthPx)
       expect(activeView.obstaclesEnabled).toBe(false)
       expect(activeView.stage).toBeNull()
       expect(activeView.metrics).toEqual([])
@@ -166,7 +168,10 @@ describe("widget authority switch", () => {
         canonicalFrame: effectTextCanonicalFrame,
         frame: effectTextFrame,
         running: runningRunState({
-          localRunPlan: snapshotEffectTextRunPlan({ customText: "Frozen runtime text", viewportWidthPx: 960 }),
+          localProjectionScript: snapshotEffectTextTraversalScript({
+            customText: "Frozen runtime text",
+            viewportWidthPx: 960
+          }),
           program: programPreviewFixture.program
         }),
         summary: "effect-text finished"
@@ -200,7 +205,7 @@ describe("widget authority switch", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const running = runningRunState({
-        localRunPlan: snapshotEffectSearchRunPlan(30),
+        localProjectionScript: snapshotEffectSearchProjectionScript(30),
         program: programPreviewFixture.program
       })
 
@@ -227,7 +232,7 @@ describe("widget authority switch", () => {
         canonicalFrame: effectSearchCanonicalFrame,
         frame: effectSearchFrame,
         running: runningRunState({
-          localRunPlan: snapshotEffectSearchRunPlan(30),
+          localProjectionScript: snapshotEffectSearchProjectionScript(30),
           program: programPreviewFixture.program
         }),
         summary: "effect-search finished"

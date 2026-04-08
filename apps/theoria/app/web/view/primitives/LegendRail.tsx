@@ -1,13 +1,13 @@
 import * as Arr from "effect/Array"
 
-import type { LegendTheme } from "./designSystem.js"
+import type { Legend } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { LegendItem } from "./LegendItem.js"
 
 type LegendEntry = {
+  readonly legend: Legend
   readonly label: string
   readonly shape: "circle" | "square" | "diamond"
-  readonly theme: LegendTheme
   readonly value?: string
 }
 
@@ -36,17 +36,17 @@ export const LegendRail = ({
           {item.value === undefined
             ? (
               <LegendItem
+                legend={item.legend}
                 label={item.label}
                 shape={item.shape}
-                theme={item.theme}
                 variant="rail"
               />
             )
             : (
               <LegendItem
+                legend={item.legend}
                 label={item.label}
                 shape={item.shape}
-                theme={item.theme}
                 value={item.value}
                 variant="rail"
               />

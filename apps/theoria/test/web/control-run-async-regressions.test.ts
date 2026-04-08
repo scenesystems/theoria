@@ -12,23 +12,23 @@ import {
   SectionAppend,
   StreamComplete
 } from "../../app/contracts/evidence-stream.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeRunControlAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
-import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
+import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
 import { powerAnimatingAtom } from "../../app/web/atoms/power-animation.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import { surfaceAtom, surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 import { emitEffectMathAuthoredStream, emitEffectTextAuthoredStream } from "../helpers/mock-authored-stream.js"
 
 const appRootUrl = new URL("../../", import.meta.url)
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
-type DemoId = Extract<Id, "effect-text" | "effect-math" | "effect-dsp">
+type DemoId = Extract<EntryId, "effect-text" | "effect-math" | "effect-dsp">
 
 class MockEventSource {
   static instances: ReadonlyArray<MockEventSource> = []
@@ -68,14 +68,13 @@ const makeAsyncTestRegistry = (): Registry.Registry =>
     }
   })
 
-const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
 
 const makeRuntime = () =>
   makeAppClientTestRuntime({
     run: () => Effect.fail(errorFixture),
     runWithMeta: () => Effect.fail(errorFixture),
-    preload: () => Effect.succeed(programPreviewFixture),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.succeed(programPreviewFixture)
   })
 
 const waitForSource = Effect.eventually(
@@ -137,9 +136,9 @@ const waitForRunState = (
 const emitDspProgressStep = (registry: Registry.Registry, source: MockEventSource): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
     const run = readSurface(registry, "effect-dsp").run
-    const plan = run.session.localRunPlan
+    const plan = run.session.localProjectionScript
 
-    if (!isEffectDspRunPlan(plan)) {
+    if (!isEffectDspProjectionScript(plan)) {
       return yield* Effect.die("missing-effect-dsp-plan")
     }
 

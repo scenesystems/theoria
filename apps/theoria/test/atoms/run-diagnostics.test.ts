@@ -4,7 +4,7 @@ import { Effect, Option } from "effect"
 import * as SearchStudyEvent from "effect-search/StudyEvent"
 
 import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { snapshotEffectSearchRunPlan } from "../../app/web/atoms/optimization-animation.js"
+import { snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
 import type { EffectSearchRunFrame } from "../../app/web/atoms/optimization-animation.js"
 import { surfaceRunLifecycleDiagnosticsViewModelAtom } from "../../app/web/atoms/run-diagnostics.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
@@ -23,7 +23,7 @@ describe("run diagnostics atoms", () => {
   it.effect("exposes effect-search StudyEvent telemetry instead of local optimizer atoms", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localRunPlan = snapshotEffectSearchRunPlan(30)
+      const localProjectionScript = snapshotEffectSearchProjectionScript(30)
       const telemetry = makeEffectSearchStudyTelemetry({
         randomEvents: [
           SearchStudyEvent.TrialStarted({ trialNumber: 0, config: { x: 0.75, y: -0.5 } }),
@@ -46,7 +46,7 @@ describe("run diagnostics atoms", () => {
         ]
       })
       const running = runningRunState({
-        localRunPlan,
+        localProjectionScript,
         program: programPreviewFixture.program,
         startedAtMs: 100,
         sequence: 2,

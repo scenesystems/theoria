@@ -1,6 +1,6 @@
 import { Match, Option } from "effect"
 
-import { type RunControlActionKind, runPhase, type RunState } from "../state/types.js"
+import { type RunControlActionKind, runPhase, type RunState } from "../state/run/types.js"
 
 export type RunControlActionViewModel = {
   readonly action: RunControlActionKind

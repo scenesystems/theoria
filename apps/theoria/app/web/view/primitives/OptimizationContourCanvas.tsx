@@ -2,7 +2,7 @@ import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import { memo } from "react"
 
-import { objectiveExpression, optimum, searchBounds } from "../../../contracts/demo/objective.js"
+import { objectiveExpression, optimum, searchBounds } from "../../../contracts/capability/effect-search.js"
 import type { OptimizationWidgetViewModel } from "../../atoms/widget-view-models.js"
 import {
   mapOptimizationX,
@@ -12,13 +12,13 @@ import {
   optimizationOptimum,
   optimizationPlotBounds
 } from "../data/optimizationContours.js"
-import { type LegendTheme, neutralSubtleLegendTheme, surfaceMaterials } from "./designSystem.js"
+import { type Legend, neutralSubtleLegend, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
 
-const tpeTheme: LegendTheme = { swatch: "bg-tone-search-500 shadow-sm", label: "text-ink-700" }
-const optimumTheme: LegendTheme = { swatch: "bg-tone-search-400 shadow-sm", label: "text-ink-700" }
+const tpeLegend: Legend = { swatch: "bg-tone-search-500 shadow-sm", label: "text-ink-700" }
+const optimumLegend: Legend = { swatch: "bg-tone-search-400 shadow-sm", label: "text-ink-700" }
 
 const contourLineElements = Arr.flatMap(
   optimizationContourData,
@@ -191,9 +191,9 @@ export const OptimizationContourCanvas = ({ vm }: { readonly vm: OptimizationWid
 
       <LegendRail
         items={[
-          { label: "TPE (adaptive)", shape: "circle", theme: tpeTheme },
-          { label: "Random", shape: "circle", theme: neutralSubtleLegendTheme },
-          { label: "Optimum", shape: "diamond", theme: optimumTheme, value: `(${optimum.x}, ${optimum.y})` }
+          { label: "TPE (adaptive)", shape: "circle", legend: tpeLegend },
+          { label: "Random", shape: "circle", legend: neutralSubtleLegend },
+          { label: "Optimum", shape: "diamond", legend: optimumLegend, value: `(${optimum.x}, ${optimum.y})` }
         ]}
       />
     </Stack>

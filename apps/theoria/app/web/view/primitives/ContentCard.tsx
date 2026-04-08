@@ -1,9 +1,9 @@
 import { Match } from "effect"
 import type { ComponentPropsWithRef, ReactNode } from "react"
 
-import type { ContentCardDensity, ContentCardShape } from "../../../contracts/layout.js"
+import type { ContentCardDensity, ContentCardShape } from "../../../contracts/presentation/layout.js"
 
-import type { ContentCardToneClasses } from "./designSystem.js"
+import type { ContentCardTone } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 
 const gapClassName = (density: ContentCardDensity): string =>
@@ -39,7 +39,7 @@ export const ContentCard = ({
   readonly className?: string
   readonly density: ContentCardDensity
   readonly shape?: ContentCardShape
-  readonly tone?: ContentCardToneClasses
+  readonly tone?: ContentCardTone
 } & Omit<ComponentPropsWithRef<"div">, "children" | "className">) => {
   const base = `${gapClassName(density)} ${shapeClassName(density, shape)}`
   const surface = tone !== undefined ? `${tone.border} ${tone.bg}` : neutralClassName

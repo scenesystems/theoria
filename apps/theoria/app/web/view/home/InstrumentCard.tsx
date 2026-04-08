@@ -5,8 +5,7 @@ import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
 import { packageNameFromString } from "@theoria/source-proof/contracts"
 import { Match } from "effect"
 
-import { type Card, cardVisibleInReleaseStage } from "../../../contracts/card.js"
-import { packageDocsPagePath } from "../../../contracts/package-docs.js"
+import { packageDocsPagePath } from "../../../contracts/presentation/package-docs.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
 import { packageVersionsAtom } from "../../atoms/package-versions.js"
 import { useSpringLift } from "../../atoms/spring.js"
@@ -14,13 +13,15 @@ import { runtimeReleaseStage } from "../../runtime/release-stage.js"
 import type { MetaItem } from "../primitives/CardMetaRow.js"
 import { CardMetaRow } from "../primitives/CardMetaRow.js"
 import { ContentCard } from "../primitives/ContentCard.js"
-import type { ToneClasses } from "../primitives/designSystem.js"
+import type { Tone } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
 import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
+import { type InstrumentEntry, instrumentVisibleInReleaseStage } from "./instrument-model.js"
+
+const metaItems = (card: InstrumentEntry, version: string): ReadonlyArray<MetaItem> => [
   { _tag: "internal-link", label: "Docs", href: packageDocsPagePath(packageNameFromString(card.packageName)) },
   { _tag: "external-link", label: `npm@${version}`, href: card.npmUrl },
   { _tag: "external-link", label: "Source", href: card.repoUrl },
@@ -42,8 +43,8 @@ export const InstrumentCard = ({
   card,
   tone
 }: {
-  readonly card: Card
-  readonly tone: ToneClasses
+  readonly card: InstrumentEntry
+  readonly tone: Tone
 }) => {
   const { progress, onPointerEnter, onPointerLeave } = useSpringLift(cardLiftSpring, card.id)
   const versionsResult = useAtomValue(packageVersionsAtom)
@@ -53,7 +54,7 @@ export const InstrumentCard = ({
     onFailure: () => card.version
   })
   const releaseStage = runtimeReleaseStage()
-  const titleIsLinked = cardVisibleInReleaseStage(card, releaseStage)
+  const titleIsLinked = instrumentVisibleInReleaseStage(card, releaseStage)
   const badge = Match.value(card.releaseState).pipe(
     Match.when("coming-soon", () => ({
       className: `${neutralBadgeClassName} text-ink-500`,

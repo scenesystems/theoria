@@ -1,7 +1,5 @@
 import { Atom } from "@effect-atom/atom"
-import { Layer } from "effect"
 
-import { DemoClient } from "../services/DemoClient.js"
-import { WorkflowComparisonClient } from "../services/WorkflowComparisonClient.js"
+import { EntryClient } from "../services/EntryClient.js"
 
-export const appRuntime = Atom.runtime(Layer.merge(DemoClient.Default, WorkflowComparisonClient.Default))
+export const appRuntime = Atom.runtime(EntryClient.Default)

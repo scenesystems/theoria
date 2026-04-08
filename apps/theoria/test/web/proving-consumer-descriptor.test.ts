@@ -1,55 +1,49 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import { publishedConsumerIds, runnableDemoIds } from "../../app/contracts/id.js"
+import { entryIds, runnableEntryIds } from "../../app/contracts/id.js"
 import {
+  authorityCatalogForId,
   authorityCatalogRegistryFingerprint,
   authorityCatalogs,
-  primaryAuthorityCatalogForDescriptor,
-  publishedConsumerDescriptorForId,
-  publishedConsumerDescriptors,
-  publishedConsumerRegistryFingerprint
+  entryDescriptorForId,
+  entryDescriptors,
+  entryRegistryFingerprint,
+  primaryAuthorityIdForEntry
 } from "../../app/contracts/proving-substrate.js"
-import { lookup } from "../../app/server/demos/registry.js"
+import { lookup } from "../../app/server/entries/registry.js"
 import {
-  dedicatedLaneConsumerIds,
-  missingDedicatedApplicationConsumerIds,
-  provingConsumerDescriptorFingerprint,
-  provingConsumerDescriptorFor,
-  provingConsumerDescriptors,
-  provingConsumerRegistryFingerprint,
-  resolveProvingConsumerRuntimeProvenance,
-  streamingSurfaceIds
-} from "../../app/web/runtime/proving-consumer.js"
+  dedicatedEntryIds,
+  entryRuntimeDescriptorFingerprint,
+  entryRuntimeDescriptorFor,
+  entryRuntimeDescriptors,
+  entryRuntimeRegistryFingerprint,
+  resolveEntryRuntimeProvenance,
+  streamingEntryIds
+} from "../../app/web/runtime/kernel/registry.js"
 
-describe("web/proving-consumer-descriptor", () => {
-  it.effect("composes the proving-consumer registry from authority, publication, and lane descriptors across all published consumers", () =>
+describe("web/entry-runtime-registry", () => {
+  it.effect("composes the entry runtime registry from authority, substrate, and lane descriptors across all entries", () =>
     Effect.gen(function*() {
-      const serverStreamingIds: ReadonlyArray<(typeof publishedConsumerIds)[number]> = [
-        ...runnableDemoIds.filter((id) =>
-          Option.match(lookup(id), {
-            onNone: () => false,
-            onSome: (definition) => definition.streamPlan !== null
-          })
-        ),
-        "workflow-comparison"
-      ]
-      const derivedStreamingIds = publishedConsumerIds.filter(
-        (id) => provingConsumerDescriptorFor(id).runtime.transport === "sse"
+      const serverStreamingIds: ReadonlyArray<(typeof entryIds)[number]> = runnableEntryIds.filter((id) =>
+        Option.match(lookup(id), {
+          onNone: () => false,
+          onSome: (definition) => definition.streamPlan !== null || definition.id === "workflow"
+        })
       )
-      const passiveIds = publishedConsumerIds.filter((id) =>
-        provingConsumerDescriptorFor(id).runtime.transport === "fetch"
+      const derivedStreamingIds = entryIds.filter(
+        (id) => entryRuntimeDescriptorFor(id).runtime.transport === "sse"
       )
-      const descriptorFingerprints = yield* Effect.forEach(publishedConsumerIds, (id) =>
+      const passiveIds = entryIds.filter((id) => entryRuntimeDescriptorFor(id).runtime.transport === "fetch")
+      const descriptorFingerprints = yield* Effect.forEach(entryIds, (id) =>
         Effect.gen(function*() {
-          const descriptor = provingConsumerDescriptorFor(id)
-          const provenance = yield* resolveProvingConsumerRuntimeProvenance(descriptor)
+          const descriptor = entryRuntimeDescriptorFor(id)
+          const provenance = yield* resolveEntryRuntimeProvenance(descriptor)
 
-          expect(descriptor.consumerId).toBe(id)
-          expect(descriptor.consumer).toEqual(publishedConsumerDescriptorForId(id))
-          expect(descriptor.publication).toEqual(descriptor.consumer.publication)
-          expect(descriptor.authority.catalog).toEqual(primaryAuthorityCatalogForDescriptor(descriptor.consumer))
-          expect(provenance.descriptorFingerprint).toBe(yield* provingConsumerDescriptorFingerprint(descriptor))
+          expect(descriptor.entryId).toBe(id)
+          expect(descriptor.entry).toEqual(entryDescriptorForId(id))
+          expect(descriptor.authority.catalog).toEqual(authorityCatalogForId(primaryAuthorityIdForEntry(id)))
+          expect(provenance.descriptorFingerprint).toBe(yield* entryRuntimeDescriptorFingerprint(descriptor))
 
           return provenance.descriptorFingerprint
         }))
@@ -58,41 +52,40 @@ describe("web/proving-consumer-descriptor", () => {
       )
       const authorityFingerprint = yield* authorityCatalogRegistryFingerprint(authorityCatalogs)
       const repeatedAuthorityFingerprint = yield* authorityCatalogRegistryFingerprint(authorityCatalogs)
-      const substrateFingerprint = yield* publishedConsumerRegistryFingerprint(publishedConsumerDescriptors)
-      const repeatedSubstrateFingerprint = yield* publishedConsumerRegistryFingerprint(publishedConsumerDescriptors)
-      const registryFingerprint = yield* provingConsumerRegistryFingerprint(provingConsumerDescriptors)
-      const repeatedRegistryFingerprint = yield* provingConsumerRegistryFingerprint(
-        provingConsumerDescriptors
+      const substrateFingerprint = yield* entryRegistryFingerprint(entryDescriptors)
+      const repeatedSubstrateFingerprint = yield* entryRegistryFingerprint(entryDescriptors)
+      const registryFingerprint = yield* entryRuntimeRegistryFingerprint(entryRuntimeDescriptors)
+      const repeatedRegistryFingerprint = yield* entryRuntimeRegistryFingerprint(
+        entryRuntimeDescriptors
       )
 
-      expect(streamingSurfaceIds).toEqual(derivedStreamingIds)
-      expect(streamingSurfaceIds).toEqual(serverStreamingIds)
-      expect([...dedicatedLaneConsumerIds].sort()).toEqual([...streamingSurfaceIds].sort())
-      expect(missingDedicatedApplicationConsumerIds).toEqual([])
-      expect(provingConsumerDescriptors.map((descriptor) => descriptor.consumerId)).toEqual(publishedConsumerIds)
+      expect(streamingEntryIds).toEqual(derivedStreamingIds)
+      expect(streamingEntryIds).toEqual(serverStreamingIds)
+      expect([...dedicatedEntryIds].sort()).toEqual([...entryIds].sort())
+      expect(entryRuntimeDescriptors.map((descriptor) => descriptor.entryId)).toEqual(entryIds)
       expect(uniqueFingerprints.length).toBe(descriptorFingerprints.length)
       expect(authorityFingerprint).toBe(repeatedAuthorityFingerprint)
       expect(substrateFingerprint).toBe(repeatedSubstrateFingerprint)
       expect(registryFingerprint).toBe(repeatedRegistryFingerprint)
 
       derivedStreamingIds.forEach((id) => {
-        const descriptor = provingConsumerDescriptorFor(id)
+        const descriptor = entryRuntimeDescriptorFor(id)
 
         expect(descriptor.runtime.transport).toBe("sse")
         expect(descriptor.surface.interactiveWidget).not.toBeNull()
         expect(
-          id === "workflow-comparison"
+          id === "workflow"
             ? Option.isNone(descriptor.runtime.projectionDriver)
             : Option.isSome(descriptor.runtime.projectionDriver)
         ).toBe(true)
       })
 
       passiveIds.forEach((id) => {
-        const descriptor = provingConsumerDescriptorFor(id)
+        const descriptor = entryRuntimeDescriptorFor(id)
 
         expect(Option.isNone(descriptor.runtime.projectionDriver)).toBe(true)
         expect(descriptor.surface.interactiveWidget).toBeNull()
-        expect(descriptor.lane.provenance.projectionDriverKey).toBeNull()
+        expect(descriptor.adapter.provenance.projectionDriverKey).toBeNull()
       })
     }))
 })

@@ -3,7 +3,7 @@ import { Clock, Effect, Match } from "effect"
 
 import { RuntimeInfo } from "./config/runtime.js"
 import { capabilitiesRoute } from "./routes/capabilities.js"
-import { demoRoute } from "./routes/demos.js"
+import { entryRoute } from "./routes/entries.js"
 import { liveRoute, readyRoute } from "./routes/health.js"
 import { openAgentTraceRoute } from "./routes/open-agent-trace.js"
 import { packageDocsRoute } from "./routes/package-docs.js"
@@ -11,7 +11,6 @@ import { packageVersionsRoute } from "./routes/package-versions.js"
 import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
-import { workflowComparisonRoute } from "./routes/workflow-comparison.js"
 
 const requestUrlBase = "http://127.0.0.1"
 
@@ -51,11 +50,7 @@ export const app = Effect.gen(function*() {
   const pathname = requestPathname(request.url)
   const requestId = crypto.randomUUID()
   const routeEffect = Match.value(pathname).pipe(
-    Match.when((value) => value.startsWith("/api/demos/"), () => demoRoute(pathname, requestId, request.url)),
-    Match.when(
-      (value) => value.startsWith("/api/workflow-comparison/"),
-      () => workflowComparisonRoute(pathname, requestId, request.url)
-    ),
+    Match.when((value) => value.startsWith("/api/entries/"), () => entryRoute(pathname, requestId, request.url)),
     Match.when("/api/health/live", () => liveRoute(requestId)),
     Match.when("/api/health/ready", () => readyRoute(requestId)),
     Match.when("/api/version", () => versionRoute(requestId)),

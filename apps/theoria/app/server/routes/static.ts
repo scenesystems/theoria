@@ -1,17 +1,14 @@
 import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 
+import { entryDescriptorForPath, entryVisibleInReleaseStage } from "../../contracts/entry/routing.js"
 import {
   fullCanonicalUrl,
+  metadataForEntryId,
   metadataForHome,
-  metadataForPackageDocs,
-  metadataForPublishedConsumerId
-} from "../../contracts/metadata.js"
-import { PackageDocsPagePathname, packageDocsQueryPackage } from "../../contracts/package-docs.js"
-import {
-  publishedConsumerDescriptorForPath,
-  publishedConsumerVisibleInReleaseStage
-} from "../../contracts/proving-substrate.js"
+  metadataForPackageDocs
+} from "../../contracts/presentation/metadata.js"
+import { PackageDocsPagePathname, packageDocsQueryPackage } from "../../contracts/presentation/package-docs.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -40,9 +37,9 @@ const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
     Match.when("/index.html", () => true),
     Match.when(PackageDocsPagePathname, () => true),
     Match.orElse((value) =>
-      Option.match(publishedConsumerDescriptorForPath(value), {
+      Option.match(entryDescriptorForPath(value), {
         onNone: () => false,
-        onSome: (descriptor) => publishedConsumerVisibleInReleaseStage(descriptor, stage)
+        onSome: (descriptor) => entryVisibleInReleaseStage(descriptor, stage)
       })
     )
   )
@@ -109,9 +106,9 @@ const injectMetadata = (html: string, pathname: string, rawUrl: string, _stage: 
     Match.when("/index.html", () => metadataForHome()),
     Match.when(PackageDocsPagePathname, () => metadataForPackageDocs(packageDocsQueryPackage(search))),
     Match.orElse((value) =>
-      Option.match(publishedConsumerDescriptorForPath(value), {
+      Option.match(entryDescriptorForPath(value), {
         onNone: () => metadataForHome(),
-        onSome: (descriptor) => metadataForPublishedConsumerId(descriptor.publication.consumerId)
+        onSome: (descriptor) => metadataForEntryId(descriptor.entryId)
       })
     )
   )

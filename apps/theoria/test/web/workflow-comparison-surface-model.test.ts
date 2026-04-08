@@ -1,18 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
 import type { EvidenceSection } from "../../app/contracts/evidence.js"
+import { workflowEntryDescriptor } from "../../app/contracts/proving-substrate.js"
 import {
   workflowComparisonEvidenceItemKeys,
   workflowComparisonEvidenceSectionKeys,
   workflowComparisonNodeExecutionSectionKey,
   workflowComparisonVariantOverviewSectionKey
 } from "../../app/contracts/workflow/comparison-evidence-keys.js"
-import {
-  makeWorkflowComparisonRunPlan,
-  type WorkflowComparisonRunPlan
-} from "../../app/contracts/workflow/comparison-run.js"
+import { makeWorkflowEntrySelection } from "../../app/contracts/workflow/comparison-run.js"
 import { WorkflowComparisonCanonicalStep } from "../../app/contracts/workflow/comparison-step.js"
 import { workflowComparisonSurfaceViewModel } from "../../app/web/view/deep/workflow-comparison-surface-model.js"
 import { programPreviewFixture } from "../helpers/demo-fixtures.js"
@@ -298,16 +296,22 @@ const sections: ReadonlyArray<EvidenceSection> = [
 describe("workflow-comparison surface model", () => {
   it.effect("projects graph, transcript, and rendered-preview view models from canonical frame and evidence truth", () =>
     Effect.gen(function*() {
-      const runPlan: WorkflowComparisonRunPlan = makeWorkflowComparisonRunPlan({
-        comparisonId: "workflow-comparison/chat-handoff"
+      const runDraft = Schema.decodeUnknownSync(workflowEntryDescriptor.draftSchema)({
+        entryId: "workflow",
+        seedId: "chat-handoff",
+        input: {},
+        controls: makeWorkflowEntrySelection({ seedId: "chat-handoff" }).controls
       })
-      const run = runningRunState({ program: programPreviewFixture.program, runPlan })
+      const run = runningRunState({
+        draft: runDraft,
+        program: programPreviewFixture.program
+      })
 
       const model = workflowComparisonSurfaceViewModel({
-        draftPlan: makeWorkflowComparisonRunPlan({ comparisonId: "workflow-comparison/task-briefing" }),
+        draftPlan: makeWorkflowEntrySelection({ seedId: "task-briefing" }),
         frame: canonicalFrameV1(
           new WorkflowComparisonCanonicalStep({
-            comparisonId: "workflow-comparison/chat-handoff",
+            comparisonId: "chat-handoff",
             workflowKind: "chat-continuation",
             variant: "optimized",
             nodeId: "render-check",
@@ -327,7 +331,7 @@ describe("workflow-comparison surface model", () => {
 
       expect(model.selection.label).toBe("Chat Handoff")
       expect(model.selectionLocked).toBe(true)
-      expect(model.plan.comparisonMode).toBe("search-winner")
+      expect(model.plan.controls.comparisonMode).toBe("search-winner")
       expect(model.runStory).toBe("baseline -> study -> search winner replay")
       expect(model.graph.cards.map((card) => card.key)).toEqual([
         "baseline",

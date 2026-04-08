@@ -1,21 +1,21 @@
 import * as Arr from "effect/Array"
 
-import { type Card, type PackageGroup, packageGroupMeta } from "../../../contracts/card.js"
-import { representativeToneFor } from "../../../contracts/theme.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { representativeToneFor } from "../../../contracts/tone.js"
+import { toneFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
+import { type InstrumentEntry, type PackageGroup, packageGroupMeta } from "./instrument-model.js"
 import { InstrumentCard } from "./InstrumentCard.js"
 
 export const InstrumentSection = ({
   cards,
   group
 }: {
-  readonly cards: ReadonlyArray<Card>
+  readonly cards: ReadonlyArray<InstrumentEntry>
   readonly group: PackageGroup
 }) => {
-  const groupTone = toneClassesFor(representativeToneFor(group))
+  const groupTone = toneFor(representativeToneFor(group))
 
   return (
     <Section>

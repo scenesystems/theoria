@@ -2,7 +2,7 @@ import * as Arr from "effect/Array"
 
 import { normalPdf } from "effect-math/Distribution"
 
-import type { PowerProjection } from "../../atoms/power-animation.js"
+import type { PowerProjection } from "../../atoms/run/power-animation.js"
 
 export type PlotPoint = {
   readonly x: number

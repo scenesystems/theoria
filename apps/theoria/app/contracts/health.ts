@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { DspRuntimeProjection } from "./dsp-runtime-projection.js"
+import { DspRuntimeProjection } from "./capability/effect-dsp-runtime-projection.js"
 
 const NonNegativeNumber = Schema.Number.pipe(
   Schema.finite(),

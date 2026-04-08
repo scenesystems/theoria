@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import { DspProviderRuntime } from "../../app/server/demos/effect-dsp/provider.js"
-import { capabilityForId } from "../../app/server/demos/registry.js"
+import { DspProviderRuntime } from "../../app/server/entries/effect-dsp/provider.js"
+import { capabilityForId } from "../../app/server/entries/registry.js"
 
 const disabledDspRuntime = DspProviderRuntime.of({
   capability: {
@@ -20,8 +20,8 @@ const disabledDspRuntime = DspProviderRuntime.of({
   layer: Option.none()
 })
 
-describe("server/demo-capability-registry", () => {
-  it.effect("keeps capability ownership in the registry for runnable, provider-backed, and pending demos", () =>
+describe("server/entry-capability-registry", () => {
+  it.effect("keeps capability ownership in the registry for runnable, provider-backed, and pending entries", () =>
     Effect.gen(function*() {
       const effectText = yield* capabilityForId("effect-text")
       const effectDsp = yield* capabilityForId("effect-dsp")

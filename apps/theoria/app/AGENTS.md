@@ -145,7 +145,7 @@ This applies to all concerns:
 - **Typography**: All text flows through `SemanticText` which reads from `TextRole` contract semantics. To add a new text style, add a `TextRole` and its CSS variable tokens — never style text directly on a component.
 - **Spacing and layout**: Controlled by layout primitives and Tailwind utilities composed through props. To change layout behavior, improve the primitive or add a variant to the contract schema (`GridLayout`, `ContentCardDensity`) — never add ad-hoc CSS to one component.
 - **Component variants**: Driven by contract schemas (`SurfaceVariant`, `CardTone`, `PackageGroup`). To add a visual variant, extend the schema and handle it via `Match.exhaustive` — never branch on a string literal in a single component.
-- **Tone/accent mapping**: Managed by `theme.ts` via `toneForCard` and `representativeToneFor`, resolved to `ToneClasses` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
+- **Tone/accent mapping**: Managed by `tone.ts` via `toneForCard` and `representativeToneFor`, resolved to `Tone` via `designSystem.ts`. To change how a card looks, update the tone mapping — never put card-specific colors in a view component.
 
 **The test**: If a change touches only one component file and adds a visual property that no other component shares, it is almost certainly wrong. The property should live in a contract, a primitive, or a theme token.
 
@@ -174,7 +174,7 @@ This applies to all concerns:
 ## Adding a New Demo
 
 1. Add a `Card` entry in `contracts/card.ts` with all required metadata fields.
-2. Create `server/demos/<name>/run.ts` exporting `run`, `preloadProgram`, and optionally `streamElements`.
-3. Add the `Match.when` arm in `server/demos/registry.ts` → `definitionForCard`.
+2. Create `server/entries/<name>/run.ts` exporting `run`, `preloadProgram`, and optionally `streamElements`.
+3. Add the `Match.when` arm in `server/entries/registry.ts` → `definitionForCard`.
 4. If the demo needs a client-side animation, add a `Match.when` arm in `web/atoms/actions.ts` → `animationEffectFor`.
 5. If the demo adds a new `EvidenceItem` variant, update `contracts/evidence.ts` and all `Match.exhaustive` consumers (`view/presenter.ts`, evidence renderers in `view/deep/evidence/`).

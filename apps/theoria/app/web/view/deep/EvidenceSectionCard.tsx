@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 import type { EvidenceSectionGroup, EvidenceSectionViewModel } from "../data/evidence-layout.js"
 
 import { DataTable } from "../primitives/DataTable.js"
-import { evidenceSectionThemeFor } from "../primitives/designSystem.js"
+import { evidenceSectionFor } from "../primitives/designSystem.js"
 import { EvidenceItemRenderer } from "../primitives/EvidenceItemRenderer.js"
 import { EvidenceProse } from "../primitives/EvidenceProse.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
@@ -104,7 +104,7 @@ const SectionHeader = ({
   readonly section: EvidenceSectionViewModel
   readonly spotlight: boolean
 }) => {
-  const theme = evidenceSectionThemeFor(section.variant)
+  const theme = evidenceSectionFor(section.variant)
   const latestLabel = section.latest ? spotlight ? "Live now" : "Newest evidence" : null
 
   return (

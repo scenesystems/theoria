@@ -1,6 +1,6 @@
 import type * as Option from "effect/Option"
 
-import type { PublishedConsumerPresentation } from "../../contracts/proving-substrate.js"
+import type { EntryPresentation } from "../../contracts/entry/routing.js"
 
 export type SurfaceChromeContentModel = {
   readonly badgeLabel: string
@@ -39,11 +39,11 @@ export type SurfaceChromeModel = SurfaceChromeContentModel & {
   }
 }
 
-export const surfaceChromeContentModel = (surface: PublishedConsumerPresentation): SurfaceChromeContentModel => ({
-  badgeLabel: surface.consumerId,
+export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceChromeContentModel => ({
+  badgeLabel: surface.entryId,
   title: surface.title,
   packageMeta: {
-    label: surface.group === "application" ? "Application" : "Package",
+    label: "Entry",
     value: surface.packageName
   },
   compactPackageValue: surface.title === surface.packageName ? null : surface.packageName,

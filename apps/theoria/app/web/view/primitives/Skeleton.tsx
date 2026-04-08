@@ -1,7 +1,7 @@
 import { Separator } from "@base-ui-components/react/separator"
 import type { ReactNode } from "react"
 
-import { surfaceMaterials, type ToneClasses } from "./designSystem.js"
+import { surfaceMaterials, type Tone } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
@@ -75,7 +75,7 @@ export const LoadingIndicator = ({
 }: {
   readonly active: boolean
   readonly text: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
     <Layer aria-hidden as="span" className={`inline-flex size-1.5 animate-pulse rounded-full ${tone.dot}`} />

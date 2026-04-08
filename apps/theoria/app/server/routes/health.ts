@@ -1,8 +1,8 @@
 import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
+import { DspProviderRuntime, dspRuntimeProjection } from "../capability/effect-dsp.js"
 import { RuntimeInfo } from "../config/runtime.js"
-import { DspProviderRuntime, dspRuntimeProjection } from "../demos/effect-dsp/provider.js"
 
 const jsonResponse = (body: unknown) =>
   HttpServerResponse.json(body, {

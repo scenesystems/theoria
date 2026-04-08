@@ -1,6 +1,6 @@
 import type { ChangeEventHandler } from "react"
 
-import type { ToneClasses } from "./designSystem.js"
+import type { Tone } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 
 export const TextAreaField = ({
@@ -17,7 +17,7 @@ export const TextAreaField = ({
   readonly onChange: ChangeEventHandler<HTMLTextAreaElement>
   readonly placeholder: string
   readonly rows: number
-  readonly tone: ToneClasses
+  readonly tone: Tone
   readonly value: string
 }) => (
   <Layer>

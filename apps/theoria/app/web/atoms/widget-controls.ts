@@ -1,8 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 
-import { trialBudgetAtom } from "./optimization-animation.js"
-import { powerControlsAtom } from "./power-animation.js"
 import { customTextAtom, reflowControlsAtom } from "./reflow.js"
+import { trialBudgetAtom } from "./run/optimization-animation.js"
+import { powerControlsAtom } from "./run/power-animation.js"
 
 export const selectReflowCorpusAtom = Atom.fnSync<number>()(
   (index, ctx) => {

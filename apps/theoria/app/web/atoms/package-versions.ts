@@ -2,9 +2,9 @@ import type { Atom } from "@effect-atom/atom"
 import type { Result } from "@effect-atom/atom"
 import { Effect } from "effect"
 
+import type { PackageVersions } from "../../contracts/capability/package-versions.js"
 import type { DemoError } from "../../contracts/demo-error.js"
-import type { PackageVersions } from "../../contracts/package-versions.js"
-import { DemoClient } from "../services/DemoClient.js"
+import { EntryClient } from "../services/EntryClient.js"
 
 import { appRuntime } from "./runtime.js"
 
@@ -19,7 +19,7 @@ import { appRuntime } from "./runtime.js"
  */
 export const packageVersionsAtom: Atom.Atom<Result.Result<PackageVersions, DemoError>> = appRuntime.atom(
   Effect.gen(function*() {
-    const client = yield* DemoClient
+    const client = yield* EntryClient
     return yield* client.versions()
   })
 )

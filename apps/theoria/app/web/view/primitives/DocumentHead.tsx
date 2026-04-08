@@ -1,4 +1,4 @@
-import { fullCanonicalUrl, type PageMetadata, siteMetadata } from "../../../contracts/metadata.js"
+import { fullCanonicalUrl, type PageMetadata, siteMetadata } from "../../../contracts/presentation/metadata.js"
 
 /**
  * Renders React 19 native metadata tags that are automatically hoisted

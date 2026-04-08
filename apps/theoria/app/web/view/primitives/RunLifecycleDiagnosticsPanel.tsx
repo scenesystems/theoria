@@ -1,4 +1,4 @@
-import type { RunRuntimeTelemetrySection } from "../../atoms/surface.js"
+import type { RunRuntimeTelemetrySection } from "../../atoms/surface/state.js"
 
 import { DataTable } from "./DataTable.js"
 

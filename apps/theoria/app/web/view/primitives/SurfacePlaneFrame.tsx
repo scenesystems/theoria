@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import { HintTooltip } from "./HintTooltip.js"
 import { Cluster, Layer, Stack } from "./Layout.js"

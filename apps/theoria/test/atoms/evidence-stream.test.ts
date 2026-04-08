@@ -19,14 +19,17 @@ import {
   surfaceEvidenceStreamAtom,
   surfaceEvidenceStreamStateAtom
 } from "../../app/web/atoms/surface.js"
-import { DemoClient } from "../../app/web/services/DemoClient.js"
+import { surfaceRuntimeFor } from "../../app/web/runtime/kernel/surface-runtime.js"
+import { EntryClient } from "../../app/web/services/EntryClient.js"
 import {
   applyEvidenceEvent,
   emptyEvidenceStoreState,
   emptyEvidenceStreamState,
   evidenceStreamFromStore,
+  initialSurfaceState,
   reduceRunState
 } from "../../app/web/state/types.js"
+import { runStartedMessage } from "../helpers/run-state.js"
 
 const streamMeta = {
   requestId: "req-stream",
@@ -83,15 +86,25 @@ const waitForSource = Effect.eventually(
   )
 )
 
+const runtimeStreamRequestFor = (id: "effect-search" | "effect-text") => ({
+  id,
+  runtime: surfaceRuntimeFor(id),
+  runtimeSnapshot: {
+    draft: initialSurfaceState(id).draft,
+    localProjectionScript: null
+  },
+  runToken: null
+})
+
 const serverEvidenceLayer = Layer.succeed(
-  DemoClient,
-  DemoClient.make({
+  EntryClient,
+  {
+    _tag: "theoria/EntryClient",
     run: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     runWithMeta: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     preload: () => Effect.fail(new DemoRequestError({ message: "unused" })),
-    versions: () => Effect.succeed({}),
-    streamUrl: (id) => `/api/demos/${id}/stream`
-  })
+    versions: () => Effect.succeed({})
+  }
 )
 
 const withMockEventSource = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
@@ -223,18 +236,13 @@ describe("Evidence Stream State", () => {
         ...surface,
         run: reduceRunState(
           surface.run,
-          {
-            _tag: "RunStarted",
-            token: 1,
-            sequence: 1,
+          runStartedMessage({
+            draft: surface.draft,
             ownership: { localDriver: true, serverStream: true },
-            startedAtMs: 0,
-            runPlan: { id: "effect-text", manifest: null },
-            localRunPlan: null,
             program: {
               files: [{ language: "ts", entry: "demo.ts", name: "demo.ts", source: "export const demo = true" }]
             }
-          }
+          })
         )
       }))
       registry.update(surfaceEvidenceStreamStateAtom("effect-text"), (stream) =>
@@ -252,18 +260,13 @@ describe("Evidence Stream State", () => {
         ...surface,
         run: reduceRunState(
           surface.run,
-          {
-            _tag: "RunStarted",
-            token: 1,
-            sequence: 1,
+          runStartedMessage({
+            draft: surface.draft,
             ownership: { localDriver: true, serverStream: true },
-            startedAtMs: 0,
-            runPlan: { id: "effect-text", manifest: null },
-            localRunPlan: null,
             program: {
               files: [{ language: "ts", entry: "demo.ts", name: "demo.ts", source: "export const demo = true" }]
             }
-          }
+          })
         )
       }))
       registry.update(surfaceEvidenceStreamStateAtom("effect-text"), (stream) =>
@@ -290,7 +293,7 @@ describe("Evidence Stream State", () => {
   it.effect("makeServerEvidenceStream emits explicit server completion before closing the SSE transport", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* makeServerEvidenceStream("effect-search").pipe(
+        const fiber = yield* makeServerEvidenceStream(runtimeStreamRequestFor("effect-search")).pipe(
           Stream.runCollect,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -317,7 +320,7 @@ describe("Evidence Stream State", () => {
   it.effect("makeServerEvidenceStream fails on decode errors before finalization", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* makeServerEvidenceStream("effect-search").pipe(
+        const fiber = yield* makeServerEvidenceStream(runtimeStreamRequestFor("effect-search")).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -338,7 +341,7 @@ describe("Evidence Stream State", () => {
   it.effect("makeServerEvidenceStream reports premature close after partial evidence without inventing completion", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* makeServerEvidenceStream("effect-search").pipe(
+        const fiber = yield* makeServerEvidenceStream(runtimeStreamRequestFor("effect-search")).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -361,7 +364,7 @@ describe("Evidence Stream State", () => {
   it.effect("makeServerEvidenceStream promotes terminal server failures onto the typed error channel", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* makeServerEvidenceStream("effect-search").pipe(
+        const fiber = yield* makeServerEvidenceStream(runtimeStreamRequestFor("effect-search")).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork

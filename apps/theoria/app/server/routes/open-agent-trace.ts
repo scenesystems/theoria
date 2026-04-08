@@ -1,9 +1,12 @@
 import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match, Schema } from "effect"
 
-import { OpenAgentTraceApiRegistryPathname, OpenAgentTraceRegistryEnvelope } from "../../contracts/open-agent-trace.js"
+import {
+  OpenAgentTraceApiRegistryPathname,
+  OpenAgentTraceRegistryEnvelope
+} from "../../contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfo } from "../config/runtime.js"
-import { loadOpenAgentTraceRegistry } from "../open-agent-trace/registry.js"
+import { loadOpenAgentTraceRegistry } from "../study/workflow/open-agent-trace/registry.js"
 
 const registryResponse = (requestId: string) =>
   Effect.gen(function*() {

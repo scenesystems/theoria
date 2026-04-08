@@ -4,20 +4,19 @@ import { Effect } from "effect"
 
 import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
 import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
-import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
+import {
+  EffectMathCanonicalStep,
+  projectPowerProjection,
+  snapshotEffectMathProjectionScript
+} from "../../app/contracts/demo/power.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeAtom,
   dspOptimizationBudgetAtom,
   dspScenarioIdAtom,
-  snapshotEffectDspRunPlan
+  snapshotEffectDspProjectionScript
 } from "../../app/web/atoms/dsp-widget.js"
-import {
-  type EffectMathRunFrame,
-  powerAnimatingAtom,
-  powerControlsAtom,
-  snapshotEffectMathRunPlan
-} from "../../app/web/atoms/power-animation.js"
+import { type EffectMathRunFrame, powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import { powerWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
 import type { LocalRunFrame } from "../../app/web/state/local-run.js"
@@ -108,7 +107,7 @@ describe("widget authority switch math+dsp", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const running = runningRunState({
-        localRunPlan: snapshotEffectMathRunPlan({ d: 1.35, n: 77, alpha: 0.07 }),
+        localProjectionScript: snapshotEffectMathProjectionScript({ d: 1.35, n: 77, alpha: 0.07 }),
         program: programPreviewFixture.program
       })
 
@@ -132,7 +131,7 @@ describe("widget authority switch math+dsp", () => {
         canonicalFrame: effectMathCanonicalFrame,
         frame: effectMathFrame,
         running: runningRunState({
-          localRunPlan: snapshotEffectMathRunPlan({ d: 1.35, n: 77, alpha: 0.07 }),
+          localProjectionScript: snapshotEffectMathProjectionScript({ d: 1.35, n: 77, alpha: 0.07 }),
           program: programPreviewFixture.program
         }),
         summary: "effect-math finished"
@@ -167,7 +166,7 @@ describe("widget authority switch math+dsp", () => {
         canonicalFrame: effectDspCanonicalFrame,
         frame: effectDspFrame,
         running: runningRunState({
-          localRunPlan: snapshotEffectDspRunPlan({
+          localProjectionScript: snapshotEffectDspProjectionScript({
             scenarioId: "intervention-classifier",
             moduleType: "chainOfThought",
             optimizationBudget: 2

@@ -2,18 +2,19 @@ import { HttpServerResponse } from "@effect/platform"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import { cardsForReleaseStage } from "../../contracts/card.js"
-import { fullCanonicalUrl } from "../../contracts/metadata.js"
+import { entryDescriptors } from "../../contracts/entry/registry.js"
+import { entryVisibleInReleaseStage } from "../../contracts/entry/routing.js"
+import { fullCanonicalUrl } from "../../contracts/presentation/metadata.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
 export const sitemapRoute = Effect.gen(function*() {
   const stage = yield* serverReleaseStage
-  const visibleCards = cardsForReleaseStage(stage)
+  const visibleEntries = Arr.filter(entryDescriptors, (descriptor) => entryVisibleInReleaseStage(descriptor, stage))
 
   const urls = Arr.prepend(
-    Arr.map(visibleCards, (card) => urlEntry(fullCanonicalUrl(card.deepDivePath))),
+    Arr.map(visibleEntries, (descriptor) => urlEntry(fullCanonicalUrl(descriptor.path))),
     urlEntry(fullCanonicalUrl("/"))
   )
 

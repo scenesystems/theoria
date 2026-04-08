@@ -1,6 +1,6 @@
 import * as Arr from "effect/Array"
 
-import type { SurfaceVariant } from "../../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../../contracts/presentation/program.js"
 
 import { highlightCode, tokenClassName } from "./highlighter.js"
 

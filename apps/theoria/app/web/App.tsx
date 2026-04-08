@@ -2,13 +2,12 @@ import { Tooltip } from "@base-ui-components/react/tooltip"
 import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
 import { useEffect } from "react"
 
-import { preloadRouteKey, routePreloadMountAtom } from "./atoms/preload.js"
+import { preloadRouteKey, routePreloadMountAtom } from "./atoms/surface/preload.js"
 import { colorModeAtom } from "./atoms/theme.js"
 import type { PageRoute } from "./services/path.js"
 import { DeepDivePage } from "./view/deep/DeepDivePage.js"
 import { PackageDocsPage } from "./view/docs/PackageDocsPage.js"
 import { HomePage } from "./view/home/HomePage.js"
-import { OpenAgentTracePage } from "./view/open-agent-trace/OpenAgentTracePage.js"
 
 import "./styles.css"
 
@@ -32,11 +31,9 @@ const AppShell = ({ route }: { readonly route: PageRoute }) => (
     <ThemeApplicator />
     <RoutePreloader route={route} />
     {route._tag === "DeepRoute"
-      ? <DeepDivePage id={route.id} />
+      ? <DeepDivePage entryId={route.entryId} />
       : route._tag === "PackageDocsRoute"
       ? <PackageDocsPage packageId={route.packageId} />
-      : route._tag === "OpenAgentTraceRoute"
-      ? <OpenAgentTracePage />
       : <HomePage />}
   </>
 )

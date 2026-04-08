@@ -7,7 +7,7 @@ import { Effect, Option, Ref } from "effect"
 
 import { DspCanonicalStep, isDspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
 import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { EffectSearchCanonicalStep, isEffectSearchRunPlan } from "../../app/contracts/demo/objective.js"
+import { EffectSearchCanonicalStep, isEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
@@ -15,11 +15,10 @@ import {
   StreamComplete
 } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceItem, EvidenceSection } from "../../app/contracts/evidence.js"
-import type { SurfaceId } from "../../app/contracts/id.js"
-import { isDemoSurfaceRunPlan } from "../../app/contracts/run-plan.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeRunControlAtom, makeRunDemoAtom, selectStageTabAtom } from "../../app/web/atoms/actions.js"
 import { animatingAtom } from "../../app/web/atoms/animation.js"
-import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
+import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
 import { dspModuleTypeAtom, dspOptimizationBudgetAtom, dspScenarioIdAtom } from "../../app/web/atoms/dsp-widget.js"
 import {
   isEffectSearchRunFrame,
@@ -39,10 +38,10 @@ import {
   surfaceRunRuntimeTelemetryAtom
 } from "../../app/web/atoms/surface.js"
 import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
-import { streamingSurfaceIds } from "../../app/web/runtime/surface-runtime.js"
+import { streamingEntryIds } from "../../app/web/runtime/kernel/surface-runtime.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 import {
   emitEffectMathAuthoredStream,
   emitEffectSearchAuthoredStream,
@@ -133,9 +132,9 @@ const makeAsyncTestRegistry = (): Registry.Registry =>
     }
   })
 
-const readSurface = (registry: Registry.Registry, id: SurfaceId): SurfaceState => registry.get(surfaceAtom(id))
-const readEvidenceStream = (registry: Registry.Registry, id: SurfaceId) => registry.get(surfaceEvidenceStreamAtom(id))
-const readRuntimeTelemetry = (registry: Registry.Registry, id: SurfaceId) =>
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
+const readEvidenceStream = (registry: Registry.Registry, id: EntryId) => registry.get(surfaceEvidenceStreamAtom(id))
+const readRuntimeTelemetry = (registry: Registry.Registry, id: EntryId) =>
   registry.get(surfaceRunRuntimeTelemetryAtom(id))
 
 const isTableItem = (
@@ -192,8 +191,7 @@ const makeRuntime = () =>
   makeAppClientTestRuntime({
     run: () => Effect.fail(errorFixture),
     runWithMeta: () => Effect.fail(errorFixture),
-    preload: () => Effect.succeed(programPreviewFixture),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.succeed(programPreviewFixture)
   })
 
 const makeRuntimeWithTransportCounters = ({
@@ -212,8 +210,7 @@ const makeRuntimeWithTransportCounters = ({
       Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
         Effect.zipRight(Effect.fail(errorFixture))
       ),
-    preload: () => Effect.succeed(programPreviewFixture),
-    streamUrl: (id) => `/api/demos/${id}/stream`
+    preload: () => Effect.succeed(programPreviewFixture)
   })
 
 const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
@@ -330,7 +327,7 @@ describe("Theoria Evidence Orchestration", () => {
   it.effect("keeps every streaming surface off DemoClient.run and runWithMeta during the active run lifecycle", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        yield* Effect.forEach(streamingSurfaceIds, (id) =>
+        yield* Effect.forEach(streamingEntryIds, (id) =>
           Effect.gen(function*() {
             const registry = makeTestRegistry()
             const runCountRef = yield* Ref.make(0)
@@ -419,7 +416,7 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        expect(running.run.session.localRunPlan?._tag).toBe("effect-dsp")
+        expect(running.run.session.localProjectionScript?._tag).toBe("effect-dsp")
 
         registry.set(runControlAtom, { action: "pause", id: "effect-dsp" })
 
@@ -435,7 +432,7 @@ describe("Theoria Evidence Orchestration", () => {
         expect(paused.run._tag).toBe("RunRunning")
         expect(paused.run.session.control).toBe("paused")
 
-        if (!isEffectDspRunPlan(running.run.session.localRunPlan)) {
+        if (!isEffectDspProjectionScript(running.run.session.localProjectionScript)) {
           return
         }
 
@@ -443,8 +440,8 @@ describe("Theoria Evidence Orchestration", () => {
           encodeEvidenceEventJson(
             canonicalStepEvent(
               new DspCanonicalStep({
-                scenarioId: running.run.session.localRunPlan.scenarioId,
-                moduleType: running.run.session.localRunPlan.moduleType,
+                scenarioId: running.run.session.localProjectionScript.scenarioId,
+                moduleType: running.run.session.localProjectionScript.moduleType,
                 stageId: "baseline",
                 stepIndex: 2,
                 stepCount: 4,
@@ -585,27 +582,25 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        expect(running.run.session.localRunPlan?._tag).toBe("effect-dsp")
-        const runningRunPlan = running.run.session.runPlan
+        expect(running.run.session.localProjectionScript?._tag).toBe("effect-dsp")
+        const runningRunDraft = running.run.session.draft
 
-        expect(runningRunPlan !== null && isDemoSurfaceRunPlan(runningRunPlan)).toBe(true)
-        if (runningRunPlan === null || !isDemoSurfaceRunPlan(runningRunPlan)) {
+        expect(runningRunDraft !== null && runningRunDraft.entryId === "effect-dsp").toBe(true)
+        if (runningRunDraft === null || runningRunDraft.entryId !== "effect-dsp") {
           return
         }
-        expect(runningRunPlan.id).toBe("effect-dsp")
+        expect(runningRunDraft.entryId).toBe("effect-dsp")
 
-        if (!isEffectDspRunPlan(running.run.session.localRunPlan)) {
+        if (!isEffectDspProjectionScript(running.run.session.localProjectionScript)) {
           return
         }
 
-        const frozenPlan = running.run.session.localRunPlan
-        const frozenRunPlan = runningRunPlan
+        const frozenPlan = running.run.session.localProjectionScript
+        const frozenRunDraft = runningRunDraft
 
-        if (frozenRunPlan.manifest !== null && frozenRunPlan.manifest._tag === "effect-dsp") {
-          expect(frozenRunPlan.manifest.scenarioId).toBe(frozenPlan.scenarioId)
-          expect(frozenRunPlan.manifest.moduleType).toBe(frozenPlan.moduleType)
-          expect(frozenRunPlan.manifest.optimizationBudget).toBe(2)
-        }
+        expect(frozenRunDraft.input.scenarioId).toBe(frozenPlan.scenarioId)
+        expect(frozenRunDraft.input.moduleType).toBe(frozenPlan.moduleType)
+        expect(frozenRunDraft.input.optimizationBudget).toBe(2)
 
         registry.set(dspScenarioIdAtom, "probe-follow-up")
         registry.set(dspModuleTypeAtom, "predict")
@@ -660,12 +655,12 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        expect(withFrame.run.session.localRunPlan?._tag).toBe("effect-dsp")
-        expect(withFrame.run.session.runPlan).toEqual(frozenRunPlan)
-        if (isEffectDspRunPlan(withFrame.run.session.localRunPlan)) {
-          expect(withFrame.run.session.localRunPlan.scenarioId).toBe(frozenPlan.scenarioId)
-          expect(withFrame.run.session.localRunPlan.moduleType).toBe(frozenPlan.moduleType)
-          expect(withFrame.run.session.localRunPlan.optimizationBudget).toBe(2)
+        expect(withFrame.run.session.localProjectionScript?._tag).toBe("effect-dsp")
+        expect(withFrame.run.session.draft).toEqual(frozenRunDraft)
+        if (isEffectDspProjectionScript(withFrame.run.session.localProjectionScript)) {
+          expect(withFrame.run.session.localProjectionScript.scenarioId).toBe(frozenPlan.scenarioId)
+          expect(withFrame.run.session.localProjectionScript.moduleType).toBe(frozenPlan.moduleType)
+          expect(withFrame.run.session.localProjectionScript.optimizationBudget).toBe(2)
         }
         if (isDspRunFrame(withFrame.run.session.localRunFrame)) {
           expect(withFrame.run.session.localRunFrame.stageId).toBe("baseline")
@@ -717,31 +712,24 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        const runningRunPlan = running.run.session.runPlan
+        const runningRunDraft = running.run.session.draft
 
-        expect(runningRunPlan !== null && isDemoSurfaceRunPlan(runningRunPlan)).toBe(true)
-        if (runningRunPlan === null || !isDemoSurfaceRunPlan(runningRunPlan)) {
+        expect(runningRunDraft !== null && runningRunDraft.entryId === "effect-text").toBe(true)
+        if (runningRunDraft === null || runningRunDraft.entryId !== "effect-text") {
           return
         }
-        expect(runningRunPlan.id).toBe("effect-text")
-        const initialRunPlan = runningRunPlan
+        expect(runningRunDraft.entryId).toBe("effect-text")
+        const initialRunDraft = runningRunDraft
 
-        if (initialRunPlan.manifest !== null && initialRunPlan.manifest._tag === "effect-text") {
-          expect(initialRunPlan.manifest.viewportWidthPx).toBe(frozenViewportWidthPx)
-        }
+        expect(initialRunDraft.input.viewportWidthPx).toBe(frozenViewportWidthPx)
 
         registry.set(reflowStageViewportWidthAtom, resizedViewportWidthPx)
         registry.set(selectStageTabAtom, { id: "effect-text", tab: "evidence" })
         expect(readSurface(registry, "effect-text").stageTab).toBe("evidence")
-        const runPlanAfterViewportChange = readSurface(registry, "effect-text").run.session.runPlan
+        const runDraftAfterViewportChange = readSurface(registry, "effect-text").run.session.draft
 
-        if (
-          runPlanAfterViewportChange !== null
-          && isDemoSurfaceRunPlan(runPlanAfterViewportChange)
-          && runPlanAfterViewportChange.manifest !== null
-          && runPlanAfterViewportChange.manifest._tag === "effect-text"
-        ) {
-          expect(runPlanAfterViewportChange.manifest.viewportWidthPx).toBe(frozenViewportWidthPx)
+        if (runDraftAfterViewportChange !== null && runDraftAfterViewportChange.entryId === "effect-text") {
+          expect(runDraftAfterViewportChange.input.viewportWidthPx).toBe(frozenViewportWidthPx)
         }
 
         yield* emitEffectTextAuthoredStream({
@@ -862,9 +850,9 @@ describe("Theoria Evidence Orchestration", () => {
 
         const frozenDuringPause = readSurface(registry, "effect-search")
 
-        expect(frozenDuringPause.run.session.localRunPlan?._tag).toBe("effect-search")
-        if (isEffectSearchRunPlan(frozenDuringPause.run.session.localRunPlan)) {
-          expect(frozenDuringPause.run.session.localRunPlan.trialBudget).toBe(30)
+        expect(frozenDuringPause.run.session.localProjectionScript?._tag).toBe("effect-search")
+        if (isEffectSearchProjectionScript(frozenDuringPause.run.session.localProjectionScript)) {
+          expect(frozenDuringPause.run.session.localProjectionScript.trialBudget).toBe(30)
         }
 
         yield* emitEffectSearchAuthoredStream({
@@ -1461,8 +1449,7 @@ describe("Theoria Evidence Orchestration", () => {
       const runtime = makeAppClientTestRuntime({
         run: () => Effect.fail(errorFixture),
         runWithMeta: () => Effect.fail(errorFixture),
-        preload: () => Effect.succeed(programPreviewFixture),
-        streamUrl: (id) => `/api/demos/${id}/stream`
+        preload: () => Effect.succeed(programPreviewFixture)
       })
 
       const runDemoAtom = makeRunDemoAtom(runtime)
@@ -1541,8 +1528,7 @@ describe("Theoria Evidence Orchestration", () => {
       const runtime = makeAppClientTestRuntime({
         run: () => Effect.fail(errorFixture),
         runWithMeta: () => Effect.fail(errorFixture),
-        preload: () => Effect.succeed(programPreviewFixture),
-        streamUrl: (id) => `/api/demos/${id}/stream`
+        preload: () => Effect.succeed(programPreviewFixture)
       })
 
       const runDemoAtom = makeRunDemoAtom(runtime)

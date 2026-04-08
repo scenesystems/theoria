@@ -9,4 +9,4 @@ export {
   surfaceViewExtensionFor,
   type TabHint,
   tabHintFor
-} from "./proving-consumer.js"
+} from "./kernel/registry.js"

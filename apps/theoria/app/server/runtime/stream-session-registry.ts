@@ -1,6 +1,6 @@
 import { Effect, HashMap, Option, Queue, Stream, SynchronizedRef } from "effect"
 
-import type { EvidenceEvent } from "../../contracts/evidence-stream.js"
+import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
 
 type StreamBatch = {
   readonly index: number

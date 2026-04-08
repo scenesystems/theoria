@@ -11,7 +11,7 @@ import {
   type OpenAgentTraceRegistryEntry,
   OpenAgentTraceRegistryEnvelope,
   OpenAgentTraceRequestError
-} from "../../contracts/open-agent-trace.js"
+} from "../../contracts/study/workflow/open-agent-trace.js"
 
 const formatParseError = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
 

@@ -6,21 +6,22 @@ import {
   type DspFieldMeta,
   type DspModuleType,
   type DspSignatureContract
-} from "../../../contracts/demo/dsp.js"
+} from "../../../contracts/capability/effect-dsp.js"
 import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
 import { selectDspModuleTypeAtom, selectDspScenarioAtom, setDspOptimizationBudgetAtom } from "../../atoms/dsp-widget.js"
 import { AccentBorder } from "../primitives/AccentBorder.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { DataTable } from "../primitives/DataTable.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { toneFor } from "../primitives/designSystem.js"
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
 import { PlaneMetaRail } from "../primitives/PlaneMetaRail.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { SignatureContractPanel } from "../primitives/SignatureContractPanel.js"
 import { SliderRow } from "../primitives/SliderRow.js"
+import { OpenAgentTracePanel } from "../study/open-agent-trace/OpenAgentTracePanel.js"
 
-const tone = toneClassesFor("dsp")
+const tone = toneFor("dsp")
 
 const SignaturePanel = ({ contract }: { readonly contract: DspSignatureContract }) => (
   <SignatureContractPanel
@@ -221,6 +222,8 @@ export const LiveDspEvaluation = () => {
           metricDescription={vm.scenario.metricDescription}
           metricName={vm.scenario.metricName}
         />
+
+        <OpenAgentTracePanel />
       </Stack>
     </InstrumentPanel>
   )

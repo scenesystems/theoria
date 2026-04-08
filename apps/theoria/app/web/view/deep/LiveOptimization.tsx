@@ -3,14 +3,14 @@ import { memo } from "react"
 
 import { setOptimizationTrialBudgetAtom } from "../../atoms/widget-controls.js"
 import { optimizationWidgetViewModelAtom } from "../../atoms/widget-view-models.js"
-import { toneClassesFor } from "../primitives/designSystem.js"
+import { toneFor } from "../primitives/designSystem.js"
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
 import { OptimizationContourCanvas } from "../primitives/OptimizationContourCanvas.js"
 import { LoadingIndicator } from "../primitives/Skeleton.js"
 import { SliderRow } from "../primitives/SliderRow.js"
 
-const tone = toneClassesFor("search")
+const tone = toneFor("search")
 
 const LiveOptimizationView = () => {
   const vm = useAtomValue(optimizationWidgetViewModelAtom)

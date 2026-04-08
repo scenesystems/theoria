@@ -1,0 +1,21 @@
+export {
+  type AuthoredStepQueueEvent,
+  type CompletionEvent,
+  type ProjectionDriverDescriptor,
+  type ProjectionDriverEvent,
+  projectionDriverFor,
+  type ProjectionDriverSnapshot,
+  resetProjectionDriverState,
+  runOwnershipFor,
+  setProjectionPlayback,
+  snapshotProjectionDriver,
+  streamingEntryIds,
+  type SurfaceRuntime,
+  surfaceRuntimeFor,
+  type SurfaceRuntimeServices,
+  type SurfaceRuntimeSnapshot,
+  surfaceRuntimeSnapshotFor,
+  type SurfaceTransport,
+  surfaceUsesSseTransport,
+  syncProjectionFrameToControls
+} from "./registry.js"

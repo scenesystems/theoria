@@ -144,9 +144,9 @@ const optimizedRecord = makeWorkflowExecutionRecord({
 })
 
 export const chatHandoffWorkflowComparison: WorkflowComparison = {
-  publication: {
-    comparisonId: "workflow-comparison/chat-handoff",
-    consumerId: "workflow-comparison"
+  entry: {
+    comparisonId: "chat-handoff",
+    entryId: "workflow"
   },
   authorities: workflowComparisonAuthorityBindings,
   label: "Chat Handoff",

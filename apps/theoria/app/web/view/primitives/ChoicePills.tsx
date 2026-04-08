@@ -5,7 +5,7 @@ import {
   pillButtonClassName,
   segmentedControlButtonClassName,
   segmentedControlRailClassName,
-  type ToneClasses
+  type Tone
 } from "./designSystem.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -27,7 +27,7 @@ export const ChoicePills = <Value extends number | string>({
   readonly disabled: boolean
   readonly onSelect: (value: Value) => void
   readonly options: ReadonlyArray<{ readonly value: Value; readonly label: string }>
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => {
   const optionNodes = Arr.map(options, (option) => {
     const active = option.value === activeValue

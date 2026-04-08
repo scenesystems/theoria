@@ -7,8 +7,8 @@ import {
   defaultOptimizationBudget,
   type DspModuleType,
   type DspScenarioId
-} from "../../contracts/demo/dsp.js"
-export { type EffectDspRunPlan, snapshotEffectDspRunPlan } from "./dsp-run-plan.js"
+} from "../../contracts/capability/effect-dsp.js"
+export { type EffectDspProjectionScript, snapshotEffectDspProjectionScript } from "./dsp-run-plan.js"
 
 export const dspScenarioIdAtom: AtomType.Writable<DspScenarioId> = Atom.make(defaultDspScenarioId)
 

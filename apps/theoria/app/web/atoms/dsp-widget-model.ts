@@ -1,9 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
-import type { CanonicalFrame } from "../../contracts/canonical-step.js"
-import type { DspCanonicalStep } from "../../contracts/demo/dsp-runtime.js"
-import { type DspStageId } from "../../contracts/demo/dsp-runtime.js"
+import type { DspCanonicalStep } from "../../contracts/capability/effect-dsp-runtime.js"
+import { type DspStageId } from "../../contracts/capability/effect-dsp-runtime.js"
 import {
   dspModuleLabels,
   type DspModuleType,
@@ -12,12 +11,17 @@ import {
   type DspScenarioId,
   dspScenarioOptions,
   scenarioById
-} from "../../contracts/demo/dsp.js"
-import { runUsesActiveFrameAuthority } from "../state/run-interaction.js"
+} from "../../contracts/capability/effect-dsp.js"
+import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
+import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
 import type { MetricAppearance } from "../view/primitives/designSystem.js"
-import { type EffectDspRunPlan, isEffectDspRunPlan } from "./dsp-run-plan.js"
+import { type EffectDspProjectionScript, isEffectDspProjectionScript } from "./dsp-run-plan.js"
 import { dspModuleTypeAtom, dspOptimizationBudgetAtom, dspScenarioIdAtom } from "./dsp-widget.js"
-import { surfaceActiveCanonicalFrameAtom, surfaceLocalRunPlanAtom, surfaceRunStateAtom } from "./surface.js"
+import {
+  surfaceActiveCanonicalFrameAtom,
+  surfaceLocalProjectionScriptAtom,
+  surfaceRunStateAtom
+} from "./surface/state.js"
 import { type WidgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
 
 const dspToneAppearance: MetricAppearance = { _tag: "tone", tone: "dsp" }
@@ -85,8 +89,8 @@ const runtimeMetrics = (step: typeof DspCanonicalStep.Type): ReadonlyArray<Widge
   { label: "Delta", value: deltaDisplay(step.metrics.improvementDelta), appearance: dspToneAppearance }
 ]
 
-const frozenPlanOrNull = (plan: { readonly _tag: string } | null): EffectDspRunPlan | null =>
-  isEffectDspRunPlan(plan) ? plan : null
+const frozenPlanOrNull = (plan: { readonly _tag: string } | null): EffectDspProjectionScript | null =>
+  isEffectDspProjectionScript(plan) ? plan : null
 
 const canonicalStepOrNull = (
   frame: CanonicalFrame | null
@@ -122,7 +126,7 @@ export const dspWidgetViewModelAtom: AtomType.Atom<DspWidgetViewModel> = Atom.ma
   const idleModuleType = get(dspModuleTypeAtom)
   const idleBudget = get(dspOptimizationBudgetAtom)
   const frozenPlan = runUsesActiveFrameAuthority(run)
-    ? frozenPlanOrNull(get(surfaceLocalRunPlanAtom("effect-dsp")))
+    ? frozenPlanOrNull(get(surfaceLocalProjectionScriptAtom("effect-dsp")))
     : null
   const frame = runUsesActiveFrameAuthority(run)
     ? canonicalStepOrNull(get(surfaceActiveCanonicalFrameAtom("effect-dsp")))

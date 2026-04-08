@@ -2,8 +2,8 @@ import { Tabs } from "@base-ui-components/react/tabs"
 import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { TabId } from "../../../contracts/presentation.js"
-import type { SurfaceVariant, TabId as TabIdentifier } from "../../../contracts/presentation.js"
+import { TabId } from "../../../contracts/presentation/program.js"
+import type { SurfaceVariant, TabId as TabIdentifier } from "../../../contracts/presentation/program.js"
 
 import { SemanticText } from "./SemanticText.js"
 

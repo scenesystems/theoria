@@ -1,9 +1,9 @@
 import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidenceItem, EvidenceSection } from "../../contracts/evidence.js"
-import { Program } from "../../contracts/presentation.js"
-import type { RunData } from "../../contracts/run.js"
+import type { EvidenceItem, EvidenceSection } from "../../contracts/evidence/item.js"
+import { Program } from "../../contracts/presentation/program.js"
+import type { RunData } from "../../contracts/study/run.js"
 import { EvidenceRow } from "./primitives/evidence-row.js"
 
 export { type EvidenceRow } from "./primitives/evidence-row.js"

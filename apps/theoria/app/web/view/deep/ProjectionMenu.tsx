@@ -1,7 +1,10 @@
 import { Popover } from "@base-ui-components/react/popover"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { ViewColumnsIcon } from "@heroicons/react/20/solid"
-import { deepDiveProjectionMenuOpenAtom, setDeepDiveProjectionMenuOpenAtom } from "../../atoms/projection-menu.js"
+import {
+  deepDiveProjectionMenuOpenAtom,
+  setDeepDiveProjectionMenuOpenAtom
+} from "../../atoms/layout/projection-menu.js"
 
 import { chromeHeaderGlyphClassName, chromeIconButtonClassName } from "../primitives/ChromeIconButton.js"
 import { surfaceMaterials } from "../primitives/designSystem.js"

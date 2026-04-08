@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { CardTone } from "./theme.js"
+import { CardTone } from "./tone.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))

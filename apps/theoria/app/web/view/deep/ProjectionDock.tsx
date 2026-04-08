@@ -16,7 +16,7 @@ import {
   setDeepDiveDragHoverLotIndexAtom,
   setDeepDiveDragPointerAtom,
   startDeepDiveSurfaceDragAtom
-} from "../../atoms/deep-dive-layout.js"
+} from "../../atoms/layout/deep-dive.js"
 
 import { surfaceMaterials } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"

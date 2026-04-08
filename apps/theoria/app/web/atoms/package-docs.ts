@@ -3,7 +3,11 @@ import type { Atom as AtomType, Result } from "@effect-atom/atom"
 import type { PackageName } from "@theoria/source-proof/contracts"
 import { Effect, Option } from "effect"
 
-import type { PackageDocsBundle, PackageDocsCatalogEntry, PackageDocsError } from "../../contracts/package-docs.js"
+import type {
+  PackageDocsBundle,
+  PackageDocsCatalogEntry,
+  PackageDocsError
+} from "../../contracts/presentation/package-docs.js"
 import { PackageDocsClient } from "../services/PackageDocsClient.js"
 
 const packageDocsRuntime = Atom.runtime(PackageDocsClient.Default)

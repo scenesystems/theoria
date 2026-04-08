@@ -10,13 +10,13 @@ import {
   StreamComplete
 } from "../../app/contracts/evidence-stream.js"
 import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import type { Id } from "../../app/contracts/id.js"
+import type { EntryId } from "../../app/contracts/id.js"
 import { makeRunDemoAtom } from "../../app/web/atoms/actions.js"
-import { isEffectDspRunPlan } from "../../app/web/atoms/dsp-run-plan.js"
+import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { makeAppClientTestRuntime } from "../helpers/demo-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -58,7 +58,7 @@ const makeTestRegistry = (): Registry.Registry =>
     }
   })
 
-const readSurface = (registry: Registry.Registry, id: Id): SurfaceState => registry.get(surfaceAtom(id))
+const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))
 
 const waitForLatestSource = Effect.eventually(
   Effect.sync(() => Option.fromNullable(MockEventSource.instances[MockEventSource.instances.length - 1])).pipe(
@@ -99,8 +99,7 @@ describe("runtime spine proof", () => {
         const runtime = makeAppClientTestRuntime({
           run: () => Effect.fail(errorFixture),
           runWithMeta: () => Effect.fail(errorFixture),
-          preload: () => Effect.succeed(programPreviewFixture),
-          streamUrl: (id) => `/api/demos/${id}/stream`
+          preload: () => Effect.succeed(programPreviewFixture)
         })
         const runDemoAtom = makeRunDemoAtom(runtime)
 
@@ -114,11 +113,11 @@ describe("runtime spine proof", () => {
           )
         )
 
-        if (!isEffectDspRunPlan(running.run.session.localRunPlan)) {
+        if (!isEffectDspProjectionScript(running.run.session.localProjectionScript)) {
           return yield* Effect.die("missing-effect-dsp-plan")
         }
 
-        const frozenPlan = running.run.session.localRunPlan
+        const frozenPlan = running.run.session.localProjectionScript
         const expectedSections: ReadonlyArray<EvidenceSection> = [
           {
             title: "Baseline Trace Evidence",

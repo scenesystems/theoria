@@ -1,6 +1,6 @@
 import { Match } from "effect"
 
-import type { EvidenceItem } from "../../../contracts/evidence.js"
+import type { EvidenceItem } from "../../../contracts/evidence/item.js"
 
 import { formatDelta, formatNumber, formatScalar } from "../data/format.js"
 import { ComparisonBar } from "./ComparisonBar.js"

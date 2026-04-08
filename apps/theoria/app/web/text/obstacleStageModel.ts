@@ -1,7 +1,7 @@
 import type { Text } from "effect-text"
 import * as Arr from "effect/Array"
 
-import { obstacleGapPx } from "../../contracts/demo/text.js"
+import { obstacleGapPx } from "../../contracts/capability/effect-text.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 
 export const reflowObstacleGapPx = obstacleGapPx
