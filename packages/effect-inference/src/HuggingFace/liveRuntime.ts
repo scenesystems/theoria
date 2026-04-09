@@ -12,21 +12,29 @@ import { CapabilityMismatch } from "../Errors/Capability.js"
 import type { InvalidRuntimeConfig } from "../Errors/Config.js"
 import { ensureCapabilityRequirements } from "../internal/capabilityValidation.js"
 import type { RuntimeResolution } from "../Runtime/services.js"
-import { makeHuggingFaceEndpointResolution } from "./endpoint.js"
+import { HuggingFaceEndpointResolution } from "./endpoint.js"
 import {
   descriptorForLiveRuntime,
   type LiveRuntimeConfigOptions,
   type LiveRuntimeOptions,
   resolveLiveRuntimeConfig
 } from "./liveRuntimeConfig.js"
-import { makeHuggingFaceRoutedResolution } from "./routed.js"
+import { HuggingFaceRoutedResolution } from "./routed.js"
 
 const resolutionForLiveRuntime = (options: LiveRuntimeOptions): RuntimeResolution => {
   const descriptor = descriptorForLiveRuntime(options)
 
   return options.serveMode === "routed-marketplace"
-    ? makeHuggingFaceRoutedResolution(descriptor, descriptor.route.baseUrl, options.accessToken)
-    : makeHuggingFaceEndpointResolution(descriptor, descriptor.route.baseUrl, options.accessToken)
+    ? HuggingFaceRoutedResolution.fromDescriptor(
+      descriptor,
+      descriptor.route.baseUrl,
+      options.accessToken
+    )
+    : HuggingFaceEndpointResolution.fromDescriptor(
+      descriptor,
+      descriptor.route.baseUrl,
+      options.accessToken
+    )
 }
 
 const missingCapability = (capability: string, reason: string): CapabilityMismatch =>

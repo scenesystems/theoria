@@ -68,16 +68,18 @@ const selectionSuffix = (selectionPolicy: Option.Option<RouteSelectionPolicy>): 
  *
  * @since 0.1.0
  */
-export const makeHuggingFaceRoutedModelRef = (
-  modelRef: string,
-  selectionPolicy: Option.Option<RouteSelectionPolicy>
-): string =>
-  selectionSuffix(selectionPolicy).pipe(
-    Option.match({
-      onNone: () => modelRef,
-      onSome: (suffix) => `${modelRef}:${suffix}`
-    })
-  )
+export const HuggingFaceRoutedModelRef = {
+  fromSelectionPolicy: (
+    modelRef: string,
+    selectionPolicy: Option.Option<RouteSelectionPolicy>
+  ): string =>
+    selectionSuffix(selectionPolicy).pipe(
+      Option.match({
+        onNone: () => modelRef,
+        onSome: (suffix) => `${modelRef}:${suffix}`
+      })
+    )
+}
 
 const inferenceClientForRoute = (
   route: ExecutionRoute,
@@ -98,7 +100,12 @@ const featureExtractionArgs = (options: {
   return {
     inputs,
     ...(options.route.serveMode === "routed-marketplace"
-      ? { model: makeHuggingFaceRoutedModelRef(options.model, Option.fromNullable(options.route.selectionPolicy)) }
+      ? {
+        model: HuggingFaceRoutedModelRef.fromSelectionPolicy(
+          options.model,
+          Option.fromNullable(options.route.selectionPolicy)
+        )
+      }
       : { model: options.model })
   }
 }
@@ -109,35 +116,37 @@ const featureExtractionArgs = (options: {
  *
  * @since 0.1.0
  */
-export const makeHuggingFaceEmbeddingLayer = (options: {
-  readonly model: string
-  readonly route: ExecutionRoute
-  readonly accessToken?: Redacted.Redacted
-}): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> =>
-  Layer.effect(
-    EmbeddingModel.EmbeddingModel,
-    Effect.sync(() => inferenceClientForRoute(options.route, options.accessToken)).pipe(
-      Effect.flatMap((client) =>
-        EmbeddingModel.make({
-          embedMany: (input) => {
-            const [first, ...rest] = input
+export const HuggingFaceEmbeddingLayer = {
+  layer: (options: {
+    readonly model: string
+    readonly route: ExecutionRoute
+    readonly accessToken?: Redacted.Redacted
+  }): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> =>
+    Layer.effect(
+      EmbeddingModel.EmbeddingModel,
+      Effect.sync(() => inferenceClientForRoute(options.route, options.accessToken)).pipe(
+        Effect.flatMap((client) =>
+          EmbeddingModel.make({
+            embedMany: (input) => {
+              const [first, ...rest] = input
 
-            return typeof first === "undefined"
-              ? Effect.succeed([])
-              : Effect.tryPromise({
-                try: () =>
-                  client.featureExtraction(
-                    featureExtractionArgs({ input: [first, ...rest], model: options.model, route: options.route })
-                  ),
-                catch: (cause) =>
-                  unknownError(
-                    "featureExtraction",
-                    "Hugging Face feature extraction request failed.",
-                    cause
-                  )
-              }).pipe(Effect.flatMap(normalizeEmbeddings))
-          }
-        })
+              return typeof first === "undefined"
+                ? Effect.succeed([])
+                : Effect.tryPromise({
+                  try: () =>
+                    client.featureExtraction(
+                      featureExtractionArgs({ input: [first, ...rest], model: options.model, route: options.route })
+                    ),
+                  catch: (cause) =>
+                    unknownError(
+                      "featureExtraction",
+                      "Hugging Face feature extraction request failed.",
+                      cause
+                    )
+                }).pipe(Effect.flatMap(normalizeEmbeddings))
+            }
+          })
+        )
       )
     )
-  )
+}

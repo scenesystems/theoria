@@ -9,10 +9,10 @@ describe("Runtime/runtime-evidence-boundary", () => {
       artifact: { modelRef: "meta-llama/Llama-3.3-70B-Instruct" }
     }
 
-    const resolution = Testing.makeRuntimeResolution({ desired })
-    const evidence = Runtime.makeRuntimeEvidence({
+    const resolution = Testing.RuntimeResolution.fromTesting({ desired })
+    const evidence = Runtime.RuntimeEvidence.fromResolution({
       resolution,
-      resolvedRuntime: Testing.makeResolvedRuntimeDescriptor({
+      resolvedRuntime: Testing.ResolvedRuntimeDescriptor.fromTesting({
         responseModel: "accounts/fireworks/models/llama-v3p3-70b-instruct",
         responseId: "resp_123",
         finishReason: "stop",

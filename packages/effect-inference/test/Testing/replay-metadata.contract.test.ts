@@ -6,7 +6,7 @@ import * as Testing from "../../src/testing/index.js"
 
 describe("Testing/replay-metadata", () => {
   it("preserves requested runtime, resolved route, and resolved runtime metadata in deterministic fixtures", () => {
-    const evidence = Testing.makeRuntimeEvidenceFixture({
+    const evidence = Testing.RuntimeEvidence.fromTesting({
       desired: {
         artifact: {
           modelRef: "meta-llama/Llama-3.3-70B-Instruct",
@@ -35,7 +35,7 @@ describe("Testing/replay-metadata", () => {
         selectionReason: "testing-static-resolution",
         schemaVersion: Contracts.ResolvedRouteProvenanceVersion
       },
-      resolvedRuntime: Testing.makeResolvedRuntimeDescriptor({
+      resolvedRuntime: Testing.ResolvedRuntimeDescriptor.fromTesting({
         responseModel: "accounts/fireworks/models/llama-v3p3-70b-instruct",
         responseId: "resp_789",
         finishReason: "stop",

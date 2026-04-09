@@ -11,7 +11,7 @@ import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescri
 import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import { explicitProviderSelection, type RouteSelectionPolicy } from "../contracts/RouteSelectionPolicy.js"
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
-import { makeHuggingFaceEndpointRoute, makeHuggingFaceRoutedRoute } from "./metadata.js"
+import { HuggingFaceEndpointRoute, HuggingFaceRoutedRoute } from "./metadata.js"
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
@@ -165,9 +165,6 @@ const routedBaseUrlFromConfig = (
     onSome: (value) => value
   })
 
-const makeInvalidRuntimeConfig = (error: ConfigError.ConfigError): InvalidRuntimeConfig =>
-  new InvalidRuntimeConfig({ reason: String(error) })
-
 const descriptorWithCapabilities = (
   descriptor: LiveRuntimeDescriptor,
   capabilities?: DesiredRuntimeDescriptor["capabilities"]
@@ -183,7 +180,7 @@ const descriptorWithCapabilities = (
   )
 
 const routedRouteForLiveRuntime = (options: RoutedLiveRuntimeOptions): ExecutionRoute =>
-  makeHuggingFaceRoutedRoute({
+  HuggingFaceRoutedRoute.make({
     baseUrl: options.baseUrl ?? defaultRoutedBaseUrl,
     authMethod: "hf-token",
     ...Option.match(Option.fromNullable(options.gatewayId), {
@@ -197,7 +194,7 @@ const routedRouteForLiveRuntime = (options: RoutedLiveRuntimeOptions): Execution
   })
 
 const endpointRouteForLiveRuntime = (options: EndpointLiveRuntimeOptions): ExecutionRoute =>
-  makeHuggingFaceEndpointRoute({
+  HuggingFaceEndpointRoute.make({
     baseUrl: options.baseUrl,
     authMethod: "hf-token",
     ...Option.match(Option.fromNullable(options.endpointId), {
@@ -379,5 +376,5 @@ export const resolveLiveRuntimeConfig = (
         : endpointConfig({ ...options, serveMode })
     ),
     Effect.withConfigProvider(options.configProvider ?? defaultConfigProvider),
-    Effect.catchAll((error) => Effect.fail(makeInvalidRuntimeConfig(error)))
+    Effect.catchAll((error) => Effect.fail(InvalidRuntimeConfig.make({ reason: String(error) })))
   )

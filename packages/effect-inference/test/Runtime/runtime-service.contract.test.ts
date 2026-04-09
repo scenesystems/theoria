@@ -14,7 +14,7 @@ describe("Runtime/runtime-service", () => {
       const desired = {
         artifact: { modelRef: "openai/gpt-4o-mini" }
       }
-      const resolution = Testing.makeRuntimeResolution({ desired })
+      const resolution = Testing.RuntimeResolution.fromTesting({ desired })
 
       expect(assertLayer(Runtime.RuntimeResolverLive)).toBe(true)
       expect(assertLayer(Testing.staticRuntimeResolver(resolution))).toBe(true)

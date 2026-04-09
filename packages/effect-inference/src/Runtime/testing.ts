@@ -8,20 +8,30 @@ import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Response from "@effect/ai/Response"
 import { Effect, Layer, Option, Stream } from "effect"
 
-import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
+import {
+  DesiredRuntimeDescriptor as DesiredRuntimeDescriptorContract,
+  type DesiredRuntimeDescriptor as DesiredRuntimeDescriptorModel
+} from "../contracts/DesiredRuntimeDescriptor.js"
 import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
-import { type ResolvedRouteDescriptor, ResolvedRouteProvenanceVersion } from "../contracts/ResolvedRouteDescriptor.js"
-import type { ResolvedRuntimeDescriptor } from "../contracts/ResolvedRuntimeDescriptor.js"
+import {
+  ResolvedRouteDescriptor as ResolvedRouteDescriptorContract,
+  type ResolvedRouteDescriptor as ResolvedRouteDescriptorModel,
+  ResolvedRouteProvenanceVersion
+} from "../contracts/ResolvedRouteDescriptor.js"
+import {
+  ResolvedRuntimeDescriptor as ResolvedRuntimeDescriptorContract,
+  type ResolvedRuntimeDescriptor as ResolvedRuntimeDescriptorModel
+} from "../contracts/ResolvedRuntimeDescriptor.js"
 import { defaultRouteFamily } from "../contracts/RouteFamily.js"
 import type { RuntimeCapabilities } from "../contracts/RuntimeCapabilities.js"
 import { defaultRuntimeFlavor } from "../contracts/RuntimeFlavor.js"
 import { defaultRuntimeCapabilities } from "../internal/defaultCapabilities.js"
 import { testingSelectionReason } from "../internal/resolvedRoute.js"
-import { makeRuntimeEvidence } from "./evidence.js"
+import { RuntimeEvidence as RuntimeEvidenceRuntime } from "./evidence.js"
 import {
   emptyResolvedModelLayers,
   layer,
-  RuntimeResolution,
+  RuntimeResolution as RuntimeResolutionClass,
   type RuntimeResolver,
   RuntimeResolverApi
 } from "./services.js"
@@ -35,216 +45,160 @@ const defaultTestingUsage = () =>
     cachedInputTokens: undefined
   })
 
-/**
- * Constructs a deterministic requested-runtime fixture with one package-owned
- * source of truth for tests and examples.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeDesiredRuntimeDescriptor = (options?: {
-  readonly modelRef?: string
-  readonly route?: ExecutionRoute
-  readonly capabilities?: RuntimeCapabilities
-}): DesiredRuntimeDescriptor => ({
-  artifact: {
-    modelRef: options?.modelRef ?? "testing/model"
-  },
-  ...Option.fromNullable(options?.route).pipe(
+const fromOptional = <A>(option: Option.Option<A>, field: (value: A) => Record<string, A>) =>
+  option.pipe(
     Option.match({
       onNone: () => ({}),
-      onSome: (route) => ({ route })
-    })
-  ),
-  ...Option.fromNullable(options?.capabilities).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (capabilities) => ({ capabilities })
+      onSome: field
     })
   )
-})
 
 /**
- * Constructs deterministic route-provenance fixtures without requiring a live
- * resolver.
+ * Deterministic desired-runtime descriptor helpers for tests and examples.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeResolvedRouteDescriptor = (options?: {
-  readonly desired?: DesiredRuntimeDescriptor
-  readonly route?: ExecutionRoute
-  readonly selectedProvider?: string
-  readonly selectedDeployment?: string
-  readonly providerModel?: string
-  readonly runtimeFlavor?: ResolvedRouteDescriptor["runtimeFlavor"]
-  readonly selectionReason?: string
-  readonly schemaVersion?: ResolvedRouteDescriptor["schemaVersion"]
-}): ResolvedRouteDescriptor => {
-  const desired = options?.desired ?? makeDesiredRuntimeDescriptor()
-  const route = options?.route ?? desired.route ?? {
-    family: defaultRouteFamily(),
-    serveMode: "local-runtime",
-    authMethod: "none",
-    baseUrl: "in-memory://runtime",
-    runtimeFlavorHint: defaultRuntimeFlavor()
-  }
-
-  return {
-    route,
-    ...Option.fromNullable(options?.selectedProvider).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (selectedProvider) => ({ selectedProvider })
-      })
-    ),
-    ...Option.fromNullable(options?.selectedDeployment).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (selectedDeployment) => ({ selectedDeployment })
-      })
-    ),
-    ...Option.fromNullable(options?.providerModel ?? desired.artifact.modelRef).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (providerModel) => ({ providerModel })
-      })
-    ),
-    ...Option.fromNullable(options?.runtimeFlavor ?? route.runtimeFlavorHint).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (runtimeFlavor) => ({ runtimeFlavor })
-      })
-    ),
-    selectionReason: options?.selectionReason ?? testingSelectionReason,
-    schemaVersion: options?.schemaVersion ?? ResolvedRouteProvenanceVersion
-  }
+export const DesiredRuntimeDescriptor = {
+  fromTesting: (options?: {
+    readonly modelRef?: string
+    readonly route?: ExecutionRoute
+    readonly capabilities?: RuntimeCapabilities
+    readonly role?: DesiredRuntimeDescriptorModel["role"]
+    readonly tags?: DesiredRuntimeDescriptorModel["tags"]
+  }): DesiredRuntimeDescriptorModel =>
+    DesiredRuntimeDescriptorContract.make({
+      artifact: {
+        modelRef: options?.modelRef ?? "testing/model"
+      },
+      ...fromOptional(Option.fromNullable(options?.route), (route) => ({ route })),
+      ...fromOptional(Option.fromNullable(options?.capabilities), (capabilities) => ({ capabilities })),
+      ...fromOptional(Option.fromNullable(options?.role), (role) => ({ role })),
+      ...fromOptional(Option.fromNullable(options?.tags), (tags) => ({ tags }))
+    })
 }
 
 /**
- * Construct a deterministic runtime-resolution record for tests and examples.
+ * Deterministic resolved-route descriptor helpers for tests and examples.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeRuntimeResolution = (options: {
-  readonly desired: DesiredRuntimeDescriptor
-  readonly resolvedRoute?: ResolvedRouteDescriptor
-  readonly capabilities?: RuntimeCapabilities
-}): RuntimeResolution => {
-  const resolvedRoute = options.resolvedRoute ?? makeResolvedRouteDescriptor({ desired: options.desired })
+export const ResolvedRouteDescriptor = {
+  fromTesting: (options?: {
+    readonly desired?: DesiredRuntimeDescriptorModel
+    readonly route?: ExecutionRoute
+    readonly selectedProvider?: string
+    readonly selectedDeployment?: string
+    readonly providerModel?: string
+    readonly runtimeFlavor?: ResolvedRouteDescriptorModel["runtimeFlavor"]
+    readonly selectionReason?: string
+    readonly schemaVersion?: ResolvedRouteDescriptorModel["schemaVersion"]
+  }): ResolvedRouteDescriptorModel => {
+    const desired = options?.desired ?? DesiredRuntimeDescriptor.fromTesting()
+    const route = options?.route ?? desired.route ?? {
+      family: defaultRouteFamily(),
+      serveMode: "local-runtime",
+      authMethod: "none",
+      baseUrl: "in-memory://runtime",
+      runtimeFlavorHint: defaultRuntimeFlavor()
+    }
 
-  return new RuntimeResolution({
-    desired: options.desired,
-    resolvedRoute,
-    capabilities: options.capabilities ?? defaultRuntimeCapabilities({ route: resolvedRoute.route }),
-    layers: emptyResolvedModelLayers()
-  })
-}
-
-/**
- * Constructs deterministic post-execution runtime truth for tests that need
- * replay-safe evidence without a live provider call.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeResolvedRuntimeDescriptor = (options?: {
-  readonly responseModel?: string
-  readonly responseId?: string
-  readonly startedAtMs?: number
-  readonly completedAtMs?: number
-  readonly finishReason?: ResolvedRuntimeDescriptor["finishReason"]
-  readonly systemFingerprint?: string
-  readonly usage?: ResolvedRuntimeDescriptor["usage"]
-  readonly providerMetadata?: ResolvedRuntimeDescriptor["providerMetadata"]
-}): ResolvedRuntimeDescriptor => {
-  const responseId = Option.fromNullable(options?.responseId).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ responseId: value })
-    })
-  )
-  const startedAtMs = Option.fromNullable(options?.startedAtMs).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ startedAtMs: value })
-    })
-  )
-  const completedAtMs = Option.fromNullable(options?.completedAtMs).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ completedAtMs: value })
-    })
-  )
-  const finishReason = Option.fromNullable(options?.finishReason).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ finishReason: value })
-    })
-  )
-  const systemFingerprint = Option.fromNullable(options?.systemFingerprint).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ systemFingerprint: value })
-    })
-  )
-  const usage = Option.fromNullable(options?.usage).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ usage: value })
-    })
-  )
-  const providerMetadata = Option.fromNullable(options?.providerMetadata).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (value) => ({ providerMetadata: value })
-    })
-  )
-
-  return {
-    responseModel: options?.responseModel ?? "testing/model",
-    ...responseId,
-    ...startedAtMs,
-    ...completedAtMs,
-    ...finishReason,
-    ...systemFingerprint,
-    ...usage,
-    ...providerMetadata
-  }
-}
-
-/**
- * Constructs deterministic runtime evidence from package-owned requested,
- * resolved-route, and resolved-runtime fixtures.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeRuntimeEvidenceFixture = (options: {
-  readonly desired: DesiredRuntimeDescriptor
-  readonly resolvedRoute?: ResolvedRouteDescriptor
-  readonly capabilities?: RuntimeCapabilities
-  readonly resolvedRuntime?: ResolvedRuntimeDescriptor
-}) =>
-  makeRuntimeEvidence({
-    resolution: makeRuntimeResolution({
-      desired: options.desired,
-      ...Option.fromNullable(options.resolvedRoute).pipe(
-        Option.match({
-          onNone: () => ({}),
-          onSome: (value) => ({ resolvedRoute: value })
-        })
+    return ResolvedRouteDescriptorContract.make({
+      route,
+      ...fromOptional(Option.fromNullable(options?.selectedProvider), (selectedProvider) => ({ selectedProvider })),
+      ...fromOptional(
+        Option.fromNullable(options?.selectedDeployment),
+        (selectedDeployment) => ({ selectedDeployment })
       ),
-      ...Option.fromNullable(options.capabilities).pipe(
-        Option.match({
-          onNone: () => ({}),
-          onSome: (value) => ({ capabilities: value })
-        })
-      )
-    }),
-    resolvedRuntime: options.resolvedRuntime ?? makeResolvedRuntimeDescriptor()
-  })
+      ...fromOptional(
+        Option.fromNullable(options?.providerModel ?? desired.artifact.modelRef),
+        (providerModel) => ({ providerModel })
+      ),
+      ...fromOptional(
+        Option.fromNullable(options?.runtimeFlavor ?? route.runtimeFlavorHint),
+        (runtimeFlavor) => ({ runtimeFlavor })
+      ),
+      selectionReason: options?.selectionReason ?? testingSelectionReason,
+      schemaVersion: options?.schemaVersion ?? ResolvedRouteProvenanceVersion
+    })
+  }
+}
+
+/**
+ * Deterministic runtime-resolution helpers for tests and examples.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const RuntimeResolution = {
+  fromTesting: (options: {
+    readonly desired: DesiredRuntimeDescriptorModel
+    readonly resolvedRoute?: ResolvedRouteDescriptorModel
+    readonly capabilities?: RuntimeCapabilities
+  }): RuntimeResolutionClass => {
+    const resolvedRoute = options.resolvedRoute ?? ResolvedRouteDescriptor.fromTesting({ desired: options.desired })
+
+    return new RuntimeResolutionClass({
+      desired: options.desired,
+      resolvedRoute,
+      capabilities: options.capabilities ?? defaultRuntimeCapabilities({ route: resolvedRoute.route }),
+      layers: emptyResolvedModelLayers()
+    })
+  }
+}
+
+/**
+ * Deterministic post-execution runtime descriptor helpers for tests.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const ResolvedRuntimeDescriptor = {
+  fromTesting: (options?: {
+    readonly responseModel?: string
+    readonly responseId?: string
+    readonly startedAtMs?: number
+    readonly completedAtMs?: number
+    readonly finishReason?: ResolvedRuntimeDescriptorModel["finishReason"]
+    readonly systemFingerprint?: string
+    readonly usage?: ResolvedRuntimeDescriptorModel["usage"]
+    readonly providerMetadata?: ResolvedRuntimeDescriptorModel["providerMetadata"]
+  }): ResolvedRuntimeDescriptorModel =>
+    ResolvedRuntimeDescriptorContract.make({
+      responseModel: options?.responseModel ?? "testing/model",
+      ...fromOptional(Option.fromNullable(options?.responseId), (responseId) => ({ responseId })),
+      ...fromOptional(Option.fromNullable(options?.startedAtMs), (startedAtMs) => ({ startedAtMs })),
+      ...fromOptional(Option.fromNullable(options?.completedAtMs), (completedAtMs) => ({ completedAtMs })),
+      ...fromOptional(Option.fromNullable(options?.finishReason), (finishReason) => ({ finishReason })),
+      ...fromOptional(Option.fromNullable(options?.systemFingerprint), (systemFingerprint) => ({ systemFingerprint })),
+      ...fromOptional(Option.fromNullable(options?.usage), (usage) => ({ usage })),
+      ...fromOptional(Option.fromNullable(options?.providerMetadata), (providerMetadata) => ({ providerMetadata }))
+    })
+}
+
+/**
+ * Deterministic runtime-evidence helpers for tests and examples.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const RuntimeEvidence = {
+  fromTesting: (options: {
+    readonly desired: DesiredRuntimeDescriptorModel
+    readonly resolvedRoute?: ResolvedRouteDescriptorModel
+    readonly capabilities?: RuntimeCapabilities
+    readonly resolvedRuntime?: ResolvedRuntimeDescriptorModel
+  }) =>
+    RuntimeEvidenceRuntime.fromResolution({
+      resolution: RuntimeResolution.fromTesting({
+        desired: options.desired,
+        ...fromOptional(Option.fromNullable(options.resolvedRoute), (resolvedRoute) => ({ resolvedRoute })),
+        ...fromOptional(Option.fromNullable(options.capabilities), (capabilities) => ({ capabilities }))
+      }),
+      resolvedRuntime: options.resolvedRuntime ?? ResolvedRuntimeDescriptor.fromTesting()
+    })
+}
 
 /**
  * Layer that always resolves to the provided static runtime-resolution record.
@@ -253,7 +207,7 @@ export const makeRuntimeEvidenceFixture = (options: {
  * @category layers
  */
 export const staticRuntimeResolver = (
-  resolution: RuntimeResolution
+  resolution: RuntimeResolutionClass
 ): Layer.Layer<RuntimeResolver> =>
   layer(
     new RuntimeResolverApi({

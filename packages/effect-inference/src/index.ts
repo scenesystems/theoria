@@ -26,8 +26,8 @@ export * as Contracts from "./contracts/index.js"
 export * as Errors from "./Errors/index.js"
 
 /**
- * Runtime resolver services, config decoding, post-execution runtime-evidence
- * assembly, and testing helpers.
+ * Runtime resolver services, config decoding, and post-execution
+ * runtime-evidence assembly.
  *
  * @since 0.1.0
  * @category runtime

@@ -21,7 +21,7 @@ describe("package/readme-surface", () => {
       expect(readme).toContain("LanguageModel.generateText")
       expect(readme).toContain("EmbeddingModel.EmbeddingModel")
       expect(readme).toContain("Runtime.resolveLiveTextProviderRuntime")
-      expect(readme).toContain("Runtime.makeRuntimeEvidence")
+      expect(readme).toContain("Runtime.RuntimeEvidence.fromResolution")
       expect(readme).toContain("EFFECT_INFERENCE_RUN_LIVE_EXAMPLES")
       expect(readme).toContain("bun run --filter 'effect-inference' examples:verify")
       expect(readme).toContain("OpenAiCompatible")

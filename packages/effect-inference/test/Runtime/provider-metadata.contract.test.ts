@@ -4,11 +4,11 @@ import * as Testing from "../../src/testing/index.js"
 
 describe("Runtime/provider-metadata", () => {
   it("keeps provider-specific metadata namespaced and additive to normalized runtime evidence", () => {
-    const evidence = Testing.makeRuntimeEvidenceFixture({
+    const evidence = Testing.RuntimeEvidence.fromTesting({
       desired: {
         artifact: { modelRef: "openai/gpt-4o-mini" }
       },
-      resolvedRuntime: Testing.makeResolvedRuntimeDescriptor({
+      resolvedRuntime: Testing.ResolvedRuntimeDescriptor.fromTesting({
         responseModel: "gpt-4o-mini",
         responseId: "resp_123",
         finishReason: "stop",

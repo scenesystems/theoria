@@ -5,7 +5,7 @@ import * as HuggingFace from "../../src/HuggingFace/index.js"
 
 describe("HuggingFace/hugging-face-routing", () => {
   it("keeps brokered-provider routing explicit above the shared Hugging Face family", () => {
-    const resolution = HuggingFace.makeHuggingFaceRoutedResolution(
+    const resolution = HuggingFace.HuggingFaceRoutedResolution.fromDescriptor(
       {
         artifact: { modelRef: "meta-llama/Llama-3.3-70B-Instruct" },
         route: {
@@ -27,7 +27,7 @@ describe("HuggingFace/hugging-face-routing", () => {
   })
 
   it("keeps dedicated-endpoint identity explicit above the shared Hugging Face family", () => {
-    const resolution = HuggingFace.makeHuggingFaceEndpointResolution(
+    const resolution = HuggingFace.HuggingFaceEndpointResolution.fromDescriptor(
       {
         artifact: { modelRef: "BAAI/bge-base-en-v1.5" },
         route: {

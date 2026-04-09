@@ -5,7 +5,7 @@ import * as OpenAiCompatible from "../../src/OpenAiCompatible/index.js"
 
 describe("OpenAiCompatible/transport", () => {
   it("projects openai-compatible routes onto the shared transport seam", () => {
-    const route = OpenAiCompatible.makeOpenAiCompatibleRoute({
+    const route = OpenAiCompatible.OpenAiCompatibleRoute.make({
       baseUrl: "http://localhost:11434/v1",
       serveMode: "local-runtime",
       authMethod: "none",
@@ -19,7 +19,7 @@ describe("OpenAiCompatible/transport", () => {
   })
 
   it("keeps Hugging Face route identity distinct above the compatible transport seam", () => {
-    const route = HuggingFace.makeHuggingFaceEndpointRoute({
+    const route = HuggingFace.HuggingFaceEndpointRoute.make({
       baseUrl: "https://example.endpoints.huggingface.cloud/v1",
       authMethod: "api-key",
       endpointId: "hf-endpoint-demo",

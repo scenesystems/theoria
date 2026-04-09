@@ -7,7 +7,7 @@ import { Data } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
-import { makeOpenAiCompatibleRoute } from "./metadata.js"
+import { OpenAiCompatibleRoute } from "./metadata.js"
 
 /**
  * Minimal transport information shared by compatible chat-completions style
@@ -51,7 +51,7 @@ export const withOpenAiCompatibleRoute = (descriptor: DesiredRuntimeDescriptor, 
   readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
 }): DesiredRuntimeDescriptor => ({
   ...descriptor,
-  route: makeOpenAiCompatibleRoute(options)
+  route: OpenAiCompatibleRoute.make(options)
 })
 
 /**

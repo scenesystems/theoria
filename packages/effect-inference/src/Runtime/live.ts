@@ -9,8 +9,8 @@ import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescri
 import { UnsupportedRoute } from "../Errors/RuntimeResolver.js"
 import { ensureCapabilityRequirements } from "../internal/capabilityValidation.js"
 import { defaultRuntimeCapabilities } from "../internal/defaultCapabilities.js"
-import { makeResolvedModelLayers } from "../internal/liveLayers.js"
-import { makeLiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
+import { LiveResolvedModelLayers } from "../internal/liveLayers.js"
+import { LiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
 import { RuntimeResolution, RuntimeResolver, RuntimeResolverApi } from "./services.js"
 
 const requireRoute = (descriptor: DesiredRuntimeDescriptor) =>
@@ -32,9 +32,9 @@ const runtimeResolverLiveApi = new RuntimeResolverApi({
 
       return new RuntimeResolution({
         desired: descriptor,
-        resolvedRoute: makeLiveResolvedRouteDescriptor(descriptor, route),
+        resolvedRoute: LiveResolvedRouteDescriptor.fromDescriptor(descriptor, route),
         capabilities,
-        layers: makeResolvedModelLayers({ descriptor, route, capabilities })
+        layers: LiveResolvedModelLayers.fromRoute({ descriptor, route, capabilities })
       })
     })
 })

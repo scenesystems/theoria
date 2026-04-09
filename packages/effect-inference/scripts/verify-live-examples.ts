@@ -67,7 +67,7 @@ const runExample = (exampleName: LiveExampleName) =>
   })
 
 const main = exampleConfig.pipe(
-  Effect.mapError((error) => new InvalidRuntimeConfig({ reason: String(error) })),
+  Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) })),
   Effect.flatMap(({ enabled, selectedExamples }) =>
     enabled
       ? Effect.forEach(selectedExamples, runExample, { discard: true })

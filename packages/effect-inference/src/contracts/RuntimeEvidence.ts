@@ -25,9 +25,17 @@ export const RuntimeEvidenceSchema = Schema.Struct({
 })
 
 /**
+ * Canonical runtime-evidence constructor surface.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const RuntimeEvidence = RuntimeEvidenceSchema
+
+/**
  * Extracted runtime-evidence type.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type RuntimeEvidence = Schema.Schema.Type<typeof RuntimeEvidenceSchema>
+export type RuntimeEvidence = Schema.Schema.Type<typeof RuntimeEvidence>

@@ -42,7 +42,7 @@ describe("integration/workflow-runtime-seam", () => {
         })
       )
 
-      const desired = Testing.makeDesiredRuntimeDescriptor({
+      const desired = Testing.DesiredRuntimeDescriptor.fromTesting({
         modelRef: "openai/gpt-4o-mini",
         route: {
           family: "OpenAiCompatible",
@@ -57,7 +57,7 @@ describe("integration/workflow-runtime-seam", () => {
         role: plannerNode.runtimeRole
       })
       const runtimeEvidence = yield* Schema.decodeUnknown(Contracts.RuntimeEvidenceSchema)(
-        Testing.makeRuntimeEvidenceFixture({
+        Testing.RuntimeEvidence.fromTesting({
           desired: requestedRuntime,
           capabilities: {
             textGeneration: true,
@@ -69,7 +69,7 @@ describe("integration/workflow-runtime-seam", () => {
             multimodalInput: false,
             maxContextTokens: 8192
           },
-          resolvedRuntime: Testing.makeResolvedRuntimeDescriptor({
+          resolvedRuntime: Testing.ResolvedRuntimeDescriptor.fromTesting({
             responseModel: "gpt-4o-mini-2024-07-18",
             responseId: "resp_workflow_runtime_seam"
           })

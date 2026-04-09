@@ -9,7 +9,7 @@ import { taskFirstWorkflowRecord } from "./workflowFixtures.js"
 
 const testRunId = "01HZ0000000000000000000000"
 
-const makeTestLineage = Effect.gen(function*() {
+const testLineage = Effect.gen(function*() {
   const runId = yield* Schema.decode(SearchContracts.RunId)(testRunId)
   const sourceRef = new SearchContracts.SourceRef({
     origin: "external",
@@ -28,7 +28,7 @@ const makeTestLineage = Effect.gen(function*() {
   })
 })
 
-const makeTestProducer = Effect.gen(function*() {
+const testProducer = Effect.gen(function*() {
   const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.2.1")
   const runId = yield* Schema.decode(SearchContracts.RunId)(testRunId)
   const component = yield* Schema.decode(SearchContracts.ComponentPath)(["Workflow", "searchSeam"])
@@ -45,8 +45,8 @@ describe("integration/workflow-search-seam", () => {
     Effect.gen(function*() {
       const record = yield* Schema.decodeUnknown(Contracts.WorkflowExecutionRecordSchema)(taskFirstWorkflowRecord)
       const encodedRecordJson = yield* Schema.encode(Schema.parseJson(Contracts.WorkflowExecutionRecordSchema))(record)
-      const lineage = yield* makeTestLineage
-      const producer = yield* makeTestProducer
+      const lineage = yield* testLineage
+      const producer = yield* testProducer
       const envelope = SearchContracts.Custom({
         schemaVersion: "artifact-envelope/v1",
         producer,

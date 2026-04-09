@@ -13,10 +13,16 @@ import {
 import * as Contracts from "../../src/contracts/index.js"
 
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
-const appWorkflowComparisonAuthorityContractPaths = [
-  "apps/theoria/app/contracts/workflow/comparison-run.ts",
-  "apps/theoria/app/contracts/workflow/comparison-step.ts",
-  "apps/theoria/app/contracts/workflow/comparison.ts"
+const appWorkflowAuthorityContractPaths = [
+  "apps/theoria/app/contracts/study/workflow/evidence-presentation.ts",
+  "apps/theoria/app/contracts/study/workflow/evidence.ts",
+  "apps/theoria/app/contracts/study/workflow/execution.ts",
+  "apps/theoria/app/contracts/study/workflow/frozen.ts",
+  "apps/theoria/app/contracts/study/workflow/runtime-plan.ts",
+  "apps/theoria/app/contracts/study/workflow/scenario.ts",
+  "apps/theoria/app/contracts/study/workflow/step.ts",
+  "apps/theoria/app/contracts/study/workflow/view-presentation.ts",
+  "apps/theoria/app/contracts/study/workflow/workflow-hookup.ts"
 ]
 
 const workflowContractExports = [
@@ -71,12 +77,12 @@ describe("package/workflow-contract-ownership", () => {
         )
     }))
 
-  it.effect("keeps app workflow authority on the route, run, and step contracts only", () =>
+  it.effect("keeps app workflow authority on the study/workflow contract seams only", () =>
     Effect.gen(function*() {
-      const appContractFiles = yield* Effect.all([
-        listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/demo"),
-        listTypeScriptFilesInDir(repositoryRootUrl, "apps/theoria/app/contracts/workflow")
-      ]).pipe(Effect.map(([demoFiles, workflowFiles]) => Arr.appendAll(demoFiles, workflowFiles)))
+      const appContractFiles = yield* listTypeScriptFilesInDir(
+        repositoryRootUrl,
+        "apps/theoria/app/contracts/study/workflow"
+      )
 
       const contractUsage = yield* Effect.forEach(appContractFiles, (file) =>
         Effect.gen(function*() {
@@ -98,6 +104,6 @@ describe("package/workflow-contract-ownership", () => {
           contractUsage,
           (entry) => entry.importsWorkflowContracts ? Option.some(entry.file) : Option.none()
         )
-      ).toEqual(appWorkflowComparisonAuthorityContractPaths)
+      ).toEqual(appWorkflowAuthorityContractPaths)
     }).pipe(Effect.provide(BunContext.layer)))
 })

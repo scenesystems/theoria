@@ -44,7 +44,7 @@
     },
     { "subpath": "./Contracts", "exportName": "defaultRouteFamily", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Contracts", "exportName": "defaultRuntimeFlavor", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Contracts", "exportName": "DesiredRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "DesiredRuntimeDescriptor", "kind": "value", "firstReleasedIn": "0.2.0" },
     {
       "subpath": "./Contracts",
       "exportName": "DesiredRuntimeDescriptorSchema",
@@ -132,7 +132,7 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    { "subpath": "./Contracts", "exportName": "ResolvedRouteDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ResolvedRouteDescriptor", "kind": "value", "firstReleasedIn": "0.2.0" },
     {
       "subpath": "./Contracts",
       "exportName": "ResolvedRouteDescriptorSchema",
@@ -151,7 +151,12 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    { "subpath": "./Contracts", "exportName": "ResolvedRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
+    {
+      "subpath": "./Contracts",
+      "exportName": "ResolvedRuntimeDescriptor",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
     {
       "subpath": "./Contracts",
       "exportName": "ResolvedRuntimeDescriptorSchema",
@@ -174,7 +179,7 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    { "subpath": "./Contracts", "exportName": "RuntimeEvidence", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RuntimeEvidence", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./Contracts", "exportName": "RuntimeEvidenceSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Contracts", "exportName": "RuntimeFlavor", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Contracts", "exportName": "RuntimeFlavorSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
@@ -288,11 +293,30 @@
     },
     {
       "subpath": "./HuggingFace",
+      "exportName": "HuggingFaceEndpointResolution",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "HuggingFaceEndpointRoute",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./HuggingFace",
       "exportName": "HuggingFaceRoutedEmbeddingsLive",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
     { "subpath": "./HuggingFace", "exportName": "HuggingFaceRoutedLive", "kind": "value", "firstReleasedIn": "0.1.0" },
+    {
+      "subpath": "./HuggingFace",
+      "exportName": "HuggingFaceRoutedResolution",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    { "subpath": "./HuggingFace", "exportName": "HuggingFaceRoutedRoute", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./HuggingFace", "exportName": "languageModelLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
@@ -302,30 +326,6 @@
     },
     { "subpath": "./HuggingFace", "exportName": "LiveRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./HuggingFace", "exportName": "LiveRuntimeOptions", "kind": "type", "firstReleasedIn": "0.1.0" },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "makeHuggingFaceEndpointResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "makeHuggingFaceEndpointRoute",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "makeHuggingFaceRoutedResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "makeHuggingFaceRoutedRoute",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
     {
       "subpath": "./HuggingFace",
       "exportName": "ResolvedLiveRuntimeConfig",
@@ -365,18 +365,6 @@
     },
     {
       "subpath": "./OpenAiCompatible",
-      "exportName": "makeOpenAiCompatibleResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./OpenAiCompatible",
-      "exportName": "makeOpenAiCompatibleRoute",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./OpenAiCompatible",
       "exportName": "OpenAiCompatibleEmbeddingsLive",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
@@ -386,6 +374,18 @@
       "exportName": "OpenAiCompatibleLive",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
+    },
+    {
+      "subpath": "./OpenAiCompatible",
+      "exportName": "OpenAiCompatibleResolution",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
+    },
+    {
+      "subpath": "./OpenAiCompatible",
+      "exportName": "OpenAiCompatibleRoute",
+      "kind": "value",
+      "firstReleasedIn": "0.2.0"
     },
     {
       "subpath": "./OpenAiCompatible",
@@ -425,7 +425,6 @@
       "firstReleasedIn": "0.1.0"
     },
     { "subpath": "./Runtime", "exportName": "emptyResolvedModelLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "emptyTestingLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "layer", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "LiveTextProvider", "kind": "type", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "liveTextProviderLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
@@ -435,27 +434,6 @@
       "kind": "type",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeDesiredRuntimeDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeResolvedRouteDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeResolvedRuntimeDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    { "subpath": "./Runtime", "exportName": "makeRuntimeEvidence", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "makeRuntimeEvidenceFixture", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "makeRuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Runtime",
       "exportName": "ResolvedLiveTextProviderConfig",
@@ -481,35 +459,18 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
+    { "subpath": "./Runtime", "exportName": "RuntimeEvidence", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./Runtime", "exportName": "RuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "RuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "RuntimeResolverApi", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "RuntimeResolverLive", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "staticEmbeddingModel", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "staticLanguageModel", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Runtime", "exportName": "staticRuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Runtime", "exportName": "withLiveTextProvider", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "DesiredRuntimeDescriptor", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./Testing", "exportName": "emptyTestingLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
-    {
-      "subpath": "./Testing",
-      "exportName": "makeDesiredRuntimeDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "makeResolvedRouteDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "makeResolvedRuntimeDescriptor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    { "subpath": "./Testing", "exportName": "makeRuntimeEvidenceFixture", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": "./Testing", "exportName": "makeRuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "ResolvedRouteDescriptor", "kind": "value", "firstReleasedIn": "0.2.0" },
+    { "subpath": "./Testing", "exportName": "ResolvedRuntimeDescriptor", "kind": "value", "firstReleasedIn": "0.2.0" },
+    { "subpath": "./Testing", "exportName": "RuntimeEvidence", "kind": "value", "firstReleasedIn": "0.2.0" },
+    { "subpath": "./Testing", "exportName": "RuntimeResolution", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": "./Testing", "exportName": "staticEmbeddingModel", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Testing", "exportName": "staticLanguageModel", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Testing", "exportName": "staticRuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" }

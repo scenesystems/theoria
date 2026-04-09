@@ -22,10 +22,10 @@ describe("Testing/testing-surface", () => {
         }
       }
 
-      const resolution = Testing.makeRuntimeResolution({ desired })
-      const evidence = Testing.makeRuntimeEvidenceFixture({
+      const resolution = Testing.RuntimeResolution.fromTesting({ desired })
+      const evidence = Testing.RuntimeEvidence.fromTesting({
         desired,
-        resolvedRuntime: Testing.makeResolvedRuntimeDescriptor({
+        resolvedRuntime: Testing.ResolvedRuntimeDescriptor.fromTesting({
           responseModel: "accounts/fireworks/models/llama-v3p3-70b-instruct",
           responseId: "resp_123"
         })
@@ -34,7 +34,7 @@ describe("Testing/testing-surface", () => {
         Effect.provide(Testing.staticRuntimeResolver(resolution))
       )
       const resolved = yield* resolver.resolve(desired)
-      const desiredFixture = Testing.makeDesiredRuntimeDescriptor({
+      const desiredFixture = Testing.DesiredRuntimeDescriptor.fromTesting({
         modelRef: desired.artifact.modelRef,
         ...Option.fromNullable(desired.route).pipe(
           Option.match({
@@ -43,7 +43,7 @@ describe("Testing/testing-surface", () => {
           })
         )
       })
-      const resolvedRoute = Testing.makeResolvedRouteDescriptor({ desired })
+      const resolvedRoute = Testing.ResolvedRouteDescriptor.fromTesting({ desired })
 
       expect(resolved.resolvedRoute.selectionReason).toBe("testing-static-resolution")
       expect(evidence.resolvedRuntime.responseId).toBe("resp_123")

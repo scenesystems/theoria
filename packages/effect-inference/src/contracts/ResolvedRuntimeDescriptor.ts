@@ -41,9 +41,17 @@ export const ResolvedRuntimeDescriptorSchema = Schema.Struct({
 })
 
 /**
+ * Canonical resolved-runtime descriptor constructor surface.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const ResolvedRuntimeDescriptor = ResolvedRuntimeDescriptorSchema
+
+/**
  * Extracted resolved-runtime descriptor type.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type ResolvedRuntimeDescriptor = Schema.Schema.Type<typeof ResolvedRuntimeDescriptorSchema>
+export type ResolvedRuntimeDescriptor = Schema.Schema.Type<typeof ResolvedRuntimeDescriptor>

@@ -89,16 +89,18 @@ const embeddingModelLayerForRoute = (route: ExecutionRoute, model: string) =>
  *
  * @since 0.1.0
  */
-export const makeResolvedModelLayers = (options: {
-  readonly descriptor: DesiredRuntimeDescriptor
-  readonly route: ExecutionRoute
-  readonly capabilities: RuntimeCapabilities
-}): ResolvedModelLayers =>
-  new ResolvedModelLayers({
-    languageModel: options.capabilities.textGeneration
-      ? Option.some(languageModelLayerForRoute(options.route, options.descriptor.artifact.modelRef))
-      : Option.none(),
-    embeddingModel: options.capabilities.embeddings
-      ? embeddingModelLayerForRoute(options.route, options.descriptor.artifact.modelRef)
-      : Option.none()
-  })
+export const LiveResolvedModelLayers = {
+  fromRoute: (options: {
+    readonly descriptor: DesiredRuntimeDescriptor
+    readonly route: ExecutionRoute
+    readonly capabilities: RuntimeCapabilities
+  }): ResolvedModelLayers =>
+    new ResolvedModelLayers({
+      languageModel: options.capabilities.textGeneration
+        ? Option.some(languageModelLayerForRoute(options.route, options.descriptor.artifact.modelRef))
+        : Option.none(),
+      embeddingModel: options.capabilities.embeddings
+        ? embeddingModelLayerForRoute(options.route, options.descriptor.artifact.modelRef)
+        : Option.none()
+    })
+}

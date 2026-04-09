@@ -21,7 +21,7 @@ describe("Runtime/runtime-provenance", () => {
       role: "task"
     }
 
-    const resolution = HuggingFace.makeHuggingFaceRoutedResolution(
+    const resolution = HuggingFace.HuggingFaceRoutedResolution.fromDescriptor(
       desired,
       "https://router.huggingface.co/v1"
     )

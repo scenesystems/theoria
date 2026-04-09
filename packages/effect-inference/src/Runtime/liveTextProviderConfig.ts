@@ -272,5 +272,5 @@ export const resolveLiveTextProviderConfig = (
         }))
       )
     ),
-    Effect.mapError((error) => new InvalidRuntimeConfig({ reason: String(error) }))
+    Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) }))
   )

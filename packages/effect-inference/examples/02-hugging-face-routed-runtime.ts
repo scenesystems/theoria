@@ -16,7 +16,7 @@ export const program = Effect.gen(function*() {
     prompt: "Summarize descriptor-based runtime resolution in one sentence.",
     toolChoice: "none"
   }).pipe(Effect.provide(languageModelLayer))
-  const evidence = Runtime.makeRuntimeEvidence({
+  const evidence = Runtime.RuntimeEvidence.fromResolution({
     resolution,
     resolvedRuntime: {
       responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef

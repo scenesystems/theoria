@@ -13,11 +13,11 @@ import type * as Redacted from "effect/Redacted"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import { defaultRuntimeCapabilities } from "../internal/defaultCapabilities.js"
-import { makeHuggingFaceEmbeddingLayer } from "../internal/huggingFace.js"
-import { makeLiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
+import { HuggingFaceEmbeddingLayer } from "../internal/huggingFace.js"
+import { LiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
 import { planCompatibleTransport } from "../OpenAiCompatible/config.js"
 import { ResolvedModelLayers, RuntimeResolution } from "../Runtime/services.js"
-import { makeHuggingFaceEndpointRoute } from "./metadata.js"
+import { HuggingFaceEndpointRoute } from "./metadata.js"
 
 /**
  * Dedicated-endpoint text-generation lane for Hugging Face endpoint runtimes.
@@ -48,7 +48,7 @@ export const HuggingFaceEndpointEmbeddingsLive = (options: {
   readonly model: string
   readonly route: NonNullable<DesiredRuntimeDescriptor["route"]>
   readonly accessToken?: Redacted.Redacted
-}): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => makeHuggingFaceEmbeddingLayer(options)
+}): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => HuggingFaceEmbeddingLayer.layer(options)
 
 /**
  * Builds a live runtime resolution for Hugging Face dedicated-endpoint lanes.
@@ -56,60 +56,62 @@ export const HuggingFaceEndpointEmbeddingsLive = (options: {
  * @since 0.1.0
  * @category constructors
  */
-export const makeHuggingFaceEndpointResolution = (
-  descriptor: DesiredRuntimeDescriptor,
-  baseUrl: string,
-  accessToken?: Redacted.Redacted
-): RuntimeResolution => {
-  const route = planCompatibleTransport(
-    makeHuggingFaceEndpointRoute({
-      baseUrl,
-      authMethod: descriptor.route?.authMethod ?? "hf-token",
-      ...Option.match(Option.fromNullable(descriptor.route?.endpointId), {
-        onNone: () => ({}),
-        onSome: (endpointId) => ({ endpointId })
-      }),
-      ...Option.match(Option.fromNullable(descriptor.route?.deploymentId), {
-        onNone: () => ({}),
-        onSome: (deploymentId) => ({ deploymentId })
-      }),
-      ...Option.match(Option.fromNullable(descriptor.route?.runtimeFlavorHint), {
-        onNone: () => ({}),
-        onSome: (runtimeFlavorHint) => ({ runtimeFlavorHint })
+export const HuggingFaceEndpointResolution = {
+  fromDescriptor: (
+    descriptor: DesiredRuntimeDescriptor,
+    baseUrl: string,
+    accessToken?: Redacted.Redacted
+  ): RuntimeResolution => {
+    const route = planCompatibleTransport(
+      HuggingFaceEndpointRoute.make({
+        baseUrl,
+        authMethod: descriptor.route?.authMethod ?? "hf-token",
+        ...Option.match(Option.fromNullable(descriptor.route?.endpointId), {
+          onNone: () => ({}),
+          onSome: (endpointId) => ({ endpointId })
+        }),
+        ...Option.match(Option.fromNullable(descriptor.route?.deploymentId), {
+          onNone: () => ({}),
+          onSome: (deploymentId) => ({ deploymentId })
+        }),
+        ...Option.match(Option.fromNullable(descriptor.route?.runtimeFlavorHint), {
+          onNone: () => ({}),
+          onSome: (runtimeFlavorHint) => ({ runtimeFlavorHint })
+        })
+      })
+    ).route
+    const capabilities = defaultRuntimeCapabilities({ route })
+
+    return new RuntimeResolution({
+      desired: descriptor,
+      resolvedRoute: LiveResolvedRouteDescriptor.fromDescriptor(descriptor, route),
+      capabilities,
+      layers: new ResolvedModelLayers({
+        languageModel: capabilities.textGeneration
+          ? Option.some(
+            HuggingFaceEndpointLive({
+              model: descriptor.artifact.modelRef,
+              baseUrl: route.baseUrl,
+              ...Option.match(Option.fromNullable(accessToken), {
+                onNone: () => ({}),
+                onSome: (resolvedAccessToken) => ({ accessToken: resolvedAccessToken })
+              })
+            })
+          )
+          : Option.none(),
+        embeddingModel: capabilities.embeddings
+          ? Option.some(
+            HuggingFaceEndpointEmbeddingsLive({
+              model: descriptor.artifact.modelRef,
+              route,
+              ...Option.match(Option.fromNullable(accessToken), {
+                onNone: () => ({}),
+                onSome: (resolvedAccessToken) => ({ accessToken: resolvedAccessToken })
+              })
+            })
+          )
+          : Option.none()
       })
     })
-  ).route
-  const capabilities = defaultRuntimeCapabilities({ route })
-
-  return new RuntimeResolution({
-    desired: descriptor,
-    resolvedRoute: makeLiveResolvedRouteDescriptor(descriptor, route),
-    capabilities,
-    layers: new ResolvedModelLayers({
-      languageModel: capabilities.textGeneration
-        ? Option.some(
-          HuggingFaceEndpointLive({
-            model: descriptor.artifact.modelRef,
-            baseUrl: route.baseUrl,
-            ...Option.match(Option.fromNullable(accessToken), {
-              onNone: () => ({}),
-              onSome: (resolvedAccessToken) => ({ accessToken: resolvedAccessToken })
-            })
-          })
-        )
-        : Option.none(),
-      embeddingModel: capabilities.embeddings
-        ? Option.some(
-          HuggingFaceEndpointEmbeddingsLive({
-            model: descriptor.artifact.modelRef,
-            route,
-            ...Option.match(Option.fromNullable(accessToken), {
-              onNone: () => ({}),
-              onSome: (resolvedAccessToken) => ({ accessToken: resolvedAccessToken })
-            })
-          })
-        )
-        : Option.none()
-    })
-  })
+  }
 }

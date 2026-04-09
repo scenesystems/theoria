@@ -7,7 +7,10 @@ import { Match, Option } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
-import { type ResolvedRouteDescriptor, ResolvedRouteProvenanceVersion } from "../contracts/ResolvedRouteDescriptor.js"
+import {
+  type ResolvedRouteDescriptor as ResolvedRouteDescriptorModel,
+  ResolvedRouteProvenanceVersion
+} from "../contracts/ResolvedRouteDescriptor.js"
 import { explicitProviderFromSelectionPolicy } from "../contracts/RouteSelectionPolicy.js"
 
 /** @since 0.1.0 */
@@ -40,25 +43,27 @@ const selectedProviderForRoute = (route: ExecutionRoute): Option.Option<string> 
  *
  * @since 0.1.0
  */
-export const makeLiveResolvedRouteDescriptor = (
-  descriptor: DesiredRuntimeDescriptor,
-  route: ExecutionRoute
-): ResolvedRouteDescriptor => ({
-  route,
-  providerModel: descriptor.artifact.modelRef,
-  runtimeFlavor: route.runtimeFlavorHint,
-  selectionReason: selectionReasonForRoute(route),
-  schemaVersion: ResolvedRouteProvenanceVersion,
-  ...Option.fromNullable(route.deploymentId).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (selectedDeployment) => ({ selectedDeployment })
-    })
-  ),
-  ...selectedProviderForRoute(route).pipe(
-    Option.match({
-      onNone: () => ({}),
-      onSome: (selectedProvider) => ({ selectedProvider })
-    })
-  )
-})
+export const LiveResolvedRouteDescriptor = {
+  fromDescriptor: (
+    descriptor: DesiredRuntimeDescriptor,
+    route: ExecutionRoute
+  ): ResolvedRouteDescriptorModel => ({
+    route,
+    providerModel: descriptor.artifact.modelRef,
+    runtimeFlavor: route.runtimeFlavorHint,
+    selectionReason: selectionReasonForRoute(route),
+    schemaVersion: ResolvedRouteProvenanceVersion,
+    ...Option.fromNullable(route.deploymentId).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (selectedDeployment) => ({ selectedDeployment })
+      })
+    ),
+    ...selectedProviderForRoute(route).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (selectedProvider) => ({ selectedProvider })
+      })
+    )
+  })
+}

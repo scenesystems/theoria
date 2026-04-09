@@ -78,7 +78,7 @@ const program = Effect.gen(function* () {
     Effect.flatMap((model) => model.embedMany([summary.text])),
     Effect.provide(embeddingModelLayer)
   )
-  const evidence = Runtime.makeRuntimeEvidence({
+  const evidence = Runtime.RuntimeEvidence.fromResolution({
     resolution,
     resolvedRuntime: {
       responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef
@@ -97,7 +97,7 @@ const program = Effect.gen(function* () {
 
 ## Using Hugging Face Live Runtimes
 
-`HuggingFace.resolveLiveRuntime(...)` returns the canonical `RuntimeResolution` record for routed-provider and dedicated-endpoint usage, with requested descriptor truth, resolved route provenance, capability metadata, and authenticated live layers kept together. `HuggingFace.resolveLiveRuntimeConfig(...)` decodes the same routed or endpoint shape from env-backed config, and `HuggingFace.resolveLiveRuntimeFromConfig(...)` composes that config step with live runtime resolution in one call. From the resulting resolution, `HuggingFace.languageModelLayer(...)` and `HuggingFace.embeddingModelLayer(...)` give you the exact layer to provide to `LanguageModel.generateText(...)` or `EmbeddingModel.EmbeddingModel`, and `Runtime.makeRuntimeEvidence(...)` turns the result into replay-safe runtime evidence after the call completes.
+`HuggingFace.resolveLiveRuntime(...)` returns the canonical `RuntimeResolution` record for routed-provider and dedicated-endpoint usage, with requested descriptor truth, resolved route provenance, capability metadata, and authenticated live layers kept together. `HuggingFace.resolveLiveRuntimeConfig(...)` decodes the same routed or endpoint shape from env-backed config, and `HuggingFace.resolveLiveRuntimeFromConfig(...)` composes that config step with live runtime resolution in one call. From the resulting resolution, `HuggingFace.languageModelLayer(...)` and `HuggingFace.embeddingModelLayer(...)` give you the exact layer to provide to `LanguageModel.generateText(...)` or `EmbeddingModel.EmbeddingModel`, and `Runtime.RuntimeEvidence.fromResolution(...)` turns the result into replay-safe runtime evidence after the call completes.
 
 `RuntimeResolver` remains the provider-blind, secret-free resolver surface. The Hugging Face helpers are the auth-bound companion for real routed and endpoint execution.
 
@@ -141,10 +141,11 @@ The Hugging Face config helper reads env-backed keys such as `HUGGINGFACE_ACCESS
 
 `effect-inference/Testing` exports deterministic fixtures and static layers so downstream packages can prove runtime boundaries without importing live provider adapters:
 
-- `Testing.makeDesiredRuntimeDescriptor`
-- `Testing.makeResolvedRouteDescriptor`
-- `Testing.makeResolvedRuntimeDescriptor`
-- `Testing.makeRuntimeEvidenceFixture`
+- `Testing.DesiredRuntimeDescriptor.fromTesting`
+- `Testing.ResolvedRouteDescriptor.fromTesting`
+- `Testing.ResolvedRuntimeDescriptor.fromTesting`
+- `Testing.RuntimeResolution.fromTesting`
+- `Testing.RuntimeEvidence.fromTesting`
 - `Testing.staticRuntimeResolver`
 - `Testing.staticLanguageModel`
 - `Testing.staticEmbeddingModel`

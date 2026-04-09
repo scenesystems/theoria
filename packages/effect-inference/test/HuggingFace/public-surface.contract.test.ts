@@ -9,7 +9,7 @@ const assertLayer = <A, E, R>(_: Layer.Layer<A, E, R>): true => true
 
 describe("HuggingFace/public-surface", () => {
   it("creates a normalized routed-provider route", () => {
-    const route = HuggingFace.makeHuggingFaceRoutedRoute({
+    const route = HuggingFace.HuggingFaceRoutedRoute.make({
       baseUrl: "https://router.huggingface.co/v1",
       authMethod: "hf-token",
       selectionPolicy: Contracts.explicitProviderSelection("together")
