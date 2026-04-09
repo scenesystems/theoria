@@ -155,10 +155,9 @@ export class PackageDocsBundleRoute extends Schema.TaggedClass<PackageDocsBundle
     const packageId = nullablePackageName(new URLSearchParams(search).get("package"))
 
     return PackageDocsBundleRoute.make({
-      selection:
-        packageId === null
-          ? MissingPackageDocsBundlePackage.make({})
-          : PackageDocsBundlePackage.make({ packageId })
+      selection: packageId === null
+        ? MissingPackageDocsBundlePackage.make({})
+        : PackageDocsBundlePackage.make({ packageId })
     })
   }
 
@@ -175,7 +174,9 @@ export class PackageDocsBundleRoute extends Schema.TaggedClass<PackageDocsBundle
       Match.tag(
         "PackageDocsBundlePackage",
         ({ packageId }) =>
-          `${PackageDocsBundleRoute.pathname()}?${withOptionalPackageParam(new URLSearchParams(), packageId).toString()}`
+          `${PackageDocsBundleRoute.pathname()}?${
+            withOptionalPackageParam(new URLSearchParams(), packageId).toString()
+          }`
       ),
       Match.tag("MissingPackageDocsBundlePackage", () => PackageDocsBundleRoute.pathname()),
       Match.exhaustive
@@ -207,18 +208,17 @@ export class PackageDocsSearchRoute extends Schema.TaggedClass<PackageDocsSearch
     const packageId = nullablePackageName(rawPackageId)
 
     return PackageDocsSearchRoute.make({
-      selection:
-        query.length === 0
-          ? MissingPackageDocsSearchQuery.make({})
-          : rawPackageId !== null && packageId === null
-          ? InvalidPackageDocsSearchPackage.make({ rawPackageId })
-          : PackageDocsSearchQuery.make({
-            query: Schema.decodeUnknownSync(PackageDocsQuerySchema)({
-              query,
-              packageId,
-              limit: positiveSearchLimit(params.get("limit"))
-            })
+      selection: query.length === 0
+        ? MissingPackageDocsSearchQuery.make({})
+        : rawPackageId !== null && packageId === null
+        ? InvalidPackageDocsSearchPackage.make({ rawPackageId })
+        : PackageDocsSearchQuery.make({
+          query: Schema.decodeUnknownSync(PackageDocsQuerySchema)({
+            query,
+            packageId,
+            limit: positiveSearchLimit(params.get("limit"))
           })
+        })
     })
   }
 
@@ -235,7 +235,8 @@ export class PackageDocsSearchRoute extends Schema.TaggedClass<PackageDocsSearch
       Match.tag("MissingPackageDocsSearchQuery", () => PackageDocsSearchRoute.pathname()),
       Match.tag(
         "InvalidPackageDocsSearchPackage",
-        ({ rawPackageId }) => `${PackageDocsSearchRoute.pathname()}?${new URLSearchParams({ package: rawPackageId }).toString()}`
+        ({ rawPackageId }) =>
+          `${PackageDocsSearchRoute.pathname()}?${new URLSearchParams({ package: rawPackageId }).toString()}`
       ),
       Match.tag("PackageDocsSearchQuery", ({ query }) => {
         const params = withOptionalPackageParam(new URLSearchParams(), query.packageId)

@@ -1,12 +1,14 @@
-import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
-import { LiveDspEvaluation } from "../../view/deep/LiveDspEvaluation.js"
+import {
+  runRuntimeTelemetryRow,
+  runRuntimeTelemetrySection
+} from "../../../contracts/presentation/run-runtime-telemetry.js"
 import {
   defaultProjectionPlaneHint,
-  ProjectionPlaneHint,
-  SurfaceViewExtension,
-  telemetryRow,
-  telemetrySection
-} from "../kernel/descriptor.js"
+  ProjectionPlaneHint
+} from "../../../contracts/presentation/surface-runtime-hints.js"
+import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
+import { LiveDspEvaluation } from "../../view/deep/LiveDspEvaluation.js"
+import { SurfaceViewExtension } from "../kernel/descriptor.js"
 
 const effectDspProjectionPlaneHint = ProjectionPlaneHint.make({
   stage:
@@ -22,19 +24,20 @@ export const effectDspSurfaceViewExtension = SurfaceViewExtension.make({
   diagnosticsSections: (get) => {
     const viewModel = get(dspWidgetViewModelAtom)
 
-    return [telemetrySection(
-      "Canonical DSP frames, control lock state, and active runtime context projected from the shared stream.",
-      [
-        telemetryRow("Frame reactor", viewModel.isAnimating ? "projecting" : "idle"),
-        telemetryRow("DSP controls", viewModel.controlsLocked ? "frozen" : "interactive"),
-        telemetryRow(
+    return [runRuntimeTelemetrySection({
+      description:
+        "Canonical DSP frames, control lock state, and active runtime context projected from the shared stream.",
+      rows: [
+        runRuntimeTelemetryRow("Frame reactor", viewModel.isAnimating ? "projecting" : "idle"),
+        runRuntimeTelemetryRow("DSP controls", viewModel.controlsLocked ? "frozen" : "interactive"),
+        runRuntimeTelemetryRow(
           "DSP runtime",
           viewModel.runtimeStatus === null
             ? `${viewModel.scenario.label} · ${viewModel.moduleType} · ${viewModel.optimizationBudget.display}`
             : viewModel.runtimeStatus.title
         )
       ],
-      "DSP runtime"
-    )]
+      title: "DSP runtime"
+    })]
   }
 })

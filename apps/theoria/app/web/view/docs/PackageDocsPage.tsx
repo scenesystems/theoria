@@ -1,20 +1,20 @@
 import { useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 
-import { metadataForPackageDocs } from "../../../contracts/presentation/metadata.js"
+import { PageMetadata } from "../../../contracts/presentation/metadata.js"
 import {
-  packageDocsPresentationCopy,
+  PackageDocsNavigationItem,
+  PackageDocsPageModel,
   type PackageDocsPageRoute,
-  packageDocsSelectedPackageId
+  PackageDocsPresentation
 } from "../../../contracts/presentation/package-docs.js"
 import { packageDocsRouteStateAtom } from "../../atoms/package-docs-route.js"
-import { app } from "../primitives/theme/surface.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { Layer, Stack } from "../primitives/Layout.js"
-import { FailureState, RunningState } from "../primitives/Skeleton.js"
 import { SiteFooter } from "../primitives/SiteFooter.js"
 import { SiteHeader } from "../primitives/SiteHeader.js"
-import { packageDocsNavigationModel, packageDocsPageModel } from "../packageDocsModel.js"
+import { FailureState, RunningState } from "../primitives/Skeleton.js"
+import { app } from "../primitives/theme/surface.js"
 import { PackageDocsCatalogNavigation } from "./PackageDocsCatalogNavigation.js"
 import { PackageDocsFailureState } from "./PackageDocsFailureState.js"
 import { PackageDocsOverview } from "./PackageDocsOverview.js"
@@ -32,8 +32,8 @@ const PackageDocsContent = ({ route }: { readonly route: PackageDocsPageRoute })
       <Stack className="gap-6">
         <PackageDocsSearchPanel route={route} />
         <PackageDocsCatalogNavigation
-          items={packageDocsNavigationModel({ catalog, selectedPackageId })}
-          title={packageDocsPresentationCopy.navigationTitle}
+          items={PackageDocsNavigationItem.projectCatalog({ catalog, selectedPackageId })}
+          title={PackageDocsPresentation.navigationTitle()}
         />
         <RunningState text="Loading package docs bundle…" />
       </Stack>
@@ -43,13 +43,13 @@ const PackageDocsContent = ({ route }: { readonly route: PackageDocsPageRoute })
         <PackageDocsSearchPanel route={route} />
         <PackageDocsFailureState
           description={description}
-          navigation={packageDocsNavigationModel({ catalog, selectedPackageId })}
-          navigationTitle={packageDocsPresentationCopy.navigationTitle}
+          navigation={PackageDocsNavigationItem.projectCatalog({ catalog, selectedPackageId })}
+          navigationTitle={PackageDocsPresentation.navigationTitle()}
         />
       </Stack>
     )),
     Match.tag("Ready", ({ bundle, catalog, selectedPackageId }) => {
-      const model = packageDocsPageModel({ bundle, catalog, selectedPackageId })
+      const model = PackageDocsPageModel.project({ bundle, catalog, selectedPackageId })
 
       return (
         <Stack className="gap-6">
@@ -57,7 +57,7 @@ const PackageDocsContent = ({ route }: { readonly route: PackageDocsPageRoute })
           <PackageDocsOverview model={model} />
           <PackageDocsCatalogNavigation
             items={model.navigation}
-            title={packageDocsPresentationCopy.navigationTitle}
+            title={PackageDocsPresentation.navigationTitle()}
           />
           <PackageDocsSectionGroups groups={model.groups} />
         </Stack>
@@ -69,7 +69,7 @@ const PackageDocsContent = ({ route }: { readonly route: PackageDocsPageRoute })
 
 export const PackageDocsPage = ({ route }: { readonly route: PackageDocsPageRoute }) => (
   <>
-    <DocumentHead metadata={metadataForPackageDocs(packageDocsSelectedPackageId(route))} />
+    <DocumentHead metadata={PageMetadata.fromPackageDocsRoute(route)} />
 
     <Layer as="main" className={app.root}>
       <Layer aria-hidden className={app.atmosphericGlowA} />

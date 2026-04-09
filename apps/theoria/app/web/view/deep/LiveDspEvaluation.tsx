@@ -7,6 +7,7 @@ import {
   type DspModuleType,
   type DspSignatureContract
 } from "../../../contracts/capability/effect-dsp.js"
+import { presentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 import { dspWidgetViewModelAtom } from "../../atoms/dsp-widget-model.js"
 import { selectDspModuleTypeAtom, selectDspScenarioAtom, setDspOptimizationBudgetAtom } from "../../atoms/dsp-widget.js"
 import { AccentBorder } from "../primitives/AccentBorder.js"
@@ -75,9 +76,9 @@ const EvaluationTable = ({
   const columns = evaluationColumns(contract.inputFields, contract.outputFields)
   const rows = evaluationRows(examples, contract.inputFields, contract.outputFields)
   const metaMetrics = [
-    { label: "Rows", value: `${rows.length}` },
-    { label: "Columns", value: `${columns.length}` },
-    { label: "Metric", value: metricName }
+    presentationDetailRow("Rows", `${rows.length}`),
+    presentationDetailRow("Columns", `${columns.length}`),
+    presentationDetailRow("Metric", metricName)
   ]
 
   return (

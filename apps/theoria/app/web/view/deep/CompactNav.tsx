@@ -1,9 +1,7 @@
-import * as Option from "effect/Option"
-
 import type { EntryId } from "../../../contracts/entry/id.js"
+import type { SurfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
 import type { RunControlsViewModel } from "../runControlsModel.js"
-import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
 
 import { ActionLink } from "../primitives/ActionControl.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
@@ -40,17 +38,16 @@ export const CompactNav = ({
   readonly theme: Surface
 }) => {
   const tone = toneForCard(entryId)
-  const backControl = Option.match(chrome.backLink.href, {
-    onNone: () => null,
-    onSome: (href) => (
+  const backControl = chrome.backLink.href === null
+    ? null
+    : (
       <ActionLink
         className={theme.backAction}
-        href={href}
+        href={chrome.backLink.href}
         label={`← ${chrome.backLink.label}`}
         variant="compact"
       />
     )
-  })
 
   const utilityControls = (
     <Cluster className="items-center gap-2 sm:gap-3">

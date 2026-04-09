@@ -1,15 +1,16 @@
-import { isEffectSearchRunFrame } from "../../atoms/run/optimization-animation.js"
-import type { RunRuntimeTelemetrySection } from "../../atoms/surface/run-telemetry.js"
-import { surfaceLocalRunFrameAtom } from "../../atoms/surface/state.js"
-import { LiveOptimization } from "../../view/deep/LiveOptimization.js"
+import type { RunRuntimeTelemetrySection } from "../../../contracts/presentation/run-runtime-telemetry.js"
+import {
+  runRuntimeTelemetryRow,
+  runRuntimeTelemetrySection
+} from "../../../contracts/presentation/run-runtime-telemetry.js"
 import {
   defaultProjectionPlaneHint,
-  ProjectionPlaneHint,
-  SurfaceViewExtension,
-  type SurfaceViewExtensionContext,
-  telemetryRow,
-  telemetrySection
-} from "../kernel/descriptor.js"
+  ProjectionPlaneHint
+} from "../../../contracts/presentation/surface-runtime-hints.js"
+import { isEffectSearchRunFrame } from "../../atoms/run/optimization-animation.js"
+import { surfaceLocalRunFrameAtom } from "../../atoms/surface/state.js"
+import { LiveOptimization } from "../../view/deep/LiveOptimization.js"
+import { SurfaceViewExtension, type SurfaceViewExtensionContext } from "../kernel/descriptor.js"
 import { defaultSamplerSeed } from "./effect-search-runtime.js"
 
 const effectSearchId = "effect-search"
@@ -26,40 +27,45 @@ const effectSearchDiagnosticsSections = (
   const { projection, telemetry } = localRunFrame
   const traceRows = [
     ...telemetry.tpe.recentSignals.map((signal: { readonly label: string; readonly value: string }) =>
-      telemetryRow(`TPE · ${signal.label}`, signal.value)
+      runRuntimeTelemetryRow(`TPE · ${signal.label}`, signal.value)
     ),
     ...telemetry.random.recentSignals.map((signal: { readonly label: string; readonly value: string }) =>
-      telemetryRow(`Random · ${signal.label}`, signal.value)
+      runRuntimeTelemetryRow(`Random · ${signal.label}`, signal.value)
     )
   ]
 
   return [
-    telemetrySection(
-      "Package-authored study progress derived from canonical StudyEvent telemetry for the frozen run plan.",
-      [
-        telemetryRow("Frozen plan", `${telemetry.trialBudget} trials per sampler · seed ${defaultSamplerSeed}`),
-        telemetryRow("Optimizer phase", projection.phase),
-        telemetryRow(
+    runRuntimeTelemetrySection({
+      description:
+        "Package-authored study progress derived from canonical StudyEvent telemetry for the frozen run plan.",
+      rows: [
+        runRuntimeTelemetryRow(
+          "Frozen plan",
+          `${telemetry.trialBudget} trials per sampler · seed ${defaultSamplerSeed}`
+        ),
+        runRuntimeTelemetryRow("Optimizer phase", projection.phase),
+        runRuntimeTelemetryRow(
           "TPE study",
           `${telemetry.tpe.completedTrials}/${telemetry.trialBudget} completed · ${telemetry.tpe.eventCount} events · best ${telemetry.tpe.bestValue}`
         ),
-        telemetryRow("TPE last signal", telemetry.tpe.lastSignal),
-        telemetryRow(
+        runRuntimeTelemetryRow("TPE last signal", telemetry.tpe.lastSignal),
+        runRuntimeTelemetryRow(
           "Random study",
           `${telemetry.random.completedTrials}/${telemetry.trialBudget} completed · ${telemetry.random.eventCount} events · best ${telemetry.random.bestValue}`
         ),
-        telemetryRow("Random last signal", telemetry.random.lastSignal)
+        runRuntimeTelemetryRow("Random last signal", telemetry.random.lastSignal)
       ],
-      "Study runtime"
-    ),
+      title: "Study runtime"
+    }),
     ...(traceRows.length === 0
       ? []
-      : [telemetrySection(
-        "Recent package StudyEvent signals authored by the server and projected through the canonical frame reactor.",
-        traceRows,
-        "Study event trace",
-        "trace"
-      )])
+      : [runRuntimeTelemetrySection({
+        description:
+          "Recent package StudyEvent signals authored by the server and projected through the canonical frame reactor.",
+        kind: "trace",
+        rows: traceRows,
+        title: "Study event trace"
+      })])
   ]
 }
 

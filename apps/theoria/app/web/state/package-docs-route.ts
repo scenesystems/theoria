@@ -7,7 +7,6 @@ import {
   type PackageDocsCatalogEntry,
   type PackageDocsPageRoute,
   PackageDocsPageRouteSchema,
-  packageDocsSelectedPackageId,
   PackageNameSchema
 } from "../../contracts/presentation/package-docs.js"
 
@@ -40,7 +39,7 @@ export const packageDocsCatalogSelection = ({
   readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
   readonly route: PackageDocsPageRoute
 }): PackageDocsCatalogSelection => {
-  const selectedPackageId = packageDocsSelectedPackageId(route) ?? catalog[0]?.packageId ?? null
+  const selectedPackageId = route.selectedPackageId() ?? catalog[0]?.packageId ?? null
 
   return selectedPackageId === null
     ? EmptyPackageDocsCatalogSelection.make({ route })

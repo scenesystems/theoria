@@ -7,35 +7,9 @@ import { type DurableFingerprint, fingerprintOf } from "../../../contracts/entry
 import { primaryAuthorityIdForEntry } from "../../../contracts/entry/focus.js"
 import type { EntryId } from "../../../contracts/entry/id.js"
 import { type AnyEntryDescriptor, entryDescriptorForId } from "../../../contracts/entry/registry.js"
-import type { RunRuntimeTelemetryRow, RunRuntimeTelemetrySection } from "../../atoms/surface/run-telemetry.js"
+import type { RunRuntimeTelemetrySection } from "../../../contracts/presentation/run-runtime-telemetry.js"
+import type { ProjectionPlaneHint } from "../../../contracts/presentation/surface-runtime-hints.js"
 import type { SurfaceRuntime } from "./kind.js"
-
-export class ProjectionPlaneHint extends Data.Class<ProjectionPlaneHint.Shape> {
-  static make(hint: ProjectionPlaneHint.Shape): ProjectionPlaneHint {
-    return new ProjectionPlaneHint(hint)
-  }
-}
-
-export namespace ProjectionPlaneHint {
-  export interface Shape {
-    readonly stage: string
-    readonly evidence: string
-    readonly source: string
-  }
-}
-
-export class TabHint extends Data.Class<TabHint.Shape> {
-  static make(hint: TabHint.Shape): TabHint {
-    return new TabHint(hint)
-  }
-}
-
-export namespace TabHint {
-  export interface Shape {
-    readonly interactive: string
-    readonly evidence: string
-  }
-}
 
 export class SurfaceViewExtension extends Data.Class<SurfaceViewExtension.Shape> {
   static make(extension: SurfaceViewExtension.Shape): SurfaceViewExtension {
@@ -123,17 +97,6 @@ export namespace EntryRuntimeDescriptor {
   }
 }
 
-export const defaultTabHint: TabHint = TabHint.make({
-  interactive: "Adjust parameters and see the results change in real time.",
-  evidence: "Quantitative evidence from the benchmark — every number is reproducible."
-})
-
-export const defaultProjectionPlaneHint: ProjectionPlaneHint = ProjectionPlaneHint.make({
-  stage: defaultTabHint.interactive,
-  evidence: defaultTabHint.evidence,
-  source: "Inspect the prepared and runtime program projections exactly as executed, file by file."
-})
-
 export const noDiagnosticsSections = (_get: AtomType.Context): ReadonlyArray<RunRuntimeTelemetrySection> => []
 
 const entryRuntimeDescriptorFingerprintInput = (descriptor: EntryRuntimeDescriptor) => ({
@@ -193,17 +156,3 @@ export const entryRuntimeRegistryFingerprint = (
   descriptors: ReadonlyArray<EntryRuntimeDescriptor>
 ): Effect.Effect<DurableFingerprint, never, never> =>
   Effect.forEach(descriptors, entryRuntimeDescriptorFingerprint).pipe(Effect.flatMap(fingerprintOf))
-
-export const telemetryRow = (label: string, value: string): RunRuntimeTelemetryRow => ({ label, value })
-
-export const telemetrySection = (
-  description: string,
-  rows: ReadonlyArray<RunRuntimeTelemetryRow>,
-  title: string,
-  kind: RunRuntimeTelemetrySection["kind"] = "facts"
-): RunRuntimeTelemetrySection => ({
-  description,
-  kind,
-  rows,
-  title
-})

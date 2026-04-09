@@ -2,7 +2,9 @@ import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { EntryPresentation } from "../../contracts/entry/routing.js"
+import { PresentationDetailRow, presentationDetailRow } from "../../contracts/presentation/detail-row.js"
 import type { SurfaceVariant } from "../../contracts/presentation/program.js"
+import { SurfaceChromeContentModel, surfaceChromeContentModel } from "../../contracts/presentation/surface-chrome.js"
 import { tabHintFor } from "../runtime/kernel/surface-view.js"
 import { type EvidenceStreamState } from "../state/evidence/stream.js"
 import { statusText } from "../state/run/status.js"
@@ -16,7 +18,6 @@ import {
 } from "./deep/surface-stage-model.js"
 import { type PresentedRun, presentSections } from "./presenter.js"
 import { RunControlsViewModel, runControlsViewModel } from "./runControlsModel.js"
-import { SurfaceChromeContentModel, surfaceChromeContentModel } from "./surfaceChromeModel.js"
 import { SurfaceCodeModel, surfaceCodeModel } from "./surfaceCodeModel.js"
 
 const compactEvidenceRowLimit = 2
@@ -26,11 +27,6 @@ export type StatusTone = typeof StatusTone.Type
 export const EvidenceDensity = Schema.Literal("compact", "expanded")
 export type EvidenceDensity = typeof EvidenceDensity.Type
 
-export class SurfaceMetricRow extends Schema.Class<SurfaceMetricRow>("SurfaceMetricRow")({
-  label: Schema.String,
-  value: Schema.String
-}) {}
-
 export class SurfaceViewModel extends Schema.Class<SurfaceViewModel>("SurfaceViewModel")({
   running: Schema.Boolean,
   runControls: RunControlsViewModel,
@@ -38,7 +34,7 @@ export class SurfaceViewModel extends Schema.Class<SurfaceViewModel>("SurfaceVie
   evidenceDensity: EvidenceDensity,
   status: Schema.String,
   chrome: SurfaceChromeContentModel,
-  evidenceRows: Schema.Array(SurfaceMetricRow),
+  evidenceRows: Schema.Array(PresentationDetailRow),
   code: SurfaceCodeModel,
   surfaceStage: SurfaceStageViewModel
 }) {}
@@ -52,21 +48,16 @@ export class DeepDiveSurfaceFrameViewModel extends Schema.Class<DeepDiveSurfaceF
   surfaceStageFrame: SurfaceStageFrameViewModel
 }) {}
 
-const packageUseCaseRow = (
-  surface: EntryPresentation
-): SurfaceMetricRow =>
-  SurfaceMetricRow.make({
-    label: "Entry Use Case",
-    value: `${surface.packageName}: ${surface.useCase}`
-  })
+const packageUseCaseRow = (surface: EntryPresentation): PresentationDetailRow =>
+  presentationDetailRow("Entry Use Case", `${surface.packageName}: ${surface.useCase}`)
 
 const selectedSectionRows = (
   presented: PresentedRun | null,
   stream: EvidenceStreamState
-): ReadonlyArray<SurfaceMetricRow> =>
+): ReadonlyArray<PresentationDetailRow> =>
   Arr.flatMap(
     presented === null ? presentSections(stream.sections) : presented.sections,
-    (section) => section.rows.map((row) => SurfaceMetricRow.make(row))
+    (section) => section.rows
   )
 
 const compactRows = ({
@@ -75,15 +66,15 @@ const compactRows = ({
   state
 }: {
   readonly surface: EntryPresentation
-  readonly rows: ReadonlyArray<SurfaceMetricRow>
+  readonly rows: ReadonlyArray<PresentationDetailRow>
   readonly state: SurfaceState
-}): ReadonlyArray<SurfaceMetricRow> => {
+}): ReadonlyArray<PresentationDetailRow> => {
   const packageRow = packageUseCaseRow(surface)
   const rowsWithUseCase = rows[0]?.label === packageRow.label ? rows : [packageRow, ...rows]
 
   return state.run._tag === "RunSuccess" || rows.length > 0
     ? Arr.take(rowsWithUseCase, compactEvidenceRowLimit + 1)
-    : [packageRow, SurfaceMetricRow.make({ label: "Run Intent", value: surface.summary })]
+    : [packageRow, presentationDetailRow("Run Intent", surface.summary)]
 }
 
 export const surfaceViewModel = ({

@@ -1,29 +1,12 @@
-import { Match, Option, Schema } from "effect"
+import { Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { EvidenceItem, EvidenceSection } from "../../contracts/evidence/item.js"
-import { Program } from "../../contracts/presentation/program.js"
+import { type PresentationDetailRow, presentationDetailRow } from "../../contracts/presentation/detail-row.js"
+import { PresentedRun, PresentedSection } from "../../contracts/presentation/presented-run.js"
 import type { RunData } from "../../contracts/study/run.js"
-import { EvidenceRow } from "./primitives/evidence-row.js"
 
-export { type EvidenceRow } from "./primitives/evidence-row.js"
-
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
-
-export const PresentedSection = Schema.Struct({
-  title: NonEmptyString,
-  rows: Schema.Array(EvidenceRow)
-})
-
-export type PresentedSection = typeof PresentedSection.Type
-
-export const PresentedRun = Schema.Struct({
-  summary: NonEmptyString,
-  sections: Schema.Array(PresentedSection),
-  program: Program
-})
-
-export type PresentedRun = typeof PresentedRun.Type
+export { PresentedRun, PresentedSection } from "../../contracts/presentation/presented-run.js"
 
 const formatNumber = (value: number, format: Option.Option<string>): string =>
   Option.match(format, {
@@ -49,32 +32,34 @@ const formatComparison = (item: Extract<EvidenceItem, { readonly _tag: "Comparis
   } ${item.unit} (${prefix}${deltaPercent.toFixed(2)}%)`
 }
 
-const itemToRow = (item: EvidenceItem): EvidenceRow =>
+const itemToRow = (item: EvidenceItem): PresentationDetailRow =>
   Match.value(item).pipe(
     Match.tag(
       "Scalar",
-      (s) => ({ label: s.label, value: `${formatNumber(s.value, Option.fromNullable(s.format))} ${s.unit}`.trim() })
+      (s) => presentationDetailRow(s.label, `${formatNumber(s.value, Option.fromNullable(s.format))} ${s.unit}`.trim())
     ),
-    Match.tag("Comparison", (c) => ({ label: c.label, value: formatComparison(c) })),
-    Match.tag("Series", (s) => ({
-      label: s.label,
-      value: `[${Arr.map(s.values, (v) => v.toFixed(4)).join(", ")}] ${s.unit}`.trim()
-    })),
-    Match.tag("Table", (t) => ({ label: t.label, value: `${t.rows.length} rows × ${t.columns.length} columns` })),
-    Match.tag("Text", (t) => ({ label: t.label, value: t.value })),
+    Match.tag("Comparison", (c) => presentationDetailRow(c.label, formatComparison(c))),
+    Match.tag(
+      "Series",
+      (s) => presentationDetailRow(s.label, `[${Arr.map(s.values, (v) => v.toFixed(4)).join(", ")}] ${s.unit}`.trim())
+    ),
+    Match.tag("Table", (t) => presentationDetailRow(t.label, `${t.rows.length} rows × ${t.columns.length} columns`)),
+    Match.tag("Text", (t) => presentationDetailRow(t.label, t.value)),
     Match.exhaustive
   )
 
-const sectionToPresented = (section: EvidenceSection): PresentedSection => ({
-  title: section.title,
-  rows: Arr.map(section.items, itemToRow)
-})
+const sectionToPresented = (section: EvidenceSection): PresentedSection =>
+  PresentedSection.make({
+    title: section.title,
+    rows: Arr.map(section.items, itemToRow)
+  })
 
 export const presentSections = (sections: ReadonlyArray<EvidenceSection>): ReadonlyArray<PresentedSection> =>
   Arr.map(sections, sectionToPresented)
 
-export const presentRun = (run: RunData): PresentedRun => ({
-  summary: run.summary,
-  sections: presentSections(run.sections),
-  program: run.program
-})
+export const presentRun = (run: RunData): PresentedRun =>
+  PresentedRun.make({
+    summary: run.summary,
+    sections: presentSections(run.sections),
+    program: run.program
+  })

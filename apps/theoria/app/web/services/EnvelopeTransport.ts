@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import * as ParseResult from "effect/ParseResult"
+import type * as ParseResult from "effect/ParseResult"
 
 import type { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
 

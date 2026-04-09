@@ -3,10 +3,13 @@ import { packageDocsBundle, packageDocsCatalog, searchPackageDocs } from "@theor
 import { Effect, Match, Option } from "effect"
 
 import {
-  decodePackageDocsApiRouteFromRawUrl,
+  PackageDocsBundleRoute,
   type PackageDocsBundleSelection,
   PackageDocsBundleSuccessEnvelope,
+  PackageDocsCatalogRoute,
   PackageDocsCatalogSuccessEnvelope,
+  PackageDocsRouteNotFound,
+  PackageDocsSearchRoute,
   type PackageDocsSearchSelection,
   PackageDocsSearchSuccessEnvelope
 } from "../../contracts/presentation/package-docs.js"
@@ -16,6 +19,10 @@ import { ResponseTiming } from "../kernel/response-timing.js"
 const responseHeaders = {
   "cache-control": "no-store"
 }
+
+const requestUrlBase = "http://127.0.0.1"
+
+const requestSearch = (rawUrl: string | null): string => new URL(rawUrl ?? "/", requestUrlBase).search
 
 const jsonResponse = (body: unknown, status: number) =>
   HttpServerResponse.json(body, {
@@ -121,9 +128,17 @@ const searchResponse = (timing: ResponseTiming, selection: PackageDocsSearchSele
 export const packageDocsRoute = (pathname: string, requestId: string, rawUrl: string | null) =>
   Effect.gen(function*() {
     const timing = yield* ResponseTiming.start(requestId)
+    const search = requestSearch(rawUrl)
+    const route = Option.getOrElse(
+      PackageDocsCatalogRoute.fromPathname(pathname).pipe(
+        Option.orElse(() => PackageDocsBundleRoute.fromPathname(pathname, search)),
+        Option.orElse(() => PackageDocsSearchRoute.fromPathname(pathname, search))
+      ),
+      () => PackageDocsRouteNotFound.make({})
+    )
 
     return yield* Effect.flatten(
-      Match.value(decodePackageDocsApiRouteFromRawUrl({ pathname, rawUrl })).pipe(
+      Match.value(route).pipe(
         Match.tag("catalog", () => catalogResponse(timing)),
         Match.tag("bundle", ({ selection }) => bundleResponse(timing, selection)),
         Match.tag("search", ({ selection }) => searchResponse(timing, selection)),

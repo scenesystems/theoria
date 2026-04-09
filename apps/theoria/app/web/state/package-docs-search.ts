@@ -4,7 +4,6 @@ import {
   PackageDocsPageRouteSchema,
   type PackageDocsSearchResult,
   PackageDocsSearchResults,
-  packageDocsSelectedPackageId,
   type PackageName,
   PackageNameSchema
 } from "../../contracts/presentation/package-docs.js"
@@ -58,7 +57,7 @@ const packageDocsSearchBase = (route: PackageDocsPageRoute, query: string): {
 } => ({
   query,
   route,
-  selectedPackageId: packageDocsSelectedPackageId(route)
+  selectedPackageId: route.selectedPackageId()
 })
 
 export const packageDocsSearchIdle = (

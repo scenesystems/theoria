@@ -3,7 +3,12 @@ import { Schema } from "effect"
 
 import { type EntryId, isEntryId } from "../entry/id.js"
 import { type EntryPresentation, entryPresentationForId } from "../entry/routing.js"
-import { type PackageDocsPageRoute, packageDocsPageRoute, packageDocsPresentationForRoute } from "./package-docs.js"
+import {
+  PackageDocsLandingPageRoute,
+  PackageDocsPackagePageRoute,
+  type PackageDocsPageRoute,
+  PackageDocsPresentation
+} from "./package-docs.js"
 import { type PageRoute, parsePathname } from "./path.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -22,30 +27,31 @@ export type OgType = typeof OgType.Type
  *
  * @since 0.1.0
  */
-export const SiteMetadata = Schema.Struct({
+export class SiteMetadata extends Schema.Class<SiteMetadata>("SiteMetadata")({
   siteName: Schema.Literal("Theoria"),
   siteUrl: Schema.Literal("https://theoria.scenesystems.io"),
   defaultTitle: Schema.Literal("Theoria — Scene Systems"),
   defaultDescription: NonEmptyString,
   twitterHandle: Schema.Literal("@scenesystems"),
   locale: Schema.Literal("en_US")
-})
+}) {
+  static readonly currentValue = SiteMetadata.make({
+    siteName: "Theoria",
+    siteUrl: "https://theoria.scenesystems.io",
+    defaultTitle: "Theoria — Scene Systems",
+    defaultDescription:
+      "Integrated study system for typed, composable computation, optimization, inference, and evidence workflows built with Effect.",
+    twitterHandle: "@scenesystems",
+    locale: "en_US"
+  })
 
-export type SiteMetadata = typeof SiteMetadata.Type
+  static current(): SiteMetadata {
+    return SiteMetadata.currentValue
+  }
 
-/**
- * Canonical site metadata instance.
- *
- * @since 0.1.0
- */
-export const siteMetadata: SiteMetadata = {
-  siteName: "Theoria",
-  siteUrl: "https://theoria.scenesystems.io",
-  defaultTitle: "Theoria — Scene Systems",
-  defaultDescription:
-    "Integrated study system for typed, composable computation, optimization, inference, and evidence workflows built with Effect.",
-  twitterHandle: "@scenesystems",
-  locale: "en_US"
+  static fullCanonicalUrl(canonicalPath: string): string {
+    return `${SiteMetadata.current().siteUrl}${canonicalPath}`
+  }
 }
 
 /**
@@ -53,79 +59,70 @@ export const siteMetadata: SiteMetadata = {
  *
  * @since 0.1.0
  */
-export const PageMetadata = Schema.Struct({
+export class PageMetadata extends Schema.Class<PageMetadata>("PageMetadata")({
   title: NonEmptyString,
   description: NonEmptyString,
   canonicalPath: NonEmptyString,
   ogType: OgType
-})
+}) {
+  static fromEntry(presentation: EntryPresentation): PageMetadata {
+    return PageMetadata.make({
+      title: `${presentation.title} — Theoria`,
+      description: presentation.description,
+      canonicalPath: presentation.path,
+      ogType: "article"
+    })
+  }
 
-export type PageMetadata = typeof PageMetadata.Type
+  static fromEntryId(id: EntryId): PageMetadata {
+    return PageMetadata.fromEntry(entryPresentationForId(id))
+  }
 
-/**
- * Page metadata for the home page.
- *
- * @since 0.1.0
- */
-export const metadataForHome = (): PageMetadata => ({
-  title: siteMetadata.defaultTitle,
-  description: siteMetadata.defaultDescription,
-  canonicalPath: "/",
-  ogType: "website"
-})
+  static fromId(id: string): PageMetadata {
+    return isEntryId(id)
+      ? PageMetadata.fromEntryId(id)
+      : PageMetadata.home()
+  }
 
-/**
- * Page metadata derived from an entry presentation.
- *
- * @since 0.1.0
- */
-export const metadataForEntry = (presentation: EntryPresentation): PageMetadata => ({
-  title: `${presentation.title} — Theoria`,
-  description: presentation.description,
-  canonicalPath: presentation.path,
-  ogType: "article"
-})
+  static fromPackageDocsRoute(route: PackageDocsPageRoute): PageMetadata {
+    const presentation = PackageDocsPresentation.project(route)
 
-const metadataForPackageDocsRoute = (route: PackageDocsPageRoute): PageMetadata => {
-  const presentation = packageDocsPresentationForRoute(route)
+    return PageMetadata.make({
+      title: presentation.metadataTitle,
+      description: presentation.metadataDescription,
+      canonicalPath: presentation.canonicalPath,
+      ogType: "article"
+    })
+  }
 
-  return {
-    title: presentation.metadataTitle,
-    description: presentation.metadataDescription,
-    canonicalPath: presentation.canonicalPath,
-    ogType: "article"
+  static fromPackageId(packageId: PackageName | null): PageMetadata {
+    return PageMetadata.fromPackageDocsRoute(
+      packageId === null
+        ? PackageDocsLandingPageRoute.make({})
+        : PackageDocsPackagePageRoute.make({ packageId })
+    )
+  }
+
+  static fromPathname(pathname: string, search = ""): PageMetadata {
+    return PageMetadata.fromRoute(parsePathname(pathname, search))
+  }
+
+  static fromRoute(route: PageRoute): PageMetadata {
+    return route._tag === "HomeRoute"
+      ? PageMetadata.home()
+      : route._tag === "PackageDocsRoute"
+      ? PageMetadata.fromPackageDocsRoute(route.route)
+      : PageMetadata.fromEntryId(route.entryId)
+  }
+
+  static home(): PageMetadata {
+    const site = SiteMetadata.current()
+
+    return PageMetadata.make({
+      title: site.defaultTitle,
+      description: site.defaultDescription,
+      canonicalPath: "/",
+      ogType: "website"
+    })
   }
 }
-
-export const metadataForPackageDocs = (packageId: PackageName | null): PageMetadata =>
-  metadataForPackageDocsRoute(packageDocsPageRoute(packageId))
-
-export const metadataForRoute = (route: PageRoute): PageMetadata =>
-  route._tag === "HomeRoute"
-    ? metadataForHome()
-    : route._tag === "PackageDocsRoute"
-    ? metadataForPackageDocsRoute(route.route)
-    : metadataForEntryId(route.entryId)
-
-export const metadataForPathname = (pathname: string, search = ""): PageMetadata =>
-  metadataForRoute(parsePathname(pathname, search))
-
-/**
- * Page metadata for a published consumer identified by id, falling back to home
- * metadata when the ID is unknown.
- *
- * @since 0.1.0
- */
-export const metadataForId = (id: string): PageMetadata =>
-  isEntryId(id)
-    ? metadataForEntryId(id)
-    : metadataForHome()
-
-export const metadataForEntryId = (id: EntryId): PageMetadata => metadataForEntry(entryPresentationForId(id))
-
-/**
- * Join a canonical path with the site URL to produce a fully-qualified URL.
- *
- * @since 0.1.0
- */
-export const fullCanonicalUrl = (canonicalPath: string): string => `${siteMetadata.siteUrl}${canonicalPath}`

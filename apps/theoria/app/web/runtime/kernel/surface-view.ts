@@ -1,20 +1,19 @@
 import type { EntryId } from "../../../contracts/entry/id.js"
+import {
+  type ProjectionPlaneHint,
+  type SurfaceTabHint,
+  surfaceTabHintFromProjectionPlaneHint
+} from "../../../contracts/presentation/surface-runtime-hints.js"
 
-import type { ProjectionPlaneHint, SurfaceViewExtensionContext, TabHint } from "./descriptor.js"
+import type { SurfaceViewExtensionContext } from "./descriptor.js"
 import { surfaceViewExtensionFor } from "./surface-view-registry.js"
 
 const surfaceViewFor = (id: EntryId) => surfaceViewExtensionFor(id)
 
 export const projectionPlaneHintFor = (id: EntryId): ProjectionPlaneHint => surfaceViewFor(id).projectionPlaneHint
 
-export const tabHintFor = (id: EntryId): TabHint => {
-  const projectionPlaneHint = projectionPlaneHintFor(id)
-
-  return {
-    interactive: projectionPlaneHint.stage,
-    evidence: projectionPlaneHint.evidence
-  }
-}
+export const tabHintFor = (id: EntryId): SurfaceTabHint =>
+  surfaceTabHintFromProjectionPlaneHint(projectionPlaneHintFor(id))
 
 export const interactiveWidgetFor = (id: EntryId) => surfaceViewFor(id).interactiveWidget ?? undefined
 

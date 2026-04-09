@@ -1,7 +1,12 @@
+import {
+  runRuntimeTelemetryRow,
+  runRuntimeTelemetrySection
+} from "../../../contracts/presentation/run-runtime-telemetry.js"
+import { ProjectionPlaneHint } from "../../../contracts/presentation/surface-runtime-hints.js"
 import { customTextAtom, reflowControlsAtom } from "../../atoms/reflow.js"
 import { animatingAtom } from "../../atoms/run/animation.js"
 import { LiveReflow } from "../../view/deep/LiveReflow.js"
-import { ProjectionPlaneHint, SurfaceViewExtension, telemetryRow, telemetrySection } from "../kernel/descriptor.js"
+import { SurfaceViewExtension } from "../kernel/descriptor.js"
 
 const effectTextProjectionPlaneHint = ProjectionPlaneHint.make({
   stage:
@@ -19,19 +24,19 @@ export const effectTextSurfaceViewExtension = SurfaceViewExtension.make({
     const controls = get(reflowControlsAtom)
     const customText = get(customTextAtom).trim()
 
-    return [telemetrySection(
-      "Canonical reflow frames, frozen controls, and custom text state projected from the shared stream.",
-      [
-        telemetryRow("Frame reactor", get(animatingAtom) ? "projecting" : "idle"),
-        telemetryRow(
+    return [runRuntimeTelemetrySection({
+      description: "Canonical reflow frames, frozen controls, and custom text state projected from the shared stream.",
+      rows: [
+        runRuntimeTelemetryRow("Frame reactor", get(animatingAtom) ? "projecting" : "idle"),
+        runRuntimeTelemetryRow(
           "Reflow controls",
           `corpus ${controls.corpusIndex} · width ${controls.width}px · obstacles ${
             controls.obstaclesEnabled ? "on" : "off"
           }`
         ),
-        telemetryRow("Custom text", customText.length === 0 ? "empty" : `${customText.length} chars`)
+        runRuntimeTelemetryRow("Custom text", customText.length === 0 ? "empty" : `${customText.length} chars`)
       ],
-      "Canonical frame reactor"
-    )]
+      title: "Canonical frame reactor"
+    })]
   }
 })

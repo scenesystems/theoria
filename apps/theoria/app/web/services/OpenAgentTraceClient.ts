@@ -1,5 +1,9 @@
+import type { Schema } from "effect"
 import { Effect } from "effect"
+import type * as ParseResult from "effect/ParseResult"
 
+import type { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
+import type { ErrorModel } from "../../contracts/error.js"
 import {
   type OpenAgentTraceApiRoute,
   type OpenAgentTraceConsumerArtifactCatalog,
@@ -19,9 +23,9 @@ import {
 import { type EnvelopeResponse, EnvelopeTransport } from "./EnvelopeTransport.js"
 
 const openAgentTraceTransportErrors = {
-  decode: OpenAgentTraceDecodeError.fromParseError,
-  execution: OpenAgentTraceExecutionError.fromErrorModel,
-  request: OpenAgentTraceRequestError.fromMessage
+  decode: (error: ParseResult.ParseError): OpenAgentTraceError => OpenAgentTraceDecodeError.fromParseError(error),
+  execution: (error: ErrorModel): OpenAgentTraceError => OpenAgentTraceExecutionError.fromErrorModel(error),
+  request: (message: string): OpenAgentTraceError => OpenAgentTraceRequestError.fromMessage(message)
 }
 
 const requestOpenAgentTraceRoute = <A, I>({
@@ -29,10 +33,7 @@ const requestOpenAgentTraceRoute = <A, I>({
   schema
 }: {
   readonly route: OpenAgentTraceApiRoute
-  readonly schema:
-    | typeof OpenAgentTraceConsumerArtifactCatalogEnvelope
-    | typeof OpenAgentTraceRegistryEnvelope
-    | typeof OpenAgentTraceWorkflowHookupCatalogEnvelope
+  readonly schema: Schema.Schema<{ readonly ok: true; readonly data: A; readonly meta: Metadata } | FailureEnvelope, I>
 }): Effect.Effect<EnvelopeResponse<A>, OpenAgentTraceError> =>
   EnvelopeTransport.get({
     errors: openAgentTraceTransportErrors,

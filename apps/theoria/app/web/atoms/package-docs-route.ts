@@ -9,7 +9,7 @@ import type {
   PackageDocsPageRoute
 } from "../../contracts/presentation/package-docs.js"
 
-import { packageDocsBundleRoute } from "../../contracts/presentation/package-docs.js"
+import { PackageDocsBundleRoute } from "../../contracts/presentation/package-docs.js"
 
 import type { ResolvedPackageDocsCatalogSelection } from "../state/package-docs-route.js"
 import {
@@ -71,7 +71,7 @@ export const packageDocsRouteStateAtom = Atom.family((route: PackageDocsPageRout
           Match.tag("ResolvedPackageDocsCatalogSelection", (resolvedSelection) =>
             bundleRouteState({
               bundleResult: get(
-                packageDocsBundleRouteAtom(packageDocsBundleRoute(resolvedSelection.selectedPackageId))
+                packageDocsBundleRouteAtom(PackageDocsBundleRoute.fromPackageId(resolvedSelection.selectedPackageId))
               ),
               catalog: success.value,
               selection: resolvedSelection

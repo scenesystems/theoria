@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
 import { authorityCatalogForId } from "../capability/catalog.js"
-import { packageDocsPresentationForPackage } from "../presentation/package-docs.js"
+import { PackageDocsPresentation } from "../presentation/package-docs/presentation.js"
 import { type ReleaseStage } from "../release-stage.js"
 import {
   CardReleaseState as CardReleaseStateSchema,
@@ -88,7 +88,7 @@ export const cardForId = (id: typeof EntryId.Type): Card => {
     summary: descriptor.summary,
     runLabel: descriptor.runLabel,
     deepDivePath: descriptor.path,
-    docsPath: packageDocsPresentationForPackage(descriptor.packageName).canonicalPath,
+    docsPath: PackageDocsPresentation.projectPackage(descriptor.packageName).canonicalPath,
     group: packageGroupForEntry(descriptor.entryId),
     releaseState: descriptor.releaseState,
     version: authority.version,

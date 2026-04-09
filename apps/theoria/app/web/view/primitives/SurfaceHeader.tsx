@@ -3,10 +3,10 @@ import { Match } from "effect"
 import * as Option from "effect/Option"
 
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { SurfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
 
 import type { RunControlsViewModel } from "../runControlsModel.js"
-import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
 
 import { ActionButton, ActionLink } from "./ActionControl.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"
@@ -27,8 +27,8 @@ const metadataGridClassName = "grid gap-1.5 sm:grid-cols-[auto_1fr] sm:gap-x-3"
 const summaryClassName = (_variant: SurfaceVariant): string => "text-ink-700"
 const actionToolbarClassName = "w-full lg:w-auto"
 
-const actionRowClassName = (backHref: Option.Option<string>): string =>
-  Option.isNone(backHref)
+const actionRowClassName = (backHref: string | null): string =>
+  backHref === null
     ? "shrink-0 justify-end gap-2"
     : "shrink-0 justify-between gap-2"
 
@@ -47,12 +47,16 @@ export const SurfaceHeader = ({
 }) => {
   const controlRow = (
     <Cluster className={actionRowClassName(chrome.backLink.href)}>
-      {Option.match(chrome.backLink.href, {
-        onNone: () => null,
-        onSome: (href) => (
-          <ActionLink className={theme.backAction} href={href} label={chrome.backLink.label} variant={variant} />
-        )
-      })}
+      {chrome.backLink.href === null
+        ? null
+        : (
+          <ActionLink
+            className={theme.backAction}
+            href={chrome.backLink.href}
+            label={chrome.backLink.label}
+            variant={variant}
+          />
+        )}
       <Cluster className="gap-2">
         {chrome.themeControl.visible ? <ThemeToggle /> : null}
         <Toolbar.Root className={actionToolbarClassName} loopFocus>
@@ -80,17 +84,16 @@ export const SurfaceHeader = ({
                 />
               )
             })}
-            {Option.match(chrome.deepDiveLink.href, {
-              onNone: () => null,
-              onSome: (href) => (
+            {chrome.deepDiveLink.href === null
+              ? null
+              : (
                 <ActionLink
                   className={theme.secondaryAction}
-                  href={href}
+                  href={chrome.deepDiveLink.href}
                   label={chrome.deepDiveLink.label}
                   variant={variant}
                 />
-              )
-            })}
+              )}
           </Toolbar.Group>
         </Toolbar.Root>
       </Cluster>

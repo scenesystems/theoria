@@ -2,7 +2,11 @@ import { Data, Match } from "effect"
 
 import { CapabilityAvailabilityPathname } from "../../contracts/capability/availability.js"
 import { HealthLivePathname, HealthReadyPathname } from "../../contracts/health.js"
-import { isPackageDocsApiPathname } from "../../contracts/presentation/package-docs.js"
+import {
+  PackageDocsBundleRoute,
+  PackageDocsCatalogRoute,
+  PackageDocsSearchRoute
+} from "../../contracts/presentation/package-docs.js"
 import {
   OpenAgentTraceConsumerArtifactRoute,
   OpenAgentTraceRegistryRoute,
@@ -61,7 +65,13 @@ export const appRequestRoute = (pathname: string): AppRequestRoute =>
     Match.when(HealthReadyPathname, () => new HealthReadyRequestRoute()),
     Match.when(VersionPathname, () => new VersionRequestRoute()),
     Match.when("/api/versions/packages", () => new PackageVersionsRequestRoute()),
-    Match.when(isPackageDocsApiPathname, () => new PackageDocsApiRequestRoute({ pathname })),
+    Match.when(
+      (value) =>
+        PackageDocsCatalogRoute.matches(value) ||
+        PackageDocsBundleRoute.matches(value) ||
+        PackageDocsSearchRoute.matches(value),
+      () => new PackageDocsApiRequestRoute({ pathname })
+    ),
     Match.when(
       (value) =>
         OpenAgentTraceRegistryRoute.matches(value) ||

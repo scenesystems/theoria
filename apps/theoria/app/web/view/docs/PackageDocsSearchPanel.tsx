@@ -2,14 +2,13 @@ import { useAtom, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import type { ChangeEvent } from "react"
 
-import type { PackageDocsPageRoute } from "../../../contracts/presentation/package-docs.js"
+import { type PackageDocsPageRoute, PackageDocsSearchModel } from "../../../contracts/presentation/package-docs.js"
 import { packageDocsSearchQueryAtom, packageDocsSearchStateAtom } from "../../atoms/package-docs-search.js"
-import { packageDocsSearchModel } from "../packageDocsSearchModel.js"
 import { ContentCard } from "../primitives/ContentCard.js"
-import { ExternalLink, InternalLink } from "../primitives/Link.js"
 import { Cluster, Stack } from "../primitives/Layout.js"
+import { ExternalLink, InternalLink } from "../primitives/Link.js"
+import { SearchField } from "../primitives/SearchField.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { TextAreaField } from "../primitives/TextAreaField.js"
 import { FailureState, RunningState } from "../primitives/Skeleton.js"
 import { neutralTone } from "../primitives/theme/tone.js"
 
@@ -20,7 +19,7 @@ const searchResultCard = ({
   sourceHref,
   sourceLabel,
   title
-}: ReturnType<typeof packageDocsSearchModel>["results"][number]) => (
+}: PackageDocsSearchModel["results"][number]) => (
   <ContentCard density="compact" key={`${packageId}:${sourceLabel}:${title}`}>
     <Stack className="gap-2">
       <Cluster className="items-start justify-between gap-3">
@@ -57,21 +56,20 @@ export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsP
           />
         </Stack>
 
-        <TextAreaField
+        <SearchField
           active={query.trim().length > 0}
           disabled={false}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+          onChange={(event: ChangeEvent<HTMLInputElement>) => {
             setQuery(event.target.value)
           }}
           placeholder="Search README blocks, module docs, examples, snapshots, and proof commands..."
-          rows={1}
           tone={neutralTone}
           value={query}
         />
 
         {Match.value(state).pipe(
           Match.tag("IdlePackageDocsSearch", ({ selectedPackageId }) => {
-            const model = packageDocsSearchModel({ packageId: selectedPackageId, query: "", results: [] })
+            const model = PackageDocsSearchModel.project({ packageId: selectedPackageId, query: "", results: [] })
 
             return (
               <Stack className="gap-1">
@@ -95,7 +93,11 @@ export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsP
           Match.tag("LoadingPackageDocsSearch", () => <RunningState text="Searching package docs..." />),
           Match.tag("FailedPackageDocsSearch", ({ description }) => <FailureState description={description} />),
           Match.tag("ReadyPackageDocsSearch", ({ query: readyQuery, results, selectedPackageId }) => {
-            const model = packageDocsSearchModel({ packageId: selectedPackageId, query: readyQuery, results })
+            const model = PackageDocsSearchModel.project({
+              packageId: selectedPackageId,
+              query: readyQuery,
+              results
+            })
 
             return (
               <Stack className="gap-3">

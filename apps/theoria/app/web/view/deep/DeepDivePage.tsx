@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
-import { metadataForEntryId } from "../../../contracts/presentation/metadata.js"
+import { PageMetadata } from "../../../contracts/presentation/metadata.js"
 import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
 import {
   setDeepDivePanePercentAtom,
@@ -37,7 +37,7 @@ export const DeepDivePage = ({ entryId }: { readonly entryId: EntryId }) => {
   const dispatchSelectSourceScope = useAtomSet(selectProgramSourceScopeAtom)
   const dispatchWorkspaceWidth = useAtomSet(setDeepDiveWorkspaceWidthAtom)
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
-  const pageMetadata = metadataForEntryId(entryId)
+  const pageMetadata = PageMetadata.fromEntryId(entryId)
 
   const onRunControlAction = (action: RunControlActionKind): void => {
     dispatchRunControl({ action, id: entryId })

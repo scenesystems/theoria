@@ -1,6 +1,6 @@
 import { Match, Schema } from "effect"
-import * as ParseResult from "effect/ParseResult"
 import * as Experimental from "effect-dsp/experimental"
+import * as ParseResult from "effect/ParseResult"
 
 import type { ErrorModel } from "../../../error.js"
 import { ErrorCode } from "../../../error.js"

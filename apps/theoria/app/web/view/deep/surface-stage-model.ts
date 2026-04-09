@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import type { TabHint } from "../../runtime/kernel/descriptor.js"
+import type { SurfaceTabHint } from "../../../contracts/presentation/surface-runtime-hints.js"
 import type { EvidenceStreamState } from "../../state/evidence/stream.js"
 import { runEvidenceState } from "../../state/run/evidence.js"
 import type { RunState } from "../../state/run/types.js"
@@ -32,7 +32,7 @@ export const surfaceStageViewModel = ({
   readonly interactiveLabel: string | null
   readonly run: RunState
   readonly stream: EvidenceStreamState
-  readonly tabHint: TabHint
+  readonly tabHint: SurfaceTabHint
 }): SurfaceStageViewModel =>
   SurfaceStageViewModel.make({
     ...surfaceStageFrameViewModel({ activeTab, interactiveLabel, tabHint }),
@@ -46,7 +46,7 @@ export const surfaceStageFrameViewModel = ({
 }: {
   readonly activeTab: StageTab
   readonly interactiveLabel: string | null
-  readonly tabHint: TabHint
+  readonly tabHint: SurfaceTabHint
 }): SurfaceStageFrameViewModel =>
   SurfaceStageFrameViewModel.make({
     activeTab,

@@ -1,12 +1,14 @@
-import { powerAnimatingAtom, powerProjectionAtom } from "../../atoms/run/power-animation.js"
-import { LivePowerExplorer } from "../../view/deep/LivePowerExplorer.js"
+import {
+  runRuntimeTelemetryRow,
+  runRuntimeTelemetrySection
+} from "../../../contracts/presentation/run-runtime-telemetry.js"
 import {
   defaultProjectionPlaneHint,
-  ProjectionPlaneHint,
-  SurfaceViewExtension,
-  telemetryRow,
-  telemetrySection
-} from "../kernel/descriptor.js"
+  ProjectionPlaneHint
+} from "../../../contracts/presentation/surface-runtime-hints.js"
+import { powerAnimatingAtom, powerProjectionAtom } from "../../atoms/run/power-animation.js"
+import { LivePowerExplorer } from "../../view/deep/LivePowerExplorer.js"
+import { SurfaceViewExtension } from "../kernel/descriptor.js"
 
 const effectMathProjectionPlaneHint = ProjectionPlaneHint.make({
   stage:
@@ -22,26 +24,26 @@ export const effectMathSurfaceViewExtension = SurfaceViewExtension.make({
   diagnosticsSections: (get) => {
     const projection = get(powerProjectionAtom)
 
-    return [telemetrySection(
-      "Canonical power frames and the frozen statistical controls projected from the shared stream.",
-      [
-        telemetryRow("Frame reactor", get(powerAnimatingAtom) ? "projecting" : "idle"),
-        telemetryRow(
+    return [runRuntimeTelemetrySection({
+      description: "Canonical power frames and the frozen statistical controls projected from the shared stream.",
+      rows: [
+        runRuntimeTelemetryRow("Frame reactor", get(powerAnimatingAtom) ? "projecting" : "idle"),
+        runRuntimeTelemetryRow(
           "Power controls",
           `d ${projection.d.toFixed(2)} · n ${projection.n} · alpha ${projection.alpha.toFixed(2)}`
         ),
-        telemetryRow(
+        runRuntimeTelemetryRow(
           "Power report",
           `${(projection.powerReport.power * 100).toFixed(1)}% · critical t ${
             projection.powerReport.criticalValue.toFixed(2)
           }`
         ),
-        telemetryRow(
+        runRuntimeTelemetryRow(
           "Sample-size inversion",
           `${projection.sampleSizeReport.solver.method} · ${projection.sampleSizeReport.solver.status} · N ${projection.sampleSizeReport.sampleSize}`
         )
       ],
-      "Power runtime"
-    )]
+      title: "Power runtime"
+    })]
   }
 })

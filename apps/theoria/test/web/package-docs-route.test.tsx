@@ -5,7 +5,7 @@ import { Effect } from "effect"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { packageDocsPackagePageRoute } from "../../app/contracts/presentation/package-docs.js"
+import { PackageDocsPackagePageRoute } from "../../app/contracts/presentation/package-docs.js"
 import { App } from "../../app/web/App.js"
 
 const responseMeta = {
@@ -116,7 +116,7 @@ describe("web/package-docs-route", () => {
               <App
                 route={{
                   _tag: "PackageDocsRoute",
-                  route: packageDocsPackagePageRoute(packageNameFromString("@scenesystems/digest"))
+                  route: PackageDocsPackagePageRoute.make({ packageId: packageNameFromString("@scenesystems/digest") })
                 }}
               />
             </StrictMode>

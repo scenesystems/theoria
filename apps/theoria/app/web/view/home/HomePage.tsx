@@ -1,5 +1,5 @@
 import { cardsForGroup } from "../../../contracts/entry/card.js"
-import { metadataForHome } from "../../../contracts/presentation/metadata.js"
+import { PageMetadata } from "../../../contracts/presentation/metadata.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SiteFooter } from "../primitives/SiteFooter.js"
@@ -11,7 +11,7 @@ import { InstrumentSection } from "./InstrumentSection.js"
 
 export const HomePage = () => (
   <>
-    <DocumentHead metadata={metadataForHome()} />
+    <DocumentHead metadata={PageMetadata.home()} />
 
     <Layer as="main" className={app.root}>
       <Layer aria-hidden className={app.atmosphericGlowA} />

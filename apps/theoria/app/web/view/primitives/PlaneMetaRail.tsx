@@ -1,17 +1,12 @@
 import type { ReactNode } from "react"
 
+import type { PresentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 import { Layer, Rail, Stack } from "./Layout.js"
-import type { DisplayMetric } from "./MetricStrip.js"
 import { SemanticText } from "./SemanticText.js"
 
 type PlaneMetaRailAppearance = "inline" | "panel"
 
 type PlaneMetaRailMetricPresentation = "stack" | "inline"
-
-type PlaneMetaRailMetric = {
-  readonly label: DisplayMetric["label"]
-  readonly value: DisplayMetric["value"]
-}
 
 const shellClassName = (appearance: PlaneMetaRailAppearance): string =>
   appearance === "panel" ? "gap-2.5 border-b border-stage-200/70 pb-3" : "gap-3"
@@ -38,7 +33,7 @@ const metricNode = ({
   metric,
   presentation
 }: {
-  readonly metric: PlaneMetaRailMetric
+  readonly metric: PresentationDetailRow
   readonly presentation: PlaneMetaRailMetricPresentation
 }) =>
   presentation === "inline"
@@ -101,7 +96,7 @@ export const PlaneMetaRail = ({
   readonly description?: string
   readonly eyebrow?: string
   readonly metricPresentation?: PlaneMetaRailMetricPresentation
-  readonly metrics?: ReadonlyArray<PlaneMetaRailMetric>
+  readonly metrics?: ReadonlyArray<PresentationDetailRow>
   readonly status?: string
 }) => (
   <Stack className={shellClassName(appearance)}>

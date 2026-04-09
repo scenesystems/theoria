@@ -1,7 +1,7 @@
 import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 
-import { fullCanonicalUrl, metadataForPathname } from "../../contracts/presentation/metadata.js"
+import { PageMetadata, SiteMetadata } from "../../contracts/presentation/metadata.js"
 import {
   isHtmlPagePath,
   isPackageDocsLandingPath,
@@ -98,9 +98,8 @@ const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
 
 const injectMetadata = (html: string, pathname: string, rawUrl: string): string => {
   const search = new URL(rawUrl, "http://127.0.0.1").search
-  const metadata = metadataForPathname(pathname, search)
-
-  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
+  const metadata = PageMetadata.fromPathname(pathname, search)
+  const canonicalUrl = SiteMetadata.fullCanonicalUrl(metadata.canonicalPath)
 
   return html
     .replace(titlePattern, `<title>${metadata.title}</title>`)

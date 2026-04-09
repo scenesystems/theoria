@@ -6,7 +6,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../../../../../../../packages/effect-dsp/test/fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "effect-dsp/fixtures/open-agent-trace/pi-mono"
 import { ConsumerArtifact } from "../../../../contracts/study/workflow/consumer-artifact.js"
 import {
   chatContinuationOpenAgentTraceEntryId,

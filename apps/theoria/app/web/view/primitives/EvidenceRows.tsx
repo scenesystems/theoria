@@ -2,10 +2,10 @@ import { Separator } from "@base-ui-components/react/separator"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
+import type { PresentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import type { EvidenceDensity } from "../surfaceModel.js"
-import type { EvidenceRow } from "./evidence-row.js"
 
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -62,7 +62,7 @@ export const EvidenceRows = ({
   variant
 }: {
   readonly density: EvidenceDensity
-  readonly rows: ReadonlyArray<EvidenceRow>
+  readonly rows: ReadonlyArray<PresentationDetailRow>
   readonly variant: SurfaceVariant
 }) => (
   <dl

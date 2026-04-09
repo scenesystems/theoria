@@ -1,14 +1,9 @@
-import { Match, Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 
 import { entryPresentationForPackageName } from "../../entry/routing.js"
 
-import {
-  packageDocsPagePath,
-  type PackageDocsPageRoute,
-  packageDocsPageRoute,
-  packageDocsSelectedPackageId
-} from "./page-route.js"
-import { NonEmptyString, type PackageName } from "./shared.js"
+import { PackageDocsLandingPageRoute, PackageDocsPackagePageRoute, type PackageDocsPageRoute } from "./page-route.js"
+import { type PackageName } from "./shared.js"
 
 export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentation>("PackageDocsPresentation")({
   canonicalPath: Schema.String,
@@ -16,65 +11,65 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   metadataDescription: Schema.String,
   metadataTitle: Schema.String,
   title: Schema.String
-}) {}
+}) {
+  static defaultMetadataDescription(): string {
+    return "Source-linked package reference projected from the canonical Theoria release surfaces."
+  }
 
-export const PackageDocsPresentationCopy = Schema.Struct({
-  navigationTitle: Schema.Literal("Capability Packages"),
-  studyEntryLabel: Schema.Literal("Study Entry"),
-  defaultMetadataDescription: NonEmptyString,
-  defaultSurfaceDescription: NonEmptyString,
-  sharedCapabilityMetadataSuffix: NonEmptyString
-})
+  static defaultSurfaceDescription(): string {
+    return "Source-linked package reference for a shipped capability surface inside Theoria."
+  }
 
-export type PackageDocsPresentationCopy = typeof PackageDocsPresentationCopy.Type
+  static navigationTitle(): string {
+    return "Capability Packages"
+  }
 
-export const packageDocsPresentationCopy: PackageDocsPresentationCopy = {
-  navigationTitle: "Capability Packages",
-  studyEntryLabel: "Study Entry",
-  defaultMetadataDescription: "Source-linked package reference projected from the canonical Theoria release surfaces.",
-  defaultSurfaceDescription: "Source-linked package reference for a shipped capability surface inside Theoria.",
-  sharedCapabilityMetadataSuffix:
-    "Source-linked package reference, examples, release snapshots, and proof commands for the shared capability surface."
+  static sharedCapabilityMetadataSuffix(): string {
+    return "Source-linked package reference, examples, release snapshots, and proof commands for the shared capability surface."
+  }
+
+  static studyEntryLabel(): string {
+    return "Study Entry"
+  }
+
+  static metadataDescription(packageDescription: string | null): string {
+    return packageDescription === null
+      ? PackageDocsPresentation.defaultMetadataDescription()
+      : `${packageDescription} ${PackageDocsPresentation.sharedCapabilityMetadataSuffix()}`
+  }
+
+  static project(route: PackageDocsPageRoute): PackageDocsPresentation {
+    const packageId = route.selectedPackageId()
+
+    return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(entryPresentationForPackageName)), {
+      onNone: () =>
+        PackageDocsPresentation.make({
+          canonicalPath: route.path(),
+          description: PackageDocsPresentation.surfaceDescription(null),
+          metadataDescription: PackageDocsPresentation.metadataDescription(null),
+          metadataTitle: `${packageId ?? "Package"} Docs — Theoria`,
+          title: `${packageId ?? "Package"} Docs`
+        }),
+      onSome: (presentation) =>
+        PackageDocsPresentation.make({
+          canonicalPath: route.path(),
+          description: PackageDocsPresentation.surfaceDescription(presentation.description),
+          metadataDescription: PackageDocsPresentation.metadataDescription(presentation.description),
+          metadataTitle: `${presentation.title} Docs — Theoria`,
+          title: `${presentation.title} Docs`
+        })
+    })
+  }
+
+  static projectPackage(packageId: PackageName | null): PackageDocsPresentation {
+    return PackageDocsPresentation.project(
+      packageId === null
+        ? PackageDocsLandingPageRoute.make({})
+        : PackageDocsPackagePageRoute.make({ packageId })
+    )
+  }
+
+  static surfaceDescription(packageDescription: string | null): string {
+    return packageDescription ?? PackageDocsPresentation.defaultSurfaceDescription()
+  }
 }
-
-export const packageDocsMetadataDescription = (packageDescription: string | null): string =>
-  packageDescription === null
-    ? packageDocsPresentationCopy.defaultMetadataDescription
-    : `${packageDescription} ${packageDocsPresentationCopy.sharedCapabilityMetadataSuffix}`
-
-export const packageDocsSurfaceDescription = (packageDescription: string | null): string =>
-  packageDescription ?? packageDocsPresentationCopy.defaultSurfaceDescription
-
-const defaultPackageDocsPresentation = (
-  route: PackageDocsPageRoute,
-  packageId: PackageName | null
-): PackageDocsPresentation =>
-  PackageDocsPresentation.make({
-    canonicalPath: packageDocsPagePath(route),
-    description: packageDocsSurfaceDescription(null),
-    metadataDescription: packageDocsMetadataDescription(null),
-    metadataTitle: `${packageId ?? "Package"} Docs — Theoria`,
-    title: `${packageId ?? "Package"} Docs`
-  })
-
-export const packageDocsPresentationForRoute = (route: PackageDocsPageRoute): PackageDocsPresentation => {
-  const packageId = packageDocsSelectedPackageId(route)
-
-  return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(entryPresentationForPackageName)), {
-    onNone: () => defaultPackageDocsPresentation(route, packageId),
-    onSome: (presentation) =>
-      PackageDocsPresentation.make({
-        canonicalPath: packageDocsPagePath(route),
-        description: packageDocsSurfaceDescription(presentation.description),
-        metadataDescription: packageDocsMetadataDescription(presentation.description),
-        metadataTitle: `${presentation.title} Docs — Theoria`,
-        title: `${presentation.title} Docs`
-      })
-  })
-}
-
-export const packageDocsPresentationForPackage = (packageId: PackageName | null): PackageDocsPresentation =>
-  Match.value(packageId).pipe(
-    Match.when(null, () => packageDocsPresentationForRoute(packageDocsPageRoute(null))),
-    Match.orElse((resolvedPackageId) => packageDocsPresentationForRoute(packageDocsPageRoute(resolvedPackageId)))
-  )

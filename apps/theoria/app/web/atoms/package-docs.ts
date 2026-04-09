@@ -6,7 +6,6 @@ import {
   type PackageDocsBundle,
   type PackageDocsBundleRoute,
   type PackageDocsCatalogEntry,
-  packageDocsCatalogRoute,
   type PackageDocsError,
   PackageDocsRequestError,
   type PackageDocsSearchResult
@@ -15,18 +14,14 @@ import { PackageDocsClient } from "../services/PackageDocsClient.js"
 
 const packageDocsRuntime = Atom.runtime(PackageDocsClient.Default)
 
-export const packageDocsCatalogRouteAtom = Atom.family((_route: typeof packageDocsCatalogRoute) =>
-  packageDocsRuntime.atom(
-    Effect.gen(function*() {
-      const client = yield* PackageDocsClient
-      return yield* client.catalog()
-    })
-  )
-)
-
 export const packageDocsCatalogAtom: AtomType.Atom<
   Result.Result<ReadonlyArray<PackageDocsCatalogEntry>, PackageDocsError>
-> = packageDocsCatalogRouteAtom(packageDocsCatalogRoute)
+> = packageDocsRuntime.atom(
+  Effect.gen(function*() {
+    const client = yield* PackageDocsClient
+    return yield* client.catalog()
+  })
+)
 
 export const packageDocsBundleRouteAtom = Atom.family((route: PackageDocsBundleRoute) =>
   packageDocsRuntime.atom(

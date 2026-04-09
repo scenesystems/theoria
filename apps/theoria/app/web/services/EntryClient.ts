@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect"
+import type * as ParseResult from "effect/ParseResult"
 
 import {
   type CapabilityAvailability,
@@ -15,6 +16,7 @@ import {
 import type { EntryId } from "../../contracts/entry/id.js"
 import { type EntryRunRequest } from "../../contracts/entry/registry.js"
 import { EntryRunRequest as EntryRunRequestSchema } from "../../contracts/entry/registry.js"
+import type { ErrorModel } from "../../contracts/error.js"
 import { type ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/presentation/program-preview.js"
 import { type RunData, RunEnvelope } from "../../contracts/study/run.js"
 import { type EnvelopeResponse, EnvelopeTransport } from "./EnvelopeTransport.js"
@@ -28,9 +30,9 @@ export const entryStreamPath = (id: EntryId): string => `/api/entries/${id}/stre
 export const capabilityAvailabilityPath = (): string => CapabilityAvailabilityPathname
 
 const entryTransportErrors = {
-  decode: EntryDecodeError.fromParseError,
-  execution: EntryExecutionError.fromErrorModel,
-  request: EntryRequestError.fromMessage
+  decode: (error: ParseResult.ParseError): EntryError => EntryDecodeError.fromParseError(error),
+  execution: (error: ErrorModel): EntryError => EntryExecutionError.fromErrorModel(error),
+  request: (message: string): EntryError => EntryRequestError.fromMessage(message)
 }
 
 export class EntryClient extends Effect.Service<EntryClient>()("theoria/EntryClient", {

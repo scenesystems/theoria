@@ -1,4 +1,4 @@
-import { Match, Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 
 import { nullablePackageName, type PackageName, PackageNameSchema } from "./shared.js"
 
@@ -15,13 +15,15 @@ export class PackageDocsLandingPageRoute extends Schema.TaggedClass<PackageDocsL
   {}
 ) {
   static fromPathname(pathname: string, search: string): Option.Option<PackageDocsLandingPageRoute> {
-    return PackageDocsLandingPageRoute.matches(pathname) && nullablePackageName(new URLSearchParams(search).get("package")) === null
+    return PackageDocsLandingPageRoute.matches(pathname) &&
+        nullablePackageName(new URLSearchParams(search).get("package")) === null
       ? Option.some(PackageDocsLandingPageRoute.make({}))
       : Option.none()
   }
 
   static matches(pathname: string): boolean {
-    return pathname === PackageDocsLandingPageRoute.pathname() || pathname === `${PackageDocsLandingPageRoute.pathname()}/`
+    return pathname === PackageDocsLandingPageRoute.pathname() ||
+      pathname === `${PackageDocsLandingPageRoute.pathname()}/`
   }
 
   static pathname(): string {
@@ -52,11 +54,14 @@ export class PackageDocsPackagePageRoute extends Schema.TaggedClass<PackageDocsP
   }
 
   static matches(pathname: string): boolean {
-    return pathname === PackageDocsLandingPageRoute.pathname() || pathname === `${PackageDocsLandingPageRoute.pathname()}/`
+    return pathname === PackageDocsLandingPageRoute.pathname() ||
+      pathname === `${PackageDocsLandingPageRoute.pathname()}/`
   }
 
   path(): string {
-    return `${PackageDocsLandingPageRoute.pathname()}?${withOptionalPackageParam(new URLSearchParams(), this.packageId).toString()}`
+    return `${PackageDocsLandingPageRoute.pathname()}?${
+      withOptionalPackageParam(new URLSearchParams(), this.packageId).toString()
+    }`
   }
 
   selectedPackageId(): PackageName | null {

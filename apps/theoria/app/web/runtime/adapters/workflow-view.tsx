@@ -1,6 +1,7 @@
+import { ProjectionPlaneHint } from "../../../contracts/presentation/surface-runtime-hints.js"
 import { defaultWorkflowScenarioId, workflowScenarioOptionForId } from "../../../contracts/study/workflow/scenario.js"
 import { WorkflowControl } from "../../view/study/workflow/WorkflowControl.js"
-import { ProjectionPlaneHint, SurfaceViewExtension } from "../kernel/descriptor.js"
+import { SurfaceViewExtension } from "../kernel/descriptor.js"
 
 const defaultWorkflowOption = workflowScenarioOptionForId(defaultWorkflowScenarioId)
 

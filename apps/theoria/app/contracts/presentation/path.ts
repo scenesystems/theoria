@@ -12,13 +12,10 @@ import {
 import type { ReleaseStage } from "../release-stage.js"
 
 import {
-  decodePackageDocsPageRoute,
-  packageDocsPackagePageRoute,
-  packageDocsPagePath,
+  PackageDocsLandingPageRoute,
+  PackageDocsPackagePageRoute,
   type PackageDocsPageRoute,
-  packageDocsPageRoute as packageDocsPresentationPageRoute,
-  PackageDocsPageRouteSchema,
-  packageDocsSelectedPackageId
+  PackageDocsPageRouteSchema
 } from "./package-docs.js"
 import {
   decodePageRouteKey,
@@ -51,7 +48,11 @@ export const homePageRoute: PageRoute = homeRoute
 export const deepPageRoute = (entryId: EntryId): PageRoute => DeepPageRoute.make({ entryId })
 
 export const packageDocsPageRoute = (packageId: PackageName | null): PageRoute =>
-  PackageDocsRoute.make({ route: packageDocsPresentationPageRoute(packageId) })
+  PackageDocsRoute.make({
+    route: packageId === null
+      ? PackageDocsLandingPageRoute.make({})
+      : PackageDocsPackagePageRoute.make({ packageId })
+  })
 
 const deepDiveRoute = (
   pathname: string,
@@ -59,8 +60,13 @@ const deepDiveRoute = (
 ): Option.Option<PageRoute> => resolveEntryId(pathname).pipe(Option.map(deepPageRoute))
 
 const packageDocsRoute = (pathname: string, search: string): Option.Option<PageRoute> =>
-  decodePackageDocsPageRoute({ pathname, search }).pipe(
-    Option.map((route): PageRoute => PackageDocsRoute.make({ route }))
+  PackageDocsPackagePageRoute.fromPathname(pathname, search).pipe(
+    Option.map((route): PageRoute => PackageDocsRoute.make({ route })),
+    Option.orElse(() =>
+      PackageDocsLandingPageRoute.fromPathname(pathname, search).pipe(
+        Option.map((route): PageRoute => PackageDocsRoute.make({ route }))
+      )
+    )
   )
 
 const routeForPathname = (
@@ -85,7 +91,7 @@ const pageRouteVisibleInReleaseStage = (route: PageRoute, stage: ReleaseStage): 
     Match.tag("HomeRoute", () => true),
     Match.tag("DeepRoute", ({ entryId }) => visibleEntryIdsForReleaseStage(stage).includes(entryId)),
     Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) =>
-      Option.match(Option.fromNullable(packageDocsSelectedPackageId(packageDocsRoute)), {
+      Option.match(Option.fromNullable(packageDocsRoute.selectedPackageId()), {
         onNone: () =>
           false,
         onSome: (packageId) => packageDocsRouteVisibleInReleaseStage(packageId, stage)
@@ -101,20 +107,20 @@ export const visiblePageRouteForPathname = (
   pageRouteForPathname(pathname, search).pipe(Option.filter((route) => pageRouteVisibleInReleaseStage(route, stage)))
 
 export const isPackageDocsLandingPath = (pathname: string, search = ""): boolean =>
-  decodePackageDocsPageRoute({ pathname, search }).pipe(
+  packageDocsRoute(pathname, search).pipe(
     Option.match({
       onNone: () => false,
-      onSome: (route) => packageDocsSelectedPackageId(route) === null
+      onSome: (route) => route._tag === "PackageDocsRoute" && route.route.selectedPackageId() === null
     })
   )
 
 export const packageDocsLandingRedirectPathForReleaseStage = (stage: ReleaseStage): string | null => {
   const packageId = visiblePackageDocsPackageIdsForReleaseStage(stage)[0] ?? null
-  return packageId === null ? null : packageDocsPagePath(packageDocsPackagePageRoute(packageId))
+  return packageId === null ? null : PackageDocsPackagePageRoute.make({ packageId }).path()
 }
 
 const packageDocsRouteKey = (route: PackageDocsPageRoute): PageRouteKey => {
-  const packageId = packageDocsSelectedPackageId(route)
+  const packageId = route.selectedPackageId()
 
   return packageId === null
     ? packageDocsLandingPageRouteKey
@@ -159,7 +165,7 @@ export const visibleEntryIdsForPageRoute = (
 export const pagePathForRoute = (route: PageRoute): string =>
   Match.value(route).pipe(
     Match.tag("HomeRoute", () => "/"),
-    Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) => packageDocsPagePath(packageDocsRoute)),
+    Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) => packageDocsRoute.path()),
     Match.tag("DeepRoute", ({ entryId }) => entryPathForId(entryId)),
     Match.exhaustive
   )
@@ -179,6 +185,5 @@ export const parsePathname = (pathname: string, search = ""): PageRoute =>
 export const isHtmlPagePath = (pathname: string, stage: ReleaseStage, search = ""): boolean =>
   Option.isSome(visiblePageRouteForPathname(pathname, search, stage))
 
-export { packageDocsPagePath }
 export { decodePageRouteKey, PageRouteKey, serializePageRouteKey } from "./page-route-key.js"
 export type { SerializedPageRouteKey } from "./page-route-key.js"

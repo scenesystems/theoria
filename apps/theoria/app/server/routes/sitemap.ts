@@ -2,7 +2,7 @@ import { HttpServerResponse } from "@effect/platform"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import { fullCanonicalUrl } from "../../contracts/presentation/metadata.js"
+import { SiteMetadata } from "../../contracts/presentation/metadata.js"
 import { visiblePagePathsForReleaseStage } from "../../contracts/presentation/path.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -10,7 +10,10 @@ const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
 export const sitemapRoute = Effect.gen(function*() {
   const stage = yield* serverReleaseStage
-  const urls = Arr.map(visiblePagePathsForReleaseStage(stage), (pathname) => urlEntry(fullCanonicalUrl(pathname)))
+  const urls = Arr.map(
+    visiblePagePathsForReleaseStage(stage),
+    (pathname) => urlEntry(SiteMetadata.fullCanonicalUrl(pathname))
+  )
 
   const xml = [
     `<?xml version="1.0" encoding="UTF-8"?>`,

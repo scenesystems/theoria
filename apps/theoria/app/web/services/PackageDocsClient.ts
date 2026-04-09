@@ -1,14 +1,18 @@
+import type { Schema } from "effect"
 import { Effect } from "effect"
+import type * as ParseResult from "effect/ParseResult"
 
 import type { PackageName } from "@theoria/source-proof/contracts"
+import type { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
+import type { ErrorModel } from "../../contracts/error.js"
 import {
   type PackageDocsApiRequestRoute,
   type PackageDocsBundle,
   PackageDocsBundleEnvelope,
   PackageDocsBundleRoute,
-  PackageDocsCatalogRoute,
   type PackageDocsCatalogEntry,
   PackageDocsCatalogEnvelope,
+  PackageDocsCatalogRoute,
   PackageDocsDecodeError,
   type PackageDocsError,
   PackageDocsExecutionError,
@@ -21,9 +25,9 @@ import {
 import { type EnvelopeResponse, EnvelopeTransport } from "./EnvelopeTransport.js"
 
 const packageDocsTransportErrors = {
-  decode: PackageDocsDecodeError.fromParseError,
-  execution: PackageDocsExecutionError.fromErrorModel,
-  request: PackageDocsRequestError.fromMessage
+  decode: (error: ParseResult.ParseError): PackageDocsError => PackageDocsDecodeError.fromParseError(error),
+  execution: (error: ErrorModel): PackageDocsError => PackageDocsExecutionError.fromErrorModel(error),
+  request: (message: string): PackageDocsError => PackageDocsRequestError.fromMessage(message)
 }
 
 const requestPackageDocsRoute = <A, I>({
@@ -31,7 +35,7 @@ const requestPackageDocsRoute = <A, I>({
   schema
 }: {
   readonly route: PackageDocsApiRequestRoute
-  readonly schema: typeof PackageDocsCatalogEnvelope | typeof PackageDocsBundleEnvelope | typeof PackageDocsSearchEnvelope
+  readonly schema: Schema.Schema<{ readonly ok: true; readonly data: A; readonly meta: Metadata } | FailureEnvelope, I>
 }): Effect.Effect<EnvelopeResponse<A>, PackageDocsError> =>
   EnvelopeTransport.get({
     errors: packageDocsTransportErrors,
@@ -46,12 +50,16 @@ export class PackageDocsClient extends Effect.Service<PackageDocsClient>()("theo
         Effect.map(({ data }) => data)
       ),
     bundle: (packageId: PackageName): Effect.Effect<PackageDocsBundle, PackageDocsError> =>
-      requestPackageDocsRoute({ route: PackageDocsBundleRoute.fromPackageId(packageId), schema: PackageDocsBundleEnvelope }).pipe(
+      requestPackageDocsRoute({
+        route: PackageDocsBundleRoute.fromPackageId(packageId),
+        schema: PackageDocsBundleEnvelope
+      }).pipe(
         Effect.map(({ data }) => data)
       ),
     search: (query: PackageDocsQuery): Effect.Effect<ReadonlyArray<PackageDocsSearchResult>, PackageDocsError> =>
-      requestPackageDocsRoute({ route: PackageDocsSearchRoute.fromQuery(query), schema: PackageDocsSearchEnvelope }).pipe(
-        Effect.map(({ data }) => data)
-      )
+      requestPackageDocsRoute({ route: PackageDocsSearchRoute.fromQuery(query), schema: PackageDocsSearchEnvelope })
+        .pipe(
+          Effect.map(({ data }) => data)
+        )
   }
 }) {}

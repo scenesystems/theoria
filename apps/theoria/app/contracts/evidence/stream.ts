@@ -6,6 +6,21 @@ import { CanonicalFrame, canonicalFrameV1 } from "../study/workflow/canonical-st
 import { ChoreographyCue } from "../study/workflow/choreography.js"
 import { EvidenceSection } from "./item.js"
 
+type StreamCompleteInput = {
+  readonly meta: Metadata | ConstructorParameters<typeof Metadata>[0]
+  readonly summary: string
+}
+
+type StreamFailedInput = {
+  readonly error: ErrorModel | ConstructorParameters<typeof ErrorModel>[0]
+}
+
+const metadataForStreamComplete = (meta: StreamCompleteInput["meta"]): Metadata =>
+  meta instanceof Metadata ? meta : Metadata.make(meta)
+
+const errorModelForStreamFailed = (error: StreamFailedInput["error"]): ErrorModel =>
+  error instanceof ErrorModel ? error : ErrorModel.make(error)
+
 export class SectionAppend extends Schema.TaggedClass<SectionAppend>()("SectionAppend", {
   section: EvidenceSection
 }) {}
@@ -39,11 +54,24 @@ export class Step extends Schema.TaggedClass<Step>()("Step", {
 export class StreamComplete extends Schema.TaggedClass<StreamComplete>()("StreamComplete", {
   summary: Schema.String,
   meta: Metadata
-}) {}
+}) {
+  constructor({ meta, summary }: StreamCompleteInput) {
+    super({
+      summary,
+      meta: metadataForStreamComplete(meta)
+    })
+  }
+}
 
 export class StreamFailed extends Schema.TaggedClass<StreamFailed>()("StreamFailed", {
   error: ErrorModel
-}) {}
+}) {
+  constructor({ error }: StreamFailedInput) {
+    super({
+      error: errorModelForStreamFailed(error)
+    })
+  }
+}
 
 export const EvidenceEvent = Schema.Union(
   SectionAppend,

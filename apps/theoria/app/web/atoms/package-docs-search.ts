@@ -8,9 +8,7 @@ import {
   PackageDocsQuerySchema,
   PackageDocsRequestError,
   type PackageDocsSearchResult,
-  type PackageDocsSearchRoute,
-  packageDocsSearchRoute,
-  packageDocsSelectedPackageId
+  PackageDocsSearchRoute
 } from "../../contracts/presentation/package-docs.js"
 import { PackageDocsClient } from "../services/PackageDocsClient.js"
 import {
@@ -58,7 +56,7 @@ const searchQuery = ({
 }) =>
   Schema.decodeUnknownSync(PackageDocsQuerySchema)({
     query,
-    packageId: packageDocsSelectedPackageId(route),
+    packageId: route.selectedPackageId(),
     limit: 8
   })
 
@@ -73,7 +71,7 @@ export const packageDocsSearchStateAtom: (route: PackageDocsPageRoute) => AtomTy
         }
 
         return Result.match(
-          get(packageDocsSearchRouteAtom(packageDocsSearchRoute(searchQuery({ query, route })))),
+          get(packageDocsSearchRouteAtom(PackageDocsSearchRoute.fromQuery(searchQuery({ query, route })))),
           {
             onInitial: () => packageDocsSearchState({ description: null, query, results: null, route }),
             onFailure: (failure) =>

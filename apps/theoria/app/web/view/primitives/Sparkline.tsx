@@ -1,5 +1,6 @@
 import * as Arr from "effect/Array"
 
+import type { PresentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 import { surfaceMaterials } from "./theme/surface.js"
@@ -58,7 +59,7 @@ export const Sparkline = ({
   readonly surface?: SparklineSurface
   readonly values: ReadonlyArray<number>
   readonly unit?: string
-  readonly summaryItems?: Array<{ readonly label: string; readonly value: string }>
+  readonly summaryItems?: ReadonlyArray<PresentationDetailRow>
 }) => {
   const points = pointsFor(values)
   const linePath = linePathFor(points)
@@ -116,37 +117,34 @@ export const Sparkline = ({
             </svg>
           ) :
           null}
-        {summaryItems !== undefined && Arr.isNonEmptyArray(summaryItems) ?
+        {summaryItems !== undefined && summaryItems.length > 0 ?
           (
             <Layer as="dl" className="grid gap-0 border-t border-stage-200/68 pt-3 sm:grid-cols-3">
-              {Arr.map(
-                summaryItems,
-                (item, index) => (
-                  <Layer
-                    className={`${
-                      index === 0 ? "" : "border-t border-stage-200/60 pt-3 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0"
-                    }`}
-                    key={item.label}
-                  >
-                    <Stack className="gap-0.5">
-                      <SemanticText
-                        as="dt"
-                        className="text-ink-700"
-                        role="row-label"
-                        text={item.label}
-                        variant="expanded"
-                      />
-                      <SemanticText
-                        as="dd"
-                        className="tabular-nums text-ink-800"
-                        role="code-meta"
-                        text={`${item.value}${unit !== undefined ? ` ${unit}` : ""}`}
-                        variant="expanded"
-                      />
-                    </Stack>
-                  </Layer>
-                )
-              )}
+              {summaryItems.map((item, index) => (
+                <Layer
+                  className={`${
+                    index === 0 ? "" : "border-t border-stage-200/60 pt-3 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0"
+                  }`}
+                  key={item.label}
+                >
+                  <Stack className="gap-0.5">
+                    <SemanticText
+                      as="dt"
+                      className="text-ink-700"
+                      role="row-label"
+                      text={item.label}
+                      variant="expanded"
+                    />
+                    <SemanticText
+                      as="dd"
+                      className="tabular-nums text-ink-800"
+                      role="code-meta"
+                      text={`${item.value}${unit !== undefined ? ` ${unit}` : ""}`}
+                      variant="expanded"
+                    />
+                  </Stack>
+                </Layer>
+              ))}
             </Layer>
           ) :
           null}

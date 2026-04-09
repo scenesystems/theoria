@@ -1,7 +1,8 @@
 import { Schema } from "effect"
 import type * as Option from "effect/Option"
+import * as OptionValue from "effect/Option"
 
-import type { EntryPresentation } from "../../contracts/entry/routing.js"
+import type { EntryPresentation } from "../entry/routing.js"
 
 class SurfaceChromeMeta extends Schema.Class<SurfaceChromeMeta>("SurfaceChromeMeta")({
   label: Schema.String,
@@ -13,9 +14,18 @@ class SurfaceChromeBadge extends Schema.Class<SurfaceChromeBadge>("SurfaceChrome
   visible: Schema.Boolean
 }) {}
 
+export class SurfaceChromeLink extends Schema.Class<SurfaceChromeLink>("SurfaceChromeLink")({
+  href: Schema.NullOr(Schema.String),
+  label: Schema.String
+}) {}
+
 class SurfaceChromePrimaryAction extends Schema.Class<SurfaceChromePrimaryAction>("SurfaceChromePrimaryAction")({
   label: Schema.String,
   pendingLabel: Schema.String
+}) {}
+
+export class SurfaceChromeThemeControl extends Schema.Class<SurfaceChromeThemeControl>("SurfaceChromeThemeControl")({
+  visible: Schema.Boolean
 }) {}
 
 export class SurfaceChromeContentModel extends Schema.Class<SurfaceChromeContentModel>("SurfaceChromeContentModel")({
@@ -26,22 +36,23 @@ export class SurfaceChromeContentModel extends Schema.Class<SurfaceChromeContent
   useCaseMeta: SurfaceChromeMeta,
   summary: Schema.String,
   runtimeBadge: SurfaceChromeBadge,
-  themeControl: Schema.Struct({
-    visible: Schema.Boolean
-  }),
+  themeControl: SurfaceChromeThemeControl,
   primaryAction: SurfaceChromePrimaryAction
 }) {}
 
-export type SurfaceChromeModel = SurfaceChromeContentModel & {
-  readonly backLink: {
-    readonly href: Option.Option<string>
-    readonly label: string
-  }
-  readonly deepDiveLink: {
-    readonly href: Option.Option<string>
-    readonly label: string
-  }
-}
+export class SurfaceChromeModel extends Schema.Class<SurfaceChromeModel>("SurfaceChromeModel")({
+  badgeLabel: Schema.String,
+  title: Schema.String,
+  packageMeta: SurfaceChromeMeta,
+  compactPackageValue: Schema.NullOr(Schema.String),
+  useCaseMeta: SurfaceChromeMeta,
+  summary: Schema.String,
+  runtimeBadge: SurfaceChromeBadge,
+  themeControl: SurfaceChromeThemeControl,
+  primaryAction: SurfaceChromePrimaryAction,
+  backLink: SurfaceChromeLink,
+  deepDiveLink: SurfaceChromeLink
+}) {}
 
 export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceChromeContentModel =>
   SurfaceChromeContentModel.make({
@@ -61,9 +72,9 @@ export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceCh
       label: "Browser",
       visible: true
     }),
-    themeControl: {
+    themeControl: SurfaceChromeThemeControl.make({
       visible: true
-    },
+    }),
     primaryAction: SurfaceChromePrimaryAction.make({
       label: surface.runLabel,
       pendingLabel: "Running…"
@@ -78,14 +89,15 @@ export const surfaceChromeModel = ({
   readonly backHref: Option.Option<string>
   readonly content: SurfaceChromeContentModel
   readonly deepDiveHref: Option.Option<string>
-}): SurfaceChromeModel => ({
-  ...content,
-  backLink: {
-    href: backHref,
-    label: "Back"
-  },
-  deepDiveLink: {
-    href: deepDiveHref,
-    label: "Deep Dive"
-  }
-})
+}): SurfaceChromeModel =>
+  SurfaceChromeModel.make({
+    ...content,
+    backLink: SurfaceChromeLink.make({
+      href: OptionValue.getOrNull(backHref),
+      label: "Back"
+    }),
+    deepDiveLink: SurfaceChromeLink.make({
+      href: OptionValue.getOrNull(deepDiveHref),
+      label: "Deep Dive"
+    })
+  })
