@@ -26,9 +26,9 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardModuleState,
+  StandardExampleSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -277,7 +277,7 @@ const program = Effect.gen(function*() {
     maxIterations: 3,
     seed: 29
   }).pipe(
-    Optimizer.tapGEPAProgress((line) => logExampleEvent("gepa", line.text)),
+    Optimizer.GEPAProgressLine.tap((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
@@ -289,20 +289,20 @@ const program = Effect.gen(function*() {
   })
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
-  const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
+  const gepaEventSummary = Optimizer.GEPAEventSummary.summarize(gepaEvents)
   const judgeParams = yield* Ref.get(judge.params)
   const debateSavedState = yield* Module.save(debateModule)
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const outcomeSummary = Optimizer.summarizeGEPAOutcome({
+  const outcomeSummary = Optimizer.GEPAOutcomeSummary.make({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     instructionBeforeOptimization: judgeParamsBeforeOptimization.instructions,
     instructionAfterOptimization: judgeParams.instructions,
     eventSummary: gepaEventSummary
   })
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     metricName: "recommendationExactMatchWithFeedback",
@@ -334,7 +334,7 @@ const program = Effect.gen(function*() {
       outcomeSummary
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     streams: Arr.make({
@@ -342,7 +342,7 @@ const program = Effect.gen(function*() {
       events: gepaEvents
     })
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     state: debateSavedState

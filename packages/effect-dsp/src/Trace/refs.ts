@@ -4,8 +4,7 @@
  * @since 0.1.0
  */
 import { FiberRef } from "effect"
-import type { Usage } from "../contracts/Usage.js"
-import { emptyUsage } from "../contracts/Usage.js"
+import { Usage } from "../contracts/Usage.js"
 import type { Entry } from "./model.js"
 
 /**
@@ -33,7 +32,7 @@ export const TraceEnabledRef: FiberRef.FiberRef<boolean> = FiberRef.unsafeMake(f
  * @since 0.1.0
  * @category refs
  */
-export const UsageRef: FiberRef.FiberRef<Usage> = FiberRef.unsafeMake(emptyUsage)
+export const UsageRef: FiberRef.FiberRef<Usage> = FiberRef.unsafeMake(Usage.empty)
 
 /**
  * Opt-in marker for usage tracking. Set to `true` by `withUsageTracking`.

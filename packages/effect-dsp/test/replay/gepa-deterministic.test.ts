@@ -8,16 +8,16 @@ import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
 import {
+  FixtureRegistry,
   GepaCatalogVersionedFixturesFixtureSchema,
   GepaReplayFrontierSnapshotsFixtureSchema,
   GepaReplayParamsFixtureSchema,
-  GepaReplaySeedContractFixtureSchema,
-  makeFixtureRegistry
+  GepaReplaySeedContractFixtureSchema
 } from "../helpers/dspy-fixtures/index.js"
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const encodeSavedStateJson = Schema.encode(Schema.parseJson(Module.SavedState))
 const ParetoSnapshotSchema = Schema.Struct({
@@ -32,22 +32,11 @@ const ParetoSnapshotSchema = Schema.Struct({
 })
 const encodeParetoSnapshotJson = Schema.encode(Schema.parseJson(ParetoSnapshotSchema))
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-
 const toUtf8Bytes = (value: string): ReadonlyArray<number> => Arr.fromIterable(Buffer.from(value, "utf8"))
 
 const runSeededReplay = (moduleName: string, seed: number, maxIterations: number) =>
   Effect.gen(function*() {
-    const signature = yield* makeQaSignature()
+    const signature = yield* conciseFactsQaSignature
     const module = yield* Module.predict(moduleName, signature)
     const mock = yield* MockLanguageModel.make(
       MockLanguageModel.map((prompt) =>
@@ -98,7 +87,7 @@ describe("GEPA deterministic replay", () => {
     "replays seeded runs with byte-stable outputs and fixture-manifest parity",
     () =>
       Effect.gen(function*() {
-        const fixtureRegistry = makeFixtureRegistry()
+        const fixtureRegistry = FixtureRegistry.make()
         const rawCatalog = yield* fixtureRegistry.load("dspy.gepa.catalog.versioned-fixtures")
         const rawReplayContract = yield* fixtureRegistry.load("dspy.gepa.replay.seed-0.contract")
         const rawReplayFrontierSnapshots = yield* fixtureRegistry.load("dspy.gepa.replay.frontier-snapshots.seed-0")

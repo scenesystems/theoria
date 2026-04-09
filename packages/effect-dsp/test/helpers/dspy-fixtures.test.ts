@@ -17,6 +17,7 @@ import {
   EnsembleMajorityVoteFixtureSchema,
   EvaluateEventOrderFixtureSchema,
   EvaluateReportShapeFixtureSchema,
+  FixtureRegistry,
   GepaAcceptMergeNonStrictFixtureSchema,
   GepaAcceptMutationStrictGreaterFixtureSchema,
   GepaCatalogVersionedFixturesFixtureSchema,
@@ -35,7 +36,6 @@ import {
   GepaReplaySeedContractFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
   LabeledFewShotSampleFixtureSchema,
-  makeFixtureRegistry,
   MetricScoreFeedbackFixtureSchema,
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
@@ -84,7 +84,7 @@ const listFixtureJsonFiles = (
 describe("DSPy fixture registry", () => {
   it.effect("loads schema-validated fixtures from the manifest", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const basic = yield* registry.load("dspy.chat.qa-basic")
       const withDemo = yield* registry.load("dspy.chat.qa-with-demo")
       const systemMessage = yield* registry.load("dspy.chat.system-message.basic")
@@ -287,7 +287,7 @@ describe("DSPy fixture registry", () => {
 
   it.effect("loads namespace fixture families for CoT, trace, evaluate, metric, and optimizer contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const cotFixtures = yield* registry.loadAll("dspy.cot.")
       const traceFixtures = yield* registry.loadAll("dspy.trace.")
       const evaluateFixtures = yield* registry.loadAll("dspy.evaluate.")
@@ -391,7 +391,7 @@ describe("DSPy fixture registry", () => {
 
   it.effect("validates the full fixture manifest against schema contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       yield* registry.validateManifest
     }))
 

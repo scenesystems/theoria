@@ -3,26 +3,16 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, Option, Ref, Schema } from "effect"
+import { Effect, Either, Layer, Option, Ref, type Schema } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { AllTrialsFailed } from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
+import type * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-
-const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+const allocateProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   name: string,
   signature: Signature.Signature<I, O>,
   instructions: string
@@ -45,10 +35,10 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 describe("Optimizer.ensemble", () => {
   it.effect("uses majorityVote by default", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const programA = yield* makeProgram("qa-a", signature, "Program A")
-      const programB = yield* makeProgram("qa-b", signature, "Program B")
-      const programC = yield* makeProgram("qa-c", signature, "Program C")
+      const signature = yield* conciseFactsQaSignature
+      const programA = yield* allocateProgram("qa-a", signature, "Program A")
+      const programB = yield* allocateProgram("qa-b", signature, "Program B")
+      const programC = yield* allocateProgram("qa-c", signature, "Program C")
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
@@ -76,9 +66,9 @@ describe("Optimizer.ensemble", () => {
 
   it.effect("honors custom reducer functions", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const programA = yield* makeProgram("qa-a", signature, "Program A")
-      const programB = yield* makeProgram("qa-b", signature, "Program B")
+      const signature = yield* conciseFactsQaSignature
+      const programA = yield* allocateProgram("qa-a", signature, "Program A")
+      const programB = yield* allocateProgram("qa-b", signature, "Program B")
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
@@ -114,11 +104,11 @@ describe("Optimizer.ensemble", () => {
 
   it.effect("runs only the selected subset size and stays deterministic for fixed seed", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const programA = yield* makeProgram("qa-a", signature, "Program A")
-      const programB = yield* makeProgram("qa-b", signature, "Program B")
-      const programC = yield* makeProgram("qa-c", signature, "Program C")
-      const programD = yield* makeProgram("qa-d", signature, "Program D")
+      const signature = yield* conciseFactsQaSignature
+      const programA = yield* allocateProgram("qa-a", signature, "Program A")
+      const programB = yield* allocateProgram("qa-b", signature, "Program B")
+      const programC = yield* allocateProgram("qa-c", signature, "Program C")
+      const programD = yield* allocateProgram("qa-d", signature, "Program D")
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) => {
@@ -173,11 +163,11 @@ describe("Optimizer.ensemble", () => {
 
   it.effect("breaks majority-vote ties deterministically by first observed output", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const programA = yield* makeProgram("qa-a", signature, "Program A")
-      const programB = yield* makeProgram("qa-b", signature, "Program B")
-      const programC = yield* makeProgram("qa-c", signature, "Program C")
-      const programD = yield* makeProgram("qa-d", signature, "Program D")
+      const signature = yield* conciseFactsQaSignature
+      const programA = yield* allocateProgram("qa-a", signature, "Program A")
+      const programB = yield* allocateProgram("qa-b", signature, "Program B")
+      const programC = yield* allocateProgram("qa-c", signature, "Program C")
+      const programD = yield* allocateProgram("qa-d", signature, "Program D")
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) => {
@@ -204,8 +194,8 @@ describe("Optimizer.ensemble", () => {
 
   it.effect("propagates typed program failures without reducer masking", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const successful = yield* makeProgram("qa-success", signature, "Program Success")
+      const signature = yield* conciseFactsQaSignature
+      const successful = yield* allocateProgram("qa-success", signature, "Program Success")
       const failing = yield* Module.compose({
         name: "qa-failure",
         signature,
@@ -244,7 +234,7 @@ describe("Optimizer.ensemble", () => {
 
   it.effect("fails when no programs are provided", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const result = yield* Effect.either(
         Optimizer.ensemble({
           programs: [],

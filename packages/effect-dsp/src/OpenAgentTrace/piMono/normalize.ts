@@ -4,7 +4,7 @@
  * @since 0.2.0
  */
 import { Array as Arr, Effect, Option, Schema } from "effect"
-import { attachOpenAgentTraceRecordProvenance } from "../provenance.js"
+import { attachRecordProvenance } from "../provenance.js"
 import {
   defaultOpenAgentTraceRedactionPolicy,
   type OpenAgentTraceRedactionPolicy,
@@ -41,7 +41,7 @@ export const publishedIntegrityDigest = (entry: PiShareHfManifestEntry) =>
  * @since 0.2.0
  * @category combinators
  */
-export const normalizePiMonoDatasetRow = (options: {
+export const normalizeDatasetRow = (options: {
   readonly datasetId: string
   readonly datasetRevision: string
   readonly split: string
@@ -63,9 +63,9 @@ export const normalizePiMonoDatasetRow = (options: {
     const events = yield* Effect.forEach(resolved.liveContext, normalizePiSessionEntry, { concurrency: 1 })
     const firstEvent = Arr.head(events).pipe(Option.getOrElse(() => events[0]!))
 
-    const normalizedRecord = new OpenAgentTraceRecord({
+    const normalizedRecord = OpenAgentTraceRecord.make({
       recordId,
-      source: new OpenAgentTraceSource({
+      source: OpenAgentTraceSource.make({
         datasetId: options.datasetId,
         datasetRevision: options.datasetRevision,
         split: options.split,
@@ -79,7 +79,7 @@ export const normalizePiMonoDatasetRow = (options: {
         redactionKey: options.manifestEntry.redaction_key,
         redactedHash: publishedDigest
       }),
-      session: new OpenAgentTraceSession({
+      session: OpenAgentTraceSession.make({
         sessionId: migrated.header.id,
         sessionVersion: migrated.header.version ?? 3,
         cwd: migrated.header.cwd,
@@ -91,7 +91,7 @@ export const normalizePiMonoDatasetRow = (options: {
       events: [firstEvent, ...events.slice(1)],
       coverageGaps: [],
       redactionFindings: [],
-      reviewStatus: new OpenAgentTraceReviewStatus({
+      reviewStatus: OpenAgentTraceReviewStatus.make({
         projectionSafe: false,
         manualReviewRequired: true,
         semanticReviewStatus: "not-reviewed",
@@ -116,5 +116,5 @@ export const normalizePiMonoDatasetRow = (options: {
         })
     })
 
-    return yield* attachOpenAgentTraceRecordProvenance(redactedRecord)
+    return yield* attachRecordProvenance(redactedRecord)
   })

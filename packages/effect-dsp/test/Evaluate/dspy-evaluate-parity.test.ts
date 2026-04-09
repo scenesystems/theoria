@@ -5,25 +5,14 @@ import * as Evaluate from "effect-dsp/Evaluate"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
 import {
   EvaluateEventOrderFixtureSchema,
   EvaluateReportShapeFixtureSchema,
-  makeFixtureRegistry
+  FixtureRegistry
 } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const exampleOutput = (expectedAnswer: string | null): Readonly<Record<string, unknown>> =>
   Option.match(Option.fromNullable(expectedAnswer), {
@@ -50,14 +39,14 @@ const projectedEvent = (event: Evaluate.EvaluationEventType) =>
 describe("Evaluate DSPy parity", () => {
   it.effect("matches fixture-backed report and event-order contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawReportFixture = yield* registry.load("dspy.evaluate.report-shape.basic")
       const rawEventFixture = yield* registry.load("dspy.evaluate.event-order.basic")
       const reportFixture = yield* Schema.decodeUnknown(EvaluateReportShapeFixtureSchema)(rawReportFixture)
       const eventFixture = yield* Schema.decodeUnknown(EvaluateEventOrderFixtureSchema)(rawEventFixture)
 
       const fixtureExamples = reportFixture.payload.examples
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa-evaluate-dspy-parity", signature)
       const answerForQuestion = (question: string): string =>
         Option.getOrElse(

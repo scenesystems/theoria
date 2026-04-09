@@ -12,8 +12,8 @@ import type { Signature } from "../../Signature/model.js"
 import { chainOfThought } from "../chainOfThought/index.js"
 import { compose } from "../compose/index.js"
 import type { Module } from "../model.js"
-import { makeMultiChainComparisonForward } from "./runtime.js"
-import { makeComparisonSignature } from "./signatures.js"
+import { MultiChainComparisonRuntime } from "./runtime.js"
+import { ComparisonSignature } from "./signatures.js"
 
 /**
  * Default number of candidate reasoning chains generated before comparison.
@@ -102,7 +102,7 @@ export const multiChainComparison = <
           }))
         )
     )
-    const comparisonSignature = yield* makeComparisonSignature({
+    const comparisonSignature = yield* ComparisonSignature.make({
       candidateCount,
       signature: options.signature
     })
@@ -122,7 +122,7 @@ export const multiChainComparison = <
         })
       ),
       forward: ({ input }) =>
-        makeMultiChainComparisonForward({
+        MultiChainComparisonRuntime.forward({
           candidates,
           compare,
           concurrency,

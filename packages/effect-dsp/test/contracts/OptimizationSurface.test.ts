@@ -14,9 +14,9 @@ const decodeModuleId = (moduleName: string) =>
 
 describe("contracts/OptimizationSurface", () => {
   it("pins ownership of generic search primitives to effect-search", () => {
-    expect(Contracts.searchPrimitiveOwnership.traversal).toBe("effect-search")
-    expect(Contracts.searchPrimitiveOwnership.sampler).toBe("effect-search")
-    expect(Contracts.searchPrimitiveOwnership.pareto).toBe("effect-search")
+    expect(Contracts.SearchPrimitiveOwnership.effectSearch.traversal).toBe("effect-search")
+    expect(Contracts.SearchPrimitiveOwnership.effectSearch.sampler).toBe("effect-search")
+    expect(Contracts.SearchPrimitiveOwnership.effectSearch.pareto).toBe("effect-search")
   })
 
   it.effect("projects module params into deterministic parameter and dimension surfaces", () =>
@@ -34,9 +34,9 @@ describe("contracts/OptimizationSurface", () => {
         maxTokens: 32
       })
 
-      const projectionA = Contracts.projectOptimizationParameters(params)
-      const projectionB = Contracts.projectOptimizationParameters(params)
-      const dimensions = Contracts.projectOptimizationDimensions(params)
+      const projectionA = Contracts.OptimizationParameterSurface.fromModuleParams(params)
+      const projectionB = Contracts.OptimizationParameterSurface.fromModuleParams(params)
+      const dimensions = Contracts.OptimizationDimension.fromModuleParams(params)
 
       expect(projectionA).toEqual(projectionB)
       expect(dimensions.map((dimension) => dimension.name)).toEqual([
@@ -64,7 +64,7 @@ describe("contracts/OptimizationSurface", () => {
         timestamp: 1_700_000_000_000
       })
 
-      const projected = yield* Contracts.projectOptimizationObjective(traceEntry)
+      const projected = yield* Contracts.OptimizationObjectiveSurface.fromTraceEntry(traceEntry)
       const encoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(projected)
       const roundTrip = yield* Schema.decode(Contracts.OptimizationObjectiveSurface)(encoded)
       const reEncoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(roundTrip)
@@ -86,22 +86,31 @@ describe("contracts/OptimizationSurface", () => {
       const rootId = yield* decodeModuleId("a-root")
       const pipelineId = yield* decodeModuleId("b-pipeline")
       const qaId = yield* decodeModuleId("c-qa")
-      const graph = Contracts.makeModuleGraph({
+      const graph = Contracts.ModuleGraph.fromParts({
         rootId,
         nodes: [
           new Contracts.ModuleGraphNode({
             moduleId: rootId,
-            signature: Contracts.makeModuleNodeSignature("Root", "Root instructions"),
+            signature: Contracts.ModuleNodeSignature.make({
+              description: "Root",
+              instructions: "Root instructions"
+            }),
             subModuleIds: [pipelineId]
           }),
           new Contracts.ModuleGraphNode({
             moduleId: pipelineId,
-            signature: Contracts.makeModuleNodeSignature("Pipeline", "Pipeline instructions"),
+            signature: Contracts.ModuleNodeSignature.make({
+              description: "Pipeline",
+              instructions: "Pipeline instructions"
+            }),
             subModuleIds: [qaId]
           }),
           new Contracts.ModuleGraphNode({
             moduleId: qaId,
-            signature: Contracts.makeModuleNodeSignature("QA", "QA instructions"),
+            signature: Contracts.ModuleNodeSignature.make({
+              description: "QA",
+              instructions: "QA instructions"
+            }),
             subModuleIds: []
           })
         ],
@@ -111,8 +120,8 @@ describe("contracts/OptimizationSurface", () => {
         ]
       })
 
-      const projectionA = Contracts.projectOptimizationModuleGraph(graph)
-      const projectionB = Contracts.projectOptimizationModuleGraph(graph)
+      const projectionA = Contracts.OptimizationModuleGraphSurface.fromGraph(graph)
+      const projectionB = Contracts.OptimizationModuleGraphSurface.fromGraph(graph)
       const encoded = yield* Schema.encode(Contracts.OptimizationModuleGraphSurface)(projectionA)
       const roundTrip = yield* Schema.decode(Contracts.OptimizationModuleGraphSurface)(encoded)
 

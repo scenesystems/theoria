@@ -21,7 +21,7 @@ const traceCarrierError = (
   moduleName: string,
   carrier: TraceCarrier
 ): TraceError =>
-  new TraceError({
+  TraceError.make({
     message: `Trace ${carrier} payload failed schema projection`,
     moduleName
   })
@@ -75,7 +75,7 @@ export const appendTraceEntry = <
       value: options.input
     })
 
-    const entry = new Entry({
+    const entry = Entry.make({
       moduleName: options.moduleName,
       signatureDescription: options.signature.description,
       input: traceInput,
@@ -89,7 +89,7 @@ export const appendTraceEntry = <
       timestamp: options.completedAt
     })
 
-    const usage = new UsageSample({
+    const usage = UsageSample.make({
       inputTokens: options.execution.inputTokens,
       outputTokens: options.execution.outputTokens,
       cached: options.cached

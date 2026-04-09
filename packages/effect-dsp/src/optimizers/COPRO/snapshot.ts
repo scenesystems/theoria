@@ -3,20 +3,16 @@
  *
  * @since 0.2.0
  */
-import { Array as Arr, Match, Schema } from "effect"
+import { Array as Arr, Effect, Match, Ref, Schema } from "effect"
 import * as SearchContracts from "effect-search/Contracts"
 import * as Sampler from "effect-search/Sampler"
 import * as Study from "effect-search/Study"
 import * as StudyEvent from "effect-search/StudyEvent"
 import * as Contracts from "../../contracts/index.js"
+import * as Module from "../../Module/index.js"
 import { SavedState } from "../../Module/model.js"
 
-/**
- * One evaluated COPRO trial.
- *
- * @since 0.2.0
- * @category models
- */
+/** One evaluated COPRO trial. @since 0.2.0 @category models */
 export class COPRORecordedTrial extends Schema.Class<COPRORecordedTrial>("COPRORecordedTrial")({
   trialNumber: Schema.Number,
   step: Schema.Number,
@@ -27,12 +23,7 @@ export class COPRORecordedTrial extends Schema.Class<COPRORecordedTrial>("COPROR
   improved: Schema.Boolean
 }) {}
 
-/**
- * One accepted predictor update produced by COPRO.
- *
- * @since 0.2.0
- * @category models
- */
+/** One accepted predictor update produced by COPRO. @since 0.2.0 @category models */
 export class COPROAcceptedUpdate extends Schema.Class<COPROAcceptedUpdate>("COPROAcceptedUpdate")({
   step: Schema.Number,
   predictorName: Schema.String,
@@ -42,9 +33,7 @@ export class COPROAcceptedUpdate extends Schema.Class<COPROAcceptedUpdate>("COPR
 }) {}
 
 /**
- * Resumable COPRO state. The full program state lives in `moduleState`; the
- * scalar summary fields keep resume and artifact projections deterministic.
- *
+ * Resumable COPRO state with deterministic resume metadata.
  * @since 0.2.0
  * @category models
  */
@@ -65,81 +54,13 @@ export class COPROSnapshot extends Schema.Class<COPROSnapshot>("effect-dsp/COPRO
   acceptedUpdates: Schema.Array(COPROAcceptedUpdate)
 }) {}
 
-const studyTrialConfig = (trial: COPRORecordedTrial) => ({
-  step: trial.step,
-  predictorName: trial.predictorName,
-  candidateIndex: trial.candidateIndex,
-  instruction: trial.instruction
-})
-
-const checkpoint = (seed: number): Sampler.SamplerCheckpoint => ({ _tag: "Random", seed })
-
-const studyDuration = (snapshot: COPROSnapshot): number => snapshot.trials.length
-
-const samplerMetrics = (snapshot: COPROSnapshot) => ({
-  checkpointTag: "Random",
-  completedCount: snapshot.trials.length,
-  pendingCount: 0,
-  retryCountTotal: 0,
-  priorCount: 0
-})
-
-/**
- * Project a COPRO snapshot into a typed `effect-search` study snapshot for
- * downstream artifact and UI consumers.
- *
- * @since 0.2.0
- * @category constructors
- */
-export const projectCOPROStudySnapshot = (snapshot: COPROSnapshot): Study.StudySnapshot =>
-  new Study.StudySnapshot({
-    snapshotFormatVersion: 1,
-    spaceFingerprint: `effect-dsp/copro/${snapshot.moduleName}/${snapshot.numCandidates}/${snapshot.maxSteps}`,
-    objectiveSpec: SearchContracts.singleObjectiveSpec("maximize"),
-    stopMode: "Drain",
-    samplerKind: Sampler.Random({ options: { seed: snapshot.seed } }),
-    samplerCheckpoint: checkpoint(snapshot.seed),
-    nextTrialNumber: snapshot.nextTrialNumber,
-    trials: Arr.map(snapshot.trials, (trial) => ({
-      trialNumber: trial.trialNumber,
-      config: studyTrialConfig(trial),
-      state: {
-        _tag: "Completed",
-        value: trial.score,
-        duration: 1,
-        retryCount: 0,
-        evaluationCount: 1
-      }
-    })),
-    completedCount: snapshot.trials.length,
-    studyDuration: studyDuration(snapshot),
-    samplerMetrics: samplerMetrics(snapshot)
-  })
-
-/**
- * Project COPRO trial history into canonical `effect-search` study events.
- *
- * @since 0.2.0
- * @category constructors
- */
-export const projectCOPROStudyEvents = (snapshot: COPROSnapshot): ReadonlyArray<StudyEvent.StudyEvent> =>
-  Arr.append(
-    Arr.flatMap(snapshot.trials, (trial) => [
-      StudyEvent.TrialStarted({
-        trialNumber: trial.trialNumber,
-        config: studyTrialConfig(trial)
-      }),
-      StudyEvent.TrialCompleted({
-        trialNumber: trial.trialNumber,
-        value: trial.score
-      }),
-      ...Match.value(trial.improved).pipe(
-        Match.when(true, () => [StudyEvent.BestUpdated({ trialNumber: trial.trialNumber, value: trial.score })]),
-        Match.orElse(() => [])
-      )
-    ]),
-    StudyEvent.StudyCompleted({ completionReason: snapshot.completionReason })
-  )
+type COPROSnapshotState = Readonly<{
+  readonly nextStep: number
+  readonly nextTrialNumber: number
+  readonly bestScore: number
+  readonly trials: ReadonlyArray<COPRORecordedTrial>
+  readonly acceptedUpdates: ReadonlyArray<COPROAcceptedUpdate>
+}>
 
 type ArtifactEnvelopeOptions = Readonly<{
   readonly runId: Contracts.RunId
@@ -148,73 +69,166 @@ type ArtifactEnvelopeOptions = Readonly<{
   readonly metricName: string
 }>
 
-/**
- * Wrap a projected COPRO study event in the canonical artifact-envelope shape.
- *
- * @since 0.2.0
- * @category constructors
- */
-export const coproStudyEventEnvelope = (
-  options: ArtifactEnvelopeOptions & {
-    readonly sequence: number
-    readonly event: StudyEvent.StudyEvent
-  }
-) =>
-  Contracts.StudyEventEnvelope({
-    schemaVersion: "artifact-envelope/v1",
-    producer: Contracts.EffectDsp({
-      packageVersion: options.packageVersion,
-      component: ["Optimizer", "copro", "events"],
-      runId: options.runId,
-      optimizer: "copro",
-      metricName: options.metricName,
-      exampleName: "copro"
-    }),
-    lineage: new Contracts.ArtifactLineage({
-      sourceRef: new Contracts.SourceRef({
-        origin: "effect-dsp",
-        domain: "optimizer",
-        segments: ["copro", "event"]
-      }),
-      artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
-      emittedAt: options.emittedAt
-    }),
-    relations: [{ _tag: "Run", ref: options.runId }],
-    event: options.event
-  })
+export namespace COPROSnapshot {
+  export const fromRuntimeState = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(options: {
+    readonly module: Module.Module<I, O>
+    readonly baselineInstruction: string
+    readonly numCandidates: number
+    readonly maxSteps: number
+    readonly seed: number
+    readonly completionReason: COPROSnapshot["completionReason"]
+    readonly state: COPROSnapshotState
+  }) =>
+    Effect.gen(function*() {
+      const moduleState = yield* Module.save(options.module)
+      const rootParams = yield* Ref.get(options.module.params)
+      return COPROSnapshot.make({
+        snapshotFormatVersion: 1,
+        moduleName: options.module.name,
+        moduleState,
+        numCandidates: options.numCandidates,
+        maxSteps: options.maxSteps,
+        nextStep: options.state.nextStep,
+        nextTrialNumber: options.state.nextTrialNumber,
+        seed: options.seed,
+        baselineInstruction: options.baselineInstruction,
+        bestInstruction: rootParams.instructions,
+        bestScore: options.state.bestScore,
+        completionReason: options.completionReason,
+        trials: options.state.trials,
+        acceptedUpdates: options.state.acceptedUpdates
+      })
+    })
 
-/**
- * Wrap a projected COPRO study snapshot in the canonical artifact-envelope
- * shape.
- *
- * @since 0.2.0
- * @category constructors
- */
-export const coproStudySnapshotEnvelope = (
-  options: ArtifactEnvelopeOptions & {
-    readonly sequence: number
-    readonly snapshot: COPROSnapshot
-  }
-) =>
-  Contracts.StudySnapshotEnvelope({
-    schemaVersion: "artifact-envelope/v1",
-    producer: Contracts.EffectDsp({
-      packageVersion: options.packageVersion,
-      component: ["Optimizer", "copro", "snapshot"],
-      runId: options.runId,
-      optimizer: "copro",
-      metricName: options.metricName,
-      exampleName: "copro"
-    }),
-    lineage: new Contracts.ArtifactLineage({
-      sourceRef: new Contracts.SourceRef({
-        origin: "effect-dsp",
-        domain: "optimizer",
-        segments: ["copro", "snapshot"]
+  /**
+   * Project a COPRO snapshot into the canonical `effect-search` study snapshot.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  export const projectStudySnapshot = (snapshot: COPROSnapshot): Study.StudySnapshot =>
+    Study.StudySnapshot.fromMaterialized({
+      spaceFingerprint: `effect-dsp/copro/${snapshot.moduleName}/${snapshot.numCandidates}/${snapshot.maxSteps}`,
+      objectiveSpec: SearchContracts.singleObjectiveSpec("maximize"),
+      stopMode: "Drain",
+      samplerKind: Sampler.Random({ options: { seed: snapshot.seed } }),
+      samplerCheckpoint: checkpoint(snapshot.seed),
+      nextTrialNumber: snapshot.nextTrialNumber,
+      trials: Arr.map(snapshot.trials, (trial) => ({
+        trialNumber: trial.trialNumber,
+        config: studyTrialConfig(trial),
+        state: {
+          _tag: "Completed",
+          value: trial.score,
+          duration: 1,
+          retryCount: 0,
+          evaluationCount: 1
+        }
+      })),
+      completedCount: snapshot.trials.length
+    })
+
+  /**
+   * Project COPRO trial history into canonical `effect-search` study events.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  export const projectStudyEvents = (snapshot: COPROSnapshot): ReadonlyArray<StudyEvent.StudyEvent> =>
+    Arr.append(
+      Arr.flatMap(snapshot.trials, (trial) => [
+        StudyEvent.TrialStarted({
+          trialNumber: trial.trialNumber,
+          config: studyTrialConfig(trial)
+        }),
+        StudyEvent.TrialCompleted({
+          trialNumber: trial.trialNumber,
+          value: trial.score
+        }),
+        ...Match.value(trial.improved).pipe(
+          Match.when(true, () => [StudyEvent.BestUpdated({ trialNumber: trial.trialNumber, value: trial.score })]),
+          Match.orElse(() => [])
+        )
+      ]),
+      StudyEvent.StudyCompleted({ completionReason: snapshot.completionReason })
+    )
+
+  /**
+   * Wrap a projected COPRO study event in the canonical artifact envelope.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  export const projectStudyEventEnvelope = (
+    options: ArtifactEnvelopeOptions & {
+      readonly sequence: number
+      readonly event: StudyEvent.StudyEvent
+    }
+  ) =>
+    Contracts.StudyEventEnvelope({
+      schemaVersion: "artifact-envelope/v1",
+      producer: Contracts.EffectDsp({
+        packageVersion: options.packageVersion,
+        component: ["Optimizer", "copro", "events"],
+        runId: options.runId,
+        optimizer: "copro",
+        metricName: options.metricName,
+        exampleName: "copro"
       }),
-      artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
-      emittedAt: options.emittedAt
-    }),
-    relations: [{ _tag: "Run", ref: options.runId }],
-    snapshot: projectCOPROStudySnapshot(options.snapshot)
-  })
+      lineage: new Contracts.ArtifactLineage({
+        sourceRef: new Contracts.SourceRef({
+          origin: "effect-dsp",
+          domain: "optimizer",
+          segments: ["copro", "event"]
+        }),
+        artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
+        emittedAt: options.emittedAt
+      }),
+      relations: [{ _tag: "Run", ref: options.runId }],
+      event: options.event
+    })
+
+  /**
+   * Wrap a projected COPRO study snapshot in the canonical artifact envelope.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  export const projectStudySnapshotEnvelope = (
+    options: ArtifactEnvelopeOptions & {
+      readonly sequence: number
+      readonly snapshot: COPROSnapshot
+    }
+  ) =>
+    Contracts.StudySnapshotEnvelope({
+      schemaVersion: "artifact-envelope/v1",
+      producer: Contracts.EffectDsp({
+        packageVersion: options.packageVersion,
+        component: ["Optimizer", "copro", "snapshot"],
+        runId: options.runId,
+        optimizer: "copro",
+        metricName: options.metricName,
+        exampleName: "copro"
+      }),
+      lineage: new Contracts.ArtifactLineage({
+        sourceRef: new Contracts.SourceRef({
+          origin: "effect-dsp",
+          domain: "optimizer",
+          segments: ["copro", "snapshot"]
+        }),
+        artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
+        emittedAt: options.emittedAt
+      }),
+      relations: [{ _tag: "Run", ref: options.runId }],
+      snapshot: projectStudySnapshot(options.snapshot)
+    })
+}
+
+const studyTrialConfig = (trial: COPRORecordedTrial) => ({
+  step: trial.step,
+  predictorName: trial.predictorName,
+  candidateIndex: trial.candidateIndex,
+  instruction: trial.instruction
+})
+
+const checkpoint = (seed: number): Sampler.SamplerCheckpoint => ({ _tag: "Random", seed })

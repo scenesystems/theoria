@@ -39,32 +39,34 @@ const mockLanguageModelLayer = MockLanguageModel.layer(
   MockLanguageModel.map(responseForPrompt)
 )
 
-type QaModule = Effect.Effect.Success<typeof makeModule>
+const QaPipelineModule = {
+  allocate: Effect.gen(function*() {
+    const signature = yield* Signature.make(
+      BASELINE_INSTRUCTION,
+      {
+        question: Signature.describe(Schema.String, "The question to answer")
+      },
+      {
+        answer: Signature.describe(Schema.String, "A concise factual answer")
+      }
+    )
+    const module = yield* Module.predict("qa-v0-2-pipeline", signature)
+    const initialParams = yield* Ref.get(module.params)
 
-const makeModule = Effect.gen(function*() {
-  const signature = yield* Signature.make(
-    BASELINE_INSTRUCTION,
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-  const module = yield* Module.predict("qa-v0-2-pipeline", signature)
-  const initialParams = yield* Ref.get(module.params)
+    yield* Ref.set(
+      module.params,
+      new ModuleParams({
+        instructions: initialParams.instructions,
+        demos: initialParams.demos,
+        outputStrategy: "structured"
+      })
+    )
 
-  yield* Ref.set(
-    module.params,
-    new ModuleParams({
-      instructions: initialParams.instructions,
-      demos: initialParams.demos,
-      outputStrategy: "structured"
-    })
-  )
+    return module
+  })
+}
 
-  return module
-})
+type QaModule = Effect.Effect.Success<typeof QaPipelineModule.allocate>
 
 const evaluateWithEvidence = (module: QaModule) =>
   Module.withDiscoveryScope(
@@ -85,11 +87,11 @@ const evaluateWithEvidence = (module: QaModule) =>
 const projectModuleEvidence = (moduleName: string, traces: ReadonlyArray<Trace.Entry>) =>
   Effect.forEach(
     Arr.filter(traces, (trace) => trace.moduleName === moduleName),
-    Contracts.projectOptimizationObjective
+    Contracts.OptimizationObjectiveSurface.fromTraceEntry
   )
 
 const runPipeline = Effect.gen(function*() {
-  const module = yield* makeModule
+  const module = yield* QaPipelineModule.allocate
   const baselineState = yield* Module.save(module)
   const baselineExecution = yield* evaluateWithEvidence(module)
   const baselineReport = baselineExecution[0][0]
@@ -123,7 +125,7 @@ const runPipeline = Effect.gen(function*() {
       })
     )
   )
-  const replayModule = yield* makeModule
+  const replayModule = yield* QaPipelineModule.allocate
 
   yield* Module.load(replayModule, optimizedState)
 
@@ -131,13 +133,13 @@ const runPipeline = Effect.gen(function*() {
   const replayReport = replayExecution[0][0]
   const replayEvidence = yield* projectModuleEvidence(replayModule.name, replayExecution[0][1])
   const decodedEvents = yield* Schema.decodeUnknown(Schema.Array(Optimizer.COPROEventSchema))(Arr.fromIterable(events))
-  const summary = Optimizer.summarizeCOPROEvents(decodedEvents)
-  const studyEvents = Optimizer.projectCOPROStudyEvents(snapshot)
-  const studySnapshot = Optimizer.projectCOPROStudySnapshot(snapshot)
+  const summary = Optimizer.COPROEventSummary.summarize(decodedEvents)
+  const studyEvents = Optimizer.COPROSnapshot.projectStudyEvents(snapshot)
+  const studySnapshot = Optimizer.COPROSnapshot.projectStudySnapshot(snapshot)
   const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
   const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.2.0")
   const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T00:00:00Z")
-  const eventEnvelope = Optimizer.coproStudyEventEnvelope({
+  const eventEnvelope = Optimizer.COPROSnapshot.projectStudyEventEnvelope({
     runId,
     packageVersion,
     emittedAt,
@@ -145,7 +147,7 @@ const runPipeline = Effect.gen(function*() {
     sequence: 0,
     event: studyEvents[0]!
   })
-  const snapshotEnvelope = Optimizer.coproStudySnapshotEnvelope({
+  const snapshotEnvelope = Optimizer.COPROSnapshot.projectStudySnapshotEnvelope({
     runId,
     packageVersion,
     emittedAt,

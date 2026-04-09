@@ -86,7 +86,7 @@ const findingsForMatches = (options: {
           decodeOpenAgentTraceContentDigest
         )
 
-        return new OpenAgentTraceRedactionFinding({
+        return OpenAgentTraceRedactionFinding.make({
           findingId,
           findingKind: options.findingKind,
           matchTextDigest,

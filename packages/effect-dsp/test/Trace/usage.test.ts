@@ -3,24 +3,13 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Effect, Layer, Option } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 import fc from "fast-check"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const usageSampleArbitrary = fc.record({
   inputTokens: fc.option(fc.integer({ min: 0, max: 1_000 }), { nil: null }),
@@ -31,7 +20,7 @@ const usageSampleArbitrary = fc.record({
 describe("Trace usage", () => {
   it.effect("accumulates call counters inside withUsageTracking scope", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
@@ -54,7 +43,7 @@ describe("Trace usage", () => {
 
   it.effect("avoids double counting under nested usage-tracking scopes", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
@@ -84,7 +73,7 @@ describe("Trace usage", () => {
         fc.property(fc.array(usageSampleArbitrary, { maxLength: 32 }), (samples) => {
           const folded = samples.reduce(
             (state, sample) => {
-              const next = Contracts.accumulateUsage(
+              const next = Contracts.Usage.accumulate(
                 state.previous,
                 new Contracts.UsageSample({
                   inputTokens: Option.fromNullable(sample.inputTokens),
@@ -102,7 +91,7 @@ describe("Trace usage", () => {
                   next.cachedCount >= state.previous.cachedCount
               }
             },
-            { previous: Contracts.emptyUsage, monotonic: true }
+            { previous: Contracts.Usage.empty, monotonic: true }
           )
 
           return (
@@ -116,7 +105,7 @@ describe("Trace usage", () => {
 
   it.effect("records stable optimization fields on trace entries", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })

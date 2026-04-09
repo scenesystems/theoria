@@ -14,12 +14,12 @@ import {
 describe("OpenAgentTrace/provenanceDigest", () => {
   it.effect("derives stable record and corpus digests from canonical content rather than manifest pass-through values", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(
         piShareHfReviewSidecarFixture
       )
-      const row = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -29,7 +29,7 @@ describe("OpenAgentTrace/provenanceDigest", () => {
         manifestEntry,
         reviewSidecar
       })
-      const replay = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const replay = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -39,7 +39,7 @@ describe("OpenAgentTrace/provenanceDigest", () => {
         manifestEntry,
         reviewSidecar
       })
-      const changedReviewRecord = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const changedReviewRecord = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -49,7 +49,7 @@ describe("OpenAgentTrace/provenanceDigest", () => {
         manifestEntry,
         reviewSidecar: { ...reviewSidecar, prompt_version: 4 }
       })
-      const changedReviewKeyRecord = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const changedReviewKeyRecord = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -59,8 +59,8 @@ describe("OpenAgentTrace/provenanceDigest", () => {
         manifestEntry,
         reviewSidecar: { ...reviewSidecar, review_key: Redacted.make("different-review-key") }
       })
-      const digests = yield* Experimental.OpenAgentTrace.digestOpenAgentTraceRecord(record)
-      const manifest = yield* Experimental.OpenAgentTrace.makeOpenAgentTraceCorpusManifest({
+      const digests = yield* Experimental.OpenAgentTrace.digestRecord(record)
+      const manifest = yield* Experimental.OpenAgentTrace.CorpusManifest.fromRecords({
         corpusId: "pi-mono-public-corpus",
         adapterId: "pi-mono",
         adapterVersion: "1",
@@ -69,7 +69,7 @@ describe("OpenAgentTrace/provenanceDigest", () => {
         generatedAt: "2026-04-06T12:00:00.000Z",
         records: [record]
       })
-      const replayManifest = yield* Experimental.OpenAgentTrace.makeOpenAgentTraceCorpusManifest({
+      const replayManifest = yield* Experimental.OpenAgentTrace.CorpusManifest.fromRecords({
         corpusId: "pi-mono-public-corpus",
         adapterId: "pi-mono",
         adapterVersion: "1",

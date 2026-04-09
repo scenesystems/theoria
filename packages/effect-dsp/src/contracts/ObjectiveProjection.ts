@@ -13,7 +13,7 @@ import { ExampleFailure, type Report } from "../Evaluate/report.js"
  * Discriminant controlling whether the objective is projected as a single
  * scalar or a multi-objective vector.
  *
- * @see {@link projectObjective} — dispatches on this mode
+ * @see {@link ObjectiveProjection.fromReport} — dispatches on this mode
  *
  * @since 0.1.0
  * @category schemas
@@ -32,7 +32,20 @@ export const ObjectiveProjectionMode = Schema.Literal("single", "multi")
 export class ObjectiveMetricScore extends Schema.Class<ObjectiveMetricScore>("ObjectiveMetricScore")({
   name: Schema.String,
   score: Schema.Number
-}) {}
+}) {
+  /**
+   * Construct one deterministic metric score from a stable report entry.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  static fromMetricEntry(entry: readonly [string, number]): ObjectiveMetricScore {
+    return ObjectiveMetricScore.make({
+      name: entry[0],
+      score: entry[1]
+    })
+  }
+}
 
 /**
  * Summary statistics emitted alongside the objective value — metric
@@ -51,7 +64,24 @@ export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("Object
   successCount: Schema.Number,
   failureCount: Schema.Number,
   averageDurationMs: Schema.Number
-}) {}
+}) {
+  /**
+   * Project report-level evaluation context into deterministic telemetry.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  static fromReport(report: Report): ObjectiveTelemetry {
+    return ObjectiveTelemetry.make({
+      metricScores: Arr.map(stableMetricEntries(report), ObjectiveMetricScore.fromMetricEntry),
+      failures: report.failures,
+      totalExamples: report.totalExamples,
+      successCount: report.successCount,
+      failureCount: report.failureCount,
+      averageDurationMs: averageDuration(report)
+    })
+  }
+}
 
 /**
  * Complete projection of an evaluation report into the shape consumed by
@@ -59,8 +89,7 @@ export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("Object
  * (for single-metric optimization) or a numeric vector (for
  * multi-objective Pareto search).
  *
- * @see {@link projectSingleObjective} — single-scalar projection
- * @see {@link projectMultiObjective} — vector projection
+ * @see {@link ObjectiveProjection.fromReport} — canonical projection constructor
  * @see {@link ObjectiveTelemetry} — evaluation context carried alongside
  *
  * @since 0.1.0
@@ -69,7 +98,35 @@ export class ObjectiveTelemetry extends Schema.Class<ObjectiveTelemetry>("Object
 export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("ObjectiveProjection")({
   objective: Schema.Union(Schema.Number, Schema.Array(Schema.Number)),
   telemetry: ObjectiveTelemetry
-}) {}
+}) {
+  /**
+   * Project an evaluation report into the scalar or vector objective form
+   * consumed by `effect-search` study APIs.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static fromReport(options: {
+    readonly report: Report
+    readonly mode: Schema.Schema.Type<typeof ObjectiveProjectionMode>
+    readonly metricName?: string
+    readonly metricNames?: ReadonlyArray<string>
+  }): Effect.Effect<ObjectiveProjection> {
+    const telemetry = ObjectiveTelemetry.fromReport(options.report)
+
+    return Effect.succeed(
+      options.mode === "single"
+        ? ObjectiveProjection.make({
+          objective: metricScore(options.report, resolveSingleMetricName(options)),
+          telemetry
+        })
+        : ObjectiveProjection.make({
+          objective: Arr.map(resolveMetricNames(options), (name) => metricScore(options.report, name)),
+          telemetry
+        })
+    )
+  }
+}
 
 /**
  * Re-export of the `effect-search` objective value type so downstream
@@ -88,6 +145,29 @@ const stableMetricEntries = (report: Report): ReadonlyArray<readonly [string, nu
 const stableMetricNames = (report: Report): ReadonlyArray<string> =>
   Arr.map(stableMetricEntries(report), ([name]) => name)
 
+const resolveMetricNames = (options: {
+  readonly report: Report
+  readonly metricNames?: ReadonlyArray<string>
+}): ReadonlyArray<string> =>
+  Option.getOrElse(
+    Option.fromNullable(options.metricNames),
+    () => stableMetricNames(options.report)
+  )
+
+const resolveSingleMetricName = (options: {
+  readonly report: Report
+  readonly metricName?: string
+  readonly metricNames?: ReadonlyArray<string>
+}): string =>
+  Option.getOrElse(
+    Option.fromNullable(options.metricName),
+    () =>
+      Option.getOrElse(
+        Option.flatMap(Option.fromNullable(options.metricNames), Arr.head),
+        () => Option.getOrElse(Arr.head(stableMetricNames(options.report)), () => "score")
+      )
+  )
+
 const metricScore = (report: Report, metricName: string): number =>
   Option.getOrElse(Record.get(report.overallScores, metricName), () => 0)
 
@@ -95,86 +175,3 @@ const averageDuration = (report: Report): number =>
   report.results.length <= 0
     ? 0
     : Arr.reduce(report.results, 0, (sum, result) => sum + result.durationMs) / report.results.length
-
-const objectiveTelemetry = (report: Report): ObjectiveTelemetry =>
-  new ObjectiveTelemetry({
-    metricScores: Arr.map(stableMetricEntries(report), ([name, score]) => new ObjectiveMetricScore({ name, score })),
-    failures: report.failures,
-    totalExamples: report.totalExamples,
-    successCount: report.successCount,
-    failureCount: report.failureCount,
-    averageDurationMs: averageDuration(report)
-  })
-
-const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveProjection)(payload)
-
-/**
- * Project a single scalar objective from an evaluation report. Selects
- * the named metric (or the first metric alphabetically if omitted) and
- * bundles it with {@link ObjectiveTelemetry}.
- *
- * @see {@link ObjectiveProjection} — the returned projection
- * @see {@link projectMultiObjective} — vector variant
- *
- * @since 0.1.0
- * @category constructors
- */
-export const projectSingleObjective = (report: Report, metricName?: string) =>
-  Effect.gen(function*() {
-    const selectedMetricName = Option.getOrElse(
-      Option.fromNullable(metricName),
-      () => Option.getOrElse(Arr.head(stableMetricNames(report)), () => "score")
-    )
-
-    return yield* validateProjection({
-      objective: metricScore(report, selectedMetricName),
-      telemetry: objectiveTelemetry(report)
-    })
-  })
-
-/**
- * Project a multi-objective vector from an evaluation report. Each named
- * metric becomes one element in the objective array, ordered by the
- * supplied names (or alphabetically if omitted).
- *
- * @see {@link ObjectiveProjection} — the returned projection
- * @see {@link projectSingleObjective} — scalar variant
- *
- * @since 0.1.0
- * @category constructors
- */
-export const projectMultiObjective = (report: Report, metricNames?: ReadonlyArray<string>) =>
-  Effect.gen(function*() {
-    const selectedMetricNames = Option.getOrElse(Option.fromNullable(metricNames), () => stableMetricNames(report))
-
-    return yield* validateProjection({
-      objective: Arr.map(selectedMetricNames, (name) => metricScore(report, name)),
-      telemetry: objectiveTelemetry(report)
-    })
-  })
-
-/**
- * Dispatch to {@link projectSingleObjective} or
- * {@link projectMultiObjective} based on the provided
- * {@link ObjectiveProjectionMode}.
- *
- * @see {@link ObjectiveProjectionMode} — the mode discriminant
- * @see {@link ObjectiveProjection} — the returned projection
- *
- * @since 0.1.0
- * @category constructors
- */
-export const projectObjective = (options: {
-  readonly report: Report
-  readonly mode: Schema.Schema.Type<typeof ObjectiveProjectionMode>
-  readonly metricNames?: ReadonlyArray<string>
-}) =>
-  options.mode === "single"
-    ? projectSingleObjective(
-      options.report,
-      Option.match(Option.flatMap(Option.fromNullable(options.metricNames), Arr.head), {
-        onNone: () => undefined,
-        onSome: (metricName) => metricName
-      })
-    )
-    : projectMultiObjective(options.report, options.metricNames)

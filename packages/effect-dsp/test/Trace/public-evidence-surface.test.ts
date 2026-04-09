@@ -4,27 +4,17 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Ref, Schema } from "effect"
-import { Module, Signature, Trace } from "effect-dsp"
+import { Module, Trace } from "effect-dsp"
 import * as Contracts from "effect-dsp/contracts"
 import { ModuleParams } from "effect-dsp/contracts"
 import { MockLanguageModel } from "effect-dsp/test"
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const RAW_RESPONSE = "[[ ## answer ## ]]\nParis\n\n[[ ## completed ## ]]"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-
 const runPublicEvidenceFlow = Module.withDiscoveryScope(
   Effect.gen(function*() {
-    const signature = yield* makeQaSignature()
+    const signature = yield* conciseFactsQaSignature
     const module = yield* Module.predict("qa-public-evidence", signature)
 
     yield* Ref.update(
@@ -59,8 +49,8 @@ describe("Trace public evidence surface", () => {
       const second = yield* runPublicEvidenceFlow
       const firstTrace = first[0][1][0]!
       const secondTrace = second[0][1][0]!
-      const firstProjection = yield* Contracts.projectOptimizationObjective(firstTrace)
-      const secondProjection = yield* Contracts.projectOptimizationObjective(secondTrace)
+      const firstProjection = yield* Contracts.OptimizationObjectiveSurface.fromTraceEntry(firstTrace)
+      const secondProjection = yield* Contracts.OptimizationObjectiveSurface.fromTraceEntry(secondTrace)
       const encodedProjection = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(firstProjection)
       const encodedProjectionJson = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(encodedProjection)
       const decodedProjection = yield* Schema.decode(Contracts.OptimizationObjectiveSurface)(encodedProjection)

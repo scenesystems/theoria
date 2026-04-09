@@ -39,7 +39,7 @@ export class OpenAgentTraceRedactionPolicy
  * @since 0.2.0
  * @category constructors
  */
-export const defaultOpenAgentTraceRedactionPolicy = new OpenAgentTraceRedactionPolicy({
+export const defaultOpenAgentTraceRedactionPolicy = OpenAgentTraceRedactionPolicy.make({
   policyId: "open-agent-trace-public-corpus",
   policyVersion: 1,
   imageHandling: "keep-images",
@@ -68,7 +68,7 @@ const reviewStatusFrom = (
     onSome: (value) => value.missed_sensitive_data || semanticReviewStatus !== "approved"
   })
 
-  return new OpenAgentTraceReviewStatus({
+  return OpenAgentTraceReviewStatus.make({
     projectionSafe: reviewSidecar?.about_project === true
       && reviewSidecar?.shareable === true
       && reviewSidecar?.missed_sensitive_data === false

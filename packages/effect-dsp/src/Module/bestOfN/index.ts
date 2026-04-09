@@ -8,9 +8,9 @@ import type { Schema } from "effect"
 import { Effect, HashMap, Option, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
-import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
+import { ModuleParams } from "../../contracts/ModuleParams.js"
 import { Module } from "../model.js"
-import { makeBestOfNForward, type RewardFn } from "./runtime.js"
+import { BestOfNRuntime, type RewardFn } from "./runtime.js"
 
 /**
  * Configuration for a best-of-N composition wrapper.
@@ -74,7 +74,10 @@ export const bestOfN = <
 ): Effect.Effect<Module<I, O>> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(
-      makeDefaultModuleParams(options.module.signature.instructions)
+      ModuleParams.make({
+        instructions: options.module.signature.instructions,
+        demos: []
+      })
     )
 
     const forwardOptions = Option.match(Option.fromNullable(options.threshold), {
@@ -100,7 +103,7 @@ export const bestOfN = <
       signature: options.module.signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeBestOfNForward(forwardOptions)
+      forward: BestOfNRuntime.forward(forwardOptions)
     })
   })
 

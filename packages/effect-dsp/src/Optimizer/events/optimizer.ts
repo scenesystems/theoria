@@ -5,7 +5,8 @@
  */
 import { Data, Effect, Schema } from "effect"
 import { StudyEventSchema as EffectSearchInteropEventSchema } from "effect-search/StudyEvent"
-import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
+import { OptimizerEventEnvelope as OptimizerEventEnvelopeModel } from "../../contracts/OptimizerEventEnvelope.js"
+import type { OptimizerKind } from "../../contracts/OptimizerKind.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
 import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from "./bootstrap.js"
 import { type COPROEvent as COPROEventType, COPROEventSchema } from "./copro.js"
@@ -68,98 +69,77 @@ export type OptimizerEvent = typeof OptimizerEventSchema.Type
  */
 export const OptimizerEvent = Data.taggedEnum<OptimizerEvent>()
 
-/**
- * Project a Bootstrap event into the canonical optimizer event envelope.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const bootstrapEventEnvelope = (
-  event: BootstrapEventType
-): Effect.Effect<OptimizerEventEnvelope> =>
+const projectOptimizerEventEnvelope = <Event>(options: {
+  readonly optimizer: OptimizerKind
+  readonly eventTag: string
+  readonly event: Event
+  readonly schema: Schema.Schema<Event>
+  readonly projectionFailureMessage: string
+}): Effect.Effect<OptimizerEventEnvelopeModel> =>
   encodeAndProjectFieldRecord(
-    BootstrapEventSchema,
-    event,
-    () => Data.struct({ message: "Bootstrap event payload projection failed" })
+    options.schema,
+    options.event,
+    () => Data.struct({ message: options.projectionFailureMessage })
   ).pipe(
     Effect.orDie,
     Effect.map((payload) =>
-      new OptimizerEventEnvelope({
-        optimizer: "bootstrapFewShot",
-        eventTag: event._tag,
+      OptimizerEventEnvelopeModel.make({
+        optimizer: options.optimizer,
+        eventTag: options.eventTag,
         payload
       })
     )
   )
 
+const fromBootstrapEvent = (event: BootstrapEventType): Effect.Effect<OptimizerEventEnvelopeModel> =>
+  projectOptimizerEventEnvelope({
+    optimizer: "bootstrapFewShot",
+    eventTag: event._tag,
+    event,
+    schema: BootstrapEventSchema,
+    projectionFailureMessage: "Bootstrap event payload projection failed"
+  })
+
+const fromCOPROEvent = (event: COPROEventType): Effect.Effect<OptimizerEventEnvelopeModel> =>
+  projectOptimizerEventEnvelope({
+    optimizer: "copro",
+    eventTag: event._tag,
+    event,
+    schema: COPROEventSchema,
+    projectionFailureMessage: "COPRO event payload projection failed"
+  })
+
+const fromMIPROv2Event = (event: MIPROv2EventType): Effect.Effect<OptimizerEventEnvelopeModel> =>
+  projectOptimizerEventEnvelope({
+    optimizer: "miprov2",
+    eventTag: event._tag,
+    event,
+    schema: MIPROv2EventSchema,
+    projectionFailureMessage: "MIPROv2 event payload projection failed"
+  })
+
+const fromGEPAEvent = (event: GEPAEventType): Effect.Effect<OptimizerEventEnvelopeModel> =>
+  projectOptimizerEventEnvelope({
+    optimizer: "gepa",
+    eventTag: event._tag,
+    event,
+    schema: GEPAEventSchema,
+    projectionFailureMessage: "GEPA event payload projection failed"
+  })
+
 /**
- * Project a COPRO event into the canonical optimizer event envelope.
+ * Canonical owner for projecting optimizer-specific events into shared event
+ * envelopes.
  *
  * @since 0.2.0
  * @category constructors
  */
-export const coproEventEnvelope = (
-  event: COPROEventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    COPROEventSchema,
-    event,
-    () => Data.struct({ message: "COPRO event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
-    Effect.map((payload) =>
-      new OptimizerEventEnvelope({
-        optimizer: "copro",
-        eventTag: event._tag,
-        payload
-      })
-    )
-  )
+export class OptimizerEventEnvelope extends OptimizerEventEnvelopeModel {
+  static fromBootstrapEvent = fromBootstrapEvent
 
-/**
- * Project a MIPROv2 event into the canonical optimizer event envelope.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const miprov2EventEnvelope = (
-  event: MIPROv2EventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    MIPROv2EventSchema,
-    event,
-    () => Data.struct({ message: "MIPROv2 event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
-    Effect.map((payload) =>
-      new OptimizerEventEnvelope({
-        optimizer: "miprov2",
-        eventTag: event._tag,
-        payload
-      })
-    )
-  )
+  static fromCOPROEvent = fromCOPROEvent
 
-/**
- * Project a GEPA event into the canonical optimizer event envelope.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const gepaEventEnvelope = (
-  event: GEPAEventType
-): Effect.Effect<OptimizerEventEnvelope> =>
-  encodeAndProjectFieldRecord(
-    GEPAEventSchema,
-    event,
-    () => Data.struct({ message: "GEPA event payload projection failed" })
-  ).pipe(
-    Effect.orDie,
-    Effect.map((payload) =>
-      new OptimizerEventEnvelope({
-        optimizer: "gepa",
-        eventTag: event._tag,
-        payload
-      })
-    )
-  )
+  static fromMIPROv2Event = fromMIPROv2Event
+
+  static fromGEPAEvent = fromGEPAEvent
+}

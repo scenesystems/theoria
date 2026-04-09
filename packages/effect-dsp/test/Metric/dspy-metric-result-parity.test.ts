@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import * as Metric from "effect-dsp/Metric"
 
-import { makeFixtureRegistry, MetricScoreFeedbackFixtureSchema } from "../helpers/dspy-fixtures/index.js"
+import { FixtureRegistry, MetricScoreFeedbackFixtureSchema } from "../helpers/dspy-fixtures/index.js"
 
 type RawMetricCase =
   | {
@@ -48,7 +48,7 @@ const optionalFeedback = (feedback: string | null): Readonly<Record<string, stri
 describe("Metric.Result DSPy parity", () => {
   it.effect("normalizes score-feedback contracts from fixture cases", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.metric.score-feedback.contract")
       const fixture = yield* Schema.decodeUnknown(MetricScoreFeedbackFixtureSchema)(rawFixture)
 

@@ -56,9 +56,7 @@ describe("package/workflow-interop-governance", () => {
         "WorkflowModuleGraphInput",
         "WorkflowNodeLineage",
         "WorkflowModuleGraphProjection",
-        "WorkflowInteropOwnership",
-        "workflowInteropOwnership",
-        "projectWorkflowModuleGraph"
+        "WorkflowInteropOwnership"
       ])
     }).pipe(Effect.provide(BunContext.layer)))
 })

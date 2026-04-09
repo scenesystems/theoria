@@ -18,23 +18,23 @@ import {
 } from "../test/fixtures/open-agent-trace/pi-mono/fixtures.js"
 
 const program = Effect.gen(function*() {
-  const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-  const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(piShareHfReviewSidecarFixture)
-  const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+  const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+  const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(piShareHfReviewSidecarFixture)
+  const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
     datasetId: "badlogicgames/pi-mono",
     datasetRevision: "main",
     split: "train",
     sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
     licenseTag: "other",
-    row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+    row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
     manifestEntry,
     reviewSidecar
   })
-  const workflowProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
+  const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
   const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
   const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
   const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-  const artifact = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToArtifact({
+  const artifact = yield* Experimental.OpenAgentTrace.Artifact.project({
     record,
     projection: workflowProjection,
     packageVersion,
@@ -60,7 +60,7 @@ const program = Effect.gen(function*() {
       curatedPatterns: ["openai-api-key"]
     })
   })
-  const manifest = yield* Experimental.OpenAgentTrace.makeOpenAgentTraceCorpusManifest({
+  const manifest = yield* Experimental.OpenAgentTrace.CorpusManifest.fromRecords({
     corpusId: "pi-mono-public-corpus",
     adapterId: "pi-mono",
     adapterVersion: "1",
@@ -70,13 +70,13 @@ const program = Effect.gen(function*() {
     records: [record]
   })
   const signingKeys = yield* generateKeyPair("ed25519")
-  const signedManifest = yield* Experimental.OpenAgentTrace.signOpenAgentTraceCorpusManifest({
+  const signedManifest = yield* Experimental.OpenAgentTrace.signCorpusManifest({
     manifest,
     algorithm: "ed25519",
     secretKey: signingKeys.secretKey,
     publicKey: signingKeys.publicKey
   })
-  const manifestVerified = yield* Experimental.OpenAgentTrace.verifyOpenAgentTraceSignedCorpusManifest(signedManifest)
+  const manifestVerified = yield* Experimental.OpenAgentTrace.verifySignedCorpusManifest(signedManifest)
 
   yield* Effect.log("open-agent-trace-pi-mono", {
     recordId: record.recordId,

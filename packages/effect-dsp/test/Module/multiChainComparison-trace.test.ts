@@ -3,30 +3,19 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FiberRef, Layer, Option, Record, Schema } from "effect"
+import { Array as Arr, Effect, FiberRef, Layer, Option, Record } from "effect"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 import { RolloutRef } from "../../src/Cache/refs.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const yieldsForRollout = (rollout: number) => 3 - rollout
 
 describe("Module.multiChainComparison trace surface", () => {
   it.effect("keeps candidate lineage and final comparison verdict stable in trace order even under concurrency", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction(() =>
           FiberRef.get(RolloutRef).pipe(

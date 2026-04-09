@@ -16,12 +16,12 @@ describe("OpenAgentTrace/signedCorpusManifest", () => {
   it.effect("signs and verifies public manifests over canonical schema bytes without letting private review keys perturb the manifest identity", () =>
     Effect.gen(function*() {
       const keys = yield* generateKeyPair("ed25519")
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(
         piShareHfReviewSidecarFixture
       )
-      const row = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -31,7 +31,7 @@ describe("OpenAgentTrace/signedCorpusManifest", () => {
         manifestEntry,
         reviewSidecar
       })
-      const reviewKeyChanged = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const reviewKeyChanged = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -41,7 +41,7 @@ describe("OpenAgentTrace/signedCorpusManifest", () => {
         manifestEntry,
         reviewSidecar: { ...reviewSidecar, review_key: Redacted.make("different-review-key") }
       })
-      const manifest = yield* Experimental.OpenAgentTrace.makeOpenAgentTraceCorpusManifest({
+      const manifest = yield* Experimental.OpenAgentTrace.CorpusManifest.fromRecords({
         corpusId: "pi-mono-public-corpus",
         adapterId: "pi-mono",
         adapterVersion: "1",
@@ -50,7 +50,7 @@ describe("OpenAgentTrace/signedCorpusManifest", () => {
         generatedAt: "2026-04-06T12:00:00.000Z",
         records: [record]
       })
-      const replayManifest = yield* Experimental.OpenAgentTrace.makeOpenAgentTraceCorpusManifest({
+      const replayManifest = yield* Experimental.OpenAgentTrace.CorpusManifest.fromRecords({
         corpusId: "pi-mono-public-corpus",
         adapterId: "pi-mono",
         adapterVersion: "1",
@@ -59,17 +59,17 @@ describe("OpenAgentTrace/signedCorpusManifest", () => {
         generatedAt: "2026-04-06T12:00:00.000Z",
         records: [reviewKeyChanged]
       })
-      const signed = yield* Experimental.OpenAgentTrace.signOpenAgentTraceCorpusManifest({
+      const signed = yield* Experimental.OpenAgentTrace.signCorpusManifest({
         manifest,
         algorithm: "ed25519",
         secretKey: keys.secretKey,
         publicKey: keys.publicKey
       })
-      const verified = yield* Experimental.OpenAgentTrace.verifyOpenAgentTraceSignedCorpusManifest(signed)
-      const tampered = yield* Experimental.OpenAgentTrace.verifyOpenAgentTraceSignedCorpusManifest(
-        new Experimental.OpenAgentTrace.OpenAgentTraceSignedCorpusManifest({
+      const verified = yield* Experimental.OpenAgentTrace.verifySignedCorpusManifest(signed)
+      const tampered = yield* Experimental.OpenAgentTrace.verifySignedCorpusManifest(
+        new Experimental.OpenAgentTrace.SignedCorpusManifest({
           ...signed,
-          manifest: new Experimental.OpenAgentTrace.OpenAgentTraceCorpusManifest({
+          manifest: new Experimental.OpenAgentTrace.CorpusManifest({
             ...manifest,
             projectionVersion: "workflow-v2"
           })

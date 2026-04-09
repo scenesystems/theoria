@@ -70,7 +70,7 @@ export const parseTextWithRetry = <
         rawOutput
       ).pipe(
         Effect.mapError((error) =>
-          new ParseOutputError({
+          ParseOutputError.make({
             message: error.message,
             moduleName: error.moduleName,
             rawOutput: Option.orElse(error.rawOutput, () => Option.some(rawOutput)),

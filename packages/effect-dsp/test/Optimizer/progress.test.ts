@@ -2,7 +2,7 @@
  * Optimizer progress formatting and semantic-summary contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Option, Ref, Stream } from "effect"
 import * as Optimizer from "effect-dsp/Optimizer"
 
 const sampleMIPROEvents = Arr.make(
@@ -59,7 +59,7 @@ const sampleGEPAEvents = Arr.make(
 
 describe("Optimizer progress", () => {
   it("formats MIPROv2 events as stable progress lines", () => {
-    const line = Optimizer.formatMIPROv2Event(
+    const line = Optimizer.MIPROv2ProgressLine.project(
       Optimizer.MIPROv2Event.Phase3Completed({
         bestScore: 0.75,
         totalTrials: 6
@@ -72,7 +72,7 @@ describe("Optimizer progress", () => {
   })
 
   it("summarizes MIPROv2 events with semantic trial counters", () => {
-    const summary = Optimizer.summarizeMIPROv2Events(sampleMIPROEvents)
+    const summary = Optimizer.MIPROv2EventSummary.summarize(sampleMIPROEvents)
 
     expect(summary.totalEvents).toBe(sampleMIPROEvents.length)
     expect(summary.phase3StartedSeen).toBe(true)
@@ -89,7 +89,7 @@ describe("Optimizer progress", () => {
     Effect.gen(function*() {
       const linesRef = yield* Ref.make(Arr.empty<string>())
       const collectedChunk = yield* Stream.fromIterable(sampleMIPROEvents).pipe(
-        Optimizer.tapMIPROv2Progress((line) => Ref.update(linesRef, (lines) => Arr.append(lines, line.text))),
+        Optimizer.MIPROv2ProgressLine.tap((line) => Ref.update(linesRef, (lines) => Arr.append(lines, line.text))),
         Stream.runCollect
       )
       const collectedEvents = Arr.fromIterable(collectedChunk)
@@ -101,7 +101,7 @@ describe("Optimizer progress", () => {
     }))
 
   it("formats GEPA events as stable progress lines", () => {
-    const line = Optimizer.formatGEPAEvent(
+    const line = Optimizer.GEPAProgressLine.project(
       Optimizer.GEPAEvent.OptimizationCompleted({
         iterations: 3,
         bestCandidateId: "candidate-7",
@@ -115,7 +115,7 @@ describe("Optimizer progress", () => {
   })
 
   it("summarizes GEPA events with acceptance and frontier semantics", () => {
-    const summary = Optimizer.summarizeGEPAEvents(sampleGEPAEvents)
+    const summary = Optimizer.GEPAEventSummary.summarize(sampleGEPAEvents)
 
     expect(summary.totalEvents).toBe(sampleGEPAEvents.length)
     expect(summary.iterationStartedCount).toBe(1)
@@ -138,7 +138,7 @@ describe("Optimizer progress", () => {
     Effect.gen(function*() {
       const linesRef = yield* Ref.make(Arr.empty<string>())
       const collectedChunk = yield* Stream.fromIterable(sampleGEPAEvents).pipe(
-        Optimizer.tapGEPAProgress((line) => Ref.update(linesRef, (lines) => Arr.append(lines, line.text))),
+        Optimizer.GEPAProgressLine.tap((line) => Ref.update(linesRef, (lines) => Arr.append(lines, line.text))),
         Stream.runCollect
       )
       const collectedEvents = Arr.fromIterable(collectedChunk)
@@ -152,24 +152,24 @@ describe("Optimizer progress", () => {
     }))
 
   it("projects outcome summaries from baseline, optimized, and event semantics", () => {
-    const miproSummary = Optimizer.summarizeMIPROv2Outcome({
+    const miproSummary = Optimizer.MIPROv2OutcomeSummary.make({
       baselineExactMatch: 0.2,
       optimizedExactMatch: 0.6,
       demoCountBeforeOptimization: 1,
       demoCountAfterOptimization: 3,
-      eventSummary: Optimizer.summarizeMIPROv2Events(sampleMIPROEvents)
+      eventSummary: Optimizer.MIPROv2EventSummary.summarize(sampleMIPROEvents)
     })
-    const miproObservability = Optimizer.summarizeMIPROv2OptimizationObservability({
+    const miproObservability = Optimizer.MIPROv2OptimizationObservability.make({
       baselineScore: 0.2,
       optimizedScore: 0.6,
-      eventSummary: Optimizer.summarizeMIPROv2Events(sampleMIPROEvents)
+      eventSummary: Optimizer.MIPROv2EventSummary.summarize(sampleMIPROEvents)
     })
-    const gepaSummary = Optimizer.summarizeGEPAOutcome({
+    const gepaSummary = Optimizer.GEPAOutcomeSummary.make({
       baselineExactMatch: 0.5,
       optimizedExactMatch: 0.5,
       instructionBeforeOptimization: "Choose by rhetorical quality.",
       instructionAfterOptimization: "Choose by mechanism-level fit.",
-      eventSummary: Optimizer.summarizeGEPAEvents(sampleGEPAEvents)
+      eventSummary: Optimizer.GEPAEventSummary.summarize(sampleGEPAEvents)
     })
 
     expect(Math.abs(miproSummary.scoreDelta - 0.4)).toBeLessThanOrEqual(Number.EPSILON)
@@ -185,10 +185,10 @@ describe("Optimizer progress", () => {
   })
 
   it("separates search quality from retained gain when final eval stays flat", () => {
-    const observability = Optimizer.summarizeMIPROv2OptimizationObservability({
+    const observability = Optimizer.MIPROv2OptimizationObservability.make({
       baselineScore: 0.5,
       optimizedScore: 0.5,
-      eventSummary: Optimizer.summarizeMIPROv2Events(sampleMIPROEvents)
+      eventSummary: Optimizer.MIPROv2EventSummary.summarize(sampleMIPROEvents)
     })
 
     expect(observability.searchBestScoreSeen).toBe(true)
@@ -200,14 +200,14 @@ describe("Optimizer progress", () => {
   })
 
   it("falls back to optimized score when phase-3 best score was not observed", () => {
-    const eventSummary = Optimizer.summarizeMIPROv2Events(
+    const eventSummary = Optimizer.MIPROv2EventSummary.summarize(
       Arr.make(
         Optimizer.MIPROv2Event.Phase1Started({ numCandidates: 1 }),
         Optimizer.MIPROv2Event.Phase3Started({ numTrials: 2 }),
         Optimizer.MIPROv2Event.Phase3Completed({ bestScore: 0, totalTrials: 2 })
       )
     )
-    const observability = Optimizer.summarizeMIPROv2OptimizationObservability({
+    const observability = Optimizer.MIPROv2OptimizationObservability.make({
       baselineScore: 0.25,
       optimizedScore: 0.5,
       eventSummary: {
@@ -224,49 +224,4 @@ describe("Optimizer progress", () => {
     expect(observability.retainedVsSearchGap).toBe(0)
     expect(observability.searchImprovedButRetainedFlat).toBe(false)
   })
-
-  it.effect("projects Bootstrap optimizer envelopes and decodes wrapped Bootstrap events", () =>
-    Effect.gen(function*() {
-      const event = Optimizer.BootstrapEvent.BootstrapFallbackActivated({
-        threshold: 1,
-        roundsAttempted: 2,
-        acceptedTraces: 0,
-        rejectedTraces: 6,
-        bestScoreSeen: true,
-        bestScore: 1 / 3,
-        averageScore: 1 / 6,
-        fallbackLabeledDemoCount: 3
-      })
-      const envelope = yield* Optimizer.bootstrapEventEnvelope(event)
-      const decoded = yield* Schema.decodeUnknown(Optimizer.OptimizerEventSchema)({
-        _tag: "Bootstrap",
-        event
-      })
-
-      expect(envelope.optimizer).toBe("bootstrapFewShot")
-      expect(envelope.eventTag).toBe("BootstrapFallbackActivated")
-      expect(envelope.payload.threshold).toBe(1)
-      expect(envelope.payload.roundsAttempted).toBe(2)
-      expect(envelope.payload.fallbackLabeledDemoCount).toBe(3)
-      expect(decoded._tag).toBe("Bootstrap")
-    }))
-
-  it.effect("projects GEPA optimizer envelopes and decodes wrapped GEPA events", () =>
-    Effect.gen(function*() {
-      const event = Optimizer.GEPAEvent.OptimizationCompleted({
-        iterations: 3,
-        bestCandidateId: "candidate-9",
-        frontierSize: 2
-      })
-      const envelope = yield* Optimizer.gepaEventEnvelope(event)
-      const decoded = yield* Schema.decodeUnknown(Optimizer.OptimizerEventSchema)({
-        _tag: "GEPA",
-        event
-      })
-
-      expect(envelope.optimizer).toBe("gepa")
-      expect(envelope.eventTag).toBe("OptimizationCompleted")
-      expect(envelope.payload.bestCandidateId).toBe("candidate-9")
-      expect(decoded._tag).toBe("GEPA")
-    }))
 })

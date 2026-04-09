@@ -6,20 +6,9 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, HashMap, Layer, Option, Ref, Schema } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const decodeModuleId = (moduleName: string) =>
   Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(
@@ -29,7 +18,7 @@ const decodeModuleId = (moduleName: string) =>
 describe("Module.compose", () => {
   it.effect("builds explicit graph contracts with stable traversal and lineage", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const pipeline = yield* Module.compose({
         name: "qa-pipeline",
@@ -37,7 +26,7 @@ describe("Module.compose", () => {
         subModules: { qa },
         forward: ({ input }) => qa.forward(input)
       })
-      const rootGraph = yield* Module.composeGraph({
+      const rootGraph = yield* Module.CompositionGraph.moduleGraph({
         name: "qa-root",
         signature,
         subModules: { pipeline }
@@ -45,8 +34,8 @@ describe("Module.compose", () => {
       const rootId = yield* decodeModuleId("qa-root")
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
-      const traversal = Contracts.stableModuleGraphTraversal(rootGraph)
-      const lineage = Contracts.moduleGraphLineage(rootGraph, qaId)
+      const traversal = Contracts.ModuleGraph.traversal(rootGraph)
+      const lineage = Contracts.ModuleLineage.fromGraph(rootGraph, qaId)
 
       expect(traversal).toEqual([
         rootId,
@@ -66,10 +55,10 @@ describe("Module.compose", () => {
 
   it.effect("rejects graph declarations with duplicate ids mapped to different module values", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const left = yield* Module.predict("qa", signature)
       const right = yield* Module.predict("qa", signature)
-      const error = yield* Effect.flip(Module.composeGraph({
+      const error = yield* Effect.flip(Module.CompositionGraph.moduleGraph({
         name: "qa-root",
         signature,
         subModules: {
@@ -84,20 +73,25 @@ describe("Module.compose", () => {
 
   it.effect("rejects composition graphs with explicit cycle declarations", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const loopId = yield* decodeModuleId("loop")
-      const paramsRef = yield* Ref.make(Contracts.makeDefaultModuleParams(signature.instructions))
-      const loopSignature = Contracts.makeModuleNodeSignature(
-        signature.description,
-        signature.instructions
+      const paramsRef = yield* Ref.make(
+        Contracts.ModuleParams.make({
+          instructions: signature.instructions,
+          demos: []
+        })
       )
-      const loopNode = Contracts.makeModuleNode({
+      const loopSignature = Contracts.ModuleNodeSignature.make({
+        description: signature.description,
+        instructions: signature.instructions
+      })
+      const loopNode: Contracts.ModuleNode = {
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
         params: paramsRef,
         subModules: HashMap.empty()
-      })
+      }
       const loopModule = {
         name: "loop",
         signature: {
@@ -107,7 +101,7 @@ describe("Module.compose", () => {
         params: paramsRef,
         subModules: HashMap.set(HashMap.empty(), loopId, loopNode)
       }
-      const error = yield* Effect.flip(Module.composeGraph({
+      const error = yield* Effect.flip(Module.CompositionGraph.moduleGraph({
         name: "qa-root",
         signature,
         subModules: { loop: loopModule }
@@ -119,7 +113,7 @@ describe("Module.compose", () => {
 
   it.effect("preserves deterministic trace order with graph lineage through composed runtime", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const secondary = yield* Module.predict("secondary", signature)
       const pipeline = yield* Module.compose({
@@ -159,14 +153,14 @@ describe("Module.compose", () => {
       const traced = yield* Trace.withTracing(program)
       const graph = traced[0]
       const entries = traced[1]
-      const qaLineage = Contracts.moduleGraphLineage(graph, qaId)
-      const secondaryLineage = Contracts.moduleGraphLineage(graph, secondaryId)
+      const qaLineage = Contracts.ModuleLineage.fromGraph(graph, qaId)
+      const secondaryLineage = Contracts.ModuleLineage.fromGraph(graph, secondaryId)
 
       expect(entries.map((entry) => entry.moduleName)).toEqual([
         "qa",
         "secondary"
       ])
-      expect(Contracts.stableModuleGraphTraversal(graph)).toEqual([
+      expect(Contracts.ModuleGraph.traversal(graph)).toEqual([
         rootId,
         pipelineId,
         qaId,
@@ -193,7 +187,7 @@ describe("Module.compose", () => {
 
   it.effect("avoids usage double counting for composed execution under nested tracking", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const secondary = yield* Module.predict("secondary", signature)
       const pipeline = yield* Module.compose({

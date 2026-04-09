@@ -8,12 +8,12 @@ import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
 import {
   BASELINE_INSTRUCTION,
+  capitalCityQaSignature,
+  capitalCityTrainset,
   fullRunResponses,
   IMPROVED_INSTRUCTION,
-  makeQaSignature,
-  makeSequenceLayer,
-  makeTrainset,
-  prepareStructuredModule
+  prepareStructuredModule,
+  SequenceLanguageModel
 } from "../helpers/copro.js"
 import { CoproProgressionFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -22,18 +22,18 @@ describe("Optimizer.copro", () => {
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.copro.progression.basic")
       const fixture = yield* Schema.decodeUnknown(CoproProgressionFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* capitalCityQaSignature
       const module = yield* Module.predict("qa", signature)
 
       yield* prepareStructuredModule(module)
       yield* Optimizer.copro({
         module,
-        trainset: makeTrainset(),
+        trainset: capitalCityTrainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: fixture.payload.numCandidates,
         maxSteps: fixture.payload.maxSteps,
         seed: fixture.payload.seed
-      }).pipe(Effect.provide(makeSequenceLayer(fullRunResponses())))
+      }).pipe(Effect.provide(SequenceLanguageModel.layer(fullRunResponses)))
 
       const params = yield* Ref.get(module.params)
 

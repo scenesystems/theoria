@@ -82,7 +82,7 @@ export const decodeOpenAgentTraceContentDigest = (value: string) =>
     const tagged = yield* Schema.decode(OpenAgentTraceTaggedDigestString)(value)
     const digest = yield* Schema.decode(Digest256)(digestValueFrom(tagged))
 
-    return new ContentDigest({ algorithm: digestAlgorithmFrom(tagged), digest })
+    return ContentDigest.make({ algorithm: digestAlgorithmFrom(tagged), digest })
   })
 
 /**

@@ -29,7 +29,7 @@ const program = Effect.scoped(
     const objective = (config: SearchSpace.Type<typeof space>) =>
       Effect.succeed(-(config.x * config.x + config.y * config.y))
 
-    const sampler = Optimizer.effectSearchInterop.makeTpeSampler({
+    const sampler = Optimizer.effectSearchInterop.Sampler.tpe({
       seed: 345,
       acquisition: "thompson"
     })

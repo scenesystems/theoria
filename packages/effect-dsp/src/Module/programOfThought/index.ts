@@ -13,8 +13,8 @@ import { chainOfThought } from "../chainOfThought/index.js"
 import { compose } from "../compose/index.js"
 import type { Module } from "../model.js"
 import { ProgramInterpreter } from "./interpreter.js"
-import { makeProgramOfThoughtForward } from "./runtime.js"
-import { makeProgramAnswerSignature, makeProgramGenerateSignature, makeProgramRepairSignature } from "./signatures.js"
+import { ProgramOfThoughtRuntime } from "./runtime.js"
+import { ProgramAnswerSignature, ProgramGenerateSignature, ProgramRepairSignature } from "./signatures.js"
 
 /**
  * Default maximum number of planning plus repair attempts before
@@ -66,9 +66,9 @@ export const programOfThought = <
     const maxIterations = normalizeMaxIterations(
       options.maxIterations ?? DEFAULT_PROGRAM_OF_THOUGHT_MAX_ITERATIONS
     )
-    const generateSignature = yield* makeProgramGenerateSignature(options.signature)
-    const repairSignature = yield* makeProgramRepairSignature(options.signature)
-    const answerSignature = yield* makeProgramAnswerSignature(options.signature)
+    const generateSignature = yield* ProgramGenerateSignature.fromSignature(options.signature)
+    const repairSignature = yield* ProgramRepairSignature.fromSignature(options.signature)
+    const answerSignature = yield* ProgramAnswerSignature.fromSignature(options.signature)
     const generate = yield* chainOfThought(`${options.name}-generate`, generateSignature)
     const repair = yield* chainOfThought(`${options.name}-repair`, repairSignature)
     const answer = yield* chainOfThought(`${options.name}-answer`, answerSignature)
@@ -82,7 +82,7 @@ export const programOfThought = <
         answer
       },
       forward: ({ input }) =>
-        makeProgramOfThoughtForward({
+        ProgramOfThoughtRuntime.forward({
           answer,
           generate,
           interpreter,

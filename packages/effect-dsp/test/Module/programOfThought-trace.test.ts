@@ -6,22 +6,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Record, Schema } from "effect"
 import * as Errors from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
-import { makeFixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { FixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 const normalizeTraceShape = (entries: ReadonlyArray<Trace.Entry>) =>
   Arr.map(entries, (entry) => ({
@@ -32,10 +21,10 @@ const normalizeTraceShape = (entries: ReadonlyArray<Trace.Entry>) =>
 describe("Module.programOfThought trace surface", () => {
   it.effect("captures generated code, repair inputs, execution output, and final projection through stable trace entries", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.repair-cycle.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtRepairFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           fixture.payload.responses.generate,

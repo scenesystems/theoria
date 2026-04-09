@@ -10,20 +10,20 @@ import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures
 describe("OpenAgentTrace/exampleProjection", () => {
   it.effect("projects normalized traces into evaluation examples and objective-ready comparison cases without re-owning workflow semantics", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
-      const projection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToExamples(record)
-      const roundTrip = yield* Schema.decode(Experimental.OpenAgentTrace.OpenAgentTraceExampleProjection)(
-        yield* Schema.encode(Experimental.OpenAgentTrace.OpenAgentTraceExampleProjection)(projection)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+      const projection = yield* Experimental.OpenAgentTrace.Examples.project(record)
+      const roundTrip = yield* Schema.decode(Experimental.OpenAgentTrace.ExampleProjection)(
+        yield* Schema.encode(Experimental.OpenAgentTrace.ExampleProjection)(projection)
       )
 
       expect(roundTrip).toStrictEqual(projection)

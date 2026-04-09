@@ -65,5 +65,5 @@ export const withStudyProgress = <E, R>(
   options: StudyProgressOptions = {}
 ) =>
   stream.pipe(
-    Study.tapTerminalProgress(progressOptions(options))
+    Study.TerminalReporter.tap(progressOptions(options))
   )

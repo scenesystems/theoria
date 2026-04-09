@@ -3,25 +3,14 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainset = Arr.make(
   new Example({
@@ -37,7 +26,7 @@ const trainset = Arr.make(
 describe("MIPROv2 orchestration", () => {
   it.effect("executes Phase1 -> Phase2 -> Phase3 in canonical order", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const baselineParams = yield* Ref.get(module.params)
 

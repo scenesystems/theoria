@@ -9,10 +9,10 @@ import type { Schema } from "effect"
 import { Effect, HashMap, Match, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
-import { makeDefaultModuleParams, type ModuleParams } from "../../contracts/ModuleParams.js"
+import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
-import { makeReactForward } from "./runtime.js"
+import { ReactRuntime } from "./runtime.js"
 
 /**
  * Default cap on thought/action iterations before the module gives up
@@ -47,13 +47,6 @@ const normalizeMaxIterations = (maxIterations: number): number =>
     Match.orElse((value) => value)
   )
 
-const makeInitialParams = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
-  signature: Signature<I, O>
-): ModuleParams => makeDefaultModuleParams(signature.instructions)
-
 /**
  * Create a ReAct module that interleaves language model reasoning with
  * tool calls across multiple iterations. Each iteration either calls
@@ -75,7 +68,12 @@ export const react = <
   options: ReactOptions<I, O, Tools>
 ): Effect.Effect<Module<I, O>> =>
   Effect.gen(function*() {
-    const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
+    const paramsRef = yield* Ref.make(
+      ModuleParams.make({
+        instructions: options.signature.instructions,
+        demos: []
+      })
+    )
     const maxIterations = normalizeMaxIterations(
       options.maxIterations ?? DEFAULT_REACT_MAX_ITERATIONS
     )
@@ -85,7 +83,7 @@ export const react = <
       signature: options.signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeReactForward({
+      forward: ReactRuntime.forward({
         moduleName: options.name,
         signature: options.signature,
         inputSchema: options.signature.inputSchema,

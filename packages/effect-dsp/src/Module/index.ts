@@ -22,6 +22,13 @@ export * from "./model.js"
 export * from "./predict/index.js"
 
 /**
+ * Predict policy owner namespace.
+ *
+ * @since 0.2.0
+ */
+export { PredictPolicy } from "./predict/policy.js"
+
+/**
  * The `chainOfThought` constructor — wraps a signature with a mandatory
  * `reasoning` output field.
  *

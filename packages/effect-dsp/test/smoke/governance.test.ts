@@ -39,24 +39,8 @@ const EFFECT_SEARCH_INTEROP_ROOT_PATH = "src/optimizers/effectSearchInterop/"
 
 const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
-    "src/testing/MockLanguageModel.ts",
-    "MockLanguageModel co-locates request routing, response construction, and effect-dsp-specific matchers for test isolation. Follow-up: split response builders into MockLanguageModel/responses.ts."
-  ],
-  [
     "src/Module/compose/graph.ts",
     "Module graph traversal co-locates DAG construction, cycle detection, topological sort, and serialization for deterministic compose module wiring. Follow-up: extract traversal into graph/traversal.ts."
-  ],
-  [
-    "src/Module/parallel/runtime.ts",
-    "Parallel batch execution currently co-locates branch failure-policy handling, nested trace and usage accumulation, and ordered result projection. Follow-up: extract branch evidence accumulation into runtime/evidence.ts."
-  ],
-  [
-    "src/Optimizer/progress.ts",
-    "Optimizer progress co-locates heterogeneous event streaming, terminal formatting, and progress aggregation. Follow-up: split terminal formatting into progress/format.ts."
-  ],
-  [
-    "src/OpenAgentTrace/projectionShared.ts",
-    "Open-agent-trace projection helpers currently co-locate coverage-gap synthesis, workflow-kind derivation, bounded content flattening, and JSON-safe usage provenance shaping so the workflow/example projectors share one authority. Follow-up: extract coverage synthesis into OpenAgentTrace/projectionCoverage.ts once WP4 proving-consumer requirements settle."
   ],
   [
     "src/optimizers/BootstrapFewShot/runtime/round.ts",
@@ -85,10 +69,6 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
     "src/optimizers/MIPROv2/runtime/search-space.ts",
     "MIPRO search space co-locates dimension construction, anchor binding, and categorical encoding. Follow-up: split anchor binding into runtime/anchors-binding.ts."
-  ],
-  [
-    "src/optimizers/MIPROv2/runtime/evaluate.ts",
-    "MIPRO evaluation co-locates trial execution, metric collection, and progress emission. Follow-up: extract progress emission into runtime/progress.ts."
   ],
   [
     "src/optimizers/COPRO/runtime/run.ts",
@@ -366,7 +346,7 @@ const effectSearchInteropCapabilityLeakViolations: Effect.Effect<
               || target === "Study.fail"
               || target === "Study.cancel"
               || target === "Study.events"
-              || target === "Study.formatTerminalProgressEvent"
+              || target === "Study.ProgressLine.projectEvent"
             )
               || propertyAccessChains(sourceFile).some((chain) => chain.startsWith("Pareto."))
               || propertyAssignmentTexts(sourceFile, "acquisition").length > 0

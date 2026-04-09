@@ -10,8 +10,8 @@ import type { ModuleNode } from "../../contracts/ModuleNode.js"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
-import { makePredictPolicy, type PredictPolicyOverrides } from "./policy.js"
-import { makeForward } from "./runtime.js"
+import { PredictPolicy, type PredictPolicyOverrides } from "./policy.js"
+import { PredictRuntime } from "./runtime.js"
 
 const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
 
@@ -29,17 +29,6 @@ export type PredictOptions = Readonly<{
 }>
 
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
-
-const makeInitialParams = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
-  signature: Signature<I, O>
-): ModuleParams =>
-  new ModuleParams({
-    instructions: signature.instructions,
-    demos: []
-  })
 
 /**
  * Create a leaf predictor module that sends schema-validated input to a
@@ -61,20 +50,25 @@ export const predict = <
   options: PredictOptions = EMPTY_PREDICT_OPTIONS
 ): Effect.Effect<Module<I, O>> =>
   Effect.gen(function*() {
-    const policy = makePredictPolicy(
+    const policy = PredictPolicy.make(
       Option.getOrElse(
         Option.fromNullable(options.policy),
         () => EMPTY_PREDICT_POLICY_OVERRIDES
       )
     )
-    const paramsRef = yield* Ref.make(makeInitialParams(signature))
+    const paramsRef = yield* Ref.make(
+      ModuleParams.make({
+        instructions: signature.instructions,
+        demos: []
+      })
+    )
 
     return new Module({
       name,
       signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeForward({
+      forward: PredictRuntime.forward({
         moduleName: name,
         signature,
         inputSchema: signature.inputSchema,
@@ -86,8 +80,30 @@ export const predict = <
   })
 
 /**
- * Parse retry policies, feedback templates, and default constants.
+ * Parse retry policy types, overrides, feedback templates, and default
+ * constants.
  *
  * @since 0.1.0
  */
-export * from "./policy.js"
+export {
+  DEFAULT_PARSE_BACKOFF_FACTOR,
+  DEFAULT_PARSE_INITIAL_DELAY,
+  DEFAULT_PARSE_MAX_RETRIES,
+  DEFAULT_PREDICT_POLICY,
+  defaultParseFeedbackTemplate,
+  defaultParseRetrySchedule
+} from "./policy.js"
+
+/**
+ * Parse retry policy types and overrides.
+ *
+ * @since 0.1.0
+ */
+export type {
+  ParseFeedbackTemplate,
+  ParsePolicy,
+  ParsePolicyOverrides,
+  ParseRetryScheduleFactory,
+  PredictPolicy,
+  PredictPolicyOverrides
+} from "./policy.js"

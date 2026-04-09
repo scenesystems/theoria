@@ -54,61 +54,50 @@ const renderToolObservations = (response: TextCallResult): string =>
   })
 
 /**
- * Build optional feedback payload from the accumulated iteration history.
+ * ReAct feedback authority for history, tool-observation, and parse-failure
+ * prompts.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const feedbackFromHistory = (history: ReadonlyArray<string>): Option.Option<string> =>
-  Option.match(Arr.head(history), {
-    onNone: () => Option.none<string>(),
-    onSome: () => Option.some(Arr.join(history, "\n\n"))
-  })
-
-/**
- * Render tool-observation feedback for a successful tool-call iteration.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const makeToolObservationFeedback = (options: {
-  readonly iteration: number
-  readonly response: TextCallResult
-}): string =>
-  Arr.join(
-    [
-      `Iteration ${options.iteration + 1} executed tool calls.`,
-      `Model response:\n${options.response.text}`,
-      renderToolObservations(options.response),
-      "Continue reasoning from these tool observations and return the final answer using the required output field markers."
-    ],
-    "\n\n"
-  )
-
-/**
- * Render parse-feedback for the next ReAct iteration.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const makeIterationFeedback = (options: {
-  readonly iteration: number
-  readonly response: TextCallResult
-  readonly parseError: ParseOutputError
-}): string =>
-  Arr.join(
-    [
-      `Iteration ${options.iteration + 1} did not produce parseable output.`,
-      `Model response:\n${options.response.text}`,
-      renderToolObservations(options.response),
-      `Parse feedback:\n${defaultParseFeedbackTemplate(options.parseError)}`,
-      "Respond again using only the required output field markers."
-    ],
-    "\n\n"
-  )
+export const ReactFeedback = {
+  fromHistory: (history: ReadonlyArray<string>): Option.Option<string> =>
+    Option.match(Arr.head(history), {
+      onNone: () => Option.none<string>(),
+      onSome: () => Option.some(Arr.join(history, "\n\n"))
+    }),
+  fromToolObservation: (options: {
+    readonly iteration: number
+    readonly response: TextCallResult
+  }): string =>
+    Arr.join(
+      [
+        `Iteration ${options.iteration + 1} executed tool calls.`,
+        `Model response:\n${options.response.text}`,
+        renderToolObservations(options.response),
+        "Continue reasoning from these tool observations and return the final answer using the required output field markers."
+      ],
+      "\n\n"
+    ),
+  fromParseError: (options: {
+    readonly iteration: number
+    readonly response: TextCallResult
+    readonly parseError: ParseOutputError
+  }): string =>
+    Arr.join(
+      [
+        `Iteration ${options.iteration + 1} did not produce parseable output.`,
+        `Model response:\n${options.response.text}`,
+        renderToolObservations(options.response),
+        `Parse feedback:\n${defaultParseFeedbackTemplate(options.parseError)}`,
+        "Respond again using only the required output field markers."
+      ],
+      "\n\n"
+    )
+}
 
 const traceProjectionError = (moduleName: string, carrier: "input" | "output"): TraceError =>
-  new TraceError({
+  TraceError.make({
     message: `Trace ${carrier} payload failed schema projection`,
     moduleName
   })
@@ -155,7 +144,7 @@ export const appendReactTraceEntry = <
         )
     })
 
-    const entry = new Entry({
+    const entry = Entry.make({
       moduleName: options.moduleName,
       signatureDescription: options.signature.description,
       input: options.traceInput,
@@ -169,7 +158,7 @@ export const appendReactTraceEntry = <
       timestamp: options.completedAt
     })
 
-    const usage = new UsageSample({
+    const usage = UsageSample.make({
       inputTokens: Option.fromNullable(options.response.usage.inputTokens),
       outputTokens: Option.fromNullable(options.response.usage.outputTokens),
       cached: false

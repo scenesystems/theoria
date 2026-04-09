@@ -16,11 +16,10 @@ import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import { Contracts, Sampler, SearchSpace, Study } from "effect-search"
 
-const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    instructionIndex: SearchSpace.int(0, 2),
-    demoIndex: SearchSpace.int(0, 2)
-  })
+const resumeStudySpace = SearchSpace.unsafeMake({
+  instructionIndex: SearchSpace.int(0, 2),
+  demoIndex: SearchSpace.int(0, 2)
+})
 
 const italyEvalset = Arr.make(
   new Example({
@@ -64,7 +63,7 @@ const responseForPrompt = (prompt: string) =>
       : { answer: "Milan" }
     : { answer: "Unknown" }
 
-const makeQAModule = Effect.gen(function*() {
+const allocateQaModule = Effect.gen(function*() {
   const signature = yield* Signature.make(
     "Answer geography questions with concise city names",
     {
@@ -78,13 +77,13 @@ const makeQAModule = Effect.gen(function*() {
   return yield* Module.predict("qa-mipro-resume-test", signature)
 })
 
-const silentSink = Study.makeTerminalSink({
+const silentSink = Study.TerminalSink.make({
   supportsAnsi: Effect.succeed(false),
   writeStdout: () => Effect.void,
   writeStderr: () => Effect.void
 })
 
-const makeEnvelopeContextLayer = Effect.gen(function*() {
+const allocateEnvelopeContextLayer = Effect.gen(function*() {
   const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.1.0")
   const runId = yield* Schema.decode(Contracts.RunId)("01HZ0000000000000000000000")
   return Contracts.EnvelopeContextLive({
@@ -117,14 +116,14 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "effect-dsp-example-resume-"
       })
-      const envelopeContextLayer = yield* makeEnvelopeContextLayer
+      const envelopeContextLayer = yield* allocateEnvelopeContextLayer
 
-      const module = yield* makeQAModule
+      const module = yield* allocateQaModule
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map(responseForPrompt)
       )
 
-      const space = makeSpace()
+      const space = resumeStudySpace
       const decode = Schema.decodeUnknownSync(space.schema)
       const objective = (raw: unknown) =>
         Effect.gen(function*() {
@@ -169,7 +168,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
           direction: "maximize",
           trials: 3,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: runtimeOptions.sink }))
+        }).pipe(Study.TerminalReporter.tap({ sink: runtimeOptions.sink }))
       ).pipe(
         Effect.provide(runtimeLayer(runtimeOptions.storageDirectory, runtimeOptions.cachePrefix, envelopeContextLayer))
       )
@@ -181,12 +180,12 @@ describe("examples/07-miprov2-resume-from-storage", () => {
           direction: "maximize",
           trials: 2,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: runtimeOptions.sink }))
+        }).pipe(Study.TerminalReporter.tap({ sink: runtimeOptions.sink }))
       ).pipe(
         Effect.provide(runtimeLayer(runtimeOptions.storageDirectory, runtimeOptions.cachePrefix, envelopeContextLayer))
       )
 
-      const storage = yield* Study.makeStudyStorage(Study.studyStorageOptions(directory)).pipe(
+      const storage = yield* Study.StudyStorage.allocate(Study.studyStorageOptions(directory)).pipe(
         Effect.provide(Contracts.fileSystemSink(directory)),
         Effect.provide(envelopeContextLayer)
       )

@@ -9,9 +9,9 @@ import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-
 import { ModuleParams } from "effect-dsp/contracts"
 import { MockLanguageModel } from "effect-dsp/test"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardModuleState,
+  StandardExampleSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"
@@ -106,7 +106,7 @@ const program = Effect.gen(function*() {
   const qaSavedState = yield* Module.save(qa)
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     metricName: "exactMatch",
@@ -138,7 +138,7 @@ const program = Effect.gen(function*() {
       eventTags: tags
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     streams: Arr.make({
@@ -146,7 +146,7 @@ const program = Effect.gen(function*() {
       events: Arr.fromIterable(events)
     })
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     state: qaSavedState

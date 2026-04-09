@@ -10,9 +10,9 @@ import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures
 describe("OpenAgentTrace/openAgentTraceRecord", () => {
   it.effect("round-trips deterministically and preserves source lineage, branch topology, selection policy, ordered event identities, and the redacted_hash integrity chain", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const row = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
@@ -23,7 +23,7 @@ describe("OpenAgentTrace/openAgentTraceRecord", () => {
       })
       const encoded = yield* Schema.encode(Experimental.OpenAgentTrace.OpenAgentTraceRecord)(record)
       const decoded = yield* Schema.decode(Experimental.OpenAgentTrace.OpenAgentTraceRecord)(encoded)
-      const replay = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const replay = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",

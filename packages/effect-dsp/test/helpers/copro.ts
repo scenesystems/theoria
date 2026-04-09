@@ -11,18 +11,17 @@ export const IMPROVED_INSTRUCTION =
   "Answer questions with concise facts and verify the city against geographic knowledge."
 export const ALTERNATE_INSTRUCTION = "Answer questions with concise facts and prefer exact country-capital matches."
 
-export const makeQaSignature = () =>
-  Signature.make(
-    BASELINE_INSTRUCTION,
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+export const capitalCityQaSignature = Signature.make(
+  BASELINE_INSTRUCTION,
+  {
+    question: Signature.describe(Schema.String, "The question to answer")
+  },
+  {
+    answer: Signature.describe(Schema.String, "A concise factual answer")
+  }
+)
 
-export const makeTrainset = () => [
+export const capitalCityTrainset = [
   new Example({
     input: { question: "What is the capital of France?" },
     output: { answer: "Paris" }
@@ -47,7 +46,7 @@ const paris = { answer: "Paris" }
 const tokyo = { answer: "Tokyo" }
 const london = { answer: "London" }
 
-export const fullRunResponses = () => [
+export const fullRunResponses = [
   paris,
   london,
   { instruction: "Always answer Paris." },
@@ -72,18 +71,20 @@ export const fullRunResponses = () => [
   tokyo
 ]
 
-export const firstLegResponses = () => fullRunResponses().slice(0, 12)
+export const firstLegResponses = fullRunResponses.slice(0, 12)
 
-export const resumeTailResponses = () => [
+export const resumeTailResponses = [
   { answer: "Paris" },
   { answer: "Tokyo" },
-  ...fullRunResponses().slice(12)
+  ...fullRunResponses.slice(12)
 ]
 
-export const makeSequenceLayer = (responses: ReadonlyArray<unknown>) =>
-  Layer.effect(
-    LanguageModel.LanguageModel,
-    MockLanguageModel.make(MockLanguageModel.sequence(responses)).pipe(
-      Effect.map((runtime) => runtime.service)
+export const SequenceLanguageModel = {
+  layer: (responses: ReadonlyArray<unknown>) =>
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      MockLanguageModel.make(MockLanguageModel.sequence(responses)).pipe(
+        Effect.map((runtime) => runtime.service)
+      )
     )
-  )
+}

@@ -25,7 +25,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
   if (entry.type === "message") {
     if (entry.message.role === "bashExecution") {
       return Effect.succeed(
-        new OpenAgentTraceRuntimeEvent({
+        OpenAgentTraceRuntimeEvent.make({
           eventId: entry.id,
           parentEventId: entry.parentId ?? undefined,
           timestamp: entry.timestamp,
@@ -46,7 +46,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
       return Effect.map(
         normalizeContent(entry.id, customMessage.content),
         (contentBlocks) =>
-          new OpenAgentTraceMetadataEvent({
+          OpenAgentTraceMetadataEvent.make({
             eventId: entry.id,
             parentEventId: entry.parentId ?? undefined,
             timestamp: entry.timestamp,
@@ -58,7 +58,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
     }
 
     return Effect.map(normalizeContent(entry.id, entry.message.content), (contentBlocks) =>
-      new OpenAgentTraceMessage({
+      OpenAgentTraceMessage.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -101,7 +101,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "model_change") {
     return Effect.succeed(
-      new OpenAgentTraceRuntimeEvent({
+      OpenAgentTraceRuntimeEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -114,7 +114,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "thinking_level_change") {
     return Effect.succeed(
-      new OpenAgentTraceRuntimeEvent({
+      OpenAgentTraceRuntimeEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -127,7 +127,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "compaction") {
     return Effect.succeed(
-      new OpenAgentTraceSummaryEvent({
+      OpenAgentTraceSummaryEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -141,7 +141,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "branch_summary") {
     return Effect.succeed(
-      new OpenAgentTraceSummaryEvent({
+      OpenAgentTraceSummaryEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -154,7 +154,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "custom") {
     return Effect.succeed(
-      new OpenAgentTraceMetadataEvent({
+      OpenAgentTraceMetadataEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -170,7 +170,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "custom_message") {
     return Effect.map(normalizeContent(entry.id, entry.content), (contentBlocks) =>
-      new OpenAgentTraceMetadataEvent({
+      OpenAgentTraceMetadataEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -182,7 +182,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
 
   if (entry.type === "label") {
     return Effect.succeed(
-      new OpenAgentTraceMetadataEvent({
+      OpenAgentTraceMetadataEvent.make({
         eventId: entry.id,
         parentEventId: entry.parentId ?? undefined,
         timestamp: entry.timestamp,
@@ -194,7 +194,7 @@ export const normalizePiSessionEntry = (entry: PiSessionEntry): Effect.Effect<Op
   }
 
   return Effect.succeed(
-    new OpenAgentTraceMetadataEvent({
+    OpenAgentTraceMetadataEvent.make({
       eventId: entry.id,
       parentEventId: entry.parentId ?? undefined,
       timestamp: entry.timestamp,

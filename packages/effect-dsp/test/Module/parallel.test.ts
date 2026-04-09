@@ -3,21 +3,10 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Ref } from "effect"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const responseForPrompt = (prompt: string) =>
   Match.value(prompt).pipe(
@@ -36,7 +25,7 @@ const yieldsForPrompt = (prompt: string) =>
 describe("Module.parallel", () => {
   it.effect("preserves input ordering, bounded concurrency, and typed output aggregation across multiple inputs", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const active = yield* Ref.make(0)
       const maxActive = yield* Ref.make(0)
       const inner = yield* Module.predict("qa-parallel-inner", signature)

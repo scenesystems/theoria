@@ -14,12 +14,12 @@ import {
 describe("OpenAgentTrace/redactionPolicy", () => {
   it.effect("replaces literal secrets and curated credential patterns deterministically and forces manual review when heuristic credentials were found", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(
         piShareHfReviewSidecarFixture
       )
-      const row = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",

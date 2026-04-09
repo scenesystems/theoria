@@ -8,24 +8,13 @@ import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import {
   GepaOrchestrationEventOrderFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
   loadFixture
 } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const answerText = (record: Readonly<Record<string, unknown>>): string =>
   Option.getOrElse(
@@ -46,7 +35,7 @@ describe("GEPA integration", () => {
         const eventOrderFixture = yield* Schema.decodeUnknown(GepaOrchestrationEventOrderFixtureSchema)(
           rawEventOrderFixture
         )
-        const signature = yield* makeQaSignature()
+        const signature = yield* conciseFactsQaSignature
         const module = yield* Module.predict("qa", signature)
         const mock = yield* MockLanguageModel.make(
           MockLanguageModel.map((prompt) =>

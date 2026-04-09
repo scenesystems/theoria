@@ -3,29 +3,18 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Effect, Layer, Option } from "effect"
 import * as Evaluate from "effect-dsp/Evaluate"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Evaluate.run", () => {
   it.effect("evaluates labeled examples with deterministic aggregate scoring", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
@@ -61,7 +50,7 @@ describe("Evaluate.run", () => {
 
   it.effect("records failed examples when expected output is missing", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
@@ -100,7 +89,7 @@ describe("Evaluate.run", () => {
 
   it.effect("keeps aggregate metric folding deterministic regardless of metric declaration order", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       const mock = yield* MockLanguageModel.make(

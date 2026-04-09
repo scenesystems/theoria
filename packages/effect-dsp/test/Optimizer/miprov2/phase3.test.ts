@@ -3,27 +3,16 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import { DemoCandidate, PredictorDemoCandidates } from "../../../src/optimizers/MIPROv2/bootstrap.js"
 import { InstructionCandidate, PredictorInstructionCandidates } from "../../../src/optimizers/MIPROv2/propose.js"
 import { phase3TrialBudget, runPhase3Search } from "../../../src/optimizers/MIPROv2/search.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainset = Arr.make(
   new Example({
@@ -57,7 +46,7 @@ describe("MIPROv2 Phase 3", () => {
 
   it.effect("builds categorical search dimensions and enforces multivariate TPE", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const baselineParams = yield* Ref.get(module.params)
       const demoCandidates = Arr.make(
@@ -132,7 +121,7 @@ describe("MIPROv2 Phase 3", () => {
 
   it.effect("tracks minibatch cadence, periodic full evals, and baseline-prior registration", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const baselineParams = yield* Ref.get(module.params)
       const demoCandidates = Arr.make(

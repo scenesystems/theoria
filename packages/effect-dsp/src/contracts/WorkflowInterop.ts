@@ -137,7 +137,30 @@ export class WorkflowModuleGraphProjection
     lineages: Schema.Array(WorkflowNodeLineage),
     activeStateLanes: Schema.Array(WorkflowStateLaneSchema)
   })
-{}
+{
+  /**
+   * Project a frozen workflow graph onto the deterministic traversal semantics
+   * already used by `ModuleGraphProjection`.
+   *
+   * @since 0.2.0
+   * @category combinators
+   */
+  static fromWorkflowInput(input: WorkflowModuleGraphInput): WorkflowModuleGraphProjection {
+    const lookup = childLookup(input.manifest)
+
+    return WorkflowModuleGraphProjection.make({
+      manifestId: input.manifest.manifestId,
+      entryNodeId: input.projection.entryNodeId,
+      traversal: traverseNode(lookup, input.projection.entryNodeId, Arr.empty<string>()).traversal,
+      lineages: Arr.filterMap(Arr.sort(input.manifest.nodes, workflowNodeOrder), (node) =>
+        Option.map(
+          findLineagePath(lookup, input.projection.entryNodeId, node.nodeId, Arr.empty<string>()),
+          (path) => WorkflowNodeLineage.make({ targetNodeId: node.nodeId, path })
+        )),
+      activeStateLanes: input.projection.activeStateLanes
+    })
+  }
+}
 
 /**
  * Machine-readable ownership record for the non-DSP authorities consumed by
@@ -151,40 +174,17 @@ export class WorkflowInteropOwnership extends Schema.Class<WorkflowInteropOwners
   scoreAggregation: Schema.Literal("effect-math"),
   renderEvaluation: Schema.Literal("effect-text"),
   artifactTransport: Schema.Literal("effect-search")
-}) {}
-
-/**
- * Singleton ownership record for the workflow interop seam.
- *
- * @since 0.2.0
- * @category constants
- */
-export const workflowInteropOwnership = new WorkflowInteropOwnership({
-  sessionAndRouting: "effect-inference",
-  scoreAggregation: "effect-math",
-  renderEvaluation: "effect-text",
-  artifactTransport: "effect-search"
-})
-
-/**
- * Projects a frozen workflow graph onto the deterministic traversal semantics
- * already used by `ModuleGraphProjection`.
- *
- * @since 0.2.0
- * @category combinators
- */
-export const projectWorkflowModuleGraph = (input: WorkflowModuleGraphInput): WorkflowModuleGraphProjection => {
-  const lookup = childLookup(input.manifest)
-
-  return new WorkflowModuleGraphProjection({
-    manifestId: input.manifest.manifestId,
-    entryNodeId: input.projection.entryNodeId,
-    traversal: traverseNode(lookup, input.projection.entryNodeId, Arr.empty<string>()).traversal,
-    lineages: Arr.filterMap(Arr.sort(input.manifest.nodes, workflowNodeOrder), (node) =>
-      Option.map(
-        findLineagePath(lookup, input.projection.entryNodeId, node.nodeId, Arr.empty<string>()),
-        (path) => new WorkflowNodeLineage({ targetNodeId: node.nodeId, path })
-      )),
-    activeStateLanes: input.projection.activeStateLanes
+}) {
+  /**
+   * Canonical ownership record for the workflow interop seam.
+   *
+   * @since 0.2.0
+   * @category constants
+   */
+  static readonly current = WorkflowInteropOwnership.make({
+    sessionAndRouting: "effect-inference",
+    scoreAggregation: "effect-math",
+    renderEvaluation: "effect-text",
+    artifactTransport: "effect-search"
   })
 }

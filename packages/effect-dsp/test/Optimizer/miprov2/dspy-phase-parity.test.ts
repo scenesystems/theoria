@@ -7,7 +7,6 @@ import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
@@ -19,22 +18,12 @@ import {
 } from "../../../src/optimizers/MIPROv2/runtime/policy.js"
 import { phase3TrialBudget } from "../../../src/optimizers/MIPROv2/search.js"
 import {
-  makeFixtureRegistry,
+  FixtureRegistry,
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema
 } from "../../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainset = Arr.make(
   new Example({
@@ -68,7 +57,7 @@ const materializeTemplate = (
 describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined phase defaults and orchestration order", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.mipro.phase-config")
       const fixture = yield* Schema.decodeUnknown(MiproPhaseConfigFixtureSchema)(rawFixture)
 
@@ -80,7 +69,7 @@ describe("MIPROv2 DSPy phase parity", () => {
       expect(fixture.payload.phase3Sampler.kind).toBe("tpe")
       expect(fixture.payload.phase3Sampler.multivariate).toBe(true)
 
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
       const mock = yield* MockLanguageModel.make(
@@ -124,7 +113,7 @@ describe("MIPROv2 DSPy phase parity", () => {
 
   it.effect("matches fixture-defined tip vocabulary and marker template", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.mipro.tips-vocabulary")
       const fixture = yield* Schema.decodeUnknown(MiproTipsVocabularyFixtureSchema)(rawFixture)
 
@@ -143,7 +132,7 @@ describe("MIPROv2 DSPy phase parity", () => {
 
   it.effect("matches fixture-defined trial budget cases", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.mipro.trial-budget-cases")
       const fixture = yield* Schema.decodeUnknown(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
 

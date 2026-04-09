@@ -9,7 +9,7 @@ import { Array as Arr, Effect, Match, Option, Ref } from "effect"
 import type { Context, Schema } from "effect"
 import { normalizeDeterministicSeed } from "../../../contracts/DeterministicSeed.js"
 import { withModuleParamsInstructions } from "../../../contracts/ModuleParams.js"
-import { projectSingleObjective } from "../../../contracts/ObjectiveProjection.js"
+import { ObjectiveProjection } from "../../../contracts/ObjectiveProjection.js"
 import * as Evaluate from "../../../Evaluate/index.js"
 import type { Example } from "../../../Example/index.js"
 import { collectModuleParamRefs, type ModuleParamRef } from "../../../internal/module-params.js"
@@ -74,40 +74,9 @@ const evaluateModuleScore = <
     concurrency: 1
   }).pipe(
     Effect.provide(evaluationContext),
-    Effect.flatMap((report) => projectSingleObjective(report, "copro")),
+    Effect.flatMap((report) => ObjectiveProjection.fromReport({ report, mode: "single", metricName: "copro" })),
     Effect.map((projection) => singleObjectiveScore(projection.objective))
   )
-
-const makeSnapshot = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(options: {
-  readonly module: Module.Module<I, O>
-  readonly baselineInstruction: string
-  readonly numCandidates: number
-  readonly maxSteps: number
-  readonly seed: number
-  readonly completionReason: COPROSnapshot["completionReason"]
-  readonly state: RuntimeState
-}) =>
-  Effect.gen(function*() {
-    const moduleState = yield* Module.save(options.module)
-    const rootParams = yield* Ref.get(options.module.params)
-
-    return new COPROSnapshot({
-      snapshotFormatVersion: 1,
-      moduleName: options.module.name,
-      moduleState,
-      numCandidates: options.numCandidates,
-      maxSteps: options.maxSteps,
-      nextStep: options.state.nextStep,
-      nextTrialNumber: options.state.nextTrialNumber,
-      seed: options.seed,
-      baselineInstruction: options.baselineInstruction,
-      bestInstruction: rootParams.instructions,
-      bestScore: options.state.bestScore,
-      completionReason: options.completionReason,
-      trials: options.state.trials,
-      acceptedUpdates: options.state.acceptedUpdates
-    })
-  })
 
 const buildCandidates = (options: {
   readonly predictorName: string
@@ -309,7 +278,7 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
           yield* Option.match(Option.fromNullable(options.snapshotSink), {
             onNone: () => Effect.void,
             onSome: (snapshotSink) =>
-              makeSnapshot({
+              COPROSnapshot.fromRuntimeState({
                 module: options.module,
                 baselineInstruction,
                 numCandidates: options.numCandidates,

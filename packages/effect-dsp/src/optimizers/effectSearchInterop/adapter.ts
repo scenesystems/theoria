@@ -4,24 +4,11 @@
  *
  * @since 0.1.0
  */
-import { ask, cancel, fail, makeTpeSampler, open, pareto, result, resultSummary, snapshot, tell } from "./askTell.js"
+import { ask, cancel, fail, open, pareto, result, resultSummary, Sampler, snapshot, tell } from "./askTell.js"
 import { EffectSearchAcquisitionStrategySchema, EffectSearchInteropEventSchema } from "./model.js"
 import { events, eventsWithProgress } from "./progress.js"
 
-export {
-  ask,
-  cancel,
-  events,
-  eventsWithProgress,
-  fail,
-  makeTpeSampler,
-  open,
-  pareto,
-  result,
-  resultSummary,
-  snapshot,
-  tell
-}
+export { ask, cancel, events, eventsWithProgress, fail, open, pareto, result, resultSummary, Sampler, snapshot, tell }
 
 /**
  * Namespace object that bundles all effect-search adapter operations into a
@@ -33,7 +20,7 @@ export {
 export const effectSearchInterop = {
   EffectSearchAcquisitionStrategySchema,
   EffectSearchInteropEventSchema,
-  makeTpeSampler,
+  Sampler,
   open,
   ask,
   tell,

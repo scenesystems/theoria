@@ -10,7 +10,6 @@ import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import {
   GepaMergeScheduleFixtureSchema,
@@ -18,17 +17,7 @@ import {
   GepaOrchestrationStateTransitionsFixtureSchema,
   loadFixture
 } from "../../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 describe("Optimizer.gepa orchestration", () => {
   it.effect("runs merge-check → reflective mutation → acceptance → Pareto update in canonical order", () =>
@@ -43,7 +32,7 @@ describe("Optimizer.gepa orchestration", () => {
       )
       const rawMergeScheduleFixture = yield* loadFixture("dspy.gepa.merge.schedule.max-merge-invocations")
       const mergeScheduleFixture = yield* Schema.decodeUnknown(GepaMergeScheduleFixtureSchema)(rawMergeScheduleFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)

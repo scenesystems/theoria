@@ -6,23 +6,22 @@ import { Effect, Either, Schema } from "effect"
 import { SearchSpace } from "effect-search"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
-const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-1, 1)
-  })
+const interopAcquisitionSpace = SearchSpace.unsafeMake({
+  x: SearchSpace.float(-1, 1)
+})
 
 const firstSuggestedValue = (
   acquisition: "ei" | "pi" | "thompson"
 ) =>
   Effect.scoped(
     Effect.gen(function*() {
-      const sampler = effectSearchInterop.makeTpeSampler({
+      const sampler = effectSearchInterop.Sampler.tpe({
         seed: 41,
         acquisition
       })
       const handle = yield* effectSearchInterop.open({
         direction: "maximize",
-        space: makeSpace(),
+        space: interopAcquisitionSpace,
         sampler,
         trials: 1,
         objective: () => Effect.succeed(0),

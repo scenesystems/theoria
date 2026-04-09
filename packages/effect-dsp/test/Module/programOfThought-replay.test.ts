@@ -6,22 +6,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Record, Schema } from "effect"
 import * as Errors from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
-import { makeFixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { FixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 const normalizeTrace = (entries: ReadonlyArray<Trace.Entry>) =>
   Arr.map(entries, (entry) => ({
@@ -35,10 +24,10 @@ const normalizeTrace = (entries: ReadonlyArray<Trace.Entry>) =>
 describe("Module.programOfThought replay", () => {
   it.effect("replays the same plan, repair path, and final answer after save/load under deterministic fixtures", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.repair-cycle.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtRepairFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
 
       const buildProgram = () =>
         Module.programOfThought({

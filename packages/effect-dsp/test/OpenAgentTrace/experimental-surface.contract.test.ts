@@ -52,8 +52,8 @@ const datasetAuthority: {
 }
 
 const decodedFixtures = Effect.all({
-  manifestEntry: Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture),
-  reviewSidecar: Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(piShareHfReviewSidecarFixture)
+  manifestEntry: Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture),
+  reviewSidecar: Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(piShareHfReviewSidecarFixture)
 })
 
 const coverageRecord = (options: {
@@ -62,14 +62,14 @@ const coverageRecord = (options: {
 }) =>
   Effect.gen(function*() {
     const fixtures = yield* decodedFixtures
-    const row = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(options.rowFixture)
-    const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+    const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(options.rowFixture)
+    const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
       ...datasetAuthority,
       manifestEntry: fixtures.manifestEntry,
       reviewSidecar: fixtures.reviewSidecar,
       row
     })
-    const projection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
+    const projection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
 
     return {
       entryId: options.entryId,

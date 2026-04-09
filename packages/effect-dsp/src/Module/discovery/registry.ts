@@ -6,10 +6,11 @@
 import type { Ref } from "effect"
 import { Array as Arr, Effect, FiberRef, HashMap, Option, Schema } from "effect"
 import { ModuleId } from "../../contracts/ModuleId.js"
-import { makeModuleNodeSignature } from "../../contracts/ModuleNode.js"
+import { ModuleNodeSignature } from "../../contracts/ModuleNode.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
-import { CompositionError } from "../../Errors/module.js"
+import type { CompositionError } from "../../Errors/module.js"
 import type { Module } from "../model.js"
+import { DiscoveryFailure } from "./errors.js"
 import {
   canonicalModuleRegistrations,
   canonicalSubModuleIds,
@@ -31,12 +32,7 @@ export const ModuleRegistryRef: FiberRef.FiberRef<ReadonlyArray<ModuleRegistrati
 
 const decodeModuleId = (moduleName: string): Effect.Effect<ModuleId, CompositionError> =>
   Schema.decodeUnknown(ModuleId)(moduleName).pipe(
-    Effect.mapError(() =>
-      new CompositionError({
-        message: `Invalid module id '${moduleName}' for discovery registration`,
-        moduleName
-      })
-    )
+    Effect.mapError(() => DiscoveryFailure.invalidModuleId(moduleName))
   )
 
 const signaturesMatch = (
@@ -59,15 +55,6 @@ const sameRegistration = (
   signaturesMatch(left.signature, right.signature) &&
   sameSubModuleIds(left.subModuleIds, right.subModuleIds)
 
-const registerConflict = (
-  left: ModuleRegistration,
-  right: ModuleRegistration
-): CompositionError =>
-  new CompositionError({
-    message: `Discovery registration conflict for module id '${left.id}'`,
-    moduleName: right.id
-  })
-
 const mergeRegistration = (
   registrations: ReadonlyArray<ModuleRegistration>,
   registration: ModuleRegistration
@@ -79,7 +66,7 @@ const mergeRegistration = (
       onSome: (existing) =>
         sameRegistration(existing, registration)
           ? Effect.succeed(registrations)
-          : Effect.fail(registerConflict(existing, registration))
+          : Effect.fail(DiscoveryFailure.registrationConflict(existing.id))
     }
   )
 
@@ -139,10 +126,10 @@ export const registerModule = (module: Module): Effect.Effect<void, CompositionE
   registerRuntime({
     moduleName: module.name,
     params: module.params,
-    signature: makeModuleNodeSignature(
-      module.signature.description,
-      module.signature.instructions
-    ),
+    signature: ModuleNodeSignature.make({
+      description: module.signature.description,
+      instructions: module.signature.instructions
+    }),
     subModuleIds: moduleSubModuleIds(module)
   })
 

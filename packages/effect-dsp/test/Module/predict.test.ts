@@ -4,24 +4,13 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
+import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schedule, TestClock } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Demo } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const emptyUsage = new Response.Usage({
   inputTokens: undefined,
@@ -42,7 +31,7 @@ const malformedStructuredResponse = Arr.make(
 
 describe("Module.predict", () => {
   it("exposes deterministic parse policy defaults", () => {
-    const policy = Module.makePredictPolicy()
+    const policy = Module.PredictPolicy.make()
 
     expect(policy.parse.maxRetries).toBe(Module.DEFAULT_PARSE_MAX_RETRIES)
     expect(policy.parse.retrySchedule).toBe(Module.defaultParseRetrySchedule)
@@ -51,7 +40,7 @@ describe("Module.predict", () => {
 
   it.effect("creates a branded module with forward/ref/signature/name contracts", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
 
       expect(module._tag).toBe("Module")
@@ -63,7 +52,7 @@ describe("Module.predict", () => {
 
   it.effect("uses structured path when outputStrategy is auto and demos are empty", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )
@@ -84,7 +73,7 @@ describe("Module.predict", () => {
 
   it.effect("uses text path when outputStrategy is auto and demos are present", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed("[[ ## answer ## ]]\nParis")
       )
@@ -120,7 +109,7 @@ describe("Module.predict", () => {
 
   it.effect("records trace entries with prompt and response metadata when tracing is enabled", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )
@@ -156,7 +145,7 @@ describe("Module.predict", () => {
 
   it.effect("retries parse failures in text mode before succeeding", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           "malformed output",
@@ -201,7 +190,7 @@ describe("Module.predict", () => {
 
   it.effect("retries malformed structured output before succeeding", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           malformedStructuredResponse,
@@ -248,7 +237,7 @@ describe("Module.predict", () => {
 
   it.effect("applies parse policy overrides from predict options", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           "malformed output",

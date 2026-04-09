@@ -15,38 +15,43 @@ const proposalTemperature = (temperature: Option.Option<number>) =>
     onSome: (value) => ({ temperature: value })
   })
 
-const makeProposalModule = (name: string, description: string, temperature: Option.Option<number>) =>
-  Effect.gen(function*() {
-    const signature = yield* Signature.make(
-      description,
-      {
-        predictorName: Signature.describe(Schema.String, "The predictor currently being optimized"),
-        currentInstruction: Signature.describe(
-          Schema.String,
-          "The current instruction before proposing a new candidate"
-        ),
-        step: Signature.describe(Schema.Number, "The zero-based COPRO step index"),
-        candidateIndex: Signature.describe(Schema.Number, "The zero-based candidate slot within the current step"),
-        attempts: Signature.describe(Schema.String, "Prior scored instruction attempts for this predictor")
-      },
-      {
-        instruction: Signature.describe(Schema.String, "One improved instruction candidate")
-      }
-    )
-    const module = yield* Module.predict(name, signature)
+const COPROProposalModule = {
+  allocate: (name: string, description: string, temperature: Option.Option<number>) =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make(
+        description,
+        {
+          predictorName: Signature.describe(Schema.String, "The predictor currently being optimized"),
+          currentInstruction: Signature.describe(
+            Schema.String,
+            "The current instruction before proposing a new candidate"
+          ),
+          step: Signature.describe(Schema.Number, "The zero-based COPRO step index"),
+          candidateIndex: Signature.describe(
+            Schema.Number,
+            "The zero-based candidate slot within the current step"
+          ),
+          attempts: Signature.describe(Schema.String, "Prior scored instruction attempts for this predictor")
+        },
+        {
+          instruction: Signature.describe(Schema.String, "One improved instruction candidate")
+        }
+      )
+      const module = yield* Module.predict(name, signature)
 
-    yield* Ref.set(
-      module.params,
-      new ModuleParams({
-        instructions: description,
-        demos: [],
-        outputStrategy: "structured",
-        ...proposalTemperature(temperature)
-      })
-    )
+      yield* Ref.set(
+        module.params,
+        ModuleParams.make({
+          instructions: description,
+          demos: [],
+          outputStrategy: "structured",
+          ...proposalTemperature(temperature)
+        })
+      )
 
-    return module
-  })
+      return module
+    })
+}
 
 const proposeInstruction = (options: {
   readonly moduleName: string
@@ -59,7 +64,7 @@ const proposeInstruction = (options: {
   readonly temperature: Option.Option<number>
 }) =>
   Effect.gen(function*() {
-    const proposalModule = yield* makeProposalModule(
+    const proposalModule = yield* COPROProposalModule.allocate(
       `${options.moduleName}-${options.predictorName}-${options.step}-${options.candidateIndex}`,
       options.description,
       options.temperature

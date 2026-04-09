@@ -2,37 +2,26 @@ import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
 import {
-  makeFixtureRegistry,
+  FixtureRegistry,
   TraceEntryShapeFixtureSchema,
   TraceFiberIsolationFixtureSchema
 } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Trace DSPy contracts", () => {
   it.effect("matches entry-shape and isolation fixture contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawEntryFixture = yield* registry.load("dspy.trace.entry-shape.basic")
       const rawIsolationFixture = yield* registry.load("dspy.trace.fiber-isolation.seed-0")
       const entryFixture = yield* Schema.decodeUnknown(TraceEntryShapeFixtureSchema)(rawEntryFixture)
       const isolationFixture = yield* Schema.decodeUnknown(TraceFiberIsolationFixtureSchema)(rawIsolationFixture)
 
-      const qa = yield* makeQaSignature()
+      const qa = yield* shortFactualAnswersQaSignature
       const module = yield* Module.predict("qa-trace-dspy-parity", qa)
 
       const singleRunMock = yield* MockLanguageModel.make(

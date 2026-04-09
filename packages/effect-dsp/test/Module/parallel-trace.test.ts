@@ -3,28 +3,17 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.parallel trace surface", () => {
   it.effect("keeps branch ordering, usage accounting, and optimization projections stable in the shared trace surface", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const inner = yield* Module.predict("qa-parallel-trace-inner", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
@@ -53,7 +42,7 @@ describe("Module.parallel trace surface", () => {
       )
       const traces = execution[0][1]
       const usage = execution[1]
-      const projections = yield* Effect.forEach(traces, Contracts.projectOptimizationObjective)
+      const projections = yield* Effect.forEach(traces, Contracts.OptimizationObjectiveSurface.fromTraceEntry)
 
       expect(traces.map((entry) => entry.input.question)).toStrictEqual([
         "Alpha question",

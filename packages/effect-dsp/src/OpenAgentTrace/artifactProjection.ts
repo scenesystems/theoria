@@ -13,17 +13,17 @@ import {
 import * as SearchContracts from "effect-search/Contracts"
 
 import {
-  OpenAgentTraceArtifactLineage,
-  OpenAgentTraceArtifactPayload,
-  OpenAgentTraceExampleProjectionArtifact,
-  OpenAgentTraceExampleProjectionLineage,
-  type OpenAgentTraceProjection,
-  OpenAgentTraceRecordArtifact,
-  OpenAgentTraceWorkflowProjectionArtifact,
-  OpenAgentTraceWorkflowProjectionLineage
+  ArtifactLineage,
+  ArtifactPayload,
+  ExampleProjectionArtifact,
+  ExampleProjectionLineage,
+  type Projection,
+  RecordArtifact,
+  WorkflowProjectionArtifact,
+  WorkflowProjectionLineage
 } from "./projectionSchema.js"
 import { PROJECTION_VERSION } from "./projectionShared.js"
-import { digestOpenAgentTraceRecord, publishedOpenAgentTraceReviewStatus } from "./provenance.js"
+import { digestRecord, publishedReviewStatus } from "./provenance.js"
 import {
   decodeOpenAgentTraceContentDigest,
   formatOpenAgentTraceContentDigest,
@@ -72,14 +72,14 @@ const decodeArtifactPayload = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   )
 
 const sanitizedRecord = (record: OpenAgentTraceRecordModel) =>
-  new OpenAgentTraceRecord({
+  OpenAgentTraceRecord.make({
     ...record,
-    reviewStatus: publishedOpenAgentTraceReviewStatus(record.reviewStatus)
+    reviewStatus: publishedReviewStatus(record.reviewStatus)
   })
 
 const artifactLineageFor = (record: OpenAgentTraceRecordModel) =>
-  Effect.map(digestOpenAgentTraceRecord(record), (digests) =>
-    new OpenAgentTraceArtifactLineage({
+  Effect.map(digestRecord(record), (digests) =>
+    ArtifactLineage.make({
       sourceDatasetId: record.source.datasetId,
       sourceDatasetRevision: record.source.datasetRevision,
       sourceSplit: record.source.split,
@@ -97,14 +97,14 @@ const artifactLineageFor = (record: OpenAgentTraceRecordModel) =>
 
 const payloadFor = (
   record: OpenAgentTraceRecordModel,
-  lineage: OpenAgentTraceArtifactLineage,
-  projection?: OpenAgentTraceProjection
+  lineage: ArtifactLineage,
+  projection?: Projection
 ) =>
   Option.match(Option.fromNullable(projection), {
     onNone: () =>
       decodeArtifactPayload(
-        Schema.encode(OpenAgentTraceArtifactPayload)(
-          new OpenAgentTraceRecordArtifact({
+        Schema.encode(ArtifactPayload)(
+          RecordArtifact.make({
             artifactKind: "open-agent-trace-record",
             lineage,
             record: sanitizedRecord(record)
@@ -128,11 +128,11 @@ const payloadFor = (
           )
 
           return yield* decodeArtifactPayload(
-            Schema.encode(OpenAgentTraceArtifactPayload)(
-              new OpenAgentTraceWorkflowProjectionArtifact({
+            Schema.encode(ArtifactPayload)(
+              WorkflowProjectionArtifact.make({
                 artifactKind: "open-agent-trace-workflow-projection",
                 lineage,
-                projectionLineage: new OpenAgentTraceWorkflowProjectionLineage({
+                projectionLineage: WorkflowProjectionLineage.make({
                   projectionKind: "workflow-record",
                   projectionVersion: PROJECTION_VERSION,
                   workflowRecordId: projection.workflowRecord.recordId,
@@ -146,11 +146,11 @@ const payloadFor = (
           )
         })
         : decodeArtifactPayload(
-          Schema.encode(OpenAgentTraceArtifactPayload)(
-            new OpenAgentTraceExampleProjectionArtifact({
+          Schema.encode(ArtifactPayload)(
+            ExampleProjectionArtifact.make({
               artifactKind: "open-agent-trace-example-projection",
               lineage,
-              projectionLineage: new OpenAgentTraceExampleProjectionLineage({
+              projectionLineage: ExampleProjectionLineage.make({
                 projectionKind: "example-set",
                 projectionVersion: PROJECTION_VERSION,
                 exampleSetDigest: projection.examplesDigest,
@@ -169,13 +169,13 @@ const payloadFor = (
  * @since 0.2.0
  * @category combinators
  */
-export const projectOpenAgentTraceToArtifact = (options: {
+export const projectArtifact = (options: {
   readonly record: OpenAgentTraceRecordModel
   readonly packageVersion: SearchContracts.PackageVersion
   readonly runId: SearchContracts.RunId
   readonly sequence: number
   readonly emittedAt: Schema.Schema.Type<typeof Schema.DateTimeUtc>
-  readonly projection?: OpenAgentTraceProjection
+  readonly projection?: Projection
 }) =>
   Effect.gen(function*() {
     const lineage = yield* artifactLineageFor(options.record)
@@ -191,13 +191,13 @@ export const projectOpenAgentTraceToArtifact = (options: {
         metricName: options.projection?.projectionKind ?? "record",
         exampleName: options.record.recordId
       }),
-      lineage: new SearchContracts.ArtifactLineage({
-        sourceRef: new SearchContracts.SourceRef({
+      lineage: SearchContracts.ArtifactLineage.make({
+        sourceRef: SearchContracts.SourceRef.make({
           origin: "effect-dsp",
           domain: "open-agent-trace",
           segments: ["projection"]
         }),
-        artifactId: new SearchContracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
+        artifactId: SearchContracts.ArtifactId.make({ runId: options.runId, sequence: options.sequence }),
         emittedAt: options.emittedAt,
         integrity: options.record.source.redactedHash
       }),

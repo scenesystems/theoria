@@ -32,10 +32,12 @@ type CommonAncestorCandidate = Readonly<{
   readonly parentBDistance: number
 }>
 
-const makeAncestorDistance = (candidateId: string, distance: number): AncestorDistance => ({
-  candidateId,
-  distance
-})
+const AncestorDistance = {
+  make: (candidateId: string, distance: number): AncestorDistance => ({
+    candidateId,
+    distance
+  })
+}
 
 const commonAncestorOrder: Order.Order<CommonAncestorCandidate> = Order.mapInput(
   Order.tuple(Order.number, Order.number, Order.number, Order.number, Order.string),
@@ -80,7 +82,7 @@ const replaceDistance = (
 ): ReadonlyArray<AncestorDistance> =>
   Arr.map(distances, (entry) =>
     Match.value(entry.candidateId === candidateId).pipe(
-      Match.when(true, () => makeAncestorDistance(candidateId, distance)),
+      Match.when(true, () => AncestorDistance.make(candidateId, distance)),
       Match.orElse(() => entry)
     ))
 
@@ -90,7 +92,7 @@ const upsertDistance = (
   distance: number
 ): ReadonlyArray<AncestorDistance> =>
   Option.match(distanceForCandidate(distances, candidateId), {
-    onNone: () => Arr.append(distances, makeAncestorDistance(candidateId, distance)),
+    onNone: () => Arr.append(distances, AncestorDistance.make(candidateId, distance)),
     onSome: () => replaceDistance(distances, candidateId, distance)
   })
 
@@ -121,7 +123,7 @@ const collectAncestorDistances = (
             const updatedDistances = upsertDistance(distances, current.candidateId, current.distance)
             const parentDistances = Arr.map(
               parentIdsForCandidate(candidates, current.candidateId),
-              (parentId) => makeAncestorDistance(parentId, current.distance + 1)
+              (parentId) => AncestorDistance.make(parentId, current.distance + 1)
             )
 
             return collectAncestorDistances(
@@ -165,12 +167,12 @@ export const findNearestCommonAncestor = (
 ): Option.Option<string> => {
   const parentADistances = collectAncestorDistances(
     candidates,
-    Arr.make(makeAncestorDistance(parentAId, 0)),
+    Arr.make(AncestorDistance.make(parentAId, 0)),
     Arr.empty<AncestorDistance>()
   )
   const parentBDistances = collectAncestorDistances(
     candidates,
-    Arr.make(makeAncestorDistance(parentBId, 0)),
+    Arr.make(AncestorDistance.make(parentBId, 0)),
     Arr.empty<AncestorDistance>()
   )
 

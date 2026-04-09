@@ -73,7 +73,7 @@ const hasInteropCapability = (filePath: string, source: string): boolean => {
     || target === "Study.fail"
     || target === "Study.cancel"
     || target === "Study.events"
-    || target === "Study.formatTerminalProgressEvent"
+    || target === "Study.ProgressLine.projectEvent"
   )
     || propertyChains.some((chain) => chain.startsWith("Pareto."))
 }

@@ -53,7 +53,7 @@ describe("examples/18-parallel-batch-mock", () => {
       const result = execution[0][0]
       const traces = execution[0][1]
       const usage = execution[1]
-      const projections = yield* Effect.forEach(traces, Contracts.projectOptimizationObjective)
+      const projections = yield* Effect.forEach(traces, Contracts.OptimizationObjectiveSurface.fromTraceEntry)
       const branchQuestions = Arr.map(projections, (projection) => String(projection.input.question ?? ""))
       const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.2.0")

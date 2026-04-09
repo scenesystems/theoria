@@ -10,7 +10,7 @@ import { piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/f
 describe("OpenAgentTrace/piShareHfManifest", () => {
   it.effect("decodes file, source_hash, redaction_key, and redacted_hash and treats redacted_hash as the published integrity identity", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
       const manifestDocument = yield* Schema.encode(
         Schema.parseJson(Experimental.OpenAgentTrace.PiShareHfManifestEntry)
       )(manifestEntry)
@@ -23,7 +23,7 @@ describe("OpenAgentTrace/piShareHfManifest", () => {
       expect(manifestEntries).toEqual([manifestEntry])
       expect(
         Experimental.OpenAgentTrace.formatOpenAgentTraceContentDigest(
-          yield* Experimental.OpenAgentTrace.publishedIntegrityDigest(manifestEntry)
+          yield* Experimental.OpenAgentTrace.PiMono.publishedIntegrityDigest(manifestEntry)
         )
       ).toBe(
         piShareHfManifestFixture.redacted_hash

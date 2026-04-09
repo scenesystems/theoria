@@ -20,57 +20,59 @@ export class FixtureRegistry extends Context.Tag("effect-dsp/test/helpers/DspyFi
   }
 >() {}
 
-export const makeFixtureRegistry = (
-  options: {
-    readonly rootUrl?: URL
-    readonly manifestFileName?: string
-  } = {}
-) => {
-  const rootUrl = options.rootUrl ?? FIXTURE_ROOT_URL
-  const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
+export namespace FixtureRegistry {
+  export const make = (
+    options: {
+      readonly rootUrl?: URL
+      readonly manifestFileName?: string
+    } = {}
+  ) => {
+    const rootUrl = options.rootUrl ?? FIXTURE_ROOT_URL
+    const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
 
-  const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
-    Effect.gen(function*() {
-      const manifest = yield* loadManifest(rootUrl, manifestFileName)
-      const entry = findManifestEntry(manifest, name)
+    const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
+      Effect.gen(function*() {
+        const manifest = yield* loadManifest(rootUrl, manifestFileName)
+        const entry = findManifestEntry(manifest, name)
 
-      return yield* Option.match(entry, {
-        onNone: () =>
-          Effect.fail(
-            new FixtureNotFoundError({
-              fixture: name
-            })
-          ),
-        onSome: (value) => loadFixtureByEntry(rootUrl, value)
+        return yield* Option.match(entry, {
+          onNone: () =>
+            Effect.fail(
+              new FixtureNotFoundError({
+                fixture: name
+              })
+            ),
+          onSome: (value) => loadFixtureByEntry(rootUrl, value)
+        })
       })
-    })
 
-  const loadAll = (
-    namespace: string
-  ): Effect.Effect<Array<KnownFixture>, FixtureRegistryError> =>
-    Effect.gen(function*() {
+    const loadAll = (
+      namespace: string
+    ): Effect.Effect<Array<KnownFixture>, FixtureRegistryError> =>
+      Effect.gen(function*() {
+        const manifest = yield* loadManifest(rootUrl, manifestFileName)
+        const entries = manifest.fixtures.filter((entry) => entry.name.startsWith(namespace))
+
+        return yield* Effect.forEach(entries, (entry) => loadFixtureByEntry(rootUrl, entry))
+      })
+
+    const validateManifest = Effect.gen(function*() {
       const manifest = yield* loadManifest(rootUrl, manifestFileName)
-      const entries = manifest.fixtures.filter((entry) => entry.name.startsWith(namespace))
-
-      return yield* Effect.forEach(entries, (entry) => loadFixtureByEntry(rootUrl, entry))
+      yield* Effect.forEach(manifest.fixtures, (entry) =>
+        loadFixtureByEntry(rootUrl, entry).pipe(
+          Effect.asVoid
+        ))
     })
 
-  const validateManifest = Effect.gen(function*() {
-    const manifest = yield* loadManifest(rootUrl, manifestFileName)
-    yield* Effect.forEach(manifest.fixtures, (entry) =>
-      loadFixtureByEntry(rootUrl, entry).pipe(
-        Effect.asVoid
-      ))
-  })
-
-  return {
-    load,
-    loadAll,
-    validateManifest
+    return {
+      load,
+      loadAll,
+      validateManifest
+    }
   }
 }
 
-export const FixtureRegistryLive = Layer.succeed(FixtureRegistry, makeFixtureRegistry())
+export const FixtureRegistryLive = Layer.succeed(FixtureRegistry, FixtureRegistry.make())
 
 const loadFixtureFromRegistry = (
   name: FixtureName

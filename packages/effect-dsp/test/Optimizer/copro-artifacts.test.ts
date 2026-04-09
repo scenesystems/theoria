@@ -8,11 +8,11 @@ import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
 import {
+  capitalCityQaSignature,
+  capitalCityTrainset,
   fullRunResponses,
-  makeQaSignature,
-  makeSequenceLayer,
-  makeTrainset,
-  prepareStructuredModule
+  prepareStructuredModule,
+  SequenceLanguageModel
 } from "../helpers/copro.js"
 import { CoproProgressionFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -21,20 +21,20 @@ describe("Optimizer.copro artifacts", () => {
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.copro.progression.basic")
       const fixture = yield* Schema.decodeUnknown(CoproProgressionFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* capitalCityQaSignature
       const module = yield* Module.predict("qa", signature)
       const snapshotRef = yield* Ref.make(Option.none<Optimizer.COPROSnapshot>())
 
       yield* prepareStructuredModule(module)
       yield* Optimizer.copro({
         module,
-        trainset: makeTrainset(),
+        trainset: capitalCityTrainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: fixture.payload.numCandidates,
         maxSteps: fixture.payload.maxSteps,
         seed: fixture.payload.seed,
         snapshotSink: (snapshot) => Ref.set(snapshotRef, Option.some(snapshot))
-      }).pipe(Effect.provide(makeSequenceLayer(fullRunResponses())))
+      }).pipe(Effect.provide(SequenceLanguageModel.layer(fullRunResponses)))
 
       const snapshotOption = yield* Ref.get(snapshotRef)
       expect(Option.isSome(snapshotOption)).toBe(true)
@@ -43,12 +43,12 @@ describe("Optimizer.copro artifacts", () => {
         return
       }
 
-      const studySnapshot = Optimizer.projectCOPROStudySnapshot(snapshotOption.value)
-      const studyEvents = Optimizer.projectCOPROStudyEvents(snapshotOption.value)
+      const studySnapshot = Optimizer.COPROSnapshot.projectStudySnapshot(snapshotOption.value)
+      const studyEvents = Optimizer.COPROSnapshot.projectStudyEvents(snapshotOption.value)
       const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.2.0")
       const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-05T00:00:00Z")
-      const eventEnvelope = Optimizer.coproStudyEventEnvelope({
+      const eventEnvelope = Optimizer.COPROSnapshot.projectStudyEventEnvelope({
         runId,
         packageVersion,
         emittedAt,
@@ -56,7 +56,7 @@ describe("Optimizer.copro artifacts", () => {
         sequence: 0,
         event: studyEvents[0]!
       })
-      const snapshotEnvelope = Optimizer.coproStudySnapshotEnvelope({
+      const snapshotEnvelope = Optimizer.COPROSnapshot.projectStudySnapshotEnvelope({
         runId,
         packageVersion,
         emittedAt,

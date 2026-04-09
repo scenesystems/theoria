@@ -13,8 +13,8 @@ import {
 describe("OpenAgentTrace/piMonoDataset", () => {
   it.effect("decodes harness, session_id, traces, and file_name without app-local schema glue", () =>
     Effect.gen(function*() {
-      const taskFirst = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture)
-      const chatContinuation = yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(
+      const taskFirst = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture)
+      const chatContinuation = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(
         piMonoChatContinuationRowFixture
       )
       const datasetLines = yield* Effect.all(

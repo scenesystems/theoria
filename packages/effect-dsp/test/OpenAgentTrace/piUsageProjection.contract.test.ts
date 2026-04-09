@@ -10,17 +10,17 @@ import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures
 describe("OpenAgentTrace/piUsageProjection", () => {
   it.effect("preserves provider, model, api, stop reason, cache token counts, and cost in typed provenance while folding cached status into the public usage sample", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
       const firstUsage = workflowProjection.usageProvenance[0]
 
       expect(firstUsage?.eventId).toBe("00000004")

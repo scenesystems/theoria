@@ -15,23 +15,23 @@ import {
 describe("OpenAgentTrace/workflowProjection", () => {
   it.effect("projects bounded task-first and chat-continuation traces into effect-inference workflow surfaces without app-local schema translation", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const taskFirst = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const taskFirst = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const chatContinuation = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const chatContinuation = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoChatContinuationRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoChatContinuationRowFixture),
         manifestEntry
       })
       const redactedTaskFirst = yield* Experimental.OpenAgentTrace.redactOpenAgentTraceRecord({
@@ -48,9 +48,9 @@ describe("OpenAgentTrace/workflowProjection", () => {
           curatedPatterns: []
         })
       })
-      const taskProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(taskFirst)
-      const chatProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(chatContinuation)
-      const redactedTaskProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(
+      const taskProjection = yield* Experimental.OpenAgentTrace.Workflow.project(taskFirst)
+      const chatProjection = yield* Experimental.OpenAgentTrace.Workflow.project(chatContinuation)
+      const redactedTaskProjection = yield* Experimental.OpenAgentTrace.Workflow.project(
         redactedTaskFirst
       )
       const taskRoundTrip = yield* Schema.decode(WorkflowExecutionRecordSchema)(

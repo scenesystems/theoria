@@ -10,8 +10,8 @@ import type { CompositionError } from "../../Errors/module.js"
 import type { SignatureError } from "../../Errors/signature.js"
 import { compose } from "../compose/index.js"
 import type { Module } from "../model.js"
-import { makeParallelForward } from "./runtime.js"
-import { makeParallelSignature, type ParallelInputFields, type ParallelOutputFields } from "./signatures.js"
+import { ParallelRuntime } from "./runtime.js"
+import { type ParallelInputFields, type ParallelOutputFields, ParallelSignature } from "./signatures.js"
 
 /**
  * Default concurrency used while evaluating a batch through `Module.parallel`.
@@ -83,7 +83,7 @@ export const parallel = <
   Effect.gen(function*() {
     const concurrency = normalizePositive(options.concurrency ?? DEFAULT_PARALLEL_CONCURRENCY)
     const failurePolicy = options.failurePolicy ?? DEFAULT_PARALLEL_FAILURE_POLICY
-    const signature = yield* makeParallelSignature({
+    const signature = yield* ParallelSignature.make({
       signature: options.module.signature
     })
 
@@ -94,7 +94,7 @@ export const parallel = <
         branch: options.module
       },
       forward: ({ input }) =>
-        makeParallelForward({
+        ParallelRuntime.forward({
           concurrency,
           failurePolicy,
           module: options.module,

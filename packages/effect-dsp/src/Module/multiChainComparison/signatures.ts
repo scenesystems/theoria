@@ -36,21 +36,23 @@ export type ComparisonInputFields<I extends Schema.Struct.Fields> = I & {
  * @category internal
  * @internal
  */
-export const makeComparisonSignature = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly candidateCount: number
-  readonly signature: Signature.Signature<I, O>
-}) =>
-  Signature.make(
-    `Compare ${options.candidateCount} candidate reasoning chains and return the best final answer.`,
-    {
-      ...options.signature.inputFields,
-      [CANDIDATE_COMPARISONS_FIELD]: Signature.describe(
-        Schema.String,
-        "Ordered candidate reasoning summaries and predicted outputs"
-      )
-    },
-    options.signature.outputFields
-  )
+export const ComparisonSignature = {
+  make: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly candidateCount: number
+    readonly signature: Signature.Signature<I, O>
+  }) =>
+    Signature.make(
+      `Compare ${options.candidateCount} candidate reasoning chains and return the best final answer.`,
+      {
+        ...options.signature.inputFields,
+        [CANDIDATE_COMPARISONS_FIELD]: Signature.describe(
+          Schema.String,
+          "Ordered candidate reasoning summaries and predicted outputs"
+        )
+      },
+      options.signature.outputFields
+    )
+}

@@ -6,13 +6,13 @@ import {
   ChatPromptFixtureSchema,
   ChatQaOutputRequirementsFixtureSchema,
   ChatSystemMessageFixtureSchema,
-  makeFixtureRegistry
+  FixtureRegistry
 } from "../helpers/dspy-fixtures/index.js"
 
 describe("internal/chat-adapter DSPy fixture parity", () => {
   it.effect("asserts full fixture payload equality for messages, output requirements, and field metadata", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawBasic = yield* registry.load("dspy.chat.qa-basic")
       const rawWithDemo = yield* registry.load("dspy.chat.qa-with-demo")
       const rawOutputRequirements = yield* registry.load("dspy.chat.output-requirements.basic")

@@ -6,21 +6,10 @@ import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
-import { BootstrapRSCandidateCatalogFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { BootstrapRSCandidateCatalogFixtureSchema, FixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const toExamples = (entries: ReadonlyArray<{ readonly question: string; readonly answer: string }>) =>
   Arr.map(
@@ -35,11 +24,11 @@ const toExamples = (entries: ReadonlyArray<{ readonly question: string; readonly
 describe("Optimizer.bootstrapRS DSPy parity", () => {
   it.effect("matches fixture-backed candidate catalog and best-candidate selection contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.bootstraprs.candidate-catalog.seed-9")
       const fixture = yield* Schema.decodeUnknown(BootstrapRSCandidateCatalogFixtureSchema)(rawFixture)
 
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa-bootstraprs-dspy-parity", signature)
       const initial = yield* Ref.get(module.params)
 

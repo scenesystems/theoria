@@ -13,9 +13,9 @@ import { MockLanguageModel } from "effect-dsp/test"
 import { Contracts } from "effect-search"
 import { Sampler, SearchSpace, Study } from "effect-search"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardModuleState,
+  StandardExampleSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { createExampleArtifacts } from "./shared/output-artifacts.js"
@@ -171,7 +171,7 @@ const program = Effect.gen(function*() {
     Option.fromNullable(optimized.overallScores.exactMatch),
     () => 0
   )
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "study",
     metricName: "exactMatch",
@@ -198,7 +198,7 @@ const program = Effect.gen(function*() {
       resumedEventTags: resumedTags
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "study",
     streams: Arr.make(
@@ -212,7 +212,7 @@ const program = Effect.gen(function*() {
       }
     )
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "study",
     state: moduleSavedState

@@ -6,34 +6,23 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit, Layer, Schema } from "effect"
 import * as Errors from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
 import {
-  makeFixtureRegistry,
+  FixtureRegistry,
   ProgramOfThoughtParseErrorFixtureSchema,
   ProgramOfThoughtRepairFixtureSchema,
   ProgramOfThoughtSuccessFixtureSchema
 } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 describe("ProgramOfThought errors", () => {
   it.effect("surfaces parse failures as ProgramCodeParseError", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.parse-error.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtParseErrorFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.fixed(fixture.payload.responses.generate)
       )
@@ -70,10 +59,10 @@ describe("ProgramOfThought errors", () => {
 
   it.effect("surfaces execution failures as ProgramExecutionError", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.repair-cycle.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtRepairFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.fixed(fixture.payload.responses.generate)
       )
@@ -107,10 +96,10 @@ describe("ProgramOfThought errors", () => {
 
   it.effect("surfaces interpreter-boundary failures as ProgramRuntimeBoundaryError", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.success.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtSuccessFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.fixed(fixture.payload.responses.generate)
       )

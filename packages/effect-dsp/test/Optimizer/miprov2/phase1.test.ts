@@ -6,20 +6,9 @@ import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Example } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { collectModuleParamRefs } from "../../../src/internal/module-params.js"
 import { generateDemoCandidates } from "../../../src/optimizers/MIPROv2/bootstrap.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainingSet = Arr.make(
   new Example({
@@ -61,7 +50,7 @@ const uniqueNumbers = (numbers: ReadonlyArray<number>): ReadonlyArray<number> =>
 describe("MIPROv2 Phase 1", () => {
   it.effect("includes anchor candidates, then N-3 shuffled bootstrap variants with bounded random demo counts", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       yield* Ref.set(
@@ -106,7 +95,7 @@ describe("MIPROv2 Phase 1", () => {
 
   it.effect("is unique and deterministic for a fixed seed", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       const first = yield* generateDemoCandidates({
@@ -143,7 +132,7 @@ describe("MIPROv2 Phase 1", () => {
 
   it.effect("keeps candidate payloads schema-valid and predictor-compatible", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const refs = collectModuleParamRefs(module)
       const candidateSets = yield* generateDemoCandidates({

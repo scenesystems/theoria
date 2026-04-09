@@ -10,11 +10,9 @@ import {
   decodeOpenAgentTraceContentDigest,
   OpenAgentTraceBranch,
   OpenAgentTraceContentDigest,
-  OpenAgentTraceCorpusManifest,
   OpenAgentTraceCoverage,
   OpenAgentTraceEvent,
   OpenAgentTraceRecord,
-  OpenAgentTraceRecordDigest,
   OpenAgentTraceRecordId,
   OpenAgentTraceRedactionFinding,
   OpenAgentTraceRedactionKey,
@@ -23,10 +21,11 @@ import {
   OpenAgentTraceSession,
   OpenAgentTraceSessionId,
   OpenAgentTraceSource,
-  OpenAgentTraceSourceDigest
+  RecordDigest,
+  SourceDigest
 } from "./schema.js"
 
-const OpenAgentTraceRecordDigestInput = Schema.Struct({
+const RecordDigestInput = Schema.Struct({
   recordId: OpenAgentTraceRecordId,
   source: OpenAgentTraceSource,
   session: OpenAgentTraceSession,
@@ -64,19 +63,6 @@ const OpenAgentTracePublishedRecordDigestInput = Schema.Struct({
   reviewStatus: OpenAgentTraceReviewStatus
 })
 
-const OpenAgentTraceCorpusDigestInput = Schema.Struct({
-  corpusId: Schema.String,
-  adapterId: Schema.String,
-  adapterVersion: Schema.String,
-  normalizationVersion: Schema.String,
-  projectionVersion: Schema.String,
-  sourceDatasetId: Schema.String,
-  sourceDatasetRevision: Schema.String,
-  sourceSplit: Schema.String,
-  recordCount: Schema.Number,
-  recordDigests: Schema.Array(OpenAgentTraceContentDigest)
-})
-
 const stripUndefinedDeep = (value: unknown): unknown =>
   Arr.isArray(value)
     ? Arr.map(value, stripUndefinedDeep)
@@ -102,8 +88,8 @@ const digestEncodedValue = <A, I>(schema: Schema.Schema<A, I>, value: A) =>
  * @since 0.2.0
  * @category combinators
  */
-export const publishedOpenAgentTraceReviewStatus = (reviewStatus: OpenAgentTraceReviewStatus) =>
-  new OpenAgentTraceReviewStatus({ ...reviewStatus, reviewKey: undefined })
+export const publishedReviewStatus = (reviewStatus: OpenAgentTraceReviewStatus) =>
+  OpenAgentTraceReviewStatus.make({ ...reviewStatus, reviewKey: undefined })
 
 /**
  * Computes the canonical digest for one normalized source locator.
@@ -111,10 +97,10 @@ export const publishedOpenAgentTraceReviewStatus = (reviewStatus: OpenAgentTrace
  * @since 0.2.0
  * @category combinators
  */
-export const digestOpenAgentTraceSource = (source: OpenAgentTraceSource) =>
+export const digestSource = (source: OpenAgentTraceSource) =>
   Effect.map(
     digestEncodedValue(OpenAgentTraceSource, source),
-    (digest) => new OpenAgentTraceSourceDigest({ digest })
+    (digest) => SourceDigest.make({ digest })
   )
 
 /**
@@ -123,12 +109,12 @@ export const digestOpenAgentTraceSource = (source: OpenAgentTraceSource) =>
  * @since 0.2.0
  * @category combinators
  */
-export const digestOpenAgentTraceRecord = (record: OpenAgentTraceRecord) =>
+export const digestRecord = (record: OpenAgentTraceRecord) =>
   Effect.gen(function*() {
-    const reviewStatus = publishedOpenAgentTraceReviewStatus(record.reviewStatus)
+    const reviewStatus = publishedReviewStatus(record.reviewStatus)
     const sourceDigest = yield* digestEncodedValue(OpenAgentTraceSource, record.source)
     const reviewStatusDigest = yield* digestEncodedValue(OpenAgentTraceReviewStatus, reviewStatus)
-    const normalizedDigest = yield* digestEncodedValue(OpenAgentTraceRecordDigestInput, {
+    const normalizedDigest = yield* digestEncodedValue(RecordDigestInput, {
       recordId: record.recordId,
       source: record.source,
       session: record.session,
@@ -163,7 +149,7 @@ export const digestOpenAgentTraceRecord = (record: OpenAgentTraceRecord) =>
       reviewStatus
     })
 
-    return new OpenAgentTraceRecordDigest({
+    return RecordDigest.make({
       sourceDigest,
       reviewStatusDigest,
       normalizedDigest,
@@ -177,56 +163,11 @@ export const digestOpenAgentTraceRecord = (record: OpenAgentTraceRecord) =>
  * @since 0.2.0
  * @category combinators
  */
-export const attachOpenAgentTraceRecordProvenance = (record: OpenAgentTraceRecord) =>
-  Effect.map(digestOpenAgentTraceRecord(record), (digests) =>
-    new OpenAgentTraceRecord({
+export const attachRecordProvenance = (record: OpenAgentTraceRecord) =>
+  Effect.map(digestRecord(record), (digests) =>
+    OpenAgentTraceRecord.make({
       ...record,
       sourceDigest: digests.sourceDigest,
       normalizedDigest: digests.normalizedDigest,
       redactedDigest: digests.redactedDigest
     }))
-
-/**
- * Builds a replay-safe corpus manifest from a non-empty normalized record set.
- *
- * @since 0.2.0
- * @category combinators
- */
-export const makeOpenAgentTraceCorpusManifest = (options: {
-  readonly corpusId: string
-  readonly adapterId: string
-  readonly adapterVersion: string
-  readonly normalizationVersion: string
-  readonly projectionVersion: string
-  readonly generatedAt: string
-  readonly records: readonly [OpenAgentTraceRecord, ...ReadonlyArray<OpenAgentTraceRecord>]
-}) =>
-  Effect.gen(function*() {
-    const [firstRecord] = options.records
-    const corpusDigest = yield* digestEncodedValue(OpenAgentTraceCorpusDigestInput, {
-      corpusId: options.corpusId,
-      adapterId: options.adapterId,
-      adapterVersion: options.adapterVersion,
-      normalizationVersion: options.normalizationVersion,
-      projectionVersion: options.projectionVersion,
-      sourceDatasetId: firstRecord.source.datasetId,
-      sourceDatasetRevision: firstRecord.source.datasetRevision,
-      sourceSplit: firstRecord.source.split,
-      recordCount: options.records.length,
-      recordDigests: options.records.map((record) => record.redactedDigest)
-    })
-
-    return new OpenAgentTraceCorpusManifest({
-      corpusId: options.corpusId,
-      adapterId: options.adapterId,
-      adapterVersion: options.adapterVersion,
-      normalizationVersion: options.normalizationVersion,
-      projectionVersion: options.projectionVersion,
-      sourceDatasetId: firstRecord.source.datasetId,
-      sourceDatasetRevision: firstRecord.source.datasetRevision,
-      sourceSplit: firstRecord.source.split,
-      recordCount: options.records.length,
-      corpusDigest,
-      generatedAt: options.generatedAt
-    })
-  })

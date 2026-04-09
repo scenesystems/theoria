@@ -21,24 +21,6 @@ import {
   loadFixture
 } from "../../helpers/dspy-fixtures/index.js"
 
-const makePredictorInstructions = (qa: string, judge: string): ReadonlyArray<PredictorInstruction> =>
-  Arr.make(
-    new PredictorInstruction({ predictorName: "qa", instruction: qa }),
-    new PredictorInstruction({ predictorName: "judge", instruction: judge })
-  )
-
-const makeCandidate = (options: {
-  readonly id: string
-  readonly parentIds?: ReadonlyArray<string>
-  readonly qa: string
-  readonly judge: string
-}): ProgramCandidate =>
-  new ProgramCandidate({
-    candidateId: options.id,
-    parentIds: options.parentIds ?? [],
-    predictorInstructions: makePredictorInstructions(options.qa, options.judge)
-  })
-
 const findInstruction = (
   candidate: ProgramCandidate,
   predictorName: string
@@ -133,10 +115,38 @@ describe("GEPA merge/crossover", () => {
   it.effect("skips merge with an explicit event when no common ancestor exists", () =>
     Effect.gen(function*() {
       const candidates = Arr.make(
-        makeCandidate({ id: "root-a", qa: "root-a", judge: "root-a" }),
-        makeCandidate({ id: "a1", parentIds: ["root-a"], qa: "a1", judge: "a1" }),
-        makeCandidate({ id: "root-b", qa: "root-b", judge: "root-b" }),
-        makeCandidate({ id: "b1", parentIds: ["root-b"], qa: "b1", judge: "b1" })
+        ProgramCandidate.make({
+          candidateId: "root-a",
+          parentIds: [],
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "root-a" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "root-a" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "a1",
+          parentIds: Arr.make("root-a"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "a1" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "a1" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "root-b",
+          parentIds: [],
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "root-b" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "root-b" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "b1",
+          parentIds: Arr.make("root-b"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "b1" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "b1" })
+          )
+        })
       )
 
       const preparation = prepareCommonAncestorMerge({
@@ -159,17 +169,54 @@ describe("GEPA merge/crossover", () => {
   it.effect("selects the nearest discoverable common ancestor across branched lineage", () =>
     Effect.gen(function*() {
       const candidates = Arr.make(
-        makeCandidate({ id: "root", qa: "root", judge: "root" }),
-        makeCandidate({ id: "distant", parentIds: ["root"], qa: "distant", judge: "distant" }),
-        makeCandidate({ id: "close", parentIds: ["root"], qa: "close", judge: "close" }),
-        makeCandidate({ id: "branch-a", parentIds: ["distant"], qa: "branch-a", judge: "branch-a" }),
-        makeCandidate({
-          id: "parent-a",
-          parentIds: ["branch-a", "close"],
-          qa: "qa-parent-a",
-          judge: "judge-parent-a"
+        ProgramCandidate.make({
+          candidateId: "root",
+          parentIds: [],
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "root" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "root" })
+          )
         }),
-        makeCandidate({ id: "parent-b", parentIds: ["close"], qa: "qa-parent-b", judge: "judge-parent-b" })
+        ProgramCandidate.make({
+          candidateId: "distant",
+          parentIds: Arr.make("root"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "distant" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "distant" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "close",
+          parentIds: Arr.make("root"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "close" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "close" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "branch-a",
+          parentIds: Arr.make("distant"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "branch-a" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "branch-a" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "parent-a",
+          parentIds: Arr.make("branch-a", "close"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "qa-parent-a" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "judge-parent-a" })
+          )
+        }),
+        ProgramCandidate.make({
+          candidateId: "parent-b",
+          parentIds: Arr.make("close"),
+          predictorInstructions: Arr.make(
+            PredictorInstruction.make({ predictorName: "qa", instruction: "qa-parent-b" }),
+            PredictorInstruction.make({ predictorName: "judge", instruction: "judge-parent-b" })
+          )
+        })
       )
 
       const nearest = findNearestCommonAncestor(candidates, "parent-a", "parent-b")
@@ -228,18 +275,29 @@ describe("GEPA merge/crossover", () => {
 
   it.effect("records lineage and decrements merge budget when merge is accepted", () =>
     Effect.gen(function*() {
-      const seed = makeCandidate({ id: "seed", qa: "qa-seed", judge: "judge-seed" })
-      const parentA = makeCandidate({
-        id: "parent-a",
-        parentIds: ["seed"],
-        qa: "qa-from-a",
-        judge: "judge-seed"
+      const seed = ProgramCandidate.make({
+        candidateId: "seed",
+        parentIds: [],
+        predictorInstructions: Arr.make(
+          PredictorInstruction.make({ predictorName: "qa", instruction: "qa-seed" }),
+          PredictorInstruction.make({ predictorName: "judge", instruction: "judge-seed" })
+        )
       })
-      const parentB = makeCandidate({
-        id: "parent-b",
-        parentIds: ["seed"],
-        qa: "qa-seed",
-        judge: "judge-from-b"
+      const parentA = ProgramCandidate.make({
+        candidateId: "parent-a",
+        parentIds: Arr.make("seed"),
+        predictorInstructions: Arr.make(
+          PredictorInstruction.make({ predictorName: "qa", instruction: "qa-from-a" }),
+          PredictorInstruction.make({ predictorName: "judge", instruction: "judge-seed" })
+        )
+      })
+      const parentB = ProgramCandidate.make({
+        candidateId: "parent-b",
+        parentIds: Arr.make("seed"),
+        predictorInstructions: Arr.make(
+          PredictorInstruction.make({ predictorName: "qa", instruction: "qa-seed" }),
+          PredictorInstruction.make({ predictorName: "judge", instruction: "judge-from-b" })
+        )
       })
       const pool = Arr.make(seed, parentA, parentB)
       const preparation = prepareCommonAncestorMerge({
@@ -266,7 +324,15 @@ describe("GEPA merge/crossover", () => {
 
       const acceptedCandidate = Option.getOrElse(
         preparation.candidate,
-        () => makeCandidate({ id: "unreachable", qa: "unreachable", judge: "unreachable" })
+        () =>
+          ProgramCandidate.make({
+            candidateId: "unreachable",
+            parentIds: [],
+            predictorInstructions: Arr.make(
+              PredictorInstruction.make({ predictorName: "qa", instruction: "unreachable" }),
+              PredictorInstruction.make({ predictorName: "judge", instruction: "unreachable" })
+            )
+          })
       )
       const updatedState = recordAcceptedMerge(
         new MergeState({

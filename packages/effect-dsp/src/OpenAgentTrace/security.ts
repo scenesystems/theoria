@@ -10,14 +10,14 @@ import { Effect, Option, Schema } from "effect"
 
 import type { OpenAgentTraceRedactionPolicy } from "./redaction.js"
 import {
-  OpenAgentTraceCorpusManifest,
+  CorpusManifest,
   OpenAgentTracePrivateReviewPayload,
   type OpenAgentTraceRecord,
   OpenAgentTraceRecordId,
   OpenAgentTraceSealedReviewBundle,
   OpenAgentTraceSessionId,
-  OpenAgentTraceSignedCorpusManifest,
-  type PiShareHfReviewSidecar
+  type PiShareHfReviewSidecar,
+  SignedCorpusManifest
 } from "./schema.js"
 
 const OpenAgentTraceReviewBundleAssociatedData = Schema.Struct({
@@ -52,7 +52,7 @@ export const sealOpenAgentTracePrivateReviewBundle = (options: {
   readonly reviewSidecar?: PiShareHfReviewSidecar
 }) =>
   Effect.gen(function*() {
-    const payload = new OpenAgentTracePrivateReviewPayload({
+    const payload = OpenAgentTracePrivateReviewPayload.make({
       recordId: options.record.recordId,
       sessionId: options.record.source.sessionId,
       policyId: options.policy.policyId,
@@ -70,7 +70,7 @@ export const sealOpenAgentTracePrivateReviewBundle = (options: {
       associatedData
     )
 
-    return new OpenAgentTraceSealedReviewBundle({
+    return OpenAgentTraceSealedReviewBundle.make({
       bundleKind: "sealed-review-bundle",
       recordId: payload.recordId,
       sessionId: payload.sessionId,
@@ -110,18 +110,18 @@ export const unsealOpenAgentTracePrivateReviewBundle = (options: {
  * @since 0.2.0
  * @category combinators
  */
-export const signOpenAgentTraceCorpusManifest = (options: {
-  readonly manifest: OpenAgentTraceCorpusManifest
+export const signCorpusManifest = (options: {
+  readonly manifest: CorpusManifest
   readonly algorithm: Schema.Schema.Type<typeof SignatureAlgorithm>
   readonly secretKey: Uint8Array
   readonly publicKey: Uint8Array
 }) =>
   Effect.gen(function*() {
     const algorithm = yield* Schema.decode(SignatureAlgorithm)(options.algorithm)
-    const bytes = yield* canonicalSchemaBytes(OpenAgentTraceCorpusManifest, options.manifest)
+    const bytes = yield* canonicalSchemaBytes(CorpusManifest, options.manifest)
     const signature = yield* signDetached(algorithm, bytes, options.secretKey, options.publicKey)
 
-    return new OpenAgentTraceSignedCorpusManifest({
+    return SignedCorpusManifest.make({
       manifestKind: "signed-corpus-manifest",
       manifest: options.manifest,
       signature,
@@ -135,8 +135,8 @@ export const signOpenAgentTraceCorpusManifest = (options: {
  * @since 0.2.0
  * @category combinators
  */
-export const verifyOpenAgentTraceSignedCorpusManifest = (value: OpenAgentTraceSignedCorpusManifest) =>
+export const verifySignedCorpusManifest = (value: SignedCorpusManifest) =>
   Effect.gen(function*() {
-    const bytes = yield* canonicalSchemaBytes(OpenAgentTraceCorpusManifest, value.manifest)
+    const bytes = yield* canonicalSchemaBytes(CorpusManifest, value.manifest)
     return yield* verifyDetached(value.signature, bytes, value.publicKey)
   })

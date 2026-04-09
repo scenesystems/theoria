@@ -16,17 +16,17 @@ describe("OpenAgentTrace/sealedPrivateReviewBundle", () => {
   it.effect("seals review sidecars and literal-secret policy inputs into a private envelope that round-trips without leaking into the public normalized record", () =>
     Effect.gen(function*() {
       const key = yield* generateKey()
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(
         piShareHfReviewSidecarFixture
       )
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry,
         reviewSidecar
       })

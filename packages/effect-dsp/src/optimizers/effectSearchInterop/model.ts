@@ -64,7 +64,7 @@ export type EffectSearchTpeSamplerInput = Readonly<{
  * @since 0.1.0
  * @category constants
  */
-export const defaultEffectSearchTpeSamplerOptions = new EffectSearchTpeSamplerOptions({
+export const defaultEffectSearchTpeSamplerOptions = EffectSearchTpeSamplerOptions.make({
   seed: Option.none(),
   multivariate: true,
   acquisition: "ei"

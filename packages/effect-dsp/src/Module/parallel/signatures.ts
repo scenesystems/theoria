@@ -53,24 +53,26 @@ export type ParallelOutputFields<O extends Schema.Struct.Fields> = Readonly<
  * @category internal
  * @internal
  */
-export const makeParallelSignature = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly signature: Signature.Signature<I, O>
-}) =>
-  Signature.make(
-    `Run ${options.signature.description} over an ordered batch of inputs and preserve output ordering.`,
-    {
-      [PARALLEL_INPUTS_FIELD]: Signature.describe(
-        Schema.Array(options.signature.inputSchema),
-        "Ordered batch inputs evaluated by the wrapped module"
-      )
-    },
-    {
-      [PARALLEL_OUTPUTS_FIELD]: Signature.describe(
-        Schema.Array(options.signature.outputSchema),
-        "Ordered batch outputs projected from the wrapped module"
-      )
-    }
-  )
+export const ParallelSignature = {
+  make: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly signature: Signature.Signature<I, O>
+  }) =>
+    Signature.make(
+      `Run ${options.signature.description} over an ordered batch of inputs and preserve output ordering.`,
+      {
+        [PARALLEL_INPUTS_FIELD]: Signature.describe(
+          Schema.Array(options.signature.inputSchema),
+          "Ordered batch inputs evaluated by the wrapped module"
+        )
+      },
+      {
+        [PARALLEL_OUTPUTS_FIELD]: Signature.describe(
+          Schema.Array(options.signature.outputSchema),
+          "Ordered batch outputs projected from the wrapped module"
+        )
+      }
+    )
+}

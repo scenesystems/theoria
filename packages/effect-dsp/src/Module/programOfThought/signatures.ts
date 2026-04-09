@@ -68,10 +68,7 @@ export type ProgramAnswerInputFields<I extends Schema.Struct.Fields> =
     readonly code_output: typeof codeOutputField
   }>
 
-const reservedFieldCollision = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
+const reservedFieldCollision = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   signature: Signature.Signature<I, O>
 ) =>
   Arr.findFirst(
@@ -101,10 +98,7 @@ const ensureReservedFieldNamesAvailable = <
   })
 
 const fieldList = (fields: Schema.Struct.Fields): string =>
-  Arr.join(
-    Arr.map(Record.keys(fields), (fieldName) => `\`${fieldName}\``),
-    ", "
-  )
+  Arr.join(Arr.map(Record.keys(fields), (fieldName) => `\`${fieldName}\``), ", ")
 
 const withInstructions = <
   I extends Schema.Struct.Fields,
@@ -123,7 +117,7 @@ const withInstructions = <
     fields: signature.fields
   })
 
-const makeInternalSignature = <
+const internalProgramSignature = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(
@@ -137,103 +131,106 @@ const makeInternalSignature = <
   )
 
 /**
- * Build the planning signature used for the first program-generation phase.
- *
+ * Planning-signature authority for the first program-generation phase.
  * @since 0.2.0
  * @category combinators
  * @internal
  */
-export const makeProgramGenerateSignature = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
-  signature: Signature.Signature<I, O>
-): Effect.Effect<Signature.Signature<I, ProgramGeneratedCodeFields>, SignatureError> =>
-  Effect.gen(function*() {
-    yield* ensureReservedFieldNamesAvailable(signature)
-    const finalOutputs = fieldList(signature.outputFields)
+export const ProgramGenerateSignature = {
+  fromSignature: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(
+    signature: Signature.Signature<I, O>
+  ): Effect.Effect<Signature.Signature<I, ProgramGeneratedCodeFields>, SignatureError> =>
+    Effect.gen(function*() {
+      yield* ensureReservedFieldNamesAvailable(signature)
+      const finalOutputs = fieldList(signature.outputFields)
 
-    return yield* makeInternalSignature(
-      `${signature.description} — generate executable code`,
-      signature.inputFields,
-      { generated_code: generatedCodeField },
-      [
-        `You will be given ${
-          fieldList(signature.inputFields)
-        } and you will respond with \`${GENERATED_CODE_FIELD_NAME}\`.`,
-        `Generate executable Python code that programmatically computes the correct output fields ${finalOutputs}.`,
-        "After the computation is complete, make sure the program emits its final observable output through the interpreter boundary.",
-        `Structure any explicit submission as a dict whose keys match the final output field(s): ${finalOutputs}.`
-      ].join("\n")
-    )
-  })
+      return yield* internalProgramSignature(
+        `${signature.description} — generate executable code`,
+        signature.inputFields,
+        { generated_code: generatedCodeField },
+        [
+          `You will be given ${
+            fieldList(signature.inputFields)
+          } and you will respond with \`${GENERATED_CODE_FIELD_NAME}\`.`,
+          `Generate executable Python code that programmatically computes the correct output fields ${finalOutputs}.`,
+          "After the computation is complete, make sure the program emits its final observable output through the interpreter boundary.",
+          `Structure any explicit submission as a dict whose keys match the final output field(s): ${finalOutputs}.`
+        ].join("\n")
+      )
+    })
+}
 
 /**
- * Build the repair signature used after a parse or execution failure.
- *
+ * Repair-signature authority used after a parse or execution failure.
  * @since 0.2.0
  * @category combinators
  * @internal
  */
-export const makeProgramRepairSignature = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
-  signature: Signature.Signature<I, O>
-): Effect.Effect<Signature.Signature<ProgramRepairInputFields<I>, ProgramGeneratedCodeFields>, SignatureError> =>
-  Effect.gen(function*() {
-    yield* ensureReservedFieldNamesAvailable(signature)
+export const ProgramRepairSignature = {
+  fromSignature: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(
+    signature: Signature.Signature<I, O>
+  ): Effect.Effect<Signature.Signature<ProgramRepairInputFields<I>, ProgramGeneratedCodeFields>, SignatureError> =>
+    Effect.gen(function*() {
+      yield* ensureReservedFieldNamesAvailable(signature)
 
-    return yield* makeInternalSignature(
-      `${signature.description} — repair executable code`,
-      {
-        ...signature.inputFields,
-        previous_code: previousCodeField,
-        error: errorField
-      },
-      { generated_code: generatedCodeField },
-      [
-        `You are given ${
-          fieldList({ ...signature.inputFields, previous_code: previousCodeField, error: errorField })
-        } due to an error in the previous program body.`,
-        `Correct the failure and return a new \`${GENERATED_CODE_FIELD_NAME}\` that computes the original output fields ${
-          fieldList(signature.outputFields)
-        }.`,
-        "Do not explain the fix outside the structured response fields."
-      ].join("\n")
-    )
-  })
+      return yield* internalProgramSignature(
+        `${signature.description} — repair executable code`,
+        {
+          ...signature.inputFields,
+          previous_code: previousCodeField,
+          error: errorField
+        },
+        { generated_code: generatedCodeField },
+        [
+          `You are given ${
+            fieldList({ ...signature.inputFields, previous_code: previousCodeField, error: errorField })
+          } due to an error in the previous program body.`,
+          `Correct the failure and return a new \`${GENERATED_CODE_FIELD_NAME}\` that computes the original output fields ${
+            fieldList(signature.outputFields)
+          }.`,
+          "Do not explain the fix outside the structured response fields."
+        ].join("\n")
+      )
+    })
+}
 
 /**
- * Build the answer-projection signature used after execution succeeds.
- *
+ * Answer-projection signature authority used after execution succeeds.
  * @since 0.2.0
  * @category combinators
  * @internal
  */
-export const makeProgramAnswerSignature = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(
-  signature: Signature.Signature<I, O>
-): Effect.Effect<Signature.Signature<ProgramAnswerInputFields<I>, O>, SignatureError> =>
-  Effect.gen(function*() {
-    yield* ensureReservedFieldNamesAvailable(signature)
+export const ProgramAnswerSignature = {
+  fromSignature: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(
+    signature: Signature.Signature<I, O>
+  ): Effect.Effect<Signature.Signature<ProgramAnswerInputFields<I>, O>, SignatureError> =>
+    Effect.gen(function*() {
+      yield* ensureReservedFieldNamesAvailable(signature)
 
-    return yield* makeInternalSignature(
-      `${signature.description} — project final answer`,
-      {
-        ...signature.inputFields,
-        final_generated_code: finalGeneratedCodeField,
-        code_output: codeOutputField
-      },
-      signature.outputFields,
-      `Given the final code ${
-        fieldList({
+      return yield* internalProgramSignature(
+        `${signature.description} — project final answer`,
+        {
           ...signature.inputFields,
           final_generated_code: finalGeneratedCodeField,
           code_output: codeOutputField
-        })
-      }, provide the final output fields ${fieldList(signature.outputFields)}.`
-    )
-  })
+        },
+        signature.outputFields,
+        `Given the final code ${
+          fieldList({
+            ...signature.inputFields,
+            final_generated_code: finalGeneratedCodeField,
+            code_output: codeOutputField
+          })
+        }, provide the final output fields ${fieldList(signature.outputFields)}.`
+      )
+    })
+}

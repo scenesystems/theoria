@@ -11,22 +11,22 @@ import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures
 describe("examples/21-open-agent-trace-projection", () => {
   it.effect("normalizes a checked-in pi-mono fixture, projects bounded optimization inputs, and emits artifact-ready summaries", () =>
     Effect.gen(function*() {
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
-      const exampleProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToExamples(record)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+      const exampleProjection = yield* Experimental.OpenAgentTrace.Examples.project(record)
       const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
       const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-      const artifact = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToArtifact({
+      const artifact = yield* Experimental.OpenAgentTrace.Artifact.project({
         record,
         projection: exampleProjection,
         packageVersion,

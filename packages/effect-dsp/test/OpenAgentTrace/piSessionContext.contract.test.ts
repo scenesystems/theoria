@@ -10,8 +10,8 @@ import { piMonoTaskFirstRowFixture } from "../fixtures/open-agent-trace/pi-mono/
 describe("OpenAgentTrace/piSessionContext", () => {
   it.effect("resolves one active leaf path, preserves abandoned-branch lineage, and keeps compaction as summary-first context", () =>
     Effect.gen(function*() {
-      const migrated = yield* Experimental.OpenAgentTrace.migratePiSessionEntries(piMonoTaskFirstRowFixture.traces)
-      const resolved = Experimental.OpenAgentTrace.resolvePiSessionContext(migrated.entries)
+      const migrated = yield* Experimental.OpenAgentTrace.PiMono.migrateSessionEntries(piMonoTaskFirstRowFixture.traces)
+      const resolved = Experimental.OpenAgentTrace.PiMono.resolveSessionContext(migrated.entries)
       const liveContextIds = resolved.liveContext.map((entry) => entry.id)
 
       expect(resolved.selection.selectedLeafEntryId).toBe("0000000e")

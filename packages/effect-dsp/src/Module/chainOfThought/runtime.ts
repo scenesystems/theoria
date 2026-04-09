@@ -18,14 +18,16 @@ import { type ChainOfThoughtOutputFields, toChainOfThoughtSignature } from "./sc
  * @since 0.1.0
  * @category internal
  */
-export const makeChainOfThought = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly name: string
-  readonly signature: Signature.Signature<I, O>
-  readonly predictOptions: PredictOptions
-}): Effect.Effect<Module<I, ChainOfThoughtOutputFields<O>>, SignatureError> =>
-  toChainOfThoughtSignature(options.signature).pipe(
-    Effect.flatMap((signature) => predict(options.name, signature, options.predictOptions))
-  )
+export const ChainOfThoughtRuntime = {
+  allocate: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly name: string
+    readonly signature: Signature.Signature<I, O>
+    readonly predictOptions: PredictOptions
+  }): Effect.Effect<Module<I, ChainOfThoughtOutputFields<O>>, SignatureError> =>
+    toChainOfThoughtSignature(options.signature).pipe(
+      Effect.flatMap((signature) => predict(options.name, signature, options.predictOptions))
+    )
+}

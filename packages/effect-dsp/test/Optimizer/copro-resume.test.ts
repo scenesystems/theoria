@@ -7,13 +7,13 @@ import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
 import {
+  capitalCityQaSignature,
+  capitalCityTrainset,
   firstLegResponses,
   fullRunResponses,
-  makeQaSignature,
-  makeSequenceLayer,
-  makeTrainset,
   prepareStructuredModule,
-  resumeTailResponses
+  resumeTailResponses,
+  SequenceLanguageModel
 } from "../helpers/copro.js"
 import { CoproProgressionFixtureSchema, CoproResumeFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -24,7 +24,7 @@ describe("Optimizer.copro resume", () => {
       const progressionFixture = yield* Schema.decodeUnknown(CoproProgressionFixtureSchema)(rawProgressionFixture)
       const rawResumeFixture = yield* loadFixture("dspy.copro.resume.seed-17")
       const resumeFixture = yield* Schema.decodeUnknown(CoproResumeFixtureSchema)(rawResumeFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* capitalCityQaSignature
       const baselineModule = yield* Module.predict("qa-baseline", signature)
       const partialModule = yield* Module.predict("qa-partial", signature)
       const resumedModule = yield* Module.predict("qa-resumed", signature)
@@ -35,23 +35,23 @@ describe("Optimizer.copro resume", () => {
 
       yield* Optimizer.copro({
         module: baselineModule,
-        trainset: makeTrainset(),
+        trainset: capitalCityTrainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: progressionFixture.payload.numCandidates,
         maxSteps: progressionFixture.payload.maxSteps,
         seed: progressionFixture.payload.seed
-      }).pipe(Effect.provide(makeSequenceLayer(fullRunResponses())))
+      }).pipe(Effect.provide(SequenceLanguageModel.layer(fullRunResponses)))
 
       const snapshotRef = yield* Ref.make(Option.none<Optimizer.COPROSnapshot>())
       yield* Optimizer.copro({
         module: partialModule,
-        trainset: makeTrainset(),
+        trainset: capitalCityTrainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: progressionFixture.payload.numCandidates,
         maxSteps: resumeFixture.payload.expectedNextStep,
         seed: progressionFixture.payload.seed,
         snapshotSink: (snapshot) => Ref.set(snapshotRef, Option.some(snapshot))
-      }).pipe(Effect.provide(makeSequenceLayer(firstLegResponses())))
+      }).pipe(Effect.provide(SequenceLanguageModel.layer(firstLegResponses)))
 
       const snapshotOption = yield* Ref.get(snapshotRef)
 
@@ -63,7 +63,7 @@ describe("Optimizer.copro resume", () => {
 
       yield* Optimizer.copro({
         module: resumedModule,
-        trainset: makeTrainset(),
+        trainset: capitalCityTrainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: progressionFixture.payload.numCandidates,
         maxSteps: progressionFixture.payload.maxSteps,
@@ -79,7 +79,7 @@ describe("Optimizer.copro resume", () => {
             }))
           })
         })
-      }).pipe(Effect.provide(makeSequenceLayer(resumeTailResponses())))
+      }).pipe(Effect.provide(SequenceLanguageModel.layer(resumeTailResponses)))
 
       const baselineState = yield* Module.save(baselineModule)
       const resumedState = yield* Module.save(resumedModule)

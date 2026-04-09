@@ -3,22 +3,11 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Cause, Effect, Exit, Layer, Option, Ref, Schema } from "effect"
+import { Cause, Effect, Exit, Layer, Option, Ref } from "effect"
 import { ParallelExecutionError } from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const failureFromExit = (exit: Exit.Exit<unknown, unknown>) =>
   Exit.match(exit, {
@@ -29,7 +18,7 @@ const failureFromExit = (exit: Exit.Exit<unknown, unknown>) =>
 describe("Module.parallel failure policies", () => {
   it.effect("keeps branch failures typed and makes the failure policy explicit", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const inner = yield* Module.predict("qa-parallel-errors-inner", signature)
       const failFastIndex = yield* Ref.make(0)
 

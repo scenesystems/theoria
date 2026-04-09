@@ -14,9 +14,9 @@ import {
 describe("OpenAgentTrace/piSessionEntry", () => {
   it.effect("migrates versions 1, 2, and 3 through one canonical entry family that accepts the required entry kinds", () =>
     Effect.gen(function*() {
-      const v1 = yield* Experimental.OpenAgentTrace.migratePiSessionEntries(piSessionV1Fixture)
-      const v2 = yield* Experimental.OpenAgentTrace.migratePiSessionEntries(piSessionV2Fixture)
-      const v3 = yield* Experimental.OpenAgentTrace.migratePiSessionEntries(piSessionV3Fixture)
+      const v1 = yield* Experimental.OpenAgentTrace.PiMono.migrateSessionEntries(piSessionV1Fixture)
+      const v2 = yield* Experimental.OpenAgentTrace.PiMono.migrateSessionEntries(piSessionV2Fixture)
+      const v3 = yield* Experimental.OpenAgentTrace.PiMono.migrateSessionEntries(piSessionV3Fixture)
       const entryKinds = [...v1.entries, ...v2.entries, ...v3.entries].map((entry) => entry.type)
       const firstV2Message = Option.fromNullable(
         v2.entries.find((entry: (typeof v2.entries)[number]) => entry.type === "message")

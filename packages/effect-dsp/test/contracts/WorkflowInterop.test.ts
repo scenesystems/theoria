@@ -79,10 +79,10 @@ const workflowGraphInput = {
 
 describe("contracts/WorkflowInterop", () => {
   it("pins session, score, render, and artifact ownership to sibling package authorities", () => {
-    expect(DspContracts.workflowInteropOwnership.sessionAndRouting).toBe("effect-inference")
-    expect(DspContracts.workflowInteropOwnership.scoreAggregation).toBe("effect-math")
-    expect(DspContracts.workflowInteropOwnership.renderEvaluation).toBe("effect-text")
-    expect(DspContracts.workflowInteropOwnership.artifactTransport).toBe("effect-search")
+    expect(DspContracts.WorkflowInteropOwnership.current.sessionAndRouting).toBe("effect-inference")
+    expect(DspContracts.WorkflowInteropOwnership.current.scoreAggregation).toBe("effect-math")
+    expect(DspContracts.WorkflowInteropOwnership.current.renderEvaluation).toBe("effect-text")
+    expect(DspContracts.WorkflowInteropOwnership.current.artifactTransport).toBe("effect-search")
   })
 
   it.effect("projects workflow manifests through deterministic traversal semantics shared with ModuleGraphProjection", () =>
@@ -91,23 +91,32 @@ describe("contracts/WorkflowInterop", () => {
       const plannerId = yield* decodeModuleId("planner")
       const drafterId = yield* decodeModuleId("drafter")
       const responderId = yield* decodeModuleId("responder")
-      const moduleProjection = DspContracts.projectOptimizationModuleGraph(
-        DspContracts.makeModuleGraph({
+      const moduleProjection = DspContracts.OptimizationModuleGraphSurface.fromGraph(
+        DspContracts.ModuleGraph.fromParts({
           rootId: plannerId,
           nodes: [
             new DspContracts.ModuleGraphNode({
               moduleId: plannerId,
-              signature: DspContracts.makeModuleNodeSignature("Planner", "Planner instructions"),
+              signature: DspContracts.ModuleNodeSignature.make({
+                description: "Planner",
+                instructions: "Planner instructions"
+              }),
               subModuleIds: [drafterId]
             }),
             new DspContracts.ModuleGraphNode({
               moduleId: drafterId,
-              signature: DspContracts.makeModuleNodeSignature("Drafter", "Drafter instructions"),
+              signature: DspContracts.ModuleNodeSignature.make({
+                description: "Drafter",
+                instructions: "Drafter instructions"
+              }),
               subModuleIds: [responderId]
             }),
             new DspContracts.ModuleGraphNode({
               moduleId: responderId,
-              signature: DspContracts.makeModuleNodeSignature("Responder", "Responder instructions"),
+              signature: DspContracts.ModuleNodeSignature.make({
+                description: "Responder",
+                instructions: "Responder instructions"
+              }),
               subModuleIds: []
             })
           ],
@@ -117,7 +126,7 @@ describe("contracts/WorkflowInterop", () => {
           ]
         })
       )
-      const workflowProjection = DspContracts.projectWorkflowModuleGraph(input)
+      const workflowProjection = DspContracts.WorkflowModuleGraphProjection.fromWorkflowInput(input)
       const workflowLineages = workflowProjection.lineages.map((lineage) => ({
         targetNodeId: lineage.targetNodeId,
         path: lineage.path

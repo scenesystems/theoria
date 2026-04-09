@@ -2,31 +2,20 @@ import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Record, Schema } from "effect"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
-import { makeFixtureRegistry, MultiChainComparisonFixtureSchema } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { FixtureRegistry, MultiChainComparisonFixtureSchema } from "../helpers/dspy-fixtures/index.js"
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.multiChainComparison DSPy parity", () => {
   it.effect("matches the committed DSPy comparison fixture for candidate summaries and final answer", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.multiChainComparison.basic")
       const fixture = yield* Schema.decodeUnknown(MultiChainComparisonFixtureSchema)(rawFixture)
 
-      const qa = yield* makeQaSignature()
+      const qa = yield* shortFactualAnswersQaSignature
       const module = yield* Module.multiChainComparison({
         name: "qa-multi-chain-dspy-parity",
         signature: qa,

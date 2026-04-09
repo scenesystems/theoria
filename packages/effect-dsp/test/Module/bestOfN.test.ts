@@ -3,29 +3,18 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, FiberRef, Layer, Option, Ref, Schema } from "effect"
+import { Effect, FiberRef, Layer, Option, Ref } from "effect"
 import { MetricResult } from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 import { RolloutRef } from "../../src/Cache/refs.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.bestOfN", () => {
   it.effect("returns the highest-scoring candidate across N rollouts", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           { answer: "Bad answer" },
@@ -36,8 +25,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = (_input, output) => {
         const scores: Record<string, number> = {
           "Bad answer": 0.2,
@@ -66,7 +55,7 @@ describe("Module.bestOfN", () => {
 
   it.effect("each rollout receives a distinct RolloutRef value", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const rolloutValues = yield* Ref.make<ReadonlyArray<Option.Option<number>>>([])
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction((_prompt) =>
@@ -79,8 +68,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({
@@ -105,7 +94,7 @@ describe("Module.bestOfN", () => {
 
   it.effect("applies threshold filtering — returns first candidate above threshold", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           { answer: "Low quality" },
@@ -116,8 +105,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = (_input, output) => {
         const score = output.answer.includes("High") ? 0.8 : 0.2
         return Effect.succeed(new MetricResult({ score }))
@@ -142,7 +131,7 @@ describe("Module.bestOfN", () => {
 
   it.effect("returns best candidate when none meet threshold", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           { answer: "Fair" },
@@ -152,8 +141,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = (_input, output) => {
         const score = output.answer === "Better" ? 0.4 : 0.2
         return Effect.succeed(new MetricResult({ score }))
@@ -178,7 +167,7 @@ describe("Module.bestOfN", () => {
 
   it.effect("stable tie-break: lowest rollout index wins when scores are equal", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           { answer: "First" },
@@ -189,8 +178,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({
@@ -211,7 +200,7 @@ describe("Module.bestOfN", () => {
 
   it.effect("records trace entries for each rollout when tracing is enabled", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           { answer: "A" },
@@ -221,8 +210,8 @@ describe("Module.bestOfN", () => {
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof inner.signature.inputFields,
+        typeof inner.signature.outputFields
       > = () => Effect.succeed(new MetricResult({ score: 0.5 }))
 
       const bestOf = yield* Module.bestOfN({

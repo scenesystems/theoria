@@ -5,25 +5,14 @@ import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
 import {
   BootstrapDemoBudgetFixtureSchema,
   BootstrapThresholdFilteringFixtureSchema,
-  makeFixtureRegistry
+  FixtureRegistry
 } from "../../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const responseForPrompt = (
   cases: ReadonlyArray<{
@@ -57,11 +46,11 @@ const toTrainset = (
 describe("Optimizer.bootstrapFewShot DSPy parity", () => {
   it.effect("matches demo budget contracts from committed fixture", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.bootstrap.demo-budget.basic")
       const fixture = yield* Schema.decodeUnknown(BootstrapDemoBudgetFixtureSchema)(rawFixture)
 
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa-bootstrap-demo-budget-dspy-parity", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) => ({
@@ -91,11 +80,11 @@ describe("Optimizer.bootstrapFewShot DSPy parity", () => {
 
   it.effect("matches threshold filtering contracts from committed fixture", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.bootstrap.threshold-filtering.basic")
       const fixture = yield* Schema.decodeUnknown(BootstrapThresholdFilteringFixtureSchema)(rawFixture)
 
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa-bootstrap-threshold-dspy-parity", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) => ({

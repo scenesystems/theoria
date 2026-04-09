@@ -18,29 +18,29 @@ describe("OpenAgentTrace/artifactEnvelope", () => {
       const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
       const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-      const manifestEntry = yield* Experimental.OpenAgentTrace.decodePiShareHfManifestEntry(piShareHfManifestFixture)
-      const reviewSidecar = yield* Experimental.OpenAgentTrace.decodePiShareHfReviewSidecar(
+      const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
+      const reviewSidecar = yield* Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(
         piShareHfReviewSidecarFixture
       )
-      const record = yield* Experimental.OpenAgentTrace.normalizePiMonoDatasetRow({
+      const record = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",
         split: "train",
         sourceUrl: "https://huggingface.co/datasets/badlogicgames/pi-mono",
         licenseTag: "other",
-        row: yield* Experimental.OpenAgentTrace.decodePiMonoDatasetRow(piMonoTaskFirstRowFixture),
+        row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry,
         reviewSidecar
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToWorkflow(record)
-      const recordEnvelope = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToArtifact({
+      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+      const recordEnvelope = yield* Experimental.OpenAgentTrace.Artifact.project({
         record,
         packageVersion,
         runId,
         sequence: 0,
         emittedAt
       })
-      const workflowEnvelope = yield* Experimental.OpenAgentTrace.projectOpenAgentTraceToArtifact({
+      const workflowEnvelope = yield* Experimental.OpenAgentTrace.Artifact.project({
         record,
         projection: workflowProjection,
         packageVersion,
@@ -56,10 +56,10 @@ describe("OpenAgentTrace/artifactEnvelope", () => {
       }
 
       const decodedRecordPayload = yield* Schema.decodeUnknown(
-        Experimental.OpenAgentTrace.OpenAgentTraceArtifactPayload
+        Experimental.OpenAgentTrace.ArtifactPayload
       )(recordEnvelope.payload)
       const decodedWorkflowPayload = yield* Schema.decodeUnknown(
-        Experimental.OpenAgentTrace.OpenAgentTraceArtifactPayload
+        Experimental.OpenAgentTrace.ArtifactPayload
       )(workflowEnvelope.payload)
 
       expect(recordEnvelope.producer._tag).toBe("EffectDsp")

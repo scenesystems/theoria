@@ -26,7 +26,7 @@ const schemaDiagnostics = (issue: ParseResult.ParseIssue): ReadonlyArray<ParseFi
   Arr.map(
     ParseResult.ArrayFormatter.formatIssueSync(issue),
     (diagnostic) =>
-      new ParseFieldDiagnostic({
+      ParseFieldDiagnostic.make({
         field: fieldFromPath(diagnostic.path),
         issue: "decode-error",
         message: diagnostic.message
@@ -40,7 +40,7 @@ const parseOutputError = (options: {
   readonly retryCount: Option.Option<number>
   readonly diagnostics: ReadonlyArray<ParseFieldDiagnostic>
 }): ParseOutputError =>
-  new ParseOutputError({
+  ParseOutputError.make({
     message: options.message,
     moduleName: options.moduleName,
     rawOutput: options.rawOutput,

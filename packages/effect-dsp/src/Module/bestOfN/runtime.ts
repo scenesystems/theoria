@@ -48,55 +48,57 @@ const scoredCandidateOrder: Order.Order<ScoredCandidate<unknown>> = Order.combin
  * @since 0.1.0
  * @internal
  */
-export const makeBestOfNForward = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly moduleName: string
-  readonly signature: Signature<I, O>
-  readonly innerModule: Module<I, O>
-  readonly N: number
-  readonly reward: RewardFn<I, O>
-  readonly threshold?: number
-}): Module<I, O>["forward"] => {
-  const normalizedN = Num.clamp(options.N, { minimum: 1, maximum: options.N })
+export const BestOfNRuntime = {
+  forward: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly moduleName: string
+    readonly signature: Signature<I, O>
+    readonly innerModule: Module<I, O>
+    readonly N: number
+    readonly reward: RewardFn<I, O>
+    readonly threshold?: number
+  }): Module<I, O>["forward"] => {
+    const normalizedN = Num.clamp(options.N, { minimum: 1, maximum: options.N })
 
-  return Effect.fn(options.moduleName)((input) =>
-    Effect.gen(function*() {
-      const candidates = yield* Effect.forEach(
-        Arr.range(0, normalizedN - 1),
-        (rolloutIndex) =>
-          withRollout(
-            rolloutIndex,
-            Effect.gen(function*() {
-              const output = yield* options.innerModule.forward(input)
-              const result = yield* options.reward(input, output)
-              const candidate: ScoredCandidate<Schema.Schema.Type<Schema.Struct<O>>> = {
-                output,
-                score: result.score,
-                rolloutIndex
-              }
+    return Effect.fn(options.moduleName)((input) =>
+      Effect.gen(function*() {
+        const candidates = yield* Effect.forEach(
+          Arr.range(0, normalizedN - 1),
+          (rolloutIndex) =>
+            withRollout(
+              rolloutIndex,
+              Effect.gen(function*() {
+                const output = yield* options.innerModule.forward(input)
+                const result = yield* options.reward(input, output)
+                const candidate: ScoredCandidate<Schema.Schema.Type<Schema.Struct<O>>> = {
+                  output,
+                  score: result.score,
+                  rolloutIndex
+                }
 
-              return candidate
-            })
-          )
-      )
+                return candidate
+              })
+            )
+        )
 
-      const sorted = Arr.sort(candidates, scoredCandidateOrder)
+        const sorted = Arr.sort(candidates, scoredCandidateOrder)
 
-      const selected = Option.match(Option.fromNullable(options.threshold), {
-        onSome: (threshold) =>
-          Option.orElse(
-            Arr.findFirst(sorted, (candidate) => candidate.score >= threshold),
-            () => Arr.head(sorted)
-          ),
-        onNone: () => Arr.head(sorted)
+        const selected = Option.match(Option.fromNullable(options.threshold), {
+          onSome: (threshold) =>
+            Option.orElse(
+              Arr.findFirst(sorted, (candidate) => candidate.score >= threshold),
+              () => Arr.head(sorted)
+            ),
+          onNone: () => Arr.head(sorted)
+        })
+
+        return yield* Option.match(selected, {
+          onSome: (candidate) => Effect.succeed(candidate.output),
+          onNone: () => Effect.die("bestOfN: no candidates produced")
+        })
       })
-
-      return yield* Option.match(selected, {
-        onSome: (candidate) => Effect.succeed(candidate.output),
-        onNone: () => Effect.die("bestOfN: no candidates produced")
-      })
-    })
-  )
+    )
+  }
 }

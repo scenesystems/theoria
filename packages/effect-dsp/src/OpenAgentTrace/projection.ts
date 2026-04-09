@@ -1,35 +1,41 @@
 /**
- * Workflow, example, and artifact projections for normalized open-agent-trace records.
+ * Workflow, example, and artifact projection surfaces for normalized open-agent-trace records.
  *
  * @since 0.2.0
  */
 
-import { projectOpenAgentTraceToArtifact as projectOpenAgentTraceToArtifactInternal } from "./artifactProjection.js"
+import { projectArtifact as projectArtifactInternal } from "./artifactProjection.js"
 import {
-  projectOpenAgentTraceToExamples as projectOpenAgentTraceToExamplesInternal,
-  projectOpenAgentTraceToWorkflow as projectOpenAgentTraceToWorkflowInternal
+  projectExamples as projectExamplesInternal,
+  projectWorkflow as projectWorkflowInternal
 } from "./workflowProjection.js"
 
 /**
- * Project one normalized trace into the reusable workflow-record family owned by `effect-inference/Contracts`.
+ * Workflow projection surface for normalized records.
  *
  * @since 0.2.0
  */
-export const projectOpenAgentTraceToWorkflow = projectOpenAgentTraceToWorkflowInternal
+export const Workflow = {
+  project: projectWorkflowInternal
+}
 
 /**
- * Project one normalized trace into bounded optimization-ready examples and comparison cases.
+ * Example projection surface for normalized records.
  *
  * @since 0.2.0
  */
-export const projectOpenAgentTraceToExamples = projectOpenAgentTraceToExamplesInternal
+export const Examples = {
+  project: projectExamplesInternal
+}
 
 /**
- * Wrap one normalized trace or bounded projection in `effect-search` artifact-envelope transport.
+ * Artifact-envelope projection surface for normalized records and derived projections.
  *
  * @since 0.2.0
  */
-export const projectOpenAgentTraceToArtifact = projectOpenAgentTraceToArtifactInternal
+export const Artifact = {
+  project: projectArtifactInternal
+}
 
 /**
  * Re-export of projection and artifact schemas for the experimental lane.

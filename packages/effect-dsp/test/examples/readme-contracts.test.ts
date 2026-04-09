@@ -106,7 +106,7 @@ const optimizerExampleResult = Effect.gen(function*() {
   )
 
   const eventList = yield* Schema.decodeUnknown(Schema.Array(Optimizer.COPROEventSchema))(Arr.fromIterable(events))
-  const summary = Optimizer.summarizeCOPROEvents(eventList)
+  const summary = Optimizer.COPROEventSummary.summarize(eventList)
   const optimizedParams = yield* Ref.get(module.params)
 
   return {
@@ -121,7 +121,7 @@ const interopExampleResult = Effect.scoped(
     const space = yield* SearchSpace.make({
       x: SearchSpace.float(0, 1)
     })
-    const sampler = Optimizer.effectSearchInterop.makeTpeSampler({
+    const sampler = Optimizer.effectSearchInterop.Sampler.tpe({
       seed: 345,
       acquisition: "thompson"
     })

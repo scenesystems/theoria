@@ -170,59 +170,61 @@ const runWithRepair = <
   )
 
 /**
- * Build the typed forward function for `Module.programOfThought`.
+ * Typed runtime ownership surface for `Module.programOfThought`.
  *
  * @since 0.2.0
  * @internal
  */
-export const makeProgramOfThoughtForward = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly answer: Module<ProgramAnswerInputFields<I>, ChainOfThoughtOutputFields<O>>
-  readonly generate: Module<I, ChainOfThoughtOutputFields<ProgramGeneratedCodeFields>>
-  readonly interpreter: ProgramInterpreterApi
-  readonly maxIterations: number
-  readonly moduleName: string
-  readonly repair: Module<ProgramRepairInputFields<I>, ChainOfThoughtOutputFields<ProgramGeneratedCodeFields>>
-  readonly signature: Signature<I, O>
-}): Module<I, O>["forward"] =>
-  Effect.fn(options.moduleName)((input) =>
-    Effect.gen(function*() {
-      const execution = yield* runWithRepair({
-        generate: options.generate,
-        input,
-        inputSchema: options.signature.inputSchema,
-        interpreter: options.interpreter,
-        maxIterations: options.maxIterations,
-        moduleName: options.moduleName,
-        repair: options.repair,
-        state: {
-          attempt: 1,
-          previousCode: null,
-          previousError: null
-        }
-      })
-      const answerInput = yield* buildAnswerInput({
-        answer: options.answer,
-        attempt: execution.codeOutput.length > -1 ? 1 : 1,
-        code: execution.code,
-        codeOutput: execution.codeOutput,
-        input,
-        moduleName: options.answer.name
-      })
-      const answer = yield* options.answer.forward(answerInput)
+export const ProgramOfThoughtRuntime = {
+  forward: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly answer: Module<ProgramAnswerInputFields<I>, ChainOfThoughtOutputFields<O>>
+    readonly generate: Module<I, ChainOfThoughtOutputFields<ProgramGeneratedCodeFields>>
+    readonly interpreter: ProgramInterpreterApi
+    readonly maxIterations: number
+    readonly moduleName: string
+    readonly repair: Module<ProgramRepairInputFields<I>, ChainOfThoughtOutputFields<ProgramGeneratedCodeFields>>
+    readonly signature: Signature<I, O>
+  }): Module<I, O>["forward"] =>
+    Effect.fn(options.moduleName)((input) =>
+      Effect.gen(function*() {
+        const execution = yield* runWithRepair({
+          generate: options.generate,
+          input,
+          inputSchema: options.signature.inputSchema,
+          interpreter: options.interpreter,
+          maxIterations: options.maxIterations,
+          moduleName: options.moduleName,
+          repair: options.repair,
+          state: {
+            attempt: 1,
+            previousCode: null,
+            previousError: null
+          }
+        })
+        const answerInput = yield* buildAnswerInput({
+          answer: options.answer,
+          attempt: execution.codeOutput.length > -1 ? 1 : 1,
+          code: execution.code,
+          codeOutput: execution.codeOutput,
+          input,
+          moduleName: options.answer.name
+        })
+        const answer = yield* options.answer.forward(answerInput)
 
-      return yield* Schema.decodeUnknown(options.signature.outputSchema)(answer).pipe(
-        Effect.mapError(
-          () =>
-            new ProgramRuntimeBoundaryError({
-              message: "ProgramOfThought final answer projection failed.",
-              moduleName: options.moduleName,
-              attempt: 1,
-              code: execution.code
-            })
+        return yield* Schema.decodeUnknown(options.signature.outputSchema)(answer).pipe(
+          Effect.mapError(
+            () =>
+              new ProgramRuntimeBoundaryError({
+                message: "ProgramOfThought final answer projection failed.",
+                moduleName: options.moduleName,
+                attempt: 1,
+                code: execution.code
+              })
+          )
         )
-      )
-    })
-  )
+      })
+    )
+}

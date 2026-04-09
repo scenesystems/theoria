@@ -114,7 +114,7 @@ import { SearchSpace } from "effect-search"
 import { Optimizer } from "effect-dsp"
 
 const space = SearchSpace.unsafeMake({ x: SearchSpace.float(0, 1) })
-const sampler = Optimizer.effectSearchInterop.makeTpeSampler({
+const sampler = Optimizer.effectSearchInterop.Sampler.tpe({
   seed: 345,
   acquisition: "thompson"
 })
@@ -154,7 +154,7 @@ import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace 
 
 Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
 
-The preferred public evidence path is `Trace.withTracing(...)`, `Trace.withUsageTracking(...)`, `Contracts.projectOptimizationObjective(...)`, and `Contracts.ArtifactEnvelopeSchema`. That surface keeps prompt text, delimiter-preserving `rawResponse`, parsed output, per-call usage, `totalTokens`, and replay-safe optimizer artifacts on the stable public contract. Low-level refs remain exported for advanced integration, but README examples and contracts treat them as implementation details rather than the default consumer story.
+The preferred public evidence path is `Trace.withTracing(...)`, `Trace.withUsageTracking(...)`, `Contracts.OptimizationObjectiveSurface.fromTraceEntry(...)`, and `Contracts.ArtifactEnvelopeSchema`. That surface keeps prompt text, delimiter-preserving `rawResponse`, parsed output, per-call usage, `totalTokens`, and replay-safe optimizer artifacts on the stable public contract. Low-level refs remain exported for advanced integration, but README examples and contracts treat them as implementation details rather than the default consumer story.
 
 ## Subpath Stability
 

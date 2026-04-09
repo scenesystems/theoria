@@ -107,7 +107,7 @@ describe("examples/19-copro-mock", () => {
       )
 
       const eventList = yield* Schema.decodeUnknown(Schema.Array(Optimizer.COPROEventSchema))(Arr.fromIterable(events))
-      const summary = Optimizer.summarizeCOPROEvents(eventList)
+      const summary = Optimizer.COPROEventSummary.summarize(eventList)
       const optimizedParams = yield* Ref.get(module.params)
       const snapshotOption = yield* Ref.get(snapshotRef)
 
@@ -122,7 +122,7 @@ describe("examples/19-copro-mock", () => {
         return
       }
 
-      expect(Optimizer.projectCOPROStudyEvents(snapshotOption.value).at(-1)?._tag).toBe("StudyCompleted")
-      expect(Optimizer.projectCOPROStudySnapshot(snapshotOption.value).completedCount).toBeGreaterThan(0)
+      expect(Optimizer.COPROSnapshot.projectStudyEvents(snapshotOption.value).at(-1)?._tag).toBe("StudyCompleted")
+      expect(Optimizer.COPROSnapshot.projectStudySnapshot(snapshotOption.value).completedCount).toBeGreaterThan(0)
     }))
 })

@@ -7,30 +7,19 @@ import { Effect, Layer, Schema } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Errors from "effect-dsp/Errors"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
-import { makeFixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with short factual answers",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { FixtureRegistry, ProgramOfThoughtRepairFixtureSchema } from "../helpers/dspy-fixtures/index.js"
+import { shortFactualAnswersQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.programOfThought evidence surface", () => {
   it.effect("projects planning, repair, and final-answer phases through stable optimization evidence contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.pot.repair-cycle.basic")
       const fixture = yield* Schema.decodeUnknown(ProgramOfThoughtRepairFixtureSchema)(rawFixture)
-      const signature = yield* makeQaSignature()
+      const signature = yield* shortFactualAnswersQaSignature
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           fixture.payload.responses.generate,
@@ -71,7 +60,7 @@ describe("Module.programOfThought evidence surface", () => {
       )
       const traces = execution[0][1]
       const usage = execution[1]
-      const projections = yield* Effect.forEach(traces, Contracts.projectOptimizationObjective)
+      const projections = yield* Effect.forEach(traces, Contracts.OptimizationObjectiveSurface.fromTraceEntry)
       const encoded = yield* Effect.forEach(
         projections,
         (projection) => Schema.encode(Contracts.OptimizationObjectiveSurface)(projection)

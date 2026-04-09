@@ -8,10 +8,10 @@ import type { Schema } from "effect"
 import { Effect, HashMap, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNode } from "../../contracts/ModuleNode.js"
-import { makeDefaultModuleParams } from "../../contracts/ModuleParams.js"
+import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { RewardFn } from "../bestOfN/runtime.js"
 import { Module } from "../model.js"
-import { makeRefineForward } from "./runtime.js"
+import { RefineRuntime } from "./runtime.js"
 
 /**
  * Configuration for a refinement composition wrapper.
@@ -79,7 +79,10 @@ export const refine = <
 ): Effect.Effect<Module<I, O>> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(
-      makeDefaultModuleParams(options.module.signature.instructions)
+      ModuleParams.make({
+        instructions: options.module.signature.instructions,
+        demos: []
+      })
     )
 
     return new Module({
@@ -87,7 +90,7 @@ export const refine = <
       signature: options.module.signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeRefineForward({
+      forward: RefineRuntime.forward({
         moduleName: options.name,
         signature: options.module.signature,
         innerModule: options.module,

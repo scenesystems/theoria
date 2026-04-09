@@ -201,7 +201,7 @@ export const migratePiSessionEntries = (rawEntries: ReadonlyArray<unknown>) =>
     const [rawHeader, ...rawBody] = rawEntries
     const header = yield* Schema.decodeUnknown(RawSessionHeader)(rawHeader)
     const body = yield* Effect.forEach(rawBody, decodeRawEntry, { concurrency: 1 })
-    const migratedHeader = new PiSessionHeader({ ...header, version: header.version ?? 1 })
+    const migratedHeader = PiSessionHeader.make({ ...header, version: header.version ?? 1 })
     const version = header.version ?? 1
     const migratedBody = assignIds(body)
     const canonicalBody = yield* Effect.forEach(
@@ -211,7 +211,7 @@ export const migratePiSessionEntries = (rawEntries: ReadonlyArray<unknown>) =>
     )
 
     return {
-      header: new PiSessionHeader({ ...migratedHeader, version: version < 3 ? 3 : version }),
+      header: PiSessionHeader.make({ ...migratedHeader, version: version < 3 ? 3 : version }),
       entries: canonicalBody
     }
   })

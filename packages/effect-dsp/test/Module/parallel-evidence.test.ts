@@ -6,28 +6,17 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Schema } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
 
 import { branchForPrompt, loadParallelConcurrencyFixture } from "../helpers/parallel-fixtures.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.parallel evidence surface", () => {
   it.effect("projects ordered branch evidence and aggregate outputs through stable optimization and artifact-envelope contracts", () =>
     Effect.gen(function*() {
       const fixture = yield* loadParallelConcurrencyFixture
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const inner = yield* Module.predict("qa-parallel-evidence-inner", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction((prompt) => {
@@ -56,7 +45,7 @@ describe("Module.parallel evidence surface", () => {
       const result = execution[0][0]
       const traces = execution[0][1]
       const usage = execution[1]
-      const projections = yield* Effect.forEach(traces, Contracts.projectOptimizationObjective)
+      const projections = yield* Effect.forEach(traces, Contracts.OptimizationObjectiveSurface.fromTraceEntry)
       const branchQuestions = Arr.map(projections, (projection) => String(projection.input.question ?? ""))
       const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(Contracts.PackageVersion)("0.2.0")

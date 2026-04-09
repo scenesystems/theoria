@@ -4,10 +4,10 @@
  * @since 0.1.0
  */
 import { Array as Arr, Effect, Option } from "effect"
-import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
-import { makeModuleGraph, ModuleGraphEdge, ModuleGraphNode } from "../../contracts/ModuleGraph.js"
+import { ModuleGraph, ModuleGraphEdge, ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
-import { CompositionError } from "../../Errors/module.js"
+import type { CompositionError } from "../../Errors/module.js"
+import { DiscoveryFailure } from "./errors.js"
 import { canonicalModuleRegistrations, type ModuleRegistration } from "./model.js"
 import { ModuleRegistryRef, registrySnapshot } from "./registry.js"
 
@@ -17,7 +17,7 @@ const hasRootRegistration = (
 ): boolean => Option.isSome(Arr.findFirst(registrations, (registration) => registration.id === rootId))
 
 const registrationNode = (registration: ModuleRegistration): ModuleGraphNode =>
-  new ModuleGraphNode({
+  ModuleGraphNode.make({
     moduleId: registration.id,
     signature: registration.signature,
     subModuleIds: registration.subModuleIds
@@ -29,7 +29,7 @@ const registrationEdges = (
   Arr.map(
     registration.subModuleIds,
     (subModuleId) =>
-      new ModuleGraphEdge({
+      ModuleGraphEdge.make({
         parentId: registration.id,
         childId: subModuleId
       })
@@ -48,18 +48,13 @@ export const registrationsToModuleGraph = (
 ): Effect.Effect<ModuleGraph, CompositionError> =>
   hasRootRegistration(rootId, registrations)
     ? Effect.succeed(
-      makeModuleGraph({
+      ModuleGraph.fromParts({
         rootId,
         nodes: Arr.map(registrations, registrationNode),
         edges: Arr.flatMap(registrations, registrationEdges)
       })
     )
-    : Effect.fail(
-      new CompositionError({
-        message: `Discovery root '${rootId}' was not observed in registry snapshot`,
-        moduleName: rootId
-      })
-    )
+    : Effect.fail(DiscoveryFailure.missingRoot(rootId))
 
 /**
  * Run a program in a fresh discovery scope and return all module

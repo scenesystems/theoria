@@ -11,9 +11,9 @@ import * as Contracts from "effect-dsp/contracts"
 import { ModuleParams } from "effect-dsp/contracts"
 import { MockLanguageModel } from "effect-dsp/test"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardModuleState,
+  StandardExampleSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"
@@ -104,8 +104,9 @@ const program = Effect.gen(function*() {
     concurrency: 1
   }).pipe(Effect.provide(mockLanguageModelLayer(MockLanguageModel.map(responseForPrompt))))
 
-  const eventList = Arr.fromIterable(events)
-  const summary = Optimizer.summarizeCOPROEvents(eventList)
+  const decodeCOPROEvent = Schema.decodeUnknownSync(Optimizer.COPROEventSchema)
+  const eventList = Arr.map(Arr.fromIterable(events), (event) => decodeCOPROEvent(event))
+  const summary = Optimizer.COPROEventSummary.summarize(eventList)
   const optimizedParams = yield* Ref.get(module.params)
   const moduleState = yield* Module.save(module)
   const snapshotOption = yield* Ref.get(snapshotRef)
@@ -116,24 +117,24 @@ const program = Effect.gen(function*() {
   const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T00:00:00Z")
   const studyEventTags = Option.match(snapshotOption, {
     onNone: () => Arr.empty<string>(),
-    onSome: (snapshot) => Arr.map(Optimizer.projectCOPROStudyEvents(snapshot), (event) => event._tag)
+    onSome: (snapshot) => Arr.map(Optimizer.COPROSnapshot.projectStudyEvents(snapshot), (event) => event._tag)
   })
   const eventEnvelopeTag = Option.match(snapshotOption, {
     onNone: () => "none",
     onSome: (snapshot) =>
-      Optimizer.coproStudyEventEnvelope({
+      Optimizer.COPROSnapshot.projectStudyEventEnvelope({
         runId,
         packageVersion,
         emittedAt,
         metricName: "exactMatch",
         sequence: 0,
-        event: Optimizer.projectCOPROStudyEvents(snapshot)[0]!
+        event: Optimizer.COPROSnapshot.projectStudyEvents(snapshot)[0]!
       })._tag
   })
   const snapshotEnvelopeTag = Option.match(snapshotOption, {
     onNone: () => "none",
     onSome: (snapshot) =>
-      Optimizer.coproStudySnapshotEnvelope({
+      Optimizer.COPROSnapshot.projectStudySnapshotEnvelope({
         runId,
         packageVersion,
         emittedAt,
@@ -142,7 +143,7 @@ const program = Effect.gen(function*() {
         snapshot
       })._tag
   })
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "copro",
     metricName: "exactMatch",
@@ -170,7 +171,7 @@ const program = Effect.gen(function*() {
       snapshotEnvelopeTag
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "copro",
     streams: Arr.make(
@@ -178,7 +179,7 @@ const program = Effect.gen(function*() {
       { name: "effect-search-study-events", events: studyEventTags }
     )
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "copro",
     state: moduleState

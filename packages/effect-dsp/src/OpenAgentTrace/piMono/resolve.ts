@@ -59,7 +59,7 @@ const branchSummaries = (entries: ReadonlyArray<PiSessionEntry>) =>
     .filter((entry) => entry.type === "branch_summary")
     .map(
       (entry) =>
-        new OpenAgentTraceBranch({
+        OpenAgentTraceBranch.make({
           branchId: entry.id,
           parentBranchId: entry.parentId ?? undefined,
           leafEntryId: entry.fromId,
@@ -81,7 +81,7 @@ export const resolvePiSessionContext = (entries: ReadonlyArray<PiSessionEntry>) 
   const branches = branchSummaries(entries)
 
   return {
-    selection: new OpenAgentTraceSelection({
+    selection: OpenAgentTraceSelection.make({
       selectedLeafEntryId: selectedLeaf.id,
       selectionPolicy: "latest-leaf",
       activePathEntryIds: path.map((entry) => entry.id),

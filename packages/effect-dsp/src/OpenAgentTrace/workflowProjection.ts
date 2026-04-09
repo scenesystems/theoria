@@ -14,7 +14,8 @@ import {
 } from "effect-inference/Contracts"
 
 import { Example } from "../Example/index.js"
-import { OpenAgentTraceExampleProjection, OpenAgentTraceWorkflowProjection } from "./projectionSchema.js"
+import { syntheticCoverageGaps } from "./projectionCoverage.js"
+import { ExampleProjection, WorkflowProjection } from "./projectionSchema.js"
 import {
   assistantUsageProjection,
   blockText,
@@ -22,7 +23,6 @@ import {
   messageText,
   profileFamilyFrom,
   PROJECTION_VERSION,
-  syntheticCoverageGaps,
   workflowKindFrom
 } from "./projectionShared.js"
 import { decodeOpenAgentTraceContentDigest, type OpenAgentTraceRecord } from "./schema.js"
@@ -42,7 +42,7 @@ const expectedSignalsFrom = (
  * @since 0.2.0
  * @category combinators
  */
-export const projectOpenAgentTraceToWorkflow = (record: OpenAgentTraceRecord) =>
+export const projectWorkflow = (record: OpenAgentTraceRecord) =>
   Effect.gen(function*() {
     const workflowKind = workflowKindFrom(record)
     const messageEvents = record.events.filter(isMessageEvent)
@@ -175,7 +175,7 @@ export const projectOpenAgentTraceToWorkflow = (record: OpenAgentTraceRecord) =>
       { concurrency: 1 }
     )
 
-    return new OpenAgentTraceWorkflowProjection({
+    return WorkflowProjection.make({
       projectionKind: "workflow-record",
       workflowRecord,
       coverageGaps: [...record.coverageGaps, ...syntheticCoverageGaps(record)],
@@ -189,11 +189,11 @@ export const projectOpenAgentTraceToWorkflow = (record: OpenAgentTraceRecord) =>
  * @since 0.2.0
  * @category combinators
  */
-export const projectOpenAgentTraceToExamples = (record: OpenAgentTraceRecord) =>
+export const projectExamples = (record: OpenAgentTraceRecord) =>
   Effect.gen(function*() {
-    const workflowProjection = yield* projectOpenAgentTraceToWorkflow(record)
+    const workflowProjection = yield* projectWorkflow(record)
     const candidateExamples = workflowProjection.workflowRecord.evaluation.cases.map((value) =>
-      new Example({
+      Example.make({
         input: {
           prompt: value.prompt,
           workflowKind: workflowProjection.workflowRecord.workflowKind,
@@ -217,7 +217,7 @@ export const projectOpenAgentTraceToExamples = (record: OpenAgentTraceRecord) =>
       decodeOpenAgentTraceContentDigest
     )
 
-    return new OpenAgentTraceExampleProjection({
+    return ExampleProjection.make({
       projectionKind: "example-set",
       workflowKind: workflowProjection.workflowRecord.workflowKind,
       optimizationKnobs: workflowProjection.workflowRecord.graph.optimizationKnobs,

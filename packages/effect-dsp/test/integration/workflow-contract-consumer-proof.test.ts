@@ -7,9 +7,9 @@ import {
 } from "effect-inference/Contracts"
 
 import {
-  projectWorkflowModuleGraph,
-  workflowInteropOwnership,
-  WorkflowModuleGraphInputSchema
+  WorkflowInteropOwnership,
+  WorkflowModuleGraphInputSchema,
+  WorkflowModuleGraphProjection
 } from "effect-dsp/contracts"
 
 const workflowManifestFixture = {
@@ -88,9 +88,9 @@ describe("integration/workflow-contract-consumer-proof", () => {
         manifest,
         projection
       })
-      const graphProjection = projectWorkflowModuleGraph(input)
+      const graphProjection = WorkflowModuleGraphProjection.fromWorkflowInput(input)
 
-      expect(workflowInteropOwnership.sessionAndRouting).toBe("effect-inference")
+      expect(WorkflowInteropOwnership.current.sessionAndRouting).toBe("effect-inference")
       expect(graphProjection.traversal).toEqual(["router", "handoff", "answer"])
       expect(
         graphProjection.lineages.map((lineage) => ({

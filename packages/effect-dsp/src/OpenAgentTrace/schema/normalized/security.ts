@@ -9,7 +9,7 @@ import { Schema } from "effect"
 
 import { PiShareHfReviewSidecar } from "../piReview.js"
 import { OpenAgentTraceRecordId, OpenAgentTraceSessionId } from "./authorities.js"
-import { OpenAgentTraceCorpusManifest } from "./provenance.js"
+import { CorpusManifest } from "./provenance.js"
 
 const OpenAgentTracePrivateLiteralSecret = Schema.Struct({
   secretId: Schema.String,
@@ -59,11 +59,9 @@ export class OpenAgentTraceSealedReviewBundle
  * @since 0.2.0
  * @category models
  */
-export class OpenAgentTraceSignedCorpusManifest
-  extends Schema.Class<OpenAgentTraceSignedCorpusManifest>("OpenAgentTraceSignedCorpusManifest")({
-    manifestKind: Schema.Literal("signed-corpus-manifest"),
-    manifest: OpenAgentTraceCorpusManifest,
-    signature: DetachedSignature,
-    publicKey: Schema.Uint8ArrayFromSelf
-  })
-{}
+export class SignedCorpusManifest extends Schema.Class<SignedCorpusManifest>("OpenAgentTrace/SignedCorpusManifest")({
+  manifestKind: Schema.Literal("signed-corpus-manifest"),
+  manifest: CorpusManifest,
+  signature: DetachedSignature,
+  publicKey: Schema.Uint8ArrayFromSelf
+}) {}

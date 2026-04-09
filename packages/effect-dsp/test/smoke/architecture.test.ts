@@ -36,7 +36,7 @@ const EVALUATION_REPORT_CANONICAL_PATH = "src/Evaluate/report.ts"
 const MIPRO_PUBLIC_FACADE_PATH = "src/Optimizer/miprov2.ts"
 const EFFECT_SEARCH_INTEROP_ROOT_PATH = "src/optimizers/effectSearchInterop/"
 const M5_INTEROP_SURFACE_PATTERN =
-  /Study\.open\(|Study\.ask\(|Study\.tell\(|Study\.fail\(|Study\.cancel\(|Study\.events\(|Study\.formatTerminalProgressEvent\(|Pareto\.|acquisition:\s*["'](?:ei|pi|thompson)["']/
+  /Study\.open\(|Study\.ask\(|Study\.tell\(|Study\.fail\(|Study\.cancel\(|Study\.events\(|Study\.ProgressLine\.projectEvent\(|Pareto\.|acquisition:\s*["'](?:ei|pi|thompson)["']/
 const SEAM_CONTRACT_PATHS = [
   "src/contracts/ObjectiveProjection.ts",
   "src/contracts/TraceProjection.ts",
@@ -260,7 +260,7 @@ const runtimeKernelOwnership: Effect.Effect<Array<string>, never, FileSystem.Fil
       fileSystem.readFileString(file.absolute).pipe(
         Effect.orDie,
         Effect.map((content) =>
-          content.includes("export const makeForward")
+          content.includes("export const PredictRuntime")
             ? Option.some(file.relative)
             : Option.none<string>()
         )
@@ -428,7 +428,7 @@ const m5InteropAdapterOwnership: Effect.Effect<boolean, never, FileSystem.FileSy
       askTellSource.includes("Pareto.") &&
       askTellSource.includes("acquisition:") &&
       progressSource.includes("Study.events(") &&
-      progressSource.includes("Study.formatTerminalProgressEvent(")
+      progressSource.includes("Study.ProgressLine.projectEvent(")
   }
 )
 
@@ -523,7 +523,7 @@ describe("architecture", () => {
       expect(yield* publicHarnessDieViolations).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.effect("enforces a single predict runtime kernel ownership path", () =>
+  it.effect("enforces a single predict runtime ownership path", () =>
     Effect.gen(function*() {
       expect(yield* projectFileExists("src/Module/predict.ts")).toBe(false)
       expect(yield* projectFileExists("src/Module/predict/index.ts")).toBe(true)

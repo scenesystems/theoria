@@ -74,8 +74,9 @@ export * from "./gepa.js"
 export * from "./gepaStream.js"
 
 /**
- * Progress formatting — `formatBootstrapEvent`, `formatMIPROv2Event`,
- * `formatGEPAEvent`, and semantic summary builders.
+ * Progress and summary nouns — `*ProgressLine.project`,
+ * `*EventSummary.summarize`, `*OutcomeSummary.make`, and
+ * `MIPROv2OptimizationObservability.make`.
  *
  * @since 0.1.0
  */
