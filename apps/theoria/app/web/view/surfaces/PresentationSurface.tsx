@@ -5,10 +5,14 @@ import type { RunControlActionKind } from "../../state/run/types.js"
 
 import { useElementWidthReporter } from "../../atoms/surface/element-observation.js"
 import { CompactNav } from "../deep/CompactNav.js"
-import type { DeepDiveProjectionControlModel, DeepDiveProjectionModel } from "../deep/projection-model.js"
+import {
+  type DeepDiveProjectionControlModel,
+  deepDiveProjectionControlModelFor,
+  type DeepDiveProjectionModel
+} from "../deep/projection-model.js"
 import { ProjectionWorkspace } from "../deep/ProjectionWorkspace.js"
-import { app, surfaceForCard } from "../primitives/designSystem.js"
 import { Layer, Section } from "../primitives/Layout.js"
+import { app, surfaceForCard } from "../primitives/theme/surface.js"
 import type { RunControlsViewModel } from "../runControlsModel.js"
 import { type SurfaceChromeContentModel, surfaceChromeModel } from "../surfaceChromeModel.js"
 
@@ -41,11 +45,7 @@ export const PresentationSurface = ({
 }) => {
   const theme = surfaceForCard(entryId)
   const observeProjectionWorkspace = useElementWidthReporter(onWorkspaceWidthChange)
-  const projectionControlModel: DeepDiveProjectionControlModel = {
-    focusedSurface: projection.focusedSurface,
-    maxProjectedCount: projection.maxProjectedCount,
-    surfaces: projection.surfaces.map(({ pane: _pane, ...surface }) => surface)
-  }
+  const projectionControlModel = deepDiveProjectionControlModelFor(projection)
 
   const chrome = surfaceChromeModel({
     backHref: Option.fromNullable(backHref),

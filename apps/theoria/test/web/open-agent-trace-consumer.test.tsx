@@ -1,19 +1,26 @@
 import { RegistryProvider } from "@effect-atom/atom-react"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Match, Option } from "effect"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import type { OpenAgentTraceRegistryEntry } from "../../app/contracts/open-agent-trace.js"
-import { loadOpenAgentTraceRegistry } from "../../app/server/open-agent-trace/registry.js"
+import { FailureEnvelope, Metadata } from "../../app/contracts/envelope.js"
+import { ErrorModel } from "../../app/contracts/error.js"
+import {
+  OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope,
+  type OpenAgentTraceRegistryEntry,
+  OpenAgentTraceRegistrySuccessEnvelope,
+  OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope
+} from "../../app/contracts/study/workflow/open-agent-trace.js"
+import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 import { LiveDspEvaluation } from "../../app/web/view/deep/LiveDspEvaluation.js"
 
-const responseMeta = {
+const responseMeta = Metadata.make({
   requestId: "req-open-agent-trace-consumer",
   buildSha: "build-open-agent-trace-consumer",
   durationMs: 1
-}
+})
 
 const firstWorkflowPrompt = (entry: OpenAgentTraceRegistryEntry): string =>
   entry.workflowProjection.workflowRecord.evaluation.cases[0]?.prompt ?? ""
@@ -36,11 +43,15 @@ const requiredRegistryEntry = (
     onSome: Effect.succeed
   })
 
+const jsonResponse = (body: unknown) => Effect.runPromise(Effect.succeed(Response.json(body)))
+
 const withOpenAgentTraceFetchMock = <A, E, R>(
   registry: ReadonlyArray<OpenAgentTraceRegistryEntry>,
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> => {
   const previousFetch = globalThis.fetch
+  const consumerArtifacts = registry.map((entry) => entry.consumerArtifact)
+  const workflowHookups = registry.map((entry) => entry.workflowHookup)
 
   return Effect.gen(function*() {
     yield* Effect.sync(() => {
@@ -51,23 +62,36 @@ const withOpenAgentTraceFetchMock = <A, E, R>(
           ? input.toString()
           : input.url
 
-        if (url.includes("/api/open-agent-trace/registry")) {
-          return Promise.resolve({
-            json: () => Promise.resolve({ ok: true, meta: responseMeta, data: registry })
-          })
-        }
-
-        return Promise.resolve({
-          json: () => Promise.resolve({
-            ok: false,
-            meta: responseMeta,
-            error: {
-              code: "route-not-found",
-              message: `Unexpected fetch: ${url}`,
-              retryable: false
-            }
-          })
-        })
+        return Match.value(url).pipe(
+          Match.when((value) => value.includes("/api/open-agent-trace/registry"), () =>
+            jsonResponse(OpenAgentTraceRegistrySuccessEnvelope.make({ ok: true, meta: responseMeta, data: registry }))),
+          Match.when((value) => value.includes("/api/open-agent-trace/consumer-artifacts"), () =>
+            jsonResponse(
+              OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.make({
+                ok: true,
+                meta: responseMeta,
+                data: consumerArtifacts
+              })
+            )),
+          Match.when((value) => value.includes("/api/open-agent-trace/workflow-hookups"), () =>
+            jsonResponse(
+              OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.make({
+                ok: true,
+                meta: responseMeta,
+                data: workflowHookups
+              })
+            )),
+          Match.orElse(() =>
+            jsonResponse(FailureEnvelope.make({
+              ok: false,
+              meta: responseMeta,
+              error: ErrorModel.make({
+                code: "route-not-found",
+                message: `Unexpected fetch: ${url}`,
+                retryable: false
+              })
+            })))
+        )
       })
     })
 
@@ -82,7 +106,7 @@ const withOpenAgentTraceFetchMock = <A, E, R>(
 }
 
 describe("web/open-agent-trace-consumer", () => {
-  it.live("renders the corpus lane inside the effect-dsp proving consumer instead of a standalone page", () =>
+  it.live("renders the corpus lane inside the shared effect-dsp study surface instead of a standalone page", () =>
     Effect.gen(function*() {
       const registry = yield* loadOpenAgentTraceRegistry
       const taskFirst = yield* requiredRegistryEntry(registry[0], "task-first")

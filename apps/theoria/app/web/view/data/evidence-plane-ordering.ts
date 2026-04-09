@@ -1,27 +1,18 @@
 import { Match } from "effect"
 
+import {
+  EvidencePlaneOrderingProjection,
+  EvidencePlaneSectionOption
+} from "../../../contracts/evidence/plane-presentation.js"
+import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../../../contracts/evidence/plane.js"
+
 import type { EvidenceSectionViewModel } from "./evidence-section-projection.js"
 
-export type EvidencePlaneFilter = "all" | "results" | "data" | "context"
-export type EvidencePlaneOrder = "live" | "narrative"
-
-export type EvidenceOption<A> = {
-  readonly index: number
-  readonly label: string
-  readonly value: A
-}
-
-export const evidencePlaneFilterOptions: ReadonlyArray<EvidenceOption<EvidencePlaneFilter>> = [
-  { index: 0, label: "All", value: "all" },
-  { index: 1, label: "Results", value: "results" },
-  { index: 2, label: "Data", value: "data" },
-  { index: 3, label: "Context", value: "context" }
-]
-
-export const evidencePlaneOrderOptions: ReadonlyArray<EvidenceOption<EvidencePlaneOrder>> = [
-  { index: 0, label: "Narrative view", value: "narrative" },
-  { index: 1, label: "Live stream", value: "live" }
-]
+export {
+  evidencePlaneFilterOptions,
+  EvidencePlaneOrderingProjection,
+  evidencePlaneOrderOptions
+} from "../../../contracts/evidence/plane-presentation.js"
 
 const sectionRank = (section: EvidenceSectionViewModel): number =>
   Match.value(section.variant).pipe(
@@ -56,6 +47,13 @@ export const liveOrderedSections = (
 ): ReadonlyArray<EvidenceSectionViewModel> =>
   [...sections].sort((left, right) => right.originalIndex - left.originalIndex)
 
+const filteredSections = (
+  { filter, sections }: {
+    readonly filter: EvidencePlaneFilter
+    readonly sections: ReadonlyArray<EvidenceSectionViewModel>
+  }
+): ReadonlyArray<EvidenceSectionViewModel> => sections.filter((section) => sectionMatchesFilter({ filter, section }))
+
 const orderedSections = (
   { order, sections }: {
     readonly order: EvidencePlaneOrder
@@ -70,21 +68,27 @@ export const evidencePlaneSectionOptions = (
     readonly order: EvidencePlaneOrder
     readonly sections: ReadonlyArray<EvidenceSectionViewModel>
   }
-): ReadonlyArray<EvidenceOption<string | null>> => [
-  { index: 0, label: "All sections", value: null },
-  ...orderedSections({ order, sections: sections.filter((section) => sectionMatchesFilter({ filter, section })) }).map((
-    section,
-    index
-  ) => ({
-    index: index + 1,
-    label: section.title,
-    value: section.key
-  }))
-]
+): ReadonlyArray<EvidencePlaneSectionOption> => {
+  const ordered = orderedSections({
+    order,
+    sections: filteredSections({ filter, sections })
+  })
+
+  return [
+    EvidencePlaneSectionOption.make({ index: 0, label: "All sections", value: null }),
+    ...ordered.map((section, index) =>
+      EvidencePlaneSectionOption.make({
+        index: index + 1,
+        label: section.title,
+        value: section.key
+      })
+    )
+  ]
+}
 
 export const normalizedEvidenceSectionKey = (
   { options, sectionKey }: {
-    readonly options: ReadonlyArray<EvidenceOption<string | null>>
+    readonly options: ReadonlyArray<EvidencePlaneSectionOption>
     readonly sectionKey: string | null
   }
 ): string | null => sectionKey !== null && options.some((option) => option.value === sectionKey) ? sectionKey : null
@@ -99,8 +103,31 @@ export const visibleEvidenceSections = (
 ): ReadonlyArray<EvidenceSectionViewModel> => {
   const ordered = orderedSections({
     order,
-    sections: sections.filter((section) => sectionMatchesFilter({ filter, section }))
+    sections: filteredSections({ filter, sections })
   })
 
   return sectionKey === null ? ordered : ordered.filter((section) => section.key === sectionKey)
+}
+
+export const buildEvidencePlaneOrdering = (
+  { filter, order, sectionKey, sections }: {
+    readonly filter: EvidencePlaneFilter
+    readonly order: EvidencePlaneOrder
+    readonly sectionKey: string | null
+    readonly sections: ReadonlyArray<EvidenceSectionViewModel>
+  }
+): EvidencePlaneOrderingProjection => {
+  const sectionOptions = evidencePlaneSectionOptions({ filter, order, sections })
+  const activeSectionKey = normalizedEvidenceSectionKey({ options: sectionOptions, sectionKey })
+
+  return EvidencePlaneOrderingProjection.make({
+    activeSectionKey,
+    sectionOptions,
+    visibleSections: visibleEvidenceSections({
+      filter,
+      order,
+      sectionKey: activeSectionKey,
+      sections
+    })
+  })
 }

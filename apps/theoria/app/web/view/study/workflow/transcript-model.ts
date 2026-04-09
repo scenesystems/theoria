@@ -1,68 +1,72 @@
-import { Match } from "effect"
-import type { GraphVariant, WorkflowNodeKind } from "effect-inference/Contracts"
+import { Schema } from "effect"
+import { GraphVariantSchema, WorkflowNodeKindSchema } from "effect-inference/Contracts"
 
-import type { EvidenceSection } from "../../../../contracts/evidence/item.js"
 import type { CanonicalFrame } from "../../../../contracts/study/workflow/canonical-step.js"
+import { workflowTranscriptDescriptions } from "../../../../contracts/study/workflow/evidence.js"
+import {
+  workflowOptionalNumberText,
+  workflowOptionalText,
+  workflowTranscriptEntryKey
+} from "../../../../contracts/study/workflow/view-presentation.js"
 
-import { workflowComparisonEvidenceProjectionFromSections } from "./evidence-projection.js"
+import type { WorkflowEvidenceProjection } from "../../../state/workflow/workflow-evidence.js"
 
-export type WorkflowComparisonTranscriptEntryViewModel = {
-  readonly key: string
-  readonly nodeKind: WorkflowNodeKind
-  readonly nodeId: string
-  readonly prompt: string
-  readonly output: string
-  readonly rawResponse: string
-  readonly totalTokens: string
-  readonly durationMs: string
-  readonly isCurrent: boolean
-  readonly variant: GraphVariant
-  readonly variantLabel: string
-}
+export class WorkflowTranscriptEntryViewModel extends Schema.Class<WorkflowTranscriptEntryViewModel>(
+  "WorkflowTranscriptEntryViewModel"
+)({
+  key: Schema.String,
+  nodeKind: WorkflowNodeKindSchema,
+  nodeId: Schema.String,
+  prompt: Schema.String,
+  output: Schema.String,
+  rawResponse: Schema.String,
+  totalTokens: Schema.String,
+  durationMs: Schema.String,
+  isCurrent: Schema.Boolean,
+  title: Schema.String,
+  variant: GraphVariantSchema
+}) {}
 
-export type WorkflowComparisonTranscriptViewModel = {
-  readonly description: string
-  readonly entries: ReadonlyArray<WorkflowComparisonTranscriptEntryViewModel>
-}
+export class WorkflowTranscriptViewModel extends Schema.Class<WorkflowTranscriptViewModel>(
+  "WorkflowTranscriptViewModel"
+)({
+  description: Schema.String,
+  entries: Schema.Array(WorkflowTranscriptEntryViewModel)
+}) {
+  static project({
+    evidence,
+    frame
+  }: {
+    readonly evidence: WorkflowEvidenceProjection
+    readonly frame: CanonicalFrame | null
+  }): WorkflowTranscriptViewModel {
+    const activeKey = currentEntryKey(frame)
+    const entries = evidence.nodeExecutions.map((execution) =>
+      WorkflowTranscriptEntryViewModel.make({
+        key: workflowTranscriptEntryKey({ nodeId: execution.nodeId, variant: execution.variant }),
+        nodeKind: execution.nodeKind,
+        nodeId: execution.nodeId,
+        prompt: workflowOptionalText(execution.prompt),
+        output: workflowOptionalText(execution.output),
+        rawResponse: workflowOptionalText(execution.rawResponse),
+        totalTokens: workflowOptionalNumberText(execution.totalTokens),
+        durationMs: workflowOptionalNumberText(execution.durationMs),
+        isCurrent: workflowTranscriptEntryKey({ nodeId: execution.nodeId, variant: execution.variant }) === activeKey,
+        title: execution.title,
+        variant: execution.variant
+      })
+    )
 
-const variantLabel = (variant: GraphVariant): string =>
-  Match.value(variant).pipe(
-    Match.when("baseline", () => "Baseline"),
-    Match.when("optimized", () => "Optimized"),
-    Match.exhaustive
-  )
-
-const currentEntryKey = (frame: CanonicalFrame | null): string | null =>
-  frame !== null && frame.step._tag === "WorkflowComparisonCanonicalStep"
-    ? `${frame.step.variant}:${frame.step.nodeId}`
-    : null
-
-export const workflowComparisonTranscriptViewModel = ({
-  frame,
-  sections
-}: {
-  readonly frame: CanonicalFrame | null
-  readonly sections: ReadonlyArray<EvidenceSection>
-}): WorkflowComparisonTranscriptViewModel => {
-  const activeKey = currentEntryKey(frame)
-  const entries = workflowComparisonEvidenceProjectionFromSections(sections).nodeExecutions.map((execution) => ({
-    key: `${execution.variant}:${execution.nodeId}`,
-    nodeKind: execution.nodeKind,
-    nodeId: execution.nodeId,
-    prompt: execution.prompt ?? "n/a",
-    output: execution.output ?? "n/a",
-    rawResponse: execution.rawResponse ?? "n/a",
-    totalTokens: execution.totalTokens === null ? "n/a" : `${execution.totalTokens}`,
-    durationMs: execution.durationMs === null ? "n/a" : `${execution.durationMs}`,
-    isCurrent: `${execution.variant}:${execution.nodeId}` === activeKey,
-    variant: execution.variant,
-    variantLabel: variantLabel(execution.variant)
-  }))
-
-  return {
-    description: entries.length === 0
-      ? "Transcript evidence appears here once baseline and winner node sections land on the shared ledger."
-      : "Every transcript row is projected from package-authored node evidence, not browser-local replay logic.",
-    entries
+    return WorkflowTranscriptViewModel.make({
+      description: entries.length === 0
+        ? workflowTranscriptDescriptions.empty
+        : workflowTranscriptDescriptions.present,
+      entries
+    })
   }
 }
+
+const currentEntryKey = (frame: CanonicalFrame | null): string | null =>
+  frame !== null && frame.step._tag === "WorkflowCanonicalStep"
+    ? workflowTranscriptEntryKey({ nodeId: frame.step.nodeId, variant: frame.step.variant })
+    : null

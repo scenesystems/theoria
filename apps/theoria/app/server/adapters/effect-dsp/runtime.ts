@@ -4,6 +4,7 @@ import * as Trace from "effect-dsp/Trace"
 import { Evaluate, Optimizer } from "effect-dsp"
 import * as Contracts from "effect-dsp/contracts"
 
+import type { DspEvaluationPhaseId } from "../../../contracts/capability/effect-dsp-runtime.js"
 import {
   defaultDspModuleType,
   defaultDspScenarioId,
@@ -12,6 +13,7 @@ import {
   type DspScenarioDefinition,
   type DspScenarioId
 } from "../../../contracts/capability/effect-dsp.js"
+import { effectDspEntryDescriptor } from "../../../contracts/entry/descriptors/effect-dsp.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 
 import type { DspProviderRuntime } from "../../capability/effect-dsp.js"
@@ -41,7 +43,7 @@ export const defaultDspRunRequest: DspRunRequest = {
 }
 
 export const requestFromManifest = (manifest: StreamManifest | null): DspRunRequest =>
-  manifest !== null && manifest._tag === "effect-dsp"
+  manifest !== null && manifest._tag === effectDspEntryDescriptor.entryId
     ? {
       scenarioId: manifest.scenarioId,
       moduleType: manifest.moduleType,
@@ -100,14 +102,20 @@ const toUsage = (usage: {
   readonly callCount: number
   readonly cachedCount: number
 }): Contracts.Usage =>
-  new Contracts.Usage({
+  Contracts.Usage.make({
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
     callCount: usage.callCount,
     cachedCount: usage.cachedCount
   })
 
-const runEvaluationPhase = (ctx: DspExecutionContext) =>
+const runEvaluationPhase = ({
+  ctx,
+  phaseId
+}: {
+  readonly ctx: DspExecutionContext
+  readonly phaseId: DspEvaluationPhaseId
+}) =>
   Trace.withUsageTracking(
     Trace.withTracing(
       Evaluate.run({
@@ -121,6 +129,7 @@ const runEvaluationPhase = (ctx: DspExecutionContext) =>
     Effect.flatMap((execution) =>
       projectEvaluationEvidence({
         moduleName: ctx.module.name,
+        phaseId,
         traces: execution[0][1],
         usage: toUsage(execution[1])
       }).pipe(Effect.map((evidence) => ({ report: execution[0][0], evidence })))
@@ -158,7 +167,7 @@ type _PrepareResult = typeof prepareExecution extends (arg: DspRunRequest) => in
 
 export type DspExecutionContext = Effect.Effect.Success<_PrepareResult>
 
-export const runBaseline = (ctx: DspExecutionContext) => runEvaluationPhase(ctx)
+export const runBaseline = (ctx: DspExecutionContext) => runEvaluationPhase({ ctx, phaseId: "baseline" })
 
 export const runOptimization = (ctx: DspExecutionContext) =>
   Effect.gen(function*() {
@@ -173,7 +182,7 @@ export const runOptimization = (ctx: DspExecutionContext) =>
     }).pipe(Stream.provideLayer(ctx.layer), Stream.runCollect)
     const eventList = [...events]
     const optimizedParams = yield* Ref.get(ctx.module.params)
-    const summary = Optimizer.summarizeBootstrapEvents(eventList)
+    const summary = Optimizer.BootstrapEventSummary.summarize(eventList)
 
     return {
       summary: {
@@ -189,7 +198,7 @@ export const runOptimization = (ctx: DspExecutionContext) =>
     }
   })
 
-export const runOptimizedEval = (ctx: DspExecutionContext) => runEvaluationPhase(ctx)
+export const runOptimizedEval = (ctx: DspExecutionContext) => runEvaluationPhase({ ctx, phaseId: "optimized" })
 
 export const dspExecutionStory = (
   request: DspRunRequest

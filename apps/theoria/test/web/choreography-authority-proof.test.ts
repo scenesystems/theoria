@@ -2,14 +2,15 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import { Choreography, encodeEvidenceEventJson, StageAdvance } from "../../app/contracts/evidence-stream.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeRunDemoAtom } from "../../app/web/atoms/actions.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import { Choreography, encodeEvidenceEventJson } from "../../app/contracts/evidence/stream.js"
+import { StageAdvance } from "../../app/contracts/study/workflow/choreography.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
+import { makeRunDemoAtom } from "../helpers/run-atoms.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -118,8 +119,8 @@ describe("runtime spine choreography authority", () => {
 
         expect(final.run._tag).toBe("RunFailed")
         if (final.run._tag === "RunFailed") {
-          expect(final.run.error._tag).toBe("DemoExecutionError")
-          if (final.run.error._tag === "DemoExecutionError") {
+          expect(final.run.error._tag).toBe("EntryExecutionError")
+          if (final.run.error._tag === "EntryExecutionError") {
             expect(final.run.error.message).toContain(
               "Recognized choreography cue StageAdvance violated sequencing authority"
             )

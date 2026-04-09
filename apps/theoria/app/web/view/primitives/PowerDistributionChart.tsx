@@ -1,9 +1,10 @@
-import type { PowerWidgetViewModel } from "../../atoms/widget-view-models.js"
+import type { PowerWidgetViewModel } from "../../atoms/power-widget-view-model.js"
 import { POWER_SVG, powerChartModel } from "../data/powerChartModel.js"
-import { dangerSubtleLegend, type Legend, neutralLegend, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
+import { dangerSubtleLegend, type Legend, neutralLegend } from "./theme/evidence.js"
+import { surfaceMaterials } from "./theme/surface.js"
 
 const h1Legend: Legend = { swatch: "bg-tone-math-500", label: "text-ink-700" }
 const powerLegend: Legend = { swatch: "bg-tone-math-400/50", label: "text-ink-700" }

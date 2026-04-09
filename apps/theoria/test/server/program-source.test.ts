@@ -2,10 +2,10 @@ import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { preloadProgram as preloadDigestProgram } from "../../app/server/entries/digest/run.js"
-import { preloadProgram as preloadEffectDspProgram } from "../../app/server/entries/effect-dsp/run.js"
-import { preloadProgram as preloadEffectSearchProgram } from "../../app/server/entries/effect-search/preload.js"
-import { preloadProgram as preloadEffectTextProgram } from "../../app/server/entries/effect-text/preload.js"
+import { preloadProgram as preloadDigestProgram } from "../../app/server/adapters/digest/run.js"
+import { preloadProgram as preloadEffectDspProgram } from "../../app/server/adapters/effect-dsp/run.js"
+import { preloadProgram as preloadEffectSearchProgram } from "../../app/server/adapters/effect-search/preload.js"
+import { preloadProgram as preloadEffectTextProgram } from "../../app/server/adapters/effect-text/preload.js"
 
 layer(BunContext.layer)("Theoria Entry Program Sources", (it) => {
   it.effect("publishes a virtual workspace for prepared effect-text sources", () =>
@@ -13,8 +13,8 @@ layer(BunContext.layer)("Theoria Entry Program Sources", (it) => {
       const program = yield* preloadEffectTextProgram
 
       expect(program.files.map((file) => file.entry)).toEqual([
-        "server/run.ts",
-        "server/package-story.ts",
+        "server/adapters/effect-text/run.ts",
+        "server/adapters/effect-text/package-story.ts",
         "web/text/browserTextLayout.ts",
         "web/view/text/authority.ts",
         "web/atoms/text.ts",
@@ -27,9 +27,9 @@ layer(BunContext.layer)("Theoria Entry Program Sources", (it) => {
       const program = yield* preloadEffectSearchProgram
 
       expect(program.files.map((file) => file.entry)).toEqual([
-        "server/run.ts",
-        "contracts/demo/objective.ts",
-        "web/atoms/optimization-animation.ts"
+        "server/adapters/effect-search/run.ts",
+        "contracts/capability/effect-search.ts",
+        "web/atoms/run/optimization-animation.ts"
       ])
     }))
 
@@ -38,15 +38,15 @@ layer(BunContext.layer)("Theoria Entry Program Sources", (it) => {
       const program = yield* preloadEffectDspProgram
 
       expect(program.files.map((file) => file.entry)).toEqual([
-        "server/run.ts",
-        "contracts/demo/dsp.ts"
+        "server/adapters/effect-dsp/run.ts",
+        "contracts/capability/effect-dsp.ts"
       ])
     }))
 
-  it.effect("strips repository coordinates from single-file demo workspaces", () =>
+  it.effect("strips repository coordinates from single-file entry workspaces", () =>
     Effect.gen(function*() {
       const program = yield* preloadDigestProgram
 
-      expect(program.files.map((file) => file.entry)).toEqual(["server/run.ts"])
+      expect(program.files.map((file) => file.entry)).toEqual(["server/adapters/digest/run.ts"])
     }))
 })

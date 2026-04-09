@@ -4,41 +4,29 @@ import type { EntryId } from "../../../contracts/entry/id.js"
 import { metadataForEntryId } from "../../../contracts/presentation/metadata.js"
 import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
 import {
-  deepDivePanePercentAtom,
-  deepDiveSecondaryPanePercentAtom,
-  deepDiveSourceExplorerVisibleAtom,
   setDeepDivePanePercentAtom,
   setDeepDiveSecondaryPanePercentAtom,
   toggleDeepDiveSourceExplorerVisibleAtom
 } from "../../atoms/layout/deep-dive-pane.js"
+import { deepDiveProjectionLayoutAtom } from "../../atoms/layout/deep-dive-projection-layout.js"
 import {
-  deepDiveFocusedSurfaceAtom,
-  deepDiveProjectedSurfaceCountAtom,
-  deepDiveSurfaceOrderAtom,
   focusDeepDiveSurfaceAtom,
   hideDeepDiveProjectedSurfaceAtom,
   projectDeepDiveSurfaceAtom
 } from "../../atoms/layout/deep-dive-surface-projection.js"
-import {
-  deepDiveMaxProjectedSurfaceCountAtom,
-  setDeepDiveWorkspaceWidthAtom
-} from "../../atoms/layout/deep-dive-viewport.js"
-import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/run/actions.js"
+import { setDeepDiveWorkspaceWidthAtom } from "../../atoms/layout/deep-dive-viewport.js"
+import { controlRunAtom } from "../../atoms/run/control-actions.js"
+import { selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/surface/program-source-actions.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { PresentationSurface } from "../surfaces/PresentationSurface.js"
 
+import { DeepDiveProjectionSurfaceContext } from "./projection-surface-context.js"
 import { deepDiveProjectionSurfaceFor } from "./projection-surface.js"
 
 export const DeepDivePage = ({ entryId }: { readonly entryId: EntryId }) => {
   const frameViewModel = useAtomValue(deepDiveSurfaceFrameAtom(entryId))
-  const focusedSurface = useAtomValue(deepDiveFocusedSurfaceAtom)
-  const maxProjectedSurfaceCount = useAtomValue(deepDiveMaxProjectedSurfaceCountAtom)
-  const panePercent = useAtomValue(deepDivePanePercentAtom)
-  const secondaryPanePercent = useAtomValue(deepDiveSecondaryPanePercentAtom)
-  const projectedSurfaceCount = useAtomValue(deepDiveProjectedSurfaceCountAtom)
-  const sourceExplorerVisible = useAtomValue(deepDiveSourceExplorerVisibleAtom)
-  const surfaceOrder = useAtomValue(deepDiveSurfaceOrderAtom)
+  const layout = useAtomValue(deepDiveProjectionLayoutAtom)
   const dispatchFocusSurface = useAtomSet(focusDeepDiveSurfaceAtom)
   const dispatchHideSurface = useAtomSet(hideDeepDiveProjectedSurfaceAtom)
   const dispatchPanePercent = useAtomSet(setDeepDivePanePercentAtom)
@@ -50,35 +38,34 @@ export const DeepDivePage = ({ entryId }: { readonly entryId: EntryId }) => {
   const dispatchWorkspaceWidth = useAtomSet(setDeepDiveWorkspaceWidthAtom)
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
   const pageMetadata = metadataForEntryId(entryId)
-  const visibleProjectedSurfaceCount = Math.min(projectedSurfaceCount, maxProjectedSurfaceCount)
 
   const onRunControlAction = (action: RunControlActionKind): void => {
     dispatchRunControl({ action, id: entryId })
   }
 
-  const surfaces = surfaceOrder.map((surface, index) => {
-    const projected = index < visibleProjectedSurfaceCount
-    const descriptor = deepDiveProjectionSurfaceFor(surface, {
-      frameViewModel,
-      id: entryId,
-      onSelectFile: (fileIndex) => {
-        dispatchSelectFile({ id: entryId, fileIndex })
-      },
-      onSelectSourceScope: (scope) => {
-        dispatchSelectSourceScope({ id: entryId, scope })
-      },
-      projectionIndex: projected ? index : null,
-      onToggleSourceExplorerVisible: () => {
-        toggleSourceExplorerVisibility()
-      },
-      sourceExplorerVisible
-    })
+  const surfaces = layout.surfaces.map((surface) => {
+    const descriptor = deepDiveProjectionSurfaceFor(
+      surface.id,
+      DeepDiveProjectionSurfaceContext.make({
+        frameViewModel,
+        id: entryId,
+        onSelectFile: (fileIndex) => {
+          dispatchSelectFile({ id: entryId, fileIndex })
+        },
+        onSelectSourceScope: (scope) => {
+          dispatchSelectSourceScope({ id: entryId, scope })
+        },
+        projectionIndex: surface.position,
+        onToggleSourceExplorerVisible: () => {
+          toggleSourceExplorerVisibility()
+        },
+        sourceExplorerVisible: layout.sourceExplorerVisible
+      })
+    )
 
     return {
       ...descriptor,
-      focused: focusedSurface === surface,
-      position: projected ? index : null,
-      projected
+      ...surface
     }
   })
 
@@ -108,11 +95,12 @@ export const DeepDivePage = ({ entryId }: { readonly entryId: EntryId }) => {
         }}
         onWorkspaceWidthChange={dispatchWorkspaceWidth}
         projection={{
-          focusedSurface,
-          maxProjectedCount: maxProjectedSurfaceCount,
-          panePercent,
-          secondaryPanePercent,
-          surfaces
+          focusedSurface: layout.focusedSurface,
+          maxProjectedCount: layout.maxProjectedCount,
+          panePercent: layout.panePercent,
+          secondaryPanePercent: layout.secondaryPanePercent,
+          surfaces,
+          workspaceLayout: layout.workspaceLayout
         }}
         runControls={frameViewModel.runControls}
       />

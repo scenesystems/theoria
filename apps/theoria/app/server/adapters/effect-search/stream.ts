@@ -2,10 +2,8 @@ import type { FileSystem, Path } from "@effect/platform"
 import { Effect, Option, Stream } from "effect"
 import * as Arr from "effect/Array"
 
-import {
-  effectSearchStudyTelemetrySections,
-  makeEffectSearchStudyTelemetry
-} from "../../../contracts/capability/effect-search-study-telemetry.js"
+import { effectSearchStudyTelemetrySections } from "../../../contracts/capability/effect-search-study-telemetry-evidence.js"
+import { projectEffectSearchStudyTelemetry } from "../../../contracts/capability/effect-search-study-telemetry-projection.js"
 import {
   bestFoundSection,
   bestTrialPoint,
@@ -21,10 +19,12 @@ import {
   type TrialPoint,
   trialPositionsSection
 } from "../../../contracts/capability/effect-search.js"
+import { effectSearchEntryDescriptor } from "../../../contracts/entry/descriptors/effect-search.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import { section, sectionUpsert, step, type StreamElement } from "../../kernel/kinds/stream-element.js"
-import { type DemoStreamPlan, makeStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
+import { type DemoStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
 
 import { preloadProgram } from "./preload.js"
 import { randomLaneStory, type StudyLaneStory, tpeLaneStory } from "./study-story.js"
@@ -41,12 +41,14 @@ type OptimizationStory = {
 
 type SectionAccumulator = ReadonlyArray<EvidenceSection>
 
+const effectSearchRunIdentity = entryRunIdentityForId(effectSearchEntryDescriptor.entryId)
+
 export const defaultEffectSearchStreamRequest: EffectSearchStreamRequest = {
   trialBudget: defaultTrialBudget
 }
 
 const requestFromManifest = (manifest: StreamManifest | null): EffectSearchStreamRequest =>
-  manifest !== null && manifest._tag === "effect-search"
+  manifest !== null && manifest._tag === effectSearchEntryDescriptor.entryId
     ? { trialBudget: manifest.trialBudget }
     : defaultEffectSearchStreamRequest
 
@@ -256,7 +258,7 @@ const computeOptimizationStory = (request: EffectSearchStreamRequest): Effect.Ef
         const randomCheckpoint = checkpointAt(randomStory, index)
         const nextTrialCount = Math.min(tpeCheckpoint.trialPoints.length, randomCheckpoint.trialPoints.length)
         const phase = index + 1 === request.trialBudget ? "complete" : "running"
-        const telemetry = makeEffectSearchStudyTelemetry({
+        const telemetry = projectEffectSearchStudyTelemetry({
           randomEvents: randomCheckpoint.events,
           randomTrialPoints: randomCheckpoint.trialPoints,
           trialBudget: request.trialBudget,
@@ -407,10 +409,10 @@ export const streamPlan = (
     const request = requestFromManifest(manifest)
     const story = yield* computeOptimizationStory(request)
 
-    return makeStreamPlan({
-      packageName: "effect-search",
+    return {
+      packageName: effectSearchRunIdentity.packageName,
       program: preloadProgram,
       summary: runSummary,
       phases: streamPhasesForStory({ request, story }).map(({ name, stream }) => phaseFromElementStream(name, stream))
-    })
+    }
   })

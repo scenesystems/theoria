@@ -6,10 +6,12 @@ import {
   projectPowerProjection,
   snapshotEffectMathProjectionScript
 } from "../../../contracts/capability/effect-math.js"
+import { effectMathEntryDescriptor } from "../../../contracts/entry/descriptors/effect-math.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import { section, step, type StreamElement } from "../../kernel/kinds/stream-element.js"
-import { type DemoStreamPlan, makeStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
+import { type DemoStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
 
 import {
   defaultPowerControls,
@@ -22,6 +24,8 @@ import {
   requiredN
 } from "../../../contracts/capability/effect-math.js"
 import { preloadProgram } from "./preload.js"
+
+const effectMathRunIdentity = entryRunIdentityForId(effectMathEntryDescriptor.entryId)
 
 type EffectMathStreamRequest = {
   readonly controls: {
@@ -36,7 +40,7 @@ export const defaultEffectMathStreamRequest: EffectMathStreamRequest = {
 }
 
 const requestFromManifest = (manifest: StreamManifest | null): EffectMathStreamRequest =>
-  manifest !== null && manifest._tag === "effect-math"
+  manifest !== null && manifest._tag === effectMathEntryDescriptor.entryId
     ? {
       controls: {
         alpha: manifest.alpha,
@@ -371,13 +375,11 @@ export const streamElements = (manifest: StreamManifest | null) =>
 export const streamPlan = (
   manifest: StreamManifest | null
 ): Effect.Effect<DemoStreamPlan<FileSystem.FileSystem | Path.Path, unknown>, never, never> =>
-  Effect.succeed(
-    makeStreamPlan({
-      packageName: "effect-math",
-      program: preloadProgram,
-      summary: runSummary,
-      phases: streamPhaseEffects(requestFromManifest(manifest)).map(({ name, stream }) =>
-        phaseFromElementStream(name, stream)
-      )
-    })
-  )
+  Effect.succeed({
+    packageName: effectMathRunIdentity.packageName,
+    program: preloadProgram,
+    summary: runSummary,
+    phases: streamPhaseEffects(requestFromManifest(manifest)).map(({ name, stream }) =>
+      phaseFromElementStream(name, stream)
+    )
+  })

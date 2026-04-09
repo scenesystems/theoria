@@ -9,17 +9,21 @@ export const DspStageId = Schema.Literal(
   "baseline",
   "optimizing",
   "optimized-eval",
-  "comparison"
+  "outcome"
 )
 
 export type DspStageId = typeof DspStageId.Type
+
+export const DspEvaluationPhaseId = Schema.Literal("baseline", "optimized")
+
+export type DspEvaluationPhaseId = typeof DspEvaluationPhaseId.Type
 
 export const dspStageIds: ReadonlyArray<DspStageId> = [
   "signature",
   "baseline",
   "optimizing",
   "optimized-eval",
-  "comparison"
+  "outcome"
 ]
 
 export const DspRunMetrics = Schema.Struct({

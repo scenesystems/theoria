@@ -1,106 +1,103 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 
+import { type EntryDraft, isWorkflowEntryDraft } from "../../../../contracts/entry/registry.js"
 import type { EvidenceSection } from "../../../../contracts/evidence/item.js"
 import type { CanonicalFrame } from "../../../../contracts/study/workflow/canonical-step.js"
 import {
-  type WorkflowComparisonOption,
-  workflowComparisonOptionForId
-} from "../../../../contracts/study/workflow/comparison/comparison.js"
-import type { WorkflowEntrySeedSelection } from "../../../../contracts/study/workflow/comparison/run.js"
-import { runPhase, type RunState } from "../../../state/run/types.js"
-
-import { type WorkflowComparisonGraphViewModel, workflowComparisonGraphViewModel } from "./graph-model.js"
-import { type WorkflowComparisonProgressViewModel, workflowComparisonProgressViewModel } from "./progress-model.js"
+  workflowScenarioOptionForId,
+  WorkflowScenarioOptionSchema
+} from "../../../../contracts/study/workflow/scenario.js"
 import {
-  type WorkflowComparisonRenderedPreviewViewModel,
-  workflowComparisonRenderedPreviewViewModel
-} from "./rendered-preview-model.js"
+  WorkflowEntrySelection,
+  type WorkflowEntrySelection as WorkflowEntrySelectionModel
+} from "../../../../contracts/study/workflow/selection.js"
 import {
-  type WorkflowComparisonTranscriptViewModel,
-  workflowComparisonTranscriptViewModel
-} from "./transcript-model.js"
+  workflowRunStory,
+  type WorkflowSurfacePhase,
+  workflowSurfacePhaseDetail,
+  workflowSurfacePhaseLabel
+} from "../../../../contracts/study/workflow/surface-phase-presentation.js"
+import type { RunState } from "../../../state/run/types.js"
+import { WorkflowEvidenceProjection } from "../../../state/workflow/workflow-evidence.js"
 
-export type WorkflowComparisonSurfaceViewModel = {
-  readonly plan: WorkflowEntrySeedSelection
-  readonly selection: WorkflowComparisonOption
-  readonly selectionLocked: boolean
-  readonly phaseLabel: string
-  readonly phaseDetail: string
-  readonly progress: WorkflowComparisonProgressViewModel
-  readonly runStory: string
-  readonly graph: WorkflowComparisonGraphViewModel
-  readonly transcript: WorkflowComparisonTranscriptViewModel
-  readonly renderedPreview: WorkflowComparisonRenderedPreviewViewModel
-}
+import { WorkflowGraphViewModel } from "./graph-model.js"
+import { WorkflowProgressViewModel } from "./progress-model.js"
+import { WorkflowRenderedPreviewViewModel } from "./rendered-preview-model.js"
+import { WorkflowTranscriptViewModel } from "./transcript-model.js"
 
-const workflowComparisonPlanFromRun = (run: RunState): WorkflowEntrySeedSelection | null =>
-  run.session.draft !== null && run.session.draft.entryId === "workflow" ? run.session.draft : null
+export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewModel>("WorkflowSurfaceViewModel")({
+  graph: WorkflowGraphViewModel,
+  phaseDetail: Schema.String,
+  phaseLabel: Schema.String,
+  plan: WorkflowEntrySelection,
+  progress: WorkflowProgressViewModel,
+  renderedPreview: WorkflowRenderedPreviewViewModel,
+  runStory: Schema.String,
+  selection: WorkflowScenarioOptionSchema,
+  selectionLocked: Schema.Boolean,
+  transcript: WorkflowTranscriptViewModel
+}) {
+  static project({
+    draftPlan,
+    frame,
+    run,
+    sections
+  }: {
+    readonly draftPlan: WorkflowEntrySelectionModel
+    readonly frame: CanonicalFrame | null
+    readonly run: RunState
+    readonly sections: ReadonlyArray<EvidenceSection>
+  }): WorkflowSurfaceViewModel {
+    const planFromRun = workflowPlanFromRun(run)
+    const plan = planFromRun ?? draftPlan
+    const evidence = WorkflowEvidenceProjection.project(sections)
+    const graph = WorkflowGraphViewModel.project({ evidence, frame })
+    const transcript = WorkflowTranscriptViewModel.project({ evidence, frame })
+    const phase = workflowSurfacePhase(run)
+    const runStory = workflowRunStory({
+      optimize: plan.controls.optimize,
+      targetMode: plan.controls.targetMode
+    })
 
-const runStory = (plan: WorkflowEntrySeedSelection): string =>
-  !plan.controls.optimize
-    ? "baseline -> authored optimized replay"
-    : plan.controls.comparisonMode === "authored-optimized"
-    ? "baseline -> study -> authored optimized replay"
-    : "baseline -> study -> search winner replay"
-
-const phaseLabel = (run: RunState): string =>
-  Match.value(runPhase(run)).pipe(
-    Match.when("idle", () => "Idle"),
-    Match.when("running", () => "Running"),
-    Match.when("paused", () => "Paused"),
-    Match.when("stopping", () => "Stopping"),
-    Match.when("failed", () => "Failed"),
-    Match.when("success", () => "Succeeded"),
-    Match.exhaustive
-  )
-
-const phaseDetail = ({
-  plan,
-  run
-}: {
-  readonly plan: WorkflowEntrySeedSelection
-  readonly run: RunState
-}): string =>
-  Match.value(runPhase(run)).pipe(
-    Match.when("idle", () =>
-      workflowComparisonPlanFromRun(run) === null
-        ? "Select a proving scenario, then freeze one run plan on the shared runtime seam."
-        : "The frozen run plan remains inspectable until reset restores scenario selection."),
-    Match.when("running", () =>
-      "Canonical graph frames and evidence sections are streaming from one server-authored execution."),
-    Match.when("paused", () =>
-      "The run authority is paused without handing graph or score truth back to local state."),
-    Match.when("stopping", () => "The active run is being interrupted at the shared runtime seam."),
-    Match.when("failed", () => "The current execution failed before the success gate sealed the authoritative ledger."),
-    Match.when("success", () => `The completed run sealed ${runStory(plan)} on one canonical ledger.`),
-    Match.exhaustive
-  )
-
-export const workflowComparisonSurfaceViewModel = ({
-  draftPlan,
-  frame,
-  run,
-  sections
-}: {
-  readonly draftPlan: WorkflowEntrySeedSelection
-  readonly frame: CanonicalFrame | null
-  readonly run: RunState
-  readonly sections: ReadonlyArray<EvidenceSection>
-}): WorkflowComparisonSurfaceViewModel => {
-  const plan = workflowComparisonPlanFromRun(run) ?? draftPlan
-  const graph = workflowComparisonGraphViewModel({ frame, sections })
-  const transcript = workflowComparisonTranscriptViewModel({ frame, sections })
-
-  return {
-    plan,
-    selection: workflowComparisonOptionForId(plan.seedId),
-    selectionLocked: workflowComparisonPlanFromRun(run) !== null,
-    phaseLabel: phaseLabel(run),
-    phaseDetail: phaseDetail({ plan, run }),
-    progress: workflowComparisonProgressViewModel({ plan, sections }),
-    runStory: runStory(plan),
-    graph,
-    transcript,
-    renderedPreview: workflowComparisonRenderedPreviewViewModel({ graph, plan, transcript })
+    return WorkflowSurfaceViewModel.make({
+      plan,
+      selection: workflowScenarioOptionForId(plan.seedId),
+      selectionLocked: planFromRun !== null,
+      phaseLabel: workflowSurfacePhaseLabel(phase),
+      phaseDetail: workflowSurfacePhaseDetail({
+        hasFrozenSelection: planFromRun !== null,
+        optimize: plan.controls.optimize,
+        phase,
+        targetMode: plan.controls.targetMode
+      }),
+      progress: WorkflowProgressViewModel.project({ evidence, plan }),
+      runStory,
+      graph,
+      transcript,
+      renderedPreview: WorkflowRenderedPreviewViewModel.project({ graph, plan, transcript })
+    })
   }
 }
+
+const workflowSurfacePhase = (run: RunState): WorkflowSurfacePhase =>
+  Match.value(run).pipe(
+    Match.withReturnType<WorkflowSurfacePhase>(),
+    Match.tag("RunIdle", () => "idle"),
+    Match.tag("RunRunning", ({ session }) =>
+      Match.value(session.control).pipe(
+        Match.withReturnType<WorkflowSurfacePhase>(),
+        Match.when("running", () => "running"),
+        Match.when("paused", () => "paused"),
+        Match.when("stopping", () => "stopping"),
+        Match.exhaustive
+      )),
+    Match.tag("RunFailed", () => "failed"),
+    Match.tag("RunSuccess", () => "succeeded"),
+    Match.exhaustive
+  )
+
+const workflowEntrySelectionFromDraft = (draft: EntryDraft | null): WorkflowEntrySelectionModel | null =>
+  draft !== null && isWorkflowEntryDraft(draft) ? draft : null
+
+const workflowPlanFromRun = (run: RunState): WorkflowEntrySelectionModel | null =>
+  workflowEntrySelectionFromDraft(run.session.draft)

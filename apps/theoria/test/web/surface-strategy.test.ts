@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { surfaceForCard } from "../../app/web/view/primitives/designSystem.js"
+import { surfaceForCard } from "../../app/web/view/primitives/theme/surface.js"
 
 describe("Theoria Surface Strategy", () => {
   it.effect("keeps structural surfaces neutral across all cards", () =>

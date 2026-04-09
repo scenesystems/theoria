@@ -4,19 +4,21 @@ import { Schema } from "effect"
 
 import { EntryId } from "../../contracts/entry/id.js"
 import type { EntryId as EntryIdType } from "../../contracts/entry/id.js"
-import { entryPresentationForId } from "../../contracts/entry/routing.js"
+import { entryInteractiveLabelForId, entryPresentationForId } from "../../contracts/entry/routing.js"
 import type { SurfaceVariant } from "../../contracts/presentation/program.js"
 import type { RunData } from "../../contracts/study/run.js"
+import { tabHintFor } from "../runtime/kernel/surface-view.js"
+import { EvidenceStatusState } from "../state/evidence/stream.js"
+import type { RunEvidenceState } from "../state/run/evidence.js"
+import { runEvidenceState } from "../state/run/evidence.js"
 import { statusText } from "../state/run/status.js"
-import { buildEvidencePlaneViewModel, type EvidencePlaneViewModel } from "../view/data/evidence-layout.js"
-import { tabHintFor } from "../view/deep/interactiveMetadata.js"
-import { type DemoEvidenceViewModel, demoEvidenceViewModel } from "../view/deep/stageEvidenceModel.js"
+import { buildEvidencePlaneViewModel, type EvidencePlaneViewModel } from "../view/data/evidence-plane-model.js"
 import {
-  type DemoStageFrameViewModel,
-  demoStageFrameViewModel,
-  type DemoStageViewModel,
-  demoStageViewModel
-} from "../view/deep/stageModel.js"
+  type SurfaceStageFrameViewModel,
+  surfaceStageFrameViewModel,
+  type SurfaceStageViewModel,
+  surfaceStageViewModel
+} from "../view/deep/surface-stage-model.js"
 import { type PresentedRun, presentRun } from "../view/presenter.js"
 import {
   type DeepDiveSurfaceFrameViewModel,
@@ -27,13 +29,15 @@ import {
 
 import { surfaceEvidencePlaneAtom } from "./evidence/plane.js"
 import {
-  surfaceAtom,
   surfaceEvidenceCompleteAtom,
   surfaceEvidenceMetaAtom,
   surfaceEvidenceSectionCountAtom,
   surfaceEvidenceSectionsAtom,
   surfaceEvidenceStreamAtom,
-  surfaceEvidenceSummaryAtom,
+  surfaceEvidenceSummaryAtom
+} from "./surface/evidence-store.js"
+import {
+  surfaceAtom,
   surfacePreloadStateAtom,
   surfaceRunDataAtom,
   surfaceRunStateAtom,
@@ -92,28 +96,27 @@ export const deepDiveStatusAtom: (id: EntryIdType) => AtomType.Atom<string> = At
           preload: get(surfacePreloadStateAtom(id)),
           run: get(surfaceRunStateAtom(id))
         },
-        {
-          complete: false,
+        EvidenceStatusState.make({
+          complete: get(surfaceEvidenceCompleteAtom(id)),
           sectionCount: get(surfaceEvidenceSectionCountAtom(id))
-        }
+        })
       )
     )
 )
 
-export const deepDiveStageFrameAtom: (id: EntryIdType) => AtomType.Atom<DemoStageFrameViewModel> = Atom.family(
-  (id: EntryIdType) =>
-    Atom.make((get: AtomType.Context) => {
-      const surface = entryPresentationForId(id)
+export const deepDiveSurfaceStageFrameAtom: (id: EntryIdType) => AtomType.Atom<SurfaceStageFrameViewModel> = Atom
+  .family(
+    (id: EntryIdType) =>
+      Atom.make((get: AtomType.Context) =>
+        surfaceStageFrameViewModel({
+          activeTab: get(surfaceStageTabAtom(id)),
+          interactiveLabel: entryInteractiveLabelForId(id),
+          tabHint: tabHintFor(id)
+        })
+      )
+  )
 
-      return demoStageFrameViewModel({
-        activeTab: get(surfaceStageTabAtom(id)),
-        interactiveLabel: surface.interactiveLabel,
-        tabHint: tabHintFor(surface.entryId)
-      })
-    })
-)
-
-type DeepDiveEvidenceAtomViewModel = DemoEvidenceViewModel & {
+type DeepDiveEvidenceAtomViewModel = RunEvidenceState & {
   readonly plane: EvidencePlaneViewModel
 }
 
@@ -125,7 +128,7 @@ export const deepDiveEvidenceAtom: (id: EntryIdType) => AtomType.Atom<DeepDiveEv
       const plane = get(surfaceEvidencePlaneAtom(id))
 
       return {
-        ...demoEvidenceViewModel({ run, stream }),
+        ...runEvidenceState({ run, stream }),
         plane: buildEvidencePlaneViewModel({
           complete: get(surfaceEvidenceCompleteAtom(id)),
           filter: plane.filter,
@@ -139,19 +142,17 @@ export const deepDiveEvidenceAtom: (id: EntryIdType) => AtomType.Atom<DeepDiveEv
     })
 )
 
-export const deepDiveStageAtom: (id: EntryIdType) => AtomType.Atom<DemoStageViewModel> = Atom.family(
+export const deepDiveSurfaceStageAtom: (id: EntryIdType) => AtomType.Atom<SurfaceStageViewModel> = Atom.family(
   (id: EntryIdType) =>
-    Atom.make((get: AtomType.Context) => {
-      const surface = entryPresentationForId(id)
-
-      return demoStageViewModel({
+    Atom.make((get: AtomType.Context) =>
+      surfaceStageViewModel({
         activeTab: get(surfaceStageTabAtom(id)),
-        interactiveLabel: surface.interactiveLabel,
+        interactiveLabel: entryInteractiveLabelForId(id),
         run: get(surfaceRunStateAtom(id)),
         stream: get(surfaceEvidenceStreamAtom(id)),
-        tabHint: tabHintFor(surface.entryId)
+        tabHint: tabHintFor(id)
       })
-    })
+    )
 )
 
 export const presentedRunAtom: (id: EntryIdType) => AtomType.Atom<PresentedRun | null> = Atom.family(

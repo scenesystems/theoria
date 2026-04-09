@@ -1,8 +1,9 @@
 import { Button } from "@base-ui-components/react/button"
 
-import { toggleTrackClassName, type Tone } from "./designSystem.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { toggleTrackClassName } from "./theme/button.js"
+import { type Tone } from "./theme/tone.js"
 
 export const ToggleSwitch = ({
   checked,

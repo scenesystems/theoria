@@ -1,18 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Option from "effect/Option"
 
+import { authorityCatalogForId } from "../../app/contracts/capability/catalog.js"
 import {
   cardByIdForReleaseStage,
   cards,
   cardsForReleaseStage,
   effectCards,
   scenesystemsCards
-} from "../../app/contracts/card.js"
-import {
-  authorityCatalogForId,
-  entryDescriptorForId,
-  primaryAuthorityIdForEntry
-} from "../../app/contracts/proving-substrate.js"
+} from "../../app/contracts/entry/card.js"
+import { primaryAuthorityIdForEntry } from "../../app/contracts/entry/focus.js"
+import { entryDescriptorForId } from "../../app/contracts/entry/registry.js"
 
 const comingSoonIds: ReadonlyArray<"digest" | "sign" | "seal"> = ["digest", "sign", "seal"]
 
@@ -39,16 +37,20 @@ describe("Theoria Card Publication Contracts", () => {
     expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign", "workflow"])
   })
 
-  it("projects each card through the entry descriptor and authority substrate seam", () => {
+  it("projects each card through the entry descriptor and capability catalog seam", () => {
     cards.forEach((card) => {
       const descriptor = entryDescriptorForId(card.id)
       const authority = authorityCatalogForId(primaryAuthorityIdForEntry(card.id))
 
-      expect(card.packageName).toBe(authority.packageName)
+      expect(card.packageName).toBe(descriptor.packageName)
       expect(card.title).toBe(descriptor.title)
       expect(card.summary).toBe(descriptor.summary)
       expect(card.runLabel).toBe(descriptor.runLabel)
       expect(card.deepDivePath).toBe(descriptor.path)
+      expect(card.version).toBe(authority.version)
+      expect(card.npmUrl).toBe(authority.npmUrl)
+      expect(card.repoUrl).toBe(authority.repoUrl)
+      expect(card.license).toBe(authority.license)
     })
   })
 

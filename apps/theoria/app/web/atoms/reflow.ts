@@ -5,6 +5,10 @@ import { Effect, Layer, Option } from "effect"
 import { Text } from "effect-text"
 
 import {
+  defaultEffectTextSurfaceControls,
+  type EffectTextSurfaceControls
+} from "../../contracts/capability/effect-text-surface.js"
+import {
   projectionMinWidthFor,
   resolveCorpusEntry,
   resolveStageMaxWidth,
@@ -14,13 +18,11 @@ import {
   stageSliderMaxWidth
 } from "../../contracts/capability/effect-text.js"
 import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
+import { defaultEffectTextEntryInput } from "../../contracts/entry/defaults.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 import { fontDescriptorFor, semanticsFor, type TextRole } from "../../contracts/presentation/text.js"
-import {
-  projectObstacleTextLayout,
-  type ReflowStageLine,
-  type ReflowStageObstacle
-} from "../text/obstacleProjection.js"
+import { projectObstacleTextLayout } from "../text/obstacleProjection.js"
+import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleStageModel.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
 export const reflowRole: TextRole = "card-summary"
@@ -30,28 +32,17 @@ const reflowFont = fontDescriptorFor(reflowSemantics)
 const reflowLineHeight = reflowSemantics.lineHeight
 const reflowRuntime = Atom.runtime(Layer.empty)
 
-const defaultCorpusIndex = 0
-const defaultWidth = Math.round(reflowSemantics.maxWidth.compact / 2)
+export type ReflowControls = EffectTextSurfaceControls
 
-export type ReflowControls = {
-  readonly corpusIndex: number
-  readonly width: number
-  readonly obstaclesEnabled: boolean
-}
-
-const defaultReflowControls: ReflowControls = {
-  corpusIndex: defaultCorpusIndex,
-  width: defaultWidth,
-  obstaclesEnabled: false
-}
-
-export const reflowControlsAtom: AtomType.Writable<ReflowControls> = Atom.make(defaultReflowControls)
+export const reflowControlsAtom: AtomType.Writable<ReflowControls> = Atom.make(defaultEffectTextSurfaceControls)
 export const reflowSliderMaxWidth: number = stageSliderMaxWidth
-export const reflowStageViewportWidthAtom: AtomType.Writable<number> = Atom.make(0)
+export const reflowStageViewportWidthAtom: AtomType.Writable<number> = Atom.make(
+  defaultEffectTextEntryInput.viewportWidthPx
+)
 export const reflowStageHorizontalInsetPx = stageHorizontalInsetPx
 export const reflowStageVerticalInsetPx = 16
 export const reflowStageFrameBorderPx = stageFrameBorderPx
-export const customTextAtom: AtomType.Writable<string> = Atom.make("")
+export const customTextAtom: AtomType.Writable<string> = Atom.make(defaultEffectTextEntryInput.customText)
 
 const clampNumber = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value))
 

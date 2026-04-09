@@ -7,27 +7,27 @@ const NonNegativeNumber = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0)
 )
 
-export const Metadata = Schema.Struct({
+export class Metadata extends Schema.Class<Metadata>("Metadata")({
   requestId: Schema.String.pipe(Schema.minLength(1)),
   buildSha: Schema.String.pipe(Schema.minLength(1)),
   durationMs: NonNegativeNumber
-})
+}) {
+  static fromTiming(input: {
+    readonly requestId: string
+    readonly buildSha: string
+    readonly startedAtMs: number
+    readonly endedAtMs: number
+  }): Metadata {
+    return Metadata.make({
+      requestId: input.requestId,
+      buildSha: input.buildSha,
+      durationMs: input.endedAtMs - input.startedAtMs
+    })
+  }
+}
 
-export type Metadata = typeof Metadata.Type
-
-export const Success = <A, I, R>(data: Schema.Schema<A, I, R>) =>
-  Schema.Struct({
-    ok: Schema.Literal(true),
-    meta: Metadata,
-    data
-  })
-
-export const Failure = Schema.Struct({
+export class FailureEnvelope extends Schema.Class<FailureEnvelope>("FailureEnvelope")({
   ok: Schema.Literal(false),
   meta: Metadata,
   error: ErrorModel
-})
-
-export type Failure = typeof Failure.Type
-
-export const Envelope = <A, I, R>(data: Schema.Schema<A, I, R>) => Schema.Union(Success(data), Failure)
+}) {}

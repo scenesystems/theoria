@@ -13,7 +13,7 @@ export const preloadProgram: Effect.Effect<
 > = Effect.all([
   executableProgramFile(new URL("./run.ts", import.meta.url).href),
   executableProgramFile(new URL("../../../contracts/capability/effect-search.ts", import.meta.url).href),
-  executableProgramFile(new URL("../../../web/atoms/optimization-animation.ts", import.meta.url).href)
+  executableProgramFile(new URL("../../../web/atoms/run/optimization-animation.ts", import.meta.url).href)
 ]).pipe(
   Effect.map(([serverFile, kernelFile, animationFile]) => multiFileProgram([serverFile, kernelFile, animationFile]))
 )

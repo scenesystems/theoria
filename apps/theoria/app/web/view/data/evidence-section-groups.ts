@@ -1,6 +1,15 @@
 import { Match } from "effect"
 
 import type { EvidenceItem } from "../../../contracts/evidence/item.js"
+import {
+  EvidenceMetric,
+  type EvidenceSectionGroup,
+  EvidenceSectionMetricsGroup,
+  EvidenceSectionProseGroup,
+  EvidenceSectionTableGroup,
+  type EvidenceSectionVariant,
+  EvidenceSectionVisualsGroup
+} from "../../../contracts/evidence/section-presentation.js"
 
 import { formatScalar } from "./format.js"
 
@@ -10,20 +19,7 @@ type ComparisonEvidenceItem = Extract<EvidenceItem, { readonly _tag: "Comparison
 type SeriesEvidenceItem = Extract<EvidenceItem, { readonly _tag: "Series" }>
 type TableEvidenceItem = Extract<EvidenceItem, { readonly _tag: "Table" }>
 
-export type EvidenceMetric = {
-  readonly label: string
-  readonly value: string
-}
-
-export type EvidenceSectionGroup =
-  | {
-    readonly _tag: "Metrics"
-    readonly layout: "hero" | "grid" | "strip"
-    readonly metrics: ReadonlyArray<EvidenceMetric>
-  }
-  | { readonly _tag: "Prose"; readonly items: ReadonlyArray<TextEvidenceItem> }
-  | { readonly _tag: "Visuals"; readonly items: ReadonlyArray<ComparisonEvidenceItem | SeriesEvidenceItem> }
-  | { readonly _tag: "Table"; readonly item: TableEvidenceItem }
+export type { EvidenceMetric, EvidenceSectionGroup } from "../../../contracts/evidence/section-presentation.js"
 
 const scalarItems = (items: ReadonlyArray<EvidenceItem>): ReadonlyArray<ScalarEvidenceItem> =>
   items.flatMap((item) => item._tag === "Scalar" ? [item] : [])
@@ -42,42 +38,38 @@ const metricGroup = ({
   variant
 }: {
   readonly metrics: ReadonlyArray<ScalarEvidenceItem>
-  readonly variant: "highlight" | "analysis" | "context" | "dataset"
-}): Extract<EvidenceSectionGroup, { readonly _tag: "Metrics" }> => ({
-  _tag: "Metrics",
-  layout: variant === "highlight" || (variant === "analysis" && metrics.length >= 2)
-    ? "hero"
-    : metrics.length >= 4
-    ? "grid"
-    : "strip",
-  metrics: metrics.map((metric) => ({
-    label: metric.label,
-    value: formatScalar(metric.value, metric.unit, metric.format)
-  }))
-})
+  readonly variant: EvidenceSectionVariant
+}): EvidenceSectionMetricsGroup =>
+  EvidenceSectionMetricsGroup.make({
+    layout: variant === "highlight" || (variant === "analysis" && metrics.length >= 2)
+      ? "hero"
+      : metrics.length >= 4
+      ? "grid"
+      : "strip",
+    metrics: metrics.map((metric) =>
+      EvidenceMetric.make({
+        label: metric.label,
+        value: formatScalar(metric.value, metric.unit, metric.format)
+      })
+    )
+  })
 
 const visualGroup = (
   items: ReadonlyArray<ComparisonEvidenceItem | SeriesEvidenceItem>
-): Extract<EvidenceSectionGroup, { readonly _tag: "Visuals" }> => ({ _tag: "Visuals", items })
+): EvidenceSectionVisualsGroup => EvidenceSectionVisualsGroup.make({ items })
 
 const proseGroup = (
   items: ReadonlyArray<TextEvidenceItem>
-): Extract<EvidenceSectionGroup, { readonly _tag: "Prose" }> => ({
-  _tag: "Prose",
-  items
-})
+): EvidenceSectionProseGroup => EvidenceSectionProseGroup.make({ items })
 
-const tableGroup = (item: TableEvidenceItem): Extract<EvidenceSectionGroup, { readonly _tag: "Table" }> => ({
-  _tag: "Table",
-  item
-})
+const tableGroup = (item: TableEvidenceItem): EvidenceSectionTableGroup => EvidenceSectionTableGroup.make({ item })
 
 const groupOrder = ({
   group,
   variant
 }: {
   readonly group: EvidenceSectionGroup
-  readonly variant: "highlight" | "analysis" | "context" | "dataset"
+  readonly variant: EvidenceSectionVariant
 }): number =>
   Match.value(variant).pipe(
     Match.when("highlight", () =>
@@ -120,7 +112,7 @@ export const buildEvidenceSectionGroups = ({
   variant
 }: {
   readonly items: ReadonlyArray<EvidenceItem>
-  readonly variant: "highlight" | "analysis" | "context" | "dataset"
+  readonly variant: EvidenceSectionVariant
 }): ReadonlyArray<EvidenceSectionGroup> => {
   const metrics = scalarItems(items)
   const visuals = visualItems(items)

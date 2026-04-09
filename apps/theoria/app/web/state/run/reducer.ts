@@ -1,169 +1,81 @@
 import { Match } from "effect"
 
+import { RunInternalFacts } from "./internal-facts.js"
 import type { RunMessage } from "./messages.js"
-import {
-  hasMatchingSequence,
-  initialRunState,
-  runFactsFromOwnership,
-  runInFlightState,
-  startedRunRuntimeTelemetryState
-} from "./session.js"
-import {
-  failedRunState,
-  observeStepQueueDrainFact,
-  observeStreamCompletionFact,
-  stoppedRunState,
-  succeededRunState,
-  updateRunInFlightCanonicalFrame,
-  updateRunInFlightChoreography,
-  updateRunInFlightFacts,
-  updateRunInFlightFrame,
-  updateRunInFlightTelemetry
-} from "./transitions.js"
-import { type RunState, runSuccessGateSatisfied } from "./types.js"
+import { RunRuntimeTelemetryState } from "./runtime-telemetry-state.js"
+import { RunIdleState, RunInFlightState } from "./state.js"
+import type { RunState as RunStateValue } from "./types.js"
 
-export const reduceRunState = (state: RunState, message: RunMessage): RunState =>
+export const reduceRunState = (state: RunStateValue, message: RunMessage): RunStateValue =>
   Match.value(message).pipe(
     Match.tag(
       "RunStarted",
-      ({ token, sequence, ownership, startedAtMs, draft, identity, localProjectionScript, program }): RunState =>
-        runInFlightState(
+      ({ token, sequence, ownership, startedAtMs, draft, identity, localProjectionScript, program }): RunStateValue =>
+        RunInFlightState.start({
           token,
           sequence,
-          "running",
+          control: "running",
           ownership,
           program,
-          runFactsFromOwnership(ownership),
-          startedRunRuntimeTelemetryState({ ownership, startedAtMs }),
+          facts: RunInternalFacts.fromOwnership(ownership),
+          telemetry: RunRuntimeTelemetryState.started({ ownership, startedAtMs }),
           draft,
           identity,
           localProjectionScript,
-          null
-        )
+          localRunFrame: null
+        })
     ),
-    Match.tag("RunFrameUpdated", ({ sequence, frame }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightFrame(state, frame)
+    Match.tag("RunFrameUpdated", ({ sequence, frame }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.withLocalRunFrame(frame)
         : state),
-    Match.tag("RunCanonicalFrameObserved", ({ sequence, frame }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightCanonicalFrame(state, frame)
+    Match.tag("RunCanonicalFrameObserved", ({ sequence, frame }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.withCanonicalFrame(frame)
         : state),
-    Match.tag("RunChoreographyObserved", ({ sequence, state: choreography }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightChoreography(state, choreography)
+    Match.tag("RunChoreographyObserved", ({ sequence, state: choreography }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.withChoreography(choreography)
         : state),
-    Match.tag("RunStreamCompleteObserved", ({ sequence, observedAtMs, summary, meta }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightTelemetry(
-          updateRunInFlightFacts(state, observeStreamCompletionFact(state.session.facts, observedAtMs, summary, meta)),
-          { kind: "stream-complete-observed", atMs: observedAtMs, detail: null }
-        )
+    Match.tag("RunStreamCompleteObserved", ({ sequence, observedAtMs, summary, meta }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.observeStreamCompletion({ observedAtMs, summary, meta })
         : state),
-    Match.tag("RunStepQueueDrained", ({ sequence, observedAtMs }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightTelemetry(
-          updateRunInFlightFacts(state, observeStepQueueDrainFact(state.session.facts, observedAtMs)),
-          { kind: "step-queue-drained", atMs: observedAtMs, detail: null }
-        )
+    Match.tag("RunStepQueueDrained", ({ sequence, observedAtMs }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.observeStepQueueDrain(observedAtMs)
         : state),
-    Match.tag("RunPauseCheckpointReached", ({ sequence, observedAtMs }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightTelemetry(state, { kind: "checkpoint-reached", atMs: observedAtMs, detail: null })
+    Match.tag("RunPauseCheckpointReached", ({ sequence, observedAtMs }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.observeTelemetry({ kind: "checkpoint-reached", atMs: observedAtMs, detail: null })
         : state),
-    Match.tag("RunPaused", ({ sequence, requestedAtMs }): RunState =>
+    Match.tag("RunPaused", ({ sequence, requestedAtMs }): RunStateValue =>
       state._tag === "RunRunning" && state.sequence === sequence && state.session.control === "running"
-        ? updateRunInFlightTelemetry(
-          runInFlightState(
-            state.session.token,
-            sequence,
-            "paused",
-            state.session.ownership,
-            state.program,
-            state.session.facts,
-            state.session.telemetry,
-            state.session.draft,
-            state.session.identity,
-            state.session.localProjectionScript,
-            state.session.localRunFrame,
-            state.session.canonicalFrame,
-            state.session.choreography
-          ),
-          { kind: "pause-requested", atMs: requestedAtMs, detail: null }
-        )
+        ? state.paused(requestedAtMs)
         : state),
-    Match.tag("RunResumed", ({ sequence, requestedAtMs }): RunState =>
+    Match.tag("RunResumed", ({ sequence, requestedAtMs }): RunStateValue =>
       state._tag === "RunRunning" && state.sequence === sequence && state.session.control === "paused"
-        ? updateRunInFlightTelemetry(
-          runInFlightState(
-            state.session.token,
-            sequence,
-            "running",
-            state.session.ownership,
-            state.program,
-            state.session.facts,
-            state.session.telemetry,
-            state.session.draft,
-            state.session.identity,
-            state.session.localProjectionScript,
-            state.session.localRunFrame,
-            state.session.canonicalFrame,
-            state.session.choreography
-          ),
-          { kind: "resume-requested", atMs: requestedAtMs, detail: null }
-        )
+        ? state.resumed(requestedAtMs)
         : state),
-    Match.tag("RunStopping", ({ sequence, requestedAtMs }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? updateRunInFlightTelemetry(
-          runInFlightState(
-            state.session.token,
-            sequence,
-            "stopping",
-            state.session.ownership,
-            state.program,
-            state.session.facts,
-            state.session.telemetry,
-            state.session.draft,
-            state.session.identity,
-            state.session.localProjectionScript,
-            state.session.localRunFrame,
-            state.session.canonicalFrame,
-            state.session.choreography
-          ),
-          { kind: "stop-requested", atMs: requestedAtMs, detail: null }
-        )
+    Match.tag("RunStopping", ({ sequence, requestedAtMs }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.stopping(requestedAtMs)
         : state),
-    Match.tag("RunStopped", ({ sequence, stoppedAtMs }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? stoppedRunState(state, stoppedAtMs)
+    Match.tag("RunStopped", ({ sequence, stoppedAtMs }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.stopped(stoppedAtMs)
         : state),
-    Match.tag("RunFailed", ({ sequence, finalizedAtMs, error }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? failedRunState(
-          updateRunInFlightTelemetry(state, {
-            kind: "run-finalized",
-            atMs: finalizedAtMs,
-            detail: "failed"
-          }),
-          error
-        )
+    Match.tag("RunFailed", ({ sequence, finalizedAtMs, error }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.failed({ error, finalizedAtMs })
         : state),
-    Match.tag("RunSucceeded", ({ sequence, finalizedAtMs, data, meta }): RunState =>
-      hasMatchingSequence(state, sequence)
-        ? runSuccessGateSatisfied(state)
-          ? succeededRunState(
-            updateRunInFlightTelemetry(state, {
-              kind: "run-finalized",
-              atMs: finalizedAtMs,
-              detail: "succeeded"
-            }),
-            data,
-            meta
-          )
+    Match.tag("RunSucceeded", ({ sequence, finalizedAtMs, data, meta }): RunStateValue =>
+      RunInFlightState.hasSequence(state, sequence)
+        ? state.session.facts.successGateSatisfied()
+          ? state.succeeded({ data, meta, finalizedAtMs })
           : state
         : state),
-    Match.tag("RunReset", (): RunState =>
-      initialRunState()),
+    Match.tag("RunReset", (): RunStateValue =>
+      RunIdleState.make()),
     Match.exhaustive
   )

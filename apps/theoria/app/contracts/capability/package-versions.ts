@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { Envelope } from "../envelope.js"
+import { FailureEnvelope, Metadata } from "../envelope.js"
 
 /**
  * Package version map served by the `/api/versions/packages` endpoint.
@@ -14,4 +14,12 @@ export const PackageVersions = Schema.Record({ key: Schema.String, value: Schema
 
 export type PackageVersions = typeof PackageVersions.Type
 
-export const PackageVersionsEnvelope = Envelope(PackageVersions)
+export class PackageVersionsSuccessEnvelope extends Schema.Class<PackageVersionsSuccessEnvelope>(
+  "PackageVersionsSuccessEnvelope"
+)({
+  ok: Schema.Literal(true),
+  meta: Metadata,
+  data: PackageVersions
+}) {}
+
+export const PackageVersionsEnvelope = Schema.Union(PackageVersionsSuccessEnvelope, FailureEnvelope)

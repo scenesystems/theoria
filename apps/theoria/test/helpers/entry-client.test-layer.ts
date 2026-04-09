@@ -1,24 +1,36 @@
 import { Atom } from "@effect-atom/atom"
 import { Effect, Layer } from "effect"
 
-import type { DemoError } from "../../app/contracts/demo-error.js"
-import type { Metadata } from "../../app/contracts/envelope.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import type { ProgramPreview } from "../../app/contracts/program-preview.js"
-import type { EntryRunRequest } from "../../app/contracts/proving-substrate.js"
-import type { RunData } from "../../app/contracts/run.js"
+import type { CapabilityAvailability } from "../../app/contracts/capability/availability.js"
+import type { EntryError } from "../../app/contracts/entry-error.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import type { EntryRunRequest } from "../../app/contracts/entry/registry.js"
+import { Metadata } from "../../app/contracts/envelope.js"
+import type { ProgramPreview } from "../../app/contracts/presentation/program-preview.js"
+import type { RunData } from "../../app/contracts/study/run.js"
 import { EntryClient } from "../../app/web/services/EntryClient.js"
 
-import { programPreviewFixture, runDataFixture } from "./demo-fixtures.js"
+import { programPreviewFixture, runDataFixture } from "./entry-fixtures.js"
+
+type EnvelopeMetadata = typeof Metadata.Type
 
 export type EntryClientFixtures = {
-  readonly run: (id: EntryId, request?: EntryRunRequest) => Effect.Effect<RunData, DemoError>
+  readonly run: (id: EntryId, request?: EntryRunRequest) => Effect.Effect<RunData, EntryError>
   readonly runWithMeta?: (
     id: EntryId,
     request?: EntryRunRequest
-  ) => Effect.Effect<{ readonly data: RunData; readonly meta: Metadata }, DemoError>
-  readonly preload: (id: EntryId) => Effect.Effect<ProgramPreview, DemoError>
+  ) => Effect.Effect<{ readonly data: RunData; readonly meta: EnvelopeMetadata }, EntryError>
+  readonly preload: (id: EntryId) => Effect.Effect<ProgramPreview, EntryError>
+  readonly capabilityAvailability?: () => Effect.Effect<CapabilityAvailability, EntryError>
 }
+
+const defaultCapabilityAvailability = (): CapabilityAvailability => ({
+  entries: [],
+  dsp: {
+    enabled: false,
+    reason: "Test DSP runtime unavailable."
+  }
+})
 
 export const makeEntryClientTestLayer = (fixtures: EntryClientFixtures): Layer.Layer<EntryClient> =>
   Layer.succeed(
@@ -31,14 +43,16 @@ export const makeEntryClientTestLayer = (fixtures: EntryClientFixtures): Layer.L
           fixtures.run(id, resolvedRequest).pipe(
             Effect.map((data) => ({
               data,
-              meta: {
+              meta: Metadata.make({
                 requestId: `req-${id}`,
                 buildSha: "test-build",
                 durationMs: data.durationMs
-              }
+              })
             }))
           )))(request.draft.entryId, request),
       preload: fixtures.preload,
+      capabilityAvailability: () =>
+        fixtures.capabilityAvailability?.() ?? Effect.succeed(defaultCapabilityAvailability()),
       versions: () => Effect.succeed({})
     }
   )

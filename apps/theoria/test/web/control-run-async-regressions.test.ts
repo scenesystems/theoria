@@ -5,24 +5,25 @@ import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/sou
 import type { Duration } from "effect"
 import { Effect, Option } from "effect"
 
-import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
+import { DspCanonicalStep } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
   SectionAppend,
   StreamComplete
-} from "../../app/contracts/evidence-stream.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeRunControlAtom } from "../../app/web/atoms/actions.js"
-import { animatingAtom } from "../../app/web/atoms/animation.js"
+} from "../../app/contracts/evidence/stream.js"
 import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
-import { powerAnimatingAtom } from "../../app/web/atoms/power-animation.js"
 import { reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom, surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { animatingAtom } from "../../app/web/atoms/run/animation.js"
+import { powerAnimatingAtom } from "../../app/web/atoms/run/power-animation.js"
+import { surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface/run-telemetry.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
 import { emitEffectMathAuthoredStream, emitEffectTextAuthoredStream } from "../helpers/mock-authored-stream.js"
+import { makeRunControlAtom } from "../helpers/run-atoms.js"
 
 const appRootUrl = new URL("../../", import.meta.url)
 
@@ -166,9 +167,9 @@ const emitDspProgressStep = (registry: Registry.Registry, source: MockEventSourc
   }).pipe(Effect.orDie)
 
 describe("control-run async authority boundary", () => {
-  it.effect("keeps DSP graph projections and workflow score contracts split across effect-dsp and effect-inference authorities", () =>
+  it.effect("keeps workflow execution contracts split across effect-dsp and effect-inference authorities", () =>
     Effect.gen(function*() {
-      const contractPath = "app/contracts/workflow/comparison-run.ts"
+      const contractPath = "app/contracts/study/workflow/execution.ts"
       const source = yield* readProjectFile(appRootUrl, contractPath)
       const imports = moduleSpecifiers(parseTypeScript(contractPath, source))
 
@@ -317,7 +318,7 @@ describe("controlRunAtom async regressions", () => {
             )
           )
           source.emitEvidence(
-            encodeEvidenceEventJson(new StreamComplete({ summary: "Control atom dsp async.", meta: streamMeta }))
+            encodeEvidenceEventJson(StreamComplete.make({ summary: "Control atom dsp async.", meta: streamMeta }))
           )
         }),
       emitWhilePaused: emitDspProgressStep,

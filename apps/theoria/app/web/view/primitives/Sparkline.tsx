@@ -1,8 +1,8 @@
 import * as Arr from "effect/Array"
 
-import { surfaceMaterials } from "./designSystem.js"
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { surfaceMaterials } from "./theme/surface.js"
 
 type SparklineSurface = "panel" | "flush"
 

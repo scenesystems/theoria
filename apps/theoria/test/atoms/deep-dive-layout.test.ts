@@ -2,21 +2,25 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { DeepDiveSurfacePlaneValue } from "../../app/contracts/layout.js"
+import { DeepDiveSurfacePlaneValue } from "../../app/contracts/presentation/layout.js"
+import {
+  deepDiveSecondaryPanePercentAtom,
+  deepDiveSourceExplorerVisibleAtom,
+  setDeepDiveSecondaryPanePercentAtom,
+  toggleDeepDiveSourceExplorerVisibleAtom
+} from "../../app/web/atoms/layout/deep-dive-pane.js"
 import {
   deepDiveFocusedSurfaceAtom,
   deepDiveProjectedSurfaceCountAtom,
-  deepDiveSecondaryPanePercentAtom,
-  deepDiveSourceExplorerVisibleAtom,
-  deepDiveSurfaceOrderAtom,
+  deepDiveSurfaceOrderAtom
+} from "../../app/web/atoms/layout/deep-dive-projection-state.js"
+import {
   hideDeepDiveProjectedSurfaceAtom,
   projectDeepDiveSurfaceAtom,
-  reorderDeepDiveProjectedSurfaceAtom,
-  setDeepDiveSecondaryPanePercentAtom,
-  setDeepDiveWorkspaceWidthAtom,
-  toggleDeepDiveSourceExplorerVisibleAtom
-} from "../../app/web/atoms/deep-dive-layout.js"
-import { DeepDiveDiagnosticsPlaneValue, diagnosticsProjectionEnabled } from "../../app/web/state/deep-dive-surface.js"
+  reorderDeepDiveProjectedSurfaceAtom
+} from "../../app/web/atoms/layout/deep-dive-surface-projection.js"
+import { setDeepDiveWorkspaceWidthAtom } from "../../app/web/atoms/layout/deep-dive-viewport.js"
+import { DeepDiveDiagnosticsPlaneValue, diagnosticsProjectionEnabled } from "../../app/web/state/surface/deep-dive.js"
 
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({

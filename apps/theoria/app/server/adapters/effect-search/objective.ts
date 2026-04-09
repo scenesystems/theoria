@@ -1,5 +1,5 @@
 /**
- * effect-search-dependent orchestration for the optimization demo.
+ * effect-search-dependent orchestration for the optimization study surface.
  *
  * Pure math lives in contracts/capability/effect-search.ts — this file provides
  * only the Effect/effect-search wrappers needed by the server.
@@ -21,7 +21,7 @@ import {
 
 export const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
 
-export const makeSearchSpace = SearchSpace.make({
+export const searchSpace = SearchSpace.make({
   x: SearchSpace.float(searchBounds.xMin, searchBounds.xMax),
   y: SearchSpace.float(searchBounds.yMin, searchBounds.yMax)
 })
@@ -32,7 +32,7 @@ class UnexpectedSearchResult extends Data.TaggedError("UnexpectedSearchResult")<
 
 export const minimizeWith = (sampler: Sampler.Sampler, trialBudget: number = defaultTrialBudget) =>
   Effect.gen(function*() {
-    const space = yield* makeSearchSpace
+    const space = yield* searchSpace
 
     const result = yield* Study.minimize({
       space,

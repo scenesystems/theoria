@@ -2,18 +2,16 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { SectionAppend, SectionUpsert } from "../../app/contracts/evidence-stream.js"
+import { SectionAppend, SectionUpsert } from "../../app/contracts/evidence/stream.js"
 import {
-  surfaceAtom,
   surfaceEvidenceSectionCountAtom,
   surfaceEvidenceSectionsAtom,
   surfaceEvidenceStoreAtom,
-  surfaceEvidenceStreamAtom,
-  surfaceRunDataAtom,
-  surfaceRunRuntimeTelemetryViewModelAtom
-} from "../../app/web/atoms/surface.js"
-import { applyEvidenceEvent } from "../../app/web/state/types.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+  surfaceEvidenceStreamAtom
+} from "../../app/web/atoms/surface/evidence-store.js"
+import { surfaceRunRuntimeTelemetryViewModelAtom } from "../../app/web/atoms/surface/run-telemetry.js"
+import { surfaceAtom, surfaceRunDataAtom } from "../../app/web/atoms/surface/state.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState } from "../helpers/run-state.js"
 import { succeededRunState } from "../helpers/run-state.js"
 
@@ -106,8 +104,7 @@ describe("Surface Atoms", () => {
       )
 
       registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
-        applyEvidenceEvent(
-          store,
+        store.apply(
           new SectionAppend({
             section: {
               title: "Performance",
@@ -116,8 +113,7 @@ describe("Surface Atoms", () => {
           })
         ))
       registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
-        applyEvidenceEvent(
-          store,
+        store.apply(
           new SectionUpsert({
             section: {
               title: "Performance",

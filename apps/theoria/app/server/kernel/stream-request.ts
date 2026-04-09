@@ -1,15 +1,13 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 
+import { EntryExecutionError } from "../../contracts/entry-error.js"
 import { fingerprintOf } from "../../contracts/entry/fingerprint.js"
 import { type RunnableEntryId, RunnableEntryId as RunnableEntryIdSchema } from "../../contracts/entry/id.js"
-import { type EntryDraft, EntryDraft as EntryDraftSchema } from "../../contracts/entry/registry.js"
+import { EntryDraft as EntryDraftSchema } from "../../contracts/entry/registry.js"
 import {
-  EffectDspManifest,
-  EffectMathManifest,
-  EffectSearchManifest,
-  EffectTextManifest,
   type StreamManifest,
-  StreamManifest as StreamManifestSchema
+  StreamManifest as StreamManifestSchema,
+  streamManifestFromEntryDraft
 } from "../../contracts/evidence/manifest.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -32,49 +30,19 @@ const encodeEntryStreamRequest = Schema.encodeSync(EntryStreamRequest)
 export const EntryStreamRequestJson = Schema.parseJson(EntryStreamRequest)
 export const encodeEntryStreamRequestJson = Schema.encodeSync(EntryStreamRequestJson)
 
-type EffectTextEntryDraft = Extract<EntryDraft, { readonly entryId: "effect-text" }>
-type EffectDspEntryDraft = Extract<EntryDraft, { readonly entryId: "effect-dsp" }>
-type EffectSearchEntryDraft = Extract<EntryDraft, { readonly entryId: "effect-search" }>
-type EffectMathEntryDraft = Extract<EntryDraft, { readonly entryId: "effect-math" }>
+const invalidEntryRequestError = (id: RunnableEntryId): EntryExecutionError =>
+  new EntryExecutionError({
+    code: "invalid-entry-id",
+    message: `Run workflow request does not match the ${id} entry.`,
+    retryable: false
+  })
 
-const isEffectTextDraft = (draft: EntryDraft): draft is EffectTextEntryDraft => draft.entryId === "effect-text"
-
-const isEffectDspDraft = (draft: EntryDraft): draft is EffectDspEntryDraft => draft.entryId === "effect-dsp"
-
-const isEffectSearchDraft = (draft: EntryDraft): draft is EffectSearchEntryDraft => draft.entryId === "effect-search"
-
-const isEffectMathDraft = (draft: EntryDraft): draft is EffectMathEntryDraft => draft.entryId === "effect-math"
-
-const manifestForEntryDraft = (draft: EntryDraft): StreamManifest | null => {
-  if (isEffectTextDraft(draft)) {
-    return new EffectTextManifest({
-      customText: draft.input.customText,
-      viewportWidthPx: draft.input.viewportWidthPx
-    })
-  }
-
-  if (isEffectDspDraft(draft)) {
-    return new EffectDspManifest({
-      scenarioId: draft.input.scenarioId,
-      moduleType: draft.input.moduleType,
-      optimizationBudget: draft.input.optimizationBudget
-    })
-  }
-
-  if (isEffectSearchDraft(draft)) {
-    return new EffectSearchManifest({ trialBudget: draft.input.trialBudget })
-  }
-
-  if (isEffectMathDraft(draft)) {
-    return new EffectMathManifest({
-      d: draft.input.d,
-      n: draft.input.n,
-      alpha: draft.input.alpha
-    })
-  }
-
-  return null
-}
+const invalidManifestError = (id: RunnableEntryId): EntryExecutionError =>
+  new EntryExecutionError({
+    code: "invalid-query",
+    message: `Run workflow manifest does not match the ${id} entry.`,
+    retryable: false
+  })
 
 export const entryIdForRequest = (request: EntryStreamRequest): RunnableEntryId | null =>
   request.plan !== null
@@ -88,7 +56,26 @@ export const manifestForRequest = (request: EntryStreamRequest): StreamManifest 
     ? request.plan.manifest
     : request.draft === null
     ? null
-    : manifestForEntryDraft(request.draft)
+    : streamManifestFromEntryDraft(request.draft)
+
+export const validateEntryStreamRequest = ({
+  acceptsManifest,
+  id,
+  request
+}: {
+  readonly acceptsManifest: (manifest: StreamManifest | null) => boolean
+  readonly id: RunnableEntryId
+  readonly request: EntryStreamRequest
+}) => {
+  const requestEntryId = entryIdForRequest(request)
+  const manifest = manifestForRequest(request)
+
+  return requestEntryId !== id
+    ? Effect.fail(invalidEntryRequestError(id))
+    : acceptsManifest(manifest)
+    ? Effect.void
+    : Effect.fail(invalidManifestError(id))
+}
 
 export const resolveEntryStreamRequestFingerprint = (request: EntryStreamRequest) =>
   fingerprintOf(encodeEntryStreamRequest(request))

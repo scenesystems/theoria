@@ -1,13 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 
+import { reflowWidgetViewModelAtom } from "../../atoms/reflow-widget-view-model.js"
 import {
   selectReflowCorpusAtom,
   setCustomReflowTextAtom,
   setReflowWidthValueAtom,
   toggleReflowObstaclesAtom
 } from "../../atoms/widget-controls.js"
-import { reflowWidgetViewModelAtom } from "../../atoms/widget-view-models.js"
-import { toneFor } from "../primitives/designSystem.js"
+import { toneFor } from "../primitives/theme/tone.js"
 
 import { ReflowStagePanel } from "./ReflowStagePanel.js"
 

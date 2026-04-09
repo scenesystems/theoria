@@ -1,23 +1,19 @@
-import { DeepDivePanePercentMax, DeepDivePanePercentMin } from "../../../contracts/presentation/layout.js"
+import { Match } from "effect"
 
 import { SplitPane } from "../containers/SplitPane.js"
 import { Layer } from "../primitives/Layout.js"
 
-import { type DeepDiveProjectionModel, projectedProjectionSurfaces } from "./projection-model.js"
-import {
-  clampedThreePanePrimaryPercent,
-  clampedThreePaneSecondaryPercent,
-  threePanePrimaryBounds,
-  threePaneSecondaryBounds
-} from "./projection-workspace-layout.js"
+import type { DeepDiveProjectionModel } from "./projection-model.js"
 
 const workspaceFieldClassName = "min-h-0 h-full flex flex-1 flex-col bg-stage-200/72"
-const focusedProjectedSurfaceIndex = (projection: DeepDiveProjectionModel): number => {
-  const projected = projectedProjectionSurfaces(projection.surfaces)
-  const resolvedIndex = projected.findIndex((surface) => surface.id === projection.focusedSurface)
 
-  return resolvedIndex === -1 ? 0 : resolvedIndex
-}
+const paneForSurface = ({
+  projection,
+  surfaceId
+}: {
+  readonly projection: DeepDiveProjectionModel
+  readonly surfaceId: DeepDiveProjectionModel["surfaces"][number]["id"]
+}) => projection.surfaces.find((surface) => surface.id === surfaceId)?.pane ?? null
 
 export const ProjectionWorkspace = ({
   dividerClassName,
@@ -32,72 +28,80 @@ export const ProjectionWorkspace = ({
   readonly onSecondPanePercentChange: (percent: number) => void
   readonly projection: DeepDiveProjectionModel
 }) => {
-  const projected = projectedProjectionSurfaces(projection.surfaces)
-  const focusedIndex = focusedProjectedSurfaceIndex(projection)
-  const threePanePrimaryPercent = clampedThreePanePrimaryPercent(projection.panePercent)
-  const threePaneSecondaryPercent = clampedThreePaneSecondaryPercent({
-    primaryPercent: threePanePrimaryPercent,
-    secondaryPercent: projection.secondaryPanePercent
-  })
-  const trailingSplitBounds = threePaneSecondaryBounds(threePanePrimaryPercent)
+  const layout = projection.workspaceLayout
 
-  if (projected.length === 0) {
-    return null
-  }
-
-  if (projected.length === 1) {
-    return <Layer className={workspaceFieldClassName}>{projected[0]!.pane}</Layer>
-  }
-
-  if (projected.length === 2) {
-    return (
-      <Layer className={workspaceFieldClassName}>
-        <SplitPane
-          ariaLabel="Resize projected surface panes"
-          compactActivePane={focusedIndex === 1 ? "second" : "first"}
-          dividerClassName={dividerClassName}
-          first={projected[0]!.pane}
-          firstPanePercent={projection.panePercent}
-          handleClassName={handleClassName}
-          maxPercent={DeepDivePanePercentMax}
-          minPercent={DeepDivePanePercentMin}
-          onFirstPanePercentChange={onFirstPanePercentChange}
-          second={projected[1]!.pane}
-          secondPaneVisible
-        />
-      </Layer>
-    )
-  }
-
-  return (
-    <Layer className={workspaceFieldClassName}>
-      <SplitPane
-        ariaLabel="Resize projected surface field"
-        compactActivePane={focusedIndex === 0 ? "first" : "second"}
-        dividerClassName={dividerClassName}
-        first={projected[0]!.pane}
-        firstPanePercent={threePanePrimaryPercent}
-        handleClassName={handleClassName}
-        maxPercent={threePanePrimaryBounds.maxPercent}
-        minPercent={threePanePrimaryBounds.minPercent}
-        onFirstPanePercentChange={onFirstPanePercentChange}
-        second={
+  return Match.value(layout).pipe(
+    Match.tag("Empty", () => null),
+    Match.tag(
+      "Single",
+      ({ surfaceId }) => <Layer className={workspaceFieldClassName}>{paneForSurface({ projection, surfaceId })}</Layer>
+    ),
+    Match.tag(
+      "Split",
+      ({ compactActivePane, firstPanePercent, firstSurfaceId, maxPercent, minPercent, secondSurfaceId }) => (
+        <Layer className={workspaceFieldClassName}>
           <SplitPane
-            ariaLabel="Resize trailing projected surface panes"
-            compactActivePane={focusedIndex === 2 ? "second" : "first"}
+            ariaLabel="Resize projected surface panes"
+            compactActivePane={compactActivePane}
             dividerClassName={dividerClassName}
-            first={projected[1]!.pane}
-            firstPanePercent={threePaneSecondaryPercent}
+            first={paneForSurface({ projection, surfaceId: firstSurfaceId })}
+            firstPanePercent={firstPanePercent}
             handleClassName={handleClassName}
-            maxPercent={trailingSplitBounds.maxPercent}
-            minPercent={trailingSplitBounds.minPercent}
-            onFirstPanePercentChange={onSecondPanePercentChange}
-            second={projected[2]!.pane}
+            maxPercent={maxPercent}
+            minPercent={minPercent}
+            onFirstPanePercentChange={onFirstPanePercentChange}
+            second={paneForSurface({ projection, surfaceId: secondSurfaceId })}
             secondPaneVisible
           />
-        }
-        secondPaneVisible
-      />
-    </Layer>
+        </Layer>
+      )
+    ),
+    Match.tag(
+      "Triple",
+      ({
+        compactActivePane,
+        firstPanePercent,
+        firstSurfaceId,
+        maxPercent,
+        minPercent,
+        secondCompactActivePane,
+        secondFirstPanePercent,
+        secondMaxPercent,
+        secondMinPercent,
+        secondSurfaceId,
+        thirdSurfaceId
+      }) => (
+        <Layer className={workspaceFieldClassName}>
+          <SplitPane
+            ariaLabel="Resize projected surface field"
+            compactActivePane={compactActivePane}
+            dividerClassName={dividerClassName}
+            first={paneForSurface({ projection, surfaceId: firstSurfaceId })}
+            firstPanePercent={firstPanePercent}
+            handleClassName={handleClassName}
+            maxPercent={maxPercent}
+            minPercent={minPercent}
+            onFirstPanePercentChange={onFirstPanePercentChange}
+            second={
+              <SplitPane
+                ariaLabel="Resize trailing projected surface panes"
+                compactActivePane={secondCompactActivePane}
+                dividerClassName={dividerClassName}
+                first={paneForSurface({ projection, surfaceId: secondSurfaceId })}
+                firstPanePercent={secondFirstPanePercent}
+                handleClassName={handleClassName}
+                maxPercent={secondMaxPercent}
+                minPercent={secondMinPercent}
+                onFirstPanePercentChange={onSecondPanePercentChange}
+                second={paneForSurface({ projection, surfaceId: thirdSurfaceId })}
+                secondPaneVisible
+              />
+            }
+            secondPaneVisible
+          />
+        </Layer>
+      )
+    ),
+    Match.exhaustive
   )
 }

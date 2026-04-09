@@ -1,24 +1,22 @@
 import { Option } from "effect"
 
-import type { EvidencePlaneOrder } from "./evidence-plane-ordering.js"
+import {
+  EvidencePlaneLane,
+  type EvidencePlaneLayout,
+  FocusedEvidencePlaneLayout,
+  LiveEvidencePlaneLayout,
+  NarrativeEvidencePlaneLayout
+} from "../../../contracts/evidence/plane-presentation.js"
+import type { EvidencePlaneOrder } from "../../../contracts/evidence/plane.js"
 import type { EvidenceSectionViewModel } from "./evidence-section-projection.js"
 
-export type EvidencePlaneLane = {
-  readonly eyebrow: string
-  readonly title: string
-  readonly description: string
-  readonly sections: ReadonlyArray<EvidenceSectionViewModel>
-}
-
-type EvidencePlaneLaneLayout = {
-  readonly spotlight: ReadonlyArray<EvidenceSectionViewModel>
-  readonly lanes: ReadonlyArray<EvidencePlaneLane>
-}
-
-export type EvidencePlaneLayout =
-  | { readonly _tag: "Focused"; readonly section: EvidenceSectionViewModel }
-  | ({ readonly _tag: "Narrative" } & EvidencePlaneLaneLayout)
-  | ({ readonly _tag: "Live" } & EvidencePlaneLaneLayout)
+export {
+  EvidencePlaneLane,
+  type EvidencePlaneLayout,
+  FocusedEvidencePlaneLayout,
+  LiveEvidencePlaneLayout,
+  NarrativeEvidencePlaneLayout
+} from "../../../contracts/evidence/plane-presentation.js"
 
 const evidenceLanes = (
   { description, eyebrow, sections, title }: {
@@ -27,7 +25,8 @@ const evidenceLanes = (
     readonly sections: ReadonlyArray<EvidenceSectionViewModel>
     readonly title: string
   }
-): ReadonlyArray<EvidencePlaneLane> => sections.length === 0 ? [] : [{ description, eyebrow, sections, title }]
+): ReadonlyArray<EvidencePlaneLane> =>
+  sections.length === 0 ? [] : [EvidencePlaneLane.make({ description, eyebrow, sections, title })]
 
 const spotlightSections = (section: EvidenceSectionViewModel | null): ReadonlyArray<EvidenceSectionViewModel> =>
   section === null ? [] : [section]
@@ -38,15 +37,14 @@ const isNarrativeSection = (section: EvidenceSectionViewModel): boolean =>
 const focusedLayout = (sections: ReadonlyArray<EvidenceSectionViewModel>): EvidencePlaneLayout =>
   Option.match(Option.fromNullable(sections[0]), {
     onNone: () => liveLayout(sections),
-    onSome: (section) => ({ _tag: "Focused", section })
+    onSome: (section) => FocusedEvidencePlaneLayout.make({ section })
   })
 
 const narrativeLayout = (sections: ReadonlyArray<EvidenceSectionViewModel>): EvidencePlaneLayout => {
   const spotlight = sections.find(isNarrativeSection) ?? sections[0] ?? null
   const remainingSections = spotlight === null ? sections : sections.filter((section) => section.key !== spotlight.key)
 
-  return {
-    _tag: "Narrative",
+  return NarrativeEvidencePlaneLayout.make({
     spotlight: spotlightSections(spotlight),
     lanes: [
       ...evidenceLanes({
@@ -62,15 +60,14 @@ const narrativeLayout = (sections: ReadonlyArray<EvidenceSectionViewModel>): Evi
         title: "Context and Data"
       })
     ]
-  }
+  })
 }
 
 const liveLayout = (sections: ReadonlyArray<EvidenceSectionViewModel>): EvidencePlaneLayout => {
   const spotlight = sections.find(isNarrativeSection) ?? sections[0] ?? null
   const streamSections = spotlight === null ? sections : sections.filter((section) => section.key !== spotlight.key)
 
-  return {
-    _tag: "Live",
+  return LiveEvidencePlaneLayout.make({
     spotlight: spotlightSections(spotlight),
     lanes: evidenceLanes({
       description: "Newest evidence arrives first so the stream reads like an active log instead of a buried archive.",
@@ -78,7 +75,7 @@ const liveLayout = (sections: ReadonlyArray<EvidenceSectionViewModel>): Evidence
       sections: streamSections,
       title: "Newest First"
     })
-  }
+  })
 }
 
 export const buildEvidencePlaneLayout = (

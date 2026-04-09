@@ -1,9 +1,15 @@
-import type { EntryId } from "../../../contracts/entry/id.js"
+import { Schema } from "effect"
 
-export type LocalProjectionScript = {
-  readonly _tag: EntryId
-}
+import { EntryId } from "../../../contracts/entry/id.js"
 
-export type LocalRunFrame = {
-  readonly _tag: EntryId
-}
+export const LocalProjectionScript = Schema.Struct({
+  _tag: EntryId
+})
+
+export type LocalProjectionScript = typeof LocalProjectionScript.Type
+
+export const LocalRunFrame = Schema.Struct({
+  _tag: EntryId
+})
+
+export type LocalRunFrame = typeof LocalRunFrame.Type

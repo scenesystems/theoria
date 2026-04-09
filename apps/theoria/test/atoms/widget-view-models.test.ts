@@ -2,16 +2,19 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import { canonicalFrameV1, type CanonicalStep } from "../../app/contracts/canonical-step.js"
-import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
-import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js"
-import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
+import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/capability/effect-math.js"
+import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
+import { EffectSearchCanonicalStep } from "../../app/contracts/capability/effect-search.js"
+import { type CanonicalFrame, canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 
+import { snapshotEffectMathProjectionScript } from "../../app/contracts/capability/effect-math.js"
+import { snapshotEffectSearchProjectionScript } from "../../app/contracts/capability/effect-search.js"
+import {
+  EffectTextProjectionStep,
+  snapshotEffectTextTraversalScript
+} from "../../app/contracts/capability/effect-text.js"
 import { corpus } from "../../app/contracts/corpus.js"
-import { snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
-import { snapshotEffectMathProjectionScript } from "../../app/contracts/demo/power.js"
-import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeAtom,
@@ -19,14 +22,9 @@ import {
   dspScenarioIdAtom,
   snapshotEffectDspProjectionScript
 } from "../../app/web/atoms/dsp-widget.js"
-import {
-  type EffectSearchRunFrame,
-  optimizationAnimatingAtom,
-  randomTrialsAtom,
-  tpeTrialsAtom,
-  trialBudgetAtom
-} from "../../app/web/atoms/optimization-animation.js"
-import { type EffectMathRunFrame, powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
+import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/optimization-widget-view-model.js"
+import { powerWidgetViewModelAtom } from "../../app/web/atoms/power-widget-view-model.js"
+import { reflowWidgetViewModelAtom } from "../../app/web/atoms/reflow-widget-view-model.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -34,16 +32,24 @@ import {
   reflowStageViewportWidthAtom,
   resolveReflowStageMaxWidth
 } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import {
-  optimizationWidgetViewModelAtom,
-  powerWidgetViewModelAtom,
-  reflowWidgetViewModelAtom
-} from "../../app/web/atoms/widget-view-models.js"
-import type { LocalRunFrame } from "../../app/web/state/local-run.js"
-import { reduceRunState, type RunState } from "../../app/web/state/types.js"
-import { programPreviewFixture } from "../helpers/demo-fixtures.js"
-import { runDataFixture } from "../helpers/demo-fixtures.js"
+  type EffectSearchRunFrame,
+  optimizationAnimatingAtom,
+  randomTrialsAtom,
+  tpeTrialsAtom,
+  trialBudgetAtom
+} from "../../app/web/atoms/run/optimization-animation.js"
+import {
+  type EffectMathRunFrame,
+  powerAnimatingAtom,
+  powerControlsAtom
+} from "../../app/web/atoms/run/power-animation.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { LocalRunFrame } from "../../app/web/state/run/local.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import type { RunState } from "../../app/web/state/run/types.js"
+import { programPreviewFixture } from "../helpers/entry-fixtures.js"
+import { runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, stepQueueDrainedRunState, streamCompletedRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -130,7 +136,7 @@ const effectSearchFrameFixture: EffectSearchRunFrame = {
     randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
     phase: "running"
   },
-  telemetry: makeEffectSearchStudyTelemetry({
+  telemetry: projectEffectSearchStudyTelemetry({
     randomEvents: [],
     randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
     trialBudget: 30,
@@ -174,7 +180,7 @@ const completedRunState = ({
   running,
   summary
 }: {
-  readonly canonicalFrame: CanonicalStep
+  readonly canonicalFrame: CanonicalFrame
   readonly frame: LocalRunFrame
   readonly running: RunState
   readonly summary: string
@@ -186,7 +192,7 @@ const completedRunState = ({
           reduceRunState(running, {
             _tag: "RunCanonicalFrameObserved",
             sequence: 1,
-            frame: canonicalFrameV1(canonicalFrame)
+            frame: canonicalFrame
           }),
           {
             _tag: "RunFrameUpdated",
@@ -524,12 +530,14 @@ describe("widget view models", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const completedTextRun = completedRunState({
-        canonicalFrame: new EffectTextProjectionStep({
-          corpusIndex: corpus.length,
-          requestedWidthPx: 420,
-          stageWidthPx: 420,
-          obstaclesEnabled: true
-        }),
+        canonicalFrame: canonicalFrameV1(
+          new EffectTextProjectionStep({
+            corpusIndex: corpus.length,
+            requestedWidthPx: 420,
+            stageWidthPx: 420,
+            obstaclesEnabled: true
+          })
+        ),
         frame: frameFixture,
         running: runningRunState({
           localProjectionScript: snapshotEffectTextTraversalScript({

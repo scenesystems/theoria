@@ -6,7 +6,7 @@ import {
   EffectMathManifest,
   EffectSearchManifest,
   encodeStreamManifest
-} from "../../app/contracts/stream-manifest.js"
+} from "../../app/contracts/evidence/manifest.js"
 
 describe("StreamManifest Contract", () => {
   it.effect("round-trips the effect-search manifest", () =>

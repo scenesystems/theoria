@@ -1,47 +1,47 @@
 import { Effect, Schema } from "effect"
 
-import { DemoExecutionError } from "../../contracts/demo-error.js"
+import { EntryExecutionError } from "../../contracts/entry-error.js"
 import type { RunnableEntryId } from "../../contracts/entry/id.js"
 
 import { DspProviderUnavailable } from "../capability/effect-dsp.js"
 
 const isProviderUnavailable = Schema.is(DspProviderUnavailable)
-const isDemoExecutionError = Schema.is(DemoExecutionError)
+const isEntryExecutionError = Schema.is(EntryExecutionError)
 
-export const executionTimeoutError = (): DemoExecutionError =>
-  new DemoExecutionError({
+export const executionTimeoutError = (): EntryExecutionError =>
+  new EntryExecutionError({
     code: "execution-timeout",
-    message: "Demo execution timed out.",
+    message: "Entry execution timed out.",
     retryable: true
   })
 
-const providerUnavailableError = (message: string): DemoExecutionError =>
-  new DemoExecutionError({
+const providerUnavailableError = (message: string): EntryExecutionError =>
+  new EntryExecutionError({
     code: "provider-unavailable",
     message,
     retryable: false
   })
 
-const genericExecutionError = (): DemoExecutionError =>
-  new DemoExecutionError({
+const genericExecutionError = (): EntryExecutionError =>
+  new EntryExecutionError({
     code: "execution-failed",
-    message: "Demo execution failed.",
+    message: "Entry execution failed.",
     retryable: true
   })
 
 const unexpectedExecutionFailure = ({
-  demoId,
+  entryId,
   executionId,
   runToken,
   error
 }: {
-  readonly demoId: RunnableEntryId
+  readonly entryId: RunnableEntryId
   readonly executionId: string
   readonly runToken: string
   readonly error: unknown
 }) =>
-  Effect.logError("theoria demo workflow failed").pipe(
-    Effect.annotateLogs("demoId", demoId),
+  Effect.logError("theoria entry workflow failed").pipe(
+    Effect.annotateLogs("entryId", entryId),
     Effect.annotateLogs("executionId", executionId),
     Effect.annotateLogs("runToken", runToken),
     Effect.annotateLogs("error", String(error)),
@@ -49,30 +49,30 @@ const unexpectedExecutionFailure = ({
   )
 
 export const resolveWorkflowExecutionError = ({
-  demoId,
+  entryId,
   executionId,
   error,
   runToken
 }: {
-  readonly demoId: RunnableEntryId
+  readonly entryId: RunnableEntryId
   readonly executionId: string
   readonly error: unknown
   readonly runToken: string
 }) =>
   isProviderUnavailable(error)
     ? Effect.succeed(providerUnavailableError(error.message))
-    : isDemoExecutionError(error)
+    : isEntryExecutionError(error)
     ? Effect.succeed(error)
-    : unexpectedExecutionFailure({ demoId, executionId, error, runToken })
+    : unexpectedExecutionFailure({ entryId, executionId, error, runToken })
 
 export const normalizeWorkflowExecutionError = ({
-  demoId,
+  entryId,
   executionId,
   error,
   runToken
 }: {
-  readonly demoId: RunnableEntryId
+  readonly entryId: RunnableEntryId
   readonly executionId: string
   readonly error: unknown
   readonly runToken: string
-}) => resolveWorkflowExecutionError({ demoId, executionId, error, runToken }).pipe(Effect.flatMap(Effect.fail))
+}) => resolveWorkflowExecutionError({ entryId, executionId, error, runToken }).pipe(Effect.flatMap(Effect.fail))

@@ -15,7 +15,7 @@
     "build": "bun run check:all && bun run build:web",
     "gen:text-tokens": "bun scripts/generate-text-tokens.ts",
     "docgen": "echo 'docgen skipped for @theoria/theoria-app'",
-    "test:e2e": "bun --cwd ../.. run test:e2e:theoria"
+    "test:e2e": "bun run --cwd ../.. test:e2e:theoria"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-rc.0",

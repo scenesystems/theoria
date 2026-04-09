@@ -1,7 +1,9 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidencePlaneLane, EvidencePlaneViewModel, EvidenceSectionViewModel } from "../data/evidence-layout.js"
+import type { EvidencePlaneLane } from "../data/evidence-plane-layout.js"
+import type { EvidencePlaneViewModel } from "../data/evidence-plane-model.js"
+import type { EvidenceSectionViewModel } from "../data/evidence-section-projection.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"

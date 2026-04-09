@@ -2,8 +2,8 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
-import { runLifecycleDiagnosticsSectionsFor } from "../../runtime/surface-view-extension.js"
-import { type RunRuntimeTelemetryViewModel, surfaceRunRuntimeTelemetryViewModelAtom } from "../surface/state.js"
+import { runLifecycleDiagnosticsSectionsFor } from "../../runtime/kernel/surface-view.js"
+import { type RunRuntimeTelemetryViewModel, surfaceRunRuntimeTelemetryViewModelAtom } from "../surface/run-telemetry.js"
 
 export const surfaceRunLifecycleDiagnosticsViewModelAtom: (
   id: EntryId

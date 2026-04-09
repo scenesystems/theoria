@@ -1,36 +1,27 @@
-import { Effect, Layer } from "effect"
+import { Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import type { DemoCapability } from "../../contracts/capability/availability.js"
 import { type EntryId, isRunnableEntryId, type RunnableEntryId, runnableEntryIds } from "../../contracts/entry/id.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
-import { digestEntryRegistration } from "../adapters/digest/registration.js"
-import { effectDspEntryRegistration } from "../adapters/effect-dsp/registration.js"
-import { effectMathEntryRegistration } from "../adapters/effect-math/registration.js"
-import { effectSearchEntryRegistration } from "../adapters/effect-search/registration.js"
-import { effectTextEntryRegistration } from "../adapters/effect-text/registration.js"
-import { sealEntryRegistration } from "../adapters/seal/registration.js"
-import { signEntryRegistration } from "../adapters/sign/registration.js"
-import type { DspProviderRuntime } from "../capability/effect-dsp.js"
-import { workflowEntryRegistration } from "../study/workflow/comparison/registration.js"
-import { materializeEntryDefinition } from "./registration.js"
-
-const pendingCapability = (id: EntryId): DemoCapability => ({
-  id,
-  enabled: false,
-  reason: "Runtime registration has not shipped for this entry yet."
-})
+import { digestEntryDefinition } from "../adapters/digest/registration.js"
+import { effectDspEntryDefinition } from "../adapters/effect-dsp/registration.js"
+import { effectMathEntryDefinition } from "../adapters/effect-math/registration.js"
+import { effectSearchEntryDefinition } from "../adapters/effect-search/registration.js"
+import { effectTextEntryDefinition } from "../adapters/effect-text/registration.js"
+import { sealEntryDefinition } from "../adapters/seal/registration.js"
+import { signEntryDefinition } from "../adapters/sign/registration.js"
+import { workflowEntryDefinition } from "../adapters/workflow/registration.js"
 
 const definitionsById = {
-  "effect-text": materializeEntryDefinition(effectTextEntryRegistration),
-  "effect-search": materializeEntryDefinition(effectSearchEntryRegistration),
-  "effect-math": materializeEntryDefinition(effectMathEntryRegistration),
-  digest: materializeEntryDefinition(digestEntryRegistration),
-  sign: materializeEntryDefinition(signEntryRegistration),
-  seal: materializeEntryDefinition(sealEntryRegistration),
-  "effect-dsp": materializeEntryDefinition(effectDspEntryRegistration),
-  workflow: materializeEntryDefinition(workflowEntryRegistration)
+  "effect-text": effectTextEntryDefinition,
+  "effect-search": effectSearchEntryDefinition,
+  "effect-math": effectMathEntryDefinition,
+  digest: digestEntryDefinition,
+  sign: signEntryDefinition,
+  seal: sealEntryDefinition,
+  "effect-dsp": effectDspEntryDefinition,
+  workflow: workflowEntryDefinition
 }
 
 type Definition = (typeof definitionsById)[RunnableEntryId]
@@ -60,9 +51,3 @@ export const lookupForReleaseStage = (id: EntryId, stage: ReleaseStage): Option.
   lookup(id).pipe(
     Option.filter((definition) => stage === "preview" || definition.descriptor.releaseState === "published")
   )
-
-export const capabilityForId = (id: EntryId): Effect.Effect<DemoCapability, never, DspProviderRuntime> =>
-  Option.match(lookup(id), {
-    onNone: () => Effect.succeed(pendingCapability(id)),
-    onSome: (definition) => definition.capability
-  })

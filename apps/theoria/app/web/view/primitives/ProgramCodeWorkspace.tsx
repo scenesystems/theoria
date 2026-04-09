@@ -6,9 +6,9 @@ import * as Arr from "effect/Array"
 import type { SourceFileTab, SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import { HighlightedCode } from "./code/HighlightedCode.js"
-import type { CodePanel } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { CodePanel } from "./theme/surface.js"
 
 type ExplorerFileNode = {
   readonly _tag: "file"

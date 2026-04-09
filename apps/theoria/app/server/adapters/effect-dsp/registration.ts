@@ -1,11 +1,11 @@
 import { Effect, Option, Schema } from "effect"
 
-import type { DemoCapability } from "../../../contracts/capability/availability.js"
+import type { EntryCapabilityAvailability } from "../../../contracts/capability/availability.js"
 import { effectDspEntryDescriptor } from "../../../contracts/entry/descriptors/effect-dsp.js"
 import { EffectDspManifest, type StreamManifest } from "../../../contracts/evidence/manifest.js"
 
 import { DspProviderRuntime } from "../../capability/effect-dsp.js"
-import { makeEntryRegistration } from "../../kernel/registration.js"
+import { type EntryRegistrationOptions, materializeEntryDefinition } from "../../kernel/registration.js"
 import { preloadProgram, run, streamElements, streamPlan } from "./run.js"
 
 const acceptsManifest = (manifest: StreamManifest | null): boolean =>
@@ -14,7 +14,7 @@ const acceptsManifest = (manifest: StreamManifest | null): boolean =>
 const capability = Effect.gen(function*() {
   const runtime = yield* DspProviderRuntime
 
-  const resolvedCapability: DemoCapability = {
+  const resolvedCapability: EntryCapabilityAvailability = {
     id: effectDspEntryDescriptor.entryId,
     enabled: runtime.capability.enabled,
     ...Option.match(runtime.capability.reason, {
@@ -26,7 +26,7 @@ const capability = Effect.gen(function*() {
   return resolvedCapability
 })
 
-export const effectDspEntryRegistration = makeEntryRegistration({
+export const effectDspEntryRegistration: EntryRegistrationOptions<"effect-dsp"> = {
   descriptor: effectDspEntryDescriptor,
   lane: "provider",
   capability,
@@ -35,4 +35,6 @@ export const effectDspEntryRegistration = makeEntryRegistration({
   acceptsManifest,
   streamPlan,
   streamElements
-})
+}
+
+export const effectDspEntryDefinition = materializeEntryDefinition(effectDspEntryRegistration)

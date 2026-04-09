@@ -12,13 +12,13 @@ import { selectDspModuleTypeAtom, selectDspScenarioAtom, setDspOptimizationBudge
 import { AccentBorder } from "../primitives/AccentBorder.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { DataTable } from "../primitives/DataTable.js"
-import { toneFor } from "../primitives/designSystem.js"
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
 import { PlaneMetaRail } from "../primitives/PlaneMetaRail.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { SignatureContractPanel } from "../primitives/SignatureContractPanel.js"
 import { SliderRow } from "../primitives/SliderRow.js"
+import { toneFor } from "../primitives/theme/tone.js"
 import { OpenAgentTracePanel } from "../study/open-agent-trace/OpenAgentTracePanel.js"
 
 const tone = toneFor("dsp")

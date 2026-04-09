@@ -1,13 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 
+import { powerWidgetViewModelAtom } from "../../atoms/power-widget-view-model.js"
 import { setPowerAlphaLevelAtom, setPowerEffectSizeAtom, setPowerSampleSizeAtom } from "../../atoms/widget-controls.js"
-import { powerWidgetViewModelAtom } from "../../atoms/widget-view-models.js"
-import { toneFor } from "../primitives/designSystem.js"
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"
 import { PowerDistributionChart } from "../primitives/PowerDistributionChart.js"
 import { LoadingIndicator } from "../primitives/Skeleton.js"
 import { SliderRow } from "../primitives/SliderRow.js"
+import { toneFor } from "../primitives/theme/tone.js"
 
 const tone = toneFor("math")
 

@@ -1,6 +1,6 @@
 # Theoria App
 
-`apps/theoria` is a single live surface for running real package APIs directly.
+`apps/theoria` is the proving consumer for the Theoria packages: one integrated study system composed from shared capabilities, typed workflow evidence, and routeable entry lenses.
 
 It also projects source-linked package documentation at `/packages`, backed by
 the root-owned `bun run docs:packages` corpus rather than app-local markdown
@@ -8,10 +8,10 @@ copies.
 
 It is intentionally minimal:
 
-1. No showcase/lab/catalog route taxonomy.
-1. No command-documentation cards.
-1. Four executable demo cards (`effect-text`, `effect-search`, `effect-math`, `effect-dsp`).
-1. Typed request/response contracts and Effect-native runtime state.
+1. No showcase, lab, or package-showroom taxonomy.
+1. No entry-local mini-app stacks or hidden compatibility layers.
+1. Routeable entries stay thin over shared capabilities, kernels, and workflow study seams.
+1. Typed contracts, streaming evidence, and Effect-native runtime state drive every surface.
 
 ## Start
 
@@ -59,13 +59,13 @@ Runtime knobs:
 ## Architecture
 
 1. `server.ts` is a thin entrypoint that launches `app/server/app.ts`.
-1. `app/contracts/*` is the schema authority for IDs, envelopes, demo payloads, health/version, and capabilities.
-1. `app/server/router.ts` owns route composition for static shell/modules and typed API endpoints.
-1. `app/server/demos/*` implements registry-driven vertical slices, bounded execution policy, and live DSP provider composition.
+1. `app/contracts/*` is the semantic authority for entry identity, shared capability contracts, workflow evidence, consumer artifacts, workflow hookup, and transport envelopes.
+1. `app/server/router.ts` owns route composition only; execution lives under `app/server/kernel/*`, `app/server/adapters/*`, and `app/server/study/*`.
+1. `app/server/study/workflow/*` is the canonical workflow-study owner seam; compatibility `workflow-comparison` language is not an architecture lane.
 1. `app/server/routes/package-docs.ts` is a thin HTTP adapter over the root-owned package-doc query engine from `@theoria/source-proof`.
-1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole state authority. `Atom.fn` atoms handle orchestration (preload-before-run, sequence guards). `DemoClient` is an `Effect.Service` wired through `Atom.runtime`.
-1. `app/web/view/*` projects contracts + run state to the single live card surface, including the `/packages` docs projection.
-1. `app/web/main.tsx` routes `/demos/:id` into deep dive pages, rendered from the same typed contracts as the home cards.
+1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole orchestration layer; atoms compose contract-owned defaults and state-owned transitions rather than authoring semantic literals.
+1. `app/web/view/*` projects contracts plus run state into entry surfaces and the `/packages` documentation route.
+1. `app/web/main.tsx` resolves deep entry routes through contract-owned presentation paths rather than package-demo routing.
 
 ## Package Docs
 

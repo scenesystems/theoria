@@ -9,11 +9,12 @@ import type { RunControlsViewModel } from "../runControlsModel.js"
 import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
 
 import { ActionButton, ActionLink } from "./ActionControl.js"
-import { badgeFromSurface, type Surface } from "./designSystem.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"
 import { PackageBadge } from "./PackageBadge.js"
 import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
+import { badgeFromSurface } from "./theme/badge.js"
+import { type Surface } from "./theme/surface.js"
 import { ThemeToggle } from "./ThemeToggle.js"
 
 const headerClassName = (variant: SurfaceVariant): string =>

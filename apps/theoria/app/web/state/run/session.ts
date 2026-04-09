@@ -1,196 +1,71 @@
+import { Data } from "effect"
+
 import type { EntryDraft } from "../../../contracts/entry/registry.js"
 import type { Program } from "../../../contracts/presentation/program.js"
 import type { EntryRunIdentity } from "../../../contracts/study/run-plan.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import { type ChoreographyState, initialChoreographyState } from "../../../contracts/study/workflow/choreography.js"
 
+export type { LocalProjectionScript, LocalRunFrame } from "./local.js"
+import { RunInternalFacts } from "./internal-facts.js"
 import type { LocalProjectionScript, LocalRunFrame } from "./local.js"
-import type {
-  RunControlState,
-  RunInFlightState,
-  RunInternalFacts,
-  RunOutcome,
-  RunOwnership,
-  RunRuntimeTelemetryEvent,
-  RunRuntimeTelemetryState,
-  RunSession,
-  RunState
-} from "./types.js"
-
-export type ActiveRunSession = RunSession & {
-  readonly token: number
-  readonly sequence: number
-  readonly program: Program
-}
+import { RunRuntimeTelemetryState } from "./runtime-telemetry-state.js"
+import { type RunControlState, type RunInFlightState, type RunOutcome, RunOwnership, type RunPhase } from "./types.js"
 
 export type InFlightRunControlState = Exclude<RunControlState, "idle">
 
-export type InFlightRunSession = ActiveRunSession & {
-  readonly outcome: "none"
-  readonly control: InFlightRunControlState
-}
+export type ActiveRunSession = RunSession<RunControlState, RunOutcome, number, number, Program>
 
-export type TerminalRunSession = ActiveRunSession & {
-  readonly control: "idle"
-  readonly outcome: Exclude<RunOutcome, "none">
-}
+export type ActiveIdleRunSession = RunSession<"idle", "none", number, number, Program>
 
-const emptyRunOwnership: RunOwnership = {
-  localDriver: false,
-  serverStream: false
-}
+export type InFlightRunSession<Control extends InFlightRunControlState = InFlightRunControlState> = RunSession<
+  Control,
+  "none",
+  number,
+  number,
+  Program
+>
 
-const inactiveRunFacts: RunInternalFacts = {
-  streamComplete: {
-    state: "inactive",
-    observedAtMs: null,
-    summary: null,
-    meta: null
-  },
-  stepQueueDrain: {
-    state: "inactive",
-    observedAtMs: null
+export type TerminalRunSession<Outcome extends Exclude<RunOutcome, "none"> = Exclude<RunOutcome, "none">> = RunSession<
+  "idle",
+  Outcome,
+  number,
+  number,
+  Program
+>
+
+export class RunSession<
+  Control extends RunControlState = RunControlState,
+  Outcome extends RunOutcome = RunOutcome,
+  Token extends number | null = number | null,
+  Sequence extends number | null = number | null,
+  ProgramState extends Program | null = Program | null
+> extends Data.Class<RunSession.Shape<Control, Outcome, Token, Sequence, ProgramState>> {
+  static idle(): RunSession<"idle", "none", null, null, null> {
+    return new RunSession<"idle", "none", null, null, null>({
+      token: null,
+      sequence: null,
+      control: "idle",
+      outcome: "none",
+      ownership: RunOwnership.empty(),
+      facts: RunInternalFacts.inactive(),
+      telemetry: RunRuntimeTelemetryState.empty(),
+      draft: null,
+      identity: null,
+      localProjectionScript: null,
+      localRunFrame: null,
+      canonicalFrame: null,
+      choreography: initialChoreographyState,
+      program: null
+    })
   }
-}
 
-const emptyRunRuntimeTelemetryState: RunRuntimeTelemetryState = {
-  startedAtMs: null,
-  events: []
-}
-
-const ownershipDetail = (ownership: RunOwnership): string =>
-  `local=${ownership.localDriver ? "yes" : "no"} · server=${ownership.serverStream ? "yes" : "no"}`
-
-export const startedRunRuntimeTelemetryState = ({
-  ownership,
-  startedAtMs
-}: {
-  readonly ownership: RunOwnership
-  readonly startedAtMs: number
-}): RunRuntimeTelemetryState => ({
-  startedAtMs,
-  events: [{ kind: "run-started", atMs: startedAtMs, detail: ownershipDetail(ownership) }]
-})
-
-export const appendRunRuntimeTelemetryEvent = (
-  telemetry: RunRuntimeTelemetryState,
-  event: RunRuntimeTelemetryEvent
-): RunRuntimeTelemetryState =>
-  telemetry.startedAtMs === null
-    ? telemetry
-    : {
-      ...telemetry,
-      events: [...telemetry.events, event]
-    }
-
-export const runFactsFromOwnership = (ownership: RunOwnership): RunInternalFacts => ({
-  streamComplete: ownership.serverStream
-    ? {
-      state: "pending",
-      observedAtMs: null,
-      summary: null,
-      meta: null
-    }
-    : inactiveRunFacts.streamComplete,
-  stepQueueDrain: ownership.localDriver
-    ? {
-      state: "pending",
-      observedAtMs: null
-    }
-    : inactiveRunFacts.stepQueueDrain
-})
-
-const idleRunSession: RunSession = {
-  token: null,
-  sequence: null,
-  control: "idle",
-  outcome: "none",
-  ownership: emptyRunOwnership,
-  facts: inactiveRunFacts,
-  telemetry: emptyRunRuntimeTelemetryState,
-  draft: null,
-  identity: null,
-  localProjectionScript: null,
-  localRunFrame: null,
-  canonicalFrame: null,
-  choreography: initialChoreographyState,
-  program: null
-}
-
-export const initialRunState = (): RunState => ({
-  _tag: "RunIdle",
-  session: idleRunSession
-})
-
-export const makeRunSession = <Control extends RunControlState, Outcome extends RunOutcome>({
-  control,
-  outcome,
-  ownership,
-  facts,
-  telemetry,
-  draft,
-  identity,
-  localProjectionScript,
-  localRunFrame,
-  canonicalFrame,
-  choreography,
-  program,
-  sequence,
-  token
-}: {
-  readonly control: Control
-  readonly outcome: Outcome
-  readonly ownership: RunOwnership
-  readonly facts: RunInternalFacts
-  readonly telemetry: RunRuntimeTelemetryState
-  readonly draft: EntryDraft | null
-  readonly identity: EntryRunIdentity | null
-  readonly localProjectionScript: LocalProjectionScript | null
-  readonly localRunFrame: LocalRunFrame | null
-  readonly canonicalFrame: CanonicalFrame | null
-  readonly choreography: ChoreographyState
-  readonly program: Program
-  readonly sequence: number
-  readonly token: number
-}): ActiveRunSession & { readonly control: Control; readonly outcome: Outcome } => ({
-  token,
-  sequence,
-  control,
-  outcome,
-  ownership,
-  facts,
-  telemetry,
-  draft,
-  identity,
-  localProjectionScript,
-  localRunFrame,
-  canonicalFrame,
-  choreography,
-  program
-})
-
-export const runInFlightState = (
-  token: number,
-  sequence: number,
-  control: InFlightRunControlState,
-  ownership: RunOwnership,
-  program: Program,
-  facts: RunInternalFacts = runFactsFromOwnership(ownership),
-  telemetry: RunRuntimeTelemetryState = emptyRunRuntimeTelemetryState,
-  draft: EntryDraft | null = null,
-  identity: EntryRunIdentity | null = null,
-  localProjectionScript: LocalProjectionScript | null = null,
-  localRunFrame: LocalRunFrame | null = null,
-  canonicalFrame: CanonicalFrame | null = null,
-  choreography: ChoreographyState = initialChoreographyState
-): RunInFlightState => ({
-  _tag: "RunRunning",
-  session: makeRunSession({
+  static inFlight<Control extends InFlightRunControlState>({
     token,
     sequence,
     control,
-    outcome: "none",
     ownership,
+    program,
     facts,
     telemetry,
     draft,
@@ -198,37 +73,148 @@ export const runInFlightState = (
     localProjectionScript,
     localRunFrame,
     canonicalFrame,
-    choreography,
-    program
-  }),
-  sequence,
-  program
-})
+    choreography
+  }: {
+    readonly token: number
+    readonly sequence: number
+    readonly control: Control
+    readonly ownership: RunOwnership
+    readonly program: Program
+    readonly facts: RunInternalFacts
+    readonly telemetry: RunRuntimeTelemetryState
+    readonly draft: EntryDraft | null
+    readonly identity: EntryRunIdentity | null
+    readonly localProjectionScript: LocalProjectionScript | null
+    readonly localRunFrame: LocalRunFrame | null
+    readonly canonicalFrame: CanonicalFrame | null
+    readonly choreography: ChoreographyState
+  }): InFlightRunSession<Control> {
+    return new RunSession<Control, "none", number, number, Program>({
+      token,
+      sequence,
+      control,
+      outcome: "none",
+      ownership,
+      facts,
+      telemetry,
+      draft,
+      identity,
+      localProjectionScript,
+      localRunFrame,
+      canonicalFrame,
+      choreography,
+      program
+    })
+  }
 
-export const isRunInFlightState = (state: RunState): state is RunInFlightState => state._tag === "RunRunning"
-
-export const hasMatchingSequence = (
-  state: RunState,
-  sequence: number
-): state is RunInFlightState => isRunInFlightState(state) && state.session.sequence === sequence
-
-export const terminalRunSession = <Outcome extends Exclude<RunOutcome, "none">>(
-  state: RunInFlightState,
-  outcome: Outcome
-): TerminalRunSession & { readonly outcome: Outcome } =>
-  makeRunSession({
-    token: state.session.token,
-    sequence: state.session.sequence,
-    control: "idle",
+  static terminal<Outcome extends Exclude<RunOutcome, "none">>({
     outcome,
-    ownership: state.session.ownership,
-    facts: state.session.facts,
-    telemetry: state.session.telemetry,
-    draft: state.session.draft,
-    identity: state.session.identity,
-    localProjectionScript: state.session.localProjectionScript,
-    localRunFrame: state.session.localRunFrame,
-    canonicalFrame: state.session.canonicalFrame,
-    choreography: state.session.choreography,
-    program: state.program
-  })
+    state
+  }: {
+    readonly outcome: Outcome
+    readonly state: RunInFlightState
+  }): TerminalRunSession<Outcome> {
+    return new RunSession<"idle", Outcome, number, number, Program>({
+      token: state.session.token,
+      sequence: state.session.sequence,
+      control: "idle",
+      outcome,
+      ownership: state.session.ownership,
+      facts: state.session.facts,
+      telemetry: state.session.telemetry,
+      draft: state.session.draft,
+      identity: state.session.identity,
+      localProjectionScript: state.session.localProjectionScript,
+      localRunFrame: state.session.localRunFrame,
+      canonicalFrame: state.session.canonicalFrame,
+      choreography: state.session.choreography,
+      program: state.program
+    })
+  }
+
+  static stopped({
+    state,
+    telemetry
+  }: {
+    readonly state: RunInFlightState
+    readonly telemetry: RunRuntimeTelemetryState
+  }): ActiveIdleRunSession {
+    return new RunSession<"idle", "none", number, number, Program>({
+      token: state.session.token,
+      sequence: state.session.sequence,
+      control: "idle",
+      outcome: "none",
+      ownership: state.session.ownership,
+      facts: state.session.facts,
+      telemetry,
+      draft: state.session.draft,
+      identity: state.session.identity,
+      localProjectionScript: state.session.localProjectionScript,
+      localRunFrame: state.session.localRunFrame,
+      canonicalFrame: state.session.canonicalFrame,
+      choreography: state.session.choreography,
+      program: state.program
+    })
+  }
+
+  static phase(session: RunSession): RunPhase {
+    if (session.outcome === "failed") {
+      return "failed"
+    }
+
+    if (session.outcome === "succeeded") {
+      return "success"
+    }
+
+    if (session.control === "running") {
+      return "running"
+    }
+
+    if (session.control === "paused") {
+      return "paused"
+    }
+
+    if (session.control === "stopping") {
+      return "stopping"
+    }
+
+    return "idle"
+  }
+
+  static hasActiveSequence(session: RunSession, sequence: number): boolean {
+    return session.sequence === sequence && session.outcome === "none" && session.control !== "idle"
+  }
+
+  hasActiveSequence(sequence: number): boolean {
+    return RunSession.hasActiveSequence(this, sequence)
+  }
+
+  phase(): RunPhase {
+    return RunSession.phase(this)
+  }
+}
+
+export namespace RunSession {
+  export interface Shape<
+    Control extends RunControlState = RunControlState,
+    Outcome extends RunOutcome = RunOutcome,
+    Token extends number | null = number | null,
+    Sequence extends number | null = number | null,
+    ProgramState extends Program | null = Program | null
+  > {
+    readonly token: Token
+    readonly sequence: Sequence
+    readonly control: Control
+    readonly outcome: Outcome
+    readonly ownership: RunOwnership
+    readonly facts: RunInternalFacts
+    readonly telemetry: RunRuntimeTelemetryState
+    readonly draft: EntryDraft | null
+    readonly identity: EntryRunIdentity | null
+    readonly localProjectionScript: LocalProjectionScript | null
+    readonly localRunFrame: LocalRunFrame | null
+    readonly canonicalFrame: CanonicalFrame | null
+    readonly choreography: ChoreographyState
+    readonly program: ProgramState
+  }
+}

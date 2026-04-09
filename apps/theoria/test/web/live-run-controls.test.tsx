@@ -6,12 +6,12 @@ import * as Arr from "effect/Array"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { EffectSearchCanonicalStep } from "../../app/contracts/demo/objective.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence-stream.js"
+import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
+import { EffectSearchCanonicalStep } from "../../app/contracts/capability/effect-search.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence/stream.js"
 import { DeepDivePage } from "../../app/web/view/deep/DeepDivePage.js"
-import { programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -163,7 +163,7 @@ describe("live run controls", () => {
               expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
 
               yield* Effect.sync(() => {
-                const telemetry = makeEffectSearchStudyTelemetry({
+                const telemetry = projectEffectSearchStudyTelemetry({
                   randomEvents: [],
                   randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
                   trialBudget: 30,
@@ -182,7 +182,7 @@ describe("live run controls", () => {
                   )
                 )
                 const completionEvent = encodeEvidenceEventJson(
-                  new StreamComplete({ summary: "UI smoke complete.", meta: streamMeta })
+                  StreamComplete.make({ summary: "UI smoke complete.", meta: streamMeta })
                 )
 
                 openSources().forEach((source) => {

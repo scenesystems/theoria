@@ -3,11 +3,11 @@ import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
 import type { ObstacleVariant } from "../../../contracts/obstacle.js"
-import type { ReflowStageObstacle } from "../../text/obstacleProjection.js"
+import type { ReflowStageObstacle } from "../../text/obstacleStageModel.js"
 
-import { type ObstacleTone, obstacleToneFor } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { type ObstacleTone, obstacleToneFor } from "./theme/obstacle.js"
 
 // ---------------------------------------------------------------------------
 // Density — drives all internal layout decisions for the obstacle card.

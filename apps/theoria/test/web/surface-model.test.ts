@@ -1,18 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { DemoExecutionError } from "../../app/contracts/demo-error.js"
-import type { Program } from "../../app/contracts/presentation.js"
-import { entryPresentationForId } from "../../app/contracts/proving-substrate.js"
-import {
-  emptyEvidenceStreamState,
-  type EvidenceStreamState,
-  initialSurfaceState,
-  type SurfaceState
-} from "../../app/web/state/types.js"
+import { EntryExecutionError } from "../../app/contracts/entry-error.js"
+import { entryPresentationForId } from "../../app/contracts/entry/routing.js"
+import type { Program } from "../../app/contracts/presentation/program.js"
+import { EvidenceStreamState } from "../../app/web/state/evidence/stream.js"
+import { initialSurfaceState, type SurfaceState } from "../../app/web/state/surface/state.js"
 import { presentRun } from "../../app/web/view/presenter.js"
 import { surfaceViewModel } from "../../app/web/view/surfaceModel.js"
-import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import {
   failedRunState as makeFailedRunState,
   pausedRunState as makePausedRunState,
@@ -23,12 +19,13 @@ import {
 const fixtureRunData = runDataFixture("surface model fixture")
 const fixturePresented = presentRun(fixtureRunData)
 const fixtureSurface = entryPresentationForId(effectTextCardFixture.id)
-const pausedEvidenceStream: EvidenceStreamState = {
+const emptyEvidenceStream = EvidenceStreamState.empty()
+const pausedEvidenceStream = EvidenceStreamState.make({
   sections: fixtureRunData.sections,
   complete: false,
   summary: null,
   meta: null
-}
+})
 
 const idleState: SurfaceState = {
   ...initialSurfaceState("effect-text"),
@@ -58,7 +55,7 @@ const runFailedState: SurfaceState = {
     data: programPreviewFixture
   },
   run: makeFailedRunState({
-    error: new DemoExecutionError({
+    error: new EntryExecutionError({
       code: "execution-failed",
       message:
         "ParseError: Required property \"meta\" is missing.\nHuge schema tree details... Huge schema tree details... Huge schema tree details...",
@@ -83,13 +80,13 @@ const runPausedState: SurfaceState = {
 }
 
 describe("Theoria Surface Model", () => {
-  it.effect("uses compact mode for summary cards while keeping the deep-stage projection available", () =>
+  it.effect("uses compact mode for summary cards while keeping the deep surface-stage projection available", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
         surface: fixtureSurface,
         presented: null,
         state: idleState,
-        stream: emptyEvidenceStreamState,
+        stream: emptyEvidenceStream,
         variant: "compact"
       })
 
@@ -98,15 +95,15 @@ describe("Theoria Surface Model", () => {
       expect(model.evidenceDensity).toBe("compact")
       expect(model.chrome.title).toBe(effectTextCardFixture.title)
       expect(model.chrome.packageMeta.value).toBe(effectTextCardFixture.packageName)
-      expect(model.chrome.primaryAction.label).toBe(effectTextCardFixture.runLabel)
-      expect(model.evidenceRows[0]?.label).toBe("Package Use Case")
+      expect(model.chrome.primaryAction.label).toBe(fixtureSurface.runLabel)
+      expect(model.evidenceRows[0]?.label).toBe("Entry Use Case")
       expect(model.evidenceRows[1]?.label).toBe("Run Intent")
       expect(model.runControls.primary.action).toBe("run")
-      expect(model.stage.showTabs).toBe(true)
-      expect(model.stage.activeTab).toBe("interactive")
+      expect(model.surfaceStage.showTabs).toBe(true)
+      expect(model.surfaceStage.activeTab).toBe("interactive")
     }))
 
-  it.effect("builds the expanded surface from code and stage view models", () =>
+  it.effect("builds the expanded surface from code and surface-stage view models", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({
         surface: fixtureSurface,
@@ -126,10 +123,10 @@ describe("Theoria Surface Model", () => {
       expect(model.code.selectedSourceScope).toBe("run")
       expect(model.code.sourceTabs[0]?.label).toBe("Run Session")
       expect(model.runControls.secondary._tag).toBe("Some")
-      expect(model.stage.showTabs).toBe(true)
-      expect(model.stage.activeTab).toBe("evidence")
-      expect(model.stage.evidence._tag).toBe("results")
-      expect(model.stage.hintText).toContain("obstacle-aware projection")
+      expect(model.surfaceStage.showTabs).toBe(true)
+      expect(model.surfaceStage.activeTab).toBe("evidence")
+      expect(model.surfaceStage.evidence._tag).toBe("RunEvidenceResults")
+      expect(model.surfaceStage.hintText).toContain("obstacle-aware projection")
     }))
 
   it.effect("keeps compact evidence rows focused on the package use case after success", () =>
@@ -142,7 +139,7 @@ describe("Theoria Surface Model", () => {
         variant: "compact"
       })
 
-      expect(model.evidenceRows[0]?.label).toBe("Package Use Case")
+      expect(model.evidenceRows[0]?.label).toBe("Entry Use Case")
       expect(model.evidenceRows[1]?.label).toBe("Projection runtime")
     }))
 
@@ -152,13 +149,13 @@ describe("Theoria Surface Model", () => {
         surface: fixtureSurface,
         presented: null,
         state: runFailedState,
-        stream: emptyEvidenceStreamState,
+        stream: emptyEvidenceStream,
         variant: "expanded"
       })
 
       expect(model.status.startsWith("Execution failed:")).toBe(true)
       expect(model.status.includes("Huge schema tree details")).toBe(false)
-      expect(model.stage.evidence._tag).toBe("failure")
+      expect(model.surfaceStage.evidence._tag).toBe("RunEvidenceFailure")
     }))
 
   it.effect("derives resume and stop controls from paused run state", () =>
@@ -175,10 +172,13 @@ describe("Theoria Surface Model", () => {
       expect(model.status.startsWith("Run paused")).toBe(true)
       expect(model.runControls.primary.action).toBe("resume")
       expect(model.runControls.secondary._tag).toBe("Some")
-      expect(model.stage.evidence._tag).toBe("paused")
+      expect(model.surfaceStage.evidence._tag).toBe("RunEvidenceInFlight")
+      if (model.surfaceStage.evidence._tag === "RunEvidenceInFlight") {
+        expect(model.surfaceStage.evidence.control).toBe("paused")
+      }
     }))
 
-  it.effect("keeps paused stage copy on stream-owned evidence even while the reducer waits for stream completion", () =>
+  it.effect("keeps paused surface-stage copy on stream-owned evidence even while the reducer waits for stream completion", () =>
     Effect.gen(function*() {
       const state: SurfaceState = {
         ...runPausedState,
@@ -194,9 +194,10 @@ describe("Theoria Surface Model", () => {
       })
 
       expect(model.status).toBe("Run paused. Resume to continue streaming evidence.")
-      expect(model.stage.evidence._tag).toBe("paused")
-      if (model.stage.evidence._tag === "paused") {
-        expect(model.stage.evidence.description).toBe("Resume to continue streaming evidence.")
+      expect(model.surfaceStage.evidence._tag).toBe("RunEvidenceInFlight")
+      if (model.surfaceStage.evidence._tag === "RunEvidenceInFlight") {
+        expect(model.surfaceStage.evidence.description).toBe("Resume to continue streaming evidence.")
+        expect(model.surfaceStage.evidence.control).toBe("paused")
       }
     }))
 
@@ -219,7 +220,7 @@ describe("Theoria Surface Model", () => {
                 },
                 {
                   language: "ts",
-                  entry: "web/atoms/animation.ts",
+                  entry: "web/atoms/run/animation.ts",
                   name: "animation.ts",
                   source: "export const animation = 'live'"
                 }
@@ -233,14 +234,14 @@ describe("Theoria Surface Model", () => {
         surface: fixtureSurface,
         presented: null,
         state,
-        stream: emptyEvidenceStreamState,
+        stream: emptyEvidenceStream,
         variant: "expanded"
       })
 
       expect(model.code.selectedFileIndex).toBe(0)
       expect(model.code.fileName).toBe("run.ts")
       expect(model.code.fileTabs[1]?.name).toBe("animation.ts")
-      expect(model.code.fileTabs[1]?.directory).toBe("web/atoms")
+      expect(model.code.fileTabs[1]?.directory).toBe("web/atoms/run")
       expect(model.code.originLabel).toBe("Prepared")
       expect(model.code.selectedSourceScope).toBe("prepared")
     }))
@@ -257,7 +258,7 @@ describe("Theoria Surface Model", () => {
           },
           {
             language: "ts",
-            entry: "web/atoms/animation.ts",
+            entry: "web/atoms/run/animation.ts",
             name: "animation.ts",
             source: "export const animation = 'prepared'"
           }

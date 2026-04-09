@@ -1,5 +1,5 @@
 /**
- * Choreography Protocol — server-authored demo progression.
+ * Choreography Protocol — server-authored study progression.
  *
  * The choreography protocol decouples "what to show" (server authority)
  * from "how to render it" (client projection). The server authors a
@@ -61,7 +61,7 @@ import { Data, Either, Match, Schema } from "effect"
 // ---------------------------------------------------------------------------
 
 /**
- * A stage is a named phase in a demo's progression. Each demo defines
+ * A stage is a named phase in a study's progression. Each study defines
  * its own stage vocabulary.
  *
  * @example
@@ -76,12 +76,12 @@ export const StageId = Schema.String.pipe(Schema.minLength(1))
 export type StageId = typeof StageId.Type
 
 // ---------------------------------------------------------------------------
-// Cue Payloads — per-demo parameter instructions
+// Cue Payloads — stage parameter instructions
 // ---------------------------------------------------------------------------
 
 /**
  * A parameter update tells the client to set a specific control value.
- * Keys are parameter names within the demo's domain; values are the
+ * Keys are parameter names within the active study domain; values are the
  * target values. The client maps these to its local control atoms.
  *
  * @example
@@ -180,7 +180,7 @@ export class ChoreographyProtocolViolation extends Schema.TaggedError<Choreograp
  * cues from the server stream.
  */
 export type ChoreographyState = Data.TaggedEnum<{
-  /** No choreography active — demo is idle or has not yet entered a staged run. */
+  /** No choreography active — the study is idle or has not yet entered a staged run. */
   readonly Idle: {}
   /** A stage is active. The client is rendering frames for this stage. */
   readonly InStage: {

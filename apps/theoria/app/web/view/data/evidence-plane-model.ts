@@ -1,77 +1,83 @@
 import type { Metadata } from "../../../contracts/envelope.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
-
-import { buildEvidencePlaneLayout, type EvidencePlaneLayout } from "./evidence-plane-layout.js"
+import { EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
 import {
-  type EvidenceOption,
+  defaultEvidencePlanePreferences,
   type EvidencePlaneFilter,
-  evidencePlaneFilterOptions,
-  type EvidencePlaneOrder,
-  evidencePlaneOrderOptions,
-  evidencePlaneSectionOptions,
-  normalizedEvidenceSectionKey,
-  visibleEvidenceSections
-} from "./evidence-plane-ordering.js"
-import {
-  type EvidenceMetric,
-  type EvidenceSectionStats,
-  type EvidenceSectionViewModel,
-  projectEvidenceSections
-} from "./evidence-section-projection.js"
+  type EvidencePlaneOrder
+} from "../../../contracts/evidence/plane.js"
 
-export type { EvidencePlaneLane, EvidencePlaneLayout } from "./evidence-plane-layout.js"
-export type { EvidenceOption, EvidencePlaneFilter, EvidencePlaneOrder } from "./evidence-plane-ordering.js"
-export type {
-  EvidenceMetric,
-  EvidenceSectionGroup,
-  EvidenceSectionStats,
-  EvidenceSectionVariant,
-  EvidenceSectionViewModel
-} from "./evidence-section-projection.js"
+import { buildEvidencePlaneControls } from "./evidence-plane-controls.js"
+import { buildEvidencePlaneLayout } from "./evidence-plane-layout.js"
+import { buildEvidencePlaneOverview } from "./evidence-plane-overview.js"
+import { buildEvidencePlaneProjection } from "./evidence-plane-projection.js"
 
-export type EvidencePlaneViewModel = {
-  readonly overview: {
-    readonly eyebrow: string
-    readonly description: string
-    readonly metrics: ReadonlyArray<EvidenceMetric>
-  }
-  readonly controls: {
-    readonly filterOptions: ReadonlyArray<EvidenceOption<EvidencePlaneFilter>>
-    readonly activeFilterIndex: number
-    readonly orderOptions: ReadonlyArray<EvidenceOption<EvidencePlaneOrder>>
-    readonly activeOrderIndex: number
-    readonly sectionOptions: ReadonlyArray<EvidenceOption<string | null>>
-    readonly activeSectionIndex: number
-  }
-  readonly layout: EvidencePlaneLayout
-  readonly sections: ReadonlyArray<EvidenceSectionViewModel>
-}
+export { EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
 
-const formatDuration = (durationMs: number): string =>
-  durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${Math.round(durationMs)} ms`
+export const emptyEvidencePlaneViewModel = ({
+  complete
+}: {
+  readonly complete: boolean
+}): EvidencePlaneViewModel =>
+  buildEvidencePlaneViewModel({
+    complete,
+    filter: defaultEvidencePlanePreferences.filter,
+    meta: null,
+    order: defaultEvidencePlanePreferences.order,
+    sectionKey: null,
+    sections: [],
+    summary: null
+  })
 
-const aggregateSectionStats = (sections: ReadonlyArray<EvidenceSectionViewModel>): EvidenceSectionStats =>
-  sections.reduce(
-    (totals, section) => ({
-      scalarCount: totals.scalarCount + section.stats.scalarCount,
-      comparisonCount: totals.comparisonCount + section.stats.comparisonCount,
-      seriesCount: totals.seriesCount + section.stats.seriesCount,
-      visualCount: totals.visualCount + section.stats.visualCount,
-      tableCount: totals.tableCount + section.stats.tableCount,
-      textCount: totals.textCount + section.stats.textCount
+const evidencePlaneViewModelFromProjection = ({
+  complete,
+  filter,
+  meta,
+  order,
+  sectionKey,
+  sections,
+  summary
+}: {
+  readonly complete: boolean
+  readonly filter: EvidencePlaneFilter
+  readonly meta: Metadata | null
+  readonly order: EvidencePlaneOrder
+  readonly sectionKey: string | null
+  readonly sections: ReadonlyArray<EvidenceSection>
+  readonly summary: string | null
+}): EvidencePlaneViewModel => {
+  const projection = buildEvidencePlaneProjection({
+    filter,
+    order,
+    sectionKey,
+    sections
+  })
+
+  return EvidencePlaneViewModel.make({
+    overview: buildEvidencePlaneOverview({
+      activeSectionKey: projection.ordering.activeSectionKey,
+      complete,
+      meta,
+      order,
+      projectedSections: projection.projectedSections.sections,
+      summary,
+      visibleSections: projection.ordering.visibleSections
     }),
-    {
-      scalarCount: 0,
-      comparisonCount: 0,
-      seriesCount: 0,
-      visualCount: 0,
-      tableCount: 0,
-      textCount: 0
-    }
-  )
-
-const activeOptionIndex = <A>(options: ReadonlyArray<EvidenceOption<A>>, value: A): number =>
-  Math.max(options.findIndex((option) => option.value === value), 0)
+    controls: buildEvidencePlaneControls({
+      activeSectionKey: projection.ordering.activeSectionKey,
+      filter,
+      order,
+      sectionOptions: projection.ordering.sectionOptions
+    }),
+    layout: buildEvidencePlaneLayout({
+      order,
+      sectionKey: projection.ordering.activeSectionKey,
+      sections: projection.ordering.visibleSections
+    }),
+    projectedSectionCount: projection.projectedSections.sectionCount,
+    sections: projection.ordering.visibleSections
+  })
+}
 
 export const buildEvidencePlaneViewModel = ({
   complete,
@@ -89,50 +95,13 @@ export const buildEvidencePlaneViewModel = ({
   readonly sectionKey: string | null
   readonly sections: ReadonlyArray<EvidenceSection>
   readonly summary: string | null
-}): EvidencePlaneViewModel => {
-  const projected = projectEvidenceSections(sections)
-  const sectionOptions = evidencePlaneSectionOptions({ filter, order, sections: projected })
-  const activeSectionValue = normalizedEvidenceSectionKey({ options: sectionOptions, sectionKey })
-  const visible = visibleEvidenceSections({ filter, order, sectionKey: activeSectionValue, sections: projected })
-  const stats = aggregateSectionStats(visible)
-  const runtimeText = meta === null ? null : formatDuration(meta.durationMs)
-  const latestSection = projected[projected.length - 1] ?? null
-  const layout = buildEvidencePlaneLayout({ order, sectionKey: activeSectionValue, sections: visible })
-
-  return {
-    overview: {
-      eyebrow: complete
-        ? `${order === "live" ? "Live stream" : "Narrative view"} · evidence complete${
-          runtimeText === null ? "" : ` · ${runtimeText}`
-        }`
-        : latestSection === null
-        ? "Waiting for live evidence"
-        : `${order === "live" ? "Live stream" : "Narrative view"} · latest section: ${latestSection.title}`,
-      description: activeSectionValue === null
-        ? complete
-          ? summary ??
-            "Decisive results stay promoted while datasets and context remain legible as supporting evidence."
-          : order === "live"
-          ? "Newest evidence lands first, with the freshest result held above the running stream."
-          : "Results stay in the narrative lane while datasets and contract notes collect in a supporting reference lane."
-        : `Focused on ${visible[0]?.title ?? "the selected section"}.`,
-      metrics: [
-        { label: "In view", value: `${visible.length}/${Math.max(projected.length, 1)}` },
-        { label: "Metrics", value: String(stats.scalarCount) },
-        { label: "Visuals", value: String(stats.visualCount) },
-        { label: "Tables", value: String(stats.tableCount) },
-        { label: "Notes", value: String(stats.textCount) }
-      ]
-    },
-    controls: {
-      filterOptions: evidencePlaneFilterOptions,
-      activeFilterIndex: activeOptionIndex(evidencePlaneFilterOptions, filter),
-      orderOptions: evidencePlaneOrderOptions,
-      activeOrderIndex: activeOptionIndex(evidencePlaneOrderOptions, order),
-      sectionOptions,
-      activeSectionIndex: activeOptionIndex(sectionOptions, activeSectionValue)
-    },
-    layout,
-    sections: visible
-  }
-}
+}): EvidencePlaneViewModel =>
+  evidencePlaneViewModelFromProjection({
+    complete,
+    filter,
+    meta,
+    order,
+    sectionKey,
+    sections,
+    summary
+  })

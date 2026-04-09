@@ -1,13 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { DemoExecutionError } from "../../app/contracts/demo-error.js"
-import { effectSearchEntryDescriptor, effectTextEntryDescriptor } from "../../app/contracts/proving-substrate.js"
+import { EntryExecutionError } from "../../app/contracts/entry-error.js"
+import { entryDescriptorForId } from "../../app/contracts/entry/registry.js"
 import { EntryClient } from "../../app/web/services/EntryClient.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import { EntryClientTest, makeEntryClientTestLayer } from "../helpers/entry-client.test-layer.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 
-const effectTextRunRequest = Schema.decodeUnknownSync(effectTextEntryDescriptor.runRequestSchema)({
+const effectTextRunRequest = Schema.decodeUnknownSync(entryDescriptorForId("effect-text").runRequestSchema)({
   runToken: "effect-text:test-run",
   draft: {
     entryId: "effect-text",
@@ -17,7 +17,7 @@ const effectTextRunRequest = Schema.decodeUnknownSync(effectTextEntryDescriptor.
   }
 })
 
-const effectSearchRunRequest = Schema.decodeUnknownSync(effectSearchEntryDescriptor.runRequestSchema)({
+const effectSearchRunRequest = Schema.decodeUnknownSync(entryDescriptorForId("effect-search").runRequestSchema)({
   runToken: "effect-search:test-run",
   draft: {
     entryId: "effect-search",
@@ -60,7 +60,7 @@ describe("EntryClient Test Layer", () => {
     }).pipe(Effect.provide(makeEntryClientTestLayer({
       run: () =>
         Effect.fail(
-          new DemoExecutionError({ code: "execution-timeout", message: "timeout", retryable: true })
+          new EntryExecutionError({ code: "execution-timeout", message: "timeout", retryable: true })
         ),
       preload: () => Effect.succeed(programPreviewFixture)
     }))))

@@ -2,6 +2,8 @@ import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { canonicalize, digest, digestBytes, hmacSha256, toBase64Url, toHex, utf8ToBytes } from "@scenesystems/digest"
+import { digestEntryDescriptor } from "../../../contracts/entry/descriptors/digest.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { Program } from "../../../contracts/presentation/program.js"
 import type { RunData } from "../../../contracts/study/run.js"
 
@@ -13,9 +15,10 @@ export const preloadProgram: Effect.Effect<
   FileSystem.FileSystem | Path.Path
 > = executableProgram(import.meta.url)
 
-const sampleValue = { user: "alice", score: 42, tags: ["demo", "theoria"] }
-const permutedValue = { tags: ["demo", "theoria"], score: 42, user: "alice" }
+const sampleValue = { user: "alice", score: 42, tags: ["study", "theoria"] }
+const permutedValue = { tags: ["study", "theoria"], score: 42, user: "alice" }
 const hmacKeyText = "theoria-webhook-secret"
+const digestRunIdentity = entryRunIdentityForId(digestEntryDescriptor.entryId)
 
 const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
@@ -54,8 +57,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const endedAt = yield* Clock.currentTimeMillis
 
   return {
-    id: "digest",
-    packageName: "@scenesystems/digest",
+    ...digestRunIdentity,
     summary: "@scenesystems/digest compared BLAKE3-256 and SHA-256 digests with JCS canonicalization and HMAC.",
     durationMs: endedAt - startedAt,
     program: runnableProgram,

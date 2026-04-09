@@ -1,16 +1,17 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidenceSectionGroup, EvidenceSectionViewModel } from "../data/evidence-layout.js"
+import type { EvidenceSectionGroup } from "../data/evidence-section-groups.js"
+import type { EvidenceSectionViewModel } from "../data/evidence-section-projection.js"
 
 import { DataTable } from "../primitives/DataTable.js"
-import { evidenceSectionFor } from "../primitives/designSystem.js"
 import { EvidenceItemRenderer } from "../primitives/EvidenceItemRenderer.js"
 import { EvidenceProse } from "../primitives/EvidenceProse.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
 import { MetricStrip } from "../primitives/MetricStrip.js"
 import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { evidenceSectionFor } from "../primitives/theme/evidence.js"
 
 const animationDelayClassName = (index: number): string =>
   Match.value(Math.min(index, 5)).pipe(

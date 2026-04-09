@@ -1,104 +1,136 @@
-import type { WorkflowEntrySeedSelection } from "../../../../contracts/study/workflow/comparison/run.js"
-import type { WorkflowComparisonGraphViewModel } from "./graph-model.js"
-import type { WorkflowComparisonTranscriptViewModel } from "./transcript-model.js"
+import { Match, Schema } from "effect"
 
-export type WorkflowComparisonRenderedPreviewPaneViewModel = {
-  readonly key: "baseline" | "comparison-target"
-  readonly label: string
-  readonly score: string
-  readonly body: string
-  readonly note: string
+import type { WorkflowEntrySelection } from "../../../../contracts/study/workflow/selection.js"
+import {
+  workflowRenderedPreviewDescription,
+  workflowRenderedPreviewFallback,
+  workflowRenderedPreviewMetricLabel,
+  workflowRenderedPreviewPaneLabel,
+  workflowRenderedPreviewPaneNote
+} from "../../../../contracts/study/workflow/surface-rendered-preview-presentation.js"
+import {
+  workflowDeltaText,
+  WorkflowRenderedPreviewPaneKeySchema
+} from "../../../../contracts/study/workflow/view-presentation.js"
+import type { WorkflowGraphViewModel } from "./graph-model.js"
+import type { WorkflowTranscriptViewModel } from "./transcript-model.js"
+
+type WorkflowRenderedPreviewOutput = {
+  readonly isCurrent: boolean
+  readonly nodeId: string
+  readonly output: string
+} | null
+
+export class WorkflowRenderedPreviewPaneViewModel extends Schema.Class<WorkflowRenderedPreviewPaneViewModel>(
+  "WorkflowRenderedPreviewPaneViewModel"
+)({
+  key: WorkflowRenderedPreviewPaneKeySchema,
+  label: Schema.String,
+  score: Schema.String,
+  body: Schema.String,
+  note: Schema.String
+}) {}
+
+export class WorkflowRenderedPreviewMetricViewModel extends Schema.Class<WorkflowRenderedPreviewMetricViewModel>(
+  "WorkflowRenderedPreviewMetricViewModel"
+)({
+  label: Schema.String,
+  value: Schema.String
+}) {}
+
+export class WorkflowRenderedPreviewViewModel extends Schema.Class<WorkflowRenderedPreviewViewModel>(
+  "WorkflowRenderedPreviewViewModel"
+)({
+  description: Schema.String,
+  panes: Schema.Array(WorkflowRenderedPreviewPaneViewModel),
+  metrics: Schema.Array(WorkflowRenderedPreviewMetricViewModel)
+}) {
+  static project({
+    graph,
+    plan,
+    transcript
+  }: {
+    readonly graph: WorkflowGraphViewModel
+    readonly plan: WorkflowEntrySelection
+    readonly transcript: WorkflowTranscriptViewModel
+  }): WorkflowRenderedPreviewViewModel {
+    const baselineOutput = latestOutputFor(transcript, "baseline")
+    const workflowTargetOutput = latestOutputFor(transcript, "optimized")
+    const { authoredOptimized, baseline, searchWinner } = graph.cardCatalog
+    const baselineScore = numericScore(baseline.score)
+    const authoredScore = numericScore(authoredOptimized.score)
+    const winnerScore = numericScore(searchWinner.score)
+    const targetCard = Match.value(plan.controls.targetMode).pipe(
+      Match.when("authored-optimized", () => authoredOptimized),
+      Match.when("search-winner", () => searchWinner),
+      Match.exhaustive
+    )
+
+    return WorkflowRenderedPreviewViewModel.make({
+      description: workflowRenderedPreviewDescription({
+        hasReplayOutput: workflowTargetOutput !== null,
+        targetMode: plan.controls.targetMode
+      }),
+      panes: [
+        WorkflowRenderedPreviewPaneViewModel.make({
+          key: "baseline",
+          label: workflowRenderedPreviewPaneLabel({ pane: "baseline", targetMode: plan.controls.targetMode }),
+          score: baseline.score,
+          body: baselineOutput?.output ??
+            workflowRenderedPreviewFallback({ pane: "baseline", targetMode: plan.controls.targetMode }),
+          note: workflowRenderedPreviewPaneNote({
+            isCurrent: false,
+            nodeId: baselineOutput?.nodeId ?? null,
+            pane: "baseline"
+          })
+        }),
+        WorkflowRenderedPreviewPaneViewModel.make({
+          key: "replay-target",
+          label: workflowRenderedPreviewPaneLabel({ pane: "replay-target", targetMode: plan.controls.targetMode }),
+          score: targetCard.score,
+          body: workflowTargetOutput?.output ??
+            workflowRenderedPreviewFallback({ pane: "replay-target", targetMode: plan.controls.targetMode }),
+          note: workflowRenderedPreviewPaneNote({
+            isCurrent: workflowTargetOutput?.isCurrent ?? false,
+            nodeId: workflowTargetOutput?.nodeId ?? null,
+            pane: "replay-target"
+          })
+        })
+      ],
+      metrics: [
+        WorkflowRenderedPreviewMetricViewModel.make({
+          label: workflowRenderedPreviewMetricLabel("baseline-score"),
+          value: baseline.score
+        }),
+        WorkflowRenderedPreviewMetricViewModel.make({
+          label: workflowRenderedPreviewMetricLabel("authored-optimized-score"),
+          value: authoredOptimized.score
+        }),
+        WorkflowRenderedPreviewMetricViewModel.make({
+          label: workflowRenderedPreviewMetricLabel("search-winner-score"),
+          value: searchWinner.score
+        }),
+        WorkflowRenderedPreviewMetricViewModel.make({
+          label: workflowRenderedPreviewMetricLabel("winner-delta-vs-baseline"),
+          value: workflowDeltaText({ baseline: baselineScore, digits: 3, improved: winnerScore })
+        }),
+        WorkflowRenderedPreviewMetricViewModel.make({
+          label: workflowRenderedPreviewMetricLabel("winner-delta-vs-authored-optimized"),
+          value: workflowDeltaText({ baseline: authoredScore, digits: 3, improved: winnerScore })
+        })
+      ]
+    })
+  }
 }
 
-export type WorkflowComparisonRenderedPreviewMetricViewModel = {
-  readonly label: string
-  readonly value: string
-}
-
-export type WorkflowComparisonRenderedPreviewViewModel = {
-  readonly description: string
-  readonly panes: ReadonlyArray<WorkflowComparisonRenderedPreviewPaneViewModel>
-  readonly metrics: ReadonlyArray<WorkflowComparisonRenderedPreviewMetricViewModel>
-}
-
-const scoreValue = (
-  graph: WorkflowComparisonGraphViewModel,
-  key: WorkflowComparisonGraphViewModel["cards"][number]["key"]
-): number | null => {
-  const raw = graph.cards.find((card) => card.key === key)?.score ?? "n/a"
-  return raw === "n/a" ? null : Number(raw)
-}
-
-const formatDelta = (baseline: number | null, improved: number | null): string =>
-  baseline === null || improved === null
-    ? "n/a"
-    : `${improved >= baseline ? "+" : ""}${(improved - baseline).toFixed(3)}`
+const numericScore = (score: string): number | null => (score === "n/a" ? null : Number(score))
 
 const latestOutputFor = (
-  transcript: WorkflowComparisonTranscriptViewModel,
-  variant: WorkflowComparisonTranscriptViewModel["entries"][number]["variant"]
-): WorkflowComparisonTranscriptViewModel["entries"][number] | null => {
+  transcript: WorkflowTranscriptViewModel,
+  variant: WorkflowTranscriptViewModel["entries"][number]["variant"]
+): WorkflowRenderedPreviewOutput => {
   const preferred = transcript.entries.filter((entry) => entry.variant === variant && entry.nodeKind === "responder")
     .at(-1)
 
   return preferred ?? transcript.entries.filter((entry) => entry.variant === variant).at(-1) ?? null
-}
-
-export const workflowComparisonRenderedPreviewViewModel = ({
-  graph,
-  plan,
-  transcript
-}: {
-  readonly graph: WorkflowComparisonGraphViewModel
-  readonly plan: WorkflowEntrySeedSelection
-  readonly transcript: WorkflowComparisonTranscriptViewModel
-}): WorkflowComparisonRenderedPreviewViewModel => {
-  const baseline = latestOutputFor(transcript, "baseline")
-  const comparisonTarget = latestOutputFor(transcript, "optimized")
-  const baselineScore = scoreValue(graph, "baseline")
-  const authoredScore = scoreValue(graph, "authored-optimized")
-  const winnerScore = scoreValue(graph, "search-winner")
-  const comparisonTargetLabel = plan.controls.comparisonMode === "authored-optimized"
-    ? "Authored Optimized Output"
-    : "Search Winner Output"
-  const comparisonTargetScore = plan.controls.comparisonMode === "authored-optimized"
-    ? graph.cards.find((card) => card.key === "authored-optimized")?.score ?? "n/a"
-    : graph.cards.find((card) => card.key === "search-winner")?.score ?? "n/a"
-
-  return {
-    description: comparisonTarget === null
-      ? "Rendered preview stays empty until the canonical ledger yields baseline and winner outputs."
-      : plan.controls.comparisonMode === "authored-optimized"
-      ? "These previews stay on the same execution record while keeping the study winner evidence available separately in the progress lane."
-      : "These previews stay on the same execution record as the graph cards and evidence stack.",
-    panes: [
-      {
-        key: "baseline",
-        label: "Baseline Output",
-        score: graph.cards.find((card) => card.key === "baseline")?.score ?? "n/a",
-        body: baseline?.output ?? "Await the baseline replay to materialize a human-facing output preview.",
-        note: baseline?.nodeId ?? "Baseline response"
-      },
-      {
-        key: "comparison-target",
-        label: comparisonTargetLabel,
-        score: comparisonTargetScore,
-        body: comparisonTarget?.output ??
-          "Await the frozen comparison target replay to materialize the final output preview.",
-        note: comparisonTarget?.isCurrent === true
-          ? `${comparisonTarget.nodeId} · current canonical output`
-          : comparisonTarget?.nodeId ?? "Comparison target response"
-      }
-    ],
-    metrics: [
-      { label: "Baseline score", value: graph.cards.find((card) => card.key === "baseline")?.score ?? "n/a" },
-      {
-        label: "Authored optimized score",
-        value: graph.cards.find((card) => card.key === "authored-optimized")?.score ?? "n/a"
-      },
-      { label: "Search winner score", value: graph.cards.find((card) => card.key === "search-winner")?.score ?? "n/a" },
-      { label: "Winner delta vs baseline", value: formatDelta(baselineScore, winnerScore) },
-      { label: "Winner delta vs authored optimized", value: formatDelta(authoredScore, winnerScore) }
-    ]
-  }
 }

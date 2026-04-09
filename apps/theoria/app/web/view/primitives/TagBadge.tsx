@@ -1,6 +1,6 @@
-import type { Tone } from "./designSystem.js"
 import { Cluster } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Tone } from "./theme/tone.js"
 
 /**
  * Compact inline badge for named metadata — field names, labels, tags.

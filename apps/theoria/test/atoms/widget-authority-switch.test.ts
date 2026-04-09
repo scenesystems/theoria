@@ -1,25 +1,33 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
-import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
-import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
+import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
+import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 
+import {
+  EffectSearchCanonicalStep,
+  snapshotEffectSearchProjectionScript
+} from "../../app/contracts/capability/effect-search.js"
+import {
+  EffectTextProjectionStep,
+  snapshotEffectTextTraversalScript
+} from "../../app/contracts/capability/effect-text.js"
 import { corpus } from "../../app/contracts/corpus.js"
-import { EffectSearchCanonicalStep, snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
-import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
+import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/optimization-widget-view-model.js"
+import { reflowWidgetViewModelAtom } from "../../app/web/atoms/reflow-widget-view-model.js"
+import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
+import { customTextAtom, reflowControlsAtom, reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import {
   type EffectSearchRunFrame,
   optimizationAnimatingAtom,
   randomTrialsAtom,
   tpeTrialsAtom,
   trialBudgetAtom
-} from "../../app/web/atoms/optimization-animation.js"
-import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
-import { customTextAtom, reflowControlsAtom, reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { optimizationWidgetViewModelAtom, reflowWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
-import { reduceRunState, type RunState } from "../../app/web/state/types.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+} from "../../app/web/atoms/run/optimization-animation.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import type { RunState } from "../../app/web/state/run/types.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, stepQueueDrainedRunState, streamCompletedRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -66,7 +74,7 @@ const effectSearchFrame: EffectSearchRunFrame = {
     randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
     phase: "running"
   },
-  telemetry: makeEffectSearchStudyTelemetry({
+  telemetry: projectEffectSearchStudyTelemetry({
     randomEvents: [],
     randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
     trialBudget: 30,

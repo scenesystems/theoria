@@ -4,9 +4,17 @@ import * as SearchStudyEvent from "effect-search/StudyEvent"
 import * as Arr from "effect/Array"
 
 import {
-  effectSearchStudyTelemetrySections,
-  makeEffectSearchStudyTelemetry
-} from "../../app/contracts/demo/effect-search-study-telemetry.js"
+  EffectMathCanonicalStep,
+  isEffectMathProjectionScript,
+  projectPowerProjection,
+  snapshotEffectMathProjectionScript
+} from "../../app/contracts/capability/effect-math.js"
+import {
+  effectSearchStudyTelemetrySections
+} from "../../app/contracts/capability/effect-search-study-telemetry-evidence.js"
+import {
+  projectEffectSearchStudyTelemetry
+} from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
 import {
   EffectSearchCanonicalStep,
   isEffectSearchProjectionScript,
@@ -14,18 +22,14 @@ import {
   snapshotEffectSearchProjectionScript,
   type TrialPoint,
   trialPositionsSection
-} from "../../app/contracts/demo/objective.js"
-import {
-  EffectMathCanonicalStep,
-  isEffectMathProjectionScript,
-  projectPowerProjection,
-  snapshotEffectMathProjectionScript
-} from "../../app/contracts/demo/power.js"
+} from "../../app/contracts/capability/effect-search.js"
 import {
   EffectTextProjectionStep,
   isEffectTextTraversalScript,
   snapshotEffectTextTraversalScript
-} from "../../app/contracts/demo/text.js"
+} from "../../app/contracts/capability/effect-text.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
@@ -33,9 +37,7 @@ import {
   SectionAppend,
   SectionUpsert,
   StreamComplete
-} from "../../app/contracts/evidence-stream.js"
-import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import type { EntryId } from "../../app/contracts/id.js"
+} from "../../app/contracts/evidence/stream.js"
 import {
   computeDistributionGeometry,
   computeInferenceSummary,
@@ -45,9 +47,9 @@ import {
   computeSensitivity,
   computeSolverStatus,
   configurationSection
-} from "../../app/server/entries/effect-math/stream.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
+} from "../../app/server/adapters/effect-math/stream.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 
 type EvidenceSource = {
   readonly emitEvidence: (data: string) => void
@@ -146,11 +148,11 @@ const studyEventsForTrialPoints = ({
     (state, point) => {
       const nextEvents = [
         ...state.events,
-        SearchStudyEvent.TrialStarted({
+        SearchStudyEvent.TrialStarted.make({
           trialNumber: point.index,
           config: { x: point.x, y: point.y }
         }),
-        SearchStudyEvent.TrialCompleted({
+        SearchStudyEvent.TrialCompleted.make({
           trialNumber: point.index,
           value: point.value
         })
@@ -161,7 +163,7 @@ const studyEventsForTrialPoints = ({
           bestValue: point.value,
           events: [
             ...nextEvents,
-            SearchStudyEvent.BestUpdated({
+            SearchStudyEvent.BestUpdated.make({
               trialNumber: point.index,
               value: point.value
             })
@@ -178,7 +180,7 @@ const studyEventsForTrialPoints = ({
   return includeComplete
     ? [
       ...baseEvents,
-      SearchStudyEvent.StudyCompleted({ completionReason: "budgetExhausted" })
+      SearchStudyEvent.StudyCompleted.make({ completionReason: "budgetExhausted" })
     ]
     : baseEvents
 }
@@ -244,7 +246,7 @@ export const emitEffectTextAuthoredStream = ({
         }
       })
     )
-    yield* emitEvent(source, new StreamComplete({ summary, meta }))
+    yield* emitEvent(source, StreamComplete.make({ summary, meta }))
   }).pipe(Effect.orDie)
 
 export const emitEffectMathAuthoredStream = ({
@@ -307,7 +309,7 @@ export const emitEffectMathAuthoredStream = ({
         }
       })
     )
-    yield* emitEvent(source, new StreamComplete({ summary, meta }))
+    yield* emitEvent(source, StreamComplete.make({ summary, meta }))
   }).pipe(Effect.orDie)
 
 export const emitEffectSearchAuthoredStream = ({
@@ -338,7 +340,7 @@ export const emitEffectSearchAuthoredStream = ({
       const currentTpeTrials = Arr.range(0, index).map(tpeTrialPoint)
       const currentRandomTrials = Arr.range(0, index).map(randomTrialPoint)
       const isTerminalFrame = index + 1 === trialBudget && totalSteps === trialBudget
-      const telemetry = makeEffectSearchStudyTelemetry({
+      const telemetry = projectEffectSearchStudyTelemetry({
         randomEvents: studyEventsForTrialPoints({ includeComplete: isTerminalFrame, points: currentRandomTrials }),
         randomTrialPoints: currentRandomTrials,
         trialBudget,
@@ -404,6 +406,6 @@ export const emitEffectSearchAuthoredStream = ({
     }
 
     if (includeComplete) {
-      yield* emitEvent(source, new StreamComplete({ summary, meta }))
+      yield* emitEvent(source, StreamComplete.make({ summary, meta }))
     }
   }).pipe(Effect.orDie)

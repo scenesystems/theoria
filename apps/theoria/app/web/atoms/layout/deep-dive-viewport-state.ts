@@ -1,6 +1,9 @@
 import { Atom } from "@effect-atom/atom"
 
-import { deepDiveWorkspaceWidthDefaultPx, maxProjectedSurfaceCountForWorkspaceWidth } from "./deep-dive-model.js"
+import {
+  deepDiveWorkspaceWidthDefaultPx,
+  maxProjectedSurfaceCountForWorkspaceWidth
+} from "../../state/surface/deep-dive-lane-model.js"
 
 export const deepDiveWorkspaceWidthAtom = Atom.make<number>(deepDiveWorkspaceWidthDefaultPx).pipe(Atom.keepAlive)
 

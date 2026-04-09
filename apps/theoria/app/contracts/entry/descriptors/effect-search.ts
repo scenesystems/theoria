@@ -2,7 +2,7 @@ import { Schema } from "effect"
 
 import { authorityCatalogForId } from "../../capability/catalog.js"
 import { optimizationTrialBudgetMax, optimizationTrialBudgetMin } from "../../capability/effect-search.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, makeEntryDescriptor } from "../descriptor.js"
+import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
 
 const effectSearchAuthority = authorityCatalogForId("effect-search")
 
@@ -13,7 +13,7 @@ const EffectSearchEntryInput = Schema.Struct({
   )
 })
 
-export const effectSearchEntryDescriptor = makeEntryDescriptor({
+export const effectSearchEntryDescriptor = EntryDescriptor.define({
   entryId: "effect-search",
   title: effectSearchAuthority.title,
   packageName: effectSearchAuthority.packageName,

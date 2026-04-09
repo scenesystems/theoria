@@ -4,8 +4,9 @@ import { Effect, Option } from "effect"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { cardById } from "../../app/contracts/card.js"
-import { toneForCard } from "../../app/web/view/primitives/designSystem.js"
+import { CapabilityAvailabilityPathname } from "../../app/contracts/capability/availability.js"
+import { cardById, type Card } from "../../app/contracts/entry/card.js"
+import { toneForCard } from "../../app/web/view/primitives/theme/tone.js"
 import { InstrumentCard } from "../../app/web/view/home/InstrumentCard.js"
 
 const versionsEnvelope = {
@@ -20,16 +21,66 @@ const versionsEnvelope = {
   }
 }
 
-const withMockVersionsFetch = <A,>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
+const availableEnvelope = {
+  ok: true,
+  meta: {
+    requestId: "req-availability",
+    buildSha: "build-availability",
+    durationMs: 1
+  },
+  data: {
+    entries: [{ id: "effect-search", enabled: true }],
+    dsp: {
+      enabled: false,
+      reason: "DSP runtime unavailable for this test harness."
+    }
+  }
+}
+
+const pendingEnvelope = {
+  ok: true,
+  meta: {
+    requestId: "req-availability-pending",
+    buildSha: "build-availability",
+    durationMs: 1
+  },
+  data: {
+    entries: [{ id: "effect-search", enabled: false, reason: "Provider startup pending." }],
+    dsp: {
+      enabled: false,
+      reason: "DSP runtime unavailable for this test harness."
+    }
+  }
+}
+
+const withMockFetch = <A,>({
+  effect,
+  responses
+}: {
+  readonly effect: Effect.Effect<A, never, never>
+  readonly responses: Readonly<Record<string, unknown>>
+}): Effect.Effect<A, never, never> => {
   const previousFetch = globalThis.fetch
 
   return Effect.gen(function*() {
     yield* Effect.sync(() => {
-      Reflect.set(globalThis, "fetch", () =>
-        Promise.resolve({
-          json: () => Promise.resolve(versionsEnvelope)
+      Reflect.set(globalThis, "fetch", (input: RequestInfo | URL) => {
+        const rawUrl = typeof input === "string"
+          ? input
+          : input instanceof URL
+          ? input.toString()
+          : input.url
+        const pathname = new URL(rawUrl, "http://theoria.test").pathname
+        const response = responses[pathname]
+
+        if (response === undefined) {
+          return Promise.reject(new Error(`unmocked-fetch:${pathname}`))
+        }
+
+        return Promise.resolve({
+          json: () => Promise.resolve(response)
         })
-      )
+      })
     })
 
     return yield* effect
@@ -90,11 +141,33 @@ const waitForDocsLink = (container: HTMLDivElement): Effect.Effect<HTMLAnchorEle
     )
   ).pipe(Effect.orDie)
 
+const waitForText = (container: HTMLDivElement, text: string): Effect.Effect<void, never, never> =>
+  Effect.eventually(
+    Effect.sync(() => container.textContent ?? "").pipe(
+      Effect.filterOrFail((content) => content.includes(text), () => `waiting-for-${text}`),
+      Effect.asVoid
+    )
+  ).pipe(Effect.orDie)
+
+const waitForTitle = (container: HTMLDivElement, title: string): Effect.Effect<HTMLElement, never, never> =>
+  Effect.eventually(
+    Effect.sync(() =>
+      Array.from(container.querySelectorAll("[title]")).find((element) => element.getAttribute("title") === title)
+    ).pipe(
+      Effect.filterOrFail(
+        (element): element is HTMLElement => element instanceof HTMLElement,
+        () => `waiting-for-${title}`
+      )
+    )
+  ).pipe(Effect.orDie)
+
+const instrumentEntryForId = (id: Card["id"]): Option.Option<Card> => cardById(id)
+
 describe("InstrumentCard spring", () => {
   it.live("keeps package docs navigation visible beside package metadata", () =>
-    withMockVersionsFetch(
-      Effect.gen(function*() {
-        const cardOption = cardById("effect-search")
+    withMockFetch({
+      effect: Effect.gen(function*() {
+        const cardOption = instrumentEntryForId("effect-search")
 
         if (Option.isNone(cardOption)) {
           return yield* Effect.die("missing-effect-search-card")
@@ -126,13 +199,17 @@ describe("InstrumentCard spring", () => {
             container.remove()
           })
         )
-      })
-    ))
+      }),
+      responses: {
+        "/api/versions/packages": versionsEnvelope,
+        [CapabilityAvailabilityPathname]: availableEnvelope
+      }
+    }))
 
   it.live("rapid hover reversals settle back to rest under StrictMode", () =>
-    withMockVersionsFetch(
-      Effect.gen(function*() {
-        const cardOption = cardById("effect-search")
+    withMockFetch({
+      effect: Effect.gen(function*() {
+        const cardOption = instrumentEntryForId("effect-search")
 
         if (Option.isNone(cardOption)) {
           return yield* Effect.die("missing-effect-search-card")
@@ -192,6 +269,55 @@ describe("InstrumentCard spring", () => {
             container.remove()
           })
         )
+      }),
+      responses: {
+        "/api/versions/packages": versionsEnvelope,
+        [CapabilityAvailabilityPathname]: availableEnvelope
+      }
+    }))
+
+  it.live("projects runtime pending status from canonical availability transport", () =>
+    withMockFetch({
+      responses: {
+        "/api/versions/packages": versionsEnvelope,
+        [CapabilityAvailabilityPathname]: pendingEnvelope
+      },
+      effect: Effect.gen(function*() {
+        const cardOption = instrumentEntryForId("effect-search")
+
+        if (Option.isNone(cardOption)) {
+          return yield* Effect.die("missing-effect-search-card")
+        }
+
+        const card = cardOption.value
+        const container = document.createElement("div")
+        document.body.appendChild(container)
+        const root = createRoot(container)
+
+        yield* Effect.sync(() => {
+          root.render(
+            <StrictMode>
+              <RegistryProvider defaultIdleTTL={400}>
+                <InstrumentCard card={card} tone={toneForCard(card.id)} />
+              </RegistryProvider>
+            </StrictMode>
+          )
+        })
+
+        yield* Effect.ensuring(
+          Effect.gen(function*() {
+            yield* waitForText(container, "Runtime Pending")
+            const badge = yield* waitForTitle(container, "Provider startup pending.")
+
+            expect(container.textContent).toContain("Runtime Pending")
+            expect(container.textContent?.includes("Live Demo")).toBe(false)
+            expect(badge.textContent).toContain("Runtime Pending")
+          }),
+          Effect.sync(() => {
+            root.unmount()
+            container.remove()
+          })
+        )
       })
-    ))
+    }))
 })

@@ -5,6 +5,7 @@ import { Effect } from "effect"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
+import { packageDocsPackagePageRoute } from "../../app/contracts/presentation/package-docs.js"
 import { App } from "../../app/web/App.js"
 
 const responseMeta = {
@@ -112,7 +113,12 @@ describe("web/package-docs-route", () => {
         yield* Effect.sync(() => {
           root.render(
             <StrictMode>
-              <App route={{ _tag: "PackageDocsRoute", packageId: packageNameFromString("@scenesystems/digest") }} />
+              <App
+                route={{
+                  _tag: "PackageDocsRoute",
+                  route: packageDocsPackagePageRoute(packageNameFromString("@scenesystems/digest"))
+                }}
+              />
             </StrictMode>
           )
         })

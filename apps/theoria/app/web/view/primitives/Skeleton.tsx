@@ -1,9 +1,10 @@
 import { Separator } from "@base-ui-components/react/separator"
 import type { ReactNode } from "react"
 
-import { surfaceMaterials, type Tone } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { surfaceMaterials } from "./theme/surface.js"
+import { type Tone } from "./theme/tone.js"
 
 // ---------------------------------------------------------------------------
 // ShimmerLine — the atomic building block for skeleton loading states.
@@ -145,7 +146,7 @@ export const EmptyState = ({
         as="span"
         className="text-ink-500"
         role="status"
-        text={description ?? "Run the demo to generate reproducible evidence."}
+        text={description ?? "Run the study to generate reproducible evidence."}
         variant="expanded"
       />
     </Stack>

@@ -1,7 +1,7 @@
 import { Match, Option } from "effect"
 
 import type { RunState } from "../state/run/types.js"
-import type { MetricAppearance } from "../view/primitives/designSystem.js"
+import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 
 export type WidgetMetric = {
   readonly label: string

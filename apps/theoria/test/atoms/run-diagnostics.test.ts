@@ -3,13 +3,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as SearchStudyEvent from "effect-search/StudyEvent"
 
-import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { snapshotEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
-import type { EffectSearchRunFrame } from "../../app/web/atoms/optimization-animation.js"
-import { surfaceRunLifecycleDiagnosticsViewModelAtom } from "../../app/web/atoms/run-diagnostics.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { reduceRunState } from "../../app/web/state/types.js"
-import { programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
+import { snapshotEffectSearchProjectionScript } from "../../app/contracts/capability/effect-search.js"
+import { surfaceRunLifecycleDiagnosticsViewModelAtom } from "../../app/web/atoms/run/diagnostics.js"
+import type { EffectSearchRunFrame } from "../../app/web/atoms/run/optimization-animation.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -24,21 +24,21 @@ describe("run diagnostics atoms", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const localProjectionScript = snapshotEffectSearchProjectionScript(30)
-      const telemetry = makeEffectSearchStudyTelemetry({
+      const telemetry = projectEffectSearchStudyTelemetry({
         randomEvents: [
-          SearchStudyEvent.TrialStarted({ trialNumber: 0, config: { x: 0.75, y: -0.5 } }),
-          SearchStudyEvent.TrialCompleted({ trialNumber: 0, value: 0.45 }),
-          SearchStudyEvent.BestUpdated({ trialNumber: 0, value: 0.45 })
+          SearchStudyEvent.TrialStarted.make({ trialNumber: 0, config: { x: 0.75, y: -0.5 } }),
+          SearchStudyEvent.TrialCompleted.make({ trialNumber: 0, value: 0.45 }),
+          SearchStudyEvent.BestUpdated.make({ trialNumber: 0, value: 0.45 })
         ],
         randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
         trialBudget: 30,
         tpeEvents: [
-          SearchStudyEvent.TrialStarted({ trialNumber: 0, config: { x: -1.25, y: 0.25 } }),
-          SearchStudyEvent.TrialCompleted({ trialNumber: 0, value: 0.12 }),
-          SearchStudyEvent.BestUpdated({ trialNumber: 0, value: 0.12 }),
-          SearchStudyEvent.TrialStarted({ trialNumber: 1, config: { x: -1.1, y: 0.4 } }),
-          SearchStudyEvent.TrialCompleted({ trialNumber: 1, value: 0.08 }),
-          SearchStudyEvent.BestUpdated({ trialNumber: 1, value: 0.08 })
+          SearchStudyEvent.TrialStarted.make({ trialNumber: 0, config: { x: -1.25, y: 0.25 } }),
+          SearchStudyEvent.TrialCompleted.make({ trialNumber: 0, value: 0.12 }),
+          SearchStudyEvent.BestUpdated.make({ trialNumber: 0, value: 0.12 }),
+          SearchStudyEvent.TrialStarted.make({ trialNumber: 1, config: { x: -1.1, y: 0.4 } }),
+          SearchStudyEvent.TrialCompleted.make({ trialNumber: 1, value: 0.08 }),
+          SearchStudyEvent.BestUpdated.make({ trialNumber: 1, value: 0.08 })
         ],
         tpeTrialPoints: [
           { x: -1.25, y: 0.25, value: 0.12, index: 0 },

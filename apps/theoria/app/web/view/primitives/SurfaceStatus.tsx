@@ -3,9 +3,9 @@ import { Match } from "effect"
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 import type { StatusTone } from "../surfaceModel.js"
 
-import type { Surface } from "./designSystem.js"
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Surface } from "./theme/surface.js"
 
 const statusShellClassName = (tone: StatusTone): string =>
   Match.value(tone).pipe(

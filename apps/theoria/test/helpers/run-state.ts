@@ -1,26 +1,20 @@
 import { Schema } from "effect"
 
-import type { DemoError } from "../../app/contracts/demo-error.js"
+import type { EntryError } from "../../app/contracts/entry-error.js"
+import { DurableFingerprint } from "../../app/contracts/entry/fingerprint.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import type { EntryDraft } from "../../app/contracts/entry/registry.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
-import { DurableFingerprint } from "../../app/contracts/fingerprint.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import type { Program } from "../../app/contracts/presentation.js"
-import type { EntryDraft } from "../../app/contracts/proving-substrate.js"
-import type { EntryRunIdentity } from "../../app/contracts/run-plan.js"
-import type { RunData } from "../../app/contracts/run.js"
-import type { LocalProjectionScript } from "../../app/web/state/local-run.js"
-import {
-  initialSurfaceState,
-  reduceRunState,
-  type RunMessage,
-  type RunOwnership,
-  type RunState
-} from "../../app/web/state/types.js"
+import type { Program } from "../../app/contracts/presentation/program.js"
+import type { EntryRunIdentity } from "../../app/contracts/study/run-plan.js"
+import type { RunData } from "../../app/contracts/study/run.js"
+import type { LocalProjectionScript } from "../../app/web/state/run/local.js"
+import type { RunMessage } from "../../app/web/state/run/messages.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { RunOwnership, type RunState } from "../../app/web/state/run/types.js"
+import { initialSurfaceState } from "../../app/web/state/surface/state.js"
 
-const defaultRunOwnership: RunOwnership = {
-  localDriver: true,
-  serverStream: true
-}
+const defaultRunOwnership = RunOwnership.sharedStreaming()
 
 const durableFingerprint = (fill: string) =>
   Schema.decodeUnknownSync(DurableFingerprint)(`blake3-256:${fill.repeat(43).slice(0, 43)}`)
@@ -181,7 +175,7 @@ export const failedRunState = ({
   sequence = 1,
   token = 1
 }: {
-  readonly error: DemoError
+  readonly error: EntryError
   readonly finalizedAtMs?: number
   readonly ownership?: RunOwnership
   readonly program: Program
@@ -214,7 +208,7 @@ export const succeededRunState = ({
   const withStreamCompletion = ownership.serverStream
     ? streamCompletedRunState({ run: started, sequence, summary: data.summary, meta })
     : started
-  const withSuccessGate = ownership.localDriver
+  const withSuccessGate = ownership.projectionDriver
     ? stepQueueDrainedRunState({ run: withStreamCompletion, sequence })
     : withStreamCompletion
 

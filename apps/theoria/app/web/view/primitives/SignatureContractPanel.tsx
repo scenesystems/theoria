@@ -1,6 +1,6 @@
-import type { Tone } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Tone } from "./theme/tone.js"
 
 type ContractField = {
   readonly description: string

@@ -31,6 +31,8 @@ export const WorkflowEntryId = Schema.Literal("workflow")
 
 export type WorkflowEntryId = typeof WorkflowEntryId.Type
 
+export const workflowEntryId: WorkflowEntryId = "workflow"
+
 export const EntryId = Schema.Union(AuthorityId, WorkflowEntryId)
 
 export type EntryId = typeof EntryId.Type
@@ -44,7 +46,7 @@ export const entryIds: ReadonlyArray<EntryId> = [
   "digest",
   "seal",
   "sign",
-  "workflow"
+  workflowEntryId
 ]
 
 export const RunnableEntryId = Schema.Literal(
@@ -68,7 +70,7 @@ export const runnableEntryIds: ReadonlyArray<RunnableEntryId> = [
   "digest",
   "seal",
   "sign",
-  "workflow"
+  workflowEntryId
 ]
 
 export const isAuthorityId = Schema.is(AuthorityId)

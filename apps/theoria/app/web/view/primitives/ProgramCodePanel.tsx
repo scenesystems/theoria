@@ -8,10 +8,10 @@ import type {
 } from "../../../contracts/presentation/program.js"
 
 import { ActionButton } from "./ActionControl.js"
-import type { CodePanel } from "./designSystem.js"
 import { ProgramCodeWorkspace } from "./ProgramCodeWorkspace.js"
 import { SurfacePlaneFrame } from "./SurfacePlaneFrame.js"
 import { TabBar, TabButton } from "./TabBar.js"
+import type { CodePanel } from "./theme/surface.js"
 
 export const ProgramCodePanel = ({
   badge,

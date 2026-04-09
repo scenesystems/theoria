@@ -1,8 +1,8 @@
 import { Match } from "effect"
 
-import { type Legend } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { type Legend } from "./theme/evidence.js"
 
 type LegendShape = "circle" | "square" | "diamond"
 type LegendVariant = "inline" | "rail"

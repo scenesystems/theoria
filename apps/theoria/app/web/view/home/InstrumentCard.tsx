@@ -1,11 +1,15 @@
 import { Separator } from "@base-ui-components/react/separator"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { packageNameFromString } from "@theoria/source-proof/contracts"
-import { Match } from "effect"
+import { Match, Option } from "effect"
 
-import { packageDocsPagePath } from "../../../contracts/presentation/package-docs.js"
+import {
+  type CapabilityAvailability,
+  entryCapabilityAvailabilityFor
+} from "../../../contracts/capability/availability.js"
+import type { EntryError } from "../../../contracts/entry-error.js"
+import { type Card, cardVisibleInReleaseStage } from "../../../contracts/entry/card.js"
+import { capabilityAvailabilityAtom } from "../../atoms/capability-availability.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
 import { packageVersionsAtom } from "../../atoms/package-versions.js"
 import { useSpringLift } from "../../atoms/spring.js"
@@ -13,16 +17,14 @@ import { runtimeReleaseStage } from "../../runtime/release-stage.js"
 import type { MetaItem } from "../primitives/CardMetaRow.js"
 import { CardMetaRow } from "../primitives/CardMetaRow.js"
 import { ContentCard } from "../primitives/ContentCard.js"
-import type { Tone } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { CardLink } from "../primitives/Link.js"
 import { SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import type { Tone } from "../primitives/theme/tone.js"
 
-import { type InstrumentEntry, instrumentVisibleInReleaseStage } from "./instrument-model.js"
-
-const metaItems = (card: InstrumentEntry, version: string): ReadonlyArray<MetaItem> => [
-  { _tag: "internal-link", label: "Docs", href: packageDocsPagePath(packageNameFromString(card.packageName)) },
+const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
+  { _tag: "internal-link", label: "Docs", href: card.docsPath },
   { _tag: "external-link", label: `npm@${version}`, href: card.npmUrl },
   { _tag: "external-link", label: "Source", href: card.repoUrl },
   { _tag: "text", label: card.license }
@@ -39,14 +41,78 @@ const liftTransform = (progress: number): string | undefined =>
 const neutralBadgeClassName =
   "inline-flex shrink-0 items-center gap-1 rounded-full border border-stage-200/90 px-2 py-1"
 
+type Badge = {
+  readonly className: string
+  readonly text: string
+  readonly title: string
+}
+
+type CapabilityAvailabilityResult = Result.Result<CapabilityAvailability, EntryError>
+
+const publishedBadgeClassName = (tone: Tone): string =>
+  `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`
+
+const checkingBadge: Badge = {
+  className: `${neutralBadgeClassName} text-ink-700`,
+  text: "Checking Status",
+  title: "Theoria is resolving runtime readiness for this study entry."
+}
+
+const statusUnavailableBadge: Badge = {
+  className: `${neutralBadgeClassName} text-ink-700`,
+  text: "Status Unavailable",
+  title: "Theoria could not confirm runtime readiness for this study entry."
+}
+
+const comingSoonBadge: Badge = {
+  className: `${neutralBadgeClassName} text-ink-500`,
+  text: "Coming Soon",
+  title: "This study entry has not shipped yet."
+}
+
+const pendingBadge = (reason: string): Badge => ({
+  className: `${neutralBadgeClassName} text-ink-700`,
+  text: "Runtime Pending",
+  title: reason
+})
+
+const readyBadge = (tone: Tone): Badge => ({
+  className: publishedBadgeClassName(tone),
+  text: "Ready",
+  title: "Runtime readiness confirmed for this study entry."
+})
+
+const publishedBadge = ({
+  availabilityResult,
+  entryId,
+  tone
+}: {
+  readonly availabilityResult: CapabilityAvailabilityResult
+  readonly entryId: Card["id"]
+  readonly tone: Tone
+}): Badge =>
+  Result.match(availabilityResult, {
+    onInitial: () => checkingBadge,
+    onFailure: () => statusUnavailableBadge,
+    onSuccess: (success) =>
+      Option.match(entryCapabilityAvailabilityFor(success.value, entryId), {
+        onNone: () => pendingBadge("Runtime registration has not shipped for this study entry yet."),
+        onSome: (entry) =>
+          entry.enabled
+            ? readyBadge(tone)
+            : pendingBadge(entry.reason ?? "Runtime is not available for this study entry yet.")
+      })
+  })
+
 export const InstrumentCard = ({
   card,
   tone
 }: {
-  readonly card: InstrumentEntry
+  readonly card: Card
   readonly tone: Tone
 }) => {
   const { progress, onPointerEnter, onPointerLeave } = useSpringLift(cardLiftSpring, card.id)
+  const availabilityResult = useAtomValue(capabilityAvailabilityAtom)
   const versionsResult = useAtomValue(packageVersionsAtom)
   const resolvedVersion = Result.match(versionsResult, {
     onInitial: () => card.version,
@@ -54,26 +120,14 @@ export const InstrumentCard = ({
     onFailure: () => card.version
   })
   const releaseStage = runtimeReleaseStage()
-  const titleIsLinked = instrumentVisibleInReleaseStage(card, releaseStage)
+  const titleIsLinked = cardVisibleInReleaseStage(card, releaseStage)
   const badge = Match.value(card.releaseState).pipe(
-    Match.when("coming-soon", () => ({
-      className: `${neutralBadgeClassName} text-ink-500`,
-      icon: false,
-      text: "Coming Soon"
-    })),
-    Match.orElse(() => ({
-      className:
-        `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
-      icon: true,
-      text: "Live Demo"
-    }))
+    Match.when("coming-soon", () => comingSoonBadge),
+    Match.orElse(() => publishedBadge({ availabilityResult, entryId: card.id, tone }))
   )
   const badgeSlot = (
-    <Layer as="span" className={badge.className}>
-      <SemanticText as="span" role="tab-label" text={badge.text} variant="compact" />
-      {badge.icon
-        ? <ArrowTopRightOnSquareIcon aria-hidden className="h-3 w-3 shrink-0" />
-        : null}
+    <Layer as="span" className={badge.className} title={badge.title}>
+      <SemanticText as="span" role="status" text={badge.text} variant="compact" />
     </Layer>
   )
 

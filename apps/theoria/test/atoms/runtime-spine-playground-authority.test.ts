@@ -2,19 +2,22 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
+import {
+  EffectTextProjectionStep,
+  snapshotEffectTextTraversalScript
+} from "../../app/contracts/capability/effect-text.js"
 import { corpus } from "../../app/contracts/corpus.js"
-import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
+import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
+import { reflowWidgetViewModelAtom } from "../../app/web/atoms/reflow-widget-view-model.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
   reflowControlsAtom,
   reflowStageViewportWidthAtom
 } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { reflowWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
-import { reduceRunState } from "../../app/web/state/types.js"
-import { programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>

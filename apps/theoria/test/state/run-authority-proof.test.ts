@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { reduceRunState, runHasStepQueueDrain, runHasStreamCompletion } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { RunOwnership } from "../../app/web/state/run/types.js"
+import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, runStartedMessage } from "../helpers/run-state.js"
 
 describe("runtime spine run authority", () => {
@@ -36,10 +37,10 @@ describe("runtime spine run authority", () => {
       expect(running._tag).toBe("RunRunning")
       expect(afterStreamCompletion._tag).toBe("RunRunning")
       expect(afterStepQueueDrain._tag).toBe("RunRunning")
-      expect(runHasStreamCompletion(afterStreamCompletion)).toBe(true)
-      expect(runHasStepQueueDrain(afterStreamCompletion)).toBe(false)
-      expect(runHasStreamCompletion(afterStepQueueDrain)).toBe(true)
-      expect(runHasStepQueueDrain(afterStepQueueDrain)).toBe(true)
+      expect(afterStreamCompletion.session.facts.hasStreamCompletion()).toBe(true)
+      expect(afterStreamCompletion.session.facts.hasStepQueueDrain()).toBe(false)
+      expect(afterStepQueueDrain.session.facts.hasStreamCompletion()).toBe(true)
+      expect(afterStepQueueDrain.session.facts.hasStepQueueDrain()).toBe(true)
       expect(final._tag).toBe("RunSuccess")
     }))
 
@@ -66,10 +67,7 @@ describe("runtime spine run authority", () => {
         runStartedMessage({
           token: 2,
           sequence: 2,
-          ownership: {
-            localDriver: true,
-            serverStream: true
-          },
+          ownership: RunOwnership.sharedStreaming(),
           startedAtMs: 4,
           program: programPreviewFixture.program
         })

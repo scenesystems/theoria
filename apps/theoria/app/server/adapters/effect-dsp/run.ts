@@ -2,10 +2,13 @@ import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import { dspRunSummary } from "../../../contracts/capability/effect-dsp-runtime-presentation.js"
+import { effectDspEntryDescriptor } from "../../../contracts/entry/descriptors/effect-dsp.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { Program } from "../../../contracts/presentation/program.js"
 import type { RunData } from "../../../contracts/study/run.js"
-import { type DemoStreamPlan, makeStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
+import { type DemoStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
 
 import { type DspProviderRuntime, DspProviderRuntimeLive } from "../../capability/effect-dsp.js"
 import type { StreamElement } from "../../kernel/kinds/stream-element.js"
@@ -15,6 +18,8 @@ import { defaultDspRunRequest, dspExecutionStory, requestFromManifest } from "./
 import { buildDspStageStories } from "./stage-story.js"
 import { stageStream } from "./stream-support.js"
 import { streamElementsForRequest, streamSections } from "./stream.js"
+
+const effectDspRunIdentity = entryRunIdentityForId(effectDspEntryDescriptor.entryId)
 
 // ---------------------------------------------------------------------------
 // Preload
@@ -28,9 +33,6 @@ export const preloadProgram: Effect.Effect<
   executableProgramFile(new URL("./run.ts", import.meta.url).href),
   executableProgramFile(new URL("../../../contracts/capability/effect-dsp.ts", import.meta.url).href)
 ]).pipe(Effect.map(([serverFile, contractFile]) => multiFileProgram([serverFile, contractFile])))
-
-export const runSummary =
-  "effect-dsp froze the approved DSP manifest, evaluated a typed module, optimized demonstrations, and re-evaluated the same scenario under shared runtime authority."
 
 // ---------------------------------------------------------------------------
 // Exports
@@ -46,9 +48,8 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
     const endedAt = yield* Clock.currentTimeMillis
 
     return {
-      id: "effect-dsp",
-      packageName: "effect-dsp",
-      summary: runSummary,
+      ...effectDspRunIdentity,
+      summary: dspRunSummary,
       durationMs: endedAt - startedAt,
       program: runnableProgram,
       sections
@@ -69,14 +70,12 @@ export const streamPlan = (
   DspProviderRuntime
 > =>
   dspExecutionStory(requestFromManifest(manifest)).pipe(
-    Effect.map((story) =>
-      makeStreamPlan({
-        packageName: "effect-dsp",
-        program: preloadProgram,
-        summary: runSummary,
-        phases: buildDspStageStories(story).map(({ stageId, steps, sectionEffects }) =>
-          phaseFromElementStream(stageId, stageStream({ stageId, steps, sectionEffects }))
-        )
-      })
-    )
+    Effect.map((story) => ({
+      packageName: effectDspRunIdentity.packageName,
+      program: preloadProgram,
+      summary: dspRunSummary,
+      phases: buildDspStageStories(story).map(({ stageId, steps, sectionEffects }) =>
+        phaseFromElementStream(stageId, stageStream({ stageId, steps, sectionEffects }))
+      )
+    }))
   )

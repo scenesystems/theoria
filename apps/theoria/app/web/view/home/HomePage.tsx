@@ -1,12 +1,12 @@
+import { cardsForGroup } from "../../../contracts/entry/card.js"
 import { metadataForHome } from "../../../contracts/presentation/metadata.js"
-import { app } from "../primitives/designSystem.js"
 import { DocumentHead } from "../primitives/DocumentHead.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SiteFooter } from "../primitives/SiteFooter.js"
 import { SiteHeader } from "../primitives/SiteHeader.js"
+import { app } from "../primitives/theme/surface.js"
 
 import { HomeHero } from "./HomeHero.js"
-import { instrumentEntriesForGroup } from "./instrument-model.js"
 import { InstrumentSection } from "./InstrumentSection.js"
 
 export const HomePage = () => (
@@ -22,8 +22,8 @@ export const HomePage = () => (
         <HomeHero />
 
         <Stack className="gap-8">
-          <InstrumentSection cards={instrumentEntriesForGroup("effect")} group="effect" />
-          <InstrumentSection cards={instrumentEntriesForGroup("scenesystems")} group="scenesystems" />
+          <InstrumentSection cards={cardsForGroup("effect")} group="effect" />
+          <InstrumentSection cards={cardsForGroup("scenesystems")} group="scenesystems" />
         </Stack>
 
         <SiteFooter />

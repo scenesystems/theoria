@@ -1,40 +1,41 @@
+import { packageNameFromString } from "@theoria/source-proof/contracts"
+import { WorkflowRunControls } from "../../study/workflow/controls.js"
 import {
-  chatHandoffWorkflowComparisonManifest,
-  renderSensitiveWorkflowComparisonManifest,
-  retrievalRequiredWorkflowComparisonManifest,
-  taskBriefingWorkflowComparisonManifest
-} from "../../study/workflow/comparison/manifest.js"
-import { WorkflowComparisonRunControls } from "../../study/workflow/comparison/run.js"
+  chatHandoffWorkflowScenarioManifest,
+  renderSensitiveWorkflowScenarioManifest,
+  retrievalRequiredWorkflowScenarioManifest,
+  taskBriefingWorkflowScenarioManifest
+} from "../../study/workflow/manifest.js"
 import type { EntrySeed } from "../descriptor.js"
-import { EmptyStruct, makeEntryDescriptor, WorkflowSeedId } from "../descriptor.js"
+import { EmptyStruct, EntryDescriptor, WorkflowSeedId } from "../descriptor.js"
 
 const workflowEntrySeeds: ReadonlyArray<EntrySeed> = [
   {
     seedId: "task-briefing",
-    label: taskBriefingWorkflowComparisonManifest.label,
-    summary: taskBriefingWorkflowComparisonManifest.summary
+    label: taskBriefingWorkflowScenarioManifest.label,
+    summary: taskBriefingWorkflowScenarioManifest.summary
   },
   {
     seedId: "chat-handoff",
-    label: chatHandoffWorkflowComparisonManifest.label,
-    summary: chatHandoffWorkflowComparisonManifest.summary
+    label: chatHandoffWorkflowScenarioManifest.label,
+    summary: chatHandoffWorkflowScenarioManifest.summary
   },
   {
     seedId: "retrieval-required",
-    label: retrievalRequiredWorkflowComparisonManifest.label,
-    summary: retrievalRequiredWorkflowComparisonManifest.summary
+    label: retrievalRequiredWorkflowScenarioManifest.label,
+    summary: retrievalRequiredWorkflowScenarioManifest.summary
   },
   {
     seedId: "render-sensitive",
-    label: renderSensitiveWorkflowComparisonManifest.label,
-    summary: renderSensitiveWorkflowComparisonManifest.summary
+    label: renderSensitiveWorkflowScenarioManifest.label,
+    summary: renderSensitiveWorkflowScenarioManifest.summary
   }
 ]
 
-export const workflowEntryDescriptor = makeEntryDescriptor({
+export const workflowEntryDescriptor = EntryDescriptor.define({
   entryId: "workflow",
   title: "Workflow",
-  packageName: "@theoria/theoria-app",
+  packageName: packageNameFromString("@theoria/theoria-app"),
   description:
     "Compare baseline and optimized graph-backed workflow seeds on the same evaluation set, render envelope, and study-backed runtime spine.",
   useCase: "Prove prompt, routing, and chat-agent improvement from one integrated workflow entry.",
@@ -49,5 +50,5 @@ export const workflowEntryDescriptor = makeEntryDescriptor({
   seeds: workflowEntrySeeds,
   seedIdSchema: WorkflowSeedId,
   inputSchema: EmptyStruct,
-  controlsSchema: WorkflowComparisonRunControls
+  controlsSchema: WorkflowRunControls
 })

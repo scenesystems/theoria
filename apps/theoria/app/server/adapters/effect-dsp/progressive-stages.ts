@@ -2,41 +2,20 @@ import type { Stream } from "effect"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import {
-  DspCanonicalStep,
-  type DspRunMetrics,
-  type DspStageId,
-  emptyDspRunMetrics
-} from "../../../contracts/capability/effect-dsp-runtime.js"
+import { DspCanonicalStep, emptyDspRunMetrics } from "../../../contracts/capability/effect-dsp-runtime.js"
 import type { StreamElement } from "../../kernel/kinds/stream-element.js"
 import { evaluationEvidenceSection, optimizationEventSection } from "./package-evidence.js"
 import type { DspEvaluationPhase, DspExecutionContext, DspOptimizationPhase } from "./runtime.js"
 import {
-  comparisonSection,
   datasetSection,
   evaluationSection,
   optimizationSection,
+  outcomeSection,
   providerSection,
   scenarioSection,
   signatureSection
 } from "./sections.js"
 import { averageScoreThrough, learnedDemosThrough, resultRows, stageStream } from "./stream-support.js"
-
-const makeStep = (options: {
-  readonly ctx: DspExecutionContext
-  readonly metrics: DspRunMetrics
-  readonly stageId: DspStageId
-  readonly stepCount: number
-  readonly stepIndex: number
-}): DspCanonicalStep =>
-  new DspCanonicalStep({
-    scenarioId: options.ctx.request.scenarioId,
-    moduleType: options.ctx.request.moduleType,
-    stageId: options.stageId,
-    stepIndex: options.stepIndex,
-    stepCount: options.stepCount,
-    metrics: options.metrics
-  })
 
 export const baselineStage = (options: {
   readonly baseline: DspEvaluationPhase
@@ -45,8 +24,9 @@ export const baselineStage = (options: {
 }): Stream.Stream<StreamElement, never, never> => {
   const metricName = options.ctx.scenario.metricName
   const steps = Arr.map(options.baseline.report.results, (_result, index) =>
-    makeStep({
-      ctx: options.ctx,
+    DspCanonicalStep.make({
+      scenarioId: options.ctx.request.scenarioId,
+      moduleType: options.ctx.request.moduleType,
       stageId: "baseline",
       stepIndex: index + 1,
       stepCount: options.baseline.report.totalExamples,
@@ -65,7 +45,7 @@ export const baselineStage = (options: {
       Effect.succeed(datasetSection(options.ctx.scenario)),
       Effect.succeed(
         evaluationSection({
-          label: "Baseline Evaluation",
+          phaseId: options.baseline.evidence.phaseId,
           metricName,
           overallScore: options.baselineScore,
           successCount: options.baseline.report.successCount,
@@ -73,12 +53,12 @@ export const baselineStage = (options: {
           resultRows: resultRows({ metricName, report: options.baseline.report })
         })
       ),
-      Effect.succeed(evaluationEvidenceSection({ evidence: options.baseline.evidence, label: "Baseline" }))
+      Effect.succeed(evaluationEvidenceSection({ evidence: options.baseline.evidence }))
     ]
   })
 }
 
-export const comparisonStage = (options: {
+export const outcomeStage = (options: {
   readonly baselineScore: number
   readonly ctx: DspExecutionContext
   readonly durationMs: number
@@ -86,11 +66,12 @@ export const comparisonStage = (options: {
   readonly optimizedScore: number
 }): Stream.Stream<StreamElement, never, never> =>
   stageStream({
-    stageId: "comparison",
+    stageId: "outcome",
     steps: [
-      makeStep({
-        ctx: options.ctx,
-        stageId: "comparison",
+      DspCanonicalStep.make({
+        scenarioId: options.ctx.request.scenarioId,
+        moduleType: options.ctx.request.moduleType,
+        stageId: "outcome",
         stepIndex: 1,
         stepCount: 1,
         metrics: {
@@ -103,7 +84,7 @@ export const comparisonStage = (options: {
     ],
     sectionEffects: [
       Effect.succeed(
-        comparisonSection({
+        outcomeSection({
           baselineScore: options.baselineScore,
           optimizedScore: options.optimizedScore,
           improvementDelta: options.optimizedScore - options.baselineScore,
@@ -129,8 +110,9 @@ export const optimizedEvalStage = (options: {
       stepIndex: index + 1
     })
 
-    return makeStep({
-      ctx: options.ctx,
+    return DspCanonicalStep.make({
+      scenarioId: options.ctx.request.scenarioId,
+      moduleType: options.ctx.request.moduleType,
       stageId: "optimized-eval",
       stepIndex: index + 1,
       stepCount: options.optimized.report.totalExamples,
@@ -149,7 +131,7 @@ export const optimizedEvalStage = (options: {
     sectionEffects: [
       Effect.succeed(
         evaluationSection({
-          label: "Optimized Evaluation",
+          phaseId: options.optimized.evidence.phaseId,
           metricName,
           overallScore: options.optimizedScore,
           successCount: options.optimized.report.successCount,
@@ -157,7 +139,7 @@ export const optimizedEvalStage = (options: {
           resultRows: resultRows({ metricName, report: options.optimized.report })
         })
       ),
-      Effect.succeed(evaluationEvidenceSection({ evidence: options.optimized.evidence, label: "Optimized" }))
+      Effect.succeed(evaluationEvidenceSection({ evidence: options.optimized.evidence }))
     ]
   })
 }
@@ -169,8 +151,9 @@ export const optimizationStage = (options: {
 }): Stream.Stream<StreamElement, never, never> => {
   const optimizingSteps = Math.max(options.optimization.summary.roundsUsed, 1)
   const steps = Arr.makeBy(optimizingSteps, (index) =>
-    makeStep({
-      ctx: options.ctx,
+    DspCanonicalStep.make({
+      scenarioId: options.ctx.request.scenarioId,
+      moduleType: options.ctx.request.moduleType,
       stageId: "optimizing",
       stepIndex: index + 1,
       stepCount: optimizingSteps,
@@ -208,7 +191,16 @@ export const optimizationStage = (options: {
 export const signatureStage = (ctx: DspExecutionContext): Stream.Stream<StreamElement, never, never> =>
   stageStream({
     stageId: "signature",
-    steps: [makeStep({ ctx, stageId: "signature", stepIndex: 1, stepCount: 1, metrics: emptyDspRunMetrics })],
+    steps: [
+      DspCanonicalStep.make({
+        scenarioId: ctx.request.scenarioId,
+        moduleType: ctx.request.moduleType,
+        stageId: "signature",
+        stepIndex: 1,
+        stepCount: 1,
+        metrics: emptyDspRunMetrics
+      })
+    ],
     sectionEffects: [
       Effect.succeed(
         scenarioSection({

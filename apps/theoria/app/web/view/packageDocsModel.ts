@@ -1,68 +1,26 @@
+import type { PackageName } from "@theoria/source-proof/contracts"
 import * as Option from "effect/Option"
 
-import { authorityCatalogForId } from "../../contracts/capability/catalog.js"
-import { primaryAuthorityIdForEntry } from "../../contracts/entry/focus.js"
-import { entryDescriptors } from "../../contracts/entry/registry.js"
-import { entryPresentationForId } from "../../contracts/entry/routing.js"
-import type { PackageDocsBundle, PackageDocsCatalogEntry } from "../../contracts/presentation/package-docs.js"
-import { packageDocsPagePath } from "../../contracts/presentation/package-docs.js"
-
-type PackageDocsNavItem = {
-  readonly href: string
-  readonly label: string
-  readonly packageId: string
-  readonly selected: boolean
-}
-
-type PackageDocsLink = {
-  readonly external: boolean
-  readonly href: string
-  readonly label: string
-}
-
-type PackageDocsSection =
-  | {
-    readonly _tag: "code"
-    readonly content: string
-    readonly id: string
-    readonly sourceHref: string
-    readonly sourceLabel: string
-    readonly title: string
-  }
-  | {
-    readonly _tag: "prose"
-    readonly content: string
-    readonly id: string
-    readonly sourceHref: string
-    readonly sourceLabel: string
-    readonly title: string
-  }
-
-type PackageDocsGroup = {
-  readonly sections: ReadonlyArray<PackageDocsSection>
-  readonly title: string
-}
-
-export type PackageDocsPageModel = {
-  readonly description: string
-  readonly groups: ReadonlyArray<PackageDocsGroup>
-  readonly links: ReadonlyArray<PackageDocsLink>
-  readonly navigation: ReadonlyArray<PackageDocsNavItem>
-  readonly packageId: string
-  readonly summary: ReadonlyArray<readonly [label: string, value: string]>
-  readonly title: string
-  readonly version: string
-}
+import { cardForPackageName } from "../../contracts/entry/card.js"
+import { entryIdForPackageName } from "../../contracts/entry/registry.js"
+import {
+  type PackageDocsBundle,
+  type PackageDocsCatalogEntry,
+  PackageDocsCodeSection,
+  PackageDocsGroup,
+  PackageDocsLink,
+  PackageDocsNavigationItem,
+  packageDocsPackagePageRoute,
+  PackageDocsPageModel,
+  packageDocsPagePath,
+  packageDocsPresentationCopy,
+  packageDocsPresentationForRoute,
+  PackageDocsProseSection,
+  type PackageDocsSection,
+  PackageDocsSummaryItem
+} from "../../contracts/presentation/package-docs.js"
 
 const repositorySourceHref = (path: string): string => `https://github.com/scenesystems/theoria/blob/main/${path}`
-
-const packageSurface = (packageId: string) =>
-  Option.fromNullable(entryDescriptors.find((descriptor) => descriptor.packageName === packageId)).pipe(
-    Option.map((descriptor) => ({
-      presentation: entryPresentationForId(descriptor.entryId),
-      authority: authorityCatalogForId(primaryAuthorityIdForEntry(descriptor.entryId))
-    }))
-  )
 
 const proseSection = (
   title: string,
@@ -73,14 +31,14 @@ const proseSection = (
       readonly path: string
     }
   }
-): PackageDocsSection => ({
-  _tag: "prose",
-  content: section.content,
-  id: section.id,
-  sourceHref: repositorySourceHref(section.source.path),
-  sourceLabel: section.source.path,
-  title
-})
+): PackageDocsSection =>
+  PackageDocsProseSection.make({
+    content: section.content,
+    id: section.id,
+    sourceHref: repositorySourceHref(section.source.path),
+    sourceLabel: section.source.path,
+    title
+  })
 
 const codeSection = (
   title: string,
@@ -91,30 +49,43 @@ const codeSection = (
       readonly path: string
     }
   }
-): PackageDocsSection => ({
-  _tag: "code",
-  content: section.content,
-  id: section.id,
-  sourceHref: repositorySourceHref(section.source.path),
-  sourceLabel: section.source.path,
-  title
-})
+): PackageDocsSection =>
+  PackageDocsCodeSection.make({
+    content: section.content,
+    id: section.id,
+    sourceHref: repositorySourceHref(section.source.path),
+    sourceLabel: section.source.path,
+    title
+  })
 
 const groupIfAny = (title: string, sections: ReadonlyArray<PackageDocsSection>): ReadonlyArray<PackageDocsGroup> =>
-  sections.length === 0 ? [] : [{ title, sections }]
+  sections.length === 0 ? [] : [PackageDocsGroup.make({ title, sections })]
+
+export const packageDocsNavigationModel = (input: {
+  readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
+  readonly selectedPackageId: PackageName | null
+}): ReadonlyArray<PackageDocsNavigationItem> =>
+  input.catalog.map((entry) =>
+    PackageDocsNavigationItem.make({
+      href: packageDocsPagePath(packageDocsPackagePageRoute(entry.packageId)),
+      label: entry.packageId,
+      packageId: entry.packageId,
+      selected: entry.packageId === input.selectedPackageId
+    })
+  )
 
 export const packageDocsPageModel = (input: {
   readonly bundle: PackageDocsBundle
   readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
-  readonly selectedPackageId: string
+  readonly selectedPackageId: PackageName
 }): PackageDocsPageModel => {
-  const card = packageSurface(input.bundle.packageId)
-  const navigation = input.catalog.map((entry) => ({
-    href: packageDocsPagePath(entry.packageId),
-    label: entry.packageId,
-    packageId: entry.packageId,
-    selected: entry.packageId === input.selectedPackageId
-  }))
+  const card = Option.getOrNull(cardForPackageName(input.bundle.packageId))
+  const entryId = Option.getOrNull(entryIdForPackageName(input.bundle.packageId))
+  const presentation = packageDocsPresentationForRoute(packageDocsPackagePageRoute(input.bundle.packageId))
+  const navigation = packageDocsNavigationModel({
+    catalog: input.catalog,
+    selectedPackageId: input.selectedPackageId
+  })
   const readmeSections = input.bundle.readme.blocks.map((block) => proseSection(block.title, block))
   const moduleSections = input.bundle.moduleDocs.flatMap((document) =>
     document.blocks.map((block) => proseSection(`${document.title} — ${block.title}`, block))
@@ -124,21 +95,21 @@ export const packageDocsPageModel = (input: {
     proseSection(snapshot.block.title, snapshot.block)
   )
   const proofSections = input.bundle.proofCommands.map((command) => codeSection(command.block.title, command.block))
-  const links: ReadonlyArray<PackageDocsLink> = Option.match(card, {
-    onNone: () => [],
-    onSome: ({ authority, presentation }) => [
-      { external: true, href: authority.npmUrl, label: "npm" },
-      { external: true, href: authority.repoUrl, label: "Repository" },
-      { external: false, href: presentation.path, label: "Deep Dive" }
+  const links: ReadonlyArray<PackageDocsLink> = card === null
+    ? []
+    : [
+      PackageDocsLink.make({ external: true, href: card.npmUrl, label: "npm" }),
+      PackageDocsLink.make({ external: true, href: card.repoUrl, label: "Repository" }),
+      PackageDocsLink.make({
+        external: false,
+        href: card.deepDivePath,
+        label: packageDocsPresentationCopy.studyEntryLabel
+      })
     ]
-  })
 
-  return {
-    description: input.bundle.description ??
-      Option.match(card, {
-        onNone: () => "Source-linked package documentation for the shipped package surface.",
-        onSome: ({ presentation }) => presentation.description
-      }),
+  return PackageDocsPageModel.make({
+    description: presentation.description,
+    entryId,
     groups: [
       ...groupIfAny("README", readmeSections),
       ...groupIfAny("Module Docs", moduleSections),
@@ -150,13 +121,16 @@ export const packageDocsPageModel = (input: {
     navigation,
     packageId: input.bundle.packageId,
     summary: [
-      ["Version", input.bundle.version],
-      ["Module Docs", String(input.bundle.moduleDocs.length)],
-      ["Examples", String(input.bundle.examples.length)],
-      ["Release Snapshots", String(input.bundle.releaseSnapshots.length)],
-      ["Proof Commands", String(input.bundle.proofCommands.length)]
+      PackageDocsSummaryItem.make({ label: "Version", value: input.bundle.version }),
+      PackageDocsSummaryItem.make({ label: "Module Docs", value: String(input.bundle.moduleDocs.length) }),
+      PackageDocsSummaryItem.make({ label: "Examples", value: String(input.bundle.examples.length) }),
+      PackageDocsSummaryItem.make({
+        label: "Release Snapshots",
+        value: String(input.bundle.releaseSnapshots.length)
+      }),
+      PackageDocsSummaryItem.make({ label: "Proof Commands", value: String(input.bundle.proofCommands.length) })
     ],
-    title: `${input.bundle.packageId} Docs`,
+    title: presentation.title,
     version: input.bundle.version
-  }
+  })
 }

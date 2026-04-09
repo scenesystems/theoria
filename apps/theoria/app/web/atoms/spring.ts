@@ -7,9 +7,9 @@ import { useCallback } from "react"
 import { appRuntime } from "./runtime.js"
 
 // ---------------------------------------------------------------------------
-// Spring atom factory — reusable spring-interpolated 0→1 animation.
+// Spring animation authority — reusable spring-interpolated 0→1 animation.
 //
-// `makeSpringAtom(config)` returns per-key atom families for progress and
+// `Spring.make(config)` returns per-key atom families for progress and
 // target. The spring loop runs inline via Effect.sleep stepping, yielding
 // to React each frame. Non-concurrent mode per key means a new target
 // interrupts the running loop and picks up from current progress/velocity.
@@ -44,63 +44,67 @@ const stepSpring = (state: SpringState, config: SpringConfig): SpringState => {
     : { progress: nextProgress, velocity: nextVelocity, target: state.target }
 }
 
-type SpringAtoms = {
-  readonly progressAtom: (id: string) => AtomType.Atom<number>
-  readonly setTargetAtom: (id: string) => AtomType.Writable<unknown, number>
+export class Spring {
+  static make(config: SpringConfig): Spring {
+    const stateAtom: (id: string) => AtomType.Writable<SpringState> = Atom.family(
+      (_id: string) => Atom.make(resting)
+    )
+
+    const springLoop = (
+      registry: AtomType.FnContext["registry"],
+      id: string
+    ): Effect.Effect<void, never, never> =>
+      Effect.gen(function*() {
+        const current = registry.get(stateAtom(id))
+
+        if (current.velocity === 0 && current.progress === current.target) {
+          return
+        }
+
+        const next = stepSpring(current, config)
+        registry.set(stateAtom(id), next)
+
+        if (next.velocity === 0 && next.progress === next.target) {
+          return
+        }
+
+        yield* Effect.sleep(`${frameMs} millis`)
+        yield* springLoop(registry, id)
+      })
+
+    const setTargetAtom = Atom.family((id: string) =>
+      appRuntime.fn(
+        Effect.fnUntraced(function*(target: number, ctx: AtomType.FnContext) {
+          const prev = ctx.registry.get(stateAtom(id))
+          ctx.registry.set(stateAtom(id), { ...prev, target })
+          yield* springLoop(ctx.registry, id)
+        })
+      )
+    )
+
+    const progressAtom: (id: string) => AtomType.Atom<number> = Atom.family(
+      (id: string) => Atom.make((get) => get(stateAtom(id)).progress)
+    )
+
+    return new Spring({ progressAtom, setTargetAtom })
+  }
+
+  constructor(private readonly atoms: Spring.Shape) {}
+
+  progressAtom(id: string): AtomType.Atom<number> {
+    return this.atoms.progressAtom(id)
+  }
+
+  setTargetAtom(id: string): AtomType.Writable<unknown, number> {
+    return this.atoms.setTargetAtom(id)
+  }
 }
 
-/**
- * Create a spring atom system keyed by string id.
- *
- * Returns `progressAtom(id)` for reading the interpolated 0→1 value, and
- * `setTargetAtom(id)` for setting the target. Each id gets independent
- * spring physics — concurrent animations across different ids, seamless
- * direction reversal within the same id.
- *
- * @since 0.1.0
- */
-export const makeSpringAtom = (config: SpringConfig): SpringAtoms => {
-  const stateAtom: (id: string) => AtomType.Writable<SpringState> = Atom.family(
-    (_id: string) => Atom.make(resting)
-  )
-
-  const springLoop = (
-    registry: AtomType.FnContext["registry"],
-    id: string
-  ): Effect.Effect<void, never, never> =>
-    Effect.gen(function*() {
-      const current = registry.get(stateAtom(id))
-
-      if (current.velocity === 0 && current.progress === current.target) {
-        return
-      }
-
-      const next = stepSpring(current, config)
-      registry.set(stateAtom(id), next)
-
-      if (next.velocity === 0 && next.progress === next.target) {
-        return
-      }
-
-      yield* Effect.sleep(`${frameMs} millis`)
-      yield* springLoop(registry, id)
-    })
-
-  const setTargetAtom = Atom.family((id: string) =>
-    appRuntime.fn(
-      Effect.fnUntraced(function*(target: number, ctx: AtomType.FnContext) {
-        const prev = ctx.registry.get(stateAtom(id))
-        ctx.registry.set(stateAtom(id), { ...prev, target })
-        yield* springLoop(ctx.registry, id)
-      })
-    )
-  )
-
-  const progressAtom: (id: string) => AtomType.Atom<number> = Atom.family(
-    (id: string) => Atom.make((get) => get(stateAtom(id)).progress)
-  )
-
-  return { progressAtom, setTargetAtom }
+export namespace Spring {
+  export interface Shape {
+    readonly progressAtom: (id: string) => AtomType.Atom<number>
+    readonly setTargetAtom: (id: string) => AtomType.Writable<unknown, number>
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +136,7 @@ type SpringMotion = {
  *
  * @since 0.1.0
  */
-export const useSpringLift = (spring: SpringAtoms, id: string): SpringLift => {
+export const useSpringLift = (spring: Spring, id: string): SpringLift => {
   const { progress, setTarget } = useSpringMotion(spring, id)
 
   const onPointerEnter = useCallback(() => setTarget(1), [setTarget])
@@ -146,7 +150,7 @@ export const useSpringLift = (spring: SpringAtoms, id: string): SpringLift => {
  *
  * @since 0.1.0
  */
-export const useSpringMotion = (spring: SpringAtoms, id: string): SpringMotion => {
+export const useSpringMotion = (spring: Spring, id: string): SpringMotion => {
   const progress = useAtomValue(spring.progressAtom(id))
   const setTarget = useAtomSet(spring.setTargetAtom(id))
 

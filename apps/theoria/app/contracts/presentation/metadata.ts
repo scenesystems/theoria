@@ -1,10 +1,10 @@
 import type { PackageName } from "@theoria/source-proof/contracts"
-import { Option, Schema } from "effect"
+import { Schema } from "effect"
 
-import { type Card, cards } from "../entry/card.js"
 import { type EntryId, isEntryId } from "../entry/id.js"
 import { type EntryPresentation, entryPresentationForId } from "../entry/routing.js"
-import { packageDocsPagePath } from "./package-docs.js"
+import { type PackageDocsPageRoute, packageDocsPageRoute, packageDocsPresentationForRoute } from "./package-docs.js"
+import { type PageRoute, parsePathname } from "./path.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -43,7 +43,7 @@ export const siteMetadata: SiteMetadata = {
   siteUrl: "https://theoria.scenesystems.io",
   defaultTitle: "Theoria — Scene Systems",
   defaultDescription:
-    "Interactive demonstrations of typed, composable libraries for scientific computing, optimization, and language model programming built with Effect.",
+    "Integrated study system for typed, composable computation, optimization, inference, and evidence workflows built with Effect.",
   twitterHandle: "@scenesystems",
   locale: "en_US"
 }
@@ -86,24 +86,29 @@ export const metadataForEntry = (presentation: EntryPresentation): PageMetadata 
   ogType: "article"
 })
 
-const cardByPackageName = (packageName: PackageName): Option.Option<Card> =>
-  Option.fromNullable(cards.find((card) => card.packageName === packageName))
+const metadataForPackageDocsRoute = (route: PackageDocsPageRoute): PageMetadata => {
+  const presentation = packageDocsPresentationForRoute(route)
+
+  return {
+    title: presentation.metadataTitle,
+    description: presentation.metadataDescription,
+    canonicalPath: presentation.canonicalPath,
+    ogType: "article"
+  }
+}
 
 export const metadataForPackageDocs = (packageId: PackageName | null): PageMetadata =>
-  Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(cardByPackageName)), {
-    onNone: () => ({
-      title: "Package Docs — Theoria",
-      description: "Source-linked package documentation projected from the canonical Theoria release surfaces.",
-      canonicalPath: packageDocsPagePath(packageId),
-      ogType: "article"
-    }),
-    onSome: (card) => ({
-      title: `${card.title} Docs — Theoria`,
-      description: `${card.description} Source-linked package docs, examples, release snapshots, and proof commands.`,
-      canonicalPath: packageDocsPagePath(packageId),
-      ogType: "article"
-    })
-  })
+  metadataForPackageDocsRoute(packageDocsPageRoute(packageId))
+
+export const metadataForRoute = (route: PageRoute): PageMetadata =>
+  route._tag === "HomeRoute"
+    ? metadataForHome()
+    : route._tag === "PackageDocsRoute"
+    ? metadataForPackageDocsRoute(route.route)
+    : metadataForEntryId(route.entryId)
+
+export const metadataForPathname = (pathname: string, search = ""): PageMetadata =>
+  metadataForRoute(parsePathname(pathname, search))
 
 /**
  * Page metadata for a published consumer identified by id, falling back to home

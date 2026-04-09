@@ -5,8 +5,8 @@ import * as Arr from "effect/Array"
 
 import { corpus } from "../../app/contracts/corpus.js"
 import type { Obstacle } from "../../app/contracts/obstacle.js"
-import { customTextScene } from "../../app/contracts/reflow-scenes.js"
-import { fontDescriptorFor, semanticsFor } from "../../app/contracts/text.js"
+import { customTextScene } from "../../app/contracts/presentation/reflow-scenes.js"
+import { fontDescriptorFor, semanticsFor } from "../../app/contracts/presentation/text.js"
 import {
   reflowMinWidthFor,
   reflowSliderMaxWidth,

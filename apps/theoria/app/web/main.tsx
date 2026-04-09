@@ -1,8 +1,8 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
+import { parsePathname } from "../contracts/presentation/path.js"
 import { App } from "./App.js"
-import { parsePathname } from "./services/path.js"
 
 const mountNode = document.getElementById("root")
 

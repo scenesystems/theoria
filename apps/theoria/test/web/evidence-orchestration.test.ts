@@ -5,56 +5,55 @@ import { describe, expect, it } from "@effect/vitest"
 import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/source-proof"
 import { Effect, Option, Ref } from "effect"
 
-import { DspCanonicalStep, isDspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
-import { makeEffectSearchStudyTelemetry } from "../../app/contracts/demo/effect-search-study-telemetry.js"
-import { EffectSearchCanonicalStep, isEffectSearchProjectionScript } from "../../app/contracts/demo/objective.js"
+import { DspCanonicalStep, isDspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
+import {
+  EffectSearchCanonicalStep,
+  isEffectSearchProjectionScript,
+  optimizationEvidenceBatchSize,
+  optimizationEvidenceLiveRowWindow
+} from "../../app/contracts/capability/effect-search.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import type { EvidenceItem, EvidenceSection } from "../../app/contracts/evidence/item.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
   SectionAppend,
   StreamComplete
-} from "../../app/contracts/evidence-stream.js"
-import type { EvidenceItem, EvidenceSection } from "../../app/contracts/evidence.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeRunControlAtom, makeRunDemoAtom, selectStageTabAtom } from "../../app/web/atoms/actions.js"
-import { animatingAtom } from "../../app/web/atoms/animation.js"
+} from "../../app/contracts/evidence/stream.js"
 import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
 import { dspModuleTypeAtom, dspOptimizationBudgetAtom, dspScenarioIdAtom } from "../../app/web/atoms/dsp-widget.js"
+import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/optimization-widget-view-model.js"
+import { reflowStageViewportWidthAtom, resolveReflowStageMaxWidth } from "../../app/web/atoms/reflow.js"
+import { animatingAtom } from "../../app/web/atoms/run/animation.js"
 import {
   isEffectSearchRunFrame,
   optimizationAnimatingAtom,
   trialBudgetAtom
-} from "../../app/web/atoms/optimization-animation.js"
-import {
-  optimizationEvidenceBatchSize,
-  optimizationEvidenceLiveRowWindow
-} from "../../app/web/atoms/optimization-evidence.js"
-import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
-import { reflowStageViewportWidthAtom, resolveReflowStageMaxWidth } from "../../app/web/atoms/reflow.js"
-import {
-  surfaceAtom,
-  surfaceEvidenceSectionsAtom,
-  surfaceEvidenceStreamAtom,
-  surfaceRunRuntimeTelemetryAtom
-} from "../../app/web/atoms/surface.js"
-import { optimizationWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
+} from "../../app/web/atoms/run/optimization-animation.js"
+import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/run/power-animation.js"
+import { surfaceEvidenceSectionsAtom, surfaceEvidenceStreamAtom } from "../../app/web/atoms/surface/evidence-store.js"
+import { surfaceRunRuntimeTelemetryAtom } from "../../app/web/atoms/surface/run-telemetry.js"
+import { selectStageTabAtom } from "../../app/web/atoms/surface/selection-actions.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
 import { streamingEntryIds } from "../../app/web/runtime/kernel/surface-runtime.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
 import {
   emitEffectMathAuthoredStream,
   emitEffectSearchAuthoredStream,
   emitEffectTextAuthoredStream
 } from "../helpers/mock-authored-stream.js"
+import { makeRunControlAtom, makeRunDemoAtom } from "../helpers/run-atoms.js"
 
 const appRootUrl = new URL("../../", import.meta.url)
 
 describe("evidence orchestration runtime-boundary", () => {
-  it.effect("keeps web orchestration free of provider-client imports and provider enums", () =>
+  it.effect("keeps run execution orchestration free of provider-client imports and provider enums", () =>
     Effect.gen(function*() {
-      const surfacePath = "app/web/atoms/surface.ts"
-      const source = yield* readProjectFile(appRootUrl, surfacePath)
+      const executionPath = "app/web/atoms/run/execution.ts"
+      const source = yield* readProjectFile(appRootUrl, executionPath)
 
       expect(source).not.toContain("\"openai\"")
       expect(source).not.toContain("\"anthropic\"")
@@ -64,10 +63,10 @@ describe("evidence orchestration runtime-boundary", () => {
       expect(source).not.toContain("@effect/ai-openrouter")
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.effect("keeps workflow-comparison decode helpers sourced from effect-inference contracts instead of app-local duplicates", () =>
+  it.effect("keeps workflow decode helpers sourced from effect-inference contracts instead of app-local duplicates", () =>
     Effect.gen(function*() {
       const decodePaths: ReadonlyArray<string> = [
-        "app/server/workflow-comparison/decode.ts",
+        "app/server/study/workflow/decode.ts",
         "test/fixtures/workflow/decode.ts"
       ]
 
@@ -476,7 +475,9 @@ describe("Theoria Evidence Orchestration", () => {
             })
           )
         )
-        source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "DSP resumed.", meta: streamMeta })))
+        source.emitEvidence(
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "DSP resumed.", meta: streamMeta }))
+        )
 
         const final = yield* Effect.eventually(
           Effect.sync(() => readSurface(registry, "effect-dsp")).pipe(
@@ -669,7 +670,7 @@ describe("Theoria Evidence Orchestration", () => {
         }
 
         source.emitEvidence(
-          encodeEvidenceEventJson(new StreamComplete({ summary: "DSP stream complete.", meta: streamMeta }))
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "DSP stream complete.", meta: streamMeta }))
         )
 
         const final = yield* Effect.eventually(
@@ -784,7 +785,9 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        source.emitEvidence(encodeEvidenceEventJson(new StreamComplete({ summary: "Too short.", meta: streamMeta })))
+        source.emitEvidence(
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "Too short.", meta: streamMeta }))
+        )
 
         const final = yield* Effect.eventually(
           Effect.sync(() => readSurface(registry, "effect-text")).pipe(
@@ -797,9 +800,9 @@ describe("Theoria Evidence Orchestration", () => {
 
         expect(final.run._tag).toBe("RunFailed")
         if (final.run._tag === "RunFailed") {
-          expect(final.run.error._tag).toBe("DemoExecutionError")
+          expect(final.run.error._tag).toBe("EntryExecutionError")
 
-          if (final.run.error._tag === "DemoExecutionError") {
+          if (final.run.error._tag === "EntryExecutionError") {
             expect(final.run.error.code).toBe("execution-failed")
             expect(final.run.error.message).toContain("before all authored projection steps arrived")
           }
@@ -1228,7 +1231,7 @@ describe("Theoria Evidence Orchestration", () => {
                   phase: "running",
                   tpeTrials,
                   randomTrials,
-                  telemetry: makeEffectSearchStudyTelemetry({
+                  telemetry: projectEffectSearchStudyTelemetry({
                     randomEvents: [],
                     randomTrialPoints: randomTrials,
                     trialBudget: 2,
@@ -1306,7 +1309,7 @@ describe("Theoria Evidence Orchestration", () => {
         expect(preServerWidget.isAnimating).toBe(true)
 
         source.emitEvidence(
-          encodeEvidenceEventJson(new StreamComplete({ summary: "Server after local.", meta: streamMeta }))
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "Server after local.", meta: streamMeta }))
         )
 
         const final = yield* Effect.eventually(
@@ -1392,7 +1395,7 @@ describe("Theoria Evidence Orchestration", () => {
         expect(paused.run.session.control).toBe("paused")
 
         source.emitEvidence(
-          encodeEvidenceEventJson(new StreamComplete({ summary: "Server while paused.", meta: streamMeta }))
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "Server while paused.", meta: streamMeta }))
         )
 
         const final = yield* Effect.eventually(

@@ -2,10 +2,10 @@ import { Match } from "effect"
 
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
-import type { Badge } from "./designSystem.js"
 import { headerChromeButtonClassName } from "./HeaderChrome.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Badge } from "./theme/badge.js"
 
 const badgeShellClassName = ({
   badge,

@@ -2,6 +2,8 @@ import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { generateKeyPair, sign, toHex, utf8ToBytes, verify } from "@scenesystems/sign"
+import { signEntryDescriptor } from "../../../contracts/entry/descriptors/sign.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 
 import type { Program } from "../../../contracts/presentation/program.js"
@@ -14,7 +16,8 @@ export const preloadProgram: Effect.Effect<
   FileSystem.FileSystem | Path.Path
 > = executableProgram(import.meta.url)
 
-const messageText = "Hello from Theoria — digital signature demo"
+const messageText = "Hello from Theoria — digital signature study"
+const signRunIdentity = entryRunIdentityForId(signEntryDescriptor.entryId)
 
 const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
@@ -50,8 +53,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const endedAt = yield* Clock.currentTimeMillis
 
   return {
-    id: "sign",
-    packageName: "@scenesystems/sign",
+    ...signRunIdentity,
     summary: "@scenesystems/sign compared Ed25519 and secp256k1 key generation, signing, and verification.",
     durationMs: endedAt - startedAt,
     program: runnableProgram,

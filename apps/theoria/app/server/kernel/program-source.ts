@@ -4,7 +4,7 @@ import { Data, Effect } from "effect"
 import { program, programFile } from "./presentation.js"
 
 const appRootEntryPrefix = "app/"
-const demoEntryPrefix = "server/entries/"
+const legacyServerEntryPrefix = "server/entries/"
 
 export class ProgramSourceReadError extends Data.TaggedError("ProgramSourceReadError")<{
   readonly entry: string
@@ -61,13 +61,13 @@ const entryForModule = (moduleUrl: string) =>
 
       const appEntry = relativeEntry.slice(appRootEntryPrefix.length)
 
-      if (!appEntry.startsWith(demoEntryPrefix)) {
+      if (!appEntry.startsWith(legacyServerEntryPrefix)) {
         return appEntry
       }
 
-      const demoEntrySegments = appEntry.split("/")
+      const legacyEntrySegments = appEntry.split("/")
 
-      return ["server", ...demoEntrySegments.slice(3)].join("/")
+      return ["server", ...legacyEntrySegments.slice(3)].join("/")
     })
   )
 

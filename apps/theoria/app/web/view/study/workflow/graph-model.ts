@@ -1,104 +1,122 @@
-import { Match } from "effect"
+import { Schema } from "effect"
 
-import type { EvidenceSection } from "../../../../contracts/evidence/item.js"
 import type { CanonicalFrame } from "../../../../contracts/study/workflow/canonical-step.js"
-import { workflowComparisonEvidenceProjectionFromSections } from "./evidence-projection.js"
+import {
+  workflowGraphCardDetail,
+  workflowGraphTraversalFallback
+} from "../../../../contracts/study/workflow/surface-graph-presentation.js"
+import {
+  workflowAuthoredOptimizedAnchorLabel,
+  workflowCurrentStepMeta,
+  workflowCurrentStepText
+} from "../../../../contracts/study/workflow/surface-phase-presentation.js"
+import {
+  workflowFixedNumberText,
+  WorkflowGraphCardKeySchema,
+  workflowOptionalNumberText,
+  workflowTraversalText
+} from "../../../../contracts/study/workflow/view-presentation.js"
+import type { WorkflowEvidenceProjection } from "../../../state/workflow/workflow-evidence.js"
 
-export type WorkflowComparisonGraphCardViewModel = {
-  readonly key: "baseline" | "authored-optimized" | "search-winner"
-  readonly label: string
-  readonly score: string
-  readonly nodeCount: string
-  readonly traversal: string
-  readonly detail: string
-}
+export class WorkflowGraphCardViewModel extends Schema.Class<WorkflowGraphCardViewModel>(
+  "WorkflowGraphCardViewModel"
+)({
+  key: WorkflowGraphCardKeySchema,
+  label: Schema.String,
+  score: Schema.String,
+  nodeCount: Schema.String,
+  traversal: Schema.String,
+  detail: Schema.String
+}) {}
 
-export type WorkflowComparisonGraphViewModel = {
-  readonly currentStep: string
-  readonly currentStepMeta: string
-  readonly cards: ReadonlyArray<WorkflowComparisonGraphCardViewModel>
-}
+export class WorkflowGraphCardCatalog extends Schema.Class<WorkflowGraphCardCatalog>(
+  "WorkflowGraphCardCatalog"
+)({
+  baseline: WorkflowGraphCardViewModel,
+  authoredOptimized: WorkflowGraphCardViewModel,
+  searchWinner: WorkflowGraphCardViewModel
+}) {}
 
-const formatScore = (value: number | null): string => (value === null ? "n/a" : value.toFixed(3))
+export class WorkflowGraphViewModel extends Schema.Class<WorkflowGraphViewModel>(
+  "WorkflowGraphViewModel"
+)({
+  cardCatalog: WorkflowGraphCardCatalog,
+  currentStep: Schema.String,
+  currentStepMeta: Schema.String,
+  cards: Schema.Array(WorkflowGraphCardViewModel)
+}) {
+  static project({
+    evidence,
+    frame
+  }: {
+    readonly evidence: WorkflowEvidenceProjection
+    readonly frame: CanonicalFrame | null
+  }): WorkflowGraphViewModel {
+    const baselineTraversal = evidence.graphs.baseline.traversal
+    const winnerTraversal = evidence.optimizationWinner?.winnerTraversal ?? evidence.graphs.optimized.traversal
+    const winnerKnobs = evidence.optimizationWinner?.selectedKnobs.map(([key, value]) => `${key}=${value}`) ?? []
+    const baselineScore = evidence.workflowDelta.aggregateScore.baseline
+    const authoredScore = evidence.optimizationSummary?.winnerVsAuthoredOptimizedScore.baseline ?? null
+    const winnerScore = evidence.optimizationSummary?.winnerVsAuthoredOptimizedScore.improved
+      ?? evidence.optimizationProgress?.bestScore
+      ?? null
+    const baselineNodeCount = evidence.workflowDelta.graphNodes.baseline
+    const authoredNodeCount = evidence.optimizationSummary?.winnerVsAuthoredOptimizedNodeCount.baseline ?? null
+    const winnerNodeCount = evidence.optimizationSummary?.winnerVsAuthoredOptimizedNodeCount.improved ?? null
+    const currentStep = currentStepFromFrame(frame)
+    const optimizationProgress = evidence.optimizationProgress
+    const currentStepText = workflowCurrentStepText(currentStep)
+    const currentStepMeta = workflowCurrentStepMeta({
+      bestScore: optimizationProgress?.bestScore ?? null,
+      completedTrials: optimizationProgress?.completedTrials ?? null,
+      currentScore: optimizationProgress?.currentScore ?? null,
+      step: currentStep,
+      trialBudget: optimizationProgress?.trialBudget ?? null
+    })
+    const bestSelection = optimizationProgress?.bestSelection ?? null
+    const baselineCard = WorkflowGraphCardViewModel.make({
+      key: "baseline",
+      label: evidence.graphs.baseline.title,
+      score: workflowFixedNumberText({ digits: 3, value: baselineScore }),
+      nodeCount: workflowOptionalNumberText(baselineNodeCount),
+      traversal: workflowTraversalText({
+        fallback: workflowGraphTraversalFallback("baseline"),
+        nodes: baselineTraversal
+      }),
+      detail: workflowGraphCardDetail({ bestSelection, kind: "baseline", winnerKnobs })
+    })
+    const authoredOptimizedCard = WorkflowGraphCardViewModel.make({
+      key: "authored-optimized",
+      label: workflowAuthoredOptimizedAnchorLabel(),
+      score: workflowFixedNumberText({ digits: 3, value: authoredScore }),
+      nodeCount: workflowOptionalNumberText(authoredNodeCount),
+      traversal: workflowGraphTraversalFallback("authored-optimized"),
+      detail: workflowGraphCardDetail({ bestSelection, kind: "authored-optimized", winnerKnobs })
+    })
+    const searchWinnerCard = WorkflowGraphCardViewModel.make({
+      key: "search-winner",
+      label: evidence.graphs.optimized.title,
+      score: workflowFixedNumberText({ digits: 3, value: winnerScore }),
+      nodeCount: workflowOptionalNumberText(winnerNodeCount),
+      traversal: workflowTraversalText({
+        fallback: workflowGraphTraversalFallback("search-winner"),
+        nodes: winnerTraversal
+      }),
+      detail: workflowGraphCardDetail({ bestSelection, kind: "search-winner", winnerKnobs })
+    })
 
-const formatNodeCount = (value: number | null): string => (value === null ? "n/a" : `${value}`)
-
-const traversalSummary = (nodes: ReadonlyArray<string>, fallback: string): string =>
-  nodes.length === 0 ? fallback : nodes.join(" -> ")
-
-const variantLabel = (variant: "baseline" | "optimized"): string =>
-  Match.value(variant).pipe(
-    Match.when("baseline", () => "Baseline"),
-    Match.when("optimized", () => "Optimized"),
-    Match.exhaustive
-  )
-
-const currentStepFromFrame = (frame: CanonicalFrame | null) =>
-  frame !== null && frame.step._tag === "WorkflowComparisonCanonicalStep" ? frame.step : null
-
-export const workflowComparisonGraphViewModel = ({
-  frame,
-  sections
-}: {
-  readonly frame: CanonicalFrame | null
-  readonly sections: ReadonlyArray<EvidenceSection>
-}): WorkflowComparisonGraphViewModel => {
-  const projection = workflowComparisonEvidenceProjectionFromSections(sections)
-  const baselineTraversal = projection.graphs.baseline.traversal
-  const winnerTraversal = projection.optimizationWinner?.winnerTraversal ?? projection.graphs.optimized.traversal
-  const winnerKnobs = projection.optimizationWinner?.selectedKnobs.map(([key, value]) => `${key}=${value}`) ?? []
-  const baselineScore = projection.comparisonDelta.aggregateScore.baseline
-  const authoredScore = projection.optimizationSummary?.winnerVsAuthoredOptimizedScore.baseline ?? null
-  const winnerScore = projection.optimizationSummary?.winnerVsAuthoredOptimizedScore.improved
-    ?? projection.optimizationProgress?.bestScore
-    ?? null
-  const baselineNodeCount = projection.comparisonDelta.graphNodes.baseline
-  const authoredNodeCount = projection.optimizationSummary?.winnerVsAuthoredOptimizedNodeCount.baseline ?? null
-  const winnerNodeCount = projection.optimizationSummary?.winnerVsAuthoredOptimizedNodeCount.improved ?? null
-  const currentStep = currentStepFromFrame(frame)
-  const optimizationProgress = projection.optimizationProgress
-  const bestSelection = optimizationProgress?.bestSelection ?? null
-
-  return {
-    currentStep: currentStep === null
-      ? "Await a server-authored workflow step."
-      : `${variantLabel(currentStep.variant)} · ${currentStep.nodeId} · score ${currentStep.aggregateScore.toFixed(3)}`,
-    currentStepMeta: currentStep === null
-      ? "The graph view only advances from canonical stream frames."
-      : currentStep.nodeId === "optimization-study" && optimizationProgress !== null
-      ? `Trials ${optimizationProgress.completedTrials ?? 0}/${optimizationProgress.trialBudget ?? 0} · best ${
-        formatScore(optimizationProgress.bestScore)
-      } · current ${formatScore(optimizationProgress.currentScore)}`
-      : `${currentStep.runtimeRole} · state lanes ${currentStep.activeStateLanes.join(", ")}`,
-    cards: [
-      {
-        key: "baseline",
-        label: "Baseline Graph",
-        score: formatScore(baselineScore),
-        nodeCount: formatNodeCount(baselineNodeCount),
-        traversal: traversalSummary(baselineTraversal, "Baseline traversal arrives once the authored ledger begins."),
-        detail: "Frozen baseline execution under the shared evaluation and render envelope."
-      },
-      {
-        key: "authored-optimized",
-        label: "Authored Optimized Anchor",
-        score: formatScore(authoredScore),
-        nodeCount: formatNodeCount(authoredNodeCount),
-        traversal: "Held as the study anchor inside the optimization phase.",
-        detail: "Use this as the pre-search package-authored target before the winner replay lands."
-      },
-      {
-        key: "search-winner",
-        label: "Search Winner Replay",
-        score: formatScore(winnerScore),
-        nodeCount: formatNodeCount(winnerNodeCount),
-        traversal: traversalSummary(winnerTraversal, "Winner traversal appears after the study selects a manifest."),
-        detail: winnerKnobs.length === 0
-          ? bestSelection === null
-            ? "Study-selected knobs stream here once the search winner is known."
-            : `Best so far: ${bestSelection}`
-          : winnerKnobs.join(" · ")
-      }
-    ]
+    return WorkflowGraphViewModel.make({
+      cardCatalog: WorkflowGraphCardCatalog.make({
+        authoredOptimized: authoredOptimizedCard,
+        baseline: baselineCard,
+        searchWinner: searchWinnerCard
+      }),
+      currentStep: currentStepText,
+      currentStepMeta,
+      cards: [baselineCard, authoredOptimizedCard, searchWinnerCard]
+    })
   }
 }
+
+const currentStepFromFrame = (frame: CanonicalFrame | null) =>
+  frame !== null && frame.step._tag === "WorkflowCanonicalStep" ? frame.step : null

@@ -1,172 +1,120 @@
-import { Match } from "effect"
+import { Data, Schema } from "effect"
 
-import type { DemoError } from "../../../contracts/demo-error.js"
-import type { EntryDraft } from "../../../contracts/entry/registry.js"
-import type { Metadata } from "../../../contracts/envelope.js"
-import type { Program } from "../../../contracts/presentation/program.js"
-import type { EntryRunIdentity } from "../../../contracts/study/run-plan.js"
-import type { RunData } from "../../../contracts/study/run.js"
-import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
-import type { ChoreographyState } from "../../../contracts/study/workflow/choreography.js"
+import { Metadata } from "../../../contracts/envelope.js"
 
-export type { LocalProjectionScript, LocalRunFrame } from "./local.js"
+export type {
+  ActiveIdleRunSession,
+  ActiveRunSession,
+  InFlightRunControlState,
+  InFlightRunSession,
+  LocalProjectionScript,
+  LocalRunFrame,
+  RunSession,
+  TerminalRunSession
+} from "./session.js"
 
-import type { LocalProjectionScript, LocalRunFrame } from "./local.js"
+export type { RunFailedState, RunIdleState, RunInFlightState, RunState, RunSuccessState } from "./state.js"
 
-export type RunControlActionKind = "run" | "pause" | "resume" | "stop" | "reset"
-export type RunControlState = "idle" | "running" | "paused" | "stopping"
-export type RunOutcome = "none" | "failed" | "succeeded"
+export const RunControlActionKind = Schema.Literal("run", "pause", "resume", "stop", "reset")
 
-export type RunOwnership = {
-  readonly localDriver: boolean
-  readonly serverStream: boolean
-}
+export type RunControlActionKind = typeof RunControlActionKind.Type
 
-export type RunInternalFactState = "inactive" | "pending" | "observed"
+export const RunControlState = Schema.Literal("idle", "running", "paused", "stopping")
 
-export type RunStreamCompletionFact = {
-  readonly state: RunInternalFactState
-  readonly observedAtMs: number | null
-  readonly summary: string | null
-  readonly meta: Metadata | null
-}
+export type RunControlState = typeof RunControlState.Type
 
-export type RunStepQueueDrainFact = {
-  readonly state: RunInternalFactState
-  readonly observedAtMs: number | null
-}
+export const RunOutcome = Schema.Literal("none", "failed", "succeeded")
 
-export type RunInternalFacts = {
-  readonly streamComplete: RunStreamCompletionFact
-  readonly stepQueueDrain: RunStepQueueDrainFact
-}
+export type RunOutcome = typeof RunOutcome.Type
 
-export type RunRuntimeTelemetryKind =
-  | "run-started"
-  | "pause-requested"
-  | "resume-requested"
-  | "stop-requested"
-  | "checkpoint-reached"
-  | "stream-complete-observed"
-  | "step-queue-drained"
-  | "run-finalized"
-
-export type RunRuntimeTelemetryEvent = {
-  readonly kind: RunRuntimeTelemetryKind
-  readonly atMs: number
-  readonly detail: string | null
-}
-
-export type RunRuntimeTelemetryState = {
-  readonly startedAtMs: number | null
-  readonly events: ReadonlyArray<RunRuntimeTelemetryEvent>
-}
-
-export type RunSession = {
-  readonly token: number | null
-  readonly sequence: number | null
-  readonly control: RunControlState
-  readonly outcome: RunOutcome
-  readonly ownership: RunOwnership
-  readonly facts: RunInternalFacts
-  readonly telemetry: RunRuntimeTelemetryState
-  readonly draft: EntryDraft | null
-  readonly identity: EntryRunIdentity | null
-  readonly localProjectionScript: LocalProjectionScript | null
-  readonly localRunFrame: LocalRunFrame | null
-  readonly canonicalFrame: CanonicalFrame | null
-  readonly choreography: ChoreographyState
-  readonly program: Program | null
-}
-
-type ActiveRunSession = RunSession & {
-  readonly token: number
-  readonly sequence: number
-  readonly program: Program
-}
-
-export type RunInFlightState = {
-  readonly _tag: "RunRunning"
-  readonly session: ActiveRunSession & {
-    readonly outcome: "none"
-    readonly control: Exclude<RunControlState, "idle">
-  }
-  readonly sequence: number
-  readonly program: Program
-}
-
-export type RunState =
-  | { readonly _tag: "RunIdle"; readonly session: RunSession }
-  | RunInFlightState
-  | {
-    readonly _tag: "RunFailed"
-    readonly session: ActiveRunSession & {
-      readonly control: "idle"
-      readonly outcome: "failed"
-    }
-    readonly sequence: number
-    readonly program: Program
-    readonly error: DemoError
-  }
-  | {
-    readonly _tag: "RunSuccess"
-    readonly session: ActiveRunSession & {
-      readonly control: "idle"
-      readonly outcome: "succeeded"
-    }
-    readonly sequence: number
-    readonly data: RunData
-    readonly meta: Metadata | null
+export class RunOwnership extends Data.Class<RunOwnership.Shape> {
+  static make(ownership: RunOwnership.Shape): RunOwnership {
+    return new RunOwnership(ownership)
   }
 
-export type RunPhase = "idle" | "running" | "paused" | "stopping" | "failed" | "success"
+  static empty(): RunOwnership {
+    return RunOwnership.make({
+      projectionDriver: false,
+      serverStream: false
+    })
+  }
 
-const isRunInternalFactPending = (state: RunInternalFactState): boolean => state === "pending"
+  static serverOnly(): RunOwnership {
+    return RunOwnership.make({
+      projectionDriver: false,
+      serverStream: true
+    })
+  }
 
-const isRunInternalFactObserved = (state: RunInternalFactState): boolean => state === "observed"
+  static sharedStreaming(): RunOwnership {
+    return RunOwnership.make({
+      projectionDriver: true,
+      serverStream: true
+    })
+  }
 
-const runFactsReady = (facts: RunInternalFacts): boolean =>
-  !isRunInternalFactPending(facts.streamComplete.state) && !isRunInternalFactPending(facts.stepQueueDrain.state)
+  static detail(ownership: RunOwnership): string {
+    return `projection ${ownership.projectionDriver ? "yes" : "no"} | server ${ownership.serverStream ? "yes" : "no"}`
+  }
 
-export const runHasStreamCompletion = (run: RunState): boolean =>
-  isRunInternalFactObserved(run.session.facts.streamComplete.state)
+  detail(): string {
+    return RunOwnership.detail(this)
+  }
+}
 
-export const runHasStepQueueDrain = (run: RunState): boolean =>
-  isRunInternalFactObserved(run.session.facts.stepQueueDrain.state)
+export namespace RunOwnership {
+  export interface Shape {
+    readonly projectionDriver: boolean
+    readonly serverStream: boolean
+  }
+}
 
-export const runAwaitsStreamCompletion = (run: RunState): boolean =>
-  isRunInternalFactPending(run.session.facts.streamComplete.state)
+export const RunOwnershipSchema = Schema.Struct({
+  projectionDriver: Schema.Boolean,
+  serverStream: Schema.Boolean
+})
 
-export const runAwaitsStepQueueDrain = (run: RunState): boolean =>
-  isRunInternalFactPending(run.session.facts.stepQueueDrain.state)
+export const RunInternalFactState = Schema.Literal("inactive", "pending", "observed")
 
-export const runStreamCompletionSummary = (run: RunState): string | null => run.session.facts.streamComplete.summary
+export type RunInternalFactState = typeof RunInternalFactState.Type
 
-export const runPhase = (run: RunState): RunPhase =>
-  Match.value(run.session.outcome).pipe(
-    Match.withReturnType<RunPhase>(),
-    Match.when("failed", () => "failed"),
-    Match.when("succeeded", () => "success"),
-    Match.orElse(() =>
-      Match.value(run.session.control).pipe(
-        Match.withReturnType<RunPhase>(),
-        Match.when("running", () => "running"),
-        Match.when("paused", () => "paused"),
-        Match.when("stopping", () => "stopping"),
-        Match.orElse(() => "idle")
-      )
-    )
-  )
+export const RunStreamCompletionFact = Schema.Struct({
+  state: RunInternalFactState,
+  observedAtMs: Schema.NullOr(Schema.Number),
+  summary: Schema.NullOr(Schema.String),
+  meta: Schema.NullOr(Metadata)
+})
 
-export const hasActiveRunSequence = (run: RunState, sequence: number): boolean =>
-  run.session.sequence === sequence && run.session.outcome === "none" && run.session.control !== "idle"
+export type RunStreamCompletionFact = typeof RunStreamCompletionFact.Type
 
-export const programFromRunState = (run: RunState): Program | null =>
-  Match.value(run).pipe(
-    Match.tag("RunRunning", ({ program }) => program),
-    Match.tag("RunFailed", ({ program }) => program),
-    Match.tag("RunSuccess", ({ data }) => data.program),
-    Match.orElse(() => null)
-  )
+export const RunStepQueueDrainFact = Schema.Struct({
+  state: RunInternalFactState,
+  observedAtMs: Schema.NullOr(Schema.Number)
+})
 
-export const runSuccessGateSatisfied = (run: RunInFlightState): boolean => runFactsReady(run.session.facts)
+export type RunStepQueueDrainFact = typeof RunStepQueueDrainFact.Type
+
+export const RunRuntimeTelemetryKind = Schema.Literal(
+  "run-started",
+  "pause-requested",
+  "resume-requested",
+  "stop-requested",
+  "checkpoint-reached",
+  "stream-complete-observed",
+  "step-queue-drained",
+  "run-finalized"
+)
+
+export type RunRuntimeTelemetryKind = typeof RunRuntimeTelemetryKind.Type
+
+export const RunRuntimeTelemetryEvent = Schema.Struct({
+  kind: RunRuntimeTelemetryKind,
+  atMs: Schema.Number,
+  detail: Schema.NullOr(Schema.String)
+})
+
+export type RunRuntimeTelemetryEvent = typeof RunRuntimeTelemetryEvent.Type
+
+export const RunPhase = Schema.Literal("idle", "running", "paused", "stopping", "failed", "success")
+
+export type RunPhase = typeof RunPhase.Type

@@ -3,8 +3,8 @@ import type { ComponentPropsWithRef, ReactNode } from "react"
 
 import type { ContentCardDensity, ContentCardShape } from "../../../contracts/presentation/layout.js"
 
-import type { ContentCardTone } from "./designSystem.js"
 import { Layer } from "./Layout.js"
+import type { ContentCardTone } from "./theme/tone.js"
 
 const gapClassName = (density: ContentCardDensity): string =>
   Match.value(density).pipe(

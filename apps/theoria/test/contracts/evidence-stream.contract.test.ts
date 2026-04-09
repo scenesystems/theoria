@@ -1,9 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { StageEnter } from "../../app/contracts/choreography.js"
-import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
-import { EffectTextProjectionStep } from "../../app/contracts/demo/text.js"
+import { DspCanonicalStep } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import { EffectTextProjectionStep } from "../../app/contracts/capability/effect-text.js"
 import {
   canonicalStepEvent,
   Choreography,
@@ -14,7 +13,8 @@ import {
   SectionUpsert,
   StreamComplete,
   StreamFailed
-} from "../../app/contracts/evidence-stream.js"
+} from "../../app/contracts/evidence/stream.js"
+import { StageEnter } from "../../app/contracts/study/workflow/choreography.js"
 
 const streamMeta = {
   requestId: "req-stream",
@@ -108,7 +108,7 @@ describe("EvidenceEvent Contract", () => {
 
   it.effect("StreamComplete instances carry summary and timing metadata", () =>
     Effect.gen(function*() {
-      const event = new StreamComplete({ summary: "Done.", meta: streamMeta })
+      const event = StreamComplete.make({ summary: "Done.", meta: streamMeta })
       expect(event._tag).toBe("StreamComplete")
       expect(event.summary).toBe("Done.")
       expect(event.meta.durationMs).toBe(12)
@@ -129,7 +129,7 @@ describe("EvidenceEvent Contract", () => {
 
   it.effect("StreamFailed instances carry structured error metadata", () =>
     Effect.gen(function*() {
-      const event = new StreamFailed({
+      const event = StreamFailed.make({
         error: {
           code: "execution-failed",
           message: "failed",

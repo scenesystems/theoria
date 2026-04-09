@@ -2,6 +2,8 @@ import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { equalBytes, generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
+import { sealEntryDescriptor } from "../../../contracts/entry/descriptors/seal.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 
 import type { Program } from "../../../contracts/presentation/program.js"
@@ -14,7 +16,8 @@ export const preloadProgram: Effect.Effect<
   FileSystem.FileSystem | Path.Path
 > = executableProgram(import.meta.url)
 
-const plaintextString = "Authenticated encryption round-trip demo from Theoria"
+const plaintextString = "Authenticated encryption round-trip study from Theoria"
+const sealRunIdentity = entryRunIdentityForId(sealEntryDescriptor.entryId)
 
 const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
@@ -49,8 +52,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const endedAt = yield* Clock.currentTimeMillis
 
   return {
-    id: "seal",
-    packageName: "@scenesystems/seal",
+    ...sealRunIdentity,
     summary:
       "@scenesystems/seal compared XChaCha20-Poly1305, AES-256-GCM-SIV, and AES-256-GCM with round-trip verification.",
     durationMs: endedAt - startedAt,

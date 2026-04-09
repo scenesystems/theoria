@@ -5,10 +5,10 @@ import { Effect, Option, Schema } from "effect"
 import {
   type OpenAgentTraceRegistryEntry,
   OpenAgentTraceRegistryEnvelope
-} from "../../app/contracts/open-agent-trace.js"
+} from "../../app/contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
-import { loadOpenAgentTraceRegistry } from "../../app/server/open-agent-trace/registry.js"
 import { openAgentTraceRoute } from "../../app/server/routes/open-agent-trace.js"
+import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 
 class ResponseJsonError extends Schema.TaggedError<ResponseJsonError>()("ResponseJsonError", {
   message: Schema.String

@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, makeEntryDescriptor } from "../descriptor.js"
+import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
 
 const effectTextAuthority = authorityCatalogForId("effect-text")
 
@@ -13,7 +13,7 @@ const EffectTextEntryInput = Schema.Struct({
   )
 })
 
-export const effectTextEntryDescriptor = makeEntryDescriptor({
+export const effectTextEntryDescriptor = EntryDescriptor.define({
   entryId: "effect-text",
   title: effectTextAuthority.title,
   packageName: effectTextAuthority.packageName,

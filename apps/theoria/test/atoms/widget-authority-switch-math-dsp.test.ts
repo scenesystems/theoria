@@ -2,13 +2,13 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
-import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/demo/dsp-runtime.js"
+import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
 import {
   EffectMathCanonicalStep,
   projectPowerProjection,
   snapshotEffectMathProjectionScript
-} from "../../app/contracts/demo/power.js"
+} from "../../app/contracts/capability/effect-math.js"
+import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeAtom,
@@ -16,12 +16,17 @@ import {
   dspScenarioIdAtom,
   snapshotEffectDspProjectionScript
 } from "../../app/web/atoms/dsp-widget.js"
-import { type EffectMathRunFrame, powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { powerWidgetViewModelAtom } from "../../app/web/atoms/widget-view-models.js"
-import type { LocalRunFrame } from "../../app/web/state/local-run.js"
-import { reduceRunState, type RunState } from "../../app/web/state/types.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { powerWidgetViewModelAtom } from "../../app/web/atoms/power-widget-view-model.js"
+import {
+  type EffectMathRunFrame,
+  powerAnimatingAtom,
+  powerControlsAtom
+} from "../../app/web/atoms/run/power-animation.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { LocalRunFrame } from "../../app/web/state/run/local.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import type { RunState } from "../../app/web/state/run/types.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, stepQueueDrainedRunState, streamCompletedRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>

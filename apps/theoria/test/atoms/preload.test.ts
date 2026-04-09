@@ -2,10 +2,10 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Ref } from "effect"
 
-import { makeRoutePreloadMountAtom, preloadRouteKey } from "../../app/web/atoms/preload.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { preloadRouteKey, RoutePreloadMountAtom } from "../../app/web/atoms/surface/preload.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({
@@ -19,7 +19,7 @@ describe("Route preload mounting", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const calls = yield* Ref.make<ReadonlyArray<string>>([])
-      const routePreloadMountAtom = makeRoutePreloadMountAtom(
+      const routePreloadMountAtom = RoutePreloadMountAtom.make(
         makeAppClientTestRuntime({
           preload: (id) =>
             Ref.update(calls, (entries) => [...entries, id]).pipe(
@@ -34,7 +34,7 @@ describe("Route preload mounting", () => {
         })
       )
 
-      const atom = routePreloadMountAtom(preloadRouteKey({ _tag: "DeepRoute", entryId: effectTextCardFixture.id }))
+      const atom = routePreloadMountAtom.atom(preloadRouteKey({ _tag: "DeepRoute", entryId: effectTextCardFixture.id }))
       registry.mount(atom)
       registry.get(atom)
 
@@ -53,7 +53,7 @@ describe("Route preload mounting", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const calls = yield* Ref.make<ReadonlyArray<string>>([])
-      const routePreloadMountAtom = makeRoutePreloadMountAtom(
+      const routePreloadMountAtom = RoutePreloadMountAtom.make(
         makeAppClientTestRuntime({
           preload: (id) =>
             Ref.update(calls, (entries) => [...entries, id]).pipe(
@@ -68,7 +68,7 @@ describe("Route preload mounting", () => {
         })
       )
 
-      const atom = routePreloadMountAtom(preloadRouteKey({ _tag: "DeepRoute", entryId: "workflow" }))
+      const atom = routePreloadMountAtom.atom(preloadRouteKey({ _tag: "DeepRoute", entryId: "workflow" }))
       registry.mount(atom)
       registry.get(atom)
 

@@ -2,10 +2,10 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Ref } from "effect"
-import type { TextProjection } from "../../app/contracts/text.js"
+import type { TextProjection } from "../../app/contracts/presentation/text.js"
 
-import { elementWidthAtom, makeElementWidthSlot } from "../../app/web/atoms/element-observation.js"
-import { makeTextProjectionAtom, type TextProjectionAuthority } from "../../app/web/atoms/text.js"
+import { elementWidthAtom, ElementWidthSlot } from "../../app/web/atoms/surface/element-observation.js"
+import { TextProjectionAtom, type TextProjectionAuthority } from "../../app/web/atoms/text.js"
 import { prepareTextProjection, projectPreparedText } from "../../app/web/view/text/authority.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -39,8 +39,8 @@ describe("text projection contracts", () => {
     Effect.gen(function*() {
       const prepareCalls = yield* Ref.make(0)
       const registry = makeTestRegistry()
-      const widthSlot = makeElementWidthSlot()
-      const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))({
+      const widthSlot = ElementWidthSlot.make()
+      const projectionAtom = TextProjectionAtom.make(makeAuthority(prepareCalls)).atom({
         role: "row-label",
         variant: "compact",
         text: "The same prepared handle should survive width changes in the generic projection path.",
@@ -70,8 +70,8 @@ describe("text projection contracts", () => {
     Effect.gen(function*() {
       const prepareCalls = yield* Ref.make(0)
       const registry = makeTestRegistry()
-      const widthSlot = makeElementWidthSlot()
-      const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))({
+      const widthSlot = ElementWidthSlot.make()
+      const projectionAtom = TextProjectionAtom.make(makeAuthority(prepareCalls)).atom({
         role: "row-label",
         variant: "compact",
         text: "Width-only changes must stay on pure projection after the initial prepare boundary.",

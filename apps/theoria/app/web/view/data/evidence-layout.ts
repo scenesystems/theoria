@@ -1,10 +1,10 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 
 import type { EvidenceItem } from "../../../contracts/evidence/item.js"
 
-export * from "./evidence-plane-model.js"
+export const EvidenceSpan = Schema.Literal("compact", "medium", "wide", "full")
 
-export type EvidenceSpan = "compact" | "medium" | "wide" | "full"
+export type EvidenceSpan = typeof EvidenceSpan.Type
 
 export const evidenceSpan = (item: EvidenceItem): EvidenceSpan =>
   Match.type<EvidenceItem>().pipe(

@@ -1,7 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Stream } from "effect"
-import { Effect, Queue } from "effect"
+import { Data, Effect, Queue } from "effect"
 import { Study } from "effect-search"
 
 import type {
@@ -10,20 +10,20 @@ import type {
   PowerProjection
 } from "../../../contracts/capability/effect-math.js"
 import {
-  defaultPowerControls,
   type EffectMathProjectionScript,
   projectPowerProjection,
   snapshotEffectMathProjectionScript
 } from "../../../contracts/capability/effect-math.js"
-import { DemoExecutionError } from "../../../contracts/demo-error.js"
+import { EntryExecutionError } from "../../../contracts/entry-error.js"
+import { defaultEffectMathEntryInput } from "../../../contracts/entry/defaults.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
-import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "../local-driver-events.js"
 import type { RunRegistry } from "../run-registry-context.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./lifecycle.js"
+import type { RunSignal } from "./lifecycle.js"
+import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
 
-const executionFailedError = (message: string): DemoExecutionError =>
-  new DemoExecutionError({
+const executionFailedError = (message: string): EntryExecutionError =>
+  EntryExecutionError.make({
     code: "execution-failed",
     message,
     retryable: true
@@ -32,7 +32,9 @@ const executionFailedError = (message: string): DemoExecutionError =>
 export { projectPowerProjection, snapshotEffectMathProjectionScript }
 export type { EffectMathProjectionScript, PowerControls, PowerProjection }
 
-export const powerControlsAtom: AtomType.Writable<PowerControls> = Atom.make<PowerControls>(defaultPowerControls)
+const defaultPowerAnimationControls: PowerControls = defaultEffectMathEntryInput
+
+export const powerControlsAtom: AtomType.Writable<PowerControls> = Atom.make(defaultPowerAnimationControls)
 export const powerAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 
 export type EffectMathRunFrame = {
@@ -48,37 +50,11 @@ export const powerProjectionAtom: AtomType.Atom<PowerProjection> = Atom.make(
   (get: AtomType.Context): PowerProjection => projectPowerProjection(get(powerControlsAtom))
 )
 
-export const setPowerAnimationPlayback = (
-  registry: RunRegistry,
-  isAnimating: boolean
-): Effect.Effect<void, never, never> =>
-  Effect.sync(() => {
-    registry.set(powerAnimatingAtom, isAnimating)
-  })
-
-export const syncPowerFrameToControls = (
-  registry: RunRegistry,
-  frame: EffectMathRunFrame
-): Effect.Effect<void, never, never> =>
-  Effect.sync(() => {
-    registry.set(powerControlsAtom, frame.controls)
-  })
-
-export const resetPowerAnimationState = (registry: RunRegistry): void => {
-  registry.set(powerControlsAtom, defaultPowerControls)
-  registry.set(powerAnimatingAtom, false)
-}
-
-export const resetPowerAnimationStateEffect = (registry: RunRegistry): Effect.Effect<void, never, never> =>
-  Effect.sync(() => {
-    resetPowerAnimationState(registry)
-  })
-
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
 type EffectMathAnimationEvent =
   | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: EffectMathRunFrame }
-  | LocalDriverCompletedEvent
+  | ProjectionDriverCompletedEvent
 
 const isStreamCompletionEvent = (event: AuthoredStepQueueEvent): event is StreamCompletionEvent =>
   "_tag" in event && event._tag === "StreamComplete"
@@ -96,8 +72,8 @@ const takeAuthoredStepQueueEvent = ({
 }): Effect.Effect<AuthoredStepQueueEvent, never, never> =>
   Effect.raceFirst(
     Queue.take(stepQueue),
-    awaitNextRunSignalChange(signal).pipe(
-      Effect.zipRight(awaitRunSignal(signal)),
+    signal.awaitNextChange().pipe(
+      Effect.zipRight(signal.awaitRunning()),
       Effect.flatMap(() => takeAuthoredStepQueueEvent({ signal, stepQueue }))
     )
   )
@@ -134,13 +110,13 @@ const drainPowerFrames = ({
   readonly remainingSteps: ReadonlyArray<PowerControls>
   readonly signal: RunSignal
   readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
-}): Effect.Effect<void, DemoExecutionError, never> =>
-  awaitRunSignal(signal).pipe(
+}): Effect.Effect<void, EntryExecutionError, never> =>
+  signal.awaitRunning().pipe(
     Effect.zipRight(takeAuthoredStepQueueEvent({ signal, stepQueue })),
     Effect.flatMap((nextEvent) =>
       isStreamCompletionEvent(nextEvent)
         ? remainingSteps.length === 0
-          ? emit(localDriverCompletedEvent)
+          ? emit(projectionDriverCompletedEvent)
           : Effect.fail(
             executionFailedError("effect-math run ended before every authored power frame arrived.")
           )
@@ -151,7 +127,7 @@ const drainPowerFrames = ({
           ? emitFrameUpdate({ emit, step: nextEvent.step }).pipe(
             Effect.zipRight(
               remainingSteps.length > 1
-                ? yieldProjectionFrame(signal).pipe(
+                ? signal.yieldProjectionFrame().pipe(
                   Effect.zipRight(
                     drainPowerFrames({
                       emit,
@@ -161,7 +137,7 @@ const drainPowerFrames = ({
                     })
                   )
                 )
-                : emit(localDriverCompletedEvent)
+                : emit(projectionDriverCompletedEvent)
             )
           )
           : Effect.fail(
@@ -175,27 +151,63 @@ const drainPowerFrames = ({
     )
   )
 
-export const makePowerAnimationStream = (
-  registry: RunRegistry,
-  signal: RunSignal,
-  plan: EffectMathProjectionScript,
-  stepQueue: Queue.Queue<AuthoredStepQueueEvent>
-): Stream.Stream<EffectMathAnimationEvent, DemoExecutionError, never> =>
-  Study.streamFromEmitter<
-    EffectMathAnimationEvent,
-    void,
-    DemoExecutionError,
-    never
-  >((emit) =>
-    setPowerAnimationPlayback(registry, true).pipe(
-      Effect.zipRight(
-        drainPowerFrames({
-          emit,
-          remainingSteps: plannedSteps(plan),
-          signal,
-          stepQueue
-        })
-      ),
-      Effect.ensuring(resetPowerAnimationStateEffect(registry))
+export class EffectMathAnimation extends Data.Class<EffectMathAnimation.Shape> {
+  static make(animation: EffectMathAnimation.Shape): EffectMathAnimation {
+    return new EffectMathAnimation(animation)
+  }
+
+  static setPlayback(
+    registry: RunRegistry,
+    isAnimating: boolean
+  ): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      registry.set(powerAnimatingAtom, isAnimating)
+    })
+  }
+
+  static syncFrameToControls(
+    registry: RunRegistry,
+    frame: EffectMathRunFrame
+  ): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      registry.set(powerControlsAtom, frame.controls)
+    })
+  }
+
+  static reset(registry: RunRegistry): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      registry.set(powerControlsAtom, defaultPowerAnimationControls)
+      registry.set(powerAnimatingAtom, false)
+    })
+  }
+
+  stream(): Stream.Stream<EffectMathAnimationEvent, EntryExecutionError, never> {
+    return Study.streamFromEmitter<
+      EffectMathAnimationEvent,
+      void,
+      EntryExecutionError,
+      never
+    >((emit) =>
+      EffectMathAnimation.setPlayback(this.registry, true).pipe(
+        Effect.zipRight(
+          drainPowerFrames({
+            emit,
+            remainingSteps: plannedSteps(this.plan),
+            signal: this.signal,
+            stepQueue: this.stepQueue
+          })
+        ),
+        Effect.ensuring(EffectMathAnimation.reset(this.registry))
+      )
     )
-  )
+  }
+}
+
+export namespace EffectMathAnimation {
+  export interface Shape {
+    readonly registry: RunRegistry
+    readonly signal: RunSignal
+    readonly plan: EffectMathProjectionScript
+    readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
+  }
+}

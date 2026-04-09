@@ -1,5 +1,5 @@
-import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
-import type { Tone } from "../primitives/designSystem.js"
+import type { ReflowWidgetViewModel } from "../../atoms/reflow-widget-view-model.js"
+import type { Tone } from "../primitives/theme/tone.js"
 
 import { InstrumentPanel } from "../primitives/InstrumentPanel.js"
 import { Stack } from "../primitives/Layout.js"

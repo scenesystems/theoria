@@ -8,14 +8,15 @@ export class PackageDocsInfo extends Context.Tag("@theoria/app/server/config/Pac
   }
 >() {}
 
-const makePackageDocsInfo = Effect.gen(function*() {
-  const corpus = yield* loadPackageDocsCorpus()
+export const PackageDocsLive = Layer.effect(
+  PackageDocsInfo,
+  Effect.gen(function*() {
+    const corpus = yield* loadPackageDocsCorpus()
 
-  yield* Effect.log("Loaded package docs corpus").pipe(
-    Effect.annotateLogs("packageCount", corpus.catalog.length)
-  )
+    yield* Effect.log("Loaded package docs corpus").pipe(
+      Effect.annotateLogs("packageCount", corpus.catalog.length)
+    )
 
-  return PackageDocsInfo.of({ corpus })
-})
-
-export const PackageDocsLive = Layer.effect(PackageDocsInfo, makePackageDocsInfo)
+    return PackageDocsInfo.of({ corpus })
+  })
+)

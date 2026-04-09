@@ -1,15 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { canonicalFrameV1 } from "../../app/contracts/canonical-step.js"
-import { InStage, StageEnter } from "../../app/contracts/choreography.js"
-import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/demo/power.js"
-import { type PowerControls, snapshotEffectMathProjectionScript } from "../../app/contracts/demo/power.js"
-import { EffectTextProjectionStep, snapshotEffectTextTraversalScript } from "../../app/contracts/demo/text.js"
-import type { EffectMathRunFrame } from "../../app/web/atoms/power-animation.js"
+import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/capability/effect-math.js"
+import { type PowerControls, snapshotEffectMathProjectionScript } from "../../app/contracts/capability/effect-math.js"
+import {
+  EffectTextProjectionStep,
+  snapshotEffectTextTraversalScript
+} from "../../app/contracts/capability/effect-text.js"
+import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
+import { InStage, StageEnter } from "../../app/contracts/study/workflow/choreography.js"
 import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
-import { reduceRunState, type RunMessage } from "../../app/web/state/types.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import type { EffectMathRunFrame } from "../../app/web/atoms/run/power-animation.js"
+import type { RunMessage } from "../../app/web/state/run/messages.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState } from "../helpers/run-state.js"
 
 const effectTextFrameFixture: EffectTextRunFrame = {

@@ -2,21 +2,21 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
-import { DspCanonicalStep } from "../../app/contracts/demo/dsp-runtime.js"
+import { DspCanonicalStep } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import {
   canonicalStepEvent,
   encodeEvidenceEventJson,
   SectionAppend,
   StreamComplete
-} from "../../app/contracts/evidence-stream.js"
-import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeRunDemoAtom } from "../../app/web/atoms/actions.js"
+} from "../../app/contracts/evidence/stream.js"
 import { isEffectDspProjectionScript } from "../../app/web/atoms/dsp-run-plan.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
+import { makeRunDemoAtom } from "../helpers/run-atoms.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -153,7 +153,7 @@ describe("runtime spine proof", () => {
             source.emitEvidence(encodeEvidenceEventJson(new SectionAppend({ section })))
           }), { discard: true })
         source.emitEvidence(
-          encodeEvidenceEventJson(new StreamComplete({ summary: "DSP sealing proof.", meta: streamMeta }))
+          encodeEvidenceEventJson(StreamComplete.make({ summary: "DSP sealing proof.", meta: streamMeta }))
         )
 
         const final = yield* Effect.eventually(

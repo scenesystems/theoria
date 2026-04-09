@@ -1,68 +1,25 @@
-import { HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Match, Schema } from "effect"
+import { Effect, Match } from "effect"
 
 import {
-  OpenAgentTraceApiRegistryPathname,
-  OpenAgentTraceRegistryEnvelope
+  OpenAgentTraceConsumerArtifactRoute,
+  OpenAgentTraceRegistryRoute,
+  OpenAgentTraceWorkflowHookupRoute
 } from "../../contracts/study/workflow/open-agent-trace.js"
-import { RuntimeInfo } from "../config/runtime.js"
-import { loadOpenAgentTraceRegistry } from "../study/workflow/open-agent-trace/registry.js"
-
-const registryResponse = (requestId: string) =>
-  Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
-    const registry = yield* loadOpenAgentTraceRegistry
-    const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
-    const envelope = yield* Schema.decodeUnknown(OpenAgentTraceRegistryEnvelope)({
-      ok: true,
-      meta: {
-        requestId,
-        buildSha: runtimeInfo.buildSha,
-        durationMs: endedAtMs - startedAtMs
-      },
-      data: registry
-    })
-
-    return yield* HttpServerResponse.json(envelope, {
-      status: 200,
-      headers: {
-        "cache-control": "no-store"
-      }
-    })
-  })
-
-const notFoundResponse = (requestId: string) =>
-  Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
-
-    return yield* HttpServerResponse.json(
-      {
-        ok: false,
-        meta: {
-          requestId,
-          buildSha: runtimeInfo.buildSha,
-          durationMs: endedAtMs - startedAtMs
-        },
-        error: {
-          code: "route-not-found",
-          message: "Open-agent-trace route not found.",
-          retryable: false
-        }
-      },
-      {
-        status: 404,
-        headers: {
-          "cache-control": "no-store"
-        }
-      }
-    )
-  })
+import { OpenAgentTraceService } from "../study/workflow/open-agent-trace/service.js"
+import {
+  openAgentTraceConsumerArtifactResponse,
+  openAgentTraceRegistryResponse,
+  openAgentTraceRouteNotFoundResponse,
+  openAgentTraceWorkflowHookupResponse
+} from "./open-agent-trace-response.js"
 
 export const openAgentTraceRoute = (pathname: string, requestId: string) =>
-  Match.value(pathname).pipe(
-    Match.when(OpenAgentTraceApiRegistryPathname, () => registryResponse(requestId)),
-    Match.orElse(() => notFoundResponse(requestId))
+  Effect.flatten(
+    Match.value(pathname).pipe(
+      Match.when(OpenAgentTraceConsumerArtifactRoute.matches, () => openAgentTraceConsumerArtifactResponse(requestId)),
+      Match.when(OpenAgentTraceRegistryRoute.matches, () => openAgentTraceRegistryResponse(requestId)),
+      Match.when(OpenAgentTraceWorkflowHookupRoute.matches, () => openAgentTraceWorkflowHookupResponse(requestId)),
+      Match.orElse(() => openAgentTraceRouteNotFoundResponse(requestId)),
+      Effect.provide(OpenAgentTraceService.Default)
+    )
   )

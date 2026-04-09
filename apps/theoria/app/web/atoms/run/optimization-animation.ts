@@ -1,7 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Stream } from "effect"
-import { Effect, Queue } from "effect"
+import { Data, Effect, Queue } from "effect"
 import { Study } from "effect-search"
 import * as Option from "effect/Option"
 
@@ -12,15 +12,15 @@ import {
   snapshotEffectSearchProjectionScript,
   type TrialPoint
 } from "../../../contracts/capability/effect-search.js"
-import { DemoExecutionError } from "../../../contracts/demo-error.js"
+import { EntryExecutionError } from "../../../contracts/entry-error.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
-import { type LocalDriverCompletedEvent, localDriverCompletedEvent } from "../local-driver-events.js"
 import type { RunRegistry } from "../run-registry-context.js"
-import { awaitNextRunSignalChange, awaitRunSignal, type RunSignal, yieldProjectionFrame } from "./lifecycle.js"
+import type { RunSignal } from "./lifecycle.js"
+import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
 
-const executionFailedError = (message: string): DemoExecutionError =>
-  new DemoExecutionError({
+const executionFailedError = (message: string): EntryExecutionError =>
+  EntryExecutionError.make({
     code: "execution-failed",
     message,
     retryable: true
@@ -43,15 +43,49 @@ export const optimizationAnimatingAtom: AtomType.Writable<boolean> = Atom.make(f
 export const tpeTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
 export const randomTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
 
-export type OptimizationProjection = {
-  readonly trialBudget: number
-  readonly tpeTrials: ReadonlyArray<TrialPoint>
-  readonly randomTrials: ReadonlyArray<TrialPoint>
-  readonly tpeBestValue: Option.Option<number>
-  readonly randomBestValue: Option.Option<number>
-  readonly tpeBestPoint: Option.Option<TrialPoint>
-  readonly randomBestPoint: Option.Option<TrialPoint>
-  readonly phase: "idle" | "running" | "complete"
+export class OptimizationProjection extends Data.Class<OptimizationProjection.Shape> {
+  static make(projection: OptimizationProjection.Shape): OptimizationProjection {
+    return new OptimizationProjection(projection)
+  }
+
+  static fromTrials({
+    phase,
+    randomTrials,
+    tpeTrials,
+    trialBudget
+  }: {
+    readonly phase: OptimizationProjection.Shape["phase"]
+    readonly randomTrials: ReadonlyArray<TrialPoint>
+    readonly tpeTrials: ReadonlyArray<TrialPoint>
+    readonly trialBudget: number
+  }): OptimizationProjection {
+    const tpeBest = bestTrialPoint(tpeTrials)
+    const randomBest = bestTrialPoint(randomTrials)
+
+    return OptimizationProjection.make({
+      trialBudget,
+      tpeTrials,
+      randomTrials,
+      tpeBestValue: Option.map(tpeBest, (point) => point.value),
+      randomBestValue: Option.map(randomBest, (point) => point.value),
+      tpeBestPoint: tpeBest,
+      randomBestPoint: randomBest,
+      phase
+    })
+  }
+}
+
+export namespace OptimizationProjection {
+  export interface Shape {
+    readonly trialBudget: number
+    readonly tpeTrials: ReadonlyArray<TrialPoint>
+    readonly randomTrials: ReadonlyArray<TrialPoint>
+    readonly tpeBestValue: Option.Option<number>
+    readonly randomBestValue: Option.Option<number>
+    readonly tpeBestPoint: Option.Option<TrialPoint>
+    readonly randomBestPoint: Option.Option<TrialPoint>
+    readonly phase: "idle" | "running" | "complete"
+  }
 }
 
 const bestTrialPoint = (trials: ReadonlyArray<TrialPoint>): Option.Option<TrialPoint> =>
@@ -64,32 +98,6 @@ const bestTrialPoint = (trials: ReadonlyArray<TrialPoint>): Option.Option<TrialP
     Option.none()
   )
 
-export const makeOptimizationProjection = ({
-  phase,
-  randomTrials,
-  tpeTrials,
-  trialBudget
-}: {
-  readonly phase: OptimizationProjection["phase"]
-  readonly randomTrials: ReadonlyArray<TrialPoint>
-  readonly tpeTrials: ReadonlyArray<TrialPoint>
-  readonly trialBudget: number
-}): OptimizationProjection => {
-  const tpeBest = bestTrialPoint(tpeTrials)
-  const randomBest = bestTrialPoint(randomTrials)
-
-  return {
-    trialBudget,
-    tpeTrials,
-    randomTrials,
-    tpeBestValue: Option.map(tpeBest, (point) => point.value),
-    randomBestValue: Option.map(randomBest, (point) => point.value),
-    tpeBestPoint: tpeBest,
-    randomBestPoint: randomBest,
-    phase
-  }
-}
-
 export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> = Atom.make(
   (get: AtomType.Context): OptimizationProjection => {
     const tpeTrials = get(tpeTrialsAtom)
@@ -97,7 +105,7 @@ export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> =
     const isAnimating = get(optimizationAnimatingAtom)
     const trialBudget = get(trialBudgetAtom)
 
-    return makeOptimizationProjection({
+    return OptimizationProjection.fromTrials({
       phase: isAnimating ? "running" : tpeTrials.length > 0 ? "complete" : "idle",
       randomTrials,
       tpeTrials,
@@ -106,26 +114,11 @@ export const optimizationProjectionAtom: AtomType.Atom<OptimizationProjection> =
   }
 )
 
-export const setOptimizationAnimationPlayback = (
-  registry: RunRegistry,
-  isAnimating: boolean
-): Effect.Effect<void, never, never> =>
-  Effect.sync(() => {
-    registry.set(optimizationAnimatingAtom, isAnimating)
-  })
-
-export const resetOptimizationAnimationState = (registry: RunRegistry): Effect.Effect<void, never, never> =>
-  Effect.sync(() => {
-    registry.set(optimizationAnimatingAtom, false)
-    registry.set(tpeTrialsAtom, [])
-    registry.set(randomTrialsAtom, [])
-  })
-
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
 type EffectSearchAnimationEvent =
   | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: EffectSearchRunFrame }
-  | LocalDriverCompletedEvent
+  | ProjectionDriverCompletedEvent
 
 const isStreamCompletionEvent = (event: AuthoredStepQueueEvent): event is StreamCompletionEvent =>
   "_tag" in event && event._tag === "StreamComplete"
@@ -143,8 +136,8 @@ const takeAuthoredStepQueueEvent = ({
 }): Effect.Effect<AuthoredStepQueueEvent, never, never> =>
   Effect.raceFirst(
     Queue.take(stepQueue),
-    awaitNextRunSignalChange(signal).pipe(
-      Effect.zipRight(awaitRunSignal(signal)),
+    signal.awaitNextChange().pipe(
+      Effect.zipRight(signal.awaitRunning()),
       Effect.flatMap(() => takeAuthoredStepQueueEvent({ signal, stepQueue }))
     )
   )
@@ -158,7 +151,7 @@ const emitFrameUpdate = ({
   readonly registry: RunRegistry
   readonly step: typeof EffectSearchCanonicalStep.Type
 }): Effect.Effect<void, never, never> => {
-  const projection = makeOptimizationProjection({
+  const projection = OptimizationProjection.fromTrials({
     phase: step.phase,
     randomTrials: step.randomTrials,
     tpeTrials: step.tpeTrials,
@@ -196,13 +189,13 @@ const drainSearchFrames = ({
   readonly remaining: number
   readonly signal: RunSignal
   readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
-}): Effect.Effect<void, DemoExecutionError, never> =>
-  awaitRunSignal(signal).pipe(
+}): Effect.Effect<void, EntryExecutionError, never> =>
+  signal.awaitRunning().pipe(
     Effect.zipRight(takeAuthoredStepQueueEvent({ signal, stepQueue })),
     Effect.flatMap((nextEvent) =>
       isStreamCompletionEvent(nextEvent)
         ? remaining === 0
-          ? emit(localDriverCompletedEvent)
+          ? emit(projectionDriverCompletedEvent)
           : Effect.fail(
             executionFailedError("effect-search run ended before every authored optimization frame arrived.")
           )
@@ -216,7 +209,7 @@ const drainSearchFrames = ({
           : emitFrameUpdate({ emit, registry, step: nextEvent.step }).pipe(
             Effect.zipRight(
               remaining > 1
-                ? yieldProjectionFrame(signal).pipe(
+                ? signal.yieldProjectionFrame().pipe(
                   Effect.zipRight(
                     drainSearchFrames({
                       emit,
@@ -228,36 +221,64 @@ const drainSearchFrames = ({
                     })
                   )
                 )
-                : emit(localDriverCompletedEvent)
+                : emit(projectionDriverCompletedEvent)
             )
           )
         : drainSearchFrames({ emit, plan, registry, remaining, signal, stepQueue })
     )
   )
 
-export const makeOptimizationAnimationStream = (
-  registry: RunRegistry,
-  signal: RunSignal,
-  plan: EffectSearchProjectionScript,
-  stepQueue: Queue.Queue<AuthoredStepQueueEvent>
-): Stream.Stream<EffectSearchAnimationEvent, DemoExecutionError, never> =>
-  Study.streamFromEmitter<
-    EffectSearchAnimationEvent,
-    void,
-    DemoExecutionError,
-    never
-  >((emit) =>
-    setOptimizationAnimationPlayback(registry, true).pipe(
-      Effect.zipRight(
-        drainSearchFrames({
-          emit,
-          plan,
-          registry,
-          remaining: plan.trialBudget,
-          signal,
-          stepQueue
-        })
-      ),
-      Effect.ensuring(resetOptimizationAnimationState(registry))
+export class EffectSearchAnimation extends Data.Class<EffectSearchAnimation.Shape> {
+  static make(animation: EffectSearchAnimation.Shape): EffectSearchAnimation {
+    return new EffectSearchAnimation(animation)
+  }
+
+  static setPlayback(
+    registry: RunRegistry,
+    isAnimating: boolean
+  ): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      registry.set(optimizationAnimatingAtom, isAnimating)
+    })
+  }
+
+  static reset(registry: RunRegistry): Effect.Effect<void, never, never> {
+    return Effect.sync(() => {
+      registry.set(optimizationAnimatingAtom, false)
+      registry.set(tpeTrialsAtom, [])
+      registry.set(randomTrialsAtom, [])
+    })
+  }
+
+  stream(): Stream.Stream<EffectSearchAnimationEvent, EntryExecutionError, never> {
+    return Study.streamFromEmitter<
+      EffectSearchAnimationEvent,
+      void,
+      EntryExecutionError,
+      never
+    >((emit) =>
+      EffectSearchAnimation.setPlayback(this.registry, true).pipe(
+        Effect.zipRight(
+          drainSearchFrames({
+            emit,
+            plan: this.plan,
+            registry: this.registry,
+            remaining: this.plan.trialBudget,
+            signal: this.signal,
+            stepQueue: this.stepQueue
+          })
+        ),
+        Effect.ensuring(EffectSearchAnimation.reset(this.registry))
+      )
     )
-  )
+  }
+}
+
+export namespace EffectSearchAnimation {
+  export interface Shape {
+    readonly registry: RunRegistry
+    readonly signal: RunSignal
+    readonly plan: EffectSearchProjectionScript
+    readonly stepQueue: Queue.Queue<AuthoredStepQueueEvent>
+  }
+}

@@ -1,8 +1,8 @@
 import { Slider } from "@base-ui-components/react/slider"
 
-import type { Tone } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Tone } from "./theme/tone.js"
 
 // ---------------------------------------------------------------------------
 // SliderRow — compact inline control: label | slider | value

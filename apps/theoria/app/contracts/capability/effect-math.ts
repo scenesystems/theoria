@@ -1,5 +1,5 @@
 /**
- * Power-demo projections backed by released effect-math report surfaces.
+ * Power-study projections backed by released effect-math report surfaces.
  *
  * The app freezes control plans and chart-ready projections, but the numerical
  * authority now lives in `effect-math/Statistics`, `effect-math/Optimization`,

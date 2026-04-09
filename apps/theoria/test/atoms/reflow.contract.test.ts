@@ -4,7 +4,7 @@ import { Text } from "effect-text"
 import * as Contracts from "effect-text/contracts"
 
 import { corpus } from "../../app/contracts/corpus.js"
-import { fontDescriptorFor, semanticsFor } from "../../app/contracts/text.js"
+import { fontDescriptorFor, semanticsFor } from "../../app/contracts/presentation/text.js"
 import { projectReflowProjection } from "../../app/web/atoms/reflow.js"
 import { projectObstacleTextLayout } from "../../app/web/text/obstacleProjection.js"
 

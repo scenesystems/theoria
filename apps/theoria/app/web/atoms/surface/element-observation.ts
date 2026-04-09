@@ -1,11 +1,13 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { useAtomSet } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Data, Option } from "effect"
 import { type RefCallback, useMemo } from "react"
 
-export type ElementWidthSlot = {
-  readonly _tag: "ElementWidthSlot"
+export class ElementWidthSlot extends Data.TaggedClass("ElementWidthSlot")<{}> {
+  static make(): ElementWidthSlot {
+    return new ElementWidthSlot()
+  }
 }
 
 export type ElementWidthHandle = {
@@ -13,13 +15,11 @@ export type ElementWidthHandle = {
   readonly slot: ElementWidthSlot
 }
 
-export const makeElementWidthSlot = (): ElementWidthSlot => ({ _tag: "ElementWidthSlot" })
-
 export const elementWidthAtom: (slot: ElementWidthSlot) => AtomType.Writable<number> = Atom.family(
   (_slot: ElementWidthSlot) => Atom.make(0)
 )
 
-export const makeWidthObserver = <E extends HTMLElement>(
+export const observeElementWidth = <E extends HTMLElement>(
   setter: (value: number) => void
 ): RefCallback<E> =>
 (element) => {
@@ -53,12 +53,12 @@ export const makeWidthObserver = <E extends HTMLElement>(
 
 export const useElementWidthReporter = <E extends HTMLElement>(
   onWidth: (width: number) => void
-): RefCallback<E> => useMemo(() => makeWidthObserver(onWidth), [onWidth])
+): RefCallback<E> => useMemo(() => observeElementWidth(onWidth), [onWidth])
 
 export const useElementWidthHandle = (): ElementWidthHandle => {
-  const slot = useMemo(makeElementWidthSlot, [])
+  const slot = useMemo(ElementWidthSlot.make, [])
   const setWidth = useAtomSet(elementWidthAtom(slot))
-  const ref = useMemo(() => makeWidthObserver(setWidth), [setWidth])
+  const ref = useMemo(() => observeElementWidth(setWidth), [setWidth])
 
   return { ref, slot }
 }

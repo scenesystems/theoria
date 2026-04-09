@@ -10,8 +10,9 @@ import type { Obstacle } from "../../contracts/obstacle.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
 import { browserSupportProfileId } from "../text/browserTextLayout.js"
-import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleProjection.js"
-import type { MetricAppearance } from "../view/primitives/designSystem.js"
+import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleStageModel.js"
+import { choicePillOption, type TypedChoicePillOption } from "../view/primitives/choice-pill-model.js"
+import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -34,7 +35,7 @@ import {
 import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
 
 export type ReflowWidgetViewModel = {
-  readonly corpusOptions: ReadonlyArray<{ readonly index: number; readonly label: string }>
+  readonly corpusOptions: ReadonlyArray<TypedChoicePillOption<number>>
   readonly selectedCorpusIndex: number
   readonly usingCustomText: boolean
   readonly customText: string
@@ -205,8 +206,8 @@ export const reflowWidgetViewModelAtom: AtomType.Atom<ReflowWidgetViewModel> = A
 
     return {
       corpusOptions: Arr.append(
-        Arr.map(corpus, (corpusEntry, index) => ({ index, label: corpusEntry.label })),
-        { index: corpus.length, label: "Your text" }
+        Arr.map(corpus, (corpusEntry, index) => choicePillOption(index, corpusEntry.label)),
+        choicePillOption(corpus.length, "Your text")
       ),
       selectedCorpusIndex,
       usingCustomText,

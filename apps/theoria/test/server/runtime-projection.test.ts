@@ -2,15 +2,15 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 
 import * as InferenceTesting from "../../../../packages/effect-inference/src/Runtime/testing.js"
-import { dspRuntimeProjection } from "../../app/server/entries/effect-dsp/provider.js"
+import { dspRuntimeProjection } from "../../app/server/capability/effect-dsp.js"
 
 describe("server/runtime-projection", () => {
   it.effect("projects requested and resolved-route truth from the effect-inference substrate", () =>
     Effect.gen(function*() {
-      const desired = InferenceTesting.makeDesiredRuntimeDescriptor({
+      const desired = InferenceTesting.DesiredRuntimeDescriptor.fromTesting({
         modelRef: "meta-llama/Llama-3.3-70B-Instruct"
       })
-      const resolvedRoute = InferenceTesting.makeResolvedRouteDescriptor({
+      const resolvedRoute = InferenceTesting.ResolvedRouteDescriptor.fromTesting({
         desired,
         route: {
           family: "HuggingFace",

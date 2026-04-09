@@ -6,9 +6,9 @@ import type { DspProviderRuntime } from "../../capability/effect-dsp.js"
 import { concatStreams, sectionEffectsToStream, type StreamElement } from "../../kernel/kinds/stream-element.js"
 import {
   baselineStage,
-  comparisonStage,
   optimizationStage,
   optimizedEvalStage,
+  outcomeStage,
   signatureStage
 } from "./progressive-stages.js"
 import {
@@ -71,7 +71,7 @@ export const streamElementsForRequest = (
                                         optimized,
                                         optimizedScore
                                       }),
-                                      comparisonStage({
+                                      outcomeStage({
                                         baselineScore,
                                         ctx,
                                         durationMs: endedAt - ctx.startedAt,

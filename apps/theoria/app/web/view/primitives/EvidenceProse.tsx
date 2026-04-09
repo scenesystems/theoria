@@ -1,6 +1,6 @@
 import * as Arr from "effect/Array"
 
-import type { EvidenceSectionGroup } from "../data/evidence-layout.js"
+import type { EvidenceSectionGroup } from "../data/evidence-section-groups.js"
 
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

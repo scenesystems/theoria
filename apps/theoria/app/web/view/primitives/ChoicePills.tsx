@@ -1,18 +1,15 @@
 import { Button } from "@base-ui-components/react/button"
 import * as Arr from "effect/Array"
 
-import {
-  pillButtonClassName,
-  segmentedControlButtonClassName,
-  segmentedControlRailClassName,
-  type Tone
-} from "./designSystem.js"
+import type { ChoicePillValue, TypedChoicePillOption } from "./choice-pill-model.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { pillButtonClassName, segmentedControlButtonClassName, segmentedControlRailClassName } from "./theme/button.js"
+import { type Tone } from "./theme/tone.js"
 
 type ChoicePillsAppearance = "pill" | "segment"
 
-export const ChoicePills = <Value extends number | string>({
+export const ChoicePills = <Value extends ChoicePillValue>({
   activeValue,
   appearance = "pill",
   className,
@@ -26,7 +23,7 @@ export const ChoicePills = <Value extends number | string>({
   readonly className?: string
   readonly disabled: boolean
   readonly onSelect: (value: Value) => void
-  readonly options: ReadonlyArray<{ readonly value: Value; readonly label: string }>
+  readonly options: ReadonlyArray<TypedChoicePillOption<Value>>
   readonly tone: Tone
 }) => {
   const optionNodes = Arr.map(options, (option) => {

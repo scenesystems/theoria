@@ -1,5 +1,5 @@
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect } from "effect"
+import { Data, Effect, Schema } from "effect"
 import type { ReactNode } from "react"
 
 import { type AuthorityCatalogDescriptor, authorityCatalogForId } from "../../../contracts/capability/catalog.js"
@@ -7,132 +7,142 @@ import { type DurableFingerprint, fingerprintOf } from "../../../contracts/entry
 import { primaryAuthorityIdForEntry } from "../../../contracts/entry/focus.js"
 import type { EntryId } from "../../../contracts/entry/id.js"
 import { type AnyEntryDescriptor, entryDescriptorForId } from "../../../contracts/entry/registry.js"
-import type { RunRuntimeTelemetryRow, RunRuntimeTelemetrySection } from "../../atoms/surface/state.js"
+import type { RunRuntimeTelemetryRow, RunRuntimeTelemetrySection } from "../../atoms/surface/run-telemetry.js"
 import type { SurfaceRuntime } from "./kind.js"
 
-export type ProjectionPlaneHint = {
-  readonly stage: string
-  readonly evidence: string
-  readonly source: string
+export class ProjectionPlaneHint extends Data.Class<ProjectionPlaneHint.Shape> {
+  static make(hint: ProjectionPlaneHint.Shape): ProjectionPlaneHint {
+    return new ProjectionPlaneHint(hint)
+  }
 }
 
-export type TabHint = {
-  readonly interactive: string
-  readonly evidence: string
+export namespace ProjectionPlaneHint {
+  export interface Shape {
+    readonly stage: string
+    readonly evidence: string
+    readonly source: string
+  }
 }
 
-export type SurfaceViewExtension = {
-  readonly interactiveWidget: ReactNode | null
-  readonly projectionPlaneHint: ProjectionPlaneHint
-  readonly diagnosticsSections: (get: AtomType.Context) => ReadonlyArray<RunRuntimeTelemetrySection>
+export class TabHint extends Data.Class<TabHint.Shape> {
+  static make(hint: TabHint.Shape): TabHint {
+    return new TabHint(hint)
+  }
+}
+
+export namespace TabHint {
+  export interface Shape {
+    readonly interactive: string
+    readonly evidence: string
+  }
+}
+
+export class SurfaceViewExtension extends Data.Class<SurfaceViewExtension.Shape> {
+  static make(extension: SurfaceViewExtension.Shape): SurfaceViewExtension {
+    return new SurfaceViewExtension(extension)
+  }
+}
+
+export namespace SurfaceViewExtension {
+  export interface Shape {
+    readonly interactiveWidget: ReactNode | null
+    readonly projectionPlaneHint: ProjectionPlaneHint
+    readonly diagnosticsSections: (get: AtomType.Context) => ReadonlyArray<RunRuntimeTelemetrySection>
+  }
 }
 
 export type SurfaceViewExtensionContext = AtomType.Context
 
-export type EntryRuntimeAuthorityDescriptor = {
-  readonly authorityId: AuthorityCatalogDescriptor["authorityId"]
-  readonly catalog: AuthorityCatalogDescriptor
-}
+export class EntryRuntimeAuthorityDescriptor extends Data.Class<EntryRuntimeAuthorityDescriptor.Shape> {
+  static make(descriptor: EntryRuntimeAuthorityDescriptor.Shape): EntryRuntimeAuthorityDescriptor {
+    return new EntryRuntimeAuthorityDescriptor(descriptor)
+  }
 
-export type EntryRuntimeAdapterProvenance = {
-  readonly diagnosticsKey: string | null
-  readonly interactiveWidgetKey: string | null
-  readonly projectionDriverKey: string | null
-}
-
-export type EntryRuntimeAdapterDescriptor = {
-  readonly entryId: EntryId
-  readonly provenance: EntryRuntimeAdapterProvenance
-  readonly runtime: SurfaceRuntime
-  readonly surface: SurfaceViewExtension
-}
-
-export type EntryRuntimeDescriptor = {
-  readonly entryId: EntryId
-  readonly entry: AnyEntryDescriptor
-  readonly authority: EntryRuntimeAuthorityDescriptor
-  readonly adapter: EntryRuntimeAdapterDescriptor
-  readonly runtime: SurfaceRuntime
-  readonly surface: SurfaceViewExtension
-}
-
-export const defaultTabHint: TabHint = {
-  interactive: "Adjust parameters and see the results change in real time.",
-  evidence: "Quantitative evidence from the benchmark — every number is reproducible."
-}
-
-export const defaultProjectionPlaneHint: ProjectionPlaneHint = {
-  stage: defaultTabHint.interactive,
-  evidence: defaultTabHint.evidence,
-  source: "Inspect the prepared and runtime program projections exactly as executed, file by file."
-}
-
-export const noDiagnosticsSections = (_get: AtomType.Context): ReadonlyArray<RunRuntimeTelemetrySection> => []
-
-export const defaultSurfaceViewExtension: SurfaceViewExtension = {
-  interactiveWidget: null,
-  projectionPlaneHint: defaultProjectionPlaneHint,
-  diagnosticsSections: noDiagnosticsSections
-}
-
-export const makeEntryRuntimeAuthorityDescriptor = (
-  catalog: AuthorityCatalogDescriptor
-): EntryRuntimeAuthorityDescriptor => ({
-  authorityId: catalog.authorityId,
-  catalog
-})
-
-export const makeEntryRuntimeAdapterDescriptor = ({
-  entryId,
-  diagnosticsKey = null,
-  interactiveWidgetKey = null,
-  projectionDriverKey = null,
-  runtime,
-  surface
-}: {
-  readonly entryId: EntryId
-  readonly diagnosticsKey?: string | null
-  readonly interactiveWidgetKey?: string | null
-  readonly projectionDriverKey?: string | null
-  readonly runtime: SurfaceRuntime
-  readonly surface: SurfaceViewExtension
-}): EntryRuntimeAdapterDescriptor => ({
-  entryId,
-  provenance: {
-    diagnosticsKey,
-    interactiveWidgetKey,
-    projectionDriverKey
-  },
-  runtime,
-  surface
-})
-
-export const makeEntryRuntimeDescriptor = ({
-  entryId,
-  adapter
-}: {
-  readonly entryId: EntryId
-  readonly adapter: EntryRuntimeAdapterDescriptor
-}): EntryRuntimeDescriptor => {
-  const entry = entryDescriptorForId(entryId)
-
-  return {
-    entryId: entry.entryId,
-    entry,
-    authority: makeEntryRuntimeAuthorityDescriptor(authorityCatalogForId(primaryAuthorityIdForEntry(entryId))),
-    adapter,
-    runtime: adapter.runtime,
-    surface: adapter.surface
+  static fromCatalog(catalog: AuthorityCatalogDescriptor): EntryRuntimeAuthorityDescriptor {
+    return EntryRuntimeAuthorityDescriptor.make({
+      authorityId: catalog.authorityId,
+      catalog
+    })
   }
 }
 
-const entryRuntimeAdapterFingerprintInput = (adapter: EntryRuntimeAdapterDescriptor) => ({
-  entryId: adapter.entryId,
-  diagnosticsKey: adapter.provenance.diagnosticsKey,
-  interactiveWidgetKey: adapter.provenance.interactiveWidgetKey,
-  projectionDriverKey: adapter.provenance.projectionDriverKey,
-  projectionPlaneHint: adapter.surface.projectionPlaneHint,
-  transport: adapter.runtime.transport
+export namespace EntryRuntimeAuthorityDescriptor {
+  export interface Shape {
+    readonly authorityId: AuthorityCatalogDescriptor["authorityId"]
+    readonly catalog: AuthorityCatalogDescriptor
+  }
+}
+
+export class EntryRuntimeDescriptorProvenance extends Schema.Class<EntryRuntimeDescriptorProvenance>(
+  "EntryRuntimeDescriptorProvenance"
+)({
+  diagnosticsKey: Schema.NullOr(Schema.String),
+  interactiveWidgetKey: Schema.NullOr(Schema.String),
+  projectionDriverKey: Schema.NullOr(Schema.String)
+}) {}
+
+export class EntryRuntimeDescriptor extends Data.Class<EntryRuntimeDescriptor.Shape> {
+  static make(descriptor: EntryRuntimeDescriptor.Shape): EntryRuntimeDescriptor {
+    return new EntryRuntimeDescriptor(descriptor)
+  }
+
+  static resolve({
+    entryId,
+    provenance,
+    runtime,
+    surface
+  }: {
+    readonly entryId: EntryId
+    readonly provenance: EntryRuntimeDescriptorProvenance
+    readonly runtime: SurfaceRuntime
+    readonly surface: SurfaceViewExtension
+  }): EntryRuntimeDescriptor {
+    const entry = entryDescriptorForId(entryId)
+
+    return EntryRuntimeDescriptor.make({
+      entryId: entry.entryId,
+      entry,
+      authority: EntryRuntimeAuthorityDescriptor.fromCatalog(
+        authorityCatalogForId(primaryAuthorityIdForEntry(entryId))
+      ),
+      provenance,
+      runtime,
+      surface
+    })
+  }
+}
+
+export namespace EntryRuntimeDescriptor {
+  export interface Shape {
+    readonly entryId: EntryId
+    readonly entry: AnyEntryDescriptor
+    readonly authority: EntryRuntimeAuthorityDescriptor
+    readonly provenance: EntryRuntimeDescriptorProvenance
+    readonly runtime: SurfaceRuntime
+    readonly surface: SurfaceViewExtension
+  }
+}
+
+export const defaultTabHint: TabHint = TabHint.make({
+  interactive: "Adjust parameters and see the results change in real time.",
+  evidence: "Quantitative evidence from the benchmark — every number is reproducible."
+})
+
+export const defaultProjectionPlaneHint: ProjectionPlaneHint = ProjectionPlaneHint.make({
+  stage: defaultTabHint.interactive,
+  evidence: defaultTabHint.evidence,
+  source: "Inspect the prepared and runtime program projections exactly as executed, file by file."
+})
+
+export const noDiagnosticsSections = (_get: AtomType.Context): ReadonlyArray<RunRuntimeTelemetrySection> => []
+
+const entryRuntimeDescriptorFingerprintInput = (descriptor: EntryRuntimeDescriptor) => ({
+  entryId: descriptor.entryId,
+  diagnosticsKey: descriptor.provenance.diagnosticsKey,
+  interactiveWidgetKey: descriptor.provenance.interactiveWidgetKey,
+  projectionDriverKey: descriptor.provenance.projectionDriverKey,
+  projectionPlaneHint: descriptor.surface.projectionPlaneHint,
+  transport: descriptor.runtime.transport
 })
 
 const entryFingerprintInput = (entry: AnyEntryDescriptor) => ({
@@ -148,28 +158,28 @@ const entryFingerprintInput = (entry: AnyEntryDescriptor) => ({
 
 export type EntryRuntimeProvenance = {
   readonly descriptorFingerprint: DurableFingerprint
-  readonly adapterFingerprint: DurableFingerprint
+  readonly provenanceFingerprint: DurableFingerprint
   readonly entryFingerprint: DurableFingerprint
 }
 
-export const entryRuntimeAdapterFingerprint = (
-  adapter: EntryRuntimeAdapterDescriptor
-): Effect.Effect<DurableFingerprint, never, never> => fingerprintOf(entryRuntimeAdapterFingerprintInput(adapter))
+export const entryRuntimeProvenanceFingerprint = (
+  descriptor: EntryRuntimeDescriptor
+): Effect.Effect<DurableFingerprint, never, never> => fingerprintOf(entryRuntimeDescriptorFingerprintInput(descriptor))
 
 export const resolveEntryRuntimeProvenance = (
   descriptor: EntryRuntimeDescriptor
 ): Effect.Effect<EntryRuntimeProvenance, never, never> =>
   Effect.gen(function*() {
     const entryFingerprint = yield* fingerprintOf(entryFingerprintInput(descriptor.entry))
-    const adapterFingerprint = yield* entryRuntimeAdapterFingerprint(descriptor.adapter)
+    const provenanceFingerprint = yield* entryRuntimeProvenanceFingerprint(descriptor)
     const descriptorFingerprint = yield* fingerprintOf({
       entryFingerprint,
-      adapterFingerprint
+      provenanceFingerprint
     })
 
     return {
       descriptorFingerprint,
-      adapterFingerprint,
+      provenanceFingerprint,
       entryFingerprint
     }
   })

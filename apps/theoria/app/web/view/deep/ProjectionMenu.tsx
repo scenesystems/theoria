@@ -7,8 +7,8 @@ import {
 } from "../../atoms/layout/projection-menu.js"
 
 import { chromeHeaderGlyphClassName, chromeIconButtonClassName } from "../primitives/ChromeIconButton.js"
-import { surfaceMaterials } from "../primitives/designSystem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { surfaceMaterials } from "../primitives/theme/surface.js"
 
 import { type DeepDiveProjectionControlModel, projectedProjectionSurfaces } from "./projection-model.js"
 import { ProjectionDock } from "./ProjectionDock.js"

@@ -1,9 +1,17 @@
-import type { DeepDiveSurfacePlane } from "../../../contracts/presentation/layout.js"
+import { Schema } from "effect"
+
 import { DeepDiveSurfacePlaneValue } from "../../../contracts/presentation/layout.js"
 
 export const DeepDiveDiagnosticsPlaneValue = "diagnostics"
 
-export type DeepDiveProjectionPlane = DeepDiveSurfacePlane | typeof DeepDiveDiagnosticsPlaneValue
+export const DeepDiveProjectionPlane = Schema.Literal(
+  DeepDiveSurfacePlaneValue.Stage,
+  DeepDiveSurfacePlaneValue.Evidence,
+  DeepDiveSurfacePlaneValue.Source,
+  DeepDiveDiagnosticsPlaneValue
+)
+
+export type DeepDiveProjectionPlane = typeof DeepDiveProjectionPlane.Type
 
 export const diagnosticsProjectionEnabled = import.meta.env.DEV
 

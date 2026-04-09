@@ -14,9 +14,6 @@ import {
   summaryFromLines
 } from "./obstacleStageModel.js"
 
-export { reflowObstacleGapPx } from "./obstacleStageModel.js"
-export type { ObstacleProjection, ReflowStageLine, ReflowStageObstacle } from "./obstacleStageModel.js"
-
 const obstacleBottomOrder = Order.mapInput(
   Order.number,
   (obstacle: { readonly topPx: number; readonly heightPx: number }) => obstacle.topPx + obstacle.heightPx

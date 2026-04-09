@@ -20,7 +20,7 @@ export const consumerProofSection = (): EvidenceSection => ({
     },
     {
       _tag: "Text",
-      label: "Reflow demo",
+      label: "Reflow surface",
       value:
         "The reflow surface prepares a corpus entry or custom text once, then reprojects that handle across viewport widths and obstacle layouts."
     },

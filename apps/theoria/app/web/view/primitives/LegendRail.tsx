@@ -1,8 +1,8 @@
 import * as Arr from "effect/Array"
 
-import type { Legend } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { LegendItem } from "./LegendItem.js"
+import type { Legend } from "./theme/evidence.js"
 
 type LegendEntry = {
   readonly legend: Legend

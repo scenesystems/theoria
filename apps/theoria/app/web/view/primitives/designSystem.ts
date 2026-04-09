@@ -1,6 +1,0 @@
-export * from "./theme/badge.js"
-export * from "./theme/button.js"
-export * from "./theme/evidence.js"
-export * from "./theme/obstacle.js"
-export * from "./theme/surface.js"
-export * from "./theme/tone.js"

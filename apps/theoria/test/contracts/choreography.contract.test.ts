@@ -1,23 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either } from "effect"
 
+import { Choreography, decodeEvidenceEventJson, encodeEvidenceEventJson } from "../../app/contracts/evidence/stream.js"
 import {
   type ChoreographyProtocolViolation,
   type ChoreographyState,
+  Highlight,
   Idle,
   initialChoreographyState,
   InStage,
-  reduceChoreographyState
-} from "../../app/contracts/choreography.js"
-import {
-  Choreography,
-  decodeEvidenceEventJson,
-  encodeEvidenceEventJson,
-  Highlight,
+  reduceChoreographyState,
   StageAdvance,
   StageEnter,
   StageExit
-} from "../../app/contracts/evidence-stream.js"
+} from "../../app/contracts/study/workflow/choreography.js"
 
 const expectRight = <A>(result: Either.Either<A, ChoreographyProtocolViolation>): A => {
   expect(Either.isRight(result)).toBe(true)

@@ -1,14 +1,14 @@
 import { Effect, Option } from "effect"
 import type { Deferred, Queue, Stream } from "effect"
 
-import type { DemoError } from "../../../contracts/demo-error.js"
+import type { EntryError } from "../../../contracts/entry-error.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import type { RunRegistry } from "../../atoms/run-registry-context.js"
 import type { RunSignal } from "../../atoms/run/lifecycle.js"
 import type { LocalProjectionScript, LocalRunFrame } from "../../state/run/local.js"
-import type { RunOwnership } from "../../state/run/types.js"
+import { RunOwnership } from "../../state/run/types.js"
 
 export type CompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 
@@ -16,7 +16,7 @@ export type AuthoredStepQueueEvent = CanonicalFrame | CompletionEvent
 
 export type ProjectionDriverEvent =
   | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: LocalRunFrame }
-  | { readonly _tag: "LocalDriverCompleted" }
+  | { readonly _tag: "ProjectionDriverCompleted" }
 
 export type ProjectionDriverSnapshot = {
   readonly manifest: StreamManifest | null
@@ -26,29 +26,19 @@ export type ProjectionDriverSnapshot = {
 export type ProjectionDriverDescriptor = {
   readonly ownership: RunOwnership
   readonly snapshot: (registry: RunRegistry) => ProjectionDriverSnapshot
-  readonly makeStream: (
+  readonly stream: (
     registry: RunRegistry,
     signal: RunSignal,
     snapshot: ProjectionDriverSnapshot,
     stepQueue: Queue.Queue<AuthoredStepQueueEvent>,
     serverCompleted: Deferred.Deferred<CompletionEvent>
-  ) => Stream.Stream<ProjectionDriverEvent, DemoError, never>
+  ) => Stream.Stream<ProjectionDriverEvent, EntryError, never>
   readonly reset: (registry: RunRegistry) => Effect.Effect<void, never, never>
   readonly setPlayback: (registry: RunRegistry, isAnimating: boolean) => Effect.Effect<void, never, never>
   readonly syncFrameToControls: (
     registry: RunRegistry,
     localRunFrame: LocalRunFrame | null
   ) => Effect.Effect<void, never, never>
-}
-
-export const serverOnlyOwnership: RunOwnership = {
-  localDriver: false,
-  serverStream: true
-}
-
-export const sharedStreamingOwnership: RunOwnership = {
-  localDriver: true,
-  serverStream: true
 }
 
 export const noProjectionPlayback = (
@@ -63,7 +53,7 @@ export const noProjectionFrameSync = (
 
 export const runOwnershipFor = (projectionDriver: Option.Option<ProjectionDriverDescriptor>): RunOwnership =>
   Option.match(projectionDriver, {
-    onNone: () => serverOnlyOwnership,
+    onNone: RunOwnership.serverOnly,
     onSome: ({ ownership }) => ownership
   })
 

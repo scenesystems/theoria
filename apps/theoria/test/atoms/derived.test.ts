@@ -2,19 +2,19 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { SectionAppend, SectionUpsert } from "../../app/contracts/evidence-stream.js"
+import { SectionAppend, SectionUpsert } from "../../app/contracts/evidence/stream.js"
 import {
   deepDiveEvidenceAtom,
-  deepDiveStageFrameAtom,
   deepDiveStatusAtom,
   deepDiveSurfaceFrameAtom,
+  deepDiveSurfaceStageFrameAtom,
   presentedRunAtom,
   surfaceViewModelAtom,
   viewModelKey
 } from "../../app/web/atoms/derived.js"
-import { surfaceAtom, surfaceEvidenceStoreAtom } from "../../app/web/atoms/surface.js"
-import { applyEvidenceEvent } from "../../app/web/state/types.js"
-import { programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { surfaceEvidenceStoreAtom } from "../../app/web/atoms/surface/evidence-store.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, succeededRunState } from "../helpers/run-state.js"
 
 const makeTestRegistry = (): Registry.Registry =>
@@ -54,7 +54,7 @@ describe("Derived Atoms", () => {
       const atom = surfaceViewModelAtom(viewModelKey("effect-text", "expanded"))
 
       const before = registry.get(atom)
-      expect(before?.status).toContain("Run the demo")
+      expect(before?.status).toContain("Run the study")
 
       const fixture = runDataFixture("evidence collected")
       registry.update(surfaceAtom("effect-text"), (s) => ({
@@ -108,9 +108,8 @@ describe("Derived Atoms", () => {
         { immediate: true }
       )
 
-      registry.update(surfaceEvidenceStoreAtom("effect-search"), (stream) =>
-        applyEvidenceEvent(
-          stream,
+      registry.update(surfaceEvidenceStoreAtom("effect-search"), (store) =>
+        store.apply(
           new SectionAppend({
             section: {
               title: "Trial Positions",
@@ -123,13 +122,13 @@ describe("Derived Atoms", () => {
       unsubscribe()
     }))
 
-  it.effect("deepDiveStageFrameAtom stays stable while deepDiveEvidenceAtom reacts to stream-only updates", () =>
+  it.effect("deepDiveSurfaceStageFrameAtom stays stable while deepDiveEvidenceAtom reacts to stream-only updates", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const frameUpdates = { current: 0 }
       const evidenceUpdates = { current: 0 }
       const unsubscribeFrame = registry.subscribe(
-        deepDiveStageFrameAtom("effect-search"),
+        deepDiveSurfaceStageFrameAtom("effect-search"),
         () => {
           frameUpdates.current = frameUpdates.current + 1
         },
@@ -143,9 +142,8 @@ describe("Derived Atoms", () => {
         { immediate: true }
       )
 
-      registry.update(surfaceEvidenceStoreAtom("effect-search"), (stream) =>
-        applyEvidenceEvent(
-          stream,
+      registry.update(surfaceEvidenceStoreAtom("effect-search"), (store) =>
+        store.apply(
           new SectionAppend({
             section: {
               title: "Trial Positions",
@@ -185,9 +183,8 @@ describe("Derived Atoms", () => {
         { immediate: true }
       )
 
-      registry.update(surfaceEvidenceStoreAtom("effect-search"), (stream) =>
-        applyEvidenceEvent(
-          stream,
+      registry.update(surfaceEvidenceStoreAtom("effect-search"), (store) =>
+        store.apply(
           new SectionAppend({
             section: {
               title: "Trial Positions",
@@ -195,9 +192,8 @@ describe("Derived Atoms", () => {
             }
           })
         ))
-      registry.update(surfaceEvidenceStoreAtom("effect-search"), (stream) =>
-        applyEvidenceEvent(
-          stream,
+      registry.update(surfaceEvidenceStoreAtom("effect-search"), (store) =>
+        store.apply(
           new SectionUpsert({
             section: {
               title: "Trial Positions",

@@ -8,10 +8,10 @@ import type { RunControlActionKind } from "../../state/run/types.js"
 
 import type { RunControlsViewModel } from "../runControlsModel.js"
 
-import type { Surface } from "./designSystem.js"
 import { headerChromeSurfaceClassName } from "./HeaderChrome.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { Surface } from "./theme/surface.js"
 
 const classes = (...entries: ReadonlyArray<string | undefined>): string =>
   entries.filter((entry) => entry !== undefined && entry.length > 0).join(" ")

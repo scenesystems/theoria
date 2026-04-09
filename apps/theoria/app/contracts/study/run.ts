@@ -1,7 +1,8 @@
+import { PackageNameSchema } from "@theoria/source-proof/contracts"
 import { Schema } from "effect"
 
 import { EntryId } from "../entry/id.js"
-import { Envelope } from "../envelope.js"
+import { FailureEnvelope, Metadata } from "../envelope.js"
 import { EvidenceSection } from "../evidence/item.js"
 import { Program } from "../presentation/program.js"
 
@@ -14,7 +15,7 @@ const NonNegativeNumber = Schema.Number.pipe(
 
 export const RunData = Schema.Struct({
   id: EntryId,
-  packageName: NonEmptyString,
+  packageName: PackageNameSchema,
   summary: NonEmptyString,
   durationMs: NonNegativeNumber,
   program: Program,
@@ -23,6 +24,12 @@ export const RunData = Schema.Struct({
 
 export type RunData = typeof RunData.Type
 
-export const RunEnvelope = Envelope(RunData)
+export class RunSuccessEnvelope extends Schema.Class<RunSuccessEnvelope>("RunSuccessEnvelope")({
+  ok: Schema.Literal(true),
+  meta: Metadata,
+  data: RunData
+}) {}
+
+export const RunEnvelope = Schema.Union(RunSuccessEnvelope, FailureEnvelope)
 
 export type RunEnvelope = typeof RunEnvelope.Type

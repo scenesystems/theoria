@@ -9,7 +9,7 @@ import {
   powerSampleSizeMax,
   powerSampleSizeMin
 } from "../../capability/effect-math.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, makeEntryDescriptor } from "../descriptor.js"
+import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
 
 const effectMathAuthority = authorityCatalogForId("effect-math")
 
@@ -19,7 +19,7 @@ const EffectMathEntryInput = Schema.Struct({
   alpha: Schema.Number.pipe(Schema.between(powerAlphaMin, powerAlphaMax))
 })
 
-export const effectMathEntryDescriptor = makeEntryDescriptor({
+export const effectMathEntryDescriptor = EntryDescriptor.define({
   entryId: "effect-math",
   title: effectMathAuthority.title,
   packageName: effectMathAuthority.packageName,

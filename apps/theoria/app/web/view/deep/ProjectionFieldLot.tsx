@@ -1,5 +1,9 @@
 import type { ReactNode } from "react"
 
+import {
+  projectionDockLaneTargetProps,
+  projectionDockLotIndexProps
+} from "../../runtime/kernel/projection-dock-target.js"
 import { Layer } from "../primitives/Layout.js"
 import { SelectionCopy } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -50,7 +54,7 @@ export const ProjectionFieldLot = ({
   return (
     <Layer
       className={lotShellClassName({ active, filled })}
-      data-projection-lot-index={String(index)}
+      {...projectionDockLotIndexProps(index)}
     >
       <Layer className={slotRowClassName}>
         <Layer as="span" className={slotLabelClassName}>
@@ -62,7 +66,7 @@ export const ProjectionFieldLot = ({
             variant="compact"
           />
         </Layer>
-        <Layer className="min-w-0" data-projection-lane-target="true">
+        <Layer className="min-w-0" {...projectionDockLaneTargetProps()}>
           {filled
             ? children
             : (

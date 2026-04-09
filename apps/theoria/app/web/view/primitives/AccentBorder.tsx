@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
-import type { Tone } from "./designSystem.js"
 import { Stack } from "./Layout.js"
+import type { Tone } from "./theme/tone.js"
 
 /**
  * Left-accent border with tone color. Used for callout blocks, example

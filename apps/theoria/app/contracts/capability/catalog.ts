@@ -1,3 +1,4 @@
+import { packageNameFromString, PackageNameSchema } from "@theoria/source-proof/contracts"
 import type { Effect } from "effect"
 import { Schema } from "effect"
 
@@ -9,7 +10,7 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 export const AuthorityCatalogDescriptor = Schema.Struct({
   authorityId: AuthorityId,
   title: NonEmptyString,
-  packageName: NonEmptyString,
+  packageName: PackageNameSchema,
   description: NonEmptyString,
   useCase: NonEmptyString,
   summary: NonEmptyString,
@@ -25,7 +26,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   "effect-math": {
     authorityId: "effect-math",
     title: "effect-math",
-    packageName: "effect-math",
+    packageName: packageNameFromString("effect-math"),
     description: "Combines numerical and statistical computing with typed errors and policy-aware operations.",
     useCase: "Numerical analysis and statistical modeling inside application code.",
     summary: "Explore how sample size, effect size, and target power trade off.",
@@ -37,7 +38,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   "effect-search": {
     authorityId: "effect-search",
     title: "effect-search",
-    packageName: "effect-search",
+    packageName: packageNameFromString("effect-search"),
     description:
       "Runs optimization studies with adaptive samplers when each evaluation is too expensive for trial and error.",
     useCase: "Hyperparameter tuning, experiment design, and other expensive search problems.",
@@ -50,7 +51,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   "effect-dsp": {
     authorityId: "effect-dsp",
     title: "effect-dsp",
-    packageName: "effect-dsp",
+    packageName: packageNameFromString("effect-dsp"),
     description: "Turns language-model workflows into typed programs you can trace, evaluate, and optimize.",
     useCase: "Build, evaluate, and optimize LLM workflows without hand-managing prompts.",
     summary: "Run a typed classifier and compare it with a heuristic baseline.",
@@ -62,7 +63,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   "effect-text": {
     authorityId: "effect-text",
     title: "effect-text",
-    packageName: "effect-text",
+    packageName: packageNameFromString("effect-text"),
     description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
     useCase: "Prepare text once, then reflow it across widths and obstacles.",
     summary: "Measure in the browser and reflow the same text as the container changes.",
@@ -74,7 +75,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   "effect-inference": {
     authorityId: "effect-inference",
     title: "effect-inference",
-    packageName: "effect-inference",
+    packageName: packageNameFromString("effect-inference"),
     description:
       "Resolves model requests for text and embeddings across providers while keeping request intent, routing, and execution evidence separate.",
     useCase: "Keep requested model intent, resolved route, and execution evidence separate.",
@@ -87,7 +88,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   digest: {
     authorityId: "digest",
     title: "@scenesystems/digest",
-    packageName: "@scenesystems/digest",
+    packageName: packageNameFromString("@scenesystems/digest"),
     description: "Turns structured data into stable cryptographic digests you can use as identifiers.",
     useCase: "Stable fingerprints, integrity checks, and content addressing.",
     summary: "Hash a structured value with BLAKE3-256 and SHA-256.",
@@ -99,7 +100,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   seal: {
     authorityId: "seal",
     title: "@scenesystems/seal",
-    packageName: "@scenesystems/seal",
+    packageName: packageNameFromString("@scenesystems/seal"),
     description: "Encrypts data into self-describing envelopes that carry what is needed to decrypt it.",
     useCase: "Encrypt data without tracking algorithm and nonce separately.",
     summary: "Seal and unseal data with XChaCha20-Poly1305.",
@@ -111,7 +112,7 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
   sign: {
     authorityId: "sign",
     title: "@scenesystems/sign",
-    packageName: "@scenesystems/sign",
+    packageName: packageNameFromString("@scenesystems/sign"),
     description:
       "Signs messages, derives shared secrets, and encapsulates keys with classical and post-quantum algorithms.",
     useCase: "Switch between classical and post-quantum algorithms without changing the workflow.",

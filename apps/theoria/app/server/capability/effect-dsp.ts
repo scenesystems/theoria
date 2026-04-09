@@ -63,19 +63,8 @@ const emptyResolution = {
   resolvedRoute: Option.none<InferenceContracts.ResolvedRouteDescriptor>()
 }
 
-const makeProviderRuntime = (options: {
-  readonly capability: ProviderCapability
-  readonly resolution: ProviderResolution
-  readonly layer: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
-}) =>
-  DspProviderRuntime.of({
-    capability: options.capability,
-    resolution: options.resolution,
-    layer: options.layer
-  })
-
 const disabledRuntime = (reason: string) =>
-  makeProviderRuntime({
+  DspProviderRuntime.of({
     capability: {
       enabled: false,
       provider: Option.none(),
@@ -97,7 +86,7 @@ const resolvedProviderRuntime = Effect.gen(function*() {
   )
   const resolution = yield* resolver.resolve(runtime.desired)
 
-  return makeProviderRuntime({
+  return DspProviderRuntime.of({
     capability: {
       enabled: true,
       provider: Option.some(providerForRuntime(runtime.provider)),
@@ -134,7 +123,7 @@ export const dspRuntimeProjection = (runtime: {
     })
   })
 
-const makeRuntime = Effect.either(resolvedProviderRuntime).pipe(
+const resolveDspProviderRuntime = Effect.either(resolvedProviderRuntime).pipe(
   Effect.flatMap(
     Either.match({
       onLeft: (error) => Effect.succeed(disabledRuntime(reasonFromError(error))),
@@ -143,4 +132,4 @@ const makeRuntime = Effect.either(resolvedProviderRuntime).pipe(
   )
 )
 
-export const DspProviderRuntimeLive = Layer.effect(DspProviderRuntime, makeRuntime)
+export const DspProviderRuntimeLive = Layer.effect(DspProviderRuntime, resolveDspProviderRuntime)

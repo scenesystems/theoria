@@ -1,18 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Fiber, Option, Ref, Stream } from "effect"
 
-import { DemoRequestError } from "../../app/contracts/demo-error.js"
-import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence-stream.js"
-import type { EvidenceSection } from "../../app/contracts/evidence.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeServerEvidenceStream } from "../../app/web/atoms/evidence-stream.js"
+import { EntryRequestError } from "../../app/contracts/entry-error.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import { entryPackageNameForId } from "../../app/contracts/entry/routing.js"
+import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
+import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence/stream.js"
+import { ServerEvidenceStream } from "../../app/web/atoms/surface/evidence-stream.js"
 import {
   streamingEntryIds,
   type SurfaceRuntime,
   surfaceRuntimeFor,
   type SurfaceRuntimeSnapshot
 } from "../../app/web/runtime/kernel/surface-runtime.js"
-import { initialSurfaceState } from "../../app/web/state/types.js"
+import { initialSurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestLayer } from "../helpers/entry-client.test-layer.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
@@ -117,13 +118,13 @@ const streamingProofLayer = ({
   makeAppClientTestLayer({
     run: () =>
       Ref.update(runCountRef, (count) => count + 1).pipe(
-        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run data path" })))
+        Effect.zipRight(Effect.fail(new EntryRequestError({ message: "unexpected /run data path" })))
       ),
     runWithMeta: () =>
       Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
-        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unexpected /run terminal path" })))
+        Effect.zipRight(Effect.fail(new EntryRequestError({ message: "unexpected /run terminal path" })))
       ),
-    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" }))
+    preload: () => Effect.fail(new EntryRequestError({ message: "unused preload" }))
   })
 
 const fetchProofLayer = ({
@@ -136,14 +137,14 @@ const fetchProofLayer = ({
   makeAppClientTestLayer({
     run: () =>
       Ref.update(runCountRef, (count) => count + 1).pipe(
-        Effect.zipRight(Effect.fail(new DemoRequestError({ message: "unused /run data path" })))
+        Effect.zipRight(Effect.fail(new EntryRequestError({ message: "unused /run data path" })))
       ),
     runWithMeta: () =>
       Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
         Effect.as({
           data: {
             id: "digest",
-            packageName: "digest",
+            packageName: entryPackageNameForId("digest"),
             summary: "Fetched terminal result.",
             durationMs: streamMeta.durationMs,
             program: {
@@ -154,7 +155,7 @@ const fetchProofLayer = ({
           meta: streamMeta
         })
       ),
-    preload: () => Effect.fail(new DemoRequestError({ message: "unused preload" }))
+    preload: () => Effect.fail(new EntryRequestError({ message: "unused preload" }))
   })
 
 describe("evidence stream transport proof", () => {
@@ -173,7 +174,7 @@ describe("evidence stream transport proof", () => {
 
             const request = runtimeStreamRequestFor(id)
 
-            const fiber = yield* makeServerEvidenceStream(request).pipe(
+            const fiber = yield* ServerEvidenceStream.fromRuntime(request).pipe(
               Stream.runCollect,
               Effect.provide(layer),
               Effect.fork
@@ -186,7 +187,7 @@ describe("evidence stream transport proof", () => {
 
             source.emitEvidence(encodeEvidenceEventJson(new SectionAppend({ section: performanceSection })))
             source.emitEvidence(
-              encodeEvidenceEventJson(new StreamComplete({ summary: `${id} complete.`, meta: streamMeta }))
+              encodeEvidenceEventJson(StreamComplete.make({ summary: `${id} complete.`, meta: streamMeta }))
             )
 
             const events = yield* Fiber.join(fiber)
@@ -206,7 +207,7 @@ describe("evidence stream transport proof", () => {
     Effect.gen(function*() {
       const runCountRef = yield* Ref.make(0)
       const runWithMetaCountRef = yield* Ref.make(0)
-      const events = yield* makeServerEvidenceStream(runtimeStreamRequestFor("digest")).pipe(
+      const events = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("digest")).pipe(
         Stream.runCollect,
         Effect.provide(fetchProofLayer({ runCountRef, runWithMetaCountRef }))
       )

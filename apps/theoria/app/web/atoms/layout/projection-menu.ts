@@ -1,6 +1,6 @@
 import { Atom } from "@effect-atom/atom"
 
-import { clearDeepDiveDraggedSurfaceAtom } from "./deep-dive.js"
+import { clearDeepDiveDraggedSurfaceAtom } from "./deep-dive-drag.js"
 
 export const deepDiveProjectionMenuOpenAtom = Atom.make(false).pipe(Atom.keepAlive)
 

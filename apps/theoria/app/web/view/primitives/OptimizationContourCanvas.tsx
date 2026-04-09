@@ -3,7 +3,7 @@ import * as Option from "effect/Option"
 import { memo } from "react"
 
 import { objectiveExpression, optimum, searchBounds } from "../../../contracts/capability/effect-search.js"
-import type { OptimizationWidgetViewModel } from "../../atoms/widget-view-models.js"
+import type { OptimizationWidgetViewModel } from "../../atoms/optimization-widget-view-model.js"
 import {
   mapOptimizationX,
   mapOptimizationY,
@@ -12,10 +12,11 @@ import {
   optimizationOptimum,
   optimizationPlotBounds
 } from "../data/optimizationContours.js"
-import { type Legend, neutralSubtleLegend, surfaceMaterials } from "./designSystem.js"
 import { Cluster, Stack } from "./Layout.js"
 import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
+import { type Legend, neutralSubtleLegend } from "./theme/evidence.js"
+import { surfaceMaterials } from "./theme/surface.js"
 
 const tpeLegend: Legend = { swatch: "bg-tone-search-500 shadow-sm", label: "text-ink-700" }
 const optimumLegend: Legend = { swatch: "bg-tone-search-400 shadow-sm", label: "text-ink-700" }

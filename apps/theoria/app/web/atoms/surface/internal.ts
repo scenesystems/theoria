@@ -1,14 +1,15 @@
 import { Effect, Either, Option } from "effect"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
-import { emptyEvidenceStoreState } from "../../../contracts/evidence/store.js"
+import { EvidenceStore } from "../../../contracts/evidence/store.js"
 import { surfaceRuntimeFor, type SurfaceRuntimeServices } from "../../runtime/kernel/surface-runtime.js"
 import type { RunMessage } from "../../state/run/messages.js"
 import { reduceRunState } from "../../state/run/reducer.js"
 import type { SurfaceState } from "../../state/surface/state.js"
 
 import type { RunRegistry } from "../run-registry-context.js"
-import { surfaceAtom, surfaceEvidenceStoreAtom } from "./state.js"
+import { surfaceEvidenceStoreAtom } from "./evidence-store.js"
+import { surfaceAtom } from "./state.js"
 
 export const modifySurface = (registry: RunRegistry, id: EntryId, f: (s: SurfaceState) => SurfaceState): void => {
   registry.update(surfaceAtom(id), f)
@@ -22,7 +23,7 @@ export const dispatchRunMessage = (registry: RunRegistry, id: EntryId, message: 
 }
 
 export const resetSurfaceEvidenceStore = (registry: RunRegistry, id: EntryId): void => {
-  registry.set(surfaceEvidenceStoreAtom(id), emptyEvidenceStoreState)
+  registry.set(surfaceEvidenceStoreAtom(id), EvidenceStore.empty())
 }
 
 const shouldFetchPreload = (registry: RunRegistry, id: EntryId): boolean => {

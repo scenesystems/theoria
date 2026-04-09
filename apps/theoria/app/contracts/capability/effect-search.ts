@@ -1,9 +1,9 @@
 /**
- * Shared objective configuration and trial extraction for the effect-search demo.
+ * Shared objective configuration and trial extraction for the effect-search entry.
  *
  * Provides the 2D quadratic objective, search bounds, optimum, and trial
- * extraction utilities — all as pure functions shared by the server demo
- * and the client-side optimization animation.
+ * extraction utilities — all as pure functions shared by the server study
+ * execution and the client-side optimization animation.
  *
  * @since 0.1.0
  * @module

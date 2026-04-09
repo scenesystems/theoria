@@ -2,19 +2,12 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
-import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../../view/data/evidence-layout.js"
-
-export type EvidencePlanePreferences = {
-  readonly filter: EvidencePlaneFilter
-  readonly order: EvidencePlaneOrder
-  readonly sectionKey: string | null
-}
-
-const defaultEvidencePlanePreferences: EvidencePlanePreferences = {
-  filter: "all",
-  order: "narrative",
-  sectionKey: null
-}
+import {
+  defaultEvidencePlanePreferences,
+  type EvidencePlaneFilter,
+  type EvidencePlaneOrder,
+  type EvidencePlanePreferences
+} from "../../../contracts/evidence/plane.js"
 
 export const surfaceEvidencePlaneAtom: (id: EntryId) => AtomType.Writable<EvidencePlanePreferences> = Atom.family(
   (_id: EntryId) => Atom.make(defaultEvidencePlanePreferences).pipe(Atom.keepAlive)

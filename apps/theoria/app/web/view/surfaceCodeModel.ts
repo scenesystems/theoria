@@ -1,18 +1,30 @@
-import { Match } from "effect"
+import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
 import {
   type Program,
-  type ProgramSourceScope,
-  type SourceFileTab,
-  type SourceWorkspaceTab,
+  ProgramSourceScope,
+  SourceFileTab,
+  SourceWorkspaceTab,
   type SurfaceVariant
 } from "../../contracts/presentation/program.js"
-import { programFromRunState } from "../state/run/types.js"
 import type { SurfaceState } from "../state/surface/state.js"
 
-import type { SurfaceCodeModel } from "./surfaceModel.js"
+export class SurfaceCodeModel extends Schema.Class<SurfaceCodeModel>("SurfaceCodeModel")({
+  entry: Schema.String,
+  fileName: Schema.String,
+  selectedSourceScope: ProgramSourceScope,
+  sourceTabs: Schema.Array(SourceWorkspaceTab),
+  source: Schema.String,
+  lineCount: Schema.Number,
+  truncated: Schema.Boolean,
+  hint: Schema.String,
+  originHint: Schema.String,
+  originLabel: Schema.String,
+  fileTabs: Schema.Array(SourceFileTab),
+  selectedFileIndex: Schema.Number
+}) {}
 
 const compactCodeLineLimit = 14
 const fallbackProgram: Program = {
@@ -51,7 +63,7 @@ const loadingCodeProgram: ResolvedCodeProgram = resolvedProgram({
 })
 
 const selectedFile = (program: Program, fileIndex: number) => program.files[fileIndex] ?? program.files[0]
-const currentProgram = (state: SurfaceState): Program | null => programFromRunState(state.run)
+const currentProgram = (state: SurfaceState): Program | null => state.run.session.program
 
 const selectedProgramFileIndex = (program: Program, fileIndex: number): number =>
   fileIndex >= 0 && fileIndex < program.files.length ? fileIndex : 0
@@ -159,7 +171,7 @@ export const surfaceCodeModel = (state: SurfaceState, variant: SurfaceVariant): 
     }
   const lineLabel = lineCount === 1 ? "line" : "lines"
 
-  return {
+  return SurfaceCodeModel.make({
     entry: file.entry.length === 0 ? "Awaiting preload" : file.entry,
     fileName: file.name,
     selectedSourceScope: resolved.scope,
@@ -174,5 +186,5 @@ export const surfaceCodeModel = (state: SurfaceState, variant: SurfaceVariant): 
     originLabel: resolved.originLabel,
     fileTabs: programFileTabs(resolved.program),
     selectedFileIndex
-  }
+  })
 }

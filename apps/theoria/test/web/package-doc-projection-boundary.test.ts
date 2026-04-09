@@ -7,7 +7,7 @@ import { Effect } from "effect"
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
 
 const projectionFiles: ReadonlyArray<string> = [
-  "apps/theoria/app/contracts/package-docs.ts",
+  "apps/theoria/app/contracts/presentation/package-docs.ts",
   "apps/theoria/app/server/routes/package-docs.ts",
   "apps/theoria/app/web/services/PackageDocsClient.ts",
   "apps/theoria/app/web/atoms/package-docs.ts",

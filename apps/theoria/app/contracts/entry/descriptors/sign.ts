@@ -1,9 +1,9 @@
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, makeEntryDescriptor } from "../descriptor.js"
+import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
 
 const signAuthority = authorityCatalogForId("sign")
 
-export const signEntryDescriptor = makeEntryDescriptor({
+export const signEntryDescriptor = EntryDescriptor.define({
   entryId: "sign",
   title: signAuthority.title,
   packageName: signAuthority.packageName,

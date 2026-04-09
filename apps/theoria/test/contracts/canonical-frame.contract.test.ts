@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { CanonicalFrame, canonicalFrameV1, DspCanonicalStep } from "../../app/contracts/canonical-step.js"
-import { EvidenceEvent } from "../../app/contracts/evidence-stream.js"
+import { DspCanonicalStep } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import { EvidenceEvent } from "../../app/contracts/evidence/stream.js"
+import { CanonicalFrame, canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 
 const dspCanonicalStep = new DspCanonicalStep({
   scenarioId: "intervention-classifier",

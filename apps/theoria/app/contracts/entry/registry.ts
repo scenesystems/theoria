@@ -1,6 +1,9 @@
+import type { PackageName } from "@theoria/source-proof/contracts"
 import { Effect, Schema } from "effect"
+import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
 
-import { type EntryDescriptor, entryDescriptorFingerprint } from "./descriptor.js"
+import { entryDescriptorFingerprint, type EntryDescriptorFingerprintOwner } from "./descriptor.js"
 import { digestEntryDescriptor } from "./descriptors/digest.js"
 import { effectDspEntryDescriptor } from "./descriptors/effect-dsp.js"
 import { effectInferenceEntryDescriptor } from "./descriptors/effect-inference.js"
@@ -11,7 +14,7 @@ import { sealEntryDescriptor } from "./descriptors/seal.js"
 import { signEntryDescriptor } from "./descriptors/sign.js"
 import { workflowEntryDescriptor } from "./descriptors/workflow.js"
 import { type DurableFingerprint, fingerprintOf } from "./fingerprint.js"
-import type { EntryId } from "./id.js"
+import { type EntryId, workflowEntryId } from "./id.js"
 
 export const entryDescriptorTuple = [
   effectMathEntryDescriptor,
@@ -29,7 +32,11 @@ export type AnyEntryDescriptor = (typeof entryDescriptorTuple)[number]
 
 export const entryDescriptors: ReadonlyArray<AnyEntryDescriptor> = entryDescriptorTuple
 
-export const entryDescriptorById: Readonly<Record<EntryId, AnyEntryDescriptor>> = {
+type EntryDescriptorById = {
+  readonly [Id in EntryId]: Extract<AnyEntryDescriptor, { readonly entryId: Id }>
+}
+
+export const entryDescriptorById: EntryDescriptorById = {
   "effect-math": effectMathEntryDescriptor,
   "effect-search": effectSearchEntryDescriptor,
   "effect-dsp": effectDspEntryDescriptor,
@@ -38,7 +45,7 @@ export const entryDescriptorById: Readonly<Record<EntryId, AnyEntryDescriptor>> 
   digest: digestEntryDescriptor,
   seal: sealEntryDescriptor,
   sign: signEntryDescriptor,
-  workflow: workflowEntryDescriptor
+  [workflowEntryId]: workflowEntryDescriptor
 }
 
 export const EntryDraft = Schema.Union(
@@ -54,6 +61,7 @@ export const EntryDraft = Schema.Union(
 )
 
 export type EntryDraft = typeof EntryDraft.Type
+export type WorkflowEntryDraft = Extract<EntryDraft, { readonly entryId: typeof workflowEntryId }>
 
 export const EntryRunRequest = Schema.Union(
   effectMathEntryDescriptor.runRequestSchema,
@@ -69,9 +77,19 @@ export const EntryRunRequest = Schema.Union(
 
 export type EntryRunRequest = typeof EntryRunRequest.Type
 
-export const entryDescriptorForId = (entryId: EntryId): AnyEntryDescriptor => entryDescriptorById[entryId]
+export const entryDescriptorForId = <Id extends EntryId>(entryId: Id): EntryDescriptorById[Id] =>
+  entryDescriptorById[entryId]
+
+export const entryDescriptorForPackageName = (packageName: PackageName): Option.Option<AnyEntryDescriptor> =>
+  Arr.findFirst(entryDescriptors, (descriptor) => descriptor.packageName === packageName)
+
+export const entryIdForPackageName = (packageName: PackageName): Option.Option<EntryId> =>
+  entryDescriptorForPackageName(packageName).pipe(Option.map((descriptor) => descriptor.entryId))
+
+export const isWorkflowEntryDraft = (draft: EntryDraft): draft is WorkflowEntryDraft =>
+  draft.entryId === workflowEntryId
 
 export const entryRegistryFingerprint = (
-  registry: ReadonlyArray<EntryDescriptor<unknown, unknown, unknown, unknown>>
+  registry: ReadonlyArray<EntryDescriptorFingerprintOwner>
 ): Effect.Effect<DurableFingerprint, never, never> =>
   Effect.forEach(registry, entryDescriptorFingerprint).pipe(Effect.flatMap(fingerprintOf))

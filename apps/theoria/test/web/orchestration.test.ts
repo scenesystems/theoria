@@ -3,21 +3,21 @@ import { describe, expect, it } from "@effect/vitest"
 import { Deferred, Effect, Ref } from "effect"
 
 import { corpus } from "../../app/contracts/corpus.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
-import type { EntryId } from "../../app/contracts/id.js"
-import { makeRunControlAtom, makeRunDemoAtom } from "../../app/web/atoms/actions.js"
-import { animatingAtom } from "../../app/web/atoms/animation.js"
+import { customTextAtom, reflowControlsAtom, reflowSliderMaxWidth } from "../../app/web/atoms/reflow.js"
+import { animatingAtom } from "../../app/web/atoms/run/animation.js"
 import {
   optimizationAnimatingAtom,
   randomTrialsAtom,
   tpeTrialsAtom
-} from "../../app/web/atoms/optimization-animation.js"
-import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/power-animation.js"
-import { customTextAtom, reflowControlsAtom, reflowSliderMaxWidth } from "../../app/web/atoms/reflow.js"
-import { surfaceAtom } from "../../app/web/atoms/surface.js"
-import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+} from "../../app/web/atoms/run/optimization-animation.js"
+import { powerAnimatingAtom, powerControlsAtom } from "../../app/web/atoms/run/power-animation.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
+import { makeRunControlAtom, makeRunDemoAtom } from "../helpers/run-atoms.js"
 import { failedRunState, runningRunState, succeededRunState } from "../helpers/run-state.js"
 
 const readSurface = (registry: Registry.Registry, id: EntryId): SurfaceState => registry.get(surfaceAtom(id))

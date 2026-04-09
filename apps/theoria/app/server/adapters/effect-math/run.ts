@@ -1,6 +1,8 @@
 import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
+import { effectMathEntryDescriptor } from "../../../contracts/entry/descriptors/effect-math.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 import { preloadProgram } from "./preload.js"
 import {
@@ -20,6 +22,8 @@ import {
 } from "./stream.js"
 
 export { preloadProgram, runSummary, streamElements, streamPlan, streamSections }
+
+const effectMathRunIdentity = entryRunIdentityForId(effectMathEntryDescriptor.entryId)
 
 // ---------------------------------------------------------------------------
 // Exports
@@ -44,8 +48,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const endedAt = yield* Clock.currentTimeMillis
 
   return {
-    id: "effect-math",
-    packageName: "effect-math",
+    ...effectMathRunIdentity,
     summary: runSummary,
     durationMs: endedAt - startedAt,
     program: runnableProgram,

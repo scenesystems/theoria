@@ -1,7 +1,7 @@
 import type { ChangeEventHandler } from "react"
 
-import type { Tone } from "./designSystem.js"
 import { Layer } from "./Layout.js"
+import type { Tone } from "./theme/tone.js"
 
 export const TextAreaField = ({
   active,

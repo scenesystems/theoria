@@ -4,7 +4,7 @@ import { DspCanonicalStep } from "../../capability/effect-dsp-runtime.js"
 import { EffectMathCanonicalStep } from "../../capability/effect-math.js"
 import { EffectSearchCanonicalStep } from "../../capability/effect-search.js"
 import { EffectTextProjectionStep } from "../../capability/effect-text.js"
-import { WorkflowComparisonCanonicalStep } from "./comparison/step.js"
+import { WorkflowCanonicalStep } from "./step.js"
 
 /**
  * Canonical run-step inputs authored by the shared runtime.
@@ -18,7 +18,7 @@ export const CanonicalStep = Schema.Union(
   EffectSearchCanonicalStep,
   EffectMathCanonicalStep,
   DspCanonicalStep,
-  WorkflowComparisonCanonicalStep
+  WorkflowCanonicalStep
 )
 
 export type CanonicalStep = typeof CanonicalStep.Type

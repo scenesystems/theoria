@@ -3,12 +3,18 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Option, Schema } from "effect"
 
 import {
+  OpenAgentTracePanelData,
+  type OpenAgentTracePanelGroupKey,
+  type OpenAgentTracePanelSectionKey,
   type OpenAgentTraceRegistryEntry,
   OpenAgentTraceRegistryEnvelope
-} from "../../app/contracts/open-agent-trace.js"
+} from "../../app/contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
 import { openAgentTraceRoute } from "../../app/server/routes/open-agent-trace.js"
-import { openAgentTracePanelModel } from "../../app/web/view/open-agent-trace/model.js"
+import {
+  type OpenAgentTraceEntryPanelModel,
+  OpenAgentTracePanelModel
+} from "../../app/web/view/study/open-agent-trace/panel-types.js"
 
 class ResponseJsonError extends Schema.TaggedError<ResponseJsonError>()("ResponseJsonError", {
   message: Schema.String
@@ -56,8 +62,73 @@ const decodeWebJson = <A, I>(
     return yield* Schema.decodeUnknown(schema)(body).pipe(Effect.orDie)
   })
 
+const panelEntriesFor = (
+  model: OpenAgentTracePanelModel
+): ReadonlyArray<OpenAgentTraceEntryPanelModel> => model.entries
+
+const sectionFor = ({
+  entry,
+  groupKey,
+  sectionKey
+}: {
+  readonly entry: Option.Option<OpenAgentTraceEntryPanelModel>
+  readonly groupKey: OpenAgentTracePanelGroupKey
+  readonly sectionKey: OpenAgentTracePanelSectionKey
+}) =>
+  entry.pipe(
+    Option.flatMap((resolvedEntry) =>
+      Option.fromNullable(resolvedEntry.groups.find((group) => group.key === groupKey)).pipe(
+        Option.flatMap((group) => Option.fromNullable(group.sections.find((section) => section.key === sectionKey)))
+      )
+    )
+  )
+
+const summaryRowsFor = ({
+  entry,
+  groupKey,
+  sectionKey
+}: {
+  readonly entry: Option.Option<OpenAgentTraceEntryPanelModel>
+  readonly groupKey: OpenAgentTracePanelGroupKey
+  readonly sectionKey: OpenAgentTracePanelSectionKey
+}) =>
+  sectionFor({ entry, groupKey, sectionKey }).pipe(
+    Option.match({
+      onNone: () => [],
+      onSome: (section) =>
+        Match.value(section).pipe(
+          Match.tag("OpenAgentTraceSummaryPanelSection", ({ rows }) => rows),
+          Match.tag("OpenAgentTraceDetailsPanelSection", () => []),
+          Match.tag("OpenAgentTraceCoveragePanelSection", () => []),
+          Match.exhaustive
+        )
+    })
+  )
+
+const detailItemsFor = ({
+  entry,
+  groupKey,
+  sectionKey
+}: {
+  readonly entry: Option.Option<OpenAgentTraceEntryPanelModel>
+  readonly groupKey: OpenAgentTracePanelGroupKey
+  readonly sectionKey: OpenAgentTracePanelSectionKey
+}) =>
+  sectionFor({ entry, groupKey, sectionKey }).pipe(
+    Option.match({
+      onNone: () => [],
+      onSome: (section) =>
+        Match.value(section).pipe(
+          Match.tag("OpenAgentTraceSummaryPanelSection", () => []),
+          Match.tag("OpenAgentTraceDetailsPanelSection", ({ items }) => items),
+          Match.tag("OpenAgentTraceCoveragePanelSection", ({ items }) => items),
+          Match.exhaustive
+        )
+    })
+  )
+
 describe("web/open-agent-trace-orchestration", () => {
-  it.effect("projects actual trace narrative, workflow cases, and usage provenance for the shared effect-dsp consumer lane", () =>
+  it.effect("projects actual trace narrative, workflow cases, and usage provenance for the shared effect-dsp study lane", () =>
     Effect.gen(function*() {
       const response = yield* openAgentTraceRoute("/api/open-agent-trace/registry", "req-open-agent-trace-web").pipe(
         Effect.provide(RuntimeInfoLive)
@@ -70,44 +141,76 @@ describe("web/open-agent-trace-orchestration", () => {
         return
       }
 
-      const model = openAgentTracePanelModel(envelope.data)
-      const taskFirst = model.entries[0]
-      const chatContinuation = model.entries[1]
+      const model = OpenAgentTracePanelModel.project(
+        OpenAgentTracePanelData.assemble({
+          consumerArtifacts: [],
+          registry: envelope.data,
+          workflowHookups: []
+        })
+      )
+      const entries = panelEntriesFor(model)
+      const taskFirst = Option.fromNullable(entries[0])
+      const chatContinuation = Option.fromNullable(entries[1])
       const taskFirstEntry = envelope.data[0]
       const chatContinuationEntry = envelope.data[1]
 
-      expect(model.summaryRows.map((row) => row.label)).toEqual([
+      expect(model.entries.length).toBe(envelope.data.length)
+      expect(model.summaryRows.map((row: OpenAgentTracePanelModel["summaryRows"][number]) => row.label)).toEqual([
         "Records",
         "Coverage Gaps",
-        "Experimental Surface"
+        "Consumer Artifacts",
+        "Corpus Lane",
+        "Workflow Hookups"
       ])
-      expect(taskFirst?.sourceRows.find((row) => row.label === "Dataset")?.value).toBe(
+      expect(
+        summaryRowsFor({ entry: taskFirst, groupKey: "source", sectionKey: "corpus-source" }).find(
+          (row) => row.label === "Dataset"
+        )?.value
+      ).toBe(
         taskFirstEntry?.record.source.datasetId
       )
-      expect(taskFirst?.branchItems[0]?.label).toBe(taskFirstEntry?.record.branches[0]?.branchId)
-      expect(taskFirst?.traceEventItems[0]?.detail).toContain(firstTraceDetailExpectation(taskFirstEntry!))
-      expect(taskFirst?.traceEventItems[1]?.detail).toContain("I'll inspect the runtime state machine first")
-      expect(taskFirst?.workflowRows.find((row) => row.label === "Workflow Kind")?.value).toBe(
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "trace", sectionKey: "branch-tree" })[0]?.label).toBe(
+        taskFirstEntry?.record.branches[0]?.branchId
+      )
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "trace", sectionKey: "active-trace" })[0]?.detail).toContain(
+        firstTraceDetailExpectation(taskFirstEntry!)
+      )
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "trace", sectionKey: "active-trace" })[1]?.detail).toContain(
+        "I'll inspect the runtime state machine first"
+      )
+      expect(
+        summaryRowsFor({ entry: taskFirst, groupKey: "workflow", sectionKey: "projected-workflow" }).find(
+          (row) => row.label === "Workflow Kind"
+        )?.value
+      ).toBe(
         taskFirstEntry?.workflowProjection.workflowRecord.workflowKind
       )
-      expect(taskFirst?.graphNodeItems[0]?.label).toBe(
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "workflow", sectionKey: "workflow-nodes" })[0]?.label).toBe(
         taskFirstEntry?.workflowProjection.workflowRecord.graph.nodes[0]?.nodeId
       )
-      expect(taskFirst?.workflowCaseItems[0]?.detail).toContain(
-        taskFirstEntry?.workflowProjection.workflowRecord.evaluation.cases[0]?.prompt ?? ""
-      )
-      expect(taskFirst?.usageItems[0]?.label).toContain(
-        taskFirstEntry?.workflowProjection.usageProvenance[0]?.model ?? ""
-      )
-      expect(taskFirst?.coverageItems.map((item) => item.label)).toEqual(
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "usage", sectionKey: "evaluation-cases" })[0]?.detail)
+        .toContain(
+          taskFirstEntry?.workflowProjection.workflowRecord.evaluation.cases[0]?.prompt ?? ""
+        )
+      expect(detailItemsFor({ entry: taskFirst, groupKey: "usage", sectionKey: "usage-provenance" })[0]?.label)
+        .toContain(
+          taskFirstEntry?.workflowProjection.usageProvenance[0]?.model ?? ""
+        )
+      expect(
+        detailItemsFor({ entry: taskFirst, groupKey: "coverage", sectionKey: "coverage-gaps" }).map(
+          (item) => item.label
+        )
+      ).toEqual(
         taskFirstEntry?.workflowProjection.coverageGaps.map((gap) => `${gap.sourceKind} · ${gap.gapId}`)
       )
-      expect(chatContinuation?.coverageItems).toEqual([])
-      expect(chatContinuation?.graphNodeItems[0]?.label).toBe(
-        chatContinuationEntry?.workflowProjection.workflowRecord.graph.nodes[0]?.nodeId
-      )
-      expect(chatContinuation?.traceEventItems[0]?.detail).toContain(
-        firstTraceDetailExpectation(chatContinuationEntry!)
-      )
+      expect(detailItemsFor({ entry: chatContinuation, groupKey: "coverage", sectionKey: "coverage-gaps" })).toEqual([])
+      expect(detailItemsFor({ entry: chatContinuation, groupKey: "workflow", sectionKey: "workflow-nodes" })[0]?.label)
+        .toBe(
+          chatContinuationEntry?.workflowProjection.workflowRecord.graph.nodes[0]?.nodeId
+        )
+      expect(detailItemsFor({ entry: chatContinuation, groupKey: "trace", sectionKey: "active-trace" })[0]?.detail)
+        .toContain(
+          firstTraceDetailExpectation(chatContinuationEntry!)
+        )
     }))
 })

@@ -18,7 +18,7 @@ import {
   PackageDocsBundleEnvelope,
   PackageDocsCatalogEnvelope,
   PackageDocsSearchEnvelope
-} from "../../app/contracts/package-docs.js"
+} from "../../app/contracts/presentation/package-docs.js"
 import { PackageDocsLive } from "../../app/server/config/package-docs.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
 import { packageDocsRoute } from "../../app/server/routes/package-docs.js"

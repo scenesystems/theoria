@@ -1,24 +1,34 @@
 import { Activity } from "@effect/workflow"
-import { Effect, Ref } from "effect"
+import type { PackageName } from "@theoria/source-proof/contracts"
+import { Data, Effect, Ref } from "effect"
 
 import type { RunnableEntryId } from "../../contracts/entry/id.js"
-import {
-  applyEvidenceEventToStore,
-  emptyEvidenceStoreState,
-  evidenceSectionsFromStore
-} from "../../contracts/evidence/store.js"
+import { EvidenceStore } from "../../contracts/evidence/store.js"
 import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
 import type { Program } from "../../contracts/presentation/program.js"
 import type { RunData } from "../../contracts/study/run.js"
 
 import { EntryStreamSessionRegistry } from "./kinds/stream-session-registry.js"
 
-type WorkflowStreamStore = typeof emptyEvidenceStoreState
+type WorkflowStreamStore = EvidenceStore
 
-export type WorkflowStreamSession = {
-  readonly batchIndexRef: Ref.Ref<number>
-  readonly sessionKey: string
-  readonly storeRef: Ref.Ref<WorkflowStreamStore>
+export class WorkflowStreamSession extends Data.Class<WorkflowStreamSession.Shape> {
+  static allocate(sessionKey: string) {
+    return Effect.all({
+      batchIndexRef: Ref.make(0),
+      storeRef: Ref.make(EvidenceStore.empty())
+    }).pipe(
+      Effect.map(({ batchIndexRef, storeRef }) => new WorkflowStreamSession({ batchIndexRef, sessionKey, storeRef }))
+    )
+  }
+}
+
+export namespace WorkflowStreamSession {
+  export interface Shape {
+    readonly batchIndexRef: Ref.Ref<number>
+    readonly sessionKey: string
+    readonly storeRef: Ref.Ref<WorkflowStreamStore>
+  }
 }
 
 const appendBatchActivity = ({
@@ -61,12 +71,6 @@ const appendWorkflowBatch = ({
       )
     )
 
-export const makeWorkflowStreamSession = (sessionKey: string) =>
-  Effect.all({
-    batchIndexRef: Ref.make(0),
-    storeRef: Ref.make(emptyEvidenceStoreState)
-  }).pipe(Effect.map(({ batchIndexRef, storeRef }) => ({ batchIndexRef, sessionKey, storeRef })))
-
 export const publishWorkflowStreamEvents = ({
   events,
   phaseName,
@@ -94,7 +98,7 @@ export const recordWorkflowStreamEvents = ({
   Effect.forEach(
     events,
     (event) =>
-      Ref.update(session.storeRef, (store) => applyEvidenceEventToStore(store, event)).pipe(
+      Ref.update(session.storeRef, (store) => store.apply(event)).pipe(
         Effect.zipRight(appendWorkflowBatch({ events: [event], phaseName, session }))
       ),
     { discard: true }
@@ -110,7 +114,7 @@ export const runDataFromWorkflowStreamSession = ({
 }: {
   readonly durationMs: number
   readonly id: RunnableEntryId
-  readonly packageName: string
+  readonly packageName: PackageName
   readonly program: typeof Program.Type
   readonly session: WorkflowStreamSession
   readonly summary: string
@@ -122,6 +126,6 @@ export const runDataFromWorkflowStreamSession = ({
       summary,
       durationMs,
       program,
-      sections: evidenceSectionsFromStore(store)
+      sections: store.sections()
     }))
   )

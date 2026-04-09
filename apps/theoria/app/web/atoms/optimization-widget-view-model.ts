@@ -12,8 +12,8 @@ import {
 } from "../../contracts/capability/effect-search.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
-import type { OptimizationProjection } from "./run/optimization-animation.js"
-import { makeOptimizationProjection, optimizationProjectionAtom } from "./run/optimization-animation.js"
+import type { OptimizationProjection as OptimizationProjectionShape } from "./run/optimization-animation.js"
+import { OptimizationProjection, optimizationProjectionAtom } from "./run/optimization-animation.js"
 import {
   surfaceActiveCanonicalFrameAtom,
   surfaceActiveLocalProjectionScriptAtom,
@@ -21,8 +21,8 @@ import {
 } from "./surface/state.js"
 import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
 
-const frozenOptimizationProjection = (plan: EffectSearchProjectionScript): OptimizationProjection =>
-  makeOptimizationProjection({
+const frozenOptimizationProjection = (plan: EffectSearchProjectionScript): OptimizationProjectionShape =>
+  OptimizationProjection.fromTrials({
     phase: "running",
     randomTrials: [],
     tpeTrials: [],
@@ -41,7 +41,7 @@ export type OptimizationWidgetViewModel = {
   readonly isAnimating: boolean
   readonly statusText: string | null
   readonly metrics: ReadonlyArray<WidgetMetric>
-  readonly projection: OptimizationProjection
+  readonly projection: OptimizationProjectionShape
 }
 
 const optionDisplay = (value: Option.Option<number>, digits: number): string =>
@@ -82,7 +82,7 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
       ? isEffectSearchProjectionScript(frozenPlan)
         ? frozenOptimizationProjection(frozenPlan)
         : get(optimizationProjectionAtom)
-      : makeOptimizationProjection({
+      : OptimizationProjection.fromTrials({
         phase: authority.step.phase,
         randomTrials: authority.step.randomTrials,
         tpeTrials: authority.step.tpeTrials,

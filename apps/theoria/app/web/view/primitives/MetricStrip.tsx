@@ -1,10 +1,11 @@
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import type { MetricAppearance } from "./designSystem.js"
-import { metricPillClassesFor, surfaceMaterials } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { MetricPill } from "./MetricPill.js"
+import { surfaceMaterials } from "./theme/surface.js"
+import type { MetricAppearance } from "./theme/tone.js"
+import { metricPillClassesFor } from "./theme/tone.js"
 
 type MetricStripVariant = "strip" | "grid"
 

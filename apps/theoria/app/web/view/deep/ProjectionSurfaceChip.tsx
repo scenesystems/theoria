@@ -3,10 +3,10 @@ import { LinkSlashIcon, PlusIcon } from "@heroicons/react/20/solid"
 import type { PointerEvent } from "react"
 import { useRef } from "react"
 
-import { surfaceMaterials } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
 import { SelectionCopy, SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { surfaceMaterials } from "../primitives/theme/surface.js"
 
 import type { DeepDiveProjectionSurfaceOption } from "./projection-model.js"
 

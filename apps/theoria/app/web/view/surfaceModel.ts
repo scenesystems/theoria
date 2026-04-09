@@ -1,84 +1,72 @@
+import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { EntryPresentation } from "../../contracts/entry/routing.js"
-import type {
-  ProgramSourceScope,
-  SourceFileTab,
-  SourceWorkspaceTab,
-  SurfaceVariant
-} from "../../contracts/presentation/program.js"
-import { evidenceStatusFromStream, type EvidenceStreamState } from "../state/evidence/stream.js"
+import type { SurfaceVariant } from "../../contracts/presentation/program.js"
+import { tabHintFor } from "../runtime/kernel/surface-view.js"
+import { type EvidenceStreamState } from "../state/evidence/stream.js"
 import { statusText } from "../state/run/status.js"
-import { runPhase } from "../state/run/types.js"
 import type { SurfaceState } from "../state/surface/state.js"
 
-import { tabHintFor } from "./deep/interactiveMetadata.js"
 import {
-  type DemoStageFrameViewModel,
-  demoStageFrameViewModel,
-  type DemoStageViewModel,
-  demoStageViewModel
-} from "./deep/stageModel.js"
+  SurfaceStageFrameViewModel,
+  surfaceStageFrameViewModel,
+  SurfaceStageViewModel,
+  surfaceStageViewModel
+} from "./deep/surface-stage-model.js"
 import { type PresentedRun, presentSections } from "./presenter.js"
-import type { RunControlsViewModel } from "./runControlsModel.js"
-import { runControlsViewModel } from "./runControlsModel.js"
-import type { SurfaceChromeContentModel } from "./surfaceChromeModel.js"
-import { surfaceChromeContentModel } from "./surfaceChromeModel.js"
-import { surfaceCodeModel } from "./surfaceCodeModel.js"
+import { RunControlsViewModel, runControlsViewModel } from "./runControlsModel.js"
+import { SurfaceChromeContentModel, surfaceChromeContentModel } from "./surfaceChromeModel.js"
+import { SurfaceCodeModel, surfaceCodeModel } from "./surfaceCodeModel.js"
 
 const compactEvidenceRowLimit = 2
 
-export type StatusTone = "panel" | "strip"
-export type EvidenceDensity = "compact" | "expanded"
+export const StatusTone = Schema.Literal("panel", "strip")
+export type StatusTone = typeof StatusTone.Type
+export const EvidenceDensity = Schema.Literal("compact", "expanded")
+export type EvidenceDensity = typeof EvidenceDensity.Type
 
-export type SurfaceCodeModel = {
-  readonly entry: string
-  readonly fileName: string
-  readonly selectedSourceScope: ProgramSourceScope
-  readonly sourceTabs: ReadonlyArray<SourceWorkspaceTab>
-  readonly source: string
-  readonly lineCount: number
-  readonly truncated: boolean
-  readonly hint: string
-  readonly originHint: string
-  readonly originLabel: string
-  readonly fileTabs: ReadonlyArray<SourceFileTab>
-  readonly selectedFileIndex: number
-}
+export class SurfaceMetricRow extends Schema.Class<SurfaceMetricRow>("SurfaceMetricRow")({
+  label: Schema.String,
+  value: Schema.String
+}) {}
 
-export type SurfaceViewModel = {
-  readonly running: boolean
-  readonly runControls: RunControlsViewModel
-  readonly statusTone: StatusTone
-  readonly evidenceDensity: EvidenceDensity
-  readonly status: string
-  readonly chrome: SurfaceChromeContentModel
-  readonly evidenceRows: ReadonlyArray<{ readonly label: string; readonly value: string }>
-  readonly code: SurfaceCodeModel
-  readonly stage: DemoStageViewModel
-}
+export class SurfaceViewModel extends Schema.Class<SurfaceViewModel>("SurfaceViewModel")({
+  running: Schema.Boolean,
+  runControls: RunControlsViewModel,
+  statusTone: StatusTone,
+  evidenceDensity: EvidenceDensity,
+  status: Schema.String,
+  chrome: SurfaceChromeContentModel,
+  evidenceRows: Schema.Array(SurfaceMetricRow),
+  code: SurfaceCodeModel,
+  surfaceStage: SurfaceStageViewModel
+}) {}
 
-export type DeepDiveSurfaceFrameViewModel = {
-  readonly runControls: RunControlsViewModel
-  readonly chrome: SurfaceChromeContentModel
-  readonly code: SurfaceCodeModel
-  readonly stageFrame: DemoStageFrameViewModel
-}
+export class DeepDiveSurfaceFrameViewModel extends Schema.Class<DeepDiveSurfaceFrameViewModel>(
+  "DeepDiveSurfaceFrameViewModel"
+)({
+  runControls: RunControlsViewModel,
+  chrome: SurfaceChromeContentModel,
+  code: SurfaceCodeModel,
+  surfaceStageFrame: SurfaceStageFrameViewModel
+}) {}
 
 const packageUseCaseRow = (
   surface: EntryPresentation
-): { readonly label: string; readonly value: string } => ({
-  label: "Entry Use Case",
-  value: `${surface.packageName}: ${surface.useCase}`
-})
+): SurfaceMetricRow =>
+  SurfaceMetricRow.make({
+    label: "Entry Use Case",
+    value: `${surface.packageName}: ${surface.useCase}`
+  })
 
 const selectedSectionRows = (
   presented: PresentedRun | null,
   stream: EvidenceStreamState
-): ReadonlyArray<{ readonly label: string; readonly value: string }> =>
+): ReadonlyArray<SurfaceMetricRow> =>
   Arr.flatMap(
     presented === null ? presentSections(stream.sections) : presented.sections,
-    (section) => section.rows
+    (section) => section.rows.map((row) => SurfaceMetricRow.make(row))
   )
 
 const compactRows = ({
@@ -87,15 +75,15 @@ const compactRows = ({
   state
 }: {
   readonly surface: EntryPresentation
-  readonly rows: ReadonlyArray<{ readonly label: string; readonly value: string }>
+  readonly rows: ReadonlyArray<SurfaceMetricRow>
   readonly state: SurfaceState
-}): ReadonlyArray<{ readonly label: string; readonly value: string }> => {
+}): ReadonlyArray<SurfaceMetricRow> => {
   const packageRow = packageUseCaseRow(surface)
   const rowsWithUseCase = rows[0]?.label === packageRow.label ? rows : [packageRow, ...rows]
 
   return state.run._tag === "RunSuccess" || rows.length > 0
     ? Arr.take(rowsWithUseCase, compactEvidenceRowLimit + 1)
-    : [packageRow, { label: "Run Intent", value: surface.summary }]
+    : [packageRow, SurfaceMetricRow.make({ label: "Run Intent", value: surface.summary })]
 }
 
 export const surfaceViewModel = ({
@@ -114,23 +102,23 @@ export const surfaceViewModel = ({
   const compact = variant === "compact"
   const rows = selectedSectionRows(presented, stream)
 
-  return {
-    running: runPhase(state.run) === "running",
+  return SurfaceViewModel.make({
+    running: state.run.session.phase() === "running",
     runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
     statusTone: compact ? "panel" : "strip",
     evidenceDensity: compact ? "compact" : "expanded",
-    status: statusText({ preload: state.preload, run: state.run }, evidenceStatusFromStream(stream)),
+    status: statusText({ preload: state.preload, run: state.run }, stream.status()),
     chrome: surfaceChromeContentModel(surface),
     evidenceRows: compact ? compactRows({ surface, rows, state }) : rows,
     code: surfaceCodeModel(state, variant),
-    stage: demoStageViewModel({
+    surfaceStage: surfaceStageViewModel({
       activeTab: state.stageTab,
       interactiveLabel: surface.interactiveLabel,
       run: state.run,
       stream,
       tabHint: tabHintFor(surface.entryId)
     })
-  }
+  })
 }
 
 export const deepDiveSurfaceFrameViewModel = ({
@@ -139,13 +127,14 @@ export const deepDiveSurfaceFrameViewModel = ({
 }: {
   readonly surface: EntryPresentation
   readonly state: SurfaceState
-}): DeepDiveSurfaceFrameViewModel => ({
-  runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
-  chrome: surfaceChromeContentModel(surface),
-  code: surfaceCodeModel(state, "expanded"),
-  stageFrame: demoStageFrameViewModel({
-    activeTab: state.stageTab,
-    interactiveLabel: surface.interactiveLabel,
-    tabHint: tabHintFor(surface.entryId)
+}): DeepDiveSurfaceFrameViewModel =>
+  DeepDiveSurfaceFrameViewModel.make({
+    runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
+    chrome: surfaceChromeContentModel(surface),
+    code: surfaceCodeModel(state, "expanded"),
+    surfaceStageFrame: surfaceStageFrameViewModel({
+      activeTab: state.stageTab,
+      interactiveLabel: surface.interactiveLabel,
+      tabHint: tabHintFor(surface.entryId)
+    })
   })
-})

@@ -1,118 +1,37 @@
-import { Cause, Clock, Effect, Option } from "effect"
+import { Cause, Effect, Option } from "effect"
 
-import type { EntryId as DemoId } from "../../contracts/entry/id.js"
+import type { EntryId } from "../../contracts/entry/id.js"
 import type { ErrorCode } from "../../contracts/error.js"
-import type { ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/presentation/program-preview.js"
+import { type ProgramPreview, ProgramPreviewSuccessEnvelope } from "../../contracts/presentation/program-preview.js"
 import { serverReleaseStage } from "../config/release-stage.js"
-import { RuntimeInfo } from "../config/runtime.js"
 
 import { lookupForReleaseStage } from "./registry.js"
+import { ResponseTiming } from "./response-timing.js"
 
-const successEnvelope = (
-  requestId: string,
-  buildSha: string,
-  durationMs: number,
-  data: ProgramPreview
-): ProgramPreviewEnvelope => ({
-  ok: true,
-  meta: {
-    requestId,
-    buildSha,
-    durationMs
-  },
-  data
-})
+const successful = (timing: ResponseTiming, data: ProgramPreview) =>
+  timing.finish().pipe(Effect.map((meta) => ProgramPreviewSuccessEnvelope.make({ ok: true, meta, data })))
 
-const failureEnvelope = (
-  requestId: string,
-  buildSha: string,
-  durationMs: number,
-  code: ErrorCode,
-  message: string,
-  retryable: boolean
-): ProgramPreviewEnvelope => ({
-  ok: false,
-  meta: {
-    requestId,
-    buildSha,
-    durationMs
-  },
-  error: {
-    code,
-    message,
-    retryable
-  }
-})
+const failed = (timing: ResponseTiming, code: ErrorCode, message: string, retryable: boolean) =>
+  timing.fail({ code, message, retryable })
 
-const successful = (
-  requestId: string,
-  buildSha: string,
-  startedAtMs: number,
-  data: ProgramPreview
-) =>
+export const preload = (id: EntryId, requestId: string) =>
   Effect.gen(function*() {
-    const endedAtMs = yield* Clock.currentTimeMillis
-
-    return successEnvelope(requestId, buildSha, endedAtMs - startedAtMs, data)
-  })
-
-const failed = (
-  requestId: string,
-  buildSha: string,
-  startedAtMs: number,
-  code: ErrorCode,
-  message: string,
-  retryable: boolean
-) =>
-  Effect.gen(function*() {
-    const endedAtMs = yield* Clock.currentTimeMillis
-
-    return failureEnvelope(
-      requestId,
-      buildSha,
-      endedAtMs - startedAtMs,
-      code,
-      message,
-      retryable
-    )
-  })
-
-export const preload = (id: DemoId, requestId: string) =>
-  Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
+    const timing = yield* ResponseTiming.start(requestId)
     const releaseStage = yield* serverReleaseStage
-    const runtimeInfo = yield* RuntimeInfo
 
     const definitionOption = lookupForReleaseStage(id, releaseStage)
 
     return yield* Option.match(definitionOption, {
-      onNone: () =>
-        failed(
-          requestId,
-          runtimeInfo.buildSha,
-          startedAtMs,
-          "invalid-demo-id",
-          "Requested demo does not exist.",
-          false
-        ),
+      onNone: () => failed(timing, "invalid-entry-id", "Requested entry does not exist.", false),
       onSome: (definition) =>
         definition.preload.pipe(
-          Effect.flatMap((data) => successful(requestId, runtimeInfo.buildSha, startedAtMs, data)),
+          Effect.flatMap((data) => successful(timing, data)),
           Effect.catchAll((error) =>
-            Effect.logError("theoria demo preload failed").pipe(
-              Effect.annotateLogs("demoId", id),
+            Effect.logError("theoria entry preload failed").pipe(
+              Effect.annotateLogs("entryId", id),
               Effect.annotateLogs("requestId", requestId),
               Effect.annotateLogs("cause", Cause.pretty(Cause.fail(error))),
-              Effect.zipRight(
-                failed(
-                  requestId,
-                  runtimeInfo.buildSha,
-                  startedAtMs,
-                  "execution-failed",
-                  "Demo preload failed.",
-                  true
-                )
-              )
+              Effect.zipRight(failed(timing, "execution-failed", "Entry preload failed.", true))
             )
           )
         )

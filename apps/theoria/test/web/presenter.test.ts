@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
 import { presentRun } from "../../app/web/view/presenter.js"
-import { runDataFixture } from "../helpers/demo-fixtures.js"
+import { runDataFixture } from "../helpers/entry-fixtures.js"
 
 describe("Theoria Presenter", () => {
   it.effect("maps evidence sections to presented sections", () =>

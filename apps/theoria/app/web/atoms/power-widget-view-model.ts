@@ -19,7 +19,7 @@ import {
 import type { EffectMathCanonicalStep } from "../../contracts/capability/effect-math.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
-import type { MetricAppearance } from "../view/primitives/designSystem.js"
+import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 import type { PowerProjection } from "./run/power-animation.js"
 import { powerProjectionAtom } from "./run/power-animation.js"
 import {

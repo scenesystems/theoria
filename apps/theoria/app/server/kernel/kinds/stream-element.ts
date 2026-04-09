@@ -17,9 +17,9 @@ import {
 } from "../../../contracts/study/workflow/choreography.js"
 
 /**
- * Shared server-side stream payloads for demo SSE composition.
+ * Shared server-side stream payloads for entry SSE composition.
  *
- * This module intentionally sits below the registry so individual demos can
+ * This module intentionally sits below the registry so individual entries can
  * author section / cue / step streams without importing the registry module
  * back into their own initialization path.
  */

@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react"
 
-import type { ReflowWidgetViewModel } from "../../atoms/widget-view-models.js"
-import type { Tone } from "../primitives/designSystem.js"
+import type { ReflowWidgetViewModel } from "../../atoms/reflow-widget-view-model.js"
+import type { Tone } from "../primitives/theme/tone.js"
 
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { Layer, Rail, Stack } from "../primitives/Layout.js"
@@ -51,7 +51,7 @@ export const ReflowStageControls = ({
       className="w-full gap-2 xl:justify-center"
       disabled={vm.controlsLocked}
       onSelect={onSelectCorpus}
-      options={vm.corpusOptions.map((option) => ({ value: option.index, label: option.label }))}
+      options={vm.corpusOptions}
       tone={tone}
     />
 

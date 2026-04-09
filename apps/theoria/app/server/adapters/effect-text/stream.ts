@@ -1,16 +1,20 @@
 import { Effect, Option, Stream } from "effect"
 
 import { effectTextProjectionSteps, viewportProjectionSteps } from "../../../contracts/capability/effect-text.js"
+import { effectTextEntryDescriptor } from "../../../contracts/entry/descriptors/effect-text.js"
+import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { CanonicalStep } from "../../../contracts/study/workflow/canonical-step.js"
 import { concatStreams, sectionEffectsToStream, type StreamElement } from "../../kernel/kinds/stream-element.js"
-import { makeStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
+import { phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
 import { cachedEffectTextMeasurements } from "./analysis.js"
 import { preloadProgram } from "./preload.js"
 import { streamSectionEffectsForStory, streamStagePlansForStory, streamStageStreamsForStory } from "./stage-story.js"
 
 export const runSummary =
   "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces."
+
+const effectTextRunIdentity = entryRunIdentityForId(effectTextEntryDescriptor.entryId)
 
 const normalizeCustomText = (customText: Option.Option<string>): Option.Option<string> =>
   customText.pipe(
@@ -24,8 +28,12 @@ type EffectTextStreamRequest = {
 }
 
 const requestFromManifest = (manifest: StreamManifest | null): EffectTextStreamRequest => {
-  const rawCustomText = manifest != null && manifest._tag === "effect-text" ? manifest.customText : ""
-  const viewportWidthPx = manifest != null && manifest._tag === "effect-text" ? manifest.viewportWidthPx : 0
+  const rawCustomText = manifest != null && manifest._tag === effectTextEntryDescriptor.entryId
+    ? manifest.customText
+    : ""
+  const viewportWidthPx = manifest != null && manifest._tag === effectTextEntryDescriptor.entryId
+    ? manifest.viewportWidthPx
+    : 0
 
   return {
     customText: normalizeCustomText(Option.some(rawCustomText)),
@@ -70,8 +78,8 @@ export const streamPlan = (manifest: StreamManifest | null) =>
     const request = requestFromManifest(manifest)
     const measurements = yield* cachedEffectTextMeasurements
 
-    return makeStreamPlan({
-      packageName: "effect-text",
+    return {
+      packageName: effectTextRunIdentity.packageName,
       program: preloadProgram,
       summary: runSummary,
       phases: streamStagePlansForStory({
@@ -79,5 +87,5 @@ export const streamPlan = (manifest: StreamManifest | null) =>
         measurements,
         projectionSteps: request.projectionSteps
       }).map(({ stageId, stream }) => phaseFromElementStream(stageId, stream))
-    })
+    }
   })

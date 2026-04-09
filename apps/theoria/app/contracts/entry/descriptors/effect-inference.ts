@@ -1,9 +1,9 @@
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, makeEntryDescriptor } from "../descriptor.js"
+import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
 
 const effectInferenceAuthority = authorityCatalogForId("effect-inference")
 
-export const effectInferenceEntryDescriptor = makeEntryDescriptor({
+export const effectInferenceEntryDescriptor = EntryDescriptor.define({
   entryId: "effect-inference",
   title: effectInferenceAuthority.title,
   packageName: effectInferenceAuthority.packageName,

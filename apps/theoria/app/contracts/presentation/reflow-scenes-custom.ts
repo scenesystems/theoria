@@ -4,7 +4,7 @@ const obstacle = (definition: Obstacle): Obstacle => definition
 
 export const customTextScene: ReflowScene = {
   summary:
-    "Custom text uses a neutral annotation layout so the browser still demonstrates fixed-plane wrapping without pretending to know your domain.",
+    "Custom text uses a neutral annotation layout so the browser still preserves fixed-plane wrapping without pretending to know your domain.",
   obstacles: [
     obstacle({
       badge: "NOTE",

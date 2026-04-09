@@ -1,6 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
+import { dspStageDetail, dspStageLabel } from "../../contracts/capability/effect-dsp-runtime-presentation.js"
 import type { DspCanonicalStep } from "../../contracts/capability/effect-dsp-runtime.js"
 import { type DspStageId } from "../../contracts/capability/effect-dsp-runtime.js"
 import {
@@ -14,7 +15,8 @@ import {
 } from "../../contracts/capability/effect-dsp.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
-import type { MetricAppearance } from "../view/primitives/designSystem.js"
+import type { TypedChoicePillOption } from "../view/primitives/choice-pill-model.js"
+import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 import { type EffectDspProjectionScript, isEffectDspProjectionScript } from "./dsp-run-plan.js"
 import { dspModuleTypeAtom, dspOptimizationBudgetAtom, dspScenarioIdAtom } from "./dsp-widget.js"
 import {
@@ -26,28 +28,6 @@ import { type WidgetMetric, widgetRuntimeState } from "./widget-view-model-share
 
 const dspToneAppearance: MetricAppearance = { _tag: "tone", tone: "dsp" }
 const neutralAppearance: MetricAppearance = { _tag: "neutral" }
-
-const stageLabel = (stageId: DspStageId): string =>
-  stageId === "signature"
-    ? "Signature"
-    : stageId === "baseline"
-    ? "Baseline evaluation"
-    : stageId === "optimizing"
-    ? "Optimization"
-    : stageId === "optimized-eval"
-    ? "Optimized evaluation"
-    : "Comparison"
-
-const stageDetail = (stageId: DspStageId): string =>
-  stageId === "signature"
-    ? "The server is freezing the scenario contract and module shape into shared runtime authority."
-    : stageId === "baseline"
-    ? "The frozen module is being scored against the labeled scenario dataset."
-    : stageId === "optimizing"
-    ? "BootstrapFewShot is learning demonstrations without letting idle controls rewrite the run."
-    : stageId === "optimized-eval"
-    ? "The optimized module is being scored against the same dataset for a clean comparison."
-    : "The widget and evidence now converge on the same final DSP metrics."
 
 const moduleTypeLabel = (moduleType: DspModuleType): string => dspModuleLabels[moduleType]
 
@@ -85,7 +65,7 @@ const plannedMetrics = ({
 const runtimeMetrics = (step: typeof DspCanonicalStep.Type): ReadonlyArray<WidgetMetric> => [
   { label: "Baseline", value: metricDisplay(step.metrics.baselineAccuracy), appearance: neutralAppearance },
   { label: "Optimized", value: metricDisplay(step.metrics.optimizedAccuracy), appearance: dspToneAppearance },
-  { label: "Demos", value: countDisplay(step.metrics.demosLearned), appearance: neutralAppearance },
+  { label: "Learned", value: countDisplay(step.metrics.demosLearned), appearance: neutralAppearance },
   { label: "Delta", value: deltaDisplay(step.metrics.improvementDelta), appearance: dspToneAppearance }
 ]
 
@@ -99,9 +79,9 @@ const canonicalStepOrNull = (
 export type DspWidgetViewModel = {
   readonly scenario: DspScenarioDefinition
   readonly scenarioId: DspScenarioId
-  readonly scenarioOptions: ReadonlyArray<{ readonly value: DspScenarioId; readonly label: string }>
+  readonly scenarioOptions: ReadonlyArray<TypedChoicePillOption<DspScenarioId>>
   readonly moduleType: DspModuleType
-  readonly moduleTypeOptions: ReadonlyArray<{ readonly value: DspModuleType; readonly label: string }>
+  readonly moduleTypeOptions: ReadonlyArray<TypedChoicePillOption<DspModuleType>>
   readonly optimizationBudget: {
     readonly value: number
     readonly min: number
@@ -140,8 +120,8 @@ export const dspWidgetViewModelAtom: AtomType.Atom<DspWidgetViewModel> = Atom.ma
   const runtimeStatus = frame !== null
     ? {
       stageId: frame.stageId,
-      title: `${stageLabel(frame.stageId)} · ${frame.stepIndex}/${frame.stepCount}`,
-      detail: stageDetail(frame.stageId)
+      title: `${dspStageLabel(frame.stageId)} · ${frame.stepIndex}/${frame.stepCount}`,
+      detail: dspStageDetail(frame.stageId)
     }
     : frozenPlan !== null
     ? {

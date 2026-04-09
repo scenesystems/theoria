@@ -1,4 +1,4 @@
-import type { WorkflowProfileLibrary } from "../../../app/contracts/workflow/comparison.js"
+import type { WorkflowProfileLibrary } from "../../../app/contracts/study/workflow/scenario.js"
 import { makeWorkflowProfile } from "./decode.js"
 
 const sharedNormalization = {
