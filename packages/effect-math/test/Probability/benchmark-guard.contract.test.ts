@@ -1,17 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number, Schema } from "effect"
-import * as Arr from "effect/Array"
 
 import { standardNormalPdf } from "../../src/Probability/operations.js"
-
-const BenchmarkBudgetSchema = Schema.Struct({
-  maxDurationMs: Schema.Number.pipe(Schema.greaterThan(0))
-})
-
-const BenchmarkPlanSchema = Schema.Struct({
-  runs: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
-  maxMeanDurationMs: Schema.Number.pipe(Schema.greaterThan(0))
-})
+import { BenchmarkBudgetSchema, BenchmarkPlanSchema, runBenchmarkPlan } from "../helpers/benchmark.js"
 
 describe("Probability benchmark guard", () => {
   it.effect("keeps standard normal PDF baseline within benchmark budget", () =>
@@ -24,18 +15,9 @@ describe("Probability benchmark guard", () => {
         maxMeanDurationMs: 2
       })
 
-      const startedAt = performance.now()
+      const benchmark = yield* runBenchmarkPlan(plan, () => Effect.sync(() => standardNormalPdf(0.5)))
 
-      yield* Effect.forEach(
-        Arr.range(1, plan.runs),
-        () => Effect.sync(() => standardNormalPdf(0.5)),
-        { discard: true }
-      )
-
-      const elapsed = performance.now() - startedAt
-      const meanDurationMs = elapsed / plan.runs
-
-      expect(Number.Equivalence(meanDurationMs <= plan.maxMeanDurationMs ? 1 : 0, 1)).toStrictEqual(true)
-      expect(Number.Equivalence(elapsed <= budget.maxDurationMs ? 1 : 0, 1)).toStrictEqual(true)
+      expect(Number.Equivalence(benchmark.meanDurationMs <= plan.maxMeanDurationMs ? 1 : 0, 1)).toStrictEqual(true)
+      expect(Number.Equivalence(benchmark.elapsed <= budget.maxDurationMs ? 1 : 0, 1)).toStrictEqual(true)
     }))
 })

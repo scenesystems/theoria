@@ -52,11 +52,18 @@ import {
   AbsoluteTolerance,
   makeDeterministicRuntimePoliciesLayer,
   RelativeTolerance,
-  Seed
+  Seed,
+  StepSize
 } from "effect-math/contracts"
 
 const absoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-12)
 const relativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-12)
+const eulerStepSize = Schema.decodeSync(StepSize)(0.1)
+const rk4StepSize = Schema.decodeSync(StepSize)(0.05)
+const adaptiveStepSize = Schema.decodeSync(StepSize)(0.1)
+const adaptiveMaxStepSize = Schema.decodeSync(StepSize)(0.2)
+const adaptiveAbsoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-8)
+const adaptiveRelativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-8)
 const decayField = (_time: number, state: Chunk.Chunk<number>) => Chunk.fromIterable([-Chunk.unsafeGet(state, 0)])
 const harmonicOscillator = (_time: number, state: Chunk.Chunk<number>) =>
   Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)])
@@ -163,7 +170,7 @@ const program = Effect.gen(function*() {
     initialTime: 0,
     finalTime: 1,
     initialState: Chunk.fromIterable([1]),
-    stepSize: 0.1
+    stepSize: eulerStepSize
   })
   yield* Console.log("solveEuler final decay state:", Chunk.toReadonlyArray(scalarIvP.finalState))
   yield* Console.log("solveEuler trajectory points:", Chunk.size(scalarIvP.trajectory))
@@ -172,7 +179,7 @@ const program = Effect.gen(function*() {
     initialTime: 0,
     finalTime: 1,
     initialState: Chunk.fromIterable([1, 0]),
-    stepSize: 0.05
+    stepSize: rk4StepSize
   })
   yield* Console.log("solveRk4 final harmonic state:", Chunk.toReadonlyArray(vectorIvP.finalState))
 
@@ -220,10 +227,10 @@ const program = Effect.gen(function*() {
     initialTime: 0,
     finalTime: 1,
     initialState: Chunk.fromIterable([1]),
-    initialStep: 0.1,
-    maxStep: 0.2,
-    absoluteTolerance: 1e-8,
-    relativeTolerance: 1e-8
+    initialStep: adaptiveStepSize,
+    maxStep: adaptiveMaxStepSize,
+    absoluteTolerance: adaptiveAbsoluteTolerance,
+    relativeTolerance: adaptiveRelativeTolerance
   }).pipe(Effect.provide(policies))
   yield* Console.log("solveAdaptiveRk45WithPolicies evaluations:", adaptivePolicyIvP.functionEvaluations)
 })

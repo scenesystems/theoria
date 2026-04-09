@@ -12,7 +12,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Number as N } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { AutodiffAuthorityLive, makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   bisect,
   bisectValidated,
@@ -67,9 +67,11 @@ const program = Effect.gen(function*() {
   const policyRoot = yield* findRootWithPolicies(xSquaredMinus2, {
     method: "newtonRaphson",
     initialGuess: 1.5
+  }, {
+    derivative: (x) => N.multiply(2, x)
   }).pipe(Effect.provide(policies))
 
   yield* Console.log("findRootWithPolicies(newtonRaphson, x²−2):", policyRoot)
 })
 
-BunRuntime.runMain(program)
+BunRuntime.runMain(program.pipe(Effect.provide(AutodiffAuthorityLive)))

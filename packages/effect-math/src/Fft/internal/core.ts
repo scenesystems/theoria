@@ -1,9 +1,7 @@
 import { Chunk, Number as N } from "effect"
 import * as Arr from "effect/Array"
 
-import type { Complex } from "../../Complex/model.js"
-import { add as addComplex, fromPolar, multiply as multiplyComplex, of } from "../../Complex/operations.js"
-import { PI, sqrt } from "../../Numeric/operations.js"
+import { cos, PI, sin, sqrt } from "../../Numeric/operations.js"
 import type { FftNormalizationMode } from "../schema.js"
 
 export type ComplexPair = Readonly<{
@@ -13,17 +11,14 @@ export type ComplexPair = Readonly<{
 
 const toPair = (real: number, imaginary: number): ComplexPair => ({ real, imaginary })
 
-const pairFromComplex = (value: Complex): ComplexPair => toPair(value.re, value.im)
-
-const phaseAngle = (
+const basePhaseAngle = (
   outputIndex: number,
-  inputIndex: number,
   size: number,
   direction: "forward" | "inverse"
 ): number => {
   const sign = direction === "forward" ? -1 : 1
 
-  return N.unsafeDivide(N.multiply(N.multiply(N.multiply(N.multiply(sign, 2), PI), outputIndex), inputIndex), size)
+  return N.unsafeDivide(N.multiply(N.multiply(N.multiply(sign, 2), PI), outputIndex), size)
 }
 
 const normalizationScale = (
@@ -39,22 +34,65 @@ const normalizationScale = (
     ? N.unsafeDivide(1, length)
     : 1
 
+type DftAccumulator = Readonly<{
+  sumReal: number
+  sumImaginary: number
+  twiddleReal: number
+  twiddleImaginary: number
+}>
+
+const nextTwiddle = (
+  twiddleReal: number,
+  twiddleImaginary: number,
+  stepReal: number,
+  stepImaginary: number
+): ComplexPair =>
+  toPair(
+    N.subtract(N.multiply(twiddleReal, stepReal), N.multiply(twiddleImaginary, stepImaginary)),
+    N.sum(N.multiply(twiddleReal, stepImaginary), N.multiply(twiddleImaginary, stepReal))
+  )
+
 const dftAtIndex = (
   real: ReadonlyArray<number>,
   imaginary: ReadonlyArray<number>,
   outputIndex: number,
   direction: "forward" | "inverse"
 ): ComplexPair => {
-  const size = real.length
+  const angle = basePhaseAngle(outputIndex, real.length, direction)
+  const stepReal = cos(angle)
+  const stepImaginary = sin(angle)
 
-  return pairFromComplex(
-    real.reduce<Complex>((accumulator, value, inputIndex) => {
-      const sample = of(value, imaginary[inputIndex]!)
-      const phase = fromPolar(1, phaseAngle(outputIndex, inputIndex, size, direction))
+  const state = real.reduce<DftAccumulator>((accumulator, value, inputIndex) => {
+    const sampleImaginary = imaginary[inputIndex]!
+    const contributionReal = N.subtract(
+      N.multiply(value, accumulator.twiddleReal),
+      N.multiply(sampleImaginary, accumulator.twiddleImaginary)
+    )
+    const contributionImaginary = N.sum(
+      N.multiply(value, accumulator.twiddleImaginary),
+      N.multiply(sampleImaginary, accumulator.twiddleReal)
+    )
+    const next = nextTwiddle(
+      accumulator.twiddleReal,
+      accumulator.twiddleImaginary,
+      stepReal,
+      stepImaginary
+    )
 
-      return addComplex(accumulator, multiplyComplex(sample, phase))
-    }, of(0, 0))
-  )
+    return {
+      sumReal: N.sum(accumulator.sumReal, contributionReal),
+      sumImaginary: N.sum(accumulator.sumImaginary, contributionImaginary),
+      twiddleReal: next.real,
+      twiddleImaginary: next.imaginary
+    }
+  }, {
+    sumReal: 0,
+    sumImaginary: 0,
+    twiddleReal: 1,
+    twiddleImaginary: 0
+  })
+
+  return toPair(state.sumReal, state.sumImaginary)
 }
 
 export const dft = (options: {
