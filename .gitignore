@@ -28,6 +28,8 @@ packages/*/docs/
 # Code coverage
 coverage/
 *.lcov
+e2e/*/test-results/
+playwright-report/
 
 # Environment variables
 .env
