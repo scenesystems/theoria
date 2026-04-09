@@ -27,8 +27,8 @@ import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
   StandardExampleEvents,
-  StandardModuleState,
   StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"

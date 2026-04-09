@@ -80,30 +80,9 @@ export const predict = <
   })
 
 /**
- * Parse retry policy types, overrides, feedback templates, and default
- * constants.
+ * Predict parse-policy types, policy constructors, and default retry
+ * configuration.
  *
  * @since 0.1.0
  */
-export {
-  DEFAULT_PARSE_BACKOFF_FACTOR,
-  DEFAULT_PARSE_INITIAL_DELAY,
-  DEFAULT_PARSE_MAX_RETRIES,
-  DEFAULT_PREDICT_POLICY,
-  defaultParseFeedbackTemplate,
-  defaultParseRetrySchedule
-} from "./policy.js"
-
-/**
- * Parse retry policy types and overrides.
- *
- * @since 0.1.0
- */
-export type {
-  ParseFeedbackTemplate,
-  ParsePolicy,
-  ParsePolicyOverrides,
-  ParseRetryScheduleFactory,
-  PredictPolicy,
-  PredictPolicyOverrides
-} from "./policy.js"
+export * from "./policy.js"

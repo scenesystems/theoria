@@ -12,6 +12,14 @@ import { payloadFor } from "./projectionArtifacts/payload.js"
 import type { Projection } from "./projectionSchema.js"
 import { formatOpenAgentTraceContentDigest } from "./schema.js"
 
+/**
+ * Wraps one normalized trace record or one bounded projection in the
+ * `effect-search` artifact-envelope transport contract used by downstream
+ * evidence consumers.
+ *
+ * @since 0.2.0
+ * @category constructors
+ */
 export const projectArtifactEnvelope = (
   options: ArtifactEnvelopeProjectionOptions & {
     readonly projection?: Projection

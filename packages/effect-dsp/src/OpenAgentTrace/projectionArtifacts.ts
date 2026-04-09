@@ -11,7 +11,13 @@ import { ArtifactLineage, ExampleProjectionLineage, WorkflowProjectionLineage } 
 import { ExampleProjection, WorkflowProjection } from "./projectionSchema.js"
 import { OpenAgentTraceRecord } from "./schema.js"
 
-export { ArtifactLineage, ExampleProjectionLineage, WorkflowProjectionLineage } from "./projectionArtifacts/lineage.js"
+/**
+ * Open-agent-trace lineage nouns shared by record, workflow, and example
+ * artifact payloads.
+ *
+ * @since 0.2.0
+ */
+export * from "./projectionArtifacts/lineage.js"
 
 /**
  * Shared projection-envelope input for persisted open-agent-trace artifacts.

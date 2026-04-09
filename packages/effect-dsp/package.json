@@ -41,6 +41,7 @@
     "./contracts": "./src/contracts/index.ts",
     "./test": "./src/testing/index.ts",
     "./experimental": "./src/experimental/index.ts",
+    "./fixtures/open-agent-trace/pi-mono": "./fixtures/open-agent-trace/pi-mono/index.ts",
     "./internal/*": null,
     "./optimizers/*": null
   },

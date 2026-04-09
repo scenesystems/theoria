@@ -99,6 +99,7 @@ const EXPECTED_EXPORT_KEYS = [
   "./contracts",
   "./test",
   "./experimental",
+  "./fixtures/open-agent-trace/pi-mono",
   "./internal/*",
   "./optimizers/*"
 ]

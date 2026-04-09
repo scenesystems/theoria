@@ -10,10 +10,7 @@ import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 import * as SearchContracts from "effect-search/Contracts"
 
-import {
-  piMonoTaskFirstRowFixture,
-  piShareHfManifestFixture
-} from "../fixtures/open-agent-trace/pi-mono/index.js"
+import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/index.js"
 
 const program = Effect.gen(function*() {
   const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)

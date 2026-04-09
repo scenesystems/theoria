@@ -13,6 +13,13 @@ import * as Trace from "../../../Trace/index.js"
 import type { ChainOfThoughtOutputFields } from "../../chainOfThought/schema.js"
 import type { Module } from "../../model.js"
 
+/**
+ * Candidate-local output, trace, and usage evidence captured during one
+ * multi-chain comparison run before it is replayed into the parent fiber.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
 export type CandidateRun<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields

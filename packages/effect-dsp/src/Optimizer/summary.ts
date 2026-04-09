@@ -8,6 +8,13 @@ import type { GEPAEventSummary } from "../optimizers/GEPA/progress.js"
 import type { MIPROv2EventSummary } from "../optimizers/MIPROv2/progress.js"
 
 /**
+ * MIPROv2 search-quality and retained-gain observability projections.
+ *
+ * @since 0.2.0
+ */
+export * from "../optimizers/MIPROv2/observability.js"
+
+/**
  * Semantic summary of a MIPROv2 optimization run — baseline vs. optimized
  * scores, demo counts, and per-event breakdown.
  *
@@ -74,11 +81,3 @@ export class GEPAOutcomeSummary extends Data.Class<{
       eventSummary: options.eventSummary
     })
 }
-
-/**
- * MIPROv2 optimization observability snapshot.
- *
- * @since 0.2.0
- * @category models
- */
-export { MIPROv2OptimizationObservability } from "../optimizers/MIPROv2/observability.js"

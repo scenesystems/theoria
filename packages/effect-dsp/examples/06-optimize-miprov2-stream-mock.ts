@@ -10,8 +10,8 @@ import { ModuleParams } from "effect-dsp/contracts"
 import { MockLanguageModel } from "effect-dsp/test"
 import {
   StandardExampleEvents,
-  StandardModuleState,
   StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"

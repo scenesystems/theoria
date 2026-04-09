@@ -9,23 +9,40 @@ import type { COPROProgressSink } from "../optimizers/COPRO/progress.js"
 import type { GEPAProgressSink } from "../optimizers/GEPA/progress.js"
 import type { MIPROv2ProgressSink } from "../optimizers/MIPROv2/progress.js"
 
-export { GEPAOutcomeSummary, MIPROv2OptimizationObservability, MIPROv2OutcomeSummary } from "./summary.js"
+/**
+ * Shared optimizer outcome summaries and observability projections.
+ *
+ * @since 0.2.0
+ */
+export * from "./summary.js"
 
-export { BootstrapEventSummary, BootstrapProgressLine } from "../optimizers/BootstrapFewShot/progress.js"
+/**
+ * BootstrapFewShot progress lines, event summaries, and sink contracts.
+ *
+ * @since 0.2.0
+ */
+export * from "../optimizers/BootstrapFewShot/progress.js"
 
-export { COPROEventSummary, COPROProgressLine } from "../optimizers/COPRO/progress.js"
+/**
+ * COPRO progress lines, event summaries, and sink contracts.
+ *
+ * @since 0.2.0
+ */
+export * from "../optimizers/COPRO/progress.js"
 
-export { GEPAEventSummary, GEPAProgressLine } from "../optimizers/GEPA/progress.js"
+/**
+ * GEPA progress lines, event summaries, and sink contracts.
+ *
+ * @since 0.2.0
+ */
+export * from "../optimizers/GEPA/progress.js"
 
-export { MIPROv2EventSummary, MIPROv2ProgressLine } from "../optimizers/MIPROv2/progress.js"
-
-export type { BootstrapProgressSink } from "../optimizers/BootstrapFewShot/progress.js"
-
-export type { COPROProgressSink } from "../optimizers/COPRO/progress.js"
-
-export type { GEPAProgressSink } from "../optimizers/GEPA/progress.js"
-
-export type { MIPROv2ProgressSink } from "../optimizers/MIPROv2/progress.js"
+/**
+ * MIPROv2 progress lines, event summaries, and sink contracts.
+ *
+ * @since 0.2.0
+ */
+export * from "../optimizers/MIPROv2/progress.js"
 
 const noOpProgressEffect = Effect.void
 

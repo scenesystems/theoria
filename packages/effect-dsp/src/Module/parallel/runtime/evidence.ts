@@ -11,6 +11,13 @@ import { Effect, FiberRef } from "effect"
 import { Usage } from "../../../contracts/Usage.js"
 import * as Trace from "../../../Trace/index.js"
 
+/**
+ * Branch-local output, trace, and usage evidence captured during one parallel
+ * branch execution before it is replayed into the parent fiber.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
 export type BranchResult<O extends Schema.Struct.Fields> = Readonly<{
   readonly branchIndex: number
   readonly output: Schema.Schema.Type<Schema.Struct<O>>

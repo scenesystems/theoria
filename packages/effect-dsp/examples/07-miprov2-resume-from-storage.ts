@@ -14,8 +14,8 @@ import { Contracts } from "effect-search"
 import { Sampler, SearchSpace, Study } from "effect-search"
 import {
   StandardExampleEvents,
-  StandardModuleState,
   StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { createExampleArtifacts } from "./shared/output-artifacts.js"
