@@ -75,5 +75,5 @@ export const drawRollPairs = (
 ): Effect.Effect<Array<CandidateRollPair>> =>
   Effect.forEach(indices(count), () =>
     Effect.all([Rng.nextFloat(rng), Rng.nextFloat(rng)]).pipe(
-      Effect.map(([kernelRoll, valueRoll]) => CandidateRollPair.make(kernelRoll, valueRoll))
+      Effect.map(([kernelRoll, valueRoll]) => CandidateRollPair.make({ kernelRoll, valueRoll }))
     ))

@@ -83,7 +83,7 @@ export class ProgressLine extends Data.Class<{
    * import { TrialCompleted } from "effect-search/StudyEvent"
    *
    * const lines = ProgressLine.projectEvent(
-   *   TrialCompleted({ trialNumber: 1, value: 0.42 }),
+   *   TrialCompleted.make({ trialNumber: 1, value: 0.42 }),
    *   { renderMode: "plain" }
    * )
    * ```
@@ -100,10 +100,22 @@ export class ProgressLine extends Data.Class<{
     return [projectLine(event, resolveRenderMode(options))]
   }
 
+  /**
+   * Constructs a stdout progress line for normal study updates.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
   static stdout(text: string): ProgressLine {
     return ProgressLine.make({ channel: "stdout", text })
   }
 
+  /**
+   * Constructs a stderr progress line for warnings, retries, and failures.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
   static stderr(text: string): ProgressLine {
     return ProgressLine.make({ channel: "stderr", text })
   }

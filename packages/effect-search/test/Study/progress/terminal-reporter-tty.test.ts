@@ -24,7 +24,7 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
 describe("terminal reporter tty behavior", () => {
   it.effect("applies ANSI styling only when sink reports TTY support", () =>
     Effect.gen(function*() {
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 3, value: 0.5 })
+      const completed = StudyEvent.TrialCompleted.make({ trialNumber: 3, value: 0.5 })
       const ttyCapture = yield* makeCaptureSink(true)
       const plainCapture = yield* makeCaptureSink(false)
 
@@ -42,7 +42,7 @@ describe("terminal reporter tty behavior", () => {
 
   it.effect("routes failures to stderr while still respecting tty style selection", () =>
     Effect.gen(function*() {
-      const failed = StudyEvent.TrialFailed({
+      const failed = StudyEvent.TrialFailed.make({
         trialNumber: 11,
         error: new Errors.TrialError({
           trialNumber: 11,
@@ -69,7 +69,7 @@ describe("terminal reporter tty behavior", () => {
         supportsAnsi: Effect.fail("probe-unavailable"),
         writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line))
       })
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 5, value: 0.125 })
+      const completed = StudyEvent.TrialCompleted.make({ trialNumber: 5, value: 0.125 })
 
       yield* Study.TerminalReporter.report(completed, { sink })
 

@@ -13,7 +13,6 @@ import type * as Trial from "../../../Trial/index.js"
 import { emitLifecycleEvents } from "../../events.js"
 import type { OptimizeSettings } from "../../options.js"
 import { modifyRuntimeState, readStudyState, RuntimeState } from "../../runtime/runtimeState.js"
-import { withFinalizedTrialSuggestionState } from "../../runtime/suggestionState.js"
 import { trialToSnapshot } from "../../snapshot/stateCodec.js"
 import { pendingTrialByNumber, withFinalizedTrial } from "../../state.js"
 import { appendTrialIfAvailable } from "../../studyStorage.js"
@@ -86,7 +85,7 @@ export const finalizeTrial = <Space extends SearchSpace.SearchSpace>(
           new RuntimeState({
             lifecycle: runtimeState.lifecycle,
             studyState: withFinalizedTrial(runtimeState.studyState, trial),
-            suggestionState: withFinalizedTrialSuggestionState(runtimeState.suggestionState, trial)
+            suggestionState: runtimeState.suggestionState.withFinalizedTrial(trial)
           })
         )
       ))

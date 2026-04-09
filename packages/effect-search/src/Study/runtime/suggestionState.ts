@@ -3,91 +3,25 @@
  *
  * @since 0.3.0
  */
-import { Array as Arr, Data, Number as Num, Option, Order, Predicate } from "effect"
+import { Data, type Option } from "effect"
 
 import type { ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
-import type { SamplerConfig } from "../../internal/configAccess.js"
-import {
-  type PendingImputationPolicy,
+import type { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
+import type {
+  PendingImputationPolicy,
   SuggestCompletedTrial,
   SuggestContext,
   SuggestPendingTrial
 } from "../../Sampler/index.js"
-import type { PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
-import * as Trial from "../../Trial/index.js"
-import { completedTrialsFromState, maxTrialNumberFromState, pendingTrialsFromState, type StudyState } from "../state.js"
-
-const SuggestTrialOrder = Order.mapInput(
-  Order.number,
-  (trial: SuggestCompletedTrial | SuggestPendingTrial) => trial.trialNumber
-)
-
-const toSamplerConfig = <Config>(config: Config): SamplerConfig => Predicate.isRecord(config) ? config : {}
-
-const trialVariance = <Config>(trial: Trial.CompletedTrial<Config>): Option.Option<number> =>
-  Option.fromNullable(trial.state.variance)
-
-const toSuggestCompletedTrial = <Config>(
-  trial: Trial.CompletedTrial<Config>,
-  priorWeight: number
-): SuggestCompletedTrial =>
-  Option.match(trialVariance(trial), {
-    onNone: () =>
-      SuggestCompletedTrial.fromObservation(
-        trial.trialNumber,
-        toSamplerConfig(trial.config),
-        trial.state.value,
-        trial.prior === true ? priorWeight : 1,
-        trial.cost
-      ),
-    onSome: (variance) =>
-      SuggestCompletedTrial.fromObservation(
-        trial.trialNumber,
-        toSamplerConfig(trial.config),
-        trial.state.value,
-        trial.prior === true ? priorWeight : 1,
-        trial.cost,
-        variance
-      )
-  })
-
-const toSuggestPendingTrial = <Config>(trial: Trial.Trial<Config>): SuggestPendingTrial =>
-  SuggestPendingTrial.make({
-    trialNumber: trial.trialNumber,
-    config: toSamplerConfig(trial.config)
-  })
-
-const insertByTrialNumber = <A extends SuggestCompletedTrial | SuggestPendingTrial>(
-  values: ReadonlyArray<A>,
-  next: A
-): Array<A> => Arr.sort(Arr.append(values, next), SuggestTrialOrder)
-
-const removeByTrialNumber = <A extends SuggestCompletedTrial | SuggestPendingTrial>(
-  values: ReadonlyArray<A>,
-  trialNumber: number
-): Array<A> => Arr.filter(values, (candidate) => candidate.trialNumber !== trialNumber)
-
-const completedProjectionForTrial = <Config>(
-  trial: Trial.Trial<Config>,
-  priorWeight: number
-): Option.Option<SuggestCompletedTrial> =>
-  Trial.matchState({
-    Running: () => Option.none(),
-    Pruned: () => Option.none(),
-    Failed: () => Option.none(),
-    Cancelled: () => Option.none(),
-    Completed: ({ value, variance }) =>
-      Option.some(
-        SuggestCompletedTrial.fromObservation(
-          trial.trialNumber,
-          toSamplerConfig(trial.config),
-          value,
-          trial.prior === true ? priorWeight : 1,
-          trial.cost,
-          variance
-        )
-      )
-  })(trial.state)
+import type { PreparedSuggestionState } from "../../Sampler/preparation.js"
+import type * as Trial from "../../Trial/index.js"
+import type { StudyState } from "../state.js"
+import { contextForSuggestionState, fromStudyStateShape } from "./suggestionStateProjection.js"
+import {
+  withFinalizedTrialShape,
+  withPreparedSuggestionShape,
+  withReservedTrialShape
+} from "./suggestionStateTransitions.js"
 
 /**
  * Runtime-only projection of canonical study history into sampler-facing state.
@@ -104,136 +38,77 @@ export class SuggestionState extends Data.Class<{
   readonly nextTrialNumber: number
   readonly preparedSuggestion: Option.Option<PreparedSuggestionState>
   readonly lastSuggestionDiagnostics: Option.Option<SuggestionDiagnostics>
-}> {}
+}> {
+  /**
+   * Rehydrates a stable sampler-facing suggestion state from trusted fields.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  static make(options: ConstructorParameters<typeof SuggestionState>[0]): SuggestionState {
+    return new SuggestionState(options)
+  }
 
-/**
- * Rebuilds sampler-facing projection state from canonical study history.
- *
- * @since 0.3.0
- * @category constructors
- */
-export const suggestionStateFromStudyState = <Config>(
-  objectiveSpec: ObjectiveSpec,
-  state: StudyState<Config>,
-  priorWeight: number,
-  epsilon: number
-): SuggestionState =>
-  new SuggestionState({
-    observedCompleted: Arr.map(completedTrialsFromState(state), (trial) => toSuggestCompletedTrial(trial, priorWeight)),
-    pending: Arr.map(pendingTrialsFromState(state), toSuggestPendingTrial),
-    objectiveSpec,
-    priorWeight,
-    epsilon,
-    nextTrialNumber: Num.increment(maxTrialNumberFromState(state)),
-    preparedSuggestion: Option.none(),
-    lastSuggestionDiagnostics: Option.none()
-  })
+  /**
+   * Projects canonical study history into sampler-facing pending and completed
+   * trial observations.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  static fromStudyState<Config>(
+    objectiveSpec: ObjectiveSpec,
+    state: StudyState<Config>,
+    priorWeight: number,
+    epsilon: number
+  ): SuggestionState {
+    return SuggestionState.make(fromStudyStateShape(objectiveSpec, state, priorWeight, epsilon))
+  }
 
-const imputedCompleted = (
-  state: SuggestionState,
-  policy: PendingImputationPolicy
-): Array<SuggestCompletedTrial> => {
-  const baseContext = new SuggestContext({
-    completed: Arr.fromIterable(state.observedCompleted),
-    pending: Arr.fromIterable(state.pending),
-    objectiveSpec: state.objectiveSpec,
-    nextTrialNumber: state.nextTrialNumber,
-    epsilon: state.epsilon
-  })
+  /**
+   * Produces the sampler suggestion context after applying the chosen pending
+   * trial imputation policy.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  context(policy: PendingImputationPolicy): SuggestContext {
+    return contextForSuggestionState(this, policy)
+  }
 
-  return Arr.map(
-    policy.impute(baseContext),
-    (observation) =>
-      SuggestCompletedTrial.fromObservation(
-        observation.trialNumber,
-        observation.config,
-        observation.value
-      )
-  )
+  /**
+   * Extends the pending trial projection when a new trial number has been
+   * reserved but not yet finalized.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  withReservedTrial<Config>(trial: Trial.Trial<Config>): SuggestionState {
+    return SuggestionState.make(withReservedTrialShape(this, trial))
+  }
+
+  /**
+   * Removes a finalized trial from the pending projection and appends any new
+   * completed observation derived from its terminal state.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  withFinalizedTrial<Config>(trial: Trial.Trial<Config>): SuggestionState {
+    return SuggestionState.make(withFinalizedTrialShape(this, trial))
+  }
+
+  /**
+   * Records the most recent prepared suggestion and its published diagnostics
+   * without mutating canonical study history.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  withPreparedSuggestion(
+    preparedSuggestion: Option.Option<PreparedSuggestionState>,
+    lastSuggestionDiagnostics: SuggestionDiagnostics
+  ): SuggestionState {
+    return SuggestionState.make(withPreparedSuggestionShape(this, preparedSuggestion, lastSuggestionDiagnostics))
+  }
 }
-
-/**
- * Materializes the current sampler context from hot runtime projection state.
- *
- * @since 0.3.0
- * @category constructors
- */
-export const suggestContextFromSuggestionState = (
-  state: SuggestionState,
-  policy: PendingImputationPolicy
-): SuggestContext =>
-  new SuggestContext({
-    completed: Arr.appendAll(state.observedCompleted, imputedCompleted(state, policy)),
-    pending: Arr.fromIterable(state.pending),
-    objectiveSpec: state.objectiveSpec,
-    nextTrialNumber: state.nextTrialNumber,
-    epsilon: state.epsilon
-  })
-
-/**
- * Updates runtime projection state after reserving a new running trial.
- *
- * @since 0.3.0
- * @category combinators
- */
-export const withReservedTrialSuggestionState = <Config>(
-  state: SuggestionState,
-  trial: Trial.Trial<Config>
-): SuggestionState =>
-  new SuggestionState({
-    observedCompleted: state.observedCompleted,
-    pending: insertByTrialNumber(state.pending, toSuggestPendingTrial(trial)),
-    objectiveSpec: state.objectiveSpec,
-    priorWeight: state.priorWeight,
-    epsilon: state.epsilon,
-    nextTrialNumber: Num.max(state.nextTrialNumber, Num.increment(trial.trialNumber)),
-    preparedSuggestion: state.preparedSuggestion,
-    lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
-  })
-
-/**
- * Updates runtime projection state after a pending trial finalizes.
- *
- * @since 0.3.0
- * @category combinators
- */
-export const withFinalizedTrialSuggestionState = <Config>(
-  state: SuggestionState,
-  trial: Trial.Trial<Config>
-): SuggestionState =>
-  new SuggestionState({
-    observedCompleted: Option.match(completedProjectionForTrial(trial, state.priorWeight), {
-      onNone: () => state.observedCompleted,
-      onSome: (completed) =>
-        insertByTrialNumber(removeByTrialNumber(state.observedCompleted, trial.trialNumber), completed)
-    }),
-    pending: removeByTrialNumber(state.pending, trial.trialNumber),
-    objectiveSpec: state.objectiveSpec,
-    priorWeight: state.priorWeight,
-    epsilon: state.epsilon,
-    nextTrialNumber: state.nextTrialNumber,
-    preparedSuggestion: state.preparedSuggestion,
-    lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
-  })
-
-/**
- * Updates runtime-only prepared suggestion state and the latest suggestion diagnostics.
- *
- * @since 0.3.0
- * @category combinators
- */
-export const withPreparedSuggestionState = (
-  state: SuggestionState,
-  preparedSuggestion: Option.Option<PreparedSuggestionState>,
-  lastSuggestionDiagnostics: SuggestionDiagnostics
-): SuggestionState =>
-  new SuggestionState({
-    observedCompleted: state.observedCompleted,
-    pending: state.pending,
-    objectiveSpec: state.objectiveSpec,
-    priorWeight: state.priorWeight,
-    epsilon: state.epsilon,
-    nextTrialNumber: state.nextTrialNumber,
-    preparedSuggestion,
-    lastSuggestionDiagnostics: Option.some(lastSuggestionDiagnostics)
-  })

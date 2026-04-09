@@ -17,7 +17,7 @@ import { stateFromInitialTrials, trialsFromState } from "../state.js"
 import { StopRef } from "./controls.js"
 import type { StudyLifecycle } from "./lifecycle.js"
 import type { StudyClock } from "./runtimeState.js"
-import { type SuggestionState, suggestionStateFromStudyState } from "./suggestionState.js"
+import { SuggestionState } from "./suggestionState.js"
 import { warmStopStateFromTrials } from "./warmStopState.js"
 
 /**
@@ -85,6 +85,13 @@ export class StudyRuntime<Config = unknown> extends Data.Class<{
   readonly noImprovementCountRef: Ref.Ref<number>
   readonly eventPublisher: EventPublisher
 }> {
+  /**
+   * Reconstructs the runtime handle around an already-booted state actor while
+   * deriving warm stop metrics from the recovered trial history.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
   static fromActor<Config>(
     settings: OptimizeSettings,
     stateActor: RuntimeActor<Config>,
@@ -127,7 +134,7 @@ const runtimeStateFromStudyState = <Config>(
   new RuntimeState({
     lifecycle,
     studyState,
-    suggestionState: suggestionStateFromStudyState(
+    suggestionState: SuggestionState.fromStudyState(
       settings.objectiveSpec,
       studyState,
       settings.priorWeight,

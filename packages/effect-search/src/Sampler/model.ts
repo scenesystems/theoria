@@ -6,11 +6,12 @@
 import type { Effect, Option } from "effect"
 import { Data } from "effect"
 
+import type { SuggestionDiagnostics } from "../contracts/SuggestionDiagnostics.js"
 import type { InvalidStudyConfig, SearchError } from "../Errors/index.js"
 import type * as SearchSpace from "../SearchSpace/index.js"
 import type { SamplerCheckpoint, SamplerKind } from "./kinds.js"
 import type { PendingImputationPolicy } from "./PendingImputationPolicy.js"
-import type { PreparedSuggestionState, SuggestionDiagnostics } from "./preparation.js"
+import type { PreparedSuggestionState } from "./preparation.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**

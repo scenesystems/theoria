@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, MutableRef, Schema, Stream, Tracer, Tuple } from "effect"
 
-import { emptySuggestContext } from "../../src/Sampler/index.js"
+import { SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -91,7 +91,7 @@ describe("Study and Sampler tracing", () => {
   it.effect("emits tracing span for Sampler.suggest combinator", () =>
     Effect.gen(function*() {
       const captured = yield* collectSpanNames(
-        Sampler.suggest(Sampler.random({ seed: 33 }), makeSpace(), emptySuggestContext())
+        Sampler.suggest(Sampler.random({ seed: 33 }), makeSpace(), SuggestContext.empty())
       )
 
       expect(captured[1]).toContain("effect-search/Sampler.suggest")

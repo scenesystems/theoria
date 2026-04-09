@@ -338,7 +338,6 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    { "subpath": "./Sampler", "exportName": "emptySuggestContext", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Sampler", "exportName": "gpBo", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": "./Sampler", "exportName": "GpBo", "kind": "value", "firstReleasedIn": "0.2.1" },
     { "subpath": "./Sampler", "exportName": "GpBoOptions", "kind": "type", "firstReleasedIn": "0.1.0" },

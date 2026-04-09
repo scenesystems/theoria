@@ -69,6 +69,13 @@ const resolveRenderMode = (sink: TerminalSink): Effect.Effect<TerminalRenderMode
 export class TerminalReporter {
   private constructor() {}
 
+  /**
+   * Allocates a reporter once so render-mode detection does not repeat for
+   * every downstream study event.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
   static allocate(options?: { readonly sink?: TerminalSink }): Effect.Effect<TerminalProgressReporter> {
     return Effect.gen(function*() {
       const sink = resolveSink(options)
@@ -93,7 +100,7 @@ export class TerminalReporter {
    * const sink = TerminalSink.make()
    * Effect.gen(function*() {
    *   yield* TerminalReporter.report(
-   *     StudyCompleted({ completionReason: "budgetExhausted" }),
+   *     StudyCompleted.make({ completionReason: "budgetExhausted" }),
    *     { sink }
    *   )
    * })

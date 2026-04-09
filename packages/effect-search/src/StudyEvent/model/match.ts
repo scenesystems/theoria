@@ -3,26 +3,25 @@
  *
  * @since 0.1.0
  */
-import type { Schema } from "effect"
 import { Match } from "effect"
 
 import type {
-  BestUpdatedSchema,
-  BracketCompletedSchema,
-  BracketStartedSchema,
-  RoundCompletedSchema,
-  RoundStartedSchema,
-  StudyCompletedSchema,
+  BestUpdated as BestUpdatedEvent,
+  BracketCompleted as BracketCompletedEvent,
+  BracketStarted as BracketStartedEvent,
+  RoundCompleted as RoundCompletedEvent,
+  RoundStarted as RoundStartedEvent,
+  StudyCompleted as StudyCompletedEvent,
   StudyEvent,
-  StudyStopRequestedSchema,
-  TrialCancelledSchema,
-  TrialCompletedSchema,
-  TrialCostedSchema,
-  TrialFailedSchema,
-  TrialPrunedSchema,
-  TrialReportedSchema,
-  TrialRetriedSchema,
-  TrialStartedSchema
+  StudyStopRequested as StudyStopRequestedEvent,
+  TrialCancelled as TrialCancelledEvent,
+  TrialCompleted as TrialCompletedEvent,
+  TrialCosted as TrialCostedEvent,
+  TrialFailed as TrialFailedEvent,
+  TrialPruned as TrialPrunedEvent,
+  TrialReported as TrialReportedEvent,
+  TrialRetried as TrialRetriedEvent,
+  TrialStarted as TrialStartedEvent
 } from "./schemas.js"
 
 /**
@@ -30,21 +29,21 @@ import type {
  * @category pattern-matching
  */
 export const matchStudyEvent = <A>(handlers: {
-  readonly TrialStarted: (event: Schema.Schema.Type<typeof TrialStartedSchema>) => A
-  readonly TrialReported: (event: Schema.Schema.Type<typeof TrialReportedSchema>) => A
-  readonly TrialCompleted: (event: Schema.Schema.Type<typeof TrialCompletedSchema>) => A
-  readonly TrialCosted: (event: Schema.Schema.Type<typeof TrialCostedSchema>) => A
-  readonly TrialPruned: (event: Schema.Schema.Type<typeof TrialPrunedSchema>) => A
-  readonly TrialRetried: (event: Schema.Schema.Type<typeof TrialRetriedSchema>) => A
-  readonly TrialCancelled: (event: Schema.Schema.Type<typeof TrialCancelledSchema>) => A
-  readonly TrialFailed: (event: Schema.Schema.Type<typeof TrialFailedSchema>) => A
-  readonly BestUpdated: (event: Schema.Schema.Type<typeof BestUpdatedSchema>) => A
-  readonly StudyStopRequested: (event: Schema.Schema.Type<typeof StudyStopRequestedSchema>) => A
-  readonly BracketStarted: (event: Schema.Schema.Type<typeof BracketStartedSchema>) => A
-  readonly RoundStarted: (event: Schema.Schema.Type<typeof RoundStartedSchema>) => A
-  readonly RoundCompleted: (event: Schema.Schema.Type<typeof RoundCompletedSchema>) => A
-  readonly BracketCompleted: (event: Schema.Schema.Type<typeof BracketCompletedSchema>) => A
-  readonly StudyCompleted: (event: Schema.Schema.Type<typeof StudyCompletedSchema>) => A
+  readonly TrialStarted: (event: TrialStartedEvent) => A
+  readonly TrialReported: (event: TrialReportedEvent) => A
+  readonly TrialCompleted: (event: TrialCompletedEvent) => A
+  readonly TrialCosted: (event: TrialCostedEvent) => A
+  readonly TrialPruned: (event: TrialPrunedEvent) => A
+  readonly TrialRetried: (event: TrialRetriedEvent) => A
+  readonly TrialCancelled: (event: TrialCancelledEvent) => A
+  readonly TrialFailed: (event: TrialFailedEvent) => A
+  readonly BestUpdated: (event: BestUpdatedEvent) => A
+  readonly StudyStopRequested: (event: StudyStopRequestedEvent) => A
+  readonly BracketStarted: (event: BracketStartedEvent) => A
+  readonly RoundStarted: (event: RoundStartedEvent) => A
+  readonly RoundCompleted: (event: RoundCompletedEvent) => A
+  readonly BracketCompleted: (event: BracketCompletedEvent) => A
+  readonly StudyCompleted: (event: StudyCompletedEvent) => A
 }) =>
 (event: StudyEvent) =>
   Match.value(event).pipe(

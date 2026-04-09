@@ -85,7 +85,7 @@ export const requestStudyStop = (
         onSome: (request) =>
           appendEvent(
             runtime,
-            StudyEvent.StudyStopRequested({
+            StudyEvent.StudyStopRequested.make({
               mode: request.mode,
               reason: request.reason,
               requestedByTrialNumber: request.requestedByTrialNumber

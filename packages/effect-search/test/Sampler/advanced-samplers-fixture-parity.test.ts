@@ -32,7 +32,7 @@ const makeContext = (
     }>
   }
 ) =>
-  new Sampler.SuggestContext({
+  Sampler.SuggestContext.make({
     completed: context.completed.map((entry) =>
       Sampler.SuggestCompletedTrial.fromObservation(entry.trialNumber, entry.config, entry.value)
     ),

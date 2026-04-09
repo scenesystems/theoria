@@ -71,3 +71,7 @@ export * from "./ObjectiveSpec.js"
  * @since 0.1.0
  */
 export * from "./ObjectiveValue.js"
+/**
+ * @since 0.3.0
+ */
+export * from "./SuggestionDiagnostics.js"

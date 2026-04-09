@@ -106,18 +106,15 @@ export const intCandidateTraceFromRolls = (
 
     const belowParzen = buildContinuousParzen(belowValues, modelLow, modelHigh)
     const aboveParzen = buildContinuousParzen(aboveValues, modelLow, modelHigh)
-    const modelCandidates = Arr.map(rolls, ([kernelRoll, valueRoll]) =>
-      sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    const modelCandidates = Arr.map(rolls, (roll) => sampleFromParzen(belowParzen, roll.kernelRoll, roll.valueRoll))
     const logPairs = Arr.map(modelCandidates, (candidate) =>
       Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate)))
 
     return new DimensionScoreTrace({
       candidates: Arr.map(modelCandidates, (candidate) =>
         normalizeInt(candidate, low, high, step)),
-      logL: Arr.map(logPairs, ([logL]) =>
-        logL),
-      logG: Arr.map(logPairs, ([_logL, logG]) =>
-        logG),
+      logL: Arr.map(logPairs, ([logL]) => logL),
+      logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
         scoreAcquisition({
           logL,

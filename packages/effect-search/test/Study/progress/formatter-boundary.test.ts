@@ -7,7 +7,7 @@ import * as StudyEvent from "../../../src/StudyEvent/index.js"
 describe("formatter boundary", () => {
   it.effect("keeps pure formatter output independent from sink effects", () =>
     Effect.gen(function*() {
-      const event = StudyEvent.TrialPruned({
+      const event = StudyEvent.TrialPruned.make({
         trialNumber: 8,
         step: 3,
         reason: "plateau",

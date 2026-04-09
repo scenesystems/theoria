@@ -210,7 +210,7 @@ describe("fixture-backed parity", () => {
 
             const replayedSamples = Arr.map(
               fixture.payload.expected.candidateRolls,
-              ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
+              (roll) => sampleFromParzen(parzen, roll.kernelRoll, roll.valueRoll)
             )
 
             yield* Effect.forEach(

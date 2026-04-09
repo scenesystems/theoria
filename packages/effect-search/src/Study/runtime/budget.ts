@@ -74,7 +74,10 @@ export const emitTrialCostedAndMarkBudget = <Config>(
         Effect.gen(function*() {
           const state = yield* readStudyState(runtime)
           const cumulativeCost = state.cumulativeCost
-          yield* appendEvent(runtime, StudyEvent.TrialCosted({ trialNumber: trial.trialNumber, cost, cumulativeCost }))
+          yield* appendEvent(
+            runtime,
+            StudyEvent.TrialCosted.make({ trialNumber: trial.trialNumber, cost, cumulativeCost })
+          )
 
           yield* maybeMaxCost(settings).pipe(
             Option.match({

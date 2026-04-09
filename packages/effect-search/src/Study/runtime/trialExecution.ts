@@ -32,7 +32,6 @@ import type { PruningPolicy } from "./pruning.js"
 import { RuntimeState } from "./runtimeState.js"
 import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
 import { applyTrialStoppingPolicies } from "./stopping.js"
-import { withFinalizedTrialSuggestionState, withReservedTrialSuggestionState } from "./suggestionState.js"
 import { TrialContext } from "./trialContext.js"
 import { evaluateObjectiveWithPolicy } from "./trialEvaluation.js"
 import type { CacheResolveAsTrialError } from "./trialEvaluation/model.js"
@@ -61,7 +60,7 @@ const recordFinalizedTrial = <Config>(
         new RuntimeState({
           lifecycle: state.lifecycle,
           studyState: withFinalizedTrial(state.studyState, finalized),
-          suggestionState: withFinalizedTrialSuggestionState(state.suggestionState, finalized)
+          suggestionState: state.suggestionState.withFinalizedTrial(finalized)
         })
       )
     ))
@@ -105,8 +104,8 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
 
       const runtimeState = yield* runtime.stateActor.get
       const event = Option.match(runtimeState.suggestionState.lastSuggestionDiagnostics, {
-        onNone: () => StudyEvent.TrialStarted({ trialNumber, config: running.config }),
-        onSome: (diagnostics) => StudyEvent.TrialStarted({ trialNumber, config: running.config, diagnostics })
+        onNone: () => StudyEvent.TrialStarted.make({ trialNumber, config: running.config }),
+        onSome: (diagnostics) => StudyEvent.TrialStarted.make({ trialNumber, config: running.config, diagnostics })
       })
 
       yield* appendEvent(runtime, event)
@@ -129,7 +128,7 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
             const cancelled = Trial.cancel(running)
             yield* recordFinalizedTrial(runtime, cancelled)
             yield* appendTrialIfAvailable(trialToSnapshot(cancelled))
-            yield* appendEvent(runtime, StudyEvent.TrialCancelled({ trialNumber, reason: "timeout" }))
+            yield* appendEvent(runtime, StudyEvent.TrialCancelled.make({ trialNumber, reason: "timeout" }))
             return cancelled
           }),
         onSome: (objectiveExit) =>
@@ -175,7 +174,7 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
         new RuntimeState({
           lifecycle: state.lifecycle,
           studyState: withReservedTrial(state.studyState, running),
-          suggestionState: withReservedTrialSuggestionState(state.suggestionState, running)
+          suggestionState: state.suggestionState.withReservedTrial(running)
         })
       )
     }))

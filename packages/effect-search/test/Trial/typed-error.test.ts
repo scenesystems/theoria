@@ -36,7 +36,7 @@ describe("Trial / typed error", () => {
         message: "objective timeout",
         cause: { timeout: true }
       })
-      const event = StudyEvent.TrialFailed({ trialNumber: 9, error: trialError })
+      const event = StudyEvent.TrialFailed.make({ trialNumber: 9, error: trialError })
 
       expect(event._tag).toBe("TrialFailed")
       expect(event.error).toBeInstanceOf(TrialError)

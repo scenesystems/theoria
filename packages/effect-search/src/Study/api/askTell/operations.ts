@@ -139,9 +139,9 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
         Effect.gen(function*() {
           const reservedState = yield* readRuntimeState(state.runtime)
           const event = Option.match(reservedState.suggestionState.lastSuggestionDiagnostics, {
-            onNone: () => StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config }),
+            onNone: () => StudyEvent.TrialStarted.make({ trialNumber: running.trialNumber, config: running.config }),
             onSome: (diagnostics) =>
-              StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config, diagnostics })
+              StudyEvent.TrialStarted.make({ trialNumber: running.trialNumber, config: running.config, diagnostics })
           })
 
           yield* appendEvent(state.runtime, event)

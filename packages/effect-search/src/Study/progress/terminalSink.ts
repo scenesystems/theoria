@@ -131,7 +131,7 @@ export class TerminalSink extends Data.Class<{
  *
  * Effect.gen(function*() {
  *   yield* TerminalReporter.report(
- *     TrialCompleted({ trialNumber: 1, value: 0.42 }),
+ *     TrialCompleted.make({ trialNumber: 1, value: 0.42 }),
  *     { sink: defaultTerminalSink }
  *   )
  * })
@@ -151,7 +151,7 @@ export const defaultTerminalSink: TerminalSink = TerminalSink.make()
  * import { ProgressLine, writeProgressLines, defaultTerminalSink } from "effect-search/Study"
  * import { TrialCompleted } from "effect-search/StudyEvent"
  *
- * const lines = ProgressLine.projectEvent(TrialCompleted({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
+ * const lines = ProgressLine.projectEvent(TrialCompleted.make({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
  * Effect.gen(function*() {
  *   yield* writeProgressLines(defaultTerminalSink, lines)
  * })

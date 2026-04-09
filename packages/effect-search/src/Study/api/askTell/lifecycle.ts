@@ -63,7 +63,7 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
 
     const alreadyPublished = yield* Ref.get(state.completionPublishedRef)
     yield* Effect.when(
-      appendEvent(state.runtime, StudyEvent.StudyCompleted({ completionReason })).pipe(
+      appendEvent(state.runtime, StudyEvent.StudyCompleted.make({ completionReason })).pipe(
         Effect.zipRight(Ref.set(state.completionPublishedRef, true))
       ),
       () => !alreadyPublished

@@ -5,10 +5,11 @@
  */
 import { Effect, Option, Tuple } from "effect"
 
+import { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import type { SearchError } from "../../Errors/index.js"
 import { PendingImputationPolicySpiLayer } from "../../Sampler/index.js"
 import * as Sampler from "../../Sampler/index.js"
-import { type PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
+import type { PreparedSuggestionState } from "../../Sampler/preparation.js"
 import { decodeConfig } from "../../Sampler/shared/decodeConfig.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import { Trial } from "../../Trial/index.js"
@@ -18,7 +19,6 @@ import { markSpaceExhausted } from "./completion.js"
 import { contextForSuggestionState } from "./context.js"
 import { RuntimeState } from "./runtimeState.js"
 import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
-import { withPreparedSuggestionState, withReservedTrialSuggestionState } from "./suggestionState.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
@@ -113,7 +113,7 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
         new RuntimeState({
           lifecycle: state.lifecycle,
           studyState: state.studyState,
-          suggestionState: withPreparedSuggestionState(state.suggestionState, preparedSuggestion, diagnostics)
+          suggestionState: state.suggestionState.withPreparedSuggestion(preparedSuggestion, diagnostics)
         })
       )
     }))
@@ -147,14 +147,14 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
         const running = Trial.run(trialNumber, config, startedAt)
 
         const nextStudyState = withReservedTrial(state.studyState, running)
-        const nextSuggestionState = withReservedTrialSuggestionState(state.suggestionState, running)
+        const nextSuggestionState = state.suggestionState.withReservedTrial(running)
 
         return Tuple.make(
           running,
           new RuntimeState({
             lifecycle: state.lifecycle,
             studyState: nextStudyState,
-            suggestionState: withPreparedSuggestionState(nextSuggestionState, preparedSuggestion, diagnostics)
+            suggestionState: nextSuggestionState.withPreparedSuggestion(preparedSuggestion, diagnostics)
           })
         )
       }))

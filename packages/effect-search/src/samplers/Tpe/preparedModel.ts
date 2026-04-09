@@ -5,10 +5,11 @@
  */
 import { Array as Arr, Data, Effect, Equal, Option, Tuple } from "effect"
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
+import { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import type { TrialSplit } from "../../internal/tpe/splitTrials.js"
 
 import { type SuggestCompletedTrial, type SuggestContext } from "../../Sampler/index.js"
-import { PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
+import { PreparedSuggestionState } from "../../Sampler/preparation.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import { enrichCompletedTrialsWithConstraints } from "./constraints/enrich.js"
 import { numericValuesForParameter, primitiveValuesForParameter } from "./dimensions/values.js"

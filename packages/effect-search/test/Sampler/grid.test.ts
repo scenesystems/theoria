@@ -3,7 +3,7 @@ import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 
 import type { PrimitiveChoice } from "../../src/contracts/index.js"
 import { GridIncompatible } from "../../src/Errors/index.js"
-import { emptySuggestContext } from "../../src/Sampler/index.js"
+import { SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
@@ -40,7 +40,7 @@ const collectSuggestions = (space: SearchSpace.SearchSpace, count: number) => {
 
   return Effect.forEach(
     Arr.makeBy(count, (index) => index),
-    (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+    (trialNumber) => Sampler.suggest(sampler, space, SuggestContext.empty(trialNumber))
   )
 }
 
@@ -67,16 +67,16 @@ describe("Sampler.grid", () => {
       const categoricalSpace = categoricalOnlySpace()
       const intSpace = intStepSpace()
       const mixedFiniteSpace = mixedSpace()
-      const categoricalCandidate = yield* Sampler.suggest(Sampler.grid(), categoricalSpace, emptySuggestContext(0))
-      const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, emptySuggestContext(0))
-      const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, emptySuggestContext(0))
+      const categoricalCandidate = yield* Sampler.suggest(Sampler.grid(), categoricalSpace, SuggestContext.empty(0))
+      const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, SuggestContext.empty(0))
+      const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, SuggestContext.empty(0))
 
       expect(Either.isRight(Schema.decodeUnknownEither(categoricalSpace.schema)(categoricalCandidate))).toBe(true)
       expect(Either.isRight(Schema.decodeUnknownEither(intSpace.schema)(intCandidate))).toBe(true)
       expect(Either.isRight(Schema.decodeUnknownEither(mixedFiniteSpace.schema)(mixedCandidate))).toBe(true)
 
       const incompatible = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), floatNoStepSpace(), emptySuggestContext(0))
+        Sampler.suggest(Sampler.grid(), floatNoStepSpace(), SuggestContext.empty(0))
       )
 
       expect(Either.isLeft(incompatible)).toBe(true)
@@ -110,7 +110,7 @@ describe("Sampler.grid", () => {
   it.effect("does not recycle configurations after the finite grid is exhausted", () =>
     Effect.gen(function*() {
       const exhaustedSuggestion = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), exhaustiveSpace(), emptySuggestContext(24))
+        Sampler.suggest(Sampler.grid(), exhaustiveSpace(), SuggestContext.empty(24))
       )
 
       expect(Either.isLeft(exhaustedSuggestion)).toBe(true)

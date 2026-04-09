@@ -62,7 +62,7 @@ const runBracketsByIndex = <Space extends SearchSpace.SearchSpace>(
         Effect.gen(function*() {
           yield* appendEvent(
             runtime,
-            StudyEvent.BracketStarted({
+            StudyEvent.BracketStarted.make({
               bracketIndex: bracket.index,
               configs: bracket.configs,
               minResource: bracket.minResource
@@ -96,7 +96,7 @@ const runBracketsByIndex = <Space extends SearchSpace.SearchSpace>(
 
           yield* appendEvent(
             runtime,
-            StudyEvent.BracketCompleted({
+            StudyEvent.BracketCompleted.make({
               bracketIndex: bracket.index,
               rounds: bracketRounds.length,
               ...bestValueFromSummary(direction, bracketSummary).pipe(

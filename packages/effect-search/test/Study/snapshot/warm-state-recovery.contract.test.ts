@@ -6,7 +6,6 @@ import * as Sampler from "../../../src/Sampler/index.js"
 import { stateOf } from "../../../src/Study/api/askTell/model.js"
 import * as Study from "../../../src/Study/index.js"
 import { initializeRuntime, readRuntimeState, StudyClockLayer } from "../../../src/Study/runtime/runtimeState.js"
-import { suggestContextFromSuggestionState } from "../../../src/Study/runtime/suggestionState.js"
 import { restoreSnapshot } from "../../../src/Study/snapshot/restore.js"
 import { singleObjectiveSpace } from "./helpers.js"
 
@@ -57,10 +56,7 @@ describe("Study snapshot warm-state recovery", () => {
         const restoredState = yield* readRuntimeState(restoredRuntime)
         const restoredBestValue = yield* Ref.get(restoredRuntime.bestValueRef)
         const restoredNoImprovementCount = yield* Ref.get(restoredRuntime.noImprovementCountRef)
-        const restoredContext = suggestContextFromSuggestionState(
-          restoredState.suggestionState,
-          pendingAsZeroImputationPolicy
-        )
+        const restoredContext = restoredState.suggestionState.context(pendingAsZeroImputationPolicy)
 
         expect(seed.startTrialNumber).toBe(pending.trialNumber + 1)
         expect(restoredBestValue).toEqual(Option.some(0))

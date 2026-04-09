@@ -121,7 +121,24 @@ export class SuggestContext extends Schema.Class<SuggestContext>("effect-search/
   objectiveSpec: ObjectiveSpecSchema,
   nextTrialNumber: Schema.Number,
   epsilon: SuggestionEpsilonSchema
-}) {}
+}) {
+  /**
+   * Creates an empty suggestion context for cold-start sampling or tests.
+   *
+   * @see {@link SuggestContext} the resulting model
+   * @since 0.1.0
+   * @category constructors
+   */
+  static empty(nextTrialNumber = 0): SuggestContext {
+    return SuggestContext.make({
+      completed: [],
+      pending: [],
+      objectiveSpec: singleObjectiveSpec(),
+      nextTrialNumber,
+      epsilon: 0
+    })
+  }
+}
 
 /**
  * Pairs a newly assigned trial number with the configuration a sampler has
@@ -136,21 +153,3 @@ export class SuggestionReservation extends Data.Class<{
   readonly trialNumber: number
   readonly config: SamplerConfig
 }> {}
-
-/**
- * Creates an empty {@link SuggestContext} with no completed or pending trials,
- * a single-objective spec, and zero epsilon. Useful for cold-start scenarios
- * where no prior observations exist, or as a baseline in tests.
- *
- * @see {@link SuggestContext} the resulting model
- * @since 0.1.0
- * @category constructors
- */
-export const emptySuggestContext = (nextTrialNumber = 0): SuggestContext =>
-  new SuggestContext({
-    completed: [],
-    pending: [],
-    objectiveSpec: singleObjectiveSpec(),
-    nextTrialNumber,
-    epsilon: 0
-  })

@@ -5,6 +5,7 @@ import { Effect, Order, Record, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import packageJson from "../../package.json" with { type: "json" }
+import * as Contracts from "../../src/contracts/index.js"
 import * as Study from "../../src/Study/index.js"
 import * as StudyEvent from "../../src/StudyEvent/index.js"
 
@@ -18,6 +19,7 @@ const packageExports = Schema.decodeUnknownSync(PackageExportsSchema)(packageJso
 
 describe("package/recovery-surface", () => {
   it("ships the public study recovery surface and keeps internal subpaths blocked", () => {
+    expect(Arr.sort(Record.keys(Contracts), Order.string)).toContain("SuggestionDiagnostics")
     expect(Arr.sort(Record.keys(Study), Order.string)).toContain("StudySnapshot")
     expect(Arr.sort(Record.keys(Study), Order.string)).toContain("resumeFromStorage")
     expect(Arr.sort(Record.keys(StudyEvent), Order.string)).toContain("TrialStarted")
@@ -25,10 +27,10 @@ describe("package/recovery-surface", () => {
     expect(packageExports["./StudyEvent"]).toBe("./src/StudyEvent/index.ts")
     expect(packageExports["./internal/*"]).toBeNull()
 
-    const diagnosticEvent = StudyEvent.TrialStarted({
+    const diagnosticEvent = StudyEvent.TrialStarted.make({
       trialNumber: 0,
       config: {},
-      diagnostics: {
+      diagnostics: Contracts.SuggestionDiagnostics.make({
         samplerKind: "Tpe",
         preparedStateKind: "effect-search/tpe/model-context",
         reusedPreparedState: true,
@@ -37,10 +39,11 @@ describe("package/recovery-surface", () => {
         imputedCompletedCount: 1,
         belowCount: 1,
         aboveCount: 0
-      }
+      })
     })
 
     expect(StudyEvent.isStudyEvent(diagnosticEvent)).toBe(true)
+    expect(diagnosticEvent.diagnostics).toBeInstanceOf(Contracts.SuggestionDiagnostics)
   })
 
   it.effect("documents resume, storage recovery, and snapshot authority on the shipped surface", () =>

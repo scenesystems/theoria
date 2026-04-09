@@ -8,11 +8,7 @@ import { Effect } from "effect"
 import { type ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
 import { PendingImputationPolicySpi, type SuggestContext } from "../../Sampler/index.js"
 import type { StudyState } from "../state.js"
-import {
-  suggestContextFromSuggestionState,
-  type SuggestionState,
-  suggestionStateFromStudyState
-} from "./suggestionState.js"
+import { SuggestionState } from "./suggestionState.js"
 
 /**
  * Builds the sampler suggestion context from current study state, applying pending trial imputation.
@@ -28,10 +24,10 @@ export const contextForSuggestion = <Config>(
 ): Effect.Effect<SuggestContext, never, PendingImputationPolicySpi> =>
   Effect.gen(function*() {
     const policy = yield* PendingImputationPolicySpi
-    return suggestContextFromSuggestionState(
-      suggestionStateFromStudyState(objectiveSpec, state, priorWeight, epsilon),
-      { name: "effect-search/runtime-derived", impute: policy.impute }
-    )
+    return SuggestionState.fromStudyState(objectiveSpec, state, priorWeight, epsilon).context({
+      name: "effect-search/runtime-derived",
+      impute: policy.impute
+    })
   })
 
 /**
@@ -45,7 +41,7 @@ export const contextForSuggestionState = (
 ): Effect.Effect<SuggestContext, never, PendingImputationPolicySpi> =>
   Effect.gen(function*() {
     const policy = yield* PendingImputationPolicySpi
-    return suggestContextFromSuggestionState(state, {
+    return state.context({
       name: "effect-search/runtime-derived",
       impute: policy.impute
     })

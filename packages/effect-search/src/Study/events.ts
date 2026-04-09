@@ -125,17 +125,17 @@ export const appendEvent = (runtime: EventRuntime, event: StudyEvent.StudyEvent)
 const eventFromFinalizedTrial = <Config>(trial: Trial.Trial<Config>): Option.Option<StudyEvent.StudyEvent> =>
   Trial.matchState({
     Running: () => Option.none(),
-    Completed: ({ value }) => Option.some(StudyEvent.TrialCompleted({ trialNumber: trial.trialNumber, value })),
+    Completed: ({ value }) => Option.some(StudyEvent.TrialCompleted.make({ trialNumber: trial.trialNumber, value })),
     Pruned: ({ step, reason, policy }) =>
       Option.some(
-        StudyEvent.TrialPruned({
+        StudyEvent.TrialPruned.make({
           trialNumber: trial.trialNumber,
           step,
           reason,
           policy
         })
       ),
-    Failed: ({ error }) => Option.some(StudyEvent.TrialFailed({ trialNumber: trial.trialNumber, error })),
+    Failed: ({ error }) => Option.some(StudyEvent.TrialFailed.make({ trialNumber: trial.trialNumber, error })),
     Cancelled: () => Option.none()
   })(trial.state)
 
@@ -187,7 +187,7 @@ export const emitLifecycleEvents = <Config>(
                         Effect.when(
                           appendEvent(
                             runtime,
-                            StudyEvent.BestUpdated({ trialNumber: finalized.trialNumber, value: numericValue })
+                            StudyEvent.BestUpdated.make({ trialNumber: finalized.trialNumber, value: numericValue })
                           ),
                           () => wasUpdated
                         )

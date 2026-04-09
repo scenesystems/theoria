@@ -136,7 +136,7 @@ const recordIntermediateReportWithSpi = (
       })
     )
 
-    yield* appendEvent(runtime, StudyEvent.TrialReported({ trialNumber, step, value, decision }))
+    yield* appendEvent(runtime, StudyEvent.TrialReported.make({ trialNumber, step, value, decision }))
     yield* setPrunedDecision(reportRefs.pruneRef, decision)
 
     return decision

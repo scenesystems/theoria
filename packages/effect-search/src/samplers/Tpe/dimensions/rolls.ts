@@ -17,4 +17,4 @@ import type { CandidateRollPair } from "./trace.js"
 export const rollFromCandidatePair = (
   rolls: ReadonlyArray<CandidateRollPair>,
   index: number
-): Option.Option<number> => Arr.get(rolls, index).pipe(Option.map(([_kernelRoll, valueRoll]) => valueRoll))
+): Option.Option<number> => Arr.get(rolls, index).pipe(Option.map((roll) => roll.valueRoll))
