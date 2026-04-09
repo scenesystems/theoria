@@ -40,12 +40,12 @@ const makeEnvelopeContextLayer = (options: {
     })
   }).pipe(Layer.unwrapEffect)
 
-const makeStudyStorage = (options: {
+const allocateStudyStorage = (options: {
   readonly directory: string
   readonly runIdText: string
   readonly studyId: string
 }) =>
-  Study.makeStudyStorage(Study.studyStorageOptions(options.directory)).pipe(
+  Study.StudyStorage.allocate(Study.studyStorageOptions(options.directory)).pipe(
     Effect.provide(SearchContracts.fileSystemSink(options.directory)),
     Effect.provide(makeEnvelopeContextLayer(options))
   )
@@ -105,7 +105,7 @@ describe("Experimental.Calibration reporting contracts", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "effect-text-calibration-study-"
       })
-      const firstLegStorage = yield* makeStudyStorage({
+      const firstLegStorage = yield* allocateStudyStorage({
         directory,
         runIdText: "01HZ0000000000000000000000",
         studyId: "effect-text-calibration-first-leg"
@@ -118,7 +118,7 @@ describe("Experimental.Calibration reporting contracts", () => {
         searchDescriptor: exploratorySearchDescriptor,
         studyStorage: firstLegStorage
       })
-      const resumedStorage = yield* makeStudyStorage({
+      const resumedStorage = yield* allocateStudyStorage({
         directory,
         runIdText: "01HZ0000000000000000000001",
         studyId: "effect-text-calibration-resume-leg"
