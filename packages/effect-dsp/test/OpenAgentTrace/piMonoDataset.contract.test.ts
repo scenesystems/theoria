@@ -8,7 +8,7 @@ import * as Experimental from "effect-dsp/experimental"
 import {
   piMonoChatContinuationRowFixture,
   piMonoTaskFirstRowFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/piMonoDataset", () => {
   it.effect("decodes harness, session_id, traces, and file_name without app-local schema glue", () =>

@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 import * as SearchContracts from "effect-search/Contracts"
 
-import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("examples/21-open-agent-trace-projection", () => {
   it.effect("normalizes a checked-in pi-mono fixture, projects bounded optimization inputs, and emits artifact-ready summaries", () =>
@@ -21,12 +21,12 @@ describe("examples/21-open-agent-trace-projection", () => {
         row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
-      const exampleProjection = yield* Experimental.OpenAgentTrace.Examples.project(record)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
+      const exampleProjection = yield* Experimental.OpenAgentTrace.ExampleProjection.project(record)
       const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
       const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-      const artifact = yield* Experimental.OpenAgentTrace.Artifact.project({
+      const artifact = yield* Experimental.OpenAgentTrace.ExampleProjectionArtifact.project({
         record,
         projection: exampleProjection,
         packageVersion,

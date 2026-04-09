@@ -10,7 +10,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/sealedPrivateReviewBundle", () => {
   it.effect("seals review sidecars and literal-secret policy inputs into a private envelope that round-trips without leaking into the public normalized record", () =>

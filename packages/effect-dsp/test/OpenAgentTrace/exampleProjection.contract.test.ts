@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/exampleProjection", () => {
   it.effect("projects normalized traces into evaluation examples and objective-ready comparison cases without re-owning workflow semantics", () =>
@@ -20,8 +20,8 @@ describe("OpenAgentTrace/exampleProjection", () => {
         row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
-      const projection = yield* Experimental.OpenAgentTrace.Examples.project(record)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
+      const projection = yield* Experimental.OpenAgentTrace.ExampleProjection.project(record)
       const roundTrip = yield* Schema.decode(Experimental.OpenAgentTrace.ExampleProjection)(
         yield* Schema.encode(Experimental.OpenAgentTrace.ExampleProjection)(projection)
       )

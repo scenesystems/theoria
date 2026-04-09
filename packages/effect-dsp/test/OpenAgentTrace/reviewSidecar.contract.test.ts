@@ -9,7 +9,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/reviewSidecar", () => {
   it.effect("normalizes review-sidecar metadata into typed release-safety status", () =>

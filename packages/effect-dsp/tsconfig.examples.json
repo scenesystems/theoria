@@ -5,6 +5,6 @@
     "types": ["@types/node"],
     "tsBuildInfoFile": ".tsbuildinfo/examples.tsbuildinfo"
   },
-  "include": ["examples"],
+  "include": ["examples", "fixtures"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

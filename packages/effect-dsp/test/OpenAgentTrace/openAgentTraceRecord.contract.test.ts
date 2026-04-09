@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/openAgentTraceRecord", () => {
   it.effect("round-trips deterministically and preserves source lineage, branch topology, selection policy, ordered event identities, and the redacted_hash integrity chain", () =>

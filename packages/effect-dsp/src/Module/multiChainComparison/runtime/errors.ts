@@ -14,8 +14,8 @@ import { CompositionError } from "../../../Errors/module.js"
  * @category constructors
  * @internal
  */
-export const MultiChainComparisonFailure = {
-  projection: (options: {
+export namespace MultiChainComparisonFailure {
+  export const projection = (options: {
     readonly message: string
     readonly moduleName: string
   }): CompositionError =>

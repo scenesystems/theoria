@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piMonoTaskFirstRowFixture, piShareHfManifestFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/piUsageProjection", () => {
   it.effect("preserves provider, model, api, stop reason, cache token counts, and cost in typed provenance while folding cached status into the public usage sample", () =>
@@ -20,7 +20,7 @@ describe("OpenAgentTrace/piUsageProjection", () => {
         row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
         manifestEntry
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+      const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
       const firstUsage = workflowProjection.usageProvenance[0]
 
       expect(firstUsage?.eventId).toBe("00000004")

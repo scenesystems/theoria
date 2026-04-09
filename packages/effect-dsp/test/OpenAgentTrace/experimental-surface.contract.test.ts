@@ -4,13 +4,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import coverageSummaryJson from "../fixtures/open-agent-trace/pi-mono/coverage-summary.json" with { type: "json" }
 import {
   piMonoChatContinuationRowFixture,
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
+import coverageSummaryJson from "../fixtures/open-agent-trace/pi-mono/coverage-summary.json" with { type: "json" }
 
 const packageRootUrl = new URL("../../", import.meta.url)
 const promotionRule =
@@ -69,7 +69,7 @@ const coverageRecord = (options: {
       reviewSidecar: fixtures.reviewSidecar,
       row
     })
-    const projection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+    const projection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
 
     return {
       entryId: options.entryId,

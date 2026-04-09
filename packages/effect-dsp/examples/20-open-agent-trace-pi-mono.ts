@@ -15,7 +15,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../test/fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../fixtures/open-agent-trace/pi-mono/index.js"
 
 const program = Effect.gen(function*() {
   const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
@@ -30,11 +30,11 @@ const program = Effect.gen(function*() {
     manifestEntry,
     reviewSidecar
   })
-  const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
+  const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
   const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
   const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
   const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-  const artifact = yield* Experimental.OpenAgentTrace.Artifact.project({
+  const artifact = yield* Experimental.OpenAgentTrace.WorkflowProjectionArtifact.project({
     record,
     projection: workflowProjection,
     packageVersion,

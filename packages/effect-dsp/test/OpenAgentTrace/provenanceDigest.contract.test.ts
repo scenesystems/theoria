@@ -9,7 +9,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/provenanceDigest", () => {
   it.effect("derives stable record and corpus digests from canonical content rather than manifest pass-through values", () =>

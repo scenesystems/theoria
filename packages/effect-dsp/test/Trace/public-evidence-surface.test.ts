@@ -67,13 +67,13 @@ describe("Trace public evidence surface", () => {
           metricName: "public-evidence",
           exampleName: "public-evidence-surface"
         }),
-        lineage: new Contracts.ArtifactLineage({
-          sourceRef: new Contracts.SourceRef({
+        lineage: Contracts.ArtifactLineage.make({
+          sourceRef: Contracts.SourceRef.make({
             origin: "effect-dsp",
             domain: "trace",
             segments: ["public-evidence-surface"]
           }),
-          artifactId: new Contracts.ArtifactId({ runId, sequence: 0 }),
+          artifactId: Contracts.ArtifactId.make({ runId, sequence: 0 }),
           emittedAt
         }),
         payload: {

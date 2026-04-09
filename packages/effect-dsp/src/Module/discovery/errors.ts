@@ -15,18 +15,18 @@ import { CompositionError } from "../../Errors/module.js"
  * @category constructors
  * @internal
  */
-export const DiscoveryFailure = {
-  invalidModuleId: (moduleName: string): CompositionError =>
+export namespace DiscoveryFailure {
+  export const invalidModuleId = (moduleName: string): CompositionError =>
     CompositionError.make({
       message: `Invalid module id '${moduleName}' for discovery registration`,
       moduleName
-    }),
-  registrationConflict: (moduleId: ModuleId): CompositionError =>
+    })
+  export const registrationConflict = (moduleId: ModuleId): CompositionError =>
     CompositionError.make({
       message: `Discovery registration conflict for module id '${moduleId}'`,
       moduleName: moduleId
-    }),
-  missingRoot: (rootId: ModuleId): CompositionError =>
+    })
+  export const missingRoot = (rootId: ModuleId): CompositionError =>
     CompositionError.make({
       message: `Discovery root '${rootId}' was not observed in registry snapshot`,
       moduleName: rootId

@@ -10,7 +10,7 @@ import {
   piMonoChatContinuationRowFixture,
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/workflowProjection", () => {
   it.effect("projects bounded task-first and chat-continuation traces into effect-inference workflow surfaces without app-local schema translation", () =>
@@ -48,9 +48,9 @@ describe("OpenAgentTrace/workflowProjection", () => {
           curatedPatterns: []
         })
       })
-      const taskProjection = yield* Experimental.OpenAgentTrace.Workflow.project(taskFirst)
-      const chatProjection = yield* Experimental.OpenAgentTrace.Workflow.project(chatContinuation)
-      const redactedTaskProjection = yield* Experimental.OpenAgentTrace.Workflow.project(
+      const taskProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(taskFirst)
+      const chatProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(chatContinuation)
+      const redactedTaskProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(
         redactedTaskFirst
       )
       const taskRoundTrip = yield* Schema.decode(WorkflowExecutionRecordSchema)(

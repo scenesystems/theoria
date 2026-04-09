@@ -12,13 +12,12 @@ import {
 } from "effect-inference/Contracts"
 
 import { Example } from "../Example/index.js"
+import type { OpenAgentTraceRecord } from "./schema.js"
+import { OpenAgentTraceContentDigest, OpenAgentTraceCoverage, OpenAgentTraceEventId } from "./schema.js"
 import {
-  OpenAgentTraceContentDigest,
-  OpenAgentTraceCoverage,
-  OpenAgentTraceEventId,
-  OpenAgentTraceRecord,
-  OpenAgentTraceSessionId
-} from "./schema.js"
+  projectExamples as projectExamplesInternal,
+  projectWorkflow as projectWorkflowInternal
+} from "./workflowProjection.js"
 
 /**
  * JSON-safe usage sample preserved on projected assistant turns.
@@ -62,7 +61,17 @@ export class WorkflowProjection extends Schema.Class<WorkflowProjection>("OpenAg
   workflowRecord: WorkflowExecutionRecordSchema,
   coverageGaps: Schema.Array(OpenAgentTraceCoverage),
   usageProvenance: Schema.Array(PiUsageProjection)
-}) {}
+}) {
+  /**
+   * Projects one normalized open-agent-trace record into the workflow projection noun.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  static project(record: OpenAgentTraceRecord) {
+    return projectWorkflowInternal(record)
+  }
+}
 
 /**
  * Optimization-ready example projection over a normalized open-agent-trace record.
@@ -80,7 +89,17 @@ export class ExampleProjection extends Schema.Class<ExampleProjection>("OpenAgen
   usageProvenance: Schema.Array(PiUsageProjection),
   examplesDigest: OpenAgentTraceContentDigest,
   comparisonCasesDigest: OpenAgentTraceContentDigest
-}) {}
+}) {
+  /**
+   * Projects one normalized open-agent-trace record into the optimization-ready example noun.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  static project(record: OpenAgentTraceRecord) {
+    return projectExamplesInternal(record)
+  }
+}
 
 /**
  * Projection result union for the experimental corpus lane.
@@ -97,112 +116,3 @@ export const Projection = Schema.Union(WorkflowProjection, ExampleProjection)
  * @category type-level
  */
 export type Projection = typeof Projection.Type
-
-/**
- * Payload-level lineage shared by every persisted trace-derived artifact.
- *
- * @since 0.2.0
- * @category models
- */
-export class ArtifactLineage extends Schema.Class<ArtifactLineage>("OpenAgentTrace/ArtifactLineage")({
-  sourceDatasetId: Schema.String,
-  sourceDatasetRevision: Schema.String,
-  sourceSplit: Schema.String,
-  sourceRowKey: OpenAgentTraceSessionId,
-  sourceSessionId: OpenAgentTraceSessionId,
-  sourceFileName: Schema.String,
-  adapterId: Schema.String,
-  adapterVersion: Schema.String,
-  normalizationVersion: Schema.String,
-  sourceDigest: OpenAgentTraceContentDigest,
-  normalizedDigest: OpenAgentTraceContentDigest,
-  redactedDigest: OpenAgentTraceContentDigest,
-  reviewStatusDigest: OpenAgentTraceContentDigest
-}) {}
-
-/**
- * Extension lineage for workflow-record projections.
- *
- * @since 0.2.0
- * @category models
- */
-export class WorkflowProjectionLineage
-  extends Schema.Class<WorkflowProjectionLineage>("OpenAgentTrace/WorkflowProjectionLineage")({
-    projectionKind: Schema.Literal("workflow-record"),
-    projectionVersion: Schema.String,
-    workflowRecordId: Schema.String,
-    workflowRecordDigest: OpenAgentTraceContentDigest,
-    graphManifestDigest: OpenAgentTraceContentDigest,
-    evaluationContractDigest: OpenAgentTraceContentDigest
-  })
-{}
-
-/**
- * Extension lineage for optimization-ready example projections.
- *
- * @since 0.2.0
- * @category models
- */
-export class ExampleProjectionLineage
-  extends Schema.Class<ExampleProjectionLineage>("OpenAgentTrace/ExampleProjectionLineage")({
-    projectionKind: Schema.Literal("example-set"),
-    projectionVersion: Schema.String,
-    exampleSetDigest: OpenAgentTraceContentDigest,
-    exampleCount: Schema.Number,
-    objectiveSurfaceId: Schema.String
-  })
-{}
-
-/**
- * Persisted normalized-record payload carried through `ArtifactEnvelope.Custom`.
- *
- * @since 0.2.0
- * @category models
- */
-export class RecordArtifact extends Schema.Class<RecordArtifact>("OpenAgentTrace/RecordArtifact")({
-  artifactKind: Schema.Literal("open-agent-trace-record"),
-  lineage: ArtifactLineage,
-  record: OpenAgentTraceRecord
-}) {}
-
-/**
- * Persisted workflow-projection payload carried through `ArtifactEnvelope.Custom`.
- *
- * @since 0.2.0
- * @category models
- */
-export class WorkflowProjectionArtifact
-  extends Schema.Class<WorkflowProjectionArtifact>("OpenAgentTrace/WorkflowProjectionArtifact")({
-    artifactKind: Schema.Literal("open-agent-trace-workflow-projection"),
-    lineage: ArtifactLineage,
-    projectionLineage: WorkflowProjectionLineage,
-    projection: WorkflowProjection
-  })
-{}
-
-/**
- * Persisted example-projection payload carried through `ArtifactEnvelope.Custom`.
- *
- * @since 0.2.0
- * @category models
- */
-export class ExampleProjectionArtifact
-  extends Schema.Class<ExampleProjectionArtifact>("OpenAgentTrace/ExampleProjectionArtifact")({
-    artifactKind: Schema.Literal("open-agent-trace-example-projection"),
-    lineage: ArtifactLineage,
-    projectionLineage: ExampleProjectionLineage,
-    projection: ExampleProjection
-  })
-{}
-
-/**
- * Persisted artifact payload union for the experimental corpus lane.
- *
- * @since 0.2.0
- * @category schemas
- */
-export const ArtifactPayload = Schema.Union(
-  RecordArtifact,
-  WorkflowProjectionArtifact,
-  ExampleProjectionArtifact
-)

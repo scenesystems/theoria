@@ -16,34 +16,34 @@ import { CompositionError } from "../../Errors/module.js"
  * @category constructors
  * @internal
  */
-export const ComposeFailure = {
-  invalidModuleId: (options: {
+export namespace ComposeFailure {
+  export const invalidModuleId = (options: {
     readonly moduleName: string
     readonly owner: string
   }): CompositionError =>
     CompositionError.make({
       message: `Invalid module id '${options.moduleName}' in ${options.owner}`,
       moduleName: options.moduleName
-    }),
-  rootCollision: (rootId: ModuleId): CompositionError =>
+    })
+  export const rootCollision = (rootId: ModuleId): CompositionError =>
     CompositionError.make({
       message: `Sub-module id '${rootId}' collides with composed module id`,
       moduleName: rootId
-    }),
-  cycle: (options: {
+    })
+  export const cycle = (options: {
     readonly stack: ReadonlyArray<ModuleId>
     readonly moduleId: ModuleId
   }): CompositionError =>
     CompositionError.make({
       message: `Composition cycle detected: ${Arr.join(Arr.append(options.stack, options.moduleId), " -> ")}`,
       moduleName: options.moduleId
-    }),
-  duplicateId: (moduleId: ModuleId): CompositionError =>
+    })
+  export const duplicateId = (moduleId: ModuleId): CompositionError =>
     CompositionError.make({
       message: `Multiple module instances share id '${moduleId}' in the same composition graph`,
       moduleName: moduleId
-    }),
-  declaredIdMismatch: (options: {
+    })
+  export const declaredIdMismatch = (options: {
     readonly ownerName: string
     readonly declaredId: ModuleId
     readonly actualId: ModuleId

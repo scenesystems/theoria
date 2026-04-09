@@ -87,7 +87,7 @@ export const createExampleArtifacts = (exampleName: string) =>
     }
   })
 
-const DSP_SOURCE_REF = new SourceRef({
+const DSP_SOURCE_REF = SourceRef.make({
   origin: "effect-dsp",
   domain: DSP_DOMAIN,
   segments: ["examples", "artifacts"]
@@ -114,7 +114,7 @@ export const emitCustomEnvelope = (options: {
               metricName: options.metricName,
               exampleName: options.exampleName
             },
-            lineage: new ArtifactLineage({
+            lineage: ArtifactLineage.make({
               sourceRef: DSP_SOURCE_REF,
               artifactId,
               emittedAt: DateTime.unsafeNow()

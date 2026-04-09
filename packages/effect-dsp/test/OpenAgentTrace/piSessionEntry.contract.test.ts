@@ -9,7 +9,7 @@ import {
   piSessionV1Fixture,
   piSessionV2Fixture,
   piSessionV3Fixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/piSessionEntry", () => {
   it.effect("migrates versions 1, 2, and 3 through one canonical entry family that accepts the required entry kinds", () =>

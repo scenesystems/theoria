@@ -137,20 +137,20 @@ export namespace COPROSnapshot {
   export const projectStudyEvents = (snapshot: COPROSnapshot): ReadonlyArray<StudyEvent.StudyEvent> =>
     Arr.append(
       Arr.flatMap(snapshot.trials, (trial) => [
-        StudyEvent.TrialStarted({
+        StudyEvent.TrialStarted.make({
           trialNumber: trial.trialNumber,
           config: studyTrialConfig(trial)
         }),
-        StudyEvent.TrialCompleted({
+        StudyEvent.TrialCompleted.make({
           trialNumber: trial.trialNumber,
           value: trial.score
         }),
         ...Match.value(trial.improved).pipe(
-          Match.when(true, () => [StudyEvent.BestUpdated({ trialNumber: trial.trialNumber, value: trial.score })]),
+          Match.when(true, () => [StudyEvent.BestUpdated.make({ trialNumber: trial.trialNumber, value: trial.score })]),
           Match.orElse(() => [])
         )
       ]),
-      StudyEvent.StudyCompleted({ completionReason: snapshot.completionReason })
+      StudyEvent.StudyCompleted.make({ completionReason: snapshot.completionReason })
     )
 
   /**
@@ -164,7 +164,7 @@ export namespace COPROSnapshot {
       readonly sequence: number
       readonly event: StudyEvent.StudyEvent
     }
-  ) =>
+  ): SearchContracts.ArtifactEnvelope =>
     Contracts.StudyEventEnvelope({
       schemaVersion: "artifact-envelope/v1",
       producer: Contracts.EffectDsp({
@@ -175,13 +175,13 @@ export namespace COPROSnapshot {
         metricName: options.metricName,
         exampleName: "copro"
       }),
-      lineage: new Contracts.ArtifactLineage({
-        sourceRef: new Contracts.SourceRef({
+      lineage: Contracts.ArtifactLineage.make({
+        sourceRef: Contracts.SourceRef.make({
           origin: "effect-dsp",
           domain: "optimizer",
           segments: ["copro", "event"]
         }),
-        artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
+        artifactId: Contracts.ArtifactId.make({ runId: options.runId, sequence: options.sequence }),
         emittedAt: options.emittedAt
       }),
       relations: [{ _tag: "Run", ref: options.runId }],
@@ -210,13 +210,13 @@ export namespace COPROSnapshot {
         metricName: options.metricName,
         exampleName: "copro"
       }),
-      lineage: new Contracts.ArtifactLineage({
-        sourceRef: new Contracts.SourceRef({
+      lineage: Contracts.ArtifactLineage.make({
+        sourceRef: Contracts.SourceRef.make({
           origin: "effect-dsp",
           domain: "optimizer",
           segments: ["copro", "snapshot"]
         }),
-        artifactId: new Contracts.ArtifactId({ runId: options.runId, sequence: options.sequence }),
+        artifactId: Contracts.ArtifactId.make({ runId: options.runId, sequence: options.sequence }),
         emittedAt: options.emittedAt
       }),
       relations: [{ _tag: "Run", ref: options.runId }],

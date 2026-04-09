@@ -55,13 +55,13 @@ describe("contracts/ArtifactEnvelope", () => {
           metricName: "exactMatch",
           exampleName: "10-miprov2-social-science-panel"
         }),
-        lineage: new Contracts.ArtifactLineage({
-          sourceRef: new Contracts.SourceRef({
+        lineage: Contracts.ArtifactLineage.make({
+          sourceRef: Contracts.SourceRef.make({
             origin: "effect-dsp",
             domain: "example",
             segments: ["10", "summary"]
           }),
-          artifactId: new SearchContracts.ArtifactId({ runId, sequence: 0 }),
+          artifactId: SearchContracts.ArtifactId.make({ runId, sequence: 0 }),
           emittedAt: yield* Schema.decode(Schema.DateTimeUtc)("2023-11-14T22:13:20Z")
         }),
         payload: {

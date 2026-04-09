@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import { piMonoTaskFirstRowFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piMonoTaskFirstRowFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/piSessionContext", () => {
   it.effect("resolves one active leaf path, preserves abandoned-branch lineage, and keeps compaction as summary-first context", () =>

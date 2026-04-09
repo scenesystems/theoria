@@ -13,7 +13,7 @@ import * as SearchContracts from "effect-search/Contracts"
 import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture
-} from "../test/fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../fixtures/open-agent-trace/pi-mono/index.js"
 
 const program = Effect.gen(function*() {
   const manifestEntry = yield* Experimental.OpenAgentTrace.PiMono.decodeManifestEntry(piShareHfManifestFixture)
@@ -26,12 +26,12 @@ const program = Effect.gen(function*() {
     row: yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(piMonoTaskFirstRowFixture),
     manifestEntry
   })
-  const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
-  const exampleProjection = yield* Experimental.OpenAgentTrace.Examples.project(record)
+  const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
+  const exampleProjection = yield* Experimental.OpenAgentTrace.ExampleProjection.project(record)
   const runId = yield* Schema.decode(SearchContracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
   const packageVersion = yield* Schema.decode(SearchContracts.PackageVersion)("0.1.4")
   const emittedAt = yield* Schema.decode(Schema.DateTimeUtc)("2026-04-06T18:30:00.000Z")
-  const workflowArtifact = yield* Experimental.OpenAgentTrace.Artifact.project({
+  const workflowArtifact = yield* Experimental.OpenAgentTrace.WorkflowProjectionArtifact.project({
     record,
     projection: workflowProjection,
     packageVersion,
@@ -39,7 +39,7 @@ const program = Effect.gen(function*() {
     sequence: 0,
     emittedAt
   })
-  const exampleArtifact = yield* Experimental.OpenAgentTrace.Artifact.project({
+  const exampleArtifact = yield* Experimental.OpenAgentTrace.ExampleProjectionArtifact.project({
     record,
     projection: exampleProjection,
     packageVersion,

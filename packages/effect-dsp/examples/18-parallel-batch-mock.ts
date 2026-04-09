@@ -69,13 +69,13 @@ const program = Effect.gen(function*() {
       metricName: "ordered-batch",
       exampleName: "18-parallel-batch-mock"
     }),
-    lineage: new Contracts.ArtifactLineage({
-      sourceRef: new Contracts.SourceRef({
+    lineage: Contracts.ArtifactLineage.make({
+      sourceRef: Contracts.SourceRef.make({
         origin: "effect-dsp",
         domain: "example",
         segments: ["18-parallel-batch-mock"]
       }),
-      artifactId: new Contracts.ArtifactId({ runId, sequence: 0 }),
+      artifactId: Contracts.ArtifactId.make({ runId, sequence: 0 }),
       emittedAt
     }),
     payload: {

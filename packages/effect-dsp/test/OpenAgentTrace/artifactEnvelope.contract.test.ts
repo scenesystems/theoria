@@ -10,7 +10,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/artifactEnvelope", () => {
   it.effect("wraps normalized records and workflow projections in effect-search ArtifactEnvelope.Custom without moving trace ownership into effect-search", () =>
@@ -32,15 +32,15 @@ describe("OpenAgentTrace/artifactEnvelope", () => {
         manifestEntry,
         reviewSidecar
       })
-      const workflowProjection = yield* Experimental.OpenAgentTrace.Workflow.project(record)
-      const recordEnvelope = yield* Experimental.OpenAgentTrace.Artifact.project({
+      const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
+      const recordEnvelope = yield* Experimental.OpenAgentTrace.RecordArtifact.project({
         record,
         packageVersion,
         runId,
         sequence: 0,
         emittedAt
       })
-      const workflowEnvelope = yield* Experimental.OpenAgentTrace.Artifact.project({
+      const workflowEnvelope = yield* Experimental.OpenAgentTrace.WorkflowProjectionArtifact.project({
         record,
         projection: workflowProjection,
         packageVersion,

@@ -54,8 +54,8 @@ const errorMessage = (error: unknown): string =>
  * @category constructors
  * @internal
  */
-export const ParallelFailure = {
-  branch: (options: {
+export namespace ParallelFailure {
+  export const branch = (options: {
     readonly branchIndex: number
     readonly branchModuleName: string
     readonly error: unknown
@@ -65,8 +65,8 @@ export const ParallelFailure = {
       branchModuleName: options.branchModuleName,
       errorTag: errorTag(options.error),
       message: errorMessage(options.error)
-    }),
-  execution: (options: {
+    })
+  export const execution = (options: {
     readonly moduleName: string
     readonly failurePolicy: ParallelExecutionError["failurePolicy"]
     readonly failures: ReadonlyArray<ParallelBranchFailure>

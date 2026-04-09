@@ -10,7 +10,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/signedCorpusManifest", () => {
   it.effect("signs and verifies public manifests over canonical schema bytes without letting private review keys perturb the manifest identity", () =>

@@ -4,13 +4,16 @@
  * @since 0.1.0
  */
 import { Data, Effect, Schema } from "effect"
-import { StudyEventSchema as EffectSearchInteropEventSchema } from "effect-search/StudyEvent"
+import {
+  type StudyEvent as EffectSearchInteropEvent,
+  StudyEventSchema as EffectSearchInteropEventSchema
+} from "effect-search/StudyEvent"
 import { OptimizerEventEnvelope as OptimizerEventEnvelopeModel } from "../../contracts/OptimizerEventEnvelope.js"
 import type { OptimizerKind } from "../../contracts/OptimizerKind.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
 import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from "./bootstrap.js"
 import { type COPROEvent as COPROEventType, COPROEventSchema } from "./copro.js"
-import { EvaluationEventSchema } from "./evaluation.js"
+import { EvaluationEventSchema, type EvaluationEventType } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
 import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./miprov2.js"
 
@@ -24,6 +27,32 @@ export {
   StudyEventSchema as EffectSearchInteropEventSchema
 } from "effect-search/StudyEvent"
 
+type OptimizerEventEncoded =
+  | { readonly _tag: "Bootstrap"; readonly event: Schema.Schema.Encoded<typeof BootstrapEventSchema> }
+  | { readonly _tag: "COPRO"; readonly event: Schema.Schema.Encoded<typeof COPROEventSchema> }
+  | { readonly _tag: "MIPRO"; readonly event: Schema.Schema.Encoded<typeof MIPROv2EventSchema> }
+  | { readonly _tag: "GEPA"; readonly event: Schema.Schema.Encoded<typeof GEPAEventSchema> }
+  | {
+    readonly _tag: "EffectSearchInterop"
+    readonly event: Schema.Schema.Encoded<typeof EffectSearchInteropEventSchema>
+  }
+  | { readonly _tag: "Evaluation"; readonly event: Schema.Schema.Encoded<typeof EvaluationEventSchema> }
+
+/**
+ * Wrapped optimizer event — each variant carries a domain-specific event
+ * payload.
+ *
+ * @since 0.1.0
+ * @category events
+ */
+export type OptimizerEvent =
+  | { readonly _tag: "Bootstrap"; readonly event: BootstrapEventType }
+  | { readonly _tag: "COPRO"; readonly event: COPROEventType }
+  | { readonly _tag: "MIPRO"; readonly event: MIPROv2EventType }
+  | { readonly _tag: "GEPA"; readonly event: GEPAEventType }
+  | { readonly _tag: "EffectSearchInterop"; readonly event: EffectSearchInteropEvent }
+  | { readonly _tag: "Evaluation"; readonly event: EvaluationEventType }
+
 /**
  * Discriminated union schema wrapping all optimizer-specific and evaluation
  * event types under a single envelope.
@@ -31,7 +60,7 @@ export {
  * @since 0.1.0
  * @category events
  */
-export const OptimizerEventSchema = Schema.Union(
+export const OptimizerEventSchema: Schema.Schema<OptimizerEvent, OptimizerEventEncoded> = Schema.Union(
   Schema.TaggedStruct("Bootstrap", {
     event: BootstrapEventSchema
   }),
@@ -51,15 +80,6 @@ export const OptimizerEventSchema = Schema.Union(
     event: EvaluationEventSchema
   })
 )
-
-/**
- * Wrapped optimizer event — each variant carries a domain-specific event
- * payload.
- *
- * @since 0.1.0
- * @category events
- */
-export type OptimizerEvent = typeof OptimizerEventSchema.Type
 
 /**
  * Tagged-enum constructors for wrapped optimizer events.

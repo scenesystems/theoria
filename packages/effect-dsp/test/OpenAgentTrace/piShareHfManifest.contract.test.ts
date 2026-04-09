@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
-import { piShareHfManifestFixture } from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+import { piShareHfManifestFixture } from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/piShareHfManifest", () => {
   it.effect("decodes file, source_hash, redaction_key, and redacted_hash and treats redacted_hash as the published integrity identity", () =>

@@ -9,7 +9,7 @@ import {
   piMonoTaskFirstRowFixture,
   piShareHfManifestFixture,
   piShareHfReviewSidecarFixture
-} from "../fixtures/open-agent-trace/pi-mono/fixtures.js"
+} from "../../fixtures/open-agent-trace/pi-mono/index.js"
 
 describe("OpenAgentTrace/redactionPolicy", () => {
   it.effect("replaces literal secrets and curated credential patterns deterministically and forces manual review when heuristic credentials were found", () =>
