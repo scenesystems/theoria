@@ -7,7 +7,7 @@ import { stateOf } from "../../src/Study/api/askTell/model.js"
 import * as Study from "../../src/Study/index.js"
 import { modifyStudyState, readStudyState } from "../../src/Study/runtime/runtimeState.js"
 import { maxTrialNumberFromState, trialsFromState, withFinalizedTrial } from "../../src/Study/state.js"
-import * as Trial from "../../src/Trial/index.js"
+import { isState, Trial } from "../../src/Trial/index.js"
 
 const makeSpace = () =>
   SearchSpace.unsafeMake({
@@ -32,7 +32,7 @@ describe("Study runtime single-writer contract", () => {
           Arr.makeBy(mutationCount, () =>
             modifyStudyState(runtime, (state) => {
               const trialNumber = maxTrialNumberFromState(state) + 1
-              const running = Trial.makeRunning(trialNumber, { x: trialNumber / 10 }, 0)
+              const running = Trial.run(trialNumber, { x: trialNumber / 10 }, 0)
               const completed = Trial.complete(running, trialNumber, 1)
               return Effect.succeed(Tuple.make(trialNumber, withFinalizedTrial(state, completed)))
             })),
@@ -48,7 +48,7 @@ describe("Study runtime single-writer contract", () => {
         expect(Arr.map(finalTrials, (trial) => trial.trialNumber)).toEqual(
           Arr.makeBy(mutationCount, (index) => index)
         )
-        expect(Arr.every(finalTrials, (trial) => Trial.isState("Completed")(trial.state))).toBe(true)
+        expect(Arr.every(finalTrials, (trial) => isState("Completed")(trial.state))).toBe(true)
       })
     ))
 })

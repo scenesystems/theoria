@@ -3,8 +3,8 @@ import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import {
   decodePromptCategoricalConfigEffect,
-  makePromptCategoricalSpace,
-  PromptCategoricalConfigSchema
+  PromptCategoricalConfigSchema,
+  PromptCategoricalSpace
 } from "../../src/experimental/scenarios/promptCategorical.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -50,7 +50,7 @@ const optimizeWithReplayFixture = (
   fixture: Schema.Schema.Type<typeof TpeCategoricalStudyReplayFixtureSchema>
 ) =>
   Study.optimize({
-    space: makePromptCategoricalSpace(),
+    space: PromptCategoricalSpace.make(),
     sampler: Sampler.tpe({
       seed: fixture.payload.sampler.seed,
       nStartupTrials: fixture.payload.sampler.nStartupTrials,

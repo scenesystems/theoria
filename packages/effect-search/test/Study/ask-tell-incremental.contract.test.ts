@@ -3,7 +3,7 @@ import { Chunk, Effect, Fiber, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
-import { makeSpace, projectEvent, singleObjective } from "./snapshot/helpers.js"
+import { projectEvent, singleObjective, singleObjectiveSpace } from "./snapshot/helpers.js"
 
 const tpeOptions = {
   seed: 919,
@@ -16,7 +16,7 @@ describe("Study ask/tell incremental contract", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe(tpeOptions),
           direction: "minimize",
           trials: 2,

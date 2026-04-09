@@ -9,7 +9,7 @@ import * as Errors from "../../Errors/index.js"
 import type { SearchError } from "../../Errors/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import * as StudyEvent from "../../StudyEvent/index.js"
-import * as Trial from "../../Trial/index.js"
+import { Trial } from "../../Trial/index.js"
 import { appendEvent, emitLifecycleEvents } from "../events.js"
 import type { ObjectiveEvaluator } from "../objectiveEvaluator.js"
 import type { OptimizePlan, OptimizeSettings } from "../options.js"
@@ -19,7 +19,7 @@ import * as StudyObjectiveCache from "../studyObjectiveCache.js"
 import { appendTrialIfAvailable } from "../studyStorage.js"
 import { emitTrialCostedAndMarkBudget, shouldSkipByMaxCost } from "./budget.js"
 import { shouldSkipNextTrial } from "./completion.js"
-import { makeReportRefs } from "./controls.js"
+import { ReportRefs } from "./controls.js"
 import { finalizeTrialWithPrune } from "./objective.js"
 import {
   objectiveCost,
@@ -52,7 +52,7 @@ const trialErrorFromCacheError = (
 
 const recordFinalizedTrial = <Config>(
   runtime: StudyRuntime<Config>,
-  finalized: Trial.Trial<Config>
+  finalized: Trial<Config>
 ): Effect.Effect<void> =>
   modifyRuntimeState(runtime, (state) =>
     Effect.succeed(
@@ -73,12 +73,12 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
     pruningPolicy: PruningPolicy,
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>,
-    running: Trial.Trial<ConfigFor<Space>>,
+    running: Trial<ConfigFor<Space>>,
     resource: Option.Option<number>
-  ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, SearchError, StudyClock | ObjectiveEvaluator> =>
+  ): Effect.Effect<Trial<ConfigFor<Space>>, SearchError, StudyClock | ObjectiveEvaluator> =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
-      const reportRefs = yield* makeReportRefs
+      const reportRefs = yield* ReportRefs.allocate
       const trialContext = new TrialContext({
         trialNumber,
         studyRuntime: runtime,
@@ -163,12 +163,12 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   config: ConfigFor<Space>,
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
-): Effect.Effect<Trial.Trial<ConfigFor<Space>>, never, StudyClock> =>
+): Effect.Effect<Trial<ConfigFor<Space>>, never, StudyClock> =>
   modifyRuntimeState(runtime, (state) =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
       const startedAt = yield* clock.now
-      const running = Trial.makeRunning(trialNumber, config, startedAt)
+      const running = Trial.run(trialNumber, config, startedAt)
 
       return Tuple.make(
         running,
@@ -233,7 +233,7 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   config: ConfigFor<Space>,
   runtime: StudyRuntime<ConfigFor<Space>>,
   resource: Option.Option<number>
-): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError, StudyClock | ObjectiveEvaluator> =>
+): Effect.Effect<Option.Option<Trial<ConfigFor<Space>>>, SearchError, StudyClock | ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const skipNextTrial = yield* shouldSkipNextTrial(runtime.stopRef, runtime.completionReasonRef)
     const skipByCost = yield* shouldSkipByMaxCost(settings, runtime)

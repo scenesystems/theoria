@@ -14,7 +14,7 @@ const completed = (
   value: number | ReadonlyArray<number>,
   constraints?: ReadonlyArray<number>
 ): Sampler.SuggestCompletedTrial =>
-  Sampler.makeSuggestCompletedTrial(
+  Sampler.SuggestCompletedTrial.fromObservation(
     trialNumber,
     { trialNumber },
     value,

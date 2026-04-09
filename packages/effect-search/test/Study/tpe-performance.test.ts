@@ -2,14 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Clock, Effect, Option } from "effect"
 import { abs, logStrict } from "effect-math/Numeric"
 
-import {
-  decodeLogLearningRateConfig,
-  makeLogLearningRateSpace
-} from "../../src/experimental/scenarios/randomTraining.js"
+import { decodeLogLearningRateConfig, LogLearningRateSpace } from "../../src/experimental/scenarios/randomTraining.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const space = makeLogLearningRateSpace()
+const space = LogLearningRateSpace.make()
 
 // Local full-suite runs contend heavily with other optimization/property tests.
 // Keep this harness sensitive to real regressions without failing on scheduler noise.

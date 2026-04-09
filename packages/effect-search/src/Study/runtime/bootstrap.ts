@@ -14,7 +14,7 @@ import { noopEventPublisher } from "../events.js"
 import { type OptimizeSettings, singleDirectionFromSettings } from "../options.js"
 import type { StudyState } from "../state.js"
 import { stateFromInitialTrials, trialsFromState } from "../state.js"
-import { makeStopRef, type StopRef } from "./controls.js"
+import { StopRef } from "./controls.js"
 import type { StudyLifecycle } from "./lifecycle.js"
 import type { StudyClock } from "./runtimeState.js"
 import { type SuggestionState, suggestionStateFromStudyState } from "./suggestionState.js"
@@ -84,7 +84,40 @@ export class StudyRuntime<Config = unknown> extends Data.Class<{
   readonly bestValueRef: Ref.Ref<Option.Option<number>>
   readonly noImprovementCountRef: Ref.Ref<number>
   readonly eventPublisher: EventPublisher
-}> {}
+}> {
+  static fromActor<Config>(
+    settings: OptimizeSettings,
+    stateActor: RuntimeActor<Config>,
+    trials: ReadonlyArray<Trial.Trial<Config>>,
+    eventPublisher: EventPublisher
+  ): Effect.Effect<StudyRuntime<Config>> {
+    return Effect.gen(function*() {
+      const warmStopState = Option.match(singleDirectionFromSettings(settings), {
+        onNone: () => Option.none(),
+        onSome: (direction) => Option.some(warmStopStateFromTrials(direction, trials))
+      })
+
+      return new StudyRuntime({
+        stateActor,
+        stopRef: yield* StopRef.allocate,
+        completionReasonRef: yield* Ref.make<Option.Option<StudyEvent.CompletionReason>>(Option.none()),
+        bestValueRef: yield* Ref.make(
+          Option.match(warmStopState, {
+            onNone: () => Option.none(),
+            onSome: (state) => state.bestValue
+          })
+        ),
+        noImprovementCountRef: yield* Ref.make(
+          Option.match(warmStopState, {
+            onNone: () => 0,
+            onSome: (state) => state.noImprovementCount
+          })
+        ),
+        eventPublisher
+      })
+    })
+  }
+}
 
 const runtimeStateFromStudyState = <Config>(
   settings: OptimizeSettings,
@@ -107,38 +140,6 @@ const initialRuntimeState = <Config>(
   initialTrials: ReadonlyArray<Trial.Trial<Config>>
 ): RuntimeState<Config> => runtimeStateFromStudyState(settings, "Created", stateFromInitialTrials(initialTrials))
 
-const makeRuntimeFromActor = <Config>(
-  settings: OptimizeSettings,
-  stateActor: RuntimeActor<Config>,
-  trials: ReadonlyArray<Trial.Trial<Config>>,
-  eventPublisher: EventPublisher
-): Effect.Effect<StudyRuntime<Config>> =>
-  Effect.gen(function*() {
-    const warmStopState = Option.match(singleDirectionFromSettings(settings), {
-      onNone: () => Option.none(),
-      onSome: (direction) => Option.some(warmStopStateFromTrials(direction, trials))
-    })
-
-    return new StudyRuntime({
-      stateActor,
-      stopRef: yield* makeStopRef,
-      completionReasonRef: yield* Ref.make<Option.Option<StudyEvent.CompletionReason>>(Option.none()),
-      bestValueRef: yield* Ref.make(
-        Option.match(warmStopState, {
-          onNone: () => Option.none(),
-          onSome: (state) => state.bestValue
-        })
-      ),
-      noImprovementCountRef: yield* Ref.make(
-        Option.match(warmStopState, {
-          onNone: () => 0,
-          onSome: (state) => state.noImprovementCount
-        })
-      ),
-      eventPublisher
-    })
-  })
-
 /**
  * Boots a fresh study runtime from initial settings and optional prior trials, returning a scoped StudyRuntime.
  *
@@ -153,7 +154,7 @@ export const initializeRuntime = <Config>(
   Effect.gen(function*() {
     const stateActor = yield* Machine.boot(makeRuntimeMachine(initialRuntimeState(settings, initialTrials)))
 
-    return yield* makeRuntimeFromActor(settings, stateActor, initialTrials, eventPublisher)
+    return yield* StudyRuntime.fromActor<Config>(settings, stateActor, initialTrials, eventPublisher)
   })
 
 /**
@@ -172,5 +173,10 @@ export const restoreRuntime = <Config>(
     const stateActor = yield* Machine.boot(makeRuntimeMachine(restoredState), undefined, {
       previousState: restoredState
     })
-    return yield* makeRuntimeFromActor(settings, stateActor, trialsFromState(snapshot.studyState), eventPublisher)
+    return yield* StudyRuntime.fromActor<Config>(
+      settings,
+      stateActor,
+      trialsFromState(snapshot.studyState),
+      eventPublisher
+    )
   })

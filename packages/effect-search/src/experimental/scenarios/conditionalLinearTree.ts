@@ -40,30 +40,32 @@ export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownSync(Linear
 export const decodeLinearTreeConditionalConfigEffect = Schema.decodeUnknown(LinearTreeConditionalConfigSchema)
 
 /**
- * Constructs a conditional search space that branches on model type — linear parameters vs tree parameters.
+ * Scenario-owned constructor for the conditional linear-vs-tree search space.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeLinearTreeConditionalSpace = () =>
-  SearchSpace.unsafeMakeConditional(
-    {
-      model: SearchSpace.categorical(LinearTreeModelChoices)
-    },
-    SearchSpace.switch("model", [
-      SearchSpace.when(
-        "linear",
-        SearchSpace.unsafeMake({
-          learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-          regularization: SearchSpace.float(0, 1)
-        })
-      ),
-      SearchSpace.when(
-        "tree",
-        SearchSpace.unsafeMake({
-          maxDepth: SearchSpace.int(2, 12),
-          minSamplesLeaf: SearchSpace.int(1, 6)
-        })
-      )
-    ])
-  )
+export const LinearTreeConditionalSpace = {
+  make: () =>
+    SearchSpace.unsafeMakeConditional(
+      {
+        model: SearchSpace.categorical(LinearTreeModelChoices)
+      },
+      SearchSpace.switch("model", [
+        SearchSpace.when(
+          "linear",
+          SearchSpace.unsafeMake({
+            learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+            regularization: SearchSpace.float(0, 1)
+          })
+        ),
+        SearchSpace.when(
+          "tree",
+          SearchSpace.unsafeMake({
+            maxDepth: SearchSpace.int(2, 12),
+            minSamplesLeaf: SearchSpace.int(1, 6)
+          })
+        )
+      ])
+    )
+}

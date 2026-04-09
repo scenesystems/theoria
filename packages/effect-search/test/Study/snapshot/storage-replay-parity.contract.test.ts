@@ -6,7 +6,13 @@ import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
 import { EnvelopeContextLive, fileSystemSink, PackageVersion, RunId } from "../../../src/contracts/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
-import { asSingleObjective, encodeConfigTrace, makeSpace, singleConfigTrace, singleObjective } from "./helpers.js"
+import {
+  asSingleObjective,
+  encodeConfigTrace,
+  singleConfigTrace,
+  singleObjective,
+  singleObjectiveSpace
+} from "./helpers.js"
 
 const makeTestEnvelopeContextLayer = Effect.gen(function*() {
   const runId = yield* Schema.decode(RunId)("01HZ0000000000000000000000")
@@ -28,7 +34,7 @@ describe("Study snapshot storage replay parity", () => {
         prefix: "effect-search-storage-replay-parity-"
       })
       const storageOptions = Study.studyStorageOptions(directory)
-      const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
+      const storage = yield* Study.StudyStorage.allocate(storageOptions).pipe(
         Effect.provide(fileSystemSink(directory)),
         Effect.provide(makeTestEnvelopeContextLayer)
       )
@@ -39,14 +45,14 @@ describe("Study snapshot storage replay parity", () => {
       const resumedTrials = totalTrials - checkpointTrials - replayTailTrials
 
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(tpeOptions),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const stagedResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(tpeOptions),
         direction: "minimize",
         trials: checkpointTrials + replayTailTrials,
@@ -75,7 +81,7 @@ describe("Study snapshot storage replay parity", () => {
       yield* Effect.forEach(stagedSnapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
 
       const resumedResult = yield* Study.resumeFromStorage({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(tpeOptions),
         direction: "minimize",
         trials: resumedTrials,

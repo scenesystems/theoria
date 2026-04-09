@@ -62,7 +62,7 @@ export const studyObjectiveCacheOptions = (scope: string): StudyObjectiveCacheOp
   new StudyObjectiveCacheOptions({ scope })
 
 const descriptorFor = (options: StudyObjectiveCacheOptions) =>
-  Cache.makeDescriptor(`${options.scope}/objective`, "v1", StudyObjectiveCacheKeySchema, ObjectiveValueSchema)
+  Cache.CacheDescriptor.make(`${options.scope}/objective`, "v1", StudyObjectiveCacheKeySchema, ObjectiveValueSchema)
 
 /**
  * @since 0.1.0
@@ -77,7 +77,60 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
     }) => Effect.Effect<readonly [ObjectiveValue, Cache.CacheResolution], Cache.CacheError | E, Requirement>
     readonly invalidate: (config: StudyObjectiveCacheKey) => Effect.Effect<void, Cache.CacheError>
   }
->() {}
+>() {
+  /**
+   * Allocate the study-scoped objective cache service from the shared cache authority.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static allocate(
+    options: StudyObjectiveCacheOptions = DEFAULT_OPTIONS
+  ): Effect.Effect<StudyObjectiveCacheApi, never, Cache.SchemaCache> {
+    return Effect.gen(function*() {
+      const schemaCache = yield* Cache.SchemaCache
+      const descriptor = descriptorFor(options)
+      const observerOption = yield* Effect.serviceOption(CacheObserver)
+
+      const emitObservation = (event: CacheObservabilityEvent): Effect.Effect<void> =>
+        Option.match(observerOption, {
+          onNone: () => Effect.void,
+          onSome: (observer) => observer.record(event)
+        })
+
+      return {
+        resolve: ({ config, compute }) =>
+          Cache.durableFingerprint(config).pipe(
+            Effect.catchAll(() => Effect.succeed("unknown")),
+            Effect.flatMap((fingerprint) =>
+              schemaCache.resolve({
+                descriptor,
+                key: config,
+                compute
+              }).pipe(
+                Effect.tap(([, resolution]) =>
+                  emitObservation(
+                    resolution === "hit"
+                      ? { _tag: "Hit", fingerprint, scope: options.scope }
+                      : { _tag: "Miss", fingerprint, scope: options.scope }
+                  )
+                )
+              )
+            )
+          ),
+        invalidate: (config) =>
+          Cache.durableFingerprint(config).pipe(
+            Effect.catchAll(() => Effect.succeed("unknown")),
+            Effect.flatMap((fingerprint) =>
+              schemaCache.remove(descriptor, config).pipe(
+                Effect.tap(() => emitObservation({ _tag: "Invalidation", fingerprint, scope: options.scope }))
+              )
+            )
+          )
+      }
+    })
+  }
+}
 
 /**
  * @since 0.1.0
@@ -93,60 +146,10 @@ export type StudyObjectiveCacheApi = Context.Tag.Service<typeof StudyObjectiveCa
 
 /**
  * @since 0.1.0
- * @category constructors
- */
-export const makeStudyObjectiveCache = (
-  options: StudyObjectiveCacheOptions = DEFAULT_OPTIONS
-): Effect.Effect<StudyObjectiveCacheApi, never, Cache.SchemaCache> =>
-  Effect.gen(function*() {
-    const schemaCache = yield* Cache.SchemaCache
-    const descriptor = descriptorFor(options)
-    const observerOption = yield* Effect.serviceOption(CacheObserver)
-
-    const emitObservation = (event: CacheObservabilityEvent): Effect.Effect<void> =>
-      Option.match(observerOption, {
-        onNone: () => Effect.void,
-        onSome: (observer) => observer.record(event)
-      })
-
-    return {
-      resolve: ({ config, compute }) =>
-        Cache.durableFingerprint(config).pipe(
-          Effect.catchAll(() => Effect.succeed("unknown")),
-          Effect.flatMap((fingerprint) =>
-            schemaCache.resolve({
-              descriptor,
-              key: config,
-              compute
-            }).pipe(
-              Effect.tap(([, resolution]) =>
-                emitObservation(
-                  resolution === "hit"
-                    ? { _tag: "Hit", fingerprint, scope: options.scope }
-                    : { _tag: "Miss", fingerprint, scope: options.scope }
-                )
-              )
-            )
-          )
-        ),
-      invalidate: (config) =>
-        Cache.durableFingerprint(config).pipe(
-          Effect.catchAll(() => Effect.succeed("unknown")),
-          Effect.flatMap((fingerprint) =>
-            schemaCache.remove(descriptor, config).pipe(
-              Effect.tap(() => emitObservation({ _tag: "Invalidation", fingerprint, scope: options.scope }))
-            )
-          )
-        )
-    }
-  })
-
-/**
- * @since 0.1.0
  * @category layers
  */
 export const StudyObjectiveCacheLive = (options: StudyObjectiveCacheOptions = DEFAULT_OPTIONS) =>
-  Layer.effect(StudyObjectiveCache, makeStudyObjectiveCache(options))
+  Layer.effect(StudyObjectiveCache, StudyObjectiveCache.allocate(options))
 
 /**
  * @since 0.1.0

@@ -1,8 +1,8 @@
 import { Clock, Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import * as Trial from "../src/Trial/index.js"
 import * as Study from "../src/Study/index.js"
+import { Trial } from "../src/Trial/index.js"
 import { normalizeSettings, optimizePlanFromOptions } from "../src/Study/options.js"
 import { initializeRuntime, StudyClockLayer } from "../src/Study/runtime/runtimeState.js"
 import { suggestConfigWithSampler } from "../src/Study/runtime/trialReservation.js"
@@ -47,7 +47,7 @@ const buildSamplerHarnessState = (historyLength: number, seed: number) =>
         const value = yield* mixedSpaceBenchmarkObjective(config)
 
         return Trial.complete(
-          Trial.makeRunning(trialNumber, config, trialNumber),
+          Trial.run(trialNumber, config, trialNumber),
           value,
           trialNumber + 1
         )

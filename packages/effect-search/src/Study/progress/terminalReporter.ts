@@ -6,7 +6,7 @@
 import { Effect, Option, Stream } from "effect"
 
 import type * as StudyEvent from "../../StudyEvent/index.js"
-import { formatTerminalProgressEvent, type TerminalRenderMode } from "./formatter.js"
+import { ProgressLine, type TerminalRenderMode } from "./formatter.js"
 import { defaultTerminalSink, type TerminalSink, writeProgressLines } from "./terminalSink.js"
 
 /**
@@ -15,12 +15,12 @@ import { defaultTerminalSink, type TerminalSink, writeProgressLines } from "./te
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { makeTerminalReporter } from "effect-search/Study"
+ * import { TerminalReporter } from "effect-search/Study"
  * import type { StudyEvent } from "effect-search/StudyEvent"
  *
  * declare const event: StudyEvent
  * Effect.gen(function*() {
- *   const report = yield* makeTerminalReporter()
+ *   const report = yield* TerminalReporter.allocate()
  *   yield* report(event)
  * })
  * ```
@@ -30,11 +30,8 @@ import { defaultTerminalSink, type TerminalSink, writeProgressLines } from "./te
  */
 export type TerminalProgressReporter = (event: StudyEvent.StudyEvent) => Effect.Effect<void>
 
-const resolveSink = (
-  options?: {
-    readonly sink?: TerminalSink
-  }
-): TerminalSink => Option.fromNullable(options?.sink).pipe(Option.getOrElse(() => defaultTerminalSink))
+const resolveSink = (options?: { readonly sink?: TerminalSink }): TerminalSink =>
+  Option.fromNullable(options?.sink).pipe(Option.getOrElse(() => defaultTerminalSink))
 
 const renderModeFromAnsiSupport = (supportsAnsi: boolean): TerminalRenderMode =>
   supportsAnsi
@@ -48,94 +45,96 @@ const resolveRenderMode = (sink: TerminalSink): Effect.Effect<TerminalRenderMode
   )
 
 /**
- * Create a terminal reporter that resolves sink capabilities once and reuses
- * them for every event in the stream.
+ * Terminal reporter authority that allocates a reusable effectful reporter
+ * callback from a sink once and then reuses the resolved render mode for every
+ * event in the stream.
  *
  * @example
  * ```ts
  * import { Effect, Stream } from "effect"
- * import { makeTerminalReporter, makeTerminalSink } from "effect-search/Study"
+ * import { TerminalReporter, TerminalSink } from "effect-search/Study"
  * import type { StudyEvent } from "effect-search/StudyEvent"
  *
  * declare const stream: Stream.Stream<StudyEvent>
- * const sink = makeTerminalSink()
+ * const sink = TerminalSink.make()
  * Effect.gen(function*() {
- *   const report = yield* makeTerminalReporter({ sink })
+ *   const report = yield* TerminalReporter.allocate({ sink })
  *   yield* Stream.runForEach(stream, report)
  * })
  * ```
  *
- * @since 0.1.0
+ * @since 0.3.0
  * @category constructors
  */
-export const makeTerminalReporter = (options?: {
-  readonly sink?: TerminalSink
-}): Effect.Effect<TerminalProgressReporter> =>
-  Effect.gen(function*() {
-    const sink = resolveSink(options)
-    const renderMode = yield* resolveRenderMode(sink)
+export class TerminalReporter {
+  private constructor() {}
 
-    return (event) => writeProgressLines(sink, formatTerminalProgressEvent(event, { renderMode }))
-  })
+  static allocate(options?: { readonly sink?: TerminalSink }): Effect.Effect<TerminalProgressReporter> {
+    return Effect.gen(function*() {
+      const sink = resolveSink(options)
+      const renderMode = yield* resolveRenderMode(sink)
 
-/**
- * Render and emit a single study event to a terminal sink.
- *
- * Useful for one-shot reporting in manual ask/tell orchestration or adapter
- * boundaries that already hold a concrete `StudyEvent` value.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { reportTerminalProgress, makeTerminalSink } from "effect-search/Study"
- * import { StudyCompleted } from "effect-search/StudyEvent"
- *
- * const sink = makeTerminalSink()
- * Effect.gen(function*() {
- *   yield* reportTerminalProgress(
- *     StudyCompleted({ completionReason: "budgetExhausted" }),
- *     { sink }
- *   )
- * })
- * ```
- *
- * @since 0.1.0
- * @category combinators
- */
-export const reportTerminalProgress = (
-  event: StudyEvent.StudyEvent,
-  options?: {
-    readonly sink?: TerminalSink
+      return (event) => writeProgressLines(sink, ProgressLine.projectEvent(event, { renderMode }))
+    })
   }
-): Effect.Effect<void> =>
-  makeTerminalReporter(options).pipe(
-    Effect.flatMap((report) => report(event))
-  )
 
-/**
- * Stream combinator that taps study events into the terminal reporter without
- * mutating optimization behavior.
- *
- * @example
- * ```ts
- * import { Stream } from "effect"
- * import { tapTerminalProgress, makeTerminalSink } from "effect-search/Study"
- * import type { StudyEvent } from "effect-search/StudyEvent"
- *
- * const sink = makeTerminalSink()
- * const tap = <E, R>(stream: Stream.Stream<StudyEvent, E, R>) =>
- *   stream.pipe(tapTerminalProgress({ sink }))
- * ```
- *
- * @since 0.1.0
- * @category combinators
- */
-export const tapTerminalProgress = (options?: {
-  readonly sink?: TerminalSink
-}) =>
-<E, R>(stream: Stream.Stream<StudyEvent.StudyEvent, E, R>): Stream.Stream<StudyEvent.StudyEvent, E, R> =>
-  Stream.unwrap(
-    makeTerminalReporter(options).pipe(
-      Effect.map((report) => stream.pipe(Stream.tap((event) => report(event))))
-    )
-  )
+  /**
+   * Render and emit a single study event to a terminal sink.
+   *
+   * Useful for one-shot reporting in manual ask/tell orchestration or adapter
+   * boundaries that already hold a concrete `StudyEvent` value.
+   *
+   * @example
+   * ```ts
+   * import { Effect } from "effect"
+   * import { TerminalReporter, TerminalSink } from "effect-search/Study"
+   * import { StudyCompleted } from "effect-search/StudyEvent"
+   *
+   * const sink = TerminalSink.make()
+   * Effect.gen(function*() {
+   *   yield* TerminalReporter.report(
+   *     StudyCompleted({ completionReason: "budgetExhausted" }),
+   *     { sink }
+   *   )
+   * })
+   * ```
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  static report(
+    event: StudyEvent.StudyEvent,
+    options?: { readonly sink?: TerminalSink }
+  ): Effect.Effect<void> {
+    return TerminalReporter.allocate(options).pipe(Effect.flatMap((report) => report(event)))
+  }
+
+  /**
+   * Stream combinator that taps study events into the terminal reporter without
+   * mutating optimization behavior.
+   *
+   * @example
+   * ```ts
+   * import { Stream } from "effect"
+   * import { TerminalReporter, TerminalSink } from "effect-search/Study"
+   * import type { StudyEvent } from "effect-search/StudyEvent"
+   *
+   * const sink = TerminalSink.make()
+   * const tap = <E, R>(stream: Stream.Stream<StudyEvent, E, R>) =>
+   *   stream.pipe(TerminalReporter.tap({ sink }))
+   * ```
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  static tap(
+    options?: { readonly sink?: TerminalSink }
+  ): <E, R>(stream: Stream.Stream<StudyEvent.StudyEvent, E, R>) => Stream.Stream<StudyEvent.StudyEvent, E, R> {
+    return <E, R>(stream: Stream.Stream<StudyEvent.StudyEvent, E, R>): Stream.Stream<StudyEvent.StudyEvent, E, R> =>
+      Stream.unwrap(
+        TerminalReporter.allocate(options).pipe(
+          Effect.map((report) => stream.pipe(Stream.tap((event) => report(event))))
+        )
+      )
+  }
+}

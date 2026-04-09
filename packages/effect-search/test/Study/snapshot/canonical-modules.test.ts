@@ -6,13 +6,13 @@ import * as Study from "../../../src/Study/index.js"
 import * as Metadata from "../../../src/Study/snapshot/metadata.js"
 import * as StateCodec from "../../../src/Study/snapshot/stateCodec.js"
 import * as Versioning from "../../../src/Study/snapshot/versioning.js"
-import { asSingleObjective, makeSpace, singleObjective } from "./helpers.js"
+import { asSingleObjective, singleObjective, singleObjectiveSpace } from "./helpers.js"
 
 describe("snapshot canonical modules", () => {
   it.effect("decodes snapshot payloads through versioning and validates metadata/trial schemas directly", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 3310 }),
         direction: "minimize",
         trials: 4,
@@ -45,7 +45,7 @@ describe("snapshot canonical modules", () => {
   it.effect("rebuilds snapshots from canonical versioning constructors", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 7781 }),
         direction: "minimize",
         trials: 5,

@@ -7,7 +7,7 @@ import {
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
 } from "../../src/Errors/index.js"
-import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
+import { emptySuggestContext, SuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
@@ -26,8 +26,8 @@ const categoricalSpace = () =>
 const multiObjectiveContext = (nextTrialNumber: number) =>
   new SuggestContext({
     completed: [
-      makeSuggestCompletedTrial(0, { x: 0, y: 0 }, [1, 2]),
-      makeSuggestCompletedTrial(1, { x: 1, y: 1 }, [0.5, 1.5])
+      SuggestCompletedTrial.fromObservation(0, { x: 0, y: 0 }, [1, 2]),
+      SuggestCompletedTrial.fromObservation(1, { x: 1, y: 1 }, [0.5, 1.5])
     ],
     pending: [],
     objectiveSpec: Contracts.multiObjectiveSpec(["minimize", "minimize"]),
@@ -130,10 +130,10 @@ describe("Sampler.cmaEs", () => {
       const sampler = Sampler.cmaEs({ seed: 37, sigma: 0.5, populationSize: 8 })
       const space = continuousSpace()
       const completed = [
-        makeSuggestCompletedTrial(0, { x: -2, y: -1 }, 12),
-        makeSuggestCompletedTrial(1, { x: 1, y: 1 }, 2),
-        makeSuggestCompletedTrial(2, { x: 0.8, y: 0.9 }, 1.8),
-        makeSuggestCompletedTrial(3, { x: 2, y: 1.5 }, 6)
+        SuggestCompletedTrial.fromObservation(0, { x: -2, y: -1 }, 12),
+        SuggestCompletedTrial.fromObservation(1, { x: 1, y: 1 }, 2),
+        SuggestCompletedTrial.fromObservation(2, { x: 0.8, y: 0.9 }, 1.8),
+        SuggestCompletedTrial.fromObservation(3, { x: 2, y: 1.5 }, 6)
       ]
       const context = new SuggestContext({
         completed,

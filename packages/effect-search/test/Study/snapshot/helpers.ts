@@ -5,10 +5,10 @@ import { normalizeObjectiveVector, objectiveSpecFromOptions } from "../../../src
 import {
   decodePromptCategoricalConfig,
   decodePromptCategoricalConfigEffect,
-  makePromptCategoricalSpace,
-  PromptCategoricalConfigSchema
+  PromptCategoricalConfigSchema,
+  PromptCategoricalSpace
 } from "../../../src/experimental/scenarios/promptCategorical.js"
-import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
+import { decodeSlotConfig, SlotSpace } from "../../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../../src/Sampler/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as SearchSpace from "../../../src/SearchSpace/index.js"
@@ -16,26 +16,24 @@ import { EventPublisher } from "../../../src/Study/events.js"
 import * as Study from "../../../src/Study/index.js"
 import type * as StudyEvent from "../../../src/StudyEvent/index.js"
 
-export const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2),
-    depth: SearchSpace.int(1, 5),
-    optimizer: SearchSpace.categorical(["adam", "sgd"])
-  })
+export const singleObjectiveSpace = SearchSpace.unsafeMake({
+  x: SearchSpace.float(-2, 2),
+  depth: SearchSpace.int(1, 5),
+  optimizer: SearchSpace.categorical(["adam", "sgd"])
+})
 
-export const makeMultiSpace = () => makePromptCategoricalSpace()
+export const multiObjectiveSpace = PromptCategoricalSpace.make()
 
-export const makeIncompatibleSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(-2, 2),
-    depth: SearchSpace.int(1, 5),
-    optimizer: SearchSpace.categorical(["rmsprop"])
-  })
+export const incompatibleSingleObjectiveSpace = SearchSpace.unsafeMake({
+  x: SearchSpace.float(-2, 2),
+  depth: SearchSpace.int(1, 5),
+  optimizer: SearchSpace.categorical(["rmsprop"])
+})
 
-export const decodeConfig = Schema.decodeUnknownSync(makeSpace().schema)
+export const decodeConfig = Schema.decodeUnknownSync(singleObjectiveSpace.schema)
 
 export const encodeConfigTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(makeSpace().schema))
+  Schema.parseJson(Schema.Array(singleObjectiveSpace.schema))
 )
 
 export const encodeNumericTrace = Schema.encodeSync(
@@ -121,7 +119,7 @@ export const multiValueTrace = (result: Study.MultiObjectiveResult) =>
 export const multiParetoValueTrace = (result: Study.MultiObjectiveResult) =>
   result.paretoFront.map((trial) => normalizeObjectiveVector(trial.state.value))
 
-export const pruneStopSpace = () => makeSlotSpace(64)
+export const pruneStopSpace = SlotSpace.make(64)
 
 export const deterministicSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),

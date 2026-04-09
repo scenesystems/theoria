@@ -3,14 +3,14 @@ import { Effect } from "effect"
 
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
-import { makeSpace } from "./helpers.js"
+import { singleObjectiveSpace } from "./helpers.js"
 
 describe("Study snapshot sampler metrics", () => {
   it.effect("captures pending-trial truth in typed snapshot metrics", () =>
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe({ seed: 1207, nStartupTrials: 2, nEiCandidates: 8 }),
           direction: "minimize",
           trials: 4,

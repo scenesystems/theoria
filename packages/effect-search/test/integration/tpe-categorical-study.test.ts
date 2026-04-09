@@ -3,7 +3,7 @@ import { Effect, Number as Num, Option } from "effect"
 
 import {
   decodePromptCategoricalConfig,
-  makePromptCategoricalSpace
+  PromptCategoricalSpace
 } from "../../src/experimental/scenarios/promptCategorical.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -33,7 +33,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 const optimizeWith = (sampler: Sampler.Sampler) => {
-  const space = makePromptCategoricalSpace()
+  const space = PromptCategoricalSpace.make()
 
   return Study.optimize({
     space,

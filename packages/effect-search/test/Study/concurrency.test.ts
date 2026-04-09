@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number as Num, Option, Ref, Schema } from "effect"
 import { abs } from "effect-math/Numeric"
 
-import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
+import { SlotSpace } from "../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -78,7 +78,7 @@ describe("Study concurrency", () => {
       })
 
       yield* Study.optimize({
-        space: makeSlotSpace(32),
+        space: SlotSpace.make(32),
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 8,

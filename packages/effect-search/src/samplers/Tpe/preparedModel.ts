@@ -8,11 +8,7 @@ import type { PrimitiveChoice } from "../../contracts/Distribution.js"
 import type { TrialSplit } from "../../internal/tpe/splitTrials.js"
 
 import { type SuggestCompletedTrial, type SuggestContext } from "../../Sampler/index.js"
-import {
-  makeSuggestionDiagnostics,
-  PreparedSuggestionState,
-  type SuggestionDiagnostics
-} from "../../Sampler/preparation.js"
+import { PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import { enrichCompletedTrialsWithConstraints } from "./constraints/enrich.js"
 import { numericValuesForParameter, primitiveValuesForParameter } from "./dimensions/values.js"
@@ -55,7 +51,7 @@ const diagnosticsForPreparedContext = (
   split: TrialSplit,
   reusedPreparedState: boolean
 ): SuggestionDiagnostics =>
-  makeSuggestionDiagnostics(
+  SuggestionDiagnostics.fromContext(
     "Tpe",
     PREPARED_TPE_STATE_KIND,
     reusedPreparedState,

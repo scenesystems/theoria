@@ -8,7 +8,7 @@ import * as Study from "../../../src/Study/index.js"
 import { initializeRuntime, readRuntimeState, StudyClockLayer } from "../../../src/Study/runtime/runtimeState.js"
 import { suggestContextFromSuggestionState } from "../../../src/Study/runtime/suggestionState.js"
 import { restoreSnapshot } from "../../../src/Study/snapshot/restore.js"
-import { makeSpace } from "./helpers.js"
+import { singleObjectiveSpace } from "./helpers.js"
 
 const tpeOptions = {
   seed: 1207,
@@ -21,7 +21,7 @@ describe("Study snapshot warm-state recovery", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe(tpeOptions),
           direction: "minimize",
           noImprovementWindow: 2,

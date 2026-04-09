@@ -7,14 +7,18 @@
  *
  * @since 0.1.0
  */
-import { Data, Schema } from "effect"
+import { Data, DateTime, Effect, Schema } from "effect"
+import type * as Context from "effect/Context"
 
+import type { SnapshotTrial } from "../Study/snapshot/stateCodec.js"
 import { SnapshotTrialSchema } from "../Study/snapshot/stateCodec.js"
 import { StudySnapshot } from "../Study/snapshot/versioning.js"
 import { StudyEventSchema } from "../StudyEvent/model/schemas.js"
 import { ArtifactLineage } from "./ArtifactLineage.js"
-import { ArtifactProducerSchema } from "./ArtifactProducer.js"
-import { ArtifactRelationSchema } from "./ArtifactRelation.js"
+import { ArtifactProducerSchema, EffectSearch } from "./ArtifactProducer.js"
+import { ArtifactRelationSchema, RunRelation } from "./ArtifactRelation.js"
+import { EnvelopeContext } from "./EnvelopeContext.js"
+import { type ArtifactId, type ComponentPath, SourceRef } from "./identity.js"
 
 /**
  * Schema version literal for the canonical artifact envelope.
@@ -123,6 +127,16 @@ export const ArtifactEnvelopeSchema = Schema.Union(
   })
 )
 
+const _TrialLogFieldsSchema = Schema.Struct({
+  ...envelopeBaseFields,
+  trial: SnapshotTrialSchema
+})
+
+const _StudySnapshotEnvelopeFieldsSchema = Schema.Struct({
+  ...envelopeBaseFields,
+  snapshot: StudySnapshot
+})
+
 /**
  * Tagged union of artifact envelope variants.
  *
@@ -138,8 +152,64 @@ export const ArtifactEnvelopeSchema = Schema.Union(
  * @category models
  */
 export type ArtifactEnvelope = Schema.Schema.Type<typeof ArtifactEnvelopeSchema>
+type TrialLogEnvelope = Extract<ArtifactEnvelope, { readonly _tag: "TrialLog" }>
+type TrialLogFields = Schema.Schema.Type<typeof _TrialLogFieldsSchema>
+type StudySnapshotEnvelopeModel = Extract<ArtifactEnvelope, { readonly _tag: "StudySnapshot" }>
+type StudySnapshotEnvelopeFields = Schema.Schema.Type<typeof _StudySnapshotEnvelopeFieldsSchema>
 
 const ArtifactEnvelopes = Data.taggedEnum<ArtifactEnvelope>()
+type EnvelopeContextApi = Context.Tag.Service<typeof EnvelopeContext>
+
+const SCHEMA_VERSION: ArtifactEnvelopeVersion = "artifact-envelope/v1"
+
+const STUDY_COMPONENT: ComponentPath = ["Study"]
+
+const TRIAL_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["trial"] })
+const SNAPSHOT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["snapshot"] })
+
+const producerFromContext = (ctx: EnvelopeContextApi) =>
+  EffectSearch({
+    packageVersion: ctx.packageVersion,
+    component: STUDY_COMPONENT,
+    runId: ctx.runId
+  })
+
+const trialLogConstructor = ArtifactEnvelopes.TrialLog
+const studySnapshotEnvelopeConstructor = ArtifactEnvelopes.StudySnapshot
+
+const trialLogFromContext = (
+  ctx: EnvelopeContextApi,
+  artifactId: ArtifactId,
+  trial: SnapshotTrial
+): TrialLogEnvelope =>
+  trialLogConstructor({
+    schemaVersion: SCHEMA_VERSION,
+    producer: producerFromContext(ctx),
+    lineage: new ArtifactLineage({
+      sourceRef: TRIAL_SOURCE_REF,
+      artifactId,
+      emittedAt: DateTime.unsafeNow()
+    }),
+    relations: [RunRelation({ ref: ctx.runId })],
+    trial
+  })
+
+const studySnapshotEnvelopeFromContext = (
+  ctx: EnvelopeContextApi,
+  artifactId: ArtifactId,
+  snapshot: StudySnapshot
+): StudySnapshotEnvelopeModel =>
+  studySnapshotEnvelopeConstructor({
+    schemaVersion: SCHEMA_VERSION,
+    producer: producerFromContext(ctx),
+    lineage: new ArtifactLineage({
+      sourceRef: SNAPSHOT_SOURCE_REF,
+      artifactId,
+      emittedAt: DateTime.unsafeNow()
+    }),
+    relations: [RunRelation({ ref: ctx.runId })],
+    snapshot
+  })
 
 /**
  * Wraps a single trial result from an optimization run.
@@ -153,7 +223,46 @@ const ArtifactEnvelopes = Data.taggedEnum<ArtifactEnvelope>()
  * @since 0.1.0
  * @category constructors
  */
-export const TrialLog = ArtifactEnvelopes.TrialLog
+export function TrialLog(
+  fields: TrialLogFields
+): TrialLogEnvelope {
+  return trialLogConstructor(fields)
+}
+
+/**
+ * Noun-owned projection helpers over TrialLog envelopes.
+ *
+ * @since 0.3.0
+ * @category constructors
+ */
+export namespace TrialLog {
+  /**
+   * Projects a TrialLog envelope from already-resolved envelope context values.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  export const fromContext = (
+    ctx: EnvelopeContextApi,
+    artifactId: ArtifactId,
+    trial: SnapshotTrial
+  ): TrialLogEnvelope => trialLogFromContext(ctx, artifactId, trial)
+
+  /**
+   * Resolves the current EnvelopeContext service and projects a TrialLog envelope.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  export const fromEnvelopeContext = (
+    trial: SnapshotTrial
+  ): Effect.Effect<TrialLogEnvelope, never, EnvelopeContext> =>
+    EnvelopeContext.pipe(
+      Effect.flatMap((ctx) =>
+        ctx.nextArtifactId.pipe(Effect.map((artifactId) => trialLogFromContext(ctx, artifactId, trial)))
+      )
+    )
+}
 
 /**
  * Wraps a point-in-time snapshot of an entire study.
@@ -167,7 +276,46 @@ export const TrialLog = ArtifactEnvelopes.TrialLog
  * @since 0.1.0
  * @category constructors
  */
-export const StudySnapshotEnvelope = ArtifactEnvelopes.StudySnapshot
+export function StudySnapshotEnvelope(
+  fields: StudySnapshotEnvelopeFields
+): StudySnapshotEnvelopeModel {
+  return studySnapshotEnvelopeConstructor(fields)
+}
+
+/**
+ * Noun-owned projection helpers over StudySnapshot envelopes.
+ *
+ * @since 0.3.0
+ * @category constructors
+ */
+export namespace StudySnapshotEnvelope {
+  /**
+   * Projects a StudySnapshot envelope from already-resolved envelope context values.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  export const fromContext = (
+    ctx: EnvelopeContextApi,
+    artifactId: ArtifactId,
+    snapshot: StudySnapshot
+  ): StudySnapshotEnvelopeModel => studySnapshotEnvelopeFromContext(ctx, artifactId, snapshot)
+
+  /**
+   * Resolves the current EnvelopeContext service and projects a StudySnapshot envelope.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  export const fromEnvelopeContext = (
+    snapshot: StudySnapshot
+  ): Effect.Effect<StudySnapshotEnvelopeModel, never, EnvelopeContext> =>
+    EnvelopeContext.pipe(
+      Effect.flatMap((ctx) =>
+        ctx.nextArtifactId.pipe(Effect.map((artifactId) => studySnapshotEnvelopeFromContext(ctx, artifactId, snapshot)))
+      )
+    )
+}
 
 /**
  * Wraps a discrete study lifecycle event (started, paused, completed, failed).

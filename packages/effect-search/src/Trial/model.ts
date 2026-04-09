@@ -3,20 +3,55 @@
  *
  * @since 0.1.0
  */
-import { Data, Match } from "effect"
+import { Data, Match, Option } from "effect"
+import { dual } from "effect/Function"
 
-import type { CompletedState, TrialState } from "./state.js"
+import type { ObjectiveValue } from "../contracts/ObjectiveValue.js"
+import type { TrialError } from "../Errors/index.js"
+
+import { Cancelled, Completed, Failed, Pruned, type TrialState } from "./state.js"
+
+const durationFromState = (state: TrialState, now: number): number =>
+  Match.value(state).pipe(
+    Match.tag("Running", ({ startedAt }) => now - startedAt),
+    Match.tag("Completed", () => 0),
+    Match.tag("Failed", () => 0),
+    Match.tag("Pruned", () => 0),
+    Match.tag("Cancelled", () => 0),
+    Match.exhaustive
+  )
+
+const completeWithMetadata = <Config>(
+  self: Trial<Config>,
+  value: ObjectiveValue,
+  now: number,
+  retryCount: number,
+  cost: Option.Option<number>
+): Trial<Config> =>
+  new Trial({
+    ...self,
+    state: Completed({
+      value,
+      duration: durationFromState(self.state, now),
+      retryCount
+    }),
+    ...Option.match(cost, {
+      onNone: () => ({}),
+      onSome: (resolvedCost) => ({ cost: resolvedCost })
+    })
+  })
 
 /**
  * Immutable record pairing a sampler-suggested configuration with its
  * lifecycle state and sequential trial number. A trial progresses through
  * the {@link TrialState} state machine — beginning as `Running` and
- * transitioning exactly once to a terminal state via the lifecycle
- * functions in `Trial/lifecycle.ts`. Because `Trial` extends `Data.Class`,
- * instances use structural equality and are safe to store in `HashMap`.
+ * transitioning exactly once to a terminal state via the noun-owned
+ * lifecycle combinators on {@link Trial}. Because `Trial` extends
+ * `Data.Class`, instances use structural equality and are safe to store in
+ * `HashMap`.
  *
  * @see {@link TrialState} for the five lifecycle variants
- * @see {@link makeRunning} for the sole entry point that creates a running trial
+ * @see {@link Trial.run} for the sole entry point that creates a running trial
  *
  * @since 0.1.0
  * @category models
@@ -27,64 +62,143 @@ export class Trial<Config> extends Data.Class<{
   readonly state: TrialState
   readonly cost?: number
   readonly prior?: true
-}> {}
-
-/**
- * Narrowed intersection of {@link Trial} whose state is guaranteed to be
- * `Completed`. Use this type to constrain function parameters to trials
- * that have finished evaluation, providing direct access to the objective
- * value and duration without a runtime guard.
- *
- * @see {@link CompletedState} for the underlying state type
- * @see {@link isNumericCompletedTrial} to further narrow to single-objective results
- *
- * @since 0.1.0
- * @category type-level
- */
-export type CompletedTrial<Config> = Trial<Config> & {
-  readonly state: CompletedState
-}
-
-/**
- * Further narrowing of {@link CompletedTrial} where the objective value is a
- * single `number` rather than an {@link ObjectiveVector}. This distinction
- * matters for single-objective analysis paths (e.g. best-value tracking,
- * surrogate model fitting) that require a scalar, not a vector.
- *
- * @see {@link CompletedTrial} for the broader completed-trial type
- * @see {@link isNumericCompletedTrial} for the runtime guard
- * @see {@link ObjectiveValue} for the full numeric | vector union
- *
- * @since 0.1.0
- * @category type-level
- */
-export type NumericCompletedTrial<Config> = CompletedTrial<Config> & {
-  readonly state: {
-    readonly _tag: "Completed"
-    readonly value: number
-    readonly duration: number
-    readonly retryCount: number
-    readonly evaluationCount?: number
-    readonly variance?: number
+}> {
+  /**
+   * Constructs a running trial from a sampler-suggested configuration and start timestamp.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  static run<Config>(trialNumber: number, config: Config, startedAt: number): Trial<Config> {
+    return new Trial({
+      trialNumber,
+      config,
+      state: {
+        _tag: "Running",
+        startedAt
+      }
+    })
   }
 }
 
 /**
- * Reports whether a completed trial's objective value is a single `number`
- * (as opposed to an {@link ObjectiveVector}). Use this guard to safely
- * narrow into {@link NumericCompletedTrial} before performing scalar
- * operations like comparison or surrogate model fitting.
+ * Noun-owned lifecycle combinators for trial state transitions.
  *
- * @see {@link NumericCompletedTrial} for the narrowed type
- * @see {@link CompletedTrial} for the input type
- *
- * @since 0.1.0
- * @category guards
+ * @since 0.3.0
+ * @category constructors
  */
-export const isNumericCompletedTrial = <Config>(
-  trial: CompletedTrial<Config>
-): trial is NumericCompletedTrial<Config> =>
-  Match.value(trial.state.value).pipe(
-    Match.when(Match.number, () => true),
-    Match.orElse(() => false)
+export namespace Trial {
+  /**
+   * Transition a running trial to `Completed`.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const complete: {
+    (value: ObjectiveValue, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+    <Config>(self: Trial<Config>, value: ObjectiveValue, now: number): Trial<Config>
+  } = dual(
+    3,
+    <Config>(self: Trial<Config>, value: ObjectiveValue, now: number): Trial<Config> =>
+      completeWithMetadata(self, value, now, 0, Option.none())
   )
+
+  /**
+   * Transition a running trial to `Completed`, recording retry count.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const completeWithRetryCount: {
+    (value: ObjectiveValue, now: number, retryCount: number): <Config>(self: Trial<Config>) => Trial<Config>
+    <Config>(self: Trial<Config>, value: ObjectiveValue, now: number, retryCount: number): Trial<Config>
+  } = dual(
+    4,
+    <Config>(self: Trial<Config>, value: ObjectiveValue, now: number, retryCount: number): Trial<Config> =>
+      completeWithMetadata(self, value, now, retryCount, Option.none())
+  )
+
+  /**
+   * Transition a running trial to `Completed`, recording retries and optional cost.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const completeWithRetryCountAndCost: {
+    (value: ObjectiveValue, now: number, retryCount: number, cost: Option.Option<number>): <Config>(
+      self: Trial<Config>
+    ) => Trial<Config>
+    <Config>(
+      self: Trial<Config>,
+      value: ObjectiveValue,
+      now: number,
+      retryCount: number,
+      cost: Option.Option<number>
+    ): Trial<Config>
+  } = dual(
+    5,
+    <Config>(
+      self: Trial<Config>,
+      value: ObjectiveValue,
+      now: number,
+      retryCount: number,
+      cost: Option.Option<number>
+    ): Trial<Config> => completeWithMetadata(self, value, now, retryCount, cost)
+  )
+
+  /**
+   * Transition a running trial to `Failed`.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const fail: {
+    (error: TrialError, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+    <Config>(self: Trial<Config>, error: TrialError, now: number): Trial<Config>
+  } = dual(
+    3,
+    <Config>(self: Trial<Config>, error: TrialError, now: number): Trial<Config> =>
+      new Trial({
+        ...self,
+        state: Failed({
+          error,
+          duration: durationFromState(self.state, now)
+        })
+      })
+  )
+
+  /**
+   * Transition a running trial to `Pruned`.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const prune: {
+    (step: number, reason: string, policy: string, now: number): <Config>(self: Trial<Config>) => Trial<Config>
+    <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number): Trial<Config>
+  } = dual(
+    5,
+    <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number): Trial<Config> =>
+      new Trial({
+        ...self,
+        state: Pruned({
+          step,
+          reason,
+          policy,
+          duration: durationFromState(self.state, now)
+        })
+      })
+  )
+
+  /**
+   * Transition a running trial to `Cancelled`.
+   *
+   * @since 0.3.0
+   * @category combinators
+   */
+  export const cancel = <Config>(self: Trial<Config>): Trial<Config> =>
+    new Trial({
+      ...self,
+      state: Cancelled({})
+    })
+}

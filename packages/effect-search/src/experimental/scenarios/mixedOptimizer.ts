@@ -30,14 +30,16 @@ export const decodeMixedOptimizerConfig = Schema.decodeUnknownSync(MixedOptimize
 export const decodeMixedOptimizerConfigEffect = Schema.decodeUnknown(MixedOptimizerConfigSchema)
 
 /**
- * Constructs a mixed search space with log-scaled learning rate, integer depth, and categorical optimizer.
+ * Scenario-owned constructor for the mixed-optimizer search space.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeMixedOptimizerSpace = () =>
-  SearchSpace.unsafeMake({
-    lr: SearchSpace.float(0.0005, 0.2, { scale: "log" }),
-    depth: SearchSpace.int(1, 8),
-    optimizer: SearchSpace.categorical(MixedOptimizerChoices)
-  })
+export const MixedOptimizerSpace = {
+  make: () =>
+    SearchSpace.unsafeMake({
+      lr: SearchSpace.float(0.0005, 0.2, { scale: "log" }),
+      depth: SearchSpace.int(1, 8),
+      optimizer: SearchSpace.categorical(MixedOptimizerChoices)
+    })
+}

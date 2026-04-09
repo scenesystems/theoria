@@ -21,7 +21,7 @@ describe("Study snapshot-resume prune/stop replay", () => {
       const firstLegTrials = 3
       const secondLegTrials = totalTrials - firstLegTrials
       const runOptions: Study.OptimizeOptions = {
-        space: pruneStopSpace(),
+        space: pruneStopSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: totalTrials,
@@ -52,7 +52,7 @@ describe("Study snapshot-resume prune/stop replay", () => {
 
       const snapshot = yield* Study.snapshot(firstLegSingle.value)
       const resumedResult = yield* Study.resume({
-        space: pruneStopSpace(),
+        space: pruneStopSpace,
         sampler: deterministicSampler,
         snapshot,
         direction: "minimize",
@@ -69,7 +69,7 @@ describe("Study snapshot-resume prune/stop replay", () => {
       }
 
       const resumedWithEventLog = yield* resumeWithEvents({
-        space: pruneStopSpace(),
+        space: pruneStopSpace,
         sampler: deterministicSampler,
         snapshot,
         direction: "minimize",

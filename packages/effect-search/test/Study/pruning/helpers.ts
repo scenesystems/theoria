@@ -1,7 +1,7 @@
 import { Cause, Effect, Match, Option, Ref, Schema } from "effect"
 
 import { InvalidObjectiveReport } from "../../../src/Errors/index.js"
-import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
+import { decodeSlotConfig, SlotSpace } from "../../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../../src/Sampler/index.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import { EventRuntime, noopEventPublisher } from "../../../src/Study/events.js"
@@ -22,21 +22,20 @@ export const reportSnapshot = (reports: ReadonlyArray<Study.IntermediateReport>)
     value: report.value
   }))
 
-export const makeFixtureEventRuntime = (): Effect.Effect<EventRuntime> =>
-  Effect.all({
-    bestValueRef: Ref.make<Option.Option<number>>(Option.none()),
-    noImprovementCountRef: Ref.make(0)
-  }).pipe(
-    Effect.map(({ bestValueRef, noImprovementCountRef }) =>
-      new EventRuntime({
-        bestValueRef,
-        noImprovementCountRef,
-        eventPublisher: noopEventPublisher
-      })
-    )
+export const allocateFixtureEventRuntime: Effect.Effect<EventRuntime> = Effect.all({
+  bestValueRef: Ref.make<Option.Option<number>>(Option.none()),
+  noImprovementCountRef: Ref.make(0)
+}).pipe(
+  Effect.map(({ bestValueRef, noImprovementCountRef }) =>
+    new EventRuntime({
+      bestValueRef,
+      noImprovementCountRef,
+      eventPublisher: noopEventPublisher
+    })
   )
+)
 
-export const makeSpace = () => makeSlotSpace(32)
+export const pruningSpace = SlotSpace.make(32)
 
 export const deterministicSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),

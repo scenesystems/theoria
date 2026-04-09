@@ -2,14 +2,14 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Ref, Schema } from "effect"
 
 import * as Study from "../../../src/Study/index.js"
-import { makeReportRefs, recordIntermediateReport } from "../../../src/Study/runtime/controls.js"
+import { recordIntermediateReport, ReportRefs } from "../../../src/Study/runtime/controls.js"
 import {
   FixtureRegistryLive,
   loadFixture,
   PercentilePrunerFixtureSchema,
   PruningReportContractFixtureSchema
 } from "../../helpers/fixtures.js"
-import { decodeTraceValue, makeFixtureEventRuntime, reportSnapshot } from "./helpers.js"
+import { allocateFixtureEventRuntime, decodeTraceValue, reportSnapshot } from "./helpers.js"
 
 describe("pruning fixture replay contracts", () => {
   it.effect("replays FM-12 Trial.report fixture contracts", () =>
@@ -21,8 +21,8 @@ describe("pruning fixture replay contracts", () => {
         fixture.payload.cases,
         (entry, index) =>
           Effect.gen(function*() {
-            const runtime = yield* makeFixtureEventRuntime()
-            const reportRefs = yield* makeReportRefs
+            const runtime = yield* allocateFixtureEventRuntime
+            const reportRefs = yield* ReportRefs.allocate
             const trialNumber = 400 + index
 
             yield* Effect.forEach(

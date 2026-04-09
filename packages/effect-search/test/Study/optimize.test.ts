@@ -8,7 +8,7 @@ import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import { isState, matchState, Trial } from "../../src/Trial/index.js"
 
 const makeSpace = () =>
   SearchSpace.unsafeMake({
@@ -19,9 +19,9 @@ const makeSpace = () =>
 
 const decodeObjectiveConfig = Schema.decodeUnknownSync(makeSpace().schema)
 
-const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
+const completedValues = (trials: Array<Trial<unknown>>): Array<number> =>
   trials.flatMap((trial) =>
-    Trial.matchState({
+    matchState({
       Running: () => [],
       Completed: ({ value }) =>
         Option.fromNullable(typeof value === "number" ? value : undefined).pipe(
@@ -36,8 +36,7 @@ const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
     })(trial.state)
   )
 
-const failedCount = (trials: Array<Trial.Trial<unknown>>) =>
-  trials.filter((trial) => Trial.isState("Failed")(trial.state)).length
+const failedCount = (trials: Array<Trial<unknown>>) => trials.filter((trial) => isState("Failed")(trial.state)).length
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -45,7 +44,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 describe("Study.optimize", () => {
   it.effect("supports the full trial state lifecycle", () =>
     Effect.sync(() => {
-      const running = Trial.makeRunning(7, { seed: 1 }, 100)
+      const running = Trial.run(7, { seed: 1 }, 100)
       const completed = Trial.complete(running, 2.5, 115)
       const failed = Trial.fail(
         running,
@@ -58,17 +57,17 @@ describe("Study.optimize", () => {
       )
       const cancelled = Trial.cancel(running)
 
-      expect(Trial.isState("Running")(running.state)).toBe(true)
-      expect(Trial.isState("Completed")(completed.state)).toBe(true)
-      expect(Trial.isState("Failed")(failed.state)).toBe(true)
-      expect(Trial.isState("Cancelled")(cancelled.state)).toBe(true)
+      expect(isState("Running")(running.state)).toBe(true)
+      expect(isState("Completed")(completed.state)).toBe(true)
+      expect(isState("Failed")(failed.state)).toBe(true)
+      expect(isState("Cancelled")(cancelled.state)).toBe(true)
 
-      if (Trial.isState("Completed")(completed.state)) {
+      if (isState("Completed")(completed.state)) {
         expect(completed.state.value).toBe(2.5)
         expect(completed.state.duration).toBe(15)
       }
 
-      if (Trial.isState("Failed")(failed.state)) {
+      if (isState("Failed")(failed.state)) {
         expect(failed.state.duration).toBe(30)
         expect(failed.state.error).toBeInstanceOf(TrialError)
         expect(failed.state.error.cause).toBeInstanceOf(NoSuccessfulTrials)
@@ -181,7 +180,7 @@ describe("Study.optimize", () => {
       const result = resultOption.value
       expect(failedCount(result.trials)).toBeGreaterThan(0)
       expect(completedValues(result.trials).length).toBeGreaterThan(0)
-      expect(Trial.isState("Completed")(result.bestTrial.state)).toBe(true)
+      expect(isState("Completed")(result.bestTrial.state)).toBe(true)
     }))
 
   it.effect("marks Infinity objective values as failed while continuing the study", () =>
@@ -207,7 +206,7 @@ describe("Study.optimize", () => {
       const result = resultOption.value
       expect(failedCount(result.trials)).toBeGreaterThan(0)
       expect(completedValues(result.trials).length).toBeGreaterThan(0)
-      expect(Trial.isState("Completed")(result.bestTrial.state)).toBe(true)
+      expect(isState("Completed")(result.bestTrial.state)).toBe(true)
     }))
 
   it.effect("fails with NoSuccessfulTrials when every trial is invalid", () =>
@@ -240,7 +239,7 @@ describe("Study.optimize", () => {
 
       const failingSchemaCacheLayer = Layer.effect(
         Cache.SchemaCache,
-        Cache.makeSchemaCache().pipe(
+        Cache.SchemaCache.allocate().pipe(
           Effect.map((schemaCache) => ({
             ...schemaCache,
             resolve: () => Effect.fail(corruption)
@@ -291,7 +290,7 @@ describe("Study.optimize", () => {
 
       const failingSchemaCacheLayer = Layer.effect(
         Cache.SchemaCache,
-        Cache.makeSchemaCache().pipe(
+        Cache.SchemaCache.allocate().pipe(
           Effect.map((schemaCache) => ({
             ...schemaCache,
             resolve: () => Effect.fail(backendFailure)

@@ -8,14 +8,10 @@ import { Effect, Option, Tuple } from "effect"
 import type { SearchError } from "../../Errors/index.js"
 import { PendingImputationPolicySpiLayer } from "../../Sampler/index.js"
 import * as Sampler from "../../Sampler/index.js"
-import {
-  makeSuggestionDiagnostics,
-  type PreparedSuggestionState,
-  type SuggestionDiagnostics
-} from "../../Sampler/preparation.js"
+import { type PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
 import { decodeConfig } from "../../Sampler/shared/decodeConfig.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
-import * as Trial from "../../Trial/index.js"
+import { Trial } from "../../Trial/index.js"
 import type { OptimizePlan, OptimizeSettings } from "../options.js"
 import { withReservedTrial } from "../state.js"
 import { markSpaceExhausted } from "./completion.js"
@@ -44,7 +40,7 @@ const suggestWithPreparedState = <Space extends SearchSpace.SearchSpace>(
             Tuple.make(
               rawConfig,
               previous,
-              makeSuggestionDiagnostics(sampler.kind._tag, "none", false, suggestionContext)
+              SuggestionDiagnostics.fromContext(sampler.kind._tag, "none", false, suggestionContext)
             )
           )
         ),
@@ -128,7 +124,7 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
     _settings: OptimizeSettings,
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>
-  ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, SearchError, StudyClock> =>
+  ): Effect.Effect<Trial<ConfigFor<Space>>, SearchError, StudyClock> =>
     modifyRuntimeState(runtime, (state) =>
       Effect.gen(function*() {
         const clock = yield* StudyClock
@@ -148,7 +144,7 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
           `sampler ${options.sampler.kind._tag} generated a config that failed search-space decoding`
         )
         const startedAt = yield* clock.now
-        const running = Trial.makeRunning(trialNumber, config, startedAt)
+        const running = Trial.run(trialNumber, config, startedAt)
 
         const nextStudyState = withReservedTrial(state.studyState, running)
         const nextSuggestionState = withReservedTrialSuggestionState(state.suggestionState, running)
@@ -175,7 +171,7 @@ export const reserveTrialOrMarkSpaceExhausted = <Space extends SearchSpace.Searc
   settings: OptimizeSettings,
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
-): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError, StudyClock> =>
+): Effect.Effect<Option.Option<Trial<ConfigFor<Space>>>, SearchError, StudyClock> =>
   reserveTrial(options, settings, trialNumber, runtime).pipe(
     Effect.map(Option.some),
     Effect.catchTag(

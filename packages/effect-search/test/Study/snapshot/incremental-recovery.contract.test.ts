@@ -8,7 +8,7 @@ import { stateOf } from "../../../src/Study/api/askTell/model.js"
 import * as Study from "../../../src/Study/index.js"
 import { contextForSuggestion } from "../../../src/Study/runtime/context.js"
 import { readStudyState } from "../../../src/Study/runtime/runtimeState.js"
-import { asSingleObjective, makeSpace, singleConfigTrace, singleObjective } from "./helpers.js"
+import { asSingleObjective, singleConfigTrace, singleObjective, singleObjectiveSpace } from "./helpers.js"
 
 const tpeOptions = {
   seed: 404,
@@ -21,7 +21,7 @@ describe("Study snapshot incremental recovery", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe(tpeOptions),
           direction: "minimize",
           trials: 7,
@@ -61,7 +61,7 @@ describe("Study snapshot incremental recovery", () => {
         )
 
         const resumedResult = yield* Study.resume({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe(tpeOptions),
           snapshot,
           direction: "minimize",

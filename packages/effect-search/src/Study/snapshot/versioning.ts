@@ -57,6 +57,12 @@ const SnapshotFormatVariantUnion = SnapshotFormatVariants.Union(StudySnapshotFor
  */
 export const StudySnapshotFormatVariantSchema = SnapshotFormatVariantUnion.formatV1
 
+type SnapshotMaterialized = Schema.Schema.Type<typeof SnapshotMetadataSchema> & {
+  readonly nextTrialNumber: number
+  readonly trials: ReadonlyArray<SnapshotTrial>
+  readonly completedCount: number
+}
+
 /**
  * Canonical snapshot format emitted by `Study.snapshot`.
  *
@@ -68,27 +74,40 @@ export class StudySnapshot extends Schema.Class<StudySnapshot>("effect-search/St
   ...SnapshotCoreFields,
   studyDuration: Schema.Number,
   samplerMetrics: SamplerMetricsSchema
-}) {}
+}) {
+  /**
+   * Materializes the canonical snapshot shape from already-normalized snapshot fields.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static fromMaterialized(snapshot: SnapshotMaterialized): StudySnapshot {
+    return StudySnapshot.make({
+      ...snapshot,
+      snapshotFormatVersion: CURRENT_SNAPSHOT_FORMAT_VERSION,
+      studyDuration: studyDurationFromTrials(snapshot.trials),
+      samplerMetrics: samplerMetricsFromTrials(snapshot.trials, snapshot.samplerCheckpoint, snapshot.completedCount)
+    })
+  }
 
-type SnapshotMaterialized = Schema.Schema.Type<typeof SnapshotMetadataSchema> & {
-  readonly nextTrialNumber: number
-  readonly trials: ReadonlyArray<SnapshotTrial>
-  readonly completedCount: number
+  /**
+   * Projects trial history plus snapshot metadata into the canonical snapshot surface.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static fromTrials<Config>(
+    trials: ReadonlyArray<Trial.Trial<Config>>,
+    metadata: Schema.Schema.Type<typeof SnapshotMetadataSchema>
+  ): StudySnapshot {
+    return StudySnapshot.fromMaterialized({
+      ...metadata,
+      nextTrialNumber: nextTrialNumberFromTrials(trials),
+      trials: snapshotTrialsFromTrials(trials),
+      completedCount: completedCountFromTrials(trials)
+    })
+  }
 }
-
-const toStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot =>
-  new StudySnapshot({
-    ...snapshot,
-    snapshotFormatVersion: CURRENT_SNAPSHOT_FORMAT_VERSION,
-    studyDuration: studyDurationFromTrials(snapshot.trials),
-    samplerMetrics: samplerMetricsFromTrials(snapshot.trials, snapshot.samplerCheckpoint, snapshot.completedCount)
-  })
-
-/**
- * @since 0.1.0
- * @category constructors
- */
-export const makeStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot => toStudySnapshot(snapshot)
 
 /**
  * @since 0.1.0
@@ -116,13 +135,7 @@ const snapshotTrialsFromTrials = <Config>(trials: ReadonlyArray<Trial.Trial<Conf
 export const snapshotFromTrials = <Config>(
   trials: ReadonlyArray<Trial.Trial<Config>>,
   metadata: Schema.Schema.Type<typeof SnapshotMetadataSchema>
-): StudySnapshot =>
-  makeStudySnapshot({
-    ...metadata,
-    nextTrialNumber: nextTrialNumberFromTrials(trials),
-    trials: snapshotTrialsFromTrials(trials),
-    completedCount: completedCountFromTrials(trials)
-  })
+): StudySnapshot => StudySnapshot.fromTrials(trials, metadata)
 
 /**
  * Decode the canonical snapshot format.
@@ -134,5 +147,5 @@ export const decodeStudySnapshot = (
   snapshot: unknown
 ) =>
   Schema.decodeUnknown(StudySnapshotFormatVariantSchema)(snapshot).pipe(
-    Effect.map((decoded) => toStudySnapshot(decoded))
+    Effect.map((decoded) => StudySnapshot.fromMaterialized(decoded))
   )

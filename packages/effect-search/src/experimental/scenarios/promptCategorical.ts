@@ -41,14 +41,16 @@ export const decodePromptCategoricalConfig = Schema.decodeUnknownSync(PromptCate
 export const decodePromptCategoricalConfigEffect = Schema.decodeUnknown(PromptCategoricalConfigSchema)
 
 /**
- * Constructs a categorical search space for prompt engineering with instruction, demo, and scoring strategy choices.
+ * Scenario-owned constructor for the categorical prompt-engineering search space.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makePromptCategoricalSpace = () =>
-  SearchSpace.unsafeMake({
-    instruction: SearchSpace.categorical(PromptInstructionChoices),
-    demos: SearchSpace.categorical(PromptDemoChoices),
-    scoring: SearchSpace.categorical(PromptScoringChoices)
-  })
+export const PromptCategoricalSpace = {
+  make: () =>
+    SearchSpace.unsafeMake({
+      instruction: SearchSpace.categorical(PromptInstructionChoices),
+      demos: SearchSpace.categorical(PromptDemoChoices),
+      scoring: SearchSpace.categorical(PromptScoringChoices)
+    })
+}

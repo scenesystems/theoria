@@ -5,7 +5,7 @@ import { abs } from "effect-math/Numeric"
 import { hypervolumeContribution2d } from "../../../src/internal/hypervolume.js"
 import { nonDominatedRanks } from "../../../src/internal/pareto.js"
 import { computeMultiObjectiveWeights, computeReferencePoint } from "../../../src/internal/tpe/multiObjectiveWeights.js"
-import { makeSuggestCompletedTrial } from "../../../src/Sampler/index.js"
+import { SuggestCompletedTrial } from "../../../src/Sampler/index.js"
 import { splitMultiObjective } from "../../../src/samplers/Tpe/split/multiSplit.js"
 import {
   FixtureRegistryLive,
@@ -133,7 +133,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       )
 
       const completed = Arr.map(fixture.payload.trials, (trial) =>
-        makeSuggestCompletedTrial(
+        SuggestCompletedTrial.fromObservation(
           trial.trialNumber,
           { trialNumber: trial.trialNumber, feasible: trial.feasible },
           trial.values

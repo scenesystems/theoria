@@ -5,7 +5,7 @@ import { abs } from "effect-math/Numeric"
 import type { InvalidSamplerConfig } from "../../../src/Errors/index.js"
 import {
   decodeMixedOptimizerConfigEffect,
-  makeMixedOptimizerSpace
+  MixedOptimizerSpace
 } from "../../../src/experimental/scenarios/mixedOptimizer.js"
 import { CompletedTrialForSplit, type TrialSplit } from "../../../src/internal/tpe/splitTrials.js"
 import { categoricalCandidateTraceFromRolls } from "../../../src/samplers/Tpe/dimensions/categorical.js"
@@ -176,7 +176,7 @@ describe("mixed-space fixture parity", () => {
         fixtures,
         (fixture) =>
           Effect.gen(function*() {
-            const space = makeMixedOptimizerSpace()
+            const space = MixedOptimizerSpace.make()
             const split = splitFromFixture(fixture.payload)
 
             const traces = yield* Effect.forEach(fixture.payload.dimensions, (dimension) =>

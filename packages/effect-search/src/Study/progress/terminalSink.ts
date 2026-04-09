@@ -72,9 +72,9 @@ const writeProcessStderr = (line: string): Effect.Effect<void> => writeProcessLi
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { makeTerminalSink } from "effect-search/Study"
+ * import { TerminalSink } from "effect-search/Study"
  *
- * const sink = makeTerminalSink({
+ * const sink = TerminalSink.make({
  *   supportsAnsi: Effect.succeed(false),
  *   writeStdout: (line) => Effect.log(`[study] ${line}`),
  *   writeStderr: (line) => Effect.logWarning(`[study] ${line}`)
@@ -88,36 +88,37 @@ export class TerminalSink extends Data.Class<{
   readonly supportsAnsi: Effect.Effect<boolean, unknown>
   readonly writeStdout: (line: string) => Effect.Effect<void>
   readonly writeStderr: (line: string) => Effect.Effect<void>
-}> {}
-
-/**
- * Construct a terminal sink from effectful writers.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { makeTerminalSink } from "effect-search/Study"
- *
- * const sink = makeTerminalSink({
- *   supportsAnsi: Effect.succeed(false),
- *   writeStdout: (line) => Effect.log(`[progress] ${line}`),
- *   writeStderr: (line) => Effect.logError(`[progress] ${line}`)
- * })
- * ```
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeTerminalSink = (options?: {
-  readonly supportsAnsi?: Effect.Effect<boolean, unknown>
-  readonly writeStdout?: (line: string) => Effect.Effect<void>
-  readonly writeStderr?: (line: string) => Effect.Effect<void>
-}): TerminalSink =>
-  new TerminalSink({
-    supportsAnsi: Option.fromNullable(options?.supportsAnsi).pipe(Option.getOrElse(() => processSupportsAnsi)),
-    writeStdout: Option.fromNullable(options?.writeStdout).pipe(Option.getOrElse(() => writeProcessStdout)),
-    writeStderr: Option.fromNullable(options?.writeStderr).pipe(Option.getOrElse(() => writeProcessStderr))
-  })
+}> {
+  /**
+   * Construct a terminal sink from effectful writers.
+   *
+   * @example
+   * ```ts
+   * import { Effect } from "effect"
+   * import { TerminalSink } from "effect-search/Study"
+   *
+   * const sink = TerminalSink.make({
+   *   supportsAnsi: Effect.succeed(false),
+   *   writeStdout: (line) => Effect.log(`[progress] ${line}`),
+   *   writeStderr: (line) => Effect.logError(`[progress] ${line}`)
+   * })
+   * ```
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static make(options?: {
+    readonly supportsAnsi?: Effect.Effect<boolean, unknown>
+    readonly writeStdout?: (line: string) => Effect.Effect<void>
+    readonly writeStderr?: (line: string) => Effect.Effect<void>
+  }): TerminalSink {
+    return new TerminalSink({
+      supportsAnsi: Option.fromNullable(options?.supportsAnsi).pipe(Option.getOrElse(() => processSupportsAnsi)),
+      writeStdout: Option.fromNullable(options?.writeStdout).pipe(Option.getOrElse(() => writeProcessStdout)),
+      writeStderr: Option.fromNullable(options?.writeStderr).pipe(Option.getOrElse(() => writeProcessStderr))
+    })
+  }
+}
 
 /**
  * Default process-backed terminal sink.
@@ -125,11 +126,11 @@ export const makeTerminalSink = (options?: {
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { reportTerminalProgress, defaultTerminalSink } from "effect-search/Study"
+ * import { TerminalReporter, defaultTerminalSink } from "effect-search/Study"
  * import { TrialCompleted } from "effect-search/StudyEvent"
  *
  * Effect.gen(function*() {
- *   yield* reportTerminalProgress(
+ *   yield* TerminalReporter.report(
  *     TrialCompleted({ trialNumber: 1, value: 0.42 }),
  *     { sink: defaultTerminalSink }
  *   )
@@ -139,7 +140,7 @@ export const makeTerminalSink = (options?: {
  * @since 0.1.0
  * @category constructors
  */
-export const defaultTerminalSink: TerminalSink = makeTerminalSink()
+export const defaultTerminalSink: TerminalSink = TerminalSink.make()
 
 /**
  * Flush pre-formatted progress lines through a sink.
@@ -147,10 +148,10 @@ export const defaultTerminalSink: TerminalSink = makeTerminalSink()
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { formatTerminalProgressEvent, writeProgressLines, defaultTerminalSink } from "effect-search/Study"
+ * import { ProgressLine, writeProgressLines, defaultTerminalSink } from "effect-search/Study"
  * import { TrialCompleted } from "effect-search/StudyEvent"
  *
- * const lines = formatTerminalProgressEvent(TrialCompleted({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
+ * const lines = ProgressLine.projectEvent(TrialCompleted({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
  * Effect.gen(function*() {
  *   yield* writeProgressLines(defaultTerminalSink, lines)
  * })

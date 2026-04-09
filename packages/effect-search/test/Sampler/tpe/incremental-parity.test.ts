@@ -9,7 +9,7 @@ import * as Study from "../../../src/Study/index.js"
 import { contextForSuggestion } from "../../../src/Study/runtime/context.js"
 import { readStudyState } from "../../../src/Study/runtime/runtimeState.js"
 import { suggestConfigWithSampler } from "../../../src/Study/runtime/trialReservation.js"
-import { makeSpace, singleObjective } from "../../Study/snapshot/helpers.js"
+import { singleObjective, singleObjectiveSpace } from "../../Study/snapshot/helpers.js"
 
 const tpeOptions = {
   seed: 313,
@@ -22,7 +22,7 @@ describe("Sampler TPE incremental parity", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const handle = yield* Study.open({
-          space: makeSpace(),
+          space: singleObjectiveSpace,
           sampler: Sampler.tpe(tpeOptions),
           direction: "minimize",
           trials: 8,

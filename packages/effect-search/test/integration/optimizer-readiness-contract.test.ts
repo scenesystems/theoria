@@ -6,10 +6,10 @@ import { normalizeObjectiveVector } from "../../src/contracts/index.js"
 import {
   decodeLinearTreeConditionalConfig,
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import { makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
+import { RandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
+import { SlotSpace } from "../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -24,7 +24,7 @@ const deterministicSampler = new Sampler.Sampler({
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
 
-const singleSpace = () => makeSlotSpace(40)
+const singleSpace = () => SlotSpace.make(40)
 
 const decodeSingleConfig = Schema.decodeUnknownSync(singleSpace().schema)
 
@@ -101,7 +101,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 const asMultiObjective = (result: Study.StudyResult) =>
   result._tag === "MultiObjective" ? Option.some(result) : Option.none()
 
-const bootstrapSpace = makeRandomTrainingSpace(32)
+const bootstrapSpace = RandomTrainingSpace.make(32)
 const decodeBootstrapConfig = Schema.decodeUnknownSync(bootstrapSpace.schema)
 
 const bootstrapFiniteGridSpace = SearchSpace.unsafeMake({
@@ -151,7 +151,7 @@ const isCoupledBestPair = (raw: unknown): boolean => {
   return config.demo === preferredDemo
 }
 
-const conditionalSpace = makeLinearTreeConditionalSpace()
+const conditionalSpace = LinearTreeConditionalSpace.make()
 const decodeConditionalConfig = decodeLinearTreeConditionalConfig
 const encodeConditionalTrace = Schema.encodeSync(
   Schema.parseJson(Schema.Array(LinearTreeConditionalConfigSchema))

@@ -725,7 +725,7 @@ const program = Study.minimize({
 }).pipe(Effect.provide(Study.StudyObjectiveCacheMemory()))
 ```
 
-Use `Study.StudyObjectiveCacheFileSystem("./study-cache")` for disk-backed caching that persists across process restarts. Cache scope/version routing is managed by `Study.studyObjectiveCacheOptions(scope)` and `Cache.makeDescriptor(...)`.
+Use `Study.StudyObjectiveCacheFileSystem("./study-cache")` for disk-backed caching that persists across process restarts. Cache scope/version routing is managed by `Study.studyObjectiveCacheOptions(scope)` and `Cache.CacheDescriptor.make(...)`.
 
 ### Persistent storage
 
@@ -754,6 +754,8 @@ const program = Effect.gen(function* () {
   return { initial, resumed }
 })
 ```
+
+When you need the storage service value directly instead of a layer, allocate it from the storage owner with `yield* Study.StudyStorage.allocate(Study.studyStorageOptions(directory))` and provide the same artifact sink plus envelope-context services you would use for `StudyStorageLive`.
 
 Use `Study.resumeFromStorageStream` for the streaming variant.
 
@@ -812,7 +814,7 @@ const program = Effect.gen(function* () {
     objective,
     direction: "minimize",
     trials: 100
-  }).pipe(Study.tapTerminalProgress(), Stream.runCollect)
+  }).pipe(Study.TerminalReporter.tap(), Stream.runCollect)
 
   const completed = Chunk.toReadonlyArray(events).filter((event) => event._tag === "TrialCompleted").length
   yield* Effect.log("Completed trials", completed)
@@ -829,14 +831,14 @@ Study.resumeStream({
   direction: "minimize",
   trials: 20,
   objective
-}).pipe(Study.tapTerminalProgress(), Stream.runDrain)
+}).pipe(Study.TerminalReporter.tap(), Stream.runDrain)
 ```
 
 Need custom output behavior (for CI logs, structured logs, or forced plain mode)?
 Inject a sink while keeping the same formatter semantics:
 
 ```ts
-const sink = Study.makeTerminalSink({
+const sink = Study.TerminalSink.make({
   supportsAnsi: Effect.succeed(false),
   writeStdout: (line) => Effect.log(`[study] ${line}`),
   writeStderr: (line) => Effect.logWarning(`[study] ${line}`)
@@ -848,17 +850,17 @@ Study.optimizeStream({
   objective,
   direction: "minimize",
   trials: 100
-}).pipe(Study.tapTerminalProgress({ sink }), Stream.runDrain)
+}).pipe(Study.TerminalReporter.tap({ sink }), Stream.runDrain)
 ```
 
 The same event stream is the package-owned diagnostics surface. Consumers can pattern-match on `TrialStarted` to inspect typed sampler diagnostics, and snapshots preserve pending-trial truth through `StudySnapshot.samplerMetrics.pendingCount` so resume and UI consumers do not have to infer running-trial state from ad hoc local bookkeeping.
 
-For one-shot event emission (for example, in manual orchestration adapters), use `Study.reportTerminalProgress`:
+For one-shot event emission (for example, in manual orchestration adapters), use `Study.TerminalReporter.report`:
 
 ```ts
 import { Study, StudyEvent } from "effect-search"
 
-yield * Study.reportTerminalProgress(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }), { sink })
+yield * Study.TerminalReporter.report(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }), { sink })
 ```
 
 ### DevTools tracing
@@ -1015,8 +1017,8 @@ import {
 | `SearchSpace`  | `make`, `makeConditional`, `float`, `int`, `categorical`, `boolean`, `fidelity`, `switch`, `when`, `extend`, `pick`, `omit`, `Type`                                                                                                                                                                                                                                                                                                                                                      |
 | `Sampler`      | `random`, `grid`, `tpe`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `Scheduler`    | `hyperband`, `bohb`, `Scheduler`, `totalTrials`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `Study`        | `minimize`, `maximize`, `optimize`, `optimizeStream`, `resumeStream`, `snapshot`, `resume`, `resumeFromStorage`, `resumeFromStorageStream`, `pareto`, `tapTerminalProgress`, `reportTerminalProgress`, `makeTerminalSink`, `formatTerminalProgressEvent`, `StudySnapshot`, `PriorTrial`, `ObjectiveReport`, `StudyObjectiveCache`, `StudyObjectiveCacheMemory`, `StudyObjectiveCacheFileSystem`, `StudyStorage`, `StudyStorageLive`, `SamplerEngine`, `SnapshotCodec`, `StudyKernel`, `thresholdPruningPolicy`, `shouldPruneByPercentile` |
-| `Trial`        | `matchState`, trial state types (`Running`, `Completed`, `Failed`, `Pruned`, `Cancelled`)                                                                                                                                                                                                                                                                                                                                                                                                |
+| `Study`        | `minimize`, `maximize`, `optimize`, `optimizeStream`, `resumeStream`, `snapshot`, `resume`, `resumeFromStorage`, `resumeFromStorageStream`, `pareto`, `ProgressLine`, `TerminalReporter`, `TerminalSink`, `StudySnapshot`, `PriorTrial`, `ObjectiveReport`, `StudyObjectiveCache`, `StudyObjectiveCacheMemory`, `StudyObjectiveCacheFileSystem`, `StudyStorage`, `StudyStorageApi`, `StudyStorageLive`, `StudyStorageOptions`, `studyStorageOptions`, `SamplerEngine`, `SnapshotCodec`, `StudyKernel`, `thresholdPruningPolicy`, `shouldPruneByPercentile` |
+| `Trial`        | `run`, `matchState`, trial state types (`Running`, `Completed`, `Failed`, `Pruned`, `Cancelled`)                                                                                                                                                                                                                                                                                                                                                                                         |
 | `StudyEvent`   | `matchStudyEvent`, `isStudyEvent`, event types (`TrialStarted`, `TrialCompleted`, `TrialReported`, `TrialCosted`, `TrialPruned`, `TrialRetried`, `TrialCancelled`, `TrialFailed`, `BestUpdated`, `StudyStopRequested`, `BracketStarted`, `RoundStarted`, `RoundCompleted`, `BracketCompleted`, `StudyCompleted`)                                                                                                                                                                         |
 | `Errors`       | Tagged errors: `InvalidSearchSpace`, `InvalidSamplerConfig`, `InvalidStudyConfig`, `NoSuccessfulTrials`, `TrialError`, `NotImplemented`, …; union: `SearchErrorSchema`, `isSearchError`                                                                                                                                                                                                                                                                                                  |
 | `Contracts`    | Stable shared contracts: `Direction`, `Distribution`, `ObjectiveSpec`, `ObjectiveValue`                                                                                                                                                                                                                                                                                                                                                                                                  |

@@ -35,7 +35,7 @@ describe("StudyStorage", () => {
         prefix: "effect-search-study-storage-replay-"
       })
       const options = Study.studyStorageOptions(directory)
-      const storage = yield* Study.makeStudyStorage(options).pipe(
+      const storage = yield* Study.StudyStorage.allocate(options).pipe(
         Effect.provide(fileSystemSink(directory)),
         Effect.provide(makeTestEnvelopeContextLayer)
       )
@@ -93,7 +93,7 @@ describe("StudyStorage", () => {
         Effect.provide(makeTestEnvelopeContextLayer)
       )
 
-      const storage = yield* Study.makeStudyStorage(options).pipe(
+      const storage = yield* Study.StudyStorage.allocate(options).pipe(
         Effect.provide(fileSystemSink(directory)),
         Effect.provide(makeTestEnvelopeContextLayer)
       )

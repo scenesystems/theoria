@@ -4,8 +4,8 @@ import { Array as Arr, Effect, Option, Schema } from "effect"
 import { normalizeObjectiveVector } from "../../src/contracts/index.js"
 import {
   decodePromptCategoricalConfigEffect,
-  makePromptCategoricalSpace,
-  PromptCategoricalConfigSchema
+  PromptCategoricalConfigSchema,
+  PromptCategoricalSpace
 } from "../../src/experimental/scenarios/promptCategorical.js"
 import { nonDominatedIndices } from "../../src/internal/pareto.js"
 import * as Sampler from "../../src/Sampler/index.js"
@@ -63,7 +63,7 @@ const optimizeWithFixture = (
   fixture: Schema.Schema.Type<typeof MotpeStudyFixtureSchema>
 ) =>
   Study.optimize({
-    space: makePromptCategoricalSpace(),
+    space: PromptCategoricalSpace.make(),
     sampler: Sampler.tpe({
       seed: fixture.payload.sampler.seed,
       nStartupTrials: fixture.payload.sampler.nStartupTrials,

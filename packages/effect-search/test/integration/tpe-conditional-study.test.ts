@@ -5,7 +5,7 @@ import { abs, logStrict } from "effect-math/Numeric"
 import {
   decodeLinearTreeConditionalConfig,
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../src/experimental/scenarios/conditionalLinearTree.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
@@ -17,7 +17,7 @@ const decodeConditional = decodeLinearTreeConditionalConfig
 const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(LinearTreeConditionalConfigSchema)))
 const encodeValueTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(Schema.Number)))
 
-const makeSpace = () => makeLinearTreeConditionalSpace()
+const makeSpace = () => LinearTreeConditionalSpace.make()
 
 const objectiveValue = (config: ConditionalConfig): number =>
   Match.value(config).pipe(

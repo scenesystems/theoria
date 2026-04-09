@@ -10,7 +10,7 @@ import { Data, Schema, Tuple } from "effect"
  * sample from a Parzen estimator.
  *
  * @see {@link CandidateRollPair} for the inferred TypeScript type
- * @see {@link makeCandidateRollPair} for the constructor
+ * @see {@link CandidateRollPair.make} for the constructor
  * @since 0.1.0
  * @category schemas
  */
@@ -24,24 +24,25 @@ export const CandidateRollPairSchema = Schema.Tuple(Schema.Number, Schema.Number
  * second element selects a position within that kernel's distribution.
  *
  * @see {@link CandidateRollPairSchema} for the serializable schema
- * @see {@link makeCandidateRollPair} for the constructor
+ * @see {@link CandidateRollPair.make} for the constructor
  * @since 0.1.0
  * @category models
  */
 export type CandidateRollPair = Schema.Schema.Type<typeof CandidateRollPairSchema>
 
 /**
- * Constructs a {@link CandidateRollPair} from a kernel index roll and a
- * within-kernel value roll.
+ * Noun-owned constructor for deterministic Parzen sampling rolls.
  *
  * @see {@link CandidateRollPair} for the output type
  * @since 0.1.0
  * @category constructors
  */
-export const makeCandidateRollPair = (
-  kernelRoll: number,
-  valueRoll: number
-): CandidateRollPair => Tuple.make(kernelRoll, valueRoll)
+export const CandidateRollPair = {
+  make: (
+    kernelRoll: number,
+    valueRoll: number
+  ): CandidateRollPair => Tuple.make(kernelRoll, valueRoll)
+}
 
 /**
  * Per-dimension trace of candidate values, their log-densities under l(x)

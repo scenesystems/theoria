@@ -16,7 +16,7 @@ export * from "./constructors.js"
  * Data classes for Scheduler, Bracket, Round, and summary models used in
  * bracketed multi-fidelity optimization.
  *
- * @see {@link makeHyperBand} for the primary constructor
+ * @see {@link hyperband} for the primary constructor
  * @since 0.1.0
  * @category re-exports
  */

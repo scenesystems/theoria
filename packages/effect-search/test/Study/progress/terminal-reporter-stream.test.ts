@@ -30,7 +30,7 @@ const memorySink = Effect.gen(function*() {
   const stderr = yield* Ref.make<ReadonlyArray<string>>([])
 
   return {
-    sink: Study.makeTerminalSink({
+    sink: Study.TerminalSink.make({
       supportsAnsi: Effect.succeed(false),
       writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
       writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
@@ -62,7 +62,7 @@ describe("terminal reporter stream composition", () => {
           direction: "minimize",
           trials: 5,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: sinkCapture.sink }))
+        }).pipe(Study.TerminalReporter.tap({ sink: sinkCapture.sink }))
       )
 
       const baselineTags = Chunk.toReadonlyArray(baselineEvents).map((event) => event._tag)
@@ -104,7 +104,7 @@ describe("terminal reporter stream composition", () => {
           direction: "minimize",
           trials: 2,
           objective
-        }).pipe(Study.tapTerminalProgress({ sink: sinkCapture.sink }))
+        }).pipe(Study.TerminalReporter.tap({ sink: sinkCapture.sink }))
       )
 
       const tags = Chunk.toReadonlyArray(resumedEvents).map((event) => event._tag)

@@ -9,7 +9,7 @@ import { Cause, Effect, Match, Option, Predicate, Schema } from "effect"
 import { matchObjectiveSpec, type ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
 import { isFiniteObjectiveValue, objectiveDimensionCount, type ObjectiveValue } from "../../contracts/ObjectiveValue.js"
 import { InvalidObjectiveValue, TrialError } from "../../Errors/index.js"
-import * as Trial from "../../Trial/index.js"
+import { Completed, matchState, Trial } from "../../Trial/index.js"
 
 import type { PrunedDecision } from "./pruning.js"
 
@@ -64,19 +64,19 @@ const trialErrorFromFailure = (trialNumber: number, cause: Cause.Cause<unknown>)
   )
 
 const withEvaluationMetadata = <Config>(
-  trial: Trial.Trial<Config>,
+  trial: Trial<Config>,
   evaluationCount: number,
   variance: Option.Option<number>
-): Trial.Trial<Config> =>
-  Trial.matchState({
+): Trial<Config> =>
+  matchState({
     Running: () => trial,
     Failed: () => trial,
     Pruned: () => trial,
     Cancelled: () => trial,
     Completed: (state) =>
-      new Trial.Trial({
+      new Trial({
         ...trial,
-        state: Trial.Completed({
+        state: Completed({
           ...state,
           evaluationCount,
           ...variance.pipe(
@@ -96,7 +96,7 @@ const withEvaluationMetadata = <Config>(
  * @category utils
  */
 export const finalizeTrial = <Config>(
-  running: Trial.Trial<Config>,
+  running: Trial<Config>,
   objectiveSpec: ObjectiveSpec,
   trialNumber: number,
   finishedAt: number,
@@ -105,7 +105,7 @@ export const finalizeTrial = <Config>(
   cost: Option.Option<number> = Option.none(),
   evaluationCount = 1,
   variance: Option.Option<number> = Option.none()
-): Effect.Effect<Trial.Trial<Config>> =>
+): Effect.Effect<Trial<Config>> =>
   Match.value(objectiveExit).pipe(
     Match.tag("Success", ({ value }) =>
       Match.value(isObjectiveCompatibleWithSpec(objectiveSpec, value)).pipe(
@@ -148,7 +148,7 @@ export const finalizeTrial = <Config>(
  * @category utils
  */
 export const finalizeTrialWithPrune = <Config>(
-  running: Trial.Trial<Config>,
+  running: Trial<Config>,
   objectiveSpec: ObjectiveSpec,
   trialNumber: number,
   finishedAt: number,
@@ -158,7 +158,7 @@ export const finalizeTrialWithPrune = <Config>(
   cost: Option.Option<number> = Option.none(),
   evaluationCount = 1,
   variance: Option.Option<number> = Option.none()
-): Effect.Effect<Trial.Trial<Config>> =>
+): Effect.Effect<Trial<Config>> =>
   Option.match(pruned, {
     onNone: () =>
       finalizeTrial(

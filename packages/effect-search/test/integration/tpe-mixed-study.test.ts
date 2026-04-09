@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import { abs, logStrict } from "effect-math/Numeric"
 
-import { decodeMixedOptimizerConfig, makeMixedOptimizerSpace } from "../../src/experimental/scenarios/mixedOptimizer.js"
+import { decodeMixedOptimizerConfig, MixedOptimizerSpace } from "../../src/experimental/scenarios/mixedOptimizer.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
@@ -51,7 +51,7 @@ const traceFor = (result: Study.SingleObjectiveResult) => result.trials.map((tri
 
 const optimizeWith = (sampler: Sampler.Sampler, trials: number) =>
   Study.optimize({
-    space: makeMixedOptimizerSpace(),
+    space: MixedOptimizerSpace.make(),
     sampler,
     direction: "minimize",
     trials,

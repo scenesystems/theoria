@@ -28,12 +28,14 @@ export type SlotConfig = Schema.Schema.Type<typeof SlotConfigSchema>
 export const decodeSlotConfig = Schema.decodeUnknownSync(SlotConfigSchema)
 
 /**
- * Constructs a single-integer search space for testing search space mechanics.
+ * Scenario-owned constructor for the single-integer slot search space.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeSlotSpace = (maxSlot: number) =>
-  SearchSpace.unsafeMake({
-    slot: SearchSpace.int(0, maxSlot)
-  })
+export const SlotSpace = {
+  make: (maxSlot: number) =>
+    SearchSpace.unsafeMake({
+      slot: SearchSpace.int(0, maxSlot)
+    })
+}

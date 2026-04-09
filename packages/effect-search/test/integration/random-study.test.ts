@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number as Num, Option, Schema } from "effect"
 import { abs } from "effect-math/Numeric"
 
-import { makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
+import { RandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
@@ -26,7 +26,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 const runStudy = (seed: number, direction: "minimize" | "maximize") => {
-  const space = makeRandomTrainingSpace()
+  const space = RandomTrainingSpace.make()
   const decode = Schema.decodeUnknownSync(space.schema)
 
   return Study.optimize({

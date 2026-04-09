@@ -4,7 +4,7 @@ import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 import { singleObjectiveSpec } from "../../../src/contracts/index.js"
 import {
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../../src/experimental/scenarios/conditionalLinearTree.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
 import { SuggestCompletedTrial, SuggestContext } from "../../../src/Sampler/index.js"
@@ -12,7 +12,7 @@ import * as Sampler from "../../../src/Sampler/index.js"
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/samplers/Tpe/dimensions/values.js"
 import type * as SearchSpace from "../../../src/SearchSpace/index.js"
 
-const makeConditionalSpace = () => makeLinearTreeConditionalSpace()
+const makeConditionalSpace = () => LinearTreeConditionalSpace.make()
 
 const splitHistory = () => [
   new CompletedTrialForSplit({

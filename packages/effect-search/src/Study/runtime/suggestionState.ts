@@ -8,12 +8,10 @@ import { Array as Arr, Data, Number as Num, Option, Order, Predicate } from "eff
 import type { ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
 import type { SamplerConfig } from "../../internal/configAccess.js"
 import {
-  makeSuggestCompletedTrial,
-  makeSuggestPendingTrial,
   type PendingImputationPolicy,
-  type SuggestCompletedTrial,
+  SuggestCompletedTrial,
   SuggestContext,
-  type SuggestPendingTrial
+  SuggestPendingTrial
 } from "../../Sampler/index.js"
 import type { PreparedSuggestionState, SuggestionDiagnostics } from "../../Sampler/preparation.js"
 import * as Trial from "../../Trial/index.js"
@@ -35,7 +33,7 @@ const toSuggestCompletedTrial = <Config>(
 ): SuggestCompletedTrial =>
   Option.match(trialVariance(trial), {
     onNone: () =>
-      makeSuggestCompletedTrial(
+      SuggestCompletedTrial.fromObservation(
         trial.trialNumber,
         toSamplerConfig(trial.config),
         trial.state.value,
@@ -43,7 +41,7 @@ const toSuggestCompletedTrial = <Config>(
         trial.cost
       ),
     onSome: (variance) =>
-      makeSuggestCompletedTrial(
+      SuggestCompletedTrial.fromObservation(
         trial.trialNumber,
         toSamplerConfig(trial.config),
         trial.state.value,
@@ -54,7 +52,10 @@ const toSuggestCompletedTrial = <Config>(
   })
 
 const toSuggestPendingTrial = <Config>(trial: Trial.Trial<Config>): SuggestPendingTrial =>
-  makeSuggestPendingTrial(trial.trialNumber, toSamplerConfig(trial.config))
+  SuggestPendingTrial.make({
+    trialNumber: trial.trialNumber,
+    config: toSamplerConfig(trial.config)
+  })
 
 const insertByTrialNumber = <A extends SuggestCompletedTrial | SuggestPendingTrial>(
   values: ReadonlyArray<A>,
@@ -77,7 +78,7 @@ const completedProjectionForTrial = <Config>(
     Cancelled: () => Option.none(),
     Completed: ({ value, variance }) =>
       Option.some(
-        makeSuggestCompletedTrial(
+        SuggestCompletedTrial.fromObservation(
           trial.trialNumber,
           toSamplerConfig(trial.config),
           value,
@@ -143,7 +144,7 @@ const imputedCompleted = (
   return Arr.map(
     policy.impute(baseContext),
     (observation) =>
-      makeSuggestCompletedTrial(
+      SuggestCompletedTrial.fromObservation(
         observation.trialNumber,
         observation.config,
         observation.value

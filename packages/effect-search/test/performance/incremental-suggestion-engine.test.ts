@@ -5,8 +5,8 @@ import * as Sampler from "../../src/Sampler/index.js"
 import { normalizeSettings, optimizePlanFromOptions } from "../../src/Study/options.js"
 import { initializeRuntime, StudyClockLayer } from "../../src/Study/runtime/runtimeState.js"
 import { suggestConfigWithSampler } from "../../src/Study/runtime/trialReservation.js"
-import * as Trial from "../../src/Trial/index.js"
-import { makeSpace, singleObjective } from "../Study/snapshot/helpers.js"
+import { Trial } from "../../src/Trial/index.js"
+import { singleObjective, singleObjectiveSpace } from "../Study/snapshot/helpers.js"
 
 const tpeOptions = {
   seed: 2701,
@@ -36,7 +36,7 @@ const buildHarnessState = (historyLength: number) =>
   Effect.gen(function*() {
     const sampler = Sampler.tpe(tpeOptions)
     const optimizePlan = yield* optimizePlanFromOptions({
-      space: makeSpace(),
+      space: singleObjectiveSpace,
       sampler,
       direction: "minimize",
       trials: historyLength + 4,
@@ -50,7 +50,7 @@ const buildHarnessState = (historyLength: number) =>
         const value = yield* singleObjective(config)
 
         return Trial.complete(
-          Trial.makeRunning(trialNumber, config, trialNumber),
+          Trial.run(trialNumber, config, trialNumber),
           value,
           trialNumber + 1
         )

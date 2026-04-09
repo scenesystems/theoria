@@ -7,7 +7,7 @@ import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Order } from
 
 import { InvalidStudyConfig } from "../../Errors/index.js"
 import type { SnapshotTrial } from "./stateCodec.js"
-import { makeStudySnapshot, type StudySnapshot } from "./versioning.js"
+import { StudySnapshot } from "./versioning.js"
 
 const duplicateTrialNumber = (trials: ReadonlyArray<SnapshotTrial>): Option.Option<number> =>
   Option.map(
@@ -93,7 +93,7 @@ export const recoverSnapshotWithReplayTail = (
         )
     })
 
-    return makeStudySnapshot({
+    return StudySnapshot.fromMaterialized({
       ...snapshotMetadataFromSnapshot(snapshot),
       nextTrialNumber: nextTrialNumberFromTrials(mergedTrials),
       trials: mergedTrials,

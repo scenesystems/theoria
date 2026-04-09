@@ -4,12 +4,12 @@ import { Effect } from "effect"
 import { TrialError } from "../../src/Errors/index.js"
 import { snapshotToTrial, trialToSnapshot } from "../../src/Study/snapshot/stateCodec.js"
 import * as StudyEvent from "../../src/StudyEvent/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import { isState, Trial } from "../../src/Trial/index.js"
 
 describe("Trial / typed error", () => {
   it.effect("stores TrialError in Failed state and preserves it through snapshot codec", () =>
     Effect.sync(() => {
-      const running = Trial.makeRunning(3, { x: 1 }, 100)
+      const running = Trial.run(3, { x: 1 }, 100)
       const error = new TrialError({
         trialNumber: 3,
         message: "objective failed",
@@ -19,10 +19,10 @@ describe("Trial / typed error", () => {
       const snapshot = trialToSnapshot(failed)
       const restored = snapshotToTrial(snapshot, running.config)
 
-      expect(Trial.isState("Failed")(failed.state)).toBe(true)
-      expect(Trial.isState("Failed")(restored.state)).toBe(true)
+      expect(isState("Failed")(failed.state)).toBe(true)
+      expect(isState("Failed")(restored.state)).toBe(true)
 
-      if (Trial.isState("Failed")(restored.state)) {
+      if (isState("Failed")(restored.state)) {
         expect(restored.state.error).toBeInstanceOf(TrialError)
         expect(restored.state.error._tag).toBe("effect-search/TrialError")
         expect(restored.state.error.trialNumber).toBe(3)

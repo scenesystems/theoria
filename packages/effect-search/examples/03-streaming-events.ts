@@ -1,7 +1,7 @@
 /**
  * Streaming Events — monitor optimization progress in real time.
  *
- * Uses Study.tapTerminalProgress to render a first-party terminal view while
+ * Uses `Study.TerminalReporter.tap` to render a first-party terminal view while
  * preserving the original event stream contracts.
  *
  * What this shows: optional terminal reporting that composes with
@@ -39,7 +39,7 @@ const program = Effect.gen(function*() {
     direction: "minimize",
     trials: 12
   }).pipe(
-    Study.tapTerminalProgress(),
+    Study.TerminalReporter.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
@@ -65,7 +65,7 @@ const program = Effect.gen(function*() {
     trials: 4,
     objective
   }).pipe(
-    Study.tapTerminalProgress(),
+    Study.TerminalReporter.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )

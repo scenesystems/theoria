@@ -10,7 +10,7 @@ import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
 import { type SearchError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
-import * as Trial from "../../../Trial/index.js"
+import { Trial } from "../../../Trial/index.js"
 import { appendEvent, eventPublisherFromPubSub } from "../../events.js"
 import {
   normalizeSettings,
@@ -28,7 +28,7 @@ import {
 } from "../../runtime/runtimeState.js"
 import { reserveTrialOrMarkSpaceExhausted } from "../../runtime/trialReservation.js"
 import { completeIfBudgetReached, ensureRunning, invalid, publishCompletion } from "./lifecycle.js"
-import { AskedTrial, HandleRuntime, makeStudyHandle, stateOf, type StudyHandle } from "./model.js"
+import { AskedTrial, HandleRuntime, stateOf, StudyHandle } from "./model.js"
 import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js"
 
 /**
@@ -89,7 +89,7 @@ export const open = <Space extends SearchSpace.SearchSpace>(
     yield* setRuntimeLifecycle(runtime, "Running")
     const completionPublishedRef = yield* Ref.make(false)
 
-    return makeStudyHandle(
+    return StudyHandle.make(
       new HandleRuntime({
         optimizePlan,
         settings,

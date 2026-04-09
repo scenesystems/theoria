@@ -26,43 +26,43 @@ describe("terminal reporter event rendering", () => {
       })
       const completedStudy = StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" })
 
-      expect(Study.formatTerminalProgressEvent(completed, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Study.ProgressLine.projectEvent(completed, { renderMode: "plain" })).toEqual([
+        Study.ProgressLine.make({
           channel: "stdout",
           text: "trial#4 completed value=[0.25, 1.5]"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(bestUpdated, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Study.ProgressLine.projectEvent(bestUpdated, { renderMode: "plain" })).toEqual([
+        Study.ProgressLine.make({
           channel: "stdout",
           text: "best-updated trial#4 value=0.25"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Study.ProgressLine.projectEvent(pruned, { renderMode: "plain" })).toEqual([
+        Study.ProgressLine.make({
           channel: "stdout",
           text: "trial#6 pruned step=2 policy=threshold-pruner reason=threshold"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(failed, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Study.ProgressLine.projectEvent(failed, { renderMode: "plain" })).toEqual([
+        Study.ProgressLine.make({
           channel: "stderr",
           text: "trial#7 failed error=effect-search/TrialError message=objective crashed"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(completedStudy, { renderMode: "plain" })).toEqual([
-        new Study.ProgressLine({
+      expect(Study.ProgressLine.projectEvent(completedStudy, { renderMode: "plain" })).toEqual([
+        Study.ProgressLine.make({
           channel: "stdout",
           text: "study completed reason=budgetExhausted"
         })
       ])
 
-      expect(Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })).toEqual(
-        Study.formatTerminalProgressEvent(pruned, { renderMode: "plain" })
+      expect(Study.ProgressLine.projectEvent(pruned, { renderMode: "plain" })).toEqual(
+        Study.ProgressLine.projectEvent(pruned, { renderMode: "plain" })
       )
     }))
 })

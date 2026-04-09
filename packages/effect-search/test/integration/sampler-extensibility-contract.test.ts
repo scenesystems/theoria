@@ -3,12 +3,12 @@ import { Chunk, Effect, Match, Number as Num, Option, Stream } from "effect"
 import { abs } from "effect-math/Numeric"
 
 import { InvalidStudyConfig } from "../../src/Errors/index.js"
-import { decodeSlotConfig, makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
+import { decodeSlotConfig, SlotSpace } from "../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const extensionSpace = makeSlotSpace(64)
+const extensionSpace = SlotSpace.make(64)
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()

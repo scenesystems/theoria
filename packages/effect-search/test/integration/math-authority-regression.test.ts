@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option } from "effect"
 
 import * as Contracts from "../../src/contracts/index.js"
-import { makeSuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
+import { SuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import { buildPosterior, GpObservationLike, predictPosterior } from "../../src/samplers/GpBo/gaussianProcess.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -15,9 +15,9 @@ const continuousSpace = SearchSpace.unsafeMake({
 const completedContext = (nextTrialNumber: number) =>
   new SuggestContext({
     completed: [
-      makeSuggestCompletedTrial(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
-      makeSuggestCompletedTrial(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
-      makeSuggestCompletedTrial(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
+      SuggestCompletedTrial.fromObservation(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
+      SuggestCompletedTrial.fromObservation(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
+      SuggestCompletedTrial.fromObservation(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
     ],
     pending: [],
     objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
