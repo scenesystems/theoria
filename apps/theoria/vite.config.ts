@@ -34,7 +34,7 @@ const manualChunkNameFor = (id: string): string | undefined => {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react({ include: /\/app\/.*\.[tj]sx?$/u }), tailwindcss()],
   build: {
     outDir: "dist",
     sourcemap: true,

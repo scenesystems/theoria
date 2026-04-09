@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test"
 
-const baseUrl = "http://127.0.0.1:5175"
+const baseUrl = "http://localhost:5175"
 const isCI = Boolean(process.env.CI)
 
 export default defineConfig({
