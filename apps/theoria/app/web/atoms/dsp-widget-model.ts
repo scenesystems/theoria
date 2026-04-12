@@ -5,18 +5,21 @@ import { dspStageDetail, dspStageLabel } from "../../contracts/capability/effect
 import type { DspCanonicalStep } from "../../contracts/capability/effect-dsp-runtime.js"
 import { type DspStageId } from "../../contracts/capability/effect-dsp-runtime.js"
 import {
-  dspModuleLabels,
   type DspModuleType,
-  dspModuleTypeOptions,
-  type DspScenarioDefinition,
+  DspModuleTypeOption,
+  DspScenarioDefinition,
   type DspScenarioId,
-  dspScenarioOptions,
-  scenarioById
+  DspScenarioOption
 } from "../../contracts/capability/effect-dsp.js"
+import {
+  type PresentationMetric,
+  presentationMetric,
+  presentationMetricNeutralAppearance,
+  presentationMetricToneAppearance
+} from "../../contracts/presentation/metric.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
 import type { TypedChoicePillOption } from "../view/primitives/choice-pill-model.js"
-import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 import { type EffectDspProjectionScript, isEffectDspProjectionScript } from "./dsp-run-plan.js"
 import { dspModuleTypeAtom, dspOptimizationBudgetAtom, dspScenarioIdAtom } from "./dsp-widget.js"
 import {
@@ -24,27 +27,27 @@ import {
   surfaceLocalProjectionScriptAtom,
   surfaceRunStateAtom
 } from "./surface/state.js"
-import { type WidgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+import { widgetRuntimeState } from "./widget-view-model-shared.js"
 
-const dspToneAppearance: MetricAppearance = { _tag: "tone", tone: "dsp" }
-const neutralAppearance: MetricAppearance = { _tag: "neutral" }
+const dspToneAppearance = presentationMetricToneAppearance("dsp")
+const neutralAppearance = presentationMetricNeutralAppearance()
 
-const moduleTypeLabel = (moduleType: DspModuleType): string => dspModuleLabels[moduleType]
+const moduleTypeLabel = (moduleType: DspModuleType): string => DspModuleTypeOption.label(moduleType)
 
 const metricDisplay = (value: number | null): string => value === null ? "—" : `${(value * 100).toFixed(1)}%`
 const deltaDisplay = (value: number | null): string =>
   value === null ? "—" : `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)} pts`
 const countDisplay = (value: number | null): string => value === null ? "—" : `${value}`
 
-const playgroundMetrics = (scenario: DspScenarioDefinition): ReadonlyArray<WidgetMetric> => [
-  {
-    label: "Fields",
-    value: `${scenario.contract.inputFields.length}→${scenario.contract.outputFields.length}`,
-    appearance: dspToneAppearance
-  },
-  { label: "Examples", value: `${scenario.examples.length}`, appearance: neutralAppearance },
-  { label: "Metric", value: scenario.metricName, appearance: neutralAppearance },
-  { label: "Invariant", value: scenario.invariant, appearance: dspToneAppearance }
+const playgroundMetrics = (scenario: DspScenarioDefinition): ReadonlyArray<PresentationMetric> => [
+  presentationMetric(
+    "Fields",
+    `${scenario.contract.inputFields.length}→${scenario.contract.outputFields.length}`,
+    { appearance: dspToneAppearance }
+  ),
+  presentationMetric("Examples", `${scenario.examples.length}`, { appearance: neutralAppearance }),
+  presentationMetric("Metric", scenario.metricName, { appearance: neutralAppearance }),
+  presentationMetric("Invariant", scenario.invariant, { appearance: dspToneAppearance })
 ]
 
 const plannedMetrics = ({
@@ -55,18 +58,18 @@ const plannedMetrics = ({
   readonly moduleType: DspModuleType
   readonly optimizationBudget: number
   readonly scenario: DspScenarioDefinition
-}): ReadonlyArray<WidgetMetric> => [
-  { label: "Module", value: moduleTypeLabel(moduleType), appearance: dspToneAppearance },
-  { label: "Rounds", value: `${optimizationBudget}`, appearance: neutralAppearance },
-  { label: "Metric", value: scenario.metricName, appearance: neutralAppearance },
-  { label: "Invariant", value: scenario.invariant, appearance: dspToneAppearance }
+}): ReadonlyArray<PresentationMetric> => [
+  presentationMetric("Module", moduleTypeLabel(moduleType), { appearance: dspToneAppearance }),
+  presentationMetric("Rounds", `${optimizationBudget}`, { appearance: neutralAppearance }),
+  presentationMetric("Metric", scenario.metricName, { appearance: neutralAppearance }),
+  presentationMetric("Invariant", scenario.invariant, { appearance: dspToneAppearance })
 ]
 
-const runtimeMetrics = (step: typeof DspCanonicalStep.Type): ReadonlyArray<WidgetMetric> => [
-  { label: "Baseline", value: metricDisplay(step.metrics.baselineAccuracy), appearance: neutralAppearance },
-  { label: "Optimized", value: metricDisplay(step.metrics.optimizedAccuracy), appearance: dspToneAppearance },
-  { label: "Learned", value: countDisplay(step.metrics.demosLearned), appearance: neutralAppearance },
-  { label: "Delta", value: deltaDisplay(step.metrics.improvementDelta), appearance: dspToneAppearance }
+const runtimeMetrics = (step: typeof DspCanonicalStep.Type): ReadonlyArray<PresentationMetric> => [
+  presentationMetric("Baseline", metricDisplay(step.metrics.baselineAccuracy), { appearance: neutralAppearance }),
+  presentationMetric("Optimized", metricDisplay(step.metrics.optimizedAccuracy), { appearance: dspToneAppearance }),
+  presentationMetric("Learned", countDisplay(step.metrics.demosLearned), { appearance: neutralAppearance }),
+  presentationMetric("Delta", deltaDisplay(step.metrics.improvementDelta), { appearance: dspToneAppearance })
 ]
 
 const frozenPlanOrNull = (plan: { readonly _tag: string } | null): EffectDspProjectionScript | null =>
@@ -95,7 +98,7 @@ export type DspWidgetViewModel = {
     readonly title: string
     readonly detail: string
   } | null
-  readonly metrics: ReadonlyArray<WidgetMetric>
+  readonly metrics: ReadonlyArray<PresentationMetric>
   readonly isAnimating: boolean
 }
 
@@ -112,8 +115,8 @@ export const dspWidgetViewModelAtom: AtomType.Atom<DspWidgetViewModel> = Atom.ma
     ? canonicalStepOrNull(get(surfaceActiveCanonicalFrameAtom("effect-dsp")))
     : null
   const scenario = frozenPlan === null
-    ? scenarioById(idleScenarioId)
-    : scenarioById(frozenPlan.scenarioId)
+    ? DspScenarioDefinition.forId(idleScenarioId)
+    : DspScenarioDefinition.forId(frozenPlan.scenarioId)
   const scenarioId = frozenPlan === null ? idleScenarioId : frozenPlan.scenarioId
   const moduleType = frozenPlan === null ? idleModuleType : frozenPlan.moduleType
   const budget = frozenPlan === null ? idleBudget : frozenPlan.optimizationBudget
@@ -134,9 +137,9 @@ export const dspWidgetViewModelAtom: AtomType.Atom<DspWidgetViewModel> = Atom.ma
   return {
     scenario,
     scenarioId,
-    scenarioOptions: dspScenarioOptions,
+    scenarioOptions: DspScenarioOption.catalog(),
     moduleType,
-    moduleTypeOptions: dspModuleTypeOptions,
+    moduleTypeOptions: DspModuleTypeOption.catalog(),
     optimizationBudget: { value: budget, min: 1, max: 5, step: 1, display: `${budget} rounds` },
     controlsLocked: runtime.controlsLocked,
     runtimeStatus,

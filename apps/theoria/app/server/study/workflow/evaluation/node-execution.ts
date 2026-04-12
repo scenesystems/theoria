@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect"
-import type { WorkflowModuleGraphProjection } from "effect-dsp/contracts"
+import type { WorkflowGraphProjection } from "effect-dsp/contracts"
 import type { NodeExecutionContract, WorkflowExecutionRecord } from "effect-inference/Contracts"
 
 import type { WorkflowExecutionLane } from "../../../../contracts/study/workflow/controls.js"
@@ -21,7 +21,7 @@ const executionError = (message: string) =>
   })
 
 const lineageForNode = (
-  graphProjection: WorkflowModuleGraphProjection,
+  graphProjection: WorkflowGraphProjection,
   nodeId: string
 ): ReadonlyArray<string> => graphProjection.lineages.find((lineage) => lineage.targetNodeId === nodeId)?.path ?? []
 

@@ -3,7 +3,7 @@ import { Clock, Effect } from "effect"
 
 import { equalBytes, generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
 import { sealEntryDescriptor } from "../../../contracts/entry/descriptors/seal.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 
 import type { Program } from "../../../contracts/presentation/program.js"
@@ -17,7 +17,7 @@ export const preloadProgram: Effect.Effect<
 > = executableProgram(import.meta.url)
 
 const plaintextString = "Authenticated encryption round-trip study from Theoria"
-const sealRunIdentity = entryRunIdentityForId(sealEntryDescriptor.entryId)
+const sealRunIdentity = EntryRunIdentity.project(sealEntryDescriptor)
 
 const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {

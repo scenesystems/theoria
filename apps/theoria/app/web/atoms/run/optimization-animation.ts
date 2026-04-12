@@ -8,8 +8,8 @@ import * as Option from "effect/Option"
 import type { EffectSearchStudyTelemetry } from "../../../contracts/capability/effect-search-study-telemetry.js"
 import type { EffectSearchCanonicalStep } from "../../../contracts/capability/effect-search.js"
 import {
-  type EffectSearchProjectionScript,
-  snapshotEffectSearchProjectionScript,
+  EffectSearchProjectionScript,
+  SearchConfig,
   type TrialPoint
 } from "../../../contracts/capability/effect-search.js"
 import { EntryExecutionError } from "../../../contracts/entry-error.js"
@@ -17,7 +17,7 @@ import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import type { RunRegistry } from "../run-registry-context.js"
 import type { RunSignal } from "./lifecycle.js"
-import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
+import { ProjectionDriverCompletedEvent } from "./projection-driver-events.js"
 
 const executionFailedError = (message: string): EntryExecutionError =>
   EntryExecutionError.make({
@@ -26,19 +26,37 @@ const executionFailedError = (message: string): EntryExecutionError =>
     retryable: true
   })
 
-export { snapshotEffectSearchProjectionScript }
-export type { EffectSearchProjectionScript, TrialPoint }
+export { EffectSearchProjectionScript }
+export type { TrialPoint }
 
-export type EffectSearchRunFrame = {
-  readonly _tag: "effect-search"
+export class EffectSearchRunFrame extends Data.TaggedClass("effect-search")<{
   readonly projection: OptimizationProjection
   readonly telemetry: EffectSearchStudyTelemetry
+}> {
+  static make(frame: {
+    readonly projection: OptimizationProjection
+    readonly telemetry: EffectSearchStudyTelemetry
+  }): EffectSearchRunFrame {
+    return new EffectSearchRunFrame(frame)
+  }
+
+  static fromStep(step: typeof EffectSearchCanonicalStep.Type): EffectSearchRunFrame {
+    return EffectSearchRunFrame.make({
+      projection: OptimizationProjection.fromTrials({
+        phase: step.phase,
+        randomTrials: step.randomTrials,
+        tpeTrials: step.tpeTrials,
+        trialBudget: step.trialBudget
+      }),
+      telemetry: step.telemetry
+    })
+  }
 }
 
 export const isEffectSearchRunFrame = (frame: { readonly _tag: string } | null): frame is EffectSearchRunFrame =>
   frame !== null && frame._tag === "effect-search"
 
-export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(30)
+export const trialBudgetAtom: AtomType.Writable<number> = Atom.make(SearchConfig.defaults().trialBudget)
 export const optimizationAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 export const tpeTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
 export const randomTrialsAtom: AtomType.Writable<ReadonlyArray<TrialPoint>> = Atom.make<ReadonlyArray<TrialPoint>>([])
@@ -151,12 +169,7 @@ const emitFrameUpdate = ({
   readonly registry: RunRegistry
   readonly step: typeof EffectSearchCanonicalStep.Type
 }): Effect.Effect<void, never, never> => {
-  const projection = OptimizationProjection.fromTrials({
-    phase: step.phase,
-    randomTrials: step.randomTrials,
-    tpeTrials: step.tpeTrials,
-    trialBudget: step.trialBudget
-  })
+  const frame = EffectSearchRunFrame.fromStep(step)
 
   return Effect.sync(() => {
     registry.set(tpeTrialsAtom, step.tpeTrials)
@@ -165,11 +178,7 @@ const emitFrameUpdate = ({
     Effect.zipRight(
       emit({
         _tag: "LocalRunFrameUpdated",
-        frame: {
-          _tag: "effect-search",
-          projection,
-          telemetry: step.telemetry
-        }
+        frame
       })
     )
   )
@@ -195,7 +204,7 @@ const drainSearchFrames = ({
     Effect.flatMap((nextEvent) =>
       isStreamCompletionEvent(nextEvent)
         ? remaining === 0
-          ? emit(projectionDriverCompletedEvent)
+          ? emit(ProjectionDriverCompletedEvent.make())
           : Effect.fail(
             executionFailedError("effect-search run ended before every authored optimization frame arrived.")
           )
@@ -221,7 +230,7 @@ const drainSearchFrames = ({
                     })
                   )
                 )
-                : emit(projectionDriverCompletedEvent)
+                : emit(ProjectionDriverCompletedEvent.make())
             )
           )
         : drainSearchFrames({ emit, plan, registry, remaining, signal, stepQueue })

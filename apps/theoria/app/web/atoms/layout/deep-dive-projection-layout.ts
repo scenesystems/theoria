@@ -1,16 +1,16 @@
 import { Atom } from "@effect-atom/atom"
 
+import type { DeepDiveProjectionPlane } from "../../../contracts/presentation/deep-dive-projection.js"
+import type { DeepDiveProjectionWorkspaceLayout } from "../../../contracts/presentation/deep-dive-workspace-layout.js"
+import { deepDiveProjectionWorkspaceLayout } from "../../../contracts/presentation/deep-dive-workspace-layout.js"
 import type { DeepDivePanePercent } from "../../../contracts/presentation/layout.js"
-import type { DeepDiveProjectionWorkspaceLayout } from "../../state/surface/deep-dive-workspace-layout.js"
-import { deepDiveProjectionWorkspaceLayout } from "../../state/surface/deep-dive-workspace-layout.js"
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
 
 import {
   deepDivePanePercentAtom,
   deepDiveSecondaryPanePercentAtom,
   deepDiveSourceExplorerVisibleAtom
 } from "./deep-dive-pane.js"
-import { deepDiveProjectionLaneAtom, type DeepDiveProjectionSurfaceState } from "./deep-dive-projection-lane.js"
+import { deepDiveProjectionOrderAtom, type DeepDiveProjectionSurfaceState } from "./deep-dive-projection-order.js"
 
 export type DeepDiveProjectionLayoutState = {
   readonly focusedSurface: DeepDiveProjectionPlane
@@ -23,22 +23,22 @@ export type DeepDiveProjectionLayoutState = {
 }
 
 export const deepDiveProjectionLayoutAtom = Atom.make((get): DeepDiveProjectionLayoutState => {
-  const laneState = get(deepDiveProjectionLaneAtom)
+  const orderState = get(deepDiveProjectionOrderAtom)
   const panePercent = get(deepDivePanePercentAtom)
   const secondaryPanePercent = get(deepDiveSecondaryPanePercentAtom)
 
   return {
-    focusedSurface: laneState.focusedSurface,
-    maxProjectedCount: laneState.maxProjectedCount,
+    focusedSurface: orderState.focusedSurface,
+    maxProjectedCount: orderState.maxProjectedCount,
     panePercent,
     secondaryPanePercent,
     sourceExplorerVisible: get(deepDiveSourceExplorerVisibleAtom),
-    surfaces: laneState.surfaces,
+    surfaces: orderState.surfaces,
     workspaceLayout: deepDiveProjectionWorkspaceLayout({
-      focusedSurface: laneState.focusedSurface,
+      focusedSurface: orderState.focusedSurface,
       panePercent,
       secondaryPanePercent,
-      surfaces: laneState.surfaces
+      surfaces: orderState.surfaces
     })
   }
 })

@@ -3,8 +3,9 @@ import { Clock, Effect, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { dspRunSummary } from "../../../contracts/capability/effect-dsp-runtime-presentation.js"
+import { DspRunRequest } from "../../../contracts/capability/effect-dsp.js"
 import { effectDspEntryDescriptor } from "../../../contracts/entry/descriptors/effect-dsp.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { Program } from "../../../contracts/presentation/program.js"
 import type { RunData } from "../../../contracts/study/run.js"
@@ -14,12 +15,12 @@ import { type DspProviderRuntime, DspProviderRuntimeLive } from "../../capabilit
 import type { StreamElement } from "../../kernel/kinds/stream-element.js"
 import { multiFileProgram } from "../../kernel/presentation.js"
 import { executableProgramFile, type ProgramSourceReadError } from "../../kernel/program-source.js"
-import { defaultDspRunRequest, dspExecutionStory, requestFromManifest } from "./runtime.js"
+import { dspExecutionStory, requestFromManifest } from "./runtime.js"
 import { buildDspStageStories } from "./stage-story.js"
 import { stageStream } from "./stream-support.js"
 import { streamElementsForRequest, streamSections } from "./stream.js"
 
-const effectDspRunIdentity = entryRunIdentityForId(effectDspEntryDescriptor.entryId)
+const effectDspRunIdentity = EntryRunIdentity.project(effectDspEntryDescriptor)
 
 // ---------------------------------------------------------------------------
 // Preload
@@ -42,7 +43,7 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
   function*() {
     const startedAt = yield* Clock.currentTimeMillis
     const runnableProgram = yield* preloadProgram
-    const sections = yield* Stream.runCollect(streamSections(defaultDspRunRequest)).pipe(
+    const sections = yield* Stream.runCollect(streamSections(DspRunRequest.defaults())).pipe(
       Effect.map(Arr.fromIterable)
     )
     const endedAt = yield* Clock.currentTimeMillis

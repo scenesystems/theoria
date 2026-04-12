@@ -2,6 +2,7 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Ref } from "effect"
 
+import { EntryRoute } from "../../app/contracts/presentation/path.js"
 import { preloadRouteKey, RoutePreloadMountAtom } from "../../app/web/atoms/surface/preload.js"
 import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
@@ -34,7 +35,7 @@ describe("Route preload mounting", () => {
         })
       )
 
-      const atom = routePreloadMountAtom.atom(preloadRouteKey({ _tag: "DeepRoute", entryId: effectTextCardFixture.id }))
+      const atom = routePreloadMountAtom.atom(preloadRouteKey(EntryRoute.fromEntryId(effectTextCardFixture.id)))
       registry.mount(atom)
       registry.get(atom)
 
@@ -68,7 +69,7 @@ describe("Route preload mounting", () => {
         })
       )
 
-      const atom = routePreloadMountAtom.atom(preloadRouteKey({ _tag: "DeepRoute", entryId: "workflow" }))
+      const atom = routePreloadMountAtom.atom(preloadRouteKey(EntryRoute.fromEntryId("workflow")))
       registry.mount(atom)
       registry.get(atom)
 

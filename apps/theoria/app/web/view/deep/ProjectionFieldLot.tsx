@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { deepDiveProjectionDockEmptySlotDetail } from "../../../contracts/presentation/deep-dive-dock.js"
 import {
   projectionDockLaneTargetProps,
   projectionDockLotIndexProps
@@ -41,12 +42,12 @@ const emptyLaneClassName = (active: boolean): string =>
 export const ProjectionFieldLot = ({
   active,
   children,
-  emptyLabel = "Open slot",
+  emptyLabel,
   index
 }: {
   readonly active: boolean
   readonly children: ReactNode | null
-  readonly emptyLabel?: string
+  readonly emptyLabel: string
   readonly index: number
 }) => {
   const filled = children !== null
@@ -72,7 +73,7 @@ export const ProjectionFieldLot = ({
             : (
               <Layer className={emptyLaneClassName(active)}>
                 <SelectionCopy
-                  detail={active ? "Release to bind here" : "Bind a surface here from the list below"}
+                  detail={deepDiveProjectionDockEmptySlotDetail(active)}
                   title={emptyLabel}
                   titleClassName="text-ink-700"
                   titleRole="button-label"

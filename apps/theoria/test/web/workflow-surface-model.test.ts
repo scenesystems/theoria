@@ -12,11 +12,14 @@ import {
   workflowNodeExecutionSectionKey,
   workflowVariantOverviewSectionKey
 } from "../../app/contracts/study/workflow/evidence.js"
-import { defaultWorkflowEntrySelection, WorkflowEntrySelection } from "../../app/contracts/study/workflow/selection.js"
+import { WorkflowEntrySelection } from "../../app/contracts/study/workflow/selection.js"
 import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
-import { WorkflowSurfaceViewModel } from "../../app/web/view/study/workflow/surface-model.js"
+import { WorkflowSurfaceViewModel } from "../../app/contracts/study/workflow/surface-presentation.js"
+import { workflowSurfacePresentationInput } from "../../app/web/state/workflow/surface-presentation-input.js"
 import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState } from "../helpers/run-state.js"
+
+const defaultWorkflowEntrySelection = WorkflowEntrySelection.defaults()
 
 const workflowSectionTitle = (key: string): string => workflowEvidenceSectionTitleForKey(Option.some(key)) ?? key
 
@@ -334,33 +337,32 @@ describe("workflow surface model", () => {
         program: programPreviewFixture.program
       })
 
-      const model = WorkflowSurfaceViewModel.project({
-        draftPlan: WorkflowEntrySelection.make({
-          seedId: "task-briefing",
-          controls: defaultWorkflowEntrySelection.controls
-        }),
-        frame: canonicalFrameV1(
-          new WorkflowCanonicalStep({
-            scenarioId: "chat-handoff",
-            workflowKind: "chat-continuation",
-            variant: "optimized",
-            nodeId: "render-check",
-            nodeKind: "render-evaluator",
-            runtimeRole: "evaluator",
-            stepIndex: 4,
-            stepCount: 4,
-            lineage: ["handoff", "retrieval", "reply", "render-check"],
-            activeStateLanes: ["conversation", "render"],
-            outputText: "Render check output.",
-            aggregateScore: 0.91
-          })
-        ),
-        run,
-        sections
-      })
+      const model = WorkflowSurfaceViewModel.project(
+        workflowSurfacePresentationInput({
+          draft: workflowEntryDescriptor.defaultDraft(),
+          frame: canonicalFrameV1(
+            new WorkflowCanonicalStep({
+              scenarioId: "chat-handoff",
+              workflowKind: "chat-continuation",
+              variant: "optimized",
+              nodeId: "render-check",
+              nodeKind: "render-evaluator",
+              runtimeRole: "evaluator",
+              stepIndex: 4,
+              stepCount: 4,
+              lineage: ["handoff", "retrieval", "reply", "render-check"],
+              activeStateLanes: ["conversation", "render"],
+              outputText: "Render check output.",
+              aggregateScore: 0.91
+            })
+          ),
+          run,
+          sections
+        })
+      )
 
-      expect(model.selection.label).toBe("Chat Handoff")
-      expect(model.selectionLocked).toBe(true)
+      expect(model.selector.selected.label).toBe("Chat Handoff")
+      expect(model.selector.locked).toBe(true)
       expect(model.plan.controls.targetMode).toBe("search-winner")
       expect(model.runStory).toBe("baseline -> study -> search winner replay")
       expect(model.graph.cards.map((card) => card.key)).toEqual([
@@ -380,8 +382,8 @@ describe("workflow surface model", () => {
       expect(model.renderedPreview.metrics[1]?.value).toBe("0.840")
       expect(model.renderedPreview.metrics[4]?.value).toBe("+0.070")
       expect(model.progress.metrics[0]?.value).toBe("4")
-      expect(model.progress.selectionRows[2]?.[1]).toContain("runtime-profile=preferred")
-      expect(model.progress.snapshotRows[0]?.[0]).toBe("completed count")
+      expect(model.progress.selectionRows[2]?.value).toContain("runtime-profile=preferred")
+      expect(model.progress.snapshotRows[0]?.label).toBe("completed count")
       expect(model.progress.eventRows[0]?.[1]).toBe("TrialStarted")
     }))
 })

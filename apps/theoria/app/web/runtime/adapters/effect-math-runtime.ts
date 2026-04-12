@@ -1,9 +1,6 @@
 import { Effect, Option, Stream } from "effect"
 
-import {
-  isEffectMathProjectionScript,
-  snapshotEffectMathProjectionScript
-} from "../../../contracts/capability/effect-math.js"
+import { EffectMathProjectionScript, isEffectMathProjectionScript } from "../../../contracts/capability/effect-math.js"
 import { EffectMathManifest, encodeStreamManifest } from "../../../contracts/evidence/manifest.js"
 import { EffectMathAnimation, isEffectMathRunFrame, powerControlsAtom } from "../../atoms/run/power-animation.js"
 import { EntryClient } from "../../services/EntryClient.js"
@@ -23,7 +20,7 @@ const effectMathManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): Effec
   const draft = snapshot.draft
 
   return draft !== null && draft.entryId === effectMathId
-    ? EffectMathManifest.make(draft.input)
+    ? EffectMathManifest.fromEntryDraft(draft)
     : null
 }
 
@@ -56,8 +53,8 @@ export const effectMathSurfaceRuntime = SurfaceRuntime.streaming({
       const controls = registry.get(powerControlsAtom)
 
       return {
-        manifest: EffectMathManifest.make({ alpha: controls.alpha, d: controls.d, n: controls.n }),
-        localProjectionScript: snapshotEffectMathProjectionScript(controls)
+        manifest: EffectMathManifest.fromRunRequest(controls),
+        localProjectionScript: EffectMathProjectionScript.fromControls(controls)
       }
     },
     stream: (registry, signal, snapshot, stepQueue, _serverCompleted) =>
@@ -86,7 +83,7 @@ export const effectMathSurfaceRuntime = SurfaceRuntime.streaming({
         input: { alpha: controls.alpha, d: controls.d, n: controls.n },
         controls: {}
       },
-      localProjectionScript: snapshotEffectMathProjectionScript(controls)
+      localProjectionScript: EffectMathProjectionScript.fromControls(controls)
     }
   },
   streamUrl: effectMathStreamUrl

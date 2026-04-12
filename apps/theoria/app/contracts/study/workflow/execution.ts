@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { FieldRecord, ModuleId, WorkflowModuleGraphProjection } from "effect-dsp/contracts"
+import { FieldRecord, ModuleId, WorkflowGraphProjection } from "effect-dsp/contracts"
 import {
   GraphVariantSchema,
   NodeExecutionContractSchema,
@@ -65,7 +65,7 @@ export const WorkflowVariantExecution = Schema.Struct({
   variant: GraphVariantSchema,
   record: WorkflowExecutionRecordSchema,
   report: WorkflowEvaluationReportSchema,
-  graphProjection: WorkflowModuleGraphProjection,
+  graphProjection: WorkflowGraphProjection,
   nodeExecutions: Schema.NonEmptyArray(WorkflowNodeExecution)
 })
 

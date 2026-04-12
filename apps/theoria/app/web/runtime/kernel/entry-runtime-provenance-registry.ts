@@ -1,5 +1,5 @@
 import { type EntryId } from "../../../contracts/entry/id.js"
-import { EntryRuntimeDescriptorProvenance } from "./descriptor.js"
+import { EntryRuntimeDescriptorProvenance } from "./entry-runtime-provenance.js"
 
 const entryRuntimeProvenanceById: Readonly<Record<EntryId, EntryRuntimeDescriptorProvenance>> = {
   "effect-dsp": EntryRuntimeDescriptorProvenance.make({

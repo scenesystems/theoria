@@ -1,28 +1,28 @@
 import { Atom } from "@effect-atom/atom"
 
-import { deepDiveProjectionLaneAtom, deepDiveProjectionLaneViewportChange } from "./deep-dive-projection-lane.js"
-import { applyDeepDiveProjectionLaneWriteAtom } from "./deep-dive-projection-state.js"
+import { deepDiveProjectionOrderAtom, deepDiveProjectionOrderViewportChange } from "./deep-dive-projection-order.js"
+import { applyDeepDiveProjectionOrderWriteAtom } from "./deep-dive-projection-state.js"
 
 import { deepDiveWorkspaceWidthAtom } from "./deep-dive-viewport-state.js"
 
 export const setDeepDiveWorkspaceWidthAtom = Atom.fnSync<number>()(
   (workspaceWidth, ctx) => {
     const nextWorkspaceWidth = Math.max(0, Math.round(workspaceWidth))
-    const projectionLane = ctx(deepDiveProjectionLaneAtom)
-    const viewportChange = deepDiveProjectionLaneViewportChange({
-      lane: projectionLane,
+    const projectionOrder = ctx(deepDiveProjectionOrderAtom)
+    const viewportChange = deepDiveProjectionOrderViewportChange({
+      order: projectionOrder,
       workspaceWidthPx: nextWorkspaceWidth
     })
 
     ctx.set(deepDiveWorkspaceWidthAtom, nextWorkspaceWidth)
 
     if (
-      viewportChange.projectedCount === projectionLane.projectedCount &&
-      viewportChange.focusedSurface === projectionLane.focusedSurface
+      viewportChange.projectedCount === projectionOrder.projectedCount &&
+      viewportChange.focusedSurface === projectionOrder.focusedSurface
     ) {
       return
     }
 
-    ctx.set(applyDeepDiveProjectionLaneWriteAtom, viewportChange)
+    ctx.set(applyDeepDiveProjectionOrderWriteAtom, viewportChange)
   }
 )

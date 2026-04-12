@@ -1,8 +1,8 @@
 import {
-  workflowRenderedPreviewScoreLabel
+  workflowRenderedPreviewScoreLabel,
+  type WorkflowRenderedPreviewViewModel
 } from "../../../../contracts/study/workflow/surface-rendered-preview-presentation.js"
 import { workflowRichnessSectionTitle } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
-import type { WorkflowRenderedPreviewViewModel } from "./rendered-preview-model.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Cluster, Layer, Stack } from "../../primitives/Layout.js"

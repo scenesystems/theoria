@@ -24,7 +24,7 @@ const effectTextManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): Effec
   const draft = snapshot.draft
 
   return draft !== null && draft.entryId === effectTextId
-    ? EffectTextManifest.make(draft.input)
+    ? EffectTextManifest.fromEntryDraft(draft)
     : null
 }
 
@@ -58,7 +58,7 @@ export const effectTextSurfaceRuntime = SurfaceRuntime.streaming({
       const viewportWidthPx = registry.get(reflowStageViewportWidthAtom)
 
       return {
-        manifest: EffectTextManifest.make({ customText, viewportWidthPx }),
+        manifest: EffectTextManifest.fromRunRequest({ customText, viewportWidthPx }),
         localProjectionScript: snapshotEffectTextTraversalScript({ customText, viewportWidthPx })
       }
     },

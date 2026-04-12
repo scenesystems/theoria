@@ -1,7 +1,10 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import { objectiveAt, optimum, searchBounds } from "../../../contracts/capability/effect-search.js"
+import { Config2D, SearchBounds } from "../../../contracts/capability/effect-search.js"
+
+const bounds = SearchBounds.defaults()
+const optimum = Config2D.optimum()
 
 export type Segment = {
   readonly x1: number
@@ -18,15 +21,15 @@ export const OPTIMIZATION_SVG = {
 
 const PLOT_WIDTH = OPTIMIZATION_SVG.width - OPTIMIZATION_SVG.padding.left - OPTIMIZATION_SVG.padding.right
 const PLOT_HEIGHT = OPTIMIZATION_SVG.height - OPTIMIZATION_SVG.padding.top - OPTIMIZATION_SVG.padding.bottom
-const RANGE_X = searchBounds.xMax - searchBounds.xMin
-const RANGE_Y = searchBounds.yMax - searchBounds.yMin
+const RANGE_X = bounds.xMax - bounds.xMin
+const RANGE_Y = bounds.yMax - bounds.yMin
 const GRID_RESOLUTION = 60
 
 export const mapOptimizationX = (x: number): number =>
-  OPTIMIZATION_SVG.padding.left + ((x - searchBounds.xMin) / RANGE_X) * PLOT_WIDTH
+  OPTIMIZATION_SVG.padding.left + ((x - bounds.xMin) / RANGE_X) * PLOT_WIDTH
 
 export const mapOptimizationY = (y: number): number =>
-  OPTIMIZATION_SVG.padding.top + ((searchBounds.yMax - y) / RANGE_Y) * PLOT_HEIGHT
+  OPTIMIZATION_SVG.padding.top + ((bounds.yMax - y) / RANGE_Y) * PLOT_HEIGHT
 
 const interpolate = (level: number, start: number, end: number): number => {
   const delta = end - start
@@ -35,9 +38,9 @@ const interpolate = (level: number, start: number, end: number): number => {
 
 const grid = Arr.map(Arr.range(0, GRID_RESOLUTION), (iy) =>
   Arr.map(Arr.range(0, GRID_RESOLUTION), (ix) => {
-    const x = searchBounds.xMin + (ix / GRID_RESOLUTION) * RANGE_X
-    const y = searchBounds.yMax - (iy / GRID_RESOLUTION) * RANGE_Y
-    return objectiveAt({ x, y })
+    const x = bounds.xMin + (ix / GRID_RESOLUTION) * RANGE_X
+    const y = bounds.yMax - (iy / GRID_RESOLUTION) * RANGE_Y
+    return Config2D.objectiveValue({ x, y })
   }))
 
 const segment = (

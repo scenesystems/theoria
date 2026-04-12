@@ -1,15 +1,15 @@
 import { Schema } from "effect"
 
-import { defaultWorkflowEntryDraft } from "../../../contracts/entry/defaults.js"
+import { EntryStreamRoute } from "../../../contracts/entry/api-route.js"
+import { workflowEntryDescriptor } from "../../../contracts/entry/descriptors/workflow.js"
 import { workflowEntryId } from "../../../contracts/entry/id.js"
 import { EntryRunRequest } from "../../../contracts/entry/registry.js"
 import { surfaceDraftAtom, surfaceRunStateAtom } from "../../atoms/surface/state.js"
-import { entryStreamPath } from "../../services/EntryClient.js"
 import { SurfaceRuntime, type SurfaceRuntimeSnapshot } from "../kernel/kind.js"
 
 const WorkflowEntryRequestJson = Schema.parseJson(EntryRunRequest)
 const encodeWorkflowEntryRequestJson = Schema.encodeSync(WorkflowEntryRequestJson)
-const defaultWorkflowDraft = defaultWorkflowEntryDraft
+const defaultWorkflowDraft = workflowEntryDescriptor.defaultDraft()
 
 const workflowDraftFromSnapshot = (snapshot: SurfaceRuntimeSnapshot) => {
   const draft = snapshot.draft
@@ -22,14 +22,13 @@ const workflowStreamUrl = (
   runToken: string | null
 ): string => {
   const draft = workflowDraftFromSnapshot(snapshot) ?? defaultWorkflowDraft
-  const params = new URLSearchParams({
-    request: encodeWorkflowEntryRequestJson({
+
+  return EntryStreamRoute.fromEntryId(workflowEntryId).url(
+    encodeWorkflowEntryRequestJson({
       runToken: runToken ?? `${workflowEntryId}:stream`,
       draft
     })
-  })
-
-  return `${entryStreamPath(workflowEntryId)}?${params.toString()}`
+  )
 }
 
 export const workflowSurfaceRuntime = SurfaceRuntime.serverOnlyStreaming({

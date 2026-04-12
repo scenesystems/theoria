@@ -7,7 +7,7 @@ import { EntryDraft, EntryRunRequest } from "../entry/registry.js"
 const RunToken = Schema.String.pipe(Schema.minLength(1))
 const SeedId = Schema.String.pipe(Schema.minLength(1))
 
-export const EntryRunIdentity = Schema.Struct({
+export const RunRequestIdentity = Schema.Struct({
   entryId: EntryIdSchema,
   seedId: SeedId,
   runToken: RunToken,
@@ -16,7 +16,7 @@ export const EntryRunIdentity = Schema.Struct({
   requestFingerprint: DurableFingerprint
 })
 
-export type EntryRunIdentity = typeof EntryRunIdentity.Type
+export type RunRequestIdentity = typeof RunRequestIdentity.Type
 
 const encodeEntryDraft = Schema.encodeSync(EntryDraft)
 const encodeEntryRunRequest = Schema.encodeSync(EntryRunRequest)
@@ -37,13 +37,13 @@ export const fingerprintEntryRunRequest = (
   request: typeof EntryRunRequest.Type
 ): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeEntryRunRequest(request))
 
-export const resolveEntryRunIdentityFromDraft = ({
+export const resolveRunRequestIdentityFromDraft = ({
   draft,
   runToken
 }: {
   readonly draft: typeof EntryDraft.Type
   readonly runToken: string
-}): Effect.Effect<EntryRunIdentity, never, never> =>
+}): Effect.Effect<RunRequestIdentity, never, never> =>
   Effect.all({
     inputFingerprint: fingerprintEntryDraftInput(draft),
     controlsFingerprint: fingerprintEntryDraftControls(draft),
@@ -59,10 +59,10 @@ export const resolveEntryRunIdentityFromDraft = ({
     }))
   )
 
-export const resolveEntryRunIdentity = (
+export const resolveRunRequestIdentity = (
   request: typeof EntryRunRequest.Type
-): Effect.Effect<EntryRunIdentity, never, never> =>
-  resolveEntryRunIdentityFromDraft({
+): Effect.Effect<RunRequestIdentity, never, never> =>
+  resolveRunRequestIdentityFromDraft({
     draft: request.draft,
     runToken: request.runToken
   })

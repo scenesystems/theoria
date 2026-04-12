@@ -2,6 +2,7 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Deferred, Effect, Ref } from "effect"
 
+import { PowerControls } from "../../app/contracts/capability/effect-math.js"
 import { corpus } from "../../app/contracts/corpus.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
@@ -257,7 +258,7 @@ describe("Theoria Orchestration", () => {
       registry.set(tpeTrialsAtom, [{ x: 0.1, y: 0.2, value: 0.3, index: 0 }])
       registry.set(randomTrialsAtom, [{ x: 0.4, y: 0.5, value: 0.6, index: 0 }])
       registry.set(powerAnimatingAtom, true)
-      registry.set(powerControlsAtom, { d: 1.2, n: 120, alpha: 0.1 })
+      registry.set(powerControlsAtom, PowerControls.make({ d: 1.2, n: 120, alpha: 0.1 }))
 
       registry.set(runControlAtom, { action: "reset", id: "effect-text" })
       registry.set(runControlAtom, { action: "reset", id: "effect-search" })

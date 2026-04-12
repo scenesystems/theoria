@@ -1,12 +1,12 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 import * as SearchStudyEvent from "effect-search/StudyEvent"
 
 import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
-import { snapshotEffectSearchProjectionScript } from "../../app/contracts/capability/effect-search.js"
+import { SearchConfig } from "../../app/contracts/capability/effect-search.js"
 import { surfaceRunLifecycleDiagnosticsViewModelAtom } from "../../app/web/atoms/run/diagnostics.js"
-import type { EffectSearchRunFrame } from "../../app/web/atoms/run/optimization-animation.js"
+import { EffectSearchRunFrame, OptimizationProjection } from "../../app/web/atoms/run/optimization-animation.js"
 import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
 import { reduceRunState } from "../../app/web/state/run/reducer.js"
 import { programPreviewFixture } from "../helpers/entry-fixtures.js"
@@ -23,7 +23,7 @@ describe("run diagnostics atoms", () => {
   it.effect("exposes effect-search StudyEvent telemetry instead of local optimizer atoms", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localProjectionScript = snapshotEffectSearchProjectionScript(30)
+      const localProjectionScript = SearchConfig.fromTrialBudget(30).projectionScript()
       const telemetry = projectEffectSearchStudyTelemetry({
         randomEvents: [
           SearchStudyEvent.TrialStarted.make({ trialNumber: 0, config: { x: 0.75, y: -0.5 } }),
@@ -52,25 +52,18 @@ describe("run diagnostics atoms", () => {
         sequence: 2,
         token: 2
       })
-      const effectSearchFrame: EffectSearchRunFrame = {
-        _tag: "effect-search",
-        projection: {
-          trialBudget: 30,
+      const effectSearchFrame = EffectSearchRunFrame.make({
+        projection: OptimizationProjection.fromTrials({
+          phase: "running",
+          randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
           tpeTrials: [
             { x: -1.25, y: 0.25, value: 0.12, index: 0 },
             { x: -1.1, y: 0.4, value: 0.08, index: 1 }
           ],
-          randomTrials: [
-            { x: 0.75, y: -0.5, value: 0.45, index: 0 }
-          ],
-          tpeBestValue: Option.some(0.08),
-          randomBestValue: Option.some(0.45),
-          tpeBestPoint: Option.some({ x: -1.1, y: 0.4, value: 0.08, index: 1 }),
-          randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
-          phase: "running"
-        },
+          trialBudget: 30
+        }),
         telemetry
-      }
+      })
       const withFrame = reduceRunState(running, {
         _tag: "RunFrameUpdated",
         sequence: 2,

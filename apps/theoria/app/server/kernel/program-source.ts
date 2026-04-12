@@ -4,7 +4,6 @@ import { Data, Effect } from "effect"
 import { program, programFile } from "./presentation.js"
 
 const appRootEntryPrefix = "app/"
-const legacyServerEntryPrefix = "server/entries/"
 
 export class ProgramSourceReadError extends Data.TaggedError("ProgramSourceReadError")<{
   readonly entry: string
@@ -55,19 +54,9 @@ const relativeEntryForModule = (moduleUrl: string) =>
 const entryForModule = (moduleUrl: string) =>
   relativeEntryForModule(moduleUrl).pipe(
     Effect.map((relativeEntry) => {
-      if (!relativeEntry.startsWith(appRootEntryPrefix)) {
-        return relativeEntry
-      }
-
-      const appEntry = relativeEntry.slice(appRootEntryPrefix.length)
-
-      if (!appEntry.startsWith(legacyServerEntryPrefix)) {
-        return appEntry
-      }
-
-      const legacyEntrySegments = appEntry.split("/")
-
-      return ["server", ...legacyEntrySegments.slice(3)].join("/")
+      return relativeEntry.startsWith(appRootEntryPrefix)
+        ? relativeEntry.slice(appRootEntryPrefix.length)
+        : relativeEntry
     })
   )
 

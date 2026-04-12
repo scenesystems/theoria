@@ -8,16 +8,47 @@ export const EvidencePlaneOrder = Schema.Literal("live", "narrative")
 
 export type EvidencePlaneOrder = typeof EvidencePlaneOrder.Type
 
-export const EvidencePlanePreferences = Schema.Struct({
+export class EvidencePlanePreferences extends Schema.Class<EvidencePlanePreferences>("EvidencePlanePreferences")({
   filter: EvidencePlaneFilter,
   order: EvidencePlaneOrder,
   sectionKey: Schema.NullOr(Schema.String)
-})
+}) {
+  static defaults(): EvidencePlanePreferences {
+    return EvidencePlanePreferences.make({
+      filter: "all",
+      order: "narrative",
+      sectionKey: null
+    })
+  }
 
-export type EvidencePlanePreferences = typeof EvidencePlanePreferences.Type
+  static withFilter(
+    preferences: EvidencePlanePreferences,
+    filter: EvidencePlaneFilter
+  ): EvidencePlanePreferences {
+    return EvidencePlanePreferences.make({
+      ...preferences,
+      filter,
+      sectionKey: null
+    })
+  }
 
-export const defaultEvidencePlanePreferences: EvidencePlanePreferences = {
-  filter: "all",
-  order: "narrative",
-  sectionKey: null
+  static withOrder(
+    preferences: EvidencePlanePreferences,
+    order: EvidencePlaneOrder
+  ): EvidencePlanePreferences {
+    return EvidencePlanePreferences.make({
+      ...preferences,
+      order
+    })
+  }
+
+  static withSectionKey(
+    preferences: EvidencePlanePreferences,
+    sectionKey: string | null
+  ): EvidencePlanePreferences {
+    return EvidencePlanePreferences.make({
+      ...preferences,
+      sectionKey
+    })
+  }
 }

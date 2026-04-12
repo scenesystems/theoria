@@ -10,7 +10,7 @@ import {
   workflowGraphVariantForPlan,
   type WorkflowVariantPlan
 } from "../../../../contracts/study/workflow/runtime-plan.js"
-import { decodeWorkflowEvaluationReport } from "../decode.js"
+import { decodeWorkflowEvaluationReport } from "../../../../contracts/study/workflow/scenario.js"
 import { aggregateScore, caseComponentResults } from "./scoring-components.js"
 import { executionFeatures } from "./scoring-features.js"
 import { aggregatedComponentBreakdown, lossSummaryFromScores } from "./scoring-summary.js"

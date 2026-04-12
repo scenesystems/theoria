@@ -1,14 +1,9 @@
 import { type PackageName } from "@theoria/source-proof/contracts"
-import { Match, Option, Schema } from "effect"
+import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { type EntryId, EntryId as EntryIdSchema } from "../entry/id.js"
-import {
-  entryIdForPath,
-  entryPathForId,
-  visibleEntryIdsForReleaseStage,
-  visiblePackageDocsPackageIdsForReleaseStage
-} from "../entry/routing.js"
+import { EntryRegistry } from "../entry/registry.js"
 import type { ReleaseStage } from "../release-stage.js"
 
 import {
@@ -17,173 +12,182 @@ import {
   type PackageDocsPageRoute,
   PackageDocsPageRouteSchema
 } from "./package-docs.js"
+import type { PageLocation } from "./page-location.js"
+import type { PageRouteKey } from "./page-route-key.js"
 import {
-  decodePageRouteKey,
-  deepPageRouteKey,
-  homePageRouteKey,
-  packageDocsLandingPageRouteKey,
-  packageDocsPackagePageRouteKey,
-  type PageRouteKey,
-  type SerializedPageRouteKey
+  EntryRouteKey,
+  HomePageRouteKey,
+  PackageDocsLandingPageRouteKey,
+  PackageDocsPackagePageRouteKey
 } from "./page-route-key.js"
 
-export class HomePageRoute extends Schema.TaggedClass<HomePageRoute>()("HomeRoute", {}) {}
+export class HomePageRoute extends Schema.TaggedClass<HomePageRoute>()("HomeRoute", {}) {
+  static home(): HomePageRoute {
+    return homeRoute
+  }
 
-export class DeepPageRoute extends Schema.TaggedClass<DeepPageRoute>()("DeepRoute", {
+  static fromLocation(location: PageLocation): Option.Option<HomePageRoute> {
+    return location.pathname === "/" || location.pathname === "/index.html"
+      ? Option.some(HomePageRoute.home())
+      : Option.none()
+  }
+
+  key(): HomePageRouteKey {
+    return HomePageRouteKey.home()
+  }
+
+  path(): string {
+    return "/"
+  }
+
+  visibleEntryIds(stage: ReleaseStage): ReadonlyArray<EntryId> {
+    return entryRegistry.visibleEntryIdsForReleaseStage(stage)
+  }
+
+  visibleInReleaseStage(_: ReleaseStage): boolean {
+    return true
+  }
+}
+
+export class EntryRoute extends Schema.TaggedClass<EntryRoute>()("EntryRoute", {
   entryId: EntryIdSchema
-}) {}
+}) {
+  static fromEntryId(entryId: EntryId): EntryRoute {
+    return EntryRoute.make({ entryId })
+  }
+
+  static fromLocation(
+    location: PageLocation,
+    registry: EntryRegistry = entryRegistry
+  ): Option.Option<EntryRoute> {
+    return registry.entryIdForPath(location.pathname).pipe(Option.map(EntryRoute.fromEntryId))
+  }
+
+  key(): EntryRouteKey {
+    return EntryRouteKey.fromEntryId(this.entryId)
+  }
+
+  path(): string {
+    return entryRegistry.descriptorForId(this.entryId).path
+  }
+
+  visibleEntryIds(_: ReleaseStage): ReadonlyArray<EntryId> {
+    return [this.entryId]
+  }
+
+  visibleInReleaseStage(stage: ReleaseStage): boolean {
+    return entryRegistry.descriptorForId(this.entryId).visibleInReleaseStage(stage)
+  }
+}
 
 export class PackageDocsRoute extends Schema.TaggedClass<PackageDocsRoute>()("PackageDocsRoute", {
   route: PackageDocsPageRouteSchema
-}) {}
+}) {
+  static fromPageRoute(route: PackageDocsPageRoute): PackageDocsRoute {
+    return PackageDocsRoute.make({ route })
+  }
 
-export const PageRoute = Schema.Union(HomePageRoute, DeepPageRoute, PackageDocsRoute)
-
-export type PageRoute = typeof PageRoute.Type
-
-const homeRoute = HomePageRoute.make({})
-
-export const homePageRoute: PageRoute = homeRoute
-
-export const deepPageRoute = (entryId: EntryId): PageRoute => DeepPageRoute.make({ entryId })
-
-export const packageDocsPageRoute = (packageId: PackageName | null): PageRoute =>
-  PackageDocsRoute.make({
-    route: packageId === null
-      ? PackageDocsLandingPageRoute.make({})
-      : PackageDocsPackagePageRoute.make({ packageId })
-  })
-
-const deepDiveRoute = (
-  pathname: string,
-  resolveEntryId: (pathname: string) => Option.Option<EntryId>
-): Option.Option<PageRoute> => resolveEntryId(pathname).pipe(Option.map(deepPageRoute))
-
-const packageDocsRoute = (pathname: string, search: string): Option.Option<PageRoute> =>
-  PackageDocsPackagePageRoute.fromPathname(pathname, search).pipe(
-    Option.map((route): PageRoute => PackageDocsRoute.make({ route })),
-    Option.orElse(() =>
-      PackageDocsLandingPageRoute.fromPathname(pathname, search).pipe(
-        Option.map((route): PageRoute => PackageDocsRoute.make({ route }))
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsRoute> {
+    return PackageDocsPackagePageRoute.fromLocation(location).pipe(
+      Option.map(PackageDocsRoute.fromPageRoute),
+      Option.orElse(() =>
+        PackageDocsLandingPageRoute.fromLocation(location).pipe(
+          Option.map(PackageDocsRoute.fromPageRoute)
+        )
       )
     )
-  )
+  }
 
-const routeForPathname = (
-  pathname: string,
-  search: string,
-  resolveEntryId: (pathname: string) => Option.Option<EntryId>
-): Option.Option<PageRoute> =>
-  Match.value(pathname).pipe(
-    Match.when("/", () => Option.some(homeRoute)),
-    Match.when("/index.html", () => Option.some(homeRoute)),
-    Match.orElse((value) => Option.orElse(deepDiveRoute(value, resolveEntryId), () => packageDocsRoute(value, search)))
-  )
+  static fromSelectedPackageId(packageId: PackageName | null): PackageDocsRoute {
+    return PackageDocsRoute.fromPageRoute(
+      packageId === null
+        ? PackageDocsLandingPageRoute.landing()
+        : PackageDocsPackagePageRoute.fromPackageId(packageId)
+    )
+  }
 
-export const pageRouteForPathname = (pathname: string, search = ""): Option.Option<PageRoute> =>
-  routeForPathname(pathname, search, entryIdForPath)
+  static isLandingLocation(location: PageLocation): boolean {
+    return PackageDocsRoute.fromLocation(location).pipe(
+      Option.match({
+        onNone: () => false,
+        onSome: (route) => route.route.selectedPackageId() === null
+      })
+    )
+  }
 
-const packageDocsRouteVisibleInReleaseStage = (packageId: PackageName, stage: ReleaseStage): boolean =>
-  visiblePackageDocsPackageIdsForReleaseStage(stage).includes(packageId)
+  static redirectPathForReleaseStage(stage: ReleaseStage): string | null {
+    const packageId = entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage)[0] ?? null
+    return packageId === null ? null : PackageDocsRoute.fromSelectedPackageId(packageId).path()
+  }
 
-const pageRouteVisibleInReleaseStage = (route: PageRoute, stage: ReleaseStage): boolean =>
-  Match.value(route).pipe(
-    Match.tag("HomeRoute", () => true),
-    Match.tag("DeepRoute", ({ entryId }) => visibleEntryIdsForReleaseStage(stage).includes(entryId)),
-    Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) =>
-      Option.match(Option.fromNullable(packageDocsRoute.selectedPackageId()), {
-        onNone: () =>
-          false,
-        onSome: (packageId) => packageDocsRouteVisibleInReleaseStage(packageId, stage)
-      })),
-    Match.exhaustive
-  )
+  key(): PageRouteKey.Value {
+    const packageId = this.route.selectedPackageId()
 
-export const visiblePageRouteForPathname = (
-  pathname: string,
-  search: string,
-  stage: ReleaseStage
-): Option.Option<PageRoute> =>
-  pageRouteForPathname(pathname, search).pipe(Option.filter((route) => pageRouteVisibleInReleaseStage(route, stage)))
+    return packageId === null
+      ? PackageDocsLandingPageRouteKey.landing()
+      : PackageDocsPackagePageRouteKey.fromPackageId(packageId)
+  }
 
-export const isPackageDocsLandingPath = (pathname: string, search = ""): boolean =>
-  packageDocsRoute(pathname, search).pipe(
-    Option.match({
-      onNone: () => false,
-      onSome: (route) => route._tag === "PackageDocsRoute" && route.route.selectedPackageId() === null
-    })
-  )
+  path(): string {
+    return this.route.path()
+  }
 
-export const packageDocsLandingRedirectPathForReleaseStage = (stage: ReleaseStage): string | null => {
-  const packageId = visiblePackageDocsPackageIdsForReleaseStage(stage)[0] ?? null
-  return packageId === null ? null : PackageDocsPackagePageRoute.make({ packageId }).path()
+  visibleEntryIds(_: ReleaseStage): ReadonlyArray<EntryId> {
+    return []
+  }
+
+  visibleInReleaseStage(stage: ReleaseStage): boolean {
+    const packageId = this.route.selectedPackageId()
+
+    return packageId !== null && entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage).includes(packageId)
+  }
 }
 
-const packageDocsRouteKey = (route: PackageDocsPageRoute): PageRouteKey => {
-  const packageId = route.selectedPackageId()
+export class PageRoute {
+  static optionFromLocation(location: PageLocation): Option.Option<PageRoute.Value> {
+    return HomePageRoute.fromLocation(location).pipe(
+      Option.orElse(() => EntryRoute.fromLocation(location)),
+      Option.orElse(() => PackageDocsRoute.fromLocation(location))
+    )
+  }
 
-  return packageId === null
-    ? packageDocsLandingPageRouteKey
-    : packageDocsPackagePageRouteKey(packageId)
+  static fromLocation(location: PageLocation): PageRoute.Value {
+    return Option.getOrElse(PageRoute.optionFromLocation(location), () => HomePageRoute.home())
+  }
+
+  static visibleOptionFromLocation(location: PageLocation, stage: ReleaseStage): Option.Option<PageRoute.Value> {
+    return PageRoute.optionFromLocation(location).pipe(
+      Option.filter((route) => route.visibleInReleaseStage(stage))
+    )
+  }
+
+  static visibleForReleaseStage(stage: ReleaseStage): ReadonlyArray<PageRoute.Value> {
+    return [
+      HomePageRoute.home(),
+      ...Arr.map(
+        entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage),
+        PackageDocsRoute.fromSelectedPackageId
+      ),
+      ...Arr.map(entryRegistry.visibleEntryIdsForReleaseStage(stage), EntryRoute.fromEntryId)
+    ]
+  }
+
+  static visiblePathsForReleaseStage(stage: ReleaseStage): ReadonlyArray<string> {
+    return Arr.map(PageRoute.visibleForReleaseStage(stage), (route) => route.path())
+  }
+
+  static isHtmlLocation(location: PageLocation, stage: ReleaseStage): boolean {
+    return Option.isSome(PageRoute.visibleOptionFromLocation(location, stage))
+  }
 }
 
-export const pageRouteKey = (route: PageRoute): PageRouteKey =>
-  Match.value(route).pipe(
-    Match.withReturnType<PageRouteKey>(),
-    Match.tag("HomeRoute", () => homePageRouteKey),
-    Match.tag("DeepRoute", ({ entryId }) => deepPageRouteKey(entryId)),
-    Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) => packageDocsRouteKey(packageDocsRoute)),
-    Match.exhaustive
-  )
+export namespace PageRoute {
+  export const schema = Schema.Union(HomePageRoute, EntryRoute, PackageDocsRoute)
 
-export const pageRouteForKey = (key: PageRouteKey): PageRoute =>
-  Match.value(key).pipe(
-    Match.tag("HomePageRouteKey", () => homePageRoute),
-    Match.tag("PackageDocsLandingPageRouteKey", () => packageDocsPageRoute(null)),
-    Match.tag("DeepPageRouteKey", ({ entryId }) => deepPageRoute(entryId)),
-    Match.tag("PackageDocsPackagePageRouteKey", ({ packageId }) => packageDocsPageRoute(packageId)),
-    Match.exhaustive
-  )
+  export type Value = typeof schema.Type
+}
 
-export const pageRouteForSerializedKey = (key: SerializedPageRouteKey): PageRoute =>
-  decodePageRouteKey(key).pipe(
-    Option.map(pageRouteForKey),
-    Option.getOrElse(() => homePageRoute)
-  )
-
-export const visibleEntryIdsForPageRoute = (
-  route: PageRoute,
-  stage: ReleaseStage
-): ReadonlyArray<EntryId> =>
-  Match.value(route).pipe(
-    Match.tag("HomeRoute", () => visibleEntryIdsForReleaseStage(stage)),
-    Match.tag("DeepRoute", ({ entryId }) => [entryId]),
-    Match.tag("PackageDocsRoute", () => []),
-    Match.exhaustive
-  )
-
-export const pagePathForRoute = (route: PageRoute): string =>
-  Match.value(route).pipe(
-    Match.tag("HomeRoute", () => "/"),
-    Match.tag("PackageDocsRoute", ({ route: packageDocsRoute }) => packageDocsRoute.path()),
-    Match.tag("DeepRoute", ({ entryId }) => entryPathForId(entryId)),
-    Match.exhaustive
-  )
-
-export const visiblePageRoutesForReleaseStage = (stage: ReleaseStage): ReadonlyArray<PageRoute> => [
-  homePageRoute,
-  ...Arr.map(visiblePackageDocsPackageIdsForReleaseStage(stage), packageDocsPageRoute),
-  ...Arr.map(visibleEntryIdsForReleaseStage(stage), deepPageRoute)
-]
-
-export const visiblePagePathsForReleaseStage = (stage: ReleaseStage): ReadonlyArray<string> =>
-  Arr.map(visiblePageRoutesForReleaseStage(stage), pagePathForRoute)
-
-export const parsePathname = (pathname: string, search = ""): PageRoute =>
-  Option.getOrElse(pageRouteForPathname(pathname, search), () => homeRoute)
-
-export const isHtmlPagePath = (pathname: string, stage: ReleaseStage, search = ""): boolean =>
-  Option.isSome(visiblePageRouteForPathname(pathname, search, stage))
-
-export { decodePageRouteKey, PageRouteKey, serializePageRouteKey } from "./page-route-key.js"
+const homeRoute = HomePageRoute.make({})
+const entryRegistry = EntryRegistry.current()
+export { PageRouteKey } from "./page-route-key.js"
 export type { SerializedPageRouteKey } from "./page-route-key.js"

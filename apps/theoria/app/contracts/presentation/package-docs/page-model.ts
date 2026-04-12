@@ -2,13 +2,15 @@ import { type PackageName, PackageNameSchema } from "@theoria/source-proof/contr
 import { Schema } from "effect"
 import * as Option from "effect/Option"
 
-import { cardForPackageName } from "../../entry/card.js"
+import { Card } from "../../entry/card.js"
 import { EntryId } from "../../entry/id.js"
-import { entryIdForPackageName } from "../../entry/registry.js"
+import { EntryRegistry } from "../../entry/registry.js"
 
 import { PackageDocsPackagePageRoute } from "./page-route.js"
 import { PackageDocsPresentation } from "./presentation.js"
 import type { PackageDocsBundle, PackageDocsCatalogEntry } from "./shared.js"
+
+const entryRegistry = EntryRegistry.current()
 
 export class PackageDocsNavigationItem extends Schema.Class<PackageDocsNavigationItem>("PackageDocsNavigationItem")({
   href: Schema.String,
@@ -22,7 +24,7 @@ export class PackageDocsNavigationItem extends Schema.Class<PackageDocsNavigatio
   }): ReadonlyArray<PackageDocsNavigationItem> {
     return input.catalog.map((entry) =>
       PackageDocsNavigationItem.make({
-        href: PackageDocsPackagePageRoute.make({ packageId: entry.packageId }).path(),
+        href: PackageDocsPackagePageRoute.fromPackageId(entry.packageId).path(),
         label: entry.packageId,
         packageId: entry.packageId,
         selected: entry.packageId === input.selectedPackageId
@@ -120,10 +122,10 @@ export class PackageDocsPageModel extends Schema.Class<PackageDocsPageModel>("Pa
     readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
     readonly selectedPackageId: PackageName
   }): PackageDocsPageModel {
-    const card = Option.getOrNull(cardForPackageName(input.bundle.packageId))
-    const entryId = Option.getOrNull(entryIdForPackageName(input.bundle.packageId))
+    const card = Option.getOrNull(Card.forPackageName(input.bundle.packageId))
+    const entryId = Option.getOrNull(entryRegistry.entryIdForPackageName(input.bundle.packageId))
     const presentation = PackageDocsPresentation.project(
-      PackageDocsPackagePageRoute.make({ packageId: input.bundle.packageId })
+      PackageDocsPackagePageRoute.fromPackageId(input.bundle.packageId)
     )
 
     return PackageDocsPageModel.make({

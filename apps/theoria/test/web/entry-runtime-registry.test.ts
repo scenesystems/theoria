@@ -6,19 +6,20 @@ import {
   capabilityCatalogRegistry,
   capabilityCatalogRegistryFingerprint
 } from "../../app/contracts/capability/registry.js"
-import { primaryAuthorityIdForEntry } from "../../app/contracts/entry/focus.js"
 import { entryIds, runnableEntryIds } from "../../app/contracts/entry/id.js"
-import { entryDescriptorForId, entryDescriptors, entryRegistryFingerprint } from "../../app/contracts/entry/registry.js"
+import { EntryRegistry } from "../../app/contracts/entry/registry.js"
 import { lookup } from "../../app/server/kernel/registry.js"
+import { entryRuntimeDescriptorFor } from "../../app/web/runtime/kernel/entry-runtime-descriptor.js"
 import {
   entryRuntimeDescriptorFingerprint,
   entryRuntimeRegistryFingerprint,
   resolveEntryRuntimeProvenance
-} from "../../app/web/runtime/kernel/descriptor.js"
-import { entryRuntimeDescriptorFor } from "../../app/web/runtime/kernel/entry-runtime-descriptor.js"
+} from "../../app/web/runtime/kernel/entry-runtime-provenance.js"
 import { dedicatedEntryIds } from "../../app/web/runtime/kernel/registry.js"
 import { entryRuntimeDescriptors } from "../../app/web/runtime/kernel/registry.js"
 import { streamingEntryIds } from "../../app/web/runtime/kernel/surface-runtime.js"
+
+const entryRegistry = EntryRegistry.current()
 
 describe("web/entry-runtime-registry", () => {
   it.effect("composes the entry runtime registry from authority, substrate, and lane descriptors across all entries", () =>
@@ -39,8 +40,10 @@ describe("web/entry-runtime-registry", () => {
           const provenance = yield* resolveEntryRuntimeProvenance(descriptor)
 
           expect(descriptor.entryId).toBe(id)
-          expect(descriptor.entry).toEqual(entryDescriptorForId(id))
-          expect(descriptor.authority.catalog).toEqual(authorityCatalogForId(primaryAuthorityIdForEntry(id)))
+          expect(descriptor.entry).toEqual(entryRegistry.descriptorForId(id))
+          expect(descriptor.authority.catalog).toEqual(
+            authorityCatalogForId(entryRegistry.descriptorForId(id).primaryAuthorityId)
+          )
           expect(provenance.descriptorFingerprint).toBe(yield* entryRuntimeDescriptorFingerprint(descriptor))
 
           return provenance.descriptorFingerprint
@@ -50,8 +53,8 @@ describe("web/entry-runtime-registry", () => {
       )
       const authorityFingerprint = yield* capabilityCatalogRegistryFingerprint(capabilityCatalogRegistry)
       const repeatedAuthorityFingerprint = yield* capabilityCatalogRegistryFingerprint(capabilityCatalogRegistry)
-      const substrateFingerprint = yield* entryRegistryFingerprint(entryDescriptors)
-      const repeatedSubstrateFingerprint = yield* entryRegistryFingerprint(entryDescriptors)
+      const substrateFingerprint = yield* entryRegistry.fingerprint()
+      const repeatedSubstrateFingerprint = yield* entryRegistry.fingerprint()
       const registryFingerprint = yield* entryRuntimeRegistryFingerprint(entryRuntimeDescriptors)
       const repeatedRegistryFingerprint = yield* entryRuntimeRegistryFingerprint(
         entryRuntimeDescriptors

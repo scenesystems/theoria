@@ -1,5 +1,6 @@
 import { Schema } from "effect"
 
+import type { ErrorCode } from "./error.js"
 import { ErrorModel } from "./error.js"
 
 const NonNegativeNumber = Schema.Number.pipe(
@@ -30,4 +31,19 @@ export class FailureEnvelope extends Schema.Class<FailureEnvelope>("FailureEnvel
   ok: Schema.Literal(false),
   meta: Metadata,
   error: ErrorModel
-}) {}
+}) {
+  static fail(meta: Metadata, error: ErrorModel): FailureEnvelope {
+    return FailureEnvelope.make({ ok: false, meta, error })
+  }
+
+  static fromError(
+    meta: Metadata,
+    input: {
+      readonly code: ErrorCode
+      readonly message: string
+      readonly retryable: boolean
+    }
+  ): FailureEnvelope {
+    return FailureEnvelope.fail(meta, ErrorModel.make(input))
+  }
+}

@@ -1,18 +1,15 @@
 import { Array as Arr } from "effect"
 
-import { workflowEntryId } from "../../../../contracts/entry/id.js"
+import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
-  baselineWorkflowScenarioVariant,
-  chatHandoffWorkflowScenarioManifest,
-  optimizedWorkflowScenarioVariant,
-  workflowAuthorityBindings,
-  type WorkflowScenario,
-  workflowScenarioRecordPair,
-  workflowScenarioReportPair,
-  workflowScenarioVariantPair
+  BaselineWorkflowScenarioVariant,
+  decodeWorkflowEvaluationReport,
+  decodeWorkflowExecutionRecord,
+  OptimizedWorkflowScenarioVariant,
+  WorkflowScenario,
+  WorkflowScenarioVariants
 } from "../../../../contracts/study/workflow/scenario.js"
-import { decodeWorkflowEvaluationReport, decodeWorkflowExecutionRecord } from "../decode.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
 const baselineRecord = decodeWorkflowExecutionRecord({
@@ -153,8 +150,8 @@ const optimizedRecord = decodeWorkflowExecutionRecord({
   }
 })
 
-const chatHandoffWorkflowVariants = workflowScenarioVariantPair({
-  baseline: baselineWorkflowScenarioVariant({
+const chatHandoffWorkflowVariants = WorkflowScenarioVariants.make({
+  baseline: BaselineWorkflowScenarioVariant.fromPair({
     record: baselineRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "chat-handoff-baseline-report",
@@ -176,7 +173,7 @@ const chatHandoffWorkflowVariants = workflowScenarioVariantPair({
       ]
     })
   }),
-  optimized: optimizedWorkflowScenarioVariant({
+  optimized: OptimizedWorkflowScenarioVariant.fromPair({
     record: optimizedRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "chat-handoff-optimized-report",
@@ -200,15 +197,8 @@ const chatHandoffWorkflowVariants = workflowScenarioVariantPair({
   })
 })
 
-export const chatHandoffWorkflowScenario: WorkflowScenario = {
-  entry: {
-    scenarioId: chatHandoffWorkflowScenarioManifest.id,
-    entryId: workflowEntryId
-  },
-  authorities: workflowAuthorityBindings,
-  label: chatHandoffWorkflowScenarioManifest.label,
-  summary: chatHandoffWorkflowScenarioManifest.summary,
-  workflowKind: "chat-continuation",
-  records: workflowScenarioRecordPair(chatHandoffWorkflowVariants),
-  reports: workflowScenarioReportPair(chatHandoffWorkflowVariants)
-}
+export const chatHandoffWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
+  manifest: WorkflowScenarioManifest.forId("chat-handoff"),
+  variants: chatHandoffWorkflowVariants,
+  workflowKind: "chat-continuation"
+})

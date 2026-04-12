@@ -26,15 +26,20 @@ import {
 
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
-export const defaultPowerControls: {
-  readonly d: 0.5
-  readonly n: 30
-  readonly alpha: 0.05
-} = {
-  d: 0.5,
-  n: 30,
-  alpha: 0.05
+export class PowerControls extends Schema.Class<PowerControls>("PowerControls")({
+  d: Schema.Number,
+  n: PositiveInt,
+  alpha: Schema.Number
+}) {
+  static defaults(): PowerControls {
+    return PowerControls.make({
+      d: 0.5,
+      n: 30,
+      alpha: 0.05
+    })
+  }
 }
+
 export const powerEffectSizeMin = 0.1
 export const powerEffectSizeMax = 2.0
 export const powerEffectSizeStep = 0.05
@@ -49,15 +54,7 @@ export const powerEffectSizeSweepValues: ReadonlyArray<number> = [0.1, 0.2, 0.3,
 export const powerSampleSizeSweepValues: ReadonlyArray<number> = [5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120, 150, 200]
 export const powerAlphaSweepValues: ReadonlyArray<number> = [0.01, 0.05, 0.10]
 
-export const PowerControls = Schema.Struct({
-  d: Schema.Number,
-  n: PositiveInt,
-  alpha: Schema.Number
-})
-
-export type PowerControls = typeof PowerControls.Type
-
-export const PowerProjection = Schema.Struct({
+export class PowerProjection extends Schema.Class<PowerProjection>("PowerProjection")({
   d: Schema.Number,
   n: PositiveInt,
   alpha: Schema.Number,
@@ -70,9 +67,28 @@ export const PowerProjection = Schema.Struct({
   confidenceIntervalReport: MeanConfidenceIntervalReport,
   oneSampleReport: TTestReport,
   twoSampleReport: TTestReport
-})
+}) {
+  static project({ d, n, alpha }: PowerControls): PowerProjection {
+    const powerReport = powerReportFor({ d, n, alpha })
+    const sampleSizeReport = sampleSizeReportFor({ d, alpha }, targetPower)
+    const reports = inferenceReportsFor({ d, n, alpha })
 
-export type PowerProjection = typeof PowerProjection.Type
+    return PowerProjection.make({
+      d,
+      n,
+      alpha,
+      power: powerReport.power,
+      requiredN: sampleSizeReport.solver.status === "converged" ? sampleSizeReport.sampleSize : Infinity,
+      overlap: overlapCoefficient(d),
+      nonCentrality: powerReport.noncentrality,
+      powerReport,
+      sampleSizeReport,
+      confidenceIntervalReport: reports.confidenceIntervalReport,
+      oneSampleReport: reports.oneSampleReport,
+      twoSampleReport: reports.twoSampleReport
+    })
+  }
+}
 
 export const EffectMathProjectionPhase = Schema.Struct({
   title: Schema.String,
@@ -82,13 +98,51 @@ export const EffectMathProjectionPhase = Schema.Struct({
 
 export type EffectMathProjectionPhase = typeof EffectMathProjectionPhase.Type
 
-export const EffectMathProjectionScript = Schema.Struct({
-  _tag: Schema.Literal("effect-math"),
+export class EffectMathProjectionScript extends Schema.TaggedClass<EffectMathProjectionScript>()("effect-math", {
   baseControls: PowerControls,
   phases: Schema.Array(EffectMathProjectionPhase)
-})
+}) {
+  static fromControls(baseControls: PowerControls): EffectMathProjectionScript {
+    return EffectMathProjectionScript.make({
+      baseControls,
+      phases: [
+        {
+          title: fixedSampleSizeTitle(baseControls),
+          label: fixedSampleSizeLabel(baseControls.n),
+          steps: Arr.map(
+            powerEffectSizeSweepValues,
+            (d): PowerControls => PowerControls.make({ d, n: baseControls.n, alpha: baseControls.alpha })
+          )
+        },
+        {
+          title: fixedEffectSizeTitle(baseControls),
+          label: fixedEffectSizeLabel(baseControls.d),
+          steps: Arr.map(
+            powerSampleSizeSweepValues,
+            (n): PowerControls => PowerControls.make({ d: baseControls.d, n, alpha: baseControls.alpha })
+          )
+        },
+        {
+          title: "Required N at 80% power — across α levels",
+          label: "Required N by effect size and α",
+          steps: Arr.flatMap(
+            powerAlphaSweepValues,
+            (alpha) =>
+              Arr.map(powerEffectSizeSweepValues, (d): PowerControls => {
+                const requiredSampleSize = requiredN(d, 0.80, alpha)
 
-export type EffectMathProjectionScript = typeof EffectMathProjectionScript.Type
+                return PowerControls.make({
+                  d,
+                  n: Number.isFinite(requiredSampleSize) ? requiredSampleSize : 200,
+                  alpha
+                })
+              })
+          )
+        }
+      ]
+    })
+  }
+}
 
 export const isEffectMathProjectionScript = Schema.is(EffectMathProjectionScript)
 
@@ -98,43 +152,6 @@ const fixedSampleSizeTitle = ({ alpha, n }: PowerControls): string =>
 const fixedEffectSizeLabel = (d: number): string => `Power by sample size (fixed d=${d.toFixed(2)})`
 const fixedEffectSizeTitle = ({ alpha, d }: PowerControls): string =>
   `Sample size sweep — d=${d.toFixed(2)}, α=${alpha.toFixed(2)}`
-
-export const snapshotEffectMathProjectionScript = (baseControls: PowerControls): EffectMathProjectionScript => ({
-  _tag: "effect-math",
-  baseControls,
-  phases: [
-    {
-      title: fixedSampleSizeTitle(baseControls),
-      label: fixedSampleSizeLabel(baseControls.n),
-      steps: Arr.map(
-        powerEffectSizeSweepValues,
-        (d): PowerControls => ({ d, n: baseControls.n, alpha: baseControls.alpha })
-      )
-    },
-    {
-      title: fixedEffectSizeTitle(baseControls),
-      label: fixedEffectSizeLabel(baseControls.d),
-      steps: Arr.map(
-        powerSampleSizeSweepValues,
-        (n): PowerControls => ({ d: baseControls.d, n, alpha: baseControls.alpha })
-      )
-    },
-    {
-      title: "Required N at 80% power — across α levels",
-      label: "Required N by effect size and α",
-      steps: Arr.flatMap(powerAlphaSweepValues, (alpha) =>
-        Arr.map(powerEffectSizeSweepValues, (d): PowerControls => {
-          const requiredSampleSize = requiredN(d, 0.80, alpha)
-
-          return {
-            d,
-            n: Number.isFinite(requiredSampleSize) ? requiredSampleSize : 200,
-            alpha
-          }
-        }))
-    }
-  ]
-})
 
 export class EffectMathCanonicalStep extends Schema.TaggedClass<EffectMathCanonicalStep>()("EffectMathCanonicalStep", {
   controls: PowerControls,
@@ -243,27 +260,6 @@ export const power = (d: number, n: number, alpha: number): number => {
   })
 
   return report.power
-}
-
-export const projectPowerProjection = ({ d, n, alpha }: PowerControls): PowerProjection => {
-  const powerReport = powerReportFor({ d, n, alpha })
-  const sampleSizeReport = sampleSizeReportFor({ d, alpha }, targetPower)
-  const reports = inferenceReportsFor({ d, n, alpha })
-
-  return {
-    d,
-    n,
-    alpha,
-    power: powerReport.power,
-    requiredN: sampleSizeReport.solver.status === "converged" ? sampleSizeReport.sampleSize : Infinity,
-    overlap: overlapCoefficient(d),
-    nonCentrality: powerReport.noncentrality,
-    powerReport,
-    sampleSizeReport,
-    confidenceIntervalReport: reports.confidenceIntervalReport,
-    oneSampleReport: reports.oneSampleReport,
-    twoSampleReport: reports.twoSampleReport
-  }
 }
 
 /**

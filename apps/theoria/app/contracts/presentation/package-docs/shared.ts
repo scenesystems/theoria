@@ -27,7 +27,11 @@ export class PackageDocsBundleSuccessEnvelope extends Schema.Class<PackageDocsBu
   ok: Schema.Literal(true),
   meta: Metadata,
   data: PackageDocsBundleSchema
-}) {}
+}) {
+  static ok(meta: Metadata, data: PackageDocsBundle): PackageDocsBundleSuccessEnvelope {
+    return PackageDocsBundleSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export class PackageDocsCatalogSuccessEnvelope extends Schema.Class<PackageDocsCatalogSuccessEnvelope>(
   "PackageDocsCatalogSuccessEnvelope"
@@ -35,7 +39,14 @@ export class PackageDocsCatalogSuccessEnvelope extends Schema.Class<PackageDocsC
   ok: Schema.Literal(true),
   meta: Metadata,
   data: PackageDocsCatalog
-}) {}
+}) {
+  static ok(
+    meta: Metadata,
+    data: ReadonlyArray<PackageDocsCatalogEntry>
+  ): PackageDocsCatalogSuccessEnvelope {
+    return PackageDocsCatalogSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export class PackageDocsSearchSuccessEnvelope extends Schema.Class<PackageDocsSearchSuccessEnvelope>(
   "PackageDocsSearchSuccessEnvelope"
@@ -43,7 +54,14 @@ export class PackageDocsSearchSuccessEnvelope extends Schema.Class<PackageDocsSe
   ok: Schema.Literal(true),
   meta: Metadata,
   data: PackageDocsSearchResults
-}) {}
+}) {
+  static ok(
+    meta: Metadata,
+    data: ReadonlyArray<PackageDocsSearchResult>
+  ): PackageDocsSearchSuccessEnvelope {
+    return PackageDocsSearchSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export const PackageDocsBundleEnvelope = Schema.Union(PackageDocsBundleSuccessEnvelope, FailureEnvelope)
 

@@ -1,9 +1,8 @@
 import { Match } from "effect"
 
+import type { DeepDiveProjectionModel } from "../../../contracts/presentation/deep-dive-projection-model.js"
 import { SplitPane } from "../containers/SplitPane.js"
 import { Layer } from "../primitives/Layout.js"
-
-import type { DeepDiveProjectionModel } from "./projection-model.js"
 
 const workspaceFieldClassName = "min-h-0 h-full flex flex-1 flex-col bg-stage-200/72"
 

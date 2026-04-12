@@ -1,19 +1,10 @@
-import { Schema } from "effect"
-
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { optimizationTrialBudgetMax, optimizationTrialBudgetMin } from "../../capability/effect-search.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
+import { SearchConfig } from "../../capability/effect-search.js"
+import { DefaultSeedId, EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed } from "../descriptor.js"
 
 const effectSearchAuthority = authorityCatalogForId("effect-search")
 
-const EffectSearchEntryInput = Schema.Struct({
-  trialBudget: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(optimizationTrialBudgetMin, optimizationTrialBudgetMax)
-  )
-})
-
-export const effectSearchEntryDescriptor = EntryDescriptor.define({
+export const effectSearchEntryDescriptor = EntryDescriptor.make({
   entryId: "effect-search",
   title: effectSearchAuthority.title,
   packageName: effectSearchAuthority.packageName,
@@ -24,10 +15,20 @@ export const effectSearchEntryDescriptor = EntryDescriptor.define({
   releaseState: "published",
   path: "/effect-search",
   interactiveLabel: "Live Optimization",
+  projectionHint: EntryProjectionHint.make({
+    stage:
+      "Set a trial budget, press Run, and watch authored TPE and Random checkpoints arrive on one shared study stream while the browser only projects the current frame.",
+    evidence:
+      "Full optimization results comparing TPE vs Random search - every trial coordinate and convergence curve is reproducible from a fixed seed.",
+    source: EntryProjectionHint.defaults().source
+  }),
   primaryAuthorityId: "effect-search",
   authorityIds: ["effect-search"],
-  seeds: defaultEntrySeeds(effectSearchAuthority.summary),
+  seeds: [EntrySeed.default(effectSearchAuthority.summary)],
+  defaultSeedId: "default",
+  defaultInput: SearchConfig.defaults(),
+  defaultControls: {},
   seedIdSchema: DefaultSeedId,
-  inputSchema: EffectSearchEntryInput,
+  inputSchema: SearchConfig,
   controlsSchema: EmptyStruct
 })

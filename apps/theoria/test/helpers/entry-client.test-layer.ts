@@ -1,7 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 import { Effect, Layer } from "effect"
 
-import type { CapabilityAvailability } from "../../app/contracts/capability/availability.js"
+import { CapabilityAvailability } from "../../app/contracts/capability/availability.js"
+import { PackageVersions } from "../../app/contracts/capability/package-versions.js"
 import type { EntryError } from "../../app/contracts/entry-error.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
 import type { EntryRunRequest } from "../../app/contracts/entry/registry.js"
@@ -24,13 +25,14 @@ export type EntryClientFixtures = {
   readonly capabilityAvailability?: () => Effect.Effect<CapabilityAvailability, EntryError>
 }
 
-const defaultCapabilityAvailability = (): CapabilityAvailability => ({
-  entries: [],
-  dsp: {
-    enabled: false,
-    reason: "Test DSP runtime unavailable."
-  }
-})
+const defaultCapabilityAvailability = (): CapabilityAvailability =>
+  CapabilityAvailability.make({
+    entries: [],
+    dsp: {
+      enabled: false,
+      reason: "Test DSP runtime unavailable."
+    }
+  })
 
 export const makeEntryClientTestLayer = (fixtures: EntryClientFixtures): Layer.Layer<EntryClient> =>
   Layer.succeed(
@@ -53,7 +55,7 @@ export const makeEntryClientTestLayer = (fixtures: EntryClientFixtures): Layer.L
       preload: fixtures.preload,
       capabilityAvailability: () =>
         fixtures.capabilityAvailability?.() ?? Effect.succeed(defaultCapabilityAvailability()),
-      versions: () => Effect.succeed({})
+      versions: () => Effect.succeed(PackageVersions.fromRecord({}))
     }
   )
 

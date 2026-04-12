@@ -1,20 +1,17 @@
 import * as Arr from "effect/Array"
 
-import { type Card, type PackageGroup, packageGroupMeta } from "../../../contracts/entry/card.js"
-import { representativeToneFor } from "../../../contracts/tone.js"
+import type { HomeCatalogSectionPresentation } from "../../../contracts/presentation/home-catalog.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { toneFor } from "../primitives/theme/tone.js"
 import { InstrumentCard } from "./InstrumentCard.js"
 
 export const InstrumentSection = ({
-  cards,
-  group
+  section
 }: {
-  readonly cards: ReadonlyArray<Card>
-  readonly group: PackageGroup
+  readonly section: HomeCatalogSectionPresentation
 }) => {
-  const groupTone = toneFor(representativeToneFor(group))
+  const groupTone = toneFor(section.tone)
 
   return (
     <Section>
@@ -25,7 +22,7 @@ export const InstrumentSection = ({
             as="h2"
             className="min-w-0 flex-1 text-ink-900"
             role="section-title"
-            text={packageGroupMeta(group).label}
+            text={section.title}
             variant="expanded"
           />
         </Cluster>
@@ -34,12 +31,12 @@ export const InstrumentSection = ({
           as="p"
           className="min-w-0 text-ink-700"
           role="card-summary"
-          text={packageGroupMeta(group).description}
+          text={section.description}
           variant="expanded"
         />
 
         <Stack className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {Arr.map(cards, (card) => <InstrumentCard card={card} key={card.id} tone={groupTone} />)}
+          {Arr.map(section.cards, (card) => <InstrumentCard card={card} key={card.id} tone={groupTone} />)}
         </Stack>
       </Stack>
     </Section>

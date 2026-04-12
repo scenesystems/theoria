@@ -46,7 +46,7 @@ const requestPackageDocsRoute = <A, I>({
 export class PackageDocsClient extends Effect.Service<PackageDocsClient>()("theoria/PackageDocsClient", {
   succeed: {
     catalog: (): Effect.Effect<ReadonlyArray<PackageDocsCatalogEntry>, PackageDocsError> =>
-      requestPackageDocsRoute({ route: PackageDocsCatalogRoute.make({}), schema: PackageDocsCatalogEnvelope }).pipe(
+      requestPackageDocsRoute({ route: PackageDocsCatalogRoute.catalog(), schema: PackageDocsCatalogEnvelope }).pipe(
         Effect.map(({ data }) => data)
       ),
     bundle: (packageId: PackageName): Effect.Effect<PackageDocsBundle, PackageDocsError> =>

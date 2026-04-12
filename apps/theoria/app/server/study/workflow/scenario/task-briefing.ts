@@ -1,18 +1,15 @@
 import { Array as Arr } from "effect"
 
-import { workflowEntryId } from "../../../../contracts/entry/id.js"
+import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
-  baselineWorkflowScenarioVariant,
-  optimizedWorkflowScenarioVariant,
-  taskBriefingWorkflowScenarioManifest,
-  workflowAuthorityBindings,
-  type WorkflowScenario,
-  workflowScenarioRecordPair,
-  workflowScenarioReportPair,
-  workflowScenarioVariantPair
+  BaselineWorkflowScenarioVariant,
+  decodeWorkflowEvaluationReport,
+  decodeWorkflowExecutionRecord,
+  OptimizedWorkflowScenarioVariant,
+  WorkflowScenario,
+  WorkflowScenarioVariants
 } from "../../../../contracts/study/workflow/scenario.js"
-import { decodeWorkflowEvaluationReport, decodeWorkflowExecutionRecord } from "../decode.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
 const baselineRecord = decodeWorkflowExecutionRecord({
@@ -111,8 +108,8 @@ const optimizedRecord = decodeWorkflowExecutionRecord({
   })
 })
 
-const taskBriefingWorkflowVariants = workflowScenarioVariantPair({
-  baseline: baselineWorkflowScenarioVariant({
+const taskBriefingWorkflowVariants = WorkflowScenarioVariants.make({
+  baseline: BaselineWorkflowScenarioVariant.fromPair({
     record: baselineRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "task-briefing-baseline-report",
@@ -134,7 +131,7 @@ const taskBriefingWorkflowVariants = workflowScenarioVariantPair({
       ]
     })
   }),
-  optimized: optimizedWorkflowScenarioVariant({
+  optimized: OptimizedWorkflowScenarioVariant.fromPair({
     record: optimizedRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "task-briefing-optimized-report",
@@ -158,15 +155,8 @@ const taskBriefingWorkflowVariants = workflowScenarioVariantPair({
   })
 })
 
-export const taskBriefingWorkflowScenario: WorkflowScenario = {
-  entry: {
-    scenarioId: taskBriefingWorkflowScenarioManifest.id,
-    entryId: workflowEntryId
-  },
-  authorities: workflowAuthorityBindings,
-  label: taskBriefingWorkflowScenarioManifest.label,
-  summary: taskBriefingWorkflowScenarioManifest.summary,
-  workflowKind: "task-first",
-  records: workflowScenarioRecordPair(taskBriefingWorkflowVariants),
-  reports: workflowScenarioReportPair(taskBriefingWorkflowVariants)
-}
+export const taskBriefingWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
+  manifest: WorkflowScenarioManifest.defaults(),
+  variants: taskBriefingWorkflowVariants,
+  workflowKind: "task-first"
+})

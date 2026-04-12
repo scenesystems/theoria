@@ -29,8 +29,8 @@ const decodeFixtureInputs = Effect.all({
   reviewSidecar: Experimental.OpenAgentTrace.PiMono.decodeReviewSidecar(piShareHfReviewSidecarFixture)
 })
 
-const publishedRecord = (record: typeof Experimental.OpenAgentTrace.OpenAgentTraceRecord.Type) =>
-  Experimental.OpenAgentTrace.OpenAgentTraceRecord.make({
+const publishedRecord = (record: typeof Experimental.OpenAgentTrace.Record.Type) =>
+  Experimental.OpenAgentTrace.Record.make({
     ...record,
     reviewStatus: Experimental.OpenAgentTrace.publishedReviewStatus(record.reviewStatus)
   })

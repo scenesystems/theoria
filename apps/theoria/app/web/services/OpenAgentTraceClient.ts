@@ -45,19 +45,19 @@ export class OpenAgentTraceClient extends Effect.Service<OpenAgentTraceClient>()
   succeed: {
     consumerArtifacts: (): Effect.Effect<OpenAgentTraceConsumerArtifactCatalog, OpenAgentTraceError> =>
       requestOpenAgentTraceRoute({
-        route: OpenAgentTraceConsumerArtifactRoute.make({}),
+        route: OpenAgentTraceConsumerArtifactRoute.consumerArtifacts(),
         schema: OpenAgentTraceConsumerArtifactCatalogEnvelope
       }).pipe(Effect.map(({ data }) => data)),
     registry: (): Effect.Effect<ReadonlyArray<OpenAgentTraceRegistryEntry>, OpenAgentTraceError> =>
       requestOpenAgentTraceRoute({
-        route: OpenAgentTraceRegistryRoute.make({}),
+        route: OpenAgentTraceRegistryRoute.registry(),
         schema: OpenAgentTraceRegistryEnvelope
       }).pipe(
         Effect.map(({ data }) => data)
       ),
     workflowHookups: (): Effect.Effect<OpenAgentTraceWorkflowHookupCatalog, OpenAgentTraceError> =>
       requestOpenAgentTraceRoute({
-        route: OpenAgentTraceWorkflowHookupRoute.make({}),
+        route: OpenAgentTraceWorkflowHookupRoute.workflowHookups(),
         schema: OpenAgentTraceWorkflowHookupCatalogEnvelope
       }).pipe(Effect.map(({ data }) => data))
   }

@@ -9,7 +9,7 @@ import { ResponseTiming } from "./response-timing.js"
 import type { EntryStreamRequest } from "./stream-request.js"
 
 const successful = (timing: ResponseTiming, data: RunData) =>
-  timing.finish().pipe(Effect.map((meta) => RunSuccessEnvelope.make({ ok: true, meta, data })))
+  timing.finish().pipe(Effect.map((meta) => RunSuccessEnvelope.ok(meta, data)))
 
 const failed = (timing: ResponseTiming, code: ErrorCode, message: string, retryable: boolean) =>
   timing.fail({ code, message, retryable })

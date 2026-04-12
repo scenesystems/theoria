@@ -1,9 +1,9 @@
 import type { PackageName } from "@theoria/source-proof/contracts"
-import { Effect, Schema } from "effect"
+import { Data, Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
+import type { ReleaseStage } from "../release-stage.js"
 
-import { entryDescriptorFingerprint, type EntryDescriptorFingerprintOwner } from "./descriptor.js"
 import { digestEntryDescriptor } from "./descriptors/digest.js"
 import { effectDspEntryDescriptor } from "./descriptors/effect-dsp.js"
 import { effectInferenceEntryDescriptor } from "./descriptors/effect-inference.js"
@@ -16,7 +16,7 @@ import { workflowEntryDescriptor } from "./descriptors/workflow.js"
 import { type DurableFingerprint, fingerprintOf } from "./fingerprint.js"
 import { type EntryId, workflowEntryId } from "./id.js"
 
-export const entryDescriptorTuple = [
+const entryDescriptorTuple = [
   effectMathEntryDescriptor,
   effectSearchEntryDescriptor,
   effectDspEntryDescriptor,
@@ -30,13 +30,11 @@ export const entryDescriptorTuple = [
 
 export type AnyEntryDescriptor = (typeof entryDescriptorTuple)[number]
 
-export const entryDescriptors: ReadonlyArray<AnyEntryDescriptor> = entryDescriptorTuple
-
 type EntryDescriptorById = {
   readonly [Id in EntryId]: Extract<AnyEntryDescriptor, { readonly entryId: Id }>
 }
 
-export const entryDescriptorById: EntryDescriptorById = {
+const entryDescriptorById: EntryDescriptorById = {
   "effect-math": effectMathEntryDescriptor,
   "effect-search": effectSearchEntryDescriptor,
   "effect-dsp": effectDspEntryDescriptor,
@@ -77,19 +75,71 @@ export const EntryRunRequest = Schema.Union(
 
 export type EntryRunRequest = typeof EntryRunRequest.Type
 
-export const entryDescriptorForId = <Id extends EntryId>(entryId: Id): EntryDescriptorById[Id] =>
-  entryDescriptorById[entryId]
+export class EntryRegistry extends Data.Class<EntryRegistry.Shape> {
+  static make(shape: EntryRegistry.Shape): EntryRegistry {
+    return new EntryRegistry(shape)
+  }
 
-export const entryDescriptorForPackageName = (packageName: PackageName): Option.Option<AnyEntryDescriptor> =>
-  Arr.findFirst(entryDescriptors, (descriptor) => descriptor.packageName === packageName)
+  static current(): EntryRegistry {
+    return currentEntryRegistry
+  }
 
-export const entryIdForPackageName = (packageName: PackageName): Option.Option<EntryId> =>
-  entryDescriptorForPackageName(packageName).pipe(Option.map((descriptor) => descriptor.entryId))
+  descriptorForId<Id extends EntryId>(entryId: Id): EntryDescriptorById[Id] {
+    return this.descriptorById[entryId]
+  }
+
+  descriptorForPackageName(packageName: PackageName): Option.Option<AnyEntryDescriptor> {
+    return Arr.findFirst(this.descriptors, (descriptor) => descriptor.packageName === packageName)
+  }
+
+  descriptorForPath(pathname: string): Option.Option<AnyEntryDescriptor> {
+    return Arr.findFirst(this.descriptors, (descriptor) => descriptor.path === pathname)
+  }
+
+  entryIdForPackageName(packageName: PackageName): Option.Option<EntryId> {
+    return this.descriptorForPackageName(packageName).pipe(Option.map((descriptor) => descriptor.entryId))
+  }
+
+  entryIdForPath(pathname: string): Option.Option<EntryId> {
+    return this.descriptorForPath(pathname).pipe(Option.map((descriptor) => descriptor.entryId))
+  }
+
+  visibleDescriptorForPath(pathname: string, stage: ReleaseStage): Option.Option<AnyEntryDescriptor> {
+    return this.descriptorForPath(pathname).pipe(
+      Option.filter((descriptor) => descriptor.visibleInReleaseStage(stage))
+    )
+  }
+
+  visibleDescriptorsForReleaseStage(stage: ReleaseStage): ReadonlyArray<AnyEntryDescriptor> {
+    return Arr.filter(this.descriptors, (descriptor) => descriptor.visibleInReleaseStage(stage))
+  }
+
+  visibleEntryIdsForReleaseStage(stage: ReleaseStage): ReadonlyArray<EntryId> {
+    return Arr.map(this.visibleDescriptorsForReleaseStage(stage), (descriptor) => descriptor.entryId)
+  }
+
+  visiblePackageDocsPackageIdsForReleaseStage(stage: ReleaseStage): ReadonlyArray<PackageName> {
+    return Arr.map(this.visibleDescriptorsForReleaseStage(stage), (descriptor) => descriptor.packageName)
+  }
+
+  fingerprint(): Effect.Effect<DurableFingerprint, never, never> {
+    return Effect.forEach(this.descriptors, (descriptor) => descriptor.fingerprint()).pipe(
+      Effect.flatMap(fingerprintOf)
+    )
+  }
+}
+
+export namespace EntryRegistry {
+  export interface Shape {
+    readonly descriptors: ReadonlyArray<AnyEntryDescriptor>
+    readonly descriptorById: EntryDescriptorById
+  }
+}
 
 export const isWorkflowEntryDraft = (draft: EntryDraft): draft is WorkflowEntryDraft =>
   draft.entryId === workflowEntryId
 
-export const entryRegistryFingerprint = (
-  registry: ReadonlyArray<EntryDescriptorFingerprintOwner>
-): Effect.Effect<DurableFingerprint, never, never> =>
-  Effect.forEach(registry, entryDescriptorFingerprint).pipe(Effect.flatMap(fingerprintOf))
+const currentEntryRegistry = EntryRegistry.make({
+  descriptors: entryDescriptorTuple,
+  descriptorById: entryDescriptorById
+})

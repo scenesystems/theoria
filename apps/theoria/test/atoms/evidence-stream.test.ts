@@ -2,6 +2,8 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Either, Fiber, Layer, Option, Stream } from "effect"
 
+import { CapabilityAvailability } from "../../app/contracts/capability/availability.js"
+import { PackageVersions } from "../../app/contracts/capability/package-versions.js"
 import { EntryRequestError } from "../../app/contracts/entry-error.js"
 import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import { EvidenceStore } from "../../app/contracts/evidence/store.js"
@@ -102,14 +104,14 @@ const serverEvidenceLayer = Layer.succeed(
     runWithMeta: () => Effect.fail(new EntryRequestError({ message: "unused" })),
     preload: () => Effect.fail(new EntryRequestError({ message: "unused" })),
     capabilityAvailability: () =>
-      Effect.succeed({
+      Effect.succeed(CapabilityAvailability.make({
         entries: [],
         dsp: {
           enabled: false,
           reason: "unused"
         }
-      }),
-    versions: () => Effect.succeed({})
+      })),
+    versions: () => Effect.succeed(PackageVersions.fromRecord({}))
   }
 )
 

@@ -3,7 +3,7 @@ import { Clock, Effect } from "effect"
 
 import { generateKeyPair, sign, toHex, utf8ToBytes, verify } from "@scenesystems/sign"
 import { signEntryDescriptor } from "../../../contracts/entry/descriptors/sign.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 
 import type { Program } from "../../../contracts/presentation/program.js"
@@ -17,7 +17,7 @@ export const preloadProgram: Effect.Effect<
 > = executableProgram(import.meta.url)
 
 const messageText = "Hello from Theoria — digital signature study"
-const signRunIdentity = entryRunIdentityForId(signEntryDescriptor.entryId)
+const signRunIdentity = EntryRunIdentity.project(signEntryDescriptor)
 
 const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {

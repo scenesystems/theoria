@@ -9,8 +9,8 @@ import type {
 
 import type { FrozenWorkflowRun } from "../../../../contracts/study/workflow/frozen.js"
 import type { WorkflowSelectedKnobs } from "../../../../contracts/study/workflow/runtime-plan.js"
+import { decodeWorkflowExecutionRecord } from "../../../../contracts/study/workflow/scenario.js"
 import type { WorkflowEntrySelection } from "../../../../contracts/study/workflow/selection.js"
-import { decodeWorkflowExecutionRecord } from "../decode.js"
 import { workflowSelectedKnobsForRecord } from "../selection-controls.js"
 import type { WorkflowSearchDimension } from "./dimensions.js"
 

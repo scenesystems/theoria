@@ -3,10 +3,12 @@ import * as ParseResult from "effect/ParseResult"
 
 import type { ErrorModel } from "../../error.js"
 import { ErrorCode } from "../../error.js"
+import type { PageLocation } from "../page-location.js"
+
+import { PackageDocsApiRequestInput } from "./api-request-input.js"
 
 import {
   NonEmptyString,
-  nullablePackageName,
   type PackageDocsQuery,
   PackageDocsQuerySchema,
   type PackageName,
@@ -64,14 +66,22 @@ export type PackageDocsError = typeof PackageDocsError.Type
 export class MissingPackageDocsBundlePackage extends Schema.TaggedClass<MissingPackageDocsBundlePackage>()(
   "MissingPackageDocsBundlePackage",
   {}
-) {}
+) {
+  static missing(): MissingPackageDocsBundlePackage {
+    return missingPackageDocsBundlePackage
+  }
+}
 
 export class PackageDocsBundlePackage extends Schema.TaggedClass<PackageDocsBundlePackage>()(
   "PackageDocsBundlePackage",
   {
     packageId: PackageNameSchema
   }
-) {}
+) {
+  static fromPackageId(packageId: PackageName): PackageDocsBundlePackage {
+    return PackageDocsBundlePackage.make({ packageId })
+  }
+}
 
 export const PackageDocsBundleSelection = Schema.Union(MissingPackageDocsBundlePackage, PackageDocsBundlePackage)
 export type PackageDocsBundleSelection = typeof PackageDocsBundleSelection.Type
@@ -79,21 +89,35 @@ export type PackageDocsBundleSelection = typeof PackageDocsBundleSelection.Type
 export class MissingPackageDocsSearchQuery extends Schema.TaggedClass<MissingPackageDocsSearchQuery>()(
   "MissingPackageDocsSearchQuery",
   {}
-) {}
+) {
+  static missing(): MissingPackageDocsSearchQuery {
+    return missingPackageDocsSearchQuery
+  }
+}
 
 export class InvalidPackageDocsSearchPackage extends Schema.TaggedClass<InvalidPackageDocsSearchPackage>()(
   "InvalidPackageDocsSearchPackage",
   {
     rawPackageId: NonEmptyString
   }
-) {}
+) {
+  static fromRawPackageId(rawPackageId: string): InvalidPackageDocsSearchPackage {
+    return InvalidPackageDocsSearchPackage.make({ rawPackageId })
+  }
+}
 
 export class PackageDocsSearchQuery extends Schema.TaggedClass<PackageDocsSearchQuery>()(
   "PackageDocsSearchQuery",
   {
     query: PackageDocsQuerySchema
   }
-) {}
+) {
+  static fromQuery(query: PackageDocsQuery): PackageDocsSearchQuery {
+    return PackageDocsSearchQuery.make({
+      query: Schema.decodeUnknownSync(PackageDocsQuerySchema)(query)
+    })
+  }
+}
 
 export const PackageDocsSearchSelection = Schema.Union(
   MissingPackageDocsSearchQuery,
@@ -110,21 +134,23 @@ const withOptionalPackageParam = (params: URLSearchParams, packageId: PackageNam
   return params
 }
 
-const positiveSearchLimit = (rawValue: string | null): number => {
-  const parsed = rawValue === null ? Number.NaN : Number(rawValue)
-
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 10
-}
-
 export class PackageDocsCatalogRoute extends Schema.TaggedClass<PackageDocsCatalogRoute>()("catalog", {}) {
-  static fromPathname(pathname: string): Option.Option<PackageDocsCatalogRoute> {
-    return PackageDocsCatalogRoute.matches(pathname)
-      ? Option.some(PackageDocsCatalogRoute.make({}))
+  static catalog(): PackageDocsCatalogRoute {
+    return packageDocsCatalogRoute
+  }
+
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsCatalogRoute> {
+    return PackageDocsCatalogRoute.fromInput(PackageDocsApiRequestInput.fromLocation(location))
+  }
+
+  static fromInput(input: PackageDocsApiRequestInput): Option.Option<PackageDocsCatalogRoute> {
+    return PackageDocsCatalogRoute.matches(input)
+      ? Option.some(PackageDocsCatalogRoute.catalog())
       : Option.none()
   }
 
-  static matches(pathname: string): boolean {
-    return pathname === PackageDocsCatalogRoute.pathname()
+  static matches(input: PackageDocsApiRequestInput): boolean {
+    return input.hasPathname(PackageDocsCatalogRoute.pathname())
   }
 
   static pathname(): string {
@@ -139,30 +165,36 @@ export class PackageDocsCatalogRoute extends Schema.TaggedClass<PackageDocsCatal
 export class PackageDocsBundleRoute extends Schema.TaggedClass<PackageDocsBundleRoute>()("bundle", {
   selection: PackageDocsBundleSelection
 }) {
-  static fromPackageId(packageId: PackageName): PackageDocsBundleRoute {
+  static missing(): PackageDocsBundleRoute {
     return PackageDocsBundleRoute.make({
-      selection: PackageDocsBundlePackage.make({ packageId })
+      selection: MissingPackageDocsBundlePackage.missing()
     })
   }
 
-  static fromPathname(pathname: string, search: string): Option.Option<PackageDocsBundleRoute> {
-    return PackageDocsBundleRoute.matches(pathname)
-      ? Option.some(PackageDocsBundleRoute.fromSearch(search))
+  static fromPackageId(packageId: PackageName): PackageDocsBundleRoute {
+    return PackageDocsBundleRoute.make({
+      selection: PackageDocsBundlePackage.fromPackageId(packageId)
+    })
+  }
+
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsBundleRoute> {
+    return PackageDocsBundleRoute.fromInput(PackageDocsApiRequestInput.fromLocation(location))
+  }
+
+  static fromInput(input: PackageDocsApiRequestInput): Option.Option<PackageDocsBundleRoute> {
+    return PackageDocsBundleRoute.matches(input)
+      ? Option.some(PackageDocsBundleRoute.fromRequestInput(input))
       : Option.none()
   }
 
-  static fromSearch(search: string): PackageDocsBundleRoute {
-    const packageId = nullablePackageName(new URLSearchParams(search).get("package"))
+  static fromRequestInput(input: PackageDocsApiRequestInput): PackageDocsBundleRoute {
+    const packageId = input.packageId()
 
-    return PackageDocsBundleRoute.make({
-      selection: packageId === null
-        ? MissingPackageDocsBundlePackage.make({})
-        : PackageDocsBundlePackage.make({ packageId })
-    })
+    return packageId === null ? PackageDocsBundleRoute.missing() : PackageDocsBundleRoute.fromPackageId(packageId)
   }
 
-  static matches(pathname: string): boolean {
-    return pathname === PackageDocsBundleRoute.pathname()
+  static matches(input: PackageDocsApiRequestInput): boolean {
+    return input.hasPathname(PackageDocsBundleRoute.pathname())
   }
 
   static pathname(): string {
@@ -187,43 +219,52 @@ export class PackageDocsBundleRoute extends Schema.TaggedClass<PackageDocsBundle
 export class PackageDocsSearchRoute extends Schema.TaggedClass<PackageDocsSearchRoute>()("search", {
   selection: PackageDocsSearchSelection
 }) {
-  static fromPathname(pathname: string, search: string): Option.Option<PackageDocsSearchRoute> {
-    return PackageDocsSearchRoute.matches(pathname)
-      ? Option.some(PackageDocsSearchRoute.fromSearch(search))
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsSearchRoute> {
+    return PackageDocsSearchRoute.fromInput(PackageDocsApiRequestInput.fromLocation(location))
+  }
+
+  static fromInput(input: PackageDocsApiRequestInput): Option.Option<PackageDocsSearchRoute> {
+    return PackageDocsSearchRoute.matches(input)
+      ? Option.some(PackageDocsSearchRoute.fromRequestInput(input))
       : Option.none()
   }
 
   static fromQuery(query: PackageDocsQuery): PackageDocsSearchRoute {
     return PackageDocsSearchRoute.make({
-      selection: PackageDocsSearchQuery.make({
-        query: Schema.decodeUnknownSync(PackageDocsQuerySchema)(query)
-      })
+      selection: PackageDocsSearchQuery.fromQuery(query)
     })
   }
 
-  static fromSearch(search: string): PackageDocsSearchRoute {
-    const params = new URLSearchParams(search)
-    const query = (params.get("query") ?? "").trim()
-    const rawPackageId = params.get("package")
-    const packageId = nullablePackageName(rawPackageId)
-
+  static invalidPackage(rawPackageId: string): PackageDocsSearchRoute {
     return PackageDocsSearchRoute.make({
-      selection: query.length === 0
-        ? MissingPackageDocsSearchQuery.make({})
-        : rawPackageId !== null && packageId === null
-        ? InvalidPackageDocsSearchPackage.make({ rawPackageId })
-        : PackageDocsSearchQuery.make({
-          query: Schema.decodeUnknownSync(PackageDocsQuerySchema)({
-            query,
-            packageId,
-            limit: positiveSearchLimit(params.get("limit"))
-          })
-        })
+      selection: InvalidPackageDocsSearchPackage.fromRawPackageId(rawPackageId)
     })
   }
 
-  static matches(pathname: string): boolean {
-    return pathname === PackageDocsSearchRoute.pathname()
+  static missing(): PackageDocsSearchRoute {
+    return PackageDocsSearchRoute.make({
+      selection: MissingPackageDocsSearchQuery.missing()
+    })
+  }
+
+  static fromRequestInput(input: PackageDocsApiRequestInput): PackageDocsSearchRoute {
+    const query = input.query()
+    const rawPackageId = input.rawPackageId()
+    const packageId = input.packageId()
+
+    return query.length === 0
+      ? PackageDocsSearchRoute.missing()
+      : rawPackageId !== null && packageId === null
+      ? PackageDocsSearchRoute.invalidPackage(rawPackageId)
+      : PackageDocsSearchRoute.fromQuery({
+        query,
+        packageId,
+        limit: input.limit()
+      })
+  }
+
+  static matches(input: PackageDocsApiRequestInput): boolean {
+    return input.hasPathname(PackageDocsSearchRoute.pathname())
   }
 
   static pathname(): string {
@@ -262,4 +303,16 @@ export const PackageDocsApiRoute = Schema.Union(PackageDocsApiRequestRoute, Pack
 export type PackageDocsApiRequestRoute = typeof PackageDocsApiRequestRoute.Type
 export type PackageDocsApiRoute = typeof PackageDocsApiRoute.Type
 
+export const packageDocsApiRouteFromLocation = (
+  location: PageLocation
+): Option.Option<PackageDocsApiRequestRoute> =>
+  PackageDocsCatalogRoute.fromLocation(location).pipe(
+    Option.orElse(() => PackageDocsBundleRoute.fromLocation(location)),
+    Option.orElse(() => PackageDocsSearchRoute.fromLocation(location))
+  )
+
 export const isPackageDocsPackageId = Schema.is(PackageNameSchema)
+
+const missingPackageDocsBundlePackage = MissingPackageDocsBundlePackage.make({})
+const missingPackageDocsSearchQuery = MissingPackageDocsSearchQuery.make({})
+const packageDocsCatalogRoute = PackageDocsCatalogRoute.make({})

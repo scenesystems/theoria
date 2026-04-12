@@ -1,12 +1,14 @@
 import { EntryExecutionError } from "../../app/contracts/entry-error.js"
-import { cardForId } from "../../app/contracts/entry/card.js"
-import { entryPresentationForId } from "../../app/contracts/entry/routing.js"
-import type { ProgramPreview } from "../../app/contracts/presentation/program-preview.js"
+import { Card } from "../../app/contracts/entry/card.js"
+import { EntryRegistry } from "../../app/contracts/entry/registry.js"
+import { EntryPresentation } from "../../app/contracts/entry/routing.js"
+import { ProgramPreview, programPreviewCard } from "../../app/contracts/presentation/program-preview.js"
 import type { ProgramFile } from "../../app/contracts/presentation/program.js"
 import type { RunData } from "../../app/contracts/study/run.js"
 
-const effectTextSurface = entryPresentationForId("effect-text")
-export const effectTextCardFixture = cardForId("effect-text")
+const effectTextSurface = EntryPresentation.fromEntryId("effect-text")
+const entryRegistry = EntryRegistry.current()
+export const effectTextCardFixture = Card.project(entryRegistry.descriptorForId("effect-text"))
 
 const programFixtureFile: ProgramFile = {
   language: "ts",
@@ -52,11 +54,19 @@ export const runDataFixture = (summary: string): RunData => ({
   ]
 })
 
-export const programPreviewFixture: ProgramPreview = {
+export const programPreviewFixture: ProgramPreview = ProgramPreview.make({
   id: effectTextSurface.entryId,
-  card: effectTextCardFixture,
+  card: programPreviewCard({
+    deepDivePath: effectTextSurface.path,
+    id: effectTextSurface.entryId,
+    packageName: effectTextSurface.packageName,
+    runLabel: effectTextSurface.runLabel,
+    summary: effectTextSurface.summary,
+    title: effectTextSurface.title,
+    useCase: effectTextSurface.useCase
+  }),
   summary: effectTextSurface.summary,
   program: {
     files: [programFixtureFile]
   }
-}
+})

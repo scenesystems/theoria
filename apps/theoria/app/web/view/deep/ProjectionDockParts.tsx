@@ -1,8 +1,10 @@
 import { EyeSlashIcon } from "@heroicons/react/20/solid"
+import { deepDiveProjectionDockHideLabel } from "../../../contracts/presentation/deep-dive-dock.js"
+import type {
+  DeepDiveProjectionControlModel,
+  DeepDiveProjectionPlane
+} from "../../../contracts/presentation/deep-dive-projection.js"
 import { projectionDockHideTargetProps } from "../../runtime/kernel/projection-dock-target.js"
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
-
-import type { DeepDiveProjectionControlModel } from "./projection-model.js"
 import { ProjectionSurfaceChip } from "./ProjectionSurfaceChip.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
@@ -39,7 +41,7 @@ export const ProjectionDockHideTarget = ({ active }: { readonly active: boolean 
     {...projectionDockHideTargetProps()}
   >
     <EyeSlashIcon aria-hidden className="h-4 w-4" />
-    <SemanticText as="span" role="code-meta" text="Drop to unbind" variant="compact" />
+    <SemanticText as="span" role="code-meta" text={deepDiveProjectionDockHideLabel()} variant="compact" />
   </Layer>
 )
 

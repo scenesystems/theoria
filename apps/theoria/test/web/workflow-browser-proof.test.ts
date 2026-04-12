@@ -2,18 +2,12 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Option, Schema } from "effect"
 
+import { EntryStreamRoute } from "../../app/contracts/entry/api-route.js"
 import { workflowEntryDescriptor } from "../../app/contracts/entry/descriptors/workflow.js"
 import type { WorkflowScenarioId } from "../../app/contracts/study/workflow/scenario.js"
-import { defaultWorkflowEntrySelection } from "../../app/contracts/study/workflow/selection.js"
 import { startRun } from "../../app/web/atoms/run/execution.js"
 import { pauseRun, resetRun, resumeRun, stopRun } from "../../app/web/atoms/run/lifecycle-actions.js"
-import { surfaceEvidenceSectionsAtom } from "../../app/web/atoms/surface/evidence-store.js"
-import {
-  surfaceAtom,
-  surfaceCanonicalFrameAtom,
-  surfaceDraftAtom,
-  surfaceRunStateAtom
-} from "../../app/web/atoms/surface/state.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
 import {
   selectWorkflowOptimizeAtom,
   selectWorkflowRuntimeProfileAtom,
@@ -21,9 +15,9 @@ import {
   selectWorkflowSurfaceProfileAtom,
   selectWorkflowTargetModeAtom
 } from "../../app/web/atoms/workflow/draft-actions.js"
+import { workflowSurfaceViewModelAtom } from "../../app/web/atoms/workflow/surface-view-model.js"
 import type { RunControlActionKind } from "../../app/web/state/run/types.js"
 import type { SurfaceState } from "../../app/web/state/surface/state.js"
-import { WorkflowSurfaceViewModel } from "../../app/web/view/study/workflow/surface-model.js"
 import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
 import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
 import { emitWorkflowAuthoredStream } from "../helpers/mock-workflow-stream.js"
@@ -91,16 +85,7 @@ const makeRunControlAtom = (runtime = makeRuntime()) =>
 
 const readSurface = (registry: Registry.Registry): SurfaceState => registry.get(surfaceAtom("workflow"))
 
-const readWorkflowViewModel = (registry: Registry.Registry) => {
-  const draft = registry.get(surfaceDraftAtom("workflow"))
-
-  return WorkflowSurfaceViewModel.project({
-    draftPlan: draft.entryId === "workflow" ? draft : defaultWorkflowEntrySelection,
-    frame: registry.get(surfaceCanonicalFrameAtom("workflow")),
-    run: registry.get(surfaceRunStateAtom("workflow")),
-    sections: registry.get(surfaceEvidenceSectionsAtom("workflow"))
-  })
-}
+const readWorkflowViewModel = (registry: Registry.Registry) => registry.get(workflowSurfaceViewModelAtom)
 
 const workflowRequestFromStreamUrl = (url: string) =>
   decodeWorkflowEntryRequestJson(new URL(url, "http://127.0.0.1").searchParams.get("request") ?? "")
@@ -174,12 +159,12 @@ describe("workflow browser proof", () => {
 
         expect(firstSource.closed).toBe(true)
         expect(stopped.run.session.draft?.seedId).toBe("task-briefing")
-        expect(readWorkflowViewModel(registry).selection.label).toBe("Task Briefing")
-        expect(readWorkflowViewModel(registry).selectionLocked).toBe(true)
+        expect(readWorkflowViewModel(registry).selector.selected.label).toBe("Task Briefing")
+        expect(readWorkflowViewModel(registry).selector.locked).toBe(true)
 
         registry.set(runControlAtom, { action: "reset", id: "workflow" })
 
-        expect(readWorkflowViewModel(registry).selection.label).toBe("Render Sensitive")
+        expect(readWorkflowViewModel(registry).selector.selected.label).toBe("Render Sensitive")
         expect(readSurface(registry).run.session.draft).toBeNull()
 
         registry.set(runControlAtom, { action: "run", id: "workflow" })
@@ -209,7 +194,7 @@ describe("workflow browser proof", () => {
               const source = yield* waitForSource(index)
               const request = workflowRequestFromStreamUrl(source.url)
 
-              expect(source.url.startsWith("/api/entries/workflow/stream?request=")).toBe(true)
+              expect(source.url.startsWith(`${EntryStreamRoute.fromEntryId("workflow").path()}?request=`)).toBe(true)
               expect(request.draft.seedId).toBe(seedId)
 
               yield* emitWorkflowAuthoredStream({
@@ -230,7 +215,7 @@ describe("workflow browser proof", () => {
               )
 
               expect(succeeded.run.session.draft?.seedId).toBe(seedId)
-              expect(readWorkflowViewModel(registry).selection.label).toBe(label)
+              expect(readWorkflowViewModel(registry).selector.selected.label).toBe(label)
 
               registry.set(runControlAtom, { action: "reset", id: "workflow" })
 

@@ -4,23 +4,18 @@ import type { Stream } from "effect"
 import { Data, Effect, Queue } from "effect"
 import { Study } from "effect-search"
 
-import type {
-  EffectMathCanonicalStep,
+import type { EffectMathCanonicalStep } from "../../../contracts/capability/effect-math.js"
+import {
+  EffectMathProjectionScript,
   PowerControls,
   PowerProjection
 } from "../../../contracts/capability/effect-math.js"
-import {
-  type EffectMathProjectionScript,
-  projectPowerProjection,
-  snapshotEffectMathProjectionScript
-} from "../../../contracts/capability/effect-math.js"
 import { EntryExecutionError } from "../../../contracts/entry-error.js"
-import { defaultEffectMathEntryInput } from "../../../contracts/entry/defaults.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import type { RunRegistry } from "../run-registry-context.js"
 import type { RunSignal } from "./lifecycle.js"
-import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
+import { ProjectionDriverCompletedEvent } from "./projection-driver-events.js"
 
 const executionFailedError = (message: string): EntryExecutionError =>
   EntryExecutionError.make({
@@ -29,10 +24,9 @@ const executionFailedError = (message: string): EntryExecutionError =>
     retryable: true
   })
 
-export { projectPowerProjection, snapshotEffectMathProjectionScript }
-export type { EffectMathProjectionScript, PowerControls, PowerProjection }
+export { EffectMathProjectionScript, PowerControls, PowerProjection }
 
-const defaultPowerAnimationControls: PowerControls = defaultEffectMathEntryInput
+const defaultPowerAnimationControls = PowerControls.defaults()
 
 export const powerControlsAtom: AtomType.Writable<PowerControls> = Atom.make(defaultPowerAnimationControls)
 export const powerAnimatingAtom: AtomType.Writable<boolean> = Atom.make(false)
@@ -47,7 +41,7 @@ export const isEffectMathRunFrame = (frame: { readonly _tag: string } | null): f
   frame !== null && frame._tag === "effect-math"
 
 export const powerProjectionAtom: AtomType.Atom<PowerProjection> = Atom.make(
-  (get: AtomType.Context): PowerProjection => projectPowerProjection(get(powerControlsAtom))
+  (get: AtomType.Context): PowerProjection => PowerProjection.project(get(powerControlsAtom))
 )
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
@@ -116,7 +110,7 @@ const drainPowerFrames = ({
     Effect.flatMap((nextEvent) =>
       isStreamCompletionEvent(nextEvent)
         ? remainingSteps.length === 0
-          ? emit(projectionDriverCompletedEvent)
+          ? emit(ProjectionDriverCompletedEvent.make())
           : Effect.fail(
             executionFailedError("effect-math run ended before every authored power frame arrived.")
           )
@@ -137,7 +131,7 @@ const drainPowerFrames = ({
                     })
                   )
                 )
-                : emit(projectionDriverCompletedEvent)
+                : emit(ProjectionDriverCompletedEvent.make())
             )
           )
           : Effect.fail(

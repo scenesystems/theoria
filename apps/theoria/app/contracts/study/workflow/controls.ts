@@ -41,15 +41,57 @@ export const workflowSurfaceProfiles: ReadonlyArray<WorkflowSurfaceProfile> = [
   "full-panel"
 ]
 
-export const WorkflowRunControls = Schema.Struct({
+export class WorkflowRunControls extends Schema.Class<WorkflowRunControls>("WorkflowRunControls")({
   lane: WorkflowExecutionLaneSchema,
   optimize: Schema.Boolean,
   targetMode: WorkflowTargetModeSchema,
   runtimeProfile: WorkflowRuntimeProfileSchema,
   surfaceProfile: WorkflowSurfaceProfileSchema
-})
+}) {
+  static defaults(): WorkflowRunControls {
+    return WorkflowRunControls.make({
+      lane: workflowExecutionLanes[0] ?? "deterministic-fallback",
+      optimize: true,
+      targetMode: "search-winner",
+      runtimeProfile: "authored",
+      surfaceProfile: "authored"
+    })
+  }
 
-export type WorkflowRunControls = typeof WorkflowRunControls.Type
+  static effectiveTargetMode({
+    targetMode,
+    optimize
+  }: {
+    readonly targetMode: WorkflowTargetMode
+    readonly optimize: boolean
+  }): WorkflowTargetMode {
+    return !optimize && targetMode === "search-winner"
+      ? "authored-optimized"
+      : targetMode
+  }
+
+  static normalize({
+    targetMode,
+    lane,
+    optimize,
+    runtimeProfile,
+    surfaceProfile
+  }: WorkflowRunControlOverrides = {}): WorkflowRunControls {
+    const defaults = WorkflowRunControls.defaults()
+    const resolvedOptimize = optimize ?? defaults.optimize
+
+    return WorkflowRunControls.make({
+      lane: lane ?? defaults.lane,
+      optimize: resolvedOptimize,
+      targetMode: WorkflowRunControls.effectiveTargetMode({
+        targetMode: targetMode ?? defaults.targetMode,
+        optimize: resolvedOptimize
+      }),
+      runtimeProfile: runtimeProfile ?? defaults.runtimeProfile,
+      surfaceProfile: surfaceProfile ?? defaults.surfaceProfile
+    })
+  }
+}
 
 type WorkflowRunControlOverrides = {
   readonly targetMode?: WorkflowTargetMode
@@ -58,14 +100,6 @@ type WorkflowRunControlOverrides = {
   readonly runtimeProfile?: WorkflowRuntimeProfile
   readonly surfaceProfile?: WorkflowSurfaceProfile
 }
-
-export const defaultWorkflowEntryControls = WorkflowRunControls.make({
-  lane: workflowExecutionLanes[0] ?? "deterministic-fallback",
-  optimize: true,
-  targetMode: "search-winner",
-  runtimeProfile: "authored",
-  surfaceProfile: "authored"
-})
 
 export const workflowExecutionLaneLabel = (
   lane: WorkflowExecutionLane
@@ -98,29 +132,3 @@ export const workflowSurfaceProfileLabel = (
     : surfaceProfile === "sidebar"
     ? "Sidebar"
     : "Full Panel"
-
-export const effectiveWorkflowTargetMode = ({
-  targetMode,
-  optimize
-}: {
-  readonly targetMode: WorkflowTargetMode
-  readonly optimize: boolean
-}): WorkflowTargetMode =>
-  !optimize && targetMode === "search-winner"
-    ? "authored-optimized"
-    : targetMode
-
-export const normalizeWorkflowEntryControls = ({
-  targetMode = defaultWorkflowEntryControls.targetMode,
-  lane = defaultWorkflowEntryControls.lane,
-  optimize = defaultWorkflowEntryControls.optimize,
-  runtimeProfile = defaultWorkflowEntryControls.runtimeProfile,
-  surfaceProfile = defaultWorkflowEntryControls.surfaceProfile
-}: WorkflowRunControlOverrides = {}): WorkflowRunControls =>
-  WorkflowRunControls.make({
-    lane,
-    optimize,
-    targetMode: effectiveWorkflowTargetMode({ targetMode, optimize }),
-    runtimeProfile,
-    surfaceProfile
-  })

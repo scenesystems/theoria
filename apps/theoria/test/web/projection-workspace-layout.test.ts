@@ -5,7 +5,7 @@ import {
   clampedThreePaneSecondaryPercent,
   threePanePrimaryBounds,
   threePaneSecondaryBounds
-} from "../../app/web/state/surface/deep-dive-workspace-layout.js"
+} from "../../app/contracts/presentation/deep-dive-workspace-layout.js"
 
 describe("projection-workspace-layout", () => {
   it("keeps the first divider within three-pane desktop bounds", () => {

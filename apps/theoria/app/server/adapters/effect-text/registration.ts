@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { effectTextEntryDescriptor } from "../../../contracts/entry/descriptors/effect-text.js"
 import { EffectTextManifest, type StreamManifest } from "../../../contracts/evidence/manifest.js"
 
-import { type EntryRegistrationOptions, materializeEntryDefinition } from "../../kernel/registration.js"
+import { EntryDefinition, type EntryRegistrationOptions } from "../../kernel/registration.js"
 import { preloadProgram, run, streamElements, streamPlan } from "./run.js"
 
 const acceptsManifest = (manifest: StreamManifest | null): boolean =>
@@ -19,4 +19,4 @@ export const effectTextEntryRegistration: EntryRegistrationOptions<"effect-text"
   streamElements
 }
 
-export const effectTextEntryDefinition = materializeEntryDefinition(effectTextEntryRegistration)
+export const effectTextEntryDefinition = EntryDefinition.make(effectTextEntryRegistration)

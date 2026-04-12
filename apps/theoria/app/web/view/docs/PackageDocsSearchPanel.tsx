@@ -2,8 +2,12 @@ import { useAtom, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import type { ChangeEvent } from "react"
 
-import { type PackageDocsPageRoute, PackageDocsSearchModel } from "../../../contracts/presentation/package-docs.js"
-import { packageDocsSearchQueryAtom, packageDocsSearchStateAtom } from "../../atoms/package-docs-search.js"
+import {
+  packageDocsSearchPanelContent,
+  type PackageDocsPageRoute,
+  type PackageDocsSearchModel
+} from "../../../contracts/presentation/package-docs.js"
+import { packageDocsSearchQueryAtom, packageDocsSearchStateAtom } from "../../atoms/package-docs.js"
 import { ContentCard } from "../primitives/ContentCard.js"
 import { Cluster, Stack } from "../primitives/Layout.js"
 import { ExternalLink, InternalLink } from "../primitives/Link.js"
@@ -40,18 +44,24 @@ const searchResultCard = ({
 
 export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsPageRoute }) => {
   const [query, setQuery] = useAtom(packageDocsSearchQueryAtom)
-  const state = useAtomValue(packageDocsSearchStateAtom(route))
+  const content = packageDocsSearchPanelContent(useAtomValue(packageDocsSearchStateAtom(route)))
 
   return (
     <ContentCard density="standard">
       <Stack className="gap-4">
         <Stack className="gap-1">
-          <SemanticText as="h2" className="text-ink-900" role="section-title" text="Search docs" variant="expanded" />
+          <SemanticText
+            as="h2"
+            className="text-ink-900"
+            role="section-title"
+            text={content.frame.title}
+            variant="expanded"
+          />
           <SemanticText
             as="p"
             className="text-ink-700"
             role="card-summary"
-            text="Search the canonical package-doc corpus without leaving the current docs surface."
+            text={content.frame.summaryText}
             variant="expanded"
           />
         </Stack>
@@ -62,15 +72,13 @@ export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsP
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             setQuery(event.target.value)
           }}
-          placeholder="Search README blocks, module docs, examples, snapshots, and proof commands..."
+          placeholder={content.frame.placeholderText}
           tone={neutralTone}
           value={query}
         />
 
-        {Match.value(state).pipe(
-          Match.tag("IdlePackageDocsSearch", ({ selectedPackageId }) => {
-            const model = PackageDocsSearchModel.project({ packageId: selectedPackageId, query: "", results: [] })
-
+        {Match.value(content).pipe(
+          Match.tag("Idle", ({ model }) => {
             return (
               <Stack className="gap-1">
                 <SemanticText
@@ -90,15 +98,9 @@ export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsP
               </Stack>
             )
           }),
-          Match.tag("LoadingPackageDocsSearch", () => <RunningState text="Searching package docs..." />),
-          Match.tag("FailedPackageDocsSearch", ({ description }) => <FailureState description={description} />),
-          Match.tag("ReadyPackageDocsSearch", ({ query: readyQuery, results, selectedPackageId }) => {
-            const model = PackageDocsSearchModel.project({
-              packageId: selectedPackageId,
-              query: readyQuery,
-              results
-            })
-
+          Match.tag("Loading", ({ statusText }) => <RunningState text={statusText} />),
+          Match.tag("Failure", ({ description }) => <FailureState description={description} />),
+          Match.tag("Ready", ({ model }) => {
             return (
               <Stack className="gap-3">
                 <Stack className="gap-1">

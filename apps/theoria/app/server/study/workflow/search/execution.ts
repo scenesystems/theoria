@@ -7,14 +7,10 @@ import type { EvidenceEvent } from "../../../../contracts/evidence/stream.js"
 import type { WorkflowExecutionLane } from "../../../../contracts/study/workflow/controls.js"
 import { WorkflowStudyExecutionError } from "../../../../contracts/study/workflow/execution.js"
 import type { FrozenWorkflowRun } from "../../../../contracts/study/workflow/frozen.js"
+import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
 import type { DspProviderRuntime } from "../../../capability/effect-dsp.js"
 import { workflowSearchProgressEvents } from "../evidence/search-progress.js"
-import {
-  searchSeedForWorkflow,
-  searchSpaceForDimensions,
-  trialBudgetForDimensions,
-  type WorkflowSearchDimension
-} from "./dimensions.js"
+import { searchSpaceForDimensions, trialBudgetForDimensions, type WorkflowSearchDimension } from "./dimensions.js"
 import { selectionFromSearchStudyConfig } from "./outcome.js"
 import { bestEvaluation } from "./progress.js"
 import type { WorkflowSearchEvaluation, WorkflowSearchStudyOutcome } from "./schema.js"
@@ -89,7 +85,7 @@ export const executeWorkflowSearchStudy = <R = never>({
       const handle = yield* Study.open({
         space: searchSpaceForDimensions(dimensions),
         sampler: Sampler.tpe({
-          seed: searchSeedForWorkflow(workflowRun),
+          seed: WorkflowScenarioManifest.forId(workflowRun.scenarioId).searchSeed(),
           nStartupTrials: Math.min(4, trialBudget),
           nEiCandidates: Math.max(8, trialBudget)
         }),

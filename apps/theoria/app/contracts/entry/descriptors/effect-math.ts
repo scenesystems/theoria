@@ -4,12 +4,13 @@ import { authorityCatalogForId } from "../../capability/catalog.js"
 import {
   powerAlphaMax,
   powerAlphaMin,
+  PowerControls,
   powerEffectSizeMax,
   powerEffectSizeMin,
   powerSampleSizeMax,
   powerSampleSizeMin
 } from "../../capability/effect-math.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
+import { DefaultSeedId, EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed } from "../descriptor.js"
 
 const effectMathAuthority = authorityCatalogForId("effect-math")
 
@@ -19,7 +20,7 @@ const EffectMathEntryInput = Schema.Struct({
   alpha: Schema.Number.pipe(Schema.between(powerAlphaMin, powerAlphaMax))
 })
 
-export const effectMathEntryDescriptor = EntryDescriptor.define({
+export const effectMathEntryDescriptor = EntryDescriptor.make({
   entryId: "effect-math",
   title: effectMathAuthority.title,
   packageName: effectMathAuthority.packageName,
@@ -30,9 +31,19 @@ export const effectMathEntryDescriptor = EntryDescriptor.define({
   releaseState: "published",
   path: "/effect-math",
   interactiveLabel: "Power Explorer",
+  projectionHint: EntryProjectionHint.make({
+    stage:
+      "Sweep effect sizes and sample sizes by streaming authored power checkpoints from effect-math's statistical kernels into one shared runtime spine.",
+    evidence:
+      "Live power-analysis reports, confidence intervals, and solver statuses streamed from effect-math Statistics and Optimization surfaces with no app-local inference formulas.",
+    source: EntryProjectionHint.defaults().source
+  }),
   primaryAuthorityId: "effect-math",
   authorityIds: ["effect-math"],
-  seeds: defaultEntrySeeds(effectMathAuthority.summary),
+  seeds: [EntrySeed.default(effectMathAuthority.summary)],
+  defaultSeedId: "default",
+  defaultInput: PowerControls.defaults(),
+  defaultControls: {},
   seedIdSchema: DefaultSeedId,
   inputSchema: EffectMathEntryInput,
   controlsSchema: EmptyStruct

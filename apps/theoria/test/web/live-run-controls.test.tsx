@@ -9,8 +9,10 @@ import { createRoot } from "react-dom/client"
 import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
 import { EffectSearchCanonicalStep } from "../../app/contracts/capability/effect-search.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
+import { EntryPresentation } from "../../app/contracts/entry/routing.js"
 import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence/stream.js"
-import { DeepDivePage } from "../../app/web/view/deep/DeepDivePage.js"
+import { PageMetadata } from "../../app/contracts/presentation/metadata.js"
+import { EntryPage } from "../../app/web/view/entry/EntryPage.js"
 import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
@@ -52,7 +54,7 @@ const streamMeta = {
   durationMs: 1
 }
 
-const renderDeepDivePage = (id: EntryId): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
+const renderEntryPage = (id: EntryId): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
   Effect.sync(() => {
     const container = document.createElement("div")
     document.body.appendChild(container)
@@ -62,7 +64,7 @@ const renderDeepDivePage = (id: EntryId): Effect.Effect<{ readonly container: HT
       <StrictMode>
         <RegistryProvider defaultIdleTTL={400}>
           <Tooltip.Provider>
-            <DeepDivePage entryId={id} />
+            <EntryPage entry={EntryPresentation.fromEntryId(id)} metadata={PageMetadata.fromEntryId(id)} />
           </Tooltip.Provider>
         </RegistryProvider>
       </StrictMode>
@@ -138,7 +140,7 @@ describe("live run controls", () => {
     () =>
       withMockNetwork(
         Effect.gen(function*() {
-          const { container, root } = yield* renderDeepDivePage("effect-search")
+          const { container, root } = yield* renderEntryPage("effect-search")
 
           yield* Effect.ensuring(
             Effect.gen(function*() {
@@ -172,7 +174,7 @@ describe("live run controls", () => {
                 })
                 const stepEvent = encodeEvidenceEventJson(
                   canonicalStepEvent(
-                    new EffectSearchCanonicalStep({
+                    EffectSearchCanonicalStep.make({
                       trialBudget: 30,
                       phase: "running",
                       tpeTrials: [{ x: -1.25, y: 0.25, value: 0.12, index: 0 }],

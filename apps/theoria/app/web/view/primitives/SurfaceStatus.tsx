@@ -1,7 +1,7 @@
 import { Match } from "effect"
 
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
-import type { StatusTone } from "../surfaceModel.js"
+import type { StatusTone } from "../../../contracts/presentation/surface-presentation.js"
 
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

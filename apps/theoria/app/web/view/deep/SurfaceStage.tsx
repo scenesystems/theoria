@@ -1,15 +1,16 @@
 import { Match } from "effect"
 import type { ReactNode } from "react"
 
+import type { EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
+import { emptyEvidencePlaneViewModel } from "../../../contracts/evidence/plane-view-model.js"
 import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../../../contracts/evidence/plane.js"
 import {
   runEvidenceComplete,
-  type RunEvidenceState,
-  type RunInFlightEvidenceControl
-} from "../../state/run/evidence.js"
-import { emptyEvidencePlaneViewModel, type EvidencePlaneViewModel } from "../data/evidence-plane-model.js"
+  type RunEvidenceControl,
+  type RunEvidenceViewModel
+} from "../../../contracts/presentation/run-evidence.js"
+import type { SurfaceStageViewModel } from "../../../contracts/presentation/surface-stage.js"
 import { EvidenceToolbar } from "../primitives/EvidenceToolbar.js"
-import type { SurfaceStageViewModel } from "./surface-stage-model.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
 import { EmptyState, FailureState, RunningState } from "../primitives/Skeleton.js"
@@ -26,7 +27,7 @@ const evidenceSectionsNode = ({
   onSelectSection,
   plane
 }: {
-  readonly banner: RunEvidenceState["banner"]
+  readonly banner: RunEvidenceViewModel["banner"]
   readonly onSelectFilter: (filter: EvidencePlaneFilter) => void
   readonly onSelectOrder: (order: EvidencePlaneOrder) => void
   readonly onSelectSection: (sectionKey: string | null) => void
@@ -54,7 +55,7 @@ const retainedEvidenceNode = ({
   onSelectSection,
   plane
 }: {
-  readonly banner: RunEvidenceState["banner"]
+  readonly banner: RunEvidenceViewModel["banner"]
   readonly emptyNode: ReactNode
   readonly onSelectFilter: (filter: EvidencePlaneFilter) => void
   readonly onSelectOrder: (order: EvidencePlaneOrder) => void
@@ -75,7 +76,7 @@ const inFlightEmptyNode = ({
   control,
   description
 }: {
-  readonly control: RunInFlightEvidenceControl
+  readonly control: RunEvidenceControl
   readonly description: string
 }): ReactNode =>
   Match.value(control).pipe(
@@ -95,7 +96,7 @@ export const EvidenceStage = ({
   readonly onSelectEvidenceFilter: (filter: EvidencePlaneFilter) => void
   readonly onSelectEvidenceOrder: (order: EvidencePlaneOrder) => void
   readonly onSelectEvidenceSection: (sectionKey: string | null) => void
-  readonly viewModel: RunEvidenceState & { readonly plane: EvidencePlaneViewModel }
+  readonly viewModel: RunEvidenceViewModel & { readonly plane: EvidencePlaneViewModel }
 }) =>
   Match.value(viewModel).pipe(
     Match.tag("RunEvidenceIdle", ({ description }) => <EmptyState description={description} />),

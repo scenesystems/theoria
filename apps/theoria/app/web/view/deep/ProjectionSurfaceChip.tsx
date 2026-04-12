@@ -1,21 +1,17 @@
 import { Button } from "@base-ui-components/react/button"
 import { LinkSlashIcon, PlusIcon } from "@heroicons/react/20/solid"
-import type { PointerEvent } from "react"
-import { useRef } from "react"
 
+import {
+  deepDiveProjectionSurfaceActionAriaLabel,
+  deepDiveProjectionSurfaceActionLabel,
+  type DeepDiveProjectionSurfaceOption
+} from "../../../contracts/presentation/deep-dive-projection.js"
 import { Layer } from "../primitives/Layout.js"
 import { SelectionCopy, SelectionRail } from "../primitives/SelectionLayout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { surfaceMaterials } from "../primitives/theme/surface.js"
 
-import type { DeepDiveProjectionSurfaceOption } from "./projection-model.js"
-
-type ProjectionSurfaceGesture = {
-  readonly pointerId: number
-  readonly startX: number
-  readonly startY: number
-  dragging: boolean
-}
+import { useProjectionSurfaceChipGesture } from "./projection-surface-chip-gesture.js"
 
 const chipShellClassName = ({
   focused,
@@ -72,10 +68,6 @@ const stripeClassName = ({
     ? "bg-ink-900"
     : "bg-stage-300/90"
 
-const stopPointerPropagation = (event: PointerEvent<HTMLElement>): void => {
-  event.stopPropagation()
-}
-
 export const ProjectionSurfaceChip = ({
   draggedSurface,
   library = false,
@@ -108,96 +100,24 @@ export const ProjectionSurfaceChip = ({
   readonly setDraggedSurface: (surface: DeepDiveProjectionSurfaceOption["id"] | null) => void
 }) => {
   const dragging = draggedSurface === option.id
-  const gestureRef = useRef<ProjectionSurfaceGesture | null>(null)
   const projected = option.projected || library
   const actionDisabled = option.projected && projectedCount === 1
   const actionEmphasis = option.projected ? "hide" : "project"
-  const actionLabel = option.projected ? "Unbind" : "Bind"
+  const actionLabel = deepDiveProjectionSurfaceActionLabel(option.projected)
   const ActionIcon = option.projected ? LinkSlashIcon : PlusIcon
   const detail = projected ? option.description : null
   const projectedAction = option.projected
-
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
-    if (event.button !== 0) return
-
-    gestureRef.current = {
-      dragging: false,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
-    const gesture = gestureRef.current
-
-    if (gesture === null || gesture.pointerId !== event.pointerId) return
-
-    const deltaX = event.clientX - gesture.startX
-    const deltaY = event.clientY - gesture.startY
-
-    if (!gesture.dragging && Math.hypot(deltaX, deltaY) >= 6) {
-      gesture.dragging = true
-      onStartDragSurface(option.id, event.clientX, event.clientY)
-    }
-
-    if (gesture.dragging) {
-      onMoveDragSurface(event.clientX, event.clientY)
-    }
-  }
-
-  const releasePointer = (event: PointerEvent<HTMLDivElement>): void => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }
-
-  const resetGesture = (): { readonly dragging: boolean } | null => {
-    const gesture = gestureRef.current
-
-    if (gesture === null) return null
-
-    gestureRef.current = null
-
-    return { dragging: gesture.dragging }
-  }
-
-  const onPointerUp = (event: PointerEvent<HTMLDivElement>): void => {
-    const gesture = gestureRef.current
-
-    if (gesture === null || gesture.pointerId !== event.pointerId) return
-
-    releasePointer(event)
-    const result = resetGesture()
-
-    if (result === null) return
-
-    if (result.dragging) {
-      onCompleteDragSurface(event.clientX, event.clientY)
-      return
-    }
-
-    if (option.projected) {
-      onFocusSurface(option.id)
-      return
-    }
-
-    onProjectSurface(option.id, projectIndex)
-  }
-
-  const onPointerCancel = (event: PointerEvent<HTMLDivElement>): void => {
-    const gesture = gestureRef.current
-
-    if (gesture === null || gesture.pointerId !== event.pointerId) return
-
-    releasePointer(event)
-    resetGesture()
-
-    if (dragging) {
-      setDraggedSurface(null)
-    }
-  }
+  const gesture = useProjectionSurfaceChipGesture({
+    dragging,
+    onCompleteDragSurface,
+    onFocusSurface,
+    onMoveDragSurface,
+    onProjectSurface,
+    onStartDragSurface,
+    option,
+    projectIndex: projectIndex ?? null,
+    setDraggedSurface
+  })
 
   return (
     <Layer
@@ -205,22 +125,25 @@ export const ProjectionSurfaceChip = ({
         dragging,
         focused: option.focused
       })}
-      onPointerCancel={onPointerCancel}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerCancel={gesture.onPointerCancel}
+      onPointerDown={gesture.onPointerDown}
+      onPointerMove={gesture.onPointerMove}
+      onPointerUp={gesture.onPointerUp}
       title={option.description}
     >
       <SelectionRail
         action={
           <Button
-            aria-label={`${actionLabel} ${option.label}`}
+            aria-label={deepDiveProjectionSurfaceActionAriaLabel({
+              label: option.label,
+              projected: option.projected
+            })}
             className={projectedAction
               ? projectedActionButtonClassName(actionDisabled)
               : actionButtonClassName({ disabled: actionDisabled, emphasis: actionEmphasis })}
             disabled={actionDisabled}
-            onPointerDown={stopPointerPropagation}
-            onPointerUp={stopPointerPropagation}
+            onPointerDown={gesture.stopPointerPropagation}
+            onPointerUp={gesture.stopPointerPropagation}
             onClick={() => {
               if (option.projected) {
                 onHideSurface(option.id)

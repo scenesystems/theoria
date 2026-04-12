@@ -1,80 +1,70 @@
-import { Schema } from "effect"
-import * as Arr from "effect/Array"
-
 import type { EntryPresentation } from "../../contracts/entry/routing.js"
-import { PresentationDetailRow, presentationDetailRow } from "../../contracts/presentation/detail-row.js"
+import type { PresentationDetailRow } from "../../contracts/presentation/detail-row.js"
+import { type PresentedRun, presentSections } from "../../contracts/presentation/presented-run.js"
 import type { SurfaceVariant } from "../../contracts/presentation/program.js"
-import { SurfaceChromeContentModel, surfaceChromeContentModel } from "../../contracts/presentation/surface-chrome.js"
-import { tabHintFor } from "../runtime/kernel/surface-view.js"
+import { RunControlsViewModel } from "../../contracts/presentation/run-controls.js"
+import type { SurfaceChromeContentModel } from "../../contracts/presentation/surface-chrome.js"
+import { surfaceChromeContentModel } from "../../contracts/presentation/surface-chrome.js"
+import { SurfaceCodeModel } from "../../contracts/presentation/surface-code.js"
+import {
+  DeepDiveSurfaceFrameViewModel,
+  SurfaceViewModel,
+  type SurfaceViewModel as SurfaceViewModelType
+} from "../../contracts/presentation/surface-presentation.js"
+import type { SurfaceStageViewModel } from "../../contracts/presentation/surface-stage.js"
+import { surfaceSummaryEvidenceRows } from "../../contracts/presentation/surface-summary.js"
 import { type EvidenceStreamState } from "../state/evidence/stream.js"
 import { statusText } from "../state/run/status.js"
 import type { SurfaceState } from "../state/surface/state.js"
 
-import {
-  SurfaceStageFrameViewModel,
-  surfaceStageFrameViewModel,
-  SurfaceStageViewModel,
-  surfaceStageViewModel
-} from "./deep/surface-stage-model.js"
-import { type PresentedRun, presentSections } from "./presenter.js"
-import { RunControlsViewModel, runControlsViewModel } from "./runControlsModel.js"
-import { SurfaceCodeModel, surfaceCodeModel } from "./surfaceCodeModel.js"
+import { surfaceStageFrameViewModel, surfaceStageViewModel } from "./deep/surface-stage-input.js"
+import { surfaceCodePresentationInput } from "./surface-code-input.js"
 
-const compactEvidenceRowLimit = 2
+type SurfacePresentationParts = {
+  readonly compact: boolean
+  readonly chrome: SurfaceChromeContentModel
+  readonly code: SurfaceCodeModel
+  readonly evidenceRows: ReadonlyArray<PresentationDetailRow>
+  readonly runControls: RunControlsViewModel
+  readonly surfaceStage: SurfaceStageViewModel
+}
 
-export const StatusTone = Schema.Literal("panel", "strip")
-export type StatusTone = typeof StatusTone.Type
-export const EvidenceDensity = Schema.Literal("compact", "expanded")
-export type EvidenceDensity = typeof EvidenceDensity.Type
-
-export class SurfaceViewModel extends Schema.Class<SurfaceViewModel>("SurfaceViewModel")({
-  running: Schema.Boolean,
-  runControls: RunControlsViewModel,
-  statusTone: StatusTone,
-  evidenceDensity: EvidenceDensity,
-  status: Schema.String,
-  chrome: SurfaceChromeContentModel,
-  evidenceRows: Schema.Array(PresentationDetailRow),
-  code: SurfaceCodeModel,
-  surfaceStage: SurfaceStageViewModel
-}) {}
-
-export class DeepDiveSurfaceFrameViewModel extends Schema.Class<DeepDiveSurfaceFrameViewModel>(
-  "DeepDiveSurfaceFrameViewModel"
-)({
-  runControls: RunControlsViewModel,
-  chrome: SurfaceChromeContentModel,
-  code: SurfaceCodeModel,
-  surfaceStageFrame: SurfaceStageFrameViewModel
-}) {}
-
-const packageUseCaseRow = (surface: EntryPresentation): PresentationDetailRow =>
-  presentationDetailRow("Entry Use Case", `${surface.packageName}: ${surface.useCase}`)
-
-const selectedSectionRows = (
-  presented: PresentedRun | null,
-  stream: EvidenceStreamState
-): ReadonlyArray<PresentationDetailRow> =>
-  Arr.flatMap(
-    presented === null ? presentSections(stream.sections) : presented.sections,
-    (section) => section.rows
-  )
-
-const compactRows = ({
+const surfacePresentationParts = ({
+  compact,
+  presented,
+  state,
+  stream,
   surface,
-  rows,
-  state
+  variant
 }: {
-  readonly surface: EntryPresentation
-  readonly rows: ReadonlyArray<PresentationDetailRow>
+  readonly compact: boolean
+  readonly presented: PresentedRun | null
   readonly state: SurfaceState
-}): ReadonlyArray<PresentationDetailRow> => {
-  const packageRow = packageUseCaseRow(surface)
-  const rowsWithUseCase = rows[0]?.label === packageRow.label ? rows : [packageRow, ...rows]
+  readonly stream: EvidenceStreamState
+  readonly surface: EntryPresentation
+  readonly variant: SurfaceVariant
+}): SurfacePresentationParts => {
+  const sections = presented === null ? presentSections(stream.sections) : presented.sections
 
-  return state.run._tag === "RunSuccess" || rows.length > 0
-    ? Arr.take(rowsWithUseCase, compactEvidenceRowLimit + 1)
-    : [packageRow, presentationDetailRow("Run Intent", surface.summary)]
+  return {
+    compact,
+    runControls: RunControlsViewModel.project({ phase: state.run.session.phase(), runLabel: surface.runLabel }),
+    chrome: surfaceChromeContentModel(surface),
+    evidenceRows: surfaceSummaryEvidenceRows({
+      compact,
+      hasSuccessfulRun: state.run._tag === "RunSuccess",
+      sections,
+      surface
+    }),
+    code: SurfaceCodeModel.project(surfaceCodePresentationInput(state, variant)),
+    surfaceStage: surfaceStageViewModel({
+      activeTab: state.stageTab,
+      interactiveLabel: surface.interactiveLabel,
+      projectionHint: surface.projectionHint,
+      run: state.run,
+      stream
+    })
+  }
 }
 
 export const surfaceViewModel = ({
@@ -89,26 +79,15 @@ export const surfaceViewModel = ({
   readonly state: SurfaceState
   readonly stream: EvidenceStreamState
   readonly variant: SurfaceVariant
-}): SurfaceViewModel => {
+}): SurfaceViewModelType => {
   const compact = variant === "compact"
-  const rows = selectedSectionRows(presented, stream)
+  const parts = surfacePresentationParts({ compact, presented, state, stream, surface, variant })
 
-  return SurfaceViewModel.make({
+  return SurfaceViewModel.project({
+    ...parts,
     running: state.run.session.phase() === "running",
-    runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
-    statusTone: compact ? "panel" : "strip",
-    evidenceDensity: compact ? "compact" : "expanded",
     status: statusText({ preload: state.preload, run: state.run }, stream.status()),
-    chrome: surfaceChromeContentModel(surface),
-    evidenceRows: compact ? compactRows({ surface, rows, state }) : rows,
-    code: surfaceCodeModel(state, variant),
-    surfaceStage: surfaceStageViewModel({
-      activeTab: state.stageTab,
-      interactiveLabel: surface.interactiveLabel,
-      run: state.run,
-      stream,
-      tabHint: tabHintFor(surface.entryId)
-    })
+    compact
   })
 }
 
@@ -119,13 +98,13 @@ export const deepDiveSurfaceFrameViewModel = ({
   readonly surface: EntryPresentation
   readonly state: SurfaceState
 }): DeepDiveSurfaceFrameViewModel =>
-  DeepDiveSurfaceFrameViewModel.make({
-    runControls: runControlsViewModel({ run: state.run, runLabel: surface.runLabel }),
+  DeepDiveSurfaceFrameViewModel.project({
+    runControls: RunControlsViewModel.project({ phase: state.run.session.phase(), runLabel: surface.runLabel }),
     chrome: surfaceChromeContentModel(surface),
-    code: surfaceCodeModel(state, "expanded"),
+    code: SurfaceCodeModel.project(surfaceCodePresentationInput(state, "expanded")),
     surfaceStageFrame: surfaceStageFrameViewModel({
       activeTab: state.stageTab,
       interactiveLabel: surface.interactiveLabel,
-      tabHint: tabHintFor(surface.entryId)
+      projectionHint: surface.projectionHint
     })
   })

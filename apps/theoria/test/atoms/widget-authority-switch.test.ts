@@ -1,13 +1,10 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
 import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 
-import {
-  EffectSearchCanonicalStep,
-  snapshotEffectSearchProjectionScript
-} from "../../app/contracts/capability/effect-search.js"
+import { EffectSearchCanonicalStep, SearchConfig } from "../../app/contracts/capability/effect-search.js"
 import {
   EffectTextProjectionStep,
   snapshotEffectTextTraversalScript
@@ -18,8 +15,9 @@ import { reflowWidgetViewModelAtom } from "../../app/web/atoms/reflow-widget-vie
 import type { EffectTextRunFrame } from "../../app/web/atoms/reflow.js"
 import { customTextAtom, reflowControlsAtom, reflowStageViewportWidthAtom } from "../../app/web/atoms/reflow.js"
 import {
-  type EffectSearchRunFrame,
+  EffectSearchRunFrame,
   optimizationAnimatingAtom,
+  OptimizationProjection,
   randomTrialsAtom,
   tpeTrialsAtom,
   trialBudgetAtom
@@ -59,21 +57,16 @@ const effectTextFrame: EffectTextRunFrame = {
   }
 }
 
-const effectSearchFrame: EffectSearchRunFrame = {
-  _tag: "effect-search",
-  projection: {
-    trialBudget: 30,
+const effectSearchFrame = EffectSearchRunFrame.make({
+  projection: OptimizationProjection.fromTrials({
+    phase: "running",
+    randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
     tpeTrials: [
       { x: -1.25, y: 0.25, value: 0.12, index: 0 },
       { x: -1.1, y: 0.4, value: 0.08, index: 1 }
     ],
-    randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
-    tpeBestValue: Option.some(0.08),
-    randomBestValue: Option.some(0.45),
-    tpeBestPoint: Option.some({ x: -1.1, y: 0.4, value: 0.08, index: 1 }),
-    randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
-    phase: "running"
-  },
+    trialBudget: 30
+  }),
   telemetry: projectEffectSearchStudyTelemetry({
     randomEvents: [],
     randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
@@ -84,7 +77,7 @@ const effectSearchFrame: EffectSearchRunFrame = {
       { x: -1.1, y: 0.4, value: 0.08, index: 1 }
     ]
   })
-}
+})
 
 const effectTextCanonicalFrame = canonicalFrameV1(
   new EffectTextProjectionStep({
@@ -96,7 +89,7 @@ const effectTextCanonicalFrame = canonicalFrameV1(
 )
 
 const effectSearchCanonicalFrame = canonicalFrameV1(
-  new EffectSearchCanonicalStep({
+  EffectSearchCanonicalStep.make({
     trialBudget: effectSearchFrame.projection.trialBudget,
     phase: "running",
     tpeTrials: effectSearchFrame.projection.tpeTrials,
@@ -213,7 +206,7 @@ describe("widget authority switch", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const running = runningRunState({
-        localProjectionScript: snapshotEffectSearchProjectionScript(30),
+        localProjectionScript: SearchConfig.fromTrialBudget(30).projectionScript(),
         program: programPreviewFixture.program
       })
 
@@ -240,7 +233,7 @@ describe("widget authority switch", () => {
         canonicalFrame: effectSearchCanonicalFrame,
         frame: effectSearchFrame,
         running: runningRunState({
-          localProjectionScript: snapshotEffectSearchProjectionScript(30),
+          localProjectionScript: SearchConfig.fromTrialBudget(30).projectionScript(),
           program: programPreviewFixture.program
         }),
         summary: "effect-search finished"

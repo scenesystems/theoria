@@ -19,14 +19,6 @@ export const versionRoute = (requestId: string) =>
     const runtimeInfo = yield* RuntimeInfo
 
     return yield* jsonResponse(
-      VersionSuccessEnvelope.make({
-        ok: true,
-        meta: yield* timing.finish(),
-        data: Version.make({
-          service: "theoria",
-          buildSha: runtimeInfo.buildSha,
-          startedAtMs: runtimeInfo.startedAtMs
-        })
-      })
+      VersionSuccessEnvelope.ok(yield* timing.finish(), Version.current(runtimeInfo))
     )
   })

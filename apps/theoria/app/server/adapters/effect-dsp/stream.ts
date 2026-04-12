@@ -1,6 +1,7 @@
 import { Clock, Effect, Stream } from "effect"
 import * as Arr from "effect/Array"
 
+import type { DspRunRequest } from "../../../contracts/capability/effect-dsp.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
 import type { DspProviderRuntime } from "../../capability/effect-dsp.js"
 import { concatStreams, sectionEffectsToStream, type StreamElement } from "../../kernel/kinds/stream-element.js"
@@ -13,7 +14,6 @@ import {
 } from "./progressive-stages.js"
 import {
   dspExecutionStory,
-  type DspRunRequest,
   prepareExecution,
   reportScore,
   runBaseline,

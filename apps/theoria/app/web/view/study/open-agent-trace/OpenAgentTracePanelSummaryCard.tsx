@@ -1,10 +1,10 @@
+import type { OpenAgentTracePanelModel } from "../../../../contracts/study/workflow/open-agent-trace.js"
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
 import { toneFor } from "../../primitives/theme/tone.js"
 
 import { OpenAgentTracePanelSummaryRows } from "./OpenAgentTracePanelSectionCard.js"
-import type { OpenAgentTracePanelModel } from "./panel-types.js"
 
 const tone = toneFor("dsp")
 

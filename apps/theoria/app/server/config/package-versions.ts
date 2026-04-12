@@ -4,11 +4,11 @@ import * as Arr from "effect/Array"
 import * as EffectRecord from "effect/Record"
 import * as Tuple from "effect/Tuple"
 
+import { PackageVersions } from "../../contracts/capability/package-versions.js"
+
 export class PackageVersionsInfo extends Context.Tag("@theoria/app/server/config/PackageVersionsInfo")<
   PackageVersionsInfo,
-  {
-    readonly versions: Record<string, string>
-  }
+  PackageVersions
 >() {}
 
 const packagesDirUrl = new URL("../../../../../packages/", import.meta.url)
@@ -41,6 +41,6 @@ export const PackageVersionsLive = Layer.effect(
       Effect.annotateLogs("packageCount", EffectRecord.keys(versions).length)
     )
 
-    return PackageVersionsInfo.of({ versions })
+    return PackageVersionsInfo.of(PackageVersions.fromRecord(versions))
   })
 )

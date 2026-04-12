@@ -6,124 +6,55 @@ import {
   WorkflowExecutionRecordSchema,
   WorkflowKindSchema
 } from "effect-inference/Contracts"
-import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
 
 import { type DurableFingerprint, fingerprintOf } from "../../entry/fingerprint.js"
 import { workflowEntryId } from "../../entry/id.js"
-import {
-  chatHandoffWorkflowScenarioId,
-  chatHandoffWorkflowScenarioManifest,
-  defaultWorkflowScenarioId,
-  renderSensitiveWorkflowScenarioId,
-  renderSensitiveWorkflowScenarioManifest,
-  retrievalRequiredWorkflowScenarioId,
-  retrievalRequiredWorkflowScenarioManifest,
-  taskBriefingWorkflowScenarioId,
-  taskBriefingWorkflowScenarioManifest,
-  type WorkflowScenarioId,
-  workflowScenarioIds,
-  WorkflowScenarioIdSchema
-} from "./manifest.js"
+import { type WorkflowScenarioId, WorkflowScenarioIdSchema, WorkflowScenarioManifest } from "./manifest.js"
 
-export {
-  chatHandoffWorkflowScenarioId,
-  chatHandoffWorkflowScenarioManifest,
-  defaultWorkflowScenarioId,
-  renderSensitiveWorkflowScenarioId,
-  renderSensitiveWorkflowScenarioManifest,
-  retrievalRequiredWorkflowScenarioId,
-  retrievalRequiredWorkflowScenarioManifest,
-  taskBriefingWorkflowScenarioId,
-  taskBriefingWorkflowScenarioManifest,
-  workflowScenarioIds,
-  WorkflowScenarioIdSchema
-}
+export { WorkflowScenarioIdSchema, WorkflowScenarioManifest }
 
 export type { WorkflowScenarioId } from "./manifest.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
-export const WorkflowScenarioOptionSchema = Schema.Struct({
-  id: WorkflowScenarioIdSchema,
-  label: NonEmptyString,
-  summary: NonEmptyString
-})
-
-export type WorkflowScenarioOption = Schema.Schema.Type<typeof WorkflowScenarioOptionSchema>
-
-const workflowScenarioOption = ({
-  id,
-  label,
-  summary
-}: {
-  readonly id: WorkflowScenarioId
-  readonly label: string
-  readonly summary: string
-}): WorkflowScenarioOption => ({ id, label, summary })
-
-export const workflowScenarioOptions: ReadonlyArray<WorkflowScenarioOption> = Arr.map(
-  [
-    taskBriefingWorkflowScenarioManifest,
-    chatHandoffWorkflowScenarioManifest,
-    retrievalRequiredWorkflowScenarioManifest,
-    renderSensitiveWorkflowScenarioManifest
-  ],
-  (manifest) => workflowScenarioOption(manifest)
-)
-
-const defaultWorkflowScenarioOption = workflowScenarioOption({
-  id: taskBriefingWorkflowScenarioManifest.id,
-  label: taskBriefingWorkflowScenarioManifest.label,
-  summary: taskBriefingWorkflowScenarioManifest.summary
-})
-
-export const workflowScenarioOptionForId = (id: WorkflowScenarioId): WorkflowScenarioOption =>
-  Option.getOrElse(
-    Arr.findFirst(workflowScenarioOptions, (option) => option.id === id),
-    () => defaultWorkflowScenarioOption
-  )
-
-export const WorkflowScenarioEntrySchema = Schema.Struct({
+export class WorkflowScenarioEntry extends Schema.Class<WorkflowScenarioEntry>("WorkflowScenarioEntry")({
   scenarioId: WorkflowScenarioIdSchema,
   entryId: Schema.Literal(workflowEntryId)
-})
-
-export type WorkflowScenarioEntry = Schema.Schema.Type<typeof WorkflowScenarioEntrySchema>
-
-export const WorkflowAuthorityBindingsSchema = Schema.Struct({
-  numeric: Schema.Literal("effect-math"),
-  program: Schema.Literal("effect-dsp"),
-  render: Schema.Literal("effect-text"),
-  runtime: Schema.Literal("effect-inference"),
-  score: Schema.Literal("effect-inference"),
-  search: Schema.Literal("effect-search")
-})
-
-export type WorkflowAuthorityBindings = Schema.Schema.Type<typeof WorkflowAuthorityBindingsSchema>
-
-export const workflowAuthorityBindings: WorkflowAuthorityBindings = {
-  numeric: "effect-math",
-  program: "effect-dsp",
-  render: "effect-text",
-  runtime: "effect-inference",
-  score: "effect-inference",
-  search: "effect-search"
+}) {
+  static fingerprint(
+    entry: WorkflowScenarioEntry
+  ): Effect.Effect<typeof DurableFingerprint.Type, never, never> {
+    return fingerprintOf(encodeWorkflowScenarioEntry(entry))
+  }
 }
 
-export const WorkflowExecutionRecordPairSchema = Schema.Struct({
-  baseline: WorkflowExecutionRecordSchema,
-  optimized: WorkflowExecutionRecordSchema
-})
+export class WorkflowExecutionRecordPair
+  extends Schema.Class<WorkflowExecutionRecordPair>("WorkflowExecutionRecordPair")({
+    baseline: WorkflowExecutionRecordSchema,
+    optimized: WorkflowExecutionRecordSchema
+  })
+{
+  static fromVariants(variants: WorkflowScenarioVariants): WorkflowExecutionRecordPair {
+    return WorkflowExecutionRecordPair.make({
+      baseline: variants.baseline.record,
+      optimized: variants.optimized.record
+    })
+  }
+}
 
-export type WorkflowExecutionRecordPair = Schema.Schema.Type<typeof WorkflowExecutionRecordPairSchema>
-
-export const WorkflowEvaluationReportPairSchema = Schema.Struct({
-  baseline: WorkflowEvaluationReportSchema,
-  optimized: WorkflowEvaluationReportSchema
-})
-
-export type WorkflowEvaluationReportPair = Schema.Schema.Type<typeof WorkflowEvaluationReportPairSchema>
+export class WorkflowEvaluationReportPair
+  extends Schema.Class<WorkflowEvaluationReportPair>("WorkflowEvaluationReportPair")({
+    baseline: WorkflowEvaluationReportSchema,
+    optimized: WorkflowEvaluationReportSchema
+  })
+{
+  static fromVariants(variants: WorkflowScenarioVariants): WorkflowEvaluationReportPair {
+    return WorkflowEvaluationReportPair.make({
+      baseline: variants.baseline.report,
+      optimized: variants.optimized.report
+    })
+  }
+}
 
 export class BaselineWorkflowScenarioVariant extends Schema.TaggedClass<BaselineWorkflowScenarioVariant>()(
   "BaselineWorkflowScenarioVariant",
@@ -131,7 +62,17 @@ export class BaselineWorkflowScenarioVariant extends Schema.TaggedClass<Baseline
     record: WorkflowExecutionRecordSchema,
     report: WorkflowEvaluationReportSchema
   }
-) {}
+) {
+  static fromPair({
+    record,
+    report
+  }: {
+    readonly record: WorkflowExecutionRecordPair["baseline"]
+    readonly report: WorkflowEvaluationReportPair["baseline"]
+  }): BaselineWorkflowScenarioVariant {
+    return BaselineWorkflowScenarioVariant.make({ record, report })
+  }
+}
 
 export class OptimizedWorkflowScenarioVariant extends Schema.TaggedClass<OptimizedWorkflowScenarioVariant>()(
   "OptimizedWorkflowScenarioVariant",
@@ -139,7 +80,17 @@ export class OptimizedWorkflowScenarioVariant extends Schema.TaggedClass<Optimiz
     record: WorkflowExecutionRecordSchema,
     report: WorkflowEvaluationReportSchema
   }
-) {}
+) {
+  static fromPair({
+    record,
+    report
+  }: {
+    readonly record: WorkflowExecutionRecordPair["optimized"]
+    readonly report: WorkflowEvaluationReportPair["optimized"]
+  }): OptimizedWorkflowScenarioVariant {
+    return OptimizedWorkflowScenarioVariant.make({ record, report })
+  }
+}
 
 export const WorkflowScenarioVariantSchema = Schema.Union(
   BaselineWorkflowScenarioVariant,
@@ -148,50 +99,10 @@ export const WorkflowScenarioVariantSchema = Schema.Union(
 
 export type WorkflowScenarioVariant = Schema.Schema.Type<typeof WorkflowScenarioVariantSchema>
 
-type WorkflowScenarioVariantPair = {
-  readonly baseline: BaselineWorkflowScenarioVariant
-  readonly optimized: OptimizedWorkflowScenarioVariant
-}
-
-export const workflowScenarioVariantPair = ({
-  baseline,
-  optimized
-}: WorkflowScenarioVariantPair): WorkflowScenarioVariantPair => ({
-  baseline,
-  optimized
-})
-
-export const baselineWorkflowScenarioVariant = ({
-  record,
-  report
-}: {
-  readonly record: WorkflowExecutionRecordPair["baseline"]
-  readonly report: WorkflowEvaluationReportPair["baseline"]
-}): BaselineWorkflowScenarioVariant => BaselineWorkflowScenarioVariant.make({ record, report })
-
-export const optimizedWorkflowScenarioVariant = ({
-  record,
-  report
-}: {
-  readonly record: WorkflowExecutionRecordPair["optimized"]
-  readonly report: WorkflowEvaluationReportPair["optimized"]
-}): OptimizedWorkflowScenarioVariant => OptimizedWorkflowScenarioVariant.make({ record, report })
-
-export const workflowScenarioRecordPair = ({
-  baseline,
-  optimized
-}: WorkflowScenarioVariantPair): WorkflowExecutionRecordPair => ({
-  baseline: baseline.record,
-  optimized: optimized.record
-})
-
-export const workflowScenarioReportPair = ({
-  baseline,
-  optimized
-}: WorkflowScenarioVariantPair): WorkflowEvaluationReportPair => ({
-  baseline: baseline.report,
-  optimized: optimized.report
-})
+export class WorkflowScenarioVariants extends Schema.Class<WorkflowScenarioVariants>("WorkflowScenarioVariants")({
+  baseline: BaselineWorkflowScenarioVariant,
+  optimized: OptimizedWorkflowScenarioVariant
+}) {}
 
 export const WorkflowProfileLibrarySchema = Schema.Struct({
   taskOriented: ScoreProfileSchema,
@@ -202,36 +113,62 @@ export const WorkflowProfileLibrarySchema = Schema.Struct({
 
 export type WorkflowProfileLibrary = Schema.Schema.Type<typeof WorkflowProfileLibrarySchema>
 
-export const WorkflowScenarioSchema = Schema.Struct({
-  entry: WorkflowScenarioEntrySchema,
-  authorities: WorkflowAuthorityBindingsSchema,
+export class WorkflowScenario extends Schema.Class<WorkflowScenario>("WorkflowScenario")({
+  entry: WorkflowScenarioEntry,
   label: NonEmptyString,
   summary: NonEmptyString,
   workflowKind: WorkflowKindSchema,
-  records: WorkflowExecutionRecordPairSchema,
-  reports: WorkflowEvaluationReportPairSchema
-})
+  records: WorkflowExecutionRecordPair,
+  reports: WorkflowEvaluationReportPair
+}) {
+  static id(scenario: WorkflowScenario): WorkflowScenarioId {
+    return scenario.entry.scenarioId
+  }
 
-export type WorkflowScenario = Schema.Schema.Type<typeof WorkflowScenarioSchema>
+  static fingerprint(
+    scenario: WorkflowScenario
+  ): Effect.Effect<typeof DurableFingerprint.Type, never, never> {
+    return fingerprintOf(encodeWorkflowScenario(scenario))
+  }
 
-export const WorkflowScenarioCatalogSchema = Schema.Array(WorkflowScenarioSchema)
+  static catalogFingerprint(
+    catalog: WorkflowScenarioCatalog
+  ): Effect.Effect<typeof DurableFingerprint.Type, never, never> {
+    return fingerprintOf(encodeWorkflowScenarioCatalog(catalog))
+  }
+
+  static fromManifest({
+    manifest,
+    variants,
+    workflowKind
+  }: {
+    readonly manifest: WorkflowScenarioManifest
+    readonly variants: WorkflowScenarioVariants
+    readonly workflowKind: typeof WorkflowKindSchema.Type
+  }): WorkflowScenario {
+    return WorkflowScenario.make({
+      entry: WorkflowScenarioEntry.make({
+        scenarioId: manifest.id,
+        entryId: workflowEntryId
+      }),
+      label: manifest.label,
+      summary: manifest.summary,
+      workflowKind,
+      records: WorkflowExecutionRecordPair.fromVariants(variants),
+      reports: WorkflowEvaluationReportPair.fromVariants(variants)
+    })
+  }
+}
+
+export const WorkflowScenarioCatalogSchema = Schema.Array(WorkflowScenario)
 
 export type WorkflowScenarioCatalog = Schema.Schema.Type<typeof WorkflowScenarioCatalogSchema>
 
-const encodeWorkflowScenarioEntry = Schema.encodeSync(WorkflowScenarioEntrySchema)
-const encodeWorkflowScenario = Schema.encodeSync(WorkflowScenarioSchema)
+export const decodeWorkflowScenario = Schema.decodeUnknownSync(WorkflowScenario)
+export const decodeWorkflowExecutionRecord = Schema.decodeUnknownSync(WorkflowExecutionRecordSchema)
+export const decodeWorkflowEvaluationReport = Schema.decodeUnknownSync(WorkflowEvaluationReportSchema)
+export const decodeWorkflowProfile = Schema.decodeUnknownSync(ScoreProfileSchema)
+
+export const encodeWorkflowScenarioEntry = Schema.encodeSync(WorkflowScenarioEntry)
+export const encodeWorkflowScenario = Schema.encodeSync(WorkflowScenario)
 const encodeWorkflowScenarioCatalog = Schema.encodeSync(WorkflowScenarioCatalogSchema)
-
-export const workflowScenarioId = (scenario: WorkflowScenario): WorkflowScenarioId => scenario.entry.scenarioId
-
-export const workflowScenarioEntryFingerprint = (
-  entry: WorkflowScenarioEntry
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeWorkflowScenarioEntry(entry))
-
-export const workflowScenarioFingerprint = (
-  scenario: WorkflowScenario
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeWorkflowScenario(scenario))
-
-export const workflowScenarioCatalogFingerprint = (
-  catalog: WorkflowScenarioCatalog
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeWorkflowScenarioCatalog(catalog))

@@ -1,6 +1,8 @@
 import { Match, Option } from "effect"
 import type { GraphVariant } from "effect-inference/Contracts"
 
+import { type PresentationDetailRow, presentationDetailRow } from "../../presentation/detail-row.js"
+
 import type { WorkflowNodeExecution } from "./execution.js"
 
 export const workflowEvidenceSectionTitles = {
@@ -97,28 +99,55 @@ export const workflowNodeExecutionTotalTokens = (execution: WorkflowNodeExecutio
 
 export const workflowRuntimeEvidenceRows = (
   execution: WorkflowNodeExecution
-): ReadonlyArray<readonly [string, string]> => [
-  [workflowRuntimeEvidenceFieldLabels.requestedModel, execution.runtimeEvidence.desired.artifact.modelRef],
-  [workflowRuntimeEvidenceFieldLabels.routeFamily, execution.runtimeEvidence.resolvedRoute.route.family],
-  [workflowRuntimeEvidenceFieldLabels.serveMode, execution.runtimeEvidence.resolvedRoute.route.serveMode],
-  [
+): ReadonlyArray<PresentationDetailRow> => [
+  presentationDetailRow(
+    workflowRuntimeEvidenceFieldLabels.requestedModel,
+    execution.runtimeEvidence.desired.artifact.modelRef
+  ),
+  presentationDetailRow(
+    workflowRuntimeEvidenceFieldLabels.routeFamily,
+    execution.runtimeEvidence.resolvedRoute.route.family
+  ),
+  presentationDetailRow(
+    workflowRuntimeEvidenceFieldLabels.serveMode,
+    execution.runtimeEvidence.resolvedRoute.route.serveMode
+  ),
+  presentationDetailRow(
     workflowRuntimeEvidenceFieldLabels.selectedProvider,
     optionalWorkflowRuntimeField(execution.runtimeEvidence.resolvedRoute.selectedProvider ?? null)
-  ],
-  [workflowRuntimeEvidenceFieldLabels.responseModel, execution.runtimeEvidence.resolvedRuntime.responseModel],
-  [
+  ),
+  presentationDetailRow(
+    workflowRuntimeEvidenceFieldLabels.responseModel,
+    execution.runtimeEvidence.resolvedRuntime.responseModel
+  ),
+  presentationDetailRow(
     workflowRuntimeEvidenceFieldLabels.responseId,
     optionalWorkflowRuntimeField(execution.runtimeEvidence.resolvedRuntime.responseId ?? null)
-  ],
-  [
+  ),
+  presentationDetailRow(
     workflowRuntimeEvidenceFieldLabels.startedAt,
     optionalWorkflowRuntimeField(execution.runtimeEvidence.resolvedRuntime.startedAtMs ?? null)
-  ],
-  [
+  ),
+  presentationDetailRow(
     workflowRuntimeEvidenceFieldLabels.completedAt,
     optionalWorkflowRuntimeField(execution.runtimeEvidence.resolvedRuntime.completedAtMs ?? null)
-  ]
+  )
 ]
+
+export const workflowTableDetailRows = (
+  rows: ReadonlyArray<ReadonlyArray<string>>
+): ReadonlyArray<PresentationDetailRow> =>
+  rows.flatMap((row) =>
+    Option.all({
+      label: Option.fromNullable(row[0]),
+      value: Option.fromNullable(row[1])
+    }).pipe(
+      Option.match({
+        onNone: () => [],
+        onSome: ({ label, value }) => [presentationDetailRow(label, value)]
+      })
+    )
+  )
 
 export const workflowOptimizationSnapshotFacts = ({
   completedCount,
@@ -138,13 +167,13 @@ export const workflowOptimizationSnapshotFacts = ({
   readonly studyDuration: number
   readonly trialCount: number
   readonly workflowSeedId: string
-}): ReadonlyArray<ReadonlyArray<string>> => [
-  ["workflow seed", workflowSeedId],
-  ["snapshot format", `${snapshotFormatVersion}`],
-  ["next trial number", `${nextTrialNumber}`],
-  ["completed count", `${completedCount}`],
-  ["trial count", `${trialCount}`],
-  ["study duration", `${studyDuration}`],
-  ["sampler kind", samplerKind],
-  ["space fingerprint", spaceFingerprint]
+}): ReadonlyArray<PresentationDetailRow> => [
+  presentationDetailRow("workflow seed", workflowSeedId),
+  presentationDetailRow("snapshot format", `${snapshotFormatVersion}`),
+  presentationDetailRow("next trial number", `${nextTrialNumber}`),
+  presentationDetailRow("completed count", `${completedCount}`),
+  presentationDetailRow("trial count", `${trialCount}`),
+  presentationDetailRow("study duration", `${studyDuration}`),
+  presentationDetailRow("sampler kind", samplerKind),
+  presentationDetailRow("space fingerprint", spaceFingerprint)
 ]

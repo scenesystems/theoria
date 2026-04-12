@@ -66,17 +66,14 @@ const textProjectionPrepareKey = ({
   readonly text: TextProjectionRequest["text"]
 }>): string => TextReact.prepareIdentityKey(prepareIdentityForTextProjection({ role, text }))
 
-const makePreparedResultAtom = (authority: TextProjectionAuthority) =>
-  Atom.family((prepareKey: string) =>
-    textRuntime.atom(
-      () => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)),
-      { initialValue: null }
-    )
-  )
-
 export class TextProjectionAtom {
   static make(authority: TextProjectionAuthority = defaultTextProjectionAuthority): TextProjectionAtom {
-    const preparedResultAtom = makePreparedResultAtom(authority)
+    const preparedResultAtom = Atom.family((prepareKey: string) =>
+      textRuntime.atom(
+        () => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)),
+        { initialValue: null }
+      )
+    )
 
     return new TextProjectionAtom(
       Atom.family((request: TextProjectionRequest) => {

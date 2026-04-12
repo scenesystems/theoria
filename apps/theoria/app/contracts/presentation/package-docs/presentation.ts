@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect"
 
-import { entryPresentationForPackageName } from "../../entry/routing.js"
+import { EntryPresentation } from "../../entry/routing.js"
 
 import { PackageDocsLandingPageRoute, PackageDocsPackagePageRoute, type PackageDocsPageRoute } from "./page-route.js"
 import { type PackageName } from "./shared.js"
@@ -41,7 +41,7 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   static project(route: PackageDocsPageRoute): PackageDocsPresentation {
     const packageId = route.selectedPackageId()
 
-    return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(entryPresentationForPackageName)), {
+    return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(EntryPresentation.fromPackageName)), {
       onNone: () =>
         PackageDocsPresentation.make({
           canonicalPath: route.path(),
@@ -64,8 +64,8 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   static projectPackage(packageId: PackageName | null): PackageDocsPresentation {
     return PackageDocsPresentation.project(
       packageId === null
-        ? PackageDocsLandingPageRoute.make({})
-        : PackageDocsPackagePageRoute.make({ packageId })
+        ? PackageDocsLandingPageRoute.landing()
+        : PackageDocsPackagePageRoute.fromPackageId(packageId)
     )
   }
 

@@ -4,7 +4,7 @@ import { Clock, Effect } from "effect"
 import { effectTextProjectionWidths as widths } from "../../../contracts/capability/effect-text.js"
 import { corpus } from "../../../contracts/corpus.js"
 import { effectTextEntryDescriptor } from "../../../contracts/entry/descriptors/effect-text.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { RunData } from "../../../contracts/study/run.js"
 import { baselineLayouts, focusWidth, measured, obstacleProjection, optimizedLayouts } from "./analysis.js"
 import { corpusMatrixProjection, corpusProjection, meanNaiveError, widthMetrics } from "./projection.js"
@@ -15,7 +15,7 @@ import { preloadProgram } from "./preload.js"
 
 export { preloadProgram, runSummary, streamElements, streamPlan, streamSections }
 
-const effectTextRunIdentity = entryRunIdentityForId(effectTextEntryDescriptor.entryId)
+const effectTextRunIdentity = EntryRunIdentity.project(effectTextEntryDescriptor)
 
 export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis

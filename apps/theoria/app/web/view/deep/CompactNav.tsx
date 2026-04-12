@@ -1,7 +1,8 @@
 import type { EntryId } from "../../../contracts/entry/id.js"
+import type { DeepDiveProjectionControlModel } from "../../../contracts/presentation/deep-dive-projection.js"
+import type { RunControlsViewModel } from "../../../contracts/presentation/run-controls.js"
 import type { SurfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
-import type { RunControlsViewModel } from "../runControlsModel.js"
 
 import { ActionLink } from "../primitives/ActionControl.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
@@ -14,7 +15,6 @@ import { toneForCard } from "../primitives/theme/tone.js"
 import { ThemeToggle } from "../primitives/ThemeToggle.js"
 import { TheoriaLogo } from "../primitives/TheoriaLogo.js"
 
-import type { DeepDiveProjectionControlModel } from "./projection-model.js"
 import { ProjectionMenu } from "./ProjectionMenu.js"
 
 export const CompactNav = ({

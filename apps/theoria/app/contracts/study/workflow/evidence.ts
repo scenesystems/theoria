@@ -62,6 +62,7 @@ export {
   workflowOptimizationSnapshotFacts,
   workflowRuntimeEvidenceFieldLabels,
   workflowRuntimeEvidenceRows,
+  workflowTableDetailRows,
   workflowTranscriptDescriptions
 } from "./evidence-presentation.js"
 

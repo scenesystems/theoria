@@ -4,9 +4,8 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { workflowEntryId } from "../../../contracts/entry/id.js"
 import type { WorkflowEntryDraft } from "../../../contracts/entry/registry.js"
 import {
-  effectiveWorkflowTargetMode,
-  normalizeWorkflowEntryControls,
   type WorkflowExecutionLane,
+  WorkflowRunControls,
   type WorkflowRuntimeProfile,
   type WorkflowSurfaceProfile,
   type WorkflowTargetMode
@@ -43,7 +42,7 @@ const updateWorkflowControls = (
 
     return {
       ...draft,
-      controls: normalizeWorkflowEntryControls({
+      controls: WorkflowRunControls.normalize({
         lane: controls.lane ?? draft.controls.lane,
         optimize: controls.optimize ?? draft.controls.optimize,
         targetMode: controls.targetMode ?? draft.controls.targetMode,
@@ -68,7 +67,7 @@ export const selectWorkflowExecutionLaneAtom = Atom.fnSync<WorkflowExecutionLane
 export const selectWorkflowOptimizeAtom = Atom.fnSync<boolean>()((optimize, ctx) => {
   updateWorkflowControls(ctx, (controls) => ({
     optimize,
-    targetMode: effectiveWorkflowTargetMode({
+    targetMode: WorkflowRunControls.effectiveTargetMode({
       targetMode: controls.targetMode,
       optimize
     })

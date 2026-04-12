@@ -14,6 +14,10 @@
 import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
+// Temporary decomposition exception: the authored scenario catalog and run-request
+// authority still co-reside here while the effect-dsp contract split converges.
+const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+
 // ---------------------------------------------------------------------------
 // Scenario identity
 // ---------------------------------------------------------------------------
@@ -55,14 +59,14 @@ export type DspEvaluationExample = typeof DspEvaluationExample.Type
 // ---------------------------------------------------------------------------
 
 export const DspFieldMeta = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1)),
-  description: Schema.String.pipe(Schema.minLength(1))
+  name: NonEmptyString,
+  description: NonEmptyString
 })
 
 export type DspFieldMeta = typeof DspFieldMeta.Type
 
 export const DspSignatureContract = Schema.Struct({
-  instruction: Schema.String.pipe(Schema.minLength(1)),
+  instruction: NonEmptyString,
   inputFields: Schema.Array(DspFieldMeta),
   outputFields: Schema.Array(DspFieldMeta)
 })
@@ -73,24 +77,38 @@ export type DspSignatureContract = typeof DspSignatureContract.Type
 // Scenario definition — the full scenario metadata
 // ---------------------------------------------------------------------------
 
-export const DspScenarioDefinition = Schema.Struct({
+export class DspScenarioDefinition extends Schema.Class<DspScenarioDefinition>("DspScenarioDefinition")({
   id: DspScenarioId,
-  label: Schema.String.pipe(Schema.minLength(1)),
-  invariant: Schema.String.pipe(Schema.minLength(1)),
-  invariantDescription: Schema.String.pipe(Schema.minLength(1)),
+  label: NonEmptyString,
+  invariant: NonEmptyString,
+  invariantDescription: NonEmptyString,
   contract: DspSignatureContract,
   examples: Schema.Array(DspEvaluationExample),
-  metricName: Schema.String.pipe(Schema.minLength(1)),
-  metricDescription: Schema.String.pipe(Schema.minLength(1))
-})
+  metricName: NonEmptyString,
+  metricDescription: NonEmptyString
+}) {
+  static defaults(): DspScenarioDefinition {
+    return interventionClassifier
+  }
 
-export type DspScenarioDefinition = typeof DspScenarioDefinition.Type
+  static catalog(): ReadonlyArray<DspScenarioDefinition> {
+    return dspScenarios
+  }
+
+  static ids(): ReadonlyArray<DspScenarioId> {
+    return Arr.map(dspScenarios, (scenario) => scenario.id)
+  }
+
+  static forId(id: DspScenarioId): DspScenarioDefinition {
+    return dspScenariosById[id]
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Scenario catalog — the authoritative dataset
 // ---------------------------------------------------------------------------
 
-const interventionClassifier: DspScenarioDefinition = {
+const interventionClassifier = DspScenarioDefinition.make({
   id: "intervention-classifier",
   label: "Intervention Classifier",
   invariant: "Participant Parity",
@@ -154,9 +172,9 @@ const interventionClassifier: DspScenarioDefinition = {
   ],
   metricName: "exactMatch",
   metricDescription: "Exact match on intervention label"
-}
+})
 
-const memberCheckSummary: DspScenarioDefinition = {
+const memberCheckSummary = DspScenarioDefinition.make({
   id: "member-check-summary",
   label: "Member-Check Summary",
   invariant: "Contract = Execution",
@@ -221,9 +239,9 @@ const memberCheckSummary: DspScenarioDefinition = {
   ],
   metricName: "themeF1",
   metricDescription: "F1 score on key theme extraction"
-}
+})
 
-const probeFollowUp: DspScenarioDefinition = {
+const probeFollowUp = DspScenarioDefinition.make({
   id: "probe-follow-up",
   label: "Probe Follow-Up",
   invariant: "Audit is Output",
@@ -288,54 +306,85 @@ const probeFollowUp: DspScenarioDefinition = {
   ],
   metricName: "probeAccuracy",
   metricDescription: "Exact match on probe type classification"
-}
+})
 
 /**
  * The authoritative scenario catalog. Ordered by constitutional invariant
  * progression: Parity → Contract → Audit.
  */
-export const dspScenarios: ReadonlyArray<DspScenarioDefinition> = [
+const dspScenarios: ReadonlyArray<DspScenarioDefinition> = [
   interventionClassifier,
   memberCheckSummary,
   probeFollowUp
 ]
 
-export const dspScenariosById: Readonly<Record<DspScenarioId, DspScenarioDefinition>> = {
+const dspScenariosById: Readonly<Record<DspScenarioId, DspScenarioDefinition>> = {
   "intervention-classifier": interventionClassifier,
   "member-check-summary": memberCheckSummary,
   "probe-follow-up": probeFollowUp
 }
 
-export const dspScenarioIds: ReadonlyArray<DspScenarioId> = Arr.map(dspScenarios, (scenario) => scenario.id)
+const dspModuleTypes: ReadonlyArray<DspModuleType> = ["chainOfThought", "predict"]
 
-export const dspModuleTypes: ReadonlyArray<DspModuleType> = ["chainOfThought", "predict"]
-
-export const dspModuleLabels: Readonly<Record<DspModuleType, string>> = {
+const dspModuleLabels: Readonly<Record<DspModuleType, string>> = {
   chainOfThought: "Chain of Thought",
   predict: "Predict"
 }
 
-export const defaultDspScenarioId: DspScenarioId = "intervention-classifier"
+const DspOptimizationBudget = Schema.Number.pipe(Schema.int(), Schema.between(1, 5))
 
-export const defaultDspModuleType: DspModuleType = "chainOfThought"
+export class DspRunRequest extends Schema.Class<DspRunRequest>("DspRunRequest")({
+  scenarioId: DspScenarioId,
+  moduleType: DspModuleType,
+  optimizationBudget: DspOptimizationBudget
+}) {
+  static defaults(): DspRunRequest {
+    return DspRunRequest.make({
+      scenarioId: DspScenarioDefinition.defaults().id,
+      moduleType: "chainOfThought",
+      optimizationBudget: 2
+    })
+  }
 
-export const defaultOptimizationBudget = 2
+  static fromManifest(manifest: {
+    readonly scenarioId: DspScenarioId
+    readonly moduleType: DspModuleType
+    readonly optimizationBudget: number
+  }): DspRunRequest {
+    return DspRunRequest.make({
+      scenarioId: manifest.scenarioId,
+      moduleType: manifest.moduleType,
+      optimizationBudget: manifest.optimizationBudget
+    })
+  }
+}
 
-/**
- * Look up a scenario by ID.
- */
-export const scenarioById = (id: DspScenarioId): DspScenarioDefinition => dspScenariosById[id]
+export class DspScenarioOption extends Schema.Class<DspScenarioOption>("DspScenarioOption")({
+  value: DspScenarioId,
+  label: NonEmptyString
+}) {
+  static catalog(): ReadonlyArray<DspScenarioOption> {
+    return Arr.map(DspScenarioDefinition.catalog(), (scenario) =>
+      DspScenarioOption.make({
+        value: scenario.id,
+        label: scenario.label
+      }))
+  }
+}
 
-// ---------------------------------------------------------------------------
-// Scenario and module options for app consumers
-// ---------------------------------------------------------------------------
+export class DspModuleTypeOption extends Schema.Class<DspModuleTypeOption>("DspModuleTypeOption")({
+  value: DspModuleType,
+  label: NonEmptyString
+}) {
+  static label(moduleType: DspModuleType): string {
+    return dspModuleLabels[moduleType]
+  }
 
-export const dspScenarioOptions: ReadonlyArray<{ readonly value: DspScenarioId; readonly label: string }> = Arr.map(
-  dspScenarios,
-  (scenario) => ({ value: scenario.id, label: scenario.label })
-)
-
-export const dspModuleTypeOptions: ReadonlyArray<{ readonly value: DspModuleType; readonly label: string }> = Arr.map(
-  dspModuleTypes,
-  (moduleType) => ({ value: moduleType, label: dspModuleLabels[moduleType] })
-)
+  static catalog(): ReadonlyArray<DspModuleTypeOption> {
+    return Arr.map(dspModuleTypes, (moduleType) =>
+      DspModuleTypeOption.make({
+        value: moduleType,
+        label: DspModuleTypeOption.label(moduleType)
+      }))
+  }
+}

@@ -9,6 +9,7 @@ import {
   TextItem
 } from "../../../../contracts/evidence/item.js"
 import { Choreography, type EvidenceEvent, SectionAppend } from "../../../../contracts/evidence/stream.js"
+import { presentationDetailRowsTableRows } from "../../../../contracts/presentation/detail-row.js"
 import { StageExit } from "../../../../contracts/study/workflow/choreography.js"
 import {
   workflowEvidenceItemKeys,
@@ -118,7 +119,7 @@ const optimizationStudySections = ({
           key: workflowEvidenceItemKeys.snapshotFacts,
           label: workflowEvidenceItemLabels.snapshotFacts,
           columns: [...workflowEvidenceTableColumns.optimizationSnapshot],
-          rows: workflowOptimizationSnapshotFacts({
+          rows: presentationDetailRowsTableRows(workflowOptimizationSnapshotFacts({
             workflowSeedId: workflowRun.scenarioId,
             snapshotFormatVersion: outcome.snapshot.snapshotFormatVersion,
             nextTrialNumber: outcome.snapshot.nextTrialNumber,
@@ -127,7 +128,7 @@ const optimizationStudySections = ({
             studyDuration: outcome.snapshot.studyDuration,
             samplerKind: outcome.snapshot.samplerKind._tag,
             spaceFingerprint: outcome.snapshot.spaceFingerprint
-          })
+          }))
         }),
         TextItem.make({
           _tag: "Text",

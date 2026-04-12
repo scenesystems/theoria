@@ -8,7 +8,7 @@ import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
 import type { Program } from "../../contracts/presentation/program.js"
 import type { RunData } from "../../contracts/study/run.js"
 
-import { EntryStreamSessionRegistry } from "./kinds/stream-session-registry.js"
+import { RunStreamSessionRegistry } from "./kinds/stream-session-registry.js"
 
 type WorkflowStreamStore = EvidenceStore
 
@@ -44,7 +44,7 @@ const appendBatchActivity = ({
 }) =>
   Activity.make({
     name: `${phaseName}-batch-${batchIndex}`,
-    execute: EntryStreamSessionRegistry.pipe(
+    execute: RunStreamSessionRegistry.pipe(
       Effect.flatMap((registry) => registry.appendBatch({ batchIndex, events, sessionKey }))
     )
   })

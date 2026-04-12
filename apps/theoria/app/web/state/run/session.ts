@@ -2,7 +2,7 @@ import { Data } from "effect"
 
 import type { EntryDraft } from "../../../contracts/entry/registry.js"
 import type { Program } from "../../../contracts/presentation/program.js"
-import type { EntryRunIdentity } from "../../../contracts/study/run-plan.js"
+import type { RunRequestIdentity } from "../../../contracts/study/run-plan.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import { type ChoreographyState, initialChoreographyState } from "../../../contracts/study/workflow/choreography.js"
 
@@ -83,7 +83,7 @@ export class RunSession<
     readonly facts: RunInternalFacts
     readonly telemetry: RunRuntimeTelemetryState
     readonly draft: EntryDraft | null
-    readonly identity: EntryRunIdentity | null
+    readonly identity: RunRequestIdentity | null
     readonly localProjectionScript: LocalProjectionScript | null
     readonly localRunFrame: LocalRunFrame | null
     readonly canonicalFrame: CanonicalFrame | null
@@ -210,7 +210,7 @@ export namespace RunSession {
     readonly facts: RunInternalFacts
     readonly telemetry: RunRuntimeTelemetryState
     readonly draft: EntryDraft | null
-    readonly identity: EntryRunIdentity | null
+    readonly identity: RunRequestIdentity | null
     readonly localProjectionScript: LocalProjectionScript | null
     readonly localRunFrame: LocalRunFrame | null
     readonly canonicalFrame: CanonicalFrame | null

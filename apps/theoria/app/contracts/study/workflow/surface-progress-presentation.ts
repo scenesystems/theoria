@@ -1,7 +1,8 @@
 import { Match, Schema } from "effect"
+import { PresentationDetailRow, presentationDetailRow } from "../../presentation/detail-row.js"
 
 import { workflowOptimizeLabel, type WorkflowTargetMode, workflowTargetModeLabel } from "./controls.js"
-import { workflowEvidenceItemLabels } from "./evidence.js"
+import { workflowEvidenceItemLabels, workflowTableDetailRows } from "./evidence.js"
 
 export type WorkflowProgressMetric =
   | "best-delta-vs-authored-optimized"
@@ -127,10 +128,112 @@ export const workflowProgressSelectionRows = ({
   readonly optimize: boolean
   readonly targetMode: WorkflowTargetMode
   readonly winnerRecord: string | null
-}): ReadonlyArray<ReadonlyArray<string>> => [
-  [workflowProgressSelectionFieldLabel("optimization"), workflowOptimizeLabel(optimize)],
-  [workflowProgressSelectionFieldLabel("replay-target"), workflowTargetModeLabel(targetMode)],
-  [workflowEvidenceItemLabels.currentSelection, currentSelection ?? "n/a"],
-  [workflowEvidenceItemLabels.bestSelection, bestSelection ?? "n/a"],
-  [workflowEvidenceItemLabels.winnerRecord, winnerRecord ?? "n/a"]
+}): ReadonlyArray<PresentationDetailRow> => [
+  presentationDetailRow(workflowProgressSelectionFieldLabel("optimization"), workflowOptimizeLabel(optimize)),
+  presentationDetailRow(workflowProgressSelectionFieldLabel("replay-target"), workflowTargetModeLabel(targetMode)),
+  presentationDetailRow(workflowEvidenceItemLabels.currentSelection, currentSelection ?? "n/a"),
+  presentationDetailRow(workflowEvidenceItemLabels.bestSelection, bestSelection ?? "n/a"),
+  presentationDetailRow(workflowEvidenceItemLabels.winnerRecord, winnerRecord ?? "n/a")
 ]
+
+const StringRows = Schema.Array(Schema.Array(Schema.String))
+
+type WorkflowOptimizationProgressEvidence = {
+  readonly bestScore: number | null
+  readonly bestSelection: string | null
+  readonly completedTrials: number | null
+  readonly currentScore: number | null
+  readonly currentSelection: string | null
+  readonly trialBudget: number | null
+} | null
+
+type WorkflowOptimizationSnapshotEvidence = {
+  readonly facts: ReadonlyArray<ReadonlyArray<string>>
+} | null
+
+type WorkflowOptimizationSummaryEvidence = {
+  readonly completedTrials: number | null
+  readonly trialBudget: number | null
+  readonly winnerVsAuthoredOptimizedScore: {
+    readonly baseline: number | null
+    readonly improved: number | null
+  }
+} | null
+
+type WorkflowOptimizationWinnerEvidence = {
+  readonly winnerRecord: string | null
+} | null
+
+type WorkflowStudyEventTraceEvidence = {
+  readonly rows: ReadonlyArray<ReadonlyArray<string>>
+} | null
+
+export type WorkflowProgressEvidenceProjection = {
+  readonly workflowDelta: {
+    readonly aggregateScore: {
+      readonly baseline: number | null
+    }
+  }
+  readonly optimizationProgress: WorkflowOptimizationProgressEvidence
+  readonly optimizationSnapshot: WorkflowOptimizationSnapshotEvidence
+  readonly optimizationStudyEventTrace: WorkflowStudyEventTraceEvidence
+  readonly optimizationSummary: WorkflowOptimizationSummaryEvidence
+  readonly optimizationWinner: WorkflowOptimizationWinnerEvidence
+}
+
+export class WorkflowProgressViewModel extends Schema.Class<WorkflowProgressViewModel>("WorkflowProgressViewModel")({
+  description: Schema.String,
+  eventRows: StringRows,
+  metrics: Schema.Array(WorkflowProgressMetricPresentation),
+  selectionRows: Schema.Array(PresentationDetailRow),
+  snapshotRows: Schema.Array(PresentationDetailRow)
+}) {
+  static project({
+    evidence,
+    plan
+  }: {
+    readonly evidence: WorkflowProgressEvidenceProjection
+    readonly plan: {
+      readonly controls: {
+        readonly optimize: boolean
+        readonly targetMode: WorkflowTargetMode
+      }
+    }
+  }): WorkflowProgressViewModel {
+    const baselineScore = evidence.workflowDelta.aggregateScore.baseline
+    const authoredOptimizedScore = evidence.optimizationSummary?.winnerVsAuthoredOptimizedScore.baseline ?? null
+    const bestScore = evidence.optimizationSummary?.winnerVsAuthoredOptimizedScore.improved
+      ?? evidence.optimizationProgress?.bestScore
+      ?? null
+    const currentScore = evidence.optimizationProgress?.currentScore ?? null
+    const completedTrials = evidence.optimizationProgress?.completedTrials
+      ?? evidence.optimizationSummary?.completedTrials
+      ?? null
+    const trialBudget = evidence.optimizationProgress?.trialBudget ?? evidence.optimizationSummary?.trialBudget ?? null
+
+    return WorkflowProgressViewModel.make({
+      description: workflowProgressDescription({
+        hasProgress: evidence.optimizationProgress !== null || evidence.optimizationSummary !== null,
+        optimize: plan.controls.optimize,
+        targetMode: plan.controls.targetMode
+      }),
+      eventRows: evidence.optimizationStudyEventTrace?.rows ?? [],
+      metrics: workflowProgressMetricRows({
+        authoredOptimizedScore,
+        baselineScore,
+        bestScore,
+        completedTrials,
+        currentScore,
+        trialBudget
+      }),
+      selectionRows: workflowProgressSelectionRows({
+        bestSelection: evidence.optimizationProgress?.bestSelection ?? null,
+        currentSelection: evidence.optimizationProgress?.currentSelection ?? null,
+        optimize: plan.controls.optimize,
+        targetMode: plan.controls.targetMode,
+        winnerRecord: evidence.optimizationWinner?.winnerRecord ?? null
+      }),
+      snapshotRows: workflowTableDetailRows(evidence.optimizationSnapshot?.facts ?? [])
+    })
+  }
+}

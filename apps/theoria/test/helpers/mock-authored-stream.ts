@@ -5,9 +5,10 @@ import * as Arr from "effect/Array"
 
 import {
   EffectMathCanonicalStep,
+  EffectMathProjectionScript,
   isEffectMathProjectionScript,
-  projectPowerProjection,
-  snapshotEffectMathProjectionScript
+  PowerControls,
+  PowerProjection
 } from "../../app/contracts/capability/effect-math.js"
 import {
   effectSearchStudyTelemetrySections
@@ -19,7 +20,7 @@ import {
   EffectSearchCanonicalStep,
   isEffectSearchProjectionScript,
   optimizationEvidenceBatchSize,
-  snapshotEffectSearchProjectionScript,
+  SearchConfig,
   type TrialPoint,
   trialPositionsSection
 } from "../../app/contracts/capability/effect-search.js"
@@ -96,11 +97,7 @@ const effectMathScriptForSurface = (surface: SurfaceState) => {
   return isEffectMathProjectionScript(surface.run.session.localProjectionScript)
     ? surface.run.session.localProjectionScript
     : draft.entryId === "effect-math"
-    ? snapshotEffectMathProjectionScript({
-      d: draft.input.d,
-      n: draft.input.n,
-      alpha: draft.input.alpha
-    })
+    ? EffectMathProjectionScript.fromControls(PowerControls.make(draft.input))
     : null
 }
 
@@ -110,7 +107,7 @@ const effectSearchScriptForSurface = (surface: SurfaceState) => {
   return isEffectSearchProjectionScript(surface.run.session.localProjectionScript)
     ? surface.run.session.localProjectionScript
     : draft.entryId === "effect-search"
-    ? snapshotEffectSearchProjectionScript(draft.input.trialBudget)
+    ? SearchConfig.fromTrialBudget(draft.input.trialBudget).projectionScript()
     : null
 }
 
@@ -287,7 +284,7 @@ export const emitEffectMathAuthoredStream = ({
           canonicalStepEvent(
             new EffectMathCanonicalStep({
               controls,
-              projection: projectPowerProjection(controls)
+              projection: PowerProjection.project(controls)
             })
           )
         ),
@@ -351,7 +348,7 @@ export const emitEffectSearchAuthoredStream = ({
       return emitEvent(
         source,
         canonicalStepEvent(
-          new EffectSearchCanonicalStep({
+          EffectSearchCanonicalStep.make({
             trialBudget,
             phase: isTerminalFrame ? "complete" : "running",
             tpeTrials: currentTpeTrials,

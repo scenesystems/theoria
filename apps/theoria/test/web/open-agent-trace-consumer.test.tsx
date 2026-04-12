@@ -6,7 +6,6 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import { FailureEnvelope, Metadata } from "../../app/contracts/envelope.js"
-import { ErrorModel } from "../../app/contracts/error.js"
 import {
   OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope,
   type OpenAgentTraceRegistryEntry,
@@ -64,33 +63,23 @@ const withOpenAgentTraceFetchMock = <A, E, R>(
 
         return Match.value(url).pipe(
           Match.when((value) => value.includes("/api/open-agent-trace/registry"), () =>
-            jsonResponse(OpenAgentTraceRegistrySuccessEnvelope.make({ ok: true, meta: responseMeta, data: registry }))),
+            jsonResponse(OpenAgentTraceRegistrySuccessEnvelope.ok(responseMeta, registry))),
           Match.when((value) => value.includes("/api/open-agent-trace/consumer-artifacts"), () =>
             jsonResponse(
-              OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.make({
-                ok: true,
-                meta: responseMeta,
-                data: consumerArtifacts
-              })
+              OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.ok(responseMeta, consumerArtifacts)
             )),
           Match.when((value) => value.includes("/api/open-agent-trace/workflow-hookups"), () =>
             jsonResponse(
-              OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.make({
-                ok: true,
-                meta: responseMeta,
-                data: workflowHookups
-              })
+              OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.ok(responseMeta, workflowHookups)
             )),
           Match.orElse(() =>
-            jsonResponse(FailureEnvelope.make({
-              ok: false,
-              meta: responseMeta,
-              error: ErrorModel.make({
+            jsonResponse(
+              FailureEnvelope.fromError(responseMeta, {
                 code: "route-not-found",
                 message: `Unexpected fetch: ${url}`,
                 retryable: false
               })
-            })))
+            ))
         )
       })
     })

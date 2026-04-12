@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import * as Experimental from "effect-dsp/experimental"
 
+import { appRequestRoute } from "../../app/contracts/request-route.js"
 import {
   OpenAgentTraceConsumerArtifactRoute,
   OpenAgentTraceCoverageSchema,
@@ -11,7 +12,6 @@ import {
   OpenAgentTraceWorkflowHookupRoute,
   OpenAgentTraceWorkflowProjectionSchema
 } from "../../app/contracts/study/workflow/open-agent-trace.js"
-import { appRequestRoute } from "../../app/server/routes/request-route.js"
 import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 
 describe("Theoria OpenAgentTrace Contracts", () => {
@@ -20,9 +20,9 @@ describe("Theoria OpenAgentTrace Contracts", () => {
       const registry = yield* loadOpenAgentTraceRegistry
       const decoded = yield* Schema.decodeUnknown(OpenAgentTraceRegistrySchema)(registry)
 
-      expect(OpenAgentTraceRecordSchema).toBe(Experimental.OpenAgentTrace.OpenAgentTraceRecord)
+      expect(OpenAgentTraceRecordSchema).toBe(Experimental.OpenAgentTrace.Record)
       expect(OpenAgentTraceWorkflowProjectionSchema).toBe(Experimental.OpenAgentTrace.WorkflowProjection)
-      expect(OpenAgentTraceCoverageSchema).toBe(Experimental.OpenAgentTrace.OpenAgentTraceCoverage)
+      expect(OpenAgentTraceCoverageSchema).toBe(Experimental.OpenAgentTrace.Coverage)
       expect(decoded.every((entry) => Schema.is(OpenAgentTraceRecordSchema)(entry.record))).toBe(true)
       expect(
         decoded.every((entry) => Schema.is(OpenAgentTraceWorkflowProjectionSchema)(entry.workflowProjection))
@@ -44,8 +44,8 @@ describe("Theoria OpenAgentTrace Contracts", () => {
     expect(Option.isSome(registryRoute)).toBe(true)
     expect(Option.isSome(consumerArtifactRoute)).toBe(true)
     expect(Option.isSome(workflowHookupRoute)).toBe(true)
-    expect(appRequestRoute(OpenAgentTraceRegistryRoute.pathname())._tag).toBe("OpenAgentTraceApiRequestRoute")
-    expect(appRequestRoute(OpenAgentTraceConsumerArtifactRoute.pathname())._tag).toBe("OpenAgentTraceApiRequestRoute")
-    expect(appRequestRoute(OpenAgentTraceWorkflowHookupRoute.pathname())._tag).toBe("OpenAgentTraceApiRequestRoute")
+    expect(appRequestRoute(OpenAgentTraceRegistryRoute.pathname())._tag).toBe("registry")
+    expect(appRequestRoute(OpenAgentTraceConsumerArtifactRoute.pathname())._tag).toBe("consumer-artifacts")
+    expect(appRequestRoute(OpenAgentTraceWorkflowHookupRoute.pathname())._tag).toBe("workflow-hookups")
   })
 })

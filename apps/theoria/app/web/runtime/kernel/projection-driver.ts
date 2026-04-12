@@ -7,6 +7,7 @@ import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import type { RunRegistry } from "../../atoms/run-registry-context.js"
 import type { RunSignal } from "../../atoms/run/lifecycle.js"
+import type { ProjectionDriverCompletedEvent } from "../../atoms/run/projection-driver-events.js"
 import type { LocalProjectionScript, LocalRunFrame } from "../../state/run/local.js"
 import { RunOwnership } from "../../state/run/types.js"
 
@@ -16,7 +17,7 @@ export type AuthoredStepQueueEvent = CanonicalFrame | CompletionEvent
 
 export type ProjectionDriverEvent =
   | { readonly _tag: "LocalRunFrameUpdated"; readonly frame: LocalRunFrame }
-  | { readonly _tag: "ProjectionDriverCompleted" }
+  | ProjectionDriverCompletedEvent
 
 export type ProjectionDriverSnapshot = {
   readonly manifest: StreamManifest | null

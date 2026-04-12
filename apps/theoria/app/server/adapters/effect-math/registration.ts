@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { effectMathEntryDescriptor } from "../../../contracts/entry/descriptors/effect-math.js"
 import { EffectMathManifest, type StreamManifest } from "../../../contracts/evidence/manifest.js"
 
-import { type EntryRegistrationOptions, materializeEntryDefinition } from "../../kernel/registration.js"
+import { EntryDefinition, type EntryRegistrationOptions } from "../../kernel/registration.js"
 import { preloadProgram, run, streamElements, streamPlan } from "./run.js"
 
 const acceptsManifest = (manifest: StreamManifest | null): boolean =>
@@ -19,4 +19,4 @@ export const effectMathEntryRegistration: EntryRegistrationOptions<"effect-math"
   streamElements
 }
 
-export const effectMathEntryDefinition = materializeEntryDefinition(effectMathEntryRegistration)
+export const effectMathEntryDefinition = EntryDefinition.make(effectMathEntryRegistration)

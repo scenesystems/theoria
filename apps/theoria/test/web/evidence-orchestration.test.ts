@@ -6,6 +6,7 @@ import { moduleSpecifiers, parseTypeScript, readProjectFile } from "@theoria/sou
 import { Effect, Option, Ref } from "effect"
 
 import { DspCanonicalStep, isDspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
+import { PowerControls } from "../../app/contracts/capability/effect-math.js"
 import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
 import {
   EffectSearchCanonicalStep,
@@ -66,7 +67,7 @@ describe("evidence orchestration runtime-boundary", () => {
   it.effect("keeps workflow decode helpers sourced from effect-inference contracts instead of app-local duplicates", () =>
     Effect.gen(function*() {
       const decodePaths: ReadonlyArray<string> = [
-        "app/server/study/workflow/decode.ts",
+        "app/contracts/study/workflow/scenario.ts",
         "test/fixtures/workflow/decode.ts"
       ]
 
@@ -499,7 +500,7 @@ describe("Theoria Evidence Orchestration", () => {
         const registry = makeTestRegistry()
         const runtime = makeRuntime()
         const runDemoAtom = makeRunDemoAtom(runtime)
-        const frozenControls = { d: 1.35, n: 77, alpha: 0.07 }
+        const frozenControls = PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
 
         registry.set(powerControlsAtom, frozenControls)
         registry.mount(runDemoAtom)
@@ -517,7 +518,7 @@ describe("Theoria Evidence Orchestration", () => {
           )
         )
 
-        registry.set(powerControlsAtom, { d: 0.2, n: 15, alpha: 0.02 })
+        registry.set(powerControlsAtom, PowerControls.make({ d: 0.2, n: 15, alpha: 0.02 }))
         registry.set(selectStageTabAtom, { id: "effect-math", tab: "evidence" })
         expect(readSurface(registry, "effect-math").stageTab).toBe("evidence")
 
@@ -1226,7 +1227,7 @@ describe("Theoria Evidence Orchestration", () => {
           source.emitEvidence(
             encodeEvidenceEventJson(
               canonicalStepEvent(
-                new EffectSearchCanonicalStep({
+                EffectSearchCanonicalStep.make({
                   trialBudget: 2,
                   phase: "running",
                   tpeTrials,

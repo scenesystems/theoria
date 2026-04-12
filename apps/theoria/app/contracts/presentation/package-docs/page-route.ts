@@ -1,6 +1,9 @@
 import { Option, Schema } from "effect"
 
+import type { PageLocation } from "../page-location.js"
 import { nullablePackageName, type PackageName, PackageNameSchema } from "./shared.js"
+
+const packageDocsLandingPathname = "/packages"
 
 const withOptionalPackageParam = (params: URLSearchParams, packageId: PackageName | null): URLSearchParams => {
   if (packageId !== null) {
@@ -14,20 +17,24 @@ export class PackageDocsLandingPageRoute extends Schema.TaggedClass<PackageDocsL
   "landing",
   {}
 ) {
-  static fromPathname(pathname: string, search: string): Option.Option<PackageDocsLandingPageRoute> {
-    return PackageDocsLandingPageRoute.matches(pathname) &&
-        nullablePackageName(new URLSearchParams(search).get("package")) === null
-      ? Option.some(PackageDocsLandingPageRoute.make({}))
+  static landing(): PackageDocsLandingPageRoute {
+    return packageDocsLandingPageRoute
+  }
+
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsLandingPageRoute> {
+    return PackageDocsLandingPageRoute.matches(location) &&
+        nullablePackageName(new URLSearchParams(location.search).get("package")) === null
+      ? Option.some(PackageDocsLandingPageRoute.landing())
       : Option.none()
   }
 
-  static matches(pathname: string): boolean {
-    return pathname === PackageDocsLandingPageRoute.pathname() ||
-      pathname === `${PackageDocsLandingPageRoute.pathname()}/`
+  static matches(location: PageLocation): boolean {
+    return location.pathname === PackageDocsLandingPageRoute.pathname() ||
+      location.pathname === `${PackageDocsLandingPageRoute.pathname()}/`
   }
 
   static pathname(): string {
-    return "/packages"
+    return packageDocsLandingPathname
   }
 
   path(): string {
@@ -45,17 +52,21 @@ export class PackageDocsPackagePageRoute extends Schema.TaggedClass<PackageDocsP
     packageId: PackageNameSchema
   }
 ) {
-  static fromPathname(pathname: string, search: string): Option.Option<PackageDocsPackagePageRoute> {
-    const packageId = nullablePackageName(new URLSearchParams(search).get("package"))
+  static fromPackageId(packageId: PackageName): PackageDocsPackagePageRoute {
+    return PackageDocsPackagePageRoute.make({ packageId })
+  }
 
-    return PackageDocsPackagePageRoute.matches(pathname) && packageId !== null
-      ? Option.some(PackageDocsPackagePageRoute.make({ packageId }))
+  static fromLocation(location: PageLocation): Option.Option<PackageDocsPackagePageRoute> {
+    const packageId = nullablePackageName(new URLSearchParams(location.search).get("package"))
+
+    return PackageDocsPackagePageRoute.matches(location) && packageId !== null
+      ? Option.some(PackageDocsPackagePageRoute.fromPackageId(packageId))
       : Option.none()
   }
 
-  static matches(pathname: string): boolean {
-    return pathname === PackageDocsLandingPageRoute.pathname() ||
-      pathname === `${PackageDocsLandingPageRoute.pathname()}/`
+  static matches(location: PageLocation): boolean {
+    return location.pathname === PackageDocsLandingPageRoute.pathname() ||
+      location.pathname === `${PackageDocsLandingPageRoute.pathname()}/`
   }
 
   path(): string {
@@ -72,3 +83,5 @@ export class PackageDocsPackagePageRoute extends Schema.TaggedClass<PackageDocsP
 export const PackageDocsPageRouteSchema = Schema.Union(PackageDocsLandingPageRoute, PackageDocsPackagePageRoute)
 
 export type PackageDocsPageRoute = typeof PackageDocsPageRouteSchema.Type
+
+const packageDocsLandingPageRoute = PackageDocsLandingPageRoute.make({})

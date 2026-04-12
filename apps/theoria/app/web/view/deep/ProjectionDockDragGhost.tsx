@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom"
 
-import type { DeepDiveProjectionControlModel } from "./projection-model.js"
+import type { DeepDiveProjectionControlModel } from "../../../contracts/presentation/deep-dive-projection.js"
 
 import { Layer } from "../primitives/Layout.js"
 import { SelectionCopy, SelectionRail } from "../primitives/SelectionLayout.js"

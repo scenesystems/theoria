@@ -2,25 +2,12 @@ import {
   runRuntimeTelemetryRow,
   runRuntimeTelemetrySection
 } from "../../../contracts/presentation/run-runtime-telemetry.js"
-import {
-  defaultProjectionPlaneHint,
-  ProjectionPlaneHint
-} from "../../../contracts/presentation/surface-runtime-hints.js"
 import { powerAnimatingAtom, powerProjectionAtom } from "../../atoms/run/power-animation.js"
 import { LivePowerExplorer } from "../../view/deep/LivePowerExplorer.js"
-import { SurfaceViewExtension } from "../kernel/descriptor.js"
-
-const effectMathProjectionPlaneHint = ProjectionPlaneHint.make({
-  stage:
-    "Sweep effect sizes and sample sizes by streaming authored power checkpoints from effect-math's statistical kernels into one shared runtime spine.",
-  evidence:
-    "Live power-analysis reports, confidence intervals, and solver statuses streamed from effect-math Statistics and Optimization surfaces with no app-local inference formulas.",
-  source: defaultProjectionPlaneHint.source
-})
+import { SurfaceViewExtension } from "../kernel/surface-view-extension.js"
 
 export const effectMathSurfaceViewExtension = SurfaceViewExtension.make({
   interactiveWidget: <LivePowerExplorer />,
-  projectionPlaneHint: effectMathProjectionPlaneHint,
   diagnosticsSections: (get) => {
     const projection = get(powerProjectionAtom)
 

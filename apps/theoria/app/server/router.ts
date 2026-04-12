@@ -1,6 +1,7 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Effect, Match } from "effect"
 
+import { appRequestRoute } from "../contracts/request-route.js"
 import { ResponseTiming } from "./kernel/response-timing.js"
 import { capabilityAvailabilityRoute } from "./routes/availability.js"
 import { entryRoute } from "./routes/entries.js"
@@ -8,7 +9,6 @@ import { liveRoute, readyRoute } from "./routes/health.js"
 import { openAgentTraceRoute } from "./routes/open-agent-trace.js"
 import { packageDocsRoute } from "./routes/package-docs.js"
 import { packageVersionsRoute } from "./routes/package-versions.js"
-import { appRequestRoute } from "./routes/request-route.js"
 import { sitemapRoute } from "./routes/sitemap.js"
 import { staticResponse } from "./routes/static.js"
 import { versionRoute } from "./routes/version.js"
@@ -41,23 +41,20 @@ export const app = Effect.gen(function*() {
   const pathname = requestPathname(request.url)
   const requestId = crypto.randomUUID()
   const routeEffect = Match.value(appRequestRoute(pathname)).pipe(
-    Match.tag(
-      "EntryApiRequestRoute",
-      ({ pathname: routePathname }) => entryRoute(routePathname, requestId, request.url)
-    ),
-    Match.tag("HealthLiveRequestRoute", () => liveRoute(requestId)),
-    Match.tag("HealthReadyRequestRoute", () => readyRoute(requestId)),
-    Match.tag("VersionRequestRoute", () => versionRoute(requestId)),
-    Match.tag("PackageVersionsRequestRoute", () => packageVersionsRoute(requestId)),
-    Match.tag(
-      "PackageDocsApiRequestRoute",
-      ({ pathname: routePathname }) => packageDocsRoute(routePathname, requestId, request.url)
-    ),
-    Match.tag(
-      "OpenAgentTraceApiRequestRoute",
-      ({ pathname: routePathname }) => openAgentTraceRoute(routePathname, requestId)
-    ),
-    Match.tag("CapabilityAvailabilityRequestRoute", () => capabilityAvailabilityRoute(requestId)),
+    Match.tag("run", (route) => entryRoute(route.path(), requestId, request.url)),
+    Match.tag("preload", (route) => entryRoute(route.path(), requestId, request.url)),
+    Match.tag("stream", (route) => entryRoute(route.path(), requestId, request.url)),
+    Match.tag("live", () => liveRoute(requestId)),
+    Match.tag("ready", () => readyRoute(requestId)),
+    Match.tag("version", () => versionRoute(requestId)),
+    Match.tag("packages", () => packageVersionsRoute(requestId)),
+    Match.tag("catalog", (route) => packageDocsRoute(route.path(), requestId, request.url)),
+    Match.tag("bundle", (route) => packageDocsRoute(route.path(), requestId, request.url)),
+    Match.tag("search", (route) => packageDocsRoute(route.path(), requestId, request.url)),
+    Match.tag("registry", (route) => openAgentTraceRoute(route.pathname(), requestId)),
+    Match.tag("consumer-artifacts", (route) => openAgentTraceRoute(route.pathname(), requestId)),
+    Match.tag("workflow-hookups", (route) => openAgentTraceRoute(route.pathname(), requestId)),
+    Match.tag("availability", () => capabilityAvailabilityRoute(requestId)),
     Match.tag("SitemapRequestRoute", () => sitemapRoute),
     Match.tag("ApiNotFoundRequestRoute", () => apiNotFoundResponse(requestId)),
     Match.tag("StaticRequestRoute", ({ pathname: routePathname }) => staticResponse(routePathname, request.url)),

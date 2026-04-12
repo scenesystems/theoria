@@ -2,6 +2,10 @@ import { Popover } from "@base-ui-components/react/popover"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { ViewColumnsIcon } from "@heroicons/react/20/solid"
 import {
+  type DeepDiveProjectionControlModel,
+  deepDiveProjectionMenuTrigger
+} from "../../../contracts/presentation/deep-dive-projection.js"
+import {
   deepDiveProjectionMenuOpenAtom,
   setDeepDiveProjectionMenuOpenAtom
 } from "../../atoms/layout/projection-menu.js"
@@ -10,20 +14,9 @@ import { chromeHeaderGlyphClassName, chromeIconButtonClassName } from "../primit
 import { SemanticText } from "../primitives/SemanticText.js"
 import { surfaceMaterials } from "../primitives/theme/surface.js"
 
-import { type DeepDiveProjectionControlModel, projectedProjectionSurfaces } from "./projection-model.js"
 import { ProjectionDock } from "./ProjectionDock.js"
 
 const projectionMenuId = "deep-dive-projection-menu"
-
-const triggerAriaLabel = ({
-  labels,
-  maxProjectedCount,
-  projectedCount
-}: {
-  readonly labels: string
-  readonly maxProjectedCount: number
-  readonly projectedCount: number
-}): string => `Projection field: ${projectedCount} of ${maxProjectedCount} surfaces visible. ${labels}.`
 
 export const ProjectionMenu = ({
   onFocusSurface,
@@ -37,8 +30,7 @@ export const ProjectionMenu = ({
   readonly projection: DeepDiveProjectionControlModel
 }) => {
   const open = useAtomValue(deepDiveProjectionMenuOpenAtom)
-  const projected = projectedProjectionSurfaces(projection.surfaces)
-  const projectedLabels = projected.map((surface) => surface.label).join(", ")
+  const trigger = deepDiveProjectionMenuTrigger(projection)
   const setOpen = useAtomSet(setDeepDiveProjectionMenuOpenAtom)
 
   return (
@@ -50,11 +42,7 @@ export const ProjectionMenu = ({
       triggerId={projectionMenuId}
     >
       <Popover.Trigger
-        aria-label={triggerAriaLabel({
-          labels: projectedLabels,
-          maxProjectedCount: projection.maxProjectedCount,
-          projectedCount: projected.length
-        })}
+        aria-label={trigger.ariaLabel}
         className={chromeIconButtonClassName({
           active: open,
           className: "w-auto gap-1.5 rounded-[1rem] px-3 sm:gap-2 sm:px-4"
@@ -66,7 +54,7 @@ export const ProjectionMenu = ({
           as="span"
           className="hidden sm:inline"
           role="button-label"
-          text={`${projected.length}/${projection.maxProjectedCount}`}
+          text={trigger.countLabel}
           variant="compact"
         />
       </Popover.Trigger>

@@ -1,4 +1,4 @@
-import type { WorkflowSurfaceViewModel } from "./surface-model.js"
+import type { WorkflowSurfaceViewModel } from "../../../../contracts/study/workflow/surface-presentation.js"
 
 import { Stack } from "../../primitives/Layout.js"
 import { WorkflowGraphSectionCard } from "./WorkflowGraphSectionCard.js"

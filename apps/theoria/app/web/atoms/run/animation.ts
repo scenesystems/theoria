@@ -3,7 +3,7 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import type { Stream } from "effect"
 import { Data, Effect, Queue } from "effect"
 import { Study } from "effect-search"
-import { effectTextSurfaceControlsForCustomText } from "../../../contracts/capability/effect-text-surface.js"
+import { EffectTextSurfaceControls } from "../../../contracts/capability/effect-text-surface.js"
 import type { EffectTextProjectionStep } from "../../../contracts/capability/effect-text.js"
 import type { EffectTextTraversalScript } from "../../../contracts/capability/effect-text.js"
 import { EntryExecutionError } from "../../../contracts/entry-error.js"
@@ -19,7 +19,7 @@ import {
 } from "../reflow.js"
 import type { RunRegistry } from "../run-registry-context.js"
 import type { RunSignal } from "./lifecycle.js"
-import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
+import { ProjectionDriverCompletedEvent } from "./projection-driver-events.js"
 export const animatingAtom: AtomType.Writable<boolean> = Atom.make(false)
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type EffectTextAnimationEvent =
@@ -147,7 +147,7 @@ const drainEffectTextFrames = ({
   readonly stepQueue: Queue.Queue<ProjectionAuthoredStepQueueEvent>
 }): Effect.Effect<void, EntryExecutionError, never> =>
   remainingFrames.length === 0
-    ? emit(projectionDriverCompletedEvent)
+    ? emit(ProjectionDriverCompletedEvent.make())
     : signal.awaitRunning().pipe(
       Effect.zipRight(takeEffectTextProjectionStep({ signal, stepQueue })),
       Effect.flatMap((authoredStep) =>
@@ -169,7 +169,7 @@ const drainEffectTextFrames = ({
                   })
                 )
               )
-              : emit(projectionDriverCompletedEvent)
+              : emit(ProjectionDriverCompletedEvent.make())
           )
         )
       )
@@ -198,7 +198,7 @@ export class EffectTextAnimation extends Data.Class<EffectTextAnimation.Shape> {
     return Effect.sync(() => {
       const customText = registry.get(customTextAtom)
       registry.set(animatingAtom, false)
-      registry.set(reflowControlsAtom, effectTextSurfaceControlsForCustomText(customText))
+      registry.set(reflowControlsAtom, EffectTextSurfaceControls.fromCustomText(customText))
     })
   }
   stream(): Stream.Stream<EffectTextAnimationEvent, EntryExecutionError, never> {

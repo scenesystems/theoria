@@ -4,16 +4,15 @@ import { Effect } from "effect"
 
 import { SectionAppend, SectionUpsert } from "../../app/contracts/evidence/stream.js"
 import {
-  deepDiveEvidenceAtom,
   deepDiveStatusAtom,
   deepDiveSurfaceFrameAtom,
-  deepDiveSurfaceStageFrameAtom,
-  presentedRunAtom,
-  surfaceViewModelAtom,
-  viewModelKey
-} from "../../app/web/atoms/derived.js"
+  deepDiveSurfaceStageFrameAtom
+} from "../../app/web/atoms/deep-dive/frame.js"
+import { deepDiveEvidenceAtom } from "../../app/web/atoms/evidence/plane-view-model.js"
+import { presentedRunAtom } from "../../app/web/atoms/run/presented-run.js"
 import { surfaceEvidenceStoreAtom } from "../../app/web/atoms/surface/evidence-store.js"
 import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import { surfaceViewModelAtom, viewModelKey } from "../../app/web/atoms/surface/view-model.js"
 import { programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import { runningRunState, succeededRunState } from "../helpers/run-state.js"
 

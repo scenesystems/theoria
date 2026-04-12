@@ -1,22 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Record, Schema } from "effect"
+import * as Arr from "effect/Array"
 
-import { entryDescriptorFingerprint } from "../../app/contracts/entry/descriptor.js"
 import { workflowEntryDescriptor } from "../../app/contracts/entry/descriptors/workflow.js"
+import { FrozenWorkflowRun } from "../../app/contracts/study/workflow/frozen.js"
+import { WorkflowScenarioManifest } from "../../app/contracts/study/workflow/manifest.js"
 import {
-  defaultWorkflowScenarioId,
-  workflowAuthorityBindings,
   WorkflowProfileLibrarySchema,
-  workflowScenarioCatalogFingerprint,
+  WorkflowScenario,
   WorkflowScenarioCatalogSchema,
-  workflowScenarioEntryFingerprint,
-  workflowScenarioFingerprint,
-  workflowScenarioId,
-  workflowScenarioIds,
-  workflowScenarioOptions
+  WorkflowScenarioEntry
 } from "../../app/contracts/study/workflow/scenario.js"
+import { frozenWorkflowForRequest } from "../../app/server/study/workflow/frozen.js"
 import { workflowProfileLibrary } from "../../app/server/study/workflow/profile-library.js"
-import { workflowScenarioById, workflowScenarios } from "../../app/server/study/workflow/scenario/catalog.js"
+import { scenarioById, scenarios } from "../../app/server/study/workflow/scenario/catalog.js"
 
 describe("Theoria Workflow Contracts", () => {
   it.effect("decodes the released task, chat, retrieval, and render-sensitive workflow profile library", () =>
@@ -33,10 +30,12 @@ describe("Theoria Workflow Contracts", () => {
 
   it.effect("decodes task, chat, retrieval, and render-sensitive workflow scenarios", () =>
     Effect.gen(function*() {
-      const decoded = yield* Schema.decodeUnknown(WorkflowScenarioCatalogSchema)(workflowScenarios)
+      const decoded = yield* Schema.decodeUnknown(WorkflowScenarioCatalogSchema)(scenarios)
+      const scenarioIds = WorkflowScenarioManifest.ids()
 
-      expect(workflowScenarioOptions.map((option) => option.id)).toEqual(workflowScenarioIds)
-      expect(decoded.map(workflowScenarioId)).toEqual(workflowScenarioIds)
+      expect(WorkflowScenarioManifest.catalog().map((scenario) => scenario.id)).toEqual(scenarioIds)
+      expect(workflowEntryDescriptor.seeds.map((seed) => seed.seedId)).toEqual(scenarioIds)
+      expect(decoded.map(WorkflowScenario.id)).toEqual(scenarioIds)
       expect(decoded.map((scenario) => scenario.entry.entryId)).toEqual([
         "workflow",
         "workflow",
@@ -49,12 +48,6 @@ describe("Theoria Workflow Contracts", () => {
         "retrieval-required",
         "render-sensitive"
       ])
-      expect(decoded.every((scenario) => scenario.authorities.runtime === workflowAuthorityBindings.runtime)).toBe(true)
-      expect(decoded.every((scenario) => scenario.authorities.search === workflowAuthorityBindings.search)).toBe(true)
-      expect(decoded.every((scenario) => scenario.authorities.program === workflowAuthorityBindings.program)).toBe(true)
-      expect(decoded.every((scenario) => scenario.authorities.render === workflowAuthorityBindings.render)).toBe(true)
-      expect(decoded.every((scenario) => scenario.authorities.numeric === workflowAuthorityBindings.numeric)).toBe(true)
-      expect(decoded.every((scenario) => scenario.authorities.score === workflowAuthorityBindings.score)).toBe(true)
       expect(
         decoded.every((scenario) =>
           scenario.reports.optimized.aggregateScore > scenario.reports.baseline.aggregateScore
@@ -67,33 +60,37 @@ describe("Theoria Workflow Contracts", () => {
 
   it.effect("derives stable digest provenance for the published workflow catalog", () =>
     Effect.gen(function*() {
-      const catalogFingerprint = yield* workflowScenarioCatalogFingerprint(workflowScenarios)
-      const repeatedCatalogFingerprint = yield* workflowScenarioCatalogFingerprint(workflowScenarios)
-      const workflowDescriptorFingerprint = yield* entryDescriptorFingerprint(workflowEntryDescriptor)
-      const repeatedWorkflowDescriptorFingerprint = yield* entryDescriptorFingerprint(workflowEntryDescriptor)
+      const catalogFingerprint = yield* WorkflowScenario.catalogFingerprint(scenarios)
+      const repeatedCatalogFingerprint = yield* WorkflowScenario.catalogFingerprint(scenarios)
+      const workflowDescriptorFingerprint = yield* workflowEntryDescriptor.fingerprint()
+      const repeatedWorkflowDescriptorFingerprint = yield* workflowEntryDescriptor.fingerprint()
       const entryFingerprints = yield* Effect.forEach(
-        workflowScenarios,
-        (scenario) => workflowScenarioEntryFingerprint(scenario.entry)
+        scenarios,
+        (scenario) => WorkflowScenarioEntry.fingerprint(scenario.entry)
       )
       const scenarioFingerprints = yield* Effect.forEach(
-        workflowScenarios,
-        workflowScenarioFingerprint
+        scenarios,
+        WorkflowScenario.fingerprint
       )
-      const uniqueFingerprints = scenarioFingerprints.filter(
-        (fingerprint, index, all) => all.indexOf(fingerprint) === index
-      )
+      const uniqueFingerprints = Arr.dedupe(scenarioFingerprints)
+      const frozenWorkflowRun = yield* frozenWorkflowForRequest(WorkflowScenarioManifest.defaults().id)
+      const frozenWorkflowFingerprint = yield* FrozenWorkflowRun.fingerprint(frozenWorkflowRun)
+      const repeatedFrozenWorkflowFingerprint = yield* FrozenWorkflowRun.fingerprint(frozenWorkflowRun)
 
       expect(catalogFingerprint).toBe(repeatedCatalogFingerprint)
       expect(workflowDescriptorFingerprint).toBe(repeatedWorkflowDescriptorFingerprint)
+      expect(frozenWorkflowFingerprint).toBe(repeatedFrozenWorkflowFingerprint)
       expect(uniqueFingerprints.length).toBe(scenarioFingerprints.length)
-      expect(entryFingerprints.length).toBe(workflowScenarios.length)
+      expect(entryFingerprints.length).toBe(scenarios.length)
     }))
 
   it.effect("resolves the default workflow scenario through the catalog selector", () =>
-    Effect.sync(() => {
-      const scenario = workflowScenarioById(defaultWorkflowScenarioId)
+    Effect.gen(function*() {
+      const defaultWorkflowScenarioId = WorkflowScenarioManifest.defaults().id
+      const scenario = scenarioById(defaultWorkflowScenarioId)
 
-      expect(workflowScenarioId(scenario)).toBe(defaultWorkflowScenarioId)
+      expect(WorkflowScenario.id(scenario)).toBe(defaultWorkflowScenarioId)
+      expect(WorkflowScenarioManifest.forId(defaultWorkflowScenarioId).searchSeed()).toBe(410)
       expect(scenario.records.optimized.graph.nodes.length).toBeGreaterThan(
         scenario.records.baseline.graph.nodes.length
       )

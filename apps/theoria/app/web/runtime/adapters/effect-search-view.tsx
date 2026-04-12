@@ -1,17 +1,13 @@
+import { defaultSamplerSeed } from "../../../contracts/capability/effect-search.js"
 import type { RunRuntimeTelemetrySection } from "../../../contracts/presentation/run-runtime-telemetry.js"
 import {
   runRuntimeTelemetryRow,
   runRuntimeTelemetrySection
 } from "../../../contracts/presentation/run-runtime-telemetry.js"
-import {
-  defaultProjectionPlaneHint,
-  ProjectionPlaneHint
-} from "../../../contracts/presentation/surface-runtime-hints.js"
 import { isEffectSearchRunFrame } from "../../atoms/run/optimization-animation.js"
 import { surfaceLocalRunFrameAtom } from "../../atoms/surface/state.js"
 import { LiveOptimization } from "../../view/deep/LiveOptimization.js"
-import { SurfaceViewExtension, type SurfaceViewExtensionContext } from "../kernel/descriptor.js"
-import { defaultSamplerSeed } from "./effect-search-runtime.js"
+import { SurfaceViewExtension, type SurfaceViewExtensionContext } from "../kernel/surface-view-extension.js"
 
 const effectSearchId = "effect-search"
 
@@ -69,16 +65,7 @@ const effectSearchDiagnosticsSections = (
   ]
 }
 
-const effectSearchProjectionPlaneHint = ProjectionPlaneHint.make({
-  stage:
-    "Set a trial budget, press Run, and watch authored TPE and Random checkpoints arrive on one shared study stream while the browser only projects the current frame.",
-  evidence:
-    "Full optimization results comparing TPE vs Random search — every trial coordinate and convergence curve is reproducible from a fixed seed.",
-  source: defaultProjectionPlaneHint.source
-})
-
 export const effectSearchSurfaceViewExtension = SurfaceViewExtension.make({
   interactiveWidget: <LiveOptimization />,
-  projectionPlaneHint: effectSearchProjectionPlaneHint,
   diagnosticsSections: effectSearchDiagnosticsSections
 })

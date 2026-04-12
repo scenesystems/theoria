@@ -2,45 +2,40 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Option from "effect/Option"
 
 import { authorityCatalogForId } from "../../app/contracts/capability/catalog.js"
-import {
-  cardByIdForReleaseStage,
-  cards,
-  cardsForReleaseStage,
-  effectCards,
-  scenesystemsCards
-} from "../../app/contracts/entry/card.js"
-import { primaryAuthorityIdForEntry } from "../../app/contracts/entry/focus.js"
-import { entryDescriptorForId } from "../../app/contracts/entry/registry.js"
+import { Card } from "../../app/contracts/entry/card.js"
+import { EntryRegistry } from "../../app/contracts/entry/registry.js"
+
+const entryRegistry = EntryRegistry.current()
 
 const comingSoonIds: ReadonlyArray<"digest" | "sign" | "seal"> = ["digest", "sign", "seal"]
 
 describe("Theoria Card Publication Contracts", () => {
   it("keeps coming-soon cards available in preview builds", () => {
-    expect(comingSoonIds.every((id) => Option.isSome(cardByIdForReleaseStage(id, "preview")))).toBe(true)
+    expect(comingSoonIds.every((id) => Option.isSome(Card.byIdForReleaseStage(id, "preview")))).toBe(true)
   })
 
   it("hides coming-soon cards from production catalogs", () => {
-    const productionIds = cardsForReleaseStage("production").map((card) => card.id)
+    const productionIds = Card.forReleaseStage("production").map((card) => card.id)
 
     expect(comingSoonIds.every((id) => !productionIds.includes(id))).toBe(true)
-    expect(comingSoonIds.every((id) => Option.isNone(cardByIdForReleaseStage(id, "production")))).toBe(true)
+    expect(comingSoonIds.every((id) => Option.isNone(Card.byIdForReleaseStage(id, "production")))).toBe(true)
   })
 
   it("keeps landing-page card order aligned with the README package map", () => {
-    expect(effectCards.map((card) => card.id)).toEqual([
+    expect(Card.forGroup("effect").map((card) => card.id)).toEqual([
       "effect-math",
       "effect-search",
       "effect-dsp",
       "effect-text",
       "effect-inference"
     ])
-    expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign", "workflow"])
+    expect(Card.forGroup("scenesystems").map((card) => card.id)).toEqual(["digest", "seal", "sign", "workflow"])
   })
 
   it("projects each card through the entry descriptor and capability catalog seam", () => {
-    cards.forEach((card) => {
-      const descriptor = entryDescriptorForId(card.id)
-      const authority = authorityCatalogForId(primaryAuthorityIdForEntry(card.id))
+    Card.all().forEach((card) => {
+      const descriptor = entryRegistry.descriptorForId(card.id)
+      const authority = authorityCatalogForId(descriptor.primaryAuthorityId)
 
       expect(card.packageName).toBe(descriptor.packageName)
       expect(card.title).toBe(descriptor.title)
@@ -55,7 +50,7 @@ describe("Theoria Card Publication Contracts", () => {
   })
 
   it("publishes the workflow entry directly in the shared card catalog", () => {
-    expect(cards.map((card) => `${card.id}`).includes("workflow")).toBe(true)
-    expect(entryDescriptorForId("workflow").releaseState).toBe("published")
+    expect(Card.all().map((card) => `${card.id}`).includes("workflow")).toBe(true)
+    expect(entryRegistry.descriptorForId("workflow").releaseState).toBe("published")
   })
 })

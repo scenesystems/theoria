@@ -1,5 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import * as Arr from "effect/Array"
+import {
+  deepDiveProjectionDockModel,
+  deepDiveProjectionDockSlotLabel
+} from "../../../contracts/presentation/deep-dive-dock.js"
+import {
+  type DeepDiveProjectionControlModel,
+  type DeepDiveProjectionPlane
+} from "../../../contracts/presentation/deep-dive-projection.js"
 import {
   clearDeepDiveDraggedSurfaceAtom,
   completeDeepDiveDraggedSurfaceAtom,
@@ -8,14 +15,8 @@ import {
   startDeepDiveSurfaceDragAtom
 } from "../../atoms/layout/deep-dive-drag.js"
 import { projectionDockHideTargetProps } from "../../runtime/kernel/projection-dock-target.js"
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
-import {
-  type DeepDiveProjectionControlModel,
-  hiddenProjectionSurfaces,
-  projectedProjectionSurfaces
-} from "./projection-model.js"
 import { ProjectionDockDragGhost } from "./ProjectionDockDragGhost.js"
 import { ProjectionDockLibrary } from "./ProjectionDockLibrary.js"
 import { ProjectionDockHideTarget, ProjectionDockSectionHeading, ProjectionDockSurface } from "./ProjectionDockParts.js"
@@ -40,24 +41,15 @@ export const ProjectionDock = ({
   readonly projection: DeepDiveProjectionControlModel
 }) => {
   const dragState = useAtomValue(deepDiveDragStateAtom)
-  const projected = projectedProjectionSurfaces(projection.surfaces)
-  const hidden = hiddenProjectionSurfaces(projection.surfaces)
+  const dock = deepDiveProjectionDockModel({
+    draggedSurface: dragState.draggedSurface,
+    hoveredLotIndex: dragState.hoveredLotIndex,
+    projection
+  })
   const beginDragSurface = useAtomSet(startDeepDiveSurfaceDragAtom)
   const clearDraggedSurface = useAtomSet(clearDeepDiveDraggedSurfaceAtom)
   const completeDraggedSurface = useAtomSet(completeDeepDiveDraggedSurfaceAtom)
   const moveDraggedSurface = useAtomSet(moveDeepDiveDraggedSurfaceAtom)
-  const draggingProjectedSurface = projected.some((surface) => surface.id === dragState.draggedSurface)
-  const showLibrary = hidden.length > 0
-  const showHideOverlay = draggingProjectedSurface && projected.length > 1 && hidden.length === 0
-  const visibleLotCount = Math.min(
-    projection.maxProjectedCount,
-    projected.length + (hidden.length > 0 ? 1 : 0)
-  )
-  const projectedSlots = Arr.map(Arr.range(0, visibleLotCount - 1), (index) => ({
-    active: dragState.hoveredLotIndex === index,
-    index,
-    option: projected[index] ?? null
-  }))
 
   const setDraggedSurface = (surface: DeepDiveProjectionControlModel["focusedSurface"] | null): void => {
     if (surface === null) {
@@ -77,13 +69,6 @@ export const ProjectionDock = ({
     moveDraggedSurface({ x: clientX, y: clientY })
   }
 
-  const focusedProjectedIndex = projected.find((surface) => surface.focused)?.position ?? projected.at(-1)?.position ??
-    0
-  const projectIndex = projected.length < projection.maxProjectedCount ? projected.length : focusedProjectedIndex
-  const draggedSurfaceOption = projection.surfaces.find((surface) => surface.id === dragState.draggedSurface) ?? null
-  const projectedDetail = hidden.length === 0
-    ? `${projected.length} bound · drag to reorder`
-    : `${projected.length} bound · one slot open`
   const dragInteraction = {
     draggedSurface: dragState.draggedSurface,
     onCompleteDragSurface: (clientX: number, clientY: number) => {
@@ -95,7 +80,7 @@ export const ProjectionDock = ({
     onStartDragSurface: beginProjectionSurfaceDrag,
     setDraggedSurface
   }
-  const dragGhostLayout = draggedSurfaceOption === null || dragState.dragPointer === null
+  const dragGhostLayout = dock.draggedSurfaceOption === null || dragState.dragPointer === null
     ? null
     : {
       left: dragState.dragGhostTarget?.x ?? dragState.dragPointer.x + 12,
@@ -106,12 +91,12 @@ export const ProjectionDock = ({
   return (
     <Layer className="relative">
       <Stack className={dockShellClassName}>
-        <ProjectionDockSectionHeading detail={projectedDetail} text="Projected surfaces" />
+        <ProjectionDockSectionHeading detail={dock.projectedHeading.detail} text={dock.projectedHeading.text} />
         <Stack className={slotShellClassName}>
-          {projectedSlots.map(({ active, index, option }) => (
+          {dock.projectedSlots.map(({ active, index, option }) => (
             <ProjectionFieldLot
               active={active}
-              emptyLabel="Open slot"
+              emptyLabel={deepDiveProjectionDockSlotLabel()}
               index={index}
               key={`lot-${index}`}
             >
@@ -124,31 +109,31 @@ export const ProjectionDock = ({
                     onHideSurface={onHideSurface}
                     onProjectSurface={onProjectSurface}
                     option={option}
-                    projectedCount={projected.length}
+                    projectedCount={dock.projectedCount}
                   />
                 )}
             </ProjectionFieldLot>
           ))}
         </Stack>
 
-        {showLibrary
+        {dock.showLibrary
           ? (
             <ProjectionDockLibrary
               dragInteraction={dragInteraction}
-              hidden={hidden}
+              hidden={dock.hidden}
               hideTargetActive={dragState.hoveredHideTarget}
               onFocusSurface={onFocusSurface}
               onHideSurface={onHideSurface}
               onProjectSurface={onProjectSurface}
-              projectIndex={projectIndex}
-              projectedCount={projected.length}
-              showHideTarget={draggingProjectedSurface && projected.length > 1}
+              projectIndex={dock.projectIndex}
+              projectedCount={dock.projectedCount}
+              showHideTarget={dock.showHideTarget}
             />
           )
           : null}
       </Stack>
 
-      {showHideOverlay
+      {dock.showHideOverlay
         ? (
           <Layer
             className={hideOverlayClassName}
@@ -159,7 +144,7 @@ export const ProjectionDock = ({
         )
         : null}
 
-      <ProjectionDockDragGhost layout={dragGhostLayout} option={draggedSurfaceOption} />
+      <ProjectionDockDragGhost layout={dragGhostLayout} option={dock.draggedSurfaceOption} />
     </Layer>
   )
 }

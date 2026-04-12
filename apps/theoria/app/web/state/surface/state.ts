@@ -1,6 +1,6 @@
 import type { EntryError } from "../../../contracts/entry-error.js"
-import { defaultEntryDraft } from "../../../contracts/entry/defaults.js"
 import type { EntryId } from "../../../contracts/entry/id.js"
+import { EntryRegistry } from "../../../contracts/entry/registry.js"
 import type { EntryDraft } from "../../../contracts/entry/registry.js"
 import type { ProgramPreview } from "../../../contracts/presentation/program-preview.js"
 import type { ProgramSourceScope } from "../../../contracts/presentation/program.js"
@@ -9,6 +9,8 @@ import { RunIdleState } from "../run/state.js"
 import type { RunState as RunStateValue } from "../run/types.js"
 
 export type StageTab = "interactive" | "evidence"
+
+const entryRegistry = EntryRegistry.current()
 
 export type PreloadState =
   | { readonly _tag: "PreloadIdle" }
@@ -29,7 +31,7 @@ export type SurfaceState = {
 
 export const initialSurfaceState = (id: EntryId): SurfaceState => ({
   id,
-  draft: defaultEntryDraft(id),
+  draft: entryRegistry.descriptorForId(id).defaultDraft(),
   stageTab: "interactive",
   preload: { _tag: "PreloadIdle" },
   run: RunIdleState.make(),

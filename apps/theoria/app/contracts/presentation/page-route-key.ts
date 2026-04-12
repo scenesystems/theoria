@@ -2,41 +2,122 @@ import { nullablePackageName, type PackageName, PackageNameSchema } from "@theor
 import { Match, Option, Schema } from "effect"
 
 import { type EntryId, EntryId as EntryIdSchema, entryIds, isEntryId } from "../entry/id.js"
+import { EntryRoute, HomePageRoute, PackageDocsRoute, type PageRoute } from "./path.js"
 
-export class HomePageRouteKey extends Schema.TaggedClass<HomePageRouteKey>()("HomePageRouteKey", {}) {}
+export class HomePageRouteKey extends Schema.TaggedClass<HomePageRouteKey>()("HomePageRouteKey", {}) {
+  static home(): HomePageRouteKey {
+    return homePageRouteKey
+  }
 
-export class DeepPageRouteKey extends Schema.TaggedClass<DeepPageRouteKey>()("DeepPageRouteKey", {
+  serialize(): SerializedPageRouteKey {
+    return decodeSerializedPageRouteKeySync("home")
+  }
+
+  route(): PageRoute.Value {
+    return HomePageRoute.home()
+  }
+}
+
+export class EntryRouteKey extends Schema.TaggedClass<EntryRouteKey>()("EntryRouteKey", {
   entryId: EntryIdSchema
-}) {}
+}) {
+  static fromEntryId(entryId: EntryId): EntryRouteKey {
+    return EntryRouteKey.make({ entryId })
+  }
+
+  static fromSerialized(value: string): Option.Option<EntryRouteKey> {
+    const entryId = value.slice(6)
+
+    return isEntryId(entryId) ? Option.some(EntryRouteKey.fromEntryId(entryId)) : Option.none()
+  }
+
+  serialize(): SerializedPageRouteKey {
+    return decodeSerializedPageRouteKeySync(`entry:${this.entryId}`)
+  }
+
+  route(): PageRoute.Value {
+    return EntryRoute.fromEntryId(this.entryId)
+  }
+}
 
 export class PackageDocsLandingPageRouteKey
   extends Schema.TaggedClass<PackageDocsLandingPageRouteKey>()("PackageDocsLandingPageRouteKey", {})
-{}
+{
+  static landing(): PackageDocsLandingPageRouteKey {
+    return packageDocsLandingPageRouteKey
+  }
+
+  serialize(): SerializedPageRouteKey {
+    return decodeSerializedPageRouteKeySync("docs")
+  }
+
+  route(): PageRoute.Value {
+    return PackageDocsRoute.fromSelectedPackageId(null)
+  }
+}
 
 export class PackageDocsPackagePageRouteKey
   extends Schema.TaggedClass<PackageDocsPackagePageRouteKey>()("PackageDocsPackagePageRouteKey", {
     packageId: PackageNameSchema
   })
-{}
+{
+  static fromPackageId(packageId: PackageName): PackageDocsPackagePageRouteKey {
+    return PackageDocsPackagePageRouteKey.make({ packageId })
+  }
 
-export const PageRouteKey = Schema.Union(
-  HomePageRouteKey,
-  DeepPageRouteKey,
-  PackageDocsLandingPageRouteKey,
-  PackageDocsPackagePageRouteKey
-)
+  static fromSerialized(value: string): Option.Option<PackageDocsPackagePageRouteKey> {
+    const packageId = nullablePackageName(value.slice(5))
 
-export type PageRouteKey = typeof PageRouteKey.Type
+    return packageId === null ? Option.none() : Option.some(PackageDocsPackagePageRouteKey.fromPackageId(packageId))
+  }
 
-const DeepSerializedPageRouteKey = Schema.String.pipe(
-  Schema.pattern(new RegExp(`^deep:(?:${entryIds.join("|")})$`, "u"))
+  serialize(): SerializedPageRouteKey {
+    return decodeSerializedPageRouteKeySync(`docs:${this.packageId}`)
+  }
+
+  route(): PageRoute.Value {
+    return PackageDocsRoute.fromSelectedPackageId(this.packageId)
+  }
+}
+
+export class PageRouteKey {
+  static optionFromSerialized(value: string): Option.Option<PageRouteKey.Value> {
+    return Match.value(value).pipe(
+      Match.when("home", () => Option.some(HomePageRouteKey.home())),
+      Match.when("docs", () => Option.some(PackageDocsLandingPageRouteKey.landing())),
+      Match.orElse((token) =>
+        token.startsWith("docs:")
+          ? PackageDocsPackagePageRouteKey.fromSerialized(token)
+          : EntryRouteKey.fromSerialized(token)
+      )
+    )
+  }
+
+  static fromSerialized(value: SerializedPageRouteKey): PageRouteKey.Value {
+    return PageRouteKey.optionFromSerialized(value).pipe(Option.getOrElse(() => HomePageRouteKey.home()))
+  }
+}
+
+export namespace PageRouteKey {
+  export const schema = Schema.Union(
+    HomePageRouteKey,
+    EntryRouteKey,
+    PackageDocsLandingPageRouteKey,
+    PackageDocsPackagePageRouteKey
+  )
+
+  export type Value = typeof schema.Type
+}
+
+const EntrySerializedPageRouteKey = Schema.String.pipe(
+  Schema.pattern(new RegExp(`^entry:(?:${entryIds.join("|")})$`, "u"))
 )
 
 const PackageDocsSerializedPageRouteKey = Schema.String.pipe(Schema.pattern(/^docs:.+$/u))
 
 export const SerializedPageRouteKey = Schema.Union(
   Schema.Literal("home", "docs"),
-  DeepSerializedPageRouteKey,
+  EntrySerializedPageRouteKey,
   PackageDocsSerializedPageRouteKey
 )
 
@@ -44,43 +125,5 @@ export type SerializedPageRouteKey = typeof SerializedPageRouteKey.Type
 
 const decodeSerializedPageRouteKeySync = Schema.decodeUnknownSync(SerializedPageRouteKey)
 
-export const homePageRouteKey = HomePageRouteKey.make({})
-
-export const packageDocsLandingPageRouteKey = PackageDocsLandingPageRouteKey.make({})
-
-export const deepPageRouteKey = (entryId: EntryId): PageRouteKey => DeepPageRouteKey.make({ entryId })
-
-export const packageDocsPackagePageRouteKey = (packageId: PackageName): PageRouteKey =>
-  PackageDocsPackagePageRouteKey.make({ packageId })
-
-export const serializePageRouteKey = (key: PageRouteKey): SerializedPageRouteKey =>
-  decodeSerializedPageRouteKeySync(
-    Match.value(key).pipe(
-      Match.tag("HomePageRouteKey", () => "home"),
-      Match.tag("PackageDocsLandingPageRouteKey", () => "docs"),
-      Match.tag("DeepPageRouteKey", ({ entryId }) => `deep:${entryId}`),
-      Match.tag("PackageDocsPackagePageRouteKey", ({ packageId }) => `docs:${packageId}`),
-      Match.exhaustive
-    )
-  )
-
-const deepPageRouteKeyForValue = (value: string): Option.Option<PageRouteKey> => {
-  const entryId = value.slice(5)
-
-  return isEntryId(entryId) ? Option.some(DeepPageRouteKey.make({ entryId })) : Option.none()
-}
-
-const packageDocsPageRouteKeyForValue = (value: string): Option.Option<PageRouteKey> => {
-  const packageId = nullablePackageName(value.slice(5))
-
-  return packageId === null ? Option.none() : Option.some(PackageDocsPackagePageRouteKey.make({ packageId }))
-}
-
-export const decodePageRouteKey = (value: string): Option.Option<PageRouteKey> =>
-  Match.value(value).pipe(
-    Match.when("home", () => Option.some(homePageRouteKey)),
-    Match.when("docs", () => Option.some(packageDocsLandingPageRouteKey)),
-    Match.orElse((token) =>
-      token.startsWith("docs:") ? packageDocsPageRouteKeyForValue(token) : deepPageRouteKeyForValue(token)
-    )
-  )
+const homePageRouteKey = HomePageRouteKey.make({})
+const packageDocsLandingPageRouteKey = PackageDocsLandingPageRouteKey.make({})

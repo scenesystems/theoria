@@ -3,18 +3,16 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Option, Schema } from "effect"
 
 import {
+  type OpenAgentTraceEntryPanelModel,
   OpenAgentTracePanelData,
   type OpenAgentTracePanelGroupKey,
+  OpenAgentTracePanelModel,
   type OpenAgentTracePanelSectionKey,
   type OpenAgentTraceRegistryEntry,
   OpenAgentTraceRegistryEnvelope
 } from "../../app/contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
 import { openAgentTraceRoute } from "../../app/server/routes/open-agent-trace.js"
-import {
-  type OpenAgentTraceEntryPanelModel,
-  OpenAgentTracePanelModel
-} from "../../app/web/view/study/open-agent-trace/panel-types.js"
 
 class ResponseJsonError extends Schema.TaggedError<ResponseJsonError>()("ResponseJsonError", {
   message: Schema.String

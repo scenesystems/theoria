@@ -1,8 +1,11 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidenceSectionGroup } from "../data/evidence-section-groups.js"
-import type { EvidenceSectionViewModel } from "../data/evidence-section-projection.js"
+import {
+  type EvidenceSectionGroup,
+  evidenceSectionLatestLabel,
+  type EvidenceSectionViewModel
+} from "../../../contracts/evidence/section-presentation.js"
 
 import { DataTable } from "../primitives/DataTable.js"
 import { EvidenceItemRenderer } from "../primitives/EvidenceItemRenderer.js"
@@ -106,7 +109,7 @@ const SectionHeader = ({
   readonly spotlight: boolean
 }) => {
   const theme = evidenceSectionFor(section.variant)
-  const latestLabel = section.latest ? spotlight ? "Live now" : "Newest evidence" : null
+  const latestLabel = evidenceSectionLatestLabel({ latest: section.latest, spotlight })
 
   return (
     <SelectionRail

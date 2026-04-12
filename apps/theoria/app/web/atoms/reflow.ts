@@ -4,10 +4,7 @@ import { Result } from "@effect-atom/atom"
 import { Effect, Layer, Option } from "effect"
 import { Text } from "effect-text"
 
-import {
-  defaultEffectTextSurfaceControls,
-  type EffectTextSurfaceControls
-} from "../../contracts/capability/effect-text-surface.js"
+import { EffectTextSurfaceControls } from "../../contracts/capability/effect-text-surface.js"
 import {
   projectionMinWidthFor,
   resolveCorpusEntry,
@@ -18,7 +15,7 @@ import {
   stageSliderMaxWidth
 } from "../../contracts/capability/effect-text.js"
 import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
-import { defaultEffectTextEntryInput } from "../../contracts/entry/defaults.js"
+import { effectTextEntryDescriptor } from "../../contracts/entry/descriptors/effect-text.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
 import { fontDescriptorFor, semanticsFor, type TextRole } from "../../contracts/presentation/text.js"
 import { projectObstacleTextLayout } from "../text/obstacleProjection.js"
@@ -31,10 +28,11 @@ const reflowSemantics = semanticsFor(reflowRole)
 const reflowFont = fontDescriptorFor(reflowSemantics)
 const reflowLineHeight = reflowSemantics.lineHeight
 const reflowRuntime = Atom.runtime(Layer.empty)
+const defaultEffectTextEntryInput = effectTextEntryDescriptor.defaultInput()
 
 export type ReflowControls = EffectTextSurfaceControls
 
-export const reflowControlsAtom: AtomType.Writable<ReflowControls> = Atom.make(defaultEffectTextSurfaceControls)
+export const reflowControlsAtom: AtomType.Writable<ReflowControls> = Atom.make(EffectTextSurfaceControls.defaults())
 export const reflowSliderMaxWidth: number = stageSliderMaxWidth
 export const reflowStageViewportWidthAtom: AtomType.Writable<number> = Atom.make(
   defaultEffectTextEntryInput.viewportWidthPx

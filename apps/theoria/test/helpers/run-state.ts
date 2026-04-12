@@ -6,7 +6,7 @@ import type { EntryId } from "../../app/contracts/entry/id.js"
 import type { EntryDraft } from "../../app/contracts/entry/registry.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
 import type { Program } from "../../app/contracts/presentation/program.js"
-import type { EntryRunIdentity } from "../../app/contracts/study/run-plan.js"
+import type { RunRequestIdentity } from "../../app/contracts/study/run-plan.js"
 import type { RunData } from "../../app/contracts/study/run.js"
 import type { LocalProjectionScript } from "../../app/web/state/run/local.js"
 import type { RunMessage } from "../../app/web/state/run/messages.js"
@@ -25,7 +25,7 @@ const identityForDraft = ({
 }: {
   readonly draft: EntryDraft
   readonly runToken: string
-}): EntryRunIdentity => ({
+}): RunRequestIdentity => ({
   entryId: draft.entryId,
   seedId: draft.seedId,
   runToken,

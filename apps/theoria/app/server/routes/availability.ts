@@ -19,11 +19,7 @@ export const capabilityAvailabilityRoute = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
     const releaseStage = yield* serverReleaseStage
     const data = yield* capabilityAvailability(releaseStage)
-    const envelope = CapabilityAvailabilitySuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data
-    })
+    const envelope = CapabilityAvailabilitySuccessEnvelope.ok(yield* timing.finish(), data)
 
     return yield* jsonResponse(envelope)
   })

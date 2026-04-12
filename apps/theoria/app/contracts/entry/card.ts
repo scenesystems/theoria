@@ -10,10 +10,8 @@ import {
   CardReleaseState as CardReleaseStateSchema,
   type CardReleaseState as CardReleaseStateType
 } from "./descriptor.js"
-import { primaryAuthorityIdForEntry } from "./focus.js"
-import { EntryId, entryIds, isEntryId } from "./id.js"
-import { entryDescriptorForId } from "./registry.js"
-import { entryVisibleInReleaseStage } from "./routing.js"
+import { EntryId, isEntryId } from "./id.js"
+import { type AnyEntryDescriptor, EntryRegistry } from "./registry.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -21,28 +19,29 @@ export const PackageGroup = Schema.Literal("effect", "scenesystems")
 
 export type PackageGroup = typeof PackageGroup.Type
 
-export type PackageGroupMeta = {
-  readonly label: string
-  readonly description: string
-}
-
-const packageGroupMetaById: Record<PackageGroup, PackageGroupMeta> = {
-  effect: {
-    label: "Effect Capabilities",
-    description:
-      "Effect-native computation, optimization, and inference capabilities that compose inside Theoria study entries."
-  },
-  scenesystems: {
-    label: "Scene Systems Capabilities",
-    description:
-      "Scene Systems security, provenance, and delivery capabilities that ground Theoria evidence and sharing surfaces."
+export class PackageGroupMetadata extends Schema.Class<PackageGroupMetadata>("PackageGroupMetadata")({
+  label: NonEmptyString,
+  description: NonEmptyString
+}) {
+  static fromGroup(group: PackageGroup): PackageGroupMetadata {
+    return group === "effect"
+      ? PackageGroupMetadata.make({
+        label: "Effect Capabilities",
+        description:
+          "Effect-native computation, optimization, and inference capabilities that compose inside Theoria study entries."
+      })
+      : PackageGroupMetadata.make({
+        label: "Scene Systems Capabilities",
+        description:
+          "Scene Systems security, provenance, and delivery capabilities that ground Theoria evidence and sharing surfaces."
+      })
   }
 }
 
 const packageGroupForEntry = (entryId: typeof EntryId.Type): PackageGroup =>
   entryId.startsWith("effect-") ? "effect" : "scenesystems"
 
-export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta => packageGroupMetaById[group]
+const entryRegistry = EntryRegistry.current()
 
 /**
  * Full card definition consumed by both the home catalog and deep-dive pages.
@@ -53,7 +52,7 @@ export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta => packa
  *
  * @since 0.1.0
  */
-export const Card = Schema.Struct({
+export class Card extends Schema.Class<Card>("Card")({
   id: EntryId,
   title: NonEmptyString,
   packageName: PackageNameSchema,
@@ -70,64 +69,67 @@ export const Card = Schema.Struct({
   repoUrl: NonEmptyString,
   license: NonEmptyString,
   interactiveLabel: Schema.optional(NonEmptyString)
-})
+}) {
+  static all(): ReadonlyArray<Card> {
+    return allCards
+  }
 
-export type Card = typeof Card.Type
+  static byId(id: string): Option.Option<Card> {
+    return isEntryId(id)
+      ? Arr.findFirst(Card.all(), (card) => card.id === id)
+      : Option.none()
+  }
 
-export const cardForId = (id: typeof EntryId.Type): Card => {
-  const descriptor = entryDescriptorForId(id)
-  const authority = authorityCatalogForId(primaryAuthorityIdForEntry(id))
-  const interactiveLabel = Option.fromNullable(descriptor.interactiveLabel)
+  static byIdForReleaseStage(id: string, stage: ReleaseStage): Option.Option<Card> {
+    return Card.byId(id).pipe(
+      Option.filter((card) => card.visibleInReleaseStage(stage))
+    )
+  }
 
-  return {
-    id: descriptor.entryId,
-    title: descriptor.title,
-    packageName: descriptor.packageName,
-    description: descriptor.description,
-    useCase: descriptor.useCase,
-    summary: descriptor.summary,
-    runLabel: descriptor.runLabel,
-    deepDivePath: descriptor.path,
-    docsPath: PackageDocsPresentation.projectPackage(descriptor.packageName).canonicalPath,
-    group: packageGroupForEntry(descriptor.entryId),
-    releaseState: descriptor.releaseState,
-    version: authority.version,
-    npmUrl: authority.npmUrl,
-    repoUrl: authority.repoUrl,
-    license: authority.license,
-    ...Option.match(interactiveLabel, {
-      onNone: () => ({}),
-      onSome: (resolvedInteractiveLabel) => ({ interactiveLabel: resolvedInteractiveLabel })
+  static forGroup(group: PackageGroup): ReadonlyArray<Card> {
+    return Arr.filter(Card.all(), (card) => card.group === group)
+  }
+
+  static forPackageName(packageName: PackageName): Option.Option<Card> {
+    return Arr.findFirst(Card.all(), (card) => card.packageName === packageName)
+  }
+
+  static forReleaseStage(stage: ReleaseStage): ReadonlyArray<Card> {
+    return Arr.filter(Card.all(), (card) => card.visibleInReleaseStage(stage))
+  }
+
+  static project(descriptor: AnyEntryDescriptor): Card {
+    const authority = authorityCatalogForId(descriptor.primaryAuthorityId)
+    const interactiveLabel = Option.fromNullable(descriptor.interactiveLabel)
+
+    return Card.make({
+      id: descriptor.entryId,
+      title: descriptor.title,
+      packageName: descriptor.packageName,
+      description: descriptor.description,
+      useCase: descriptor.useCase,
+      summary: descriptor.summary,
+      runLabel: descriptor.runLabel,
+      deepDivePath: descriptor.path,
+      docsPath: PackageDocsPresentation.projectPackage(descriptor.packageName).canonicalPath,
+      group: packageGroupForEntry(descriptor.entryId),
+      releaseState: descriptor.releaseState,
+      version: authority.version,
+      npmUrl: authority.npmUrl,
+      repoUrl: authority.repoUrl,
+      license: authority.license,
+      ...Option.match(interactiveLabel, {
+        onNone: () => ({}),
+        onSome: (resolvedInteractiveLabel) => ({ interactiveLabel: resolvedInteractiveLabel })
+      })
     })
+  }
+
+  visibleInReleaseStage(stage: ReleaseStage): boolean {
+    return stage === "preview" || this.releaseState === "published"
   }
 }
 
-export const cards: ReadonlyArray<Card> = Arr.map(entryIds, cardForId)
-
-export const cardsForGroup = (group: PackageGroup): ReadonlyArray<Card> =>
-  Arr.filter(cards, (card) => card.group === group)
-
-export const effectCards: ReadonlyArray<Card> = cardsForGroup("effect")
-
-export const scenesystemsCards: ReadonlyArray<Card> = cardsForGroup("scenesystems")
-
-export const cardById = (id: string): Option.Option<Card> =>
-  isEntryId(id)
-    ? Option.some(cardForId(id))
-    : Option.none()
-
-export const cardForPackageName = (packageName: PackageName): Option.Option<Card> =>
-  Arr.findFirst(cards, (card) => card.packageName === packageName)
-
-export const cardVisibleInReleaseStage = (card: Card, stage: ReleaseStage): boolean =>
-  entryVisibleInReleaseStage(card, stage)
-
-export const cardsForReleaseStage = (stage: ReleaseStage): ReadonlyArray<Card> =>
-  Arr.filter(cards, (card) => cardVisibleInReleaseStage(card, stage))
-
-export const cardByIdForReleaseStage = (id: string, stage: ReleaseStage): Option.Option<Card> =>
-  cardById(id).pipe(
-    Option.filter((card) => cardVisibleInReleaseStage(card, stage))
-  )
+const allCards: ReadonlyArray<Card> = Arr.map(entryRegistry.descriptors, Card.project)
 
 export type CardReleaseState = CardReleaseStateType

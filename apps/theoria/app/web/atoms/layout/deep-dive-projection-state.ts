@@ -1,28 +1,29 @@
 import { Atom } from "@effect-atom/atom"
 
-import { DeepDiveSurfacePlaneValue } from "../../../contracts/presentation/layout.js"
-import type { DeepDiveProjectionLaneChange } from "../../state/surface/deep-dive-projection-lane.js"
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
-
 import {
+  deepDiveFocusedSurfaceDefault,
   deepDiveProjectedSurfaceCountDefault,
-  deepDiveSurfaceOrderDefault
-} from "../../state/surface/deep-dive-lane-model.js"
+  type DeepDiveProjectionOrderChange,
+  deepDiveProjectionSurfaceOrder
+} from "../../../contracts/presentation/deep-dive-projection-order-state.js"
+import type { DeepDiveProjectionPlane } from "../../../contracts/presentation/deep-dive-projection.js"
+import { diagnosticsProjectionEnabled } from "../../state/surface/deep-dive.js"
 
-export type DeepDiveProjectionLaneWrite = DeepDiveProjectionLaneChange
+export type DeepDiveProjectionOrderWrite = DeepDiveProjectionOrderChange
 
-export const deepDiveSurfaceOrderAtom = Atom.make<ReadonlyArray<DeepDiveProjectionPlane>>(deepDiveSurfaceOrderDefault)
-  .pipe(Atom.keepAlive)
+export const deepDiveSurfaceOrderAtom = Atom.make<ReadonlyArray<DeepDiveProjectionPlane>>(
+  deepDiveProjectionSurfaceOrder({ diagnosticsEnabled: diagnosticsProjectionEnabled })
+).pipe(Atom.keepAlive)
 
 export const deepDiveProjectedSurfaceCountAtom = Atom.make<number>(deepDiveProjectedSurfaceCountDefault).pipe(
   Atom.keepAlive
 )
 
-export const deepDiveFocusedSurfaceAtom = Atom.make<DeepDiveProjectionPlane>(DeepDiveSurfacePlaneValue.Stage).pipe(
+export const deepDiveFocusedSurfaceAtom = Atom.make<DeepDiveProjectionPlane>(deepDiveFocusedSurfaceDefault).pipe(
   Atom.keepAlive
 )
 
-export const applyDeepDiveProjectionLaneWriteAtom = Atom.fnSync<DeepDiveProjectionLaneWrite>()(
+export const applyDeepDiveProjectionOrderWriteAtom = Atom.fnSync<DeepDiveProjectionOrderWrite>()(
   ({ focusedSurface, projectedCount, surfaceOrder }, ctx) => {
     ctx.set(deepDiveSurfaceOrderAtom, surfaceOrder)
     ctx.set(deepDiveProjectedSurfaceCountAtom, projectedCount)

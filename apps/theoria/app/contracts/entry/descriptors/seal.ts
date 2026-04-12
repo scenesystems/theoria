@@ -1,9 +1,9 @@
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
+import { DefaultSeedId, EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed } from "../descriptor.js"
 
 const sealAuthority = authorityCatalogForId("seal")
 
-export const sealEntryDescriptor = EntryDescriptor.define({
+export const sealEntryDescriptor = EntryDescriptor.make({
   entryId: "seal",
   title: sealAuthority.title,
   packageName: sealAuthority.packageName,
@@ -14,9 +14,13 @@ export const sealEntryDescriptor = EntryDescriptor.define({
   releaseState: "coming-soon",
   path: "/seal",
   interactiveLabel: null,
+  projectionHint: EntryProjectionHint.defaults(),
   primaryAuthorityId: "seal",
   authorityIds: ["seal"],
-  seeds: defaultEntrySeeds(sealAuthority.summary),
+  seeds: [EntrySeed.default(sealAuthority.summary)],
+  defaultSeedId: "default",
+  defaultInput: {},
+  defaultControls: {},
   seedIdSchema: DefaultSeedId,
   inputSchema: EmptyStruct,
   controlsSchema: EmptyStruct

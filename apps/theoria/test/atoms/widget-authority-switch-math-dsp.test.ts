@@ -5,8 +5,9 @@ import { Effect } from "effect"
 import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
 import {
   EffectMathCanonicalStep,
-  projectPowerProjection,
-  snapshotEffectMathProjectionScript
+  EffectMathProjectionScript,
+  PowerControls,
+  PowerProjection
 } from "../../app/contracts/capability/effect-math.js"
 import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
@@ -38,8 +39,8 @@ const makeTestRegistry = (): Registry.Registry =>
 
 const effectMathFrame: EffectMathRunFrame = {
   _tag: "effect-math",
-  controls: { d: 1.35, n: 77, alpha: 0.07 },
-  projection: projectPowerProjection({ d: 1.35, n: 77, alpha: 0.07 })
+  controls: PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }),
+  projection: PowerProjection.project(PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }))
 }
 
 const effectDspFrame = new DspRunFrame({
@@ -112,12 +113,14 @@ describe("widget authority switch math+dsp", () => {
     Effect.gen(function*() {
       const registry = makeTestRegistry()
       const running = runningRunState({
-        localProjectionScript: snapshotEffectMathProjectionScript({ d: 1.35, n: 77, alpha: 0.07 }),
+        localProjectionScript: EffectMathProjectionScript.fromControls(
+          PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
+        ),
         program: programPreviewFixture.program
       })
 
       registry.set(powerAnimatingAtom, true)
-      registry.set(powerControlsAtom, { d: 0.2, n: 15, alpha: 0.02 })
+      registry.set(powerControlsAtom, PowerControls.make({ d: 0.2, n: 15, alpha: 0.02 }))
       registry.update(surfaceAtom("effect-math"), (state) => ({ ...state, run: running }))
 
       const activeView = registry.get(powerWidgetViewModelAtom)
@@ -136,14 +139,16 @@ describe("widget authority switch math+dsp", () => {
         canonicalFrame: effectMathCanonicalFrame,
         frame: effectMathFrame,
         running: runningRunState({
-          localProjectionScript: snapshotEffectMathProjectionScript({ d: 1.35, n: 77, alpha: 0.07 }),
+          localProjectionScript: EffectMathProjectionScript.fromControls(
+            PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
+          ),
           program: programPreviewFixture.program
         }),
         summary: "effect-math finished"
       })
 
       registry.set(powerAnimatingAtom, true)
-      registry.set(powerControlsAtom, { d: 0.2, n: 15, alpha: 0.02 })
+      registry.set(powerControlsAtom, PowerControls.make({ d: 0.2, n: 15, alpha: 0.02 }))
       registry.update(surfaceAtom("effect-math"), (state) => ({ ...state, run: states.active }))
 
       const activeView = registry.get(powerWidgetViewModelAtom)

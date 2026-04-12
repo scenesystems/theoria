@@ -1,7 +1,7 @@
-export type ProjectionDriverCompletedEvent = {
-  readonly _tag: "ProjectionDriverCompleted"
-}
+import { Data } from "effect"
 
-export const projectionDriverCompletedEvent: ProjectionDriverCompletedEvent = {
-  _tag: "ProjectionDriverCompleted"
+export class ProjectionDriverCompletedEvent extends Data.TaggedClass("ProjectionDriverCompleted")<{}> {
+  static make(): ProjectionDriverCompletedEvent {
+    return new ProjectionDriverCompletedEvent()
+  }
 }

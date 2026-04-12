@@ -1,18 +1,15 @@
 import { Array as Arr } from "effect"
 
-import { workflowEntryId } from "../../../../contracts/entry/id.js"
+import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
-  baselineWorkflowScenarioVariant,
-  optimizedWorkflowScenarioVariant,
-  retrievalRequiredWorkflowScenarioManifest,
-  workflowAuthorityBindings,
-  type WorkflowScenario,
-  workflowScenarioRecordPair,
-  workflowScenarioReportPair,
-  workflowScenarioVariantPair
+  BaselineWorkflowScenarioVariant,
+  decodeWorkflowEvaluationReport,
+  decodeWorkflowExecutionRecord,
+  OptimizedWorkflowScenarioVariant,
+  WorkflowScenario,
+  WorkflowScenarioVariants
 } from "../../../../contracts/study/workflow/scenario.js"
-import { decodeWorkflowEvaluationReport, decodeWorkflowExecutionRecord } from "../decode.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
 const baselineRecord = decodeWorkflowExecutionRecord({
@@ -144,8 +141,8 @@ const optimizedRecord = decodeWorkflowExecutionRecord({
   }
 })
 
-const retrievalRequiredWorkflowVariants = workflowScenarioVariantPair({
-  baseline: baselineWorkflowScenarioVariant({
+const retrievalRequiredWorkflowVariants = WorkflowScenarioVariants.make({
+  baseline: BaselineWorkflowScenarioVariant.fromPair({
     record: baselineRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "retrieval-required-baseline-report",
@@ -167,7 +164,7 @@ const retrievalRequiredWorkflowVariants = workflowScenarioVariantPair({
       ]
     })
   }),
-  optimized: optimizedWorkflowScenarioVariant({
+  optimized: OptimizedWorkflowScenarioVariant.fromPair({
     record: optimizedRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "retrieval-required-optimized-report",
@@ -191,15 +188,8 @@ const retrievalRequiredWorkflowVariants = workflowScenarioVariantPair({
   })
 })
 
-export const retrievalRequiredWorkflowScenario: WorkflowScenario = {
-  entry: {
-    scenarioId: retrievalRequiredWorkflowScenarioManifest.id,
-    entryId: workflowEntryId
-  },
-  authorities: workflowAuthorityBindings,
-  label: retrievalRequiredWorkflowScenarioManifest.label,
-  summary: retrievalRequiredWorkflowScenarioManifest.summary,
-  workflowKind: "retrieval-required",
-  records: workflowScenarioRecordPair(retrievalRequiredWorkflowVariants),
-  reports: workflowScenarioReportPair(retrievalRequiredWorkflowVariants)
-}
+export const retrievalRequiredWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
+  manifest: WorkflowScenarioManifest.forId("retrieval-required"),
+  variants: retrievalRequiredWorkflowVariants,
+  workflowKind: "retrieval-required"
+})

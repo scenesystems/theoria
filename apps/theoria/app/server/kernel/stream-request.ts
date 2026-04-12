@@ -1,13 +1,17 @@
-import { Effect, Schema } from "effect"
+import { Effect, Match, Schema } from "effect"
 
 import { EntryExecutionError } from "../../contracts/entry-error.js"
 import { fingerprintOf } from "../../contracts/entry/fingerprint.js"
 import { type RunnableEntryId, RunnableEntryId as RunnableEntryIdSchema } from "../../contracts/entry/id.js"
-import { EntryDraft as EntryDraftSchema } from "../../contracts/entry/registry.js"
+import { type EntryDraft, EntryDraft as EntryDraftSchema } from "../../contracts/entry/registry.js"
 import {
+  EffectDspManifest,
+  EffectMathManifest,
+  EffectSearchManifest,
+  EffectTextManifest,
   type StreamManifest,
   StreamManifest as StreamManifestSchema,
-  streamManifestFromEntryDraft
+  WorkflowManifest
 } from "../../contracts/evidence/manifest.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -51,12 +55,23 @@ export const entryIdForRequest = (request: EntryStreamRequest): RunnableEntryId 
     ? request.draft.entryId
     : null
 
+const manifestFromDraft = (draft: EntryDraft): StreamManifest | null =>
+  Match.value(draft).pipe(
+    Match.withReturnType<StreamManifest | null>(),
+    Match.when({ entryId: "effect-text" }, EffectTextManifest.fromEntryDraft),
+    Match.when({ entryId: "effect-dsp" }, EffectDspManifest.fromEntryDraft),
+    Match.when({ entryId: "effect-search" }, EffectSearchManifest.fromEntryDraft),
+    Match.when({ entryId: "effect-math" }, EffectMathManifest.fromEntryDraft),
+    Match.when({ entryId: "workflow" }, WorkflowManifest.fromEntryDraft),
+    Match.orElse(() => null)
+  )
+
 export const manifestForRequest = (request: EntryStreamRequest): StreamManifest | null =>
   request.plan !== null
     ? request.plan.manifest
     : request.draft === null
     ? null
-    : streamManifestFromEntryDraft(request.draft)
+    : manifestFromDraft(request.draft)
 
 export const validateEntryStreamRequest = ({
   acceptsManifest,

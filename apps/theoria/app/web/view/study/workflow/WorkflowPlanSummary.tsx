@@ -2,7 +2,7 @@ import {
   workflowPlanSummaryMetricRows,
   workflowPlanSummaryPhaseDetail
 } from "../../../../contracts/study/workflow/plan-presentation.js"
-import type { WorkflowSurfaceViewModel } from "./surface-model.js"
+import type { WorkflowSurfaceViewModel } from "../../../../contracts/study/workflow/surface-presentation.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Layer, Stack } from "../../primitives/Layout.js"
@@ -28,14 +28,14 @@ export const WorkflowPlanSummary = ({
             as="h3"
             className="text-ink-900"
             role="section-title"
-            text={viewModel.selection.label}
+            text={viewModel.selector.selected.label}
             variant="expanded"
           />
           <SemanticText
             as="p"
             className="text-ink-700"
             role="status"
-            text={viewModel.selection.summary}
+            text={viewModel.selector.selected.summary}
             variant="expanded"
           />
         </Stack>

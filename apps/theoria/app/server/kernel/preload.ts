@@ -9,7 +9,7 @@ import { lookupForReleaseStage } from "./registry.js"
 import { ResponseTiming } from "./response-timing.js"
 
 const successful = (timing: ResponseTiming, data: ProgramPreview) =>
-  timing.finish().pipe(Effect.map((meta) => ProgramPreviewSuccessEnvelope.make({ ok: true, meta, data })))
+  timing.finish().pipe(Effect.map((meta) => ProgramPreviewSuccessEnvelope.ok(meta, data)))
 
 const failed = (timing: ResponseTiming, code: ErrorCode, message: string, retryable: boolean) =>
   timing.fail({ code, message, retryable })

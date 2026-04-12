@@ -5,8 +5,10 @@ import { Cluster, Stack } from "../../primitives/Layout.js"
 import { ExternalLink } from "../../primitives/Link.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
 
-import type { OpenAgentTraceSummaryRow } from "../../../state/workflow/open-agent-trace-summary-row.js"
-import type { OpenAgentTracePanelSection } from "./panel-sections.js"
+import type {
+  OpenAgentTracePanelSection,
+  OpenAgentTraceSummaryRow
+} from "../../../../contracts/study/workflow/open-agent-trace.js"
 
 const SummaryRows = ({ rows }: { readonly rows: ReadonlyArray<OpenAgentTraceSummaryRow> }) => (
   <Cluster className="gap-x-6 gap-y-3">

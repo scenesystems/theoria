@@ -1,18 +1,10 @@
-import { Schema } from "effect"
-
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { DspModuleType, DspScenarioId } from "../../capability/effect-dsp.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
+import { DspRunRequest } from "../../capability/effect-dsp.js"
+import { DefaultSeedId, EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed } from "../descriptor.js"
 
 const effectDspAuthority = authorityCatalogForId("effect-dsp")
 
-const EffectDspEntryInput = Schema.Struct({
-  scenarioId: DspScenarioId,
-  moduleType: DspModuleType,
-  optimizationBudget: Schema.Number.pipe(Schema.int(), Schema.between(1, 5))
-})
-
-export const effectDspEntryDescriptor = EntryDescriptor.define({
+export const effectDspEntryDescriptor = EntryDescriptor.make({
   entryId: "effect-dsp",
   title: effectDspAuthority.title,
   packageName: effectDspAuthority.packageName,
@@ -23,10 +15,20 @@ export const effectDspEntryDescriptor = EntryDescriptor.define({
   releaseState: "published",
   path: "/effect-dsp",
   interactiveLabel: "Typed Evaluation",
+  projectionHint: EntryProjectionHint.make({
+    stage:
+      "Inspect typed sentiment evaluations case-by-case on the same authored step stream that freezes the contract, runs the provider-backed program, and reports the comparison.",
+    evidence:
+      "Provider-backed evaluation traces, correctness deltas, and runtime metadata - every run records the typed program, baseline, and outcome together.",
+    source: EntryProjectionHint.defaults().source
+  }),
   primaryAuthorityId: "effect-dsp",
   authorityIds: ["effect-dsp"],
-  seeds: defaultEntrySeeds(effectDspAuthority.summary),
+  seeds: [EntrySeed.default(effectDspAuthority.summary)],
+  defaultSeedId: "default",
+  defaultInput: DspRunRequest.defaults(),
+  defaultControls: {},
   seedIdSchema: DefaultSeedId,
-  inputSchema: EffectDspEntryInput,
+  inputSchema: DspRunRequest,
   controlsSchema: EmptyStruct
 })

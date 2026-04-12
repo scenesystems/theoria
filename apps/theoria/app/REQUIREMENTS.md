@@ -66,6 +66,14 @@ Within `server/`, the dependency direction is:
 - `server/adapters/` may depend on `server/kernel/`, `server/capability/`, and `server/study/`
 - `server/routes/` may depend on `server/kernel/`, `server/adapters/`, and `server/config/`
 
+## Page Family Contract
+
+- Exactly three page families exist in the target state: home, entry, and package docs.
+- `EntryRoute` is the only executable page family and resolves to `EntryId` plus typed entry-local inputs.
+- Package-backed entries and workflow-backed entries share the same entry page family and page shell.
+- `workflow-comparison`, `DeepRoute`, `DeepPagePresentation`, `DeepDivePage`, and package-named executable routes are obsolete migration debt and must not appear in target-state contracts, route-state discriminants, page-category types, or user-visible metadata.
+- Page components consume contract-owned route and presentation projections; they must not parse routes themselves or branch on package id for shell composition.
+
 ## Architectural Vocabulary
 
 Names are architecture. Each term owns one role.
@@ -85,7 +93,7 @@ Names are architecture. Each term owns one role.
 - `Registry`: a composition root that collects already-defined descriptors or registrations. A registry does not author feature logic.
 - `Runtime`: a boundary-bearing implementation surface that owns services, transport, lifecycle, or projection-driver integration.
 - `Surface`: browser-local presentation state and rendering context for one product lens and its study workspace.
-- `Workflow`: the executable plan, graph, or coordination program of a study. Every study surface runs a workflow. The current `workflow-comparison` domain is the app's present workflow study, not a separate architectural category.
+- `Workflow`: the executable plan, graph, or coordination program of a study. Every study surface runs a workflow.
 - `Projection`: a pure or boundary-driven translation from semantic state into renderable or streamable structure.
 - `Evidence`: durable run output, stream events, sections, and projections derived from execution.
 
@@ -105,7 +113,9 @@ Names are architecture. Each term owns one role.
 ### Drift Words To Remove
 
 - `demo` is a legacy word. It may remain temporarily in existing paths, but no new architectural seam should be named `demo`.
+- `deep dive` is obsolete page vocabulary.
 - `proving-consumer` is a legacy word.
+- `workflow-comparison` is obsolete workflow-study vocabulary.
 - `authorities` is not a valid target-state directory concept for the app.
 - directory roles named `entry/` or `studies/` are legacy when they actually mean shared infrastructure or thin glue.
 
@@ -120,16 +130,15 @@ The following distinctions are mandatory:
 - `kernel` means shared reusable runtime or execution infrastructure
 - `adapter` means thin entry-specific parameterization over shared kernels
 - `workflow` means the executable program of a study
-- `workflow-comparison` is the current compatibility label for the app's workflow study domain
 - `capability` means reusable package substrate
 - `capabilities` in the current codebase is a legacy endpoint name for availability data, not the final architectural noun for the composed capability model
 
-### Temporary Compatibility Labels
+### Legacy Migration Debt
 
-Current code still contains legacy names. Treat them as compatibility labels, not as target-state architecture:
+Current code still contains legacy names. Delete them instead of preserving them as compatibility:
 
 - the `workflow` entry id currently names the route for the app's workflow study surface
-- `workflow-comparison` in the current codebase is the compatibility label for that same workflow study domain
+- stale `workflow-comparison` and `Deep*` names are migration debt to remove from contracts, pages, tests, and metadata rather than aliases to preserve
 - `contracts/capabilities.ts` currently models entry availability plus DSP runtime projection, not the full shared capability system
 - `server/routes/capabilities.ts` currently reports readiness data, not the full capability composition graph
 - current files or plans that say `server/entry`, `web/runtime/entry`, or `*/studies` for thin glue should be read as legacy names pending convergence to `kernel/` and `adapters/`
@@ -137,6 +146,13 @@ Current code still contains legacy names. Treat them as compatibility labels, no
 ## Source Of Truth Rules
 
 Every concept must have one authored seed and many derived projections.
+
+### Construction And Projection Ownership
+
+- If the output is a stable semantic value, the owning noun must publish it with `.make(...)`, `.from...(...)`, or `.project(...)`.
+- If the output is a running `Stream`, the mechanism noun must publish it with `.stream(...)` or a transport-specific `.from...(...)` constructor.
+- Prefer real `Schema.Class`, `Schema.TaggedClass`, `Data.Class`, `Data.TaggedClass`, `Schema.Struct`, or other schema/data owners when a noun carries defaults, projections, or derivation rules.
+- Do not introduce raw namespace objects, `make*` helper facades, or compatibility aliases once a canonical noun owner exists. Update downstream consumers to the single source of truth.
 
 ### Contract Authority
 
@@ -200,7 +216,7 @@ Entries may spotlight one package, but the capability stack remains shared.
 
 - Every study surface runs a workflow.
 - Workflow is the executable program of the study, not a separate sibling domain competing with study.
-- The current `workflow-comparison` contracts and server modules should converge into the single workflow study domain rather than remain architecturally separate.
+- Any remaining `workflow-comparison` paths or prose are deletion debt; the live public authority is the single `workflow` study domain.
 
 ### Registry Authority
 
@@ -772,7 +788,7 @@ The only valid target-state uses of `workflow` are:
 - the app's workflow study domain
 - package concepts that are genuinely named workflow in upstream libraries
 
-`workflow-comparison` is a compatibility label for the current implementation and should converge into the single workflow study domain instead of remaining a first-class parallel concept.
+`workflow-comparison` is obsolete migration debt and must be deleted from the public route, page, state, and metadata model.
 
 ### Capability Naming
 
@@ -861,7 +877,7 @@ Target split:
 
 The goal is not one registration directory per package. The goal is one reusable study runtime system whose entries compose shared capability integrations.
 
-### `server/workflow-comparison/search-study.ts`
+### Legacy `server/workflow-comparison/search-study.ts`
 
 Current issue: mixes search-space definition, selection evaluation, event formatting, study execution, and evidence publication.
 
@@ -874,7 +890,7 @@ Target split:
 - `server/study/workflow/evidence/search-progress.ts`
 - `server/study/workflow/evidence/search-summary.ts`
 
-The target-state workflow study directory should absorb the current `server/workflow-comparison/` family.
+Delete the legacy `server/workflow-comparison/` family by moving its owned study logic into `server/study/workflow/`.
 
 ### `web/view/primitives/designSystem.ts`
 
@@ -962,8 +978,10 @@ All new work in `apps/theoria/app` must obey these directives:
 9. When logic is purely semantic, keep it pure and model it with Effect-native data types rather than wrapping it in `Effect.succeed`.
 10. Do not create per-entry mini-frameworks or mirrored per-package directory trees when the difference can be represented as a thin adapter over a shared kernel.
 11. Only create a dedicated per-study domain directory when that study owns unique domain logic that cannot be expressed through the shared entry and capability systems.
-12. Do not model `workflow` and `workflow-comparison` as separate first-class architectural categories.
+12. Delete `workflow-comparison`; do not model `workflow` and `workflow-comparison` as separate first-class architectural categories.
 13. Do not use `capabilities` as the architectural name for readiness data and shared package substrate at the same time.
+14. Stable semantic values belong to noun-owned `.make(...)`, `.from...(...)`, or `.project(...)` APIs; running streams belong to mechanism-owned `.stream(...)` or transport-specific constructors.
+15. Do not introduce raw owner facades or `make*` helper namespaces when a real schema/data owner can carry the behavior.
 
 ## Definition Of Done
 

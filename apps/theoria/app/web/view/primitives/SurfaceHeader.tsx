@@ -3,10 +3,9 @@ import { Match } from "effect"
 import * as Option from "effect/Option"
 
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { RunControlsViewModel } from "../../../contracts/presentation/run-controls.js"
 import type { SurfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
-
-import type { RunControlsViewModel } from "../runControlsModel.js"
 
 import { ActionButton, ActionLink } from "./ActionControl.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"

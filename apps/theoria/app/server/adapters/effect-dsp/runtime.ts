@@ -5,14 +5,7 @@ import { Evaluate, Optimizer } from "effect-dsp"
 import * as Contracts from "effect-dsp/contracts"
 
 import type { DspEvaluationPhaseId } from "../../../contracts/capability/effect-dsp-runtime.js"
-import {
-  defaultDspModuleType,
-  defaultDspScenarioId,
-  defaultOptimizationBudget,
-  type DspModuleType,
-  type DspScenarioDefinition,
-  type DspScenarioId
-} from "../../../contracts/capability/effect-dsp.js"
+import { DspRunRequest, type DspScenarioDefinition } from "../../../contracts/capability/effect-dsp.js"
 import { effectDspEntryDescriptor } from "../../../contracts/entry/descriptors/effect-dsp.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 
@@ -30,26 +23,10 @@ import {
   projectEvaluationEvidence
 } from "./package-evidence.js"
 
-export type DspRunRequest = {
-  readonly scenarioId: DspScenarioId
-  readonly moduleType: DspModuleType
-  readonly optimizationBudget: number
-}
-
-export const defaultDspRunRequest: DspRunRequest = {
-  scenarioId: defaultDspScenarioId,
-  moduleType: defaultDspModuleType,
-  optimizationBudget: defaultOptimizationBudget
-}
-
 export const requestFromManifest = (manifest: StreamManifest | null): DspRunRequest =>
   manifest !== null && manifest._tag === effectDspEntryDescriptor.entryId
-    ? {
-      scenarioId: manifest.scenarioId,
-      moduleType: manifest.moduleType,
-      optimizationBudget: manifest.optimizationBudget
-    }
-    : defaultDspRunRequest
+    ? DspRunRequest.fromManifest(manifest)
+    : DspRunRequest.defaults()
 
 export type DspEvaluationReport = {
   readonly overallScores: Readonly<Record<string, number>>

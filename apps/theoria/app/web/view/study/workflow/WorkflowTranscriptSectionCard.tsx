@@ -4,14 +4,13 @@ import {
   workflowRichnessSectionTitle,
   workflowRichnessTableLabel
 } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
-import type { WorkflowTranscriptViewModel } from "./transcript-model.js"
+import { workflowOptionalText } from "../../../../contracts/study/workflow/view-presentation.js"
+import type { WorkflowTranscriptViewModel } from "../../../../contracts/study/workflow/view-presentation.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { DataTable } from "../../primitives/DataTable.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
-
-const detailText = (value: string): string => (value.length === 0 ? "n/a" : value)
 
 export const WorkflowTranscriptSectionCard = ({
   viewModel
@@ -54,8 +53,8 @@ export const WorkflowTranscriptSectionCard = ({
             rows={viewModel.entries.map((entry) => [
               entry.title,
               entry.isCurrent ? `${entry.nodeId} (current)` : entry.nodeId,
-              detailText(entry.prompt),
-              detailText(entry.output),
+              workflowOptionalText(entry.prompt),
+              workflowOptionalText(entry.output),
               entry.totalTokens,
               entry.durationMs
             ])}

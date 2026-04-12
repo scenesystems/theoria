@@ -4,8 +4,11 @@ import * as Record from "effect/Record"
 
 import { Example, Metric, Module, Signature } from "effect-dsp"
 
-import type { DspModuleType, DspScenarioDefinition, DspScenarioId } from "../../../contracts/capability/effect-dsp.js"
-import { scenarioById } from "../../../contracts/capability/effect-dsp.js"
+import {
+  type DspModuleType,
+  DspScenarioDefinition,
+  type DspScenarioId
+} from "../../../contracts/capability/effect-dsp.js"
 
 import { DspProviderRuntime, DspProviderUnavailable } from "../../capability/effect-dsp.js"
 
@@ -69,7 +72,8 @@ export const resolveProvider = Effect.gen(function*() {
   }
 })
 
-export const resolveScenario = (scenarioId: DspScenarioId): DspScenarioDefinition => scenarioById(scenarioId)
+export const resolveScenario = (scenarioId: DspScenarioId): DspScenarioDefinition =>
+  DspScenarioDefinition.forId(scenarioId)
 
 export const scenarioExamples = (scenario: DspScenarioDefinition): ReadonlyArray<Example.Example> =>
   Arr.map(scenario.examples, (example) => new Example.Example({ input: example.input, output: example.expected }))

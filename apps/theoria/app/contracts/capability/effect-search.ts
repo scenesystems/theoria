@@ -15,6 +15,8 @@ import * as Option from "effect/Option"
 import type { EvidenceSection } from "../evidence/item.js"
 import { EffectSearchStudyTelemetry } from "./effect-search-study-telemetry.js"
 
+// Temporary decomposition exception: trial-budget authority and objective-domain
+// helpers still co-reside here while the effect-search contract split converges.
 const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
@@ -22,62 +24,105 @@ const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 // Search configuration
 // ---------------------------------------------------------------------------
 
-export const searchBounds: Readonly<{
-  readonly xMin: number
-  readonly xMax: number
-  readonly yMin: number
-  readonly yMax: number
-}> = {
-  xMin: -5,
-  xMax: 5,
-  yMin: -5,
-  yMax: 5
+export class SearchBounds extends Schema.Class<SearchBounds>("SearchBounds")({
+  xMin: Schema.Number,
+  xMax: Schema.Number,
+  yMin: Schema.Number,
+  yMax: Schema.Number
+}) {
+  static defaults(): SearchBounds {
+    return SearchBounds.make({
+      xMin: -5,
+      xMax: 5,
+      yMin: -5,
+      yMax: 5
+    })
+  }
 }
 
-export const Config2DSchema = Schema.Struct({
+export class Config2D extends Schema.Class<Config2D>("Config2D")({
   x: Schema.Number,
   y: Schema.Number
-})
+}) {
+  static readonly objectiveExpression = "(x − 2)² + (y + 1)²"
 
-export type Config2D = typeof Config2DSchema.Type
+  static optimum(): Config2D {
+    return Config2D.make({ x: 2, y: -1 })
+  }
 
-export const optimum: Config2D = { x: 2, y: -1 }
+  static fromSearchBoundsOrigin(bounds: SearchBounds = SearchBounds.defaults()): Config2D {
+    return Config2D.make({
+      x: bounds.xMin,
+      y: bounds.yMin
+    })
+  }
 
-export const objectiveExpression = "(x − 2)² + (y + 1)²"
+  static objectiveValue(config: { readonly x: number; readonly y: number }): number {
+    const optimum = Config2D.optimum()
+    return (config.x - optimum.x) ** 2 + (config.y - optimum.y) ** 2
+  }
 
-export const defaultTrialBudget = 30
-export const optimizationTrialBudgetMin = 10
-export const optimizationTrialBudgetMax = 100
-export const optimizationTrialBudgetStep = 5
+  static distanceToOptimum(config: { readonly x: number; readonly y: number }): number {
+    const optimum = Config2D.optimum()
+    return Math.sqrt((config.x - optimum.x) ** 2 + (config.y - optimum.y) ** 2)
+  }
+}
+
+export const SearchTrialBudget = Schema.Number.pipe(
+  Schema.int(),
+  Schema.between(10, 100)
+)
+
+export class SearchConfig extends Schema.Class<SearchConfig>("SearchConfig")({
+  trialBudget: SearchTrialBudget
+}) {
+  static bounds(): {
+    readonly defaultValue: number
+    readonly min: number
+    readonly max: number
+    readonly step: number
+  } {
+    return {
+      defaultValue: 30,
+      min: 10,
+      max: 100,
+      step: 5
+    }
+  }
+
+  static clamp(trialBudget: number): number {
+    const bounds = SearchConfig.bounds()
+    return Math.max(bounds.min, Math.min(trialBudget, bounds.max))
+  }
+
+  static defaults(): SearchConfig {
+    return SearchConfig.make({ trialBudget: SearchConfig.bounds().defaultValue })
+  }
+
+  static fromTrialBudget(trialBudget: number): SearchConfig {
+    return SearchConfig.make({
+      trialBudget: SearchConfig.clamp(trialBudget)
+    })
+  }
+
+  projectionScript(): EffectSearchProjectionScript {
+    return EffectSearchProjectionScript.make({
+      samplerSeed: defaultSamplerSeed,
+      trialBudget: this.trialBudget
+    })
+  }
+}
 
 export const defaultSamplerSeed = 42
 export const optimizationEvidenceBatchSize = 5
 export const optimizationEvidenceLiveRowWindow = 12
 
-export const EffectSearchProjectionScript = Schema.Struct({
-  _tag: Schema.Literal("effect-search"),
+export class EffectSearchProjectionScript extends Schema.TaggedClass<EffectSearchProjectionScript>()("effect-search", {
   samplerSeed: NonNegativeInt,
   trialBudget: PositiveInt
-})
-
-export type EffectSearchProjectionScript = typeof EffectSearchProjectionScript.Type
+}) {}
 
 export const isEffectSearchProjectionScript = Schema.is(EffectSearchProjectionScript)
-
-export const snapshotEffectSearchProjectionScript = (trialBudget: number): EffectSearchProjectionScript => ({
-  _tag: "effect-search",
-  samplerSeed: defaultSamplerSeed,
-  trialBudget
-})
-
-// ---------------------------------------------------------------------------
-// Objective function (pure)
-// ---------------------------------------------------------------------------
-
-export const objectiveAt = (config: Config2D): number => (config.x - optimum.x) ** 2 + (config.y - optimum.y) ** 2
-
-export const distanceToOptimum = (config: Config2D): number =>
-  Math.sqrt((config.x - optimum.x) ** 2 + (config.y - optimum.y) ** 2)
 
 // ---------------------------------------------------------------------------
 // Gain computation

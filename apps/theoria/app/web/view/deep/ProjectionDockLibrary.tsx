@@ -1,4 +1,5 @@
-import type { DeepDiveProjectionControlModel } from "./projection-model.js"
+import { deepDiveProjectionDockAvailableHeading } from "../../../contracts/presentation/deep-dive-dock.js"
+import type { DeepDiveProjectionControlModel } from "../../../contracts/presentation/deep-dive-projection.js"
 import type { ProjectionDockSurfaceInteraction } from "./ProjectionDockParts.js"
 
 import { ProjectionDockHideTarget, ProjectionDockSectionHeading, ProjectionDockSurface } from "./ProjectionDockParts.js"
@@ -25,28 +26,29 @@ export const ProjectionDockLibrary = ({
   readonly projectIndex: number
   readonly projectedCount: number
   readonly showHideTarget: boolean
-}) => (
-  <Stack className="mt-3 gap-2 border-t border-stage-200/70 pt-2.5">
-    <ProjectionDockSectionHeading
-      detail="Bind a surface into the open slot or drag it upward."
-      text="Available surfaces"
-    />
-    <Stack className="gap-0">
-      {hidden.map((option) => (
-        <ProjectionDockSurface
-          interaction={dragInteraction}
-          key={option.id}
-          library
-          onFocusSurface={onFocusSurface}
-          onHideSurface={onHideSurface}
-          onProjectSurface={onProjectSurface}
-          projectIndex={projectIndex}
-          option={option}
-          projectedCount={projectedCount}
-        />
-      ))}
+}) => {
+  const heading = deepDiveProjectionDockAvailableHeading()
 
-      {showHideTarget ? <ProjectionDockHideTarget active={hideTargetActive} /> : null}
+  return (
+    <Stack className="mt-3 gap-2 border-t border-stage-200/70 pt-2.5">
+      <ProjectionDockSectionHeading detail={heading.detail} text={heading.text} />
+      <Stack className="gap-0">
+        {hidden.map((option) => (
+          <ProjectionDockSurface
+            interaction={dragInteraction}
+            key={option.id}
+            library
+            onFocusSurface={onFocusSurface}
+            onHideSurface={onHideSurface}
+            onProjectSurface={onProjectSurface}
+            projectIndex={projectIndex}
+            option={option}
+            projectedCount={projectedCount}
+          />
+        ))}
+
+        {showHideTarget ? <ProjectionDockHideTarget active={hideTargetActive} /> : null}
+      </Stack>
     </Stack>
-  </Stack>
-)
+  )
+}

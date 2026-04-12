@@ -18,9 +18,5 @@ export const packageVersionsRoute = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
     const packageVersions = yield* PackageVersionsInfo
 
-    return yield* jsonResponse(PackageVersionsSuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data: packageVersions.versions
-    }))
+    return yield* jsonResponse(PackageVersionsSuccessEnvelope.ok(yield* timing.finish(), packageVersions))
   })

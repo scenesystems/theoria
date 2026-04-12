@@ -2,14 +2,13 @@ import type { PackageName } from "@theoria/source-proof/contracts"
 import { Schema } from "effect"
 
 import { type EntryId, isEntryId } from "../entry/id.js"
-import { type EntryPresentation, entryPresentationForId } from "../entry/routing.js"
+import { EntryPresentation, type EntryPresentation as EntryPresentationShape } from "../entry/routing.js"
 import {
   PackageDocsLandingPageRoute,
   PackageDocsPackagePageRoute,
   type PackageDocsPageRoute,
   PackageDocsPresentation
 } from "./package-docs.js"
-import { type PageRoute, parsePathname } from "./path.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -65,7 +64,7 @@ export class PageMetadata extends Schema.Class<PageMetadata>("PageMetadata")({
   canonicalPath: NonEmptyString,
   ogType: OgType
 }) {
-  static fromEntry(presentation: EntryPresentation): PageMetadata {
+  static fromEntry(presentation: EntryPresentationShape): PageMetadata {
     return PageMetadata.make({
       title: `${presentation.title} — Theoria`,
       description: presentation.description,
@@ -75,7 +74,7 @@ export class PageMetadata extends Schema.Class<PageMetadata>("PageMetadata")({
   }
 
   static fromEntryId(id: EntryId): PageMetadata {
-    return PageMetadata.fromEntry(entryPresentationForId(id))
+    return PageMetadata.fromEntry(EntryPresentation.fromEntryId(id))
   }
 
   static fromId(id: string): PageMetadata {
@@ -98,21 +97,9 @@ export class PageMetadata extends Schema.Class<PageMetadata>("PageMetadata")({
   static fromPackageId(packageId: PackageName | null): PageMetadata {
     return PageMetadata.fromPackageDocsRoute(
       packageId === null
-        ? PackageDocsLandingPageRoute.make({})
-        : PackageDocsPackagePageRoute.make({ packageId })
+        ? PackageDocsLandingPageRoute.landing()
+        : PackageDocsPackagePageRoute.fromPackageId(packageId)
     )
-  }
-
-  static fromPathname(pathname: string, search = ""): PageMetadata {
-    return PageMetadata.fromRoute(parsePathname(pathname, search))
-  }
-
-  static fromRoute(route: PageRoute): PageMetadata {
-    return route._tag === "HomeRoute"
-      ? PageMetadata.home()
-      : route._tag === "PackageDocsRoute"
-      ? PageMetadata.fromPackageDocsRoute(route.route)
-      : PageMetadata.fromEntryId(route.entryId)
   }
 
   static home(): PageMetadata {

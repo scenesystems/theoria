@@ -1,8 +1,7 @@
+import type { OpenAgentTraceStudyMaterialCardModel } from "../../../../contracts/study/workflow/open-agent-trace.js"
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
-
-import type { OpenAgentTraceStudyMaterialCardModel } from "./panel-types.js"
 
 export const OpenAgentTraceStudyMaterialCard = ({
   model

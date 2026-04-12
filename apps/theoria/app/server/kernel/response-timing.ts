@@ -1,7 +1,7 @@
 import { Clock, Data, Effect } from "effect"
 
 import { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
-import { type ErrorCode, ErrorModel } from "../../contracts/error.js"
+import type { ErrorCode } from "../../contracts/error.js"
 import { RuntimeInfo } from "../config/runtime.js"
 
 type ResponseFailure = {
@@ -45,17 +45,7 @@ export class ResponseTiming extends Data.Class<{
 
   fail(input: ResponseFailure): Effect.Effect<FailureEnvelope> {
     return this.finish().pipe(
-      Effect.map((meta) =>
-        FailureEnvelope.make({
-          ok: false,
-          meta,
-          error: ErrorModel.make({
-            code: input.code,
-            message: input.message,
-            retryable: input.retryable
-          })
-        })
-      )
+      Effect.map((meta) => FailureEnvelope.fromError(meta, input))
     )
   }
 }

@@ -4,23 +4,23 @@ import * as Arr from "effect/Array"
 
 import { effectSearchStudyTelemetrySections } from "../../../contracts/capability/effect-search-study-telemetry-evidence.js"
 import { projectEffectSearchStudyTelemetry } from "../../../contracts/capability/effect-search-study-telemetry-projection.js"
+import { bestHistoryFromTrialPoints } from "../../../contracts/capability/effect-search-trial-analytics.js"
 import {
   bestFoundSection,
   bestTrialPoint,
+  Config2D,
   defaultSamplerSeed,
-  defaultTrialBudget,
-  distanceToOptimum,
   EffectSearchCanonicalStep,
   gain,
   gainPercent,
-  objectiveExpression,
   optimizationEvidenceBatchSize,
-  searchBounds,
+  SearchBounds,
+  SearchConfig,
   type TrialPoint,
   trialPositionsSection
 } from "../../../contracts/capability/effect-search.js"
 import { effectSearchEntryDescriptor } from "../../../contracts/entry/descriptors/effect-search.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import { section, sectionUpsert, step, type StreamElement } from "../../kernel/kinds/stream-element.js"
@@ -28,10 +28,6 @@ import { type DemoStreamPlan, phaseFromElementStream } from "../../kernel/kinds/
 
 import { preloadProgram } from "./preload.js"
 import { randomLaneStory, type StudyLaneStory, tpeLaneStory } from "./study-story.js"
-
-type EffectSearchStreamRequest = {
-  readonly trialBudget: number
-}
 
 type OptimizationStory = {
   readonly elements: ReadonlyArray<StreamElement>
@@ -41,43 +37,40 @@ type OptimizationStory = {
 
 type SectionAccumulator = ReadonlyArray<EvidenceSection>
 
-const effectSearchRunIdentity = entryRunIdentityForId(effectSearchEntryDescriptor.entryId)
+const runIdentity = EntryRunIdentity.project(effectSearchEntryDescriptor)
+const bounds = SearchBounds.defaults()
+const origin = Config2D.fromSearchBoundsOrigin(bounds)
+const optimum = Config2D.optimum()
 
-export const defaultEffectSearchStreamRequest: EffectSearchStreamRequest = {
-  trialBudget: defaultTrialBudget
-}
-
-const requestFromManifest = (manifest: StreamManifest | null): EffectSearchStreamRequest =>
+const searchConfigFromManifest = (manifest: StreamManifest | null): SearchConfig =>
   manifest !== null && manifest._tag === effectSearchEntryDescriptor.entryId
-    ? { trialBudget: manifest.trialBudget }
-    : defaultEffectSearchStreamRequest
+    ? SearchConfig.fromTrialBudget(manifest.trialBudget)
+    : SearchConfig.defaults()
 
 const emptyElements: ReadonlyArray<StreamElement> = []
 
-const bestHistoryFromTrialPoints = (trials: ReadonlyArray<TrialPoint>): ReadonlyArray<number> =>
-  trials.reduce<ReadonlyArray<number>>((history, trial) => {
-    const bestSoFar = Option.match(Option.fromNullable(history.at(-1)), {
-      onNone: () => trial.value,
-      onSome: (previousBest) => Math.min(previousBest, trial.value)
-    })
-
-    return [...history, bestSoFar]
-  }, [])
-
-export const configurationSection = (request: EffectSearchStreamRequest): EvidenceSection => ({
+export const configurationSection = (config: SearchConfig): EvidenceSection => ({
   title: "Configuration",
   items: [
-    { _tag: "Scalar", label: "Trials per sampler", value: request.trialBudget, unit: "trials", format: "integer" },
+    { _tag: "Scalar", label: "Trials per sampler", value: config.trialBudget, unit: "trials", format: "integer" },
     { _tag: "Scalar", label: "Sampler seed", value: defaultSamplerSeed, unit: "seed", format: "integer" },
-    { _tag: "Text", label: "X range", value: `[${searchBounds.xMin}, ${searchBounds.xMax}]` },
-    { _tag: "Text", label: "Y range", value: `[${searchBounds.yMin}, ${searchBounds.yMax}]` }
+    {
+      _tag: "Text",
+      label: "X range",
+      value: `[${bounds.xMin}, ${bounds.xMax}]`
+    },
+    {
+      _tag: "Text",
+      label: "Y range",
+      value: `[${bounds.yMin}, ${bounds.yMax}]`
+    }
   ]
 })
 
 const tpeConvergenceSection = (tpeTrials: ReadonlyArray<TrialPoint>): EvidenceSection => {
   const bestTrial = Option.getOrElse(bestTrialPoint(tpeTrials), () => ({
-    x: searchBounds.xMin,
-    y: searchBounds.yMin,
+    x: origin.x,
+    y: origin.y,
     value: 0,
     index: 0
   }))
@@ -85,7 +78,7 @@ const tpeConvergenceSection = (tpeTrials: ReadonlyArray<TrialPoint>): EvidenceSe
   return {
     title: "TPE Convergence",
     items: [
-      { _tag: "Text", label: "Objective", value: objectiveExpression },
+      { _tag: "Text", label: "Objective", value: Config2D.objectiveExpression },
       {
         _tag: "Text",
         label: "Best configuration",
@@ -95,7 +88,7 @@ const tpeConvergenceSection = (tpeTrials: ReadonlyArray<TrialPoint>): EvidenceSe
       {
         _tag: "Scalar",
         label: "Distance to optimum",
-        value: distanceToOptimum({ x: bestTrial.x, y: bestTrial.y }),
+        value: Config2D.distanceToOptimum(bestTrial),
         unit: "distance",
         format: "fixed"
       },
@@ -112,8 +105,8 @@ const tpeConvergenceSection = (tpeTrials: ReadonlyArray<TrialPoint>): EvidenceSe
 
 const randomSearchSection = (randomTrials: ReadonlyArray<TrialPoint>): EvidenceSection => {
   const bestTrial = Option.getOrElse(bestTrialPoint(randomTrials), () => ({
-    x: searchBounds.xMin,
-    y: searchBounds.yMin,
+    x: origin.x,
+    y: origin.y,
     value: 0,
     index: 0
   }))
@@ -121,7 +114,7 @@ const randomSearchSection = (randomTrials: ReadonlyArray<TrialPoint>): EvidenceS
   return {
     title: "Random Search",
     items: [
-      { _tag: "Text", label: "Objective", value: objectiveExpression },
+      { _tag: "Text", label: "Objective", value: Config2D.objectiveExpression },
       {
         _tag: "Text",
         label: "Best configuration",
@@ -131,7 +124,7 @@ const randomSearchSection = (randomTrials: ReadonlyArray<TrialPoint>): EvidenceS
       {
         _tag: "Scalar",
         label: "Distance to optimum",
-        value: distanceToOptimum({ x: bestTrial.x, y: bestTrial.y }),
+        value: Config2D.distanceToOptimum(bestTrial),
         unit: "distance",
         format: "fixed"
       },
@@ -154,14 +147,14 @@ const optimizationResultsSection = ({
   readonly tpeTrials: ReadonlyArray<TrialPoint>
 }): EvidenceSection => {
   const randomBest = Option.getOrElse(bestTrialPoint(randomTrials), () => ({
-    x: searchBounds.xMin,
-    y: searchBounds.yMin,
+    x: origin.x,
+    y: origin.y,
     value: 0,
     index: 0
   }))
   const tpeBest = Option.getOrElse(bestTrialPoint(tpeTrials), () => ({
-    x: searchBounds.xMin,
-    y: searchBounds.yMin,
+    x: origin.x,
+    y: origin.y,
     value: 0,
     index: 0
   }))
@@ -180,8 +173,8 @@ const optimizationResultsSection = ({
       {
         _tag: "Comparison",
         label: "Distance to optimum",
-        baseline: distanceToOptimum({ x: randomBest.x, y: randomBest.y }),
-        improved: distanceToOptimum({ x: tpeBest.x, y: tpeBest.y }),
+        baseline: Config2D.distanceToOptimum(randomBest),
+        improved: Config2D.distanceToOptimum(tpeBest),
         unit: "distance",
         direction: "lower-is-better"
       },
@@ -203,12 +196,12 @@ const optimizationResultsSection = ({
   }
 }
 
-const runtimeSummarySection = (request: EffectSearchStreamRequest): EvidenceSection => ({
+const runtimeSummarySection = (config: SearchConfig): EvidenceSection => ({
   title: "Runtime Summary",
   items: [
-    { _tag: "Scalar", label: "Trials per sampler", value: request.trialBudget, unit: "trials", format: "integer" },
-    { _tag: "Text", label: "Objective", value: objectiveExpression },
-    { _tag: "Text", label: "Optimum", value: `(2, -1) → 0` },
+    { _tag: "Scalar", label: "Trials per sampler", value: config.trialBudget, unit: "trials", format: "integer" },
+    { _tag: "Text", label: "Objective", value: Config2D.objectiveExpression },
+    { _tag: "Text", label: "Optimum", value: `(${optimum.x}, ${optimum.y}) → 0` },
     {
       _tag: "Text",
       label: "Proof",
@@ -244,32 +237,32 @@ const checkpointAt = (story: StudyLaneStory, index: number) =>
     trialPoints: story.trialPoints
   }
 
-const computeOptimizationStory = (request: EffectSearchStreamRequest): Effect.Effect<OptimizationStory, never, never> =>
+const computeOptimizationStory = (config: SearchConfig): Effect.Effect<OptimizationStory, never, never> =>
   Effect.gen(function*() {
     const [tpeStory, randomStory] = yield* Effect.all([
-      tpeLaneStory(request.trialBudget),
-      randomLaneStory(request.trialBudget)
+      tpeLaneStory(config.trialBudget),
+      randomLaneStory(config.trialBudget)
     ], { concurrency: "unbounded" })
     const elements = Arr.reduce(
-      Arr.range(0, request.trialBudget - 1),
+      Arr.range(0, config.trialBudget - 1),
       { elements: emptyElements, publishedTrialCount: 0 },
       (state, index) => {
         const tpeCheckpoint = checkpointAt(tpeStory, index)
         const randomCheckpoint = checkpointAt(randomStory, index)
         const nextTrialCount = Math.min(tpeCheckpoint.trialPoints.length, randomCheckpoint.trialPoints.length)
-        const phase = index + 1 === request.trialBudget ? "complete" : "running"
+        const phase = index + 1 === config.trialBudget ? "complete" : "running"
         const telemetry = projectEffectSearchStudyTelemetry({
           randomEvents: randomCheckpoint.events,
           randomTrialPoints: randomCheckpoint.trialPoints,
-          trialBudget: request.trialBudget,
+          trialBudget: config.trialBudget,
           tpeEvents: tpeCheckpoint.events,
           tpeTrialPoints: tpeCheckpoint.trialPoints
         })
         const nextElements = [
           ...state.elements,
           step(
-            new EffectSearchCanonicalStep({
-              trialBudget: request.trialBudget,
+            EffectSearchCanonicalStep.make({
+              trialBudget: config.trialBudget,
               phase,
               tpeTrials: tpeCheckpoint.trialPoints,
               randomTrials: randomCheckpoint.trialPoints,
@@ -314,10 +307,10 @@ const computeOptimizationStory = (request: EffectSearchStreamRequest): Effect.Ef
   })
 
 const streamPhasesForStory = ({
-  request,
+  config,
   story
 }: {
-  readonly request: EffectSearchStreamRequest
+  readonly config: SearchConfig
   readonly story: OptimizationStory
 }): ReadonlyArray<{
   readonly name: string
@@ -327,7 +320,7 @@ const streamPhasesForStory = ({
     name: "projection-events",
     stream: Stream.fromIterable(story.elements)
   },
-  { name: "configuration", stream: Stream.succeed(section(configurationSection(request))) },
+  { name: "configuration", stream: Stream.succeed(section(configurationSection(config))) },
   { name: "tpe-convergence", stream: Stream.succeed(section(tpeConvergenceSection(story.tpeTrials))) },
   { name: "random-search", stream: Stream.succeed(section(randomSearchSection(story.randomTrials))) },
   {
@@ -336,7 +329,7 @@ const streamPhasesForStory = ({
       section(optimizationResultsSection({ randomTrials: story.randomTrials, tpeTrials: story.tpeTrials }))
     )
   },
-  { name: "runtime-summary", stream: Stream.succeed(section(runtimeSummarySection(request))) }
+  { name: "runtime-summary", stream: Stream.succeed(section(runtimeSummarySection(config))) }
 ]
 
 const appendOrReplaceSection = (
@@ -361,25 +354,23 @@ const projectionSectionsForStory = (story: OptimizationStory): ReadonlyArray<Evi
 
 export const runSummary = "effect-search compared adaptive TPE against random search under fixed budget."
 
-export const runSections = (
-  request: EffectSearchStreamRequest
-): Effect.Effect<ReadonlyArray<EvidenceSection>, never, never> =>
-  computeOptimizationStory(request).pipe(
+export const runSections = (config: SearchConfig): Effect.Effect<ReadonlyArray<EvidenceSection>, never, never> =>
+  computeOptimizationStory(config).pipe(
     Effect.map((story) => [
       ...projectionSectionsForStory(story),
-      configurationSection(request),
+      configurationSection(config),
       tpeConvergenceSection(story.tpeTrials),
       randomSearchSection(story.randomTrials),
       optimizationResultsSection({ randomTrials: story.randomTrials, tpeTrials: story.tpeTrials }),
-      runtimeSummarySection(request)
+      runtimeSummarySection(config)
     ])
   )
 
-export const streamSections = (request: EffectSearchStreamRequest): Stream.Stream<EvidenceSection, never, never> =>
+export const streamSections = (config: SearchConfig): Stream.Stream<EvidenceSection, never, never> =>
   Stream.unwrap(
-    computeOptimizationStory(request).pipe(
+    computeOptimizationStory(config).pipe(
       Effect.map((story) =>
-        Stream.fromIterable(streamPhasesForStory({ request, story })).pipe(
+        Stream.fromIterable(streamPhasesForStory({ config, story })).pipe(
           Stream.flatMap(({ stream }) => stream),
           Stream.filterMap((element) =>
             element._tag === "section" || element._tag === "section-upsert"
@@ -393,26 +384,27 @@ export const streamSections = (request: EffectSearchStreamRequest): Stream.Strea
 
 export const streamElements = (manifest: StreamManifest | null) =>
   Stream.unwrap(
-    computeOptimizationStory(requestFromManifest(manifest)).pipe(
-      Effect.map((story) =>
-        Stream.fromIterable(streamPhasesForStory({ request: requestFromManifest(manifest), story })).pipe(
-          Stream.flatMap(({ stream }) => stream)
-        )
+    Effect.gen(function*() {
+      const config = searchConfigFromManifest(manifest)
+      const story = yield* computeOptimizationStory(config)
+
+      return Stream.fromIterable(streamPhasesForStory({ config, story })).pipe(
+        Stream.flatMap(({ stream }) => stream)
       )
-    )
+    })
   )
 
 export const streamPlan = (
   manifest: StreamManifest | null
 ): Effect.Effect<DemoStreamPlan<FileSystem.FileSystem | Path.Path, unknown>, never, never> =>
   Effect.gen(function*() {
-    const request = requestFromManifest(manifest)
-    const story = yield* computeOptimizationStory(request)
+    const config = searchConfigFromManifest(manifest)
+    const story = yield* computeOptimizationStory(config)
 
     return {
-      packageName: effectSearchRunIdentity.packageName,
+      packageName: runIdentity.packageName,
       program: preloadProgram,
       summary: runSummary,
-      phases: streamPhasesForStory({ request, story }).map(({ name, stream }) => phaseFromElementStream(name, stream))
+      phases: streamPhasesForStory({ config, story }).map(({ name, stream }) => phaseFromElementStream(name, stream))
     }
   })

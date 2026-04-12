@@ -7,12 +7,16 @@ import type { EffectTextProjectionStep } from "../../contracts/capability/effect
 import { type EffectTextTraversalScript, isEffectTextTraversalScript } from "../../contracts/capability/effect-text.js"
 import { corpus } from "../../contracts/corpus.js"
 import type { Obstacle } from "../../contracts/obstacle.js"
+import {
+  type PresentationMetric,
+  presentationMetric,
+  presentationMetricToneAppearance
+} from "../../contracts/presentation/metric.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
 import { browserSupportProfileId } from "../text/browserTextLayout.js"
 import type { ReflowStageLine, ReflowStageObstacle } from "../text/obstacleStageModel.js"
 import { choicePillOption, type TypedChoicePillOption } from "../view/primitives/choice-pill-model.js"
-import type { MetricAppearance } from "../view/primitives/theme/tone.js"
 import {
   customTextAtom,
   type EffectTextRunFrame,
@@ -32,7 +36,7 @@ import {
   surfaceActiveLocalRunFrameAtom,
   surfaceRunStateAtom
 } from "./surface/state.js"
-import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+import { widgetRuntimeState } from "./widget-view-model-shared.js"
 
 export type ReflowWidgetViewModel = {
   readonly corpusOptions: ReadonlyArray<TypedChoicePillOption<number>>
@@ -49,7 +53,7 @@ export type ReflowWidgetViewModel = {
   readonly controlsLocked: boolean
   readonly isAnimating: boolean
   readonly statusText: string | null
-  readonly metrics: ReadonlyArray<WidgetMetric>
+  readonly metrics: ReadonlyArray<PresentationMetric>
   readonly lines: ReadonlyArray<ReflowStageLine>
   readonly stage: {
     readonly corpusLabel: string
@@ -67,7 +71,7 @@ export type ReflowWidgetViewModel = {
   } | null
 }
 
-const textMetricAppearance: MetricAppearance = { _tag: "tone", tone: "text" }
+const textMetricAppearance = presentationMetricToneAppearance("text")
 
 const reflowMetrics = ({
   obstaclesEnabled,
@@ -75,20 +79,20 @@ const reflowMetrics = ({
 }: {
   readonly obstaclesEnabled: boolean
   readonly projection: NonNullable<ReflowWidgetViewModel["stage"]>
-}): ReadonlyArray<WidgetMetric> => [
-  widgetMetric("Lines", String(projection.summary.lineCount)),
-  widgetMetric("Width", `${projection.effectiveWidthPx}px`),
-  widgetMetric("Prepare", "1 handle"),
-  widgetMetric("Projection", obstaclesEnabled ? "width + obstacles" : "width-only", {
+}): ReadonlyArray<PresentationMetric> => [
+  presentationMetric("Lines", String(projection.summary.lineCount)),
+  presentationMetric("Width", `${projection.effectiveWidthPx}px`),
+  presentationMetric("Prepare", "1 handle"),
+  presentationMetric("Projection", obstaclesEnabled ? "width + obstacles" : "width-only", {
     appearance: textMetricAppearance,
     enabled: true
   }),
-  widgetMetric("Browser", browserSupportProfileId),
-  widgetMetric("Obstacles", String(projection.sceneObstacles.length), {
+  presentationMetric("Browser", browserSupportProfileId),
+  presentationMetric("Obstacles", String(projection.sceneObstacles.length), {
     appearance: textMetricAppearance,
     enabled: obstaclesEnabled
   }),
-  widgetMetric(
+  presentationMetric(
     "Line Δ",
     `${projection.obstacleDelta >= 0 ? "+" : ""}${projection.obstacleDelta}`,
     {

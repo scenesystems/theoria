@@ -5,7 +5,8 @@ import { Effect } from "effect"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { PackageDocsPackagePageRoute } from "../../app/contracts/presentation/package-docs.js"
+import { PageLocation } from "../../app/contracts/presentation/page-location.js"
+import { PackageDocsRoute } from "../../app/contracts/presentation/path.js"
 import { App } from "../../app/web/App.js"
 
 const responseMeta = {
@@ -111,14 +112,12 @@ describe("web/package-docs-route", () => {
         const root = createRoot(container)
 
         yield* Effect.sync(() => {
+          const route = PackageDocsRoute.fromSelectedPackageId(packageNameFromString("@scenesystems/digest"))
+          const routeUrl = new URL(route.path(), "http://127.0.0.1")
+
           root.render(
             <StrictMode>
-              <App
-                route={{
-                  _tag: "PackageDocsRoute",
-                  route: PackageDocsPackagePageRoute.make({ packageId: packageNameFromString("@scenesystems/digest") })
-                }}
-              />
+              <App location={PageLocation.fromPathnameSearch(routeUrl.pathname, routeUrl.search)} />
             </StrictMode>
           )
         })

@@ -10,9 +10,9 @@ import { WorkflowHookup } from "../workflow-hookup.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
-export const OpenAgentTraceRecordSchema = Experimental.OpenAgentTrace.OpenAgentTraceRecord
+export const OpenAgentTraceRecordSchema = Experimental.OpenAgentTrace.Record
 export const OpenAgentTraceWorkflowProjectionSchema = Experimental.OpenAgentTrace.WorkflowProjection
-export const OpenAgentTraceCoverageSchema = Experimental.OpenAgentTrace.OpenAgentTraceCoverage
+export const OpenAgentTraceCoverageSchema = Experimental.OpenAgentTrace.Coverage
 export const OpenAgentTraceEntryIdSchema = Schema.Literal("task-first", "chat-continuation")
 export type OpenAgentTraceEntryId = typeof OpenAgentTraceEntryIdSchema.Type
 export const taskFirstOpenAgentTraceEntryId: OpenAgentTraceEntryId = "task-first"

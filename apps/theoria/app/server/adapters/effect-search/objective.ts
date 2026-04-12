@@ -12,25 +12,25 @@ import { Data, Effect, Match } from "effect"
 import type { Sampler } from "effect-search"
 import { SearchSpace, Study } from "effect-search"
 
-import {
-  type Config2D,
-  defaultTrialBudget,
-  objectiveAt,
-  searchBounds
-} from "../../../contracts/capability/effect-search.js"
+import { Config2D, SearchBounds, SearchConfig } from "../../../contracts/capability/effect-search.js"
 
-export const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
+const bounds = SearchBounds.defaults()
+
+export const objective = (config: Config2D) => Effect.succeed(Config2D.objectiveValue(config))
 
 export const searchSpace = SearchSpace.make({
-  x: SearchSpace.float(searchBounds.xMin, searchBounds.xMax),
-  y: SearchSpace.float(searchBounds.yMin, searchBounds.yMax)
+  x: SearchSpace.float(bounds.xMin, bounds.xMax),
+  y: SearchSpace.float(bounds.yMin, bounds.yMax)
 })
 
 class UnexpectedSearchResult extends Data.TaggedError("UnexpectedSearchResult")<{
   readonly kind: string
 }> {}
 
-export const minimizeWith = (sampler: Sampler.Sampler, trialBudget: number = defaultTrialBudget) =>
+export const minimizeWith = (
+  sampler: Sampler.Sampler,
+  trialBudget: number = SearchConfig.defaults().trialBudget
+) =>
   Effect.gen(function*() {
     const space = yield* searchSpace
 

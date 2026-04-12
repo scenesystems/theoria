@@ -1,6 +1,6 @@
 import { workflowGraphCardMetricLabel } from "../../../../contracts/study/workflow/surface-graph-presentation.js"
+import type { WorkflowGraphViewModel } from "../../../../contracts/study/workflow/surface-graph-presentation.js"
 import { workflowRichnessSectionTitle } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
-import type { WorkflowGraphViewModel } from "./graph-model.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Cluster, Layer, Stack } from "../../primitives/Layout.js"

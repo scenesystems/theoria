@@ -1,15 +1,15 @@
 import { Effect, Option, Ref, Schema } from "effect"
 
 import { workflowEntryDescriptor } from "../../../contracts/entry/descriptors/workflow.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import { type StreamManifest, WorkflowManifest } from "../../../contracts/evidence/manifest.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import {
   WorkflowStudyExecutionError,
   type WorkflowVariantExecution
 } from "../../../contracts/study/workflow/execution.js"
-import { defaultWorkflowScenarioId } from "../../../contracts/study/workflow/manifest.js"
-import { validateWorkflowEntrySelection, WorkflowEntrySelection } from "../../../contracts/study/workflow/selection.js"
+import { WorkflowScenarioManifest } from "../../../contracts/study/workflow/manifest.js"
+import { WorkflowEntrySelection } from "../../../contracts/study/workflow/selection.js"
 import type { Lane } from "../../kernel/kinds/policy.js"
 import type { DemoStreamPhase } from "../../kernel/kinds/stream-plan.js"
 import type { EntryRunEnv } from "../../kernel/registration.js"
@@ -28,10 +28,10 @@ import {
 } from "../../study/workflow/search/selection.js"
 import { runWorkflowSearchStudy } from "../../study/workflow/search/study.js"
 
-const workflowRunIdentity = entryRunIdentityForId(workflowEntryDescriptor.entryId)
+const workflowRunIdentity = EntryRunIdentity.project(workflowEntryDescriptor)
 const packageName = workflowRunIdentity.packageName
 
-export const preloadProgram = preloadWorkflowProgram(defaultWorkflowScenarioId)
+export const preloadProgram = preloadWorkflowProgram(WorkflowScenarioManifest.defaults().id)
 
 const runSummary =
   "Freeze one workflow seed, execute baseline and optimized variants on the server, and author search-study evidence on one kernel-owned ledger."
@@ -45,7 +45,7 @@ const executionError = (message: string) =>
 
 const workflowSelectionFromManifest = (manifest: StreamManifest | null) =>
   manifest !== null && Schema.is(WorkflowManifest)(manifest)
-    ? validateWorkflowEntrySelection(
+    ? WorkflowEntrySelection.validate(
       WorkflowEntrySelection.make({
         seedId: manifest.seedId,
         controls: manifest.controls

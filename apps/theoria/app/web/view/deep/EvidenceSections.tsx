@@ -1,9 +1,9 @@
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { EvidencePlaneLane } from "../data/evidence-plane-layout.js"
-import type { EvidencePlaneViewModel } from "../data/evidence-plane-model.js"
-import type { EvidenceSectionViewModel } from "../data/evidence-section-projection.js"
+import { evidencePlaneEmptyFilterText } from "../../../contracts/evidence/plane-overview.js"
+import { type EvidencePlaneLane, type EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
+import type { EvidenceSectionViewModel } from "../../../contracts/evidence/section-presentation.js"
 
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -26,7 +26,7 @@ const emptyFilterState = (
       as="p"
       className="text-ink-700"
       role="status"
-      text="No evidence sections match the current lens. Expand the focus or change the view to bring them back into projection."
+      text={evidencePlaneEmptyFilterText()}
       variant="expanded"
     />
   </Layer>

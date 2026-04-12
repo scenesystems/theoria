@@ -1,12 +1,6 @@
 import { Effect, Option, Stream } from "effect"
 
-import {
-  defaultSamplerSeed,
-  isEffectSearchProjectionScript,
-  optimizationTrialBudgetMax,
-  optimizationTrialBudgetMin,
-  snapshotEffectSearchProjectionScript
-} from "../../../contracts/capability/effect-search.js"
+import { isEffectSearchProjectionScript, SearchConfig } from "../../../contracts/capability/effect-search.js"
 import { EffectSearchManifest, encodeStreamManifest } from "../../../contracts/evidence/manifest.js"
 import { EffectSearchAnimation, trialBudgetAtom } from "../../atoms/run/optimization-animation.js"
 import { EntryClient } from "../../services/EntryClient.js"
@@ -27,7 +21,7 @@ const effectSearchManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): Eff
   const draft = snapshot.draft
 
   return draft !== null && draft.entryId === effectSearchId
-    ? EffectSearchManifest.make({ trialBudget: draft.input.trialBudget })
+    ? EffectSearchManifest.fromEntryDraft(draft)
     : null
 }
 
@@ -57,15 +51,11 @@ export const effectSearchSurfaceRuntime = SurfaceRuntime.streaming({
   projectionDriver: {
     ownership: RunOwnership.sharedStreaming(),
     snapshot: (registry) => {
-      const trialBudget = registry.get(trialBudgetAtom)
-      const manifestTrialBudget = Math.max(
-        optimizationTrialBudgetMin,
-        Math.min(trialBudget, optimizationTrialBudgetMax)
-      )
+      const config = SearchConfig.fromTrialBudget(registry.get(trialBudgetAtom))
 
       return {
-        manifest: EffectSearchManifest.make({ trialBudget: manifestTrialBudget }),
-        localProjectionScript: snapshotEffectSearchProjectionScript(trialBudget)
+        manifest: EffectSearchManifest.fromSearchConfig(config),
+        localProjectionScript: config.projectionScript()
       }
     },
     stream: (registry, signal, snapshot, stepQueue, _serverCompleted) =>
@@ -82,23 +72,17 @@ export const effectSearchSurfaceRuntime = SurfaceRuntime.streaming({
     syncFrameToControls: noProjectionFrameSync
   },
   snapshot: (registry) => {
-    const trialBudget = registry.get(trialBudgetAtom)
-    const manifestTrialBudget = Math.max(
-      optimizationTrialBudgetMin,
-      Math.min(trialBudget, optimizationTrialBudgetMax)
-    )
+    const config = SearchConfig.fromTrialBudget(registry.get(trialBudgetAtom))
 
     return {
       draft: {
         entryId: effectSearchId,
         seedId: "default",
-        input: { trialBudget: manifestTrialBudget },
+        input: config,
         controls: {}
       },
-      localProjectionScript: snapshotEffectSearchProjectionScript(trialBudget)
+      localProjectionScript: config.projectionScript()
     }
   },
   streamUrl: effectSearchStreamUrl
 })
-
-export { defaultSamplerSeed }

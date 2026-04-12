@@ -17,7 +17,7 @@ export class PackageDocsSearchResultItem
   static fromResult(result: PackageDocsSearchResult): PackageDocsSearchResultItem {
     return PackageDocsSearchResultItem.make({
       excerpt: result.excerpt,
-      href: PackageDocsPackagePageRoute.make({ packageId: result.packageId }).path(),
+      href: PackageDocsPackagePageRoute.fromPackageId(result.packageId).path(),
       packageId: result.packageId,
       sourceHref: `https://github.com/scenesystems/theoria/blob/main/${result.source.path}`,
       sourceLabel: result.source.path,

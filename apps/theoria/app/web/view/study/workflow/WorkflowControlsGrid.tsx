@@ -11,8 +11,7 @@ import {
   workflowTargetModeLabel,
   workflowTargetModes
 } from "../../../../contracts/study/workflow/controls.js"
-import { workflowEntryControlSurfaceForKey } from "../../../../contracts/study/workflow/selection.js"
-import type { WorkflowSurfaceViewModel } from "./surface-model.js"
+import type { WorkflowSurfaceViewModel } from "../../../../contracts/study/workflow/surface-presentation.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { Layer, Stack } from "../../primitives/Layout.js"
@@ -41,14 +40,6 @@ type WorkflowControlsGridProps = {
   readonly viewModel: WorkflowSurfaceViewModel
 }
 
-const workflowControlSurface = {
-  targetMode: workflowEntryControlSurfaceForKey("targetMode"),
-  lane: workflowEntryControlSurfaceForKey("lane"),
-  optimize: workflowEntryControlSurfaceForKey("optimize"),
-  runtimeProfile: workflowEntryControlSurfaceForKey("runtimeProfile"),
-  surfaceProfile: workflowEntryControlSurfaceForKey("surfaceProfile")
-}
-
 const WorkflowControlPanel = ({ children, description, title }: WorkflowControlPanelProps) => (
   <ContentCard density="compact">
     <Stack className="gap-3">
@@ -72,8 +63,8 @@ export const WorkflowControlsGrid = ({
 }: WorkflowControlsGridProps) => (
   <Layer className="grid gap-3 lg:grid-cols-2">
     <WorkflowControlPanel
-      description={workflowControlSurface.lane?.description ?? ""}
-      title={workflowControlSurface.lane?.title ?? "Execution Lane"}
+      description={viewModel.executionLaneControl.description}
+      title={viewModel.executionLaneControl.title}
     >
       <TabBar className="flex-wrap">
         {workflowExecutionLanes.map((lane) => (
@@ -91,8 +82,8 @@ export const WorkflowControlsGrid = ({
     </WorkflowControlPanel>
 
     <WorkflowControlPanel
-      description={workflowControlSurface.optimize?.description ?? ""}
-      title={workflowControlSurface.optimize?.title ?? "Optimization Study"}
+      description={viewModel.optimizeControl.description}
+      title={viewModel.optimizeControl.title}
     >
       <TabBar className="flex-wrap">
         {[true, false].map((optimize) => (
@@ -110,8 +101,8 @@ export const WorkflowControlsGrid = ({
     </WorkflowControlPanel>
 
     <WorkflowControlPanel
-      description={workflowControlSurface.targetMode?.description ?? ""}
-      title={workflowControlSurface.targetMode?.title ?? "Replay Target"}
+      description={viewModel.targetModeControl.description}
+      title={viewModel.targetModeControl.title}
     >
       <TabBar className="flex-wrap">
         {workflowTargetModes.map((targetMode) => (
@@ -129,8 +120,8 @@ export const WorkflowControlsGrid = ({
     </WorkflowControlPanel>
 
     <WorkflowControlPanel
-      description={workflowControlSurface.runtimeProfile?.description ?? ""}
-      title={workflowControlSurface.runtimeProfile?.title ?? "Runtime Profile"}
+      description={viewModel.runtimeProfileControl.description}
+      title={viewModel.runtimeProfileControl.title}
     >
       <TabBar className="flex-wrap">
         {workflowRuntimeProfiles.map((runtimeProfile) => (
@@ -148,8 +139,8 @@ export const WorkflowControlsGrid = ({
     </WorkflowControlPanel>
 
     <WorkflowControlPanel
-      description={workflowControlSurface.surfaceProfile?.description ?? ""}
-      title={workflowControlSurface.surfaceProfile?.title ?? "Surface Profile"}
+      description={viewModel.surfaceProfileControl.description}
+      title={viewModel.surfaceProfileControl.title}
     >
       <TabBar className="flex-wrap">
         {workflowSurfaceProfiles.map((surfaceProfile) => (

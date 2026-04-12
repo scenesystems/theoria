@@ -13,7 +13,14 @@ export class OpenAgentTraceRegistrySuccessEnvelope extends Schema.Class<OpenAgen
   ok: Schema.Literal(true),
   meta: Metadata,
   data: OpenAgentTraceRegistrySchema
-}) {}
+}) {
+  static ok(
+    meta: Metadata,
+    data: typeof OpenAgentTraceRegistrySchema.Type
+  ): OpenAgentTraceRegistrySuccessEnvelope {
+    return OpenAgentTraceRegistrySuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export class OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope
   extends Schema.Class<OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope>(
@@ -23,7 +30,14 @@ export class OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope
     meta: Metadata,
     data: OpenAgentTraceConsumerArtifactCatalogSchema
   })
-{}
+{
+  static ok(
+    meta: Metadata,
+    data: typeof OpenAgentTraceConsumerArtifactCatalogSchema.Type
+  ): OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope {
+    return OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export class OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope
   extends Schema.Class<OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope>(
@@ -33,7 +47,14 @@ export class OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope
     meta: Metadata,
     data: OpenAgentTraceWorkflowHookupCatalogSchema
   })
-{}
+{
+  static ok(
+    meta: Metadata,
+    data: typeof OpenAgentTraceWorkflowHookupCatalogSchema.Type
+  ): OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope {
+    return OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export const OpenAgentTraceRegistryEnvelope = Schema.Union(
   OpenAgentTraceRegistrySuccessEnvelope,

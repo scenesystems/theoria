@@ -7,7 +7,17 @@ import { Program } from "./program.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
-const PreviewCard = Schema.Struct({
+export type ProgramPreviewCardInput = {
+  readonly deepDivePath: string
+  readonly id: typeof EntryId.Type
+  readonly packageName: typeof PackageNameSchema.Type
+  readonly runLabel: string
+  readonly summary: string
+  readonly title: string
+  readonly useCase: string
+}
+
+export class ProgramPreviewCard extends Schema.Class<ProgramPreviewCard>("ProgramPreviewCard")({
   id: EntryId,
   title: NonEmptyString,
   packageName: PackageNameSchema,
@@ -15,16 +25,25 @@ const PreviewCard = Schema.Struct({
   summary: NonEmptyString,
   runLabel: NonEmptyString,
   deepDivePath: NonEmptyString
-})
+}) {}
 
-export const ProgramPreview = Schema.Struct({
+export const programPreviewCard = (input: ProgramPreviewCardInput): ProgramPreviewCard =>
+  ProgramPreviewCard.make({
+    deepDivePath: input.deepDivePath,
+    id: input.id,
+    packageName: input.packageName,
+    runLabel: input.runLabel,
+    summary: input.summary,
+    title: input.title,
+    useCase: input.useCase
+  })
+
+export class ProgramPreview extends Schema.Class<ProgramPreview>("ProgramPreview")({
   id: EntryId,
-  card: PreviewCard,
+  card: ProgramPreviewCard,
   summary: NonEmptyString,
   program: Program
-})
-
-export type ProgramPreview = typeof ProgramPreview.Type
+}) {}
 
 export class ProgramPreviewSuccessEnvelope extends Schema.Class<ProgramPreviewSuccessEnvelope>(
   "ProgramPreviewSuccessEnvelope"
@@ -32,7 +51,11 @@ export class ProgramPreviewSuccessEnvelope extends Schema.Class<ProgramPreviewSu
   ok: Schema.Literal(true),
   meta: Metadata,
   data: ProgramPreview
-}) {}
+}) {
+  static ok(meta: Metadata, data: ProgramPreview): ProgramPreviewSuccessEnvelope {
+    return ProgramPreviewSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export const ProgramPreviewEnvelope = Schema.Union(ProgramPreviewSuccessEnvelope, FailureEnvelope)
 

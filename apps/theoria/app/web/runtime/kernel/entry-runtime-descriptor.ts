@@ -1,5 +1,5 @@
 import { type EntryId } from "../../../contracts/entry/id.js"
-import { EntryRuntimeDescriptor } from "./descriptor.js"
+import { EntryRuntimeDescriptor } from "./entry-runtime-descriptor-model.js"
 import { entryRuntimeProvenanceFor } from "./entry-runtime-provenance-registry.js"
 import { surfaceRuntimeForEntry } from "./surface-runtime-registry.js"
 import { surfaceViewExtensionFor } from "./surface-view-registry.js"

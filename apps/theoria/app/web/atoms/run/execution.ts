@@ -3,7 +3,7 @@ import { Effect, Match, Option } from "effect"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
 import { EvidenceStore } from "../../../contracts/evidence/store.js"
-import { resolveEntryRunIdentityFromDraft } from "../../../contracts/study/run-plan.js"
+import { resolveRunRequestIdentityFromDraft } from "../../../contracts/study/run-plan.js"
 
 import type { SurfaceRuntimeServices } from "../../runtime/kernel/kind.js"
 import {
@@ -53,7 +53,7 @@ const runSurfaceExecution = (
     }))
 
     const runToken = `${id}:${active.token}`
-    const identity = yield* resolveEntryRunIdentityFromDraft({ draft, runToken })
+    const identity = yield* resolveRunRequestIdentityFromDraft({ draft, runToken })
 
     const projectionDriver = projectionDriverFor(id)
     const projectionDriverSnapshot = snapshotProjectionDriver(projectionDriver, registry)

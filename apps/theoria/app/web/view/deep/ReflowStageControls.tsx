@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react"
 
+import { reflowStageControlsPresentation } from "../../../contracts/presentation/reflow-stage-controls.js"
 import type { ReflowWidgetViewModel } from "../../atoms/reflow-widget-view-model.js"
 import type { Tone } from "../primitives/theme/tone.js"
 
@@ -30,14 +31,20 @@ export const ReflowStageControls = ({
     {vm.usingCustomText
       ? (
         <Stack className="gap-2">
-          <SemanticText as="p" className="text-ink-700" role="row-label" text="Custom text" variant="expanded" />
+          <SemanticText
+            as="p"
+            className="text-ink-700"
+            role="row-label"
+            text={reflowStageControlsPresentation.customTextLabel}
+            variant="expanded"
+          />
           <TextAreaField
             active
             disabled={vm.controlsLocked}
             onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
               onSetCustomText(event.target.value)
             }}
-            placeholder="Paste or type your own text to compare the projected line layout…"
+            placeholder={reflowStageControlsPresentation.customTextPlaceholder}
             rows={4}
             tone={tone}
             value={vm.customText}
@@ -60,7 +67,7 @@ export const ReflowStageControls = ({
         <SliderRow
           disabled={vm.controlsLocked}
           display={vm.width.display}
-          label="Width"
+          label={reflowStageControlsPresentation.widthLabel}
           max={vm.width.max}
           min={vm.width.min}
           onChange={onSetWidth}
@@ -72,13 +79,13 @@ export const ReflowStageControls = ({
       <Rail className="w-full justify-end gap-3 lg:w-auto lg:flex-nowrap">
         <LoadingIndicator
           active={vm.isAnimating}
-          text={vm.statusText ?? "Streaming authored projection…"}
+          text={vm.statusText ?? reflowStageControlsPresentation.streamingStatusText}
           tone={tone}
         />
         <ToggleSwitch
           checked={vm.obstaclesEnabled}
           disabled={vm.controlsLocked}
-          label="Obstacles"
+          label={reflowStageControlsPresentation.obstaclesLabel}
           onToggle={onToggleObstacles}
           tone={tone}
         />

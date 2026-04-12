@@ -11,14 +11,12 @@ import type {
 
 import { PackageDocsBundleRoute } from "../../contracts/presentation/package-docs.js"
 
-import type { ResolvedPackageDocsCatalogSelection } from "../state/package-docs-route.js"
 import {
-  packageDocsBundleState,
-  packageDocsCatalogSelection,
-  packageDocsCatalogState,
+  PackageDocsCatalogSelection,
   PackageDocsEmptyCatalog,
-  type PackageDocsRouteState
-} from "../state/package-docs-route.js"
+  PackageDocsRouteState,
+  type ResolvedPackageDocsCatalogSelection
+} from "../../contracts/presentation/package-docs.js"
 
 import { packageDocsBundleRouteAtom, packageDocsCatalogAtom } from "./package-docs.js"
 
@@ -30,24 +28,24 @@ const bundleRouteState = ({
   readonly bundleResult: Result.Result<PackageDocsBundle, PackageDocsError>
   readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
   readonly selection: ResolvedPackageDocsCatalogSelection
-}): PackageDocsRouteState =>
+}): PackageDocsRouteState.Value =>
   Result.match(bundleResult, {
     onInitial: () =>
-      packageDocsBundleState({
+      PackageDocsRouteState.projectBundle({
         bundle: null,
         catalog,
         description: null,
         selection
       }),
     onFailure: (failure) =>
-      packageDocsBundleState({
+      PackageDocsRouteState.projectBundle({
         bundle: null,
         catalog,
         description: failure.cause.toString(),
         selection
       }),
     onSuccess: (success) =>
-      packageDocsBundleState({
+      PackageDocsRouteState.projectBundle({
         bundle: success.value,
         catalog,
         description: null,
@@ -56,12 +54,12 @@ const bundleRouteState = ({
   })
 
 export const packageDocsRouteStateAtom = Atom.family((route: PackageDocsPageRoute) =>
-  Atom.make((get: AtomType.Context): PackageDocsRouteState =>
+  Atom.make((get: AtomType.Context): PackageDocsRouteState.Value =>
     Result.match(get(packageDocsCatalogAtom), {
-      onInitial: () => packageDocsCatalogState({ description: null, route }),
-      onFailure: (failure) => packageDocsCatalogState({ description: failure.cause.toString(), route }),
+      onInitial: () => PackageDocsRouteState.projectCatalog({ description: null, route }),
+      onFailure: (failure) => PackageDocsRouteState.projectCatalog({ description: failure.cause.toString(), route }),
       onSuccess: (success) => {
-        const selection = packageDocsCatalogSelection({
+        const selection = PackageDocsCatalogSelection.project({
           catalog: success.value,
           route
         })

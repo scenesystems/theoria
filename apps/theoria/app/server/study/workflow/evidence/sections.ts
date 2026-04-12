@@ -7,6 +7,7 @@ import {
   TextItem
 } from "../../../../contracts/evidence/item.js"
 import type { EvidenceStore } from "../../../../contracts/evidence/store.js"
+import { presentationDetailRowsTableRows } from "../../../../contracts/presentation/detail-row.js"
 import type { Program } from "../../../../contracts/presentation/program.js"
 import { RunData } from "../../../../contracts/study/run.js"
 import {
@@ -130,7 +131,7 @@ export const nodeExecutionSection = (execution: WorkflowNodeExecution): Evidence
           _tag: "Table",
           label: workflowEvidenceItemLabels.runtimeEvidence,
           columns: [...workflowEvidenceTableColumns.runtimeEvidence],
-          rows: workflowRuntimeEvidenceRows(execution)
+          rows: presentationDetailRowsTableRows(workflowRuntimeEvidenceRows(execution))
         })
       ]
     })

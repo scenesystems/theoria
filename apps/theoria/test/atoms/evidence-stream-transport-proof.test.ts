@@ -3,7 +3,7 @@ import { Chunk, Effect, Fiber, Option, Ref, Stream } from "effect"
 
 import { EntryRequestError } from "../../app/contracts/entry-error.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
-import { entryPackageNameForId } from "../../app/contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../app/contracts/entry/routing.js"
 import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence/stream.js"
 import { ServerEvidenceStream } from "../../app/web/atoms/surface/evidence-stream.js"
@@ -144,7 +144,7 @@ const fetchProofLayer = ({
         Effect.as({
           data: {
             id: "digest",
-            packageName: entryPackageNameForId("digest"),
+            packageName: EntryRunIdentity.fromEntryId("digest").packageName,
             summary: "Fetched terminal result.",
             durationMs: streamMeta.durationMs,
             program: {

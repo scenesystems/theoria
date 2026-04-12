@@ -1,14 +1,14 @@
 import { Atom } from "@effect-atom/atom"
 
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
+import type { DeepDiveProjectionPlane } from "../../../contracts/presentation/deep-dive-projection.js"
 import {
-  deepDiveProjectionLaneAtom,
-  deepDiveProjectionLaneHideSurfaceChange,
-  deepDiveProjectionLaneProjectSurfaceChange,
-  deepDiveProjectionLaneReorderSurfaceChange,
+  deepDiveProjectionOrderAtom,
+  deepDiveProjectionOrderHideSurfaceChange,
+  deepDiveProjectionOrderProjectSurfaceChange,
+  deepDiveProjectionOrderReorderSurfaceChange,
   deepDiveProjectionSurfaceIsProjected
-} from "./deep-dive-projection-lane.js"
-import { applyDeepDiveProjectionLaneWriteAtom, deepDiveFocusedSurfaceAtom } from "./deep-dive-projection-state.js"
+} from "./deep-dive-projection-order.js"
+import { applyDeepDiveProjectionOrderWriteAtom, deepDiveFocusedSurfaceAtom } from "./deep-dive-projection-state.js"
 
 type ProjectDeepDiveSurfaceInput = {
   readonly index?: number
@@ -22,9 +22,9 @@ type ReorderDeepDiveProjectedSurfaceInput = {
 
 export const focusDeepDiveSurfaceAtom = Atom.fnSync<DeepDiveProjectionPlane>()(
   (surface, ctx) => {
-    const projectionLane = ctx(deepDiveProjectionLaneAtom)
+    const projectionOrder = ctx(deepDiveProjectionOrderAtom)
 
-    if (deepDiveProjectionSurfaceIsProjected({ lane: projectionLane, surface })) {
+    if (deepDiveProjectionSurfaceIsProjected({ order: projectionOrder, surface })) {
       ctx.set(deepDiveFocusedSurfaceAtom, surface)
     }
   }
@@ -32,8 +32,8 @@ export const focusDeepDiveSurfaceAtom = Atom.fnSync<DeepDiveProjectionPlane>()(
 
 export const projectDeepDiveSurfaceAtom = Atom.fnSync<ProjectDeepDiveSurfaceInput>()(
   ({ index, surface }, ctx) => {
-    const change = deepDiveProjectionLaneProjectSurfaceChange({
-      lane: ctx(deepDiveProjectionLaneAtom),
+    const change = deepDiveProjectionOrderProjectSurfaceChange({
+      order: ctx(deepDiveProjectionOrderAtom),
       surface,
       ...(typeof index === "number" ? { index } : {})
     })
@@ -42,15 +42,15 @@ export const projectDeepDiveSurfaceAtom = Atom.fnSync<ProjectDeepDiveSurfaceInpu
       return
     }
 
-    ctx.set(applyDeepDiveProjectionLaneWriteAtom, change)
+    ctx.set(applyDeepDiveProjectionOrderWriteAtom, change)
   }
 )
 
 export const reorderDeepDiveProjectedSurfaceAtom = Atom.fnSync<ReorderDeepDiveProjectedSurfaceInput>()(
   ({ index, surface }, ctx) => {
-    const change = deepDiveProjectionLaneReorderSurfaceChange({
+    const change = deepDiveProjectionOrderReorderSurfaceChange({
       index,
-      lane: ctx(deepDiveProjectionLaneAtom),
+      order: ctx(deepDiveProjectionOrderAtom),
       surface
     })
 
@@ -58,14 +58,14 @@ export const reorderDeepDiveProjectedSurfaceAtom = Atom.fnSync<ReorderDeepDivePr
       return
     }
 
-    ctx.set(applyDeepDiveProjectionLaneWriteAtom, change)
+    ctx.set(applyDeepDiveProjectionOrderWriteAtom, change)
   }
 )
 
 export const hideDeepDiveProjectedSurfaceAtom = Atom.fnSync<DeepDiveProjectionPlane>()(
   (surface, ctx) => {
-    const change = deepDiveProjectionLaneHideSurfaceChange({
-      lane: ctx(deepDiveProjectionLaneAtom),
+    const change = deepDiveProjectionOrderHideSurfaceChange({
+      order: ctx(deepDiveProjectionOrderAtom),
       surface
     })
 
@@ -73,15 +73,15 @@ export const hideDeepDiveProjectedSurfaceAtom = Atom.fnSync<DeepDiveProjectionPl
       return
     }
 
-    ctx.set(applyDeepDiveProjectionLaneWriteAtom, change)
+    ctx.set(applyDeepDiveProjectionOrderWriteAtom, change)
   }
 )
 
 export const toggleDeepDiveProjectedSurfaceAtom = Atom.fnSync<DeepDiveProjectionPlane>()(
   (surface, ctx) => {
-    const projectionLane = ctx(deepDiveProjectionLaneAtom)
+    const projectionOrder = ctx(deepDiveProjectionOrderAtom)
 
-    if (deepDiveProjectionSurfaceIsProjected({ lane: projectionLane, surface })) {
+    if (deepDiveProjectionSurfaceIsProjected({ order: projectionOrder, surface })) {
       ctx.set(hideDeepDiveProjectedSurfaceAtom, surface)
       return
     }

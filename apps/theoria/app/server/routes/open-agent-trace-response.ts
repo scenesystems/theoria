@@ -38,11 +38,7 @@ export const openAgentTraceRegistryResponse = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
     const service = yield* OpenAgentTraceService
     const registry = yield* service.registry()
-    const envelope = OpenAgentTraceRegistrySuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data: registry
-    })
+    const envelope = OpenAgentTraceRegistrySuccessEnvelope.ok(yield* timing.finish(), registry)
 
     return yield* jsonResponse(envelope, 200)
   })
@@ -52,11 +48,7 @@ export const openAgentTraceConsumerArtifactResponse = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
     const service = yield* OpenAgentTraceService
     const catalog = yield* service.consumerArtifacts()
-    const envelope = OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data: catalog
-    })
+    const envelope = OpenAgentTraceConsumerArtifactCatalogSuccessEnvelope.ok(yield* timing.finish(), catalog)
 
     return yield* jsonResponse(envelope, 200)
   })
@@ -66,11 +58,7 @@ export const openAgentTraceWorkflowHookupResponse = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
     const service = yield* OpenAgentTraceService
     const catalog = yield* service.workflowHookups()
-    const envelope = OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data: catalog
-    })
+    const envelope = OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope.ok(yield* timing.finish(), catalog)
 
     return yield* jsonResponse(envelope, 200)
   })

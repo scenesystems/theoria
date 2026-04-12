@@ -5,13 +5,13 @@ import * as SearchStudyEvent from "effect-search/StudyEvent"
 import type { StudyEvent } from "effect-search/StudyEvent"
 
 import {
-  type Config2D,
-  Config2DSchema,
+  Config2D,
   defaultSamplerSeed,
-  objectiveAt,
-  searchBounds,
+  SearchBounds,
   type TrialPoint
 } from "../../../contracts/capability/effect-search.js"
+
+const bounds = SearchBounds.defaults()
 
 type StudyLaneCheckpoint = {
   readonly events: ReadonlyArray<StudyEvent>
@@ -36,7 +36,7 @@ const emptyStudyLaneState: StudyLaneState = {
   trialPoints: []
 }
 
-const objective = (config: Config2D) => Effect.succeed(objectiveAt(config))
+const objective = (config: Config2D) => Effect.succeed(Config2D.objectiveValue(config))
 
 const numericObjectiveValue = (value: number | ReadonlyArray<number>): number =>
   typeof value === "number"
@@ -52,7 +52,7 @@ const withStartedTrial = (
   state: StudyLaneState,
   event: Extract<StudyEvent, { readonly _tag: "TrialStarted" }>
 ): StudyLaneState =>
-  Either.match(Schema.decodeUnknownEither(Config2DSchema)(event.config), {
+  Either.match(Schema.decodeUnknownEither(Config2D)(event.config), {
     onLeft: () => state,
     onRight: (config) => ({
       ...state,
@@ -166,8 +166,8 @@ export const collectStudyLaneStory = ({
   Effect.scoped(
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({
-        x: SearchSpace.float(searchBounds.xMin, searchBounds.xMax),
-        y: SearchSpace.float(searchBounds.yMin, searchBounds.yMax)
+        x: SearchSpace.float(bounds.xMin, bounds.xMax),
+        y: SearchSpace.float(bounds.yMin, bounds.yMax)
       }).pipe(Effect.orDie)
       const collected = yield* Stream.runCollect(
         Study.optimizeStream({

@@ -1,10 +1,6 @@
-import { Effect, Match } from "effect"
+import { Effect, Match, Option } from "effect"
 
-import {
-  OpenAgentTraceConsumerArtifactRoute,
-  OpenAgentTraceRegistryRoute,
-  OpenAgentTraceWorkflowHookupRoute
-} from "../../contracts/study/workflow/open-agent-trace.js"
+import { openAgentTraceApiRouteFromPathname } from "../../contracts/study/workflow/open-agent-trace.js"
 import { OpenAgentTraceService } from "../study/workflow/open-agent-trace/service.js"
 import {
   openAgentTraceConsumerArtifactResponse,
@@ -14,12 +10,17 @@ import {
 } from "./open-agent-trace-response.js"
 
 export const openAgentTraceRoute = (pathname: string, requestId: string) =>
-  Effect.flatten(
-    Match.value(pathname).pipe(
-      Match.when(OpenAgentTraceConsumerArtifactRoute.matches, () => openAgentTraceConsumerArtifactResponse(requestId)),
-      Match.when(OpenAgentTraceRegistryRoute.matches, () => openAgentTraceRegistryResponse(requestId)),
-      Match.when(OpenAgentTraceWorkflowHookupRoute.matches, () => openAgentTraceWorkflowHookupResponse(requestId)),
-      Match.orElse(() => openAgentTraceRouteNotFoundResponse(requestId)),
-      Effect.provide(OpenAgentTraceService.Default)
-    )
+  openAgentTraceApiRouteFromPathname(pathname).pipe(
+    Option.match({
+      onNone: () => openAgentTraceRouteNotFoundResponse(requestId),
+      onSome: (route) =>
+        Match.value(route).pipe(
+          Match.tag("consumer-artifacts", () => openAgentTraceConsumerArtifactResponse(requestId)),
+          Match.tag("registry", () => openAgentTraceRegistryResponse(requestId)),
+          Match.tag("workflow-hookups", () => openAgentTraceWorkflowHookupResponse(requestId)),
+          Match.exhaustive
+        )
+    }),
+    Effect.flatten,
+    Effect.provide(OpenAgentTraceService.Default)
   )

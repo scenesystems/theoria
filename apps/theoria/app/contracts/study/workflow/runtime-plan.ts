@@ -1,5 +1,5 @@
 import { Match, Schema } from "effect"
-import { WorkflowModuleGraphProjection } from "effect-dsp/contracts"
+import { WorkflowGraphProjection } from "effect-dsp/contracts"
 import { type GraphVariant, ScoreProfileSchema, WorkflowExecutionRecordSchema } from "effect-inference/Contracts"
 
 export const WorkflowSelectedKnobs = Schema.Record({
@@ -43,7 +43,7 @@ const workflowVariantSelectionFields = {
 
 const workflowVariantPlanFields = {
   ...workflowVariantSelectionFields,
-  graphProjection: WorkflowModuleGraphProjection
+  graphProjection: WorkflowGraphProjection
 }
 
 export class BaselineWorkflowVariantSelection extends Schema.TaggedClass<BaselineWorkflowVariantSelection>()(
@@ -145,7 +145,7 @@ export const workflowVariantPlanForSelection = ({
   graphProjection,
   selection
 }: {
-  readonly graphProjection: typeof WorkflowModuleGraphProjection.Type
+  readonly graphProjection: typeof WorkflowGraphProjection.Type
   readonly selection: WorkflowVariantSelection
 }): WorkflowVariantPlan =>
   Match.value(selection).pipe(

@@ -2,6 +2,7 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
+import { DeepDiveDiagnosticsPlaneValue } from "../../app/contracts/presentation/deep-dive-projection.js"
 import { DeepDiveSurfacePlaneValue } from "../../app/contracts/presentation/layout.js"
 import {
   deepDiveSecondaryPanePercentAtom,
@@ -20,7 +21,7 @@ import {
   reorderDeepDiveProjectedSurfaceAtom
 } from "../../app/web/atoms/layout/deep-dive-surface-projection.js"
 import { setDeepDiveWorkspaceWidthAtom } from "../../app/web/atoms/layout/deep-dive-viewport.js"
-import { DeepDiveDiagnosticsPlaneValue, diagnosticsProjectionEnabled } from "../../app/web/state/surface/deep-dive.js"
+import { diagnosticsProjectionEnabled } from "../../app/web/state/surface/deep-dive.js"
 
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({

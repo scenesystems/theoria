@@ -58,6 +58,18 @@ export const dspOptimizerEventColumns = ["#", "Event", "Details"]
 
 export const dspPerExampleResultColumns = ["#", "Score", "Duration (ms)"]
 
+export const dspLiveEvaluationPresentation = {
+  controlsLockedDetail: "Active runs stay pinned to the frozen manifest snapshot until completion.",
+  evaluationDatasetEyebrow: "Evaluation dataset",
+  labeledExamplesLabel: "Labeled examples",
+  moduleConfigurationTitle: "Module configuration",
+  optimizationRoundsHint: "BootstrapFewShot optimization rounds",
+  runtimeEvidenceContractDetail:
+    "The deep dive consumes package-authored prompt text, raw responses, parsed outputs, token totals, and optimizer events from the shared effect-dsp stream.",
+  runtimeEvidenceContractTitle: "Runtime evidence contract",
+  signatureContractTitle: "Signature contract"
+}
+
 export const dspEvaluationSectionTitle = (phaseId: DspEvaluationPhaseId): string =>
   Match.value(phaseId).pipe(
     Match.when("baseline", () => "Baseline Evaluation"),

@@ -3,11 +3,6 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Match } from "effect"
 
 import {
-  type ProjectionDockDragTarget,
-  projectionDockDropTargetAt,
-  type ProjectionDockGhostTarget
-} from "../../runtime/kernel/projection-dock-target.js"
-import {
   clearDeepDiveDragState,
   type DeepDiveDragGhostTarget,
   type DeepDiveDragPointer,
@@ -18,15 +13,20 @@ import {
   deepDiveDragStateWithHoveredHideTarget,
   deepDiveDragStateWithHoveredLotIndex,
   deepDiveDragStateWithPointer,
-  deepDiveProjectionLaneDropSurfaceChange,
-  deepDiveProjectionLaneHideDraggedSurfaceChange,
+  deepDiveProjectionOrderDropSurfaceChange,
+  deepDiveProjectionOrderHideDraggedSurfaceChange,
   emptyDeepDiveDragState,
   startDeepDiveDragState
-} from "../../state/surface/deep-dive-drag.js"
-import type { DeepDiveProjectionPlane } from "../../state/surface/deep-dive.js"
+} from "../../../contracts/presentation/deep-dive-drag.js"
+import type { DeepDiveProjectionPlane } from "../../../contracts/presentation/deep-dive-projection.js"
+import {
+  type ProjectionDockDragTarget,
+  projectionDockDropTargetAt,
+  type ProjectionDockGhostTarget
+} from "../../runtime/kernel/projection-dock-target.js"
 
-import { deepDiveProjectionLaneAtom } from "./deep-dive-projection-lane.js"
-import { applyDeepDiveProjectionLaneWriteAtom } from "./deep-dive-projection-state.js"
+import { deepDiveProjectionOrderAtom } from "./deep-dive-projection-order.js"
+import { applyDeepDiveProjectionOrderWriteAtom } from "./deep-dive-projection-state.js"
 
 const deepDiveDragStateStoreAtom = Atom.make<DeepDiveDragState>(emptyDeepDiveDragState).pipe(Atom.keepAlive)
 
@@ -132,14 +132,14 @@ export const completeDeepDiveDraggedSurfaceAtom = Atom.fnSync<DeepDiveDragPointe
 
 export const dropDeepDiveDraggedSurfaceAtom = Atom.fnSync<number>()(
   (index, ctx) => {
-    const change = deepDiveProjectionLaneDropSurfaceChange({
+    const change = deepDiveProjectionOrderDropSurfaceChange({
       index,
-      lane: ctx(deepDiveProjectionLaneAtom),
+      order: ctx(deepDiveProjectionOrderAtom),
       state: ctx(deepDiveDragStateStoreAtom)
     })
 
     if (change !== null) {
-      ctx.set(applyDeepDiveProjectionLaneWriteAtom, change)
+      ctx.set(applyDeepDiveProjectionOrderWriteAtom, change)
     }
 
     ctx.set(clearDeepDiveDraggedSurfaceAtom, undefined)
@@ -165,8 +165,8 @@ export const releaseDeepDiveDraggedSurfaceAtom = Atom.fnSync<void>()(
 
 export const hideDeepDiveDraggedSurfaceAtom = Atom.fnSync<void>()(
   (_, ctx) => {
-    const change = deepDiveProjectionLaneHideDraggedSurfaceChange({
-      lane: ctx(deepDiveProjectionLaneAtom),
+    const change = deepDiveProjectionOrderHideDraggedSurfaceChange({
+      order: ctx(deepDiveProjectionOrderAtom),
       state: ctx(deepDiveDragStateStoreAtom)
     })
 
@@ -174,7 +174,7 @@ export const hideDeepDiveDraggedSurfaceAtom = Atom.fnSync<void>()(
       return
     }
 
-    ctx.set(applyDeepDiveProjectionLaneWriteAtom, change)
+    ctx.set(applyDeepDiveProjectionOrderWriteAtom, change)
     ctx.set(clearDeepDiveDraggedSurfaceAtom, undefined)
   }
 )

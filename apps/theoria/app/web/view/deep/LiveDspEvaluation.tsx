@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 
+import { dspLiveEvaluationPresentation } from "../../../contracts/capability/effect-dsp-runtime-presentation.js"
 import {
   type DspEvaluationExample,
   type DspFieldMeta,
@@ -29,7 +30,7 @@ const SignaturePanel = ({ contract }: { readonly contract: DspSignatureContract 
     inputFields={contract.inputFields}
     instruction={contract.instruction}
     outputFields={contract.outputFields}
-    title="Signature contract"
+    title={dspLiveEvaluationPresentation.signatureContractTitle}
     tone={tone}
   />
 )
@@ -85,11 +86,17 @@ const EvaluationTable = ({
     <Stack className="gap-2.5">
       <PlaneMetaRail
         description={metricDescription}
-        eyebrow="Evaluation dataset"
+        eyebrow={dspLiveEvaluationPresentation.evaluationDatasetEyebrow}
         metricPresentation="inline"
         metrics={metaMetrics}
       />
-      <DataTable columns={columns} density="compact" label="Labeled examples" rows={rows} summaryVisible={false} />
+      <DataTable
+        columns={columns}
+        density="compact"
+        label={dspLiveEvaluationPresentation.labeledExamplesLabel}
+        rows={rows}
+        summaryVisible={false}
+      />
     </Stack>
   )
 }
@@ -110,12 +117,17 @@ const RuntimeStatusPanel = ({
 const RuntimeEvidencePanel = () => (
   <AccentBorder tone={tone}>
     <Stack className="gap-1.5">
-      <SemanticText as="p" className={tone.text} role="row-label" text="Runtime evidence contract" />
+      <SemanticText
+        as="p"
+        className={tone.text}
+        role="row-label"
+        text={dspLiveEvaluationPresentation.runtimeEvidenceContractTitle}
+      />
       <SemanticText
         as="p"
         className="text-ink-800"
         role="row-value"
-        text="The deep dive consumes package-authored prompt text, raw responses, parsed outputs, token totals, and optimizer events from the shared effect-dsp stream."
+        text={dspLiveEvaluationPresentation.runtimeEvidenceContractDetail}
       />
     </Stack>
   </AccentBorder>
@@ -144,14 +156,19 @@ const ModuleConfigurationPanel = ({
 }) => (
   <Stack className="gap-3">
     <Stack className="gap-1">
-      <SemanticText as="p" className={tone.text} role="row-label" text="Module configuration" />
+      <SemanticText
+        as="p"
+        className={tone.text}
+        role="row-label"
+        text={dspLiveEvaluationPresentation.moduleConfigurationTitle}
+      />
       {controlsLocked
         ? (
           <SemanticText
             as="p"
             className="text-ink-600"
             role="row-value"
-            text="Active runs stay pinned to the frozen manifest snapshot until completion."
+            text={dspLiveEvaluationPresentation.controlsLockedDetail}
           />
         )
         : null}
@@ -166,7 +183,7 @@ const ModuleConfigurationPanel = ({
     <SliderRow
       disabled={controlsLocked}
       display={optimizationBudget.display}
-      hint="BootstrapFewShot optimization rounds"
+      hint={dspLiveEvaluationPresentation.optimizationRoundsHint}
       hintNoWrap
       label="Rounds"
       layout="stacked"

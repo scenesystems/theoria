@@ -1,18 +1,15 @@
 import { Array as Arr } from "effect"
 
-import { workflowEntryId } from "../../../../contracts/entry/id.js"
+import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
-  baselineWorkflowScenarioVariant,
-  optimizedWorkflowScenarioVariant,
-  renderSensitiveWorkflowScenarioManifest,
-  workflowAuthorityBindings,
-  type WorkflowScenario,
-  workflowScenarioRecordPair,
-  workflowScenarioReportPair,
-  workflowScenarioVariantPair
+  BaselineWorkflowScenarioVariant,
+  decodeWorkflowEvaluationReport,
+  decodeWorkflowExecutionRecord,
+  OptimizedWorkflowScenarioVariant,
+  WorkflowScenario,
+  WorkflowScenarioVariants
 } from "../../../../contracts/study/workflow/scenario.js"
-import { decodeWorkflowEvaluationReport, decodeWorkflowExecutionRecord } from "../decode.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
 const baselineRecord = decodeWorkflowExecutionRecord({
@@ -143,8 +140,8 @@ const optimizedRecord = decodeWorkflowExecutionRecord({
   }
 })
 
-const renderSensitiveWorkflowVariants = workflowScenarioVariantPair({
-  baseline: baselineWorkflowScenarioVariant({
+const renderSensitiveWorkflowVariants = WorkflowScenarioVariants.make({
+  baseline: BaselineWorkflowScenarioVariant.fromPair({
     record: baselineRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "render-sensitive-baseline-report",
@@ -166,7 +163,7 @@ const renderSensitiveWorkflowVariants = workflowScenarioVariantPair({
       ]
     })
   }),
-  optimized: optimizedWorkflowScenarioVariant({
+  optimized: OptimizedWorkflowScenarioVariant.fromPair({
     record: optimizedRecord,
     report: decodeWorkflowEvaluationReport({
       reportId: "render-sensitive-optimized-report",
@@ -190,15 +187,8 @@ const renderSensitiveWorkflowVariants = workflowScenarioVariantPair({
   })
 })
 
-export const renderSensitiveWorkflowScenario: WorkflowScenario = {
-  entry: {
-    scenarioId: renderSensitiveWorkflowScenarioManifest.id,
-    entryId: workflowEntryId
-  },
-  authorities: workflowAuthorityBindings,
-  label: renderSensitiveWorkflowScenarioManifest.label,
-  summary: renderSensitiveWorkflowScenarioManifest.summary,
-  workflowKind: "render-sensitive",
-  records: workflowScenarioRecordPair(renderSensitiveWorkflowVariants),
-  reports: workflowScenarioReportPair(renderSensitiveWorkflowVariants)
-}
+export const renderSensitiveWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
+  manifest: WorkflowScenarioManifest.forId("render-sensitive"),
+  variants: renderSensitiveWorkflowVariants,
+  workflowKind: "render-sensitive"
+})

@@ -4,7 +4,7 @@ import { Effect, Match, Option, Stream } from "effect"
 import type { EntryRunRequest } from "../../contracts/entry/registry.js"
 import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
 import { serverReleaseStage } from "../config/release-stage.js"
-import { EntryStreamSessionRegistry } from "../kernel/kinds/stream-session-registry.js"
+import { RunStreamSessionRegistry } from "../kernel/kinds/stream-session-registry.js"
 import { lookupForReleaseStage } from "../kernel/registry.js"
 import { resolveEntryStreamRequestFingerprint } from "../kernel/stream-request.js"
 
@@ -36,7 +36,7 @@ const streamResponse = ({
             startup
           })
           const sessionKey = yield* resolveEntryStreamRequestFingerprint(request)
-          const registry = yield* EntryStreamSessionRegistry
+          const registry = yield* RunStreamSessionRegistry
 
           yield* registry.ensureSession(sessionKey)
 

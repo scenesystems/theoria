@@ -1,17 +1,19 @@
 import { Tooltip } from "@base-ui-components/react/tooltip"
 import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
+import { Match } from "effect"
 import { useEffect } from "react"
 
-import type { PageRoute } from "../contracts/presentation/path.js"
+import type { PageLocation } from "../contracts/presentation/page-location.js"
+import { PagePresentation } from "../contracts/presentation/page.js"
 import { preloadRouteKey, routePreloadMountAtom } from "./atoms/surface/preload.js"
 import { colorModeAtom } from "./atoms/theme.js"
-import { DeepDivePage } from "./view/deep/DeepDivePage.js"
 import { PackageDocsPage } from "./view/docs/PackageDocsPage.js"
+import { EntryPage } from "./view/entry/EntryPage.js"
 import { HomePage } from "./view/home/HomePage.js"
 
 import "./styles.css"
 
-const RoutePreloader = ({ route }: { readonly route: PageRoute }) => {
+const RoutePreloader = ({ route }: { readonly route: PagePresentation.Value["route"] }) => {
   useAtomValue(routePreloadMountAtom.atom(preloadRouteKey(route)))
   return null
 }
@@ -26,22 +28,38 @@ const ThemeApplicator = () => {
   return null
 }
 
-const AppShell = ({ route }: { readonly route: PageRoute }) => (
-  <>
-    <ThemeApplicator />
-    <RoutePreloader route={route} />
-    {route._tag === "DeepRoute"
-      ? <DeepDivePage entryId={route.entryId} />
-      : route._tag === "PackageDocsRoute"
-      ? <PackageDocsPage route={route.route} />
-      : <HomePage />}
-  </>
-)
+const AppShell = ({
+  location
+}: {
+  readonly location: PageLocation
+}) => {
+  const page = PagePresentation.fromLocation(location)
 
-export const App = ({ route }: { readonly route: PageRoute }) => (
+  return (
+    <>
+      <ThemeApplicator />
+      <RoutePreloader route={page.route} />
+      {Match.value(page).pipe(
+        Match.tag("HomePagePresentation", (value) => <HomePage metadata={value.metadata} />),
+        Match.tag("EntryPagePresentation", (value) => <EntryPage entry={value.entry} metadata={value.metadata} />),
+        Match.tag(
+          "PackageDocsPagePresentation",
+          (value) => <PackageDocsPage metadata={value.metadata} route={value.packageDocsRoute} />
+        ),
+        Match.exhaustive
+      )}
+    </>
+  )
+}
+
+export const App = ({
+  location
+}: {
+  readonly location: PageLocation
+}) => (
   <RegistryProvider defaultIdleTTL={400}>
     <Tooltip.Provider>
-      <AppShell route={route} />
+      <AppShell location={location} />
     </Tooltip.Provider>
   </RegistryProvider>
 )

@@ -1,10 +1,11 @@
+import { presentationDetailRowsTableRows } from "../../../../contracts/presentation/detail-row.js"
 import { workflowEvidenceTableColumns } from "../../../../contracts/study/workflow/evidence.js"
+import type { WorkflowProgressViewModel } from "../../../../contracts/study/workflow/surface-progress-presentation.js"
 import {
   workflowRichnessEmptyText,
   workflowRichnessSectionTitle,
   workflowRichnessTableLabel
 } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
-import type { WorkflowProgressViewModel } from "./progress-model.js"
 
 import { ContentCard } from "../../primitives/ContentCard.js"
 import { DataTable } from "../../primitives/DataTable.js"
@@ -44,7 +45,7 @@ export const WorkflowProgressSectionCard = ({
         <DataTable
           columns={[...workflowEvidenceTableColumns.optimizationSnapshot]}
           label={workflowRichnessTableLabel("selection")}
-          rows={viewModel.selectionRows}
+          rows={presentationDetailRowsTableRows(viewModel.selectionRows)}
         />
 
         {viewModel.snapshotRows.length === 0
@@ -63,7 +64,7 @@ export const WorkflowProgressSectionCard = ({
             <DataTable
               columns={[...workflowEvidenceTableColumns.optimizationSnapshot]}
               label={workflowRichnessTableLabel("snapshot")}
-              rows={viewModel.snapshotRows}
+              rows={presentationDetailRowsTableRows(viewModel.snapshotRows)}
             />
           )}
       </Layer>

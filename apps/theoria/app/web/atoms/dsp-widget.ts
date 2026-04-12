@@ -2,8 +2,10 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
 import { type DspModuleType, type DspScenarioId } from "../../contracts/capability/effect-dsp.js"
-import { defaultEffectDspEntryInput } from "../../contracts/entry/defaults.js"
+import { effectDspEntryDescriptor } from "../../contracts/entry/descriptors/effect-dsp.js"
 export { type EffectDspProjectionScript, snapshotEffectDspProjectionScript } from "./dsp-run-plan.js"
+
+const defaultEffectDspEntryInput = effectDspEntryDescriptor.defaultInput()
 
 export const dspScenarioIdAtom: AtomType.Writable<DspScenarioId> = Atom.make(defaultEffectDspEntryInput.scenarioId)
 

@@ -1,9 +1,9 @@
 import { authorityCatalogForId } from "../../capability/catalog.js"
-import { defaultEntrySeeds, DefaultSeedId, EmptyStruct, EntryDescriptor } from "../descriptor.js"
+import { DefaultSeedId, EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed } from "../descriptor.js"
 
 const digestAuthority = authorityCatalogForId("digest")
 
-export const digestEntryDescriptor = EntryDescriptor.define({
+export const digestEntryDescriptor = EntryDescriptor.make({
   entryId: "digest",
   title: digestAuthority.title,
   packageName: digestAuthority.packageName,
@@ -14,9 +14,13 @@ export const digestEntryDescriptor = EntryDescriptor.define({
   releaseState: "coming-soon",
   path: "/digest",
   interactiveLabel: null,
+  projectionHint: EntryProjectionHint.defaults(),
   primaryAuthorityId: "digest",
   authorityIds: ["digest"],
-  seeds: defaultEntrySeeds(digestAuthority.summary),
+  seeds: [EntrySeed.default(digestAuthority.summary)],
+  defaultSeedId: "default",
+  defaultInput: {},
+  defaultControls: {},
   seedIdSchema: DefaultSeedId,
   inputSchema: EmptyStruct,
   controlsSchema: EmptyStruct

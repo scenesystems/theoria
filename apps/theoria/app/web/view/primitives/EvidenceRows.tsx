@@ -4,8 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { PresentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
-
-import type { EvidenceDensity } from "../surfaceModel.js"
+import type { EvidenceDensity } from "../../../contracts/presentation/surface-presentation.js"
 
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

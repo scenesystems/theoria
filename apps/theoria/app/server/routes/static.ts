@@ -1,16 +1,12 @@
 import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 
-import { PageMetadata, SiteMetadata } from "../../contracts/presentation/metadata.js"
-import {
-  isHtmlPagePath,
-  isPackageDocsLandingPath,
-  packageDocsLandingRedirectPathForReleaseStage
-} from "../../contracts/presentation/path.js"
+import { SiteMetadata } from "../../contracts/presentation/metadata.js"
+import { PageLocation } from "../../contracts/presentation/page-location.js"
+import { PagePresentation } from "../../contracts/presentation/page.js"
+import { PackageDocsRoute, PageRoute } from "../../contracts/presentation/path.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
-
-const searchFromUrl = (rawUrl: string): string => new URL(rawUrl, "http://127.0.0.1").search
 
 const fromFileUrl = (url: URL): string => decodeURIComponent(url.pathname)
 
@@ -31,13 +27,11 @@ const RelativeAssetPath = Schema.String.pipe(
 const isRelativeAssetPath = Schema.is(RelativeAssetPath)
 const htmlTagPattern = /<html\b([^>]*)>/u
 
-const isHtmlPath = (pathname: string, rawUrl: string, stage: ReleaseStage): boolean =>
-  isHtmlPagePath(pathname, stage, searchFromUrl(rawUrl))
+const isHtmlPath = (location: PageLocation, stage: ReleaseStage): boolean => PageRoute.isHtmlLocation(location, stage)
 
-const packageDocsRedirectPath = (pathname: string, rawUrl: string, stage: ReleaseStage): string | null => {
-  const search = searchFromUrl(rawUrl)
-  return isPackageDocsLandingPath(pathname, search)
-    ? packageDocsLandingRedirectPathForReleaseStage(stage)
+const packageDocsRedirectPath = (location: PageLocation, stage: ReleaseStage): string | null => {
+  return PackageDocsRoute.isLandingLocation(location)
+    ? PackageDocsRoute.redirectPathForReleaseStage(stage)
     : null
 }
 
@@ -73,10 +67,10 @@ export const notFoundResponse = () =>
     headers: responseHeaders("/not-found.txt")
   })
 
-const staticAssetPath = (pathname: string, rawUrl: string, stage: ReleaseStage): Option.Option<string> =>
-  Match.value(pathname).pipe(
+const staticAssetPath = (location: PageLocation, stage: ReleaseStage): Option.Option<string> =>
+  Match.value(location.pathname).pipe(
     Match.when((value) => value.startsWith("/api/"), () => Option.none<string>()),
-    Match.when((value) => isHtmlPath(value, rawUrl, stage), () => Option.some(indexPath)),
+    Match.when(() => isHtmlPath(location, stage), () => Option.some(indexPath)),
     Match.orElse((value) => {
       const relativePath = value.startsWith("/") ? value.slice(1) : value
       return isRelativeAssetPath(relativePath)
@@ -85,8 +79,8 @@ const staticAssetPath = (pathname: string, rawUrl: string, stage: ReleaseStage):
     })
   )
 
-const headerPath = (pathname: string, rawUrl: string, stage: ReleaseStage): string =>
-  isHtmlPath(pathname, rawUrl, stage) ? "/index.html" : pathname
+const headerPath = (location: PageLocation, stage: ReleaseStage): string =>
+  isHtmlPath(location, stage) ? "/index.html" : location.pathname
 
 const injectReleaseStage = (html: string, stage: ReleaseStage): string =>
   html.replace(htmlTagPattern, `<html$1 data-theoria-release-stage="${stage}">`)
@@ -96,9 +90,8 @@ const metaPattern = (nameOrProperty: string): RegExp =>
   new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
 const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
 
-const injectMetadata = (html: string, pathname: string, rawUrl: string): string => {
-  const search = new URL(rawUrl, "http://127.0.0.1").search
-  const metadata = PageMetadata.fromPathname(pathname, search)
+const injectMetadata = (html: string, location: PageLocation): string => {
+  const metadata = PagePresentation.fromLocation(location).metadata
   const canonicalUrl = SiteMetadata.fullCanonicalUrl(metadata.canonicalPath)
 
   return html
@@ -116,10 +109,11 @@ const injectMetadata = (html: string, pathname: string, rawUrl: string): string 
     .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
 }
 
-export const staticResponse = (pathname: string, rawUrl: string) =>
+export const staticResponse = (_pathname: string, rawUrl: string) =>
   Effect.gen(function*() {
+    const location = PageLocation.fromUrl(rawUrl)
     const releaseStage = yield* serverReleaseStage
-    const redirectPath = packageDocsRedirectPath(pathname, rawUrl, releaseStage)
+    const redirectPath = packageDocsRedirectPath(location, releaseStage)
 
     if (redirectPath !== null) {
       return HttpServerResponse.redirect(redirectPath, {
@@ -131,7 +125,7 @@ export const staticResponse = (pathname: string, rawUrl: string) =>
     }
 
     const fileSystem = yield* FileSystem.FileSystem
-    const resolvedPath = staticAssetPath(pathname, rawUrl, releaseStage)
+    const resolvedPath = staticAssetPath(location, releaseStage)
 
     return yield* Option.match(resolvedPath, {
       onNone: () => Effect.succeed(notFoundResponse()),
@@ -141,19 +135,19 @@ export const staticResponse = (pathname: string, rawUrl: string) =>
           Effect.flatMap((exists) =>
             Match.value(exists).pipe(
               Match.when(true, () =>
-                isHtmlPath(pathname, rawUrl, releaseStage)
+                isHtmlPath(location, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) => injectMetadata(injectReleaseStage(html, releaseStage), pathname, rawUrl)),
+                    Effect.map((html) => injectMetadata(injectReleaseStage(html, releaseStage), location)),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {
                         status: 200,
-                        headers: responseHeaders(headerPath(pathname, rawUrl, releaseStage))
+                        headers: responseHeaders(headerPath(location, releaseStage))
                       })
                     ),
                     Effect.catchAll(() => Effect.succeed(notFoundResponse()))
                   )
                   : HttpServerResponse.file(path, {
-                    headers: responseHeaders(headerPath(pathname, rawUrl, releaseStage))
+                    headers: responseHeaders(headerPath(location, releaseStage))
                   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
               Match.orElse(() => Effect.succeed(notFoundResponse()))
             )

@@ -3,14 +3,13 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
 import {
-  defaultEvidencePlanePreferences,
   type EvidencePlaneFilter,
   type EvidencePlaneOrder,
-  type EvidencePlanePreferences
+  EvidencePlanePreferences
 } from "../../../contracts/evidence/plane.js"
 
 export const surfaceEvidencePlaneAtom: (id: EntryId) => AtomType.Writable<EvidencePlanePreferences> = Atom.family(
-  (_id: EntryId) => Atom.make(defaultEvidencePlanePreferences).pipe(Atom.keepAlive)
+  (_id: EntryId) => Atom.make(EvidencePlanePreferences.defaults()).pipe(Atom.keepAlive)
 )
 
 export const selectEvidencePlaneFilterAtom = Atom.fnSync<{
@@ -18,11 +17,7 @@ export const selectEvidencePlaneFilterAtom = Atom.fnSync<{
   readonly filter: EvidencePlaneFilter
 }>()(({ filter, id }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))
-  ctx.set(surfaceEvidencePlaneAtom(id), {
-    ...current,
-    filter,
-    sectionKey: null
-  })
+  ctx.set(surfaceEvidencePlaneAtom(id), EvidencePlanePreferences.withFilter(current, filter))
 })
 
 export const selectEvidencePlaneOrderAtom = Atom.fnSync<{
@@ -30,10 +25,7 @@ export const selectEvidencePlaneOrderAtom = Atom.fnSync<{
   readonly order: EvidencePlaneOrder
 }>()(({ id, order }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))
-  ctx.set(surfaceEvidencePlaneAtom(id), {
-    ...current,
-    order
-  })
+  ctx.set(surfaceEvidencePlaneAtom(id), EvidencePlanePreferences.withOrder(current, order))
 })
 
 export const selectEvidencePlaneSectionAtom = Atom.fnSync<{
@@ -41,8 +33,5 @@ export const selectEvidencePlaneSectionAtom = Atom.fnSync<{
   readonly sectionKey: string | null
 }>()(({ id, sectionKey }, ctx) => {
   const current = ctx(surfaceEvidencePlaneAtom(id))
-  ctx.set(surfaceEvidencePlaneAtom(id), {
-    ...current,
-    sectionKey
-  })
+  ctx.set(surfaceEvidencePlaneAtom(id), EvidencePlanePreferences.withSectionKey(current, sectionKey))
 })

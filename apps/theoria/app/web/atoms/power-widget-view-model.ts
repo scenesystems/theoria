@@ -8,26 +8,33 @@ import {
   powerAlphaMax,
   powerAlphaMin,
   powerAlphaStep,
+  PowerControls,
   powerEffectSizeMax,
   powerEffectSizeMin,
   powerEffectSizeStep,
+  PowerProjection,
   powerSampleSizeMax,
   powerSampleSizeMin,
-  powerSampleSizeStep,
-  projectPowerProjection
+  powerSampleSizeStep
 } from "../../contracts/capability/effect-math.js"
 import type { EffectMathCanonicalStep } from "../../contracts/capability/effect-math.js"
+import {
+  type PresentationMetric,
+  presentationMetric,
+  type PresentationMetricAppearance,
+  presentationMetricDangerAppearance,
+  presentationMetricNeutralAppearance,
+  presentationMetricToneAppearance
+} from "../../contracts/presentation/metric.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
-import type { MetricAppearance } from "../view/primitives/theme/tone.js"
-import type { PowerProjection } from "./run/power-animation.js"
 import { powerProjectionAtom } from "./run/power-animation.js"
 import {
   surfaceActiveCanonicalFrameAtom,
   surfaceActiveLocalProjectionScriptAtom,
   surfaceRunStateAtom
 } from "./surface/state.js"
-import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+import { widgetRuntimeState } from "./widget-view-model-shared.js"
 
 const firstPlannedPowerControls = (plan: EffectMathProjectionScript): EffectMathProjectionScript["baseControls"] =>
   plan.phases[0]?.steps[0] ?? plan.baseControls
@@ -59,7 +66,7 @@ export type PowerWidgetViewModel = {
   readonly controlsLocked: boolean
   readonly isAnimating: boolean
   readonly statusText: string | null
-  readonly metrics: ReadonlyArray<WidgetMetric>
+  readonly metrics: ReadonlyArray<PresentationMetric>
   readonly projection: PowerProjection
 }
 
@@ -81,11 +88,11 @@ const resolveActiveEffectMathAuthority = ({
     ? { step: canonicalFrame.step, plan }
     : null
 
-const mathMetricAppearance: MetricAppearance = { _tag: "tone", tone: "math" }
-const neutralMetricAppearance: MetricAppearance = { _tag: "neutral" }
-const dangerMetricAppearance: MetricAppearance = { _tag: "danger" }
+const mathMetricAppearance = presentationMetricToneAppearance("math")
+const neutralMetricAppearance = presentationMetricNeutralAppearance()
+const dangerMetricAppearance = presentationMetricDangerAppearance()
 
-const powerMetricAppearance = (powerValue: number): MetricAppearance =>
+const powerMetricAppearance = (powerValue: number): PresentationMetricAppearance =>
   Match.value(powerValue >= 0.8).pipe(
     Match.when(true, () => mathMetricAppearance),
     Match.orElse(() =>
@@ -113,7 +120,7 @@ export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Ato
       ? firstPlannedPowerControls(frozenPlan)
       : null
     const projection = activeAuthority?.step.projection
-      ?? (frozenControls === null ? get(powerProjectionAtom) : projectPowerProjection(frozenControls))
+      ?? (frozenControls === null ? get(powerProjectionAtom) : PowerProjection.project(frozenControls))
     const powerReport = projection.powerReport
     const sampleSizeReport = projection.sampleSizeReport
     const controls = activeAuthority?.step.controls ?? frozenControls ?? {
@@ -121,44 +128,45 @@ export const powerWidgetViewModelAtom: AtomType.Atom<PowerWidgetViewModel> = Ato
       n: powerReport.sampleSize,
       alpha: powerReport.alpha
     }
+    const projectedControls = PowerControls.make(controls)
 
     return {
       controls: {
         effectSize: {
-          value: controls.d,
+          value: projectedControls.d,
           min: powerEffectSizeMin,
           max: powerEffectSizeMax,
           step: powerEffectSizeStep,
-          display: controls.d.toFixed(2)
+          display: projectedControls.d.toFixed(2)
         },
         sampleSize: {
-          value: controls.n,
+          value: projectedControls.n,
           min: powerSampleSizeMin,
           max: powerSampleSizeMax,
           step: powerSampleSizeStep,
-          display: `${controls.n}`
+          display: `${projectedControls.n}`
         },
         alpha: {
-          value: controls.alpha,
+          value: projectedControls.alpha,
           min: powerAlphaMin,
           max: powerAlphaMax,
           step: powerAlphaStep,
-          display: controls.alpha.toFixed(2)
+          display: projectedControls.alpha.toFixed(2)
         }
       },
       controlsLocked: runtime.controlsLocked,
       isAnimating: runtime.isAnimating,
       statusText: runtime.statusText,
       metrics: [
-        widgetMetric("Power", `${(powerReport.power * 100).toFixed(1)}%`, {
+        presentationMetric("Power", `${(powerReport.power * 100).toFixed(1)}%`, {
           appearance: powerMetricAppearance(powerReport.power)
         }),
-        widgetMetric(
+        presentationMetric(
           "N for 80%",
           sampleSizeReport.solver.status === "converged" ? `${sampleSizeReport.sampleSize}` : "∞"
         ),
-        widgetMetric("Overlap", `${(projection.overlap * 100).toFixed(1)}%`),
-        widgetMetric("δ", powerReport.noncentrality.toFixed(2))
+        presentationMetric("Overlap", `${(projection.overlap * 100).toFixed(1)}%`),
+        presentationMetric("δ", powerReport.noncentrality.toFixed(2))
       ],
       projection
     }

@@ -1,19 +1,24 @@
-import { Match, Schema } from "effect"
-import { ScoreProfileSchema, WorkflowExecutionRecordSchema, WorkflowKindSchema } from "effect-inference/Contracts"
+import type { Effect } from "effect"
+import { Schema } from "effect"
+import {
+  type GraphVariant,
+  ScoreProfileSchema,
+  WorkflowExecutionRecordSchema,
+  WorkflowKindSchema
+} from "effect-inference/Contracts"
 
-import { DurableFingerprint } from "../../entry/fingerprint.js"
+import {
+  DurableFingerprint,
+  type DurableFingerprint as DurableFingerprintType,
+  fingerprintOf
+} from "../../entry/fingerprint.js"
 import { workflowEntryId } from "../../entry/id.js"
 
 import { WorkflowScenarioIdSchema } from "./manifest.js"
-import { WorkflowAuthorityBindingsSchema } from "./scenario.js"
+import { type WorkflowVariantSelection, workflowVariantSelectionFor } from "./runtime-plan.js"
+import type { WorkflowScenario } from "./scenario.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
-
-type FrozenWorkflowVariantFields = {
-  readonly record: typeof WorkflowExecutionRecordSchema.Type
-  readonly profile: typeof ScoreProfileSchema.Type
-  readonly recordFingerprint: typeof DurableFingerprint.Type
-}
 
 const frozenWorkflowVariantFields = {
   record: WorkflowExecutionRecordSchema,
@@ -38,35 +43,49 @@ export const FrozenWorkflowVariant = Schema.Union(
 
 export type FrozenWorkflowVariant = typeof FrozenWorkflowVariant.Type
 
-export const baselineFrozenWorkflowVariant = (fields: FrozenWorkflowVariantFields): BaselineFrozenWorkflowVariant =>
-  BaselineFrozenWorkflowVariant.make(fields)
-
-export const optimizedFrozenWorkflowVariant = (fields: FrozenWorkflowVariantFields): OptimizedFrozenWorkflowVariant =>
-  OptimizedFrozenWorkflowVariant.make(fields)
-
-export const frozenWorkflowVariantLabel = (
-  variant: FrozenWorkflowVariant
-): "baseline" | "optimized" =>
-  Match.value(variant).pipe(
-    Match.withReturnType<"baseline" | "optimized">(),
-    Match.tag("BaselineFrozenWorkflowVariant", () => "baseline"),
-    Match.tag("OptimizedFrozenWorkflowVariant", () => "optimized"),
-    Match.exhaustive
-  )
-
-export const FrozenWorkflowRun = Schema.Struct({
+export class FrozenWorkflowRun extends Schema.Class<FrozenWorkflowRun>("FrozenWorkflowRun")({
   entryId: Schema.Literal(workflowEntryId),
   scenarioId: WorkflowScenarioIdSchema,
   label: NonEmptyString,
   summary: NonEmptyString,
   workflowKind: WorkflowKindSchema,
-  authorities: WorkflowAuthorityBindingsSchema,
   baseline: BaselineFrozenWorkflowVariant,
   optimized: OptimizedFrozenWorkflowVariant
-})
+}) {
+  static fromScenario({
+    baseline,
+    optimized,
+    scenario
+  }: {
+    readonly baseline: BaselineFrozenWorkflowVariant
+    readonly optimized: OptimizedFrozenWorkflowVariant
+    readonly scenario: WorkflowScenario
+  }): FrozenWorkflowRun {
+    return FrozenWorkflowRun.make({
+      entryId: scenario.entry.entryId,
+      scenarioId: scenario.entry.scenarioId,
+      label: scenario.label,
+      summary: scenario.summary,
+      workflowKind: scenario.workflowKind,
+      baseline,
+      optimized
+    })
+  }
 
-export type FrozenWorkflowRun = typeof FrozenWorkflowRun.Type
+  static fingerprint(workflowRun: FrozenWorkflowRun): Effect.Effect<DurableFingerprintType, never, never> {
+    return fingerprintOf(encodeFrozenWorkflowRun(workflowRun))
+  }
 
-export const encodeFrozenWorkflowRun = Schema.encodeSync(
-  FrozenWorkflowRun
-)
+  static selectionForVariant(
+    workflowRun: FrozenWorkflowRun,
+    variant: GraphVariant
+  ): WorkflowVariantSelection {
+    return workflowVariantSelectionFor({
+      variant,
+      profile: variant === "baseline" ? workflowRun.baseline.profile : workflowRun.optimized.profile,
+      record: variant === "baseline" ? workflowRun.baseline.record : workflowRun.optimized.record
+    })
+  }
+}
+
+const encodeFrozenWorkflowRun = Schema.encodeSync(FrozenWorkflowRun)

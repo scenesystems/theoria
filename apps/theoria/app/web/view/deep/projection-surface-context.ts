@@ -2,8 +2,7 @@ import { Data } from "effect"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
 import type { ProgramSourceScope } from "../../../contracts/presentation/program.js"
-
-import type { DeepDiveSurfaceFrameViewModel } from "../surfaceModel.js"
+import type { DeepDiveSurfaceFrameViewModel } from "../../../contracts/presentation/surface-presentation.js"
 
 export class DeepDiveProjectionSurfaceContext extends Data.Class<DeepDiveProjectionSurfaceContext.Shape> {
   static make(context: DeepDiveProjectionSurfaceContext.Shape): DeepDiveProjectionSurfaceContext {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { presentRun } from "../../app/web/view/presenter.js"
+import { presentRun } from "../../app/contracts/presentation/presented-run.js"
 import { runDataFixture } from "../helpers/entry-fixtures.js"
 
 describe("Theoria Presenter", () => {

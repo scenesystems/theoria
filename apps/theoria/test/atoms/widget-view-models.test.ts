@@ -1,20 +1,22 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 
 import { DspCanonicalStep, DspRunFrame } from "../../app/contracts/capability/effect-dsp-runtime.js"
-import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/capability/effect-math.js"
+import {
+  EffectMathCanonicalStep,
+  EffectMathProjectionScript,
+  PowerControls,
+  PowerProjection
+} from "../../app/contracts/capability/effect-math.js"
 import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
-import { EffectSearchCanonicalStep } from "../../app/contracts/capability/effect-search.js"
-import { type CanonicalFrame, canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
-
-import { snapshotEffectMathProjectionScript } from "../../app/contracts/capability/effect-math.js"
-import { snapshotEffectSearchProjectionScript } from "../../app/contracts/capability/effect-search.js"
+import { EffectSearchCanonicalStep, SearchConfig } from "../../app/contracts/capability/effect-search.js"
 import {
   EffectTextProjectionStep,
   snapshotEffectTextTraversalScript
 } from "../../app/contracts/capability/effect-text.js"
 import { corpus } from "../../app/contracts/corpus.js"
+import { type CanonicalFrame, canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
 import { dspWidgetViewModelAtom } from "../../app/web/atoms/dsp-widget-model.js"
 import {
   dspModuleTypeAtom,
@@ -33,8 +35,9 @@ import {
   resolveReflowStageMaxWidth
 } from "../../app/web/atoms/reflow.js"
 import {
-  type EffectSearchRunFrame,
+  EffectSearchRunFrame,
   optimizationAnimatingAtom,
+  OptimizationProjection,
   randomTrialsAtom,
   tpeTrialsAtom,
   trialBudgetAtom
@@ -95,12 +98,8 @@ const frameFixture: EffectTextRunFrame = {
 
 const effectMathFrameFixture: EffectMathRunFrame = {
   _tag: "effect-math",
-  controls: {
-    d: 1.35,
-    n: 77,
-    alpha: 0.07
-  },
-  projection: projectPowerProjection({ d: 1.35, n: 77, alpha: 0.07 })
+  controls: PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }),
+  projection: PowerProjection.project(PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }))
 }
 
 const effectTextCanonicalFrameFixture = canonicalFrameV1(
@@ -119,23 +118,16 @@ const effectMathCanonicalFrameFixture = canonicalFrameV1(
   })
 )
 
-const effectSearchFrameFixture: EffectSearchRunFrame = {
-  _tag: "effect-search",
-  projection: {
-    trialBudget: 30,
+const effectSearchFrameFixture = EffectSearchRunFrame.make({
+  projection: OptimizationProjection.fromTrials({
+    phase: "running",
+    randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
     tpeTrials: [
       { x: -1.25, y: 0.25, value: 0.12, index: 0 },
       { x: -1.1, y: 0.4, value: 0.08, index: 1 }
     ],
-    randomTrials: [
-      { x: 0.75, y: -0.5, value: 0.45, index: 0 }
-    ],
-    tpeBestValue: Option.some(0.08),
-    randomBestValue: Option.some(0.45),
-    tpeBestPoint: Option.some({ x: -1.1, y: 0.4, value: 0.08, index: 1 }),
-    randomBestPoint: Option.some({ x: 0.75, y: -0.5, value: 0.45, index: 0 }),
-    phase: "running"
-  },
+    trialBudget: 30
+  }),
   telemetry: projectEffectSearchStudyTelemetry({
     randomEvents: [],
     randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
@@ -146,10 +138,10 @@ const effectSearchFrameFixture: EffectSearchRunFrame = {
       { x: -1.1, y: 0.4, value: 0.08, index: 1 }
     ]
   })
-}
+})
 
 const effectSearchCanonicalFrameFixture = canonicalFrameV1(
-  new EffectSearchCanonicalStep({
+  EffectSearchCanonicalStep.make({
     trialBudget: effectSearchFrameFixture.projection.trialBudget,
     phase: "running",
     tpeTrials: effectSearchFrameFixture.projection.tpeTrials,
@@ -266,11 +258,9 @@ describe("widget view models", () => {
   it.effect("renders effect-math from canonical frame authority during an active run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localProjectionScript = snapshotEffectMathProjectionScript({
-        d: 1.35,
-        n: 77,
-        alpha: 0.07
-      })
+      const localProjectionScript = EffectMathProjectionScript.fromControls(
+        PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
+      )
       const running = runningRunState({
         localProjectionScript,
         program: programPreviewFixture.program
@@ -281,7 +271,7 @@ describe("widget view models", () => {
         frame: effectMathCanonicalFrameFixture
       })
 
-      registry.set(powerControlsAtom, { d: 0.2, n: 15, alpha: 0.02 })
+      registry.set(powerControlsAtom, PowerControls.make({ d: 0.2, n: 15, alpha: 0.02 }))
       registry.update(surfaceAtom("effect-math"), (state) => ({
         ...state,
         run: withFrame
@@ -304,7 +294,7 @@ describe("widget view models", () => {
   it.effect("renders effect-search from canonical frame authority during an active run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const localProjectionScript = snapshotEffectSearchProjectionScript(30)
+      const localProjectionScript = SearchConfig.fromTrialBudget(30).projectionScript()
       const running = runningRunState({
         localProjectionScript,
         program: programPreviewFixture.program
@@ -441,11 +431,9 @@ describe("widget view models", () => {
   it.effect("keeps paused local-driver demos on canonical authority while halting animation", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const effectMathPlan = snapshotEffectMathProjectionScript({
-        d: 1.35,
-        n: 77,
-        alpha: 0.07
-      })
+      const effectMathPlan = EffectMathProjectionScript.fromControls(
+        PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
+      )
       const pausedEffectMath = reduceRunState(
         reduceRunState(
           reduceRunState(
@@ -475,7 +463,7 @@ describe("widget view models", () => {
         reduceRunState(
           reduceRunState(
             runningRunState({
-              localProjectionScript: snapshotEffectSearchProjectionScript(30),
+              localProjectionScript: SearchConfig.fromTrialBudget(30).projectionScript(),
               program: programPreviewFixture.program
             }),
             {
@@ -505,7 +493,7 @@ describe("widget view models", () => {
       }))
 
       registry.set(powerAnimatingAtom, true)
-      registry.set(powerControlsAtom, { d: 0.2, n: 15, alpha: 0.02 })
+      registry.set(powerControlsAtom, PowerControls.make({ d: 0.2, n: 15, alpha: 0.02 }))
       registry.update(surfaceAtom("effect-math"), (state) => ({
         ...state,
         run: pausedEffectMath

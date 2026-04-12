@@ -2,7 +2,7 @@ import { HttpServerResponse } from "@effect/platform"
 import { Match, Schedule, Stream } from "effect"
 
 import { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
-import { type ErrorCode, ErrorModel } from "../../contracts/error.js"
+import type { ErrorCode } from "../../contracts/error.js"
 import { encodeEvidenceEventJson, type EvidenceEvent } from "../../contracts/evidence/stream.js"
 
 const encoder = new TextEncoder()
@@ -29,19 +29,18 @@ const statusFromEnvelope = (envelope: { readonly ok: boolean; readonly error?: {
   )
 
 const failureEnvelope = (code: ErrorCode, message: string, requestId: string, retryable = false) =>
-  FailureEnvelope.make({
-    ok: false,
-    meta: Metadata.make({
+  FailureEnvelope.fromError(
+    Metadata.make({
       requestId,
       buildSha: "unknown",
       durationMs: 0
     }),
-    error: ErrorModel.make({
+    {
       code,
       message,
       retryable
-    })
-  })
+    }
+  )
 
 export const jsonResponse = <A extends { readonly ok: boolean; readonly error?: { readonly code: string } }>(body: A) =>
   HttpServerResponse.json(body, {

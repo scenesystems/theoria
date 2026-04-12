@@ -6,7 +6,7 @@ import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 
 import type { RunSignal } from "./lifecycle.js"
-import { type ProjectionDriverCompletedEvent, projectionDriverCompletedEvent } from "./projection-driver-events.js"
+import { ProjectionDriverCompletedEvent } from "./projection-driver-events.js"
 
 type StreamCompletionEvent = Extract<EvidenceEvent, { readonly _tag: "StreamComplete" }>
 type AuthoredStepQueueEvent = CanonicalFrame | StreamCompletionEvent
@@ -58,7 +58,7 @@ const drainAuthoredSteps = ({
   takeAuthoredStepQueueEvent({ signal, stepQueue }).pipe(
     Effect.flatMap((nextEvent) =>
       isStreamCompletionEvent(nextEvent)
-        ? emit(projectionDriverCompletedEvent)
+        ? emit(ProjectionDriverCompletedEvent.make())
         : isDspCanonicalStep(nextEvent.step)
         ? signal.awaitRunning().pipe(
           Effect.zipRight(

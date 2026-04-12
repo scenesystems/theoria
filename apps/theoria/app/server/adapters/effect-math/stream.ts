@@ -3,18 +3,18 @@ import { Effect, Option, Stream } from "effect"
 
 import {
   EffectMathCanonicalStep,
-  projectPowerProjection,
-  snapshotEffectMathProjectionScript
+  EffectMathProjectionScript,
+  PowerControls,
+  PowerProjection
 } from "../../../contracts/capability/effect-math.js"
 import { effectMathEntryDescriptor } from "../../../contracts/entry/descriptors/effect-math.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { EvidenceSection } from "../../../contracts/evidence/item.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import { section, step, type StreamElement } from "../../kernel/kinds/stream-element.js"
 import { type DemoStreamPlan, phaseFromElementStream } from "../../kernel/kinds/stream-plan.js"
 
 import {
-  defaultPowerControls,
   pdfCurvePoints,
   power,
   powerAlphaSweepValues,
@@ -25,28 +25,24 @@ import {
 } from "../../../contracts/capability/effect-math.js"
 import { preloadProgram } from "./preload.js"
 
-const effectMathRunIdentity = entryRunIdentityForId(effectMathEntryDescriptor.entryId)
+const effectMathRunIdentity = EntryRunIdentity.project(effectMathEntryDescriptor)
 
 type EffectMathStreamRequest = {
-  readonly controls: {
-    readonly alpha: number
-    readonly d: number
-    readonly n: number
-  }
+  readonly controls: PowerControls
 }
 
 export const defaultEffectMathStreamRequest: EffectMathStreamRequest = {
-  controls: defaultPowerControls
+  controls: PowerControls.defaults()
 }
 
 const requestFromManifest = (manifest: StreamManifest | null): EffectMathStreamRequest =>
   manifest !== null && manifest._tag === effectMathEntryDescriptor.entryId
     ? {
-      controls: {
+      controls: PowerControls.make({
         alpha: manifest.alpha,
         d: manifest.d,
         n: manifest.n
-      }
+      })
     }
     : defaultEffectMathStreamRequest
 
@@ -57,7 +53,9 @@ export const computeSensitivity = (request: EffectMathStreamRequest) =>
     const rows = powerEffectSizeSweepValues.map((d) => {
       const rn = requiredN(d, targetPower, request.controls.alpha)
       const p = power(d, request.controls.n, request.controls.alpha)
-      const ov = projectPowerProjection({ d, n: request.controls.n, alpha: request.controls.alpha }).overlap
+      const ov = PowerProjection.project(
+        PowerControls.make({ d, n: request.controls.n, alpha: request.controls.alpha })
+      ).overlap
       return [
         d.toFixed(2),
         Number.isFinite(rn) ? String(rn) : "> 10 000",
@@ -102,7 +100,7 @@ export const computePowerBySampleSize = (request: EffectMathStreamRequest) =>
 
 export const computeInferenceSummary = (request: EffectMathStreamRequest) =>
   Effect.sync((): EvidenceSection => {
-    const projection = projectPowerProjection(request.controls)
+    const projection = PowerProjection.project(request.controls)
     const confidenceInterval = projection.confidenceIntervalReport.interval
     const confidenceRange = confidenceInterval.lower === null || confidenceInterval.upper === null
       ? "one-sided interval"
@@ -142,7 +140,7 @@ export const computeInferenceSummary = (request: EffectMathStreamRequest) =>
 
 export const computeSolverStatus = (request: EffectMathStreamRequest) =>
   Effect.sync((): EvidenceSection => {
-    const projection = projectPowerProjection(request.controls)
+    const projection = PowerProjection.project(request.controls)
 
     return {
       title: "Solver Status",
@@ -228,7 +226,7 @@ export const computeDistributionGeometry = (request: EffectMathStreamRequest) =>
     const d = request.controls.d
     const controlPdf = pdfCurvePoints(0, 1, -4, 4, 100)
     const treatmentPdf = pdfCurvePoints(d, 1, -4, 4.5, 100)
-    const projection = projectPowerProjection(request.controls)
+    const projection = PowerProjection.project(request.controls)
     return {
       title: `Distribution Geometry — d=${d.toFixed(2)}`,
       items: [
@@ -286,7 +284,7 @@ export const runSummary =
   `effect-math computed ${powerEffectSizeSweepValues.length} effect sizes × ${powerSampleSizeSweepValues.length} sample sizes × ${powerAlphaSweepValues.length} alpha levels of power analysis and inferential summaries using released Statistics reports.`
 
 const runtimeSummarySection = (request: EffectMathStreamRequest): EvidenceSection => {
-  const runPlan = snapshotEffectMathProjectionScript(request.controls)
+  const runPlan = EffectMathProjectionScript.fromControls(request.controls)
   const totalTrials = runPlan.phases.reduce((count, phase) => count + phase.steps.length, 0)
 
   return {
@@ -325,9 +323,9 @@ const runtimeSummarySection = (request: EffectMathStreamRequest): EvidenceSectio
 }
 
 const projectionStepElements = (request: EffectMathStreamRequest) =>
-  snapshotEffectMathProjectionScript(request.controls).phases.flatMap((phase) =>
+  EffectMathProjectionScript.fromControls(request.controls).phases.flatMap((phase) =>
     phase.steps.map((controls) =>
-      step(new EffectMathCanonicalStep({ controls, projection: projectPowerProjection(controls) }))
+      step(new EffectMathCanonicalStep({ controls, projection: PowerProjection.project(controls) }))
     )
   )
 

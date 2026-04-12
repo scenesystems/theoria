@@ -2,9 +2,17 @@ import { Popover } from "@base-ui-components/react/popover"
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/20/solid"
 import * as Option from "effect/Option"
 
+import {
+  evidenceToolbarControlDescription,
+  evidenceToolbarControlLabel,
+  evidenceToolbarFocusStatus,
+  evidenceToolbarLayoutLabel,
+  evidenceToolbarPanelDescription,
+  evidenceToolbarPanelEyebrow,
+  evidenceToolbarTriggerLabel
+} from "../../../contracts/evidence/plane-controls-presentation.js"
+import type { EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
 import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../../../contracts/evidence/plane.js"
-import type { EvidencePlaneLayout } from "../data/evidence-plane-layout.js"
-import type { EvidencePlaneViewModel } from "../data/evidence-plane-model.js"
 
 import {
   EvidenceToolbarControlMatrix,
@@ -16,9 +24,6 @@ import { Layer, Stack } from "./Layout.js"
 import { PlaneMetaRail } from "./PlaneMetaRail.js"
 import { SemanticText } from "./SemanticText.js"
 import { surfaceMaterials } from "./theme/surface.js"
-
-const layoutLabel = (layout: EvidencePlaneLayout): string =>
-  layout._tag === "Live" ? "Newest-first stream" : layout._tag === "Focused" ? "Focused section" : "Narrative lanes"
 
 const joinText = (parts: ReadonlyArray<string | null>): string =>
   parts.flatMap((part) => part === null ? [] : [part]).join(" · ")
@@ -53,16 +58,16 @@ export const EvidenceToolbar = ({
   ).pipe(
     Option.flatMap((option) => option.value === null ? Option.none() : Option.some(option.label))
   )
-  const layoutText = layoutLabel(viewModel.layout)
+  const layoutText = evidenceToolbarLayoutLabel(viewModel.layout)
   const focusText = Option.match(activeSectionLabel, {
     onNone: () => null,
-    onSome: (label) => `Focus · ${label}`
+    onSome: evidenceToolbarFocusStatus
   })
   const adjustPopover = (
     <Popover.Root>
       <Popover.Trigger className={triggerClassName}>
         <AdjustmentsHorizontalIcon aria-hidden className="h-4 w-4" />
-        <SemanticText as="span" role="button-label" text="Adjust" variant="expanded" />
+        <SemanticText as="span" role="button-label" text={evidenceToolbarTriggerLabel()} variant="expanded" />
       </Popover.Trigger>
       <Popover.Portal keepMounted>
         <Popover.Positioner
@@ -77,8 +82,8 @@ export const EvidenceToolbar = ({
             <Stack className="max-h-[min(32rem,calc(100dvh-5rem))] gap-4 overflow-y-auto p-4 sm:p-5">
               <PlaneMetaRail
                 appearance="panel"
-                description="Tune lens, order, and focus for the current evidence plane."
-                eyebrow="Evidence controls"
+                description={evidenceToolbarPanelDescription()}
+                eyebrow={evidenceToolbarPanelEyebrow()}
                 status={joinText([viewModel.overview.eyebrow, layoutText, focusText])}
               />
 
@@ -86,8 +91,8 @@ export const EvidenceToolbar = ({
                 <EvidenceToolbarControlRow
                   activeIndex={viewModel.controls.activeFilterIndex}
                   columns={2}
-                  description="Results, raw data, or supporting context."
-                  label="Lens"
+                  description={evidenceToolbarControlDescription("filter")}
+                  label={evidenceToolbarControlLabel("filter")}
                   onSelect={(index) => {
                     Option.match(evidenceToolbarOptionValueAt(viewModel.controls.filterOptions, index), {
                       onNone: () => undefined,
@@ -100,8 +105,8 @@ export const EvidenceToolbar = ({
                 <EvidenceToolbarControlRow
                   activeIndex={viewModel.controls.activeOrderIndex}
                   columns={2}
-                  description="Curated narrative ordering or live arrival order."
-                  label="View"
+                  description={evidenceToolbarControlDescription("order")}
+                  label={evidenceToolbarControlLabel("order")}
                   onSelect={(index) => {
                     Option.match(evidenceToolbarOptionValueAt(viewModel.controls.orderOptions, index), {
                       onNone: () => undefined,
@@ -120,14 +125,14 @@ export const EvidenceToolbar = ({
                           as="p"
                           className="text-ink-600"
                           role="row-label"
-                          text="Focus"
+                          text={evidenceToolbarControlLabel("section")}
                           variant="expanded"
                         />
                         <SemanticText
                           as="p"
                           className="text-ink-500"
                           role="code-meta"
-                          text="Lock to a single section."
+                          text={evidenceToolbarControlDescription("section")}
                           variant="expanded"
                         />
                       </Stack>

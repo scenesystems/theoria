@@ -2,6 +2,7 @@ import { Match } from "effect"
 import * as Option from "effect/Option"
 
 import type { EntryId } from "../../../../contracts/entry/id.js"
+import type { PresentationMetricAppearance } from "../../../../contracts/presentation/metric.js"
 import { type CardTone, toneForCard as cardToneForCard } from "../../../../contracts/tone.js"
 
 export type Tone = {
@@ -168,11 +169,6 @@ export const toneForCard = (id: EntryId): Tone => toneFor(cardToneForCard(id))
 
 export type MetricEmphasis = "default" | "muted" | "strong"
 
-export type MetricAppearance =
-  | { readonly _tag: "neutral" }
-  | { readonly _tag: "tone"; readonly tone: CardTone }
-  | { readonly _tag: "danger" }
-
 export type MetricPillClasses = {
   readonly label: string
   readonly value: string
@@ -181,7 +177,7 @@ export type MetricPillClasses = {
 const neutralPillClasses: MetricPillClasses = { label: "text-ink-700", value: "text-ink-900" }
 
 export const metricPillClassesFor = (
-  appearance: Option.Option<MetricAppearance>,
+  appearance: Option.Option<PresentationMetricAppearance>,
   enabled: boolean
 ): MetricPillClasses =>
   !enabled

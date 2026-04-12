@@ -28,7 +28,11 @@ export class RunSuccessEnvelope extends Schema.Class<RunSuccessEnvelope>("RunSuc
   ok: Schema.Literal(true),
   meta: Metadata,
   data: RunData
-}) {}
+}) {
+  static ok(meta: Metadata, data: RunData): RunSuccessEnvelope {
+    return RunSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
 
 export const RunEnvelope = Schema.Union(RunSuccessEnvelope, FailureEnvelope)
 

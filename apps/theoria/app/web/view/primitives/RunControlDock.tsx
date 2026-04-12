@@ -4,9 +4,8 @@ import { Match } from "effect"
 import * as Option from "effect/Option"
 
 import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { RunControlsViewModel } from "../../../contracts/presentation/run-controls.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
-
-import type { RunControlsViewModel } from "../runControlsModel.js"
 
 import { headerChromeSurfaceClassName } from "./HeaderChrome.js"
 import { Layer } from "./Layout.js"

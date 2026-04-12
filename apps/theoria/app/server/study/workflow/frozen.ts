@@ -1,32 +1,22 @@
-import { Effect, Match, Option } from "effect"
+import { Effect, Match } from "effect"
 import { type ScoreProfile, type WorkflowExecutionRecord } from "effect-inference/Contracts"
 
-import { type DurableFingerprint, fingerprintOf } from "../../../contracts/entry/fingerprint.js"
+import { fingerprintOf } from "../../../contracts/entry/fingerprint.js"
 import { WorkflowStudyExecutionError } from "../../../contracts/study/workflow/execution.js"
 import {
-  type BaselineFrozenWorkflowVariant,
-  baselineFrozenWorkflowVariant,
-  encodeFrozenWorkflowRun,
+  BaselineFrozenWorkflowVariant,
   FrozenWorkflowRun,
-  type OptimizedFrozenWorkflowVariant,
-  optimizedFrozenWorkflowVariant
+  OptimizedFrozenWorkflowVariant
 } from "../../../contracts/study/workflow/frozen.js"
 import { type WorkflowScenarioId } from "../../../contracts/study/workflow/manifest.js"
 
 import { workflowProfileLibrary } from "./profile-library.js"
-import { workflowScenarioByIdOption } from "./scenario/catalog.js"
+import { scenarioById } from "./scenario/catalog.js"
 
 const executionError = (message: string) =>
   new WorkflowStudyExecutionError({
     code: "execution-failed",
     message,
-    retryable: false
-  })
-
-const invalidWorkflowScenarioError = (scenarioId: string) =>
-  new WorkflowStudyExecutionError({
-    code: "invalid-query",
-    message: `Unknown workflow scenario ${scenarioId}.`,
     retryable: false
   })
 
@@ -64,7 +54,7 @@ const freezeBaselineVariant = (
     const recordFingerprint = yield* fingerprintOf(record)
 
     return yield* Effect.try({
-      try: () => baselineFrozenWorkflowVariant({ record, profile, recordFingerprint }),
+      try: () => BaselineFrozenWorkflowVariant.make({ record, profile, recordFingerprint }),
       catch: () => executionError("Workflow scenario freeze failed for the baseline variant.")
     })
   })
@@ -77,7 +67,7 @@ const freezeOptimizedVariant = (
     const recordFingerprint = yield* fingerprintOf(record)
 
     return yield* Effect.try({
-      try: () => optimizedFrozenWorkflowVariant({ record, profile, recordFingerprint }),
+      try: () => OptimizedFrozenWorkflowVariant.make({ record, profile, recordFingerprint }),
       catch: () => executionError("Workflow scenario freeze failed for the optimized variant.")
     })
   })
@@ -85,34 +75,20 @@ const freezeOptimizedVariant = (
 export const frozenWorkflowForRequest = (
   scenarioId: WorkflowScenarioId
 ): Effect.Effect<FrozenWorkflowRun, WorkflowStudyExecutionError, never> =>
-  workflowScenarioByIdOption(scenarioId).pipe(
-    Option.match({
-      onNone: () => Effect.fail(invalidWorkflowScenarioError(scenarioId)),
-      onSome: (workflowScenario) =>
-        Effect.all({
-          baseline: freezeBaselineVariant(workflowScenario.records.baseline),
-          optimized: freezeOptimizedVariant(workflowScenario.records.optimized)
-        }).pipe(
-          Effect.flatMap(({ baseline, optimized }) =>
-            Effect.try({
-              try: () =>
-                FrozenWorkflowRun.make({
-                  entryId: workflowScenario.entry.entryId,
-                  scenarioId: workflowScenario.entry.scenarioId,
-                  label: workflowScenario.label,
-                  summary: workflowScenario.summary,
-                  workflowKind: workflowScenario.workflowKind,
-                  authorities: workflowScenario.authorities,
-                  baseline,
-                  optimized
-                }),
-              catch: () => executionError(`Workflow scenario freeze failed for ${workflowScenario.entry.scenarioId}.`)
-            })
-          )
-        )
+  Effect.gen(function*() {
+    const scenario = scenarioById(scenarioId)
+    const variants = yield* Effect.all({
+      baseline: freezeBaselineVariant(scenario.records.baseline),
+      optimized: freezeOptimizedVariant(scenario.records.optimized)
     })
-  )
 
-export const frozenWorkflowRunFingerprint = (
-  workflowRun: FrozenWorkflowRun
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeFrozenWorkflowRun(workflowRun))
+    return yield* Effect.try({
+      try: () =>
+        FrozenWorkflowRun.fromScenario({
+          baseline: variants.baseline,
+          optimized: variants.optimized,
+          scenario
+        }),
+      catch: () => executionError(`Workflow scenario freeze failed for ${scenario.entry.scenarioId}.`)
+    })
+  })

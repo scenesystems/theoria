@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
 import { SiteMetadata } from "../../contracts/presentation/metadata.js"
-import { visiblePagePathsForReleaseStage } from "../../contracts/presentation/path.js"
+import { PageRoute } from "../../contracts/presentation/path.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
@@ -11,7 +11,7 @@ const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 export const sitemapRoute = Effect.gen(function*() {
   const stage = yield* serverReleaseStage
   const urls = Arr.map(
-    visiblePagePathsForReleaseStage(stage),
+    PageRoute.visiblePathsForReleaseStage(stage),
     (pathname) => urlEntry(SiteMetadata.fullCanonicalUrl(pathname))
   )
 

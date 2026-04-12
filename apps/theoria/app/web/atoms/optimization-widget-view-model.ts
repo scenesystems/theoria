@@ -6,10 +6,13 @@ import type { EffectSearchCanonicalStep } from "../../contracts/capability/effec
 import {
   type EffectSearchProjectionScript,
   isEffectSearchProjectionScript,
-  optimizationTrialBudgetMax,
-  optimizationTrialBudgetMin,
-  optimizationTrialBudgetStep
+  SearchConfig
 } from "../../contracts/capability/effect-search.js"
+import {
+  type PresentationMetric,
+  presentationMetric,
+  presentationMetricToneAppearance
+} from "../../contracts/presentation/metric.js"
 import type { CanonicalFrame } from "../../contracts/study/workflow/canonical-step.js"
 import { runUsesActiveFrameAuthority } from "../state/run/interaction.js"
 import type { OptimizationProjection as OptimizationProjectionShape } from "./run/optimization-animation.js"
@@ -19,7 +22,9 @@ import {
   surfaceActiveLocalProjectionScriptAtom,
   surfaceRunStateAtom
 } from "./surface/state.js"
-import { type WidgetMetric, widgetMetric, widgetRuntimeState } from "./widget-view-model-shared.js"
+import { widgetRuntimeState } from "./widget-view-model-shared.js"
+
+const searchTrialBudgetBounds = SearchConfig.bounds()
 
 const frozenOptimizationProjection = (plan: EffectSearchProjectionScript): OptimizationProjectionShape =>
   OptimizationProjection.fromTrials({
@@ -40,7 +45,7 @@ export type OptimizationWidgetViewModel = {
   readonly controlsLocked: boolean
   readonly isAnimating: boolean
   readonly statusText: string | null
-  readonly metrics: ReadonlyArray<WidgetMetric>
+  readonly metrics: ReadonlyArray<PresentationMetric>
   readonly projection: OptimizationProjectionShape
 }
 
@@ -96,27 +101,28 @@ export const optimizationWidgetViewModelAtom: AtomType.Atom<OptimizationWidgetVi
     const trialBudget = authority?.step.trialBudget
       ?? (isEffectSearchProjectionScript(frozenPlan) ? frozenPlan.trialBudget : null)
       ?? projection.trialBudget
+    const searchToneAppearance = presentationMetricToneAppearance("search")
 
     return {
       budget: {
         value: trialBudget,
-        min: optimizationTrialBudgetMin,
-        max: optimizationTrialBudgetMax,
-        step: optimizationTrialBudgetStep,
+        min: searchTrialBudgetBounds.min,
+        max: searchTrialBudgetBounds.max,
+        step: searchTrialBudgetBounds.step,
         display: `${trialBudget}`
       },
       controlsLocked: runtime.controlsLocked,
       isAnimating: runtime.isAnimating,
       statusText: runtime.statusText,
       metrics: [
-        widgetMetric("TPE best", optionDisplay(projection.tpeBestValue, 4), {
-          appearance: { _tag: "tone", tone: "search" }
+        presentationMetric("TPE best", optionDisplay(projection.tpeBestValue, 4), {
+          appearance: searchToneAppearance
         }),
-        widgetMetric("Random best", optionDisplay(projection.randomBestValue, 4)),
-        widgetMetric("Improvement", Option.getOrElse(improvement, () => "—"), {
-          appearance: { _tag: "tone", tone: "search" }
+        presentationMetric("Random best", optionDisplay(projection.randomBestValue, 4)),
+        presentationMetric("Improvement", Option.getOrElse(improvement, () => "—"), {
+          appearance: searchToneAppearance
         }),
-        widgetMetric("Trials", `${projection.tpeTrials.length}/${trialBudget}`)
+        presentationMetric("Trials", `${projection.tpeTrials.length}/${trialBudget}`)
       ],
       projection
     }

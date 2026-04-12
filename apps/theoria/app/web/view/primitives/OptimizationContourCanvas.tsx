@@ -2,7 +2,7 @@ import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import { memo } from "react"
 
-import { objectiveExpression, optimum, searchBounds } from "../../../contracts/capability/effect-search.js"
+import { Config2D, SearchBounds } from "../../../contracts/capability/effect-search.js"
 import type { OptimizationWidgetViewModel } from "../../atoms/optimization-widget-view-model.js"
 import {
   mapOptimizationX,
@@ -17,6 +17,9 @@ import { LegendRail } from "./LegendRail.js"
 import { SemanticText } from "./SemanticText.js"
 import { type Legend, neutralSubtleLegend } from "./theme/evidence.js"
 import { surfaceMaterials } from "./theme/surface.js"
+
+const bounds = SearchBounds.defaults()
+const optimum = Config2D.optimum()
 
 const tpeLegend: Legend = { swatch: "bg-tone-search-500 shadow-sm", label: "text-ink-700" }
 const optimumLegend: Legend = { swatch: "bg-tone-search-400 shadow-sm", label: "text-ink-700" }
@@ -171,21 +174,21 @@ export const OptimizationContourCanvas = ({ vm }: { readonly vm: OptimizationWid
           as="span"
           className="text-ink-600"
           role="code-meta"
-          text={`x ∈ [${searchBounds.xMin}, ${searchBounds.xMax}]`}
+          text={`x ∈ [${bounds.xMin}, ${bounds.xMax}]`}
           variant="expanded"
         />
         <SemanticText
           as="span"
           className="text-tone-search-700"
           role="code-meta"
-          text={objectiveExpression}
+          text={Config2D.objectiveExpression}
           variant="expanded"
         />
         <SemanticText
           as="span"
           className="text-ink-600"
           role="code-meta"
-          text={`y ∈ [${searchBounds.yMin}, ${searchBounds.yMax}]`}
+          text={`y ∈ [${bounds.yMin}, ${bounds.yMax}]`}
           variant="expanded"
         />
       </Cluster>
@@ -194,7 +197,12 @@ export const OptimizationContourCanvas = ({ vm }: { readonly vm: OptimizationWid
         items={[
           { label: "TPE (adaptive)", shape: "circle", legend: tpeLegend },
           { label: "Random", shape: "circle", legend: neutralSubtleLegend },
-          { label: "Optimum", shape: "diamond", legend: optimumLegend, value: `(${optimum.x}, ${optimum.y})` }
+          {
+            label: "Optimum",
+            shape: "diamond",
+            legend: optimumLegend,
+            value: `(${optimum.x}, ${optimum.y})`
+          }
         ]}
       />
     </Stack>

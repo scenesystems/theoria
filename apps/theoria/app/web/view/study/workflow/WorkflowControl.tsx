@@ -1,10 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 
-import { workflowEntryId } from "../../../../contracts/entry/id.js"
-import { defaultWorkflowEntrySelection } from "../../../../contracts/study/workflow/selection.js"
 import { workflowRichnessEmptyText } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
-import { surfaceEvidenceSectionsAtom } from "../../../atoms/surface/evidence-store.js"
-import { surfaceCanonicalFrameAtom, surfaceDraftAtom, surfaceRunStateAtom } from "../../../atoms/surface/state.js"
 import {
   selectWorkflowExecutionLaneAtom,
   selectWorkflowOptimizeAtom,
@@ -13,39 +9,29 @@ import {
   selectWorkflowSurfaceProfileAtom,
   selectWorkflowTargetModeAtom
 } from "../../../atoms/workflow/draft-actions.js"
+import { workflowSurfaceViewModelAtom } from "../../../atoms/workflow/surface-view-model.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
-import { WorkflowSurfaceViewModel } from "./surface-model.js"
 import { WorkflowControlsGrid } from "./WorkflowControlsGrid.js"
 import { WorkflowPlanSummary } from "./WorkflowPlanSummary.js"
 import { WorkflowRichness } from "./WorkflowRichness.js"
 import { WorkflowScenarioSelector } from "./WorkflowScenarioSelector.js"
 
 export const WorkflowControl = () => {
-  const draft = useAtomValue(surfaceDraftAtom(workflowEntryId))
-  const frame = useAtomValue(surfaceCanonicalFrameAtom(workflowEntryId))
-  const run = useAtomValue(surfaceRunStateAtom(workflowEntryId))
-  const sections = useAtomValue(surfaceEvidenceSectionsAtom(workflowEntryId))
-  const viewModel = WorkflowSurfaceViewModel.project({
-    draftPlan: draft.entryId === workflowEntryId ? draft : defaultWorkflowEntrySelection,
-    frame,
-    run,
-    sections
-  })
+  const viewModel = useAtomValue(workflowSurfaceViewModelAtom)
   const selectWorkflowSeed = useAtomSet(selectWorkflowSeedAtom)
   const selectTargetMode = useAtomSet(selectWorkflowTargetModeAtom)
   const selectExecutionLane = useAtomSet(selectWorkflowExecutionLaneAtom)
   const selectOptimize = useAtomSet(selectWorkflowOptimizeAtom)
   const selectRuntimeProfile = useAtomSet(selectWorkflowRuntimeProfileAtom)
   const selectSurfaceProfile = useAtomSet(selectWorkflowSurfaceProfileAtom)
-  const selectedOption = viewModel.selection
+  const selector = viewModel.selector
 
   return (
     <Stack className="max-w-4xl gap-4 py-2">
       <WorkflowScenarioSelector
         onSelectSeed={selectWorkflowSeed}
-        selectedSeedId={selectedOption.id}
-        selectionLocked={viewModel.selectionLocked}
+        selector={selector}
       />
 
       <WorkflowControlsGrid
@@ -54,11 +40,11 @@ export const WorkflowControl = () => {
         onSelectOptimize={selectOptimize}
         onSelectRuntimeProfile={selectRuntimeProfile}
         onSelectSurfaceProfile={selectSurfaceProfile}
-        selectionLocked={viewModel.selectionLocked}
+        selectionLocked={selector.locked}
         viewModel={viewModel}
       />
 
-      {viewModel.selectionLocked
+      {selector.locked
         ? (
           <SemanticText
             as="p"

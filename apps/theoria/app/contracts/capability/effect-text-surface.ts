@@ -7,24 +7,25 @@ import { stageSliderMaxWidth } from "./effect-text.js"
 const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 
-export const EffectTextSurfaceControls = Schema.Struct({
+export class EffectTextSurfaceControls extends Schema.Class<EffectTextSurfaceControls>("EffectTextSurfaceControls")({
   corpusIndex: NonNegativeInt,
   width: PositiveInt,
   obstaclesEnabled: Schema.Boolean
-})
+}) {
+  static defaults(): EffectTextSurfaceControls {
+    return EffectTextSurfaceControls.make({
+      corpusIndex: 0,
+      width: Math.round(stageSliderMaxWidth / 2),
+      obstaclesEnabled: false
+    })
+  }
 
-export type EffectTextSurfaceControls = typeof EffectTextSurfaceControls.Type
+  static fromCustomText(customText: string): EffectTextSurfaceControls {
+    const defaults = EffectTextSurfaceControls.defaults()
 
-export const defaultEffectTextSurfaceControls: EffectTextSurfaceControls = EffectTextSurfaceControls.make({
-  corpusIndex: 0,
-  width: Math.round(stageSliderMaxWidth / 2),
-  obstaclesEnabled: false
-})
-
-export const effectTextSurfaceControlsForCustomText = (
-  customText: string
-): EffectTextSurfaceControls =>
-  EffectTextSurfaceControls.make({
-    ...defaultEffectTextSurfaceControls,
-    corpusIndex: customText.trim().length > 0 ? corpus.length : defaultEffectTextSurfaceControls.corpusIndex
-  })
+    return EffectTextSurfaceControls.make({
+      ...defaults,
+      corpusIndex: customText.trim().length > 0 ? corpus.length : defaults.corpusIndex
+    })
+  }
+}

@@ -1,5 +1,6 @@
 import { Atom } from "@effect-atom/atom"
 
+import { PowerControls } from "../../contracts/capability/effect-math.js"
 import { customTextAtom, reflowControlsAtom } from "./reflow.js"
 import { trialBudgetAtom } from "./run/optimization-animation.js"
 import { powerControlsAtom } from "./run/power-animation.js"
@@ -39,18 +40,18 @@ export const setOptimizationTrialBudgetAtom = Atom.fnSync<number>()(
 
 export const setPowerEffectSizeAtom = Atom.fnSync<number>()(
   (value, ctx) => {
-    ctx.set(powerControlsAtom, { ...ctx(powerControlsAtom), d: value })
+    ctx.set(powerControlsAtom, PowerControls.make({ ...ctx(powerControlsAtom), d: value }))
   }
 )
 
 export const setPowerSampleSizeAtom = Atom.fnSync<number>()(
   (value, ctx) => {
-    ctx.set(powerControlsAtom, { ...ctx(powerControlsAtom), n: value })
+    ctx.set(powerControlsAtom, PowerControls.make({ ...ctx(powerControlsAtom), n: value }))
   }
 )
 
 export const setPowerAlphaLevelAtom = Atom.fnSync<number>()(
   (value, ctx) => {
-    ctx.set(powerControlsAtom, { ...ctx(powerControlsAtom), alpha: value })
+    ctx.set(powerControlsAtom, PowerControls.make({ ...ctx(powerControlsAtom), alpha: value }))
   }
 )

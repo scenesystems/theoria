@@ -19,13 +19,7 @@ export const liveRoute = (requestId: string) =>
     const timing = yield* ResponseTiming.start(requestId)
 
     return yield* jsonResponse(
-      LiveSuccessEnvelope.make({
-        ok: true,
-        meta: yield* timing.finish(),
-        data: Live.make({
-          status: "live"
-        })
-      })
+      LiveSuccessEnvelope.ok(yield* timing.finish(), Live.live())
     )
   })
 
@@ -38,14 +32,12 @@ export const readyRoute = (requestId: string) =>
     const now = yield* Clock.currentTimeMillis
 
     return yield* jsonResponse(
-      ReadySuccessEnvelope.make({
-        ok: true,
-        meta: yield* timing.finish(),
-        data: Ready.make({
-          status: "ready",
+      ReadySuccessEnvelope.ok(
+        yield* timing.finish(),
+        Ready.ready({
           uptimeMs: now - runtimeInfo.startedAtMs,
           dsp
         })
-      })
+      )
     )
   })

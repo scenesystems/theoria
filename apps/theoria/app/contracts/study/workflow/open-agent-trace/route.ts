@@ -3,9 +3,13 @@ import { Option, Schema } from "effect"
 const openAgentTraceApiPathnamePrefix = "/api/open-agent-trace"
 
 export class OpenAgentTraceRegistryRoute extends Schema.TaggedClass<OpenAgentTraceRegistryRoute>()("registry", {}) {
+  static registry(): OpenAgentTraceRegistryRoute {
+    return openAgentTraceRegistryRoute
+  }
+
   static fromPathname(pathname: string): Option.Option<OpenAgentTraceRegistryRoute> {
     return pathname === OpenAgentTraceRegistryRoute.pathname()
-      ? Option.some(OpenAgentTraceRegistryRoute.make({}))
+      ? Option.some(OpenAgentTraceRegistryRoute.registry())
       : Option.none()
   }
 
@@ -26,9 +30,13 @@ export class OpenAgentTraceConsumerArtifactRoute extends Schema.TaggedClass<Open
   "consumer-artifacts",
   {}
 ) {
+  static consumerArtifacts(): OpenAgentTraceConsumerArtifactRoute {
+    return openAgentTraceConsumerArtifactRoute
+  }
+
   static fromPathname(pathname: string): Option.Option<OpenAgentTraceConsumerArtifactRoute> {
     return pathname === OpenAgentTraceConsumerArtifactRoute.pathname()
-      ? Option.some(OpenAgentTraceConsumerArtifactRoute.make({}))
+      ? Option.some(OpenAgentTraceConsumerArtifactRoute.consumerArtifacts())
       : Option.none()
   }
 
@@ -49,9 +57,13 @@ export class OpenAgentTraceWorkflowHookupRoute extends Schema.TaggedClass<OpenAg
   "workflow-hookups",
   {}
 ) {
+  static workflowHookups(): OpenAgentTraceWorkflowHookupRoute {
+    return openAgentTraceWorkflowHookupRoute
+  }
+
   static fromPathname(pathname: string): Option.Option<OpenAgentTraceWorkflowHookupRoute> {
     return pathname === OpenAgentTraceWorkflowHookupRoute.pathname()
-      ? Option.some(OpenAgentTraceWorkflowHookupRoute.make({}))
+      ? Option.some(OpenAgentTraceWorkflowHookupRoute.workflowHookups())
       : Option.none()
   }
 
@@ -75,3 +87,13 @@ export const OpenAgentTraceApiRouteSchema = Schema.Union(
 )
 
 export type OpenAgentTraceApiRoute = typeof OpenAgentTraceApiRouteSchema.Type
+
+export const openAgentTraceApiRouteFromPathname = (pathname: string): Option.Option<OpenAgentTraceApiRoute> =>
+  OpenAgentTraceRegistryRoute.fromPathname(pathname).pipe(
+    Option.orElse(() => OpenAgentTraceConsumerArtifactRoute.fromPathname(pathname)),
+    Option.orElse(() => OpenAgentTraceWorkflowHookupRoute.fromPathname(pathname))
+  )
+
+const openAgentTraceRegistryRoute = OpenAgentTraceRegistryRoute.make({})
+const openAgentTraceConsumerArtifactRoute = OpenAgentTraceConsumerArtifactRoute.make({})
+const openAgentTraceWorkflowHookupRoute = OpenAgentTraceWorkflowHookupRoute.make({})

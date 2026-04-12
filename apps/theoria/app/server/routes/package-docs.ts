@@ -3,16 +3,19 @@ import { packageDocsBundle, packageDocsCatalog, searchPackageDocs } from "@theor
 import { Effect, Match, Option } from "effect"
 
 import {
-  PackageDocsBundleRoute,
+  type PackageDocsApiFailurePresentation,
+  packageDocsApiRouteFromLocation,
+  packageDocsBundleFailurePresentation,
   type PackageDocsBundleSelection,
   PackageDocsBundleSuccessEnvelope,
-  PackageDocsCatalogRoute,
   PackageDocsCatalogSuccessEnvelope,
+  packageDocsRouteFailurePresentation,
   PackageDocsRouteNotFound,
-  PackageDocsSearchRoute,
+  packageDocsSearchFailurePresentation,
   type PackageDocsSearchSelection,
   PackageDocsSearchSuccessEnvelope
 } from "../../contracts/presentation/package-docs.js"
+import { PageLocation } from "../../contracts/presentation/page-location.js"
 import { PackageDocsInfo } from "../config/package-docs.js"
 import { ResponseTiming } from "../kernel/response-timing.js"
 
@@ -32,31 +35,25 @@ const jsonResponse = (body: unknown, status: number) =>
 
 const failureResponse = (
   input: {
-    readonly code: "invalid-package-id" | "invalid-query" | "route-not-found"
-    readonly message: string
+    readonly failure: PackageDocsApiFailurePresentation
     readonly timing: ResponseTiming
-    readonly status: number
   }
 ) =>
   Effect.gen(function*() {
     return yield* jsonResponse(
       yield* input.timing.fail({
-        code: input.code,
-        message: input.message,
+        code: input.failure.code,
+        message: input.failure.message,
         retryable: false
       }),
-      input.status
+      input.failure.status
     )
   })
 
 const catalogResponse = (timing: ResponseTiming) =>
   Effect.gen(function*() {
     const info = yield* PackageDocsInfo
-    const envelope = PackageDocsCatalogSuccessEnvelope.make({
-      ok: true,
-      meta: yield* timing.finish(),
-      data: packageDocsCatalog(info.corpus)
-    })
+    const envelope = PackageDocsCatalogSuccessEnvelope.ok(yield* timing.finish(), packageDocsCatalog(info.corpus))
 
     return yield* jsonResponse(envelope, 200)
   })
@@ -64,31 +61,17 @@ const catalogResponse = (timing: ResponseTiming) =>
 const bundleResponse = (timing: ResponseTiming, selection: PackageDocsBundleSelection) =>
   Match.value(selection).pipe(
     Match.tag("MissingPackageDocsBundlePackage", () =>
-      failureResponse({
-        code: "invalid-query",
-        message: "Bundle lookup requires ?package=<package-id>.",
-        timing,
-        status: 400
-      })),
+      failureResponse({ failure: packageDocsBundleFailurePresentation(selection), timing })),
     Match.tag("PackageDocsBundlePackage", ({ packageId }) =>
       Effect.gen(function*() {
         const info = yield* PackageDocsInfo
         const bundle = packageDocsBundle(info.corpus, packageId)
 
         if (Option.isNone(bundle)) {
-          return yield* failureResponse({
-            code: "invalid-package-id",
-            message: `Unknown package docs id: ${packageId}`,
-            timing,
-            status: 404
-          })
+          return yield* failureResponse({ failure: packageDocsBundleFailurePresentation(selection), timing })
         }
 
-        const envelope = PackageDocsBundleSuccessEnvelope.make({
-          ok: true,
-          meta: yield* timing.finish(),
-          data: bundle.value
-        })
+        const envelope = PackageDocsBundleSuccessEnvelope.ok(yield* timing.finish(), bundle.value)
 
         return yield* jsonResponse(envelope, 200)
       })),
@@ -98,27 +81,16 @@ const bundleResponse = (timing: ResponseTiming, selection: PackageDocsBundleSele
 const searchResponse = (timing: ResponseTiming, selection: PackageDocsSearchSelection) =>
   Match.value(selection).pipe(
     Match.tag("MissingPackageDocsSearchQuery", () =>
-      failureResponse({
-        code: "invalid-query",
-        message: "Package docs search requires a non-empty ?query=... value.",
-        timing,
-        status: 400
-      })),
-    Match.tag("InvalidPackageDocsSearchPackage", ({ rawPackageId }) =>
-      failureResponse({
-        code: "invalid-package-id",
-        message: `Unknown package docs id: ${rawPackageId}`,
-        timing,
-        status: 404
-      })),
+      failureResponse({ failure: packageDocsSearchFailurePresentation(selection), timing })),
+    Match.tag("InvalidPackageDocsSearchPackage", () =>
+      failureResponse({ failure: packageDocsSearchFailurePresentation(selection), timing })),
     Match.tag("PackageDocsSearchQuery", ({ query }) =>
       Effect.gen(function*() {
         const info = yield* PackageDocsInfo
-        const envelope = PackageDocsSearchSuccessEnvelope.make({
-          ok: true,
-          meta: yield* timing.finish(),
-          data: searchPackageDocs(info.corpus, query)
-        })
+        const envelope = PackageDocsSearchSuccessEnvelope.ok(
+          yield* timing.finish(),
+          searchPackageDocs(info.corpus, query)
+        )
 
         return yield* jsonResponse(envelope, 200)
       })),
@@ -128,12 +100,8 @@ const searchResponse = (timing: ResponseTiming, selection: PackageDocsSearchSele
 export const packageDocsRoute = (pathname: string, requestId: string, rawUrl: string | null) =>
   Effect.gen(function*() {
     const timing = yield* ResponseTiming.start(requestId)
-    const search = requestSearch(rawUrl)
     const route = Option.getOrElse(
-      PackageDocsCatalogRoute.fromPathname(pathname).pipe(
-        Option.orElse(() => PackageDocsBundleRoute.fromPathname(pathname, search)),
-        Option.orElse(() => PackageDocsSearchRoute.fromPathname(pathname, search))
-      ),
+      packageDocsApiRouteFromLocation(PageLocation.fromPathnameSearch(pathname, requestSearch(rawUrl))),
       () => PackageDocsRouteNotFound.make({})
     )
 
@@ -142,13 +110,8 @@ export const packageDocsRoute = (pathname: string, requestId: string, rawUrl: st
         Match.tag("catalog", () => catalogResponse(timing)),
         Match.tag("bundle", ({ selection }) => bundleResponse(timing, selection)),
         Match.tag("search", ({ selection }) => searchResponse(timing, selection)),
-        Match.tag("route-not-found", () =>
-          failureResponse({
-            code: "route-not-found",
-            message: "Package docs API route not found.",
-            timing,
-            status: 404
-          })),
+        Match.tag("route-not-found", (missingRoute) =>
+          failureResponse({ failure: packageDocsRouteFailurePresentation(missingRoute), timing })),
         Match.exhaustive
       )
     )

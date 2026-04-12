@@ -1,8 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { EffectMathCanonicalStep, projectPowerProjection } from "../../app/contracts/capability/effect-math.js"
-import { type PowerControls, snapshotEffectMathProjectionScript } from "../../app/contracts/capability/effect-math.js"
+import {
+  EffectMathCanonicalStep,
+  EffectMathProjectionScript,
+  PowerControls,
+  PowerProjection
+} from "../../app/contracts/capability/effect-math.js"
 import {
   EffectTextProjectionStep,
   snapshotEffectTextTraversalScript
@@ -52,12 +56,8 @@ const effectTextFrameFixture: EffectTextRunFrame = {
 
 const effectMathFrameFixture: EffectMathRunFrame = {
   _tag: "effect-math",
-  controls: {
-    d: 1.35,
-    n: 77,
-    alpha: 0.07
-  },
-  projection: projectPowerProjection({ d: 1.35, n: 77, alpha: 0.07 })
+  controls: PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }),
+  projection: PowerProjection.project(PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 }))
 }
 
 const staleEffectTextFrameFixture: EffectTextRunFrame = {
@@ -287,12 +287,8 @@ describe("surface-state reducer", () => {
 
   it.effect("keeps effect-math local frame authority sequence-scoped and clears it on reset", () =>
     Effect.gen(function*() {
-      const controls: PowerControls = {
-        d: 1.35,
-        n: 77,
-        alpha: 0.07
-      }
-      const localProjectionScript = snapshotEffectMathProjectionScript(controls)
+      const controls = PowerControls.make({ d: 1.35, n: 77, alpha: 0.07 })
+      const localProjectionScript = EffectMathProjectionScript.fromControls(controls)
       const running = runningRunState({
         localProjectionScript,
         program: programPreviewFixture.program,

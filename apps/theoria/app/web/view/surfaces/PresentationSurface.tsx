@@ -1,20 +1,20 @@
 import * as Option from "effect/Option"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
+import type { DeepDiveProjectionModel } from "../../../contracts/presentation/deep-dive-projection-model.js"
+import {
+  type DeepDiveProjectionControlModel,
+  deepDiveProjectionControlModelFor
+} from "../../../contracts/presentation/deep-dive-projection.js"
+import type { RunControlsViewModel } from "../../../contracts/presentation/run-controls.js"
 import { type SurfaceChromeContentModel, surfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
 import type { RunControlActionKind } from "../../state/run/types.js"
 
 import { useElementWidthReporter } from "../../atoms/surface/element-observation.js"
 import { CompactNav } from "../deep/CompactNav.js"
-import {
-  type DeepDiveProjectionControlModel,
-  deepDiveProjectionControlModelFor,
-  type DeepDiveProjectionModel
-} from "../deep/projection-model.js"
 import { ProjectionWorkspace } from "../deep/ProjectionWorkspace.js"
 import { Layer, Section } from "../primitives/Layout.js"
 import { app, surfaceForCard } from "../primitives/theme/surface.js"
-import type { RunControlsViewModel } from "../runControlsModel.js"
 
 export const PresentationSurface = ({
   backHref,

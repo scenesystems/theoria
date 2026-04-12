@@ -1,7 +1,7 @@
 import { Clock, Effect, Match, Option } from "effect"
 
 import type { EntryId } from "../../../contracts/entry/id.js"
-import { entryPackageNameForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { EvidenceStore } from "../../../contracts/evidence/store.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
 import type { Program } from "../../../contracts/presentation/program.js"
@@ -60,7 +60,7 @@ export const runDataFromStore = (id: EntryId, program: Program, store: EvidenceS
 
   return {
     id,
-    packageName: entryPackageNameForId(id),
+    packageName: EntryRunIdentity.fromEntryId(id).packageName,
     summary: stream.summary ?? "Run complete.",
     durationMs: stream.meta?.durationMs ?? 0,
     program,

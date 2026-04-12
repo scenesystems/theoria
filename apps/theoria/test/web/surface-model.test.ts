@@ -2,11 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
 import { EntryExecutionError } from "../../app/contracts/entry-error.js"
-import { entryPresentationForId } from "../../app/contracts/entry/routing.js"
+import { EntryPresentation } from "../../app/contracts/entry/routing.js"
+import { presentRun } from "../../app/contracts/presentation/presented-run.js"
 import type { Program } from "../../app/contracts/presentation/program.js"
 import { EvidenceStreamState } from "../../app/web/state/evidence/stream.js"
 import { initialSurfaceState, type SurfaceState } from "../../app/web/state/surface/state.js"
-import { presentRun } from "../../app/web/view/presenter.js"
 import { surfaceViewModel } from "../../app/web/view/surfaceModel.js"
 import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import {
@@ -18,7 +18,7 @@ import {
 
 const fixtureRunData = runDataFixture("surface model fixture")
 const fixturePresented = presentRun(fixtureRunData)
-const fixtureSurface = entryPresentationForId(effectTextCardFixture.id)
+const fixtureSurface = EntryPresentation.fromEntryId(effectTextCardFixture.id)
 const emptyEvidenceStream = EvidenceStreamState.empty()
 const pausedEvidenceStream = EvidenceStreamState.make({
   sections: fixtureRunData.sections,

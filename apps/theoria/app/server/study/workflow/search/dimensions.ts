@@ -1,5 +1,5 @@
 import type { Schema } from "effect"
-import { Effect, Equal, Match } from "effect"
+import { Effect, Equal } from "effect"
 import { SearchSpace } from "effect-search"
 import * as Arr from "effect/Array"
 
@@ -8,12 +8,6 @@ import {
   WorkflowStudyExecutionError as WorkflowStudyExecutionErrorSchema
 } from "../../../../contracts/study/workflow/execution.js"
 import type { FrozenWorkflowRun } from "../../../../contracts/study/workflow/frozen.js"
-import {
-  chatHandoffWorkflowScenarioId,
-  renderSensitiveWorkflowScenarioId,
-  retrievalRequiredWorkflowScenarioId,
-  taskBriefingWorkflowScenarioId
-} from "../../../../contracts/study/workflow/manifest.js"
 import type { WorkflowEntrySelection } from "../../../../contracts/study/workflow/selection.js"
 import { workflowChoicesForSelection } from "../selection-controls.js"
 
@@ -28,15 +22,6 @@ const executionError = (message: string): WorkflowStudyExecutionError =>
     message,
     retryable: false
   })
-
-export const searchSeedForWorkflow = (workflowRun: FrozenWorkflowRun): number =>
-  Match.value(workflowRun.scenarioId).pipe(
-    Match.when(taskBriefingWorkflowScenarioId, () => 410),
-    Match.when(chatHandoffWorkflowScenarioId, () => 411),
-    Match.when(retrievalRequiredWorkflowScenarioId, () => 412),
-    Match.when(renderSensitiveWorkflowScenarioId, () => 413),
-    Match.exhaustive
-  )
 
 const categoricalDimension = (choices: ReadonlyArray<string>) =>
   Arr.matchLeft(choices, {

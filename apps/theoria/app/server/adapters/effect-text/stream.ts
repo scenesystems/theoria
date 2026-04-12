@@ -2,7 +2,7 @@ import { Effect, Option, Stream } from "effect"
 
 import { effectTextProjectionSteps, viewportProjectionSteps } from "../../../contracts/capability/effect-text.js"
 import { effectTextEntryDescriptor } from "../../../contracts/entry/descriptors/effect-text.js"
-import { entryRunIdentityForId } from "../../../contracts/entry/routing.js"
+import { EntryRunIdentity } from "../../../contracts/entry/routing.js"
 import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { CanonicalStep } from "../../../contracts/study/workflow/canonical-step.js"
 import { concatStreams, sectionEffectsToStream, type StreamElement } from "../../kernel/kinds/stream-element.js"
@@ -14,7 +14,7 @@ import { streamSectionEffectsForStory, streamStagePlansForStory, streamStageStre
 export const runSummary =
   "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces."
 
-const effectTextRunIdentity = entryRunIdentityForId(effectTextEntryDescriptor.entryId)
+const effectTextRunIdentity = EntryRunIdentity.project(effectTextEntryDescriptor)
 
 const normalizeCustomText = (customText: Option.Option<string>): Option.Option<string> =>
   customText.pipe(

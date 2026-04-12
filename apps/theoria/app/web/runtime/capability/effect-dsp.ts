@@ -23,7 +23,7 @@ const effectDspManifestFromSnapshot = (snapshot: SurfaceRuntimeSnapshot): Effect
   const draft = snapshot.draft
 
   return draft !== null && draft.entryId === effectDspId
-    ? EffectDspManifest.make(draft.input)
+    ? EffectDspManifest.fromEntryDraft(draft)
     : null
 }
 
@@ -60,11 +60,7 @@ export const effectDspSurfaceRuntime = SurfaceRuntime.streaming({
       })
 
       return {
-        manifest: EffectDspManifest.make({
-          scenarioId: plan.scenarioId,
-          moduleType: plan.moduleType,
-          optimizationBudget: plan.optimizationBudget
-        }),
+        manifest: EffectDspManifest.fromRunRequest(plan),
         localProjectionScript: plan
       }
     },

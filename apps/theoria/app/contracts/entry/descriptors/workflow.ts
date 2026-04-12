@@ -1,38 +1,20 @@
 import { packageNameFromString } from "@theoria/source-proof/contracts"
 import { WorkflowRunControls } from "../../study/workflow/controls.js"
-import {
-  chatHandoffWorkflowScenarioManifest,
-  renderSensitiveWorkflowScenarioManifest,
-  retrievalRequiredWorkflowScenarioManifest,
-  taskBriefingWorkflowScenarioManifest
-} from "../../study/workflow/manifest.js"
-import type { EntrySeed } from "../descriptor.js"
-import { EmptyStruct, EntryDescriptor, WorkflowSeedId } from "../descriptor.js"
+import { WorkflowScenarioManifest } from "../../study/workflow/manifest.js"
+import { WorkflowEntrySelection } from "../../study/workflow/selection.js"
+import { EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed, WorkflowSeedId } from "../descriptor.js"
 
-const workflowEntrySeeds: ReadonlyArray<EntrySeed> = [
-  {
-    seedId: "task-briefing",
-    label: taskBriefingWorkflowScenarioManifest.label,
-    summary: taskBriefingWorkflowScenarioManifest.summary
-  },
-  {
-    seedId: "chat-handoff",
-    label: chatHandoffWorkflowScenarioManifest.label,
-    summary: chatHandoffWorkflowScenarioManifest.summary
-  },
-  {
-    seedId: "retrieval-required",
-    label: retrievalRequiredWorkflowScenarioManifest.label,
-    summary: retrievalRequiredWorkflowScenarioManifest.summary
-  },
-  {
-    seedId: "render-sensitive",
-    label: renderSensitiveWorkflowScenarioManifest.label,
-    summary: renderSensitiveWorkflowScenarioManifest.summary
-  }
-]
+const defaultWorkflowSelection = WorkflowEntrySelection.defaults()
 
-export const workflowEntryDescriptor = EntryDescriptor.define({
+const workflowEntrySeeds: ReadonlyArray<EntrySeed> = WorkflowScenarioManifest.catalog().map((manifest) =>
+  EntrySeed.make({
+    seedId: manifest.id,
+    label: manifest.label,
+    summary: manifest.summary
+  })
+)
+
+export const workflowEntryDescriptor = EntryDescriptor.make({
   entryId: "workflow",
   title: "Workflow",
   packageName: packageNameFromString("@theoria/theoria-app"),
@@ -45,9 +27,20 @@ export const workflowEntryDescriptor = EntryDescriptor.define({
   releaseState: "published",
   path: "/workflow",
   interactiveLabel: "Graph Workflow Comparison",
+  projectionHint: EntryProjectionHint.make({
+    stage:
+      "Run one frozen workflow study at a time and let the browser project canonical graph steps, transcript outputs, and rendered replays from the same server-authored stream.",
+    evidence:
+      "Every workflow run accumulates graph deltas, node outputs, score changes, and study evidence on one ordered ledger.",
+    source:
+      `${WorkflowScenarioManifest.defaults().label} is the default proving route; switch scenarios before running to freeze a different workflow replay.`
+  }),
   primaryAuthorityId: "effect-inference",
   authorityIds: ["effect-inference", "effect-search", "effect-dsp", "effect-text", "effect-math"],
   seeds: workflowEntrySeeds,
+  defaultSeedId: defaultWorkflowSelection.seedId,
+  defaultInput: {},
+  defaultControls: defaultWorkflowSelection.controls,
   seedIdSchema: WorkflowSeedId,
   inputSchema: EmptyStruct,
   controlsSchema: WorkflowRunControls

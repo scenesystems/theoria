@@ -1,5 +1,7 @@
 import { Option, Schema } from "effect"
-import type { GraphVariant } from "effect-inference/Contracts"
+import { type GraphVariant, GraphVariantSchema, WorkflowNodeKindSchema } from "effect-inference/Contracts"
+
+import type { CanonicalFrame } from "./canonical-step.js"
 
 export const WorkflowGraphCardKeySchema = Schema.Literal("baseline", "authored-optimized", "search-winner")
 
@@ -50,3 +52,84 @@ export const workflowTranscriptEntryKey = ({
   readonly nodeId: string
   readonly variant: GraphVariant
 }): string => `${variant}:${nodeId}`
+
+type WorkflowTranscriptEvidenceEntry = {
+  readonly durationMs: number | null
+  readonly nodeId: string
+  readonly nodeKind: typeof WorkflowNodeKindSchema.Type
+  readonly output: string | null
+  readonly prompt: string | null
+  readonly rawResponse: string | null
+  readonly title: string
+  readonly totalTokens: number | null
+  readonly variant: GraphVariant
+}
+
+export type WorkflowTranscriptEvidenceProjection = {
+  readonly nodeExecutions: ReadonlyArray<WorkflowTranscriptEvidenceEntry>
+}
+
+export class WorkflowTranscriptEntryViewModel extends Schema.Class<WorkflowTranscriptEntryViewModel>(
+  "WorkflowTranscriptEntryViewModel"
+)({
+  key: Schema.String,
+  nodeKind: WorkflowNodeKindSchema,
+  nodeId: Schema.String,
+  prompt: Schema.String,
+  output: Schema.String,
+  rawResponse: Schema.String,
+  totalTokens: Schema.String,
+  durationMs: Schema.String,
+  isCurrent: Schema.Boolean,
+  title: Schema.String,
+  variant: GraphVariantSchema
+}) {}
+
+export class WorkflowTranscriptViewModel extends Schema.Class<WorkflowTranscriptViewModel>(
+  "WorkflowTranscriptViewModel"
+)({
+  description: Schema.String,
+  entries: Schema.Array(WorkflowTranscriptEntryViewModel)
+}) {
+  static emptyDescription(): string {
+    return "Transcript evidence appears here once baseline and winner node sections land on the shared ledger."
+  }
+
+  static presentDescription(): string {
+    return "Every transcript row is projected from package-authored node evidence, not browser-local replay logic."
+  }
+
+  static project({
+    evidence,
+    frame
+  }: {
+    readonly evidence: WorkflowTranscriptEvidenceProjection
+    readonly frame: CanonicalFrame | null
+  }): WorkflowTranscriptViewModel {
+    const activeKey = frame !== null && frame.step._tag === "WorkflowCanonicalStep"
+      ? workflowTranscriptEntryKey({ nodeId: frame.step.nodeId, variant: frame.step.variant })
+      : null
+    const entries = evidence.nodeExecutions.map((execution) =>
+      WorkflowTranscriptEntryViewModel.make({
+        key: workflowTranscriptEntryKey({ nodeId: execution.nodeId, variant: execution.variant }),
+        nodeKind: execution.nodeKind,
+        nodeId: execution.nodeId,
+        prompt: workflowOptionalText(execution.prompt),
+        output: workflowOptionalText(execution.output),
+        rawResponse: workflowOptionalText(execution.rawResponse),
+        totalTokens: workflowOptionalNumberText(execution.totalTokens),
+        durationMs: workflowOptionalNumberText(execution.durationMs),
+        isCurrent: workflowTranscriptEntryKey({ nodeId: execution.nodeId, variant: execution.variant }) === activeKey,
+        title: execution.title,
+        variant: execution.variant
+      })
+    )
+
+    return WorkflowTranscriptViewModel.make({
+      description: entries.length === 0
+        ? WorkflowTranscriptViewModel.emptyDescription()
+        : WorkflowTranscriptViewModel.presentDescription(),
+      entries
+    })
+  }
+}

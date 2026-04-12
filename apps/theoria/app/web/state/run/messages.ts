@@ -4,7 +4,7 @@ import { EntryError } from "../../../contracts/entry-error.js"
 import { EntryDraft } from "../../../contracts/entry/registry.js"
 import { Metadata } from "../../../contracts/envelope.js"
 import { Program } from "../../../contracts/presentation/program.js"
-import { EntryRunIdentity } from "../../../contracts/study/run-plan.js"
+import { RunRequestIdentity } from "../../../contracts/study/run-plan.js"
 import { RunData } from "../../../contracts/study/run.js"
 import { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import { ChoreographyCue, type ChoreographyState } from "../../../contracts/study/workflow/choreography.js"
@@ -20,7 +20,7 @@ export type RunStartedMessage = {
   readonly ownership: RunOwnership
   readonly startedAtMs: number
   readonly draft: typeof EntryDraft.Type
-  readonly identity: typeof EntryRunIdentity.Type
+  readonly identity: typeof RunRequestIdentity.Type
   readonly localProjectionScript: typeof LocalProjectionScript.Type | null
   readonly program: typeof Program.Type
 }
@@ -32,7 +32,7 @@ export const RunStartedMessage = Schema.Struct({
   ownership: RunOwnershipSchema,
   startedAtMs: Schema.Number,
   draft: EntryDraft,
-  identity: EntryRunIdentity,
+  identity: RunRequestIdentity,
   localProjectionScript: Schema.NullOr(LocalProjectionScript),
   program: Program
 })
