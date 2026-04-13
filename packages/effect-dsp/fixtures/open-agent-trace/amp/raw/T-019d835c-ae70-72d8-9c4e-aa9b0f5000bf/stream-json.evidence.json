@@ -1,0 +1,42 @@
+{
+  "desired": {
+    "threadId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+    "sourceUrl": "https://ampcode.com/threads/T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+    "visibility": "public",
+    "captureMethod": "stream-json"
+  },
+  "resolved": {
+    "threadId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+    "sessionId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+    "captureMethod": "stream-json",
+    "rawFileName": "stream-json.raw.jsonl",
+    "rawDigest": "blake3-256:xJM6bfiTWiqNXFQPq1EGIp93vY39jTfbCVTsZ-H_4do",
+    "derivedFileName": "stream-json.capture.json",
+    "sourceHash": "blake3-256:xJM6bfiTWiqNXFQPq1EGIp93vY39jTfbCVTsZ-H_4do"
+  },
+  "observed": {
+    "capturedAt": "2026-04-12T20:41:38.876Z",
+    "startedAt": "2026-04-12T20:40:04.170Z",
+    "firstTaskSummary": "Read README.md, confirm status.ts still satisfies the fixture requirement, run 'bun status.ts' to verify the current output, then stop.",
+    "toolNames": [
+      "Bash",
+      "edit_file",
+      "Read"
+    ],
+    "shellCommands": [
+      "bun status.ts"
+    ],
+    "terminalStatus": "success",
+    "coverageKinds": [
+      "branch-lineage"
+    ]
+  },
+  "capabilityGaps": [
+    "branch-lineage"
+  ],
+  "reviewBoundary": {
+    "rawArtifactAuthority": true,
+    "derivedReplayAuthority": "checked-in-derived-replay",
+    "notes": "The checked-in raw public capture is authoritative. Derived replay captures exist only to provide strict, offline package loading."
+  }
+}

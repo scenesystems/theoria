@@ -1,0 +1,23 @@
+{
+  "caseId": "price-plugin-authority-bridge",
+  "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+  "captureLane": "plugin",
+  "split": "validation",
+  "task": "Migrate the authority bridge so old adapters derive from the exact new declaration product without introducing shared broad records or witness scaffolding.",
+  "constraints": [
+    "Treat the new declaration product as the only source of truth.",
+    "Bridge adapters downstream of the exact product.",
+    "Avoid broad shared records, helper shims, and witness scaffolding."
+  ],
+  "files": [
+    "migration.ts",
+    "adapter.ts",
+    "derive.ts"
+  ],
+  "rejectedMoves": [
+    "Create a shared broad record for old and new authority.",
+    "Add witness scaffolding to recover erased distinctions.",
+    "Use helper shims instead of deriving adapters from the exact product."
+  ],
+  "expectedStrategy": "Keep the new declaration product as source of truth, derive bridge adapters only after the exact product exists, preserve noun and mechanism authority on their real seam, and avoid widening, shared broad records, helper shims, witness scaffolding, overload detours, or any intermediate authority layer."
+}

@@ -1,0 +1,24 @@
+{
+  "caseId": "counter-plugin-declaration-source",
+  "threadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+  "captureLane": "plugin",
+  "split": "train",
+  "task": "Refactor declaration helpers and derivation seams so D remains the exact source of truth across program.ts, entity-model.derive.ts, subject.derive.ts, and derive.ts.",
+  "constraints": [
+    "Do not widen D to a broader declaration family.",
+    "Stay 100% native Effect and solve the problem by construction.",
+    "Do not add sidecar witnesses, structural guards, or helper indirection."
+  ],
+  "files": [
+    "program.ts",
+    "entity-model.derive.ts",
+    "subject.derive.ts",
+    "derive.ts"
+  ],
+  "rejectedMoves": [
+    "Introduce helper aliases that rebuild declaration families.",
+    "Add witness symbols or phantom carriers to preserve shape information.",
+    "Add overload dispatch or intermediate products just to satisfy the compiler."
+  ],
+  "expectedStrategy": "Keep the declaration generic as source of truth. Re-derive the exact product directly from D, keep runtime views downstream of that product, and avoid widening, helper indirection, sidecar witnesses, overload detours, or intermediate representations."
+}

@@ -1,0 +1,25 @@
+{
+  "caseId": "counter-stream-typed-product-first",
+  "threadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+  "captureLane": "stream-json",
+  "split": "train",
+  "task": "Repair declaration-parameterized projection products and subject derivation proofs so noun and mechanism authority stay exact without broad record families or early conditional return surfaces.",
+  "constraints": [
+    "Keep projection authority in the typed product, not a heterogeneous runtime container.",
+    "Split noun and mechanism authority at the real seam before rejoining at the public boundary.",
+    "Do not widen to broad record aliases or add sidecar proof machinery."
+  ],
+  "files": [
+    "program.ts",
+    "entity-model.derive.ts",
+    "subject.derive.ts",
+    "declaration.ts",
+    "derive.ts"
+  ],
+  "rejectedMoves": [
+    "Broaden helpers to QueriesRecord-like families.",
+    "Use tuple or HashMap authority before the exact projection product exists.",
+    "Patch generic discrimination with overload detours or witness symbols."
+  ],
+  "expectedStrategy": "Derive the exact typed product first, keep noun and mechanism proofs on their own exact paths until the public boundary, and treat runtime containers as derived views only. Avoid broad record aliases, overload detours, witness types, or other intermediate authority layers."
+}

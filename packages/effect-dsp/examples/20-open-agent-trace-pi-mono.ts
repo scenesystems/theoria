@@ -48,7 +48,7 @@ const program = Effect.gen(function*() {
     key: sealKey,
     reviewSidecar,
     keyMetadata: { keyId: "open-agent-trace-example", keyVersion: 1 },
-    policy: new Experimental.OpenAgentTrace.OpenAgentTraceRedactionPolicy({
+    policy: new Experimental.OpenAgentTrace.RedactionPolicy({
       policyId: "open-agent-trace-public-corpus",
       policyVersion: 2,
       imageHandling: "keep-images",

@@ -1,0 +1,212 @@
+{
+  "threadId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+  "cwd": "/private/tmp/amp-open-agent-trace-status-fixture",
+  "capturedAt": "2026-04-12T20:41:38.876Z",
+  "sessionStart": {
+    "timestamp": "2026-04-12T20:40:02.389Z",
+    "payload": {
+      "thread": {
+        "id": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf"
+      }
+    }
+  },
+  "turns": [
+    {
+      "startedAt": "2026-04-12T20:40:04.170Z",
+      "agentStart": {
+        "timestamp": "2026-04-12T20:40:04.170Z",
+        "payload": {
+          "message": "Read README.md, confirm status.ts still satisfies the fixture requirement, run 'bun status.ts' to verify the current output, then stop.",
+          "id": 8
+        }
+      },
+      "events": [
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:05.141Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf"
+            },
+            "toolUseID": "toolu_vrtx_01MdvSU5uaRriCMKBKy9SLXq",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-status-fixture/README.md"
+            }
+          }
+        },
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:05.499Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf"
+            },
+            "toolUseID": "toolu_vrtx_018ZMW8nwFRFiySAMtGVKt2d",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-status-fixture/status.ts"
+            }
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:05.704Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_01MdvSU5uaRriCMKBKy9SLXq",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-status-fixture/README.md"
+            },
+            "status": "done"
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:05.704Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_018ZMW8nwFRFiySAMtGVKt2d",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-status-fixture/status.ts"
+            },
+            "status": "done"
+          }
+        },
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:08.298Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf"
+            },
+            "toolUseID": "toolu_vrtx_01HGy7ezy1i1s9A5pxJPKYpz",
+            "tool": "Bash",
+            "input": {
+              "cmd": "bun status.ts",
+              "cwd": "/private/tmp/amp-open-agent-trace-status-fixture"
+            }
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:08.923Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_01HGy7ezy1i1s9A5pxJPKYpz",
+            "tool": "Bash",
+            "input": {
+              "cmd": "bun status.ts",
+              "cwd": "/private/tmp/amp-open-agent-trace-status-fixture"
+            },
+            "status": "done"
+          }
+        }
+      ],
+      "agentEnd": {
+        "timestamp": "2026-04-12T20:40:12.852Z",
+        "payload": {
+          "message": "Read README.md, confirm status.ts still satisfies the fixture requirement, run 'bun status.ts' to verify the current output, then stop.",
+          "id": 8,
+          "status": "done",
+          "messages": [
+            {
+              "role": "user",
+              "id": 8,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Read README.md, confirm status.ts still satisfies the fixture requirement, run 'bun status.ts' to verify the current output, then stop."
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 9,
+              "content": [
+                {
+                  "type": "thinking",
+                  "thinking": "The user wants me to read README.md, confirm status.ts satisfies the requirement, and run bun status.ts to verify."
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_01MdvSU5uaRriCMKBKy9SLXq",
+                  "name": "Read",
+                  "input": {
+                    "path": "/private/tmp/amp-open-agent-trace-status-fixture/README.md"
+                  }
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_018ZMW8nwFRFiySAMtGVKt2d",
+                  "name": "Read",
+                  "input": {
+                    "path": "/private/tmp/amp-open-agent-trace-status-fixture/status.ts"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "id": 10,
+              "content": [
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_01MdvSU5uaRriCMKBKy9SLXq",
+                  "output": "{\"content\":\"1: # Amp Status Fixture Repo\\n2: \\n3: This tiny repo exists only to produce a public Amp thread fixture.\\n4: \\n5: Task: update `status.ts` so `statusLabel(false)` prints `inactive`, then run `bun status.ts`.\",\"absolutePath\":\"/private/tmp/amp-open-agent-trace-status-fixture/README.md\"}",
+                  "status": "done"
+                },
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_018ZMW8nwFRFiySAMtGVKt2d",
+                  "output": "{\"content\":\"1: export const statusLabel = (active: boolean) => active ? 'active' : 'inactive'\\n2: \\n3: console.log(statusLabel(false))\",\"absolutePath\":\"/private/tmp/amp-open-agent-trace-status-fixture/status.ts\"}",
+                  "status": "done"
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 11,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "`status.ts` already returns `'inactive'` for `false` — matches the README requirement. Verifying:"
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_01HGy7ezy1i1s9A5pxJPKYpz",
+                  "name": "Bash",
+                  "input": {
+                    "cmd": "bun status.ts",
+                    "cwd": "/private/tmp/amp-open-agent-trace-status-fixture"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "id": 12,
+              "content": [
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_01HGy7ezy1i1s9A5pxJPKYpz",
+                  "output": "{\"output\":\"inactive\\n\",\"exitCode\":0}",
+                  "status": "done"
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 13,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Confirmed — `statusLabel(false)` prints `inactive`. The fixture requirement is satisfied."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

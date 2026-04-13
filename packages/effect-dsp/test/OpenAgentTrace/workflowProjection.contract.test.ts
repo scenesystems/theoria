@@ -36,7 +36,7 @@ describe("OpenAgentTrace/workflowProjection", () => {
       })
       const redactedTaskFirst = yield* Experimental.OpenAgentTrace.redactOpenAgentTraceRecord({
         record: taskFirst,
-        policy: new Experimental.OpenAgentTrace.OpenAgentTraceRedactionPolicy({
+        policy: new Experimental.OpenAgentTrace.RedactionPolicy({
           policyId: "open-agent-trace-projection-proof",
           policyVersion: 1,
           imageHandling: "keep-images",

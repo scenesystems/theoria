@@ -1,0 +1,24 @@
+{
+  "caseId": "counter-plugin-hydration-boundary",
+  "threadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+  "captureLane": "plugin",
+  "split": "train",
+  "task": "Refactor schema hydration so the declaration-derived product reaches codec.ts and hydrate.ts before registry views or fallback helpers appear.",
+  "constraints": [
+    "Keep the declaration-derived product authoritative through codec and hydration.",
+    "Derive registry views only after the exact product exists.",
+    "Do not widen into registry-wide aliases or witness tables."
+  ],
+  "files": [
+    "codec.ts",
+    "hydrate.ts",
+    "registry.ts",
+    "derive.ts"
+  ],
+  "rejectedMoves": [
+    "Introduce registry-wide record aliases before the exact product exists.",
+    "Recover declaration shape with witness tables or helper scaffolding.",
+    "Add overload dispatch at the hydration boundary instead of exact derivation."
+  ],
+  "expectedStrategy": "Keep the declaration-derived product authoritative through codec and hydration boundaries, derive registry views only downstream of that product, preserve noun and mechanism authority on the real seam, and avoid widening, helper indirection, witness tables, overload detours, or intermediate authority layers."
+}

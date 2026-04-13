@@ -21,8 +21,8 @@ describe("OpenAgentTrace/openAgentTraceRecord", () => {
         row,
         manifestEntry
       })
-      const encoded = yield* Schema.encode(Experimental.OpenAgentTrace.OpenAgentTraceRecord)(record)
-      const decoded = yield* Schema.decode(Experimental.OpenAgentTrace.OpenAgentTraceRecord)(encoded)
+      const encoded = yield* Schema.encode(Experimental.OpenAgentTrace.Record)(record)
+      const decoded = yield* Schema.decode(Experimental.OpenAgentTrace.Record)(encoded)
       const replay = yield* Experimental.OpenAgentTrace.PiMono.normalizeDatasetRow({
         datasetId: "badlogicgames/pi-mono",
         datasetRevision: "main",

@@ -29,8 +29,8 @@ describe("OpenAgentTrace/redactionPolicy", () => {
         manifestEntry,
         reviewSidecar
       })
-      const encoded = yield* Schema.encode(Experimental.OpenAgentTrace.OpenAgentTraceRecord)(record)
-      const seeded = yield* Schema.decodeUnknown(Experimental.OpenAgentTrace.OpenAgentTraceRecord)({
+      const encoded = yield* Schema.encode(Experimental.OpenAgentTrace.Record)(record)
+      const seeded = yield* Schema.decodeUnknown(Experimental.OpenAgentTrace.Record)({
         ...encoded,
         events: encoded.events.map((event) =>
           event.eventKind === "message" && event.eventId === "0000000e"
@@ -49,7 +49,7 @@ describe("OpenAgentTrace/redactionPolicy", () => {
             : event
         )
       })
-      const policy = new Experimental.OpenAgentTrace.OpenAgentTraceRedactionPolicy({
+      const policy = new Experimental.OpenAgentTrace.RedactionPolicy({
         policyId: "open-agent-trace-public-corpus",
         policyVersion: 1,
         imageHandling: "keep-images",

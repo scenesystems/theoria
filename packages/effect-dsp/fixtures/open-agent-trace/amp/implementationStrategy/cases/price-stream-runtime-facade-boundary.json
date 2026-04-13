@@ -1,0 +1,23 @@
+{
+  "caseId": "price-stream-runtime-facade-boundary",
+  "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+  "captureLane": "stream-json",
+  "split": "validation",
+  "task": "Refactor runtime facade derivation so the public surface is still derived from the exact declaration product without upstream runtime affordances or helper aliases.",
+  "constraints": [
+    "Keep the declaration-derived product exact all the way to the public boundary.",
+    "Avoid upstream runtime affordances before the product exists.",
+    "Do not widen, add helper indirection, or introduce overload detours."
+  ],
+  "files": [
+    "runtime.ts",
+    "derive.ts",
+    "public-surface.ts"
+  ],
+  "rejectedMoves": [
+    "Spread runtime affordances upstream before exact derivation.",
+    "Insert a helper alias layer between declaration and public surface.",
+    "Patch the seam with overload dispatch."
+  ],
+  "expectedStrategy": "Keep the exact declaration product authoritative through the public boundary, derive runtime views only downstream of that product, preserve the real noun/mechanism seam, and avoid widening, helper indirection, witness layers, overload detours, or other intermediate representations."
+}

@@ -30,7 +30,7 @@ describe("OpenAgentTrace/sealedPrivateReviewBundle", () => {
         manifestEntry,
         reviewSidecar
       })
-      const policy = new Experimental.OpenAgentTrace.OpenAgentTraceRedactionPolicy({
+      const policy = new Experimental.OpenAgentTrace.RedactionPolicy({
         policyId: "open-agent-trace-public-corpus",
         policyVersion: 2,
         imageHandling: "keep-images",
@@ -52,7 +52,7 @@ describe("OpenAgentTrace/sealedPrivateReviewBundle", () => {
         bundle: sealed,
         key
       })
-      const encodedSealed = yield* Schema.encode(Experimental.OpenAgentTrace.OpenAgentTraceSealedReviewBundle)(sealed)
+      const encodedSealed = yield* Schema.encode(Experimental.OpenAgentTrace.SealedReviewBundle)(sealed)
 
       expect(sealed.bundleKind).toBe("sealed-review-bundle")
       expect(sealed.literalSecretCount).toBe(1)

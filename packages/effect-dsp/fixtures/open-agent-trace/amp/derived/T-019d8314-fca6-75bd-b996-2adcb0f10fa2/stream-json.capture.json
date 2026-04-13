@@ -1,0 +1,233 @@
+{
+  "startedAt": "2026-04-12T19:04:44.080Z",
+  "lines": [
+    {
+      "type": "system",
+      "subtype": "init",
+      "cwd": "/private/tmp/amp-open-agent-trace-fixture",
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+      "tools": [
+        "Bash",
+        "chart",
+        "create_file",
+        "edit_file",
+        "find_thread",
+        "finder",
+        "glob",
+        "Grep",
+        "handoff",
+        "librarian",
+        "look_at",
+        "mermaid",
+        "oracle",
+        "painter",
+        "Read",
+        "read_mcp_resource",
+        "read_thread",
+        "read_web_page",
+        "skill",
+        "Task",
+        "task_list",
+        "undo_edit",
+        "web_search"
+      ],
+      "mcp_servers": []
+    },
+    {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Read README.md, update counter.ts so formatCount(2) prints '2 items', run 'bun counter.ts' to verify, then stop."
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_vrtx_01DUo5emVhXWMPwHJKJnaQ4r",
+            "name": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-fixture/README.md"
+            }
+          },
+          {
+            "type": "tool_use",
+            "id": "toolu_vrtx_01SsJNBFDb2gdGSfewbuqW5M",
+            "name": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-fixture/counter.ts"
+            }
+          }
+        ],
+        "stop_reason": "tool_use",
+        "usage": {
+          "input_tokens": 10,
+          "cache_creation_input_tokens": 2726,
+          "cache_read_input_tokens": 13508,
+          "output_tokens": 147,
+          "max_tokens": 300000,
+          "service_tier": "standard"
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_vrtx_01DUo5emVhXWMPwHJKJnaQ4r",
+            "content": "{\"absolutePath\":\"/private/tmp/amp-open-agent-trace-fixture/README.md\",\"content\":\"1: # Amp Fixture Repo\\n2: \\n3: This tiny repo exists only to produce a public Amp thread fixture.\\n4: \\n5: Task: update `counter.ts` so `formatCount(2)` prints `2 items`, then run `bun counter.ts`.\"}",
+            "is_error": false
+          },
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_vrtx_01SsJNBFDb2gdGSfewbuqW5M",
+            "content": "{\"absolutePath\":\"/private/tmp/amp-open-agent-trace-fixture/counter.ts\",\"content\":\"1: export const formatCount = (count: number) => `count=${count}`\\n2: \\n3: console.log(formatCount(2))\"}",
+            "is_error": false
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_vrtx_01JZzmqvHeJ4iV4ZULXDH7u8",
+            "name": "edit_file",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-fixture/counter.ts",
+              "old_str": "export const formatCount = (count: number) => `count=${count}`",
+              "new_str": "export const formatCount = (count: number) => `${count} items`"
+            }
+          }
+        ],
+        "stop_reason": "tool_use",
+        "usage": {
+          "input_tokens": 1,
+          "cache_creation_input_tokens": 3103,
+          "cache_read_input_tokens": 13508,
+          "output_tokens": 139,
+          "max_tokens": 300000,
+          "service_tier": "standard"
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_vrtx_01JZzmqvHeJ4iV4ZULXDH7u8",
+            "content": "{\"diff\":\"```diff\\nIndex: /private/tmp/amp-open-agent-trace-fixture/counter.ts\\n===================================================================\\n--- /private/tmp/amp-open-agent-trace-fixture/counter.ts\\toriginal\\n+++ /private/tmp/amp-open-agent-trace-fixture/counter.ts\\tmodified\\n@@ -1,3 +1,3 @@\\n-export const formatCount = (count: number) => `count=${count}`\\n+export const formatCount = (count: number) => `${count} items`\\n \\n console.log(formatCount(2))\\n```\",\"lineRange\":[1,1]}",
+            "is_error": false
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_vrtx_01FWpKK6BDA7RKh3obH1FZAU",
+            "name": "Bash",
+            "input": {
+              "cmd": "bun counter.ts",
+              "cwd": "/private/tmp/amp-open-agent-trace-fixture"
+            }
+          }
+        ],
+        "stop_reason": "tool_use",
+        "usage": {
+          "input_tokens": 1,
+          "cache_creation_input_tokens": 306,
+          "cache_read_input_tokens": 16611,
+          "output_tokens": 87,
+          "max_tokens": 300000,
+          "service_tier": "standard"
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_vrtx_01FWpKK6BDA7RKh3obH1FZAU",
+            "content": "{\"output\":\"2 items\\n\",\"exitCode\":0}",
+            "is_error": false
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Output is `2 items` as expected. Done."
+          }
+        ],
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 1,
+          "cache_creation_input_tokens": 3526,
+          "cache_read_input_tokens": 13508,
+          "output_tokens": 15,
+          "max_tokens": 300000,
+          "service_tier": "standard"
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    },
+    {
+      "type": "result",
+      "subtype": "success",
+      "duration_ms": 12023,
+      "is_error": false,
+      "num_turns": 4,
+      "result": "Output is `2 items` as expected. Done.",
+      "session_id": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2"
+    }
+  ]
+}
