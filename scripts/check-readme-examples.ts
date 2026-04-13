@@ -221,41 +221,88 @@ const rewriteCompilerOutput = (output: string, snippets: ReadonlyArray<TempSnipp
     output
   )
 
+const readmeExampleCompilerOptions = {
+  allowJs: true,
+  strict: true,
+  skipLibCheck: true,
+  target: 'ES2022',
+  lib: ['ES2022'],
+  module: 'NodeNext',
+  moduleResolution: 'NodeNext',
+  moduleDetection: 'force',
+  verbatimModuleSyntax: true,
+  isolatedModules: true,
+  resolveJsonModule: true,
+  exactOptionalPropertyTypes: true,
+  noFallthroughCasesInSwitch: true,
+  noUncheckedIndexedAccess: true,
+  noImplicitOverride: true,
+  jsx: 'react-jsx',
+  noEmit: true,
+  paths: {
+    'effect-dsp': ['packages/effect-dsp/src/index.ts'],
+    'effect-dsp/*': ['packages/effect-dsp/src/*/index.ts', 'packages/effect-dsp/src/*.ts'],
+    'effect-inference': ['packages/effect-inference/src/index.ts'],
+    'effect-inference/Contracts': ['packages/effect-inference/src/contracts/index.ts'],
+    'effect-inference/Testing': ['packages/effect-inference/src/testing/index.ts'],
+    'effect-inference/*': ['packages/effect-inference/src/*/index.ts', 'packages/effect-inference/src/*.ts'],
+    'effect-math': ['packages/effect-math/src/index.ts'],
+    'effect-math/*': ['packages/effect-math/src/*/index.ts', 'packages/effect-math/src/*.ts'],
+    'effect-search': ['packages/effect-search/src/index.ts'],
+    'effect-search/Contracts': ['packages/effect-search/src/contracts/index.ts'],
+    'effect-search/Experimental': ['packages/effect-search/src/experimental/index.ts'],
+    'effect-search/*': ['packages/effect-search/src/*/index.ts', 'packages/effect-search/src/*.ts'],
+    'effect-text': ['packages/effect-text/src/index.ts'],
+    'effect-text/browser': ['packages/effect-text/src/Browser/index.ts'],
+    'effect-text/react': ['packages/effect-text/src/React/index.ts'],
+    'effect-text/Contracts': ['packages/effect-text/src/contracts/index.ts'],
+    'effect-text/Experimental': ['packages/effect-text/src/experimental/index.ts'],
+    'effect-text/*': ['packages/effect-text/src/*/index.ts', 'packages/effect-text/src/*.ts'],
+    '@scenesystems/digest': ['packages/digest/src/index.ts'],
+    '@scenesystems/digest/*': ['packages/digest/src/*/index.ts', 'packages/digest/src/*.ts'],
+    '@scenesystems/seal': ['packages/seal/src/index.ts'],
+    '@scenesystems/seal/*': ['packages/seal/src/*/index.ts', 'packages/seal/src/*.ts'],
+    '@scenesystems/sign': ['packages/sign/src/index.ts'],
+    '@scenesystems/sign/*': ['packages/sign/src/*/index.ts', 'packages/sign/src/*.ts']
+  }
+} as const
+
 const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
   Effect.gen(function*() {
     if (snippets.length === 0) {
       return
     }
 
+    const fileSystem = yield* FileSystem.FileSystem
+    const pathService = yield* Path.Path
+    const tempConfigPath = yield* fileSystem.makeTempFileScoped({
+      directory: root,
+      prefix: '.readme-typecheck-',
+      suffix: '.json'
+    }).pipe(Effect.orDie)
+    const configDirectory = pathService.dirname(tempConfigPath)
+    const baseUrl = toPosixPath(pathService, pathService.relative(configDirectory, root)) || '.'
+
+    yield* fileSystem.writeFileString(
+      tempConfigPath,
+      JSON.stringify({
+        compilerOptions: {
+          ...readmeExampleCompilerOptions,
+          baseUrl
+        },
+        files: snippets.map((snippet) =>
+          toPosixPath(pathService, pathService.relative(configDirectory, snippet.tempPath))
+        )
+      })
+    ).pipe(Effect.orDie)
+
     const command = Command.make(
       "bunx",
       "tsc",
-      "--noEmit",
+      "--project",
+      tempConfigPath,
       "--pretty",
-      "false",
-      "--allowJs",
-      "--strict",
-      "--skipLibCheck",
-      "--target",
-      "ES2022",
-      "--lib",
-      "ES2022",
-      "--module",
-      "NodeNext",
-      "--moduleResolution",
-      "NodeNext",
-      "--moduleDetection",
-      "force",
-      "--verbatimModuleSyntax",
-      "--isolatedModules",
-      "--resolveJsonModule",
-      "--exactOptionalPropertyTypes",
-      "--noFallthroughCasesInSwitch",
-      "--noUncheckedIndexedAccess",
-      "--noImplicitOverride",
-      "--jsx",
-      "react-jsx",
-      ...snippets.map((snippet) => snippet.tempPath)
+      "false"
     ).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),

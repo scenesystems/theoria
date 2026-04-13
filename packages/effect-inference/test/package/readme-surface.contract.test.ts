@@ -13,7 +13,7 @@ describe("package/readme-surface", () => {
       const root = yield* path.fromFileUrl(packageRootUrl).pipe(Effect.orDie)
       const readme = yield* fileSystem.readFileString(path.join(root, "README.md")).pipe(Effect.orDie)
 
-      expect(readme).toContain("## Core Model")
+      expect(readme).toContain("## How Do I Keep Runtime Provenance?")
       expect(readme).toContain("HuggingFace.resolveLiveRuntimeConfig")
       expect(readme).toContain("HuggingFace.resolveLiveRuntimeFromConfig")
       expect(readme).toContain("HuggingFace.languageModelLayer")

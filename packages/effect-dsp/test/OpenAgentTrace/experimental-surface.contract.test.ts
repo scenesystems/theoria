@@ -18,10 +18,6 @@ const coveragePromotionRule =
   "Stable promotion requires a second public dataset with a materially different event grammar decoding through the same normalized corpus family while keeping projection coverage explicit."
 const coverageStopRule =
   "If branch lineage, redaction provenance, or workflow projection cannot remain explicit without app-local heuristics, the lane stays experimental and read-only."
-const experimentalPromotionRule =
-  "Stable promotion requires `badlogicgames/pi-mono` and the checked-in Amp public-thread corpus to decode into the same normalized OpenAgentTraceRecord family, project into the same implementationStrategy surface, and expand beyond the current three-thread Amp source catalog while keeping projection coverage explicit."
-const experimentalStopRule =
-  "If branch lineage, redaction provenance, workflow projection, or broader Amp source diversity than the current three-thread public corpus cannot remain explicit without app-local heuristics, the lane stays experimental and read-only."
 const implementationStrategyTarget =
   "Keep the declaration generic as source of truth, derive the exact product before runtime views, and avoid widening or helper indirection."
 
@@ -215,10 +211,11 @@ describe("OpenAgentTrace/experimental-surface", () => {
         projectedAmpCase.input
       )
       expect(readme).toContain("effect-dsp/experimental")
-      expect(readme).toContain("checked-in Amp public-thread corpus")
+      expect(readme).toContain("public Amp traces")
+      expect(readme).toContain("OpenAgentTraceRecord")
       expect(readme).toContain("implementationStrategy")
+      expect(readme).toContain("examples/21-open-agent-trace-projection.ts")
       expect(readme).toContain("examples/24-amp-implementation-strategy-study.ts")
-      expect(readme).toContain(experimentalPromotionRule)
-      expect(readme).toContain(experimentalStopRule)
+      expect(readme).toContain("examples/25-open-agent-trace-amp-thread.ts")
     }).pipe(Effect.provide(BunContext.layer)))
 })

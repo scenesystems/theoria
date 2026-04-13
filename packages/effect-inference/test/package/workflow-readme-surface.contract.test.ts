@@ -24,7 +24,7 @@ describe("package/workflow-readme-surface", () => {
       expect(Contracts.ScoreProfileSchema).toBeDefined()
       expect(Contracts.WorkflowEvaluationReportSchema).toBeDefined()
 
-      expect(readme).toContain("## Workflow And Score Contracts")
+      expect(readme).toContain("## How Do I Read Stored Workflow Evidence?")
       expect(readme).toContain("effect-inference/Contracts")
       expect(readme).toContain("WorkflowExecutionRecordSchema")
       expect(readme).toContain("WorkflowEvaluationReportSchema")
@@ -32,8 +32,8 @@ describe("package/workflow-readme-surface", () => {
       expect(readme).toContain("WorkflowStateLane")
       expect(readme).not.toContain("WorkflowVocabulary")
       expect(readme).toContain("examples/05-workflow-contracts.ts")
-      expect(readme).toContain("frozen")
-      expect(readme).toContain("runtime-provenance lane")
+      expect(readme).toContain("stored workflow evidence")
+      expect(readme).toContain("runtime provenance")
 
       expect(example).toContain("WorkflowExecutionRecordSchema")
       expect(example).toContain("WorkflowEvaluationReportSchema")
