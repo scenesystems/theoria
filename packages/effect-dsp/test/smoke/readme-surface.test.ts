@@ -5,6 +5,8 @@ import { Effect } from "effect"
 import * as Dsp from "effect-dsp"
 import * as Contracts from "effect-dsp/contracts"
 import * as Experimental from "effect-dsp/experimental"
+import * as AmpFixtures from "effect-dsp/fixtures/open-agent-trace/amp"
+import * as PiMonoFixtures from "effect-dsp/fixtures/open-agent-trace/pi-mono"
 import * as ModuleNamespace from "effect-dsp/Module"
 import * as OptimizerNamespace from "effect-dsp/Optimizer"
 import { MockLanguageModel } from "effect-dsp/test"
@@ -24,6 +26,9 @@ describe("package/readme-surface", () => {
       expect(typeof OptimizerNamespace.copro).toBe("function")
       expect(typeof OptimizerNamespace.coproStream).toBe("function")
       expect(typeof Contracts.OptimizationObjectiveSurface.fromTraceEntry).toBe("function")
+      expect(typeof AmpFixtures.loadCatalog).toBe("function")
+      expect(AmpFixtures.threadId).toBeDefined()
+      expect(PiMonoFixtures.piSessionV1Fixture).toBeDefined()
       expect(Contracts.ArtifactEnvelopeSchema).toBeDefined()
       expect(typeof MockLanguageModel.layer).toBe("function")
       expect(Experimental._experimental).toBe(true)

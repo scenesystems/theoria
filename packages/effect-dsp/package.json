@@ -41,8 +41,8 @@
     "./contracts": "./src/contracts/index.ts",
     "./test": "./src/testing/index.ts",
     "./experimental": "./src/experimental/index.ts",
-    "./fixtures/open-agent-trace/amp": "./fixtures/open-agent-trace/amp/index.ts",
-    "./fixtures/open-agent-trace/pi-mono": "./fixtures/open-agent-trace/pi-mono/index.ts",
+    "./fixtures/open-agent-trace/amp": "./src/publicFixtures/open-agent-trace/amp/index.ts",
+    "./fixtures/open-agent-trace/pi-mono": "./src/publicFixtures/open-agent-trace/pi-mono/index.ts",
     "./internal/*": null,
     "./optimizers/*": null
   },
@@ -63,6 +63,7 @@
     "docgen": "docgen"
   },
   "dependencies": {
+    "@effect/platform": "0.96.0",
     "@scenesystems/digest": "workspace:^",
     "@scenesystems/seal": "workspace:*",
     "@scenesystems/sign": "workspace:*",

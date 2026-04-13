@@ -25,7 +25,34 @@ type RuntimeState = Readonly<{
   readonly bestScore: number
   readonly trials: ReadonlyArray<COPRORecordedTrial>
   readonly acceptedUpdates: ReadonlyArray<COPROAcceptedUpdate>
+  readonly stepsCompleted: number
+  readonly done: boolean
+  readonly completionReason: "budgetExhausted" | "interrupted"
 }>
+
+const initialRuntimeState = (snapshot?: COPROSnapshot): RuntimeState =>
+  Option.match(Option.fromNullable(snapshot), {
+    onNone: () => ({
+      nextStep: 0,
+      nextTrialNumber: 0,
+      bestScore: 0,
+      trials: Arr.empty<COPRORecordedTrial>(),
+      acceptedUpdates: Arr.empty<COPROAcceptedUpdate>(),
+      stepsCompleted: 0,
+      done: false,
+      completionReason: "interrupted"
+    }),
+    onSome: (currentSnapshot) => ({
+      nextStep: currentSnapshot.nextStep,
+      nextTrialNumber: currentSnapshot.nextTrialNumber,
+      bestScore: currentSnapshot.bestScore,
+      trials: currentSnapshot.trials,
+      acceptedUpdates: currentSnapshot.acceptedUpdates,
+      stepsCompleted: currentSnapshot.nextStep,
+      done: false,
+      completionReason: currentSnapshot.completionReason
+    })
+  })
 
 const candidateSlots = (numCandidates: number): ReadonlyArray<number> =>
   Arr.makeBy(Math.max(1, Math.trunc(numCandidates)), (index) => index)
@@ -212,22 +239,7 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
     const seed = normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 17))
     const predictors = collectModuleParamRefs(options.module)
     const baselineInstruction = yield* currentInstruction(predictors[0]!)
-    const initialState = Option.match(Option.fromNullable(options.resumeFrom), {
-      onNone: () => ({
-        nextStep: 0,
-        nextTrialNumber: 0,
-        bestScore: 0,
-        trials: Arr.empty<COPRORecordedTrial>(),
-        acceptedUpdates: Arr.empty<COPROAcceptedUpdate>()
-      }),
-      onSome: (snapshot) => ({
-        nextStep: snapshot.nextStep,
-        nextTrialNumber: snapshot.nextTrialNumber,
-        bestScore: snapshot.bestScore,
-        trials: snapshot.trials,
-        acceptedUpdates: snapshot.acceptedUpdates
-      })
-    })
+    const initialState = initialRuntimeState(options.resumeFrom)
     yield* Option.match(Option.fromNullable(options.resumeFrom), {
       onNone: () => Effect.void,
       onSome: (snapshot) => Module.load(options.module, snapshot.moduleState)
@@ -246,7 +258,7 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
     )
 
     const finalState = yield* Effect.iterate(seededState, {
-      while: (state) => state.nextStep < options.maxSteps,
+      while: (state) => state.nextStep < options.maxSteps && state.done === false,
       body: (state) =>
         Effect.gen(function*() {
           yield* emit(COPROEvent.StepStarted({ step: state.nextStep }))
@@ -265,8 +277,18 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
               }))
             ))
           const stepScore = yield* evaluateModuleScore(options, evaluationContext)
-          const nextStep = reduced.changedCount === 0 ? options.maxSteps : reduced.state.nextStep + 1
-          const nextState = { ...reduced.state, nextStep, bestScore: Math.max(reduced.state.bestScore, stepScore) }
+          const nextStep = reduced.state.nextStep + 1
+          const completionReason: RuntimeState["completionReason"] = nextStep >= options.maxSteps
+            ? "budgetExhausted"
+            : "interrupted"
+          const nextState = {
+            ...reduced.state,
+            nextStep,
+            stepsCompleted: state.stepsCompleted + 1,
+            done: reduced.changedCount === 0 || nextStep >= options.maxSteps,
+            completionReason,
+            bestScore: Math.max(reduced.state.bestScore, stepScore)
+          }
 
           yield* emit(
             COPROEvent.StepCompleted({
@@ -284,7 +306,7 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
                 numCandidates: options.numCandidates,
                 maxSteps: options.maxSteps,
                 seed,
-                completionReason: nextStep >= options.maxSteps ? "budgetExhausted" : "interrupted",
+                completionReason: nextState.completionReason,
                 state: nextState
               }).pipe(Effect.flatMap(snapshotSink))
           })
@@ -295,7 +317,7 @@ export const runCOPRO = <I extends Schema.Struct.Fields, O extends Schema.Struct
 
     yield* emit(
       COPROEvent.OptimizationCompleted({
-        stepsCompleted: finalState.nextStep,
+        stepsCompleted: finalState.stepsCompleted,
         totalTrials: finalState.trials.length,
         bestScore: finalState.bestScore
       })

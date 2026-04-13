@@ -81,18 +81,33 @@ const joinSegments = (path: Path.Path, directory: string, segments: ReadonlyArra
 const sameOrderedStrings = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
   Arr.join(left, "\u0000") === Arr.join(right, "\u0000")
 
-const resolveFixtureRoot = (
-  directory: string
-): Effect.Effect<string, AmpFixtureCatalogReadError, FileSystem.FileSystem | Path.Path> =>
+const fixtureRootExists = (
+  candidate: string
+): Effect.Effect<boolean, AmpFixtureCatalogReadError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const candidate = joinSegments(path, directory, fixtureRootSegments)
-    const exists = yield* fileSystem.exists(candidate).pipe(
+    const rawExists = yield* fileSystem.exists(path.join(candidate, "raw")).pipe(
       Effect.mapError(() =>
         new AmpFixtureCatalogReadError({ path: candidate, message: "failed to resolve Amp fixture root" })
       )
     )
+    const derivedExists = yield* fileSystem.exists(path.join(candidate, "derived")).pipe(
+      Effect.mapError(() =>
+        new AmpFixtureCatalogReadError({ path: candidate, message: "failed to resolve Amp fixture root" })
+      )
+    )
+
+    return rawExists && derivedExists
+  })
+
+const resolveFixtureRoot = (
+  directory: string
+): Effect.Effect<string, AmpFixtureCatalogReadError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const candidate = joinSegments(path, directory, fixtureRootSegments)
+    const exists = yield* fixtureRootExists(candidate)
 
     if (exists) {
       return candidate
@@ -105,6 +120,27 @@ const resolveFixtureRoot = (
         new AmpFixtureCatalogReadError({ path: candidate, message: "failed to resolve Amp fixture root" })
       )
       : yield* resolveFixtureRoot(parent)
+  })
+
+/**
+ * Resolve the package-owned checked-in Amp fixture root from the module location.
+ *
+ * @since 0.2.0
+ * @category constructors
+ */
+export const loadCheckedInAmpFixtureRoot = () =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const moduleDirectory = yield* path.fromFileUrl(moduleDirectoryUrl).pipe(
+      Effect.mapError(() =>
+        new AmpFixtureCatalogReadError({
+          path: moduleDirectoryUrl.href,
+          message: "failed to resolve Amp fixture module directory"
+        })
+      )
+    )
+
+    return yield* resolveFixtureRoot(moduleDirectory)
   })
 
 const loadCatalogEntry = (rootPath: string, threadId: string) =>
@@ -166,15 +202,7 @@ export const loadCheckedInAmpFixtureCatalog = () =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const moduleDirectory = yield* path.fromFileUrl(moduleDirectoryUrl).pipe(
-      Effect.mapError(() =>
-        new AmpFixtureCatalogReadError({
-          path: moduleDirectoryUrl.href,
-          message: "failed to resolve Amp fixture module directory"
-        })
-      )
-    )
-    const fixtureRoot = yield* resolveFixtureRoot(moduleDirectory)
+    const fixtureRoot = yield* loadCheckedInAmpFixtureRoot()
     const rawRoot = path.join(fixtureRoot, "raw")
     const threadIds = yield* fileSystem.readDirectory(rawRoot).pipe(
       Effect.mapError(() =>

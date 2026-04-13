@@ -53,18 +53,41 @@ export class CorpusDecodeError extends Schema.TaggedError<CorpusDecodeError>()(
 const joinSegments = (path: Path.Path, directory: string, segments: ReadonlyArray<string>): string =>
   Arr.reduce(segments, directory, (current, segment) => path.join(current, segment))
 
-const resolveRoot = (
-  directory: string,
-  segments: ReadonlyArray<string>,
-  label: string
-): Effect.Effect<string, CorpusReadError, FileSystem.FileSystem | Path.Path> =>
+const rootExists = (options: {
+  readonly candidate: string
+  readonly label: string
+  readonly requiredChildren: ReadonlyArray<string>
+}): Effect.Effect<boolean, CorpusReadError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const candidate = joinSegments(path, directory, segments)
-    const exists = yield* fileSystem.exists(candidate).pipe(
-      Effect.mapError(() => new CorpusReadError({ path: candidate, message: `failed to resolve ${label}` }))
+    const childExistence = yield* Effect.forEach(
+      options.requiredChildren,
+      (child) =>
+        fileSystem.exists(path.join(options.candidate, child)).pipe(
+          Effect.mapError(() =>
+            new CorpusReadError({
+              path: options.candidate,
+              message: `failed to resolve ${options.label}`
+            })
+          )
+        ),
+      { concurrency: 1 }
     )
+
+    return Arr.every(childExistence, Boolean)
+  })
+
+const resolveRoot = (
+  directory: string,
+  segments: ReadonlyArray<string>,
+  label: string,
+  requiredChildren: ReadonlyArray<string>
+): Effect.Effect<string, CorpusReadError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const candidate = joinSegments(path, directory, segments)
+    const exists = yield* rootExists({ candidate, label, requiredChildren })
 
     if (exists) {
       return candidate
@@ -76,7 +99,7 @@ const resolveRoot = (
       ? yield* Effect.fail(
         new CorpusReadError({ path: candidate, message: `failed to resolve ${label}` })
       )
-      : yield* resolveRoot(parent, segments, label)
+      : yield* resolveRoot(parent, segments, label, requiredChildren)
   })
 
 const readFileString = (
@@ -173,8 +196,18 @@ export const loadDataset = () =>
         })
       )
     )
-    const corpusRoot = yield* resolveRoot(moduleDirectory, corpusRootSegments, "implementation-strategy corpus root")
-    const ampFixtureRoot = yield* resolveRoot(moduleDirectory, ampFixtureRootSegments, "Amp fixture root")
+    const corpusRoot = yield* resolveRoot(
+      moduleDirectory,
+      corpusRootSegments,
+      "implementation-strategy corpus root",
+      Arr.make(manifestFileName)
+    )
+    const ampFixtureRoot = yield* resolveRoot(
+      moduleDirectory,
+      ampFixtureRootSegments,
+      "Amp fixture root",
+      Arr.make("raw", "derived")
+    )
     const manifestPath = path.join(corpusRoot, manifestFileName)
     const manifest = yield* readJsonFile(CorpusManifest, manifestPath)
     const sources = yield* loadCorpusSources(corpusRoot, ampFixtureRoot, manifest.caseFiles)

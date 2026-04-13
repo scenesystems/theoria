@@ -478,6 +478,10 @@ describe("Governance", () => {
         expect(exportsMap["./internal/*"]).toBeNull()
         expect(exportsMap["./optimizers/*"]).toBeNull()
         expect(exportsMap["./*"]).toBeUndefined()
+        expect(exportsMap["./fixtures/open-agent-trace/amp"]).toBe("./src/publicFixtures/open-agent-trace/amp/index.ts")
+        expect(exportsMap["./fixtures/open-agent-trace/pi-mono"]).toBe(
+          "./src/publicFixtures/open-agent-trace/pi-mono/index.ts"
+        )
         expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
       }).pipe(Effect.provide(BunContext.layer)))
 
