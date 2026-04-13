@@ -7,7 +7,7 @@
  * - ML-DSA-87 sign → verify roundtrip
  * - Expected key sizes (1312B/2560B for ML-DSA-44, etc.)
  * - Expected signature sizes (2420B, 3309B, 4627B)
- * - Deterministic signing (same message + key → same signature)
+ * - Hedged signing for released surfaces (same message + key → different signatures)
  * - Invalid signature rejection
  * - Wrong public key rejection
  */
@@ -98,6 +98,16 @@ describe("ML-DSA-65 — algorithm contracts", () => {
       const kp = yield* mlDsa65Keygen()
       const sig = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(3309)
+    }))
+
+  it.effect("hedges identical inputs with fresh signing entropy", () =>
+    Effect.gen(function*() {
+      const kp = yield* mlDsa65Keygen()
+      const sig1 = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
+      const sig2 = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
+      expect(sig1.signature).not.toEqual(sig2.signature)
+      expect(yield* mlDsa65Verify(sig1.signature, message, kp.publicKey)).toBe(true)
+      expect(yield* mlDsa65Verify(sig2.signature, message, kp.publicKey)).toBe(true)
     }))
 
   it.effect("rejects wrong public key", () =>

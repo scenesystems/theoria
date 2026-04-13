@@ -138,7 +138,7 @@ export * from "./schemas/DetachedSignature.js"
  * @since 0.2.0
  * @category schemas
  */
-export * from "./schemas/BatchVerification.js"
+export * from "./schemas/VerifyMany.js"
 
 /**
  * @since 0.2.0

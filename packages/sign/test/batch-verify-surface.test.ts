@@ -3,12 +3,12 @@ import { Effect } from "effect"
 
 import { ed25519Keygen } from "../src/algorithms/ed25519.js"
 import * as Sign from "../src/index.js"
-import { BatchVerifyDetachedSignatureRequest, BatchVerifySignatureRequest } from "../src/schemas/BatchVerification.js"
+import { VerifyManyDetachedSignatureRequest, VerifyManySignatureRequest } from "../src/schemas/VerifyMany.js"
 
-const message = new TextEncoder().encode("batch verification surface")
+const message = new TextEncoder().encode("verify many surface")
 
-describe("batchVerify surface", () => {
-  it.effect("exports the additive batch surface without changing single-item verify semantics", () =>
+describe("verifyMany surface", () => {
+  it.effect("exports the additive multi-item verification surface without changing single-item verify semantics", () =>
     Effect.gen(function*() {
       const keys = yield* ed25519Keygen()
       const signature = yield* Sign.sign("ed25519", message, keys.secretKey, keys.publicKey)
@@ -16,13 +16,13 @@ describe("batchVerify surface", () => {
 
       const singleSelfDescribing = yield* Sign.verify(signature, message)
       const singleDetached = yield* Sign.verifyDetached(detached, message, keys.publicKey)
-      const report = yield* Sign.batchVerify([
-        new BatchVerifySignatureRequest({
+      const report = yield* Sign.verifyMany([
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message,
           signature
         }),
-        new BatchVerifyDetachedSignatureRequest({
+        new VerifyManyDetachedSignatureRequest({
           kind: "detached",
           message,
           signature: detached,
@@ -30,16 +30,16 @@ describe("batchVerify surface", () => {
         })
       ])
 
-      expect(typeof Sign.batchVerify).toBe("function")
-      expect(Sign.BatchVerifyReport).toBeDefined()
-      expect(Sign.BatchVerifySignatureRequest).toBeDefined()
-      expect(Sign.BatchVerifyDetachedSignatureRequest).toBeDefined()
+      expect(typeof Sign.verifyMany).toBe("function")
+      expect(Sign.VerifyManyReport).toBeDefined()
+      expect(Sign.VerifyManySignatureRequest).toBeDefined()
+      expect(Sign.VerifyManyDetachedSignatureRequest).toBeDefined()
       expect(singleSelfDescribing).toBe(true)
       expect(singleDetached).toBe(true)
       expect(report.allValid).toBe(true)
       expect(report.results.map((result) => result._tag)).toEqual([
-        "BatchVerifyPass",
-        "BatchVerifyPass"
+        "VerifyManyPass",
+        "VerifyManyPass"
       ])
     }))
 })

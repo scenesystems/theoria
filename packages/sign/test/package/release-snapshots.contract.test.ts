@@ -13,7 +13,7 @@ import {
 const packageRootUrl = new URL("../../", import.meta.url)
 
 describe("package/release-snapshots", () => {
-  it.effect("captures the versioned public surface for the support matrix, portable codecs, detached signatures, and batch verification", () =>
+  it.effect("captures the versioned public surface for the support matrix, portable codecs, detached signatures, and verify-many reporting", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -36,14 +36,14 @@ describe("package/release-snapshots", () => {
         expect.arrayContaining([
           expect.objectContaining({ exportName: "AlgorithmSupportMatrix", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "AgreementSupportMatrix", firstReleasedIn: "0.2.0" }),
-          expect.objectContaining({ exportName: "BatchVerifySignatureRequest", firstReleasedIn: "0.2.0" }),
-          expect.objectContaining({ exportName: "BatchVerifyDetachedSignatureRequest", firstReleasedIn: "0.2.0" }),
-          expect.objectContaining({ exportName: "BatchVerifyReport", firstReleasedIn: "0.2.0" }),
+          expect.objectContaining({ exportName: "VerifyManySignatureRequest", firstReleasedIn: "0.2.0" }),
+          expect.objectContaining({ exportName: "VerifyManyDetachedSignatureRequest", firstReleasedIn: "0.2.0" }),
+          expect.objectContaining({ exportName: "VerifyManyReport", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "decodeKeyPair", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "decodeKemCiphertext", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "decodeSharedSecret", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "decodeSignature", firstReleasedIn: "0.2.0" }),
-          expect.objectContaining({ exportName: "batchVerify", firstReleasedIn: "0.2.0" }),
+          expect.objectContaining({ exportName: "verifyMany", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "DetachedSignature", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "encodeKeyPair", firstReleasedIn: "0.2.0" }),
           expect.objectContaining({ exportName: "encodeKemCiphertext", firstReleasedIn: "0.2.0" }),

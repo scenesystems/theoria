@@ -85,6 +85,16 @@ describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
       expect(valid).toBe(true)
     }))
 
+  it.effect("hedges identical inputs with fresh auxiliary randomness", () =>
+    Effect.gen(function*() {
+      const kp = yield* secp256k1SchnorrKeygen()
+      const sig1 = yield* secp256k1SchnorrSign(message, kp.secretKey, kp.publicKey)
+      const sig2 = yield* secp256k1SchnorrSign(message, kp.secretKey, kp.publicKey)
+      expect(sig1.signature).not.toEqual(sig2.signature)
+      expect(yield* secp256k1SchnorrVerify(sig1.signature, message, kp.publicKey)).toBe(true)
+      expect(yield* secp256k1SchnorrVerify(sig2.signature, message, kp.publicKey)).toBe(true)
+    }))
+
   it.effect("produces 64-byte signatures", () =>
     Effect.gen(function*() {
       const kp = yield* secp256k1SchnorrKeygen()

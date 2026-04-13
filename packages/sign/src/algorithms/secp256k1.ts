@@ -15,10 +15,6 @@ import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
-// Zeroed auxiliary randomness keeps the released Schnorr surface deterministic
-// so package-owned governance fixtures can prove exact signature bytes.
-const deterministicSchnorrAuxRand = new Uint8Array(32)
-
 /**
  * Sign a message with secp256k1 ECDSA (RFC 6979 deterministic k).
  *
@@ -71,6 +67,9 @@ export const secp256k1EcdsaKeygen = (): Effect.Effect<KeyPair> =>
 /**
  * Sign a message with secp256k1 Schnorr (BIP-340).
  *
+ * Uses Noble's default auxiliary randomness so released signatures keep the
+ * BIP-340 hedging that hardens against fault attacks.
+ *
  * @since 0.1.0
  * @category algorithms
  */
@@ -83,7 +82,7 @@ export const secp256k1SchnorrSign = (
     try: () =>
       new Signature({
         algorithm: "secp256k1-schnorr",
-        signature: schnorr.sign(message, secretKey, deterministicSchnorrAuxRand),
+        signature: schnorr.sign(message, secretKey),
         publicKey
       }),
     catch: (error) => new SigningFailed({ algorithm: "secp256k1-schnorr", reason: String(error) })

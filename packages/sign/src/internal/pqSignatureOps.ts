@@ -45,7 +45,7 @@ export const makePqOps = (
       try: () =>
         new Signature({
           algorithm,
-          signature: primitive.sign(message, secretKey, { extraEntropy: false }),
+          signature: primitive.sign(message, secretKey),
           publicKey
         }),
       catch: (error) => new SigningFailed({ algorithm, reason: String(error) })

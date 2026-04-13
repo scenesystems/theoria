@@ -1,7 +1,7 @@
 import {
-  batchVerify,
-  BatchVerifyDetachedSignatureRequest,
-  BatchVerifySignatureRequest,
+  verifyMany,
+  VerifyManyDetachedSignatureRequest,
+  VerifyManySignatureRequest,
   generateKeyPair,
   sign,
   signDetached,
@@ -24,13 +24,13 @@ const program = Effect.gen(function*() {
     secp256k1.publicKey
   )
 
-  const report = yield* batchVerify([
-    new BatchVerifySignatureRequest({
+  const report = yield* verifyMany([
+    new VerifyManySignatureRequest({
       kind: "self-describing",
       message: releaseMessage,
       signature: signedRelease
     }),
-    new BatchVerifyDetachedSignatureRequest({
+    new VerifyManyDetachedSignatureRequest({
       kind: "detached",
       message: policyMessage,
       signature: signedPolicy,

@@ -6,7 +6,7 @@ import { Effect } from "effect"
 const packageRootUrl = new URL("../../", import.meta.url)
 
 describe("package/docgen-surface", () => {
-  it.effect("keeps docgen aligned with the released signing, agreement, kem, portable codec, detached-signature, and batch-verification surfaces", () =>
+  it.effect("keeps docgen aligned with the released signing, agreement, kem, portable codec, detached-signature, and verify-many surfaces", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -29,8 +29,8 @@ describe("package/docgen-surface", () => {
       const detachedDoc = yield* fileSystem.readFileString(
         path.join(root, "docs/modules/schemas/DetachedSignature.ts.md")
       ).pipe(Effect.orDie)
-      const batchDoc = yield* fileSystem.readFileString(
-        path.join(root, "docs/modules/schemas/BatchVerification.ts.md")
+      const verifyManyDoc = yield* fileSystem.readFileString(
+        path.join(root, "docs/modules/schemas/VerifyMany.ts.md")
       ).pipe(Effect.orDie)
       const portableDoc = yield* fileSystem.readFileString(
         path.join(root, "docs/modules/schemas/PortableArtifacts.ts.md")
@@ -46,7 +46,7 @@ describe("package/docgen-surface", () => {
 
       expect(signDoc).toContain("signDetached")
       expect(signDoc).toContain("verifyDetached")
-      expect(signDoc).toContain("batchVerify")
+      expect(signDoc).toContain("verifyMany")
 
       expect(encodingDoc).toContain("toBase64Url")
       expect(encodingDoc).toContain("fromBase64Url")
@@ -58,8 +58,8 @@ describe("package/docgen-surface", () => {
       expect(detachedDoc).toContain("Portable detached digital signature")
       expect(detachedDoc).toContain("Added in v0.2.0")
 
-      expect(batchDoc).toContain("Aggregate batch-verification report")
-      expect(batchDoc).toContain("Added in v0.2.0")
+      expect(verifyManyDoc).toContain("Aggregate report for ordered multi-item verification")
+      expect(verifyManyDoc).toContain("VerifyManyReport")
 
       expect(portableDoc).toContain("PortableKeyPair")
       expect(portableDoc).toContain("PortableSharedSecret")

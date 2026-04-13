@@ -4,12 +4,12 @@ import { Effect } from "effect"
 import { ed25519Keygen } from "../src/algorithms/ed25519.js"
 import { mlDsa65Keygen } from "../src/algorithms/mlDsa.js"
 import { secp256k1EcdsaKeygen } from "../src/algorithms/secp256k1.js"
-import { BatchVerifyDetachedSignatureRequest, BatchVerifySignatureRequest } from "../src/schemas/BatchVerification.js"
-import { batchVerify, sign, signDetached } from "../src/sign.js"
+import { VerifyManyDetachedSignatureRequest, VerifyManySignatureRequest } from "../src/schemas/VerifyMany.js"
+import { sign, signDetached, verifyMany } from "../src/sign.js"
 
-const message = new TextEncoder().encode("batch verification contract")
+const message = new TextEncoder().encode("verify many contract")
 
-describe("batchVerify", () => {
+describe("verifyMany", () => {
   it.effect("preserves input order across mixed self-describing and detached requests", () =>
     Effect.gen(function*() {
       const ed25519Keys = yield* ed25519Keygen()
@@ -25,19 +25,19 @@ describe("batchVerify", () => {
       )
       const mlDsaSignature = yield* signDetached("ml-dsa-65", message, mlDsaKeys.secretKey, mlDsaKeys.publicKey)
 
-      const report = yield* batchVerify([
-        new BatchVerifySignatureRequest({
+      const report = yield* verifyMany([
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message,
           signature: ed25519Signature
         }),
-        new BatchVerifyDetachedSignatureRequest({
+        new VerifyManyDetachedSignatureRequest({
           kind: "detached",
           message,
           signature: secp256k1Signature,
           publicKey: secp256k1Keys.publicKey
         }),
-        new BatchVerifyDetachedSignatureRequest({
+        new VerifyManyDetachedSignatureRequest({
           kind: "detached",
           message,
           signature: mlDsaSignature,
@@ -55,9 +55,9 @@ describe("batchVerify", () => {
         "ml-dsa-65"
       ])
       expect(report.results.map((result) => result._tag)).toEqual([
-        "BatchVerifyPass",
-        "BatchVerifyPass",
-        "BatchVerifyPass"
+        "VerifyManyPass",
+        "VerifyManyPass",
+        "VerifyManyPass"
       ])
     }), { timeout: 30_000 })
 
@@ -65,15 +65,15 @@ describe("batchVerify", () => {
     Effect.gen(function*() {
       const keys = yield* ed25519Keygen()
       const goodSignature = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
-      const badMessage = new TextEncoder().encode("tampered batch verification contract")
+      const badMessage = new TextEncoder().encode("tampered verify many contract")
 
-      const report = yield* batchVerify([
-        new BatchVerifySignatureRequest({
+      const report = yield* verifyMany([
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message,
           signature: goodSignature
         }),
-        new BatchVerifySignatureRequest({
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message: badMessage,
           signature: goodSignature
@@ -84,8 +84,8 @@ describe("batchVerify", () => {
       expect(report.verifiedCount).toBe(1)
       expect(report.failedCount).toBe(1)
       expect(report.results.map((result) => result._tag)).toEqual([
-        "BatchVerifyPass",
-        "BatchVerifyMismatch"
+        "VerifyManyPass",
+        "VerifyManyMismatch"
       ])
     }))
 })

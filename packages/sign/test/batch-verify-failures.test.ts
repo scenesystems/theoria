@@ -3,14 +3,14 @@ import { Effect } from "effect"
 
 import { ed25519Keygen } from "../src/algorithms/ed25519.js"
 import { secp256k1EcdsaKeygen } from "../src/algorithms/secp256k1.js"
-import { BatchVerifyDetachedSignatureRequest, BatchVerifySignatureRequest } from "../src/schemas/BatchVerification.js"
 import { DetachedSignature } from "../src/schemas/DetachedSignature.js"
 import { Signature } from "../src/schemas/Signature.js"
-import { batchVerify, sign, signDetached } from "../src/sign.js"
+import { VerifyManyDetachedSignatureRequest, VerifyManySignatureRequest } from "../src/schemas/VerifyMany.js"
+import { sign, signDetached, verifyMany } from "../src/sign.js"
 
-const message = new TextEncoder().encode("batch verification failure contract")
+const message = new TextEncoder().encode("verify many failure contract")
 
-describe("batchVerify failure reporting", () => {
+describe("verifyMany failure reporting", () => {
   it.effect("surfaces malformed signatures, wrong messages, and detached key mismatches as per-item outcomes", () =>
     Effect.gen(function*() {
       const signer = yield* ed25519Keygen()
@@ -35,18 +35,18 @@ describe("batchVerify failure reporting", () => {
         signature: detached.signature.subarray(0, 8)
       })
 
-      const report = yield* batchVerify([
-        new BatchVerifySignatureRequest({
+      const report = yield* verifyMany([
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message: new TextEncoder().encode("wrong message"),
           signature: validSignature
         }),
-        new BatchVerifySignatureRequest({
+        new VerifyManySignatureRequest({
           kind: "self-describing",
           message,
           signature: malformedSignature
         }),
-        new BatchVerifyDetachedSignatureRequest({
+        new VerifyManyDetachedSignatureRequest({
           kind: "detached",
           message,
           signature: malformedDetached,
@@ -58,16 +58,16 @@ describe("batchVerify failure reporting", () => {
       expect(report.verifiedCount).toBe(0)
       expect(report.failedCount).toBe(3)
       expect(report.results.map((result) => result._tag)).toEqual([
-        "BatchVerifyMismatch",
-        "BatchVerifyError",
-        "BatchVerifyError"
+        "VerifyManyMismatch",
+        "VerifyManyError",
+        "VerifyManyError"
       ])
       expect(report.results[0]?.algorithm).toBe("ed25519")
-      expect(report.results[1]?._tag).toBe("BatchVerifyError")
-      expect(report.results[1]?._tag === "BatchVerifyError" ? report.results[1].error._tag : undefined).toBe(
+      expect(report.results[1]?._tag).toBe("VerifyManyError")
+      expect(report.results[1]?._tag === "VerifyManyError" ? report.results[1].error._tag : undefined).toBe(
         "VerificationFailed"
       )
-      expect(report.results[2]?._tag === "BatchVerifyError" ? report.results[2].algorithm : undefined).toBe(
+      expect(report.results[2]?._tag === "VerifyManyError" ? report.results[2].algorithm : undefined).toBe(
         "secp256k1-ecdsa"
       )
     }))

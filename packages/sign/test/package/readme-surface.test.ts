@@ -7,10 +7,6 @@ import packageJson from "../../package.json" with { type: "json" }
 import {
   AgreementSupportMatrix,
   AlgorithmSupportMatrix,
-  batchVerify,
-  BatchVerifyDetachedSignatureRequest,
-  BatchVerifyReport,
-  BatchVerifySignatureRequest,
   decapsulate,
   decodeKeyPair,
   decodeSharedSecret,
@@ -28,7 +24,11 @@ import {
   SignatureSupportMatrix,
   signDetached,
   toBase64Url,
-  verifyDetached
+  verifyDetached,
+  verifyMany,
+  VerifyManyDetachedSignatureRequest,
+  VerifyManyReport,
+  VerifyManySignatureRequest
 } from "../../src/index.js"
 
 const PackageManifestSchema = Schema.Struct({
@@ -49,7 +49,7 @@ describe("package/readme-surface", () => {
 
       expect(typeof signDetached).toBe("function")
       expect(typeof verifyDetached).toBe("function")
-      expect(typeof batchVerify).toBe("function")
+      expect(typeof verifyMany).toBe("function")
       expect(typeof deriveSharedSecret).toBe("function")
       expect(typeof encapsulate).toBe("function")
       expect(typeof decapsulate).toBe("function")
@@ -68,19 +68,19 @@ describe("package/readme-surface", () => {
       expect(PortableKeyPair).toBeDefined()
       expect(PortableSignature).toBeDefined()
       expect(PortableSharedSecret).toBeDefined()
-      expect(BatchVerifySignatureRequest).toBeDefined()
-      expect(BatchVerifyDetachedSignatureRequest).toBeDefined()
-      expect(BatchVerifyReport).toBeDefined()
+      expect(VerifyManySignatureRequest).toBeDefined()
+      expect(VerifyManyDetachedSignatureRequest).toBeDefined()
+      expect(VerifyManyReport).toBeDefined()
 
       expect(readme).toContain("### Signatures")
       expect(readme).toContain("### Key agreement")
       expect(readme).toContain("### Key encapsulation (KEM)")
       expect(readme).toContain("Detached signatures")
-      expect(readme).toContain("Batch verification")
+      expect(readme).toContain("Verify many signatures")
       expect(readme).toContain("Portable codecs")
       expect(readme).toContain("signDetached")
       expect(readme).toContain("verifyDetached")
-      expect(readme).toContain("batchVerify")
+      expect(readme).toContain("verifyMany")
       expect(readme).toContain("encodeKeyPair")
       expect(readme).toContain("decodeKeyPair")
       expect(readme).toContain("PortableKeyPair")
@@ -89,7 +89,7 @@ describe("package/readme-surface", () => {
       expect(readme).toContain("toBase64Url")
       expect(readme).toContain("fromBase64Url")
       expect(readme).toContain("examples/04-detached-signature.ts")
-      expect(readme).toContain("examples/05-batch-verify.ts")
+      expect(readme).toContain("examples/05-verify-many.ts")
       expect(readme).toContain("examples/06-key-codecs.ts")
       expect(readme).toContain("explicit-key verification")
       expect(readme).toContain("per-item outcomes")

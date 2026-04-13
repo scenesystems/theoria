@@ -43,17 +43,17 @@ import {
   slhDsaSha2256fSign,
   slhDsaSha2256fVerify
 } from "./algorithms/slhDsa.js"
-import {
-  BatchVerifyError,
-  BatchVerifyMismatch,
-  BatchVerifyPass,
-  BatchVerifyReport,
-  type BatchVerifyRequestType
-} from "./schemas/BatchVerification.js"
 import { DetachedSignature } from "./schemas/DetachedSignature.js"
 import type { SigningFailed, VerificationFailed } from "./schemas/errors.js"
 import { Signature } from "./schemas/Signature.js"
 import type { SignatureAlgorithm } from "./schemas/SignatureAlgorithm.js"
+import {
+  VerifyManyError,
+  VerifyManyMismatch,
+  VerifyManyPass,
+  VerifyManyReport,
+  type VerifyManyRequestType
+} from "./schemas/VerifyMany.js"
 
 type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
 
@@ -161,42 +161,43 @@ export const verifyDetached = (
   )
 
 const verifyRequest = (
-  request: BatchVerifyRequestType
+  request: VerifyManyRequestType
 ): Effect.Effect<boolean, VerificationFailed> =>
   request.kind === "detached"
     ? verifyDetached(request.signature, request.message, request.publicKey)
     : verify(request.signature, request.message)
 
 /**
- * Verify a batch of signatures while preserving per-item order and outcome.
+ * Verify many signatures while preserving per-item order and outcome.
  *
- * The batch report is additive to the single-item `verify` and
- * `verifyDetached` APIs: every request reuses the canonical verifier path, but
+ * This surface is ordered multi-item verification, not cryptographic batch
+ * verification: every request still reuses the canonical single-item verifier
+ * path. The report stays additive to `verify` and `verifyDetached`, but
  * mismatches and malformed signatures are captured per item so one bad input
- * does not erase the rest of the batch.
+ * does not erase the rest of the collection.
  *
  * @since 0.2.0
  * @category signing
  */
-export const batchVerify = (
-  requests: ReadonlyArray<BatchVerifyRequestType>
-): Effect.Effect<BatchVerifyReport> =>
+export const verifyMany = (
+  requests: ReadonlyArray<VerifyManyRequestType>
+): Effect.Effect<VerifyManyReport> =>
   Effect.forEach(requests, (request, index) =>
     verifyRequest(request).pipe(
       Effect.match({
         onFailure: (error) =>
-          new BatchVerifyError({
+          new VerifyManyError({
             index,
             algorithm: request.signature.algorithm,
             error
           }),
         onSuccess: (verified) =>
           verified
-            ? new BatchVerifyPass({
+            ? new VerifyManyPass({
               index,
               algorithm: request.signature.algorithm
             })
-            : new BatchVerifyMismatch({
+            : new VerifyManyMismatch({
               index,
               algorithm: request.signature.algorithm,
               reason: "signature-mismatch"
@@ -204,8 +205,8 @@ export const batchVerify = (
       })
     )).pipe(
       Effect.map((results) => {
-        const verifiedCount = results.filter((result) => result._tag === "BatchVerifyPass").length
-        return new BatchVerifyReport({
+        const verifiedCount = results.filter((result) => result._tag === "VerifyManyPass").length
+        return new VerifyManyReport({
           allValid: verifiedCount === results.length,
           verifiedCount,
           failedCount: results.length - verifiedCount,
