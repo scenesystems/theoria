@@ -54,8 +54,8 @@ Digital signatures prove who sent a message. Key agreement lets two parties deri
 
 ### Key encapsulation (KEM)
 
-| Algorithm | Family          | Standard                | Security  | Ciphertext | Status |
-| --------- | --------------- | ----------------------- | --------- | ---------- | ------ |
+| Algorithm | Family          | Standard                 | Security  | Ciphertext | Status |
+| --------- | --------------- | ------------------------ | --------- | ---------- | ------ |
 | `xwing`   | X25519 + ML-KEM | X-Wing / CFRG hybrid KEM | Hybrid PQ | ~1,121 B   | Stable |
 
 ### Choosing an algorithm
@@ -90,13 +90,13 @@ const program = Effect.gen(function* () {
 
 ### Signing
 
-| Function                                         | Description                                            |
-| ------------------------------------------------ | ------------------------------------------------------ |
-| `sign(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<Signature>`                   |
-| `verify(signature, message)`                     | Verify a self-describing signature → `Effect<boolean>` |
-| `signDetached(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<DetachedSignature>` |
-| `verifyDetached(signature, message, publicKey)` | Verify a detached signature with explicit key → `Effect<boolean>` |
-| `batchVerify(requests)` | Verify mixed self-describing and detached requests → `Effect<BatchVerifyReport>` |
+| Function                                                 | Description                                                                      |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `sign(algorithm, message, secretKey, publicKey)`         | Sign a message → `Effect<Signature>`                                             |
+| `verify(signature, message)`                             | Verify a self-describing signature → `Effect<boolean>`                           |
+| `signDetached(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<DetachedSignature>`                                     |
+| `verifyDetached(signature, message, publicKey)`          | Verify a detached signature with explicit key → `Effect<boolean>`                |
+| `batchVerify(requests)`                                  | Verify mixed self-describing and detached requests → `Effect<BatchVerifyReport>` |
 
 ### Key agreement
 
@@ -119,16 +119,16 @@ const program = Effect.gen(function* () {
 
 ### Portable codecs
 
-| Function                         | Description                                                        |
-| -------------------------------- | ------------------------------------------------------------------ |
-| `encodeKeyPair(keyPair)`         | Convert `KeyPair` to `PortableKeyPair`                             |
-| `decodeKeyPair(value)`           | Decode `PortableKeyPair` → `Effect<KeyPair, PortableCodecDecodeFailed>` |
-| `encodeSignature(signature)`     | Convert `Signature` to `PortableSignature`                         |
-| `decodeSignature(value)`         | Decode `PortableSignature` → `Effect<Signature, PortableCodecDecodeFailed>` |
-| `encodeSharedSecret(secret)`     | Convert `SharedSecret` to `PortableSharedSecret`                   |
-| `decodeSharedSecret(value)`      | Decode `PortableSharedSecret` → `Effect<SharedSecret, PortableCodecDecodeFailed>` |
-| `encodeKemCiphertext(ciphertext)` | Convert `KemCiphertext` to `PortableKemCiphertext`                |
-| `decodeKemCiphertext(value)`     | Decode `PortableKemCiphertext` → `Effect<KemCiphertext, PortableCodecDecodeFailed>` |
+| Function                          | Description                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `encodeKeyPair(keyPair)`          | Convert `KeyPair` to `PortableKeyPair`                                              |
+| `decodeKeyPair(value)`            | Decode `PortableKeyPair` → `Effect<KeyPair, PortableCodecDecodeFailed>`             |
+| `encodeSignature(signature)`      | Convert `Signature` to `PortableSignature`                                          |
+| `decodeSignature(value)`          | Decode `PortableSignature` → `Effect<Signature, PortableCodecDecodeFailed>`         |
+| `encodeSharedSecret(secret)`      | Convert `SharedSecret` to `PortableSharedSecret`                                    |
+| `decodeSharedSecret(value)`       | Decode `PortableSharedSecret` → `Effect<SharedSecret, PortableCodecDecodeFailed>`   |
+| `encodeKemCiphertext(ciphertext)` | Convert `KemCiphertext` to `PortableKemCiphertext`                                  |
+| `decodeKemCiphertext(value)`      | Decode `PortableKemCiphertext` → `Effect<KemCiphertext, PortableCodecDecodeFailed>` |
 
 ### Encoding utilities
 
@@ -142,33 +142,33 @@ const program = Effect.gen(function* () {
 
 ### Schema types
 
-| Type                 | Description                                              |
-| -------------------- | -------------------------------------------------------- |
-| `SignatureAlgorithm` | 10 signature algorithm literals                          |
-| `AgreementAlgorithm` | `"x25519"`                                               |
-| `KemAlgorithm`       | `"xwing"`                                                |
-| `Signature`          | Schema.Class — `algorithm`, `signature`, `publicKey`     |
-| `PortableKeyPair`    | Schema.Class — base64url-safe `KeyPair` carrier          |
-| `PortableSignature`  | Schema.Class — base64url-safe `Signature` carrier        |
-| `PortableSharedSecret` | Schema.Class — base64url-safe `SharedSecret` carrier   |
-| `PortableKemCiphertext` | Schema.Class — base64url-safe `KemCiphertext` carrier |
-| `DetachedSignature`  | Schema.Class — `algorithm`, `signature`                  |
-| `BatchVerifySignatureRequest` | Schema.Class — self-describing batch item        |
-| `BatchVerifyDetachedSignatureRequest` | Schema.Class — detached batch item with explicit key |
-| `BatchVerifyReport`  | Schema.Class — aggregate counts plus ordered results     |
-| `SharedSecret`       | Schema.Class — `algorithm`, `sharedSecret`               |
-| `KemCiphertext`      | Schema.Class — `algorithm`, `ciphertext`, `sharedSecret` |
-| `KeyPair`            | Schema.Class — `algorithm`, `publicKey`, `secretKey`     |
+| Type                                  | Description                                              |
+| ------------------------------------- | -------------------------------------------------------- |
+| `SignatureAlgorithm`                  | 10 signature algorithm literals                          |
+| `AgreementAlgorithm`                  | `"x25519"`                                               |
+| `KemAlgorithm`                        | `"xwing"`                                                |
+| `Signature`                           | Schema.Class — `algorithm`, `signature`, `publicKey`     |
+| `PortableKeyPair`                     | Schema.Class — base64url-safe `KeyPair` carrier          |
+| `PortableSignature`                   | Schema.Class — base64url-safe `Signature` carrier        |
+| `PortableSharedSecret`                | Schema.Class — base64url-safe `SharedSecret` carrier     |
+| `PortableKemCiphertext`               | Schema.Class — base64url-safe `KemCiphertext` carrier    |
+| `DetachedSignature`                   | Schema.Class — `algorithm`, `signature`                  |
+| `BatchVerifySignatureRequest`         | Schema.Class — self-describing batch item                |
+| `BatchVerifyDetachedSignatureRequest` | Schema.Class — detached batch item with explicit key     |
+| `BatchVerifyReport`                   | Schema.Class — aggregate counts plus ordered results     |
+| `SharedSecret`                        | Schema.Class — `algorithm`, `sharedSecret`               |
+| `KemCiphertext`                       | Schema.Class — `algorithm`, `ciphertext`, `sharedSecret` |
+| `KeyPair`                             | Schema.Class — `algorithm`, `publicKey`, `secretKey`     |
 
 ### Errors
 
-| Error                 | Raised by         | Description                          |
-| --------------------- | ----------------- | ------------------------------------ |
-| `SigningFailed`       | `sign`            | Signing operation failed             |
-| `VerificationFailed`  | `verify`          | Signature is valid but doesn't match |
-| `InvalidSignature`    | `verify`          | Signature data is malformed          |
-| `PortableCodecDecodeFailed` | `decode*`   | Portable carrier failed schema or base64url decoding |
-| `KeyGenerationFailed` | `generateKeyPair` | Key generation failed                |
+| Error                       | Raised by         | Description                                          |
+| --------------------------- | ----------------- | ---------------------------------------------------- |
+| `SigningFailed`             | `sign`            | Signing operation failed                             |
+| `VerificationFailed`        | `verify`          | Signature is valid but doesn't match                 |
+| `InvalidSignature`          | `verify`          | Signature data is malformed                          |
+| `PortableCodecDecodeFailed` | `decode*`         | Portable carrier failed schema or base64url decoding |
+| `KeyGenerationFailed`       | `generateKeyPair` | Key generation failed                                |
 
 ## Examples
 
@@ -300,12 +300,7 @@ const program = Effect.gen(function* () {
   const policyMessage = utf8ToBytes("security policy")
 
   const signedRelease = yield* sign("ed25519", releaseMessage, ed25519.secretKey, ed25519.publicKey)
-  const signedPolicy = yield* signDetached(
-    "secp256k1-ecdsa",
-    policyMessage,
-    secp256k1.secretKey,
-    secp256k1.publicKey
-  )
+  const signedPolicy = yield* signDetached("secp256k1-ecdsa", policyMessage, secp256k1.secretKey, secp256k1.publicKey)
 
   const report = yield* batchVerify([
     new BatchVerifySignatureRequest({

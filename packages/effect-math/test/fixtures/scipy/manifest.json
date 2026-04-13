@@ -1,1 +1,94 @@
-{"schemaVersion":"1.0.0","generator":{"script":"scripts/generate-scipy-fixtures.py","generatorVersion":"1.0.0","upstream":"scipy","upstreamVersion":"1.17.1","numpyVersion":"1.26.4","pythonVersion":"3.13.5","generatedAt":"2026-03-23T00:00:00Z"},"fixtures":[{"name":"algebra.polynomial-parity","file":"algebra/polynomial-parity.json","hash":"blake3-256:JvkRwGmJt6QDPV44RfD-FXJVkIstmHbfnbdQQIiFhWM"},{"name":"calculus.numerical-parity","file":"calculus/numerical-parity.json","hash":"blake3-256:VGMo6wd3f3X29Z0z-A5y5cp88UUnwPGTkLhPjXMJS6Q"},{"name":"calculus.ode-parity","file":"calculus/ode-parity.json","hash":"blake3-256:bOPp56Ln45dEDdX3spILHN_P4luM4aoJMbkVWbO6-ho"},{"name":"complex.arithmetic-parity","file":"complex/arithmetic-parity.json","hash":"blake3-256:8FTb4kOIeGSPbgW7QPzY80rMJgbYO1FA5GpBoVTnOkQ"},{"name":"distribution.algebra-parity","file":"distribution/algebra-parity.json","hash":"blake3-256:IQjyqMBAuMr9uU-cTgp2VZUG-Ht6sRzBaltIf9E065c"},{"name":"fft.transform-parity","file":"fft/transform-parity.json","hash":"blake3-256:kG88sYoO2WrziU1FVSHFQkX-Q-TWofIApDTg0JGsaWc"},{"name":"geometry.distance-parity","file":"geometry/distance-parity.json","hash":"blake3-256:zGr1iho7hHKMnq6ROu5xNzcE8Hgs-b4i1xiBMSjV3kQ"},{"name":"linalg.vector-parity","file":"linalg/vector-parity.json","hash":"blake3-256:CZneu9W8S34IwDKJ4xqFjj7AXWhnHMeV9QO0xgGLo0A"},{"name":"numeric.logspace-parity","file":"numeric/logspace-parity.json","hash":"blake3-256:Zx-TAllLw3su95e28ZgTWCHYb4VgqyDbo66NmUUPoWc"},{"name":"numeric.scalar-parity","file":"numeric/scalar-parity.json","hash":"blake3-256:htCgJY8qf6CAg89h28JtV5iHTOt0Eslrrxw0kYm_RJo"},{"name":"optimization.root-finding-parity","file":"optimization/root-finding-parity.json","hash":"blake3-256:tjXFYZ2SuECxsB406v1ttQ9TCn-Jmrs5s0HZd1TTGEs"},{"name":"optimization.solver-parity","file":"optimization/solver-parity.json","hash":"blake3-256:VeIaGD59dAobrSrYxMEzO6LlE2L1Tnbk2zXJjbwxi9U"},{"name":"probability.distribution-parity","file":"probability/distribution-parity.json","hash":"blake3-256:qCB3hepYxp-aGWbN4gQwHiJlWXp0HdKcpqt5KBPsap4"},{"name":"special.function-parity","file":"special/function-parity.json","hash":"blake3-256:By8cBmWueRtDWInd9kBDie-agL-aV1-7Mvsd1iYY6Qs"},{"name":"special.inverse-parity","file":"special/inverse-parity.json","hash":"blake3-256:3nphbDgBGmglXVcNMEMEH5tnKryxK7d5L2-1bIn0dQE"},{"name":"statistics.estimator-parity","file":"statistics/estimator-parity.json","hash":"blake3-256:tSSvKgHvIBSffH-CKMfxFPj0h_aH4Ywoe69iNSR9ooc"}]}
+{
+  "schemaVersion": "1.0.0",
+  "generator": {
+    "script": "scripts/generate-scipy-fixtures.py",
+    "generatorVersion": "1.0.0",
+    "upstream": "scipy",
+    "upstreamVersion": "1.17.1",
+    "numpyVersion": "1.26.4",
+    "pythonVersion": "3.13.5",
+    "generatedAt": "2026-03-23T00:00:00Z"
+  },
+  "fixtures": [
+    {
+      "name": "algebra.polynomial-parity",
+      "file": "algebra/polynomial-parity.json",
+      "hash": "blake3-256:JvkRwGmJt6QDPV44RfD-FXJVkIstmHbfnbdQQIiFhWM"
+    },
+    {
+      "name": "calculus.numerical-parity",
+      "file": "calculus/numerical-parity.json",
+      "hash": "blake3-256:VGMo6wd3f3X29Z0z-A5y5cp88UUnwPGTkLhPjXMJS6Q"
+    },
+    {
+      "name": "calculus.ode-parity",
+      "file": "calculus/ode-parity.json",
+      "hash": "blake3-256:bOPp56Ln45dEDdX3spILHN_P4luM4aoJMbkVWbO6-ho"
+    },
+    {
+      "name": "complex.arithmetic-parity",
+      "file": "complex/arithmetic-parity.json",
+      "hash": "blake3-256:8FTb4kOIeGSPbgW7QPzY80rMJgbYO1FA5GpBoVTnOkQ"
+    },
+    {
+      "name": "distribution.algebra-parity",
+      "file": "distribution/algebra-parity.json",
+      "hash": "blake3-256:IQjyqMBAuMr9uU-cTgp2VZUG-Ht6sRzBaltIf9E065c"
+    },
+    {
+      "name": "fft.transform-parity",
+      "file": "fft/transform-parity.json",
+      "hash": "blake3-256:kG88sYoO2WrziU1FVSHFQkX-Q-TWofIApDTg0JGsaWc"
+    },
+    {
+      "name": "geometry.distance-parity",
+      "file": "geometry/distance-parity.json",
+      "hash": "blake3-256:zGr1iho7hHKMnq6ROu5xNzcE8Hgs-b4i1xiBMSjV3kQ"
+    },
+    {
+      "name": "linalg.vector-parity",
+      "file": "linalg/vector-parity.json",
+      "hash": "blake3-256:CZneu9W8S34IwDKJ4xqFjj7AXWhnHMeV9QO0xgGLo0A"
+    },
+    {
+      "name": "numeric.logspace-parity",
+      "file": "numeric/logspace-parity.json",
+      "hash": "blake3-256:Zx-TAllLw3su95e28ZgTWCHYb4VgqyDbo66NmUUPoWc"
+    },
+    {
+      "name": "numeric.scalar-parity",
+      "file": "numeric/scalar-parity.json",
+      "hash": "blake3-256:htCgJY8qf6CAg89h28JtV5iHTOt0Eslrrxw0kYm_RJo"
+    },
+    {
+      "name": "optimization.root-finding-parity",
+      "file": "optimization/root-finding-parity.json",
+      "hash": "blake3-256:tjXFYZ2SuECxsB406v1ttQ9TCn-Jmrs5s0HZd1TTGEs"
+    },
+    {
+      "name": "optimization.solver-parity",
+      "file": "optimization/solver-parity.json",
+      "hash": "blake3-256:VeIaGD59dAobrSrYxMEzO6LlE2L1Tnbk2zXJjbwxi9U"
+    },
+    {
+      "name": "probability.distribution-parity",
+      "file": "probability/distribution-parity.json",
+      "hash": "blake3-256:qCB3hepYxp-aGWbN4gQwHiJlWXp0HdKcpqt5KBPsap4"
+    },
+    {
+      "name": "special.function-parity",
+      "file": "special/function-parity.json",
+      "hash": "blake3-256:By8cBmWueRtDWInd9kBDie-agL-aV1-7Mvsd1iYY6Qs"
+    },
+    {
+      "name": "special.inverse-parity",
+      "file": "special/inverse-parity.json",
+      "hash": "blake3-256:3nphbDgBGmglXVcNMEMEH5tnKryxK7d5L2-1bIn0dQE"
+    },
+    {
+      "name": "statistics.estimator-parity",
+      "file": "statistics/estimator-parity.json",
+      "hash": "blake3-256:tSSvKgHvIBSffH-CKMfxFPj0h_aH4Ywoe69iNSR9ooc"
+    }
+  ]
+}

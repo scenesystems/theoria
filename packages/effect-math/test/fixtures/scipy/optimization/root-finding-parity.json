@@ -17,7 +17,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.4142135623731364,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "brent-x-squared-minus-2",
         "input": {
@@ -31,7 +31,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.5707963267948966,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "brent-cos",
         "input": {
@@ -45,7 +45,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 0.6931471805599452,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "brent-exp-minus-2",
         "input": {
@@ -59,7 +59,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.4142135623730951,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "secant-x-squared-minus-2",
         "input": {
@@ -73,7 +73,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.5707963267948968,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "secant-cos",
         "input": {
@@ -87,7 +87,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.5,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "secant-linear",
         "input": {
@@ -101,7 +101,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.414213562373095,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "newton-x-squared-minus-2",
         "input": {
@@ -115,7 +115,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 1.5707963267948966,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "newton-cos",
         "input": {
@@ -129,7 +129,7 @@
         "expected": {
           "residualTolerance": 1e-10,
           "root": 0.6931471805599454,
-          "rootTolerance": 1e-08
+          "rootTolerance": 1e-8
         },
         "id": "newton-exp-minus-2",
         "input": {

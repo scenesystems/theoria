@@ -38,7 +38,14 @@ Pure kernels work directly — no Effect runtime needed:
 import { Chunk } from "effect"
 import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
 import { euclideanDistance } from "effect-math/Geometry"
-import { lossSummary, mean, normalizeBeneficial, normalizeInverseBudget, variance, weightedMean } from "effect-math/Statistics"
+import {
+  lossSummary,
+  mean,
+  normalizeBeneficial,
+  normalizeInverseBudget,
+  variance,
+  weightedMean
+} from "effect-math/Statistics"
 import { normalPdf, standardNormalCdf } from "effect-math/Probability"
 import { gamma, erf, beta } from "effect-math/Special"
 import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
@@ -89,33 +96,24 @@ complexDerivative(sin, 0) // cos(0) = 1 (machine-precision)
 const spectrum = rfft(Chunk.fromIterable([0, 1, 0, -1]))
 spectrum.signalLength // 4
 
-circularConvolution(
-  Chunk.fromIterable([1, 2, 1, 0]),
-  Chunk.fromIterable([1, 0, -1, 0])
-) // Chunk(0, 2, 0, -2)
+circularConvolution(Chunk.fromIterable([1, 2, 1, 0]), Chunk.fromIterable([1, 0, -1, 0])) // Chunk(0, 2, 0, -2)
 
-solveRk4(
-  (_time, state) => Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)]),
-  {
-    initialTime: 0,
-    finalTime: 1,
-    initialState: Chunk.fromIterable([1, 0]),
-    stepSize: 0.05
-  }
-) // finalState ≈ [cos(1), -sin(1)]
+solveRk4((_time, state) => Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)]), {
+  initialTime: 0,
+  finalTime: 1,
+  initialState: Chunk.fromIterable([1, 0]),
+  stepSize: 0.05
+}) // finalState ≈ [cos(1), -sin(1)]
 
-solveAdaptiveRk45(
-  (_time, state) => Chunk.fromIterable([-Chunk.unsafeGet(state, 0)]),
-  {
-    initialTime: 0,
-    finalTime: 1,
-    initialState: Chunk.fromIterable([1]),
-    initialStep: 0.1,
-    maxStep: 0.2,
-    absoluteTolerance: 1e-8,
-    relativeTolerance: 1e-8
-  }
-) // finalState ≈ [e^-1]
+solveAdaptiveRk45((_time, state) => Chunk.fromIterable([-Chunk.unsafeGet(state, 0)]), {
+  initialTime: 0,
+  finalTime: 1,
+  initialState: Chunk.fromIterable([1]),
+  initialStep: 0.1,
+  maxStep: 0.2,
+  absoluteTolerance: 1e-8,
+  relativeTolerance: 1e-8
+}) // finalState ≈ [e^-1]
 ```
 
 When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
@@ -153,20 +151,20 @@ Under `"strict"` precision, non-finite results fail with a typed error instead o
 
 Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
 
-| Domain            | Import                      | What it does                                                                                                                                                                                                            |
-| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Real-scalar leaf math — `PI`, `TAU`, angle conversion, circular and hyperbolic trig, `hypot`, IEEE-754 rounding, deterministic `imul`, plus safe division and log/exp transforms                                       |
-| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
-| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
-| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max, generic weighted aggregation, bounded normalization, loss summaries, confidence intervals, t-tests, power analysis, and sample-size inversion                |
-| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
-| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
+| Domain            | Import                      | What it does                                                                                                                                                                                                                                                                             |
+| ----------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Numeric**       | `effect-math/Numeric`       | Real-scalar leaf math — `PI`, `TAU`, angle conversion, circular and hyperbolic trig, `hypot`, IEEE-754 rounding, deterministic `imul`, plus safe division and log/exp transforms                                                                                                         |
+| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                                                                                      |
+| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                                                                                          |
+| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                                                                                              |
+| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max, generic weighted aggregation, bounded normalization, loss summaries, confidence intervals, t-tests, power analysis, and sample-size inversion                                                                                   |
+| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                                                                                     |
+| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                                                                                          |
 | **Calculus**      | `effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration, and ODE solvers (`solveEuler`, `solveRk4`, `solveAdaptiveRk45`) |
-| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization, and canonical Brent/secant/Newton-Raphson result-envelope solving                                                                                                   |
-| **Distribution**  | `effect-math/Distribution`  | 11-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Noncentral-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, and entropy                                    |
-| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                |
-| **Fft**           | `effect-math/Fft`           | Complex FFT, Hermitian real-spectrum FFT, and circular convolution over `Chunk<number>` carriers                                                                                                                        |
+| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization, and canonical Brent/secant/Newton-Raphson result-envelope solving                                                                                                                                                                   |
+| **Distribution**  | `effect-math/Distribution`  | 11-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Noncentral-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, and entropy                                                                                                    |
+| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                                                                                 |
+| **Fft**           | `effect-math/Fft`           | Complex FFT, Hermitian real-spectrum FFT, and circular convolution over `Chunk<number>` carriers                                                                                                                                                                                         |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -354,15 +352,7 @@ import {
   fromRealChunk,
   toRealChunk
 } from "effect-math/Complex"
-import {
-  circularConvolution,
-  fft,
-  fromRealSignal,
-  ifft,
-  irfft,
-  rfft,
-  toComplexChunk
-} from "effect-math/Fft"
+import { circularConvolution, fft, fromRealSignal, ifft, irfft, rfft, toComplexChunk } from "effect-math/Fft"
 
 // Policy-aware — read runtime services from Effect context
 import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
@@ -447,8 +437,8 @@ import {
 
 ## Status
 
-| Tier            | Domains                                                                                                                    | Meaning                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Tier            | Domains                                                                                                                         | Meaning                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Distribution, Complex, Fft | Functional and tested, may evolve |
 
 ## Calculus Fixture Provenance

@@ -971,12 +971,7 @@
         "id": "cat-pmf-k0",
         "input": {
           "k": 0,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalPmf"
       },
@@ -985,12 +980,7 @@
         "id": "cat-pmf-k3",
         "input": {
           "k": 3,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalPmf"
       },
@@ -999,10 +989,7 @@
         "id": "cat-pmf-fair",
         "input": {
           "k": 0,
-          "probs": [
-            0.5,
-            0.5
-          ]
+          "probs": [0.5, 0.5]
         },
         "operation": "categoricalPmf"
       },
@@ -1011,12 +998,7 @@
         "id": "cat-logpmf-k0",
         "input": {
           "k": 0,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalLogpmf"
       },
@@ -1025,12 +1007,7 @@
         "id": "cat-logpmf-k3",
         "input": {
           "k": 3,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalLogpmf"
       },
@@ -1039,12 +1016,7 @@
         "id": "cat-cdf-k0",
         "input": {
           "k": 0,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalCdf"
       },
@@ -1053,12 +1025,7 @@
         "id": "cat-cdf-k2",
         "input": {
           "k": 2,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalCdf"
       },
@@ -1067,12 +1034,7 @@
         "id": "cat-cdf-k3",
         "input": {
           "k": 3,
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalCdf"
       },
@@ -1080,12 +1042,7 @@
         "expected": 2.0,
         "id": "cat-mean-4class",
         "input": {
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalMean"
       },
@@ -1093,12 +1050,7 @@
         "expected": 1.0,
         "id": "cat-variance-4class",
         "input": {
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalVariance"
       },
@@ -1106,12 +1058,7 @@
         "expected": 1.2798542258336676,
         "id": "cat-entropy-4class",
         "input": {
-          "probs": [
-            0.1,
-            0.2,
-            0.3,
-            0.4
-          ]
+          "probs": [0.1, 0.2, 0.3, 0.4]
         },
         "operation": "categoricalEntropy"
       },
@@ -1119,10 +1066,7 @@
         "expected": 0.6931471805599453,
         "id": "cat-entropy-fair",
         "input": {
-          "probs": [
-            0.5,
-            0.5
-          ]
+          "probs": [0.5, 0.5]
         },
         "operation": "categoricalEntropy"
       },

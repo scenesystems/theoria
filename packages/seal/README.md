@@ -57,15 +57,15 @@ const program = Effect.gen(function* () {
 
 ### Core pipeline
 
-| Function                          | Description                                         |
-| --------------------------------- | --------------------------------------------------- |
+| Function                                                      | Description                                                                |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `seal(algorithm, key, plaintext, metadata?, associatedData?)` | Encrypt and wrap in a `SealedEnvelope` while keeping optional AAD external |
-| `unseal(key, envelope, associatedData?)` | Decrypt a `SealedEnvelope` with the matching optional AAD |
+| `unseal(key, envelope, associatedData?)`                      | Decrypt a `SealedEnvelope` with the matching optional AAD                  |
 
 ### Direct algorithm access
 
-| Function                            | Description                              |
-| ----------------------------------- | ---------------------------------------- |
+| Function                                             | Description                              |
+| ---------------------------------------------------- | ---------------------------------------- |
 | `xchacha20Encrypt(key, plaintext, associatedData?)`  | XChaCha20-Poly1305 — recommended         |
 | `xchacha20Decrypt(key, ciphertext, associatedData?)` | Decrypt XChaCha20-Poly1305               |
 | `aesgcmsivEncrypt(key, plaintext, associatedData?)`  | AES-256-GCM-SIV — nonce-misuse resistant |
@@ -84,19 +84,19 @@ const program = Effect.gen(function* () {
 
 ### Schema types
 
-| Type             | Description                                                      |
-| ---------------- | ---------------------------------------------------------------- |
-| `SealAlgorithm`  | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`     |
-| `EnvelopeKeyMetadata` | Schema.Struct with optional `keyId` and `keyVersion`       |
-| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext`, optional `keyId`, and optional `keyVersion` |
+| Type                  | Description                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `SealAlgorithm`       | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`                                                  |
+| `EnvelopeKeyMetadata` | Schema.Struct with optional `keyId` and `keyVersion`                                                          |
+| `SealedEnvelope`      | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext`, optional `keyId`, and optional `keyVersion` |
 
 ### Errors
 
-| Error              | Raised by        | Description                                        |
-| ------------------ | ---------------- | -------------------------------------------------- |
-| `InvalidKey`       | `seal`, `unseal` | Key is wrong length (expected 32 bytes)            |
+| Error                   | Raised by                        | Description                                         |
+| ----------------------- | -------------------------------- | --------------------------------------------------- |
+| `InvalidKey`            | `seal`, `unseal`                 | Key is wrong length (expected 32 bytes)             |
 | `InvalidAssociatedData` | `seal`, `unseal`, direct helpers | Associated data is empty or malformed when provided |
-| `DecryptionFailed` | `unseal`         | Authentication failed — wrong key or tampered data |
+| `DecryptionFailed`      | `unseal`                         | Authentication failed — wrong key or tampered data  |
 
 ## Examples
 

@@ -136,7 +136,7 @@
         "operation": "log1mexp"
       },
       {
-        "expected": -4.54009603704951e-05,
+        "expected": -4.54009603704951e-5,
         "id": "log1mexp-ten",
         "input": {
           "x": -10.0
@@ -144,7 +144,7 @@
         "operation": "log1mexp"
       },
       {
-        "expected": 4.539889921686465e-05,
+        "expected": 4.539889921686465e-5,
         "id": "log1pexp-neg10",
         "input": {
           "x": -10.0
@@ -277,11 +277,7 @@
         "expected": 3.40760596444438,
         "id": "logsumexp-small-array",
         "input": {
-          "values": [
-            1.0,
-            2.0,
-            3.0
-          ]
+          "values": [1.0, 2.0, 3.0]
         },
         "operation": "logSumExp"
       },
@@ -289,18 +285,7 @@
         "expected": 2.893493315657009,
         "id": "logsumexp-large-array",
         "input": {
-          "values": [
-            0.1,
-            0.2,
-            0.3,
-            0.4,
-            0.5,
-            0.6,
-            0.7,
-            0.8,
-            0.9,
-            1.0
-          ]
+          "values": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         },
         "operation": "logSumExp"
       },
@@ -308,12 +293,7 @@
         "expected": 6.386294361119891,
         "id": "logsumexp-all-same",
         "input": {
-          "values": [
-            5.0,
-            5.0,
-            5.0,
-            5.0
-          ]
+          "values": [5.0, 5.0, 5.0, 5.0]
         },
         "operation": "logSumExp"
       },
@@ -321,12 +301,7 @@
         "expected": 100.0,
         "id": "logsumexp-one-dominant",
         "input": {
-          "values": [
-            100.0,
-            1.0,
-            2.0,
-            3.0
-          ]
+          "values": [100.0, 1.0, 2.0, 3.0]
         },
         "operation": "logSumExp"
       },
@@ -334,12 +309,7 @@
         "expected": -0.5598103014388047,
         "id": "logsumexp-negative",
         "input": {
-          "values": [
-            -1.0,
-            -2.0,
-            -3.0,
-            -4.0
-          ]
+          "values": [-1.0, -2.0, -3.0, -4.0]
         },
         "operation": "logSumExp"
       }

@@ -17,16 +17,8 @@
         "expected": 0.0,
         "id": "dot-unit",
         "input": {
-          "a": [
-            1,
-            0,
-            0
-          ],
-          "b": [
-            0,
-            1,
-            0
-          ]
+          "a": [1, 0, 0],
+          "b": [0, 1, 0]
         },
         "operation": "dot"
       },
@@ -34,16 +26,8 @@
         "expected": 32.0,
         "id": "dot-parallel",
         "input": {
-          "a": [
-            1,
-            2,
-            3
-          ],
-          "b": [
-            4,
-            5,
-            6
-          ]
+          "a": [1, 2, 3],
+          "b": [4, 5, 6]
         },
         "operation": "dot"
       },
@@ -51,14 +35,8 @@
         "expected": 0.0,
         "id": "dot-orthogonal",
         "input": {
-          "a": [
-            1,
-            0
-          ],
-          "b": [
-            0,
-            1
-          ]
+          "a": [1, 0],
+          "b": [0, 1]
         },
         "operation": "dot"
       },
@@ -66,16 +44,8 @@
         "expected": -32.0,
         "id": "dot-negative",
         "input": {
-          "a": [
-            -1,
-            -2,
-            -3
-          ],
-          "b": [
-            4,
-            5,
-            6
-          ]
+          "a": [-1, -2, -3],
+          "b": [4, 5, 6]
         },
         "operation": "dot"
       },
@@ -83,12 +53,8 @@
         "expected": 21.0,
         "id": "dot-single",
         "input": {
-          "a": [
-            7.0
-          ],
-          "b": [
-            3.0
-          ]
+          "a": [7.0],
+          "b": [3.0]
         },
         "operation": "dot"
       },
@@ -96,20 +62,8 @@
         "expected": 97.4,
         "id": "dot-large-5d",
         "input": {
-          "a": [
-            1.5,
-            2.3,
-            3.7,
-            4.1,
-            5.9
-          ],
-          "b": [
-            6.2,
-            7.8,
-            8.4,
-            9.1,
-            0.3
-          ]
+          "a": [1.5, 2.3, 3.7, 4.1, 5.9],
+          "b": [6.2, 7.8, 8.4, 9.1, 0.3]
         },
         "operation": "dot"
       },
@@ -118,10 +72,7 @@
         "id": "norm-l2-unit",
         "input": {
           "kind": "L2",
-          "values": [
-            3,
-            4
-          ]
+          "values": [3, 4]
         },
         "operation": "norm"
       },
@@ -130,11 +81,7 @@
         "id": "norm-l2-3d",
         "input": {
           "kind": "L2",
-          "values": [
-            1,
-            2,
-            3
-          ]
+          "values": [1, 2, 3]
         },
         "operation": "norm"
       },
@@ -143,11 +90,7 @@
         "id": "norm-l1-basic",
         "input": {
           "kind": "L1",
-          "values": [
-            1,
-            -2,
-            3
-          ]
+          "values": [1, -2, 3]
         },
         "operation": "norm"
       },
@@ -156,9 +99,7 @@
         "id": "norm-l1-single",
         "input": {
           "kind": "L1",
-          "values": [
-            5.5
-          ]
+          "values": [5.5]
         },
         "operation": "norm"
       },
@@ -167,11 +108,7 @@
         "id": "norm-linf-basic",
         "input": {
           "kind": "Linf",
-          "values": [
-            1,
-            -5,
-            3
-          ]
+          "values": [1, -5, 3]
         },
         "operation": "norm"
       },
@@ -180,11 +117,7 @@
         "id": "norm-linf-equal",
         "input": {
           "kind": "Linf",
-          "values": [
-            3,
-            3,
-            3
-          ]
+          "values": [3, 3, 3]
         },
         "operation": "norm"
       },
@@ -193,113 +126,60 @@
         "id": "norm-l2-tiny",
         "input": {
           "kind": "L2",
-          "values": [
-            1e-150,
-            1e-150
-          ]
+          "values": [1e-150, 1e-150]
         },
         "operation": "norm"
       },
       {
-        "expected": 1.414213562373095e+150,
+        "expected": 1.414213562373095e150,
         "id": "norm-l2-large",
         "input": {
           "kind": "L2",
-          "values": [
-            1e+150,
-            1e+150
-          ]
+          "values": [1e150, 1e150]
         },
         "operation": "norm"
       },
       {
-        "expected": [
-          3.0,
-          7.0
-        ],
+        "expected": [3.0, 7.0],
         "id": "matvec-identity-2x2",
         "input": {
           "cols": 2,
-          "data": [
-            1,
-            0,
-            0,
-            1
-          ],
+          "data": [1, 0, 0, 1],
           "rows": 2,
-          "x": [
-            3,
-            7
-          ]
+          "x": [3, 7]
         },
         "operation": "matvec"
       },
       {
-        "expected": [
-          8.0,
-          15.0
-        ],
+        "expected": [8.0, 15.0],
         "id": "matvec-scale-2x2",
         "input": {
           "cols": 2,
-          "data": [
-            2,
-            0,
-            0,
-            3
-          ],
+          "data": [2, 0, 0, 3],
           "rows": 2,
-          "x": [
-            4,
-            5
-          ]
+          "x": [4, 5]
         },
         "operation": "matvec"
       },
       {
-        "expected": [
-          0.0,
-          1.0
-        ],
+        "expected": [0.0, 1.0],
         "id": "matvec-rotation-like",
         "input": {
           "cols": 2,
-          "data": [
-            0,
-            -1,
-            1,
-            0
-          ],
+          "data": [0, -1, 1, 0],
           "rows": 2,
-          "x": [
-            1,
-            0
-          ]
+          "x": [1, 0]
         },
         "operation": "matvec"
       },
       {
-        "expected": [
-          3.0,
-          7.0,
-          11.0
-        ],
+        "expected": [3.0, 7.0, 11.0],
         "id": "matvec-3x2",
         "input": {
           "cols": 2,
-          "data": [
-            1,
-            2,
-            3,
-            4,
-            5,
-            6
-          ],
+          "data": [1, 2, 3, 4, 5, 6],
           "rows": 3,
-          "x": [
-            1,
-            1
-          ]
+          "x": [1, 1]
         },
         "operation": "matvec"
       },
@@ -308,12 +188,7 @@
         "id": "frobenius-identity-2x2",
         "input": {
           "cols": 2,
-          "data": [
-            1,
-            0,
-            0,
-            1
-          ],
+          "data": [1, 0, 0, 1],
           "rows": 2
         },
         "operation": "frobenius"
@@ -323,17 +198,7 @@
         "id": "frobenius-3x3",
         "input": {
           "cols": 3,
-          "data": [
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9
-          ],
+          "data": [1, 2, 3, 4, 5, 6, 7, 8, 9],
           "rows": 3
         },
         "operation": "frobenius"
