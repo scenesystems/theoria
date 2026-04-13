@@ -25,7 +25,15 @@ export const WorkflowExecutionRecordSchema = Schema.Struct({
   graph: GraphExecutionManifestSchema,
   projection: GraphExecutionProjectionSchema,
   evaluation: EvaluationContractSchema
-})
+}).pipe(
+  Schema.filter((record) =>
+    (
+      record.workflowKind === record.session.workflowKind
+      && record.workflowKind === record.graph.workflowKind
+      && record.workflowKind === record.evaluation.workflowKind
+    ) || "Expected workflowKind to stay aligned across the record, session, graph, and evaluation"
+  )
+)
 
 /**
  * Workflow-record type extracted from {@link WorkflowExecutionRecordSchema}.

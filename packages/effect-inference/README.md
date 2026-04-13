@@ -41,10 +41,12 @@ const summarizeWorkflow = (workflowRecordJson: unknown, workflowReportJson: unkn
 
 The released workflow surface includes:
 
-- `WorkflowKind`, `WorkflowVocabulary`, `SessionManifest`,
-  `NodeExecutionContract`, `GraphExecutionManifest`,
-  `GraphExecutionProjection`, `EvaluationContract`, and
-  `WorkflowExecutionRecord`
+- `WorkflowKind`, `SessionTurnRole`, `WorkflowStateLane`,
+  `WorkflowNodeKind`, `WorkflowEdgeKind`, `WorkflowLoopPolicy`,
+  `GraphVariant`, `OptimizationKnobKind`, `EvaluationProfileFamily`,
+  `SessionManifest`, `NodeExecutionContract`,
+  `GraphExecutionManifest`, `GraphExecutionProjection`,
+  `EvaluationContract`, and `WorkflowExecutionRecord`
 - `ScoreComponentKind`, `ScoreWeights`, `ScoreProfile`,
   `ScoreComponentResult`, `ScoreLossSummary`, and
   `WorkflowEvaluationReport`

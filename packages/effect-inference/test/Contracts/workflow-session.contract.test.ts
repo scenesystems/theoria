@@ -195,9 +195,20 @@ describe("Contracts/workflow-session", () => {
       },
       { onExcessProperty: "error" }
     )
+    const mismatchedRecord = Schema.decodeUnknownEither(Contracts.WorkflowExecutionRecordSchema)(
+      {
+        ...taskFirstRecord,
+        evaluation: {
+          ...taskFirstRecord.evaluation,
+          workflowKind: "render-sensitive"
+        }
+      },
+      { onExcessProperty: "error" }
+    )
 
     expect(Either.isLeft(invalidWorkflow)).toBe(true)
     expect(Either.isLeft(invalidNodeRole)).toBe(true)
+    expect(Either.isLeft(mismatchedRecord)).toBe(true)
   })
 
   it("round-trips task-first workflow records deterministically", () => {

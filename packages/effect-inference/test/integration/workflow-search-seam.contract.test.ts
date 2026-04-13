@@ -60,29 +60,27 @@ describe("integration/workflow-search-seam", () => {
       expect(encodedEnvelope._tag).toBe("Custom")
 
       if (encodedEnvelope._tag !== "Custom") {
-        return
+        yield* Effect.dieMessage("Expected a custom artifact envelope")
+      } else {
+        const payload = encodedEnvelope.payload
+
+        if (typeof payload !== "object" || payload === null || Arr.isArray(payload)) {
+          yield* Effect.dieMessage("Expected the custom artifact payload to be an object")
+        } else {
+          if (!("workflowExecutionRecordJson" in payload) || typeof payload.workflowExecutionRecordJson !== "string") {
+            yield* Effect.dieMessage("Expected the custom artifact payload to include workflowExecutionRecordJson")
+          } else {
+            const decodedRecord = yield* Schema.decode(Schema.parseJson(Contracts.WorkflowExecutionRecordSchema))(
+              payload.workflowExecutionRecordJson
+            )
+
+            expect(encodedEnvelope.schemaVersion).toBe("artifact-envelope/v1")
+            expect(encodedEnvelope.lineage.sourceRef.origin).toBe("external")
+            expect(encodedEnvelope.lineage.sourceRef.segments[0]).toBe("effect-inference")
+            expect(decodedRecord.recordId).toBe(record.recordId)
+            expect(decodedRecord.graph.manifestId).toBe(record.graph.manifestId)
+          }
+        }
       }
-
-      const payload = encodedEnvelope.payload
-
-      if (
-        typeof payload !== "object"
-        || payload === null
-        || Arr.isArray(payload)
-        || !("workflowExecutionRecordJson" in payload)
-        || typeof payload.workflowExecutionRecordJson !== "string"
-      ) {
-        return
-      }
-
-      const decodedRecord = yield* Schema.decode(Schema.parseJson(Contracts.WorkflowExecutionRecordSchema))(
-        payload.workflowExecutionRecordJson
-      )
-
-      expect(encodedEnvelope.schemaVersion).toBe("artifact-envelope/v1")
-      expect(encodedEnvelope.lineage.sourceRef.origin).toBe("external")
-      expect(encodedEnvelope.lineage.sourceRef.segments[0]).toBe("effect-inference")
-      expect(decodedRecord.recordId).toBe(record.recordId)
-      expect(decodedRecord.graph.manifestId).toBe(record.graph.manifestId)
     }))
 })

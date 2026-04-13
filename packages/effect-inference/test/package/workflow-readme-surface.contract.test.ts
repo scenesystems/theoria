@@ -29,6 +29,8 @@ describe("package/workflow-readme-surface", () => {
       expect(readme).toContain("WorkflowExecutionRecordSchema")
       expect(readme).toContain("WorkflowEvaluationReportSchema")
       expect(readme).toContain("ScoreProfile")
+      expect(readme).toContain("WorkflowStateLane")
+      expect(readme).not.toContain("WorkflowVocabulary")
       expect(readme).toContain("examples/05-workflow-contracts.ts")
       expect(readme).toContain("frozen")
       expect(readme).toContain("runtime-provenance lane")
