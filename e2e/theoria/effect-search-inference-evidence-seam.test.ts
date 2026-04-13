@@ -40,7 +40,7 @@ const makeTestProducer = Effect.gen(function*() {
 describe("e2e/effect-search-inference-evidence-seam", () => {
   it.effect("proves effect-search artifact envelopes consume effect-inference runtime fixtures only in the downstream integration lane", () =>
     Effect.gen(function*() {
-      const evidence = InferenceTesting.makeRuntimeEvidenceFixture({
+      const evidence = InferenceTesting.RuntimeEvidence.fromTesting({
         desired: {
           artifact: { modelRef: "meta-llama/Llama-3.3-70B-Instruct" },
           route: {
@@ -50,7 +50,7 @@ describe("e2e/effect-search-inference-evidence-seam", () => {
             baseUrl: "https://router.huggingface.co/v1"
           }
         },
-        resolvedRuntime: InferenceTesting.makeResolvedRuntimeDescriptor({
+        resolvedRuntime: InferenceTesting.ResolvedRuntimeDescriptor.fromTesting({
           responseModel: "accounts/fireworks/models/llama-v3p3-70b-instruct",
           responseId: "resp_456"
         })
