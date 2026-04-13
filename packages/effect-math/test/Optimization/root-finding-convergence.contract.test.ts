@@ -116,4 +116,45 @@ describe("Optimization / root-finding convergence", () => {
       expect(result.root).toBeCloseTo(1e-20, 30)
       expect(result.functionEvaluationCount).toBeLessThanOrEqual(4)
     }))
+
+  it.effect("returns immediately when Brent starts on an exact bracket endpoint root", () =>
+    Effect.sync(() => {
+      const result = findRoot(
+        (x) => N.subtract(x, 1),
+        {
+          method: "brent",
+          lowerBound: 0,
+          upperBound: 1,
+          maxIterations: 20_000
+        }
+      )
+
+      expect(result.status).toBe("converged")
+      expect(result.root).toBe(1)
+      expect(result.iterationCount).toBe(0)
+      expect(result.functionEvaluationCount).toBe(2)
+    }))
+
+  it.effect("stays stack-safe for large non-convergent iteration budgets", () =>
+    Effect.sync(() => {
+      const maxIterations = 20_000
+      const result = findRoot(
+        () => 1,
+        {
+          method: "newtonRaphson",
+          initialGuess: 0,
+          absoluteTolerance: 0,
+          relativeTolerance: 0,
+          maxIterations
+        },
+        {
+          derivative: () => 1
+        }
+      )
+
+      expect(result.status).toBe("maxIterationsExceeded")
+      expect(result.iterationCount).toBe(maxIterations)
+      expect(result.functionEvaluationCount).toBe(maxIterations + 1)
+      expect(result.residual).toBe(1)
+    }))
 })

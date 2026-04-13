@@ -108,52 +108,50 @@ const transformPowerOfTwo = (
 
   const real = input.map((value) => value.real)
   const imaginary = input.map((value) => value.imaginary)
-  const reordered = Arr.reduce(
-    Arr.range(1, length - 1),
-    { imaginary, real, reversedIndex: 0 },
-    (state, index) => {
-      const nextReversedIndex = nextBitReversedIndex(length, state.reversedIndex)
+  const reorderState = { reversedIndex: 0 }
 
-      if (index < nextReversedIndex) {
-        swapIndices(state.real, state.imaginary, index, nextReversedIndex)
-      }
-
-      return {
-        ...state,
-        reversedIndex: nextReversedIndex
-      }
+  real.forEach((_, index) => {
+    if (index === 0) {
+      return
     }
-  )
-  const runStages = (size: number): { readonly real: Array<number>; readonly imaginary: Array<number> } => {
+
+    const nextReversedIndex = nextBitReversedIndex(length, reorderState.reversedIndex)
+
+    if (index < nextReversedIndex) {
+      swapIndices(real, imaginary, index, nextReversedIndex)
+    }
+
+    reorderState.reversedIndex = nextReversedIndex
+  })
+
+  const runStages = (size: number): void => {
     if (size > length) {
-      return reordered
+      return
     }
 
     const halfSize = size >> 1
     const phase = N.unsafeDivide(N.multiply(directionSign(direction), N.multiply(2, PI)), size)
-    const blockCount = N.unsafeDivide(length, size)
 
-    Arr.reduce(Arr.range(0, blockCount - 1), undefined, (_, blockIndex) => {
-      Arr.reduce(Arr.range(0, halfSize - 1), undefined, (_, offset) => {
+    real.forEach((_, evenIndex) => {
+      const offset = evenIndex % size
+
+      if (offset < halfSize) {
         applyButterfly({
-          evenIndex: N.sum(N.multiply(blockIndex, size), offset),
-          oddIndex: N.sum(N.sum(N.multiply(blockIndex, size), offset), halfSize),
-          real: reordered.real,
-          imaginary: reordered.imaginary,
+          evenIndex,
+          oddIndex: N.sum(evenIndex, halfSize),
+          real,
+          imaginary,
           twiddle: twiddle(phase, offset)
         })
-
-        return undefined
-      })
-
-      return undefined
+      }
     })
 
     return runStages(size << 1)
   }
-  const transformed = runStages(2)
 
-  return transformed.real.map((value, index) => toPair(value, transformed.imaginary[index]!))
+  runStages(2)
+
+  return real.map((value, valueIndex) => toPair(value, imaginary[valueIndex]!))
 }
 
 const transformBluestein = (
@@ -168,14 +166,16 @@ const transformBluestein = (
 
   right[0] = toPair(1, 0)
 
-  Arr.reduce(Arr.range(0, length - 1), undefined, (_, index) => {
-    left[index] = multiplyPairs(input[index]!, chirp(sign, index, length))
-
-    return undefined
+  input.forEach((value, index) => {
+    left[index] = multiplyPairs(value, chirp(sign, index, length))
   })
 
   if (length > 1) {
-    Arr.reduce(Arr.range(1, length - 1), undefined, (_, index) => {
+    input.forEach((_, index) => {
+      if (index === 0) {
+        return
+      }
+
       const kernel = chirp(N.negate(sign), index, length)
 
       right[index] = kernel

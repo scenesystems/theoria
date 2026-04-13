@@ -4,7 +4,7 @@
  * @since 0.3.0
  * @category internal
  */
-import { Chunk, Number as N } from "effect"
+import { Chunk, Number as N, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { EulerInputType, OdeTrajectoryPoint, Rk4InputType } from "../../schema.js"
@@ -38,6 +38,8 @@ type SampleIntervalState = Readonly<{
   readonly functionEvaluations: number
   readonly remainingSubsteps: number
 }>
+
+const duplicateState = <State>(state: State): readonly [State, State] => [state, state]
 
 // Fixed-step solvers publish trajectory points on the requested sample cadence
 // while taking deterministic internal substeps to stay aligned with the
@@ -82,6 +84,108 @@ const rk4Step = (
 }
 
 const solverFor = (method: "euler" | "rk4") => (method === "euler" ? eulerStep : rk4Step)
+
+const advanceFixedState = ({
+  direction,
+  field,
+  finalTime,
+  maxSteps,
+  method,
+  stepMagnitude,
+  state
+}: {
+  readonly direction: number
+  readonly field: OdeVectorField
+  readonly finalTime: number
+  readonly maxSteps: number
+  readonly method: "euler" | "rk4"
+  readonly stepMagnitude: number
+  readonly state: FixedAdvanceState
+}): FixedAdvanceState => {
+  if (hasReachedTarget({ currentTime: state.time, direction, finalTime })) {
+    return {
+      ...state,
+      done: true,
+      status: "finished"
+    }
+  }
+
+  if (state.acceptedSteps >= maxSteps) {
+    return {
+      ...state,
+      done: true,
+      status: "maxStepsExceeded"
+    }
+  }
+
+  const remaining = remainingDistance({ currentTime: state.time, direction, finalTime })
+  const actualStepMagnitude = minimum(stepMagnitude, remaining)
+
+  if (actualStepMagnitude === 0) {
+    return {
+      ...state,
+      done: true,
+      status: "stepSizeTooSmall"
+    }
+  }
+
+  const signedStep = N.multiply(actualStepMagnitude, direction)
+  const substepCount = fixedSampleSubsteps(method)
+  const substep = N.unsafeDivide(signedStep, substepCount)
+  const next = integrateSampleInterval({
+    field,
+    remainingSubsteps: substepCount,
+    solver: solverFor(method),
+    state: state.state,
+    step: substep,
+    time: state.time,
+    functionEvaluations: 0
+  })
+  const nextTime = N.sum(state.time, signedStep)
+
+  return {
+    acceptedSteps: N.sum(state.acceptedSteps, 1),
+    done: false,
+    functionEvaluations: N.sum(state.functionEvaluations, next.functionEvaluations),
+    state: next.nextState,
+    status: "finished",
+    time: nextTime,
+    trajectory: Chunk.append(state.trajectory, makeTrajectoryPoint(nextTime, next.nextState))
+  }
+}
+
+const unfoldFixedState = ({
+  direction,
+  field,
+  finalTime,
+  maxSteps,
+  method,
+  stepMagnitude,
+  state
+}: {
+  readonly direction: number
+  readonly field: OdeVectorField
+  readonly finalTime: number
+  readonly maxSteps: number
+  readonly method: "euler" | "rk4"
+  readonly stepMagnitude: number
+  readonly state: FixedAdvanceState
+}): Option.Option<readonly [FixedAdvanceState, FixedAdvanceState]> =>
+  state.done
+    ? Option.none()
+    : (() => {
+      const nextState = advanceFixedState({
+        direction,
+        field,
+        finalTime,
+        maxSteps,
+        method,
+        stepMagnitude,
+        state
+      })
+
+      return Option.some(duplicateState(nextState))
+    })()
 
 const integrateSampleInterval = ({
   field,
@@ -161,62 +265,17 @@ const advanceFixed = ({
     time,
     trajectory: Chunk.fromIterable(trajectory)
   }
-  const finalState = Arr.reduce(Arr.range(0, maxSteps), initialState, (currentState): FixedAdvanceState => {
-    if (currentState.done) {
-      return currentState
-    }
-
-    if (hasReachedTarget({ currentTime: currentState.time, direction, finalTime })) {
-      return {
-        ...currentState,
-        done: true,
-        status: "finished"
-      }
-    }
-
-    if (currentState.acceptedSteps >= maxSteps) {
-      return {
-        ...currentState,
-        done: true,
-        status: "maxStepsExceeded"
-      }
-    }
-
-    const remaining = remainingDistance({ currentTime: currentState.time, direction, finalTime })
-    const actualStepMagnitude = minimum(stepMagnitude, remaining)
-
-    if (actualStepMagnitude === 0) {
-      return {
-        ...currentState,
-        done: true,
-        status: "stepSizeTooSmall"
-      }
-    }
-
-    const signedStep = N.multiply(actualStepMagnitude, direction)
-    const substepCount = fixedSampleSubsteps(method)
-    const substep = N.unsafeDivide(signedStep, substepCount)
-    const next = integrateSampleInterval({
+  const advancedStates = Arr.unfold(initialState, (currentState) =>
+    unfoldFixedState({
+      direction,
       field,
-      remainingSubsteps: substepCount,
-      solver: solverFor(method),
-      state: currentState.state,
-      step: substep,
-      time: currentState.time,
-      functionEvaluations: 0
-    })
-    const nextTime = N.sum(currentState.time, signedStep)
-
-    return {
-      acceptedSteps: N.sum(currentState.acceptedSteps, 1),
-      done: false,
-      functionEvaluations: N.sum(currentState.functionEvaluations, next.functionEvaluations),
-      state: next.nextState,
-      status: "finished",
-      time: nextTime,
-      trajectory: Chunk.append(currentState.trajectory, makeTrajectoryPoint(nextTime, next.nextState))
-    }
-  })
+      finalTime,
+      maxSteps,
+      method,
+      stepMagnitude,
+      state: currentState
+    }))
+  const finalState = advancedStates[advancedStates.length - 1]!
 
   return makeOdeResult({
     acceptedSteps: finalState.acceptedSteps,
