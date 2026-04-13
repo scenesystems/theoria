@@ -5,6 +5,7 @@
  */
 import { Effect, Match, Option, Ref, Tuple } from "effect"
 
+import type { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import * as Errors from "../../Errors/index.js"
 import type { SearchError } from "../../Errors/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
@@ -35,7 +36,7 @@ import { applyTrialStoppingPolicies } from "./stopping.js"
 import { TrialContext } from "./trialContext.js"
 import { evaluateObjectiveWithPolicy } from "./trialEvaluation.js"
 import type { CacheResolveAsTrialError } from "./trialEvaluation/model.js"
-import { reserveTrialOrMarkSpaceExhausted } from "./trialReservation.js"
+import { ReservedTrial, reserveTrialOrMarkSpaceExhausted } from "./trialReservation.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
@@ -73,6 +74,7 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>,
     running: Trial<ConfigFor<Space>>,
+    diagnostics: Option.Option<SuggestionDiagnostics>,
     resource: Option.Option<number>
   ): Effect.Effect<Trial<ConfigFor<Space>>, SearchError, StudyClock | ObjectiveEvaluator> =>
     Effect.gen(function*() {
@@ -102,8 +104,7 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
           )
       })
 
-      const runtimeState = yield* runtime.stateActor.get
-      const event = Option.match(runtimeState.suggestionState.lastSuggestionDiagnostics, {
+      const event = Option.match(diagnostics, {
         onNone: () => StudyEvent.TrialStarted.make({ trialNumber, config: running.config }),
         onSome: (diagnostics) => StudyEvent.TrialStarted.make({ trialNumber, config: running.config, diagnostics })
       })
@@ -162,7 +163,7 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   config: ConfigFor<Space>,
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
-): Effect.Effect<Trial<ConfigFor<Space>>, never, StudyClock> =>
+): Effect.Effect<ReservedTrial<ConfigFor<Space>>, never, StudyClock> =>
   modifyRuntimeState(runtime, (state) =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
@@ -170,7 +171,10 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
       const running = Trial.run(trialNumber, config, startedAt)
 
       return Tuple.make(
-        running,
+        new ReservedTrial({
+          running,
+          diagnostics: Option.none()
+        }),
         new RuntimeState({
           lifecycle: state.lifecycle,
           studyState: withReservedTrial(state.studyState, running),
@@ -202,14 +206,15 @@ export const runScheduledTrial = <Space extends SearchSpace.SearchSpace>(
         const runningOption = yield* reserveTrialOrMarkSpaceExhausted(options, settings, trialNumber, runtime)
         yield* Option.match(runningOption, {
           onNone: () => Effect.void,
-          onSome: (running) =>
+          onSome: (reservation) =>
             executeReservedTrial(
               options,
               settings,
               pruningPolicy,
               trialNumber,
               runtime,
-              running,
+              reservation.running,
+              reservation.diagnostics,
               Option.none()
             ).pipe(Effect.asVoid)
         })
@@ -242,8 +247,17 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
       Match.when(true, () => Effect.succeed(Option.none())),
       Match.orElse(() =>
         reserveConfiguredTrial(config, trialNumber, runtime).pipe(
-          Effect.flatMap((running) =>
-            executeReservedTrial(options, settings, pruningPolicy, trialNumber, runtime, running, resource)
+          Effect.flatMap((reservation) =>
+            executeReservedTrial(
+              options,
+              settings,
+              pruningPolicy,
+              trialNumber,
+              runtime,
+              reservation.running,
+              reservation.diagnostics,
+              resource
+            )
           ),
           Effect.map(Option.some)
         )

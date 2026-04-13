@@ -112,8 +112,7 @@ export const fromStudyStateShape = <Config>(
   priorWeight,
   epsilon,
   nextTrialNumber: Num.increment(maxTrialNumberFromState(state)),
-  preparedSuggestion: Option.none(),
-  lastSuggestionDiagnostics: Option.none()
+  preparedSuggestion: Option.none()
 })
 
 const imputedCompleted = (

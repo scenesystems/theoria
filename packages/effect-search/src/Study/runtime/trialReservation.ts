@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option, Tuple } from "effect"
+import { Data, Effect, Option, Tuple } from "effect"
 
 import { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import type { SearchError } from "../../Errors/index.js"
@@ -21,6 +21,18 @@ import { RuntimeState } from "./runtimeState.js"
 import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
+
+/**
+ * Reservation-local result that keeps the running trial and its diagnostics
+ * bound together atomically.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export class ReservedTrial<Config = unknown> extends Data.Class<{
+  readonly running: Trial<Config>
+  readonly diagnostics: Option.Option<SuggestionDiagnostics>
+}> {}
 
 const suggestWithPreparedState = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
@@ -100,6 +112,7 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
         suggestionContext,
         state.suggestionState.preparedSuggestion
       )
+      void diagnostics
 
       const config = yield* decodeConfig(
         sampler.kind._tag,
@@ -113,7 +126,7 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
         new RuntimeState({
           lifecycle: state.lifecycle,
           studyState: state.studyState,
-          suggestionState: state.suggestionState.withPreparedSuggestion(preparedSuggestion, diagnostics)
+          suggestionState: state.suggestionState.withPreparedSuggestion(preparedSuggestion)
         })
       )
     }))
@@ -124,7 +137,7 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
     _settings: OptimizeSettings,
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>
-  ): Effect.Effect<Trial<ConfigFor<Space>>, SearchError, StudyClock> =>
+  ): Effect.Effect<ReservedTrial<ConfigFor<Space>>, SearchError, StudyClock> =>
     modifyRuntimeState(runtime, (state) =>
       Effect.gen(function*() {
         const clock = yield* StudyClock
@@ -150,11 +163,14 @@ const reserveTrial = Effect.fn("effect-search/Study.reserveTrial")(
         const nextSuggestionState = state.suggestionState.withReservedTrial(running)
 
         return Tuple.make(
-          running,
+          new ReservedTrial({
+            running,
+            diagnostics: Option.some(diagnostics)
+          }),
           new RuntimeState({
             lifecycle: state.lifecycle,
             studyState: nextStudyState,
-            suggestionState: nextSuggestionState.withPreparedSuggestion(preparedSuggestion, diagnostics)
+            suggestionState: nextSuggestionState.withPreparedSuggestion(preparedSuggestion)
           })
         )
       }))
@@ -171,7 +187,7 @@ export const reserveTrialOrMarkSpaceExhausted = <Space extends SearchSpace.Searc
   settings: OptimizeSettings,
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
-): Effect.Effect<Option.Option<Trial<ConfigFor<Space>>>, SearchError, StudyClock> =>
+): Effect.Effect<Option.Option<ReservedTrial<ConfigFor<Space>>>, SearchError, StudyClock> =>
   reserveTrial(options, settings, trialNumber, runtime).pipe(
     Effect.map(Option.some),
     Effect.catchTag(

@@ -6,7 +6,6 @@
 import { Data, type Option } from "effect"
 
 import type { ObjectiveSpec } from "../../contracts/ObjectiveSpec.js"
-import type { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import type {
   PendingImputationPolicy,
   SuggestCompletedTrial,
@@ -37,7 +36,6 @@ export class SuggestionState extends Data.Class<{
   readonly epsilon: number
   readonly nextTrialNumber: number
   readonly preparedSuggestion: Option.Option<PreparedSuggestionState>
-  readonly lastSuggestionDiagnostics: Option.Option<SuggestionDiagnostics>
 }> {
   /**
    * Rehydrates a stable sampler-facing suggestion state from trusted fields.
@@ -99,16 +97,13 @@ export class SuggestionState extends Data.Class<{
   }
 
   /**
-   * Records the most recent prepared suggestion and its published diagnostics
-   * without mutating canonical study history.
+   * Records the most recent prepared suggestion without mutating canonical
+   * study history.
    *
    * @since 0.3.0
    * @category combinators
    */
-  withPreparedSuggestion(
-    preparedSuggestion: Option.Option<PreparedSuggestionState>,
-    lastSuggestionDiagnostics: SuggestionDiagnostics
-  ): SuggestionState {
-    return SuggestionState.make(withPreparedSuggestionShape(this, preparedSuggestion, lastSuggestionDiagnostics))
+  withPreparedSuggestion(preparedSuggestion: Option.Option<PreparedSuggestionState>): SuggestionState {
+    return SuggestionState.make(withPreparedSuggestionShape(this, preparedSuggestion))
   }
 }

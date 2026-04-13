@@ -5,7 +5,6 @@
  */
 import { Array as Arr, Number as Num, Option, Order } from "effect"
 
-import type { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import type { SuggestCompletedTrial, SuggestPendingTrial } from "../../Sampler/index.js"
 import type { PreparedSuggestionState } from "../../Sampler/preparation.js"
 import type * as Trial from "../../Trial/index.js"
@@ -43,8 +42,7 @@ export const withReservedTrialShape = <Config>(
   priorWeight: state.priorWeight,
   epsilon: state.epsilon,
   nextTrialNumber: Num.max(state.nextTrialNumber, Num.increment(trial.trialNumber)),
-  preparedSuggestion: state.preparedSuggestion,
-  lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
+  preparedSuggestion: state.preparedSuggestion
 })
 
 /**
@@ -68,21 +66,19 @@ export const withFinalizedTrialShape = <Config>(
   priorWeight: state.priorWeight,
   epsilon: state.epsilon,
   nextTrialNumber: state.nextTrialNumber,
-  preparedSuggestion: state.preparedSuggestion,
-  lastSuggestionDiagnostics: state.lastSuggestionDiagnostics
+  preparedSuggestion: state.preparedSuggestion
 })
 
 /**
- * Stores the prepared suggestion cache and its diagnostics alongside the
- * sampler-facing projection state.
+ * Stores the prepared suggestion cache alongside the sampler-facing
+ * projection state.
  *
  * @since 0.3.0
  * @category projections
  */
 export const withPreparedSuggestionShape = (
   state: SuggestionState,
-  preparedSuggestion: Option.Option<PreparedSuggestionState>,
-  lastSuggestionDiagnostics: SuggestionDiagnostics
+  preparedSuggestion: Option.Option<PreparedSuggestionState>
 ): ConstructorParameters<typeof SuggestionState>[0] => ({
   observedCompleted: state.observedCompleted,
   pending: state.pending,
@@ -90,6 +86,5 @@ export const withPreparedSuggestionShape = (
   priorWeight: state.priorWeight,
   epsilon: state.epsilon,
   nextTrialNumber: state.nextTrialNumber,
-  preparedSuggestion,
-  lastSuggestionDiagnostics: Option.some(lastSuggestionDiagnostics)
+  preparedSuggestion
 })

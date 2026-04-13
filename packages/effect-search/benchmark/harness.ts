@@ -27,7 +27,7 @@ import {
   mixedSpaceBenchmarkSpace,
   syntheticMixedSpaceConfig
 } from "./problems/mixedSpaceTpe.js"
-import { averageMilliseconds, maximumValue, measureMilliseconds, minimumValue } from "./stats.js"
+import { averageMilliseconds, maximumValue, measureMilliseconds, medianValue, minimumValue } from "./stats.js"
 export { validateBenchmarkArtifact } from "./validation.js"
 
 const buildSamplerHarnessState = (historyLength: number, seed: number) =>
@@ -116,6 +116,7 @@ const runEnginePhase = (seed: number, measurementCycles: number, historyLength: 
       })
 
       yield* Effect.forEach(Arr.makeBy(historyLength, () => undefined), () => runAskTellCycle(handle), { discard: true })
+      yield* runAskTellCycle(handle)
 
       const measurements = yield* Effect.forEach(
         Arr.makeBy(measurementCycles, () => undefined),
@@ -124,8 +125,8 @@ const runEnginePhase = (seed: number, measurementCycles: number, historyLength: 
       const snapshot = yield* Study.snapshot(handle)
 
       return {
-        askAverageMs: averageMilliseconds(Arr.map(measurements, ({ askMs }) => askMs)),
-        tellAverageMs: averageMilliseconds(Arr.map(measurements, ({ tellMs }) => tellMs)),
+        askAverageMs: medianValue(Arr.map(measurements, ({ askMs }) => askMs)),
+        tellAverageMs: medianValue(Arr.map(measurements, ({ tellMs }) => tellMs)),
         samplerMetrics: snapshot.samplerMetrics
       }
     })

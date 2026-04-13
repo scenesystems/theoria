@@ -135,18 +135,28 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
             Effect.fail(invalid("Study.ask cannot reserve a trial because the search space is exhausted"))
           )
         ),
-      onSome: (running) =>
+      onSome: (reservation) =>
         Effect.gen(function*() {
-          const reservedState = yield* readRuntimeState(state.runtime)
-          const event = Option.match(reservedState.suggestionState.lastSuggestionDiagnostics, {
-            onNone: () => StudyEvent.TrialStarted.make({ trialNumber: running.trialNumber, config: running.config }),
+          const event = Option.match(reservation.diagnostics, {
+            onNone: () =>
+              StudyEvent.TrialStarted.make({
+                trialNumber: reservation.running.trialNumber,
+                config: reservation.running.config
+              }),
             onSome: (diagnostics) =>
-              StudyEvent.TrialStarted.make({ trialNumber: running.trialNumber, config: running.config, diagnostics })
+              StudyEvent.TrialStarted.make({
+                trialNumber: reservation.running.trialNumber,
+                config: reservation.running.config,
+                diagnostics
+              })
           })
 
           yield* appendEvent(state.runtime, event)
 
-          return new AskedTrial({ trialNumber: running.trialNumber, config: running.config })
+          return new AskedTrial({
+            trialNumber: reservation.running.trialNumber,
+            config: reservation.running.config
+          })
         })
     })
   })

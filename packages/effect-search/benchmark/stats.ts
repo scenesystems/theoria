@@ -4,6 +4,19 @@ import * as Arr from "effect/Array"
 export const averageMilliseconds = (durations: ReadonlyArray<number>): number =>
   durations.length === 0 ? 0 : Arr.reduce(durations, 0, (total, duration) => total + duration) / durations.length
 
+export const medianValue = (values: ReadonlyArray<number>): number =>
+  Arr.match(values, {
+    onEmpty: () => 0,
+    onNonEmpty: (nonEmpty) => {
+      const sorted = [...nonEmpty].sort((left, right) => left - right)
+      const middleIndex = Math.floor(sorted.length / 2)
+
+      return sorted.length % 2 === 0
+        ? ((sorted[middleIndex - 1] ?? 0) + (sorted[middleIndex] ?? 0)) / 2
+        : (sorted[middleIndex] ?? 0)
+    }
+  })
+
 export const maximumValue = (values: ReadonlyArray<number>): number =>
   Arr.match(values, {
     onEmpty: () => 0,

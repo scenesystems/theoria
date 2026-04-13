@@ -860,7 +860,7 @@ For one-shot event emission (for example, in manual orchestration adapters), use
 ```ts
 import { Study, StudyEvent } from "effect-search"
 
-yield * Study.TerminalReporter.report(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }), { sink })
+yield * Study.TerminalReporter.report(StudyEvent.StudyCompleted.make({ completionReason: "budgetExhausted" }), { sink })
 ```
 
 ### DevTools tracing
