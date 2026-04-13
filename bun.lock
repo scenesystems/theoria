@@ -110,6 +110,7 @@
       "name": "effect-dsp",
       "version": "0.1.4",
       "dependencies": {
+        "@effect/platform": "0.96.0",
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/seal": "workspace:*",
         "@scenesystems/sign": "workspace:*",
