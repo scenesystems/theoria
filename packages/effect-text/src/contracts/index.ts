@@ -107,7 +107,7 @@ export type TextPreparationServices = WordSegmenter | MeasurementCache | EngineP
 /**
  * Stable render-fitness identity and evidence helpers for downstream scoring.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category models
  */
 export * from "./renderFitness.js"

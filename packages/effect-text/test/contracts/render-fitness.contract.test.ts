@@ -28,9 +28,22 @@ describe("contracts/render-fitness", () => {
       expect(normalization.kind).toBe("support-profile-tolerance")
       expect(normalization.supportProfileRef).toBe(supportProfile.id)
       expect(normalization.toleranceRef).toBe(`${supportProfile.id}:${supportProfile.parityTolerancePx}`)
-      expect(evidence.input.fontIdentityRef).toBe(`${supportProfile.defaultFontFamily}:14:default`)
-      expect(evidence.visibleLineCount).toBe(3)
-      expect(evidence.aboveFoldCoverage).toBe(1)
-      expect(evidence.widthOverflowPx).toBe(0)
+      expect(evidence).toStrictEqual({
+        input: {
+          supportProfileRef: supportProfile.id,
+          fontIdentityRef: `${supportProfile.defaultFontFamily}:14:default`,
+          fontReadinessRevision: "0",
+          tolerancePx: supportProfile.parityTolerancePx,
+          toleranceRef: `${supportProfile.id}:${supportProfile.parityTolerancePx}`,
+          targetWidthPx: 420,
+          lineHeightPx: 20,
+          aboveFoldHeightPx: 120
+        },
+        totalLineCount: 3,
+        visibleLineCount: 3,
+        aboveFoldCoverage: 1,
+        spillBelowFoldPx: 0,
+        widthOverflowPx: 0
+      })
     }))
 })

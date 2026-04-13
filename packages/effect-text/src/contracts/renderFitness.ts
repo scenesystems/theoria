@@ -1,7 +1,7 @@
 /**
  * Stable render-fitness identity and evidence envelopes for downstream workflow scoring.
  *
- * @since 0.2.0
+ * @since 0.3.0
  */
 import { Schema } from "effect"
 
@@ -13,7 +13,7 @@ const UnitInterval = NonNegativeFiniteNumber.pipe(Schema.lessThanOrEqualTo(1))
 /**
  * Stable summary fields required to derive downstream render-fitness evidence.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category schemas
  */
 export const RenderFitnessLayoutSummary = Schema.Struct({
@@ -25,7 +25,7 @@ export const RenderFitnessLayoutSummary = Schema.Struct({
 /**
  * Render-fitness layout-summary type.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category models
  */
 export type RenderFitnessLayoutSummaryType = typeof RenderFitnessLayoutSummary.Type
@@ -33,7 +33,7 @@ export type RenderFitnessLayoutSummaryType = typeof RenderFitnessLayoutSummary.T
 /**
  * Stable render-fitness identity and target envelope.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category schemas
  */
 export const RenderFitnessInput = Schema.Struct({
@@ -50,7 +50,7 @@ export const RenderFitnessInput = Schema.Struct({
 /**
  * Render-fitness input type.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category models
  */
 export type RenderFitnessInputType = typeof RenderFitnessInput.Type
@@ -58,7 +58,7 @@ export type RenderFitnessInputType = typeof RenderFitnessInput.Type
 /**
  * Stable normalization identity consumed by downstream score profiles.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category schemas
  */
 export const RenderFitnessNormalization = Schema.Struct({
@@ -73,7 +73,7 @@ export const RenderFitnessNormalization = Schema.Struct({
 /**
  * Render-fitness normalization type.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category models
  */
 export type RenderFitnessNormalizationType = typeof RenderFitnessNormalization.Type
@@ -81,16 +81,11 @@ export type RenderFitnessNormalizationType = typeof RenderFitnessNormalization.T
 /**
  * Stable render-fitness evidence emitted from prepared-layout summaries.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category schemas
  */
 export const RenderFitnessEvidence = Schema.Struct({
   input: RenderFitnessInput,
-  supportProfileRef: Schema.String,
-  fontIdentityRef: Schema.String,
-  fontReadinessRevision: Schema.String,
-  tolerancePx: NonNegativeFiniteNumber,
-  toleranceRef: Schema.String,
   totalLineCount: NonNegativeInt,
   visibleLineCount: NonNegativeInt,
   aboveFoldCoverage: UnitInterval,
@@ -101,7 +96,7 @@ export const RenderFitnessEvidence = Schema.Struct({
 /**
  * Render-fitness evidence type.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category models
  */
 export type RenderFitnessEvidenceType = typeof RenderFitnessEvidence.Type
@@ -109,7 +104,7 @@ export type RenderFitnessEvidenceType = typeof RenderFitnessEvidence.Type
 /**
  * Stable font-identity reference used by downstream render-fitness scoring.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category identities
  */
 export const renderFitnessFontIdentity = (font: {
@@ -121,7 +116,7 @@ export const renderFitnessFontIdentity = (font: {
 /**
  * Stable tolerance reference used by downstream render-fitness scoring.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category identities
  */
 export const renderFitnessToleranceRef = (options: {
@@ -132,7 +127,7 @@ export const renderFitnessToleranceRef = (options: {
 /**
  * Builds the stable render-fitness input envelope from support and font data.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category identities
  */
 export const renderFitnessInputFor = (options: {
@@ -164,7 +159,7 @@ export const renderFitnessInputFor = (options: {
 /**
  * Projects the stable normalization identity from a render-fitness input.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category identities
  */
 export const renderFitnessNormalizationFor = (
@@ -181,7 +176,7 @@ export const renderFitnessNormalizationFor = (
 /**
  * Projects stable render-fitness evidence from a prepared-layout summary.
  *
- * @since 0.2.0
+ * @since 0.3.0
  * @category projection
  */
 export const renderFitnessEvidenceFromSummary = (
@@ -194,11 +189,6 @@ export const renderFitnessEvidenceFromSummary = (
 
   return {
     input,
-    supportProfileRef: input.supportProfileRef,
-    fontIdentityRef: input.fontIdentityRef,
-    fontReadinessRevision: input.fontReadinessRevision,
-    tolerancePx: input.tolerancePx,
-    toleranceRef: input.toleranceRef,
     totalLineCount: summary.lineCount,
     visibleLineCount,
     aboveFoldCoverage: visibleLineCount / totalLineCount,
