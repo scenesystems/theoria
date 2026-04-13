@@ -14,10 +14,15 @@ import * as Contracts from "../../src/contracts/index.js"
 
 const repositoryRootUrl = new URL("../../../../", import.meta.url)
 const appWorkflowAuthorityContractPaths = [
+  "apps/theoria/app/contracts/study/workflow/evidence-graph-presentation.ts",
   "apps/theoria/app/contracts/study/workflow/evidence-presentation.ts",
+  "apps/theoria/app/contracts/study/workflow/evidence-projection-schema.ts",
   "apps/theoria/app/contracts/study/workflow/evidence.ts",
   "apps/theoria/app/contracts/study/workflow/execution.ts",
+  "apps/theoria/app/contracts/study/workflow/fixture-manifest.ts",
   "apps/theoria/app/contracts/study/workflow/frozen.ts",
+  "apps/theoria/app/contracts/study/workflow/manifest.ts",
+  "apps/theoria/app/contracts/study/workflow/revision.ts",
   "apps/theoria/app/contracts/study/workflow/runtime-plan.ts",
   "apps/theoria/app/contracts/study/workflow/scenario.ts",
   "apps/theoria/app/contracts/study/workflow/step.ts",

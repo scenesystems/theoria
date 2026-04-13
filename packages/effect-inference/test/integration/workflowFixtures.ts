@@ -2,7 +2,7 @@ export const taskFirstWorkflowRecord = {
   recordId: "workflow-task-1",
   workflowKind: "task-first",
   session: {
-    sessionId: "session-task-1",
+    sessionId: "11111111-1111-4111-8111-111111111111",
     workflowKind: "task-first",
     turns: [{ turnId: "turn-1", role: "user", content: "Explain runtime provenance in one sentence." }],
     stateLanes: [

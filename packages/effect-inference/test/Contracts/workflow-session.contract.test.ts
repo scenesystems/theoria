@@ -7,7 +7,7 @@ const taskFirstRecord = {
   recordId: "workflow-task-1",
   workflowKind: "task-first",
   session: {
-    sessionId: "session-task-1",
+    sessionId: "11111111-1111-4111-8111-111111111111",
     workflowKind: "task-first",
     turns: [{ turnId: "turn-1", role: "user", content: "Explain runtime provenance in one sentence." }],
     stateLanes: [
@@ -72,7 +72,7 @@ const chatContinuationRecord = {
   recordId: "workflow-chat-1",
   workflowKind: "chat-continuation",
   session: {
-    sessionId: "session-chat-1",
+    sessionId: "22222222-2222-4222-8222-222222222222",
     workflowKind: "chat-continuation",
     turns: [
       { turnId: "turn-1", role: "system", content: "You are a concise runtime analyst." },

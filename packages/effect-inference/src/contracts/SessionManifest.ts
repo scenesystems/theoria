@@ -9,6 +9,14 @@ import { WorkflowKindSchema } from "./WorkflowKind.js"
 import { SessionTurnRoleSchema, WorkflowStateLaneSchema } from "./WorkflowVocabulary.js"
 
 /**
+ * Routeable workflow session identity.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const WorkflowSessionIdSchema = Schema.UUID
+
+/**
  * One replay-safe turn in a workflow session.
  *
  * @since 0.2.0
@@ -38,7 +46,7 @@ export const SessionStateLaneSchema = Schema.Struct({
  * @category schemas
  */
 export const SessionManifestSchema = Schema.Struct({
-  sessionId: Schema.String,
+  sessionId: WorkflowSessionIdSchema,
   workflowKind: WorkflowKindSchema,
   turns: Schema.Array(SessionTurnSchema),
   stateLanes: Schema.Array(SessionStateLaneSchema)
@@ -51,6 +59,14 @@ export const SessionManifestSchema = Schema.Struct({
  * @category type-level
  */
 export type SessionManifest = Schema.Schema.Type<typeof SessionManifestSchema>
+
+/**
+ * Workflow session id extracted from {@link WorkflowSessionIdSchema}.
+ *
+ * @since 0.2.0
+ * @category type-level
+ */
+export type WorkflowSessionId = Schema.Schema.Type<typeof WorkflowSessionIdSchema>
 
 /**
  * Session turn extracted from {@link SessionTurnSchema}.
