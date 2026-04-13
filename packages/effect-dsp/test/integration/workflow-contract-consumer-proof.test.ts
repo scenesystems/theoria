@@ -6,11 +6,7 @@ import {
   WorkflowKindSchema
 } from "effect-inference/Contracts"
 
-import {
-  WorkflowInteropOwnership,
-  WorkflowModuleGraphInputSchema,
-  WorkflowModuleGraphProjection
-} from "effect-dsp/contracts"
+import { WorkflowGraphInputSchema, WorkflowGraphProjection, WorkflowInteropOwnership } from "effect-dsp/contracts"
 
 const workflowManifestFixture = {
   manifestId: "chat-handoff-proof",
@@ -84,11 +80,11 @@ describe("integration/workflow-contract-consumer-proof", () => {
         workflowKind
       })
       const projection = yield* Schema.decodeUnknown(GraphExecutionProjectionSchema)(workflowProjectionFixture)
-      const input = yield* Schema.decodeUnknown(WorkflowModuleGraphInputSchema)({
+      const input = yield* Schema.decodeUnknown(WorkflowGraphInputSchema)({
         manifest,
         projection
       })
-      const graphProjection = WorkflowModuleGraphProjection.fromWorkflowInput(input)
+      const graphProjection = WorkflowGraphProjection.fromInput(input)
 
       expect(WorkflowInteropOwnership.current.sessionAndRouting).toBe("effect-inference")
       expect(graphProjection.traversal).toEqual(["router", "handoff", "answer"])

@@ -16,22 +16,13 @@
       {
         "name": "majority",
         "question": "What is the capital of France?",
-        "programAnswers": [
-          "Paris",
-          "London",
-          "Paris"
-        ],
+        "programAnswers": ["Paris", "London", "Paris"],
         "expectedAnswer": "Paris"
       },
       {
         "name": "tie-break-first-observed",
         "question": "Which answer should win tie resolution?",
-        "programAnswers": [
-          "Paris",
-          "London",
-          "London",
-          "Paris"
-        ],
+        "programAnswers": ["Paris", "London", "London", "Paris"],
         "expectedAnswer": "Paris"
       }
     ]

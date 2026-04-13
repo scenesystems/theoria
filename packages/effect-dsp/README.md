@@ -141,16 +141,16 @@ const program = Effect.scoped(
 import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace } from "effect-dsp"
 ```
 
-| Namespace   | Key exports                                                                                                                                  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Signature` | `make`, `describe`, `FieldInfo`, `Signature`, `Input`, `Output`                                                                              |
-| `Module`    | `Params`, `SavedState`, `Module`, `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `compose`            |
-| `Trace`     | `Entry`, `appendExecution`, `get`, `withTracing`, `withUsageTracking`, `noScore`                                                             |
-| `Example`   | `Example`, `Demo`                                                                                                                            |
-| `Metric`    | `Metric`, `Result`, `exactMatch`, `f1`, `contains`, `compose`                                                                                |
-| `Evaluate`  | `run`, `stream`, `Report`, `ExampleResult`                                                                                                   |
+| Namespace   | Key exports                                                                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Signature` | `make`, `describe`, `FieldInfo`, `Signature`, `Input`, `Output`                                                                                                              |
+| `Module`    | `Params`, `SavedState`, `Module`, `predict`, `chainOfThought`, `programOfThought`, `multiChainComparison`, `parallel`, `compose`                                             |
+| `Trace`     | `Entry`, `appendExecution`, `get`, `withTracing`, `withUsageTracking`, `noScore`                                                                                             |
+| `Example`   | `Example`, `Demo`                                                                                                                                                            |
+| `Metric`    | `Metric`, `Result`, `exactMatch`, `f1`, `contains`, `compose`                                                                                                                |
+| `Evaluate`  | `run`, `stream`, `Report`, `ExampleResult`                                                                                                                                   |
 | `Optimizer` | `labeledFewShot`, `bootstrapFewShot`, `bootstrapRS`, `ensemble`, `miprov2`, `copro`, `coproStream`, `effectSearchInterop` plus event schemas and typed progress constructors |
-| `Errors`    | Tagged error variants (`SignatureError`, `ParseOutputError`, `BootstrapFailed`, ...) and `DspError` union                                    |
+| `Errors`    | Tagged error variants (`SignatureError`, `ParseOutputError`, `BootstrapFailed`, ...) and `DspError` union                                                                    |
 
 Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
 
@@ -164,11 +164,17 @@ The preferred public evidence path is `Trace.withTracing(...)`, `Trace.withUsage
 
 ## Experimental Open-Agent-Trace Lane
 
-`effect-dsp/experimental` currently hosts the fixture-backed OpenAgentTrace corpus lane over `badlogicgames/pi-mono`.
+`effect-dsp/experimental` currently hosts the fixture-backed OpenAgentTrace corpus lane over `badlogicgames/pi-mono`, the checked-in Amp public-thread corpus, and a separate evidentiary Amp-thread import lane over replay-safe `amp threads export` snapshots.
 
-- Stable promotion requires a second public dataset with a materially different event grammar decoding through the same normalized corpus family while keeping projection coverage explicit.
-- If branch lineage, redaction provenance, or workflow projection cannot remain explicit without app-local heuristics, the lane stays experimental and read-only.
-- The first app surface for this lane is evidentiary only: corpus source, branch tree, projected workflow graph, redaction posture, coverage gaps, and digests ship before any optimization controls.
+- Amp is the second public grammar and currently backs the package-owned `implementationStrategy` study surface plus its execution-backed judging lane.
+- The checked-in corpus authority is the raw Amp fixture tree under `fixtures/open-agent-trace/amp/`, normalized through the package-owned loader and deterministic importer in `src/OpenAgentTrace/coding/implementationStrategy/`.
+- Amp-thread import is distinct from that raw capture authority: `OpenAgentTrace.AmpThread.decodeExportSnapshot` and `OpenAgentTrace.AmpThread.normalizeExportSnapshot` accept replay-safe thread-export snapshots, keep missing raw runtime authority explicit as coverage gaps, and stay evidentiary rather than pretending to be plugin or `--stream-json` capture truth.
+- Both `badlogicgames/pi-mono` and the Amp corpus compile into the same `CodingPromptCase` / `CodingPromptDataset` family through the package-owned `implementationStrategy` projector; Amp sidecars only supply canonical expected strategy labels, not app-local reshaping.
+- Stable promotion requires `badlogicgames/pi-mono` and the checked-in Amp public-thread corpus to decode into the same normalized OpenAgentTraceRecord family, project into the same implementationStrategy surface, and expand beyond the current three-thread Amp source catalog while keeping projection coverage explicit.
+- If branch lineage, redaction provenance, workflow projection, or broader Amp source diversity than the current three-thread public corpus cannot remain explicit without app-local heuristics, the lane stays experimental and read-only.
+- The first app surface for this lane is evidentiary and corpus-governed: corpus source, branch tree, projected workflow graph, redaction posture, coverage gaps, digests, and checked-in study cases ship before any stable optimization controls.
+- The first package-owned study story for this lane is [`examples/24-amp-implementation-strategy-study.ts`](./examples/24-amp-implementation-strategy-study.ts), which runs the curated Amp implementation-strategy corpus and emits comparison artifacts.
+- The first package-owned evidentiary import story for post-hoc threads is [`examples/25-open-agent-trace-amp-thread.ts`](./examples/25-open-agent-trace-amp-thread.ts), which loads a checked-in thread export snapshot and projects it into the workflow lane without requiring a live Amp installation.
 
 ## Roadmap
 

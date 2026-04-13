@@ -12,17 +12,8 @@
     }
   },
   "payload": {
-    "phaseOrder": [
-      "phase1",
-      "phase2",
-      "phase3"
-    ],
-    "phase1AnchorKinds": [
-      "zero-shot",
-      "labels-only",
-      "bootstrap-unshuffled",
-      "bootstrap-shuffled"
-    ],
+    "phaseOrder": ["phase1", "phase2", "phase3"],
+    "phase1AnchorKinds": ["zero-shot", "labels-only", "bootstrap-unshuffled", "bootstrap-shuffled"],
     "phase3TrialBudgetFormula": "max(ceil(max(2*M*log(N), 3*N/2)), minimum)",
     "phase3CadenceDefaults": {
       "seed": 1,

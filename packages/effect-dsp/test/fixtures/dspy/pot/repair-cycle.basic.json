@@ -32,43 +32,19 @@
     },
     "executionError": "ZeroDivisionError: division by zero",
     "codeOutput": "{\"answer\": 2}",
-    "dspyPredictionKeys": [
-      "reasoning",
-      "answer"
-    ],
+    "dspyPredictionKeys": ["reasoning", "answer"],
     "traceEntries": [
       {
-        "inputKeys": [
-          "question"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "generated_code"
-        ]
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "generated_code"]
       },
       {
-        "inputKeys": [
-          "question",
-          "previous_code",
-          "error"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "generated_code"
-        ]
+        "inputKeys": ["question", "previous_code", "error"],
+        "predictionKeys": ["reasoning", "generated_code"]
       },
       {
-        "inputKeys": [
-          "question",
-          "previous_code",
-          "error",
-          "final_generated_code",
-          "code_output"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "answer"
-        ]
+        "inputKeys": ["question", "previous_code", "error", "final_generated_code", "code_output"],
+        "predictionKeys": ["reasoning", "answer"]
       }
     ]
   }

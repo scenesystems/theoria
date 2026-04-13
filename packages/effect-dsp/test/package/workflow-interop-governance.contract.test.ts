@@ -50,12 +50,16 @@ describe("package/workflow-interop-governance", () => {
       )
 
       expect(barrelSource).toContain("./WorkflowInterop.js")
+      expect(barrelSource).toContain("WorkflowGraphInputSchema")
+      expect(barrelSource).toContain("WorkflowGraphProjection")
+      expect(barrelSource).not.toContain("WorkflowModuleGraphInputSchema")
+      expect(barrelSource).not.toContain("WorkflowModuleGraphProjection")
       expect(Arr.some(forbiddenWorkflowExports, (exportName) => interopExports.includes(exportName))).toBe(false)
       expect(interopExports).toEqual([
-        "WorkflowModuleGraphInputSchema",
-        "WorkflowModuleGraphInput",
+        "WorkflowGraphInputSchema",
+        "WorkflowGraphInput",
         "WorkflowNodeLineage",
-        "WorkflowModuleGraphProjection",
+        "WorkflowGraphProjection",
         "WorkflowInteropOwnership"
       ])
     }).pipe(Effect.provide(BunContext.layer)))

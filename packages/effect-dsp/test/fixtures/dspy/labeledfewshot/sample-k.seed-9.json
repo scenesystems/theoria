@@ -32,10 +32,7 @@
         "answer": "Madrid"
       }
     ],
-    "expectedSelectedQuestions": [
-      "What is the capital of Spain?",
-      "What is the capital of Japan?"
-    ],
+    "expectedSelectedQuestions": ["What is the capital of Spain?", "What is the capital of Japan?"],
     "expectedCallCount": 0
   }
 }

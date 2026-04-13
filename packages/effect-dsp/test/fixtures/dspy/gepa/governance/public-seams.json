@@ -12,26 +12,15 @@
     }
   },
   "payload": {
-    "allowedEffectSearchImports": [
-      "effect-search/Pareto",
-      "effect-search/Sampler",
-      "effect-search/Study"
-    ],
-    "forbiddenEffectSearchImportPrefixes": [
-      "effect-search/internal/"
-    ],
+    "allowedEffectSearchImports": ["effect-search/Pareto", "effect-search/Sampler", "effect-search/Study"],
+    "forbiddenEffectSearchImportPrefixes": ["effect-search/internal/"],
     "allowedRuntimeImportOwners": [
       "src/contracts/DeterministicSeed.ts",
       "src/optimizers/GEPA/pareto.ts",
       "src/optimizers/GEPA/sampling.ts",
       "src/optimizers/GEPA/runtime/stream.ts"
     ],
-    "expectedOptimizerIndexExports": [
-      "./gepa.js",
-      "./gepaStream.js"
-    ],
-    "expectedOptimizerEventsExports": [
-      "./gepa.js"
-    ]
+    "expectedOptimizerIndexExports": ["./gepa.js", "./gepaStream.js"],
+    "expectedOptimizerEventsExports": ["./gepa.js"]
   }
 }

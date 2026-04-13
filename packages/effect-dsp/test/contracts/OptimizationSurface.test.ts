@@ -120,10 +120,10 @@ describe("contracts/OptimizationSurface", () => {
         ]
       })
 
-      const projectionA = Contracts.OptimizationModuleGraphSurface.fromGraph(graph)
-      const projectionB = Contracts.OptimizationModuleGraphSurface.fromGraph(graph)
-      const encoded = yield* Schema.encode(Contracts.OptimizationModuleGraphSurface)(projectionA)
-      const roundTrip = yield* Schema.decode(Contracts.OptimizationModuleGraphSurface)(encoded)
+      const projectionA = Contracts.ModuleGraphProjection.fromGraph(graph)
+      const projectionB = Contracts.ModuleGraphProjection.fromGraph(graph)
+      const encoded = yield* Schema.encode(Contracts.ModuleGraphProjection)(projectionA)
+      const roundTrip = yield* Schema.decode(Contracts.ModuleGraphProjection)(encoded)
 
       expect(projectionA).toEqual(projectionB)
       expect(projectionA.traversal).toEqual([rootId, pipelineId, qaId])

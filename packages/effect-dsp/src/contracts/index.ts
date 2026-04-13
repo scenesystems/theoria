@@ -119,7 +119,48 @@ export * from "./ModuleNode.js"
  *
  * @since 0.1.0
  */
-export * from "./ModuleGraph.js"
+export {
+  /**
+   * Complete serializable module composition DAG with deterministic ordering.
+   *
+   * @see {@link ModuleGraphProjection} for the derived traversal analysis
+   * @since 0.1.0
+   * @category models
+   */
+  ModuleGraph,
+  /**
+   * Directed parent-to-child edge in a serialized module graph.
+   *
+   * @see {@link ModuleGraph} for the enclosing DAG
+   * @since 0.1.0
+   * @category models
+   */
+  ModuleGraphEdge,
+  /**
+   * Serializable module node carrying signature metadata and child links.
+   *
+   * @see {@link ModuleGraph} for the enclosing DAG
+   * @since 0.1.0
+   * @category models
+   */
+  ModuleGraphNode,
+  /**
+   * Deterministic traversal and lineage projection over a module graph.
+   *
+   * @see {@link ModuleGraph.fromParts} for the source graph constructor
+   * @since 0.1.0
+   * @category models
+   */
+  ModuleGraphProjection,
+  /**
+   * Ordered root-to-node lineage resolved from a module graph.
+   *
+   * @see {@link ModuleGraphProjection} for the all-lineages view
+   * @since 0.1.0
+   * @category models
+   */
+  ModuleLineage
+} from "./ModuleGraph.js"
 
 /**
  * LM-only adapters over the extracted workflow family owned by
@@ -127,7 +168,48 @@ export * from "./ModuleGraph.js"
  *
  * @since 0.2.0
  */
-export * from "./WorkflowInterop.js"
+export {
+  /**
+   * Workflow-graph adapter input type consumed by LM-only interop projections.
+   *
+   * @see {@link WorkflowGraphInputSchema} for the runtime schema
+   * @since 0.2.0
+   * @category type-level
+   */
+  type WorkflowGraphInput,
+  /**
+   * Workflow-graph adapter input schema consumed by LM-only interop projections.
+   *
+   * @see {@link WorkflowGraphProjection.fromInput} for the projection entrypoint
+   * @since 0.2.0
+   * @category schemas
+   */
+  WorkflowGraphInputSchema,
+  /**
+   * Deterministic traversal and lineage projection over a workflow graph.
+   *
+   * @see {@link WorkflowGraphInputSchema} for the required adapter input
+   * @since 0.2.0
+   * @category models
+   */
+  WorkflowGraphProjection,
+  /**
+   * Ownership record for non-DSP authorities consumed at the workflow interop seam.
+   *
+   * @see {@link WorkflowGraphProjection} for the projection surface it governs
+   * @since 0.2.0
+   * @category models
+   */
+  WorkflowInteropOwnership,
+  /**
+   * Root-to-node lineage projected from a workflow manifest.
+   *
+   * @see {@link WorkflowGraphProjection} for the enclosing projection surface
+   * @since 0.2.0
+   * @category models
+   */
+  WorkflowNodeLineage
+} from "./WorkflowInterop.js"
 
 /**
  * Typed-to-FieldRecord projection helpers for trace and event emission.
@@ -141,7 +223,56 @@ export * from "./PayloadProjection.js"
  *
  * @since 0.1.0
  */
-export * from "./OptimizationSurface.js"
+export {
+  /**
+   * Ownership record for ask/tell, Pareto, acquisition, and progress interop sourced from `effect-search`.
+   *
+   * @see {@link SearchPrimitiveOwnership} for the generic search-primitive ownership record
+   * @since 0.1.0
+   * @category models
+   */
+  EffectSearchInteropOwnership,
+  /**
+   * Named scalar search dimension projected from module parameters.
+   *
+   * @see {@link OptimizationParameterSurface} for the immutable parameter snapshot
+   * @since 0.1.0
+   * @category models
+   */
+  OptimizationDimension,
+  /**
+   * Deterministic objective payload projected from a trace entry.
+   *
+   * @see {@link OptimizationObjectiveUsage} for its usage component
+   * @since 0.1.0
+   * @category models
+   */
+  OptimizationObjectiveSurface,
+  /**
+   * Usage snapshot re-exported for optimization objective signatures.
+   *
+   * @see {@link OptimizationObjectiveSurface} for the enclosing objective payload
+   * @since 0.1.0
+   * @category models
+   */
+  OptimizationObjectiveUsage,
+  /**
+   * Immutable parameter snapshot used to derive optimizer search dimensions.
+   *
+   * @see {@link OptimizationDimension.fromModuleParams} for dimension projection
+   * @since 0.1.0
+   * @category models
+   */
+  OptimizationParameterSurface,
+  /**
+   * Ownership record for generic search primitives sourced from `effect-search`.
+   *
+   * @see {@link EffectSearchInteropOwnership} for the interop-specific ownership record
+   * @since 0.1.0
+   * @category models
+   */
+  SearchPrimitiveOwnership
+} from "./OptimizationSurface.js"
 
 /**
  * Evaluate.Report → effect-search objective projections (scalar + vector).

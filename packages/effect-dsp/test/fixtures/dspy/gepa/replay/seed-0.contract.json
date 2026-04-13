@@ -34,11 +34,6 @@
       "dspy.gepa.governance.public-seams",
       "dspy.gepa.governance.optimizer-options"
     ],
-    "byteEqualityChecks": [
-      "savedStateBytes",
-      "frontierSnapshotBytes",
-      "eventTimelineBytes",
-      "paramsBytes"
-    ]
+    "byteEqualityChecks": ["savedStateBytes", "frontierSnapshotBytes", "eventTimelineBytes", "paramsBytes"]
   }
 }

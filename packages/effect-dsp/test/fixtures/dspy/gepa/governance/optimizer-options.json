@@ -12,17 +12,8 @@
     }
   },
   "payload": {
-    "requiredOptionKeys": [
-      "module",
-      "trainset",
-      "metric",
-      "maxIterations"
-    ],
-    "optionalOptionKeys": [
-      "valset",
-      "maxMergeInvocations",
-      "seed"
-    ],
+    "requiredOptionKeys": ["module", "trainset", "metric", "maxIterations"],
+    "optionalOptionKeys": ["valset", "maxMergeInvocations", "seed"],
     "defaultMaxMergeInvocations": 5,
     "eventTags": [
       "IterationStarted",

@@ -87,11 +87,11 @@ describe("contracts/WorkflowInterop", () => {
 
   it.effect("projects workflow manifests through deterministic traversal semantics shared with ModuleGraphProjection", () =>
     Effect.gen(function*() {
-      const input = yield* Schema.decodeUnknown(DspContracts.WorkflowModuleGraphInputSchema)(workflowGraphInput)
+      const input = yield* Schema.decodeUnknown(DspContracts.WorkflowGraphInputSchema)(workflowGraphInput)
       const plannerId = yield* decodeModuleId("planner")
       const drafterId = yield* decodeModuleId("drafter")
       const responderId = yield* decodeModuleId("responder")
-      const moduleProjection = DspContracts.OptimizationModuleGraphSurface.fromGraph(
+      const moduleProjection = DspContracts.ModuleGraphProjection.fromGraph(
         DspContracts.ModuleGraph.fromParts({
           rootId: plannerId,
           nodes: [
@@ -126,7 +126,7 @@ describe("contracts/WorkflowInterop", () => {
           ]
         })
       )
-      const workflowProjection = DspContracts.WorkflowModuleGraphProjection.fromWorkflowInput(input)
+      const workflowProjection = DspContracts.WorkflowGraphProjection.fromInput(input)
       const workflowLineages = workflowProjection.lineages.map((lineage) => ({
         targetNodeId: lineage.targetNodeId,
         path: lineage.path

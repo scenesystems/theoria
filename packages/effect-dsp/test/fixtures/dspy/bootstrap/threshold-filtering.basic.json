@@ -27,12 +27,8 @@
         "teacherAnswer": "Kyoto"
       }
     ],
-    "expectedAcceptedQuestions": [
-      "What is the capital of France?"
-    ],
-    "expectedRejectedQuestions": [
-      "What is the capital of Japan?"
-    ],
+    "expectedAcceptedQuestions": ["What is the capital of France?"],
+    "expectedRejectedQuestions": ["What is the capital of Japan?"],
     "expectedFinalDemoCount": 1,
     "expectedCallCount": 2
   }

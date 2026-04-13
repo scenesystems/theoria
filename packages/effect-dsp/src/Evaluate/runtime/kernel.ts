@@ -10,7 +10,8 @@ import type { Metric } from "../../Metric/model.js"
 import type { Module } from "../../Module/model.js"
 import { EvaluationEvent } from "../events.js"
 import { aggregateOutcomes } from "./aggregate.js"
-import { evaluateOutcome, type EvaluationEventSink, resolveConcurrency, sortedMetricEntries } from "./example.js"
+import { evaluateOutcome, type EvaluationEventSink } from "./example.js"
+import { resolveConcurrency, sortedMetricEntries } from "./scoring.js"
 
 /**
  * Configuration for an evaluation run: module, examples, metrics, and

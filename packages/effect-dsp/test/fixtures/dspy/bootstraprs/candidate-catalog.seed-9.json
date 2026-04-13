@@ -13,10 +13,7 @@
   },
   "payload": {
     "numCandidates": 2,
-    "seeds": [
-      9,
-      10
-    ],
+    "seeds": [9, 10],
     "maxRounds": 1,
     "maxBootstrappedDemos": 1,
     "maxLabeledDemos": 0,
@@ -37,16 +34,9 @@
         "answer": "Tokyo"
       }
     ],
-    "expectedCandidateLabels": [
-      "uncompiled",
-      "labeled-few-shot",
-      "bootstrap-9",
-      "bootstrap-10"
-    ],
+    "expectedCandidateLabels": ["uncompiled", "labeled-few-shot", "bootstrap-9", "bootstrap-10"],
     "expectedBestCandidateLabel": "bootstrap-9",
-    "expectedBestDemoQuestions": [
-      "What is the capital of Japan?"
-    ],
+    "expectedBestDemoQuestions": ["What is the capital of Japan?"],
     "expectedCallCount": 8
   }
 }

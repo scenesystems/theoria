@@ -39,26 +39,6 @@ export {
   TraceObjectiveProjection as OptimizationObjectiveSurface
 } from "./TraceProjection.js"
 
-export {
-  /**
-   * Pre-computed traversal + lineage analysis of the module composition DAG,
-   * re-exported under an optimization-domain alias.
-   *
-   * @see {@link ModuleGraphProjection}
-   * @since 0.1.0
-   * @category models
-   */
-  ModuleGraphProjection as OptimizationModuleGraphSurface
-  /**
-   * Project a module composition DAG into deterministic traversal order
-   * and root-to-node lineages.
-   *
-   * @see {@link ModuleGraphProjection}
-   * @since 0.1.0
-   * @category combinators
-   */
-} from "./ModuleGraph.js"
-
 /**
  * Schema-level declaration that generic search primitives (traversal,
  * sampling, Pareto filtering) are sourced from `effect-search`. Serves

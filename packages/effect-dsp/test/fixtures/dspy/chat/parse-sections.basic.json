@@ -31,8 +31,6 @@
     "parsed": {
       "answer": "Tokyo"
     },
-    "expectedOutputFields": [
-      "answer"
-    ]
+    "expectedOutputFields": ["answer"]
   }
 }

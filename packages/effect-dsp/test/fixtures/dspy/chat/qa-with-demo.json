@@ -50,11 +50,7 @@
         "content": "[[ ## question ## ]]\nWhat is the capital of Japan?\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
       }
     ],
-    "fieldMarkers": [
-      "[[ ## question ## ]]",
-      "[[ ## answer ## ]]",
-      "[[ ## completed ## ]]"
-    ],
+    "fieldMarkers": ["[[ ## question ## ]]", "[[ ## answer ## ]]", "[[ ## completed ## ]]"],
     "outputRequirements": "Respond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
   }
 }

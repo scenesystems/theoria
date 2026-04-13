@@ -20,11 +20,6 @@
       "Your task is to write a new instruction for the assistant.",
       "Provide the new instructions within ``` blocks."
     ],
-    "expectedSectionOrder": [
-      "## Inputs",
-      "## Generated Outputs",
-      "## Expected Output",
-      "## Feedback"
-    ]
+    "expectedSectionOrder": ["## Inputs", "## Generated Outputs", "## Expected Output", "## Feedback"]
   }
 }

@@ -97,19 +97,19 @@ const findLineagePath = (
  * @since 0.2.0
  * @category schemas
  */
-export const WorkflowModuleGraphInputSchema = Schema.Struct({
+export const WorkflowGraphInputSchema = Schema.Struct({
   manifest: GraphExecutionManifestSchema,
   projection: GraphExecutionProjectionSchema
 })
 
 /**
  * Workflow-graph adapter input extracted from
- * {@link WorkflowModuleGraphInputSchema}.
+ * {@link WorkflowGraphInputSchema}.
  *
  * @since 0.2.0
  * @category type-level
  */
-export type WorkflowModuleGraphInput = Schema.Schema.Type<typeof WorkflowModuleGraphInputSchema>
+export type WorkflowGraphInput = Schema.Schema.Type<typeof WorkflowGraphInputSchema>
 
 /**
  * Root-to-node lineage projected from a workflow manifest.
@@ -129,15 +129,13 @@ export class WorkflowNodeLineage extends Schema.Class<WorkflowNodeLineage>("Work
  * @since 0.2.0
  * @category models
  */
-export class WorkflowModuleGraphProjection
-  extends Schema.Class<WorkflowModuleGraphProjection>("WorkflowModuleGraphProjection")({
-    manifestId: Schema.String,
-    entryNodeId: Schema.String,
-    traversal: Schema.Array(Schema.String),
-    lineages: Schema.Array(WorkflowNodeLineage),
-    activeStateLanes: Schema.Array(WorkflowStateLaneSchema)
-  })
-{
+export class WorkflowGraphProjection extends Schema.Class<WorkflowGraphProjection>("WorkflowGraphProjection")({
+  manifestId: Schema.String,
+  entryNodeId: Schema.String,
+  traversal: Schema.Array(Schema.String),
+  lineages: Schema.Array(WorkflowNodeLineage),
+  activeStateLanes: Schema.Array(WorkflowStateLaneSchema)
+}) {
   /**
    * Project a frozen workflow graph onto the deterministic traversal semantics
    * already used by `ModuleGraphProjection`.
@@ -145,10 +143,10 @@ export class WorkflowModuleGraphProjection
    * @since 0.2.0
    * @category combinators
    */
-  static fromWorkflowInput(input: WorkflowModuleGraphInput): WorkflowModuleGraphProjection {
+  static fromInput(input: WorkflowGraphInput): WorkflowGraphProjection {
     const lookup = childLookup(input.manifest)
 
-    return WorkflowModuleGraphProjection.make({
+    return WorkflowGraphProjection.make({
       manifestId: input.manifest.manifestId,
       entryNodeId: input.projection.entryNodeId,
       traversal: traverseNode(lookup, input.projection.entryNodeId, Arr.empty<string>()).traversal,

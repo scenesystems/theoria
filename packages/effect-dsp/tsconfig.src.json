@@ -4,6 +4,7 @@
     "rootDir": "src",
     "outDir": "build/esm",
     "declarationDir": "build/dts",
+    "types": ["@types/node"],
     "tsBuildInfoFile": ".tsbuildinfo/src.tsbuildinfo"
   },
   "include": ["src"]

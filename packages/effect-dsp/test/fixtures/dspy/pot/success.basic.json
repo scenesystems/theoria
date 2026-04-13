@@ -27,30 +27,15 @@
       }
     },
     "codeOutput": "{\"answer\": 2}",
-    "dspyPredictionKeys": [
-      "reasoning",
-      "answer"
-    ],
+    "dspyPredictionKeys": ["reasoning", "answer"],
     "traceEntries": [
       {
-        "inputKeys": [
-          "question"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "generated_code"
-        ]
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "generated_code"]
       },
       {
-        "inputKeys": [
-          "question",
-          "final_generated_code",
-          "code_output"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "answer"
-        ]
+        "inputKeys": ["question", "final_generated_code", "code_output"],
+        "predictionKeys": ["reasoning", "answer"]
       }
     ]
   }

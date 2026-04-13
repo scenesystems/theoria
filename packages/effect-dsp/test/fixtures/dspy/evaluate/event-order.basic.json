@@ -13,13 +13,8 @@
   },
   "payload": {
     "eventCount": 7,
-    "completedIndices": [
-      0,
-      1
-    ],
-    "failedIndices": [
-      2
-    ],
+    "completedIndices": [0, 1],
+    "failedIndices": [2],
     "events": [
       {
         "_tag": "ExampleStarted",

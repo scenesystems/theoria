@@ -41,6 +41,7 @@
     "./contracts": "./src/contracts/index.ts",
     "./test": "./src/testing/index.ts",
     "./experimental": "./src/experimental/index.ts",
+    "./fixtures/open-agent-trace/amp": "./fixtures/open-agent-trace/amp/index.ts",
     "./fixtures/open-agent-trace/pi-mono": "./fixtures/open-agent-trace/pi-mono/index.ts",
     "./internal/*": null,
     "./optimizers/*": null
@@ -53,10 +54,11 @@
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/effect-dsp/test",
     "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
+    "copy:open-agent-trace-fixtures": "bun run scripts/copy-open-agent-trace-fixtures-to-dist.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3 && bun run copy:open-agent-trace-fixtures",
     "clean": "rm -rf build dist .tsbuildinfo",
     "docgen": "docgen"
   },

@@ -12,6 +12,7 @@ import { MetricPayload } from "../../../contracts/MetricFn.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { BootstrapFailed } from "../../../Errors/optimizer.js"
 import { Demo, type Example } from "../../../Example/index.js"
+import { MetricContext } from "../../../Metric/context.js"
 import type { Metric } from "../../../Metric/model.js"
 import type { Module } from "../../../Module/model.js"
 import { BootstrapEvent, type BootstrapEvent as BootstrapEventType } from "../../../Optimizer/events/bootstrap.js"
@@ -54,6 +55,11 @@ const decodeMetricPayload = (payload: unknown) =>
     )
   )
 
+const decodeMetricPayloadOrEmpty = (payload: unknown) =>
+  Schema.decodeUnknown(MetricPayload)(payload).pipe(
+    Effect.orElseSucceed(() => ({}))
+  )
+
 const provideTeacherLayer = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
@@ -78,6 +84,7 @@ const evaluateExample = <
 }) =>
   Effect.gen(function*() {
     const decodedInput = yield* Schema.decodeUnknown(options.module.signature.inputSchema)(options.example.input)
+    const inputPayload = yield* decodeMetricPayloadOrEmpty(options.example.input)
     const expectedOutput = yield* Option.match(Option.fromNullable(options.example.output), {
       onNone: () =>
         Effect.fail(
@@ -101,7 +108,25 @@ const evaluateExample = <
       provideTeacherLayer(options.module.forward(decodedInput), options.teacher)
     )
     const predictionPayload = yield* decodeMetricPayload(traced[0])
-    const metricResult = yield* options.metric.score(predictionPayload, expectedPayload)
+    const metricResult = yield* options.metric.scoreContext(
+      Option.fromNullable(options.example.metadata).pipe(
+        Option.match({
+          onNone: () =>
+            MetricContext.of({
+              input: inputPayload,
+              prediction: predictionPayload,
+              expected: expectedPayload
+            }),
+          onSome: (metadata) =>
+            MetricContext.of({
+              input: inputPayload,
+              prediction: predictionPayload,
+              expected: expectedPayload,
+              metadata
+            })
+        })
+      )
+    )
     const rootTrace = Arr.last(Arr.filter(traced[1], (entry) => entry.moduleName === options.module.name))
 
     return yield* Option.match(rootTrace, {

@@ -10,10 +10,12 @@ import {
   EvaluationContractSchema,
   GraphExecutionManifestSchema,
   SessionManifestSchema,
-  WorkflowExecutionRecordSchema
+  WorkflowExecutionRecordSchema,
+  WorkflowSessionIdSchema
 } from "effect-inference/Contracts"
 
 import { Example } from "../Example/index.js"
+import { AmpSessionId } from "./amp/captureEvidence.js"
 import { syntheticCoverageGaps } from "./projectionCoverage.js"
 import { ExampleProjection, WorkflowProjection } from "./projectionSchema.js"
 import {
@@ -35,6 +37,8 @@ const expectedSignalsFrom = (
     onNone: () => [],
     onSome: (turn) => [turn.content]
   })
+
+const SessionIdInput = Schema.Union(WorkflowSessionIdSchema, AmpSessionId)
 
 /**
  * Project one normalized trace into the reusable workflow-record family owned by `effect-inference/Contracts`.
@@ -63,8 +67,9 @@ export const projectWorkflow = (record: OpenAgentTraceRecord) =>
         : []
     )
     const firstUserTurn = turns.find((turn) => turn.role === "user")
+    const sessionId = yield* Schema.decodeUnknown(SessionIdInput)(record.session.sessionId)
     const session = yield* Schema.decodeUnknown(SessionManifestSchema)({
-      sessionId: record.session.sessionId,
+      sessionId,
       workflowKind,
       turns,
       stateLanes: [

@@ -20,14 +20,7 @@
         "message",
         "message"
       ],
-      "coverageKinds": [
-        "compaction",
-        "branch-summary",
-        "custom-message",
-        "label",
-        "session-info",
-        "image"
-      ],
+      "coverageKinds": ["compaction", "branch-summary", "custom-message", "label", "session-info", "image"],
       "coverageReasons": [
         "Summary events remain explicit coverage outside the reusable workflow record.",
         "Branch summaries remain explicit lineage coverage instead of being flattened into workflow turns.",
@@ -40,10 +33,7 @@
     {
       "entryId": "chat-continuation",
       "workflowKind": "chat-continuation",
-      "eventKinds": [
-        "message",
-        "message"
-      ],
+      "eventKinds": ["message", "message"],
       "coverageKinds": [],
       "coverageReasons": []
     }

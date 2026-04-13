@@ -32,10 +32,7 @@
         "teacherAnswer": "Rome"
       }
     ],
-    "expectedAcceptedQuestions": [
-      "What is the capital of France?",
-      "What is the capital of Japan?"
-    ],
+    "expectedAcceptedQuestions": ["What is the capital of France?", "What is the capital of Japan?"],
     "expectedFinalDemoCount": 2,
     "expectedCallCount": 3
   }

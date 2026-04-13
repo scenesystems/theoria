@@ -27,11 +27,7 @@
         "description": "A concise factual answer"
       }
     ],
-    "fieldMarkers": [
-      "[[ ## question ## ]]",
-      "[[ ## answer ## ]]",
-      "[[ ## completed ## ]]"
-    ],
+    "fieldMarkers": ["[[ ## question ## ]]", "[[ ## answer ## ]]", "[[ ## completed ## ]]"],
     "basic": {
       "query": "What is the capital of Japan?",
       "messages": [

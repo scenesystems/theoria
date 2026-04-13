@@ -47,10 +47,7 @@
       {
         "_tag": "ParetoUpdated",
         "iteration": 1,
-        "frontierIndices": [
-          0,
-          1
-        ],
+        "frontierIndices": [0, 1],
         "dominatedIndices": [],
         "parentWeights": [
           {

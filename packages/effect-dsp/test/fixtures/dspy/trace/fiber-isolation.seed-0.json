@@ -21,9 +21,7 @@
         "observedAnswer": "Paris",
         "traceLength": 1,
         "traceInputQuestion": "What is the capital of France?",
-        "tracePredictionKeys": [
-          "answer"
-        ]
+        "tracePredictionKeys": ["answer"]
       },
       {
         "scope": "scope-b",
@@ -32,9 +30,7 @@
         "observedAnswer": "Tokyo",
         "traceLength": 1,
         "traceInputQuestion": "What is the capital of Japan?",
-        "tracePredictionKeys": [
-          "answer"
-        ]
+        "tracePredictionKeys": ["answer"]
       }
     ],
     "crossScopeTraceLeakDetected": false

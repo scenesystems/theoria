@@ -25,12 +25,7 @@
         "yieldCount": 2
       }
     ],
-    "expectedOutputAnswers": [
-      "One",
-      "Two",
-      "Three",
-      "Four"
-    ],
+    "expectedOutputAnswers": ["One", "Two", "Three", "Four"],
     "expectedMaxConcurrency": 2,
     "expectedCallCount": 4,
     "expectedCachedCount": 0

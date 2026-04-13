@@ -6,6 +6,7 @@
 import { Data } from "effect"
 import type { MetricFn } from "../contracts/MetricFn.js"
 import { MetricResult } from "../contracts/MetricResult.js"
+import type { MetricContextFn } from "./context.js"
 
 /**
  * Re-export of `MetricResult` — a score with optional feedback text.
@@ -29,4 +30,5 @@ export const Result = MetricResult
 export class Metric<E = never, R = never> extends Data.TaggedClass("Metric")<{
   readonly name: string
   readonly score: MetricFn<E, R>
+  readonly scoreContext: MetricContextFn<E, R>
 }> {}

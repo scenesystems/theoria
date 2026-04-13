@@ -40,49 +40,23 @@
       "\u00abI'm trying to Candidate two reasoning I'm not sure but my prediction is Candidate two\u00bb",
       "\u00abI'm trying to Candidate three reasoning I'm not sure but my prediction is Candidate three\u00bb"
     ],
-    "dspyPredictionKeys": [
-      "rationale",
-      "answer"
-    ],
+    "dspyPredictionKeys": ["rationale", "answer"],
     "traceEntries": [
       {
-        "inputKeys": [
-          "question"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "answer"
-        ]
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
       },
       {
-        "inputKeys": [
-          "question"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "answer"
-        ]
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
       },
       {
-        "inputKeys": [
-          "question"
-        ],
-        "predictionKeys": [
-          "reasoning",
-          "answer"
-        ]
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
       },
       {
-        "inputKeys": [
-          "reasoning_attempt_1",
-          "reasoning_attempt_2",
-          "reasoning_attempt_3",
-          "question"
-        ],
-        "predictionKeys": [
-          "rationale",
-          "answer"
-        ]
+        "inputKeys": ["reasoning_attempt_1", "reasoning_attempt_2", "reasoning_attempt_3", "question"],
+        "predictionKeys": ["rationale", "answer"]
       }
     ]
   }
