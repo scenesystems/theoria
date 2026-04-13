@@ -6,7 +6,7 @@
  */
 import { Match, Number as N, Option } from "effect"
 
-import { abs, EPSILON } from "../../Numeric/operations.js"
+import { abs } from "../../Numeric/operations.js"
 import { RootFindingResult } from "../schema.js"
 import type { RootFindingMethodType, RootFindingResultType, RootFindingStatusType } from "../schema.js"
 
@@ -35,7 +35,7 @@ type RootFindingStop<State> = Readonly<{
 
 export type RootFindingStep<State> = RootFindingContinue<State> | RootFindingStop<State>
 
-const convergenceScale = (estimate: number, absoluteTolerance: number, relativeTolerance: number): number =>
+export const convergenceScale = (estimate: number, absoluteTolerance: number, relativeTolerance: number): number =>
   N.sum(absoluteTolerance, N.multiply(relativeTolerance, abs(estimate)))
 
 export const makeRootFindingResult = (options: {
@@ -65,9 +65,10 @@ const isConverged = (options: {
   return options.state.residual <= scale || options.state.delta <= scale
 }
 
-export const distinctPoints = (left: number, right: number): boolean => abs(N.subtract(left, right)) > EPSILON
+export const distinctPoints = (left: number, right: number): boolean => left !== right
 
-export const sameSign = (left: number, right: number): boolean => N.multiply(left, right) > 0
+export const sameSign = (left: number, right: number): boolean =>
+  (N.greaterThan(left, 0) && N.greaterThan(right, 0)) || (N.lessThan(left, 0) && N.lessThan(right, 0))
 
 export const signedStep = (value: number, magnitude: number): number => value >= 0 ? magnitude : N.negate(magnitude)
 
@@ -79,9 +80,7 @@ export const iterateRootFinding = <State>(options: {
   readonly maxIterations?: number
   readonly advance: (state: RootFindingIterationState<State>) => RootFindingStep<State>
 }): RootFindingResultType => {
-  const absoluteTolerance = options.absoluteTolerance ?? DEFAULT_ABSOLUTE_TOLERANCE
-  const relativeTolerance = options.relativeTolerance ?? DEFAULT_RELATIVE_TOLERANCE
-  const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
+  const { absoluteTolerance, relativeTolerance, maxIterations } = convergenceOptionsFromInput(options)
 
   const loop = (state: RootFindingIterationState<State>, iterationCount: number): RootFindingResultType =>
     Match.value(isConverged({ state, absoluteTolerance, relativeTolerance })).pipe(
@@ -133,15 +132,15 @@ export const convergenceOptionsFromInput = (input: {
   readonly maxIterations?: number
 }) => ({
   ...Option.match(Option.fromNullable(input.absoluteTolerance), {
-    onNone: () => ({}),
+    onNone: () => ({ absoluteTolerance: DEFAULT_ABSOLUTE_TOLERANCE }),
     onSome: (absoluteTolerance) => ({ absoluteTolerance })
   }),
   ...Option.match(Option.fromNullable(input.relativeTolerance), {
-    onNone: () => ({}),
+    onNone: () => ({ relativeTolerance: DEFAULT_RELATIVE_TOLERANCE }),
     onSome: (relativeTolerance) => ({ relativeTolerance })
   }),
   ...Option.match(Option.fromNullable(input.maxIterations), {
-    onNone: () => ({}),
+    onNone: () => ({ maxIterations: DEFAULT_MAX_ITERATIONS }),
     onSome: (maxIterations) => ({ maxIterations })
   })
 })

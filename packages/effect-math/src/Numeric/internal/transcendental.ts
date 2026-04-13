@@ -141,16 +141,9 @@ export const log1pStrict = (value: number): number => {
 // expm1
 // ---------------------------------------------------------------------------
 
-export const abs = (value: number): number => (value < 0 ? -value : value)
+export const abs: (value: number) => number = Math.abs
 
-export const exp = (value: number): number =>
-  Number.isNaN(value)
-    ? NaN
-    : value === Infinity
-    ? Infinity
-    : value === -Infinity
-    ? 0
-    : E ** value
+export const exp: (value: number) => number = Math.exp
 
 const expm1Series = (
   x: number,
@@ -179,7 +172,7 @@ export const expm1Relaxed: (value: number) => number = Math.expm1
 
 /**
  * Strict `expm1` kernel. Uses Taylor series for `|x| < 1e-5` and
- * pure E**x - 1 for larger values.
+ * native `exp(x) - 1` for larger values.
  *
  * @since 0.1.0
  * @category internal

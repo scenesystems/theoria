@@ -181,6 +181,12 @@ describe("Numeric / abs", () => {
       expect(abs(-5)).toStrictEqual(5)
       expect(abs(5)).toStrictEqual(5)
     }))
+
+  it.effect("matches native signed-zero behavior", () =>
+    Effect.gen(function*() {
+      expect(Object.is(abs(-0), 0)).toStrictEqual(true)
+      expect(Object.is(abs(-0), -0)).toStrictEqual(false)
+    }))
 })
 
 describe("Numeric / sqrt", () => {
@@ -196,6 +202,13 @@ describe("Numeric / exp", () => {
     Effect.gen(function*() {
       expect(exp(1)).toBeCloseTo(Math.E)
       expect(exp(0)).toStrictEqual(1)
+    }))
+
+  it.effect("matches native Math.exp for IEEE-754 edge behavior", () =>
+    Effect.gen(function*() {
+      expect(exp(680.4413826367417)).toStrictEqual(Math.exp(680.4413826367417))
+      expect(Object.is(exp(-0), Math.exp(-0))).toStrictEqual(true)
+      expect(Number.isNaN(exp(NaN))).toStrictEqual(true)
     }))
 })
 
