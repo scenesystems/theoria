@@ -1,19 +1,39 @@
-import { Chunk } from "effect"
-import * as Arr from "effect/Array"
+import { Chunk, Number as N } from "effect"
+
+import { dft, zeroChunk } from "./core.js"
 
 export const circularConvolutionKernel = (
   left: Chunk.Chunk<number>,
   right: Chunk.Chunk<number>
 ): Chunk.Chunk<number> => {
-  const leftValues = Chunk.toReadonlyArray(left)
-  const rightValues = Chunk.toReadonlyArray(right)
-  const size = leftValues.length
+  const leftSpectrum = dft({
+    real: left,
+    imaginary: zeroChunk(Chunk.size(left)),
+    normalization: "backward",
+    direction: "forward"
+  })
+  const rightSpectrum = dft({
+    real: right,
+    imaginary: zeroChunk(Chunk.size(right)),
+    normalization: "backward",
+    direction: "forward"
+  })
+  const product = leftSpectrum.map((value, index) => ({
+    real: N.subtract(
+      N.multiply(value.real, rightSpectrum[index]!.real),
+      N.multiply(value.imaginary, rightSpectrum[index]!.imaginary)
+    ),
+    imaginary: N.sum(
+      N.multiply(value.real, rightSpectrum[index]!.imaginary),
+      N.multiply(value.imaginary, rightSpectrum[index]!.real)
+    )
+  }))
+  const result = dft({
+    real: Chunk.fromIterable(product.map((value) => value.real)),
+    imaginary: Chunk.fromIterable(product.map((value) => value.imaginary)),
+    normalization: "backward",
+    direction: "inverse"
+  })
 
-  return Chunk.fromIterable(
-    Arr.map(Arr.range(0, size - 1), (outputIndex) =>
-      leftValues.reduce(
-        (total, value, index) => total + value * rightValues[(outputIndex - index + size) % size]!,
-        0
-      ))
-  )
+  return Chunk.fromIterable(result.map((value) => value.real))
 }

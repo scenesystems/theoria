@@ -10,8 +10,8 @@
  * @since 0.3.0
  * @category internal
  */
-import { Number as N } from "effect"
-import type { Chunk } from "effect"
+import { Chunk, Number as N } from "effect"
+import * as Arr from "effect/Array"
 
 import { exp, log } from "../../../Numeric/operations.js"
 import type { AdaptiveRk45InputType, OdeTrajectoryPoint } from "../../schema.js"
@@ -32,6 +32,19 @@ import {
   remainingDistance
 } from "./shared.js"
 import { rmsScaledError, vectorAddScaled, weightedCombination } from "./vector.js"
+
+type AdaptiveAdvanceState = Readonly<{
+  readonly acceptedSteps: number
+  readonly done: boolean
+  readonly functionEvaluations: number
+  readonly rejectedSteps: number
+  readonly state: Chunk.Chunk<number>
+  readonly status: "finished" | "maxStepsExceeded" | "stepSizeTooSmall"
+  readonly stepMagnitude: number
+  readonly stepRejected: boolean
+  readonly time: number
+  readonly trajectory: Chunk.Chunk<OdeTrajectoryPoint>
+}>
 
 const rk45Step = (
   field: OdeVectorField,
@@ -150,94 +163,114 @@ const advanceAdaptive = ({
   readonly time: number
   readonly trajectory: ReadonlyArray<OdeTrajectoryPoint>
 }) => {
-  if (hasReachedTarget({ currentTime: time, direction, finalTime })) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method: "rk45",
-      rejectedSteps,
-      status: "finished",
-      trajectory
-    })
-  }
-
-  if (acceptedSteps + rejectedSteps >= (input.maxSteps ?? DEFAULT_ODE_MAX_STEPS)) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method: "rk45",
-      rejectedSteps,
-      status: "maxStepsExceeded",
-      trajectory
-    })
-  }
-
-  const remaining = remainingDistance({ currentTime: time, direction, finalTime })
-  const nextStepMagnitude = minimum(currentStepMagnitude, input.maxStep ?? remaining)
-  const stepMagnitude = minimum(nextStepMagnitude, remaining)
-
-  if (stepMagnitude < minimumAdaptiveStepMagnitude(time)) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method: "rk45",
-      rejectedSteps,
-      status: "stepSizeTooSmall",
-      trajectory
-    })
-  }
-
-  const signedStep = N.multiply(stepMagnitude, direction)
-  const attempted = rk45Step(field, time, state, signedStep)
-  const errorNorm = rmsScaledError({
-    absoluteTolerance: input.absoluteTolerance ?? 1e-6,
-    current: state,
-    error: attempted.error,
-    next: attempted.nextState,
-    relativeTolerance: input.relativeTolerance ?? 1e-3
-  })
-
-  if (errorNorm < 1) {
-    const factor = adaptiveFactor(errorNorm)
-    const boundedFactor = stepRejected ? minimum(1, factor) : factor
-    const nextTime = N.sum(time, signedStep)
-    const nextPoint = makeTrajectoryPoint(nextTime, attempted.nextState)
-
-    return advanceAdaptive({
-      acceptedSteps: acceptedSteps + 1,
-      currentStepMagnitude: N.multiply(stepMagnitude, boundedFactor),
-      direction,
-      field,
-      finalTime,
-      functionEvaluations: functionEvaluations + attempted.functionEvaluations,
-      input,
-      rejectedSteps,
-      state: attempted.nextState,
-      stepRejected: false,
-      time: nextTime,
-      trajectory: [...trajectory, nextPoint]
-    })
-  }
-
-  return advanceAdaptive({
+  const initialState: AdaptiveAdvanceState = {
     acceptedSteps,
-    currentStepMagnitude: N.multiply(stepMagnitude, maximum(ADAPTIVE_MIN_FACTOR, adaptiveFactor(errorNorm))),
-    direction,
-    field,
-    finalTime,
-    functionEvaluations: functionEvaluations + attempted.functionEvaluations,
-    input,
-    rejectedSteps: rejectedSteps + 1,
+    done: false,
+    functionEvaluations,
+    rejectedSteps,
     state,
-    stepRejected: true,
+    status: "finished",
+    stepMagnitude: currentStepMagnitude,
+    stepRejected,
     time,
-    trajectory
+    trajectory: Chunk.fromIterable(trajectory)
+  }
+  const finalState = Arr.reduce(
+    Arr.range(0, input.maxSteps ?? DEFAULT_ODE_MAX_STEPS),
+    initialState,
+    (currentState): AdaptiveAdvanceState => {
+      if (currentState.done) {
+        return currentState
+      }
+
+      if (hasReachedTarget({ currentTime: currentState.time, direction, finalTime })) {
+        return {
+          ...currentState,
+          done: true,
+          status: "finished"
+        }
+      }
+
+      if (currentState.acceptedSteps + currentState.rejectedSteps >= (input.maxSteps ?? DEFAULT_ODE_MAX_STEPS)) {
+        return {
+          ...currentState,
+          done: true,
+          status: "maxStepsExceeded"
+        }
+      }
+
+      const remaining = remainingDistance({ currentTime: currentState.time, direction, finalTime })
+      const nextStepMagnitude = minimum(currentState.stepMagnitude, input.maxStep ?? remaining)
+      const boundedStepMagnitude = minimum(nextStepMagnitude, remaining)
+
+      if (boundedStepMagnitude < minimumAdaptiveStepMagnitude(currentState.time)) {
+        return {
+          ...currentState,
+          done: true,
+          status: "stepSizeTooSmall"
+        }
+      }
+
+      const signedStep = N.multiply(boundedStepMagnitude, direction)
+      const attempted = rk45Step(field, currentState.time, currentState.state, signedStep)
+      const errorNorm = rmsScaledError({
+        absoluteTolerance: input.absoluteTolerance ?? 1e-6,
+        current: currentState.state,
+        error: attempted.error,
+        next: attempted.nextState,
+        relativeTolerance: input.relativeTolerance ?? 1e-3
+      })
+      const nextFunctionEvaluations = N.sum(currentState.functionEvaluations, attempted.functionEvaluations)
+
+      if (errorNorm < 1) {
+        const factor = adaptiveFactor(errorNorm)
+        const acceptedStepMagnitude = N.multiply(
+          boundedStepMagnitude,
+          currentState.stepRejected ? minimum(1, factor) : factor
+        )
+        const nextTime = N.sum(currentState.time, signedStep)
+
+        return {
+          acceptedSteps: N.sum(currentState.acceptedSteps, 1),
+          done: false,
+          functionEvaluations: nextFunctionEvaluations,
+          rejectedSteps: currentState.rejectedSteps,
+          state: attempted.nextState,
+          status: "finished",
+          stepMagnitude: acceptedStepMagnitude,
+          stepRejected: false,
+          time: nextTime,
+          trajectory: Chunk.append(currentState.trajectory, makeTrajectoryPoint(nextTime, attempted.nextState))
+        }
+      }
+
+      return {
+        acceptedSteps: currentState.acceptedSteps,
+        done: false,
+        functionEvaluations: nextFunctionEvaluations,
+        rejectedSteps: N.sum(currentState.rejectedSteps, 1),
+        state: currentState.state,
+        status: "finished",
+        stepMagnitude: N.multiply(
+          boundedStepMagnitude,
+          maximum(ADAPTIVE_MIN_FACTOR, adaptiveFactor(errorNorm))
+        ),
+        stepRejected: true,
+        time: currentState.time,
+        trajectory: currentState.trajectory
+      }
+    }
+  )
+
+  return makeOdeResult({
+    acceptedSteps: finalState.acceptedSteps,
+    finalState: finalState.state,
+    finalTime: finalState.time,
+    functionEvaluations: finalState.functionEvaluations,
+    method: "rk45",
+    rejectedSteps: finalState.rejectedSteps,
+    status: finalState.status,
+    trajectory: Chunk.toReadonlyArray(finalState.trajectory)
   })
 }
 

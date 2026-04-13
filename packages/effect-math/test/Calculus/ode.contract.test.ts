@@ -9,6 +9,9 @@ const exponentialDecay = (_time: number, state: Chunk.Chunk<number>) => Chunk.fr
 const harmonicOscillator = (_time: number, state: Chunk.Chunk<number>) =>
   Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)])
 
+const stationaryField = (_time: number, state: Chunk.Chunk<number>) =>
+  Chunk.fromIterable(Chunk.toReadonlyArray(state).map(() => 0))
+
 describe("Calculus ODE contract", () => {
   it.effect("keeps Euler, RK4, and adaptive RK45 on one canonical result schema", () =>
     Effect.gen(function*() {
@@ -64,5 +67,34 @@ describe("Calculus ODE contract", () => {
       expect(rk45.acceptedSteps).toBeGreaterThan(0)
       expect(rk45.functionEvaluations).toBeGreaterThan(rk45.acceptedSteps)
       expect(encodedRk45.trajectory).toHaveLength(rk45.acceptedSteps + 1)
+    }))
+
+  it.effect("keeps fixed and adaptive solvers stack-safe across long step budgets", () =>
+    Effect.gen(function*() {
+      const fixedInput = yield* Schema.decodeUnknown(EulerInput)({
+        initialTime: 0,
+        finalTime: 1200,
+        initialState: [1],
+        stepSize: 0.1,
+        maxSteps: 12_000
+      })
+      const adaptiveInput = yield* Schema.decodeUnknown(AdaptiveRk45Input)({
+        initialTime: 0,
+        finalTime: 1200,
+        initialState: [1],
+        initialStep: 0.1,
+        maxStep: 0.1,
+        absoluteTolerance: 1e-8,
+        relativeTolerance: 1e-8,
+        maxSteps: 12_000
+      })
+
+      const fixed = solveEuler(stationaryField, fixedInput)
+      const adaptive = solveAdaptiveRk45(stationaryField, adaptiveInput)
+
+      expect(fixed.status).toBe("finished")
+      expect(adaptive.status).toBe("finished")
+      expect(fixed.acceptedSteps).toBe(12_000)
+      expect(adaptive.acceptedSteps).toBe(12_000)
     }))
 })

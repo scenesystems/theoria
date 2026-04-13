@@ -4,8 +4,8 @@
  * @since 0.3.0
  * @category internal
  */
-import { Number as N } from "effect"
-import type { Chunk } from "effect"
+import { Chunk, Number as N } from "effect"
+import * as Arr from "effect/Array"
 
 import type { EulerInputType, OdeTrajectoryPoint, Rk4InputType } from "../../schema.js"
 import {
@@ -21,6 +21,23 @@ import {
 import { vectorAddScaled } from "./vector.js"
 
 type FixedStepInput = EulerInputType | Rk4InputType
+
+type FixedAdvanceState = Readonly<{
+  readonly acceptedSteps: number
+  readonly done: boolean
+  readonly functionEvaluations: number
+  readonly state: Chunk.Chunk<number>
+  readonly status: "finished" | "maxStepsExceeded" | "stepSizeTooSmall"
+  readonly time: number
+  readonly trajectory: Chunk.Chunk<OdeTrajectoryPoint>
+}>
+
+type SampleIntervalState = Readonly<{
+  readonly currentState: Chunk.Chunk<number>
+  readonly currentTime: number
+  readonly functionEvaluations: number
+  readonly remainingSubsteps: number
+}>
 
 // Fixed-step solvers publish trajectory points on the requested sample cadence
 // while taking deterministic internal substeps to stay aligned with the
@@ -83,24 +100,31 @@ const integrateSampleInterval = ({
   readonly time: number
   readonly functionEvaluations: number
 }): { readonly functionEvaluations: number; readonly nextState: Chunk.Chunk<number> } => {
-  if (remainingSubsteps === 0) {
-    return {
-      functionEvaluations,
-      nextState: state
-    }
+  const initialState: SampleIntervalState = {
+    currentState: state,
+    currentTime: time,
+    functionEvaluations,
+    remainingSubsteps
   }
+  const result = Arr.reduce(
+    Arr.range(0, remainingSubsteps - 1),
+    initialState,
+    ({ currentState, currentTime, functionEvaluations, remainingSubsteps }) => {
+      const next = solver(field, currentTime, currentState, step)
 
-  const next = solver(field, time, state, step)
+      return {
+        currentState: next.nextState,
+        currentTime: N.sum(currentTime, step),
+        functionEvaluations: N.sum(functionEvaluations, next.functionEvaluations),
+        remainingSubsteps: N.subtract(remainingSubsteps, 1)
+      }
+    }
+  )
 
-  return integrateSampleInterval({
-    field,
-    remainingSubsteps: remainingSubsteps - 1,
-    solver,
-    state: next.nextState,
-    step,
-    time: N.sum(time, step),
-    functionEvaluations: functionEvaluations + next.functionEvaluations
-  })
+  return {
+    functionEvaluations: result.functionEvaluations,
+    nextState: result.currentState
+  }
 }
 
 const advanceFixed = ({
@@ -128,75 +152,81 @@ const advanceFixed = ({
   readonly time: number
   readonly trajectory: ReadonlyArray<OdeTrajectoryPoint>
 }) => {
-  if (hasReachedTarget({ currentTime: time, direction, finalTime })) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method,
-      rejectedSteps: 0,
-      status: "finished",
-      trajectory
-    })
-  }
-
-  if (acceptedSteps >= maxSteps) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method,
-      rejectedSteps: 0,
-      status: "maxStepsExceeded",
-      trajectory
-    })
-  }
-
-  const remaining = remainingDistance({ currentTime: time, direction, finalTime })
-  const actualStepMagnitude = minimum(stepMagnitude, remaining)
-
-  if (actualStepMagnitude === 0) {
-    return makeOdeResult({
-      acceptedSteps,
-      finalState: state,
-      finalTime: time,
-      functionEvaluations,
-      method,
-      rejectedSteps: 0,
-      status: "stepSizeTooSmall",
-      trajectory
-    })
-  }
-
-  const signedStep = N.multiply(actualStepMagnitude, direction)
-  const substepCount = fixedSampleSubsteps(method)
-  const substep = N.unsafeDivide(signedStep, substepCount)
-  const next = integrateSampleInterval({
-    field,
-    remainingSubsteps: substepCount,
-    solver: solverFor(method),
+  const initialState: FixedAdvanceState = {
+    acceptedSteps,
+    done: false,
+    functionEvaluations,
     state,
-    step: substep,
+    status: "finished",
     time,
-    functionEvaluations: 0
-  })
-  const nextTime = N.sum(time, signedStep)
-  const nextPoint = makeTrajectoryPoint(nextTime, next.nextState)
+    trajectory: Chunk.fromIterable(trajectory)
+  }
+  const finalState = Arr.reduce(Arr.range(0, maxSteps), initialState, (currentState): FixedAdvanceState => {
+    if (currentState.done) {
+      return currentState
+    }
 
-  return advanceFixed({
-    acceptedSteps: acceptedSteps + 1,
-    direction,
-    field,
-    finalTime,
-    functionEvaluations: functionEvaluations + next.functionEvaluations,
-    maxSteps,
+    if (hasReachedTarget({ currentTime: currentState.time, direction, finalTime })) {
+      return {
+        ...currentState,
+        done: true,
+        status: "finished"
+      }
+    }
+
+    if (currentState.acceptedSteps >= maxSteps) {
+      return {
+        ...currentState,
+        done: true,
+        status: "maxStepsExceeded"
+      }
+    }
+
+    const remaining = remainingDistance({ currentTime: currentState.time, direction, finalTime })
+    const actualStepMagnitude = minimum(stepMagnitude, remaining)
+
+    if (actualStepMagnitude === 0) {
+      return {
+        ...currentState,
+        done: true,
+        status: "stepSizeTooSmall"
+      }
+    }
+
+    const signedStep = N.multiply(actualStepMagnitude, direction)
+    const substepCount = fixedSampleSubsteps(method)
+    const substep = N.unsafeDivide(signedStep, substepCount)
+    const next = integrateSampleInterval({
+      field,
+      remainingSubsteps: substepCount,
+      solver: solverFor(method),
+      state: currentState.state,
+      step: substep,
+      time: currentState.time,
+      functionEvaluations: 0
+    })
+    const nextTime = N.sum(currentState.time, signedStep)
+
+    return {
+      acceptedSteps: N.sum(currentState.acceptedSteps, 1),
+      done: false,
+      functionEvaluations: N.sum(currentState.functionEvaluations, next.functionEvaluations),
+      state: next.nextState,
+      status: "finished",
+      time: nextTime,
+      trajectory: Chunk.append(currentState.trajectory, makeTrajectoryPoint(nextTime, next.nextState))
+    }
+  })
+
+  return makeOdeResult({
+    acceptedSteps: finalState.acceptedSteps,
+    finalState: finalState.state,
+    finalTime: finalState.time,
+    functionEvaluations: finalState.functionEvaluations,
     method,
-    state: next.nextState,
-    stepMagnitude,
-    time: nextTime,
-    trajectory: [...trajectory, nextPoint]
+    rejectedSteps: 0,
+    status: finalState.status,
+    trajectory: Chunk.toReadonlyArray(finalState.trajectory)
   })
 }
 

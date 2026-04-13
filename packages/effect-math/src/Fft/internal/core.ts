@@ -11,15 +11,16 @@ export type ComplexPair = Readonly<{
 
 const toPair = (real: number, imaginary: number): ComplexPair => ({ real, imaginary })
 
-const basePhaseAngle = (
-  outputIndex: number,
-  size: number,
-  direction: "forward" | "inverse"
-): number => {
-  const sign = direction === "forward" ? -1 : 1
+const scalePair = (value: ComplexPair, scale: number): ComplexPair =>
+  toPair(N.multiply(value.real, scale), N.multiply(value.imaginary, scale))
 
-  return N.unsafeDivide(N.multiply(N.multiply(N.multiply(sign, 2), PI), outputIndex), size)
-}
+const multiplyPairs = (left: ComplexPair, right: ComplexPair): ComplexPair =>
+  toPair(
+    N.subtract(N.multiply(left.real, right.real), N.multiply(left.imaginary, right.imaginary)),
+    N.sum(N.multiply(left.real, right.imaginary), N.multiply(left.imaginary, right.real))
+  )
+
+const directionSign = (direction: "forward" | "inverse"): number => direction === "forward" ? -1 : 1
 
 const normalizationScale = (
   direction: "forward" | "inverse",
@@ -34,66 +35,172 @@ const normalizationScale = (
     ? N.unsafeDivide(1, length)
     : 1
 
-type DftAccumulator = Readonly<{
-  sumReal: number
-  sumImaginary: number
-  twiddleReal: number
-  twiddleImaginary: number
-}>
+const isPowerOfTwo = (length: number): boolean => length > 0 && (length & (length - 1)) === 0
 
-const nextTwiddle = (
-  twiddleReal: number,
-  twiddleImaginary: number,
-  stepReal: number,
-  stepImaginary: number
-): ComplexPair =>
-  toPair(
-    N.subtract(N.multiply(twiddleReal, stepReal), N.multiply(twiddleImaginary, stepImaginary)),
-    N.sum(N.multiply(twiddleReal, stepImaginary), N.multiply(twiddleImaginary, stepReal))
+const nextPowerOfTwo = (length: number, power: number = 1): number =>
+  power >= length ? power : nextPowerOfTwo(length, power << 1)
+
+const zeroPairs = (length: number): Array<ComplexPair> => Arr.map(Arr.range(0, length - 1), () => toPair(0, 0))
+
+const chirp = (sign: number, index: number, length: number): ComplexPair => {
+  const phase = N.unsafeDivide(N.multiply(N.multiply(sign, PI), N.multiply(index, index)), length)
+
+  return toPair(cos(phase), sin(phase))
+}
+
+const nextBitReversedIndex = (length: number, reversedIndex: number): number => {
+  const step = (bit: number, currentIndex: number): number =>
+    (currentIndex & bit) !== 0
+      ? step(bit >> 1, currentIndex ^ bit)
+      : currentIndex ^ bit
+
+  return step(length >> 1, reversedIndex)
+}
+
+const swapIndices = (real: Array<number>, imaginary: Array<number>, index: number, reversedIndex: number): void => {
+  const realValue = real[index]!
+  const imaginaryValue = imaginary[index]!
+
+  real[index] = real[reversedIndex]!
+  imaginary[index] = imaginary[reversedIndex]!
+  real[reversedIndex] = realValue
+  imaginary[reversedIndex] = imaginaryValue
+}
+
+const twiddle = (phase: number, offset: number): ComplexPair =>
+  toPair(cos(N.multiply(phase, offset)), sin(N.multiply(phase, offset)))
+
+const applyButterfly = (options: {
+  readonly evenIndex: number
+  readonly oddIndex: number
+  readonly real: Array<number>
+  readonly imaginary: Array<number>
+  readonly twiddle: ComplexPair
+}): void => {
+  const oddReal = options.real[options.oddIndex]!
+  const oddImaginary = options.imaginary[options.oddIndex]!
+  const tempReal = N.subtract(
+    N.multiply(options.twiddle.real, oddReal),
+    N.multiply(options.twiddle.imaginary, oddImaginary)
   )
+  const tempImaginary = N.sum(
+    N.multiply(options.twiddle.real, oddImaginary),
+    N.multiply(options.twiddle.imaginary, oddReal)
+  )
+  const evenReal = options.real[options.evenIndex]!
+  const evenImaginary = options.imaginary[options.evenIndex]!
 
-const dftAtIndex = (
-  real: ReadonlyArray<number>,
-  imaginary: ReadonlyArray<number>,
-  outputIndex: number,
+  options.real[options.oddIndex] = N.subtract(evenReal, tempReal)
+  options.imaginary[options.oddIndex] = N.subtract(evenImaginary, tempImaginary)
+  options.real[options.evenIndex] = N.sum(evenReal, tempReal)
+  options.imaginary[options.evenIndex] = N.sum(evenImaginary, tempImaginary)
+}
+
+const transformPowerOfTwo = (
+  input: ReadonlyArray<ComplexPair>,
   direction: "forward" | "inverse"
-): ComplexPair => {
-  const angle = basePhaseAngle(outputIndex, real.length, direction)
-  const stepReal = cos(angle)
-  const stepImaginary = sin(angle)
+): Array<ComplexPair> => {
+  const length = input.length
 
-  const state = real.reduce<DftAccumulator>((accumulator, value, inputIndex) => {
-    const sampleImaginary = imaginary[inputIndex]!
-    const contributionReal = N.subtract(
-      N.multiply(value, accumulator.twiddleReal),
-      N.multiply(sampleImaginary, accumulator.twiddleImaginary)
-    )
-    const contributionImaginary = N.sum(
-      N.multiply(value, accumulator.twiddleImaginary),
-      N.multiply(sampleImaginary, accumulator.twiddleReal)
-    )
-    const next = nextTwiddle(
-      accumulator.twiddleReal,
-      accumulator.twiddleImaginary,
-      stepReal,
-      stepImaginary
-    )
+  if (length === 1) {
+    return Arr.fromIterable(input)
+  }
 
-    return {
-      sumReal: N.sum(accumulator.sumReal, contributionReal),
-      sumImaginary: N.sum(accumulator.sumImaginary, contributionImaginary),
-      twiddleReal: next.real,
-      twiddleImaginary: next.imaginary
+  const real = input.map((value) => value.real)
+  const imaginary = input.map((value) => value.imaginary)
+  const reordered = Arr.reduce(
+    Arr.range(1, length - 1),
+    { imaginary, real, reversedIndex: 0 },
+    (state, index) => {
+      const nextReversedIndex = nextBitReversedIndex(length, state.reversedIndex)
+
+      if (index < nextReversedIndex) {
+        swapIndices(state.real, state.imaginary, index, nextReversedIndex)
+      }
+
+      return {
+        ...state,
+        reversedIndex: nextReversedIndex
+      }
     }
-  }, {
-    sumReal: 0,
-    sumImaginary: 0,
-    twiddleReal: 1,
-    twiddleImaginary: 0
+  )
+  const runStages = (size: number): { readonly real: Array<number>; readonly imaginary: Array<number> } => {
+    if (size > length) {
+      return reordered
+    }
+
+    const halfSize = size >> 1
+    const phase = N.unsafeDivide(N.multiply(directionSign(direction), N.multiply(2, PI)), size)
+    const blockCount = N.unsafeDivide(length, size)
+
+    Arr.reduce(Arr.range(0, blockCount - 1), undefined, (_, blockIndex) => {
+      Arr.reduce(Arr.range(0, halfSize - 1), undefined, (_, offset) => {
+        applyButterfly({
+          evenIndex: N.sum(N.multiply(blockIndex, size), offset),
+          oddIndex: N.sum(N.sum(N.multiply(blockIndex, size), offset), halfSize),
+          real: reordered.real,
+          imaginary: reordered.imaginary,
+          twiddle: twiddle(phase, offset)
+        })
+
+        return undefined
+      })
+
+      return undefined
+    })
+
+    return runStages(size << 1)
+  }
+  const transformed = runStages(2)
+
+  return transformed.real.map((value, index) => toPair(value, transformed.imaginary[index]!))
+}
+
+const transformBluestein = (
+  input: ReadonlyArray<ComplexPair>,
+  direction: "forward" | "inverse"
+): Array<ComplexPair> => {
+  const length = input.length
+  const sign = directionSign(direction)
+  const convolutionLength = nextPowerOfTwo(N.subtract(N.multiply(2, length), 1))
+  const left = zeroPairs(convolutionLength)
+  const right = zeroPairs(convolutionLength)
+
+  right[0] = toPair(1, 0)
+
+  Arr.reduce(Arr.range(0, length - 1), undefined, (_, index) => {
+    left[index] = multiplyPairs(input[index]!, chirp(sign, index, length))
+
+    return undefined
   })
 
-  return toPair(state.sumReal, state.sumImaginary)
+  if (length > 1) {
+    Arr.reduce(Arr.range(1, length - 1), undefined, (_, index) => {
+      const kernel = chirp(N.negate(sign), index, length)
+
+      right[index] = kernel
+      right[convolutionLength - index] = kernel
+
+      return undefined
+    })
+  }
+
+  const leftSpectrum = transformPowerOfTwo(left, "forward")
+  const rightSpectrum = transformPowerOfTwo(right, "forward")
+  const productSpectrum = leftSpectrum.map((value, index) => multiplyPairs(value, rightSpectrum[index]!))
+  const convolved = transformPowerOfTwo(productSpectrum, "inverse")
+  const inverseScale = N.unsafeDivide(1, convolutionLength)
+
+  return input.map((_, index) => multiplyPairs(scalePair(convolved[index]!, inverseScale), chirp(sign, index, length)))
 }
+
+const transform = (
+  input: ReadonlyArray<ComplexPair>,
+  direction: "forward" | "inverse"
+): Array<ComplexPair> =>
+  isPowerOfTwo(input.length)
+    ? transformPowerOfTwo(input, direction)
+    : transformBluestein(input, direction)
 
 export const dft = (options: {
   readonly real: Chunk.Chunk<number>
@@ -105,16 +212,16 @@ export const dft = (options: {
   const imaginary = Chunk.toReadonlyArray(options.imaginary)
   const scale = normalizationScale(options.direction, options.normalization, real.length)
 
-  return Arr.map(Arr.range(0, real.length - 1), (outputIndex) => {
-    const value = dftAtIndex(real, imaginary, outputIndex, options.direction)
-    return toPair(N.multiply(value.real, scale), N.multiply(value.imaginary, scale))
-  })
+  return transform(
+    real.map((value, index) => toPair(value, imaginary[index]!)),
+    options.direction
+  ).map((value) => scalePair(value, scale))
 }
 
 export const expectedHalfSpectrumSize = (signalLength: number): number => Math.floor(signalLength / 2) + 1
 
 export const zeroChunk = (length: number): Chunk.Chunk<number> =>
-  Chunk.fromIterable(Arr.map(Arr.range(0, length - 1), () => 0))
+  Chunk.fromIterable(length > 0 ? Arr.map(Arr.range(0, length - 1), () => 0) : [])
 
 export const isFiniteChunk = (values: Chunk.Chunk<number>): boolean =>
   Chunk.toReadonlyArray(values).every(Number.isFinite)
@@ -133,5 +240,5 @@ export const reconstructFullSpectrum = (
   return Arr.map(Arr.range(0, signalLength - 1), (index) =>
     index < halfReal.length
       ? toPair(halfReal[index]!, halfImaginary[index]!)
-      : toPair(halfReal[signalLength - index]!, -halfImaginary[signalLength - index]!))
+      : toPair(halfReal[signalLength - index]!, N.negate(halfImaginary[signalLength - index]!)))
 }
