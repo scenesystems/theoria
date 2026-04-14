@@ -6,9 +6,9 @@ import { ProgramPreview, programPreviewCard } from "../../app/contracts/presenta
 import type { ProgramFile } from "../../app/contracts/presentation/program.js"
 import type { RunData } from "../../app/contracts/study/run.js"
 
-const effectTextSurface = EntryPresentation.fromEntryId("effect-text")
+const workflowSurface = EntryPresentation.fromEntryId("workflow")
 const entryRegistry = EntryRegistry.current()
-export const effectTextCardFixture = Card.project(entryRegistry.descriptorForId("effect-text"))
+export const effectTextCardFixture = Card.project(entryRegistry.descriptorForId("workflow"))
 
 const programFixtureFile: ProgramFile = {
   language: "ts",
@@ -24,8 +24,8 @@ export const errorFixture = new EntryExecutionError({
 })
 
 export const runDataFixture = (summary: string): RunData => ({
-  id: effectTextSurface.entryId,
-  packageName: effectTextSurface.packageName,
+  id: workflowSurface.entryId,
+  packageName: workflowSurface.packageName,
   summary,
   durationMs: 3,
   program: {
@@ -55,17 +55,17 @@ export const runDataFixture = (summary: string): RunData => ({
 })
 
 export const programPreviewFixture: ProgramPreview = ProgramPreview.make({
-  id: effectTextSurface.entryId,
+  id: workflowSurface.entryId,
   card: programPreviewCard({
-    deepDivePath: effectTextSurface.path,
-    id: effectTextSurface.entryId,
-    packageName: effectTextSurface.packageName,
-    runLabel: effectTextSurface.runLabel,
-    summary: effectTextSurface.summary,
-    title: effectTextSurface.title,
-    useCase: effectTextSurface.useCase
+    deepDivePath: workflowSurface.path,
+    id: workflowSurface.entryId,
+    packageName: workflowSurface.packageName,
+    runLabel: workflowSurface.runLabel,
+    summary: workflowSurface.summary,
+    title: workflowSurface.title,
+    useCase: workflowSurface.useCase
   }),
-  summary: effectTextSurface.summary,
+  summary: workflowSurface.summary,
   program: {
     files: [programFixtureFile]
   }

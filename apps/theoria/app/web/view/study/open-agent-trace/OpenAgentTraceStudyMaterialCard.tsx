@@ -1,26 +1,15 @@
 import type { OpenAgentTraceStudyMaterialCardModel } from "../../../../contracts/study/workflow/open-agent-trace.js"
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 export const OpenAgentTraceStudyMaterialCard = ({
   model
 }: {
   readonly model: OpenAgentTraceStudyMaterialCardModel
 }) => (
-  <ContentCard className="min-w-0 flex-1 basis-[18rem]" density="standard">
+  <SurfaceSubsection appearance="flush" className="min-w-0 flex-1" summary={model.description} title={model.title}>
     <Stack className="gap-3">
-      <Stack className="gap-1">
-        <SemanticText as="h3" className="text-ink-900" role="card-title" text={model.title} variant="expanded" />
-        <SemanticText
-          as="p"
-          className="text-ink-700"
-          role="card-summary"
-          text={model.description}
-          variant="expanded"
-        />
-      </Stack>
-
       {model.items.length === 0
         ? (
           <SemanticText
@@ -48,5 +37,5 @@ export const OpenAgentTraceStudyMaterialCard = ({
           </Stack>
         )}
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )

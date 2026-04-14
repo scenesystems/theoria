@@ -21,7 +21,7 @@ export class MessageActorModel extends Schema.Class<MessageActorModel>("MessageA
 export class MessageModel extends Schema.Class<MessageModel>("MessageModel")({
   actor: MessageActorModel,
   alignment: MessageAlignment,
-  blocks: Schema.Array(MessageContent),
+  content: Schema.Array(MessageContent),
   id: Schema.String,
   status: MessageStatus,
   timestampLabel: Schema.optional(Schema.String)

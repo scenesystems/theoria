@@ -172,7 +172,7 @@ export class SurfaceCodeModel extends Schema.Class<SurfaceCodeModel>("SurfaceCod
       lineCount,
       truncated: preview.truncated,
       hint: preview.truncated
-        ? `Showing first ${compactCodeLineLimit} of ${lineCount} ${lineLabel}. Open Deep Dive for full source context.`
+        ? `Showing first ${compactCodeLineLimit} of ${lineCount} ${lineLabel}.`
         : "Scroll to inspect the full source workspace.",
       originHint: resolved.originHint,
       originLabel: resolved.originLabel,

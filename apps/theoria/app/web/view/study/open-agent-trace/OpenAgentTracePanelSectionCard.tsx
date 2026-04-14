@@ -1,9 +1,9 @@
 import { Match } from "effect"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
-import { Cluster, Stack } from "../../primitives/Layout.js"
+import { Layer, Stack } from "../../primitives/Layout.js"
 import { ExternalLink } from "../../primitives/Link.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 import type {
   OpenAgentTracePanelSection,
@@ -11,14 +11,14 @@ import type {
 } from "../../../../contracts/study/workflow/open-agent-trace.js"
 
 const SummaryRows = ({ rows }: { readonly rows: ReadonlyArray<OpenAgentTraceSummaryRow> }) => (
-  <Cluster className="gap-x-6 gap-y-3">
+  <Layer as="dl" className="grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
     {rows.map((row) => (
       <Stack className="gap-1" key={row.label}>
         <SemanticText as="span" className="text-ink-500" role="row-label" text={row.label} variant="compact" />
         <SemanticText as="span" className="text-ink-900" role="row-value" text={row.value} variant="expanded" />
       </Stack>
     ))}
-  </Cluster>
+  </Layer>
 )
 
 const DetailCard = (props: {
@@ -26,9 +26,8 @@ const DetailCard = (props: {
   readonly items: ReadonlyArray<{ readonly detail: string; readonly label: string }>
   readonly title: string
 }) => (
-  <ContentCard className="min-w-0 flex-1 basis-[18rem]" density="standard">
+  <SurfaceSubsection appearance="flush" className="min-w-0 flex-1" title={props.title}>
     <Stack className="gap-3">
-      <SemanticText as="h3" className="text-ink-900" role="card-title" text={props.title} variant="compact" />
       {props.items.length === 0
         ? <SemanticText as="p" className="text-ink-700" role="card-summary" text={props.emptyText} variant="expanded" />
         : (
@@ -48,7 +47,7 @@ const DetailCard = (props: {
           </Stack>
         )}
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )
 
 const SummaryCard = (props: {
@@ -56,21 +55,18 @@ const SummaryCard = (props: {
   readonly rows: ReadonlyArray<OpenAgentTraceSummaryRow>
   readonly title: string
 }) => (
-  <ContentCard className="min-w-0 flex-1 basis-[18rem]" density="standard">
+  <SurfaceSubsection appearance="flush" className="min-w-0 flex-1" title={props.title}>
     <Stack className="gap-3">
-      <Stack className="gap-1">
-        <SemanticText as="h3" className="text-ink-900" role="card-title" text={props.title} variant="compact" />
-        {props.href === undefined
-          ? null
-          : (
-            <ExternalLink className="text-ink-700 underline decoration-stage-300 underline-offset-4" href={props.href}>
-              <SemanticText as="span" role="row-label" text={props.href} variant="compact" />
-            </ExternalLink>
-          )}
-      </Stack>
+      {props.href === undefined
+        ? null
+        : (
+          <ExternalLink className="text-ink-700 underline decoration-stage-300 underline-offset-4" href={props.href}>
+            <SemanticText as="span" role="row-label" text={props.href} variant="compact" />
+          </ExternalLink>
+        )}
       <SummaryRows rows={props.rows} />
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )
 
 export const OpenAgentTracePanelSummaryRows = SummaryRows

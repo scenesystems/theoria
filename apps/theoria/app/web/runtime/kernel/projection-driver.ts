@@ -2,8 +2,8 @@ import { Effect, Option } from "effect"
 import type { Deferred, Queue, Stream } from "effect"
 
 import type { EntryError } from "../../../contracts/entry-error.js"
-import type { StreamManifest } from "../../../contracts/evidence/manifest.js"
 import type { EvidenceEvent } from "../../../contracts/evidence/stream.js"
+import type { StudyManifest } from "../../../contracts/study/manifest.js"
 import type { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
 import type { RunRegistry } from "../../atoms/run-registry-context.js"
 import type { RunSignal } from "../../atoms/run/lifecycle.js"
@@ -20,7 +20,7 @@ export type ProjectionDriverEvent =
   | ProjectionDriverCompletedEvent
 
 export type ProjectionDriverSnapshot = {
-  readonly manifest: StreamManifest | null
+  readonly manifest: StudyManifest | null
   readonly localProjectionScript: LocalProjectionScript | null
 }
 

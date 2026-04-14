@@ -9,12 +9,13 @@ import {
 } from "effect-dsp/fixtures/open-agent-trace/pi-mono"
 import { ConsumerArtifact } from "../../../../contracts/study/workflow/consumer-artifact.js"
 import {
-  chatContinuationOpenAgentTraceEntryId,
   OpenAgentTraceRegistryEntry,
-  OpenAgentTraceRegistrySchema,
-  taskFirstOpenAgentTraceEntryId
+  OpenAgentTraceRegistrySchema
 } from "../../../../contracts/study/workflow/open-agent-trace.js"
-import { WorkflowHookup } from "../../../../contracts/study/workflow/workflow-hookup.js"
+import {
+  registryWorkflowHookupTransport,
+  WorkflowHookup
+} from "../../../../contracts/study/workflow/workflow-hookup.js"
 
 const datasetAuthority = {
   datasetId: "badlogicgames/pi-mono",
@@ -35,13 +36,31 @@ const publishedRecord = (record: typeof Experimental.OpenAgentTrace.Record.Type)
     reviewStatus: Experimental.OpenAgentTrace.publishedReviewStatus(record.reviewStatus)
   })
 
-const buildRegistryEntry = (options: {
-  readonly entryId: OpenAgentTraceRegistryEntry["entryId"]
+type PiMonoFixtureDescriptor = {
   readonly eyebrow: string
   readonly rowFixture: unknown
   readonly summary: string
   readonly title: string
-}) =>
+}
+
+const piMonoFixtureCatalog: ReadonlyArray<PiMonoFixtureDescriptor> = [
+  {
+    eyebrow: "Pi-mono · task-first corpus proof",
+    rowFixture: piMonoTaskFirstRowFixture,
+    title: "Pi-mono Task-First Runtime Trace",
+    summary:
+      "Read-only proof over the pi-mono public dataset family, showing task-first branch lineage, compaction evidence, coverage gaps, and the reusable workflow projection."
+  },
+  {
+    eyebrow: "Pi-mono · chat-continuation handoff",
+    rowFixture: piMonoChatContinuationRowFixture,
+    title: "Pi-mono Chat-Continuation Handoff Trace",
+    summary:
+      "Read-only proof over the pi-mono public dataset family, showing the same package-owned workflow family on a chat-continuation handoff without app-local shape translation."
+  }
+]
+
+const buildPiMonoRegistryEntry = (options: PiMonoFixtureDescriptor) =>
   Effect.gen(function*() {
     const fixtures = yield* decodeFixtureInputs
     const row = yield* Experimental.OpenAgentTrace.PiMono.decodeDatasetRow(options.rowFixture)
@@ -55,15 +74,15 @@ const buildRegistryEntry = (options: {
     const workflowProjection = yield* Experimental.OpenAgentTrace.WorkflowProjection.project(record)
 
     return OpenAgentTraceRegistryEntry.make({
-      entryId: options.entryId,
+      entryId: record.recordId,
       eyebrow: options.eyebrow,
       title: options.title,
       summary: options.summary,
       consumerArtifact: ConsumerArtifact.make({
         artifactId: record.session.sessionId,
         artifactKind: "agent-trace",
-        sourceKind: "hugging-face-dataset",
-        sourceLabel: record.source.datasetId,
+        sourceKind: "pi-mono",
+        sourceLabel: "Pi-mono public dataset",
         sourceUrl: record.source.sourceUrl,
         title: options.title,
         summary: options.summary
@@ -71,7 +90,7 @@ const buildRegistryEntry = (options: {
       workflowHookup: WorkflowHookup.make({
         artifactKind: "agent-trace",
         sourceKind: "open-agent-trace",
-        transport: "registry",
+        transport: registryWorkflowHookupTransport,
         workflowKind: workflowProjection.workflowRecord.workflowKind
       }),
       record,
@@ -79,28 +98,15 @@ const buildRegistryEntry = (options: {
     })
   })
 
+const loadPiMonoFixtureFamily = Effect.all(piMonoFixtureCatalog.map(buildPiMonoRegistryEntry), {
+  concurrency: 1
+})
+
+const fixtureBackedRegistryFamilies = [loadPiMonoFixtureFamily]
+
 export const loadOpenAgentTraceRegistry = Effect.gen(function*() {
-  const registry = yield* Effect.all(
-    [
-      buildRegistryEntry({
-        entryId: taskFirstOpenAgentTraceEntryId,
-        eyebrow: "Task-first corpus proof",
-        rowFixture: piMonoTaskFirstRowFixture,
-        title: "Task-First Runtime Trace",
-        summary:
-          "Read-only corpus proof over the task-first pi-mono fixture, including branch lineage, compaction evidence, coverage gaps, and the reusable workflow projection."
-      }),
-      buildRegistryEntry({
-        entryId: chatContinuationOpenAgentTraceEntryId,
-        eyebrow: "Chat-continuation handoff",
-        rowFixture: piMonoChatContinuationRowFixture,
-        title: "Chat-Continuation Handoff Trace",
-        summary:
-          "Read-only corpus proof over the chat-continuation pi-mono fixture, showing the same package-owned workflow family without app-local shape translation."
-      })
-    ],
-    { concurrency: 1 }
-  )
+  const registryFamilies = yield* Effect.all(fixtureBackedRegistryFamilies, { concurrency: 1 })
+  const registry = registryFamilies.flat()
 
   return yield* Schema.decodeUnknown(OpenAgentTraceRegistrySchema)(registry)
 })

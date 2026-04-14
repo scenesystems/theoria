@@ -1,9 +1,9 @@
 import { Schema } from "effect"
 
 import { EntryError } from "../../../contracts/entry-error.js"
-import { EntryDraft } from "../../../contracts/entry/registry.js"
 import { Metadata } from "../../../contracts/envelope.js"
 import { Program } from "../../../contracts/presentation/program.js"
+import { StudyDraft } from "../../../contracts/study/registry.js"
 import { RunRequestIdentity } from "../../../contracts/study/run-plan.js"
 import { RunData } from "../../../contracts/study/run.js"
 import { CanonicalFrame } from "../../../contracts/study/workflow/canonical-step.js"
@@ -19,7 +19,7 @@ export type RunStartedMessage = {
   readonly sequence: number
   readonly ownership: RunOwnership
   readonly startedAtMs: number
-  readonly draft: typeof EntryDraft.Type
+  readonly draft: typeof StudyDraft.Type
   readonly identity: typeof RunRequestIdentity.Type
   readonly localProjectionScript: typeof LocalProjectionScript.Type | null
   readonly program: typeof Program.Type
@@ -31,7 +31,7 @@ export const RunStartedMessage = Schema.Struct({
   sequence: Schema.Number,
   ownership: RunOwnershipSchema,
   startedAtMs: Schema.Number,
-  draft: EntryDraft,
+  draft: StudyDraft,
   identity: RunRequestIdentity,
   localProjectionScript: Schema.NullOr(LocalProjectionScript),
   program: Program

@@ -1,6 +1,9 @@
 import { packageNameFromString, PackageNameSchema } from "@theoria/source-proof/contracts"
+import type { PackageName } from "@theoria/source-proof/contracts"
 import type { Effect } from "effect"
 import { Schema } from "effect"
+import * as Arr from "effect/Array"
+import type * as Option from "effect/Option"
 
 import { type DurableFingerprint, fingerprintOf } from "../entry/fingerprint.js"
 import { AuthorityId } from "../entry/id.js"
@@ -27,9 +30,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "effect-math",
     title: "effect-math",
     packageName: packageNameFromString("effect-math"),
-    description: "Combines numerical and statistical computing with typed errors and policy-aware operations.",
-    useCase: "Numerical analysis and statistical modeling inside application code.",
-    summary: "Explore how sample size, effect size, and target power trade off.",
+    description: "Measure change, test hypotheses, and model numeric behavior with reproducible math and statistics.",
+    useCase: "Score experiments, estimate uncertainty, and compare intervention effects.",
+    summary: "Ask whether a result is real, how large it is, and how much evidence you need to trust it.",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/effect-math",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
@@ -39,10 +42,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "effect-search",
     title: "effect-search",
     packageName: packageNameFromString("effect-search"),
-    description:
-      "Runs optimization studies with adaptive samplers when each evaluation is too expensive for trial and error.",
-    useCase: "Hyperparameter tuning, experiment design, and other expensive search problems.",
-    summary: "Compare TPE against seeded random search on the same trial budget.",
+    description: "Search expensive configuration spaces when every trial costs time, tokens, or human attention.",
+    useCase: "Tune prompts, policies, and experiment settings against a concrete objective.",
+    summary: "Find better configurations in fewer runs and keep the study history you learned from.",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/effect-search",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
@@ -52,9 +54,10 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "effect-dsp",
     title: "effect-dsp",
     packageName: packageNameFromString("effect-dsp"),
-    description: "Turns language-model workflows into typed programs you can trace, evaluate, and optimize.",
-    useCase: "Build, evaluate, and optimize LLM workflows without hand-managing prompts.",
-    summary: "Run a typed classifier and compare it with a heuristic baseline.",
+    description:
+      "Turn agent behavior into typed workflows you can evaluate, optimize, and replay with evidence attached.",
+    useCase: "Design and improve multi-step LM systems without losing sight of how they actually behave.",
+    summary: "Compare a baseline workflow, an authored improvement, and a study-selected winner.",
     version: "0.1.4",
     npmUrl: "https://www.npmjs.com/package/effect-dsp",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
@@ -64,9 +67,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "effect-text",
     title: "effect-text",
     packageName: packageNameFromString("effect-text"),
-    description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
-    useCase: "Prepare text once, then reflow it across widths and obstacles.",
-    summary: "Measure in the browser and reflow the same text as the container changes.",
+    description: "Keep meaning readable as text moves across widths, obstacles, and changing presentation surfaces.",
+    useCase: "Study how layout constraints change what people can actually read and compare.",
+    summary: "Preview how the same content behaves across widths, obstacles, and render targets.",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
@@ -77,9 +80,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     title: "effect-inference",
     packageName: packageNameFromString("effect-inference"),
     description:
-      "Resolves model requests for text and embeddings across providers while keeping request intent, routing, and execution evidence separate.",
-    useCase: "Keep requested model intent, resolved route, and execution evidence separate.",
-    summary: "Resolve a descriptor, inspect the route, and collect runtime evidence.",
+      "Route model requests across providers without losing the requested intent, chosen route, or runtime evidence.",
+    useCase: "Compare model and runtime choices while keeping execution evidence attached to the result.",
+    summary: "See which model path ran, why it was chosen, and what it produced.",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/effect-inference",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-inference",
@@ -89,9 +92,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "digest",
     title: "@scenesystems/digest",
     packageName: packageNameFromString("@scenesystems/digest"),
-    description: "Turns structured data into stable cryptographic digests you can use as identifiers.",
-    useCase: "Stable fingerprints, integrity checks, and content addressing.",
-    summary: "Hash a structured value with BLAKE3-256 and SHA-256.",
+    description: "Give datasets, traces, and study artifacts stable identities you can compare, cache, and trust.",
+    useCase: "Fingerprint evidence, prove integrity, and tell when two artifacts are truly the same.",
+    summary: "Turn structured artifacts into durable IDs for replay, provenance, and audit.",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/digest",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/digest",
@@ -101,9 +104,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "seal",
     title: "@scenesystems/seal",
     packageName: packageNameFromString("@scenesystems/seal"),
-    description: "Encrypts data into self-describing envelopes that carry what is needed to decrypt it.",
-    useCase: "Encrypt data without tracking algorithm and nonce separately.",
-    summary: "Seal and unseal data with XChaCha20-Poly1305.",
+    description: "Package sensitive study artifacts into envelopes that move safely between people and systems.",
+    useCase: "Share private data, prompts, or evidence bundles without losing the context needed to reopen them.",
+    summary: "Seal results for transport and unseal them later with the right metadata already attached.",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
@@ -113,10 +116,9 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
     authorityId: "sign",
     title: "@scenesystems/sign",
     packageName: packageNameFromString("@scenesystems/sign"),
-    description:
-      "Signs messages, derives shared secrets, and encapsulates keys with classical and post-quantum algorithms.",
-    useCase: "Switch between classical and post-quantum algorithms without changing the workflow.",
-    summary: "Generate Ed25519 keys, sign a message, and verify it.",
+    description: "Sign results and provenance bundles so collaborators can verify who produced them and what changed.",
+    useCase: "Publish trustworthy study outputs across classical and post-quantum verification choices.",
+    summary: "Attach verifiable authorship to shared artifacts, evidence bundles, and released results.",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
@@ -126,7 +128,26 @@ const authorityCatalogById: Readonly<Record<AuthorityId, AuthorityCatalogDescrip
 
 const encodeAuthorityCatalogDescriptor = Schema.encodeSync(AuthorityCatalogDescriptor)
 
+export const authorityCatalogDescriptors: ReadonlyArray<AuthorityCatalogDescriptor> = [
+  authorityCatalogById["effect-math"],
+  authorityCatalogById["effect-search"],
+  authorityCatalogById["effect-dsp"],
+  authorityCatalogById["effect-text"],
+  authorityCatalogById["effect-inference"],
+  authorityCatalogById.digest,
+  authorityCatalogById.seal,
+  authorityCatalogById.sign
+]
+
+export const authorityCatalogPackageNames: ReadonlyArray<PackageName> = Arr.map(
+  authorityCatalogDescriptors,
+  (descriptor) => descriptor.packageName
+)
+
 export const authorityCatalogForId = (id: AuthorityId): AuthorityCatalogDescriptor => authorityCatalogById[id]
+
+export const authorityCatalogForPackageName = (packageName: PackageName): Option.Option<AuthorityCatalogDescriptor> =>
+  Arr.findFirst(authorityCatalogDescriptors, (descriptor) => descriptor.packageName === packageName)
 
 export const authorityCatalogFingerprint = (
   catalog: AuthorityCatalogDescriptor

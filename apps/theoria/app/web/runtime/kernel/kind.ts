@@ -1,10 +1,9 @@
 import { Data, Effect, Option, Schema } from "effect"
 
 import type { EntryError } from "../../../contracts/entry-error.js"
-import type { EntryDraft } from "../../../contracts/entry/registry.js"
-import { EntryRunRequest as EntryRunRequestSchema } from "../../../contracts/entry/registry.js"
 import type { Metadata } from "../../../contracts/envelope.js"
 import type { ProgramPreview } from "../../../contracts/presentation/program-preview.js"
+import { type StudyDraft, StudyRunRequest as StudyRunRequestSchema } from "../../../contracts/study/registry.js"
 import type { RunData } from "../../../contracts/study/run.js"
 import type { RunRegistry } from "../../atoms/run-registry-context.js"
 import { EntryClient } from "../../services/EntryClient.js"
@@ -19,7 +18,7 @@ export interface SurfaceRunResult {
 }
 
 export interface SurfaceRuntimeSnapshot {
-  readonly draft: EntryDraft | null
+  readonly draft: StudyDraft | null
   readonly localProjectionScript: LocalProjectionScript | null
 }
 
@@ -60,7 +59,7 @@ export class SurfaceRuntime extends Data.Class<SurfaceRuntime.Shape> {
     preload = true,
     snapshot
   }: {
-    readonly entryId: EntryDraft["entryId"]
+    readonly entryId: StudyDraft["entryId"]
     readonly preload?: boolean
     readonly snapshot: (registry: RunRegistry) => SurfaceRuntimeSnapshot
   }): SurfaceRuntime {
@@ -82,7 +81,7 @@ export class SurfaceRuntime extends Data.Class<SurfaceRuntime.Shape> {
           const client = yield* EntryClient
 
           return yield* client.runWithMeta(
-            Schema.decodeUnknownSync(EntryRunRequestSchema)({
+            Schema.decodeUnknownSync(StudyRunRequestSchema)({
               runToken,
               draft: runtimeSnapshot.draft
             })

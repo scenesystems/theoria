@@ -4,7 +4,7 @@ import { PresentationDetailRow } from "./detail-row.js"
 import { RunControlsViewModel } from "./run-controls.js"
 import { SurfaceChromeContentModel } from "./surface-chrome.js"
 import { SurfaceCodeModel } from "./surface-code.js"
-import { SurfaceStageFrameViewModel, SurfaceStageViewModel } from "./surface-stage.js"
+import { SurfaceStageViewModel } from "./surface-stage.js"
 
 export type SurfacePresentationInput = {
   readonly compact: boolean
@@ -15,13 +15,6 @@ export type SurfacePresentationInput = {
   readonly evidenceRows: ReadonlyArray<PresentationDetailRow>
   readonly code: SurfaceCodeModel
   readonly surfaceStage: SurfaceStageViewModel
-}
-
-export type DeepDiveSurfaceFramePresentationInput = {
-  readonly runControls: RunControlsViewModel
-  readonly chrome: SurfaceChromeContentModel
-  readonly code: SurfaceCodeModel
-  readonly surfaceStageFrame: SurfaceStageFrameViewModel
 }
 
 export const StatusTone = Schema.Literal("panel", "strip")
@@ -61,29 +54,6 @@ export class SurfaceViewModel extends Schema.Class<SurfaceViewModel>("SurfaceVie
       evidenceRows,
       code,
       surfaceStage
-    })
-  }
-}
-
-export class DeepDiveSurfaceFrameViewModel extends Schema.Class<DeepDiveSurfaceFrameViewModel>(
-  "DeepDiveSurfaceFrameViewModel"
-)({
-  runControls: RunControlsViewModel,
-  chrome: SurfaceChromeContentModel,
-  code: SurfaceCodeModel,
-  surfaceStageFrame: SurfaceStageFrameViewModel
-}) {
-  static project({
-    chrome,
-    code,
-    runControls,
-    surfaceStageFrame
-  }: DeepDiveSurfaceFramePresentationInput): DeepDiveSurfaceFrameViewModel {
-    return DeepDiveSurfaceFrameViewModel.make({
-      runControls,
-      chrome,
-      code,
-      surfaceStageFrame
     })
   }
 }

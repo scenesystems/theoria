@@ -10,38 +10,37 @@ export const workflowRichnessEmptyText = (kind: WorkflowRichnessEmptyState): str
   Match.value(kind).pipe(
     Match.when(
       "event-trace",
-      () => "Study event trace rows will stream here as the search lane advances through the bounded trial budget."
+      () => "Trial-by-trial decisions will appear here once the optimization run begins."
     ),
     Match.when(
       "selection-locked",
-      () =>
-        "This scenario is frozen from the current run session. Reset the run to switch to a different workflow study replay."
+      () => "This run is frozen so the chosen workflow stays stable. Reset if you want to study a different one."
     ),
     Match.when(
       "snapshot",
-      () => "Snapshot facts appear here once the study has checkpointed a canonical optimization snapshot."
+      () => "Checkpoint facts will appear here once the study records a snapshot you can resume or audit."
     ),
     Match.when(
       "transcript",
-      () => "No transcript rows yet. Run the proving surface to materialize node-level prompts and outputs."
+      () => "Run the study to capture prompts, outputs, and node-level reasoning here."
     ),
     Match.exhaustive
   )
 
 export const workflowRichnessSectionTitle = (section: WorkflowRichnessSection): string =>
   Match.value(section).pipe(
-    Match.when("graph", () => "Graph Comparison"),
-    Match.when("progress", () => "Optimization Progress"),
-    Match.when("rendered-preview", () => "Rendered Preview"),
-    Match.when("transcript", () => "Transcript Evidence"),
+    Match.when("graph", () => "Workflow Comparison"),
+    Match.when("progress", () => "Study Progress"),
+    Match.when("rendered-preview", () => "Rendered Replay"),
+    Match.when("transcript", () => "Transcript & Outputs"),
     Match.exhaustive
   )
 
 export const workflowRichnessTableLabel = (table: WorkflowRichnessTable): string =>
   Match.value(table).pipe(
-    Match.when("event-trace", () => "Optimization study event trace"),
-    Match.when("selection", () => "Frozen optimization selections"),
-    Match.when("snapshot", () => "Optimization snapshot facts"),
-    Match.when("transcript", () => "Node-level transcript and output evidence"),
+    Match.when("event-trace", () => "Trial-by-trial study log"),
+    Match.when("selection", () => "Frozen study choices"),
+    Match.when("snapshot", () => "Study snapshot facts"),
+    Match.when("transcript", () => "Node prompts, outputs, and response evidence"),
     Match.exhaustive
   )

@@ -1,7 +1,8 @@
-import { Schema } from "effect"
+import { Option, Schema } from "effect"
 
+import { WorkflowHandoffDraft } from "../../presentation/interactions.js"
 import type { CanonicalFrame } from "./canonical-step.js"
-import { WorkflowScenarioManifest } from "./manifest.js"
+import { WorkflowCatalogEntry, workflowCatalogEntryForSeedId } from "./catalog.js"
 import {
   WorkflowEntryBoundedControlSurface,
   WorkflowEntryManifestSurface,
@@ -19,8 +20,10 @@ import { WorkflowRenderedPreviewViewModel } from "./surface-rendered-preview-pre
 import { type WorkflowTranscriptEvidenceProjection, WorkflowTranscriptViewModel } from "./view-presentation.js"
 
 export type WorkflowSurfaceSnapshot = {
+  readonly catalog: ReadonlyArray<WorkflowCatalogEntry>
   readonly frame: CanonicalFrame | null
   readonly graphEvidence: WorkflowGraphEvidenceProjection
+  readonly handoff: WorkflowHandoffDraft | null
   readonly phase: WorkflowSurfacePhase
   readonly plan: WorkflowEntrySelection
   readonly progressEvidence: WorkflowProgressEvidenceProjection
@@ -28,18 +31,22 @@ export type WorkflowSurfaceSnapshot = {
   readonly transcriptEvidence: WorkflowTranscriptEvidenceProjection
 }
 
-export class WorkflowScenarioSelectorViewModel extends Schema.Class<WorkflowScenarioSelectorViewModel>(
-  "WorkflowScenarioSelectorViewModel"
+const fallbackWorkflowCatalogEntry = (seedId: WorkflowEntrySelection["seedId"]): WorkflowCatalogEntry =>
+  WorkflowCatalogEntry.importedFallback(seedId)
+
+export class WorkflowSelectorViewModel extends Schema.Class<WorkflowSelectorViewModel>(
+  "WorkflowSelectorViewModel"
 )({
   locked: Schema.Boolean,
-  options: Schema.Array(WorkflowScenarioManifest),
-  selected: WorkflowScenarioManifest,
+  options: Schema.Array(WorkflowCatalogEntry),
+  selected: WorkflowCatalogEntry,
   surface: WorkflowEntryManifestSurface
 }) {}
 
 export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewModel>("WorkflowSurfaceViewModel")({
   executionLaneControl: WorkflowEntryBoundedControlSurface,
   graph: WorkflowGraphViewModel,
+  handoff: Schema.NullOr(WorkflowHandoffDraft),
   optimizeControl: WorkflowEntryBoundedControlSurface,
   phaseDetail: Schema.String,
   phaseLabel: Schema.String,
@@ -48,14 +55,16 @@ export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewMo
   renderedPreview: WorkflowRenderedPreviewViewModel,
   runtimeProfileControl: WorkflowEntryBoundedControlSurface,
   runStory: Schema.String,
-  selector: WorkflowScenarioSelectorViewModel,
+  selector: WorkflowSelectorViewModel,
   surfaceProfileControl: WorkflowEntryBoundedControlSurface,
   targetModeControl: WorkflowEntryBoundedControlSurface,
   transcript: WorkflowTranscriptViewModel
 }) {
   static project({
+    catalog,
     frame,
     graphEvidence,
+    handoff,
     phase,
     plan,
     progressEvidence,
@@ -64,7 +73,15 @@ export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewMo
   }: WorkflowSurfaceSnapshot): WorkflowSurfaceViewModel {
     const graph = WorkflowGraphViewModel.project({ evidence: graphEvidence, frame })
     const transcript = WorkflowTranscriptViewModel.project({ evidence: transcriptEvidence, frame })
-    const selected = WorkflowScenarioManifest.forId(plan.seedId)
+    const selected = workflowCatalogEntryForSeedId(catalog, plan.seedId).pipe(
+      Option.getOrElse(() => fallbackWorkflowCatalogEntry(plan.seedId))
+    )
+    const options = workflowCatalogEntryForSeedId(catalog, plan.seedId).pipe(
+      Option.match({
+        onNone: () => [...catalog, selected],
+        onSome: () => catalog
+      })
+    )
     const runStory = workflowRunStory({
       optimize: plan.controls.optimize,
       targetMode: plan.controls.targetMode
@@ -73,6 +90,7 @@ export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewMo
     return WorkflowSurfaceViewModel.make({
       executionLaneControl: WorkflowEntryBoundedControlSurface.forKey("lane"),
       graph,
+      handoff,
       optimizeControl: WorkflowEntryBoundedControlSurface.forKey("optimize"),
       phaseDetail: workflowSurfacePhaseDetail({
         hasFrozenSelection: selectionLocked,
@@ -86,9 +104,9 @@ export class WorkflowSurfaceViewModel extends Schema.Class<WorkflowSurfaceViewMo
       renderedPreview: WorkflowRenderedPreviewViewModel.project({ graph, plan, transcript }),
       runtimeProfileControl: WorkflowEntryBoundedControlSurface.forKey("runtimeProfile"),
       runStory,
-      selector: WorkflowScenarioSelectorViewModel.make({
+      selector: WorkflowSelectorViewModel.make({
         locked: selectionLocked,
-        options: WorkflowScenarioManifest.catalog(),
+        options,
         selected,
         surface: WorkflowEntryManifestSurface.authored()
       }),

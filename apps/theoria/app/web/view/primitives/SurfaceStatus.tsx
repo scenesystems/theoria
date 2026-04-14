@@ -9,8 +9,8 @@ import type { Surface } from "./theme/surface.js"
 
 const statusShellClassName = (tone: StatusTone): string =>
   Match.value(tone).pipe(
-    Match.when("strip", () => "rounded-md border px-3 py-2"),
-    Match.orElse(() => "rounded-md border px-4 py-3")
+    Match.when("strip", () => "border-y px-4 py-2 sm:px-6 lg:px-8 2xl:px-10"),
+    Match.orElse(() => "border-y px-4 py-3 sm:px-6 lg:px-8 2xl:px-10")
   )
 
 const statusBodyClassName = (tone: StatusTone): string =>

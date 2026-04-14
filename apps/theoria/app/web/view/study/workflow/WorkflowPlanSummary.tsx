@@ -4,10 +4,10 @@ import {
 } from "../../../../contracts/study/workflow/plan-presentation.js"
 import type { WorkflowSurfaceViewModel } from "../../../../contracts/study/workflow/surface-presentation.js"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { Layer, Stack } from "../../primitives/Layout.js"
 import { MetricCard } from "../../primitives/MetricCard.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 export const WorkflowPlanSummary = ({
   viewModel
@@ -21,13 +21,24 @@ export const WorkflowPlanSummary = ({
   })
 
   return (
-    <ContentCard density="standard">
+    <SurfaceSubsection
+      appearance="flush"
+      summary={viewModel.runStory}
+      title="Run plan"
+    >
       <Stack className="gap-4">
-        <Stack className="gap-2">
+        <Stack className="gap-1.5">
           <SemanticText
-            as="h3"
+            as="span"
+            className="text-ink-500"
+            role="row-label"
+            text="Current workflow"
+            variant="compact"
+          />
+          <SemanticText
+            as="p"
             className="text-ink-900"
-            role="section-title"
+            role="row-value"
             text={viewModel.selector.selected.label}
             variant="expanded"
           />
@@ -45,6 +56,7 @@ export const WorkflowPlanSummary = ({
             <MetricCard
               key={metric.key}
               label={metric.label}
+              surface="flush"
               value={metric.value}
               {...(metric.unit === undefined ? {} : { unit: metric.unit })}
             />
@@ -59,6 +71,6 @@ export const WorkflowPlanSummary = ({
           variant="expanded"
         />
       </Stack>
-    </ContentCard>
+    </SurfaceSubsection>
   )
 }

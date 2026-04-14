@@ -1,11 +1,10 @@
 import { Option, Schema } from "effect"
+import * as Arr from "effect/Array"
 
 import { CapabilityAvailability } from "../capability/availability.js"
 import type { PackageVersions } from "../capability/package-versions.js"
 import { Card, PackageGroup, PackageGroupMetadata } from "../entry/card.js"
-import { EntryId } from "../entry/id.js"
 import type { ReleaseStage } from "../release-stage.js"
-import { CardTone, representativeToneFor } from "../tone.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -70,7 +69,7 @@ export type HomeCatalogCardMetaItem = typeof HomeCatalogCardMetaItem.Type
 
 export class HomeCatalogCardPresentation
   extends Schema.Class<HomeCatalogCardPresentation>("HomeCatalogCardPresentation")({
-    id: EntryId,
+    id: Schema.String,
     title: NonEmptyString,
     description: NonEmptyString,
     titlePath: Schema.NullOr(NonEmptyString),
@@ -104,7 +103,6 @@ export class HomeCatalogSectionPresentation extends Schema.Class<HomeCatalogSect
   "HomeCatalogSectionPresentation"
 )({
   group: PackageGroup,
-  tone: CardTone,
   title: NonEmptyString,
   description: NonEmptyString,
   cards: Schema.Array(HomeCatalogCardPresentation)
@@ -123,13 +121,12 @@ export class HomeCatalogSectionPresentation extends Schema.Class<HomeCatalogSect
     const metadata = PackageGroupMetadata.fromGroup(group)
 
     return HomeCatalogSectionPresentation.make({
-      cards: Card.forGroup(group).map((card) =>
+      cards: homeCatalogCardsForGroup(group).map((card) =>
         HomeCatalogCardPresentation.project({ availability, card, packageVersions, releaseStage })
       ),
       description: metadata.description,
       group,
-      title: metadata.label,
-      tone: representativeToneFor(group)
+      title: metadata.label
     })
   }
 }
@@ -182,6 +179,14 @@ const homeCatalogCardStatus = ({
   readonly availability: HomeCatalogAvailability
   readonly card: Card
 }): HomeCatalogCardStatus => {
+  if (card.deepDivePath === null) {
+    return HomeCatalogCardStatus.make({
+      kind: "ready",
+      text: "Docs Ready",
+      title: "Source-linked package documentation is available for this capability."
+    })
+  }
+
   if (card.releaseState === "coming-soon") {
     return HomeCatalogCardStatus.make({
       kind: "coming-soon",
@@ -206,7 +211,7 @@ const homeCatalogCardStatus = ({
     })
   }
 
-  return Option.match(availability.snapshot.entry(card.id), {
+  return Option.match(availability.snapshot.entry("workflow"), {
     onNone: () => runtimePendingStatus("Runtime registration has not shipped for this study entry yet."),
     onSome: (
       entry
@@ -218,6 +223,9 @@ const homeCatalogCardStatus = ({
 
 const resolvedVersionFor = (card: Card, packageVersions: PackageVersions | null): string =>
   packageVersions?.versionFor(card.packageName) ?? card.version
+
+const homeCatalogCardsForGroup = (group: PackageGroup): ReadonlyArray<Card> =>
+  Arr.filter(Card.forGroup(group), (card) => card.deepDivePath === null)
 
 const homeCatalogAvailabilityChecking = HomeCatalogAvailabilityChecking.make({})
 const homeCatalogAvailabilityUnavailable = HomeCatalogAvailabilityUnavailable.make({})

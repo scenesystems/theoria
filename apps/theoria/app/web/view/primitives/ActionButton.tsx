@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import type { ReactNode } from "react"
 
 import { SemanticText } from "./SemanticText.js"

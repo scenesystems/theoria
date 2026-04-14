@@ -19,15 +19,14 @@ import {
 } from "../../contracts/entry-error.js"
 import { EntryPreloadRoute, EntryRunRoute } from "../../contracts/entry/api-route.js"
 import type { EntryId } from "../../contracts/entry/id.js"
-import { type EntryRunRequest } from "../../contracts/entry/registry.js"
-import { EntryRunRequest as EntryRunRequestSchema } from "../../contracts/entry/registry.js"
 import type { ErrorModel } from "../../contracts/error.js"
 import { type ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/presentation/program-preview.js"
+import { type StudyRunRequest, StudyRunRequest as StudyRunRequestSchema } from "../../contracts/study/registry.js"
 import { type RunData, RunEnvelope } from "../../contracts/study/run.js"
 import { type EnvelopeResponse, EnvelopeTransport } from "./EnvelopeTransport.js"
 
-const EntryRunRequestJson = Schema.parseJson(EntryRunRequestSchema)
-const encodeEntryRunRequestJson = Schema.encodeSync(EntryRunRequestJson)
+const StudyRunRequestJson = Schema.parseJson(StudyRunRequestSchema)
+const encodeStudyRunRequestJson = Schema.encodeSync(StudyRunRequestJson)
 
 const entryTransportErrors = {
   decode: (error: ParseResult.ParseError): EntryError => EntryDecodeError.fromParseError(error),
@@ -37,16 +36,16 @@ const entryTransportErrors = {
 
 export class EntryClient extends Effect.Service<EntryClient>()("theoria/EntryClient", {
   succeed: {
-    run: (request: EntryRunRequest): Effect.Effect<RunData, EntryError> =>
+    run: (request: StudyRunRequest): Effect.Effect<RunData, EntryError> =>
       EnvelopeTransport.postJson({
-        body: encodeEntryRunRequestJson(request),
+        body: encodeStudyRunRequestJson(request),
         errors: entryTransportErrors,
         path: EntryRunRoute.fromEntryId(request.draft.entryId).path(),
         schema: RunEnvelope
       }).pipe(Effect.map(({ data }) => data)),
-    runWithMeta: (request: EntryRunRequest): Effect.Effect<EnvelopeResponse<RunData>, EntryError> =>
+    runWithMeta: (request: StudyRunRequest): Effect.Effect<EnvelopeResponse<RunData>, EntryError> =>
       EnvelopeTransport.postJson({
-        body: encodeEntryRunRequestJson(request),
+        body: encodeStudyRunRequestJson(request),
         errors: entryTransportErrors,
         path: EntryRunRoute.fromEntryId(request.draft.entryId).path(),
         schema: RunEnvelope

@@ -8,10 +8,10 @@ import {
   FrozenWorkflowRun,
   OptimizedFrozenWorkflowVariant
 } from "../../../contracts/study/workflow/frozen.js"
-import { type WorkflowScenarioId } from "../../../contracts/study/workflow/manifest.js"
+import type { WorkflowSeedId } from "../../../contracts/study/workflow/manifest.js"
 
 import { workflowProfileLibrary } from "./profile-library.js"
-import { scenarioById } from "./scenario/catalog.js"
+import { resolveWorkflowRevision } from "./revision.js"
 
 const executionError = (message: string) =>
   new WorkflowStudyExecutionError({
@@ -31,13 +31,7 @@ const profileForRecord = (
     Match.exhaustive
   )
 
-  return profile.profileId !== record.evaluation.profileId
-    ? Effect.fail(
-      executionError(
-        `Workflow score profile ${record.evaluation.profileId} does not match the authored ${record.evaluation.profileFamily} profile.`
-      )
-    )
-    : !profile.workflowKinds.includes(record.workflowKind)
+  return !profile.workflowKinds.includes(record.workflowKind)
     ? Effect.fail(
       executionError(
         `Workflow score profile ${profile.profileId} does not admit workflow kind ${record.workflowKind}.`
@@ -73,22 +67,22 @@ const freezeOptimizedVariant = (
   })
 
 export const frozenWorkflowForRequest = (
-  scenarioId: WorkflowScenarioId
+  seedId: WorkflowSeedId
 ): Effect.Effect<FrozenWorkflowRun, WorkflowStudyExecutionError, never> =>
   Effect.gen(function*() {
-    const scenario = scenarioById(scenarioId)
+    const resolution = yield* resolveWorkflowRevision(seedId)
     const variants = yield* Effect.all({
-      baseline: freezeBaselineVariant(scenario.records.baseline),
-      optimized: freezeOptimizedVariant(scenario.records.optimized)
+      baseline: freezeBaselineVariant(resolution.baselineRecord),
+      optimized: freezeOptimizedVariant(resolution.optimizedRecord)
     })
 
     return yield* Effect.try({
       try: () =>
-        FrozenWorkflowRun.fromScenario({
+        FrozenWorkflowRun.fromRevision({
           baseline: variants.baseline,
           optimized: variants.optimized,
-          scenario
+          revision: resolution.revision
         }),
-      catch: () => executionError(`Workflow scenario freeze failed for ${scenario.entry.scenarioId}.`)
+      catch: () => executionError(`Workflow freeze failed for ${resolution.revision.reference.seedId}.`)
     })
   })

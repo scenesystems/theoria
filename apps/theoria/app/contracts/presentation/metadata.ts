@@ -1,14 +1,16 @@
 import type { PackageName } from "@theoria/source-proof/contracts"
-import { Schema } from "effect"
+import { Option, Schema } from "effect"
 
 import { type EntryId, isEntryId } from "../entry/id.js"
 import { EntryPresentation, type EntryPresentation as EntryPresentationShape } from "../entry/routing.js"
+import { publishedWorkflowCatalogEntryForSeedId } from "../study/workflow/catalog-policy.js"
 import {
   PackageDocsLandingPageRoute,
   PackageDocsPackagePageRoute,
   type PackageDocsPageRoute,
   PackageDocsPresentation
 } from "./package-docs.js"
+import type { WorkflowStudyRoute } from "./path.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -75,6 +77,29 @@ export class PageMetadata extends Schema.Class<PageMetadata>("PageMetadata")({
 
   static fromEntryId(id: EntryId): PageMetadata {
     return PageMetadata.fromEntry(EntryPresentation.fromEntryId(id))
+  }
+
+  static fromWorkflowStudyRoute(route: WorkflowStudyRoute): PageMetadata {
+    const catalogEntry = publishedWorkflowCatalogEntryForSeedId(route.sessionId)
+
+    return catalogEntry.pipe(
+      Option.match({
+        onNone: () =>
+          PageMetadata.make({
+            title: "Workflow Session — Theoria",
+            description: "Inspect one workflow study session by its durable workflow seed.",
+            canonicalPath: route.path(),
+            ogType: "article"
+          }),
+        onSome: (entry) =>
+          PageMetadata.make({
+            title: `${entry.label} Workflow Study — Theoria`,
+            description: entry.summary,
+            canonicalPath: route.path(),
+            ogType: "article"
+          })
+      })
+    )
   }
 
   static fromId(id: string): PageMetadata {

@@ -15,6 +15,7 @@ import {
   StreamComplete,
   StreamFailed
 } from "../../app/contracts/evidence/stream.js"
+import type { StudyDraft } from "../../app/contracts/study/registry.js"
 import {
   surfaceEvidenceSectionsAtom,
   surfaceEvidenceStoreAtom,
@@ -22,7 +23,7 @@ import {
 } from "../../app/web/atoms/surface/evidence-store.js"
 import { ServerEvidenceStream } from "../../app/web/atoms/surface/evidence-stream.js"
 import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
-import { surfaceRuntimeFor } from "../../app/web/runtime/kernel/surface-runtime.js"
+import { type SurfaceRuntime, surfaceRuntimeFor } from "../../app/web/runtime/kernel/surface-runtime.js"
 import { EntryClient } from "../../app/web/services/EntryClient.js"
 import { EvidenceStreamState } from "../../app/web/state/evidence/stream.js"
 import { reduceRunState } from "../../app/web/state/run/reducer.js"
@@ -86,11 +87,21 @@ const waitForSource = Effect.eventually(
   )
 )
 
-const runtimeStreamRequestFor = (id: "effect-search" | "effect-text") => ({
-  id,
-  runtime: surfaceRuntimeFor(id),
+type RuntimeStreamRequest = {
+  readonly id: "workflow"
+  readonly runtime: SurfaceRuntime
+  readonly runtimeSnapshot: {
+    readonly draft: StudyDraft
+    readonly localProjectionScript: null
+  }
+  readonly runToken: null
+}
+
+const runtimeStreamRequestFor = (): RuntimeStreamRequest => ({
+  id: "workflow",
+  runtime: surfaceRuntimeFor("workflow"),
   runtimeSnapshot: {
-    draft: initialSurfaceState(id).draft,
+    draft: initialSurfaceState("workflow").draft,
     localProjectionScript: null
   },
   runToken: null
@@ -158,7 +169,7 @@ describe("Evidence Stream State", () => {
   it.effect("surfaceEvidenceStreamAtom starts with empty state before any run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const state = registry.get(surfaceEvidenceStreamAtom("effect-text"))
+      const state = registry.get(surfaceEvidenceStreamAtom("workflow"))
       expect(state.sections).toEqual([])
       expect(state.complete).toBe(false)
       expect(state.summary).toBeNull()
@@ -241,7 +252,7 @@ describe("Evidence Stream State", () => {
   it.effect("surfaceEvidenceSectionsAtom derives sections from the active running run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      registry.update(surfaceAtom("effect-text"), (surface) => ({
+      registry.update(surfaceAtom("workflow"), (surface) => ({
         ...surface,
         run: reduceRunState(
           surface.run,
@@ -252,41 +263,18 @@ describe("Evidence Stream State", () => {
           })
         )
       }))
-      registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
+      registry.update(surfaceEvidenceStoreAtom("workflow"), (store) =>
         updateStoreWithEvent(store, new SectionAppend({ section: performanceSection })))
 
-      const sections = registry.get(surfaceEvidenceSectionsAtom("effect-text"))
+      const sections = registry.get(surfaceEvidenceSectionsAtom("workflow"))
       expect(sections).toHaveLength(1)
       expect(sections[0]?.title).toBe("Performance")
     }))
 
-  it.effect("separate ids maintain independent evidence projections", () =>
-    Effect.gen(function*() {
-      const registry = makeTestRegistry()
-      registry.update(surfaceAtom("effect-text"), (surface) => ({
-        ...surface,
-        run: reduceRunState(
-          surface.run,
-          runStartedMessage({
-            draft: surface.draft,
-            ownership: RunOwnership.sharedStreaming(),
-            program: programPreviewFixture.program
-          })
-        )
-      }))
-      registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
-        updateStoreWithEvent(store, new SectionAppend({ section: performanceSection })))
-
-      const textSections = registry.get(surfaceEvidenceSectionsAtom("effect-text"))
-      const searchSections = registry.get(surfaceEvidenceSectionsAtom("effect-search"))
-      expect(textSections).toHaveLength(1)
-      expect(searchSections).toEqual([])
-    }))
-
   it.effect("surfaceEvidenceStreamAtom returns the same atom reference via Atom.family", () =>
     Effect.gen(function*() {
-      const a = surfaceEvidenceStreamAtom("effect-text")
-      const b = surfaceEvidenceStreamAtom("effect-text")
+      const a = surfaceEvidenceStreamAtom("workflow")
+      const b = surfaceEvidenceStreamAtom("workflow")
       expect(a).toBe(b)
     }))
 
@@ -298,7 +286,7 @@ describe("Evidence Stream State", () => {
   it.effect("ServerEvidenceStream.fromRuntime emits explicit server completion before closing the SSE transport", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("effect-search")).pipe(
+        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor()).pipe(
           Stream.runCollect,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -325,7 +313,7 @@ describe("Evidence Stream State", () => {
   it.effect("ServerEvidenceStream.fromRuntime fails on decode errors before finalization", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("effect-search")).pipe(
+        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor()).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -346,7 +334,7 @@ describe("Evidence Stream State", () => {
   it.effect("ServerEvidenceStream.fromRuntime reports premature close after partial evidence without inventing completion", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("effect-search")).pipe(
+        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor()).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -369,7 +357,7 @@ describe("Evidence Stream State", () => {
   it.effect("ServerEvidenceStream.fromRuntime promotes terminal server failures onto the typed error channel", () =>
     withMockEventSource(
       Effect.gen(function*() {
-        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("effect-search")).pipe(
+        const fiber = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor()).pipe(
           Stream.runDrain,
           Effect.provide(serverEvidenceLayer),
           Effect.fork
@@ -402,13 +390,13 @@ describe("Evidence Stream State", () => {
   it.effect("normalized store projections keep completion metadata separate from section entities", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
+      registry.update(surfaceEvidenceStoreAtom("workflow"), (store) =>
         updateStoreWithEvent(
           updateStoreWithEvent(store, new SectionAppend({ section: performanceSection })),
           StreamComplete.make({ summary: "Benchmark complete.", meta: streamMeta })
         ))
 
-      const store = registry.get(surfaceEvidenceStoreAtom("effect-text"))
+      const store = registry.get(surfaceEvidenceStoreAtom("workflow"))
       const stream = EvidenceStreamState.fromStore(store)
 
       expect(store.sectionOrder).toHaveLength(1)

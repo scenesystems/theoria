@@ -7,17 +7,22 @@ import { markdownSectionBlocks, normalizePackageDocsAnchor } from "./internal/pa
 import {
   type PackageDocsBundle,
   type PackageDocsCatalogEntry,
+  type PackageDocsCodeLanguage,
   type PackageDocsCorpus,
   type PackageDocsDocument,
   type PackageDocsExample,
   type PackageDocsProofCommand,
   type PackageDocsQuery,
   type PackageDocsReleaseSnapshot,
+  PackageDocsRichTextDocument,
+  PackageDocsRichTextElementNode,
+  PackageDocsRichTextTextNode,
   type PackageDocsSearchResult,
   type PackageDocsSectionBlock,
   type PackageDocsSourceKind,
   TheoriaPackageDocsAuthority
 } from "./packageDocsSchema.js"
+import { buildPackageDocsSearchIndex, searchPackageDocsIndex } from "./packageDocsSearch.js"
 import { resolveRootFrom, toForwardSlashes } from "./projectPath.js"
 import { ReleaseSinceSnapshotJson } from "./releaseSince.js"
 
@@ -48,15 +53,35 @@ const withoutSuffix = (value: string, suffix: string): string =>
     ? value.slice(0, value.length - suffix.length)
     : value
 
-const compactWhitespace = (value: string): string => value.replace(/\s+/gu, " ").trim()
+const inlineTextDocument = (text: string): PackageDocsRichTextDocument =>
+  text.length === 0
+    ? PackageDocsRichTextDocument.make({ children: [] })
+    : PackageDocsRichTextDocument.make({
+      children: [PackageDocsRichTextTextNode.make({ value: text })]
+    })
 
-const boundedExcerpt = (value: string): string => {
-  const compact = compactWhitespace(value)
+const paragraphTextDocument = (text: string): PackageDocsRichTextDocument =>
+  text.length === 0
+    ? PackageDocsRichTextDocument.make({ children: [] })
+    : PackageDocsRichTextDocument.make({
+      children: [
+        PackageDocsRichTextElementNode.make({
+          children: [PackageDocsRichTextTextNode.make({ value: text })],
+          properties: {},
+          tagName: "p"
+        })
+      ]
+    })
 
-  return compact.length <= 240
-    ? compact
-    : `${compact.slice(0, 237)}...`
-}
+const packageDocsCodeLanguageFromPath = (path: string): PackageDocsCodeLanguage =>
+  path.endsWith(".json") || path.endsWith(".jsonc")
+    ? "json"
+    : path.endsWith(".sh") || path.endsWith(".bash") || path.endsWith(".zsh")
+    ? "shell"
+    : path.endsWith(".js") || path.endsWith(".jsx") || path.endsWith(".mjs") || path.endsWith(".ts")
+        || path.endsWith(".tsx") || path.endsWith(".mts")
+    ? "ts"
+    : "plain"
 
 const scriptTitle = (name: string): string => `Script ${name}`
 
@@ -171,9 +196,12 @@ const makeExampleBlock = (input: {
   readonly title: string
   readonly content: string
 }): PackageDocsSectionBlock => ({
+  contentDocument: null,
   id: `${input.path}#${normalizePackageDocsAnchor(input.title)}`,
   kind: "example-code",
+  language: packageDocsCodeLanguageFromPath(input.path),
   title: input.title,
+  titleDocument: inlineTextDocument(input.title),
   content: input.content.trim(),
   source: {
     packageId: input.packageId,
@@ -189,19 +217,27 @@ const makeSnapshotBlock = (input: {
   readonly path: string
   readonly releasedVersion: ReleaseVersion
   readonly exportCount: number
-}): PackageDocsSectionBlock => ({
-  id: `${input.path}#${normalizePackageDocsAnchor(input.releasedVersion)}`,
-  kind: "release-snapshot-summary",
-  title: `Release snapshot ${input.releasedVersion}`,
-  content: `Release snapshot ${input.releasedVersion} captures ${input.exportCount} exported surface entries.`,
-  source: {
-    packageId: input.packageId,
-    kind: "release-snapshot",
-    path: input.path,
-    anchor: normalizePackageDocsAnchor(input.releasedVersion),
-    title: `Release snapshot ${input.releasedVersion}`
+}): PackageDocsSectionBlock => {
+  const title = `Release snapshot ${input.releasedVersion}`
+  const content = `Release snapshot ${input.releasedVersion} captures ${input.exportCount} exported surface entries.`
+
+  return {
+    content,
+    contentDocument: paragraphTextDocument(content),
+    id: `${input.path}#${normalizePackageDocsAnchor(input.releasedVersion)}`,
+    kind: "release-snapshot-summary",
+    language: null,
+    title,
+    titleDocument: inlineTextDocument(title),
+    source: {
+      packageId: input.packageId,
+      kind: "release-snapshot",
+      path: input.path,
+      anchor: normalizePackageDocsAnchor(input.releasedVersion),
+      title
+    }
   }
-})
+}
 
 const makeProofCommand = (input: {
   readonly packageId: PackageName
@@ -222,9 +258,12 @@ const makeProofCommand = (input: {
       title
     },
     block: {
+      contentDocument: null,
       id: `${input.manifestPath}#scripts.${normalizePackageDocsAnchor(input.name)}`,
       kind: "proof-command",
+      language: "shell",
       title,
+      titleDocument: inlineTextDocument(title),
       content: input.command,
       source: {
         packageId: input.packageId,
@@ -315,14 +354,6 @@ const loadReleaseSnapshot = (input: {
       block
     }
   })
-
-const searchableBlocks = (bundle: PackageDocsBundle): ReadonlyArray<PackageDocsSectionBlock> => [
-  ...bundle.readme.blocks,
-  ...Arr.flatMap(bundle.moduleDocs, (document) => document.blocks),
-  ...bundle.examples.map((example) => example.block),
-  ...bundle.releaseSnapshots.map((snapshot) => snapshot.block),
-  ...bundle.proofCommands.map((command) => command.block)
-]
 
 const catalogEntry = (bundle: PackageDocsBundle): PackageDocsCatalogEntry => ({
   packageId: bundle.packageId,
@@ -493,47 +524,7 @@ export const packageDocsBundle = (
 export const searchPackageDocs = (
   corpus: PackageDocsCorpus,
   query: PackageDocsQuery
-): ReadonlyArray<PackageDocsSearchResult> => {
-  const trimmedQuery = query.query.trim().toLowerCase()
-
-  if (trimmedQuery.length === 0) {
-    return []
-  }
-
-  const terms = trimmedQuery.split(/\s+/u).filter((term) => term.length > 0)
-  const boundedLimit = Math.max(1, Math.floor(query.limit))
-
-  return corpus.bundles
-    .filter((bundle) => query.packageId === null || bundle.packageId === query.packageId)
-    .flatMap((bundle) =>
-      searchableBlocks(bundle).flatMap((block) => {
-        const searchable = `${block.title}\n${block.content}\n${block.source.path}`.toLowerCase()
-        const matchedTerms = terms.filter((term) => searchable.includes(term)).length
-
-        if (matchedTerms !== terms.length && !searchable.includes(trimmedQuery)) {
-          return []
-        }
-
-        const titleBoost = block.title.toLowerCase().includes(trimmedQuery) ? 2 : 0
-        const phraseBoost = searchable.includes(trimmedQuery) ? terms.length : 0
-
-        return [{
-          packageId: bundle.packageId,
-          title: block.title,
-          excerpt: boundedExcerpt(block.content.length > 0 ? block.content : block.title),
-          source: block.source,
-          score: matchedTerms + titleBoost + phraseBoost
-        }]
-      })
-    )
-    .sort((left, right) =>
-      right.score - left.score
-      || left.packageId.localeCompare(right.packageId)
-      || left.source.path.localeCompare(right.source.path)
-      || left.title.localeCompare(right.title)
-    )
-    .slice(0, boundedLimit)
-}
+): ReadonlyArray<PackageDocsSearchResult> => searchPackageDocsIndex(buildPackageDocsSearchIndex(corpus), query)
 
 /**
  * Root-owned package-doc authority metadata for repository and consumer tests.

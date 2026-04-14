@@ -1,5 +1,5 @@
 import type {
-  WorkflowScenarioSelectorViewModel,
+  WorkflowSelectorViewModel,
   WorkflowSurfaceViewModel
 } from "../../../../contracts/study/workflow/surface-presentation.js"
 
@@ -11,12 +11,19 @@ export const WorkflowScenarioSelector = ({
   onSelectSeed,
   selector
 }: {
-  readonly onSelectSeed: (seedId: WorkflowScenarioSelectorViewModel["selected"]["id"]) => void
+  readonly onSelectSeed: (seedId: WorkflowSelectorViewModel["selected"]["reference"]["seedId"]) => void
   readonly selector: WorkflowSurfaceViewModel["selector"]
 }) => {
   return (
-    <Stack className="gap-4">
+    <Stack className="gap-5">
       <Stack className="gap-2">
+        <SemanticText
+          as="span"
+          className="text-ink-500"
+          role="row-label"
+          text="Choose a study"
+          variant="compact"
+        />
         <SemanticText
           as="h3"
           className="text-ink-900"
@@ -33,19 +40,44 @@ export const WorkflowScenarioSelector = ({
         />
       </Stack>
 
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {selector.options.map((option) => (
           <TabButton
-            key={option.id}
-            active={option.id === selector.selected.id}
+            appearance="flat"
+            key={option.reference.seedId}
+            active={option.reference.seedId === selector.selected.reference.seedId}
             disabled={selector.locked}
             label={option.label}
             onClick={() => {
-              onSelectSeed(option.id)
+              onSelectSeed(option.reference.seedId)
             }}
           />
         ))}
       </TabBar>
+
+      <Stack className="gap-1.5">
+        <SemanticText
+          as="span"
+          className="text-ink-500"
+          role="row-label"
+          text="Current workflow"
+          variant="compact"
+        />
+        <SemanticText
+          as="p"
+          className="text-ink-900"
+          role="row-value"
+          text={selector.selected.label}
+          variant="expanded"
+        />
+        <SemanticText
+          as="p"
+          className="text-ink-700"
+          role="status"
+          text={selector.selected.summary}
+          variant="expanded"
+        />
+      </Stack>
     </Stack>
   )
 }

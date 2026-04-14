@@ -1,4 +1,4 @@
-import { Separator } from "@base-ui-components/react/separator"
+import { Separator } from "@base-ui/react/separator"
 import type { ReactNode } from "react"
 
 import { Cluster, Layer, Stack } from "./Layout.js"

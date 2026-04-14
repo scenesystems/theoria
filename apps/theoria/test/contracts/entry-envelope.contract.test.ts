@@ -7,7 +7,11 @@ import {
   ProgramPreviewSuccessEnvelope
 } from "../../app/contracts/presentation/program-preview.js"
 import { RunEnvelope, RunSuccessEnvelope } from "../../app/contracts/study/run.js"
-import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
+import {
+  effectTextCardFixture as workflowCardFixture,
+  programPreviewFixture,
+  runDataFixture
+} from "../helpers/entry-fixtures.js"
 
 describe("Theoria Entry Envelope Contracts", () => {
   it.effect("decodes run envelope payloads with typed study data", () =>
@@ -25,7 +29,7 @@ describe("Theoria Entry Envelope Contracts", () => {
 
       expect(decoded.ok).toBe(true)
       if (decoded.ok) {
-        expect(decoded.data.id).toBe("effect-text")
+        expect(decoded.data.id).toBe("workflow")
         expect(decoded.data.sections.length).toBeGreaterThan(0)
       }
     }))
@@ -45,9 +49,9 @@ describe("Theoria Entry Envelope Contracts", () => {
 
       expect(decoded.ok).toBe(true)
       if (decoded.ok) {
-        expect(decoded.data.card.id).toBe(effectTextCardFixture.id)
-        expect(decoded.data.card.packageName).toBe(effectTextCardFixture.packageName)
-        expect(decoded.data.card.title).toBe(effectTextCardFixture.title)
+        expect(decoded.data.card.id).toBe(workflowCardFixture.id)
+        expect(decoded.data.card.packageName).toBe(workflowCardFixture.packageName)
+        expect(decoded.data.card.title).toBe(workflowCardFixture.title)
       }
     }))
 })

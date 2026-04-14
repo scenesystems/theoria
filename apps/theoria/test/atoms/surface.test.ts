@@ -23,38 +23,37 @@ const makeTestRegistry = (): Registry.Registry =>
   })
 
 describe("Surface Atoms", () => {
-  it.effect("surfaceAtom returns initial state for each id", () =>
+  it.effect("surfaceAtom returns initial workflow state", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
 
-      const textState = registry.get(surfaceAtom("effect-text"))
-      expect(textState.id).toBe("effect-text")
-      expect(textState.preload._tag).toBe("PreloadIdle")
-      expect(textState.run._tag).toBe("RunIdle")
-      expect(textState.stageTab).toBe("interactive")
-
-      const searchState = registry.get(surfaceAtom("effect-search"))
-      expect(searchState.id).toBe("effect-search")
+      const workflowState = registry.get(surfaceAtom("workflow"))
+      expect(workflowState.id).toBe("workflow")
+      expect(workflowState.preload._tag).toBe("PreloadIdle")
+      expect(workflowState.run._tag).toBe("RunIdle")
+      expect(workflowState.stageTab).toBe("interactive")
+      expect(workflowState.projectedSurfaces).toEqual(["stage", "source"])
+      expect(workflowState.focusedSurface).toBe("stage")
     }))
 
   it.effect("surfaceAtom(id) returns same atom reference for same id", () =>
     Effect.gen(function*() {
-      const a = surfaceAtom("effect-text")
-      const b = surfaceAtom("effect-text")
+      const a = surfaceAtom("workflow")
+      const b = surfaceAtom("workflow")
       expect(a).toBe(b)
     }))
 
   it.effect("surfaceRunDataAtom derives null when no run data", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const runData = registry.get(surfaceRunDataAtom("effect-text"))
+      const runData = registry.get(surfaceRunDataAtom("workflow"))
       expect(runData).toBeNull()
     }))
 
   it.effect("surfaceEvidenceStreamAtom derives an empty stream before any run", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const stream = registry.get(surfaceEvidenceStreamAtom("effect-text"))
+      const stream = registry.get(surfaceEvidenceStreamAtom("workflow"))
       expect(stream.sections).toEqual([])
       expect(stream.complete).toBe(false)
       expect(stream.summary).toBeNull()
@@ -66,20 +65,20 @@ describe("Surface Atoms", () => {
       const registry = makeTestRegistry()
       const fixture = runDataFixture("test run")
 
-      registry.update(surfaceAtom("effect-text"), (s) => ({
+      registry.update(surfaceAtom("workflow"), (s) => ({
         ...s,
         run: succeededRunState({ data: fixture })
       }))
 
-      const runData = registry.get(surfaceRunDataAtom("effect-text"))
+      const runData = registry.get(surfaceRunDataAtom("workflow"))
       expect(runData).not.toBeNull()
       expect(runData?.summary).toBe("test run")
     }))
 
   it.effect("surfaceRunDataAtom returns same atom reference via Atom.family", () =>
     Effect.gen(function*() {
-      const a = surfaceRunDataAtom("effect-text")
-      const b = surfaceRunDataAtom("effect-text")
+      const a = surfaceRunDataAtom("workflow")
+      const b = surfaceRunDataAtom("workflow")
       expect(a).toBe(b)
     }))
 
@@ -89,21 +88,21 @@ describe("Surface Atoms", () => {
       const countUpdates = { current: 0 }
       const sectionUpdates = { current: 0 }
       const unsubscribeCount = registry.subscribe(
-        surfaceEvidenceSectionCountAtom("effect-text"),
+        surfaceEvidenceSectionCountAtom("workflow"),
         () => {
           countUpdates.current = countUpdates.current + 1
         },
         { immediate: true }
       )
       const unsubscribeSections = registry.subscribe(
-        surfaceEvidenceSectionsAtom("effect-text"),
+        surfaceEvidenceSectionsAtom("workflow"),
         () => {
           sectionUpdates.current = sectionUpdates.current + 1
         },
         { immediate: true }
       )
 
-      registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
+      registry.update(surfaceEvidenceStoreAtom("workflow"), (store) =>
         store.apply(
           new SectionAppend({
             section: {
@@ -112,7 +111,7 @@ describe("Surface Atoms", () => {
             }
           })
         ))
-      registry.update(surfaceEvidenceStoreAtom("effect-text"), (store) =>
+      registry.update(surfaceEvidenceStoreAtom("workflow"), (store) =>
         store.apply(
           new SectionUpsert({
             section: {
@@ -141,12 +140,12 @@ describe("Surface Atoms", () => {
         token: 3
       })
 
-      registry.update(surfaceAtom("effect-text"), (state) => ({
+      registry.update(surfaceAtom("workflow"), (state) => ({
         ...state,
         run: running
       }))
 
-      const viewModel = registry.get(surfaceRunRuntimeTelemetryViewModelAtom("effect-text"))
+      const viewModel = registry.get(surfaceRunRuntimeTelemetryViewModelAtom("workflow"))
       const rows = viewModel?.sections.flatMap((section) => section.rows) ?? []
 
       expect(viewModel).not.toBeNull()

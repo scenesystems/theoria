@@ -7,35 +7,23 @@ import {
 import { workflowOptionalText } from "../../../../contracts/study/workflow/view-presentation.js"
 import type { WorkflowTranscriptViewModel } from "../../../../contracts/study/workflow/view-presentation.js"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { DataTable } from "../../primitives/DataTable.js"
 import { Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 export const WorkflowTranscriptSectionCard = ({
   viewModel
 }: {
   readonly viewModel: WorkflowTranscriptViewModel
 }) => (
-  <ContentCard density="standard">
+  <SurfaceSubsection
+    appearance="flush"
+    className="py-5"
+    summary={viewModel.description}
+    title={workflowRichnessSectionTitle("transcript")}
+  >
     <Stack className="gap-3">
-      <Stack className="gap-1">
-        <SemanticText
-          as="h3"
-          className="text-ink-900"
-          role="section-title"
-          text={workflowRichnessSectionTitle("transcript")}
-          variant="expanded"
-        />
-        <SemanticText
-          as="p"
-          className="text-ink-700"
-          role="status"
-          text={viewModel.description}
-          variant="expanded"
-        />
-      </Stack>
-
       {viewModel.entries.length === 0
         ? (
           <SemanticText
@@ -61,5 +49,5 @@ export const WorkflowTranscriptSectionCard = ({
           />
         )}
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )

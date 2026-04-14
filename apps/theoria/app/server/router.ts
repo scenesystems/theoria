@@ -54,6 +54,7 @@ export const app = Effect.gen(function*() {
     Match.tag("registry", (route) => openAgentTraceRoute(route.pathname(), requestId)),
     Match.tag("consumer-artifacts", (route) => openAgentTraceRoute(route.pathname(), requestId)),
     Match.tag("workflow-hookups", (route) => openAgentTraceRoute(route.pathname(), requestId)),
+    Match.tag("thread-import", (route) => openAgentTraceRoute(route.pathname(), requestId)),
     Match.tag("availability", () => capabilityAvailabilityRoute(requestId)),
     Match.tag("SitemapRequestRoute", () => sitemapRoute),
     Match.tag("ApiNotFoundRequestRoute", () => apiNotFoundResponse(requestId)),

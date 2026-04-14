@@ -7,38 +7,28 @@ import {
   workflowRichnessTableLabel
 } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { DataTable } from "../../primitives/DataTable.js"
 import { Layer, Stack } from "../../primitives/Layout.js"
 import { MetricCard } from "../../primitives/MetricCard.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 export const WorkflowProgressSectionCard = ({
   viewModel
 }: {
   readonly viewModel: WorkflowProgressViewModel
 }) => (
-  <ContentCard density="standard">
+  <SurfaceSubsection
+    appearance="flush"
+    className="py-5"
+    summary={viewModel.description}
+    title={workflowRichnessSectionTitle("progress")}
+  >
     <Stack className="gap-3">
-      <Stack className="gap-1">
-        <SemanticText
-          as="h3"
-          className="text-ink-900"
-          role="section-title"
-          text={workflowRichnessSectionTitle("progress")}
-          variant="expanded"
-        />
-        <SemanticText
-          as="p"
-          className="text-ink-700"
-          role="status"
-          text={viewModel.description}
-          variant="expanded"
-        />
-      </Stack>
-
       <Layer className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {viewModel.metrics.map((metric) => <MetricCard key={metric.label} label={metric.label} value={metric.value} />)}
+        {viewModel.metrics.map((metric) => (
+          <MetricCard key={metric.label} label={metric.label} surface="flush" value={metric.value} />
+        ))}
       </Layer>
 
       <Layer className="grid gap-3 lg:grid-cols-2">
@@ -50,7 +40,7 @@ export const WorkflowProgressSectionCard = ({
 
         {viewModel.snapshotRows.length === 0
           ? (
-            <ContentCard density="compact">
+            <Layer className="border-t border-stage-200/72 pt-3">
               <SemanticText
                 as="p"
                 className="text-ink-700"
@@ -58,7 +48,7 @@ export const WorkflowProgressSectionCard = ({
                 text={workflowRichnessEmptyText("snapshot")}
                 variant="expanded"
               />
-            </ContentCard>
+            </Layer>
           )
           : (
             <DataTable
@@ -87,5 +77,5 @@ export const WorkflowProgressSectionCard = ({
           />
         )}
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )

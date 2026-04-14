@@ -1,5 +1,7 @@
 import { Match, Schema } from "effect"
 
+import { workflowReferenceFromOpenAgentTraceEntry } from "../catalog.js"
+import { WorkflowReference } from "../revision.js"
 import { OpenAgentTraceCorpusLane } from "./corpus-lane.js"
 import { OpenAgentTraceDetailItem } from "./detail-item.js"
 import { OpenAgentTracePanelGroupDescriptor } from "./panel-presentation.js"
@@ -22,7 +24,8 @@ export class OpenAgentTraceEntryPanelModel extends Schema.Class<OpenAgentTraceEn
   entryId: OpenAgentTraceEntryIdSchema,
   groups: Schema.Array(OpenAgentTracePanelGroup),
   summary: Schema.String,
-  title: Schema.String
+  title: Schema.String,
+  workflowReference: WorkflowReference
 }) {
   static project(entry: OpenAgentTraceRegistryEntry): OpenAgentTraceEntryPanelModel {
     return OpenAgentTraceEntryPanelModel.make({
@@ -32,7 +35,8 @@ export class OpenAgentTraceEntryPanelModel extends Schema.Class<OpenAgentTraceEn
         OpenAgentTracePanelGroup.project({ descriptor, entry })
       ),
       summary: entry.summary,
-      title: entry.title
+      title: entry.title,
+      workflowReference: workflowReferenceFromOpenAgentTraceEntry(entry)
     })
   }
 }

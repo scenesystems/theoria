@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect"
 
 import { DurableFingerprint, fingerprintOf } from "../entry/fingerprint.js"
 import { type EntryId, EntryId as EntryIdSchema } from "../entry/id.js"
-import { EntryDraft, EntryRunRequest } from "../entry/registry.js"
+import { StudyDraft, StudyRunRequest } from "./registry.js"
 
 const RunToken = Schema.String.pipe(Schema.minLength(1))
 const SeedId = Schema.String.pipe(Schema.minLength(1))
@@ -18,36 +18,36 @@ export const RunRequestIdentity = Schema.Struct({
 
 export type RunRequestIdentity = typeof RunRequestIdentity.Type
 
-const encodeEntryDraft = Schema.encodeSync(EntryDraft)
-const encodeEntryRunRequest = Schema.encodeSync(EntryRunRequest)
+const encodeStudyDraft = Schema.encodeSync(StudyDraft)
+const encodeStudyRunRequest = Schema.encodeSync(StudyRunRequest)
 
-export const fingerprintEntryDraftInput = (
-  draft: typeof EntryDraft.Type
+export const fingerprintStudyDraftInput = (
+  draft: typeof StudyDraft.Type
 ): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(draft.input)
 
-export const fingerprintEntryDraftControls = (
-  draft: typeof EntryDraft.Type
+export const fingerprintStudyDraftControls = (
+  draft: typeof StudyDraft.Type
 ): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(draft.controls)
 
-export const fingerprintEntryDraft = (
-  draft: typeof EntryDraft.Type
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeEntryDraft(draft))
+export const fingerprintStudyDraft = (
+  draft: typeof StudyDraft.Type
+): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeStudyDraft(draft))
 
-export const fingerprintEntryRunRequest = (
-  request: typeof EntryRunRequest.Type
-): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeEntryRunRequest(request))
+export const fingerprintStudyRunRequest = (
+  request: typeof StudyRunRequest.Type
+): Effect.Effect<typeof DurableFingerprint.Type, never, never> => fingerprintOf(encodeStudyRunRequest(request))
 
 export const resolveRunRequestIdentityFromDraft = ({
   draft,
   runToken
 }: {
-  readonly draft: typeof EntryDraft.Type
+  readonly draft: typeof StudyDraft.Type
   readonly runToken: string
 }): Effect.Effect<RunRequestIdentity, never, never> =>
   Effect.all({
-    inputFingerprint: fingerprintEntryDraftInput(draft),
-    controlsFingerprint: fingerprintEntryDraftControls(draft),
-    requestFingerprint: fingerprintOf({ runToken, draft: encodeEntryDraft(draft) })
+    inputFingerprint: fingerprintStudyDraftInput(draft),
+    controlsFingerprint: fingerprintStudyDraftControls(draft),
+    requestFingerprint: fingerprintOf({ runToken, draft: encodeStudyDraft(draft) })
   }).pipe(
     Effect.map(({ inputFingerprint, controlsFingerprint, requestFingerprint }) => ({
       entryId: draft.entryId,
@@ -60,11 +60,11 @@ export const resolveRunRequestIdentityFromDraft = ({
   )
 
 export const resolveRunRequestIdentity = (
-  request: typeof EntryRunRequest.Type
+  request: typeof StudyRunRequest.Type
 ): Effect.Effect<RunRequestIdentity, never, never> =>
   resolveRunRequestIdentityFromDraft({
     draft: request.draft,
     runToken: request.runToken
   })
 
-export const entryIdForDraft = (draft: typeof EntryDraft.Type): EntryId => draft.entryId
+export const entryIdForDraft = (draft: typeof StudyDraft.Type): EntryId => draft.entryId

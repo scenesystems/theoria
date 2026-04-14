@@ -32,7 +32,7 @@ const routeForNode = ({
   family: "OpenAiCompatible",
   serveMode: "local-runtime",
   authMethod: "none",
-  baseUrl: `in-memory://workflow/${workflowRun.scenarioId}/${variant}/${node.nodeId}`,
+  baseUrl: `in-memory://workflow/${workflowRun.seedId}/${variant}/${node.nodeId}`,
   runtimeFlavorHint: "unknown"
 })
 
@@ -58,7 +58,7 @@ const desiredRuntimeForNode = ({
   readonly variant: GraphVariant
 }) =>
   InferenceTesting.DesiredRuntimeDescriptor.fromTesting({
-    modelRef: `workflow/${workflowRun.scenarioId}/${variant}/${node.nodeId}`,
+    modelRef: `workflow/${workflowRun.seedId}/${variant}/${node.nodeId}`,
     route: routeForNode({ workflowRun, node, variant }),
     capabilities: runtimeCapabilitiesForNode(node),
     role: node.runtimeRole,
@@ -94,7 +94,7 @@ const responseIdForNodeExecution = ({
   readonly node: NodeExecutionContract
   readonly trace: WorkflowTraceProjection
   readonly variant: GraphVariant
-}): string => `${workflowRun.scenarioId}-${variant}-${node.nodeId}-${trace.timestamp}`
+}): string => `${workflowRun.seedId}-${variant}-${node.nodeId}-${trace.timestamp}`
 
 const deterministicRuntimeEvidenceForNodeExecution = ({
   workflowRun,
@@ -116,7 +116,7 @@ const deterministicRuntimeEvidenceForNodeExecution = ({
     desired,
     route: routeForNode({ workflowRun, node, variant }),
     selectedProvider: "deterministic-fallback",
-    selectedDeployment: `${workflowRun.scenarioId}-${variant}`,
+    selectedDeployment: `${workflowRun.seedId}-${variant}`,
     providerModel: desired.artifact.modelRef,
     selectionReason: `${lane}:${node.nodeKind}`
   })

@@ -10,12 +10,12 @@ import {
 
 describe("entry api route authority", () => {
   it("round-trips the run, preload, and stream transport nouns through canonical paths", () => {
-    const runRoute = EntryRunRoute.fromEntryId("effect-search")
-    const preloadRoute = EntryPreloadRoute.fromEntryId("effect-text")
+    const runRoute = EntryRunRoute.fromEntryId("workflow")
+    const preloadRoute = EntryPreloadRoute.fromEntryId("workflow")
     const streamRoute = EntryStreamRoute.fromEntryId("workflow")
 
-    expect(runRoute.path()).toBe("/api/entries/effect-search/run")
-    expect(preloadRoute.path()).toBe("/api/entries/effect-text/preload")
+    expect(runRoute.path()).toBe("/api/entries/workflow/run")
+    expect(preloadRoute.path()).toBe("/api/entries/workflow/preload")
     expect(streamRoute.path()).toBe("/api/entries/workflow/stream")
     expect(streamRoute.url("{\"request\":\"workflow\"}")).toBe(
       "/api/entries/workflow/stream?request=%7B%22request%22%3A%22workflow%22%7D"

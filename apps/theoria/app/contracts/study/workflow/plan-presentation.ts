@@ -34,13 +34,13 @@ export const workflowPlanSummaryPhaseDetail = (phaseDetail: string): string => p
 
 export const workflowPlanSummaryMetricLabel = (metric: WorkflowPlanSummaryMetric): string =>
   Match.value(metric).pipe(
-    Match.when("execution-lane", () => "Execution Lane"),
-    Match.when("optimization", () => "Optimization"),
-    Match.when("replay-target", () => "Replay Target"),
-    Match.when("runtime-profile", () => "Runtime Profile"),
-    Match.when("surface-profile", () => "Surface Profile"),
-    Match.when("run-story", () => "Run Story"),
-    Match.when("phase", () => "Phase"),
+    Match.when("execution-lane", () => "Execution path"),
+    Match.when("optimization", () => "Search mode"),
+    Match.when("replay-target", () => "Final replay"),
+    Match.when("runtime-profile", () => "Runtime choice"),
+    Match.when("surface-profile", () => "Surface choice"),
+    Match.when("run-story", () => "Study path"),
+    Match.when("phase", () => "Current state"),
     Match.exhaustive
   )
 

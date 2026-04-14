@@ -2,7 +2,8 @@ import { nullablePackageName, type PackageName, PackageNameSchema } from "@theor
 import { Match, Option, Schema } from "effect"
 
 import { type EntryId, EntryId as EntryIdSchema, entryIds, isEntryId } from "../entry/id.js"
-import { EntryRoute, HomePageRoute, PackageDocsRoute, type PageRoute } from "./path.js"
+import { type WorkflowSeedId, WorkflowSeedIdSchema } from "../study/workflow/manifest.js"
+import { EntryRoute, HomePageRoute, PackageDocsRoute, type PageRoute, WorkflowStudyRoute } from "./path.js"
 
 export class HomePageRouteKey extends Schema.TaggedClass<HomePageRouteKey>()("HomePageRouteKey", {}) {
   static home(): HomePageRouteKey {
@@ -37,6 +38,30 @@ export class EntryRouteKey extends Schema.TaggedClass<EntryRouteKey>()("EntryRou
 
   route(): PageRoute.Value {
     return EntryRoute.fromEntryId(this.entryId)
+  }
+}
+
+export class WorkflowStudyRouteKey extends Schema.TaggedClass<WorkflowStudyRouteKey>()("WorkflowStudyRouteKey", {
+  sessionId: WorkflowSeedIdSchema
+}) {
+  static fromSessionId(sessionId: WorkflowSeedId): WorkflowStudyRouteKey {
+    return WorkflowStudyRouteKey.make({ sessionId })
+  }
+
+  static fromSerialized(value: string): Option.Option<WorkflowStudyRouteKey> {
+    const sessionId = value.slice(15)
+
+    return isWorkflowSeedId(sessionId)
+      ? Option.some(WorkflowStudyRouteKey.fromSessionId(sessionId))
+      : Option.none()
+  }
+
+  serialize(): SerializedPageRouteKey {
+    return decodeSerializedPageRouteKeySync(`workflow-study:${this.sessionId}`)
+  }
+
+  route(): PageRoute.Value {
+    return WorkflowStudyRoute.fromSessionId(this.sessionId)
   }
 }
 
@@ -86,7 +111,9 @@ export class PageRouteKey {
       Match.when("home", () => Option.some(HomePageRouteKey.home())),
       Match.when("docs", () => Option.some(PackageDocsLandingPageRouteKey.landing())),
       Match.orElse((token) =>
-        token.startsWith("docs:")
+        token.startsWith("workflow-study:")
+          ? WorkflowStudyRouteKey.fromSerialized(token)
+          : token.startsWith("docs:")
           ? PackageDocsPackagePageRouteKey.fromSerialized(token)
           : EntryRouteKey.fromSerialized(token)
       )
@@ -102,6 +129,7 @@ export namespace PageRouteKey {
   export const schema = Schema.Union(
     HomePageRouteKey,
     EntryRouteKey,
+    WorkflowStudyRouteKey,
     PackageDocsLandingPageRouteKey,
     PackageDocsPackagePageRouteKey
   )
@@ -113,17 +141,21 @@ const EntrySerializedPageRouteKey = Schema.String.pipe(
   Schema.pattern(new RegExp(`^entry:(?:${entryIds.join("|")})$`, "u"))
 )
 
+const WorkflowStudySerializedPageRouteKey = Schema.String.pipe(Schema.pattern(/^workflow-study:.+$/u))
+
 const PackageDocsSerializedPageRouteKey = Schema.String.pipe(Schema.pattern(/^docs:.+$/u))
 
 export const SerializedPageRouteKey = Schema.Union(
   Schema.Literal("home", "docs"),
   EntrySerializedPageRouteKey,
+  WorkflowStudySerializedPageRouteKey,
   PackageDocsSerializedPageRouteKey
 )
 
 export type SerializedPageRouteKey = typeof SerializedPageRouteKey.Type
 
 const decodeSerializedPageRouteKeySync = Schema.decodeUnknownSync(SerializedPageRouteKey)
+const isWorkflowSeedId = Schema.is(WorkflowSeedIdSchema)
 
 const homePageRouteKey = HomePageRouteKey.make({})
 const packageDocsLandingPageRouteKey = PackageDocsLandingPageRouteKey.make({})

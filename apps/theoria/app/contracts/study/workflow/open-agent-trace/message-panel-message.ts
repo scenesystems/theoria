@@ -1,23 +1,29 @@
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
-import type { PresentationDetailRow } from "../../../presentation/detail-row.js"
 import { presentationDetailRow } from "../../../presentation/detail-row.js"
 import {
+  ActionModel,
+  InteractionActionItem,
+  InteractionMessageItem,
+  type MessageActorModel,
+  type MessageAlignment,
   type MessageContent,
-  MessageDataContent,
+  MessageDetailsContent,
   type MessageModel,
   MessageModel as MessageModelSchema,
+  MessagePayloadContent,
   type MessageRole,
   type MessageStatus,
-  MessageTextContent
+  MessageTextContent,
+  PayloadModel
 } from "../../../presentation/interactions.js"
 
 import { compact, encodeJsonText, messageActor, messageAlignmentFor, timestampLabel } from "./message-panel-shared.js"
 import type { OpenAgentTraceRecord } from "./study-material.js"
 
 type OpenAgentTraceEvent = OpenAgentTraceRecord["events"][number]
-type OpenAgentTraceMessageEvent = Extract<OpenAgentTraceEvent, { readonly eventKind: "message" }>
+type OpenAgentTraceMessageEvent = Extract<OpenAgentTraceEvent, { eventKind: "message" }>
 type OpenAgentTraceContentBlock = OpenAgentTraceMessageEvent["contentBlocks"][number]
 
 const messageRoleFor = (actorKind: OpenAgentTraceMessageEvent["actor"]["actorKind"]): MessageRole =>
@@ -35,13 +41,68 @@ const messageRoleFor = (actorKind: OpenAgentTraceMessageEvent["actor"]["actorKin
 const messageLabelFor = (event: OpenAgentTraceMessageEvent): string =>
   event.actor.toolName ?? event.actor.model ?? event.actor.provider ?? event.actor.role
 
+const payload = ({
+  format,
+  payload,
+  title
+}: {
+  readonly format: "plain" | "json"
+  readonly payload: string
+  readonly title?: string
+}): PayloadModel =>
+  PayloadModel.make({
+    format,
+    payload,
+    ...Option.match(Option.fromNullable(title), {
+      onNone: () => ({}),
+      onSome: (resolvedTitle) => ({ title: resolvedTitle })
+    })
+  })
+
+const actionItem = ({
+  action,
+  actor,
+  alignment,
+  id,
+  timestampLabel
+}: {
+  readonly action: ActionModel
+  readonly actor: MessageActorModel
+  readonly alignment: MessageAlignment
+  readonly id: string
+  readonly timestampLabel?: string
+}): InteractionActionItem =>
+  InteractionActionItem.make({
+    action,
+    actor,
+    alignment,
+    id,
+    ...Option.match(Option.fromNullable(timestampLabel), {
+      onNone: () => ({}),
+      onSome: (resolvedTimestampLabel) => ({ timestampLabel: resolvedTimestampLabel })
+    })
+  })
+
+const commandStatus = ({
+  cancelled,
+  exitCode
+}: {
+  readonly cancelled: Option.Option<boolean>
+  readonly exitCode: Option.Option<number>
+}): "default" | "error" | "success" =>
+  Option.getOrElse(cancelled, () => false) === true
+    ? "error"
+    : Option.match(exitCode, {
+      onNone: () => "default",
+      onSome: (resolvedExitCode) => resolvedExitCode === 0 ? "success" : "error"
+    })
+
 const contentFor = (block: OpenAgentTraceContentBlock): ReadonlyArray<MessageContent> =>
   Match.value(block).pipe(
     Match.when({ type: "text" }, ({ text }) => [MessageTextContent.make({ kind: "body", text })]),
     Match.when({ type: "thinking" }, ({ thinking }) => [MessageTextContent.make({ kind: "thinking", text: thinking })]),
     Match.when({ type: "image" }, ({ contentDigest, mimeType }) => [
-      MessageDataContent.make({
-        display: "rows",
+      MessageDetailsContent.make({
         rows: [
           presentationDetailRow("image", mimeType),
           presentationDetailRow("digest", compact(`${contentDigest.algorithm}:${contentDigest.digest}`, 72))
@@ -50,43 +111,64 @@ const contentFor = (block: OpenAgentTraceContentBlock): ReadonlyArray<MessageCon
       })
     ]),
     Match.when({ type: "json" }, ({ data }) => [
-      MessageDataContent.make({
-        display: "json",
-        rows: [presentationDetailRow("payload", compact(encodeJsonText(data)))],
-        title: "JSON"
+      MessagePayloadContent.make({
+        payload: payload({
+          format: "json",
+          payload: compact(encodeJsonText(data), 480),
+          title: "JSON"
+        })
       })
     ]),
-    Match.when({ type: "toolCall" }, ({ arguments: input, toolCallId, toolName }) => [
-      MessageDataContent.make({
-        display: "json",
-        rows: [
-          presentationDetailRow("tool call", toolCallId),
-          presentationDetailRow("arguments", compact(encodeJsonText(input)))
-        ],
-        title: toolName
-      })
-    ]),
+    Match.when({ type: "toolCall" }, () => []),
     Match.exhaustive
   )
 
-const systemMessage = ({
+const toolActionItem = ({
+  block,
+  index,
+  timestamp
+}: {
+  readonly block: Extract<OpenAgentTraceContentBlock, { readonly type: "toolCall" }>
+  readonly index: number
+  readonly timestamp: string
+}): InteractionActionItem =>
+  actionItem({
+    action: ActionModel.make({
+      callId: block.toolCallId,
+      details: [],
+      id: `${block.toolCallId}:${index}`,
+      input: payload({
+        format: "json",
+        payload: compact(encodeJsonText(block.arguments), 480),
+        title: "Arguments"
+      }),
+      kind: "tool",
+      label: block.toolName,
+      status: "default",
+      supportingText: "tool call"
+    }),
+    actor: messageActor({ label: "Tool", role: "tool" }),
+    alignment: messageAlignmentFor("tool"),
+    id: `${block.toolCallId}:${index}`,
+    timestampLabel: timestampLabel(timestamp)
+  })
+
+const eventMessage = ({
+  content,
   eventId,
   label,
   role,
-  rows,
   status = "default",
   supportingText,
-  timestamp,
-  title
+  timestamp
 }: {
+  readonly content: ReadonlyArray<MessageContent>
   readonly eventId: string
   readonly label: string
   readonly role: MessageRole
-  readonly rows: ReadonlyArray<PresentationDetailRow>
   readonly status?: MessageStatus
   readonly supportingText?: string
   readonly timestamp: string
-  readonly title?: string
 }): MessageModel =>
   MessageModelSchema.make({
     actor: messageActor({
@@ -98,20 +180,136 @@ const systemMessage = ({
       })
     }),
     alignment: messageAlignmentFor(role),
-    blocks: [MessageDataContent.make({
-      display: "rows",
-      rows,
-      ...Option.match(Option.fromNullable(title), {
-        onNone: () => ({}),
-        onSome: (resolvedTitle) => ({ title: resolvedTitle })
-      })
-    })],
+    content,
     id: eventId,
     status,
     timestampLabel: timestampLabel(timestamp)
   })
 
-export const messageForEvent = (event: OpenAgentTraceEvent): MessageModel =>
+const flushPendingMessage = ({
+  content,
+  eventId,
+  label,
+  role,
+  sliceIndex,
+  status,
+  supportingText,
+  timestamp
+}: {
+  readonly content: ReadonlyArray<MessageContent>
+  readonly eventId: string
+  readonly label: string
+  readonly role: MessageRole
+  readonly sliceIndex: number
+  readonly status: MessageStatus
+  readonly supportingText?: string
+  readonly timestamp: string
+}): ReadonlyArray<InteractionMessageItem> =>
+  content.length === 0
+    ? []
+    : [InteractionMessageItem.make({
+      message: eventMessage({
+        content,
+        eventId: sliceIndex === 0 ? eventId : `${eventId}:message:${sliceIndex}`,
+        label,
+        role,
+        status,
+        ...Option.match(Option.fromNullable(supportingText), {
+          onNone: () => ({}),
+          onSome: (resolvedSupportingText) => ({ supportingText: resolvedSupportingText })
+        }),
+        timestamp
+      })
+    })]
+
+const interactionItemsForContentBlocks = ({
+  blocks,
+  eventId,
+  label,
+  role,
+  status,
+  supportingText,
+  timestamp,
+  trailingContent
+}: {
+  readonly blocks: ReadonlyArray<OpenAgentTraceContentBlock>
+  readonly eventId: string
+  readonly label: string
+  readonly role: MessageRole
+  readonly status: MessageStatus
+  readonly supportingText?: string
+  readonly timestamp: string
+  readonly trailingContent?: ReadonlyArray<MessageContent>
+}): ReadonlyArray<InteractionActionItem | InteractionMessageItem> => {
+  const initialState: {
+    readonly items: ReadonlyArray<InteractionActionItem | InteractionMessageItem>
+    readonly pending: ReadonlyArray<MessageContent>
+    readonly sliceIndex: number
+  } = {
+    items: [],
+    pending: [],
+    sliceIndex: 0
+  }
+
+  const reduced = blocks.reduce(
+    (state, block, index) =>
+      Match.value(block).pipe(
+        Match.when({ type: "toolCall" }, (toolCallBlock) => ({
+          items: [
+            ...state.items,
+            ...flushPendingMessage({
+              content: state.pending,
+              eventId,
+              label,
+              role,
+              sliceIndex: state.sliceIndex,
+              status,
+              ...Option.match(Option.fromNullable(supportingText), {
+                onNone: () => ({}),
+                onSome: (resolvedSupportingText) => ({ supportingText: resolvedSupportingText })
+              }),
+              timestamp
+            }),
+            toolActionItem({ block: toolCallBlock, index, timestamp })
+          ],
+          pending: [],
+          sliceIndex: state.sliceIndex + 1
+        })),
+        Match.orElse((contentBlock) => ({
+          items: state.items,
+          pending: [...state.pending, ...contentFor(contentBlock)],
+          sliceIndex: state.sliceIndex
+        }))
+      ),
+    initialState
+  )
+
+  const finalPending = [
+    ...reduced.pending,
+    ...Option.getOrElse(Option.fromNullable(trailingContent), (): ReadonlyArray<MessageContent> => [])
+  ]
+
+  return [
+    ...reduced.items,
+    ...flushPendingMessage({
+      content: finalPending,
+      eventId,
+      label,
+      role,
+      sliceIndex: reduced.sliceIndex,
+      status,
+      ...Option.match(Option.fromNullable(supportingText), {
+        onNone: () => ({}),
+        onSome: (resolvedSupportingText) => ({ supportingText: resolvedSupportingText })
+      }),
+      timestamp
+    })
+  ]
+}
+
+export const interactionItemsForEvent = (
+  event: OpenAgentTraceEvent
+): ReadonlyArray<InteractionActionItem | InteractionMessageItem> =>
   Match.value(event).pipe(
     Match.when({ eventKind: "message" }, (messageEvent) => {
       const role = messageRoleFor(messageEvent.actor.actorKind)
@@ -121,89 +319,147 @@ export const messageForEvent = (event: OpenAgentTraceEvent): MessageModel =>
         onSome: () => "error"
       })
 
-      return MessageModelSchema.make({
-        actor: messageActor({
-          label: messageLabelFor(messageEvent),
-          role,
-          ...Option.match(Option.fromNullable(messageEvent.piTurnProvenance?.model), {
-            onNone: () => ({}),
-            onSome: (supportingText) => ({ supportingText })
-          })
+      return interactionItemsForContentBlocks({
+        blocks: messageEvent.contentBlocks,
+        eventId: messageEvent.eventId,
+        label: messageLabelFor(messageEvent),
+        role,
+        status,
+        ...Option.match(Option.fromNullable(messageEvent.piTurnProvenance?.model), {
+          onNone: () => ({}),
+          onSome: (supportingText) => ({ supportingText })
         }),
-        alignment: messageAlignmentFor(role),
-        blocks: Option.match(errorMessage, {
-          onNone: () => messageEvent.contentBlocks.flatMap(contentFor),
-          onSome: (resolvedErrorMessage) => [
-            ...messageEvent.contentBlocks.flatMap(contentFor),
-            MessageDataContent.make({
-              display: "rows",
-              rows: [presentationDetailRow("error", compact(resolvedErrorMessage))],
+        timestamp: messageEvent.timestamp,
+        trailingContent: Option.match(errorMessage, {
+          onNone: () => [],
+          onSome: (resolvedErrorMessage) => [MessagePayloadContent.make({
+            payload: payload({
+              format: "plain",
+              payload: compact(resolvedErrorMessage, 360),
               title: "Execution Error"
             })
-          ]
-        }),
-        id: messageEvent.eventId,
-        status,
-        timestampLabel: timestampLabel(messageEvent.timestamp)
+          })]
+        })
       })
     }),
-    Match.when({ eventKind: "bash-execution" }, ({ command, eventId, outputText, timestamp }) =>
-      systemMessage({
-        eventId,
-        label: "Shell",
-        role: "tool",
-        rows: [
-          presentationDetailRow("command", compact(Option.getOrElse(Option.fromNullable(command), () => "n/a"))),
-          presentationDetailRow("output", compact(Option.getOrElse(Option.fromNullable(outputText), () => "n/a")))
-        ],
-        timestamp,
-        title: "Tool Call"
-      })),
-    Match.when({ eventKind: "model-change" }, ({ eventId, modelId, timestamp }) =>
-      systemMessage({
-        eventId,
-        label: "Runtime",
-        role: "runtime",
-        rows: [presentationDetailRow("model", Option.getOrElse(Option.fromNullable(modelId), () => "n/a"))],
-        supportingText: "model change",
-        timestamp,
-        title: "Runtime Event"
-      })),
-    Match.when({ eventKind: "thinking-level-change" }, ({ eventId, thinkingLevel, timestamp }) =>
-      systemMessage({
-        eventId,
-        label: "Runtime",
-        role: "runtime",
-        rows: [
+    Match.when(
+      { eventKind: "bash-execution" },
+      ({ cancelled, command, eventId, exitCode, outputText, timestamp, truncated }) => [actionItem({
+        action: ActionModel.make({
+          details: [
+            presentationDetailRow(
+              "exit code",
+              String(Option.getOrElse(Option.fromNullable(exitCode), () => -1))
+            ),
+            presentationDetailRow("cancelled", cancelled === true ? "yes" : "no"),
+            presentationDetailRow("truncated", truncated === true ? "yes" : "no")
+          ],
+          id: eventId,
+          input: payload({
+            format: "plain",
+            payload: compact(Option.getOrElse(Option.fromNullable(command), () => "n/a"), 280),
+            title: "Command"
+          }),
+          kind: "command",
+          label: "Shell Execution",
+          output: payload({
+            format: "plain",
+            payload: compact(Option.getOrElse(Option.fromNullable(outputText), () => "n/a"), 520),
+            title: "Output"
+          }),
+          status: commandStatus({
+            cancelled: Option.fromNullable(cancelled),
+            exitCode: Option.fromNullable(exitCode)
+          }),
+          supportingText: "shell command"
+        }),
+        actor: messageActor({ label: "Shell", role: "tool" }),
+        alignment: messageAlignmentFor("tool"),
+        id: eventId,
+        timestampLabel: timestampLabel(timestamp)
+      })]
+    ),
+    Match.when({ eventKind: "model-change" }, ({ eventId, modelId, timestamp }) => [actionItem({
+      action: ActionModel.make({
+        details: [presentationDetailRow("model", Option.getOrElse(Option.fromNullable(modelId), () => "n/a"))],
+        id: eventId,
+        kind: "runtime",
+        label: "Model Change",
+        status: "default",
+        supportingText: "runtime event"
+      }),
+      actor: messageActor({ label: "Runtime", role: "runtime" }),
+      alignment: messageAlignmentFor("runtime"),
+      id: eventId,
+      timestampLabel: timestampLabel(timestamp)
+    })]),
+    Match.when({ eventKind: "thinking-level-change" }, ({ eventId, thinkingLevel, timestamp }) => [actionItem({
+      action: ActionModel.make({
+        details: [
           presentationDetailRow("thinking level", Option.getOrElse(Option.fromNullable(thinkingLevel), () => "n/a"))
         ],
-        supportingText: "reasoning change",
-        timestamp,
-        title: "Runtime Event"
-      })),
-    Match.when({ eventKind: "compaction" }, ({ eventId, firstKeptEntryId, summaryText, timestamp }) =>
-      systemMessage({
+        id: eventId,
+        kind: "runtime",
+        label: "Reasoning Level",
+        status: "default",
+        supportingText: "runtime event"
+      }),
+      actor: messageActor({ label: "Runtime", role: "runtime" }),
+      alignment: messageAlignmentFor("runtime"),
+      id: eventId,
+      timestampLabel: timestampLabel(timestamp)
+    })]),
+    Match.when(
+      { eventKind: "compaction" },
+      ({ eventId, firstKeptEntryId, summaryText, timestamp }) => [InteractionMessageItem.make({
+        message: eventMessage({
+          content: [
+            MessageTextContent.make({ kind: "body", text: compact(summaryText, 320) }),
+            MessageDetailsContent.make({
+              rows: [
+                presentationDetailRow("kept from", Option.getOrElse(Option.fromNullable(firstKeptEntryId), () => "n/a"))
+              ],
+              title: "Summary"
+            })
+          ],
+          eventId,
+          label: "System",
+          role: "system",
+          supportingText: "compaction",
+          timestamp
+        })
+      })]
+    ),
+    Match.when({ eventKind: "branch-summary" }, ({ eventId, summaryText, timestamp }) => [InteractionMessageItem.make({
+      message: eventMessage({
+        content: [MessageTextContent.make({ kind: "body", text: compact(summaryText, 320) })],
         eventId,
         label: "System",
         role: "system",
-        rows: [
-          presentationDetailRow("summary", compact(summaryText)),
-          presentationDetailRow("kept from", Option.getOrElse(Option.fromNullable(firstKeptEntryId), () => "n/a"))
-        ],
-        supportingText: "compaction",
-        timestamp,
-        title: "Summary"
-      })),
-    Match.when({ eventKind: "branch-summary" }, ({ eventId, summaryText, timestamp }) =>
-      systemMessage({
-        eventId,
-        label: "System",
-        role: "system",
-        rows: [presentationDetailRow("summary", compact(summaryText))],
         supportingText: "branch summary",
-        timestamp,
-        title: "Summary"
-      })),
+        timestamp
+      })
+    })]),
+    Match.when({ eventKind: "custom-message" }, (metadataEvent) => {
+      const actor = Option.fromNullable(metadataEvent.actor)
+      const label = Option.getOrElse(
+        Option.orElse(Option.map(actor, ({ role }) => role), () => Option.fromNullable(metadataEvent.label)),
+        () => "Metadata"
+      )
+      const role: MessageRole = Option.match(actor, {
+        onNone: () => "custom",
+        onSome: ({ actorKind }) => messageRoleFor(actorKind)
+      })
+
+      return interactionItemsForContentBlocks({
+        blocks: Option.getOrElse(Option.fromNullable(metadataEvent.contentBlocks), () => []),
+        eventId: metadataEvent.eventId,
+        label,
+        role,
+        status: "default",
+        timestamp: metadataEvent.timestamp
+      })
+    }),
     Match.orElse((metadataEvent) => {
       const actor = Option.fromNullable(metadataEvent.actor)
       const label = Option.getOrElse(
@@ -214,25 +470,21 @@ export const messageForEvent = (event: OpenAgentTraceEvent): MessageModel =>
         onNone: () => "custom",
         onSome: ({ actorKind }) => messageRoleFor(actorKind)
       })
-      const contentBlocks = Option.fromNullable(metadataEvent.contentBlocks)
-
-      return MessageModelSchema.make({
-        actor: messageActor({ label, role }),
-        alignment: messageAlignmentFor(role),
-        blocks: Option.match(contentBlocks, {
-          onNone: () => [MessageDataContent.make({
-            display: "rows",
+      return [InteractionMessageItem.make({
+        message: MessageModelSchema.make({
+          actor: messageActor({ label, role }),
+          alignment: messageAlignmentFor(role),
+          content: [MessageDetailsContent.make({
             rows: [
               presentationDetailRow("event", metadataEvent.eventKind),
               presentationDetailRow("record", metadataEvent.eventId)
             ],
             title: metadataEvent.label ?? metadataEvent.eventKind
           })],
-          onSome: (resolvedContentBlocks) => resolvedContentBlocks.flatMap(contentFor)
-        }),
-        id: metadataEvent.eventId,
-        status: "default",
-        timestampLabel: timestampLabel(metadataEvent.timestamp)
-      })
+          id: metadataEvent.eventId,
+          status: "default",
+          timestampLabel: timestampLabel(metadataEvent.timestamp)
+        })
+      })]
     })
   )

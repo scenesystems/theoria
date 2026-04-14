@@ -1,7 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow"
 import { Effect, Match, Option, Stream } from "effect"
 
-import type { EntryRunRequest } from "../../contracts/entry/registry.js"
+import type { EntryId } from "../../contracts/entry/id.js"
 import type { EvidenceEvent } from "../../contracts/evidence/stream.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 import { RunStreamSessionRegistry } from "../kernel/kinds/stream-session-registry.js"
@@ -19,7 +19,7 @@ const streamResponse = ({
   requestId,
   startup
 }: {
-  readonly id: EntryRunRequest["draft"]["entryId"]
+  readonly id: EntryId
   readonly requestId: string
   readonly startup: StreamStartup
 }) =>
@@ -40,7 +40,7 @@ const streamResponse = ({
 
           yield* registry.ensureSession(sessionKey)
 
-          const executionId = yield* resolvedDefinition.workflow.executionId(request)
+          const executionId = yield* resolvedDefinition.execution.executionId(request)
           const started = yield* registry.markStarted({ executionId, sessionKey })
           const workflowEngine = started
             ? Option.some(yield* WorkflowEngine.WorkflowEngine)
@@ -49,7 +49,7 @@ const streamResponse = ({
           const startWorkflow = Option.match(workflowEngine, {
             onNone: () => Effect.void,
             onSome: (resolvedWorkflowEngine) =>
-              resolvedDefinition.workflow.execute(request).pipe(
+              resolvedDefinition.execution.execute(request).pipe(
                 Effect.asVoid,
                 Effect.catchAll(() => Effect.void),
                 Effect.forkDaemon,
@@ -72,7 +72,7 @@ export const entryStreamRoute = ({
   rawUrl,
   requestId
 }: {
-  readonly id: EntryRunRequest["draft"]["entryId"]
+  readonly id: EntryId
   readonly rawUrl: string | null
   readonly requestId: string
 }) =>

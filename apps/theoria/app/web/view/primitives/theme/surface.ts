@@ -1,7 +1,4 @@
-import { Match } from "effect"
-
-import type { EntryId } from "../../../../contracts/entry/id.js"
-import { type CardTone, toneForCard } from "../../../../contracts/tone.js"
+import type { CardTone } from "../../../../contracts/tone.js"
 
 export type SurfaceMaterials = {
   readonly raisedCard: string
@@ -26,8 +23,8 @@ export type SurfaceMaterials = {
 export const surfaceMaterials: SurfaceMaterials = {
   raisedCard:
     "rounded-[2rem] border border-stage-300/95 bg-stage-0/94 shadow-hero ring-1 ring-stage-0/80 backdrop-blur-sm",
-  supportPanel: "rounded-2xl border border-stage-200/90 bg-stage-0/88 shadow-chip",
-  supportPanelDense: "rounded-2xl border border-stage-200/90 bg-stage-0/88 px-3 py-2 shadow-chip",
+  supportPanel: "border-y border-stage-200/84 bg-stage-0/72",
+  supportPanelDense: "border-y border-stage-200/84 bg-stage-0/72 px-3 py-2",
   instrumentPanel: "gap-0",
   instrumentSection: "border-b border-stage-200/72 pb-4",
   instrumentViewport: "pt-5",
@@ -52,6 +49,7 @@ export const app = {
   atmosphericGlowB:
     "pointer-events-none absolute -right-24 top-24 h-[21rem] w-[21rem] rounded-full bg-stage-100/90 blur-3xl",
   content: "relative mx-auto flex w-full max-w-[84rem] flex-col gap-4 px-4 py-7 sm:px-7 sm:py-9 lg:px-10",
+  sectionGutter: "px-4 sm:px-6 lg:px-8 2xl:px-10",
   compactNav:
     "border-b border-stage-200/90 bg-stage-0/88 px-4 py-3 backdrop-blur-xl shadow-[0_18px_60px_-52px_rgba(15,23,42,0.65)] sm:px-6 sm:py-4",
   homeGrid: "grid grid-cols-1 gap-4 xl:grid-cols-2"
@@ -90,12 +88,13 @@ export type Surface = {
   readonly tabActive: string
   readonly tabInactive: string
   readonly panel: string
+  readonly supportPanel: string
   readonly codePanel: CodePanel
 }
 
-const shellShared = "border border-stage-300/85 bg-stage-0/92 shadow-surface ring-1 ring-stage-0/70 backdrop-blur-sm"
-const panelShared = "border border-stage-200/95 bg-stage-0/74 shadow-chip"
-const statusTagShared = "border-stage-200/90 bg-stage-50/90 text-ink-900"
+const shellShared = "border-y border-stage-300/84 bg-stage-0/86"
+const panelShared = "bg-stage-0/74"
+const statusTagShared = "border-stage-200/84 bg-stage-0/72 text-ink-900"
 const actionShared = "shadow-chip focus-visible:ring-2 focus-visible:ring-ink-900/25 focus-visible:ring-offset-1"
 const primaryActionShared = "border-ink-900/90 bg-ink-900 text-stage-0 hover:border-ink-800 hover:bg-ink-800"
 const backActionShared =
@@ -137,58 +136,27 @@ type ToneSurfaceAccent = {
   readonly badgeDot: string
 }
 
-const toneSurfaceAccent = (tone: CardTone): ToneSurfaceAccent =>
-  Match.value(tone).pipe(
-    Match.when("text", () => ({
-      accent: "bg-gradient-to-r from-tone-text-600 via-tone-text-500 to-tone-text-400",
-      badgeDot: "bg-tone-text-500"
-    })),
-    Match.when("search", () => ({
-      accent: "bg-gradient-to-r from-tone-search-600 via-tone-search-500 to-tone-search-400",
-      badgeDot: "bg-tone-search-500"
-    })),
-    Match.when("math", () => ({
-      accent: "bg-gradient-to-r from-tone-math-600 via-tone-math-500 to-tone-math-400",
-      badgeDot: "bg-tone-math-500"
-    })),
-    Match.when("dsp", () => ({
-      accent: "bg-gradient-to-r from-tone-dsp-600 via-tone-dsp-500 to-tone-dsp-400",
-      badgeDot: "bg-tone-dsp-500"
-    })),
-    Match.when("digest", () => ({
-      accent: "bg-gradient-to-r from-tone-digest-600 via-tone-digest-500 to-tone-digest-400",
-      badgeDot: "bg-tone-digest-500"
-    })),
-    Match.when("sign", () => ({
-      accent: "bg-gradient-to-r from-tone-sign-600 via-tone-sign-500 to-tone-sign-400",
-      badgeDot: "bg-tone-sign-500"
-    })),
-    Match.when("seal", () => ({
-      accent: "bg-gradient-to-r from-tone-seal-600 via-tone-seal-500 to-tone-seal-400",
-      badgeDot: "bg-tone-seal-500"
-    })),
-    Match.exhaustive
-  )
-
-const surfaceForTone = (tone: CardTone): Surface => {
-  const toneAccent = toneSurfaceAccent(tone)
-
-  return {
-    shell: shellShared,
-    accent: toneAccent.accent,
-    badge: "border-stage-300/90 bg-stage-0/96 text-ink-800 shadow-chip",
-    badgeDot: toneAccent.badgeDot,
-    statusTag: statusTagShared,
-    primaryAction: `${actionShared} ${primaryActionShared}`,
-    backAction: `${actionShared} ${backActionShared}`,
-    secondaryAction: `${actionShared} ${secondaryActionShared}`,
-    splitDivider: splitDividerShared,
-    splitHandle: splitHandleShared,
-    tabActive: tabActiveShared,
-    tabInactive: tabInactiveShared,
-    panel: panelShared,
-    codePanel: codePanelShared
-  }
+const digestSurfaceAccent: ToneSurfaceAccent = {
+  accent: "bg-gradient-to-r from-tone-digest-600 via-tone-digest-500 to-tone-digest-400",
+  badgeDot: "bg-tone-digest-500"
 }
 
-export const surfaceForCard = (id: EntryId): Surface => surfaceForTone(toneForCard(id))
+const surfaceForTone = (_tone: CardTone): Surface => ({
+  shell: shellShared,
+  accent: digestSurfaceAccent.accent,
+  badge: "border-stage-300/90 bg-stage-0/96 text-ink-800 shadow-chip",
+  badgeDot: digestSurfaceAccent.badgeDot,
+  statusTag: statusTagShared,
+  primaryAction: `${actionShared} ${primaryActionShared}`,
+  backAction: `${actionShared} ${backActionShared}`,
+  secondaryAction: `${actionShared} ${secondaryActionShared}`,
+  splitDivider: splitDividerShared,
+  splitHandle: splitHandleShared,
+  tabActive: tabActiveShared,
+  tabInactive: tabInactiveShared,
+  panel: panelShared,
+  supportPanel: "bg-stage-50/42",
+  codePanel: codePanelShared
+})
+
+export const surfaceForCard = (_id: string): Surface => surfaceForTone("digest")

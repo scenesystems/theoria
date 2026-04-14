@@ -63,12 +63,12 @@ export namespace PackageDocsPageContent {
       sections: Match.value(state).pipe(
         Match.tag(
           "CatalogLoading",
-          () => [PackageDocsRunningStateSection.make({ text: "Loading package docs catalog…" })]
+          () => [PackageDocsRunningStateSection.make({ text: "Loading the package library…" })]
         ),
         Match.tag("CatalogFailure", ({ description }) => [PackageDocsFailureStateSection.make({ description })]),
         Match.tag(
           "EmptyCatalog",
-          () => [PackageDocsFailureStateSection.make({ description: "Package docs catalog is empty." })]
+          () => [PackageDocsFailureStateSection.make({ description: "The package library is empty." })]
         ),
         Match.tag("BundleLoading", ({ catalog, selectedPackageId }) => [
           PackageDocsSearchPanelSection.make({}),
@@ -76,7 +76,7 @@ export namespace PackageDocsPageContent {
             items: PackageDocsNavigationItem.projectCatalog({ catalog, selectedPackageId }),
             title: navigationTitle
           }),
-          PackageDocsRunningStateSection.make({ text: "Loading package docs bundle…" })
+          PackageDocsRunningStateSection.make({ text: "Loading this package guide…" })
         ]),
         Match.tag("BundleFailure", ({ catalog, description, selectedPackageId }) => [
           PackageDocsSearchPanelSection.make({}),

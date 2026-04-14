@@ -27,10 +27,10 @@ export const workflowGraphCardDetail = ({
   readonly winnerKnobs: ReadonlyArray<string>
 }): string =>
   Match.value(kind).pipe(
-    Match.when("baseline", () => "Frozen baseline execution under the shared evaluation and render envelope."),
+    Match.when("baseline", () => "Baseline path under the current study setup."),
     Match.when(
       "authored-optimized",
-      () => "Use this as the pre-search package-authored target before the winner replay lands."
+      () => "Authored improvement chosen before search begins."
     ),
     Match.when(
       "search-winner",
@@ -38,17 +38,17 @@ export const workflowGraphCardDetail = ({
         winnerKnobs.length > 0
           ? winnerKnobs.join(" · ")
           : bestSelection === null
-          ? "Study-selected knobs stream here once the search winner is known."
-          : `Best so far: ${bestSelection}`
+          ? "Best-candidate details will appear here once search finds a leader."
+          : `Leading candidate: ${bestSelection}`
     ),
     Match.exhaustive
   )
 
 export const workflowGraphTraversalFallback = (kind: WorkflowGraphCardKind): string =>
   Match.value(kind).pipe(
-    Match.when("baseline", () => "Baseline traversal arrives once the authored ledger begins."),
-    Match.when("authored-optimized", () => "Held as the study anchor inside the optimization phase."),
-    Match.when("search-winner", () => "Winner traversal appears after the study selects a manifest."),
+    Match.when("baseline", () => "Run the study to load the baseline path."),
+    Match.when("authored-optimized", () => "Authored improvement path ready for comparison."),
+    Match.when("search-winner", () => "Winner path appears once search selects a candidate."),
     Match.exhaustive
   )
 

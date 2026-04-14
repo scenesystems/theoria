@@ -1,4 +1,4 @@
-import { Toolbar } from "@base-ui-components/react/toolbar"
+import { Toolbar } from "@base-ui/react/toolbar"
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
@@ -13,7 +13,7 @@ import { PackageBadge } from "./PackageBadge.js"
 import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
 import { badgeFromSurface } from "./theme/badge.js"
-import { type Surface } from "./theme/surface.js"
+import { app, type Surface } from "./theme/surface.js"
 import { ThemeToggle } from "./ThemeToggle.js"
 
 const headerClassName = (variant: SurfaceVariant): string =>
@@ -83,16 +83,6 @@ export const SurfaceHeader = ({
                 />
               )
             })}
-            {chrome.deepDiveLink.href === null
-              ? null
-              : (
-                <ActionLink
-                  className={theme.secondaryAction}
-                  href={chrome.deepDiveLink.href}
-                  label={chrome.deepDiveLink.label}
-                  variant={variant}
-                />
-              )}
           </Toolbar.Group>
         </Toolbar.Root>
       </Cluster>
@@ -145,7 +135,7 @@ export const SurfaceHeader = ({
     )
 
   return (
-    <Header className={headerClassName(variant)}>
+    <Header className={`${app.sectionGutter} ${headerClassName(variant)} py-4 sm:py-5`}>
       <SelectionRail
         action={controlRow}
         actionBreakpoint="lg"

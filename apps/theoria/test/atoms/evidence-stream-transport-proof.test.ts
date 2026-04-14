@@ -2,14 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Fiber, Option, Ref, Stream } from "effect"
 
 import { EntryRequestError } from "../../app/contracts/entry-error.js"
-import type { EntryId } from "../../app/contracts/entry/id.js"
 import { EntryRunIdentity } from "../../app/contracts/entry/routing.js"
 import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import { encodeEvidenceEventJson, SectionAppend, StreamComplete } from "../../app/contracts/evidence/stream.js"
 import { ServerEvidenceStream } from "../../app/web/atoms/surface/evidence-stream.js"
 import {
   streamingEntryIds,
-  type SurfaceRuntime,
+  SurfaceRuntime,
   surfaceRuntimeFor,
   type SurfaceRuntimeSnapshot
 } from "../../app/web/runtime/kernel/surface-runtime.js"
@@ -66,13 +65,13 @@ const waitForLatestSource = Effect.eventually(
 )
 
 type RuntimeStreamRequest = {
-  readonly id: EntryId
+  readonly id: "workflow"
   readonly runtime: SurfaceRuntime
   readonly runtimeSnapshot: SurfaceRuntimeSnapshot
   readonly runToken: string | null
 }
 
-const runtimeStreamRequestFor = (id: EntryId): RuntimeStreamRequest => ({
+const runtimeStreamRequestFor = (id: "workflow"): RuntimeStreamRequest => ({
   id,
   runtime: surfaceRuntimeFor(id),
   runtimeSnapshot: {
@@ -143,8 +142,8 @@ const fetchProofLayer = ({
       Ref.update(runWithMetaCountRef, (count) => count + 1).pipe(
         Effect.as({
           data: {
-            id: "digest",
-            packageName: EntryRunIdentity.fromEntryId("digest").packageName,
+            id: "workflow",
+            packageName: EntryRunIdentity.fromEntryId("workflow").packageName,
             summary: "Fetched terminal result.",
             durationMs: streamMeta.durationMs,
             program: {
@@ -157,6 +156,22 @@ const fetchProofLayer = ({
       ),
     preload: () => Effect.fail(new EntryRequestError({ message: "unused preload" }))
   })
+
+const fetchRuntimeRequest: RuntimeStreamRequest = {
+  id: "workflow",
+  runtime: SurfaceRuntime.entryFetch({
+    entryId: "workflow",
+    snapshot: () => ({
+      draft: initialSurfaceState("workflow").draft,
+      localProjectionScript: null
+    })
+  }),
+  runtimeSnapshot: {
+    draft: initialSurfaceState("workflow").draft,
+    localProjectionScript: null
+  },
+  runToken: null
+}
 
 describe("evidence stream transport proof", () => {
   it.effect("keeps every hardened streaming surface on the SSE ledger instead of the /run terminal path", () =>
@@ -207,7 +222,7 @@ describe("evidence stream transport proof", () => {
     Effect.gen(function*() {
       const runCountRef = yield* Ref.make(0)
       const runWithMetaCountRef = yield* Ref.make(0)
-      const events = yield* ServerEvidenceStream.fromRuntime(runtimeStreamRequestFor("digest")).pipe(
+      const events = yield* ServerEvidenceStream.fromRuntime(fetchRuntimeRequest).pipe(
         Stream.runCollect,
         Effect.provide(fetchProofLayer({ runCountRef, runWithMetaCountRef }))
       )

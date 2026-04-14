@@ -38,20 +38,20 @@ export const variantStartEvents = (
 export const nodeExecutionEvents = ({
   activeStateLanes,
   aggregateScore,
-  scenarioId,
+  seedId,
   execution,
   workflowKind
 }: {
   readonly activeStateLanes: ReadonlyArray<WorkflowStateLane>
   readonly aggregateScore: number
-  readonly scenarioId: FrozenWorkflowRun["scenarioId"]
+  readonly seedId: FrozenWorkflowRun["seedId"]
   readonly execution: WorkflowNodeExecution
   readonly workflowKind: FrozenWorkflowRun["workflowKind"]
 }): ReadonlyArray<EvidenceEvent> => [
   new Choreography({ cue: new StageAdvance({ stageId: execution.variant, step: execution.stepIndex - 1 }) }),
   canonicalStepEvent(
     new WorkflowCanonicalStep({
-      scenarioId,
+      seedId,
       workflowKind,
       variant: execution.variant,
       nodeId: execution.node.nodeId,

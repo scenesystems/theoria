@@ -8,7 +8,7 @@
  *
  * ## The Problem
  *
- * Older deep-dive surfaces let the browser invent pacing between authored
+ * Older entry surfaces let the browser invent pacing between authored
  * checkpoints. That split timing loop made the UI look authoritative even
  * when the live evidence ledger had already moved on.
  *

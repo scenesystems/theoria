@@ -9,16 +9,17 @@ import {
 
 import { type DurableFingerprint, fingerprintOf } from "../../entry/fingerprint.js"
 import { workflowEntryId } from "../../entry/id.js"
-import { type WorkflowScenarioId, WorkflowScenarioIdSchema, WorkflowScenarioManifest } from "./manifest.js"
+import { WorkflowFixtureIdSchema, type WorkflowFixtureManifest } from "./fixture-manifest.js"
+import { type WorkflowSeedId, WorkflowSeedIdSchema } from "./manifest.js"
 
-export { WorkflowScenarioIdSchema, WorkflowScenarioManifest }
+export { WorkflowFixtureIdSchema }
 
-export type { WorkflowScenarioId } from "./manifest.js"
+export type { WorkflowSeedId }
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
 export class WorkflowScenarioEntry extends Schema.Class<WorkflowScenarioEntry>("WorkflowScenarioEntry")({
-  scenarioId: WorkflowScenarioIdSchema,
+  seedId: WorkflowSeedIdSchema,
   entryId: Schema.Literal(workflowEntryId)
 }) {
   static fingerprint(
@@ -121,8 +122,8 @@ export class WorkflowScenario extends Schema.Class<WorkflowScenario>("WorkflowSc
   records: WorkflowExecutionRecordPair,
   reports: WorkflowEvaluationReportPair
 }) {
-  static id(scenario: WorkflowScenario): WorkflowScenarioId {
-    return scenario.entry.scenarioId
+  static id(scenario: WorkflowScenario): WorkflowSeedId {
+    return scenario.entry.seedId
   }
 
   static fingerprint(
@@ -142,13 +143,13 @@ export class WorkflowScenario extends Schema.Class<WorkflowScenario>("WorkflowSc
     variants,
     workflowKind
   }: {
-    readonly manifest: WorkflowScenarioManifest
+    readonly manifest: WorkflowFixtureManifest
     readonly variants: WorkflowScenarioVariants
     readonly workflowKind: typeof WorkflowKindSchema.Type
   }): WorkflowScenario {
     return WorkflowScenario.make({
       entry: WorkflowScenarioEntry.make({
-        scenarioId: manifest.id,
+        seedId: manifest.seedId,
         entryId: workflowEntryId
       }),
       label: manifest.label,

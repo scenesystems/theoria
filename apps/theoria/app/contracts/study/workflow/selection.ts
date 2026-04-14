@@ -1,8 +1,9 @@
 import { Effect, Match, Schema } from "effect"
 
 import { workflowEntryId } from "../../entry/id.js"
-import type { EntryDraft } from "../../entry/registry.js"
+import type { StudyDraft } from "../registry.js"
 
+import { defaultWorkflowSeedId } from "./catalog-policy.js"
 import {
   workflowExecutionLaneLabel,
   workflowExecutionLanes,
@@ -16,7 +17,7 @@ import {
   workflowTargetModes
 } from "./controls.js"
 import { WorkflowStudyExecutionError } from "./execution.js"
-import { WorkflowScenarioIdSchema, WorkflowScenarioManifest } from "./manifest.js"
+import { WorkflowSeedIdSchema } from "./manifest.js"
 
 const WorkflowEntryControlKeySchema = Schema.Literal(
   "lane",
@@ -34,10 +35,10 @@ export type WorkflowEntryControlKind = typeof WorkflowEntryControlKindSchema.Typ
 
 const WorkflowEntryControlValueSchema = Schema.Union(Schema.String, Schema.Boolean)
 
-type WorkflowSelectionEntryDraft = Extract<EntryDraft, { readonly entryId: typeof workflowEntryId }>
+type WorkflowSelectionStudyDraft = Extract<StudyDraft, { readonly entryId: typeof workflowEntryId }>
 type WorkflowSelectionDraft = {
-  readonly controls: WorkflowSelectionEntryDraft["controls"]
-  readonly seedId: WorkflowSelectionEntryDraft["seedId"]
+  readonly controls: WorkflowSelectionStudyDraft["controls"]
+  readonly seedId: WorkflowSelectionStudyDraft["seedId"]
 }
 
 export class WorkflowEntryManifestSurface extends Schema.Class<WorkflowEntryManifestSurface>(
@@ -48,9 +49,9 @@ export class WorkflowEntryManifestSurface extends Schema.Class<WorkflowEntryMani
 }) {
   static authored(): WorkflowEntryManifestSurface {
     return WorkflowEntryManifestSurface.make({
-      title: "Workflow Scenario",
+      title: "Workflow Study",
       description:
-        "Freeze one workflow seed before running. The server executes baseline, study, and optimized phases on one canonical ledger while the browser projects the resulting graph and evidence stream."
+        "Choose the workflow you want to study, then compare the baseline, the authored improvement, and any study-selected winner in one evidence-rich workspace."
     })
   }
 }
@@ -88,12 +89,12 @@ export class WorkflowEntryBoundedControlSurface extends Schema.Class<WorkflowEnt
 }
 
 export class WorkflowEntrySelection extends Schema.Class<WorkflowEntrySelection>("WorkflowEntrySelection")({
-  seedId: WorkflowScenarioIdSchema,
+  seedId: WorkflowSeedIdSchema,
   controls: WorkflowRunControls
 }) {
   static defaults(): WorkflowEntrySelection {
     return WorkflowEntrySelection.make({
-      seedId: WorkflowScenarioManifest.defaults().id,
+      seedId: defaultWorkflowSeedId,
       controls: WorkflowRunControls.defaults()
     })
   }
@@ -105,12 +106,12 @@ export class WorkflowEntrySelection extends Schema.Class<WorkflowEntrySelection>
     })
   }
 
-  static optionFromEntryDraft(draft: EntryDraft | null): WorkflowEntrySelection | null {
+  static optionFromDraft(draft: StudyDraft | null): WorkflowEntrySelection | null {
     return draft !== null && draft.entryId === workflowEntryId ? WorkflowEntrySelection.fromDraft(draft) : null
   }
 
-  static fromEntryDraftOrDefaults(draft: EntryDraft | null): WorkflowEntrySelection {
-    return WorkflowEntrySelection.optionFromEntryDraft(draft) ?? WorkflowEntrySelection.defaults()
+  static fromDraftOrDefaults(draft: StudyDraft | null): WorkflowEntrySelection {
+    return WorkflowEntrySelection.optionFromDraft(draft) ?? WorkflowEntrySelection.defaults()
   }
 
   static validate<Selection extends WorkflowEntrySelection>(
@@ -139,8 +140,8 @@ export class WorkflowEntrySelection extends Schema.Class<WorkflowEntrySelection>
 const workflowEntryExecutionLaneControlSurface = WorkflowEntryBoundedControlSurface.make({
   key: "lane",
   kind: "enum",
-  title: "Execution Lane",
-  description: "Freeze the server execution lane as part of the entry draft rather than inferring it at request time.",
+  title: "Execution path",
+  description: "Choose whether this study should replay deterministically or use a live provider runtime.",
   options: workflowExecutionLanes.map((lane) =>
     WorkflowEntryBoundedControlOption.make({
       value: lane,
@@ -152,9 +153,8 @@ const workflowEntryExecutionLaneControlSurface = WorkflowEntryBoundedControlSurf
 const workflowEntryOptimizeControlSurface = WorkflowEntryBoundedControlSurface.make({
   key: "optimize",
   kind: "boolean",
-  title: "Optimization Study",
-  description:
-    "Decide whether the frozen entry draft opens the search-study lane or replays only the authored optimized target.",
+  title: "Search mode",
+  description: "Decide whether this run should search for a better workflow or simply replay the authored improvement.",
   options: [true, false].map((optimize) =>
     WorkflowEntryBoundedControlOption.make({
       value: optimize,
@@ -166,9 +166,9 @@ const workflowEntryOptimizeControlSurface = WorkflowEntryBoundedControlSurface.m
 const workflowEntryTargetModeControlSurface = WorkflowEntryBoundedControlSurface.make({
   key: "targetMode",
   kind: "enum",
-  title: "Replay Target",
+  title: "Final replay",
   description:
-    "Freeze whether the final workflow replay lands on the authored optimized route or the search-study winner.",
+    "Choose whether the final replay should show the authored improvement or the best workflow the study finds.",
   options: workflowTargetModes.map((targetMode) =>
     WorkflowEntryBoundedControlOption.make({
       value: targetMode,
@@ -180,9 +180,8 @@ const workflowEntryTargetModeControlSurface = WorkflowEntryBoundedControlSurface
 const workflowEntryRuntimeProfileControlSurface = WorkflowEntryBoundedControlSurface.make({
   key: "runtimeProfile",
   kind: "enum",
-  title: "Runtime Profile",
-  description:
-    "Freeze the runtime preference that search and replay are allowed to use when the graph exposes runtime-profile knobs.",
+  title: "Runtime choice",
+  description: "Pick the runtime preference the workflow may use when runtime selection is part of the study.",
   options: workflowRuntimeProfiles.map((runtimeProfile) =>
     WorkflowEntryBoundedControlOption.make({
       value: runtimeProfile,
@@ -194,9 +193,8 @@ const workflowEntryRuntimeProfileControlSurface = WorkflowEntryBoundedControlSur
 const workflowEntrySurfaceProfileControlSurface = WorkflowEntryBoundedControlSurface.make({
   key: "surfaceProfile",
   kind: "enum",
-  title: "Surface Profile",
-  description:
-    "Freeze the render-surface preference that the graph and render-evaluation lane should honor when a surface-profile knob is available.",
+  title: "Surface choice",
+  description: "Pick the render surface preference the workflow should honor when presentation affects the result.",
   options: workflowSurfaceProfiles.map((surfaceProfile) =>
     WorkflowEntryBoundedControlOption.make({
       value: surfaceProfile,

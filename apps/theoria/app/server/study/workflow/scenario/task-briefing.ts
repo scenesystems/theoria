@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 
-import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
+import { WorkflowFixtureManifest } from "../../../../contracts/study/workflow/fixture-manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
   BaselineWorkflowScenarioVariant,
@@ -12,11 +12,13 @@ import {
 } from "../../../../contracts/study/workflow/scenario.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
+const taskBriefingManifest = WorkflowFixtureManifest.defaults()
+
 const baselineRecord = decodeWorkflowExecutionRecord({
   recordId: "task-briefing-baseline",
   workflowKind: "task-first",
   session: {
-    sessionId: "task-briefing-session",
+    sessionId: taskBriefingManifest.seedId,
     workflowKind: "task-first",
     turns: [{ turnId: "task-turn-1", role: "user", content: "Summarize why the runtime route was selected." }],
     stateLanes: [{ lane: "task", entries: ["runtime-route-summary"] }, { lane: "context", entries: ["concise"] }]
@@ -156,7 +158,7 @@ const taskBriefingWorkflowVariants = WorkflowScenarioVariants.make({
 })
 
 export const taskBriefingWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
-  manifest: WorkflowScenarioManifest.defaults(),
+  manifest: taskBriefingManifest,
   variants: taskBriefingWorkflowVariants,
   workflowKind: "task-first"
 })

@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

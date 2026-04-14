@@ -50,8 +50,7 @@ export class SurfaceChromeModel extends Schema.Class<SurfaceChromeModel>("Surfac
   runtimeBadge: SurfaceChromeBadge,
   themeControl: SurfaceChromeThemeControl,
   primaryAction: SurfaceChromePrimaryAction,
-  backLink: SurfaceChromeLink,
-  deepDiveLink: SurfaceChromeLink
+  backLink: SurfaceChromeLink
 }) {}
 
 export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceChromeContentModel =>
@@ -59,12 +58,12 @@ export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceCh
     badgeLabel: surface.entryId,
     title: surface.title,
     packageMeta: SurfaceChromeMeta.make({
-      label: "Entry",
+      label: "Built with",
       value: surface.packageName
     }),
     compactPackageValue: surface.title === surface.packageName ? null : surface.packageName,
     useCaseMeta: SurfaceChromeMeta.make({
-      label: "Use Case",
+      label: "Study goal",
       value: surface.useCase
     }),
     summary: surface.summary,
@@ -83,21 +82,15 @@ export const surfaceChromeContentModel = (surface: EntryPresentation): SurfaceCh
 
 export const surfaceChromeModel = ({
   backHref,
-  content,
-  deepDiveHref
+  content
 }: {
   readonly backHref: Option.Option<string>
   readonly content: SurfaceChromeContentModel
-  readonly deepDiveHref: Option.Option<string>
 }): SurfaceChromeModel =>
   SurfaceChromeModel.make({
     ...content,
     backLink: SurfaceChromeLink.make({
       href: OptionValue.getOrNull(backHref),
       label: "Back"
-    }),
-    deepDiveLink: SurfaceChromeLink.make({
-      href: OptionValue.getOrNull(deepDiveHref),
-      label: "Deep Dive"
     })
   })

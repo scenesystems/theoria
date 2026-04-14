@@ -105,30 +105,30 @@ export const workflowExecutionLaneLabel = (
   lane: WorkflowExecutionLane
 ): string =>
   lane === "deterministic-fallback"
-    ? "Deterministic Proof Fallback"
-    : "Live Provider Runtime"
+    ? "Deterministic replay"
+    : "Live provider run"
 
 export const workflowTargetModeLabel = (
   targetMode: WorkflowTargetMode
-): string => targetMode === "authored-optimized" ? "Authored Optimized" : "Search Winner"
+): string => targetMode === "authored-optimized" ? "Authored improvement" : "Study winner"
 
 export const workflowOptimizeLabel = (optimize: boolean): string =>
-  optimize ? "Optimization Study On" : "Optimization Study Off"
+  optimize ? "Search for a better workflow" : "Replay without search"
 
 export const workflowRuntimeProfileLabel = (
   runtimeProfile: WorkflowRuntimeProfile
 ): string =>
   runtimeProfile === "authored"
-    ? "Authored Default"
+    ? "Authored runtime"
     : runtimeProfile === "preferred"
-    ? "Preferred Runtime"
-    : "Fastest Runtime"
+    ? "Preferred runtime"
+    : "Fastest runtime"
 
 export const workflowSurfaceProfileLabel = (
   surfaceProfile: WorkflowSurfaceProfile
 ): string =>
   surfaceProfile === "authored"
-    ? "Authored Default"
+    ? "Authored surface"
     : surfaceProfile === "sidebar"
-    ? "Sidebar"
-    : "Full Panel"
+    ? "Sidebar surface"
+    : "Full-panel surface"

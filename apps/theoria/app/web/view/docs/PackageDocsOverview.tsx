@@ -1,59 +1,54 @@
 import type { PackageDocsPageModel } from "../../../contracts/presentation/package-docs.js"
-import { ExternalLink, InternalLink } from "../primitives/Link.js"
-import { ContentCard } from "../primitives/ContentCard.js"
-import { Cluster, Stack } from "../primitives/Layout.js"
-import { SemanticText } from "../primitives/SemanticText.js"
-import { neutralTone, toneForCard } from "../primitives/theme/tone.js"
-
-const summaryItem = ({
-  label,
-  value
-}: PackageDocsPageModel["summary"][number]) => (
-  <Stack className="gap-1" key={label}>
-    <SemanticText as="span" className="text-ink-500" role="row-label" text={label} variant="compact" />
-    <SemanticText as="span" className="text-ink-900" role="row-value" text={value} variant="expanded" />
-  </Stack>
-)
+import { Toolbar } from "../../ui/components/surface/Toolbar.js"
+import { Box } from "../../ui/structure/Box.js"
+import { Link } from "../../ui/structure/Link.js"
+import { SemanticText } from "../../ui/structure/SemanticText.js"
+import { Stack } from "../../ui/structure/Stack.js"
 
 const docsLink = ({
   external,
   href,
   label
-}: PackageDocsPageModel["links"][number]) =>
-  external
-    ? (
-      <ExternalLink className="text-ink-700 underline decoration-stage-300 underline-offset-4" href={href} key={label}>
-        <SemanticText as="span" role="row-label" text={label} variant="compact" />
-      </ExternalLink>
-    )
-    : (
-      <InternalLink className="text-ink-700 underline decoration-stage-300 underline-offset-4" href={href} key={label}>
-        <SemanticText as="span" role="row-label" text={label} variant="compact" />
-      </InternalLink>
-    )
+}: PackageDocsPageModel["links"][number]) => (
+  <Link
+    className="inline-flex items-center text-ink-500 hover:text-ink-900"
+    href={href}
+    key={label}
+    rel={external ? "noopener noreferrer" : undefined}
+    target={external ? "_blank" : undefined}
+    tone="inherit"
+  >
+    <SemanticText as="span" className="text-inherit" role="body-sm">{label}</SemanticText>
+  </Link>
+)
 
 export const PackageDocsOverview = ({ model }: { readonly model: PackageDocsPageModel }) => {
-  const tone = model.entryId === null ? neutralTone : toneForCard(model.entryId)
-
   return (
-    <ContentCard className={tone.border} density="standard" shape="left-accent">
-      <Stack className="gap-3">
-        <Cluster className="items-center justify-between gap-3">
-          <Stack className="gap-1">
-            <SemanticText as="h1" className="text-ink-900" role="hero-title" text={model.title} variant="expanded" />
-            <SemanticText as="p" className="text-ink-700" role="card-summary" text={model.description} variant="expanded" />
-          </Stack>
-          <SemanticText as="span" className={tone.textStrong} role="tab-label" text={`v${model.version}`} variant="compact" />
-        </Cluster>
+    <Box>
+      <Box className="grid max-w-[50rem] gap-2.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-x-6">
+        <Stack className="gap-2">
+          <SemanticText as="h1" className="text-ink-900" role="display">
+            {model.title}
+          </SemanticText>
+          <SemanticText as="p" className="text-ink-600" role="body">
+            {model.description}
+          </SemanticText>
+        </Stack>
 
-        <Cluster className="gap-3">
-          {model.links.map(docsLink)}
-        </Cluster>
-
-        <Cluster className="gap-x-6 gap-y-3">
-          {model.summary.map(summaryItem)}
-        </Cluster>
-      </Stack>
-    </ContentCard>
+        <Toolbar.Root className="gap-2 self-start border-none bg-transparent px-0 py-0 shadow-none backdrop-blur-none lg:justify-self-end">
+          <Toolbar.Group>
+            <SemanticText as="span" className="text-ink-500" role="body-sm">
+              {`v${model.version}`}
+            </SemanticText>
+          </Toolbar.Group>
+          {model.links.map((link) => (
+            <Toolbar.Group key={link.label}>
+              <Toolbar.Separator className="bg-stage-200" />
+              {docsLink(link)}
+            </Toolbar.Group>
+          ))}
+        </Toolbar.Root>
+      </Box>
+    </Box>
   )
 }

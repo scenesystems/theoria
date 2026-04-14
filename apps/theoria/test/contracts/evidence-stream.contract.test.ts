@@ -1,8 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
-import { DspCanonicalStep } from "../../app/contracts/capability/effect-dsp-runtime.js"
-import { EffectTextProjectionStep } from "../../app/contracts/capability/effect-text.js"
 import {
   canonicalStepEvent,
   Choreography,
@@ -15,6 +13,11 @@ import {
   StreamFailed
 } from "../../app/contracts/evidence/stream.js"
 import { StageEnter } from "../../app/contracts/study/workflow/choreography.js"
+import {
+  renderSensitiveWorkflowSessionId,
+  taskBriefingWorkflowSessionId
+} from "../../app/contracts/study/workflow/fixture-manifest.js"
+import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
 
 const streamMeta = {
   requestId: "req-stream",
@@ -165,18 +168,26 @@ describe("EvidenceEvent Contract", () => {
       expect(event.cue._tag).toBe("StageEnter")
     }))
 
-  it.effect("decodes canonical effect-text projection steps", () =>
+  it.effect("decodes workflow canonical steps", () =>
     Effect.gen(function*() {
       const decoded = yield* Schema.decodeUnknown(EvidenceEvent)({
         _tag: "Step",
         frame: {
           version: "v1",
           step: {
-            _tag: "EffectTextProjectionStep",
-            corpusIndex: 0,
-            requestedWidthPx: 280,
-            stageWidthPx: 280,
-            obstaclesEnabled: true
+            _tag: "WorkflowCanonicalStep",
+            seedId: taskBriefingWorkflowSessionId,
+            workflowKind: "task-first",
+            variant: "baseline",
+            nodeId: "planner-task",
+            nodeKind: "planner",
+            runtimeRole: "task",
+            stepIndex: 1,
+            stepCount: 4,
+            lineage: ["planner-task"],
+            activeStateLanes: ["conversation"],
+            outputText: "Draft the task-oriented plan before critique.",
+            aggregateScore: 0.5
           }
         }
       })
@@ -184,42 +195,51 @@ describe("EvidenceEvent Contract", () => {
       expect(decoded._tag).toBe("Step")
       if (decoded._tag === "Step") {
         expect(decoded.frame.version).toBe("v1")
-        expect(decoded.frame.step._tag).toBe("EffectTextProjectionStep")
+        expect(decoded.frame.step._tag).toBe("WorkflowCanonicalStep")
       }
     }))
 
-  it.effect("Step wraps authored effect-text projection cues", () =>
+  it.effect("Step wraps workflow-authored canonical cues", () =>
     Effect.gen(function*() {
       const event = canonicalStepEvent(
-        new EffectTextProjectionStep({
-          corpusIndex: 2,
-          requestedWidthPx: 340,
-          stageWidthPx: 340,
-          obstaclesEnabled: false
+        new WorkflowCanonicalStep({
+          seedId: taskBriefingWorkflowSessionId,
+          workflowKind: "task-first",
+          variant: "baseline",
+          nodeId: "planner-task",
+          nodeKind: "planner",
+          runtimeRole: "task",
+          stepIndex: 2,
+          stepCount: 4,
+          lineage: ["planner-task"],
+          activeStateLanes: ["conversation"],
+          outputText: "Critique the authored plan before refinement.",
+          aggregateScore: 0.62
         })
       )
 
       expect(event._tag).toBe("Step")
       expect(event.frame.version).toBe("v1")
-      expect(event.frame.step._tag).toBe("EffectTextProjectionStep")
+      expect(event.frame.step._tag).toBe("WorkflowCanonicalStep")
     }))
 
-  it.effect("DSP canonical steps round-trip through the shared evidence stream contract", () =>
+  it.effect("workflow canonical steps round-trip through the shared evidence stream contract", () =>
     Effect.sync(() => {
       const encoded = encodeEvidenceEventJson(
         canonicalStepEvent(
-          new DspCanonicalStep({
-            scenarioId: "intervention-classifier",
-            moduleType: "chainOfThought",
-            stageId: "optimizing",
+          new WorkflowCanonicalStep({
+            seedId: renderSensitiveWorkflowSessionId,
+            workflowKind: "render-sensitive",
+            variant: "optimized",
+            nodeId: "optimization-study",
+            nodeKind: "critic",
+            runtimeRole: "critic",
             stepIndex: 2,
             stepCount: 3,
-            metrics: {
-              baselineAccuracy: 0.5,
-              optimizedAccuracy: null,
-              demosLearned: 1,
-              improvementDelta: null
-            }
+            lineage: ["optimization-study"],
+            activeStateLanes: ["conversation"],
+            outputText: "Optimization found a render-aware improvement.",
+            aggregateScore: 0.81
           })
         )
       )
@@ -230,10 +250,10 @@ describe("EvidenceEvent Contract", () => {
         expect(decoded.right._tag).toBe("Step")
         if (decoded.right._tag === "Step") {
           expect(decoded.right.frame.version).toBe("v1")
-          expect(decoded.right.frame.step._tag).toBe("DspCanonicalStep")
-          if (decoded.right.frame.step._tag === "DspCanonicalStep") {
-            expect(decoded.right.frame.step.stageId).toBe("optimizing")
-            expect(decoded.right.frame.step.metrics.demosLearned).toBe(1)
+          expect(decoded.right.frame.step._tag).toBe("WorkflowCanonicalStep")
+          if (decoded.right.frame.step._tag === "WorkflowCanonicalStep") {
+            expect(decoded.right.frame.step.variant).toBe("optimized")
+            expect(decoded.right.frame.step.aggregateScore).toBe(0.81)
           }
         }
       }

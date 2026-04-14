@@ -4,19 +4,11 @@ import type { Effect } from "effect"
 import { Data, Schema } from "effect"
 
 import type { ReleaseStage } from "../release-stage.js"
+import type { StudyId } from "../study/id.js"
 import { type DurableFingerprint, fingerprintOf } from "./fingerprint.js"
 import { AuthorityId, EntryId, type EntryId as EntryIdType } from "./id.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
-
-export const EmptyStruct = Schema.Struct({})
-export const DefaultSeedId = Schema.Literal("default")
-export const WorkflowSeedId = Schema.Literal(
-  "task-briefing",
-  "chat-handoff",
-  "retrieval-required",
-  "render-sensitive"
-)
 
 export const CardReleaseState = Schema.Literal("published", "coming-soon")
 
@@ -50,45 +42,10 @@ export class EntryProjectionHint extends Schema.Class<EntryProjectionHint>("Entr
   }
 }
 
-type EntryDraftValue<Entry extends EntryIdType, SeedId extends string, Input, Controls> = {
-  readonly entryId: Entry
-  readonly seedId: SeedId
-  readonly input: Input
-  readonly controls: Controls
-}
-
-type EncodedEntryDraftValue<Entry extends EntryIdType, SeedId extends string, EncodedInput, EncodedControls> = {
-  readonly entryId: Entry
-  readonly seedId: SeedId
-  readonly input: EncodedInput
-  readonly controls: EncodedControls
-}
-
-type EntryRunRequestValue<Entry extends EntryIdType, SeedId extends string, Input, Controls> = {
-  readonly runToken: string
-  readonly draft: EntryDraftValue<Entry, SeedId, Input, Controls>
-}
-
-type EncodedEntryRunRequestValue<
-  Entry extends EntryIdType,
-  SeedId extends string,
-  EncodedInput,
-  EncodedControls
-> = {
-  readonly runToken: string
-  readonly draft: EncodedEntryDraftValue<Entry, SeedId, EncodedInput, EncodedControls>
-}
-
-export class EntryDescriptor<
-  Input,
-  EncodedInput,
-  Controls,
-  EncodedControls,
-  SeedId extends string = string,
-  Entry extends EntryIdType = EntryIdType
-> extends Data.Class<EntryDescriptor.Shape<Input, EncodedInput, Controls, EncodedControls, SeedId, Entry>> {
-  static make<Entry extends EntryIdType, Input, EncodedInput, Controls, EncodedControls, SeedId extends string>({
+export class EntryDescriptor<Entry extends EntryIdType = EntryIdType> extends Data.Class<EntryDescriptor.Shape<Entry>> {
+  static make<Entry extends EntryIdType>({
     entryId,
+    studyId,
     title,
     packageName,
     description,
@@ -101,37 +58,11 @@ export class EntryDescriptor<
     projectionHint,
     primaryAuthorityId,
     authorityIds,
-    seeds,
-    defaultSeedId,
-    defaultInput,
-    defaultControls,
-    seedIdSchema,
-    inputSchema,
-    controlsSchema
-  }: EntryDescriptor.Construction<Entry, Input, EncodedInput, Controls, EncodedControls, SeedId>): EntryDescriptor<
-    Input,
-    EncodedInput,
-    Controls,
-    EncodedControls,
-    SeedId,
-    Entry
-  > {
-    const draftSchema = Schema.Struct({
-      entryId: Schema.Literal(entryId),
-      seedId: seedIdSchema,
-      input: inputSchema,
-      controls: controlsSchema
-    })
-
-    const runRequestSchema = Schema.Struct({
-      runToken: NonEmptyString,
-      draft: draftSchema
-    })
-
-    const draftJsonSchema = Schema.parseJson(draftSchema)
-
+    seeds
+  }: EntryDescriptor.Construction<Entry>): EntryDescriptor<Entry> {
     return new EntryDescriptor({
       entryId,
+      studyId,
       title,
       packageName,
       description,
@@ -144,40 +75,8 @@ export class EntryDescriptor<
       projectionHint,
       primaryAuthorityId,
       authorityIds,
-      seeds,
-      defaultDraftValue: {
-        entryId,
-        seedId: defaultSeedId,
-        input: defaultInput,
-        controls: defaultControls
-      },
-      inputSchema,
-      controlsSchema,
-      draftSchema,
-      runRequestSchema,
-      encodeDraftJson: Schema.encodeSync(draftJsonSchema)
+      seeds
     })
-  }
-
-  defaultSeedId(): SeedId {
-    return this.defaultDraftValue.seedId
-  }
-
-  defaultInput(): Input {
-    return this.defaultDraftValue.input
-  }
-
-  defaultControls(): Controls {
-    return this.defaultDraftValue.controls
-  }
-
-  defaultDraft(): EntryDraftValue<Entry, SeedId, Input, Controls> {
-    return {
-      entryId: this.defaultDraftValue.entryId,
-      seedId: this.defaultDraftValue.seedId,
-      input: this.defaultDraftValue.input,
-      controls: this.defaultDraftValue.controls
-    }
   }
 
   fingerprint(): Effect.Effect<DurableFingerprint, never, never> {
@@ -190,15 +89,9 @@ export class EntryDescriptor<
 }
 
 export namespace EntryDescriptor {
-  export interface Shape<
-    Input,
-    EncodedInput,
-    Controls,
-    EncodedControls,
-    SeedId extends string = string,
-    Entry extends EntryIdType = EntryIdType
-  > {
+  export interface Shape<Entry extends EntryIdType = EntryIdType> {
     readonly entryId: Entry
+    readonly studyId: StudyId
     readonly title: string
     readonly packageName: PackageName
     readonly description: string
@@ -212,29 +105,11 @@ export namespace EntryDescriptor {
     readonly primaryAuthorityId: AuthorityId
     readonly authorityIds: readonly [AuthorityId, ...Array<AuthorityId>]
     readonly seeds: ReadonlyArray<EntrySeed>
-    readonly defaultDraftValue: EntryDraftValue<Entry, SeedId, Input, Controls>
-    readonly inputSchema: Schema.Schema<Input, EncodedInput>
-    readonly controlsSchema: Schema.Schema<Controls, EncodedControls>
-    readonly draftSchema: Schema.Schema<
-      EntryDraftValue<Entry, SeedId, Input, Controls>,
-      EncodedEntryDraftValue<Entry, SeedId, EncodedInput, EncodedControls>
-    >
-    readonly runRequestSchema: Schema.Schema<
-      EntryRunRequestValue<Entry, SeedId, Input, Controls>,
-      EncodedEntryRunRequestValue<Entry, SeedId, EncodedInput, EncodedControls>
-    >
-    readonly encodeDraftJson: (draft: EntryDraftValue<Entry, SeedId, Input, Controls>) => string
   }
 
-  export interface Construction<
-    Entry extends EntryIdType,
-    Input,
-    EncodedInput,
-    Controls,
-    EncodedControls,
-    SeedId extends string
-  > {
+  export interface Construction<Entry extends EntryIdType> {
     readonly entryId: Entry
+    readonly studyId: StudyId
     readonly title: string
     readonly packageName: PackageName
     readonly description: string
@@ -248,17 +123,12 @@ export namespace EntryDescriptor {
     readonly primaryAuthorityId: AuthorityId
     readonly authorityIds: readonly [AuthorityId, ...Array<AuthorityId>]
     readonly seeds: ReadonlyArray<EntrySeed>
-    readonly defaultSeedId: SeedId
-    readonly defaultInput: Input
-    readonly defaultControls: Controls
-    readonly seedIdSchema: Schema.Schema<SeedId>
-    readonly inputSchema: Schema.Schema<Input, EncodedInput>
-    readonly controlsSchema: Schema.Schema<Controls, EncodedControls>
   }
 }
 
 const EntryDescriptorFingerprintFields = Schema.Struct({
   entryId: EntryId,
+  studyId: Schema.String,
   title: NonEmptyString,
   packageName: PackageNameSchema,
   description: NonEmptyString,
@@ -276,17 +146,9 @@ const EntryDescriptorFingerprintFields = Schema.Struct({
 
 const encodeEntryDescriptorFingerprintFields = Schema.encodeSync(EntryDescriptorFingerprintFields)
 
-const entryDescriptorFingerprintFieldsFor = <
-  Input,
-  EncodedInput,
-  Controls,
-  EncodedControls,
-  SeedId extends string,
-  Entry extends EntryIdType
->(
-  descriptor: EntryDescriptor<Input, EncodedInput, Controls, EncodedControls, SeedId, Entry>
-) => ({
+const entryDescriptorFingerprintFieldsFor = <Entry extends EntryIdType>(descriptor: EntryDescriptor<Entry>) => ({
   entryId: descriptor.entryId,
+  studyId: descriptor.studyId,
   title: descriptor.title,
   packageName: descriptor.packageName,
   description: descriptor.description,

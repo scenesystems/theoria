@@ -107,7 +107,7 @@ export const workflowSearchProgressEvents = ({
   new Choreography({ cue: new StageAdvance({ stageId: "optimization-study", step: completedTrials - 1 }) }),
   canonicalStepEvent(
     optimizedWorkflowCanonicalStep({
-      scenarioId: workflowRun.scenarioId,
+      seedId: workflowRun.seedId,
       workflowKind: workflowRun.workflowKind,
       nodeId: "optimization-study",
       nodeKind: "critic",

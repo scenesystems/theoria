@@ -33,48 +33,20 @@ export type WorkflowEntryId = typeof WorkflowEntryId.Type
 
 export const workflowEntryId: WorkflowEntryId = "workflow"
 
-export const EntryId = Schema.Union(AuthorityId, WorkflowEntryId)
+export const EntryId = WorkflowEntryId
 
 export type EntryId = typeof EntryId.Type
 
-export const entryIds: ReadonlyArray<EntryId> = [
-  "effect-math",
-  "effect-search",
-  "effect-dsp",
-  "effect-text",
-  "effect-inference",
-  "digest",
-  "seal",
-  "sign",
-  workflowEntryId
-]
+export const entryIds: ReadonlyArray<EntryId> = [workflowEntryId]
 
-export const RunnableEntryId = Schema.Literal(
-  "effect-math",
-  "effect-search",
-  "effect-dsp",
-  "effect-text",
-  "digest",
-  "seal",
-  "sign",
-  "workflow"
-)
+export const RunnableEntryId = WorkflowEntryId
 
 export type RunnableEntryId = typeof RunnableEntryId.Type
 
-export const runnableEntryIds: ReadonlyArray<RunnableEntryId> = [
-  "effect-math",
-  "effect-search",
-  "effect-dsp",
-  "effect-text",
-  "digest",
-  "seal",
-  "sign",
-  workflowEntryId
-]
+export const runnableEntryIds: ReadonlyArray<RunnableEntryId> = [workflowEntryId]
 
 export const isAuthorityId = Schema.is(AuthorityId)
 export const isEntryId = Schema.is(EntryId)
 export const isPackageEntryId = (value: string): value is AuthorityId => isAuthorityId(value)
 export const isWorkflowEntryId = Schema.is(WorkflowEntryId)
-export const isRunnableEntryId = Schema.is(RunnableEntryId)
+export const isRunnableEntryId = isWorkflowEntryId

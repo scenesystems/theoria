@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@import "./ui/tokens/foundation.css";
+@import "./ui/tokens/semantic.css";
+@import "./ui/tokens/tones.css";
+@import "./ui/tokens/typography.generated.css";
+@import "./ui/tokens/motion.css";
 
 /*
  * Safelist: SemanticText generates typography classes dynamically from role names.
@@ -114,121 +119,6 @@
   --color-tone-seal-700: #544d74;
   --color-tone-seal-800: #453f60;
   --color-tone-seal-900: #34304a;
-
-  /* Typography: font-family theme tokens (generated — do not edit) */
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-body: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
-
-  /* Typography: per-role font-size tokens (generated — do not edit) */
-  --st-fs-hero-title: 38px;
-  --st-fs-hero-body: 18px;
-  --st-fs-catalog-title: 22px;
-  --st-fs-card-title: 24px;
-  --st-fs-card-summary: 16px;
-  --st-fs-status: 14px;
-  --st-fs-tab-label: 12px;
-  --st-fs-selection-title: 14px;
-  --st-fs-section-title: 24px;
-  --st-fs-row-label: 11px;
-  --st-fs-row-value: 14px;
-  --st-fs-code-meta: 12px;
-  --st-fs-code-block: 12px;
-  --st-fs-button-label: 12px;
-
-  /* Typography: per-role line-height tokens (generated — do not edit) */
-  --st-lh-hero-title: 44px;
-  --st-lh-hero-body: 30px;
-  --st-lh-catalog-title: 30px;
-  --st-lh-card-title: 32px;
-  --st-lh-card-summary: 26px;
-  --st-lh-status: 22px;
-  --st-lh-tab-label: 16px;
-  --st-lh-selection-title: 20px;
-  --st-lh-section-title: 32px;
-  --st-lh-row-label: 16px;
-  --st-lh-row-value: 22px;
-  --st-lh-code-meta: 18px;
-  --st-lh-code-block: 18px;
-  --st-lh-button-label: 16px;
-
-  /* Typography: per-role font-weight tokens (generated — do not edit) */
-  --st-fw-hero-title: 600;
-  --st-fw-hero-body: 400;
-  --st-fw-catalog-title: 600;
-  --st-fw-card-title: 600;
-  --st-fw-card-summary: 400;
-  --st-fw-status: 400;
-  --st-fw-tab-label: 600;
-  --st-fw-selection-title: 600;
-  --st-fw-section-title: 600;
-  --st-fw-row-label: 600;
-  --st-fw-row-value: 400;
-  --st-fw-code-meta: 400;
-  --st-fw-code-block: 400;
-  --st-fw-button-label: 600;
-
-  /* Typography: per-role tracking tokens (generated — do not edit) */
-  --st-tr-hero-title: -0.02em;
-  --st-tr-hero-body: 0;
-  --st-tr-catalog-title: -0.01em;
-  --st-tr-card-title: -0.01em;
-  --st-tr-card-summary: 0;
-  --st-tr-status: 0;
-  --st-tr-tab-label: 0.02em;
-  --st-tr-selection-title: 0;
-  --st-tr-section-title: 0;
-  --st-tr-row-label: 0.04em;
-  --st-tr-row-value: 0;
-  --st-tr-code-meta: 0;
-  --st-tr-code-block: 0;
-  --st-tr-button-label: 0.02em;
-
-  /* Typography: per-role font-family tokens (generated — do not edit) */
-  --st-ff-hero-title: var(--font-display);
-  --st-ff-hero-body: var(--font-body);
-  --st-ff-catalog-title: var(--font-display);
-  --st-ff-card-title: var(--font-display);
-  --st-ff-card-summary: var(--font-body);
-  --st-ff-status: var(--font-body);
-  --st-ff-tab-label: var(--font-body);
-  --st-ff-selection-title: var(--font-display);
-  --st-ff-section-title: var(--font-display);
-  --st-ff-row-label: var(--font-body);
-  --st-ff-row-value: var(--font-body);
-  --st-ff-code-meta: var(--font-mono);
-  --st-ff-code-block: var(--font-mono);
-  --st-ff-button-label: var(--font-body);
-
-  /* Typography: per-role/variant max-width tokens (generated — do not edit) */
-  --st-mw-hero-title-compact: 680px;
-  --st-mw-hero-title-expanded: 920px;
-  --st-mw-hero-body-compact: 600px;
-  --st-mw-hero-body-expanded: 880px;
-  --st-mw-catalog-title-compact: 520px;
-  --st-mw-catalog-title-expanded: 1120px;
-  --st-mw-card-title-compact: 520px;
-  --st-mw-card-title-expanded: 1120px;
-  --st-mw-card-summary-compact: 720px;
-  --st-mw-card-summary-expanded: 1400px;
-  --st-mw-status-compact: 760px;
-  --st-mw-status-expanded: 1400px;
-  --st-mw-tab-label-compact: 180px;
-  --st-mw-tab-label-expanded: 220px;
-  --st-mw-selection-title-compact: 900px;
-  --st-mw-selection-title-expanded: 1400px;
-  --st-mw-section-title-compact: 900px;
-  --st-mw-section-title-expanded: 1400px;
-  --st-mw-row-label-compact: 360px;
-  --st-mw-row-label-expanded: 680px;
-  --st-mw-row-value-compact: 760px;
-  --st-mw-row-value-expanded: 1400px;
-  --st-mw-code-meta-compact: 900px;
-  --st-mw-code-meta-expanded: 1400px;
-  --st-mw-code-block-compact: 900px;
-  --st-mw-code-block-expanded: 1800px;
-  --st-mw-button-label-compact: 170px;
-  --st-mw-button-label-expanded: 210px;
 }
 
 @layer base {

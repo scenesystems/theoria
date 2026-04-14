@@ -6,6 +6,7 @@ import {
   OpenAgentTraceRegistrySchema,
   OpenAgentTraceWorkflowHookupCatalogSchema
 } from "./study-material.js"
+import { AmpThreadImportPayload } from "./thread-import.js"
 
 export class OpenAgentTraceRegistrySuccessEnvelope extends Schema.Class<OpenAgentTraceRegistrySuccessEnvelope>(
   "OpenAgentTraceRegistrySuccessEnvelope"
@@ -56,6 +57,18 @@ export class OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope
   }
 }
 
+export class AmpThreadImportSuccessEnvelope extends Schema.Class<AmpThreadImportSuccessEnvelope>(
+  "AmpThreadImportSuccessEnvelope"
+)({
+  ok: Schema.Literal(true),
+  meta: Metadata,
+  data: AmpThreadImportPayload
+}) {
+  static ok(meta: Metadata, data: AmpThreadImportPayload): AmpThreadImportSuccessEnvelope {
+    return AmpThreadImportSuccessEnvelope.make({ ok: true, meta, data })
+  }
+}
+
 export const OpenAgentTraceRegistryEnvelope = Schema.Union(
   OpenAgentTraceRegistrySuccessEnvelope,
   FailureEnvelope
@@ -70,3 +83,5 @@ export const OpenAgentTraceWorkflowHookupCatalogEnvelope = Schema.Union(
   OpenAgentTraceWorkflowHookupCatalogSuccessEnvelope,
   FailureEnvelope
 )
+
+export const AmpThreadImportEnvelope = Schema.Union(AmpThreadImportSuccessEnvelope, FailureEnvelope)

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Record, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Option from "effect/Option"
 
 import { workflowEntryDescriptor } from "../../app/contracts/entry/descriptors/workflow.js"
+import {
+  defaultWorkflowCatalogEntry,
+  defaultWorkflowStudyPath,
+  publishedWorkflowCatalogEntries,
+  publishedWorkflowEntrySeeds
+} from "../../app/contracts/study/workflow/catalog-policy.js"
+import { WorkflowFixtureManifest } from "../../app/contracts/study/workflow/fixture-manifest.js"
 import { FrozenWorkflowRun } from "../../app/contracts/study/workflow/frozen.js"
-import { WorkflowScenarioManifest } from "../../app/contracts/study/workflow/manifest.js"
 import {
   WorkflowProfileLibrarySchema,
   WorkflowScenario,
@@ -12,8 +19,9 @@ import {
   WorkflowScenarioEntry
 } from "../../app/contracts/study/workflow/scenario.js"
 import { frozenWorkflowForRequest } from "../../app/server/study/workflow/frozen.js"
+import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 import { workflowProfileLibrary } from "../../app/server/study/workflow/profile-library.js"
-import { scenarioById, scenarios } from "../../app/server/study/workflow/scenario/catalog.js"
+import { fixtureScenarioForSeedId, scenarios } from "../../app/server/study/workflow/scenario/catalog.js"
 
 describe("Theoria Workflow Contracts", () => {
   it.effect("decodes the released task, chat, retrieval, and render-sensitive workflow profile library", () =>
@@ -28,14 +36,15 @@ describe("Theoria Workflow Contracts", () => {
       ])
     }))
 
-  it.effect("decodes task, chat, retrieval, and render-sensitive workflow scenarios", () =>
+  it.effect("decodes task, chat, retrieval, and render-sensitive workflow fixtures", () =>
     Effect.gen(function*() {
       const decoded = yield* Schema.decodeUnknown(WorkflowScenarioCatalogSchema)(scenarios)
-      const scenarioIds = WorkflowScenarioManifest.ids()
+      const workflowSeedIds = WorkflowFixtureManifest.catalog().map((fixture) => fixture.seedId)
 
-      expect(WorkflowScenarioManifest.catalog().map((scenario) => scenario.id)).toEqual(scenarioIds)
-      expect(workflowEntryDescriptor.seeds.map((seed) => seed.seedId)).toEqual(scenarioIds)
-      expect(decoded.map(WorkflowScenario.id)).toEqual(scenarioIds)
+      expect(WorkflowFixtureManifest.catalog().map((fixture) => fixture.seedId)).toEqual(workflowSeedIds)
+      expect(workflowEntryDescriptor.seeds).toEqual(publishedWorkflowEntrySeeds)
+      expect(publishedWorkflowCatalogEntries.map((entry) => entry.reference.seedId)).toEqual(workflowSeedIds)
+      expect(decoded.map(WorkflowScenario.id)).toEqual(workflowSeedIds)
       expect(decoded.map((scenario) => scenario.entry.entryId)).toEqual([
         "workflow",
         "workflow",
@@ -56,6 +65,16 @@ describe("Theoria Workflow Contracts", () => {
         .toBe(true)
       expect(decoded.every((scenario) => scenario.records.baseline.graph.variant === "baseline")).toBe(true)
       expect(decoded.every((scenario) => scenario.records.optimized.graph.variant === "optimized")).toBe(true)
+      expect(
+        decoded.every((scenario) => {
+          const manifest = WorkflowFixtureManifest.optionForSeedId(WorkflowScenario.id(scenario)).pipe(
+            Option.getOrThrow
+          )
+
+          return scenario.records.baseline.session.sessionId === manifest.seedId
+            && scenario.records.optimized.session.sessionId === manifest.seedId
+        })
+      ).toBe(true)
     }))
 
   it.effect("derives stable digest provenance for the published workflow catalog", () =>
@@ -73,7 +92,7 @@ describe("Theoria Workflow Contracts", () => {
         WorkflowScenario.fingerprint
       )
       const uniqueFingerprints = Arr.dedupe(scenarioFingerprints)
-      const frozenWorkflowRun = yield* frozenWorkflowForRequest(WorkflowScenarioManifest.defaults().id)
+      const frozenWorkflowRun = yield* frozenWorkflowForRequest(WorkflowFixtureManifest.defaults().seedId)
       const frozenWorkflowFingerprint = yield* FrozenWorkflowRun.fingerprint(frozenWorkflowRun)
       const repeatedFrozenWorkflowFingerprint = yield* FrozenWorkflowRun.fingerprint(frozenWorkflowRun)
 
@@ -84,15 +103,43 @@ describe("Theoria Workflow Contracts", () => {
       expect(entryFingerprints.length).toBe(scenarios.length)
     }))
 
-  it.effect("resolves the default workflow scenario through the catalog selector", () =>
+  it.effect("resolves the default published workflow catalog entry through the workflow selector", () =>
     Effect.gen(function*() {
-      const defaultWorkflowScenarioId = WorkflowScenarioManifest.defaults().id
-      const scenario = scenarioById(defaultWorkflowScenarioId)
+      const fixtureScenario = fixtureScenarioForSeedId(defaultWorkflowCatalogEntry.reference.seedId)
 
-      expect(WorkflowScenario.id(scenario)).toBe(defaultWorkflowScenarioId)
-      expect(WorkflowScenarioManifest.forId(defaultWorkflowScenarioId).searchSeed()).toBe(410)
+      expect(Option.isSome(fixtureScenario)).toBe(true)
+      if (Option.isNone(fixtureScenario)) {
+        return yield* Effect.die("default workflow fixture missing from fixture scenario catalog")
+      }
+
+      const scenario = fixtureScenario.value
+
+      expect(WorkflowScenario.id(scenario)).toBe(defaultWorkflowCatalogEntry.reference.seedId)
+      expect(workflowEntryDescriptor.path).toBe(defaultWorkflowStudyPath)
+      expect(workflowEntryDescriptor.seeds[0]).toEqual(publishedWorkflowEntrySeeds[0])
       expect(scenario.records.optimized.graph.nodes.length).toBeGreaterThan(
         scenario.records.baseline.graph.nodes.length
       )
+    }))
+
+  it.effect("resolves imported workflow seeds as open-agent-trace revisions instead of remapping them onto fixtures", () =>
+    Effect.gen(function*() {
+      const importedWorkflowSeedId = yield* loadOpenAgentTraceRegistry.pipe(
+        Effect.flatMap((registry) =>
+          Option.fromNullable(registry[0]?.workflowProjection.workflowRecord.session.sessionId).pipe(
+            Option.match({
+              onNone: () => Effect.die("open-agent-trace registry is empty"),
+              onSome: Effect.succeed
+            })
+          )
+        )
+      )
+
+      expect(Option.isNone(fixtureScenarioForSeedId(importedWorkflowSeedId))).toBe(true)
+      const frozen = yield* frozenWorkflowForRequest(importedWorkflowSeedId)
+
+      expect(frozen.reference.sourceKind).toBe("open-agent-trace")
+      expect(frozen.seedId).toBe(importedWorkflowSeedId)
+      expect(frozen.baseline.record.recordId).toBe(frozen.optimized.record.recordId)
     }))
 })

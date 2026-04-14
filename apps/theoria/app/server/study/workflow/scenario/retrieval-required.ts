@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 
-import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
+import { WorkflowFixtureManifest } from "../../../../contracts/study/workflow/fixture-manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
   BaselineWorkflowScenarioVariant,
@@ -12,11 +12,13 @@ import {
 } from "../../../../contracts/study/workflow/scenario.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
+const retrievalRequiredManifest = WorkflowFixtureManifest.forId("retrieval-required")
+
 const baselineRecord = decodeWorkflowExecutionRecord({
   recordId: "retrieval-required-baseline",
   workflowKind: "retrieval-required",
   session: {
-    sessionId: "retrieval-required-session",
+    sessionId: retrievalRequiredManifest.seedId,
     workflowKind: "retrieval-required",
     turns: [
       {
@@ -189,7 +191,7 @@ const retrievalRequiredWorkflowVariants = WorkflowScenarioVariants.make({
 })
 
 export const retrievalRequiredWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
-  manifest: WorkflowScenarioManifest.forId("retrieval-required"),
+  manifest: retrievalRequiredManifest,
   variants: retrievalRequiredWorkflowVariants,
   workflowKind: "retrieval-required"
 })

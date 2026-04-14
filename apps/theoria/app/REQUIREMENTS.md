@@ -23,7 +23,7 @@ Entries may spotlight one package, but they are not package sandboxes. Each entr
 
 The package spotlight on a surface is a lens, not an isolation boundary.
 
-Theoria is not a package showroom. It is a product where users bring real agent systems, traces, workflows, and study problems into one proving environment. Users should be able to import or connect external agent artifacts such as Hugging Face and OpenAgentTrace-derived traces, workflow graphs, prompts, evaluation sets, model routes, and provenance bundles, then inspect, analyze, optimize, render, sign, seal, and share them through one integrated capability stack.
+Theoria is not a package showroom. It is a product where users bring real agent systems, traces, workflows, and study problems into one proving environment. Users should be able to import or connect external agent artifacts such as Hugging Face datasets, Amp thread URLs or ids, OpenAgentTrace-derived traces, workflow graphs, prompts, evaluation sets, model routes, and provenance bundles, then inspect, analyze, optimize, render, sign, seal, and share them through one integrated capability stack.
 
 Package names describe implementation substrate, not the product shape. The product shape is the user problem being worked on through an integrated study lens.
 
@@ -60,11 +60,9 @@ Within `server/`, the dependency direction is:
 - `contracts/ -> server/config/`
 - `contracts/ -> server/kernel/`
 - `contracts/ -> server/capability/`
-- `contracts/ -> server/adapters/`
 - `contracts/ -> server/routes/`
 - `contracts/ -> server/study/`
-- `server/adapters/` may depend on `server/kernel/`, `server/capability/`, and `server/study/`
-- `server/routes/` may depend on `server/kernel/`, `server/adapters/`, and `server/config/`
+- `server/routes/` may depend on `server/kernel/`, `server/capability/`, `server/study/`, and `server/config/`
 
 ## Page Family Contract
 
@@ -80,16 +78,15 @@ Names are architecture. Each term owns one role.
 
 ### Required Terms
 
-- `Entry`: the canonical app-level unit of routing, identity, draft authority, and presentation metadata. An entry is a routeable product lens over a study problem.
+- `Entry`: the canonical app-level unit of routing, identity, presentation metadata, and study binding. An entry is a routeable product lens over a study problem.
 - `Study`: the executable proving scenario behind an entry. A study may spotlight one package while composing several capabilities.
 - `Capability`: a reusable package-owned substrate that can be used across many studies, such as text layout, numeric computation, study execution, fingerprinting, or inference routing.
 - `Capability Availability`: runtime readiness or enablement for a capability or entry. This is not the same thing as the capability itself.
 - `Consumer Artifact`: imported study material supplied by the user or an external system, such as agent traces, workflow graphs, prompts, evaluation sets, model routes, or provenance bundles.
 - `Workflow Hookup`: the contract and runtime boundary that connects an external workflow, agent, or trace source to Theoria so it can be studied through shared capabilities.
 - `Authority`: a source-of-truth relation, not a filesystem grouping. Use it for schema or execution ownership, not for parallel package-shaped app stacks.
-- `Descriptor`: authored semantic metadata from which routing, presentation, defaults, and registries derive.
+- `Descriptor`: authored semantic metadata from which routing, presentation, study bindings, and registries derive.
 - `Kernel`: shared runtime or execution infrastructure that owns reusable lifecycle, transport, preload, projection, or session machinery.
-- `Adapter`: thin entry-specific glue that selects or parameterizes shared kernels without re-hosting them.
 - `Registry`: a composition root that collects already-defined descriptors or registrations. A registry does not author feature logic.
 - `Runtime`: a boundary-bearing implementation surface that owns services, transport, lifecycle, or projection-driver integration.
 - `Surface`: browser-local presentation state and rendering context for one product lens and its study workspace.
@@ -106,7 +103,6 @@ Names are architecture. Each term owns one role.
 - `Consumer Artifact` names imported external study material. It is not ad hoc component state.
 - `Workflow Hookup` names the explicit integration boundary for external agents and workflows. It is not a one-off fetch helper.
 - `Kernel` names shared infrastructure. It does not mean semantic authority for entry identity.
-- `Adapter` names thin glue over shared kernels. It is not a substitute for `study`.
 - `Surface` is browser-local only. It must never name server concepts or contract authority.
 - `Workflow` means the executable program of a study. It must not be split into a second parallel architectural category beside `study`.
 
@@ -128,7 +124,6 @@ The following distinctions are mandatory:
 - `consumer artifact` means imported external study material
 - `workflow hookup` means the explicit connection between an external workflow and the Theoria study system
 - `kernel` means shared reusable runtime or execution infrastructure
-- `adapter` means thin entry-specific parameterization over shared kernels
 - `workflow` means the executable program of a study
 - `capability` means reusable package substrate
 - `capabilities` in the current codebase is a legacy endpoint name for availability data, not the final architectural noun for the composed capability model
@@ -141,7 +136,7 @@ Current code still contains legacy names. Delete them instead of preserving them
 - stale `workflow-comparison` and `Deep*` names are migration debt to remove from contracts, pages, tests, and metadata rather than aliases to preserve
 - `contracts/capabilities.ts` currently models entry availability plus DSP runtime projection, not the full shared capability system
 - `server/routes/capabilities.ts` currently reports readiness data, not the full capability composition graph
-- current files or plans that say `server/entry`, `web/runtime/entry`, or `*/studies` for thin glue should be read as legacy names pending convergence to `kernel/` and `adapters/`
+- current files or plans that say `server/entry`, `web/runtime/entry`, or `*/studies` for thin glue should be read as legacy names pending convergence to `kernel/`
 
 ## Source Of Truth Rules
 
@@ -163,8 +158,14 @@ Every concept must have one authored seed and many derived projections.
 ### Entry Authority
 
 - Entry descriptor data is the authored seed for entry identity.
-- Routing, presentation metadata, package labels, run labels, and default draft construction must derive from the descriptor family.
+- Routing, presentation metadata, package labels, run labels, and study bindings must derive from the descriptor family.
 - Cards and metadata must be projections of entry authority, not parallel authored registries.
+
+### Study Authority
+
+- Executable draft schemas, run-request schemas, default drafts, and manifests belong only in `contracts/study/`.
+- `contracts/entry/` must read as catalog metadata plus study binding, never as executable contract authority.
+- Workflow study meaning belongs under `contracts/study/workflow/`; shared execution transport belongs under `server/kernel/` and `web/runtime/kernel/`.
 
 ### Capability Authority
 
@@ -321,12 +322,11 @@ It must not own:
 It owns:
 
 - kernel registries
-- adapter descriptors
 - shared capability integration for the browser boundary
 - projection-driver boundaries
 - surface runtime descriptors
+- study transport encoding
 - release-stage runtime wiring
-- runtime fingerprints and provenance
 
 This is the client-side home for environment-dependent `Effect<A, E, R>` logic that is not itself an atom.
 
@@ -527,6 +527,7 @@ An entry is a routeable product lens over a user problem. It may spotlight `effe
 Target-state product lenses include integrated experiences such as:
 
 - analyze an imported Hugging Face or OpenAgentTrace workflow
+- import an Amp thread URL or id as evidentiary workflow material inside the workflow study
 - inspect an agent graph and its execution evidence
 - optimize a workflow against an evaluation set
 - compare baseline and optimized agent behavior
@@ -685,16 +686,6 @@ app/
       digest.ts
       seal.ts
       sign.ts
-    adapters/
-      digest.ts
-      effect-dsp.ts
-      effect-math.ts
-      effect-search.ts
-      effect-text.ts
-      effect-inference.ts
-      seal.ts
-      sign.ts
-      workflow.ts
     study/
       workflow/
         search/
@@ -722,16 +713,6 @@ app/
         digest.ts
         seal.ts
         sign.ts
-      adapters/
-        digest.tsx
-        effect-dsp.tsx
-        effect-math.tsx
-        effect-search.tsx
-        effect-text.tsx
-        effect-inference.tsx
-        seal.tsx
-        sign.tsx
-        workflow.tsx
     services/
     atoms/
       run/
@@ -753,22 +734,21 @@ app/
 
 This topology is directional guidance. New work must prefer it immediately. Existing files should be migrated toward it opportunistically and whenever adjacent work touches the same authority seam.
 
-The critical constraint is that `adapters/` files are thin authored adapters over shared kernels, not mini-app roots, and `capability/` files are shared package integrations reused across studies.
+The critical constraint is that `kernel/` files own shared execution and runtime mechanics, `study/` files own workflow semantics, and `capability/` files are shared package integrations reused across studies.
 
 Capability file names must be grounded in real reusable package integrations. Do not invent placeholder capability families.
 
 ## Naming Requirements
 
-### Kernel And Adapter Naming
+### Kernel Naming
 
-Target-state browser runtime modules use `kernel/` for shared infrastructure, `capability/` for shared package integration, and `adapters/` for thin per-entry glue.
+Target-state browser runtime modules use `kernel/` for shared runtime authority only.
 
 Examples:
 
-- `web/runtime/kernel/registry.ts`
+- `web/runtime/kernel/surface-runtime-registry.ts`
 - `web/runtime/kernel/projection-driver.ts`
-- `web/runtime/capability/effect-text.ts`
-- `web/runtime/adapters/<entry>.tsx`
+- `web/runtime/kernel/surface-runtime.ts`
 
 No new module should be named `proving-consumer-*`.
 
@@ -833,7 +813,7 @@ Target split:
 - `contracts/entry/descriptor.ts`
 - `contracts/entry/registry.ts`
 - `contracts/entry/routing.ts`
-- `contracts/entry/defaults.ts`
+- `contracts/study/registry.ts`
 - `contracts/entry/focus.ts`
 - `contracts/entry/fingerprint.ts`
 
@@ -850,7 +830,7 @@ Target split:
 - `web/state/evidence/reducer.ts`
 - `web/state/surface/defaults.ts` only if the value remains browser-local
 
-Contract-owned default drafts must move to `contracts/entry/defaults.ts` instead.
+Contract-owned default drafts must move to `contracts/study/` instead.
 
 ### `web/atoms/actions.ts`
 
@@ -866,13 +846,12 @@ Target split:
 
 ### `server/entries/registry.ts`
 
-Current issue: authors manifest acceptance, per-entry behavior, capability policy, preload wiring, and workflow registration in one composition file.
+Current issue: authors manifest acceptance, per-entry behavior, capability policy, preload wiring, and study registration in one composition file.
 
 Target split:
 
 - shared kernels under `server/kernel/`
 - shared package integration kernels under `server/capability/`
-- thin adapters under `server/adapters/*.ts`
 - `server/kernel/registry.ts` as composition only
 
 The goal is not one registration directory per package. The goal is one reusable study runtime system whose entries compose shared capability integrations.
@@ -905,18 +884,18 @@ Target split:
 - `web/view/primitives/theme/evidence.ts`
 - `web/view/primitives/theme/obstacle.ts`
 
-### `web/runtime/proving-consumer.tsx`
+### `web/runtime/`
 
-Current issue: target naming is partially adopted but the file still preserves legacy `proving-consumer` vocabulary.
+Current issue: the browser runtime still carries legacy vocabulary and deleted composition seams in surrounding guidance.
 
 Target split and rename:
 
-- shared kernels under `web/runtime/kernel/`
-- shared capability integrations under `web/runtime/capability/`
-- thin adapters under `web/runtime/adapters/*.tsx`
-- a single registry that composes entry descriptors and adapters over shared runtime kinds
+- shared runtime authority under `web/runtime/kernel/`
+- no `web/runtime/adapters/` layer
+- no `web/runtime/capability/` layer
+- one kernel-owned runtime registry and transport surface driven by study contracts
 
-The goal is not one browser runtime stack per entry. The goal is one browser runtime system with shared capability integrations and thin study-specific parameters.
+The goal is not one browser runtime stack per entry. The goal is one browser runtime system with one kernel-owned composition path.
 
 ## View And Styling Rules
 
@@ -976,7 +955,7 @@ All new work in `apps/theoria/app` must obey these directives:
 7. When a concept is shared between server and web, move it into `contracts/` before extending it.
 8. When a client orchestration path needs environment, timing, cancellation, or streaming semantics, make it a real Effect boundary rather than free-floating plain TypeScript.
 9. When logic is purely semantic, keep it pure and model it with Effect-native data types rather than wrapping it in `Effect.succeed`.
-10. Do not create per-entry mini-frameworks or mirrored per-package directory trees when the difference can be represented as a thin adapter over a shared kernel.
+10. Do not create per-entry mini-frameworks or mirrored per-package directory trees when the difference can be represented as metadata binding plus a shared kernel.
 11. Only create a dedicated per-study domain directory when that study owns unique domain logic that cannot be expressed through the shared entry and capability systems.
 12. Delete `workflow-comparison`; do not model `workflow` and `workflow-comparison` as separate first-class architectural categories.
 13. Do not use `capabilities` as the architectural name for readiness data and shared package substrate at the same time.
@@ -993,7 +972,7 @@ The app architecture is converging correctly only when all of the following are 
 - every runtime boundary is explicit
 - pure state and view layers remain pure
 - effectful orchestration lives in server, services, runtime, and action atoms
-- entries are mostly descriptors plus thin adapters over shared capabilities and kernels
+- entries are pure descriptors plus study bindings over shared capabilities and kernels
 - no new file exceeds 240 lines
 - large hotspot files trend smaller over time rather than larger
 

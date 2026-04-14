@@ -92,7 +92,7 @@ export const workflowSearchStudyOutcome = <Config>({
         onNone: () =>
           Effect.fail(
             executionError(
-              `Workflow study did not retain authored and winner evaluations for ${workflowRun.scenarioId}.`
+              `Workflow study did not retain authored and winner evaluations for ${workflowRun.seedId}.`
             )
           ),
         onSome: ({ authored, winner }) =>
@@ -105,7 +105,7 @@ export const workflowSearchStudyOutcome = <Config>({
                 authored,
                 winner
               }),
-            catch: () => executionError(`Workflow study outcome assembly failed for ${workflowRun.scenarioId}.`)
+            catch: () => executionError(`Workflow study outcome assembly failed for ${workflowRun.seedId}.`)
           })
       })
     )

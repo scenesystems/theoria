@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 
-import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
+import { WorkflowFixtureManifest } from "../../../../contracts/study/workflow/fixture-manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
   BaselineWorkflowScenarioVariant,
@@ -12,11 +12,13 @@ import {
 } from "../../../../contracts/study/workflow/scenario.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
+const renderSensitiveManifest = WorkflowFixtureManifest.forId("render-sensitive")
+
 const baselineRecord = decodeWorkflowExecutionRecord({
   recordId: "render-sensitive-baseline",
   workflowKind: "render-sensitive",
   session: {
-    sessionId: "render-sensitive-session",
+    sessionId: renderSensitiveManifest.seedId,
     workflowKind: "render-sensitive",
     turns: [
       {
@@ -188,7 +190,7 @@ const renderSensitiveWorkflowVariants = WorkflowScenarioVariants.make({
 })
 
 export const renderSensitiveWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
-  manifest: WorkflowScenarioManifest.forId("render-sensitive"),
+  manifest: renderSensitiveManifest,
   variants: renderSensitiveWorkflowVariants,
   workflowKind: "render-sensitive"
 })

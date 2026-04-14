@@ -1,16 +1,20 @@
-import { type PackageName, PackageNameSchema } from "@theoria/source-proof/contracts"
+import {
+  type PackageDocsCodeLanguage,
+  PackageDocsCodeLanguageSchema,
+  PackageDocsRichTextDocument,
+  PackageDocsRichTextTextNode,
+  type PackageName,
+  PackageNameSchema
+} from "@theoria/source-proof/contracts"
 import { Schema } from "effect"
-import * as Option from "effect/Option"
 
 import { Card } from "../../entry/card.js"
 import { EntryId } from "../../entry/id.js"
-import { EntryRegistry } from "../../entry/registry.js"
 
 import { PackageDocsPackagePageRoute } from "./page-route.js"
 import { PackageDocsPresentation } from "./presentation.js"
+import { packageDocsSectionFragmentId } from "./section-fragment.js"
 import type { PackageDocsBundle, PackageDocsCatalogEntry } from "./shared.js"
-
-const entryRegistry = EntryRegistry.current()
 
 export class PackageDocsNavigationItem extends Schema.Class<PackageDocsNavigationItem>("PackageDocsNavigationItem")({
   href: Schema.String,
@@ -41,45 +45,90 @@ export class PackageDocsLink extends Schema.Class<PackageDocsLink>("PackageDocsL
 
 type SourceBackedBlock = {
   readonly content: string
+  readonly contentDocument: PackageDocsRichTextDocument | null
   readonly id: string
+  readonly language: PackageDocsCodeLanguage | null
   readonly source: {
+    readonly anchor: string | null
     readonly path: string
   }
+  readonly title: string
+  readonly titleDocument: PackageDocsRichTextDocument
 }
+
+const prefixedTitleDocument = (
+  titlePrefix: string,
+  document: PackageDocsRichTextDocument
+): PackageDocsRichTextDocument =>
+  titlePrefix.length === 0
+    ? document
+    : PackageDocsRichTextDocument.make({
+      children: [
+        PackageDocsRichTextTextNode.make({ value: `${titlePrefix} — ` }),
+        ...document.children
+      ]
+    })
 
 const PackageDocsSectionFields = {
   content: Schema.String,
+  fragmentId: Schema.String,
   id: Schema.String,
   sourceHref: Schema.String,
   sourceLabel: Schema.String,
-  title: Schema.String
+  title: Schema.String,
+  titleDocument: PackageDocsRichTextDocument
 }
 
-export class PackageDocsCodeSection
-  extends Schema.TaggedClass<PackageDocsCodeSection>()("code", PackageDocsSectionFields)
-{
-  static fromBlock(title: string, section: SourceBackedBlock): PackageDocsCodeSection {
+export class PackageDocsCodeSection extends Schema.TaggedClass<PackageDocsCodeSection>()("code", {
+  ...PackageDocsSectionFields,
+  language: PackageDocsCodeLanguageSchema
+}) {
+  static fromBlock(
+    input: { readonly section: SourceBackedBlock; readonly titlePrefix?: string }
+  ): PackageDocsCodeSection {
+    const titlePrefix = input.titlePrefix ?? ""
+    const title = titlePrefix.length === 0 ? input.section.title : `${titlePrefix} — ${input.section.title}`
+
     return PackageDocsCodeSection.make({
-      content: section.content,
-      id: section.id,
-      sourceHref: PackageDocsPageModel.repositorySourceHref(section.source.path),
-      sourceLabel: section.source.path,
-      title
+      content: input.section.content,
+      fragmentId: packageDocsSectionFragmentId({
+        sourceAnchor: input.section.source.anchor,
+        sourcePath: input.section.source.path
+      }),
+      id: input.section.id,
+      language: input.section.language ?? "plain",
+      sourceHref: PackageDocsPageModel.repositorySourceHref(input.section.source.path),
+      sourceLabel: input.section.source.path,
+      title,
+      titleDocument: prefixedTitleDocument(titlePrefix, input.section.titleDocument)
     })
   }
 }
 
 export class PackageDocsProseSection extends Schema.TaggedClass<PackageDocsProseSection>()(
   "prose",
-  PackageDocsSectionFields
+  {
+    ...PackageDocsSectionFields,
+    content: PackageDocsRichTextDocument
+  }
 ) {
-  static fromBlock(title: string, section: SourceBackedBlock): PackageDocsProseSection {
+  static fromBlock(
+    input: { readonly section: SourceBackedBlock; readonly titlePrefix?: string }
+  ): PackageDocsProseSection {
+    const titlePrefix = input.titlePrefix ?? ""
+    const title = titlePrefix.length === 0 ? input.section.title : `${titlePrefix} — ${input.section.title}`
+
     return PackageDocsProseSection.make({
-      content: section.content,
-      id: section.id,
-      sourceHref: PackageDocsPageModel.repositorySourceHref(section.source.path),
-      sourceLabel: section.source.path,
-      title
+      content: input.section.contentDocument ?? PackageDocsRichTextDocument.make({ children: [] }),
+      fragmentId: packageDocsSectionFragmentId({
+        sourceAnchor: input.section.source.anchor,
+        sourcePath: input.section.source.path
+      }),
+      id: input.section.id,
+      sourceHref: PackageDocsPageModel.repositorySourceHref(input.section.source.path),
+      sourceLabel: input.section.source.path,
+      title,
+      titleDocument: prefixedTitleDocument(titlePrefix, input.section.titleDocument)
     })
   }
 }
@@ -122,55 +171,49 @@ export class PackageDocsPageModel extends Schema.Class<PackageDocsPageModel>("Pa
     readonly catalog: ReadonlyArray<PackageDocsCatalogEntry>
     readonly selectedPackageId: PackageName
   }): PackageDocsPageModel {
-    const card = Option.getOrNull(Card.forPackageName(input.bundle.packageId))
-    const entryId = Option.getOrNull(entryRegistry.entryIdForPackageName(input.bundle.packageId))
+    const card = Card.forPackageName(input.bundle.packageId).pipe(
+      (option) => option._tag === "Some" ? option.value : null
+    )
     const presentation = PackageDocsPresentation.project(
       PackageDocsPackagePageRoute.fromPackageId(input.bundle.packageId)
     )
 
     return PackageDocsPageModel.make({
       description: presentation.description,
-      entryId,
+      entryId: null,
       groups: [
         ...PackageDocsGroup.fromSections(
           "README",
-          input.bundle.readme.blocks.map((block) => PackageDocsProseSection.fromBlock(block.title, block))
+          input.bundle.readme.blocks.map((block) => PackageDocsProseSection.fromBlock({ section: block }))
         ),
         ...PackageDocsGroup.fromSections(
-          "Module Docs",
+          "Reference",
           input.bundle.moduleDocs.flatMap((document) =>
             document.blocks.map((block) =>
-              PackageDocsProseSection.fromBlock(`${document.title} — ${block.title}`, block)
+              PackageDocsProseSection.fromBlock({ section: block, titlePrefix: document.title })
             )
           )
         ),
         ...PackageDocsGroup.fromSections(
           "Examples",
-          input.bundle.examples.map((example) => PackageDocsCodeSection.fromBlock(example.title, example.block))
+          input.bundle.examples.map((example) => PackageDocsCodeSection.fromBlock({ section: example.block }))
         ),
         ...PackageDocsGroup.fromSections(
-          "Release Snapshots",
-          input.bundle.releaseSnapshots.map((snapshot) =>
-            PackageDocsProseSection.fromBlock(snapshot.block.title, snapshot.block)
+          "Release History",
+          [...input.bundle.releaseSnapshots].reverse().map((snapshot) =>
+            PackageDocsProseSection.fromBlock({ section: snapshot.block })
           )
         ),
         ...PackageDocsGroup.fromSections(
-          "Proof Commands",
-          input.bundle.proofCommands.map((command) =>
-            PackageDocsCodeSection.fromBlock(command.block.title, command.block)
-          )
+          "Verification",
+          input.bundle.proofCommands.map((command) => PackageDocsCodeSection.fromBlock({ section: command.block }))
         )
       ],
       links: card === null
         ? []
         : [
           PackageDocsLink.make({ external: true, href: card.npmUrl, label: "npm" }),
-          PackageDocsLink.make({ external: true, href: card.repoUrl, label: "Repository" }),
-          PackageDocsLink.make({
-            external: false,
-            href: card.deepDivePath,
-            label: PackageDocsPresentation.studyEntryLabel()
-          })
+          PackageDocsLink.make({ external: true, href: card.repoUrl, label: "Repository" })
         ],
       navigation: PackageDocsNavigationItem.projectCatalog({
         catalog: input.catalog,
@@ -179,10 +222,10 @@ export class PackageDocsPageModel extends Schema.Class<PackageDocsPageModel>("Pa
       packageId: input.bundle.packageId,
       summary: [
         PackageDocsSummaryItem.summarize("Version", input.bundle.version),
-        PackageDocsSummaryItem.summarize("Module Docs", String(input.bundle.moduleDocs.length)),
+        PackageDocsSummaryItem.summarize("Reference Sections", String(input.bundle.moduleDocs.length)),
         PackageDocsSummaryItem.summarize("Examples", String(input.bundle.examples.length)),
-        PackageDocsSummaryItem.summarize("Release Snapshots", String(input.bundle.releaseSnapshots.length)),
-        PackageDocsSummaryItem.summarize("Proof Commands", String(input.bundle.proofCommands.length))
+        PackageDocsSummaryItem.summarize("Release Entries", String(input.bundle.releaseSnapshots.length)),
+        PackageDocsSummaryItem.summarize("Verification Commands", String(input.bundle.proofCommands.length))
       ],
       title: presentation.title,
       version: input.bundle.version

@@ -1,15 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import * as Arr from "effect/Array"
+import { Schema } from "effect"
 
-import type { EntryId as CardId } from "../../app/contracts/entry/id.js"
-import { toneForCard } from "../../app/contracts/tone.js"
+import { CardTone } from "../../app/contracts/tone.js"
 
-const knownIds: ReadonlyArray<CardId> = ["effect-text", "effect-search", "effect-math", "effect-dsp"]
+const knownTones: ReadonlyArray<string> = ["text", "search", "math", "dsp", "digest", "sign", "seal"]
 
 describe("Theoria Tone Contracts", () => {
-  it("maps every entry id to a tone", () => {
-    const tones = Arr.map(knownIds, toneForCard)
-
-    expect(tones).toEqual(["text", "search", "math", "dsp"])
+  it("publishes the canonical card-tone literals", () => {
+    expect(knownTones.every((tone) => Schema.is(CardTone)(tone))).toBe(true)
+    expect(Schema.is(CardTone)("workflow")).toBe(false)
   })
 })

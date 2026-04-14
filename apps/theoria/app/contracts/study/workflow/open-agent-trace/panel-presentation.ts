@@ -1,6 +1,6 @@
-import { Match, Schema } from "effect"
+import { Schema } from "effect"
 
-import { type OpenAgentTraceEntryId, taskFirstOpenAgentTraceEntryId } from "./study-material.js"
+import { type OpenAgentTraceEntryId } from "./study-material.js"
 
 export const OpenAgentTracePanelGroupKeySchema = Schema.Literal(
   "source",
@@ -63,11 +63,8 @@ export class OpenAgentTracePanelGroupDescriptor extends Schema.Class<OpenAgentTr
   key: OpenAgentTracePanelGroupKeySchema,
   sectionKeys: Schema.Array(OpenAgentTracePanelSectionKeySchema)
 }) {
-  static forEntryId(entryId: OpenAgentTraceEntryId): ReadonlyArray<OpenAgentTracePanelGroupDescriptor> {
-    return Match.value(entryId).pipe(
-      Match.when(taskFirstOpenAgentTraceEntryId, () => sharedOpenAgentTracePanelGroups),
-      Match.orElse(() => sharedOpenAgentTracePanelGroups)
-    )
+  static forEntryId(_entryId: OpenAgentTraceEntryId): ReadonlyArray<OpenAgentTracePanelGroupDescriptor> {
+    return sharedOpenAgentTracePanelGroups
   }
 }
 

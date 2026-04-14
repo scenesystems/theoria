@@ -42,6 +42,67 @@ export const PackageDocsExcerptKindSchema = Schema.Literal(
 )
 
 /**
+ * Syntax-highlighting language families surfaced by the normalized
+ * package-doc corpus.
+ *
+ * @since 0.0.0
+ * @category schemas
+ */
+export const PackageDocsCodeLanguageSchema = Schema.Literal("json", "plain", "shell", "ts")
+
+/**
+ * Primitive attribute values preserved on normalized markdown nodes.
+ *
+ * @since 0.0.0
+ * @category schemas
+ */
+export const PackageDocsRichTextPropertyValueSchema = Schema.Union(
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Array(Schema.String)
+)
+
+export class PackageDocsRichTextTextNode extends Schema.TaggedClass<PackageDocsRichTextTextNode>()(
+  "text",
+  {
+    value: Schema.String
+  }
+) {}
+
+export type PackageDocsRichTextNode =
+  | PackageDocsRichTextTextNode
+  | PackageDocsRichTextElementNode
+
+export const PackageDocsRichTextNode: Schema.Schema<PackageDocsRichTextNode> = Schema.suspend(
+  () => Schema.Union(PackageDocsRichTextTextNode, PackageDocsRichTextElementNode)
+)
+
+export class PackageDocsRichTextElementNode extends Schema.TaggedClass<PackageDocsRichTextElementNode>()(
+  "element",
+  {
+    children: Schema.Array(PackageDocsRichTextNode),
+    properties: Schema.Record({
+      key: Schema.String,
+      value: PackageDocsRichTextPropertyValueSchema
+    }),
+    tagName: Schema.String
+  }
+) {}
+
+/**
+ * Structured rich-text document emitted from trusted package markdown.
+ *
+ * @since 0.0.0
+ * @category schemas
+ */
+export class PackageDocsRichTextDocument extends Schema.Class<PackageDocsRichTextDocument>(
+  "PackageDocsRichTextDocument"
+)({
+  children: Schema.Array(PackageDocsRichTextNode)
+}) {}
+
+/**
  * Source-linked reference for one normalized package-doc surface.
  *
  * @since 0.0.0
@@ -62,9 +123,12 @@ export const PackageDocsSourceRefSchema = Schema.Struct({
  * @category schemas
  */
 export const PackageDocsSectionBlockSchema = Schema.Struct({
+  contentDocument: Schema.NullOr(PackageDocsRichTextDocument),
   id: Schema.String,
   kind: PackageDocsExcerptKindSchema,
+  language: Schema.NullOr(PackageDocsCodeLanguageSchema),
   title: Schema.String,
+  titleDocument: PackageDocsRichTextDocument,
   content: Schema.String,
   source: PackageDocsSourceRefSchema
 })
@@ -174,8 +238,10 @@ export const PackageDocsQuerySchema = Schema.Struct({
  * @category schemas
  */
 export const PackageDocsSearchResultSchema = Schema.Struct({
+  excerptDocument: PackageDocsRichTextDocument,
   packageId: PackageDocsPackageIdSchema,
   title: Schema.String,
+  titleDocument: PackageDocsRichTextDocument,
   excerpt: Schema.String,
   source: PackageDocsSourceRefSchema,
   score: Schema.Number
@@ -208,12 +274,14 @@ export const PackageDocsAuthoritySchema = Schema.Struct({
 
 export type PackageDocsBundle = typeof PackageDocsBundleSchema.Type
 export type PackageDocsCatalogEntry = typeof PackageDocsCatalogEntrySchema.Type
+export type PackageDocsCodeLanguage = typeof PackageDocsCodeLanguageSchema.Type
 export type PackageDocsCorpus = typeof PackageDocsCorpusSchema.Type
 export type PackageDocsDocument = typeof PackageDocsDocumentSchema.Type
 export type PackageDocsExample = typeof PackageDocsExampleSchema.Type
 export type PackageDocsExcerptKind = typeof PackageDocsExcerptKindSchema.Type
 export type PackageDocsProofCommand = typeof PackageDocsProofCommandSchema.Type
 export type PackageDocsQuery = typeof PackageDocsQuerySchema.Type
+export type PackageDocsRichTextPropertyValue = typeof PackageDocsRichTextPropertyValueSchema.Type
 export type PackageDocsReleaseSnapshot = typeof PackageDocsReleaseSnapshotSchema.Type
 export type PackageDocsSearchResult = typeof PackageDocsSearchResultSchema.Type
 export type PackageDocsSectionBlock = typeof PackageDocsSectionBlockSchema.Type

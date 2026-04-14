@@ -80,10 +80,38 @@ export class OpenAgentTraceWorkflowHookupRoute extends Schema.TaggedClass<OpenAg
   }
 }
 
+export class OpenAgentTraceThreadImportRoute extends Schema.TaggedClass<OpenAgentTraceThreadImportRoute>()(
+  "thread-import",
+  {}
+) {
+  static import(): OpenAgentTraceThreadImportRoute {
+    return openAgentTraceThreadImportRoute
+  }
+
+  static fromPathname(pathname: string): Option.Option<OpenAgentTraceThreadImportRoute> {
+    return pathname === OpenAgentTraceThreadImportRoute.pathname()
+      ? Option.some(OpenAgentTraceThreadImportRoute.import())
+      : Option.none()
+  }
+
+  static matches(pathname: string): boolean {
+    return Option.isSome(OpenAgentTraceThreadImportRoute.fromPathname(pathname))
+  }
+
+  static pathname(): string {
+    return `${openAgentTraceApiPathnamePrefix}/imports/amp-thread`
+  }
+
+  pathname(): string {
+    return OpenAgentTraceThreadImportRoute.pathname()
+  }
+}
+
 export const OpenAgentTraceApiRouteSchema = Schema.Union(
   OpenAgentTraceRegistryRoute,
   OpenAgentTraceConsumerArtifactRoute,
-  OpenAgentTraceWorkflowHookupRoute
+  OpenAgentTraceWorkflowHookupRoute,
+  OpenAgentTraceThreadImportRoute
 )
 
 export type OpenAgentTraceApiRoute = typeof OpenAgentTraceApiRouteSchema.Type
@@ -91,9 +119,11 @@ export type OpenAgentTraceApiRoute = typeof OpenAgentTraceApiRouteSchema.Type
 export const openAgentTraceApiRouteFromPathname = (pathname: string): Option.Option<OpenAgentTraceApiRoute> =>
   OpenAgentTraceRegistryRoute.fromPathname(pathname).pipe(
     Option.orElse(() => OpenAgentTraceConsumerArtifactRoute.fromPathname(pathname)),
-    Option.orElse(() => OpenAgentTraceWorkflowHookupRoute.fromPathname(pathname))
+    Option.orElse(() => OpenAgentTraceWorkflowHookupRoute.fromPathname(pathname)),
+    Option.orElse(() => OpenAgentTraceThreadImportRoute.fromPathname(pathname))
   )
 
 const openAgentTraceRegistryRoute = OpenAgentTraceRegistryRoute.make({})
 const openAgentTraceConsumerArtifactRoute = OpenAgentTraceConsumerArtifactRoute.make({})
 const openAgentTraceWorkflowHookupRoute = OpenAgentTraceWorkflowHookupRoute.make({})
+const openAgentTraceThreadImportRoute = OpenAgentTraceThreadImportRoute.make({})

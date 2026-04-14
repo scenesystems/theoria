@@ -4,42 +4,32 @@ import {
 } from "../../../../contracts/study/workflow/surface-rendered-preview-presentation.js"
 import { workflowRichnessSectionTitle } from "../../../../contracts/study/workflow/surface-richness-presentation.js"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { Cluster, Layer, Stack } from "../../primitives/Layout.js"
 import { MetricCard } from "../../primitives/MetricCard.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
+import { SurfaceSubsection } from "../../primitives/SurfaceSubsection.js"
 
 export const WorkflowRenderedPreviewSectionCard = ({
   viewModel
 }: {
   readonly viewModel: WorkflowRenderedPreviewViewModel
 }) => (
-  <ContentCard density="standard">
+  <SurfaceSubsection
+    appearance="flush"
+    className="py-5"
+    summary={viewModel.description}
+    title={workflowRichnessSectionTitle("rendered-preview")}
+  >
     <Stack className="gap-3">
-      <Stack className="gap-1">
-        <SemanticText
-          as="h3"
-          className="text-ink-900"
-          role="section-title"
-          text={workflowRichnessSectionTitle("rendered-preview")}
-          variant="expanded"
-        />
-        <SemanticText
-          as="p"
-          className="text-ink-700"
-          role="status"
-          text={viewModel.description}
-          variant="expanded"
-        />
-      </Stack>
-
       <Layer className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {viewModel.metrics.map((metric) => <MetricCard key={metric.label} label={metric.label} value={metric.value} />)}
+        {viewModel.metrics.map((metric) => (
+          <MetricCard key={metric.label} label={metric.label} surface="flush" value={metric.value} />
+        ))}
       </Layer>
 
       <Layer className="grid gap-3 lg:grid-cols-2">
         {viewModel.panes.map((pane) => (
-          <ContentCard density="compact" key={pane.key}>
+          <Stack className="gap-2 border-t border-stage-200/72 pt-3" key={pane.key}>
             <Stack className="gap-2">
               <Cluster className="items-baseline justify-between gap-3">
                 <SemanticText
@@ -72,9 +62,9 @@ export const WorkflowRenderedPreviewSectionCard = ({
                 variant="expanded"
               />
             </Stack>
-          </ContentCard>
+          </Stack>
         ))}
       </Layer>
     </Stack>
-  </ContentCard>
+  </SurfaceSubsection>
 )

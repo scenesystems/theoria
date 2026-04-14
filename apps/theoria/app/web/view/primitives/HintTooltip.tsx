@@ -1,4 +1,4 @@
-import { Tooltip } from "@base-ui-components/react/tooltip"
+import { Tooltip } from "@base-ui/react/tooltip"
 import { InformationCircleIcon } from "@heroicons/react/20/solid"
 
 import { Layer } from "./Layout.js"

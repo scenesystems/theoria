@@ -88,7 +88,7 @@ export const evaluateVariantExecutionEffect = ({
     const componentBreakdown = aggregatedComponentBreakdown(caseResults, plan)
 
     return decodeWorkflowEvaluationReport({
-      reportId: `${workflowRun.scenarioId}-${variant}-runtime-report`,
+      reportId: `${workflowRun.seedId}-${variant}-runtime-report`,
       workflowKind: plan.record.workflowKind,
       profile: plan.profile,
       totalCases: caseResults.length,

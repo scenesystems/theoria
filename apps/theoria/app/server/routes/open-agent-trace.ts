@@ -6,6 +6,7 @@ import {
   openAgentTraceConsumerArtifactResponse,
   openAgentTraceRegistryResponse,
   openAgentTraceRouteNotFoundResponse,
+  openAgentTraceThreadImportResponse,
   openAgentTraceWorkflowHookupResponse
 } from "./open-agent-trace-response.js"
 
@@ -17,6 +18,7 @@ export const openAgentTraceRoute = (pathname: string, requestId: string) =>
         Match.value(route).pipe(
           Match.tag("consumer-artifacts", () => openAgentTraceConsumerArtifactResponse(requestId)),
           Match.tag("registry", () => openAgentTraceRegistryResponse(requestId)),
+          Match.tag("thread-import", () => openAgentTraceThreadImportResponse(requestId)),
           Match.tag("workflow-hookups", () => openAgentTraceWorkflowHookupResponse(requestId)),
           Match.exhaustive
         )

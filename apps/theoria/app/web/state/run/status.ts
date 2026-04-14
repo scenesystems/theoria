@@ -23,7 +23,7 @@ const executionFailedStatus = (error: EntryExecutionError): string => {
   const detail = compactErrorMessage(error.message)
 
   return detail.length === 0 || detail === "Entry execution failed."
-    ? "Entry execution failed. Open Deep Dive for full diagnostics."
+    ? "Entry execution failed. Inspect diagnostics for details."
     : `Execution failed: ${detail}`
 }
 

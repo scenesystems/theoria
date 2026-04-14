@@ -123,7 +123,10 @@ export class OpenAgentTraceSummaryRow extends Schema.Class<OpenAgentTraceSummary
       OpenAgentTraceSummaryRow.make({ label: "Dataset", value: entry.record.source.datasetId }),
       OpenAgentTraceSummaryRow.make({ label: "Revision", value: entry.record.source.datasetRevision }),
       OpenAgentTraceSummaryRow.make({ label: "Split", value: entry.record.source.split }),
-      OpenAgentTraceSummaryRow.make({ label: "Source Kind", value: entry.consumerArtifact.sourceKind }),
+      OpenAgentTraceSummaryRow.make({
+        label: "Source Family",
+        value: entry.consumerArtifact.sourceFamilyLabel()
+      }),
       OpenAgentTraceSummaryRow.make({ label: "Session", value: entry.record.session.sessionId }),
       OpenAgentTraceSummaryRow.make({ label: "File", value: entry.record.source.fileName }),
       OpenAgentTraceSummaryRow.make({ label: "Harness", value: entry.record.source.harness }),

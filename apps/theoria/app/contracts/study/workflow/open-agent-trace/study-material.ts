@@ -13,14 +13,20 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 export const OpenAgentTraceRecordSchema = Experimental.OpenAgentTrace.Record
 export const OpenAgentTraceWorkflowProjectionSchema = Experimental.OpenAgentTrace.WorkflowProjection
 export const OpenAgentTraceCoverageSchema = Experimental.OpenAgentTrace.Coverage
-export const OpenAgentTraceEntryIdSchema = Schema.Literal("task-first", "chat-continuation")
+export const OpenAgentTraceEntryIdSchema = Experimental.OpenAgentTrace.RecordId
 export type OpenAgentTraceEntryId = typeof OpenAgentTraceEntryIdSchema.Type
-export const taskFirstOpenAgentTraceEntryId: OpenAgentTraceEntryId = "task-first"
-export const chatContinuationOpenAgentTraceEntryId: OpenAgentTraceEntryId = "chat-continuation"
-export const OpenAgentTraceCorpusLaneLabelSchema = Schema.Literal("empty", "fixture-backed")
+
+export const OpenAgentTraceCorpusLaneLabelSchema = Schema.Literal(
+  "empty",
+  "fixture-backed",
+  "import-backed",
+  "mixed"
+)
 export type OpenAgentTraceCorpusLaneLabel = typeof OpenAgentTraceCorpusLaneLabelSchema.Type
 export const emptyOpenAgentTraceCorpusLaneLabel: OpenAgentTraceCorpusLaneLabel = "empty"
 export const fixtureBackedOpenAgentTraceCorpusLaneLabel: OpenAgentTraceCorpusLaneLabel = "fixture-backed"
+export const importBackedOpenAgentTraceCorpusLaneLabel: OpenAgentTraceCorpusLaneLabel = "import-backed"
+export const mixedOpenAgentTraceCorpusLaneLabel: OpenAgentTraceCorpusLaneLabel = "mixed"
 export const OpenAgentTraceStudyMaterialLaneSchema = Schema.Literal("consumer-artifacts", "workflow-hookups")
 export type OpenAgentTraceStudyMaterialLane = typeof OpenAgentTraceStudyMaterialLaneSchema.Type
 
@@ -40,6 +46,44 @@ export class OpenAgentTraceRegistryEntry
 export const OpenAgentTraceRegistrySchema = Schema.Array(OpenAgentTraceRegistryEntry)
 export const OpenAgentTraceConsumerArtifactCatalogSchema = Schema.Array(ConsumerArtifact)
 export const OpenAgentTraceWorkflowHookupCatalogSchema = Schema.Array(WorkflowHookup)
+
+export class OpenAgentTraceCatalog extends Schema.Class<OpenAgentTraceCatalog>("OpenAgentTraceCatalog")({
+  consumerArtifacts: OpenAgentTraceConsumerArtifactCatalogSchema,
+  registry: OpenAgentTraceRegistrySchema,
+  workflowHookups: OpenAgentTraceWorkflowHookupCatalogSchema
+}) {
+  static empty(): OpenAgentTraceCatalog {
+    return OpenAgentTraceCatalog.make({
+      consumerArtifacts: [],
+      registry: [],
+      workflowHookups: []
+    })
+  }
+
+  static fromParts({
+    consumerArtifacts,
+    registry,
+    workflowHookups
+  }: {
+    readonly consumerArtifacts: OpenAgentTraceConsumerArtifactCatalog
+    readonly registry: ReadonlyArray<OpenAgentTraceRegistryEntry>
+    readonly workflowHookups: OpenAgentTraceWorkflowHookupCatalog
+  }): OpenAgentTraceCatalog {
+    return OpenAgentTraceCatalog.make({
+      consumerArtifacts,
+      registry,
+      workflowHookups
+    })
+  }
+
+  append(additive: OpenAgentTraceCatalog): OpenAgentTraceCatalog {
+    return OpenAgentTraceCatalog.make({
+      consumerArtifacts: [...this.consumerArtifacts, ...additive.consumerArtifacts],
+      registry: [...this.registry, ...additive.registry],
+      workflowHookups: [...this.workflowHookups, ...additive.workflowHookups]
+    })
+  }
+}
 
 export class OpenAgentTraceConsumerArtifactStudyMaterial
   extends Schema.TaggedClass<OpenAgentTraceConsumerArtifactStudyMaterial>()("consumer-artifacts", {
@@ -96,6 +140,16 @@ export class OpenAgentTracePanelData extends Schema.Class<OpenAgentTracePanelDat
   registry: OpenAgentTraceRegistrySchema,
   studyMaterials: Schema.Array(OpenAgentTraceStudyMaterial)
 }) {
+  static fromCatalog(catalog: OpenAgentTraceCatalog): OpenAgentTracePanelData {
+    return OpenAgentTracePanelData.make({
+      registry: catalog.registry,
+      studyMaterials: [
+        OpenAgentTraceConsumerArtifactStudyMaterial.fromCatalog(catalog.consumerArtifacts),
+        OpenAgentTraceWorkflowHookupStudyMaterial.fromCatalog(catalog.workflowHookups)
+      ]
+    })
+  }
+
   static assemble({
     consumerArtifacts,
     registry,
@@ -105,13 +159,13 @@ export class OpenAgentTracePanelData extends Schema.Class<OpenAgentTracePanelDat
     readonly registry: ReadonlyArray<OpenAgentTraceRegistryEntry>
     readonly workflowHookups: OpenAgentTraceWorkflowHookupCatalog
   }): OpenAgentTracePanelData {
-    return OpenAgentTracePanelData.make({
-      registry,
-      studyMaterials: [
-        OpenAgentTraceConsumerArtifactStudyMaterial.fromCatalog(consumerArtifacts),
-        OpenAgentTraceWorkflowHookupStudyMaterial.fromCatalog(workflowHookups)
-      ]
-    })
+    return OpenAgentTracePanelData.fromCatalog(
+      OpenAgentTraceCatalog.fromParts({
+        consumerArtifacts,
+        registry,
+        workflowHookups
+      })
+    )
   }
 
   studyMaterialCount(lane: OpenAgentTraceStudyMaterialLane): number {

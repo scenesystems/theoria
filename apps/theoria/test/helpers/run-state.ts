@@ -2,10 +2,10 @@ import { Schema } from "effect"
 
 import type { EntryError } from "../../app/contracts/entry-error.js"
 import { DurableFingerprint } from "../../app/contracts/entry/fingerprint.js"
-import type { EntryId } from "../../app/contracts/entry/id.js"
-import type { EntryDraft } from "../../app/contracts/entry/registry.js"
+import { type EntryId, workflowEntryId } from "../../app/contracts/entry/id.js"
 import type { Metadata } from "../../app/contracts/envelope.js"
 import type { Program } from "../../app/contracts/presentation/program.js"
+import type { StudyDraft } from "../../app/contracts/study/registry.js"
 import type { RunRequestIdentity } from "../../app/contracts/study/run-plan.js"
 import type { RunData } from "../../app/contracts/study/run.js"
 import type { LocalProjectionScript } from "../../app/web/state/run/local.js"
@@ -23,7 +23,7 @@ const identityForDraft = ({
   draft,
   runToken
 }: {
-  readonly draft: EntryDraft
+  readonly draft: StudyDraft
   readonly runToken: string
 }): RunRequestIdentity => ({
   entryId: draft.entryId,
@@ -38,9 +38,9 @@ const resolvedEntryId = ({
   draft,
   localProjectionScript
 }: {
-  readonly draft: EntryDraft | null
+  readonly draft: StudyDraft | null
   readonly localProjectionScript: LocalProjectionScript | null
-}): EntryId => draft?.entryId ?? localProjectionScript?._tag ?? "effect-text"
+}): EntryId => draft?.entryId ?? localProjectionScript?._tag ?? workflowEntryId
 
 const baseRunState = (id: EntryId): RunState => initialSurfaceState(id).run
 
@@ -53,7 +53,7 @@ export const runStartedMessage = ({
   startedAtMs = 0,
   token = 1
 }: {
-  readonly draft?: EntryDraft
+  readonly draft?: StudyDraft
   readonly localProjectionScript?: LocalProjectionScript | null
   readonly ownership?: RunOwnership
   readonly program: Program
@@ -122,7 +122,7 @@ export const runningRunState = ({
   startedAtMs = 0,
   token = 1
 }: {
-  readonly draft?: EntryDraft
+  readonly draft?: StudyDraft
   readonly localProjectionScript?: LocalProjectionScript | null
   readonly ownership?: RunOwnership
   readonly program: Program

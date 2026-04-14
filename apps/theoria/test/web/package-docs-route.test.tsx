@@ -127,18 +127,17 @@ describe("web/package-docs-route", () => {
             yield* Effect.sleep("2 seconds")
 
             const heading = container.querySelector("h1")
-            const headings = Array.from(container.querySelectorAll("h2"))
             const packageNavLink = container.querySelector('a[href="/packages?package=effect-math"]')
-            const sourceLink = container.querySelector(
-              'a[href="https://github.com/scenesystems/theoria/blob/main/packages/digest/README.md"]'
+            const repositoryLink = container.querySelector(
+              'a[href="https://github.com/scenesystems/theoria/tree/main/packages/digest"]'
             )
 
             expect(heading?.textContent).toBe("@scenesystems/digest Docs")
-            expect(headings.some((element) => element.textContent === "README")).toBe(true)
+            expect(container.textContent?.includes("README")).toBe(true)
             expect(packageNavLink instanceof HTMLAnchorElement).toBe(true)
             expect(packageNavLink?.textContent).toBe("effect-math")
-            expect(sourceLink instanceof HTMLAnchorElement).toBe(true)
-            expect(sourceLink?.textContent).toBe("packages/digest/README.md")
+            expect(repositoryLink instanceof HTMLAnchorElement).toBe(true)
+            expect(repositoryLink?.textContent).toBe("Repository")
           }),
           Effect.sync(() => {
             root.unmount()

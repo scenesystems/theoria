@@ -5,9 +5,9 @@ import { CapabilityAvailability } from "../../app/contracts/capability/availabil
 import { PackageVersions } from "../../app/contracts/capability/package-versions.js"
 import type { EntryError } from "../../app/contracts/entry-error.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
-import type { EntryRunRequest } from "../../app/contracts/entry/registry.js"
 import { Metadata } from "../../app/contracts/envelope.js"
 import type { ProgramPreview } from "../../app/contracts/presentation/program-preview.js"
+import type { StudyRunRequest } from "../../app/contracts/study/registry.js"
 import type { RunData } from "../../app/contracts/study/run.js"
 import { EntryClient } from "../../app/web/services/EntryClient.js"
 
@@ -16,10 +16,10 @@ import { programPreviewFixture, runDataFixture } from "./entry-fixtures.js"
 type EnvelopeMetadata = typeof Metadata.Type
 
 export type EntryClientFixtures = {
-  readonly run: (id: EntryId, request?: EntryRunRequest) => Effect.Effect<RunData, EntryError>
+  readonly run: (id: EntryId, request?: StudyRunRequest) => Effect.Effect<RunData, EntryError>
   readonly runWithMeta?: (
     id: EntryId,
-    request?: EntryRunRequest
+    request?: StudyRunRequest
   ) => Effect.Effect<{ readonly data: RunData; readonly meta: EnvelopeMetadata }, EntryError>
   readonly preload: (id: EntryId) => Effect.Effect<ProgramPreview, EntryError>
   readonly capabilityAvailability?: () => Effect.Effect<CapabilityAvailability, EntryError>
@@ -39,8 +39,8 @@ export const makeEntryClientTestLayer = (fixtures: EntryClientFixtures): Layer.L
     EntryClient,
     {
       _tag: "theoria/EntryClient",
-      run: (request: EntryRunRequest) => fixtures.run(request.draft.entryId, request),
-      runWithMeta: (request: EntryRunRequest) =>
+      run: (request: StudyRunRequest) => fixtures.run(request.draft.entryId, request),
+      runWithMeta: (request: StudyRunRequest) =>
         (fixtures.runWithMeta ?? ((id, resolvedRequest) =>
           fixtures.run(id, resolvedRequest).pipe(
             Effect.map((data) => ({

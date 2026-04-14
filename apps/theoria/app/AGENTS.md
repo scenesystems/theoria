@@ -17,17 +17,22 @@ Dependency direction is strict:
 
 Within `web/`: `contracts/ -> runtime/services/state/view`, `runtime/services/state -> atoms`, `state -> atoms/view`, `atoms -> view`.
 
-Within `server/`: `contracts/ -> config/kernel/capability/adapters/routes/study`, and routes only compose config + kernel + adapters.
+Within `server/`: `contracts/ -> config/kernel/capability/routes/study`, and routes only compose config + kernel + capability + study.
 
 ## Core Vocabulary
 
-- `Entry`: routeable product lens and presentation identity.
-- `Study`: executable proving scenario behind an entry.
+- `Entry`: routeable product lens and presentation identity bound to one study.
+- `Study`: executable proving scenario and contract authority behind an entry.
 - `Workflow`: executable program of a study. The current workflow study is not a separate parallel architecture.
 - `Kernel`: shared reusable runtime or execution machinery.
-- `Adapter`: thin entry-specific parameterization over kernels.
 - `Surface`: browser-local workspace state for one entry.
 - `Evidence`: durable run output and projections derived from execution.
+
+The lasting ownership model is:
+
+- `contracts/study/` owns executable drafts, run requests, manifests, and study meaning.
+- `server/kernel/` owns generic execution, stream transport, session, and lifecycle machinery.
+- `web/runtime/kernel/` owns browser runtime composition and study transport encoding.
 
 Do not introduce new architecture seams named `demo`, `proving-consumer`, or `authorities`.
 
@@ -51,7 +56,7 @@ Anti-patterns:
 
 ## server/ — Execution and Transport
 
-`server/` executes contract authority through shared kernels and thin adapters.
+`server/` executes contract authority through shared kernels, study semantics, and capability integrations.
 
 Rules:
 
@@ -59,26 +64,26 @@ Rules:
 - Split route files by owner seam when they mix decode, startup normalization, policy, and response composition.
 - Registries compose already-defined descriptors or definitions; registries do not author feature logic.
 - Shared lifecycle, preload, transport, and session logic belongs in `kernel/`.
-- Entry-specific glue belongs in `adapters/`.
 - Study semantics belong in `study/`.
+- Capability integrations belong in `capability/`.
 
 Anti-patterns:
 
 - Putting transport policy branches into registries.
-- Re-hosting shared kernel logic inside one adapter.
+- Re-hosting shared kernel logic inside one study definition or route.
 - Using web-owned names or concepts in server code.
 
 ## web/ — Runtime, Atoms, View
 
 ### runtime/
 
-`web/runtime/` owns browser boundary authority: runtime descriptors, projection-driver wiring, transport helpers, and entry adapters.
+`web/runtime/` owns browser boundary authority: runtime composition, projection-driver wiring, and transport helpers.
 
 Rules:
 
-- `kernel/registry.ts` is composition-only.
-- Put runtime lookup helpers in focused owner files such as `surface-runtime.ts` or `surface-view.ts`, not back into the registry.
-- Adapters provide thin entry-specific runtime configuration and surface hints.
+- `kernel/` is the only lasting runtime authority.
+- Put runtime lookup helpers in focused owner files such as `surface-runtime.ts`, not back into ad hoc registries.
+- Do not reintroduce `web/runtime/adapters/`, `surface-view.ts`, or React-node runtime injection seams.
 
 ### atoms/
 
@@ -131,5 +136,5 @@ Anti-patterns:
 1. Start from the target owner seam, not the existing file that happens to compile.
 2. Move shared nouns into `contracts/` first.
 3. Put reusable execution machinery in `server/kernel/` or `web/runtime/kernel/`.
-4. Keep adapters thin.
+4. Keep entries as metadata plus study bindings; do not reintroduce adapter layers.
 5. Prove the touched surface with `bun run check` and `bun run lint` from `apps/theoria/`.

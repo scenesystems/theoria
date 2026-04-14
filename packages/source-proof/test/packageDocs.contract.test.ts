@@ -50,6 +50,12 @@ describe("package docs contracts", () => {
           expect(decodedBundle.examples.length).toBeGreaterThan(0)
           expect(decodedBundle.releaseSnapshots.length).toBeGreaterThan(0)
           expect(decodedBundle.proofCommands.length).toBeGreaterThan(0)
+          expect(decodedBundle.readme.blocks[0]?.titleDocument.children.length ?? 0).toBeGreaterThan(0)
+          expect(decodedBundle.readme.blocks.some((block) => (block.contentDocument?.children.length ?? 0) > 0)).toBe(
+            true
+          )
+          expect(decodedBundle.examples[0]?.block.language).toBe("ts")
+          expect(decodedBundle.proofCommands[0]?.block.language).toBe("shell")
         }), { discard: true })
     }).pipe(Effect.provide(BunContext.layer)))
 })

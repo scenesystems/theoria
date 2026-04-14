@@ -1,4 +1,4 @@
-import { Popover } from "@base-ui-components/react/popover"
+import { Popover } from "@base-ui/react/popover"
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/20/solid"
 import * as Option from "effect/Option"
 

@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect"
 
-import { EntryPresentation } from "../../entry/routing.js"
+import { authorityCatalogForPackageName } from "../../capability/catalog.js"
 
 import { PackageDocsLandingPageRoute, PackageDocsPackagePageRoute, type PackageDocsPageRoute } from "./page-route.js"
 import { type PackageName } from "./shared.js"
@@ -13,23 +13,23 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   title: Schema.String
 }) {
   static defaultMetadataDescription(): string {
-    return "Source-linked package reference projected from the canonical Theoria release surfaces."
+    return "Source-linked package guides, examples, release history, and verification notes from the canonical Theoria package library."
   }
 
   static defaultSurfaceDescription(): string {
-    return "Source-linked package reference for a shipped capability surface inside Theoria."
+    return "Browse the package library behind Theoria's studies, workflows, and evidence surfaces."
   }
 
   static navigationTitle(): string {
-    return "Capability Packages"
+    return "Package Library"
   }
 
   static sharedCapabilityMetadataSuffix(): string {
-    return "Source-linked package reference, examples, release snapshots, and proof commands for the shared capability surface."
+    return "Browse source-linked guides, examples, release history, and verification commands for this part of the shared study toolkit."
   }
 
   static studyEntryLabel(): string {
-    return "Study Entry"
+    return "Workflow Entry"
   }
 
   static metadataDescription(packageDescription: string | null): string {
@@ -41,7 +41,7 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   static project(route: PackageDocsPageRoute): PackageDocsPresentation {
     const packageId = route.selectedPackageId()
 
-    return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(EntryPresentation.fromPackageName)), {
+    return Option.match(Option.fromNullable(packageId).pipe(Option.flatMap(authorityCatalogForPackageName)), {
       onNone: () =>
         PackageDocsPresentation.make({
           canonicalPath: route.path(),
@@ -50,13 +50,13 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
           metadataTitle: `${packageId ?? "Package"} Docs — Theoria`,
           title: `${packageId ?? "Package"} Docs`
         }),
-      onSome: (presentation) =>
+      onSome: (catalog) =>
         PackageDocsPresentation.make({
           canonicalPath: route.path(),
-          description: PackageDocsPresentation.surfaceDescription(presentation.description),
-          metadataDescription: PackageDocsPresentation.metadataDescription(presentation.description),
-          metadataTitle: `${presentation.title} Docs — Theoria`,
-          title: `${presentation.title} Docs`
+          description: PackageDocsPresentation.surfaceDescription(catalog.description),
+          metadataDescription: PackageDocsPresentation.metadataDescription(catalog.description),
+          metadataTitle: `${catalog.title} Docs — Theoria`,
+          title: `${catalog.title} Docs`
         })
     })
   }
@@ -70,6 +70,8 @@ export class PackageDocsPresentation extends Schema.Class<PackageDocsPresentatio
   }
 
   static surfaceDescription(packageDescription: string | null): string {
-    return packageDescription ?? PackageDocsPresentation.defaultSurfaceDescription()
+    return packageDescription === null
+      ? PackageDocsPresentation.defaultSurfaceDescription()
+      : `${packageDescription} Explore the package guide, examples, release history, and verification commands from one place.`
   }
 }

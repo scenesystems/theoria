@@ -5,6 +5,9 @@ import type * as ParseResult from "effect/ParseResult"
 import type { FailureEnvelope, Metadata } from "../../contracts/envelope.js"
 import type { ErrorModel } from "../../contracts/error.js"
 import {
+  AmpThreadImportEnvelope,
+  type AmpThreadImportPayload,
+  encodeRequestJson,
   type OpenAgentTraceApiRoute,
   type OpenAgentTraceConsumerArtifactCatalog,
   OpenAgentTraceConsumerArtifactCatalogEnvelope,
@@ -16,9 +19,11 @@ import {
   OpenAgentTraceRegistryEnvelope,
   OpenAgentTraceRegistryRoute,
   OpenAgentTraceRequestError,
+  OpenAgentTraceThreadImportRoute,
   type OpenAgentTraceWorkflowHookupCatalog,
   OpenAgentTraceWorkflowHookupCatalogEnvelope,
-  OpenAgentTraceWorkflowHookupRoute
+  OpenAgentTraceWorkflowHookupRoute,
+  requestFromInput
 } from "../../contracts/study/workflow/open-agent-trace.js"
 import { type EnvelopeResponse, EnvelopeTransport } from "./EnvelopeTransport.js"
 
@@ -41,6 +46,22 @@ const requestOpenAgentTraceRoute = <A, I>({
     schema
   })
 
+const postOpenAgentTraceRoute = <A, I>({
+  body,
+  route,
+  schema
+}: {
+  readonly body: string
+  readonly route: OpenAgentTraceApiRoute
+  readonly schema: Schema.Schema<{ readonly ok: true; readonly data: A; readonly meta: Metadata } | FailureEnvelope, I>
+}): Effect.Effect<EnvelopeResponse<A>, OpenAgentTraceError> =>
+  EnvelopeTransport.postJson({
+    body,
+    errors: openAgentTraceTransportErrors,
+    path: route.pathname(),
+    schema
+  })
+
 export class OpenAgentTraceClient extends Effect.Service<OpenAgentTraceClient>()("theoria/OpenAgentTraceClient", {
   succeed: {
     consumerArtifacts: (): Effect.Effect<OpenAgentTraceConsumerArtifactCatalog, OpenAgentTraceError> =>
@@ -53,6 +74,17 @@ export class OpenAgentTraceClient extends Effect.Service<OpenAgentTraceClient>()
         route: OpenAgentTraceRegistryRoute.registry(),
         schema: OpenAgentTraceRegistryEnvelope
       }).pipe(
+        Effect.map(({ data }) => data)
+      ),
+    importAmpThread: (input: string): Effect.Effect<AmpThreadImportPayload, OpenAgentTraceError> =>
+      requestFromInput(input).pipe(
+        Effect.flatMap((request) =>
+          postOpenAgentTraceRoute({
+            body: encodeRequestJson(request),
+            route: OpenAgentTraceThreadImportRoute.import(),
+            schema: AmpThreadImportEnvelope
+          })
+        ),
         Effect.map(({ data }) => data)
       ),
     workflowHookups: (): Effect.Effect<OpenAgentTraceWorkflowHookupCatalog, OpenAgentTraceError> =>

@@ -92,11 +92,11 @@ export class WorkflowTranscriptViewModel extends Schema.Class<WorkflowTranscript
   entries: Schema.Array(WorkflowTranscriptEntryViewModel)
 }) {
   static emptyDescription(): string {
-    return "Transcript evidence appears here once baseline and winner node sections land on the shared ledger."
+    return "Transcript evidence will appear here once the study starts reaching workflow nodes."
   }
 
   static presentDescription(): string {
-    return "Every transcript row is projected from package-authored node evidence, not browser-local replay logic."
+    return "Read the prompts, outputs, and response data that explain how each workflow step behaved."
   }
 
   static project({

@@ -6,13 +6,17 @@ import { HintTooltip } from "./HintTooltip.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
+import { app } from "./theme/surface.js"
 
-const planeShellClassName = "min-h-0 h-full flex-1 bg-stage-0"
+const planeShellClassName = "min-h-0 h-full flex-1"
 
-const planeHeaderClassName = "shrink-0 border-b border-stage-200/80 bg-stage-0 px-4 py-4 sm:px-5"
+const planeHeaderClassName = `shrink-0 border-b border-stage-200/80 ${app.sectionGutter} py-4 sm:py-5`
 
-const planeContentClassName = (contentClassName: string | undefined): string =>
-  `flex min-h-0 flex-1 flex-col ${contentClassName ?? "px-4 py-4 sm:px-5 sm:py-5"}`
+const planeContentClassName = (contentClassName: string | undefined): string => {
+  const content = contentClassName ?? `${app.sectionGutter} py-5 sm:py-6`
+
+  return `flex min-h-0 flex-1 flex-col ${content}`
+}
 
 export const SurfacePlaneFrame = ({
   actions,
@@ -70,7 +74,7 @@ export const SurfacePlaneFrame = ({
               : (
                 <SemanticText
                   as="p"
-                  className="max-w-3xl text-ink-700"
+                  className="max-w-none text-ink-700"
                   role="status"
                   text={summaryText}
                   variant={variant}

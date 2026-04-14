@@ -1,6 +1,8 @@
+// eslint-disable-next-line no-restricted-imports -- Vite plugin runs in Node/Bun build context, not app code
+import { execSync } from "node:child_process"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 
 const apiPort = process.env.THEORIA_PORT ?? "3876"
 const vitePort = 5175
@@ -33,8 +35,20 @@ const manualChunkNameFor = (id: string): string | undefined => {
   return undefined
 }
 
+const textTokens = (): Plugin => ({
+  name: "theoria:text-tokens",
+  buildStart() {
+    execSync("bun scripts/generate-text-tokens.ts", { cwd: import.meta.dirname })
+  },
+  handleHotUpdate({ file }) {
+    if (file.endsWith("contracts/presentation/text.ts")) {
+      execSync("bun scripts/generate-text-tokens.ts", { cwd: import.meta.dirname })
+    }
+  }
+})
+
 export default defineConfig({
-  plugins: [react({ include: /\/app\/.*\.[tj]sx?$/u }), tailwindcss()],
+  plugins: [textTokens(), react({ include: /\/app\/.*\.[tj]sx?$/u }), tailwindcss()],
   build: {
     outDir: "dist",
     sourcemap: true,

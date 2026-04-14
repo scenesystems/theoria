@@ -11,26 +11,53 @@ export class PackageDocsSearchPanelFrame extends Schema.Class<PackageDocsSearchP
   title: Schema.String
 }) {}
 
-export class PackageDocsSearchIdleContent extends Schema.TaggedClass<PackageDocsSearchIdleContent>()("Idle", {
-  frame: PackageDocsSearchPanelFrame,
-  model: PackageDocsSearchModel
-}) {}
-
-export class PackageDocsSearchLoadingContent extends Schema.TaggedClass<PackageDocsSearchLoadingContent>()(
-  "Loading",
+export class PackageDocsSearchOpenEmptyContent extends Schema.TaggedClass<PackageDocsSearchOpenEmptyContent>()(
+  "OpenEmpty",
   {
     frame: PackageDocsSearchPanelFrame,
-    statusText: Schema.String
+    model: PackageDocsSearchModel
   }
 ) {}
 
-export class PackageDocsSearchFailureContent extends Schema.TaggedClass<PackageDocsSearchFailureContent>()(
-  "Failure",
+export class PackageDocsSearchLoadingInitialContent
+  extends Schema.TaggedClass<PackageDocsSearchLoadingInitialContent>()(
+    "LoadingInitial",
+    {
+      frame: PackageDocsSearchPanelFrame,
+      statusText: Schema.String
+    }
+  )
+{}
+
+export class PackageDocsSearchRefreshingStaleContent
+  extends Schema.TaggedClass<PackageDocsSearchRefreshingStaleContent>()(
+    "RefreshingStale",
+    {
+      frame: PackageDocsSearchPanelFrame,
+      model: PackageDocsSearchModel,
+      statusText: Schema.String
+    }
+  )
+{}
+
+export class PackageDocsSearchErrorEmptyContent extends Schema.TaggedClass<PackageDocsSearchErrorEmptyContent>()(
+  "ErrorEmpty",
   {
     description: Schema.String,
     frame: PackageDocsSearchPanelFrame
   }
 ) {}
+
+export class PackageDocsSearchErrorWithStaleContent
+  extends Schema.TaggedClass<PackageDocsSearchErrorWithStaleContent>()(
+    "ErrorWithStale",
+    {
+      description: Schema.String,
+      frame: PackageDocsSearchPanelFrame,
+      model: PackageDocsSearchModel
+    }
+  )
+{}
 
 export class PackageDocsSearchReadyContent extends Schema.TaggedClass<PackageDocsSearchReadyContent>()("Ready", {
   frame: PackageDocsSearchPanelFrame,
@@ -38,9 +65,11 @@ export class PackageDocsSearchReadyContent extends Schema.TaggedClass<PackageDoc
 }) {}
 
 export const PackageDocsSearchPanelContent = Schema.Union(
-  PackageDocsSearchIdleContent,
-  PackageDocsSearchLoadingContent,
-  PackageDocsSearchFailureContent,
+  PackageDocsSearchOpenEmptyContent,
+  PackageDocsSearchLoadingInitialContent,
+  PackageDocsSearchRefreshingStaleContent,
+  PackageDocsSearchErrorEmptyContent,
+  PackageDocsSearchErrorWithStaleContent,
   PackageDocsSearchReadyContent
 )
 
@@ -48,42 +77,51 @@ export type PackageDocsSearchPanelContent = typeof PackageDocsSearchPanelContent
 
 const packageDocsSearchPanelFrame = () =>
   PackageDocsSearchPanelFrame.make({
-    placeholderText: "Search README blocks, module docs, examples, snapshots, and proof commands...",
-    summaryText: "Search the canonical package-doc corpus without leaving the current docs surface.",
-    title: "Search docs"
+    placeholderText: "Search guides, examples, release history, and verification commands...",
+    summaryText: "Find the package knowledge behind Theoria's studies without leaving the current guide.",
+    title: "Search the package library"
   })
 
-export const packageDocsSearchPanelContent = (state: PackageDocsSearchState): PackageDocsSearchPanelContent => {
+export const packageDocsSearchPanelContent = (input: {
+  readonly emptyModel: PackageDocsSearchModel
+  readonly previousModel: PackageDocsSearchModel | null
+  readonly readyModel: PackageDocsSearchModel | null
+  readonly state: PackageDocsSearchState
+}): PackageDocsSearchPanelContent => {
   const frame = packageDocsSearchPanelFrame()
 
-  return Match.value(state).pipe(
-    Match.tag("IdlePackageDocsSearch", ({ selectedPackageId }) =>
-      PackageDocsSearchIdleContent.make({
+  return Match.value(input.state).pipe(
+    Match.tag("IdlePackageDocsSearch", () =>
+      PackageDocsSearchOpenEmptyContent.make({
         frame,
-        model: PackageDocsSearchModel.project({
-          packageId: selectedPackageId,
-          query: "",
-          results: []
-        })
+        model: input.emptyModel
       })),
     Match.tag("LoadingPackageDocsSearch", () =>
-      PackageDocsSearchLoadingContent.make({
-        frame,
-        statusText: "Searching package docs..."
-      })),
+      input.previousModel === null
+        ? PackageDocsSearchLoadingInitialContent.make({
+          frame,
+          statusText: "Searching the package library..."
+        })
+        : PackageDocsSearchRefreshingStaleContent.make({
+          frame,
+          model: input.previousModel,
+          statusText: "Refreshing package docs results..."
+        })),
     Match.tag("FailedPackageDocsSearch", ({ description }) =>
-      PackageDocsSearchFailureContent.make({
-        description,
-        frame
-      })),
-    Match.tag("ReadyPackageDocsSearch", ({ query, results, selectedPackageId }) =>
+      input.previousModel === null
+        ? PackageDocsSearchErrorEmptyContent.make({
+          description,
+          frame
+        })
+        : PackageDocsSearchErrorWithStaleContent.make({
+          description,
+          frame,
+          model: input.previousModel
+        })),
+    Match.tag("ReadyPackageDocsSearch", () =>
       PackageDocsSearchReadyContent.make({
         frame,
-        model: PackageDocsSearchModel.project({
-          packageId: selectedPackageId,
-          query,
-          results
-        })
+        model: input.readyModel ?? input.emptyModel
       })),
     Match.exhaustive
   )

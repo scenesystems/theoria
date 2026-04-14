@@ -1,6 +1,7 @@
-import { HttpServerResponse } from "@effect/platform"
+import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option, Schema } from "effect"
+import { Effect, Layer, Match, Option, Schema } from "effect"
 
 import {
   type OpenAgentTraceEntryPanelModel,
@@ -12,6 +13,7 @@ import {
   OpenAgentTraceRegistryEnvelope
 } from "../../app/contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
+import { AmpThreadImportKernel } from "../../app/server/kernel/amp-thread-import/service.js"
 import { openAgentTraceRoute } from "../../app/server/routes/open-agent-trace.js"
 
 class ResponseJsonError extends Schema.TaggedError<ResponseJsonError>()("ResponseJsonError", {
@@ -103,6 +105,11 @@ const summaryRowsFor = ({
     })
   )
 
+const ampThreadImportKernelTest = Layer.succeed(AmpThreadImportKernel, {
+  _tag: "theoria/server/kernel/AmpThreadImportKernel",
+  exportSnapshot: () => Effect.die("unused-open-agent-trace-import-kernel")
+})
+
 const detailItemsFor = ({
   entry,
   groupKey,
@@ -129,6 +136,12 @@ describe("web/open-agent-trace-orchestration", () => {
   it.effect("projects actual trace narrative, workflow cases, and usage provenance for the shared effect-dsp study lane", () =>
     Effect.gen(function*() {
       const response = yield* openAgentTraceRoute("/api/open-agent-trace/registry", "req-open-agent-trace-web").pipe(
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(new Request("http://127.0.0.1/api/open-agent-trace/registry"))
+        ),
+        Effect.provide(BunContext.layer),
+        Effect.provide(ampThreadImportKernelTest),
         Effect.provide(RuntimeInfoLive)
       )
       const envelope = yield* decodeWebJson(response, OpenAgentTraceRegistryEnvelope)
@@ -147,12 +160,21 @@ describe("web/open-agent-trace-orchestration", () => {
         })
       )
       const entries = panelEntriesFor(model)
-      const taskFirst = Option.fromNullable(entries[0])
-      const chatContinuation = Option.fromNullable(entries[1])
-      const taskFirstEntry = envelope.data[0]
-      const chatContinuationEntry = envelope.data[1]
+      const taskFirstEntry = envelope.data.find(
+        (entry) => entry.workflowProjection.workflowRecord.workflowKind === "task-first"
+      )
+      const chatContinuationEntry = envelope.data.find(
+        (entry) => entry.workflowProjection.workflowRecord.workflowKind === "chat-continuation"
+      )
+      const taskFirst = Option.fromNullable(
+        entries.find((entry) => entry.entryId === taskFirstEntry?.entryId)
+      )
+      const chatContinuation = Option.fromNullable(
+        entries.find((entry) => entry.entryId === chatContinuationEntry?.entryId)
+      )
 
       expect(model.entries.length).toBe(envelope.data.length)
+      expect(model.corpusLane.label).toBe("fixture-backed")
       expect(model.summaryRows.map((row: OpenAgentTracePanelModel["summaryRows"][number]) => row.label)).toEqual([
         "Records",
         "Coverage Gaps",

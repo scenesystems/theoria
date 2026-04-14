@@ -8,7 +8,7 @@ import {
   WorkflowStateLaneSchema
 } from "effect-inference/Contracts"
 
-import { WorkflowScenarioIdSchema } from "./manifest.js"
+import { WorkflowSeedIdSchema } from "./manifest.js"
 import { baselineWorkflowGraphVariant, optimizedWorkflowGraphVariant } from "./runtime-plan.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -22,7 +22,7 @@ const Score = Schema.Number.pipe(
 export class WorkflowCanonicalStep extends Schema.TaggedClass<WorkflowCanonicalStep>()(
   "WorkflowCanonicalStep",
   {
-    scenarioId: WorkflowScenarioIdSchema,
+    seedId: WorkflowSeedIdSchema,
     workflowKind: WorkflowKindSchema,
     variant: GraphVariantSchema,
     nodeId: NonEmptyString,
@@ -45,7 +45,7 @@ type WorkflowCanonicalStepInput = {
   readonly nodeKind: typeof WorkflowCanonicalStep.Type["nodeKind"]
   readonly outputText: typeof WorkflowCanonicalStep.Type["outputText"]
   readonly runtimeRole: typeof WorkflowCanonicalStep.Type["runtimeRole"]
-  readonly scenarioId: typeof WorkflowCanonicalStep.Type["scenarioId"]
+  readonly seedId: typeof WorkflowCanonicalStep.Type["seedId"]
   readonly stepCount: typeof WorkflowCanonicalStep.Type["stepCount"]
   readonly stepIndex: typeof WorkflowCanonicalStep.Type["stepIndex"]
   readonly variant?: GraphVariant

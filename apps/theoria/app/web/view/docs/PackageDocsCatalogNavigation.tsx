@@ -1,38 +1,59 @@
-import type { PackageDocsNavigationItem } from "../../../contracts/presentation/package-docs.js"
-import { InternalLink } from "../primitives/Link.js"
-import { Cluster, Section, Stack } from "../primitives/Layout.js"
-import { SemanticText } from "../primitives/SemanticText.js"
+import { useAtomSet } from "@effect-atom/atom-react"
+import type { MouseEvent } from "react"
 
-const navigationItem = ({
-  href,
-  label,
-  packageId,
-  selected
-}: PackageDocsNavigationItem) => (
-  <InternalLink
-    className={selected
-      ? "rounded-full border border-stage-300 bg-stage-0/98 px-3 py-2 text-ink-900"
-      : "rounded-full border border-stage-200/90 bg-stage-0/88 px-3 py-2 text-ink-700"}
-    href={href}
-    key={packageId}
-  >
-    <SemanticText as="span" role="tab-label" text={label} variant="compact" />
-  </InternalLink>
-)
+import type { PackageDocsNavigationItem } from "../../../contracts/presentation/package-docs.js"
+import { navigateToPackageAtom } from "../../atoms/package-docs-navigation.js"
+import { Box } from "../../ui/structure/Box.js"
+import { Link } from "../../ui/structure/Link.js"
+import { SemanticText } from "../../ui/structure/SemanticText.js"
+import { Stack } from "../../ui/structure/Stack.js"
 
 export const PackageDocsCatalogNavigation = ({
   items,
+  onNavigate,
+  showTitle = true,
   title
 }: {
   readonly items: ReadonlyArray<PackageDocsNavigationItem>
+  readonly onNavigate?: () => void
+  readonly showTitle?: boolean
   readonly title: string
-}) => (
-  <Section>
-    <Stack className="gap-3">
-      <SemanticText as="h2" className="text-ink-900" role="section-title" text={title} variant="expanded" />
-      <Cluster className="gap-2">
-        {items.map(navigationItem)}
-      </Cluster>
-    </Stack>
-  </Section>
-)
+}) => {
+  const navigate = useAtomSet(navigateToPackageAtom)
+
+  return (
+    <Box as="nav" aria-label={title}>
+      <Stack className="gap-0.5">
+        {showTitle
+          ? (
+            <SemanticText
+              as="h2"
+              className="px-2.5 pb-2 text-ink-500"
+              role="label"
+            >
+              {title}
+            </SemanticText>
+          )
+          : null}
+        {items.map((item) => (
+          <Link
+            aria-current={item.selected ? "page" : undefined}
+            className={item.selected
+              ? "block border-l-2 border-stage-400 px-3 py-1.5 text-ink-950"
+              : "block border-l-2 border-transparent px-3 py-1.5 text-ink-700 hover:border-stage-200 hover:text-ink-950"}
+            href={item.href}
+            key={item.packageId}
+            onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+              event.preventDefault()
+              navigate(item.packageId)
+              onNavigate?.()
+            }}
+            tone="inherit"
+          >
+            <SemanticText as="span" className="text-inherit" role="body-sm">{item.label}</SemanticText>
+          </Link>
+        ))}
+      </Stack>
+    </Box>
+  )
+}

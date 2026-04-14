@@ -3,8 +3,16 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Option, Schema } from "effect"
 
 import { EntryStreamRoute } from "../../app/contracts/entry/api-route.js"
-import { workflowEntryDescriptor } from "../../app/contracts/entry/descriptors/workflow.js"
-import type { WorkflowScenarioId } from "../../app/contracts/study/workflow/scenario.js"
+import { workflowStudyDescriptor } from "../../app/contracts/study/workflow/descriptor.js"
+import {
+  chatHandoffWorkflowSessionId,
+  renderSensitiveWorkflowSessionId,
+  retrievalRequiredWorkflowSessionId,
+  taskBriefingWorkflowSessionId
+} from "../../app/contracts/study/workflow/fixture-manifest.js"
+import type { WorkflowSeedId } from "../../app/contracts/study/workflow/manifest.js"
+import { OpenAgentTraceCatalog } from "../../app/contracts/study/workflow/open-agent-trace.js"
+import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 import { startRun } from "../../app/web/atoms/run/execution.js"
 import { pauseRun, resetRun, resumeRun, stopRun } from "../../app/web/atoms/run/lifecycle-actions.js"
 import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
@@ -15,6 +23,7 @@ import {
   selectWorkflowSurfaceProfileAtom,
   selectWorkflowTargetModeAtom
 } from "../../app/web/atoms/workflow/draft-actions.js"
+import { importedCatalogAtom } from "../../app/web/atoms/workflow/open-agent-trace.js"
 import { workflowSurfaceViewModelAtom } from "../../app/web/atoms/workflow/surface-view-model.js"
 import type { RunControlActionKind } from "../../app/web/state/run/types.js"
 import type { SurfaceState } from "../../app/web/state/surface/state.js"
@@ -54,7 +63,7 @@ class MockEventSource {
   }
 }
 
-const WorkflowEntryRequestJson = Schema.parseJson(workflowEntryDescriptor.runRequestSchema)
+const WorkflowEntryRequestJson = Schema.parseJson(workflowStudyDescriptor.runRequestSchema)
 const decodeWorkflowEntryRequestJson = Schema.decodeUnknownSync(WorkflowEntryRequestJson)
 
 const makeAsyncTestRegistry = (): Registry.Registry =>
@@ -123,16 +132,53 @@ const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.
 }
 
 const workflowSeedCases: ReadonlyArray<{
-  readonly seedId: WorkflowScenarioId
+  readonly seedId: WorkflowSeedId
   readonly label: string
 }> = [
-  { seedId: "task-briefing", label: "Task Briefing" },
-  { seedId: "chat-handoff", label: "Chat Handoff" },
-  { seedId: "retrieval-required", label: "Retrieval Required" },
-  { seedId: "render-sensitive", label: "Render Sensitive" }
+  { seedId: taskBriefingWorkflowSessionId, label: "Task Briefing" },
+  { seedId: chatHandoffWorkflowSessionId, label: "Chat Handoff" },
+  { seedId: retrievalRequiredWorkflowSessionId, label: "Retrieval Required" },
+  { seedId: renderSensitiveWorkflowSessionId, label: "Render Sensitive" }
 ]
 
 describe("workflow browser proof", () => {
+  it.effect("merges imported open-agent-trace workflows into the workflow selector catalog", () =>
+    Effect.gen(function*() {
+      const registry = makeAsyncTestRegistry()
+      const importedEntry = yield* loadOpenAgentTraceRegistry.pipe(
+        Effect.flatMap((importedRegistry) =>
+          Option.fromNullable(importedRegistry[0]).pipe(
+            Option.match({
+              onNone: () => Effect.die("open-agent-trace registry is empty"),
+              onSome: Effect.succeed
+            })
+          )
+        )
+      )
+
+      registry.mount(selectWorkflowSeedAtom)
+      registry.set(
+        importedCatalogAtom,
+        OpenAgentTraceCatalog.fromParts({
+          consumerArtifacts: [importedEntry.consumerArtifact],
+          registry: [importedEntry],
+          workflowHookups: [importedEntry.workflowHookup]
+        })
+      )
+      registry.set(selectWorkflowSeedAtom, importedEntry.workflowProjection.workflowRecord.session.sessionId)
+
+      const viewModel = readWorkflowViewModel(registry)
+
+      expect(
+        viewModel.selector.options.some(
+          (option) => option.reference.seedId === importedEntry.workflowProjection.workflowRecord.session.sessionId
+        )
+      )
+        .toBe(true)
+      expect(viewModel.selector.selected.label).toBe(importedEntry.title)
+      expect(viewModel.selector.selected.summary).toBe(importedEntry.summary)
+    }))
+
   it.live("preserves frozen workflow seed across interruption and only adopts the next seed after reset", () =>
     withMockEventSource(
       Effect.gen(function*() {
@@ -141,14 +187,14 @@ describe("workflow browser proof", () => {
 
         registry.mount(runControlAtom)
         registry.mount(selectWorkflowSeedAtom)
-        registry.set(selectWorkflowSeedAtom, "task-briefing")
+        registry.set(selectWorkflowSeedAtom, taskBriefingWorkflowSessionId)
         registry.set(runControlAtom, { action: "run", id: "workflow" })
 
         const firstSource = yield* waitForSource(0)
 
-        expect(workflowRequestFromStreamUrl(firstSource.url).draft.seedId).toBe("task-briefing")
+        expect(workflowRequestFromStreamUrl(firstSource.url).draft.seedId).toBe(taskBriefingWorkflowSessionId)
 
-        registry.set(selectWorkflowSeedAtom, "render-sensitive")
+        registry.set(selectWorkflowSeedAtom, renderSensitiveWorkflowSessionId)
         registry.set(runControlAtom, { action: "stop", id: "workflow" })
 
         const stopped = yield* Effect.eventually(
@@ -158,7 +204,7 @@ describe("workflow browser proof", () => {
         )
 
         expect(firstSource.closed).toBe(true)
-        expect(stopped.run.session.draft?.seedId).toBe("task-briefing")
+        expect(stopped.run.session.draft?.seedId).toBe(taskBriefingWorkflowSessionId)
         expect(readWorkflowViewModel(registry).selector.selected.label).toBe("Task Briefing")
         expect(readWorkflowViewModel(registry).selector.locked).toBe(true)
 
@@ -171,7 +217,7 @@ describe("workflow browser proof", () => {
 
         const secondSource = yield* waitForSource(1)
 
-        expect(workflowRequestFromStreamUrl(secondSource.url).draft.seedId).toBe("render-sensitive")
+        expect(workflowRequestFromStreamUrl(secondSource.url).draft.seedId).toBe(renderSensitiveWorkflowSessionId)
       })
     ))
 
@@ -198,7 +244,7 @@ describe("workflow browser proof", () => {
               expect(request.draft.seedId).toBe(seedId)
 
               yield* emitWorkflowAuthoredStream({
-                scenarioId: seedId,
+                seedId,
                 meta: {
                   requestId: `workflow-${seedId}`,
                   buildSha: `build-${seedId}`,
@@ -243,7 +289,7 @@ describe("workflow browser proof", () => {
         registry.mount(selectWorkflowRuntimeProfileAtom)
         registry.mount(selectWorkflowSurfaceProfileAtom)
 
-        registry.set(selectWorkflowSeedAtom, "chat-handoff")
+        registry.set(selectWorkflowSeedAtom, chatHandoffWorkflowSessionId)
         registry.set(selectWorkflowTargetModeAtom, "search-winner")
         registry.set(selectWorkflowOptimizeAtom, false)
         registry.set(selectWorkflowRuntimeProfileAtom, "preferred")
@@ -256,7 +302,7 @@ describe("workflow browser proof", () => {
           return
         }
 
-        expect(draft.seedId).toBe("chat-handoff")
+        expect(draft.seedId).toBe(chatHandoffWorkflowSessionId)
         expect(draft.controls.optimize).toBe(false)
         expect(draft.controls.targetMode).toBe("authored-optimized")
         expect(draft.controls.runtimeProfile).toBe("preferred")
@@ -267,14 +313,14 @@ describe("workflow browser proof", () => {
         const source = yield* waitForSource(0)
         const request = workflowRequestFromStreamUrl(source.url)
 
-        expect(request.draft.seedId).toBe("chat-handoff")
+        expect(request.draft.seedId).toBe(chatHandoffWorkflowSessionId)
         expect(request.draft.controls.optimize).toBe(false)
         expect(request.draft.controls.targetMode).toBe("authored-optimized")
         expect(request.draft.controls.runtimeProfile).toBe("preferred")
         expect(request.draft.controls.surfaceProfile).toBe("full-panel")
 
         yield* emitWorkflowAuthoredStream({
-          scenarioId: "chat-handoff",
+          seedId: chatHandoffWorkflowSessionId,
           meta: {
             requestId: "workflow-controls",
             buildSha: "build-workflow-controls",

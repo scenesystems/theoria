@@ -1,44 +1,36 @@
 import { Layer } from "effect"
-import * as Arr from "effect/Array"
-import * as Option from "effect/Option"
+import { Option } from "effect"
 
+import { workflowEntryDescriptor } from "../../contracts/entry/descriptors/workflow.js"
 import { type EntryId, isRunnableEntryId, type RunnableEntryId, runnableEntryIds } from "../../contracts/entry/id.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
-import { digestEntryDefinition } from "../adapters/digest/registration.js"
-import { effectDspEntryDefinition } from "../adapters/effect-dsp/registration.js"
-import { effectMathEntryDefinition } from "../adapters/effect-math/registration.js"
-import { effectSearchEntryDefinition } from "../adapters/effect-search/registration.js"
-import { effectTextEntryDefinition } from "../adapters/effect-text/registration.js"
-import { sealEntryDefinition } from "../adapters/seal/registration.js"
-import { signEntryDefinition } from "../adapters/sign/registration.js"
-import { workflowEntryDefinition } from "../adapters/workflow/registration.js"
+import { workflowStudyDefinition } from "../study/workflow/study-definition.js"
+import { StudyDefinition } from "./registration.js"
 
-const definitionsById = {
-  "effect-text": effectTextEntryDefinition,
-  "effect-search": effectSearchEntryDefinition,
-  "effect-math": effectMathEntryDefinition,
-  digest: digestEntryDefinition,
-  sign: signEntryDefinition,
-  seal: sealEntryDefinition,
-  "effect-dsp": effectDspEntryDefinition,
-  workflow: workflowEntryDefinition
+const definitionsById: Readonly<Record<RunnableEntryId, StudyDefinition>> = {
+  workflow: StudyDefinition.make({
+    descriptor: workflowEntryDescriptor,
+    lane: "provider",
+    preloadProgram: workflowStudyDefinition.preloadProgram,
+    acceptsManifest: workflowStudyDefinition.acceptsManifest,
+    streamPlan: workflowStudyDefinition.streamPlan
+  })
 }
 
 type Definition = (typeof definitionsById)[RunnableEntryId]
 
 const definitionForId = (id: RunnableEntryId): Definition => definitionsById[id]
 
-const definitions: ReadonlyArray<Definition> = Arr.map(runnableEntryIds, definitionForId)
+const definitions: ReadonlyArray<Definition> = runnableEntryIds.map(definitionForId)
 
 const [firstDefinition, ...restDefinitions] = definitions
 
-export const EntryWorkflowLive = Option.match(Option.fromNullable(firstDefinition), {
+export const StudyKernelLive = Option.match(Option.fromNullable(firstDefinition), {
   onNone: () => Layer.empty,
   onSome: (definition) =>
-    Arr.reduce(
-      restDefinitions,
-      definition.workflowLive,
-      (layer, nextDefinition) => Layer.merge(layer, nextDefinition.workflowLive)
+    restDefinitions.reduce(
+      (layer, nextDefinition) => Layer.merge(layer, nextDefinition.executionLive),
+      definition.executionLive
     )
 })
 

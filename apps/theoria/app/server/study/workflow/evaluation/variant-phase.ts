@@ -45,7 +45,7 @@ export const runWorkflowVariantPhase = ({
         Ref.update(eventBufferRef, (events) => [
           ...events,
           ...nodeExecutionEvents({
-            scenarioId: workflowRun.scenarioId,
+            seedId: workflowRun.seedId,
             execution: nodeExecution,
             workflowKind: workflowRun.workflowKind,
             aggregateScore,

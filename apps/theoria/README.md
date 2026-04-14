@@ -1,89 +1,62 @@
 # Theoria App
 
-`apps/theoria` is the proving consumer for the Theoria packages: one integrated study system composed from shared capabilities, typed workflow evidence, and routeable entry lenses.
+`apps/theoria` is the browser front door for the Theoria workspace: one place
+to run package-backed workflow surfaces, inspect their evidence, and browse the
+generated package docs.
 
-It also projects source-linked package documentation at `/packages`, backed by
-the root-owned `bun run docs:packages` corpus rather than app-local markdown
-copies.
+It keeps package truth in the packages. The app assembles those contracts,
+examples, and docs into pages you can explore without jumping between tools.
 
-It is intentionally minimal:
+## What Is It For?
 
-1. No showcase, lab, or package-showroom taxonomy.
-1. No entry-local mini-app stacks or hidden compatibility layers.
-1. Exactly three page families: home, entry, and package docs.
-1. Routeable entries stay thin over shared capabilities, kernels, and workflow study seams.
-1. Typed contracts, streaming evidence, and Effect-native runtime state drive every surface.
+- Move from the home page into published package stories and runnable entry pages.
+- Run workflow surfaces that stream evidence, diagnostics, and artifacts in one UI.
+- Browse `/packages` for generated package docs built from README content, docstrings, examples, and release data.
+- Refresh those package docs from the repository root with `bun run docs:packages -- --catalog` when doc inputs change.
 
-## Start
+## Getting Started
 
-From repository root:
+From the repository root:
 
 ```sh
+bun install
 bun run app:theoria
-```
-
-Default URL: `http://127.0.0.1:3876`.
-
-Frontend dev server URL: `http://localhost:5175`.
-
-Override port:
-
-```sh
-PORT=3888 bun run app:theoria
-```
-
-## tmux Runbook
-
-From repository root:
-
-```sh
 bun run app:theoria:tmux
 bun run app:theoria:tmux:logs
-bun run app:theoria:tmux:logs:full
-bun run app:theoria:tmux:stop
 ```
 
-The tmux runbook always starts Vite on `http://localhost:5175`.
+The app server runs at `http://127.0.0.1:3876`. The frontend dev server is
+fixed at `http://localhost:5175`. Use `bun run app:theoria` for the normal
+foreground loop and the tmux runbook when you want the API and Vite processes
+in the background.
 
-Environment knobs:
+If you are iterating on package docs or release metadata, keep the app running
+and regenerate the docs inputs from the repository root so `/packages` reflects
+the latest README, docstring, and example content.
 
-1. `THEORIA_PORT` for app port.
-1. `THEORIA_TMUX_SESSION` for tmux session selection.
+## What Do I Open First?
 
-Runtime knobs:
+- `/` is the home page for package overviews, published stories, and entry links.
+- Published entry pages let you run integrated workflow surfaces and inspect the resulting evidence in place.
+- `/packages` and `/packages?package=<name>` are the docs views for browsing the generated package guides.
 
-1. `BUILD_SHA` for version/envelope metadata.
-1. `THEORIA_LOCAL_CONCURRENCY` / `THEORIA_PROVIDER_CONCURRENCY` for bounded execution lanes.
-1. `THEORIA_LOCAL_TIMEOUT_MS` / `THEORIA_PROVIDER_TIMEOUT_MS` for per-lane timeout policy.
-1. `DSP_PROVIDER`, `DSP_PROVIDER_MODEL`, and provider API keys for live `effect-dsp` execution.
-
-## Architecture
-
-1. `server.ts` is a thin entrypoint that launches `app/server/app.ts`.
-1. `app/contracts/*` is the semantic authority for entry identity, shared capability contracts, workflow evidence, consumer artifacts, workflow hookup, and transport envelopes.
-1. `app/server/router.ts` owns route composition only; execution lives under `app/server/kernel/*`, `app/server/adapters/*`, and `app/server/study/*`.
-1. `app/server/study/workflow/*` is the canonical workflow-study owner seam; any remaining `workflow-comparison` mentions are deletion debt, not an architecture lane.
-1. `app/server/routes/package-docs.ts` is a thin HTTP adapter over the root-owned package-doc query engine from `@theoria/source-proof`.
-1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole orchestration layer; atoms compose contract-owned defaults and state-owned transitions rather than authoring semantic literals.
-1. `app/web/view/*` projects contracts plus run state into entry surfaces and the `/packages` documentation route.
-1. `app/web/App.tsx` resolves entry routes through contract-owned presentation paths rather than package-demo routing or deep-route aliases.
-
-## Package Docs
-
-From repository root:
-
-```sh
-bun run docs:packages -- --catalog
-bun run docs:packages -- --package effect-search --view agent
-```
-
-In the app, open `http://127.0.0.1:3876/packages` or follow the `Docs` link on
-any package card.
-
-## Verification
+## Development Workflow
 
 ```sh
 bun run --filter '@theoria/theoria-app' check:all
 bun run --filter '@theoria/theoria-app' lint
 bun run --filter '@theoria/theoria-app' test
+bun run --filter '@theoria/theoria-app' build
 ```
+
+If you are working on package docs too, rerun `bun run check:readmes` and
+`bun run docs:packages -- --catalog` from the repository root.
+
+Use `bun run app:theoria:tmux:logs` when you want the API server and Vite logs
+without giving up your shell.
+
+## How Does It Fit The Workspace?
+
+The app stays intentionally thin: entry behavior, package contracts, and most
+evidence schemas stay upstream in the packages, while the app focuses on
+routing, streaming presentation, and docs browsing.

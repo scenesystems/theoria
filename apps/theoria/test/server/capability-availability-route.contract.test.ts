@@ -66,7 +66,7 @@ describe("server/capability-availability-route", () => {
           return
         }
 
-        expect(decoded.data.entries.some((entry) => entry.id === "effect-text")).toBe(true)
+        expect(decoded.data.entries.map((entry) => entry.id)).toEqual(["workflow"])
         expect(decoded.data.entries.every((entry) => typeof entry.enabled === "boolean")).toBe(true)
       })
     ))

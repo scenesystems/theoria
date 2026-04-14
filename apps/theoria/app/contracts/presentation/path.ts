@@ -2,9 +2,11 @@ import { type PackageName } from "@theoria/source-proof/contracts"
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { type EntryId, EntryId as EntryIdSchema } from "../entry/id.js"
+import { authorityCatalogPackageNames } from "../capability/catalog.js"
+import { type EntryId, EntryId as EntryIdSchema, workflowEntryId } from "../entry/id.js"
 import { EntryRegistry } from "../entry/registry.js"
 import type { ReleaseStage } from "../release-stage.js"
+import { defaultWorkflowSeedId } from "../study/workflow/catalog-policy.js"
 
 import {
   PackageDocsLandingPageRoute,
@@ -20,6 +22,7 @@ import {
   PackageDocsLandingPageRouteKey,
   PackageDocsPackagePageRouteKey
 } from "./page-route-key.js"
+import { WorkflowStudyRoute } from "./workflow-study-route.js"
 
 export class HomePageRoute extends Schema.TaggedClass<HomePageRoute>()("HomeRoute", {}) {
   static home(): HomePageRoute {
@@ -116,7 +119,7 @@ export class PackageDocsRoute extends Schema.TaggedClass<PackageDocsRoute>()("Pa
   }
 
   static redirectPathForReleaseStage(stage: ReleaseStage): string | null {
-    const packageId = entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage)[0] ?? null
+    const packageId = visiblePackageDocsPackageIdsForReleaseStage(stage)[0] ?? null
     return packageId === null ? null : PackageDocsRoute.fromSelectedPackageId(packageId).path()
   }
 
@@ -139,13 +142,14 @@ export class PackageDocsRoute extends Schema.TaggedClass<PackageDocsRoute>()("Pa
   visibleInReleaseStage(stage: ReleaseStage): boolean {
     const packageId = this.route.selectedPackageId()
 
-    return packageId !== null && entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage).includes(packageId)
+    return packageId !== null && visiblePackageDocsPackageIdsForReleaseStage(stage).includes(packageId)
   }
 }
 
 export class PageRoute {
   static optionFromLocation(location: PageLocation): Option.Option<PageRoute.Value> {
     return HomePageRoute.fromLocation(location).pipe(
+      Option.orElse(() => WorkflowStudyRoute.fromLocation(location)),
       Option.orElse(() => EntryRoute.fromLocation(location)),
       Option.orElse(() => PackageDocsRoute.fromLocation(location))
     )
@@ -165,10 +169,11 @@ export class PageRoute {
     return [
       HomePageRoute.home(),
       ...Arr.map(
-        entryRegistry.visiblePackageDocsPackageIdsForReleaseStage(stage),
+        visiblePackageDocsPackageIdsForReleaseStage(stage),
         PackageDocsRoute.fromSelectedPackageId
       ),
-      ...Arr.map(entryRegistry.visibleEntryIdsForReleaseStage(stage), EntryRoute.fromEntryId)
+      ...visibleWorkflowStudyRoutesForReleaseStage(stage),
+      ...Arr.map(visibleEntryIdsForReleaseStage(stage), EntryRoute.fromEntryId)
     ]
   }
 
@@ -182,12 +187,25 @@ export class PageRoute {
 }
 
 export namespace PageRoute {
-  export const schema = Schema.Union(HomePageRoute, EntryRoute, PackageDocsRoute)
+  export const schema = Schema.Union(HomePageRoute, WorkflowStudyRoute, EntryRoute, PackageDocsRoute)
 
   export type Value = typeof schema.Type
 }
 
 const homeRoute = HomePageRoute.make({})
 const entryRegistry = EntryRegistry.current()
+
+const visiblePackageDocsPackageIdsForReleaseStage = (_stage: ReleaseStage): ReadonlyArray<PackageName> =>
+  authorityCatalogPackageNames
+
+const visibleEntryIdsForReleaseStage = (stage: ReleaseStage): ReadonlyArray<EntryId> =>
+  Arr.filter(entryRegistry.visibleEntryIdsForReleaseStage(stage), (entryId) => entryId !== workflowEntryId)
+
+const visibleWorkflowStudyRoutesForReleaseStage = (stage: ReleaseStage): ReadonlyArray<WorkflowStudyRoute> =>
+  entryRegistry.descriptorForId(workflowEntryId).visibleInReleaseStage(stage)
+    ? [WorkflowStudyRoute.fromSessionId(defaultWorkflowSeedId)]
+    : []
+
 export { PageRouteKey } from "./page-route-key.js"
 export type { SerializedPageRouteKey } from "./page-route-key.js"
+export { WorkflowStudyRoute } from "./workflow-study-route.js"

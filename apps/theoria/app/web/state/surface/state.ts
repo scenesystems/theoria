@@ -1,16 +1,22 @@
 import type { EntryError } from "../../../contracts/entry-error.js"
-import type { EntryId } from "../../../contracts/entry/id.js"
-import { EntryRegistry } from "../../../contracts/entry/registry.js"
-import type { EntryDraft } from "../../../contracts/entry/registry.js"
+import { type EntryId, workflowEntryId } from "../../../contracts/entry/id.js"
 import type { ProgramPreview } from "../../../contracts/presentation/program-preview.js"
 import type { ProgramSourceScope } from "../../../contracts/presentation/program.js"
+import type { ProjectionPlane } from "../../../contracts/presentation/projection.js"
+import { type StudyDraft, StudyRegistry } from "../../../contracts/study/registry.js"
 
 import { RunIdleState } from "../run/state.js"
 import type { RunState as RunStateValue } from "../run/types.js"
 
-export type StageTab = "interactive" | "evidence"
+export type StageTab = "interactive" | "interaction" | "evidence"
 
-const entryRegistry = EntryRegistry.current()
+const studyRegistry = StudyRegistry.current()
+
+const defaultStageTabForEntryId = (_id: EntryId): StageTab => "interactive"
+
+const defaultProjectedSurfacesForEntryId = (id: EntryId): ReadonlyArray<ProjectionPlane> =>
+  id === workflowEntryId ? ["stage", "source"] : ["source", "evidence"]
+const defaultFocusedSurfaceForEntryId = (id: EntryId): ProjectionPlane => id === workflowEntryId ? "stage" : "source"
 
 export type PreloadState =
   | { readonly _tag: "PreloadIdle" }
@@ -20,8 +26,10 @@ export type PreloadState =
 
 export type SurfaceState = {
   readonly id: EntryId
-  readonly draft: EntryDraft
+  readonly draft: StudyDraft
   readonly stageTab: StageTab
+  readonly projectedSurfaces: ReadonlyArray<ProjectionPlane>
+  readonly focusedSurface: ProjectionPlane
   readonly preload: PreloadState
   readonly run: RunStateValue
   readonly nextSequence: number
@@ -31,8 +39,10 @@ export type SurfaceState = {
 
 export const initialSurfaceState = (id: EntryId): SurfaceState => ({
   id,
-  draft: entryRegistry.descriptorForId(id).defaultDraft(),
-  stageTab: "interactive",
+  draft: studyRegistry.defaultDraftForEntryId(id),
+  stageTab: defaultStageTabForEntryId(id),
+  projectedSurfaces: defaultProjectedSurfacesForEntryId(id),
+  focusedSurface: defaultFocusedSurfaceForEntryId(id),
   preload: { _tag: "PreloadIdle" },
   run: RunIdleState.make(),
   nextSequence: 1,

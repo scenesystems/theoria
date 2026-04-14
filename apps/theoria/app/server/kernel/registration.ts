@@ -8,8 +8,8 @@ import { EntryCapabilityAvailability } from "../../contracts/capability/availabi
 import { EntryExecutionError } from "../../contracts/entry-error.js"
 import type { CardReleaseState } from "../../contracts/entry/descriptor.js"
 import type { AuthorityId, RunnableEntryId } from "../../contracts/entry/id.js"
-import type { StreamManifest } from "../../contracts/evidence/manifest.js"
 import { ProgramPreview, programPreviewCard } from "../../contracts/presentation/program-preview.js"
+import type { StudyManifest } from "../../contracts/study/manifest.js"
 import { RunData } from "../../contracts/study/run.js"
 
 import type { DspProviderRuntime } from "../capability/effect-dsp.js"
@@ -17,12 +17,12 @@ import type { Lane } from "./kinds/policy.js"
 import type { StreamElement } from "./kinds/stream-element.js"
 import type { DemoStreamPlan } from "./kinds/stream-plan.js"
 import { encodeEntryStreamRequestJson, EntryStreamRequest } from "./stream-request.js"
-import { runEntryWorkflowExecution } from "./workflow-execution.js"
+import { runStudyExecution } from "./study-execution.js"
 
 export type ProgramSourceEnv = FileSystem.FileSystem | Path.Path
-export type EntryRunEnv = DspProviderRuntime | ProgramSourceEnv
+export type StudyRunEnv = DspProviderRuntime | ProgramSourceEnv
 
-type RunnableEntryMetadata<Entry extends RunnableEntryId = RunnableEntryId> = {
+type EntryBindingMetadata<Entry extends RunnableEntryId = RunnableEntryId> = {
   readonly entryId: Entry
   readonly title: string
   readonly packageName: PackageName
@@ -34,30 +34,30 @@ type RunnableEntryMetadata<Entry extends RunnableEntryId = RunnableEntryId> = {
   readonly primaryAuthorityId: AuthorityId
 }
 
-export type EntryStreamPlanFactory =
+export type StudyStreamPlanFactory =
   | ((
-    manifest: StreamManifest | null
-  ) => Effect.Effect<DemoStreamPlan<EntryRunEnv, unknown>, unknown, EntryRunEnv | Scope.Scope>)
+    manifest: StudyManifest | null
+  ) => Effect.Effect<DemoStreamPlan<StudyRunEnv, unknown>, unknown, StudyRunEnv | Scope.Scope>)
   | null
 
-type EntryWorkflowRegistrationOptions = {
-  readonly acceptsManifest: (manifest: StreamManifest | null) => boolean
-  readonly execute: Effect.Effect<RunData, unknown, EntryRunEnv> | null
+type StudyExecutionRegistrationOptions = {
+  readonly acceptsManifest: (manifest: StudyManifest | null) => boolean
+  readonly execute: Effect.Effect<RunData, unknown, StudyRunEnv> | null
   readonly id: RunnableEntryId
   readonly lane: Lane
-  readonly streamPlan: EntryStreamPlanFactory
+  readonly streamPlan: StudyStreamPlanFactory
 }
 type InferReturn<T> = T extends (...args: infer _Args) => infer Returned ? Returned : never
 
-export class EntryWorkflowRegistration extends Data.Class<EntryWorkflowRegistration.Shape> {
+export class StudyExecutionRegistration extends Data.Class<StudyExecutionRegistration.Shape> {
   static shape({
     acceptsManifest,
     execute,
     id,
     lane,
     streamPlan
-  }: EntryWorkflowRegistrationOptions) {
-    const workflow = Workflow.make({
+  }: StudyExecutionRegistrationOptions) {
+    const execution = Workflow.make({
       name: `theoria-entry-${id}-run`,
       payload: EntryStreamRequest,
       success: RunData,
@@ -66,10 +66,10 @@ export class EntryWorkflowRegistration extends Data.Class<EntryWorkflowRegistrat
     })
 
     return {
-      workflow,
-      workflowLive: workflow.toLayer(
+      execution,
+      executionLive: execution.toLayer(
         Effect.fnUntraced(function*(request, executionId) {
-          return yield* runEntryWorkflowExecution({
+          return yield* runStudyExecution({
             acceptsManifest,
             execute,
             executionId,
@@ -89,8 +89,8 @@ export class EntryWorkflowRegistration extends Data.Class<EntryWorkflowRegistrat
     id,
     lane,
     streamPlan
-  }: EntryWorkflowRegistrationOptions): EntryWorkflowRegistration {
-    return new EntryWorkflowRegistration(EntryWorkflowRegistration.shape({
+  }: StudyExecutionRegistrationOptions): StudyExecutionRegistration {
+    return new StudyExecutionRegistration(StudyExecutionRegistration.shape({
       acceptsManifest,
       execute,
       id,
@@ -100,24 +100,24 @@ export class EntryWorkflowRegistration extends Data.Class<EntryWorkflowRegistrat
   }
 }
 
-export namespace EntryWorkflowRegistration {
-  export interface Shape extends InferReturn<typeof EntryWorkflowRegistration.shape> {}
+export namespace StudyExecutionRegistration {
+  export interface Shape extends InferReturn<typeof StudyExecutionRegistration.shape> {}
 }
 
-export type EntryRegistrationOptions<Entry extends RunnableEntryId = RunnableEntryId> = {
-  readonly acceptsManifest: (manifest: StreamManifest | null) => boolean
+export type StudyDefinitionOptions<Entry extends RunnableEntryId = RunnableEntryId> = {
+  readonly acceptsManifest: (manifest: StudyManifest | null) => boolean
   readonly capability?: Effect.Effect<EntryCapabilityAvailability, never, DspProviderRuntime> | null
-  readonly descriptor: RunnableEntryMetadata<Entry>
-  readonly execute?: Effect.Effect<RunData, unknown, EntryRunEnv> | null
+  readonly descriptor: EntryBindingMetadata<Entry>
+  readonly execute?: Effect.Effect<RunData, unknown, StudyRunEnv> | null
   readonly lane: Lane
   readonly preloadProgram: Effect.Effect<ProgramPreview["program"], unknown, ProgramSourceEnv>
-  readonly streamElements?: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
-  readonly streamPlan: EntryStreamPlanFactory
-  readonly workflowRegistration?: EntryWorkflowRegistration
+  readonly streamElements?: (manifest: StudyManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
+  readonly streamPlan: StudyStreamPlanFactory
+  readonly executionRegistration?: StudyExecutionRegistration
 }
 
-export class EntryDefinition extends Data.Class<EntryDefinition.Shape> {
-  private static previewCard(descriptor: RunnableEntryMetadata): ProgramPreview["card"] {
+export class StudyDefinition extends Data.Class<StudyDefinition.Shape> {
+  private static previewCard(descriptor: EntryBindingMetadata): ProgramPreview["card"] {
     return programPreviewCard({
       deepDivePath: descriptor.path,
       id: descriptor.entryId,
@@ -133,14 +133,14 @@ export class EntryDefinition extends Data.Class<EntryDefinition.Shape> {
     descriptor,
     preloadProgram
   }: {
-    readonly descriptor: RunnableEntryMetadata
+    readonly descriptor: EntryBindingMetadata
     readonly preloadProgram: Effect.Effect<ProgramPreview["program"], unknown, ProgramSourceEnv>
   }): Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv> {
     return preloadProgram.pipe(
       Effect.map((program) =>
         ProgramPreview.make({
           id: descriptor.entryId,
-          card: EntryDefinition.previewCard(descriptor),
+          card: StudyDefinition.previewCard(descriptor),
           summary: descriptor.summary,
           program
         })
@@ -148,8 +148,8 @@ export class EntryDefinition extends Data.Class<EntryDefinition.Shape> {
     )
   }
 
-  static make<Entry extends RunnableEntryId>(registration: EntryRegistrationOptions<Entry>): EntryDefinition {
-    const workflowRegistration = registration.workflowRegistration ?? EntryWorkflowRegistration.make({
+  static make<Entry extends RunnableEntryId>(registration: StudyDefinitionOptions<Entry>): StudyDefinition {
+    const executionRegistration = registration.executionRegistration ?? StudyExecutionRegistration.make({
       acceptsManifest: registration.acceptsManifest,
       execute: registration.execute ?? null,
       id: registration.descriptor.entryId,
@@ -157,39 +157,39 @@ export class EntryDefinition extends Data.Class<EntryDefinition.Shape> {
       streamPlan: registration.streamPlan
     })
 
-    return new EntryDefinition({
+    return new StudyDefinition({
       id: registration.descriptor.entryId,
       descriptor: registration.descriptor,
-      card: EntryDefinition.previewCard(registration.descriptor),
+      card: StudyDefinition.previewCard(registration.descriptor),
       authorityId: registration.descriptor.primaryAuthorityId,
       capability: registration.capability ??
         Effect.succeed(EntryCapabilityAvailability.enabled(registration.descriptor.entryId)),
       lane: registration.lane,
       execute: registration.execute ?? null,
-      preload: EntryDefinition.preload(registration),
+      preload: StudyDefinition.preload(registration),
       acceptsManifest: registration.acceptsManifest,
       streamPlan: registration.streamPlan,
       streamElements: registration.streamElements ?? (() => null),
-      workflow: workflowRegistration.workflow,
-      workflowLive: workflowRegistration.workflowLive
+      execution: executionRegistration.execution,
+      executionLive: executionRegistration.executionLive
     })
   }
 }
 
-export namespace EntryDefinition {
+export namespace StudyDefinition {
   export interface Shape {
     readonly id: RunnableEntryId
-    readonly descriptor: RunnableEntryMetadata
+    readonly descriptor: EntryBindingMetadata
     readonly card: ProgramPreview["card"]
     readonly authorityId: AuthorityId
     readonly capability: Effect.Effect<EntryCapabilityAvailability, never, DspProviderRuntime>
     readonly lane: Lane
-    readonly execute: Effect.Effect<RunData, unknown, EntryRunEnv> | null
+    readonly execute: Effect.Effect<RunData, unknown, StudyRunEnv> | null
     readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>
-    readonly acceptsManifest: (manifest: StreamManifest | null) => boolean
-    readonly streamPlan: EntryStreamPlanFactory
-    readonly streamElements: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
-    readonly workflow: EntryWorkflowRegistration["workflow"]
-    readonly workflowLive: EntryWorkflowRegistration["workflowLive"]
+    readonly acceptsManifest: (manifest: StudyManifest | null) => boolean
+    readonly streamPlan: StudyStreamPlanFactory
+    readonly streamElements: (manifest: StudyManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
+    readonly execution: StudyExecutionRegistration["execution"]
+    readonly executionLive: StudyExecutionRegistration["executionLive"]
   }
 }

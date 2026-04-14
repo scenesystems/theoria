@@ -1,25 +1,15 @@
 import { Schema } from "effect"
 
-import { DspCanonicalStep } from "../../capability/effect-dsp-runtime.js"
-import { EffectMathCanonicalStep } from "../../capability/effect-math.js"
-import { EffectSearchCanonicalStep } from "../../capability/effect-search.js"
-import { EffectTextProjectionStep } from "../../capability/effect-text.js"
 import { WorkflowCanonicalStep } from "./step.js"
 
 /**
- * Canonical run-step inputs authored by the shared runtime.
+ * Canonical run-step inputs authored by the workflow study runtime.
  *
- * This layer is intentionally separate from choreography: choreography
- * describes stage progression, while canonical steps carry the concrete
- * projection inputs that browser reactors project into view state.
+ * The entry-owned package step envelopes were deleted with the legacy
+ * adapter/runtime stack. The browser now reduces one workflow-authored step
+ * shape for every live execution.
  */
-export const CanonicalStep = Schema.Union(
-  EffectTextProjectionStep,
-  EffectSearchCanonicalStep,
-  EffectMathCanonicalStep,
-  DspCanonicalStep,
-  WorkflowCanonicalStep
-)
+export const CanonicalStep = WorkflowCanonicalStep
 
 export type CanonicalStep = typeof CanonicalStep.Type
 
@@ -27,9 +17,9 @@ export type CanonicalStep = typeof CanonicalStep.Type
  * Versioned frame authority for the shared runtime spine.
  *
  * `CanonicalFrame` is the app contract boundary for in-flight frame truth.
- * The `Step` stream event carries this envelope, and browser widgets must only
- * project from it. Widget-local `LocalRunFrame` values are downstream view
- * state, not transport-level authority.
+ * The `Step` stream event carries this envelope, and browser surfaces must
+ * only project from it. Local browser state is downstream projection, not
+ * transport-level authority.
  */
 export const CanonicalFrameVersion = Schema.Literal("v1")
 

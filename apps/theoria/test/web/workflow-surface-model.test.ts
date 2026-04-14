@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 
-import { workflowEntryDescriptor } from "../../app/contracts/entry/descriptors/workflow.js"
 import type { EvidenceSection } from "../../app/contracts/evidence/item.js"
 import { canonicalFrameV1 } from "../../app/contracts/study/workflow/canonical-step.js"
+import { workflowCatalogEntriesFromFixtures } from "../../app/contracts/study/workflow/catalog.js"
+import { workflowStudyDescriptor } from "../../app/contracts/study/workflow/descriptor.js"
 import {
   workflowEvidenceItemKeys,
   workflowEvidenceItemLabels,
@@ -12,6 +13,10 @@ import {
   workflowNodeExecutionSectionKey,
   workflowVariantOverviewSectionKey
 } from "../../app/contracts/study/workflow/evidence.js"
+import {
+  chatHandoffWorkflowSessionId,
+  WorkflowFixtureManifest
+} from "../../app/contracts/study/workflow/fixture-manifest.js"
 import { WorkflowEntrySelection } from "../../app/contracts/study/workflow/selection.js"
 import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
 import { WorkflowSurfaceViewModel } from "../../app/contracts/study/workflow/surface-presentation.js"
@@ -323,12 +328,12 @@ const sections: ReadonlyArray<EvidenceSection> = [
 describe("workflow surface model", () => {
   it.effect("projects graph, transcript, and rendered-preview view models from canonical frame and evidence truth", () =>
     Effect.gen(function*() {
-      const runDraft = Schema.decodeUnknownSync(workflowEntryDescriptor.draftSchema)({
+      const runDraft = Schema.decodeUnknownSync(workflowStudyDescriptor.draftSchema)({
         entryId: "workflow",
-        seedId: "chat-handoff",
-        input: {},
+        seedId: chatHandoffWorkflowSessionId,
+        input: workflowStudyDescriptor.defaultInput(),
         controls: WorkflowEntrySelection.make({
-          seedId: "chat-handoff",
+          seedId: chatHandoffWorkflowSessionId,
           controls: defaultWorkflowEntrySelection.controls
         }).controls
       })
@@ -339,10 +344,11 @@ describe("workflow surface model", () => {
 
       const model = WorkflowSurfaceViewModel.project(
         workflowSurfacePresentationInput({
-          draft: workflowEntryDescriptor.defaultDraft(),
+          catalog: workflowCatalogEntriesFromFixtures(WorkflowFixtureManifest.catalog()),
+          draft: workflowStudyDescriptor.defaultDraft(),
           frame: canonicalFrameV1(
             new WorkflowCanonicalStep({
-              scenarioId: "chat-handoff",
+              seedId: chatHandoffWorkflowSessionId,
               workflowKind: "chat-continuation",
               variant: "optimized",
               nodeId: "render-check",
@@ -364,7 +370,7 @@ describe("workflow surface model", () => {
       expect(model.selector.selected.label).toBe("Chat Handoff")
       expect(model.selector.locked).toBe(true)
       expect(model.plan.controls.targetMode).toBe("search-winner")
-      expect(model.runStory).toBe("baseline -> study -> search winner replay")
+      expect(model.runStory).toBe("Baseline -> search -> winner replay")
       expect(model.graph.cards.map((card) => card.key)).toEqual([
         "baseline",
         "authored-optimized",

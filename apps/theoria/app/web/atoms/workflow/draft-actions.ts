@@ -2,7 +2,7 @@ import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 
 import { workflowEntryId } from "../../../contracts/entry/id.js"
-import type { WorkflowEntryDraft } from "../../../contracts/entry/registry.js"
+import type { WorkflowStudyDraft } from "../../../contracts/study/registry.js"
 import {
   type WorkflowExecutionLane,
   WorkflowRunControls,
@@ -10,13 +10,13 @@ import {
   type WorkflowSurfaceProfile,
   type WorkflowTargetMode
 } from "../../../contracts/study/workflow/controls.js"
-import type { WorkflowScenarioId } from "../../../contracts/study/workflow/scenario.js"
+import type { WorkflowSeedId } from "../../../contracts/study/workflow/manifest.js"
 
 import { modifySurface } from "../surface/internal.js"
 
 const updateWorkflowDraft = (
   ctx: AtomType.FnContext,
-  updateDraft: (draft: WorkflowEntryDraft) => WorkflowEntryDraft
+  updateDraft: (draft: WorkflowStudyDraft) => WorkflowStudyDraft
 ): void => {
   modifySurface(ctx.registry, workflowEntryId, (surface) =>
     surface.draft.entryId !== workflowEntryId
@@ -29,7 +29,7 @@ const updateWorkflowDraft = (
 
 const updateWorkflowControls = (
   ctx: AtomType.FnContext,
-  nextControls: (controls: WorkflowEntryDraft["controls"]) => {
+  nextControls: (controls: WorkflowStudyDraft["controls"]) => {
     readonly targetMode?: WorkflowTargetMode
     readonly lane?: WorkflowExecutionLane
     readonly optimize?: boolean
@@ -53,7 +53,7 @@ const updateWorkflowControls = (
   })
 }
 
-export const selectWorkflowSeedAtom = Atom.fnSync<WorkflowScenarioId>()((seedId, ctx) => {
+export const selectWorkflowSeedAtom = Atom.fnSync<WorkflowSeedId>()((seedId, ctx) => {
   updateWorkflowDraft(ctx, (draft) => ({
     ...draft,
     seedId

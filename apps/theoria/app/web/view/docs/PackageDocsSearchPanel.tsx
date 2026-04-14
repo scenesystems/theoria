@@ -1,133 +1,236 @@
-import { useAtom, useAtomValue } from "@effect-atom/atom-react"
+import { useAtom, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline"
 import { Match } from "effect"
-import type { ChangeEvent } from "react"
+import { useRef } from "react"
+import type { KeyboardEvent } from "react"
 
+import { type PackageDocsSearchItem } from "../../../contracts/presentation/package-docs.js"
+import { navigateToPackageDocsSearchItemAtom } from "../../atoms/package-docs-navigation.js"
 import {
-  packageDocsSearchPanelContent,
-  type PackageDocsPageRoute,
-  type PackageDocsSearchModel
-} from "../../../contracts/presentation/package-docs.js"
-import { packageDocsSearchQueryAtom, packageDocsSearchStateAtom } from "../../atoms/package-docs.js"
-import { ContentCard } from "../primitives/ContentCard.js"
-import { Cluster, Stack } from "../primitives/Layout.js"
-import { ExternalLink, InternalLink } from "../primitives/Link.js"
-import { SearchField } from "../primitives/SearchField.js"
-import { SemanticText } from "../primitives/SemanticText.js"
-import { FailureState, RunningState } from "../primitives/Skeleton.js"
-import { neutralTone } from "../primitives/theme/tone.js"
+  packageDocsCurrentRouteKeyAtom,
+  packageDocsCurrentSearchPresentationAtom,
+  packageDocsSearchHighlightIndexAtom,
+  packageDocsSearchPanelOpenAtom,
+  packageDocsSearchQueryAtom,
+  rememberPackageDocsSearchSelectionAtom
+} from "../../atoms/package-docs.js"
+import { SearchField } from "../../ui/components/form/SearchField.js"
+import { Dialog } from "../../ui/components/overlay/Dialog.js"
+import { Box, mergeClassNames } from "../../ui/structure/Box.js"
+import { Cluster } from "../../ui/structure/Cluster.js"
+import { Icon } from "../../ui/structure/Icon.js"
+import { SemanticText } from "../../ui/structure/SemanticText.js"
+import { Stack } from "../../ui/structure/Stack.js"
+import {
+  packageDocsSearchItemDomId,
+  packageDocsSearchModelFromContent,
+  PackageDocsSearchPanelNotice,
+  PackageDocsSearchPanelResults
+} from "./PackageDocsSearchPanelResults.js"
 
-const searchResultCard = ({
-  excerpt,
-  href,
-  packageId,
-  sourceHref,
-  sourceLabel,
-  title
-}: PackageDocsSearchModel["results"][number]) => (
-  <ContentCard density="compact" key={`${packageId}:${sourceLabel}:${title}`}>
-    <Stack className="gap-2">
-      <Cluster className="items-start justify-between gap-3">
-        <Stack className="gap-1">
-          <InternalLink className="text-ink-900 underline decoration-stage-300 underline-offset-4" href={href}>
-            <SemanticText as="span" role="card-title" text={title} variant="expanded" />
-          </InternalLink>
-          <SemanticText as="span" className="text-ink-500" role="row-label" text={packageId} variant="compact" />
-        </Stack>
-        <ExternalLink className="text-ink-700 underline decoration-stage-300 underline-offset-4" href={sourceHref}>
-          <SemanticText as="span" role="row-label" text={sourceLabel} variant="compact" />
-        </ExternalLink>
-      </Cluster>
-      <SemanticText as="p" className="text-ink-700" role="card-summary" text={excerpt} variant="expanded" />
-    </Stack>
-  </ContentCard>
-)
+const packageDocsSearchPanelId = "package-docs-search-panel"
 
-export const PackageDocsSearchPanel = ({ route }: { readonly route: PackageDocsPageRoute }) => {
+export const PackageDocsSearchPanel = ({
+  onOpenChange,
+  triggerClassName
+}: {
+  readonly onOpenChange?: (open: boolean) => void
+  readonly triggerClassName?: string
+} = {}) => {
+  const routeKey = useAtomValue(packageDocsCurrentRouteKeyAtom)
   const [query, setQuery] = useAtom(packageDocsSearchQueryAtom)
-  const content = packageDocsSearchPanelContent(useAtomValue(packageDocsSearchStateAtom(route)))
+  const [open, setOpen] = useAtom(packageDocsSearchPanelOpenAtom(routeKey))
+  const [highlightIndex, setHighlightIndex] = useAtom(packageDocsSearchHighlightIndexAtom(routeKey))
+  const rememberSelection = useAtomSet(rememberPackageDocsSearchSelectionAtom)
+  const navigateToSearchItem = useAtomSet(navigateToPackageDocsSearchItemAtom)
+  const content = useAtomValue(packageDocsCurrentSearchPresentationAtom)
+  const model = packageDocsSearchModelFromContent(content)
+  const resultsKey = `${routeKey}:${open ? "open" : "closed"}:${query.trim()}`
+  const autoScrollActiveItemRef = useRef(false)
+  const items = model?.presentationItems ?? []
+  const activeIndex = items.length === 0 ? -1 : Math.max(0, Math.min(highlightIndex, items.length - 1))
+  const activeItem = activeIndex === -1 ? null : items[activeIndex] ?? null
+
+  const selectItem = (item: PackageDocsSearchItem): void => {
+    rememberSelection(item)
+    setHighlightIndex(0)
+    setOpen(false)
+    navigateToSearchItem(item)
+  }
 
   return (
-    <ContentCard density="standard">
-      <Stack className="gap-4">
-        <Stack className="gap-1">
-          <SemanticText
-            as="h2"
-            className="text-ink-900"
-            role="section-title"
-            text={content.frame.title}
-            variant="expanded"
-          />
-          <SemanticText
-            as="p"
-            className="text-ink-700"
-            role="card-summary"
-            text={content.frame.summaryText}
-            variant="expanded"
-          />
-        </Stack>
-
-        <SearchField
-          active={query.trim().length > 0}
-          disabled={false}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            setQuery(event.target.value)
-          }}
-          placeholder={content.frame.placeholderText}
-          tone={neutralTone}
-          value={query}
-        />
-
-        {Match.value(content).pipe(
-          Match.tag("Idle", ({ model }) => {
-            return (
-              <Stack className="gap-1">
-                <SemanticText
-                  as="p"
-                  className="text-ink-600"
-                  role="row-label"
-                  text={model.scopeLabel}
-                  variant="compact"
-                />
-                <SemanticText
-                  as="p"
-                  className="text-ink-700"
-                  role="status"
-                  text={model.scopeDescription}
-                  variant="expanded"
-                />
-              </Stack>
-            )
-          }),
-          Match.tag("Loading", ({ statusText }) => <RunningState text={statusText} />),
-          Match.tag("Failure", ({ description }) => <FailureState description={description} />),
-          Match.tag("Ready", ({ model }) => {
-            return (
-              <Stack className="gap-3">
-                <Stack className="gap-1">
-                  <SemanticText
-                    as="p"
-                    className="text-ink-600"
-                    role="row-label"
-                    text={model.scopeLabel}
-                    variant="compact"
-                  />
-                  <SemanticText
-                    as="p"
-                    className="text-ink-700"
-                    role="status"
-                    text={model.resultSummary}
-                    variant="expanded"
-                  />
-                </Stack>
-                <Stack className="gap-3">
-                  {model.results.map(searchResultCard)}
-                </Stack>
-              </Stack>
-            )
-          }),
-          Match.exhaustive
+    <Dialog.Root
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        onOpenChange?.(nextOpen)
+        if (nextOpen === false) {
+          setHighlightIndex(0)
+        }
+      }}
+      open={open}
+    >
+      <Dialog.Trigger
+        className={mergeClassNames(
+          "group flex h-11 w-full items-center gap-3 rounded-lg border border-stage-200/80 bg-stage-0/82 px-3.5 text-left shadow-chip transition-[border-color,background-color,box-shadow] duration-150 ease-out hover:border-stage-300 hover:bg-stage-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/30",
+          triggerClassName
         )}
-      </Stack>
-    </ContentCard>
+      >
+        <Icon
+          className="text-ink-500 transition-colors duration-150 group-hover:text-ink-700"
+          size="sm"
+          source={MagnifyingGlassIcon}
+        />
+        <SemanticText
+          as="span"
+          className="min-w-0 flex-1 truncate text-ink-500 group-hover:text-ink-700"
+          role="body-sm"
+        >
+          Search package docs
+        </SemanticText>
+        <Cluster
+          className="hidden shrink-0 rounded-md border border-stage-200/80 bg-stage-50/90 px-2 py-1 text-ink-500 sm:inline-flex"
+          gap="xs"
+        >
+          <SemanticText as="span" role="label">Cmd</SemanticText>
+          <SemanticText as="span" role="label">K</SemanticText>
+        </Cluster>
+      </Dialog.Trigger>
+
+      <Dialog.Portal keepMounted>
+        <Dialog.Backdrop />
+        <Dialog.Content className="w-[min(52rem,calc(100vw-1.5rem))] max-w-none overflow-hidden p-0">
+          <Dialog.Title className="sr-only">{content.frame.title}</Dialog.Title>
+          <Dialog.Description className="sr-only">{content.frame.summaryText}</Dialog.Description>
+
+          <Stack className="gap-0">
+            <Box className="border-b border-stage-200/80 bg-stage-0/98 p-3 sm:p-4">
+              <SearchField
+                active={query.trim().length > 0}
+                activeDescendant={open && activeItem !== null ? packageDocsSearchItemDomId(activeItem) : undefined}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                autoFocus={open}
+                controls={packageDocsSearchPanelId}
+                disabled={false}
+                expanded={open}
+                inputClassName="min-h-12 rounded-[1.1rem] border-stage-200/95 bg-stage-0 px-4 text-sm shadow-none placeholder:text-ink-400"
+                name="package-docs-command-search"
+                onValueChange={(value) => {
+                  autoScrollActiveItemRef.current = false
+                  setQuery(value)
+                  setHighlightIndex(0)
+                }}
+                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault()
+                    setOpen(false)
+                    return
+                  }
+
+                  if (event.key === "Enter" && activeItem !== null) {
+                    event.preventDefault()
+                    selectItem(activeItem)
+                    return
+                  }
+
+                  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                    return
+                  }
+
+                  if (items.length === 0) {
+                    autoScrollActiveItemRef.current = false
+                    return
+                  }
+
+                  event.preventDefault()
+                  autoScrollActiveItemRef.current = true
+                  setHighlightIndex(
+                    event.key === "ArrowDown"
+                      ? (activeIndex + 1) % items.length
+                      : (activeIndex + items.length - 1) % items.length
+                  )
+                }}
+                placeholder={content.frame.placeholderText}
+                spellCheck={false}
+                type="text"
+                value={query}
+              />
+            </Box>
+
+            <Box
+              className="max-h-[min(68vh,42rem)] overflow-y-auto bg-stage-50/96"
+              id={packageDocsSearchPanelId}
+            >
+              {Match.value(content).pipe(
+                Match.tag("OpenEmpty", ({ model }) =>
+                  model.lanes.length === 0
+                    ? <PackageDocsSearchPanelNotice text={content.frame.summaryText} />
+                    : (
+                      <PackageDocsSearchPanelResults
+                        activeItem={activeItem}
+                        autoScrollActiveItem={autoScrollActiveItemRef.current}
+                        key={resultsKey}
+                        model={model}
+                        onHighlight={(item) => {
+                          autoScrollActiveItemRef.current = false
+                          setHighlightIndex(model.presentationItems.findIndex((candidate) => candidate.id === item.id))
+                        }}
+                        onSelect={selectItem}
+                      />
+                    )),
+                Match.tag("LoadingInitial", ({ statusText }) => <PackageDocsSearchPanelNotice text={statusText} />),
+                Match.tag("RefreshingStale", ({ model, statusText }) => (
+                  <PackageDocsSearchPanelResults
+                    activeItem={activeItem}
+                    autoScrollActiveItem={autoScrollActiveItemRef.current}
+                    key={resultsKey}
+                    model={model}
+                    notice={<PackageDocsSearchPanelNotice text={statusText} />}
+                    onHighlight={(item) => {
+                      autoScrollActiveItemRef.current = false
+                      setHighlightIndex(items.findIndex((candidate) => candidate.id === item.id))
+                    }}
+                    onSelect={selectItem}
+                  />
+                )),
+                Match.tag(
+                  "ErrorEmpty",
+                  ({ description }) => <PackageDocsSearchPanelNotice danger text={description} />
+                ),
+                Match.tag("ErrorWithStale", ({ description, model }) => (
+                  <PackageDocsSearchPanelResults
+                    activeItem={activeItem}
+                    autoScrollActiveItem={autoScrollActiveItemRef.current}
+                    key={resultsKey}
+                    model={model}
+                    notice={<PackageDocsSearchPanelNotice danger text={description} />}
+                    onHighlight={(item) => {
+                      autoScrollActiveItemRef.current = false
+                      setHighlightIndex(items.findIndex((candidate) => candidate.id === item.id))
+                    }}
+                    onSelect={selectItem}
+                  />
+                )),
+                Match.tag("Ready", ({ model }) => (
+                  <PackageDocsSearchPanelResults
+                    activeItem={activeItem}
+                    autoScrollActiveItem={autoScrollActiveItemRef.current}
+                    key={resultsKey}
+                    model={model}
+                    onHighlight={(item) => {
+                      autoScrollActiveItemRef.current = false
+                      setHighlightIndex(items.findIndex((candidate) => candidate.id === item.id))
+                    }}
+                    onSelect={selectItem}
+                  />
+                )),
+                Match.exhaustive
+              )}
+            </Box>
+          </Stack>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

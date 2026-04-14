@@ -1,47 +1,34 @@
 import { packageNameFromString } from "@theoria/source-proof/contracts"
-import { WorkflowRunControls } from "../../study/workflow/controls.js"
-import { WorkflowScenarioManifest } from "../../study/workflow/manifest.js"
-import { WorkflowEntrySelection } from "../../study/workflow/selection.js"
-import { EmptyStruct, EntryDescriptor, EntryProjectionHint, EntrySeed, WorkflowSeedId } from "../descriptor.js"
-
-const defaultWorkflowSelection = WorkflowEntrySelection.defaults()
-
-const workflowEntrySeeds: ReadonlyArray<EntrySeed> = WorkflowScenarioManifest.catalog().map((manifest) =>
-  EntrySeed.make({
-    seedId: manifest.id,
-    label: manifest.label,
-    summary: manifest.summary
-  })
-)
+import { workflowStudyId } from "../../study/id.js"
+import {
+  defaultWorkflowCatalogEntry,
+  defaultWorkflowStudyPath,
+  publishedWorkflowEntrySeeds
+} from "../../study/workflow/catalog-policy.js"
+import { EntryDescriptor, EntryProjectionHint } from "../descriptor.js"
 
 export const workflowEntryDescriptor = EntryDescriptor.make({
   entryId: "workflow",
+  studyId: workflowStudyId,
   title: "Workflow",
   packageName: packageNameFromString("@theoria/theoria-app"),
   description:
-    "Compare baseline and optimized graph-backed workflow seeds on the same evaluation set, render envelope, and study-backed runtime spine.",
-  useCase: "Prove prompt, routing, and chat-agent improvement from one integrated workflow entry.",
-  summary:
-    "Run a baseline-versus-optimized workflow, inspect the winning study selection, and trace why the graph improved.",
-  runLabel: "Run Workflow",
+    "Run a workflow study that compares baseline and optimized variants on shared evaluation material, then inspect the evidence behind the outcome.",
+  useCase:
+    "Study a workflow against real traces or evaluation sets, test improvements, and explain why one revision wins.",
+  summary: "Choose a workflow, run the study, and compare the baseline, winner, and evidence side by side.",
+  runLabel: "Run Study",
   releaseState: "published",
-  path: "/workflow",
-  interactiveLabel: "Graph Workflow Comparison",
+  path: defaultWorkflowStudyPath,
+  interactiveLabel: "Workflow Study",
   projectionHint: EntryProjectionHint.make({
     stage:
-      "Run one frozen workflow study at a time and let the browser project canonical graph steps, transcript outputs, and rendered replays from the same server-authored stream.",
-    evidence:
-      "Every workflow run accumulates graph deltas, node outputs, score changes, and study evidence on one ordered ledger.",
+      "Choose a workflow, shape the run, and watch the study unfold across controls, interactions, and render-aware outputs.",
+    evidence: "Each run records scores, graph changes, node outputs, and study notes on one ordered evidence ledger.",
     source:
-      `${WorkflowScenarioManifest.defaults().label} is the default proving route; switch scenarios before running to freeze a different workflow replay.`
+      `${defaultWorkflowCatalogEntry.label} is the published starting point. Switch to another workflow before you run if you want to study a different revision.`
   }),
   primaryAuthorityId: "effect-inference",
   authorityIds: ["effect-inference", "effect-search", "effect-dsp", "effect-text", "effect-math"],
-  seeds: workflowEntrySeeds,
-  defaultSeedId: defaultWorkflowSelection.seedId,
-  defaultInput: {},
-  defaultControls: defaultWorkflowSelection.controls,
-  seedIdSchema: WorkflowSeedId,
-  inputSchema: EmptyStruct,
-  controlsSchema: WorkflowRunControls
+  seeds: publishedWorkflowEntrySeeds
 })

@@ -6,12 +6,12 @@ import * as Arr from "effect/Array"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { projectEffectSearchStudyTelemetry } from "../../app/contracts/capability/effect-search-study-telemetry-projection.js"
-import { EffectSearchCanonicalStep } from "../../app/contracts/capability/effect-search.js"
 import type { EntryId } from "../../app/contracts/entry/id.js"
 import { EntryPresentation } from "../../app/contracts/entry/routing.js"
 import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence/stream.js"
 import { PageMetadata } from "../../app/contracts/presentation/metadata.js"
+import { taskBriefingWorkflowSessionId } from "../../app/contracts/study/workflow/fixture-manifest.js"
+import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
 import { EntryPage } from "../../app/web/view/entry/EntryPage.js"
 import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 
@@ -108,14 +108,14 @@ const withMockNetwork = <A,>(effect: Effect.Effect<A, never, never>): Effect.Eff
     yield* Effect.sync(() => {
       MockEventSource.instances = []
       Reflect.set(globalThis, "EventSource", MockEventSource)
-      Reflect.set(globalThis, "fetch", (input: string | URL | Request) =>
+      Reflect.set(globalThis, "fetch", (_input: string | URL | Request) =>
         Promise.resolve({
           json: () => Promise.resolve({
             ok: true,
             meta: preloadMeta,
             data: {
               ...programPreviewFixture,
-              id: String(input).includes("effect-search") ? "effect-search" : programPreviewFixture.id
+              id: "workflow"
             }
           })
         })
@@ -140,7 +140,7 @@ describe("live run controls", () => {
     () =>
       withMockNetwork(
         Effect.gen(function*() {
-          const { container, root } = yield* renderEntryPage("effect-search")
+          const { container, root } = yield* renderEntryPage("workflow")
 
           yield* Effect.ensuring(
             Effect.gen(function*() {
@@ -165,21 +165,21 @@ describe("live run controls", () => {
               expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
 
               yield* Effect.sync(() => {
-                const telemetry = projectEffectSearchStudyTelemetry({
-                  randomEvents: [],
-                  randomTrialPoints: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
-                  trialBudget: 30,
-                  tpeEvents: [],
-                  tpeTrialPoints: [{ x: -1.25, y: 0.25, value: 0.12, index: 0 }]
-                })
                 const stepEvent = encodeEvidenceEventJson(
                   canonicalStepEvent(
-                    EffectSearchCanonicalStep.make({
-                      trialBudget: 30,
-                      phase: "running",
-                      tpeTrials: [{ x: -1.25, y: 0.25, value: 0.12, index: 0 }],
-                      randomTrials: [{ x: 0.75, y: -0.5, value: 0.45, index: 0 }],
-                      telemetry
+                    WorkflowCanonicalStep.make({
+                      seedId: taskBriefingWorkflowSessionId,
+                      workflowKind: "task-first",
+                      variant: "baseline",
+                      nodeId: "planner-task",
+                      nodeKind: "planner",
+                      runtimeRole: "task",
+                      stepIndex: 1,
+                      stepCount: 3,
+                      lineage: ["planner-task"],
+                      activeStateLanes: ["conversation"],
+                      outputText: "Workflow smoke test progressed to the first authored step.",
+                      aggregateScore: 0.67
                     })
                   )
                 )

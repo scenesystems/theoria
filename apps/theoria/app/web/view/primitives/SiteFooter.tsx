@@ -51,7 +51,6 @@ export const SiteFooter = () => (
             role="status"
             text="Observation that produces knowledge"
             variant="compact"
-            wrapAuthority="native-browser"
           />
         </Cluster>
         <Cluster as="nav" className="hidden gap-x-4 gap-y-2 md:flex">
@@ -68,7 +67,6 @@ export const SiteFooter = () => (
         role="status"
         text="Observation that produces knowledge"
         variant="compact"
-        wrapAuthority="native-browser"
       />
 
       <Cluster as="nav" className="justify-center gap-x-4 gap-y-2 md:hidden">

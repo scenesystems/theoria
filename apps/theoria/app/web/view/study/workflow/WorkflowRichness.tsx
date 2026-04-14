@@ -11,7 +11,7 @@ export const WorkflowRichness = ({
 }: {
   readonly viewModel: WorkflowSurfaceViewModel
 }) => (
-  <Stack className="gap-4">
+  <Stack className="gap-0 divide-y divide-stage-200/72">
     <WorkflowProgressSectionCard viewModel={viewModel.progress} />
     <WorkflowGraphSectionCard viewModel={viewModel.graph} />
     <WorkflowTranscriptSectionCard viewModel={viewModel.transcript} />

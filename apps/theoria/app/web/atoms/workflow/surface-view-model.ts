@@ -7,11 +7,13 @@ import { workflowSurfacePresentationInput } from "../../state/workflow/surface-p
 
 import { surfaceEvidenceSectionsAtom } from "../surface/evidence-store.js"
 import { surfaceCanonicalFrameAtom, surfaceDraftAtom, surfaceRunStateAtom } from "../surface/state.js"
+import { workflowCatalogAtom } from "./catalog.js"
 
 export const workflowSurfaceViewModelAtom: AtomType.Atom<WorkflowSurfaceViewModel> = Atom.make(
   (get: AtomType.Context) =>
     WorkflowSurfaceViewModel.project(
       workflowSurfacePresentationInput({
+        catalog: get(workflowCatalogAtom),
         draft: get(surfaceDraftAtom(workflowEntryId)),
         frame: get(surfaceCanonicalFrameAtom(workflowEntryId)),
         run: get(surfaceRunStateAtom(workflowEntryId)),

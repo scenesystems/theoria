@@ -1,12 +1,14 @@
-import { HttpServerResponse } from "@effect/platform"
+import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Layer, Option, Schema } from "effect"
 
 import {
   type OpenAgentTraceRegistryEntry,
   OpenAgentTraceRegistryEnvelope
 } from "../../app/contracts/study/workflow/open-agent-trace.js"
 import { RuntimeInfoLive } from "../../app/server/config/runtime.js"
+import { AmpThreadImportKernel } from "../../app/server/kernel/amp-thread-import/service.js"
 import { openAgentTraceRoute } from "../../app/server/routes/open-agent-trace.js"
 import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
 
@@ -28,7 +30,21 @@ const decodeWebJson = <A, I>(
     return yield* Schema.decodeUnknown(schema)(body).pipe(Effect.orDie)
   })
 
-const provideServer = <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(RuntimeInfoLive))
+const ampThreadImportKernelTest = Layer.succeed(AmpThreadImportKernel, {
+  _tag: "theoria/server/kernel/AmpThreadImportKernel",
+  exportSnapshot: () => Effect.die("unused-open-agent-trace-import-kernel")
+})
+
+const provideServer = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(
+    Effect.provideService(
+      HttpServerRequest.HttpServerRequest,
+      HttpServerRequest.fromWeb(new Request("http://127.0.0.1/api/open-agent-trace/registry"))
+    ),
+    Effect.provide(BunContext.layer),
+    Effect.provide(ampThreadImportKernelTest),
+    Effect.provide(RuntimeInfoLive)
+  )
 
 const coverageKinds = (entry: OpenAgentTraceRegistryEntry): ReadonlyArray<string> =>
   entry.workflowProjection.coverageGaps.map((gap) => gap.sourceKind)
@@ -48,8 +64,12 @@ describe("server/open-agent-trace-registry", () => {
         }
 
         const entries = Option.all({
-          taskFirst: Option.fromNullable(envelope.data[0]),
-          chatContinuation: Option.fromNullable(envelope.data[1])
+          taskFirst: Option.fromNullable(
+            envelope.data.find((entry) => entry.workflowProjection.workflowRecord.workflowKind === "task-first")
+          ),
+          chatContinuation: Option.fromNullable(
+            envelope.data.find((entry) => entry.workflowProjection.workflowRecord.workflowKind === "chat-continuation")
+          )
         })
 
         expect(Option.isSome(entries)).toBe(true)
@@ -61,8 +81,10 @@ describe("server/open-agent-trace-registry", () => {
         const { chatContinuation, taskFirst } = entries.value
 
         expect(envelope.data).toEqual(expectedRegistry)
+        expect(taskFirst.entryId).toBe(taskFirst.record.recordId)
         expect(taskFirst.record.source.datasetId).toBe("badlogicgames/pi-mono")
         expect(taskFirst.record.selection.selectionPolicy).toBe("latest-leaf")
+        expect(taskFirst.workflowHookup.transport).toBe("registry")
         expect(taskFirst.workflowProjection.workflowRecord.graph.nodes.length).toBe(2)
         expect(coverageKinds(taskFirst)).toEqual([
           "compaction",
@@ -72,6 +94,7 @@ describe("server/open-agent-trace-registry", () => {
           "session-info",
           "image"
         ])
+        expect(chatContinuation.entryId).toBe(chatContinuation.record.recordId)
         expect(chatContinuation.workflowProjection.workflowRecord.workflowKind).toBe("chat-continuation")
         expect(coverageKinds(chatContinuation)).toEqual([])
       })

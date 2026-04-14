@@ -13,7 +13,7 @@ export const GridLayout = Schema.Literal("split", "stack", "sidebar", "lead-rail
 export type GridLayout = typeof GridLayout.Type
 
 /**
- * Surface identities available in the deep-dive projection workspace.
+ * Surface identities available in the entry surface workspace.
  *
  * @since 0.1.0
  */
@@ -34,7 +34,7 @@ export const DeepDiveSurfacePlane = Schema.Enums(DeepDiveSurfacePlaneValue)
 export type DeepDiveSurfacePlane = typeof DeepDiveSurfacePlane.Type
 
 /**
- * Identifies which visible pane is focused in compact deep-dive layouts.
+ * Identifies which visible pane is focused in compact surface layouts.
  *
  * @since 0.1.0
  */
@@ -58,7 +58,7 @@ export const DeepDiveFocusedPane = Schema.Enums(DeepDiveFocusedPaneValue)
 export type DeepDiveFocusedPane = typeof DeepDiveFocusedPane.Type
 
 /**
- * Percent width reserved for the primary deep-dive projection pane.
+ * Percent width reserved for the primary surface pane.
  *
  * @since 0.1.0
  */

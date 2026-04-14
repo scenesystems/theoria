@@ -44,7 +44,7 @@ export const workflowSearchDimensions = (
 
   return Arr.some(dimensions, (dimension) => Equal.equals(dimension.choices.length, 0))
     ? Effect.fail(
-      executionError(`Workflow scenario ${workflowRun.scenarioId} declared an empty optimization knob choice set.`)
+      executionError(`Workflow seed ${workflowRun.seedId} declared an empty optimization knob choice set.`)
     )
     : Effect.succeed(dimensions)
 }

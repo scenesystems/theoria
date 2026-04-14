@@ -13,7 +13,6 @@ import {
 } from "../../../../contracts/study/workflow/controls.js"
 import type { WorkflowSurfaceViewModel } from "../../../../contracts/study/workflow/surface-presentation.js"
 
-import { ContentCard } from "../../primitives/ContentCard.js"
 import { Layer, Stack } from "../../primitives/Layout.js"
 import { SemanticText } from "../../primitives/SemanticText.js"
 import { TabBar, TabButton } from "../../primitives/TabBar.js"
@@ -41,15 +40,15 @@ type WorkflowControlsGridProps = {
 }
 
 const WorkflowControlPanel = ({ children, description, title }: WorkflowControlPanelProps) => (
-  <ContentCard density="compact">
-    <Stack className="gap-3">
+  <Layer className="grid gap-3 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,18rem)_1fr] lg:gap-6">
+    <Stack className="gap-2">
       <Stack className="gap-1">
         <SemanticText as="h3" className="text-ink-900" role="section-title" text={title} variant="expanded" />
         <SemanticText as="p" className="text-ink-700" role="status" text={description} variant="expanded" />
       </Stack>
-      {children}
     </Stack>
-  </ContentCard>
+    <Layer className="min-w-0">{children}</Layer>
+  </Layer>
 )
 
 export const WorkflowControlsGrid = ({
@@ -61,14 +60,15 @@ export const WorkflowControlsGrid = ({
   selectionLocked,
   viewModel
 }: WorkflowControlsGridProps) => (
-  <Layer className="grid gap-3 lg:grid-cols-2">
+  <Stack className="gap-0 divide-y divide-stage-200/56 border-t border-stage-200/56">
     <WorkflowControlPanel
       description={viewModel.executionLaneControl.description}
       title={viewModel.executionLaneControl.title}
     >
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {workflowExecutionLanes.map((lane) => (
           <TabButton
+            appearance="flat"
             key={lane}
             active={lane === viewModel.plan.controls.lane}
             disabled={selectionLocked}
@@ -85,9 +85,10 @@ export const WorkflowControlsGrid = ({
       description={viewModel.optimizeControl.description}
       title={viewModel.optimizeControl.title}
     >
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {[true, false].map((optimize) => (
           <TabButton
+            appearance="flat"
             key={optimize ? "optimize-on" : "optimize-off"}
             active={optimize === viewModel.plan.controls.optimize}
             disabled={selectionLocked}
@@ -104,9 +105,10 @@ export const WorkflowControlsGrid = ({
       description={viewModel.targetModeControl.description}
       title={viewModel.targetModeControl.title}
     >
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {workflowTargetModes.map((targetMode) => (
           <TabButton
+            appearance="flat"
             key={targetMode}
             active={targetMode === viewModel.plan.controls.targetMode}
             disabled={selectionLocked || (!viewModel.plan.controls.optimize && targetMode === "search-winner")}
@@ -123,9 +125,10 @@ export const WorkflowControlsGrid = ({
       description={viewModel.runtimeProfileControl.description}
       title={viewModel.runtimeProfileControl.title}
     >
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {workflowRuntimeProfiles.map((runtimeProfile) => (
           <TabButton
+            appearance="flat"
             key={runtimeProfile}
             active={runtimeProfile === viewModel.plan.controls.runtimeProfile}
             disabled={selectionLocked}
@@ -142,9 +145,10 @@ export const WorkflowControlsGrid = ({
       description={viewModel.surfaceProfileControl.description}
       title={viewModel.surfaceProfileControl.title}
     >
-      <TabBar className="flex-wrap">
+      <TabBar appearance="flat">
         {workflowSurfaceProfiles.map((surfaceProfile) => (
           <TabButton
+            appearance="flat"
             key={surfaceProfile}
             active={surfaceProfile === viewModel.plan.controls.surfaceProfile}
             disabled={selectionLocked}
@@ -156,5 +160,5 @@ export const WorkflowControlsGrid = ({
         ))}
       </TabBar>
     </WorkflowControlPanel>
-  </Layer>
+  </Stack>
 )

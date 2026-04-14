@@ -19,6 +19,7 @@ export class PackageDocsSearchIdle extends Schema.TaggedClass<PackageDocsSearchI
 export class PackageDocsSearchLoading extends Schema.TaggedClass<PackageDocsSearchLoading>()(
   "LoadingPackageDocsSearch",
   {
+    previous: Schema.NullOr(Schema.suspend(() => PackageDocsPreviousSearch)),
     query: Schema.String,
     route: PackageDocsPageRouteSchema,
     selectedPackageId: Schema.NullOr(PackageNameSchema)
@@ -29,11 +30,18 @@ export class PackageDocsSearchFailure extends Schema.TaggedClass<PackageDocsSear
   "FailedPackageDocsSearch",
   {
     description: Schema.String,
+    previous: Schema.NullOr(Schema.suspend(() => PackageDocsPreviousSearch)),
     query: Schema.String,
     route: PackageDocsPageRouteSchema,
     selectedPackageId: Schema.NullOr(PackageNameSchema)
   }
 ) {}
+
+export class PackageDocsPreviousSearch extends Schema.Class<PackageDocsPreviousSearch>("PackageDocsPreviousSearch")({
+  query: Schema.String,
+  results: PackageDocsSearchResults,
+  selectedPackageId: Schema.NullOr(PackageNameSchema)
+}) {}
 
 export class PackageDocsSearchReady extends Schema.TaggedClass<PackageDocsSearchReady>()("ReadyPackageDocsSearch", {
   query: Schema.String,
@@ -66,9 +74,26 @@ export const packageDocsSearchIdle = (
   query: string
 ): PackageDocsSearchIdle => PackageDocsSearchIdle.make(packageDocsSearchBase(route, query))
 
+export const packageDocsPreviousSearch = (ready: PackageDocsSearchReady): PackageDocsPreviousSearch =>
+  PackageDocsPreviousSearch.make({
+    query: ready.query,
+    results: ready.results,
+    selectedPackageId: ready.selectedPackageId
+  })
+
+export const packageDocsSearchReady = (input: {
+  readonly query: string
+  readonly results: ReadonlyArray<PackageDocsSearchResult>
+  readonly route: PackageDocsPageRoute
+}): PackageDocsSearchReady =>
+  PackageDocsSearchReady.make({
+    ...packageDocsSearchBase(input.route, input.query),
+    results: input.results
+  })
+
 export const packageDocsSearchQuery = ({
   query,
-  route
+  route: _route
 }: {
   readonly query: string
   readonly route: PackageDocsPageRoute
@@ -79,29 +104,40 @@ export const packageDocsSearchQuery = ({
     ? null
     : Schema.decodeUnknownSync(PackageDocsQuerySchema)({
       limit: 8,
-      packageId: route.selectedPackageId(),
+      packageId: null,
       query: trimmedQuery
     })
 }
 
 export const packageDocsSearchState = ({
   description,
+  previous,
   query,
   results,
   route
 }: {
   readonly description: string | null
+  readonly previous: PackageDocsPreviousSearch | null
   readonly query: string
   readonly results: ReadonlyArray<PackageDocsSearchResult> | null
   readonly route: PackageDocsPageRoute
 }): PackageDocsSearchLoading | PackageDocsSearchFailure | PackageDocsSearchReady => {
   const base = packageDocsSearchBase(route, query)
 
-  if (results === null) {
-    return description === null
-      ? PackageDocsSearchLoading.make(base)
-      : PackageDocsSearchFailure.make({ ...base, description })
+  if (description !== null) {
+    return PackageDocsSearchFailure.make({
+      ...base,
+      description,
+      previous
+    })
   }
 
-  return PackageDocsSearchReady.make({ ...base, results })
+  if (results === null) {
+    return PackageDocsSearchLoading.make({
+      ...base,
+      previous
+    })
+  }
+
+  return packageDocsSearchReady({ query, results, route })
 }

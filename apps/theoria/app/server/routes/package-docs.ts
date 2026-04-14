@@ -1,5 +1,5 @@
 import { HttpServerResponse } from "@effect/platform"
-import { packageDocsBundle, packageDocsCatalog, searchPackageDocs } from "@theoria/source-proof"
+import { packageDocsBundle, packageDocsCatalog, searchPackageDocsIndex } from "@theoria/source-proof"
 import { Effect, Match, Option } from "effect"
 
 import {
@@ -89,7 +89,7 @@ const searchResponse = (timing: ResponseTiming, selection: PackageDocsSearchSele
         const info = yield* PackageDocsInfo
         const envelope = PackageDocsSearchSuccessEnvelope.ok(
           yield* timing.finish(),
-          searchPackageDocs(info.corpus, query)
+          searchPackageDocsIndex(info.searchIndex, query)
         )
 
         return yield* jsonResponse(envelope, 200)

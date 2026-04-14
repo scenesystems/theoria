@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 
-import { WorkflowScenarioManifest } from "../../../../contracts/study/workflow/manifest.js"
+import { WorkflowFixtureManifest } from "../../../../contracts/study/workflow/fixture-manifest.js"
 import { baselineWorkflowGraph, optimizedWorkflowGraph } from "../../../../contracts/study/workflow/runtime-plan.js"
 import {
   BaselineWorkflowScenarioVariant,
@@ -12,11 +12,13 @@ import {
 } from "../../../../contracts/study/workflow/scenario.js"
 import { workflowProfileLibrary } from "../profile-library.js"
 
+const chatHandoffManifest = WorkflowFixtureManifest.forId("chat-handoff")
+
 const baselineRecord = decodeWorkflowExecutionRecord({
   recordId: "chat-handoff-baseline",
   workflowKind: "chat-continuation",
   session: {
-    sessionId: "chat-handoff-session",
+    sessionId: chatHandoffManifest.seedId,
     workflowKind: "chat-continuation",
     turns: [
       {
@@ -198,7 +200,7 @@ const chatHandoffWorkflowVariants = WorkflowScenarioVariants.make({
 })
 
 export const chatHandoffWorkflowScenario: WorkflowScenario = WorkflowScenario.fromManifest({
-  manifest: WorkflowScenarioManifest.forId("chat-handoff"),
+  manifest: chatHandoffManifest,
   variants: chatHandoffWorkflowVariants,
   workflowKind: "chat-continuation"
 })

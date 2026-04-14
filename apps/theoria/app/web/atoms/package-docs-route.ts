@@ -5,11 +5,8 @@ import { Match } from "effect"
 import type {
   PackageDocsBundle,
   PackageDocsCatalogEntry,
-  PackageDocsError,
-  PackageDocsPageRoute
+  PackageDocsError
 } from "../../contracts/presentation/package-docs.js"
-
-import { PackageDocsBundleRoute } from "../../contracts/presentation/package-docs.js"
 
 import {
   PackageDocsCatalogSelection,
@@ -18,7 +15,8 @@ import {
   type ResolvedPackageDocsCatalogSelection
 } from "../../contracts/presentation/package-docs.js"
 
-import { packageDocsBundleRouteAtom, packageDocsCatalogAtom } from "./package-docs.js"
+import { packageDocsRouteFromLocationAtom } from "./package-docs-navigation.js"
+import { packageDocsBundleRouteAtom, packageDocsBundleWarmupAtom, packageDocsCatalogAtom } from "./package-docs.js"
 
 const bundleRouteState = ({
   bundleResult,
@@ -53,9 +51,13 @@ const bundleRouteState = ({
       })
   })
 
-export const packageDocsRouteStateAtom = Atom.family((route: PackageDocsPageRoute) =>
-  Atom.make((get: AtomType.Context): PackageDocsRouteState.Value =>
-    Result.match(get(packageDocsCatalogAtom), {
+export const packageDocsCurrentRouteStateAtom: AtomType.Atom<PackageDocsRouteState.Value> = Atom.make(
+  (get: AtomType.Context): PackageDocsRouteState.Value => {
+    const route = get(packageDocsRouteFromLocationAtom)
+
+    get.mount(packageDocsBundleWarmupAtom)
+
+    return Result.match(get(packageDocsCatalogAtom), {
       onInitial: () => PackageDocsRouteState.projectCatalog({ description: null, route }),
       onFailure: (failure) => PackageDocsRouteState.projectCatalog({ description: failure.cause.toString(), route }),
       onSuccess: (success) => {
@@ -68,9 +70,7 @@ export const packageDocsRouteStateAtom = Atom.family((route: PackageDocsPageRout
           Match.tag("EmptyPackageDocsCatalogSelection", () => PackageDocsEmptyCatalog.make({ route })),
           Match.tag("ResolvedPackageDocsCatalogSelection", (resolvedSelection) =>
             bundleRouteState({
-              bundleResult: get(
-                packageDocsBundleRouteAtom(PackageDocsBundleRoute.fromPackageId(resolvedSelection.selectedPackageId))
-              ),
+              bundleResult: get(packageDocsBundleRouteAtom(resolvedSelection.selectedPackageId)),
               catalog: success.value,
               selection: resolvedSelection
             })),
@@ -78,5 +78,5 @@ export const packageDocsRouteStateAtom = Atom.family((route: PackageDocsPageRout
         )
       }
     })
-  )
+  }
 )

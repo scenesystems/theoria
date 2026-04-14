@@ -4,13 +4,21 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
 export const HomeHeroCopy = Schema.Struct({
   title: NonEmptyString,
-  body: NonEmptyString
+  body: NonEmptyString,
+  primaryActionLabel: NonEmptyString,
+  secondaryActionLabel: NonEmptyString
 })
 
 export type HomeHeroCopy = typeof HomeHeroCopy.Type
 
+export const homeFooterSlogan = "Observation that produces knowledge"
+
+export const homeFooterCopyright = "© 2026 Scene Systems"
+
 export const homeHeroCopy: HomeHeroCopy = {
-  title: "One study system for Effect-native computation, inference, and evidence",
+  title: "Turn workflows, traces, and experiments into knowledge",
   body:
-    "Bring workflows, traces, shared capabilities, and proof surfaces into one integrated environment for inspection, optimization, and delivery."
+    "Theoria is a study workspace for scientific computing and agent systems. Start with a workflow, compare baseline and optimized runs, and inspect the evidence that explains what changed, what improved, and what to try next.",
+  primaryActionLabel: "Open Workflow Study",
+  secondaryActionLabel: "Explore Packages"
 }

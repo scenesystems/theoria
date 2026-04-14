@@ -8,7 +8,11 @@ import type { Program } from "../../app/contracts/presentation/program.js"
 import { EvidenceStreamState } from "../../app/web/state/evidence/stream.js"
 import { initialSurfaceState, type SurfaceState } from "../../app/web/state/surface/state.js"
 import { surfaceViewModel } from "../../app/web/view/surfaceModel.js"
-import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
+import {
+  effectTextCardFixture as workflowCardFixture,
+  programPreviewFixture,
+  runDataFixture
+} from "../helpers/entry-fixtures.js"
 import {
   failedRunState as makeFailedRunState,
   pausedRunState as makePausedRunState,
@@ -18,7 +22,7 @@ import {
 
 const fixtureRunData = runDataFixture("surface model fixture")
 const fixturePresented = presentRun(fixtureRunData)
-const fixtureSurface = EntryPresentation.fromEntryId(effectTextCardFixture.id)
+const fixtureSurface = EntryPresentation.fromEntryId("workflow")
 const emptyEvidenceStream = EvidenceStreamState.empty()
 const pausedEvidenceStream = EvidenceStreamState.make({
   sections: fixtureRunData.sections,
@@ -28,7 +32,7 @@ const pausedEvidenceStream = EvidenceStreamState.make({
 })
 
 const idleState: SurfaceState = {
-  ...initialSurfaceState("effect-text"),
+  ...initialSurfaceState("workflow"),
   preload: {
     _tag: "PreloadReady",
     data: programPreviewFixture
@@ -36,7 +40,7 @@ const idleState: SurfaceState = {
 }
 
 const runSuccessState: SurfaceState = {
-  ...initialSurfaceState("effect-text"),
+  ...initialSurfaceState("workflow"),
   stageTab: "evidence",
   preload: {
     _tag: "PreloadReady",
@@ -48,7 +52,7 @@ const runSuccessState: SurfaceState = {
 }
 
 const runFailedState: SurfaceState = {
-  ...initialSurfaceState("effect-text"),
+  ...initialSurfaceState("workflow"),
   stageTab: "evidence",
   preload: {
     _tag: "PreloadReady",
@@ -68,7 +72,7 @@ const runFailedState: SurfaceState = {
 }
 
 const runPausedState: SurfaceState = {
-  ...initialSurfaceState("effect-text"),
+  ...initialSurfaceState("workflow"),
   stageTab: "evidence",
   preload: {
     _tag: "PreloadReady",
@@ -93,8 +97,8 @@ describe("Theoria Surface Model", () => {
       expect(model.running).toBe(false)
       expect(model.statusTone).toBe("panel")
       expect(model.evidenceDensity).toBe("compact")
-      expect(model.chrome.title).toBe(effectTextCardFixture.title)
-      expect(model.chrome.packageMeta.value).toBe(effectTextCardFixture.packageName)
+      expect(model.chrome.title).toBe(workflowCardFixture.title)
+      expect(model.chrome.packageMeta.value).toBe(workflowCardFixture.packageName)
       expect(model.chrome.primaryAction.label).toBe(fixtureSurface.runLabel)
       expect(model.evidenceRows[0]?.label).toBe("Entry Use Case")
       expect(model.evidenceRows[1]?.label).toBe("Run Intent")
@@ -116,7 +120,7 @@ describe("Theoria Surface Model", () => {
       expect(model.running).toBe(false)
       expect(model.statusTone).toBe("strip")
       expect(model.evidenceDensity).toBe("expanded")
-      expect(model.chrome.badgeLabel).toBe(effectTextCardFixture.id)
+      expect(model.chrome.badgeLabel).toBe(workflowCardFixture.id)
       expect(model.chrome.useCaseMeta.value).toBe(fixtureSurface.useCase)
       expect(model.code.entry).toBe("server/run.ts")
       expect(model.code.fileName).toBe("run.ts")
@@ -126,7 +130,7 @@ describe("Theoria Surface Model", () => {
       expect(model.surfaceStage.showTabs).toBe(true)
       expect(model.surfaceStage.activeTab).toBe("evidence")
       expect(model.surfaceStage.evidence._tag).toBe("RunEvidenceResults")
-      expect(model.surfaceStage.hintText).toContain("obstacle-aware projection")
+      expect(model.surfaceStage.hintText).toContain("evidence ledger")
     }))
 
   it.effect("keeps compact evidence rows focused on the package use case after success", () =>
@@ -214,15 +218,15 @@ describe("Theoria Surface Model", () => {
               files: [
                 {
                   language: "ts",
-                  entry: "server/run.ts",
-                  name: "run.ts",
-                  source: "export const run = Effect.succeed('ok')"
+                  entry: "workflow/baseline.graph.ts",
+                  name: "baseline.graph.ts",
+                  source: "export const baselineWorkflow = { variant: 'baseline' }"
                 },
                 {
                   language: "ts",
-                  entry: "web/atoms/run/animation.ts",
-                  name: "animation.ts",
-                  source: "export const animation = 'live'"
+                  entry: "workflow/optimized.graph.ts",
+                  name: "optimized.graph.ts",
+                  source: "export const optimizedWorkflow = { variant: 'optimized' }"
                 }
               ]
             }
@@ -239,9 +243,9 @@ describe("Theoria Surface Model", () => {
       })
 
       expect(model.code.selectedFileIndex).toBe(0)
-      expect(model.code.fileName).toBe("run.ts")
-      expect(model.code.fileTabs[1]?.name).toBe("animation.ts")
-      expect(model.code.fileTabs[1]?.directory).toBe("web/atoms/run")
+      expect(model.code.fileName).toBe("baseline.graph.ts")
+      expect(model.code.fileTabs[1]?.name).toBe("optimized.graph.ts")
+      expect(model.code.fileTabs[1]?.directory).toBe("workflow")
       expect(model.code.originLabel).toBe("Prepared")
       expect(model.code.selectedSourceScope).toBe("prepared")
     }))
@@ -252,24 +256,24 @@ describe("Theoria Surface Model", () => {
         files: [
           {
             language: "ts",
-            entry: "server/run.ts",
-            name: "run.ts",
-            source: "export const preload = true"
+            entry: "workflow/baseline.graph.ts",
+            name: "baseline.graph.ts",
+            source: "export const baselineWorkflow = { preload: true }"
           },
           {
             language: "ts",
-            entry: "web/atoms/run/animation.ts",
-            name: "animation.ts",
-            source: "export const animation = 'prepared'"
+            entry: "workflow/optimized.graph.ts",
+            name: "optimized.graph.ts",
+            source: "export const optimizedWorkflow = { source: 'prepared' }"
           }
         ]
       }
       const runProgram: Program = {
         files: [{
           language: "ts",
-          entry: "server/run.ts",
-          name: "run.ts",
-          source: "export const run = 'executed'"
+          entry: "workflow/baseline.graph.ts",
+          name: "baseline.graph.ts",
+          source: "export const baselineWorkflow = { source: 'executed' }"
         }]
       }
       const state: SurfaceState = {
@@ -301,6 +305,6 @@ describe("Theoria Surface Model", () => {
       expect(model.code.selectedSourceScope).toBe("prepared")
       expect(model.code.sourceTabs.map((tab) => tab.label)).toEqual(["Run Session", "Prepared"])
       expect(model.code.fileTabs).toHaveLength(2)
-      expect(model.code.fileName).toBe("run.ts")
+      expect(model.code.fileName).toBe("baseline.graph.ts")
     }))
 })

@@ -1,3 +1,4 @@
+import { ContentDigest } from "@scenesystems/digest"
 import type { Effect } from "effect"
 import { Schema } from "effect"
 import {
@@ -14,9 +15,9 @@ import {
 } from "../../entry/fingerprint.js"
 import { workflowEntryId } from "../../entry/id.js"
 
-import { WorkflowScenarioIdSchema } from "./manifest.js"
+import { WorkflowSeedIdSchema } from "./manifest.js"
+import { WorkflowReference, type WorkflowRevision } from "./revision.js"
 import { type WorkflowVariantSelection, workflowVariantSelectionFor } from "./runtime-plan.js"
-import type { WorkflowScenario } from "./scenario.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -45,28 +46,32 @@ export type FrozenWorkflowVariant = typeof FrozenWorkflowVariant.Type
 
 export class FrozenWorkflowRun extends Schema.Class<FrozenWorkflowRun>("FrozenWorkflowRun")({
   entryId: Schema.Literal(workflowEntryId),
-  scenarioId: WorkflowScenarioIdSchema,
+  seedId: WorkflowSeedIdSchema,
+  reference: WorkflowReference,
+  revisionDigest: ContentDigest,
   label: NonEmptyString,
   summary: NonEmptyString,
   workflowKind: WorkflowKindSchema,
   baseline: BaselineFrozenWorkflowVariant,
   optimized: OptimizedFrozenWorkflowVariant
 }) {
-  static fromScenario({
+  static fromRevision({
     baseline,
     optimized,
-    scenario
+    revision
   }: {
     readonly baseline: BaselineFrozenWorkflowVariant
     readonly optimized: OptimizedFrozenWorkflowVariant
-    readonly scenario: WorkflowScenario
+    readonly revision: WorkflowRevision
   }): FrozenWorkflowRun {
     return FrozenWorkflowRun.make({
-      entryId: scenario.entry.entryId,
-      scenarioId: scenario.entry.scenarioId,
-      label: scenario.label,
-      summary: scenario.summary,
-      workflowKind: scenario.workflowKind,
+      entryId: workflowEntryId,
+      seedId: revision.reference.seedId,
+      reference: revision.reference,
+      revisionDigest: revision.revisionDigest,
+      label: revision.title,
+      summary: revision.summary,
+      workflowKind: revision.workflowKind,
       baseline,
       optimized
     })

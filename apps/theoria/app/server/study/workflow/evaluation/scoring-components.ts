@@ -54,9 +54,9 @@ const rawComponentValue = ({
     expectedSignals.map((signal) => signalCoverage(features.normalizedText, signal))
   )
   const promptSignalCoverage = promptCoverage(features.normalizedText, casePrompt)
-  const withinToleranceScore = features.renderEvidence.widthOverflowPx <= features.renderEvidence.tolerancePx
+  const withinToleranceScore = features.renderEvidence.widthOverflowPx <= features.renderEvidence.input.tolerancePx
     ? 1
-    : zeroToOne(1 - (features.renderEvidence.widthOverflowPx - features.renderEvidence.tolerancePx) / 420)
+    : zeroToOne(1 - (features.renderEvidence.widthOverflowPx - features.renderEvidence.input.tolerancePx) / 420)
   const foldCoverageScore = zeroToOne(features.renderEvidence.aboveFoldCoverage)
   const belowFoldScore = features.renderEvidence.spillBelowFoldPx <= 0
     ? 1

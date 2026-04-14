@@ -21,25 +21,13 @@ const disabledDspRuntime = DspProviderRuntime.of({
 })
 
 describe("server/entry-capability-availability", () => {
-  it.effect("keeps capability ownership in the registry for runnable, provider-backed, and pending entries", () =>
+  it.effect("keeps capability ownership on the single workflow entry", () =>
     Effect.gen(function*() {
-      const effectText = yield* capabilityForEntryId("effect-text")
-      const effectDsp = yield* capabilityForEntryId("effect-dsp")
-      const effectInference = yield* capabilityForEntryId("effect-inference")
+      const workflow = yield* capabilityForEntryId("workflow")
 
-      expect(effectText).toEqual({
-        id: "effect-text",
+      expect(workflow).toEqual({
+        id: "workflow",
         enabled: true
-      })
-      expect(effectDsp).toEqual({
-        id: "effect-dsp",
-        enabled: false,
-        reason: "DSP runtime resolution failed."
-      })
-      expect(effectInference).toEqual({
-        id: "effect-inference",
-        enabled: false,
-        reason: "Runtime registration has not shipped for this entry yet."
       })
     }).pipe(Effect.provideService(DspProviderRuntime, disabledDspRuntime)))
 })

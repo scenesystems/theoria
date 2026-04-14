@@ -22,16 +22,16 @@ export const workflowCurrentStepMeta = ({
   readonly trialBudget: number | null
 }): string =>
   step === null
-    ? "The graph view only advances from canonical stream frames."
+    ? "Start a run to watch the workflow advance step by step."
     : step.nodeId === "optimization-study"
     ? `Trials ${completedTrials ?? 0}/${trialBudget ?? 0} · best ${formatScore(bestScore)} · current ${
       formatScore(currentScore)
     }`
-    : `${step.runtimeRole} · state lanes ${step.activeStateLanes.join(", ")}`
+    : `${step.runtimeRole} · active state ${step.activeStateLanes.join(", ")}`
 
 export const workflowCurrentStepText = (step: WorkflowCanonicalStep | null): string =>
   step === null
-    ? "Await a server-authored workflow step."
+    ? "Run the study to see the first workflow step."
     : `${workflowNodeExecutionSectionTitle(step)} · score ${step.aggregateScore.toFixed(3)}`
 
 export const workflowRunStory = ({
@@ -42,10 +42,10 @@ export const workflowRunStory = ({
   readonly targetMode: WorkflowTargetMode
 }): string =>
   !optimize
-    ? "baseline -> authored optimized replay"
+    ? "Baseline -> authored improvement"
     : targetMode === "authored-optimized"
-    ? "baseline -> study -> authored optimized replay"
-    : "baseline -> study -> search winner replay"
+    ? "Baseline -> search -> authored improvement replay"
+    : "Baseline -> search -> winner replay"
 
 export const workflowSurfacePhaseLabel = (phase: WorkflowSurfacePhase): string =>
   Match.value(phase).pipe(
@@ -74,25 +74,25 @@ export const workflowSurfacePhaseDetail = ({
       "idle",
       () =>
         !hasFrozenSelection
-          ? "Select a proving scenario, then freeze one run plan on the shared runtime seam."
-          : "The frozen run plan remains inspectable until reset restores scenario selection."
+          ? "Choose a workflow and shape the run you want to compare."
+          : "This run plan is frozen so you can inspect it, run it, or reset to choose a different workflow."
     ),
     Match.when(
       "running",
-      () => "Canonical graph frames and evidence sections are streaming from one server-authored execution."
+      () => "The study is live: scores, graph steps, and evidence are arriving now."
     ),
     Match.when(
       "paused",
-      () => "The run authority is paused without handing graph or score truth back to local state."
+      () => "The study is paused. Resume when you are ready to keep collecting evidence."
     ),
-    Match.when("stopping", () => "The active run is being interrupted at the shared runtime seam."),
+    Match.when("stopping", () => "Stopping the current study run."),
     Match.when(
       "failed",
-      () => "The current execution failed before the success gate sealed the authoritative ledger."
+      () => "This run stopped before it could finish writing a complete result."
     ),
     Match.when(
       "succeeded",
-      () => `The completed run sealed ${workflowRunStory({ optimize, targetMode })} on one canonical ledger.`
+      () => `Completed: ${workflowRunStory({ optimize, targetMode })}.`
     ),
     Match.exhaustive
   )

@@ -1,4 +1,4 @@
-import { Tooltip } from "@base-ui-components/react/tooltip"
+import { Tooltip } from "@base-ui/react/tooltip"
 import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 import { useEffect } from "react"
@@ -41,6 +41,10 @@ const AppShell = ({
       <RoutePreloader route={page.route} />
       {Match.value(page).pipe(
         Match.tag("HomePagePresentation", (value) => <HomePage metadata={value.metadata} />),
+        Match.tag(
+          "WorkflowStudyPagePresentation",
+          (value) => <EntryPage entry={value.entry} metadata={value.metadata} />
+        ),
         Match.tag("EntryPagePresentation", (value) => <EntryPage entry={value.entry} metadata={value.metadata} />),
         Match.tag(
           "PackageDocsPagePresentation",

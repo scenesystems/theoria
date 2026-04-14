@@ -10,7 +10,7 @@ import {
 } from "effect-inference/Contracts"
 
 import { WorkflowRunControls } from "./controls.js"
-import { WorkflowScenarioIdSchema } from "./manifest.js"
+import { WorkflowSeedIdSchema } from "./manifest.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
@@ -72,7 +72,7 @@ export const WorkflowVariantExecution = Schema.Struct({
 export type WorkflowVariantExecution = typeof WorkflowVariantExecution.Type
 
 export const WorkflowSelectionFingerprint = Schema.Struct({
-  seedId: WorkflowScenarioIdSchema,
+  seedId: WorkflowSeedIdSchema,
   controls: WorkflowRunControls,
   workflowKind: WorkflowKindSchema
 })

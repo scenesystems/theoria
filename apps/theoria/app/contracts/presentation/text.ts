@@ -9,10 +9,17 @@ const PositiveWidth = Schema.Number.pipe(
   Schema.greaterThan(0)
 )
 
+const PositiveFontSize = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.greaterThan(0)
+)
+
 const PositiveLineHeight = Schema.Number.pipe(
   Schema.finite(),
   Schema.greaterThan(0)
 )
+
+const TrackingValue = Schema.Number.pipe(Schema.finite())
 
 export const FontWeight = Schema.Literal("normal", "medium", "semibold", "bold")
 
@@ -25,9 +32,12 @@ export type FontFamily = typeof FontFamily.Type
 const entry = <K, V>(k: K, v: V): readonly [K, V] => [k, v]
 
 const fontFamilyStacks = HashMap.make(
-  entry<FontFamily, string>("body", "Inter, Avenir Next, Avenir, Segoe UI, Helvetica Neue, sans-serif"),
-  entry<FontFamily, string>("display", "Inter, Avenir Next, Avenir, Segoe UI, Helvetica Neue, sans-serif"),
-  entry<FontFamily, string>("mono", "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace")
+  entry<FontFamily, string>("body", "Figtree, Inter, \"Segoe UI\", \"Helvetica Neue\", sans-serif"),
+  entry<FontFamily, string>("display", "Figtree, Inter, \"Segoe UI\", \"Helvetica Neue\", sans-serif"),
+  entry<FontFamily, string>(
+    "mono",
+    "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+  )
 )
 
 const fontFamilyVarNames = HashMap.make(
@@ -72,6 +82,36 @@ export const TextRole = Schema.Literal(
 
 export type TextRole = typeof TextRole.Type
 
+export const UiTextRole = Schema.Literal(
+  "display-lg",
+  "display",
+  "display-sm",
+  "body-lg",
+  "body",
+  "body-sm",
+  "eyebrow",
+  "label",
+  "button",
+  "badge",
+  "tab",
+  "status",
+  "workspace-title",
+  "workspace-summary",
+  "pane-title",
+  "pane-summary",
+  "pane-meta",
+  "strip-label",
+  "transcript-actor",
+  "transcript-meta",
+  "detail-label",
+  "detail-value",
+  "payload-label",
+  "inspector-title",
+  "inspector-summary"
+)
+
+export type UiTextRole = typeof UiTextRole.Type
+
 export const VariantMaxWidth = Schema.Struct({
   compact: PositiveWidth,
   expanded: PositiveWidth
@@ -90,9 +130,9 @@ export type TextWrapAuthority = typeof TextWrapAuthority.Type
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
-  fontSize: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  fontSize: PositiveFontSize,
   weight: FontWeight,
-  tracking: Schema.Number.pipe(Schema.finite()),
+  tracking: TrackingValue,
   wrapAuthority: TextWrapAuthority,
   lineBreaks: LineBreakBehavior,
   whiteSpace: Text.WhiteSpaceMode,
@@ -101,6 +141,17 @@ export const TextSemantics = Schema.Struct({
 })
 
 export type TextSemantics = typeof TextSemantics.Type
+
+export const UiTextSemantics = Schema.Struct({
+  role: UiTextRole,
+  family: FontFamily,
+  fontSize: PositiveFontSize,
+  weight: FontWeight,
+  tracking: TrackingValue,
+  lineHeight: PositiveLineHeight
+})
+
+export type UiTextSemantics = typeof UiTextSemantics.Type
 
 export const fontDescriptorFor = (semantics: TextSemantics): Text.FontDescriptorType => ({
   family: fontFamilyCss(semantics.family),
@@ -279,6 +330,209 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
   }
 }
 
+const uiTextSemanticsByRole: Record<UiTextRole, UiTextSemantics> = {
+  "display-lg": {
+    role: "display-lg",
+    family: "display",
+    fontSize: 38,
+    weight: "semibold",
+    tracking: -0.02,
+    lineHeight: 44
+  },
+  display: {
+    role: "display",
+    family: "display",
+    fontSize: 24,
+    weight: "semibold",
+    tracking: -0.01,
+    lineHeight: 32
+  },
+  "display-sm": {
+    role: "display-sm",
+    family: "display",
+    fontSize: 22,
+    weight: "semibold",
+    tracking: -0.01,
+    lineHeight: 30
+  },
+  "body-lg": {
+    role: "body-lg",
+    family: "body",
+    fontSize: 18,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 30
+  },
+  body: {
+    role: "body",
+    family: "body",
+    fontSize: 16,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 26
+  },
+  "body-sm": {
+    role: "body-sm",
+    family: "body",
+    fontSize: 14,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 22
+  },
+  eyebrow: {
+    role: "eyebrow",
+    family: "body",
+    fontSize: 11,
+    weight: "semibold",
+    tracking: 0.12,
+    lineHeight: 16
+  },
+  label: {
+    role: "label",
+    family: "body",
+    fontSize: 14,
+    weight: "medium",
+    tracking: 0.01,
+    lineHeight: 20
+  },
+  button: {
+    role: "button",
+    family: "body",
+    fontSize: 14,
+    weight: "semibold",
+    tracking: 0.01,
+    lineHeight: 20
+  },
+  badge: {
+    role: "badge",
+    family: "body",
+    fontSize: 12,
+    weight: "semibold",
+    tracking: 0.02,
+    lineHeight: 16
+  },
+  tab: {
+    role: "tab",
+    family: "body",
+    fontSize: 14,
+    weight: "medium",
+    tracking: 0.01,
+    lineHeight: 20
+  },
+  status: {
+    role: "status",
+    family: "body",
+    fontSize: 14,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 22
+  },
+  "workspace-title": {
+    role: "workspace-title",
+    family: "display",
+    fontSize: 30,
+    weight: "semibold",
+    tracking: -0.02,
+    lineHeight: 36
+  },
+  "workspace-summary": {
+    role: "workspace-summary",
+    family: "body",
+    fontSize: 15,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 24
+  },
+  "pane-title": {
+    role: "pane-title",
+    family: "body",
+    fontSize: 16,
+    weight: "semibold",
+    tracking: 0,
+    lineHeight: 22
+  },
+  "pane-summary": {
+    role: "pane-summary",
+    family: "body",
+    fontSize: 14,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 22
+  },
+  "pane-meta": {
+    role: "pane-meta",
+    family: "body",
+    fontSize: 12,
+    weight: "medium",
+    tracking: 0.04,
+    lineHeight: 18
+  },
+  "strip-label": {
+    role: "strip-label",
+    family: "body",
+    fontSize: 11,
+    weight: "semibold",
+    tracking: 0.12,
+    lineHeight: 16
+  },
+  "transcript-actor": {
+    role: "transcript-actor",
+    family: "body",
+    fontSize: 13,
+    weight: "medium",
+    tracking: 0.01,
+    lineHeight: 18
+  },
+  "transcript-meta": {
+    role: "transcript-meta",
+    family: "body",
+    fontSize: 12,
+    weight: "normal",
+    tracking: 0.02,
+    lineHeight: 18
+  },
+  "detail-label": {
+    role: "detail-label",
+    family: "body",
+    fontSize: 11,
+    weight: "medium",
+    tracking: 0.08,
+    lineHeight: 16
+  },
+  "detail-value": {
+    role: "detail-value",
+    family: "body",
+    fontSize: 14,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 20
+  },
+  "payload-label": {
+    role: "payload-label",
+    family: "mono",
+    fontSize: 11,
+    weight: "medium",
+    tracking: 0.06,
+    lineHeight: 16
+  },
+  "inspector-title": {
+    role: "inspector-title",
+    family: "body",
+    fontSize: 16,
+    weight: "semibold",
+    tracking: 0,
+    lineHeight: 22
+  },
+  "inspector-summary": {
+    role: "inspector-summary",
+    family: "body",
+    fontSize: 14,
+    weight: "normal",
+    tracking: 0,
+    lineHeight: 22
+  }
+}
+
 export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["hero-title"],
   textSemanticsByRole["hero-body"],
@@ -295,6 +549,34 @@ export const textSemantics: ReadonlyArray<TextSemantics> = [
   textSemanticsByRole["code-meta"],
   textSemanticsByRole["code-block"],
   textSemanticsByRole["button-label"]
+]
+
+export const uiTextSemantics: ReadonlyArray<UiTextSemantics> = [
+  uiTextSemanticsByRole["display-lg"],
+  uiTextSemanticsByRole.display,
+  uiTextSemanticsByRole["display-sm"],
+  uiTextSemanticsByRole["body-lg"],
+  uiTextSemanticsByRole.body,
+  uiTextSemanticsByRole["body-sm"],
+  uiTextSemanticsByRole.eyebrow,
+  uiTextSemanticsByRole.label,
+  uiTextSemanticsByRole.button,
+  uiTextSemanticsByRole.badge,
+  uiTextSemanticsByRole.tab,
+  uiTextSemanticsByRole.status,
+  uiTextSemanticsByRole["workspace-title"],
+  uiTextSemanticsByRole["workspace-summary"],
+  uiTextSemanticsByRole["pane-title"],
+  uiTextSemanticsByRole["pane-summary"],
+  uiTextSemanticsByRole["pane-meta"],
+  uiTextSemanticsByRole["strip-label"],
+  uiTextSemanticsByRole["transcript-actor"],
+  uiTextSemanticsByRole["transcript-meta"],
+  uiTextSemanticsByRole["detail-label"],
+  uiTextSemanticsByRole["detail-value"],
+  uiTextSemanticsByRole["payload-label"],
+  uiTextSemanticsByRole["inspector-title"],
+  uiTextSemanticsByRole["inspector-summary"]
 ]
 
 export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRole[role]

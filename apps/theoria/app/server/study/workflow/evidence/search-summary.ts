@@ -120,7 +120,7 @@ const optimizationStudySections = ({
           label: workflowEvidenceItemLabels.snapshotFacts,
           columns: [...workflowEvidenceTableColumns.optimizationSnapshot],
           rows: presentationDetailRowsTableRows(workflowOptimizationSnapshotFacts({
-            workflowSeedId: workflowRun.scenarioId,
+            workflowSeedId: workflowRun.seedId,
             snapshotFormatVersion: outcome.snapshot.snapshotFormatVersion,
             nextTrialNumber: outcome.snapshot.nextTrialNumber,
             completedCount: outcome.snapshot.completedCount,

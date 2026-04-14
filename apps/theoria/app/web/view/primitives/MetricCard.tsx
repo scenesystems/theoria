@@ -6,7 +6,7 @@ type MetricCardSurface = "panel" | "flush"
 
 const metricCardClassName = (surface: MetricCardSurface): string =>
   surface === "flush"
-    ? "border-y border-stage-200/72 py-3"
+    ? "py-1"
     : surfaceMaterials.evidenceCard
 
 export const MetricCard = ({

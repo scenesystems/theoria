@@ -1,5 +1,5 @@
-import { Button } from "@base-ui-components/react/button"
-import { ScrollArea } from "@base-ui-components/react/scroll-area"
+import { Button } from "@base-ui/react/button"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 

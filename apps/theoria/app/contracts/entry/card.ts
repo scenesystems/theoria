@@ -3,15 +3,19 @@ import { Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import { authorityCatalogForId } from "../capability/catalog.js"
+import {
+  type AuthorityCatalogDescriptor,
+  authorityCatalogDescriptors,
+  authorityCatalogForId
+} from "../capability/catalog.js"
 import { PackageDocsPresentation } from "../presentation/package-docs/presentation.js"
 import { type ReleaseStage } from "../release-stage.js"
 import {
   CardReleaseState as CardReleaseStateSchema,
   type CardReleaseState as CardReleaseStateType
 } from "./descriptor.js"
-import { EntryId, isEntryId } from "./id.js"
-import { type AnyEntryDescriptor, EntryRegistry } from "./registry.js"
+import { workflowEntryDescriptor } from "./descriptors/workflow.js"
+import { AuthorityId, EntryId, isAuthorityId, isEntryId, type WorkflowEntryId } from "./id.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -26,25 +30,68 @@ export class PackageGroupMetadata extends Schema.Class<PackageGroupMetadata>("Pa
   static fromGroup(group: PackageGroup): PackageGroupMetadata {
     return group === "effect"
       ? PackageGroupMetadata.make({
-        label: "Effect Capabilities",
-        description:
-          "Effect-native computation, optimization, and inference capabilities that compose inside Theoria study entries."
+        label: "Study Toolkit",
+        description: "Math, search, inference, and text packages for building studies and improving real workflows."
       })
       : PackageGroupMetadata.make({
-        label: "Scene Systems Capabilities",
+        label: "Trust & Provenance",
         description:
-          "Scene Systems security, provenance, and delivery capabilities that ground Theoria evidence and sharing surfaces."
+          "Hashing, sealing, and signing packages for reproducible artifacts, trustworthy evidence, and shareable results."
       })
   }
 }
 
-const packageGroupForEntry = (entryId: typeof EntryId.Type): PackageGroup =>
-  entryId.startsWith("effect-") ? "effect" : "scenesystems"
+const CardId = Schema.Union(AuthorityId, EntryId)
+type CardId = typeof CardId.Type
 
-const entryRegistry = EntryRegistry.current()
+const packageGroupForCard = (id: CardId): PackageGroup =>
+  id === workflowEntryDescriptor.entryId || id.startsWith("effect-") ? "effect" : "scenesystems"
+
+const capabilityCard = (authority: AuthorityCatalogDescriptor): Card =>
+  Card.make({
+    id: authority.authorityId,
+    title: authority.title,
+    packageName: authority.packageName,
+    description: authority.description,
+    useCase: authority.useCase,
+    summary: authority.summary,
+    runLabel: "Open Workflow",
+    deepDivePath: null,
+    docsPath: PackageDocsPresentation.projectPackage(authority.packageName).canonicalPath,
+    group: packageGroupForCard(authority.authorityId),
+    releaseState: "published",
+    version: authority.version,
+    npmUrl: authority.npmUrl,
+    repoUrl: authority.repoUrl,
+    license: authority.license,
+    interactiveLabel: null
+  })
+
+const workflowCard = (): Card => {
+  const primaryAuthority = authorityCatalogForId(workflowEntryDescriptor.primaryAuthorityId)
+
+  return Card.make({
+    id: workflowEntryDescriptor.entryId,
+    title: workflowEntryDescriptor.title,
+    packageName: workflowEntryDescriptor.packageName,
+    description: workflowEntryDescriptor.description,
+    useCase: workflowEntryDescriptor.useCase,
+    summary: workflowEntryDescriptor.summary,
+    runLabel: workflowEntryDescriptor.runLabel,
+    deepDivePath: workflowEntryDescriptor.path,
+    docsPath: PackageDocsPresentation.projectPackage(workflowEntryDescriptor.packageName).canonicalPath,
+    group: packageGroupForCard(workflowEntryDescriptor.entryId),
+    releaseState: workflowEntryDescriptor.releaseState,
+    version: primaryAuthority.version,
+    npmUrl: primaryAuthority.npmUrl,
+    repoUrl: primaryAuthority.repoUrl,
+    license: primaryAuthority.license,
+    interactiveLabel: workflowEntryDescriptor.interactiveLabel
+  })
+}
 
 /**
- * Full card definition consumed by both the home catalog and deep-dive pages.
+ * Full card definition consumed by both the home catalog and entry pages.
  *
  * The `version` field provides a static fallback. Live versions are resolved
  * at runtime from the `/api/versions/packages` endpoint which reads the
@@ -53,14 +100,14 @@ const entryRegistry = EntryRegistry.current()
  * @since 0.1.0
  */
 export class Card extends Schema.Class<Card>("Card")({
-  id: EntryId,
+  id: CardId,
   title: NonEmptyString,
   packageName: PackageNameSchema,
   description: NonEmptyString,
   useCase: NonEmptyString,
   summary: NonEmptyString,
   runLabel: NonEmptyString,
-  deepDivePath: NonEmptyString,
+  deepDivePath: Schema.NullOr(NonEmptyString),
   docsPath: NonEmptyString,
   group: PackageGroup,
   releaseState: CardReleaseStateSchema,
@@ -68,14 +115,14 @@ export class Card extends Schema.Class<Card>("Card")({
   npmUrl: NonEmptyString,
   repoUrl: NonEmptyString,
   license: NonEmptyString,
-  interactiveLabel: Schema.optional(NonEmptyString)
+  interactiveLabel: Schema.NullOr(NonEmptyString)
 }) {
   static all(): ReadonlyArray<Card> {
     return allCards
   }
 
   static byId(id: string): Option.Option<Card> {
-    return isEntryId(id)
+    return isEntryId(id) || isAuthorityId(id)
       ? Arr.findFirst(Card.all(), (card) => card.id === id)
       : Option.none()
   }
@@ -98,9 +145,20 @@ export class Card extends Schema.Class<Card>("Card")({
     return Arr.filter(Card.all(), (card) => card.visibleInReleaseStage(stage))
   }
 
-  static project(descriptor: AnyEntryDescriptor): Card {
+  static project(descriptor: {
+    readonly entryId: WorkflowEntryId
+    readonly title: string
+    readonly packageName: PackageName
+    readonly description: string
+    readonly useCase: string
+    readonly summary: string
+    readonly runLabel: string
+    readonly path: string
+    readonly releaseState: CardReleaseState
+    readonly primaryAuthorityId: AuthorityId
+    readonly interactiveLabel: string | null
+  }): Card {
     const authority = authorityCatalogForId(descriptor.primaryAuthorityId)
-    const interactiveLabel = Option.fromNullable(descriptor.interactiveLabel)
 
     return Card.make({
       id: descriptor.entryId,
@@ -112,16 +170,13 @@ export class Card extends Schema.Class<Card>("Card")({
       runLabel: descriptor.runLabel,
       deepDivePath: descriptor.path,
       docsPath: PackageDocsPresentation.projectPackage(descriptor.packageName).canonicalPath,
-      group: packageGroupForEntry(descriptor.entryId),
+      group: packageGroupForCard(descriptor.entryId),
       releaseState: descriptor.releaseState,
       version: authority.version,
       npmUrl: authority.npmUrl,
       repoUrl: authority.repoUrl,
       license: authority.license,
-      ...Option.match(interactiveLabel, {
-        onNone: () => ({}),
-        onSome: (resolvedInteractiveLabel) => ({ interactiveLabel: resolvedInteractiveLabel })
-      })
+      interactiveLabel: descriptor.interactiveLabel
     })
   }
 
@@ -130,6 +185,9 @@ export class Card extends Schema.Class<Card>("Card")({
   }
 }
 
-const allCards: ReadonlyArray<Card> = Arr.map(entryRegistry.descriptors, Card.project)
+const allCards: ReadonlyArray<Card> = [
+  workflowCard(),
+  ...Arr.map(authorityCatalogDescriptors, capabilityCard)
+]
 
 export type CardReleaseState = CardReleaseStateType

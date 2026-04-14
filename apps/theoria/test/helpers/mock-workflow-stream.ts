@@ -16,7 +16,13 @@ import {
   workflowNodeExecutionSectionKey,
   workflowVariantOverviewSectionKey
 } from "../../app/contracts/study/workflow/evidence.js"
-import type { WorkflowScenarioId } from "../../app/contracts/study/workflow/scenario.js"
+import {
+  chatHandoffWorkflowSessionId,
+  renderSensitiveWorkflowSessionId,
+  retrievalRequiredWorkflowSessionId,
+  taskBriefingWorkflowSessionId
+} from "../../app/contracts/study/workflow/fixture-manifest.js"
+import type { WorkflowSeedId } from "../../app/contracts/study/workflow/manifest.js"
 import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
 
 type EvidenceSource = {
@@ -68,9 +74,9 @@ const taskBriefingWorkflowScenarioFixture: WorkflowScenarioFixture = {
   ]]
 }
 
-const workflowScenarioFixtureById: Readonly<Record<WorkflowScenarioId, WorkflowScenarioFixture>> = {
-  "task-briefing": taskBriefingWorkflowScenarioFixture,
-  "chat-handoff": {
+const workflowScenarioFixtureById: Readonly<Record<WorkflowSeedId, WorkflowScenarioFixture>> = {
+  [taskBriefingWorkflowSessionId]: taskBriefingWorkflowScenarioFixture,
+  [chatHandoffWorkflowSessionId]: {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Continue the handoff with the route reason in one short paragraph.",
     baselineOutput: "Baseline chat handoff: the reply stays concise but misses the retrieval-backed justification.",
@@ -89,7 +95,7 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowScenarioId, WorkflowS
       ["render-check", "render-evaluator", "evaluator"]
     ]
   },
-  "retrieval-required": {
+  [retrievalRequiredWorkflowSessionId]: {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Explain the selected route and cite the supporting evidence.",
     baselineOutput:
@@ -108,7 +114,7 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowScenarioId, WorkflowS
       ["reply", "responder", "task"]
     ]
   },
-  "render-sensitive": {
+  [renderSensitiveWorkflowSessionId]: {
     baselineReplyNodeId: "reply",
     baselinePrompt: "Draft a sidebar-ready runtime summary with the route reason above the fold.",
     baselineOutput:
@@ -132,8 +138,8 @@ const workflowScenarioFixtureById: Readonly<Record<WorkflowScenarioId, WorkflowS
 
 const defaultWorkflowScenarioFixture = taskBriefingWorkflowScenarioFixture
 
-const fixtureForScenario = (scenarioId: WorkflowScenarioId): WorkflowScenarioFixture =>
-  workflowScenarioFixtureById[scenarioId] ?? defaultWorkflowScenarioFixture
+const fixtureForScenario = (seedId: WorkflowSeedId): WorkflowScenarioFixture =>
+  workflowScenarioFixtureById[seedId] ?? defaultWorkflowScenarioFixture
 
 const traversalText = (rows: ReadonlyArray<ReadonlyArray<string>>): string => rows.map((row) => row[0]).join(" -> ")
 
@@ -161,25 +167,25 @@ const keyedScalarItem = (
 })
 
 export const emitWorkflowAuthoredStream = ({
-  scenarioId,
+  seedId,
   meta,
   source,
   summary
 }: {
-  readonly scenarioId: WorkflowScenarioId
+  readonly seedId: WorkflowSeedId
   readonly meta: StreamMeta
   readonly source: EvidenceSource
   readonly summary: string
 }): Effect.Effect<void, never, never> =>
   Effect.gen(function*() {
-    const fixture = fixtureForScenario(scenarioId)
+    const fixture = fixtureForScenario(seedId)
 
     yield* emitEvent(
       source,
       encodeEvidenceEventJson(
         canonicalStepEvent(
           new WorkflowCanonicalStep({
-            scenarioId,
+            seedId,
             workflowKind: fixture.workflowKind,
             variant: "baseline",
             nodeId: fixture.baselineReplyNodeId,
@@ -392,7 +398,7 @@ export const emitWorkflowAuthoredStream = ({
       encodeEvidenceEventJson(
         canonicalStepEvent(
           new WorkflowCanonicalStep({
-            scenarioId,
+            seedId,
             workflowKind: fixture.workflowKind,
             variant: "optimized",
             nodeId: fixture.optimizedReplyNodeId,

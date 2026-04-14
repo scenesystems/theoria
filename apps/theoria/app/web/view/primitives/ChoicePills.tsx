@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import * as Arr from "effect/Array"
 
 import type { ChoicePillValue, TypedChoicePillOption } from "./choice-pill-model.js"

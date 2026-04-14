@@ -31,12 +31,12 @@ export const workflowProgressDescription = ({
   readonly targetMode: WorkflowTargetMode
 }): string =>
   !optimize
-    ? "Optimization is disabled for this frozen run plan, so the proving surface replays the authored optimized target without opening the study lane."
+    ? "This run is replay-only, so you will compare the baseline with the authored improvement without opening the search loop."
     : !hasProgress
-    ? "The optimization study remains bounded by the frozen run plan and will stream trial progress, winner deltas, snapshot facts, and event trace evidence here."
+    ? "Start the study to track trials, score changes, snapshots, and the emerging winner here."
     : targetMode === "authored-optimized"
-    ? "The optimization study still runs and publishes a search winner, but the authored optimized replay remains the frozen target for this run."
-    : "The search study is active on the same execution ledger, and the winning manifest remains the frozen replay target for the final pass."
+    ? "Search is running in the background, but this run will still finish by replaying the authored improvement."
+    : "Search is active, and the final replay will follow the best workflow found so far."
 
 export const workflowProgressMetricLabel = (metric: WorkflowProgressMetric): string =>
   Match.value(metric).pipe(
@@ -44,15 +44,15 @@ export const workflowProgressMetricLabel = (metric: WorkflowProgressMetric): str
     Match.when("completed-trials", () => "Completed trials"),
     Match.when("current-score", () => "Current score"),
     Match.when("best-score", () => "Best score"),
-    Match.when("best-delta-vs-baseline", () => "Best delta vs baseline"),
-    Match.when("best-delta-vs-authored-optimized", () => "Best delta vs authored optimized"),
+    Match.when("best-delta-vs-baseline", () => "Best lift vs baseline"),
+    Match.when("best-delta-vs-authored-optimized", () => "Best lift vs authored improvement"),
     Match.exhaustive
   )
 
 export const workflowProgressSelectionFieldLabel = (field: WorkflowProgressSelectionField): string =>
   Match.value(field).pipe(
-    Match.when("optimization", () => "Optimization"),
-    Match.when("replay-target", () => "Replay target"),
+    Match.when("optimization", () => "Search mode"),
+    Match.when("replay-target", () => "Final replay"),
     Match.exhaustive
   )
 
