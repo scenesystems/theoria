@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Predicate } from "effect"
-import { logStrict } from "effect-math/Numeric"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import type { Distribution } from "../../contracts/Distribution.js"
 import { SamplerSearchSpaceUnsupported } from "../../Errors/index.js"
@@ -163,7 +163,7 @@ const denormalizeValueForDimension = (dimension: ContinuousDimension, normalized
         Match.when("log", () => {
           const logLow = logStrict(low)
           const logHigh = logStrict(high)
-          return (Math.E ** (logLow + (clamped * (logHigh - logLow))))
+          return exp(logLow + (clamped * (logHigh - logLow)))
         }),
         Match.orElse(() => low + (clamped * (high - low)))
       )

@@ -21,7 +21,7 @@ from typing import Any
 
 import dspy
 
-from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_v2, predict_runtime
+from fixtures import bootstrap_family, chat_adapter, copro, evaluate_runtime, gepa, mipro_v2, multi_chain_comparison, predict_runtime, program_of_thought
 from fixtures._common import (
     DEFAULT_GENERATED_AT,
     GENERATOR_SCRIPT,
@@ -33,7 +33,7 @@ from fixtures._common import (
     write_json,
 )
 
-FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, gepa]
+FAMILIES = [chat_adapter, predict_runtime, program_of_thought, multi_chain_comparison, evaluate_runtime, bootstrap_family, mipro_v2, copro, gepa]
 
 
 def assert_runtime_version() -> None:

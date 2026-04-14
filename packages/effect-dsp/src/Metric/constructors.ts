@@ -5,7 +5,14 @@
  */
 import { Effect } from "effect"
 import type { MetricFn, PureMetricFn } from "../contracts/MetricFn.js"
+import { MetricContext, type MetricContextFn, type PureMetricContextFn } from "./context.js"
 import { Metric } from "./model.js"
+
+const contextualFromLegacy = <E, R>(score: MetricFn<E, R>): MetricContextFn<E, R> => ({ prediction, expected }) =>
+  score(prediction, expected)
+
+const legacyFromContextual = <E, R>(score: MetricContextFn<E, R>): MetricFn<E, R> => (prediction, expected) =>
+  score(MetricContext.of({ prediction, expected }))
 
 /**
  * Create a metric from a synchronous scoring function. Wraps the result in
@@ -31,7 +38,12 @@ export const make = (name: string, score: PureMetricFn): Metric =>
     score: (prediction, expected) =>
       Effect.succeed(
         score(prediction, expected)
+      ),
+    scoreContext: contextualFromLegacy((prediction, expected) =>
+      Effect.succeed(
+        score(prediction, expected)
       )
+    )
   })
 
 /**
@@ -44,5 +56,32 @@ export const make = (name: string, score: PureMetricFn): Metric =>
 export const fromEffect = <E, R>(name: string, score: MetricFn<E, R>): Metric<E, R> =>
   new Metric({
     name,
-    score
+    score,
+    scoreContext: contextualFromLegacy(score)
+  })
+
+/**
+ * Create a contextual metric from a synchronous scoring function.
+ *
+ * @since 0.2.0
+ * @category constructors
+ */
+export const makeContextual = (name: string, score: PureMetricContextFn): Metric =>
+  new Metric({
+    name,
+    score: legacyFromContextual((context) => Effect.succeed(score(context))),
+    scoreContext: (context) => Effect.succeed(score(context))
+  })
+
+/**
+ * Create a contextual metric from an effectful scoring function.
+ *
+ * @since 0.2.0
+ * @category constructors
+ */
+export const fromEffectContextual = <E, R>(name: string, score: MetricContextFn<E, R>): Metric<E, R> =>
+  new Metric({
+    name,
+    score: legacyFromContextual(score),
+    scoreContext: score
   })

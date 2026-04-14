@@ -21,8 +21,8 @@ const LOG1P_SERIES_TERMS = 24
 const EXPM1_SERIES_TERMS = 24
 const SMALL_LOG1P_THRESHOLD = 1e-4
 const SMALL_EXPM1_THRESHOLD = 1e-5
-const LN_2 = 0.6931471805599453
-const E = 2.718281828459045
+export const LN_2 = 0.6931471805599453
+export const E = 2.718281828459045
 
 const FLOAT64_BUFFER = new ArrayBuffer(8)
 const FLOAT64_VIEW = new DataView(FLOAT64_BUFFER)
@@ -141,16 +141,9 @@ export const log1pStrict = (value: number): number => {
 // expm1
 // ---------------------------------------------------------------------------
 
-const abs = (value: number): number => (value < 0 ? -value : value)
+export const abs: (value: number) => number = Math.abs
 
-const exp = (value: number): number =>
-  Number.isNaN(value)
-    ? NaN
-    : value === Infinity
-    ? Infinity
-    : value === -Infinity
-    ? 0
-    : E ** value
+export const exp: (value: number) => number = Math.exp
 
 const expm1Series = (
   x: number,
@@ -179,7 +172,7 @@ export const expm1Relaxed: (value: number) => number = Math.expm1
 
 /**
  * Strict `expm1` kernel. Uses Taylor series for `|x| < 1e-5` and
- * pure E**x - 1 for larger values.
+ * native `exp(x) - 1` for larger values.
  *
  * @since 0.1.0
  * @category internal

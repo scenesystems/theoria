@@ -7,13 +7,13 @@ import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Chunk, Data, Effect, Layer, Number as Num, Option, Stream } from "effect"
 import type * as Context from "effect/Context"
 
+import { StudySnapshotEnvelope, TrialLog } from "../contracts/ArtifactEnvelope.js"
 import { ArtifactSink } from "../contracts/ArtifactSink.js"
 import { EnvelopeContext } from "../contracts/EnvelopeContext.js"
 import { readEnvelopeLog } from "../contracts/sinks/reader.js"
 import type { InvalidStudyConfig } from "../Errors/index.js"
 import type { SnapshotTrial } from "./snapshot/stateCodec.js"
 import type { StudySnapshot } from "./snapshot/versioning.js"
-import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnvelopes.js"
 
 const DEFAULT_ENVELOPE_FILE_NAME = "envelopes.jsonl"
 
@@ -51,7 +51,85 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
     readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
     readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
   }
->() {}
+>() {
+  /**
+   * Allocate the file-system-backed study storage service from runtime boundaries.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static allocate(
+    options: StudyStorageOptions
+  ): Effect.Effect<StudyStorageApi, never, FileSystem.FileSystem | Path.Path | ArtifactSink | EnvelopeContext> {
+    return Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const sink = yield* ArtifactSink
+      const ctx = yield* EnvelopeContext
+      const envelopePath = path.join(options.directory, options.envelopeFileName)
+
+      yield* fileSystem.makeDirectory(options.directory, { recursive: true }).pipe(
+        Effect.catchAll(() => Effect.void)
+      )
+
+      const appendTrial = (trial: SnapshotTrial): Effect.Effect<void> =>
+        ctx.nextArtifactId.pipe(
+          Effect.map((artifactId) => TrialLog.fromContext(ctx, artifactId, trial)),
+          Effect.flatMap((envelope) => sink.emit(envelope)),
+          Effect.catchAll(() => Effect.void)
+        )
+
+      const writeSnapshot = (snapshot: StudySnapshot): Effect.Effect<void> =>
+        ctx.nextArtifactId.pipe(
+          Effect.map((artifactId) => StudySnapshotEnvelope.fromContext(ctx, artifactId, snapshot)),
+          Effect.flatMap((envelope) => sink.emit(envelope)),
+          Effect.catchAll(() => Effect.void)
+        )
+
+      const loadEnvelopes = () =>
+        readEnvelopeLog(envelopePath).pipe(
+          Stream.provideService(FileSystem.FileSystem, fileSystem),
+          Stream.runCollect,
+          Effect.map(Chunk.toReadonlyArray)
+        )
+
+      const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, InvalidStudyConfig> =>
+        loadEnvelopes().pipe(
+          Effect.map((envelopes) =>
+            Arr.findLast(envelopes, (e) => e._tag === "StudySnapshot").pipe(
+              Option.flatMap((e) => (e._tag === "StudySnapshot" ? Option.some(e.snapshot) : Option.none()))
+            )
+          )
+        )
+
+      const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
+        loadEnvelopes().pipe(
+          Effect.map((envelopes) =>
+            Arr.filterMap(envelopes, (e) => e._tag === "TrialLog" ? Option.some(e.trial) : Option.none())
+          )
+        )
+
+      const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
+        Effect.all([loadSnapshot(), loadTrialLog()]).pipe(
+          Effect.map(([snapshotOption, trials]) =>
+            Option.match(snapshotOption, {
+              onNone: () => trials,
+              onSome: (snapshot) =>
+                Arr.filter(trials, (trial) => Num.greaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
+            })
+          )
+        )
+
+      return {
+        appendTrial,
+        writeSnapshot,
+        loadSnapshot,
+        loadTrialLog,
+        replayTrialLog
+      }
+    })
+  }
+}
 
 /**
  * @since 0.1.0
@@ -61,84 +139,10 @@ export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
 
 /**
  * @since 0.1.0
- * @category constructors
- */
-export const makeStudyStorage = (
-  options: StudyStorageOptions
-): Effect.Effect<StudyStorageApi, never, FileSystem.FileSystem | Path.Path | ArtifactSink | EnvelopeContext> =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const sink = yield* ArtifactSink
-    const ctx = yield* EnvelopeContext
-    const envelopePath = path.join(options.directory, options.envelopeFileName)
-
-    yield* fileSystem.makeDirectory(options.directory, { recursive: true }).pipe(
-      Effect.catchAll(() => Effect.void)
-    )
-
-    const appendTrial = (trial: SnapshotTrial): Effect.Effect<void> =>
-      ctx.nextArtifactId.pipe(
-        Effect.map((artifactId) => makeTrialLogEnvelopeFrom(ctx, artifactId, trial)),
-        Effect.flatMap((envelope) => sink.emit(envelope)),
-        Effect.catchAll(() => Effect.void)
-      )
-
-    const writeSnapshot = (snapshot: StudySnapshot): Effect.Effect<void> =>
-      ctx.nextArtifactId.pipe(
-        Effect.map((artifactId) => makeSnapshotEnvelopeFrom(ctx, artifactId, snapshot)),
-        Effect.flatMap((envelope) => sink.emit(envelope)),
-        Effect.catchAll(() => Effect.void)
-      )
-
-    const loadEnvelopes = () =>
-      readEnvelopeLog(envelopePath).pipe(
-        Stream.provideService(FileSystem.FileSystem, fileSystem),
-        Stream.runCollect,
-        Effect.map(Chunk.toReadonlyArray)
-      )
-
-    const loadSnapshot = (): Effect.Effect<Option.Option<StudySnapshot>, InvalidStudyConfig> =>
-      loadEnvelopes().pipe(
-        Effect.map((envelopes) =>
-          Arr.findLast(envelopes, (e) => e._tag === "StudySnapshot").pipe(
-            Option.flatMap((e) => (e._tag === "StudySnapshot" ? Option.some(e.snapshot) : Option.none()))
-          )
-        )
-      )
-
-    const loadTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
-      loadEnvelopes().pipe(
-        Effect.map((envelopes) =>
-          Arr.filterMap(envelopes, (e) => e._tag === "TrialLog" ? Option.some(e.trial) : Option.none())
-        )
-      )
-
-    const replayTrialLog = (): Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig> =>
-      Effect.all([loadSnapshot(), loadTrialLog()]).pipe(
-        Effect.map(([snapshotOption, trials]) =>
-          Option.match(snapshotOption, {
-            onNone: () => trials,
-            onSome: (snapshot) =>
-              Arr.filter(trials, (trial) => Num.greaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
-          })
-        )
-      )
-
-    return {
-      appendTrial,
-      writeSnapshot,
-      loadSnapshot,
-      loadTrialLog,
-      replayTrialLog
-    }
-  })
-
-/**
- * @since 0.1.0
  * @category layers
  */
-export const StudyStorageLive = (options: StudyStorageOptions) => Layer.effect(StudyStorage, makeStudyStorage(options))
+export const StudyStorageLive = (options: StudyStorageOptions) =>
+  Layer.effect(StudyStorage, StudyStorage.allocate(options))
 
 const withOptionalStorage = <A>(
   onSome: (storage: StudyStorageApi) => Effect.Effect<A>,

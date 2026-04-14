@@ -14,8 +14,6 @@ import {
 import { type RuntimeEvidence, RuntimeEvidenceSchema } from "../contracts/RuntimeEvidence.js"
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
 
-const makeInvalidRuntimeConfig = (reason: string): InvalidRuntimeConfig => new InvalidRuntimeConfig({ reason })
-
 /**
  * Decodes unknown input into a desired runtime descriptor with a typed package
  * error on failure.
@@ -27,7 +25,7 @@ export const decodeDesiredRuntimeDescriptor = (
   input: unknown
 ): Effect.Effect<DesiredRuntimeDescriptor, InvalidRuntimeConfig> =>
   Schema.decodeUnknown(DesiredRuntimeDescriptorSchema)(input).pipe(
-    Effect.mapError((error) => makeInvalidRuntimeConfig(String(error)))
+    Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) }))
   )
 
 /**
@@ -41,7 +39,7 @@ export const decodeResolvedRouteDescriptor = (
   input: unknown
 ): Effect.Effect<ResolvedRouteDescriptor, InvalidRuntimeConfig> =>
   Schema.decodeUnknown(ResolvedRouteDescriptorSchema)(input).pipe(
-    Effect.mapError((error) => makeInvalidRuntimeConfig(String(error)))
+    Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) }))
   )
 
 /**
@@ -55,7 +53,7 @@ export const decodeResolvedRuntimeDescriptor = (
   input: unknown
 ): Effect.Effect<ResolvedRuntimeDescriptor, InvalidRuntimeConfig> =>
   Schema.decodeUnknown(ResolvedRuntimeDescriptorSchema)(input).pipe(
-    Effect.mapError((error) => makeInvalidRuntimeConfig(String(error)))
+    Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) }))
   )
 
 /**
@@ -69,5 +67,5 @@ export const decodeRuntimeEvidence = (
   input: unknown
 ): Effect.Effect<RuntimeEvidence, InvalidRuntimeConfig> =>
   Schema.decodeUnknown(RuntimeEvidenceSchema)(input).pipe(
-    Effect.mapError((error) => makeInvalidRuntimeConfig(String(error)))
+    Effect.mapError((error) => InvalidRuntimeConfig.make({ reason: String(error) }))
   )

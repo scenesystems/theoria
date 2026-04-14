@@ -1,8 +1,10 @@
 import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
+import { Live, LiveSuccessEnvelope, Ready, ReadySuccessEnvelope } from "../../contracts/health.js"
+import { DspProviderRuntime, dspRuntimeProjection } from "../capability/effect-dsp.js"
 import { RuntimeInfo } from "../config/runtime.js"
-import { DspProviderRuntime, dspRuntimeProjection } from "../demos/effect-dsp/provider.js"
+import { ResponseTiming } from "../kernel/response-timing.js"
 
 const jsonResponse = (body: unknown) =>
   HttpServerResponse.json(body, {
@@ -12,48 +14,30 @@ const jsonResponse = (body: unknown) =>
     }
   })
 
-const responseMeta = (requestId: string, buildSha: string, startedAtMs: number) =>
-  Effect.gen(function*() {
-    const endedAtMs = yield* Clock.currentTimeMillis
-
-    return {
-      requestId,
-      buildSha,
-      durationMs: endedAtMs - startedAtMs
-    }
-  })
-
 export const liveRoute = (requestId: string) =>
   Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
-    const runtimeInfo = yield* RuntimeInfo
-    const meta = yield* responseMeta(requestId, runtimeInfo.buildSha, startedAtMs)
+    const timing = yield* ResponseTiming.start(requestId)
 
-    return jsonResponse({
-      ok: true,
-      meta,
-      data: {
-        status: "live"
-      }
-    })
+    return yield* jsonResponse(
+      LiveSuccessEnvelope.ok(yield* timing.finish(), Live.live())
+    )
   })
 
 export const readyRoute = (requestId: string) =>
   Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
+    const timing = yield* ResponseTiming.start(requestId)
     const runtimeInfo = yield* RuntimeInfo
     const dspRuntime = yield* DspProviderRuntime
     const dsp = yield* dspRuntimeProjection(dspRuntime)
     const now = yield* Clock.currentTimeMillis
-    const meta = yield* responseMeta(requestId, runtimeInfo.buildSha, startedAtMs)
 
-    return jsonResponse({
-      ok: true,
-      meta,
-      data: {
-        status: "ready",
-        uptimeMs: now - runtimeInfo.startedAtMs,
-        dsp
-      }
-    })
+    return yield* jsonResponse(
+      ReadySuccessEnvelope.ok(
+        yield* timing.finish(),
+        Ready.ready({
+          uptimeMs: now - runtimeInfo.startedAtMs,
+          dsp
+        })
+      )
+    )
   })

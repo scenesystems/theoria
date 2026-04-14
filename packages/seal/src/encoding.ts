@@ -19,10 +19,10 @@
  */
 
 import { concatBytes } from "@noble/ciphers/utils.js"
-import { Effect, Encoding, Match, Tuple } from "effect"
+import { Effect, Encoding, Match, Option, Tuple } from "effect"
 import { AES_GCM_NONCE_BYTES, XCHACHA20_NONCE_BYTES } from "./internal/nonce.js"
 import type { SealAlgorithm } from "./schemas/SealAlgorithm.js"
-import { SealedEnvelope } from "./schemas/SealedEnvelope.js"
+import { type EnvelopeKeyMetadataType, SealedEnvelope } from "./schemas/SealedEnvelope.js"
 
 const nonceBytes = (algorithm: typeof SealAlgorithm.Type): number =>
   Match.value(algorithm).pipe(
@@ -46,14 +46,26 @@ const splitAt = (raw: Uint8Array, offset: number): readonly [Uint8Array, Uint8Ar
  */
 export const packEnvelope = (
   algorithm: typeof SealAlgorithm.Type,
-  raw: Uint8Array
+  raw: Uint8Array,
+  metadata: EnvelopeKeyMetadataType = {}
 ): Effect.Effect<SealedEnvelope> =>
   Effect.gen(function*() {
     const parts = splitAt(raw, nonceBytes(algorithm))
+    const keyId = Option.fromNullable(metadata.keyId)
+    const keyVersion = Option.fromNullable(metadata.keyVersion)
+
     return new SealedEnvelope({
       algorithm,
       nonce: Encoding.encodeBase64Url(Tuple.getFirst(parts)),
-      ciphertext: Encoding.encodeBase64Url(Tuple.getSecond(parts))
+      ciphertext: Encoding.encodeBase64Url(Tuple.getSecond(parts)),
+      ...Option.match(keyId, {
+        onNone: () => ({}),
+        onSome: (value) => ({ keyId: value })
+      }),
+      ...Option.match(keyVersion, {
+        onNone: () => ({}),
+        onSome: (value) => ({ keyVersion: value })
+      })
     })
   })
 

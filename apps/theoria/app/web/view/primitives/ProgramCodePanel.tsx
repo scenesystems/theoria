@@ -5,18 +5,18 @@ import type {
   SourceFileTab,
   SourceWorkspaceTab,
   SurfaceVariant
-} from "../../../contracts/presentation.js"
+} from "../../../contracts/presentation/program.js"
 
 import { ActionButton } from "./ActionControl.js"
-import type { CodePanelTheme } from "./designSystem.js"
 import { ProgramCodeWorkspace } from "./ProgramCodeWorkspace.js"
 import { SurfacePlaneFrame } from "./SurfacePlaneFrame.js"
 import { TabBar, TabButton } from "./TabBar.js"
+import type { CodePanel } from "./theme/surface.js"
 
 export const ProgramCodePanel = ({
   badge,
   codeClassName,
-  codePanelTheme,
+  codePanel,
   entry,
   fileName,
   filesVisible,
@@ -34,7 +34,7 @@ export const ProgramCodePanel = ({
 }: {
   readonly badge?: ReactNode
   readonly codeClassName: string
-  readonly codePanelTheme: CodePanelTheme
+  readonly codePanel: CodePanel
   readonly entry: string
   readonly fileName: string
   readonly filesVisible: boolean
@@ -60,7 +60,7 @@ export const ProgramCodePanel = ({
       {...optionalChromeProps}
       actions={
         <ActionButton
-          className={codePanelTheme.action}
+          className={codePanel.action}
           disabled={false}
           label={filesVisible ? "Hide Files" : "Show Files"}
           onClick={onToggleFilesVisible}
@@ -68,7 +68,7 @@ export const ProgramCodePanel = ({
         />
       }
       contentClassName="min-h-0 flex-1"
-      headerClassName={codePanelTheme.metaBorder}
+      headerClassName={codePanel.metaBorder}
       hintText={hintText}
       meta={sourceTabs.length > 1
         ? (
@@ -91,7 +91,7 @@ export const ProgramCodePanel = ({
     >
       <ProgramCodeWorkspace
         codeClassName={codeClassName}
-        codePanelTheme={codePanelTheme}
+        codePanel={codePanel}
         entry={entry}
         fileName={fileName}
         filesVisible={filesVisible}

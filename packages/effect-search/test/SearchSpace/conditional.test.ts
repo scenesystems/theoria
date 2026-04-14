@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Option, Schema } from "effect"
 
-import { makeLinearTreeConditionalSpace } from "../../src/experimental/scenarios/conditionalLinearTree.js"
+import { LinearTreeConditionalSpace } from "../../src/experimental/scenarios/conditionalLinearTree.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import {
   ConditionalFilteringFixtureSchema,
@@ -10,7 +10,7 @@ import {
   loadFixture
 } from "../helpers/fixtures.js"
 
-const makeConditionalSpace = () => makeLinearTreeConditionalSpace()
+const makeConditionalSpace = () => LinearTreeConditionalSpace.make()
 
 const makeTreeStructuredSpace = () =>
   SearchSpace.unsafeMakeConditional(

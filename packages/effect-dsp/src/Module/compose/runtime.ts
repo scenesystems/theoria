@@ -57,35 +57,36 @@ export type ComposeForward<
  * @since 0.1.0
  * @internal
  */
-export const makeComposeForward = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly moduleName: string
-  readonly signature: Signature<I, O>
-  readonly paramsRef: Ref.Ref<ModuleParams>
-  readonly rootChildIds: ReadonlyArray<ModuleId>
-  readonly graph: ModuleGraph
-  readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
-  readonly forward: ComposeForward<I, O>
-}): Module<I, O>["forward"] => {
-  return Effect.fn(options.moduleName)((input) =>
-    Effect.gen(function*() {
-      yield* registerRuntime({
-        moduleName: options.moduleName,
-        params: options.paramsRef,
-        signature: new RegisteredSignature({
-          description: options.signature.description,
-          instructions: options.signature.instructions
-        }),
-        subModuleIds: options.rootChildIds
-      })
+export const ComposeRuntime = {
+  forward: <
+    I extends Schema.Struct.Fields,
+    O extends Schema.Struct.Fields
+  >(options: {
+    readonly moduleName: string
+    readonly signature: Signature<I, O>
+    readonly paramsRef: Ref.Ref<ModuleParams>
+    readonly rootChildIds: ReadonlyArray<ModuleId>
+    readonly graph: ModuleGraph
+    readonly subModuleNodes: HashMap.HashMap<ModuleId, ModuleNode>
+    readonly forward: ComposeForward<I, O>
+  }): Module<I, O>["forward"] =>
+    Effect.fn(options.moduleName)((input) =>
+      Effect.gen(function*() {
+        yield* registerRuntime({
+          moduleName: options.moduleName,
+          params: options.paramsRef,
+          signature: RegisteredSignature.make({
+            description: options.signature.description,
+            instructions: options.signature.instructions
+          }),
+          subModuleIds: options.rootChildIds
+        })
 
-      return yield* options.forward({
-        input,
-        subModuleNodes: options.subModuleNodes,
-        graph: options.graph
+        return yield* options.forward({
+          input,
+          subModuleNodes: options.subModuleNodes,
+          graph: options.graph
+        })
       })
-    })
-  )
+    )
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Number as Num, Option } from "effect"
+import { abs } from "effect-math/Numeric"
 import fc from "fast-check"
 
-import * as Float64 from "../../src/internal/float64.js"
 import { cdf, logPdf, sample, TruncatedNormalParams } from "../../src/internal/tpe/truncatedNormal.js"
 
 const paramsInputArbitrary = fc.record({
@@ -173,8 +173,8 @@ describe("truncated normal invariants", () => {
           const points = Arr.makeBy(41, (index) => supportPoint(params, Num.unsafeDivide(index, 40)))
           const values = Arr.map(points, (point) => cdf(point, params))
 
-          expect(Float64.abs(valueAt(values, 0, 0) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
-          expect(Float64.abs(valueAt(values, values.length - 1, 1) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
+          expect(abs(valueAt(values, 0, 0) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
+          expect(abs(valueAt(values, values.length - 1, 1) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
           expect(Arr.every(values, (value) => value >= -CDF_EPSILON && value <= 1 + CDF_EPSILON)).toBe(true)
           expect(cdfTraceIsMonotone(values)).toBe(true)
         })
@@ -202,7 +202,7 @@ describe("truncated normal invariants", () => {
           (input, quantiles) => {
             const params = toParams(input)
             const orderedQuantiles = Arr.sort(quantiles, Num.Order)
-            const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => Float64.abs(a - b) < PPF_MONOTONE_RESOLUTION)
+            const deduped = Arr.dedupeWith(orderedQuantiles, (a, b) => abs(a - b) < PPF_MONOTONE_RESOLUTION)
             const draws = Arr.map(deduped, (quantile) => sample(quantile, params))
 
             expect(cdfTraceIsMonotone(draws)).toBe(true)
@@ -243,7 +243,7 @@ describe("truncated normal invariants", () => {
               const sampleValue = sample(clampedQuantile, params)
               const recovered = cdf(sampleValue, params)
 
-              return Float64.abs(recovered - clampedQuantile)
+              return abs(recovered - clampedQuantile)
             })
 
             expect(Arr.every(roundTripDiffs, (diff) => diff <= ROUNDTRIP_QUANTILE_TOLERANCE)).toBe(true)
@@ -258,10 +258,10 @@ describe("truncated normal invariants", () => {
         fc.property(paramsInputArbitrary, (input) => {
           const params = toParams(input)
 
-          expect(Float64.abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
-          expect(Float64.abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
-          expect(Float64.abs(sample(0, params) - params.low)).toBeLessThanOrEqual(1e-12)
-          expect(Float64.abs(sample(1, params) - params.high)).toBeLessThanOrEqual(1e-12)
+          expect(abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_EPSILON)
+          expect(abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_EPSILON)
+          expect(abs(sample(0, params) - params.low)).toBeLessThanOrEqual(1e-12)
+          expect(abs(sample(1, params) - params.high)).toBeLessThanOrEqual(1e-12)
         })
       )
     }))
@@ -275,7 +275,7 @@ describe("truncated normal invariants", () => {
           const draws = Arr.map(quantiles, (quantile) => sample(quantile, tailCase.params))
           const roundTripDiffs = Arr.map(quantiles, (quantile) => {
             const recovered = cdf(sample(quantile, tailCase.params), tailCase.params)
-            return Float64.abs(recovered - quantile)
+            return abs(recovered - quantile)
           })
 
           expect(Arr.every(draws, (draw) => draw >= tailCase.params.low && draw <= tailCase.params.high)).toBe(true)

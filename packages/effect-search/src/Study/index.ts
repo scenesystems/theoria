@@ -13,7 +13,12 @@ export {
   /** @since 0.1.0 */ AskedTrial,
   /** @since 0.1.0 */ askTellProcedureCatalog,
   /** @since 0.1.0 */ cancel,
-  /** @since 0.1.0 */ events,
+  /**
+   * Stream typed lifecycle events, including sampler-start diagnostics when the active sampler emits them.
+   *
+   * @since 0.1.0
+   */
+  events,
   /** @since 0.1.0 */ fail,
   /** @since 0.1.0 */ isStudyHandle,
   /**
@@ -60,7 +65,8 @@ export {
   /** @since 0.1.0 */ resumeStream,
   /** @since 0.1.0 */ SingleObjectiveResult,
   /**
-   * Capture study state for persistence.
+   * Capture study state for persistence, including typed sampler metrics that power pending-trial truth,
+   * benchmark artifacts, and consumer diagnostics.
    *
    * @since 0.1.0
    */
@@ -97,15 +103,11 @@ export {
 
 export {
   /** @since 0.1.0 */ defaultTerminalSink,
-  /** @since 0.1.0 */ formatTerminalProgressEvent,
-  /** @since 0.1.0 */ makeTerminalReporter,
-  /** @since 0.1.0 */ makeTerminalSink,
   /** @since 0.1.0 */ ProgressLine,
-  /** @since 0.1.0 */ reportTerminalProgress,
-  /** @since 0.1.0 */ tapTerminalProgress,
   /** @since 0.1.0 */ type TerminalProgressReporter,
   /** @since 0.1.0 */ type TerminalRenderMode,
   /** @since 0.1.0 */ TerminalRenderModeSchema,
+  /** @since 0.3.0 */ TerminalReporter,
   /** @since 0.1.0 */ TerminalSink,
   /** @since 0.1.0 */ writeProgressLines
 } from "./progress/index.js"
@@ -228,7 +230,6 @@ export {
 } from "./snapshot/stateCodec.js"
 
 export {
-  /** @since 0.1.0 */ makeStudyObjectiveCache,
   /** @since 0.1.0 */ StudyObjectiveCache,
   /** @since 0.1.0 */ type StudyObjectiveCacheApi,
   /** @since 0.1.0 */ StudyObjectiveCacheFileSystem,
@@ -240,7 +241,6 @@ export {
 } from "./studyObjectiveCache.js"
 
 export {
-  /** @since 0.1.0 */ makeStudyStorage,
   /** @since 0.1.0 */ StudyStorage,
   /** @since 0.1.0 */ type StudyStorageApi,
   /** @since 0.1.0 */ StudyStorageLive,

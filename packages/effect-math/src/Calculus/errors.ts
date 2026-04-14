@@ -2,8 +2,8 @@
  * Typed error taxonomy for the Calculus domain. Each error is a
  * `Schema.TaggedError` so it round-trips through Effect channels and
  * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode/encode) and operation failures (decode, domain
- * violation, invalid parameters).
+ * failures (decode/encode) and operation failures (decode, shape,
+ * convergence, domain violation, invalid parameters).
  *
  * @since 0.1.0
  * @category errors
@@ -40,6 +40,20 @@ export class CalculusDecodeError extends Schema.TaggedError<CalculusDecodeError>
 }) {}
 
 /**
+ * Raised when state and derivative shapes are incompatible for a
+ * multivariate calculus or ODE operation.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class CalculusShapeError extends Schema.TaggedError<CalculusShapeError>()("CalculusShapeError", {
+  operation: Schema.String,
+  expected: Schema.String,
+  actual: Schema.String,
+  message: Schema.String
+}) {}
+
+/**
  * Raised under the `"strict"` precision policy when an operation
  * produces a non-finite result (NaN or ±Infinity). Under `"relaxed"`
  * precision this error is never emitted.
@@ -68,6 +82,21 @@ export class CalculusParameterError extends Schema.TaggedError<CalculusParameter
 }) {}
 
 /**
+ * Raised when an iterative calculus routine cannot finish inside its
+ * declared convergence envelope.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class CalculusConvergenceError extends Schema.TaggedError<CalculusConvergenceError>()(
+  "CalculusConvergenceError",
+  {
+    operation: Schema.String,
+    message: Schema.String
+  }
+) {}
+
+/**
  * Union of all boundary-level errors.
  *
  * @since 0.1.0
@@ -83,6 +112,8 @@ export type CalculusBoundaryError = CalculusDomainBoundaryError | BoundaryDecode
  */
 export type CalculusOperationError =
   | CalculusDecodeError
+  | CalculusShapeError
   | CalculusDomainViolationError
   | CalculusParameterError
+  | CalculusConvergenceError
   | KernelExecutionError

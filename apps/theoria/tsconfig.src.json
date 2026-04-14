@@ -12,6 +12,7 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "vite.config.ts",
-    "../../packages/effect-inference/src/**/*.ts"
+    "../../packages/effect-inference/src/**/*.ts",
+    "../../packages/effect-dsp/test/fixtures/open-agent-trace/pi-mono/fixtures.ts"
   ]
 }

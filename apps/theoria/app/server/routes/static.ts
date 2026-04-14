@@ -1,10 +1,10 @@
 import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
-import * as Arr from "effect/Array"
 
-import { cardByIdForReleaseStage } from "../../contracts/card.js"
-import { Id } from "../../contracts/id.js"
-import { fullCanonicalUrl, metadataForHome, metadataForId } from "../../contracts/metadata.js"
+import { SiteMetadata } from "../../contracts/presentation/metadata.js"
+import { PageLocation } from "../../contracts/presentation/page-location.js"
+import { PagePresentation } from "../../contracts/presentation/page.js"
+import { PackageDocsRoute, PageRoute } from "../../contracts/presentation/path.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
@@ -25,26 +25,15 @@ const RelativeAssetPath = Schema.String.pipe(
 )
 
 const isRelativeAssetPath = Schema.is(RelativeAssetPath)
-const isKnownDemoId = Schema.is(Id)
-const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
 const htmlTagPattern = /<html\b([^>]*)>/u
 
-const deepDiveId = (pathname: string): Option.Option<string> =>
-  Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
-    Option.flatMap((matches) => Arr.get(matches, 1))
-  )
+const isHtmlPath = (location: PageLocation, stage: ReleaseStage): boolean => PageRoute.isHtmlLocation(location, stage)
 
-const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
-  Match.value(pathname).pipe(
-    Match.when("/", () => true),
-    Match.when("/index.html", () => true),
-    Match.orElse((value) =>
-      Option.match(deepDiveId(value), {
-        onNone: () => false,
-        onSome: (id) => isKnownDemoId(id) && Option.isSome(cardByIdForReleaseStage(id, stage))
-      })
-    )
-  )
+const packageDocsRedirectPath = (location: PageLocation, stage: ReleaseStage): string | null => {
+  return PackageDocsRoute.isLandingLocation(location)
+    ? PackageDocsRoute.redirectPathForReleaseStage(stage)
+    : null
+}
 
 const contentType = (
   pathname: string
@@ -78,10 +67,10 @@ export const notFoundResponse = () =>
     headers: responseHeaders("/not-found.txt")
   })
 
-const staticAssetPath = (pathname: string, stage: ReleaseStage): Option.Option<string> =>
-  Match.value(pathname).pipe(
+const staticAssetPath = (location: PageLocation, stage: ReleaseStage): Option.Option<string> =>
+  Match.value(location.pathname).pipe(
     Match.when((value) => value.startsWith("/api/"), () => Option.none<string>()),
-    Match.when((value) => isHtmlPath(value, stage), () => Option.some(indexPath)),
+    Match.when(() => isHtmlPath(location, stage), () => Option.some(indexPath)),
     Match.orElse((value) => {
       const relativePath = value.startsWith("/") ? value.slice(1) : value
       return isRelativeAssetPath(relativePath)
@@ -90,8 +79,8 @@ const staticAssetPath = (pathname: string, stage: ReleaseStage): Option.Option<s
     })
   )
 
-const headerPath = (pathname: string, stage: ReleaseStage): string =>
-  isHtmlPath(pathname, stage) ? "/index.html" : pathname
+const headerPath = (location: PageLocation, stage: ReleaseStage): string =>
+  isHtmlPath(location, stage) ? "/index.html" : location.pathname
 
 const injectReleaseStage = (html: string, stage: ReleaseStage): string =>
   html.replace(htmlTagPattern, `<html$1 data-theoria-release-stage="${stage}">`)
@@ -101,19 +90,9 @@ const metaPattern = (nameOrProperty: string): RegExp =>
   new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
 const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
 
-const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): string => {
-  const metadata = Match.value(pathname).pipe(
-    Match.when("/", () => metadataForHome()),
-    Match.when("/index.html", () => metadataForHome()),
-    Match.orElse((value) =>
-      Option.match(deepDiveId(value), {
-        onNone: () => metadataForHome(),
-        onSome: (id) => metadataForId(id)
-      })
-    )
-  )
-
-  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
+const injectMetadata = (html: string, location: PageLocation): string => {
+  const metadata = PagePresentation.fromLocation(location).metadata
+  const canonicalUrl = SiteMetadata.fullCanonicalUrl(metadata.canonicalPath)
 
   return html
     .replace(titlePattern, `<title>${metadata.title}</title>`)
@@ -130,11 +109,23 @@ const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): s
     .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
 }
 
-export const staticResponse = (pathname: string) =>
+export const staticResponse = (_pathname: string, rawUrl: string) =>
   Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
+    const location = PageLocation.fromUrl(rawUrl)
     const releaseStage = yield* serverReleaseStage
-    const resolvedPath = staticAssetPath(pathname, releaseStage)
+    const redirectPath = packageDocsRedirectPath(location, releaseStage)
+
+    if (redirectPath !== null) {
+      return HttpServerResponse.redirect(redirectPath, {
+        status: 302,
+        headers: {
+          "cache-control": "no-store"
+        }
+      })
+    }
+
+    const fileSystem = yield* FileSystem.FileSystem
+    const resolvedPath = staticAssetPath(location, releaseStage)
 
     return yield* Option.match(resolvedPath, {
       onNone: () => Effect.succeed(notFoundResponse()),
@@ -144,21 +135,19 @@ export const staticResponse = (pathname: string) =>
           Effect.flatMap((exists) =>
             Match.value(exists).pipe(
               Match.when(true, () =>
-                isHtmlPath(pathname, releaseStage)
+                isHtmlPath(location, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) =>
-                      injectMetadata(injectReleaseStage(html, releaseStage), pathname, releaseStage)
-                    ),
+                    Effect.map((html) => injectMetadata(injectReleaseStage(html, releaseStage), location)),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {
                         status: 200,
-                        headers: responseHeaders(headerPath(pathname, releaseStage))
+                        headers: responseHeaders(headerPath(location, releaseStage))
                       })
                     ),
                     Effect.catchAll(() => Effect.succeed(notFoundResponse()))
                   )
                   : HttpServerResponse.file(path, {
-                    headers: responseHeaders(headerPath(pathname, releaseStage))
+                    headers: responseHeaders(headerPath(location, releaseStage))
                   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
               Match.orElse(() => Effect.succeed(notFoundResponse()))
             )

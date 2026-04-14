@@ -15,8 +15,9 @@
  * @category contracts
  */
 import { Clock, Effect, Match, Number as N } from "effect"
+import * as Option from "effect/Option"
 
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
+import { BackendPolicyService, DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
 
 /**
  * Wraps a pure scalar computation with precision and diagnostics policy
@@ -28,8 +29,9 @@ import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolic
  * - `annotations` — a thunk that returns log annotation key-value pairs
  *
  * The combinator reads `PrecisionPolicyService` and `DiagnosticsPolicyService`
- * from context, applies the three-phase pattern using `Match.exhaustive`,
- * and returns the result.
+ * from context and, when present, annotates the shared backend selection so
+ * scalar-only operations stay on the same runtime-policy authority as
+ * backend-sensitive domains.
  *
  * @since 0.1.0
  * @category combinators
@@ -41,6 +43,7 @@ export const withScalarPolicyGuards = <E>(options: {
   readonly annotations: (result: number) => Record<string, string>
 }) =>
   Effect.gen(function*() {
+    const backend = yield* Effect.serviceOption(BackendPolicyService)
     const precision = yield* PrecisionPolicyService
     const diagnostics = yield* DiagnosticsPolicyService
 
@@ -69,6 +72,10 @@ export const withScalarPolicyGuards = <E>(options: {
           const elapsed = yield* Clock.currentTimeMillis
           yield* Effect.logDebug(options.operation).pipe(
             Effect.annotateLogs({
+              ...Option.match(backend, {
+                onNone: () => ({}),
+                onSome: (policy) => ({ backend: policy.policy })
+              }),
               precision: precision.policy,
               ...options.annotations(result),
               elapsedMs: String(N.subtract(elapsed, startedAt))
@@ -98,6 +105,7 @@ export const withCustomPolicyGuards = <A, E>(options: {
   readonly annotations: (result: A) => Record<string, string>
 }) =>
   Effect.gen(function*() {
+    const backend = yield* Effect.serviceOption(BackendPolicyService)
     const precision = yield* PrecisionPolicyService
     const diagnostics = yield* DiagnosticsPolicyService
 
@@ -126,6 +134,10 @@ export const withCustomPolicyGuards = <A, E>(options: {
           const elapsed = yield* Clock.currentTimeMillis
           yield* Effect.logDebug(options.operation).pipe(
             Effect.annotateLogs({
+              ...Option.match(backend, {
+                onNone: () => ({}),
+                onSome: (policy) => ({ backend: policy.policy })
+              }),
               precision: precision.policy,
               ...options.annotations(result),
               elapsedMs: String(N.subtract(elapsed, startedAt))

@@ -4,23 +4,13 @@ import { Array as Arr, Effect, Layer, Option, Record as Rec, Ref, Schema } from 
 import { ModuleParams } from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
+import type * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
-import { EnsembleMajorityVoteFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { EnsembleMajorityVoteFixtureSchema, FixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
-
-const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+const allocateProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   name: string,
   signature: Signature.Signature<I, O>,
   instructions: string
@@ -43,7 +33,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 describe("Optimizer.ensemble DSPy parity", () => {
   it.effect("matches fixture-backed majority vote and tie-break contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.ensemble.majority-vote.basic")
       const fixture = yield* Schema.decodeUnknown(EnsembleMajorityVoteFixtureSchema)(rawFixture)
 
@@ -51,7 +41,7 @@ describe("Optimizer.ensemble DSPy parity", () => {
         fixture.payload.cases,
         (fixtureCase) =>
           Effect.gen(function*() {
-            const signature = yield* makeQaSignature()
+            const signature = yield* conciseFactsQaSignature
             const indexedAnswers = Arr.map(
               fixtureCase.programAnswers,
               (answer, index) => ({
@@ -63,7 +53,7 @@ describe("Optimizer.ensemble DSPy parity", () => {
             const programs = yield* Effect.forEach(
               indexedAnswers,
               (entry) =>
-                makeProgram(
+                allocateProgram(
                   `qa-ensemble-dspy-parity-${fixtureCase.name}-${entry.index + 1}`,
                   signature,
                   entry.instruction

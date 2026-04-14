@@ -4,8 +4,8 @@
  * schemas, and quantile input schemas. All schemas enforce finite-number
  * validation at decode time, so kernels can assume well-formed numeric input.
  *
- * Covers 10 distribution families: Normal, LogNormal, Exponential, Uniform,
- * Beta, Gamma, StudentT, Categorical, Binomial, Poisson.
+ * Covers 11 distribution families: Normal, LogNormal, Exponential, Uniform,
+ * Beta, Gamma, StudentT, NoncentralT, Categorical, Binomial, Poisson.
  *
  * @since 0.1.0
  * @category schemas
@@ -137,6 +137,18 @@ export const UnitIntervalNumber = Schema.Number.pipe(
   Schema.lessThanOrEqualTo(1)
 )
 
+/**
+ * A number in the open unit interval (0, 1).
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OpenUnitIntervalNumber = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.greaterThan(0),
+  Schema.lessThan(1)
+)
+
 // ---------------------------------------------------------------------------
 // Distribution parameter schemas
 // ---------------------------------------------------------------------------
@@ -223,6 +235,18 @@ export const GammaDistParams = Schema.Struct({
 export const StudentTDistParams = Schema.Struct({
   df: PositiveFiniteNumber
 }).annotations({ identifier: "StudentTDistParams" })
+
+/**
+ * Noncentral Student's t-distribution parameters: degrees of freedom and
+ * noncentrality. Degrees of freedom must be strictly positive and finite.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const NoncentralTDistParams = Schema.Struct({
+  df: PositiveFiniteNumber,
+  noncentrality: FiniteNumber
+}).annotations({ identifier: "NoncentralTDistParams" })
 
 /**
  * Categorical distribution parameters: probability vector.
@@ -344,6 +368,18 @@ export const StudentTDistEvalInput = Schema.Struct({
   x: FiniteNumber,
   df: PositiveFiniteNumber
 }).annotations({ identifier: "StudentTDistEvalInput" })
+
+/**
+ * Point evaluation input for the noncentral Student's t-distribution CDF.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const NoncentralTDistEvalInput = Schema.Struct({
+  x: FiniteNumber,
+  df: PositiveFiniteNumber,
+  noncentrality: FiniteNumber
+}).annotations({ identifier: "NoncentralTDistEvalInput" })
 
 // ---------------------------------------------------------------------------
 // Discrete eval input schemas
@@ -468,3 +504,15 @@ export const StudentTQuantileInput = Schema.Struct({
   p: UnitIntervalNumber,
   df: PositiveFiniteNumber
 }).annotations({ identifier: "StudentTQuantileInput" })
+
+/**
+ * Quantile input for the noncentral Student's t-distribution inverse CDF.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const NoncentralTQuantileInput = Schema.Struct({
+  p: OpenUnitIntervalNumber,
+  df: PositiveFiniteNumber,
+  noncentrality: FiniteNumber
+}).annotations({ identifier: "NoncentralTQuantileInput" })

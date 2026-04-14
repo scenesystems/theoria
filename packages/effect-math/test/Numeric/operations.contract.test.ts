@@ -4,19 +4,27 @@ import { Effect, Number as EffectNumber, Option, Schema } from "effect"
 import { Seed } from "../../src/contracts/shared/BrandedScalars.js"
 import { makeDeterministicRuntimePoliciesLayer } from "../../src/contracts/shared/RuntimePolicies.js"
 import {
+  abs,
   argmaxIndex,
   argmaxValidated,
   between,
   clamp,
+  E,
+  EPSILON,
+  exp,
   expm1,
   expm1WithPolicies,
+  LN_2,
   log,
   log1p,
   log1pWithPolicies,
   logValidated,
+  PI,
   safeDivide,
   safeDivideFinite,
   safeDivideValidated,
+  sqrt,
+  SQRT_2,
   sum,
   sumValidated,
   sumWithPolicies,
@@ -153,6 +161,54 @@ describe("Numeric / between", () => {
   it.effect("returns false for value outside range", () =>
     Effect.gen(function*() {
       expect(between(15, { minimum: 0, maximum: 10 })).toStrictEqual(false)
+    }))
+})
+
+describe("Numeric constants", () => {
+  it.effect("keeps the canonical float64 constants stable", () =>
+    Effect.gen(function*() {
+      expect(PI).toStrictEqual(Math.PI)
+      expect(E).toStrictEqual(Math.E)
+      expect(LN_2).toStrictEqual(Math.LN2)
+      expect(SQRT_2).toStrictEqual(Math.SQRT2)
+      expect(EPSILON).toStrictEqual(Number.EPSILON)
+    }))
+})
+
+describe("Numeric / abs", () => {
+  it.effect("returns the magnitude of a float64 scalar", () =>
+    Effect.gen(function*() {
+      expect(abs(-5)).toStrictEqual(5)
+      expect(abs(5)).toStrictEqual(5)
+    }))
+
+  it.effect("matches native signed-zero behavior", () =>
+    Effect.gen(function*() {
+      expect(Object.is(abs(-0), 0)).toStrictEqual(true)
+      expect(Object.is(abs(-0), -0)).toStrictEqual(false)
+    }))
+})
+
+describe("Numeric / sqrt", () => {
+  it.effect("matches canonical square-root behavior", () =>
+    Effect.gen(function*() {
+      expect(sqrt(9)).toStrictEqual(3)
+      expect(Number.isNaN(sqrt(-1))).toStrictEqual(true)
+    }))
+})
+
+describe("Numeric / exp", () => {
+  it.effect("computes the natural exponential", () =>
+    Effect.gen(function*() {
+      expect(exp(1)).toBeCloseTo(Math.E)
+      expect(exp(0)).toStrictEqual(1)
+    }))
+
+  it.effect("matches native Math.exp for IEEE-754 edge behavior", () =>
+    Effect.gen(function*() {
+      expect(exp(680.4413826367417)).toStrictEqual(Math.exp(680.4413826367417))
+      expect(Object.is(exp(-0), Math.exp(-0))).toStrictEqual(true)
+      expect(Number.isNaN(exp(NaN))).toStrictEqual(true)
     }))
 })
 

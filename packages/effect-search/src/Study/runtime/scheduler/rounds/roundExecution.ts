@@ -94,7 +94,7 @@ const runRound = <Space extends SearchSpace.SearchSpace>(
   Effect.gen(function*() {
     yield* appendEvent(
       runtime,
-      StudyEvent.RoundStarted({
+      StudyEvent.RoundStarted.make({
         bracketIndex: bracket.index,
         roundIndex,
         nConfigs: round.nConfigs,
@@ -148,7 +148,7 @@ const runRound = <Space extends SearchSpace.SearchSpace>(
 
     yield* appendEvent(
       runtime,
-      StudyEvent.RoundCompleted({
+      StudyEvent.RoundCompleted.make({
         bracketIndex: bracket.index,
         roundIndex,
         nConfigs: round.nConfigs,

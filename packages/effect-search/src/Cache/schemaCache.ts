@@ -112,7 +112,107 @@ export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
       readonly compute: Effect.Effect<Value, E, R>
     }) => Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R>
   }
->() {}
+>() {
+  /**
+   * Allocate the shared schema-parameterized cache service from a key-value-store boundary.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static allocate(): Effect.Effect<SchemaCacheApi, never, KeyValueStore.KeyValueStore> {
+    return Effect.gen(function*() {
+      const keyValueStore = yield* KeyValueStore.KeyValueStore
+      const lookupCache = yield* makeLookupCache(keyValueStore)
+      const perKeySemaphore = yield* PartitionedSemaphore.make<string>({ permits: 1 })
+
+      const get = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+        descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+        key: Key
+      ): Effect.Effect<Option.Option<Value>, CacheError> =>
+        cacheKey(descriptor, key).pipe(
+          Effect.flatMap((resolvedKey) =>
+            lookupCache.get(resolvedKey).pipe(
+              Effect.flatMap(
+                Option.match({
+                  onNone: () => Effect.succeed(Option.none()),
+                  onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.map(Option.some))
+                })
+              )
+            )
+          )
+        )
+
+      const set = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+        descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+        key: Key,
+        value: Value
+      ): Effect.Effect<void, CacheError> =>
+        cacheKey(descriptor, key).pipe(
+          Effect.flatMap((resolvedKey) =>
+            encodeValue(descriptor, resolvedKey, value).pipe(
+              Effect.flatMap((encoded) =>
+                keyValueStore.set(resolvedKey, encoded).pipe(
+                  Effect.mapError(failWithBackendError("set")),
+                  Effect.zipRight(lookupCache.set(resolvedKey, Option.some(encoded)))
+                )
+              )
+            )
+          )
+        )
+
+      const remove = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+        descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+        key: Key
+      ): Effect.Effect<void, CacheError> =>
+        cacheKey(descriptor, key).pipe(
+          Effect.flatMap((resolvedKey) =>
+            keyValueStore.remove(resolvedKey).pipe(
+              Effect.mapError(failWithBackendError("remove")),
+              Effect.zipRight(lookupCache.invalidate(resolvedKey))
+            )
+          )
+        )
+
+      const resolveWithSingleFlight = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(args: {
+        readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
+        readonly key: Key
+        readonly compute: Effect.Effect<Value, E, R>
+      }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+        cacheKey(args.descriptor, args.key).pipe(
+          Effect.flatMap((resolvedKey) =>
+            perKeySemaphore.withPermits(resolvedKey, 1)(
+              get(args.descriptor, args.key).pipe(
+                Effect.flatMap((cachedOption): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+                  Option.match(resolveCached(cachedOption), {
+                    onNone: () => resolveMiss(args.descriptor, args.key, args.compute, set),
+                    onSome: Effect.succeed
+                  })
+                )
+              )
+            )
+          )
+        )
+
+      const resolve = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>({
+        descriptor,
+        key,
+        compute
+      }: {
+        readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
+        readonly key: Key
+        readonly compute: Effect.Effect<Value, E, R>
+      }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
+        resolveWithSingleFlight({ descriptor, key, compute })
+
+      return {
+        get,
+        set,
+        remove,
+        resolve
+      }
+    })
+  }
+}
 
 /**
  * @since 0.1.0
@@ -244,106 +344,9 @@ const resolveCached = <Value>(
 
 /**
  * @since 0.1.0
- * @category constructors
- */
-export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValueStore.KeyValueStore> =>
-  Effect.gen(function*() {
-    const keyValueStore = yield* KeyValueStore.KeyValueStore
-    const lookupCache = yield* makeLookupCache(keyValueStore)
-    const perKeySemaphore = yield* PartitionedSemaphore.make<string>({ permits: 1 })
-
-    const get = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
-      descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
-      key: Key
-    ): Effect.Effect<Option.Option<Value>, CacheError> =>
-      cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          lookupCache.get(resolvedKey).pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () => Effect.succeed(Option.none()),
-                onSome: (encoded) => decodeValue(descriptor, resolvedKey, encoded).pipe(Effect.map(Option.some))
-              })
-            )
-          )
-        )
-      )
-
-    const set = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
-      descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
-      key: Key,
-      value: Value
-    ): Effect.Effect<void, CacheError> =>
-      cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          encodeValue(descriptor, resolvedKey, value).pipe(
-            Effect.flatMap((encoded) =>
-              keyValueStore.set(resolvedKey, encoded).pipe(
-                Effect.mapError(failWithBackendError("set")),
-                Effect.zipRight(lookupCache.set(resolvedKey, Option.some(encoded)))
-              )
-            )
-          )
-        )
-      )
-
-    const remove = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
-      descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
-      key: Key
-    ): Effect.Effect<void, CacheError> =>
-      cacheKey(descriptor, key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          keyValueStore.remove(resolvedKey).pipe(
-            Effect.mapError(failWithBackendError("remove")),
-            Effect.zipRight(lookupCache.invalidate(resolvedKey))
-          )
-        )
-      )
-
-    const resolveWithSingleFlight = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>(args: {
-      readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
-      readonly key: Key
-      readonly compute: Effect.Effect<Value, E, R>
-    }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
-      cacheKey(args.descriptor, args.key).pipe(
-        Effect.flatMap((resolvedKey) =>
-          perKeySemaphore.withPermits(resolvedKey, 1)(
-            get(args.descriptor, args.key).pipe(
-              Effect.flatMap((cachedOption): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
-                Option.match(resolveCached(cachedOption), {
-                  onNone: () => resolveMiss(args.descriptor, args.key, args.compute, set),
-                  onSome: Effect.succeed
-                })
-              )
-            )
-          )
-        )
-      )
-
-    const resolve = <Key, Value, E, R, EncodedKey = Key, EncodedValue = Value>({
-      descriptor,
-      key,
-      compute
-    }: {
-      readonly descriptor: CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
-      readonly key: Key
-      readonly compute: Effect.Effect<Value, E, R>
-    }): Effect.Effect<readonly [Value, CacheResolution], CacheError | E, R> =>
-      resolveWithSingleFlight({ descriptor, key, compute })
-
-    return {
-      get,
-      set,
-      remove,
-      resolve
-    }
-  })
-
-/**
- * @since 0.1.0
  * @category layers
  */
-export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
+export const SchemaCacheLive = Layer.effect(SchemaCache, SchemaCache.allocate())
 
 /**
  * @since 0.1.0

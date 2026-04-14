@@ -52,7 +52,7 @@
     "lint": "eslint --max-warnings=0 src test benchmarks examples",
     "lint:fix": "eslint --max-warnings=0 --fix src test benchmarks examples",
     "test": "vitest run --root ../.. packages/effect-text/test",
-    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
+    "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
     "bench": "bun benchmarks/run.ts",
     "verify:browser-parity": "bun examples/live/browserAccuracyHarness.ts",
     "verify:calibration": "bun benchmarks/verifyCalibration.ts",

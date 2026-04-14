@@ -15,7 +15,7 @@ const resolvePackageRoot = Effect.gen(function*() {
 
 const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
   Effect.gen(function*() {
-    const command = Command.make("bun", "run", "scripts/verify-publish-readiness.ts", ...args).pipe(
+    const command = Command.make("bun", "../../scripts/publish-readiness.ts", "--package=effect-search", ...args).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),
       Command.stderr("pipe")
@@ -32,6 +32,7 @@ const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
 
     return {
       exitCode: Number(exitCode),
+      output: `${stdout}${stderr}`,
       stdout,
       stderr
     }
@@ -48,7 +49,7 @@ describe("package/repository-metadata", () => {
       ])
 
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).not.toContain("metadata.repository.url-forbidden")
+      expect(result.output).not.toContain("metadata.repository.url-forbidden")
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("enforces scenesystems/theoria monorepo repository metadata", () =>
@@ -62,7 +63,7 @@ describe("package/repository-metadata", () => {
       ])
 
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).not.toContain(MONOREPO_TOPOLOGY_TODO_CODE)
-      expect(result.stderr).not.toContain("metadata.monorepo.target-mismatch")
+      expect(result.output).not.toContain(MONOREPO_TOPOLOGY_TODO_CODE)
+      expect(result.output).not.toContain("metadata.monorepo.target-mismatch")
     }).pipe(Effect.provide(BunContext.layer)))
 })

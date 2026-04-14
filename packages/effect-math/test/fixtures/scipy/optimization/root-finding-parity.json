@@ -1,0 +1,144 @@
+{
+  "fixture": "optimization.root-finding-parity",
+  "metadata": {
+    "generatedAt": "2026-03-23T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-scipy-fixtures.py",
+      "version": "1.0.0"
+    },
+    "upstream": {
+      "name": "scipy",
+      "version": "1.15.2"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.4142135623731364,
+          "rootTolerance": 1e-8
+        },
+        "id": "brent-x-squared-minus-2",
+        "input": {
+          "function": "x_squared_minus_2",
+          "lowerBound": 0.0,
+          "upperBound": 2.0
+        },
+        "operation": "brent"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.5707963267948966,
+          "rootTolerance": 1e-8
+        },
+        "id": "brent-cos",
+        "input": {
+          "function": "cos",
+          "lowerBound": 0.0,
+          "upperBound": 2.0
+        },
+        "operation": "brent"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 0.6931471805599452,
+          "rootTolerance": 1e-8
+        },
+        "id": "brent-exp-minus-2",
+        "input": {
+          "function": "exp_minus_2",
+          "lowerBound": 0.0,
+          "upperBound": 2.0
+        },
+        "operation": "brent"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.4142135623730951,
+          "rootTolerance": 1e-8
+        },
+        "id": "secant-x-squared-minus-2",
+        "input": {
+          "currentEstimate": 2.0,
+          "function": "x_squared_minus_2",
+          "previousEstimate": 1.0
+        },
+        "operation": "secant"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.5707963267948968,
+          "rootTolerance": 1e-8
+        },
+        "id": "secant-cos",
+        "input": {
+          "currentEstimate": 2.0,
+          "function": "cos",
+          "previousEstimate": 1.0
+        },
+        "operation": "secant"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.5,
+          "rootTolerance": 1e-8
+        },
+        "id": "secant-linear",
+        "input": {
+          "currentEstimate": 2.0,
+          "function": "linear_2x_minus_3",
+          "previousEstimate": 0.0
+        },
+        "operation": "secant"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.414213562373095,
+          "rootTolerance": 1e-8
+        },
+        "id": "newton-x-squared-minus-2",
+        "input": {
+          "derivative": "dx_squared_minus_2",
+          "function": "x_squared_minus_2",
+          "initialGuess": 1.5
+        },
+        "operation": "newtonRaphson"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 1.5707963267948966,
+          "rootTolerance": 1e-8
+        },
+        "id": "newton-cos",
+        "input": {
+          "derivative": "dcos",
+          "function": "cos",
+          "initialGuess": 1.0
+        },
+        "operation": "newtonRaphson"
+      },
+      {
+        "expected": {
+          "residualTolerance": 1e-10,
+          "root": 0.6931471805599454,
+          "rootTolerance": 1e-8
+        },
+        "id": "newton-exp-minus-2",
+        "input": {
+          "derivative": "dexp_minus_2",
+          "function": "exp_minus_2",
+          "initialGuess": 0.5
+        },
+        "operation": "newtonRaphson"
+      }
+    ]
+  }
+}

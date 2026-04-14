@@ -1,16 +1,10 @@
 /**
- * Optimization Solvers — bisection root-finding and golden section
- * minimization.
+ * Optimization Solvers — legacy scalar solvers plus the canonical nonlinear
+ * root-finding surface.
  *
- * Iterative numerical solvers for 1D root-finding and minimization.
- * Pure kernels compute values directly via recursive bisection or
- * golden ratio bracketing; validated variants decode boundary input;
- * policy-aware variants enforce precision constraints and emit
- * diagnostics.
- *
- * What this shows: `bisect`, `goldenSection`, schema-validated
- * `bisectValidated` / `goldenSectionValidated`, and policy-aware
- * `bisectWithPolicies` / `goldenSectionWithPolicies`.
+ * What this shows: `bisect`, `goldenSection`, the canonical result-envelope
+ * solvers `brent`, `secant`, `newtonRaphson`, schema-validated
+ * `findRootValidated`, and policy-aware `findRootWithPolicies`.
  *
  * Run: bun run packages/effect-math/examples/09-optimization-solvers.ts
  * @module
@@ -18,58 +12,66 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Number as N } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { AutodiffAuthorityLive, makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
 import {
   bisect,
   bisectValidated,
-  bisectWithPolicies,
+  brent,
+  findRootValidated,
+  findRootWithPolicies,
   goldenSection,
   goldenSectionValidated,
-  goldenSectionWithPolicies
+  newtonRaphson,
+  secant
 } from "effect-math/Optimization"
 
 const program = Effect.gen(function*() {
-  // ─── Pure kernels — bisection root-finding ──────────────────────
   const xSquaredMinus2 = (x: number) => N.subtract(N.multiply(x, x), 2)
+
+  // ─── Legacy convenience helpers — scalar root/minimum search ─────
   yield* Console.log("bisect(x²−2, 0, 2):", bisect(xSquaredMinus2, 0, 2))
-  // Output: ≈ 1.4142135623730951 (√2)
-
-  yield* Console.log("bisect(cos, 0, 2):", bisect(Math.cos, 0, 2))
-  // Output: ≈ 1.5707963267948966 (π/2)
-
-  // ─── Pure kernels — golden section minimization ─────────────────
   const xSquared = (x: number) => N.multiply(x, x)
   yield* Console.log("goldenSection(x², -2, 2):", goldenSection(xSquared, -2, 2))
-  // Output: ≈ 0 (minimum of x²)
 
-  const xMinus1Squared = (x: number) => N.multiply(N.subtract(x, 1), N.subtract(x, 1))
-  yield* Console.log("goldenSection((x−1)², -2, 4):", goldenSection(xMinus1Squared, -2, 4))
-  // Output: ≈ 1 (minimum of (x−1)²)
+  // ─── Canonical nonlinear root finding — compare three methods ────
+  const brentResult = brent(xSquaredMinus2, 0, 2)
+  const secantResult = secant(xSquaredMinus2, 1, 2)
+  const newtonResult = newtonRaphson(xSquaredMinus2, 1.5, {
+    derivative: (x) => N.multiply(2, x)
+  })
 
-  // ─── Schema-validated — boundary input decoded via Schema ───────
+  yield* Console.log("brent(x²−2, 0, 2):", brentResult)
+  yield* Console.log("secant(x²−2, 1, 2):", secantResult)
+  yield* Console.log("newtonRaphson(x²−2, 1.5):", newtonResult)
+
+  // ─── Schema-validated canonical API — autodiff-authority gated ───
   const bisectV = yield* bisectValidated(xSquaredMinus2, { a: 0, b: 2 })
-  yield* Console.log("bisectValidated(x²−2, {a:0, b:2}):", bisectV)
-  // Output: bisectValidated(x²−2, {a:0, b:2}): ≈ 1.41421 (√2)
-
   const goldenV = yield* goldenSectionValidated(xSquared, { a: -2, b: 2 })
-  yield* Console.log("goldenSectionValidated(x², {a:-2, b:2}):", goldenV)
-  // Output: goldenSectionValidated(x², {a:-2, b:2}): ≈ 0
+  const validatedRoot = yield* findRootValidated(xSquaredMinus2, {
+    method: "newtonRaphson",
+    initialGuess: 1.5
+  })
 
-  // ─── Policy-aware — strict precision ────────────────────────────
+  yield* Console.log("bisectValidated(x²−2, {a:0, b:2}):", bisectV)
+  yield* Console.log("goldenSectionValidated(x², {a:-2, b:2}):", goldenV)
+  yield* Console.log("findRootValidated(newtonRaphson, x²−2):", validatedRoot)
+
+  // ─── Policy-aware canonical API — shared dispatch annotations ───
   const policies = makeDeterministicRuntimePoliciesLayer({
     seed: Seed.make(42),
     precision: "strict",
-    backend: "scalar",
+    backend: "typed-array",
     diagnostics: "disabled"
   })
 
-  const bisectP = yield* bisectWithPolicies(xSquaredMinus2, 0, 2).pipe(Effect.provide(policies))
-  yield* Console.log("bisectWithPolicies (strict, x²−2):", bisectP)
-  // Output: bisectWithPolicies (strict, x²−2): ≈ 1.41421 (√2)
+  const policyRoot = yield* findRootWithPolicies(xSquaredMinus2, {
+    method: "newtonRaphson",
+    initialGuess: 1.5
+  }, {
+    derivative: (x) => N.multiply(2, x)
+  }).pipe(Effect.provide(policies))
 
-  const goldenP = yield* goldenSectionWithPolicies(xSquared, -2, 2).pipe(Effect.provide(policies))
-  yield* Console.log("goldenSectionWithPolicies (strict, x²):", goldenP)
-  // Output: goldenSectionWithPolicies (strict, x²): ≈ 0
+  yield* Console.log("findRootWithPolicies(newtonRaphson, x²−2):", policyRoot)
 })
 
-BunRuntime.runMain(program)
+BunRuntime.runMain(program.pipe(Effect.provide(AutodiffAuthorityLive)))

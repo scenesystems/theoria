@@ -4,30 +4,19 @@ import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 import { Example } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 
-import { LabeledFewShotSampleFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { FixtureRegistry, LabeledFewShotSampleFixtureSchema } from "../../helpers/dspy-fixtures/index.js"
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 describe("Optimizer.labeledFewShot DSPy parity", () => {
   it.effect("matches fixture-backed seeded sample selection without LM calls", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.labeledfewshot.sample-k.seed-9")
       const fixture = yield* Schema.decodeUnknown(LabeledFewShotSampleFixtureSchema)(rawFixture)
 
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa-labeledfewshot-dspy-parity", signature)
       const trainset = Arr.map(
         fixture.payload.trainset,

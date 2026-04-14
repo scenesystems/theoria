@@ -50,9 +50,17 @@ export const ResolvedRouteDescriptorSchema = Schema.Struct({
 })
 
 /**
+ * Canonical resolved-route descriptor constructor surface.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const ResolvedRouteDescriptor = ResolvedRouteDescriptorSchema
+
+/**
  * Extracted resolved-route descriptor type.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type ResolvedRouteDescriptor = Schema.Schema.Type<typeof ResolvedRouteDescriptorSchema>
+export type ResolvedRouteDescriptor = Schema.Schema.Type<typeof ResolvedRouteDescriptor>

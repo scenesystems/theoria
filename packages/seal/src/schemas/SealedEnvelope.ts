@@ -23,6 +23,31 @@
 import { Schema } from "effect"
 import { SealAlgorithm } from "./SealAlgorithm.js"
 
+const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
+
+/**
+ * Additive transport metadata for key selection and rotation.
+ *
+ * These fields help callers choose the right decryption key, but they are not
+ * encrypted or cryptographically authenticated by the envelope itself.
+ *
+ * @since 0.2.0
+ * @category schemas
+ */
+export const EnvelopeKeyMetadata = Schema.Struct({
+  keyId: Schema.optional(NonEmptyString),
+  keyVersion: Schema.optional(PositiveInt)
+})
+
+/**
+ * Envelope key-metadata type.
+ *
+ * @since 0.2.0
+ * @category models
+ */
+export type EnvelopeKeyMetadataType = typeof EnvelopeKeyMetadata.Type
+
 /**
  * Self-describing authenticated encryption envelope.
  *
@@ -32,5 +57,7 @@ import { SealAlgorithm } from "./SealAlgorithm.js"
 export class SealedEnvelope extends Schema.Class<SealedEnvelope>("SealedEnvelope")({
   algorithm: SealAlgorithm,
   nonce: Schema.String,
-  ciphertext: Schema.String
+  ciphertext: Schema.String,
+  keyId: Schema.optional(NonEmptyString),
+  keyVersion: Schema.optional(PositiveInt)
 }) {}

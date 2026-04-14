@@ -1,10 +1,13 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Schema } from "effect"
 
-import type { ReleaseSinceSnapshot } from "./model.js"
+import { resolveReleaseGovernedVersion } from "./changesets.js"
+import type { PackageName, ReleaseVersion } from "./identifiers.js"
+import type { ReleaseSinceGovernanceFinding, ReleaseSinceSnapshot } from "./model.js"
 import { packagePublicEntrypoints, PackageReleaseManifestJson } from "./packageManifest.js"
+import { resolveRootFrom } from "./projectPath.js"
 import { packagePublicExports } from "./publicSurface.js"
-import { ReleaseSinceSnapshotJson, stampReleaseSinceSnapshot } from "./releaseSince.js"
+import { ReleaseSinceSnapshotJson, stampReleaseSinceSnapshot, verifyReleaseSince } from "./releaseSince.js"
 import { typeScriptProgramFromConfig, type TypeScriptProjectError } from "./typescriptProject.js"
 
 const loadReleaseSinceSnapshotFile = (
@@ -71,7 +74,7 @@ export const loadReleaseSinceSnapshotsFromDirectory = (
  */
 export const loadReleaseSinceSnapshotForVersion = (input: {
   readonly snapshotsDirectory: string
-  readonly releasedVersion: string
+  readonly releasedVersion: ReleaseVersion
 }): Effect.Effect<ReleaseSinceSnapshot, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
@@ -83,20 +86,28 @@ export const loadReleaseSinceSnapshotForVersion = (input: {
  * Stamps the current package release snapshot from package manifest and checker truth.
  *
  * This keeps release-governance authority singular: `package.json` owns the
- * public surface and current version, the TypeScript program owns consumer
- * resolution, and checked-in snapshots preserve prior first-release history.
+ * public surface, pending changesets own the next release target when they
+ * exist, the TypeScript program owns consumer resolution, and checked-in
+ * snapshots preserve prior first-release history.
  *
  * @since 0.0.0
  * @category constructors
  */
 export const stampCurrentPackageReleaseSinceSnapshot = (input: {
   readonly packageRoot: string
+  readonly releasedVersion?: ReleaseVersion
   readonly snapshotsDirectory?: string
   readonly tsconfigPath?: string
 }): Effect.Effect<ReleaseSinceSnapshot, TypeScriptProjectError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
     const manifest = yield* loadPackageReleaseManifest(input.packageRoot)
+    const workspaceRoot = path.dirname(path.dirname(input.packageRoot))
+    const releaseVersion = input.releasedVersion ?? (yield* resolveReleaseGovernedVersion({
+      workspaceRoot,
+      packageName: manifest.name,
+      currentVersion: manifest.version
+    }))
     const entrypoints = yield* packagePublicEntrypoints(input.packageRoot, manifest)
     const snapshotsDirectory = input.snapshotsDirectory
       ?? path.join(input.packageRoot, "test/package/release-snapshots")
@@ -106,10 +117,69 @@ export const stampCurrentPackageReleaseSinceSnapshot = (input: {
 
     return stampReleaseSinceSnapshot({
       packageName: manifest.name,
-      releasedVersion: manifest.version,
+      releasedVersion: releaseVersion,
       exports: packagePublicExports(program, entrypoints),
       previousSnapshots
     })
+  })
+
+/**
+ * Verifies release-accurate `@since` and `@category` metadata for one package root.
+ *
+ * This is the package-agnostic harness used by package governance suites: it
+ * resolves the release-governed version from pending changesets, loads the
+ * checked-in snapshot for that governed version, and compares the current
+ * public surface against the full snapshot history.
+ *
+ * @since 0.0.0
+ * @category queries
+ */
+export const verifyPackageReleaseSinceGovernance = (input: {
+  readonly packageRootUrl: URL
+  readonly snapshotsDirectory?: string
+  readonly tsconfigPath?: string
+  readonly workspaceRoot?: string
+}): Effect.Effect<
+  {
+    readonly currentSnapshot: ReleaseSinceSnapshot
+    readonly findings: ReadonlyArray<ReleaseSinceGovernanceFinding>
+    readonly packageName: PackageName
+    readonly releaseVersion: ReleaseVersion
+  },
+  TypeScriptProjectError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const packageRoot = yield* resolveRootFrom(input.packageRootUrl)
+    const manifest = yield* loadPackageReleaseManifest(packageRoot)
+    const workspaceRoot = input.workspaceRoot ?? path.dirname(path.dirname(packageRoot))
+    const releaseVersion = yield* resolveReleaseGovernedVersion({
+      workspaceRoot,
+      packageName: manifest.name,
+      currentVersion: manifest.version
+    })
+    const snapshotsDirectory = input.snapshotsDirectory
+      ?? path.join(packageRoot, "test/package/release-snapshots")
+    const tsconfigPath = input.tsconfigPath ?? path.join(packageRoot, "tsconfig.src.json")
+    const entrypoints = yield* packagePublicEntrypoints(packageRoot, manifest)
+    const program = yield* typeScriptProgramFromConfig(tsconfigPath)
+    const snapshots = yield* loadReleaseSinceSnapshotsFromDirectory(snapshotsDirectory)
+    const currentSnapshot = yield* loadReleaseSinceSnapshotForVersion({
+      snapshotsDirectory,
+      releasedVersion: releaseVersion
+    })
+
+    return {
+      currentSnapshot,
+      findings: verifyReleaseSince({
+        currentVersion: releaseVersion,
+        exports: packagePublicExports(program, entrypoints),
+        snapshots
+      }),
+      packageName: manifest.name,
+      releaseVersion
+    }
   })
 
 /**

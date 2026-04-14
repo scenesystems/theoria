@@ -1,11 +1,9 @@
-import { Separator } from "@base-ui-components/react/separator"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-
-import type { EvidenceDensity } from "../surfaceModel.js"
-import type { EvidenceRow } from "./evidence-row.js"
+import type { PresentationDetailRow } from "../../../contracts/presentation/detail-row.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { EvidenceDensity } from "../../../contracts/presentation/surface-presentation.js"
 
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
@@ -18,11 +16,11 @@ const evidenceRowLayoutClass = ({
   readonly variant: SurfaceVariant
 }): string =>
   Match.value(density).pipe(
-    Match.when("compact", () => "grid gap-1.5 py-1.5"),
+    Match.when("compact", () => "grid gap-1.5 py-2"),
     Match.orElse(() =>
       Match.value(variant).pipe(
         Match.when("expanded", () => "grid gap-2 py-3 sm:grid-cols-[minmax(9rem,11rem)_1fr] sm:gap-4"),
-        Match.orElse(() => "py-2")
+        Match.orElse(() => "grid gap-2 py-2.5")
       )
     )
   )
@@ -46,14 +44,14 @@ const evidenceRowValueClass = ({
 
 const rowLabelClassName = (density: EvidenceDensity): string =>
   Match.value(density).pipe(
-    Match.when("compact", () => "text-ink-700"),
+    Match.when("compact", () => "text-ink-600"),
     Match.orElse(() => "text-ink-700")
   )
 
-const separatorClassName = (density: EvidenceDensity): string =>
+const evidenceRowsShellClassName = (density: EvidenceDensity): string =>
   Match.value(density).pipe(
-    Match.when("compact", () => "mb-2 h-px bg-stage-200/75"),
-    Match.orElse(() => "mb-3 h-px bg-stage-200/80")
+    Match.when("compact", () => "mt-1 divide-y divide-stage-200/56"),
+    Match.orElse(() => "mt-2 divide-y divide-stage-200/60")
   )
 
 export const EvidenceRows = ({
@@ -62,18 +60,12 @@ export const EvidenceRows = ({
   variant
 }: {
   readonly density: EvidenceDensity
-  readonly rows: ReadonlyArray<EvidenceRow>
+  readonly rows: ReadonlyArray<PresentationDetailRow>
   readonly variant: SurfaceVariant
 }) => (
-  <dl
-    className={Match.value(density).pipe(
-      Match.when("compact", () => "mt-1"),
-      Match.orElse(() => "mt-2")
-    )}
-  >
-    {Arr.map(rows, (row, index) => (
+  <Layer as="dl" className={evidenceRowsShellClassName(density)}>
+    {Arr.map(rows, (row) => (
       <Layer key={`${row.label}:${row.value}`}>
-        {index === 0 ? null : <Separator className={separatorClassName(density)} />}
         <Layer className={evidenceRowLayoutClass({ density, variant })}>
           <SemanticText
             as="dt"
@@ -92,5 +84,5 @@ export const EvidenceRows = ({
         </Layer>
       </Layer>
     ))}
-  </dl>
+  </Layer>
 )

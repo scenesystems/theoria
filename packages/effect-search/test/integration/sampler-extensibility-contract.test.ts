@@ -1,14 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Match, Number as Num, Option, Stream } from "effect"
+import { abs } from "effect-math/Numeric"
 
 import { InvalidStudyConfig } from "../../src/Errors/index.js"
-import { decodeSlotConfig, makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
-import * as Float64 from "../../src/internal/float64.js"
+import { decodeSlotConfig, SlotSpace } from "../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
-const extensionSpace = makeSlotSpace(64)
+const extensionSpace = SlotSpace.make(64)
 
 const asSingleObjective = (result: Study.StudyResult) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
@@ -44,7 +44,7 @@ const makeExtensionSampler = (seed: number): Sampler.Sampler => ({
 const extensionObjective = (raw: unknown) => {
   const config = decodeSlotConfig(raw)
 
-  return Effect.succeed(Float64.abs(config.slot - 3))
+  return Effect.succeed(abs(config.slot - 3))
 }
 
 describe("sampler extensibility debt-prevention gate", () => {
@@ -70,7 +70,7 @@ describe("sampler extensibility debt-prevention gate", () => {
       const slots = result.trials.map((trial) => decodeSlotConfig(trial.config).slot)
       const expectedSlots = result.trials.map((trial) => (trial.trialNumber + 5) % 17)
       const expectedBest = slots.reduce(
-        (best, slot) => Num.min(best, Float64.abs(slot - 3)),
+        (best, slot) => Num.min(best, abs(slot - 3)),
         Number.POSITIVE_INFINITY
       )
 

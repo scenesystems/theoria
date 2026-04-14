@@ -6,42 +6,44 @@
 import { Data, Schema, Tuple } from "effect"
 
 /**
- * Schema for a `[kernelRoll, valueRoll]` pair used to deterministically
- * sample from a Parzen estimator.
+ * Two uniform draws that select a kernel component and a value within that
+ * kernel.
  *
- * @see {@link CandidateRollPair} for the inferred TypeScript type
- * @see {@link makeCandidateRollPair} for the constructor
- * @since 0.1.0
- * @category schemas
- */
-export const CandidateRollPairSchema = Schema.Tuple(Schema.Number, Schema.Number)
-
-/**
- * A tuple of two uniform draws that select a kernel component and a value
- * within that kernel.
+ * `kernelRoll` picks which Parzen kernel component to sample from;
+ * `valueRoll` selects a position within that kernel's distribution.
  *
- * The first element picks which Parzen kernel component to sample from; the
- * second element selects a position within that kernel's distribution.
- *
- * @see {@link CandidateRollPairSchema} for the serializable schema
- * @see {@link makeCandidateRollPair} for the constructor
+ * @see {@link CandidateRollPair.make} for the constructor
  * @since 0.1.0
  * @category models
  */
-export type CandidateRollPair = Schema.Schema.Type<typeof CandidateRollPairSchema>
+export class CandidateRollPair extends Schema.Class<CandidateRollPair>("CandidateRollPair")({
+  kernelRoll: Schema.Number,
+  valueRoll: Schema.Number
+}) {}
+
+const CandidateRollPairTuple = Schema.Tuple(Schema.Number, Schema.Number)
 
 /**
- * Constructs a {@link CandidateRollPair} from a kernel index roll and a
- * within-kernel value roll.
+ * Schema for a `[kernelRoll, valueRoll]` pair used to deterministically
+ * sample from a Parzen estimator.
  *
- * @see {@link CandidateRollPair} for the output type
+ * @see {@link CandidateRollPair} for the decoded semantic value
+ * @see {@link CandidateRollPair.make} for the constructor
  * @since 0.1.0
- * @category constructors
+ * @category schemas
  */
-export const makeCandidateRollPair = (
-  kernelRoll: number,
-  valueRoll: number
-): CandidateRollPair => Tuple.make(kernelRoll, valueRoll)
+export const CandidateRollPairSchema = Schema.transform(
+  Schema.Union(CandidateRollPairTuple, CandidateRollPair),
+  CandidateRollPair,
+  {
+    strict: true,
+    decode: (pair) =>
+      pair instanceof CandidateRollPair
+        ? pair
+        : CandidateRollPair.make({ kernelRoll: pair[0], valueRoll: pair[1] }),
+    encode: (pair) => Tuple.make(pair.kernelRoll, pair.valueRoll)
+  }
+)
 
 /**
  * Per-dimension trace of candidate values, their log-densities under l(x)

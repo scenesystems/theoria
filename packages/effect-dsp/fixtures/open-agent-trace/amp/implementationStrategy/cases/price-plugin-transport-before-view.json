@@ -1,0 +1,23 @@
+{
+  "caseId": "price-plugin-transport-before-view",
+  "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+  "captureLane": "plugin",
+  "split": "validation",
+  "task": "Restructure the declaration transport so the exact domain product is derived before any generic record view and keep the noun/mechanism seam explicit in derive.ts and transport.ts.",
+  "constraints": [
+    "Keep the declared noun model authoritative.",
+    "Avoid helper aliases that hide the real seam.",
+    "Do not repair narrowing with witness-style proofs."
+  ],
+  "files": [
+    "derive.ts",
+    "transport.ts",
+    "program.ts"
+  ],
+  "rejectedMoves": [
+    "Flatten the product into a generic transport record.",
+    "Introduce witnesses to recover the erased declaration shape.",
+    "Solve the compiler error with overload detours instead of exact derivation."
+  ],
+  "expectedStrategy": "Keep the declared noun model as source of truth, derive the exact product before transport views, split noun and mechanism authority at the real seam, and avoid widening, helper indirection, witness proofs, overload detours, or any intermediate authority layer."
+}

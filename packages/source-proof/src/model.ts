@@ -1,5 +1,7 @@
 import { Data } from "effect"
 
+import type { PackageName, ReleaseVersion } from "./identifiers.js"
+
 /**
  * Absolute and project-relative path metadata for a discovered source file.
  *
@@ -32,7 +34,7 @@ export type PublicExportKind = "default" | "namespace" | "type" | "value"
 export class PublicExportDoc extends Data.Class<{
   readonly exportName: string
   readonly kind: PublicExportKind
-  readonly since: string | null
+  readonly since: ReleaseVersion | null
   readonly category: string | null
 }> {}
 
@@ -43,8 +45,8 @@ export class PublicExportDoc extends Data.Class<{
  * @category models
  */
 export class PackagePublicEntrypoint extends Data.Class<{
-  readonly packageName: string
-  readonly releasedVersion: string
+  readonly packageName: PackageName
+  readonly releasedVersion: ReleaseVersion
   readonly subpath: string
   readonly sourceFile: SourceFilePath
 }> {}
@@ -62,7 +64,7 @@ export class PackagePublicExport extends Data.Class<{
   readonly subpath: string
   readonly exportName: string
   readonly kind: PublicExportKind
-  readonly since: string | null
+  readonly since: ReleaseVersion | null
   readonly category: string | null
 }> {}
 
@@ -76,7 +78,7 @@ export class ReleaseSinceSnapshotEntry extends Data.Class<{
   readonly subpath: string
   readonly exportName: string
   readonly kind: PublicExportKind
-  readonly firstReleasedIn: string
+  readonly firstReleasedIn: ReleaseVersion
 }> {}
 
 /**
@@ -86,8 +88,8 @@ export class ReleaseSinceSnapshotEntry extends Data.Class<{
  * @category models
  */
 export class ReleaseSinceSnapshot extends Data.Class<{
-  readonly packageName: string
-  readonly releasedVersion: string
+  readonly packageName: PackageName
+  readonly releasedVersion: ReleaseVersion
   readonly exports: ReadonlyArray<ReleaseSinceSnapshotEntry>
 }> {}
 
@@ -102,6 +104,6 @@ export class ReleaseSinceGovernanceFinding extends Data.Class<{
   readonly exportName: string
   readonly kind: PublicExportKind
   readonly issue: "missing-category" | "missing-since" | "mismatched-since"
-  readonly expectedSince: string
-  readonly actualSince: string | null
+  readonly expectedSince: ReleaseVersion
+  readonly actualSince: ReleaseVersion | null
 }> {}

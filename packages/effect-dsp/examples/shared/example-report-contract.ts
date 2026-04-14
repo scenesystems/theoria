@@ -46,7 +46,7 @@ const lineForOptionalBoolean = (label: string, value?: boolean): string =>
     })
   )
 
-export type ExampleOptimizerKind = "miprov2" | "gepa" | "study"
+export type ExampleOptimizerKind = "copro" | "miprov2" | "gepa" | "study"
 
 export type StandardExampleSummary = Readonly<{
   readonly schemaVersion: "effect-dsp-example-report/v1"
@@ -180,167 +180,175 @@ const summaryLines = (summary: StandardExampleSummary): ReadonlyArray<string> =>
     }\` using standardized files: \`${REPORT_FILE_NAME}\`, \`${SUMMARY_FILE_NAME}\`, \`${EVENTS_FILE_NAME}\`, \`${MODULE_STATE_FILE_NAME}\`.`
   )
 
-export const makeStandardSummary = (options: {
-  readonly exampleName: string
-  readonly optimizer: ExampleOptimizerKind
-  readonly metricName: string
-  readonly baselineScore: number
-  readonly optimizedScore: number
-  readonly eventCount: number
-  readonly optimizationSummary: Readonly<Record<string, unknown>>
-  readonly seed?: number
-  readonly optimizationConfig?: Readonly<Record<string, unknown>>
-  readonly trainsetSize?: number
-  readonly valsetSize?: number
-  readonly evalsetSize?: number
-  readonly instructionBefore?: string
-  readonly instructionAfter?: string
-  readonly demoCountBefore?: number
-  readonly demoCountAfter?: number
-  readonly demosLearnedDuringOptimization?: number
-  readonly extras?: Readonly<Record<string, unknown>>
-}): StandardExampleSummary => {
-  const dataset: StandardExampleSummary["dataset"] = {
-    ...Option.fromNullable(options.trainsetSize).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (trainsetSize) => ({ trainsetSize })
-      })
-    ),
-    ...Option.fromNullable(options.valsetSize).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (valsetSize) => ({ valsetSize })
-      })
-    ),
-    ...Option.fromNullable(options.evalsetSize).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (evalsetSize) => ({ evalsetSize })
-      })
-    )
-  }
+export const StandardExampleSummary = {
+  make: (options: {
+    readonly exampleName: string
+    readonly optimizer: ExampleOptimizerKind
+    readonly metricName: string
+    readonly baselineScore: number
+    readonly optimizedScore: number
+    readonly eventCount: number
+    readonly optimizationSummary: Readonly<Record<string, unknown>>
+    readonly seed?: number
+    readonly optimizationConfig?: Readonly<Record<string, unknown>>
+    readonly trainsetSize?: number
+    readonly valsetSize?: number
+    readonly evalsetSize?: number
+    readonly instructionBefore?: string
+    readonly instructionAfter?: string
+    readonly demoCountBefore?: number
+    readonly demoCountAfter?: number
+    readonly demosLearnedDuringOptimization?: number
+    readonly extras?: Readonly<Record<string, unknown>>
+  }): StandardExampleSummary => {
+    const dataset: StandardExampleSummary["dataset"] = {
+      ...Option.fromNullable(options.trainsetSize).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (trainsetSize) => ({ trainsetSize })
+        })
+      ),
+      ...Option.fromNullable(options.valsetSize).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (valsetSize) => ({ valsetSize })
+        })
+      ),
+      ...Option.fromNullable(options.evalsetSize).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (evalsetSize) => ({ evalsetSize })
+        })
+      )
+    }
 
-  const instructionChangedOption = Option.fromNullable(options.instructionBefore).pipe(
-    Option.flatMap((beforeInstruction) =>
-      Option.fromNullable(options.instructionAfter).pipe(
-        Option.map((afterInstruction) => instructionChanged(beforeInstruction, afterInstruction))
+    const instructionChangedOption = Option.fromNullable(options.instructionBefore).pipe(
+      Option.flatMap((beforeInstruction) =>
+        Option.fromNullable(options.instructionAfter).pipe(
+          Option.map((afterInstruction) => instructionChanged(beforeInstruction, afterInstruction))
+        )
       )
     )
-  )
 
-  const instruction: StandardExampleSummary["instruction"] = {
-    ...instructionChangedOption.pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (changed) => ({ changed })
-      })
-    ),
-    ...Option.fromNullable(options.instructionBefore).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (before) => ({ before, lengthBefore: before.length })
-      })
-    ),
-    ...Option.fromNullable(options.instructionAfter).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (after) => ({ after, lengthAfter: after.length })
-      })
-    )
-  }
+    const instruction: StandardExampleSummary["instruction"] = {
+      ...instructionChangedOption.pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (changed) => ({ changed })
+        })
+      ),
+      ...Option.fromNullable(options.instructionBefore).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (before) => ({ before, lengthBefore: before.length })
+        })
+      ),
+      ...Option.fromNullable(options.instructionAfter).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (after) => ({ after, lengthAfter: after.length })
+        })
+      )
+    }
 
-  const demos: StandardExampleSummary["demos"] = {
-    ...Option.fromNullable(options.demoCountBefore).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (countBefore) => ({ countBefore })
-      })
-    ),
-    ...Option.fromNullable(options.demoCountAfter).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (countAfter) => ({ countAfter })
-      })
-    ),
-    ...Option.fromNullable(options.demosLearnedDuringOptimization).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (learnedDuringOptimization) => ({ learnedDuringOptimization })
-      })
-    )
-  }
+    const demos: StandardExampleSummary["demos"] = {
+      ...Option.fromNullable(options.demoCountBefore).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (countBefore) => ({ countBefore })
+        })
+      ),
+      ...Option.fromNullable(options.demoCountAfter).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (countAfter) => ({ countAfter })
+        })
+      ),
+      ...Option.fromNullable(options.demosLearnedDuringOptimization).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (learnedDuringOptimization) => ({ learnedDuringOptimization })
+        })
+      )
+    }
 
-  const optimization: StandardExampleSummary["optimization"] = {
-    eventCount: options.eventCount,
-    summary: options.optimizationSummary,
-    ...Option.fromNullable(options.seed).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (seed) => ({ seed })
-      })
-    ),
-    ...Option.fromNullable(options.optimizationConfig).pipe(
-      Option.match({
-        onNone: () => ({}),
-        onSome: (config) => ({ config })
-      })
-    )
-  }
+    const optimization: StandardExampleSummary["optimization"] = {
+      eventCount: options.eventCount,
+      summary: options.optimizationSummary,
+      ...Option.fromNullable(options.seed).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (seed) => ({ seed })
+        })
+      ),
+      ...Option.fromNullable(options.optimizationConfig).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (config) => ({ config })
+        })
+      )
+    }
 
-  return {
-    schemaVersion: "effect-dsp-example-report/v1",
-    exampleName: options.exampleName,
-    optimizer: options.optimizer,
-    metricName: options.metricName,
-    dataset,
-    scores: {
-      baseline: options.baselineScore,
-      optimized: options.optimizedScore,
-      delta: scoreDelta(options.baselineScore, options.optimizedScore)
-    },
-    instruction,
-    demos,
-    optimization,
-    extras: options.extras ?? {}
+    return {
+      schemaVersion: "effect-dsp-example-report/v1",
+      exampleName: options.exampleName,
+      optimizer: options.optimizer,
+      metricName: options.metricName,
+      dataset,
+      scores: {
+        baseline: options.baselineScore,
+        optimized: options.optimizedScore,
+        delta: scoreDelta(options.baselineScore, options.optimizedScore)
+      },
+      instruction,
+      demos,
+      optimization,
+      extras: options.extras ?? {}
+    }
   }
 }
 
-export const makeStandardReportMarkdown = (summary: StandardExampleSummary): string => summaryLines(summary).join("\n")
+export const StandardReportMarkdown = {
+  fromSummary: (summary: StandardExampleSummary): string => summaryLines(summary).join("\n")
+}
 
-export const makeStandardEvents = (options: {
-  readonly exampleName: string
-  readonly optimizer: ExampleOptimizerKind
-  readonly streams: ReadonlyArray<
-    Readonly<{
-      readonly name: string
-      readonly events: unknown
-    }>
-  >
-}): StandardExampleEvents => ({
-  schemaVersion: "effect-dsp-example-events/v1",
-  exampleName: options.exampleName,
-  optimizer: options.optimizer,
-  streams: options.streams
-})
+export const StandardExampleEvents = {
+  make: (options: {
+    readonly exampleName: string
+    readonly optimizer: ExampleOptimizerKind
+    readonly streams: ReadonlyArray<
+      Readonly<{
+        readonly name: string
+        readonly events: unknown
+      }>
+    >
+  }): StandardExampleEvents => ({
+    schemaVersion: "effect-dsp-example-events/v1",
+    exampleName: options.exampleName,
+    optimizer: options.optimizer,
+    streams: options.streams
+  })
+}
 
-export const makeStandardModuleState = (options: {
-  readonly exampleName: string
-  readonly optimizer: ExampleOptimizerKind
-  readonly state: unknown
-}): StandardModuleState => ({
-  schemaVersion: "effect-dsp-module-state/v1",
-  exampleName: options.exampleName,
-  optimizer: options.optimizer,
-  state: options.state
-})
+export const StandardModuleState = {
+  make: (options: {
+    readonly exampleName: string
+    readonly optimizer: ExampleOptimizerKind
+    readonly state: unknown
+  }): StandardModuleState => ({
+    schemaVersion: "effect-dsp-module-state/v1",
+    exampleName: options.exampleName,
+    optimizer: options.optimizer,
+    state: options.state
+  })
+}
 
 const writeReportMarkdown = (directory: string, summary: StandardExampleSummary) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const reportPath = path.join(directory, REPORT_FILE_NAME)
-    yield* fileSystem.writeFileString(reportPath, makeStandardReportMarkdown(summary))
+    yield* fileSystem.writeFileString(reportPath, StandardReportMarkdown.fromSummary(summary))
     return reportPath
   })
 

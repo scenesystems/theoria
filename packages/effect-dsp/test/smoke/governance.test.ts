@@ -39,16 +39,8 @@ const EFFECT_SEARCH_INTEROP_ROOT_PATH = "src/optimizers/effectSearchInterop/"
 
 const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
-    "src/testing/MockLanguageModel.ts",
-    "MockLanguageModel co-locates request routing, response construction, and effect-dsp-specific matchers for test isolation. Follow-up: split response builders into MockLanguageModel/responses.ts."
-  ],
-  [
     "src/Module/compose/graph.ts",
     "Module graph traversal co-locates DAG construction, cycle detection, topological sort, and serialization for deterministic compose module wiring. Follow-up: extract traversal into graph/traversal.ts."
-  ],
-  [
-    "src/Optimizer/progress.ts",
-    "Optimizer progress co-locates heterogeneous event streaming, terminal formatting, and progress aggregation. Follow-up: split terminal formatting into progress/format.ts."
   ],
   [
     "src/optimizers/BootstrapFewShot/runtime/round.ts",
@@ -59,12 +51,12 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Re-exports the full effect-search artifact envelope system. Follow-up: reduce surface after stabilization."
   ],
   [
-    "src/Evaluate/runtime/example.ts",
-    "Example evaluation co-locates predict invocation, metric scoring, and trace collection. Follow-up: extract metric scoring into runtime/scoring.ts."
-  ],
-  [
     "src/contracts/ModuleGraph.ts",
     "Module graph schema co-locates graph, node, and edge schemas for structural coherence. Follow-up: split into graph/schema.ts and graph/traversal.ts."
+  ],
+  [
+    "src/contracts/index.ts",
+    "Contracts barrel uses explicit docgen-owned re-exports for the public contract surface. Follow-up: split export groups into focused helper barrels if the surface grows further."
   ],
   [
     "src/optimizers/BootstrapRS/runtime/candidates.ts",
@@ -79,8 +71,16 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "MIPRO search space co-locates dimension construction, anchor binding, and categorical encoding. Follow-up: split anchor binding into runtime/anchors-binding.ts."
   ],
   [
-    "src/optimizers/MIPROv2/runtime/evaluate.ts",
-    "MIPRO evaluation co-locates trial execution, metric collection, and progress emission. Follow-up: extract progress emission into runtime/progress.ts."
+    "src/optimizers/COPRO/runtime/run.ts",
+    "COPRO runtime currently co-locates step orchestration, candidate evaluation, resume snapshots, and predictor updates. Follow-up: extract step-level state transitions into runtime/step.ts."
+  ],
+  [
+    "src/OpenAgentTrace/amp/plugin.ts",
+    "Amp Plugin API normalization co-locates raw event decoding, tool lifecycle stitching, and canonical record construction. Follow-up: extract tool-result projection into amp/toolLifecycle.ts."
+  ],
+  [
+    "src/OpenAgentTrace/amp/streamJson.ts",
+    "Amp stream-json normalization co-locates line decoding, shell replay stitching, and canonical record construction. Follow-up: extract stream line schemas into amp/streamSchema.ts."
   ]
 ]
 
@@ -107,6 +107,8 @@ const EXPECTED_EXPORT_KEYS = [
   "./contracts",
   "./test",
   "./experimental",
+  "./fixtures/open-agent-trace/amp",
+  "./fixtures/open-agent-trace/pi-mono",
   "./internal/*",
   "./optimizers/*"
 ]
@@ -354,7 +356,7 @@ const effectSearchInteropCapabilityLeakViolations: Effect.Effect<
               || target === "Study.fail"
               || target === "Study.cancel"
               || target === "Study.events"
-              || target === "Study.formatTerminalProgressEvent"
+              || target === "Study.ProgressLine.projectEvent"
             )
               || propertyAccessChains(sourceFile).some((chain) => chain.startsWith("Pareto."))
               || propertyAssignmentTexts(sourceFile, "acquisition").length > 0
@@ -476,6 +478,10 @@ describe("Governance", () => {
         expect(exportsMap["./internal/*"]).toBeNull()
         expect(exportsMap["./optimizers/*"]).toBeNull()
         expect(exportsMap["./*"]).toBeUndefined()
+        expect(exportsMap["./fixtures/open-agent-trace/amp"]).toBe("./src/publicFixtures/open-agent-trace/amp/index.ts")
+        expect(exportsMap["./fixtures/open-agent-trace/pi-mono"]).toBe(
+          "./src/publicFixtures/open-agent-trace/pi-mono/index.ts"
+        )
         expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
       }).pipe(Effect.provide(BunContext.layer)))
 

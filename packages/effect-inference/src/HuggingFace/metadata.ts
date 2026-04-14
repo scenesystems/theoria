@@ -7,43 +7,63 @@ import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import type { RouteSelectionPolicy } from "../contracts/RouteSelectionPolicy.js"
 
 /**
- * Creates a normalized Hugging Face routed-provider execution route.
+ * Routed-provider Hugging Face route authority.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeHuggingFaceRoutedRoute = (options: {
-  readonly baseUrl: string
-  readonly authMethod: ExecutionRoute["authMethod"]
-  readonly gatewayId?: string
-  readonly selectionPolicy?: RouteSelectionPolicy
-}): ExecutionRoute => ({
-  family: "HuggingFace",
-  baseUrl: options.baseUrl,
-  serveMode: "routed-marketplace",
-  authMethod: options.authMethod,
-  gatewayId: options.gatewayId,
-  selectionPolicy: options.selectionPolicy
-})
+export type HuggingFaceRoutedRoute = ExecutionRoute
 
 /**
- * Creates a normalized Hugging Face dedicated-endpoint execution route.
+ * Noun-owned constructor surface for routed-provider Hugging Face execution routes.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeHuggingFaceEndpointRoute = (options: {
-  readonly baseUrl: string
-  readonly authMethod: ExecutionRoute["authMethod"]
-  readonly endpointId?: string
-  readonly deploymentId?: string
-  readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
-}): ExecutionRoute => ({
-  family: "HuggingFace",
-  baseUrl: options.baseUrl,
-  serveMode: "dedicated-endpoint",
-  authMethod: options.authMethod,
-  endpointId: options.endpointId,
-  deploymentId: options.deploymentId,
-  runtimeFlavorHint: options.runtimeFlavorHint
-})
+export const HuggingFaceRoutedRoute = {
+  make: (options: {
+    readonly baseUrl: string
+    readonly authMethod: ExecutionRoute["authMethod"]
+    readonly gatewayId?: string
+    readonly selectionPolicy?: RouteSelectionPolicy
+  }): HuggingFaceRoutedRoute => ({
+    family: "HuggingFace",
+    baseUrl: options.baseUrl,
+    serveMode: "routed-marketplace",
+    authMethod: options.authMethod,
+    gatewayId: options.gatewayId,
+    selectionPolicy: options.selectionPolicy
+  })
+}
+
+/**
+ * Dedicated-endpoint Hugging Face route authority.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export type HuggingFaceEndpointRoute = ExecutionRoute
+
+/**
+ * Noun-owned constructor surface for dedicated-endpoint Hugging Face execution routes.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const HuggingFaceEndpointRoute = {
+  make: (options: {
+    readonly baseUrl: string
+    readonly authMethod: ExecutionRoute["authMethod"]
+    readonly endpointId?: string
+    readonly deploymentId?: string
+    readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
+  }): HuggingFaceEndpointRoute => ({
+    family: "HuggingFace",
+    baseUrl: options.baseUrl,
+    serveMode: "dedicated-endpoint",
+    authMethod: options.authMethod,
+    endpointId: options.endpointId,
+    deploymentId: options.deploymentId,
+    runtimeFlavorHint: options.runtimeFlavorHint
+  })
+}

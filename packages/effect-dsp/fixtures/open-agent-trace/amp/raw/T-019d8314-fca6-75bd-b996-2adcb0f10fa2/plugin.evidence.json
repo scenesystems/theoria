@@ -1,0 +1,44 @@
+{
+  "desired": {
+    "threadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+    "sourceUrl": "https://ampcode.com/threads/T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+    "visibility": "public",
+    "captureMethod": "plugin-api"
+  },
+  "resolved": {
+    "threadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+    "sessionId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+    "captureMethod": "plugin-api",
+    "rawFileName": "plugin.raw.json",
+    "rawDigest": "blake3-256:uBu6IVTgySBfBaSnb6LDqenMYGlar3OiEBtk-vn8Lhg",
+    "derivedFileName": "plugin.capture.json",
+    "sourceHash": "blake3-256:uBu6IVTgySBfBaSnb6LDqenMYGlar3OiEBtk-vn8Lhg"
+  },
+  "observed": {
+    "capturedAt": "2026-04-12T19:04:43.981Z",
+    "startedAt": "2026-04-12T19:04:44.080Z",
+    "firstTaskSummary": "Read README.md, update counter.ts so formatCount(2) prints '2 items', run 'bun counter.ts' to verify, then stop.",
+    "toolNames": [
+      "Read",
+      "edit_file",
+      "Bash"
+    ],
+    "shellCommands": [
+      "bun counter.ts"
+    ],
+    "terminalStatus": "done",
+    "coverageKinds": [
+      "branch-lineage",
+      "usage-provenance"
+    ]
+  },
+  "capabilityGaps": [
+    "branch-lineage",
+    "usage-provenance"
+  ],
+  "reviewBoundary": {
+    "rawArtifactAuthority": true,
+    "derivedReplayAuthority": "checked-in-derived-replay",
+    "notes": "The checked-in raw public capture is authoritative. Derived replay captures exist only to provide strict, offline package loading."
+  }
+}

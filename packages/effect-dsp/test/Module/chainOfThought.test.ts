@@ -3,28 +3,17 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Record, Ref, Schema } from "effect"
+import { Effect, Layer, Record, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Demo } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.chainOfThought", () => {
   it.effect("extends the output contract with reasoning and preserves structured predict runtime behavior", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({
           reasoning: "Paris is the capital city of France.",
@@ -52,7 +41,7 @@ describe("Module.chainOfThought", () => {
 
   it.effect("uses the same text-mode prompt/parse contracts as predict when demos are present", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed(
           "[[ ## reasoning ## ]]\nParis is the capital city of France.\n\n[[ ## answer ## ]]\nParis"

@@ -2,7 +2,12 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import { layoutRequestFor, prepareInputFor, semanticsFor, textSemantics } from "../../app/contracts/text.js"
+import {
+  layoutRequestFor,
+  prepareInputFor,
+  semanticsFor,
+  textSemantics
+} from "../../app/contracts/presentation/text.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Typography contract", () => {

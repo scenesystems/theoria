@@ -1,8 +1,7 @@
 import { Match, Number as Num } from "effect"
-import { logaddexp } from "effect-math/Numeric"
+import { abs, exp, expm1Strict, log1pStrict, logaddexp, logStrict, sqrt } from "effect-math/Numeric"
 import { erf, erfc } from "effect-math/Special"
 
-import * as Float64 from "../../float64.js"
 import {
   INV_SQRT_TWO,
   LOG_NDTR_ASYMPTOTIC_THRESHOLD,
@@ -29,7 +28,7 @@ export const ndtr = (value: number): number => {
 
 const asymptoticSeries = (state: AsymptoticSeriesState): number => {
   return Match.value(
-    Float64.abs(state.lastTotal - state.rightHandSide) <= Number.EPSILON || state.index >= 1_024
+    abs(state.lastTotal - state.rightHandSide) <= Number.EPSILON || state.index >= 1_024
   ).pipe(
     Match.when(true, () => state.rightHandSide),
     Match.orElse(() => {
@@ -55,7 +54,7 @@ const asymptoticSeries = (state: AsymptoticSeriesState): number => {
 }
 
 const logNdtrAsymptotic = (value: number): number => {
-  const logLeftHandSide = -0.5 * value * value - Float64.log(-value) - LOG_SQRT_TWO_PI
+  const logLeftHandSide = -0.5 * value * value - logStrict(-value) - LOG_SQRT_TWO_PI
   const asymptoticRightHandSide = asymptoticSeries(
     new AsymptoticSeriesState({
       lastTotal: 0,
@@ -68,7 +67,7 @@ const logNdtrAsymptotic = (value: number): number => {
     })
   )
 
-  return logLeftHandSide + Float64.log(asymptoticRightHandSide)
+  return logLeftHandSide + logStrict(asymptoticRightHandSide)
 }
 
 export const logNdtr = (value: number): number =>
@@ -77,7 +76,7 @@ export const logNdtr = (value: number): number =>
     Match.when((current) => current == Number.NEGATIVE_INFINITY, () => Number.NEGATIVE_INFINITY),
     Match.when((current) => current == Number.POSITIVE_INFINITY, () => 0),
     Match.when((current) => current > LOG_NDTR_RIGHT_TAIL_THRESHOLD, (current) => -ndtr(-current)),
-    Match.when((current) => current > LOG_NDTR_ASYMPTOTIC_THRESHOLD, (current) => Float64.log(ndtr(current))),
+    Match.when((current) => current > LOG_NDTR_ASYMPTOTIC_THRESHOLD, (current) => logStrict(ndtr(current))),
     Match.orElse(logNdtrAsymptotic)
   )
 
@@ -89,7 +88,7 @@ export const logDiff = (logP: number, logQ: number): number =>
   Match.value(logP).pipe(
     Match.when(() => logQ === Number.NEGATIVE_INFINITY, () => logP),
     Match.when((current) => current <= logQ, () => Number.NEGATIVE_INFINITY),
-    Match.orElse((current) => current + Float64.log1p(-Float64.exp(logQ - current)))
+    Match.orElse((current) => current + log1pStrict(-exp(logQ - current)))
   )
 
 const newtonRefine = (targetLogNdtr: number, current: number, iteration: number): number => {
@@ -98,11 +97,11 @@ const newtonRefine = (targetLogNdtr: number, current: number, iteration: number)
     Match.orElse(() => {
       const logNdtrAtCurrent = logNdtr(current)
       const logNormPdfAtCurrent = logNormPdf(current)
-      const delta = (logNdtrAtCurrent - targetLogNdtr) * Float64.exp(logNdtrAtCurrent - logNormPdfAtCurrent)
+      const delta = (logNdtrAtCurrent - targetLogNdtr) * exp(logNdtrAtCurrent - logNormPdfAtCurrent)
       const next = current - delta
-      const tolerance = NEWTON_RELATIVE_TOLERANCE * Num.max(1, Float64.abs(next))
+      const tolerance = NEWTON_RELATIVE_TOLERANCE * Num.max(1, abs(next))
 
-      return Match.value(Float64.abs(delta) < tolerance).pipe(
+      return Match.value(abs(delta) < tolerance).pipe(
         Match.when(true, () => next),
         Match.orElse(() => newtonRefine(targetLogNdtr, next, iteration + 1))
       )
@@ -112,11 +111,11 @@ const newtonRefine = (targetLogNdtr: number, current: number, iteration: number)
 
 const solveNdtriExp = (value: number): number => {
   const flipped = value > NDTRI_EXP_FLIP_THRESHOLD
-  const normalized = flipped ? Float64.log(-Float64.expm1(value)) : value
+  const normalized = flipped ? logStrict(-expm1Strict(value)) : value
 
   const initialGuess = Match.value(normalized < NDTRI_EXP_SWITCH).pipe(
-    Match.when(true, () => -Float64.sqrt(-2 * (normalized + LOG_SQRT_TWO_PI))),
-    Match.orElse(() => -NDTRI_EXP_APPROX_C * Float64.log(Float64.expm1(-normalized)))
+    Match.when(true, () => -sqrt(-2 * (normalized + LOG_SQRT_TWO_PI))),
+    Match.orElse(() => -NDTRI_EXP_APPROX_C * logStrict(expm1Strict(-normalized)))
   )
 
   const solved = newtonRefine(normalized, initialGuess, 0)

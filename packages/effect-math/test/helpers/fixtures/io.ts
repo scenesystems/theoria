@@ -2,8 +2,10 @@ import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { Effect, Option, Schema } from "effect"
 
+import { computeFixtureHash } from "./digest.js"
 import {
   FixtureFileReadError,
+  FixtureHashMismatchError,
   FixtureMalformedJsonError,
   FixtureManifestDecodeError,
   FixtureManifestReadError,
@@ -128,6 +130,19 @@ export const loadFixtureByEntry = (
         })
     )
     const parsed = yield* parseJson(path, raw)
+    const actualHash = yield* computeFixtureHash(parsed)
+
+    yield* Effect.filterOrFail(
+      Effect.succeed(actualHash),
+      (hash) => hash === entry.hash,
+      (hash) =>
+        new FixtureHashMismatchError({
+          actualHash: hash,
+          expectedHash: entry.hash,
+          fixture: entry.name,
+          path
+        })
+    )
 
     return yield* decodeFixture(entry.name, path, parsed)
   })

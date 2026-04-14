@@ -5,7 +5,7 @@ import {
   buildConstraintDensityModels,
   constraintDensityRatioProduct
 } from "../../../src/internal/tpe/constrainedDensity.js"
-import { makeSuggestCompletedTrial } from "../../../src/Sampler/index.js"
+import { SuggestCompletedTrial } from "../../../src/Sampler/index.js"
 import { splitSingleObjective } from "../../../src/samplers/Tpe/split/singleSplit.js"
 import { ConstrainedTpeFixtureSchema, FixtureRegistryLive, loadFixture } from "../../helpers/fixtures.js"
 
@@ -73,7 +73,7 @@ describe("constrained fixture parity", () => {
       const splitCase = fixture.payload.splitCase
       const split = splitSingleObjective(
         Arr.map(splitCase.trials, (trial) =>
-          makeSuggestCompletedTrial(
+          SuggestCompletedTrial.fromObservation(
             trial.trialNumber,
             { trialNumber: trial.trialNumber },
             trial.value,

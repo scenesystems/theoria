@@ -96,6 +96,68 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                 ]
             },
         }
+        ,
+        {
+            "fixture": "calculus.ode-parity",
+            "file": "calculus/ode-parity.json",
+            "metadata": metadata(generated_at),
+            "payload": {
+                "cases": [
+                    _fixed_ode_case(
+                        case_id="ode-euler-decay",
+                        function_name="exponential_decay",
+                        final_time=1.0,
+                        initial_state=[1.0],
+                        operation="solveEuler",
+                        step_size=0.1,
+                    ),
+                    _fixed_ode_case(
+                        case_id="ode-rk4-decay",
+                        function_name="exponential_decay",
+                        final_time=1.0,
+                        initial_state=[1.0],
+                        operation="solveRk4",
+                        step_size=0.1,
+                    ),
+                    _fixed_ode_case(
+                        case_id="ode-euler-harmonic",
+                        function_name="harmonic_oscillator",
+                        final_time=1.0,
+                        initial_state=[1.0, 0.0],
+                        operation="solveEuler",
+                        step_size=0.05,
+                    ),
+                    _fixed_ode_case(
+                        case_id="ode-rk4-harmonic",
+                        function_name="harmonic_oscillator",
+                        final_time=1.0,
+                        initial_state=[1.0, 0.0],
+                        operation="solveRk4",
+                        step_size=0.05,
+                    ),
+                    _adaptive_ode_case(
+                        case_id="ode-rk45-decay",
+                        function_name="exponential_decay",
+                        final_time=1.0,
+                        initial_state=[1.0],
+                        initial_step=0.1,
+                        max_step=0.2,
+                        absolute_tolerance=1e-8,
+                        relative_tolerance=1e-8,
+                    ),
+                    _adaptive_ode_case(
+                        case_id="ode-rk45-harmonic",
+                        function_name="harmonic_oscillator",
+                        final_time=1.0,
+                        initial_state=[1.0, 0.0],
+                        initial_step=0.05,
+                        max_step=0.1,
+                        absolute_tolerance=1e-8,
+                        relative_tolerance=1e-8,
+                    ),
+                ]
+            },
+        }
     ]
 
 
@@ -106,6 +168,20 @@ _FUNCTIONS = {
     "exp": math.exp,
     "ln": math.log,
     "cubic_plus_linear": lambda x: x**3 + 2.0 * x,
+}
+
+
+def _exponential_decay(_time: float, state: np.ndarray) -> np.ndarray:
+    return np.array([-state[0]], dtype=float)
+
+
+def _harmonic_oscillator(_time: float, state: np.ndarray) -> np.ndarray:
+    return np.array([state[1], -state[0]], dtype=float)
+
+
+_ODE_FUNCTIONS = {
+    "exponential_decay": _exponential_decay,
+    "harmonic_oscillator": _harmonic_oscillator,
 }
 
 _SECOND_DERIVATIVES = {
@@ -126,6 +202,110 @@ def _assertion(
     return {
         "absoluteTolerance": absolute_tolerance,
         "relativeTolerance": relative_tolerance,
+    }
+
+
+def _trajectory_points(times: list[float], values: np.ndarray) -> list[dict[str, Any]]:
+    return [
+        {
+            "time": float(time),
+            "state": [float(component) for component in values[:, index].tolist()],
+        }
+        for index, time in enumerate(times)
+    ]
+
+
+def _fixed_ode_case(
+    case_id: str,
+    function_name: str,
+    final_time: float,
+    initial_state: list[float],
+    operation: str,
+    step_size: float,
+) -> dict[str, Any]:
+    rhs = _ODE_FUNCTIONS[function_name]
+    sample_count = int(round(final_time / step_size))
+    times = np.linspace(0.0, final_time, sample_count + 1)
+    reference = integrate.solve_ivp(
+        rhs,
+        (0.0, final_time),
+        np.array(initial_state, dtype=float),
+        method="RK45",
+        t_eval=times,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+    return {
+        "id": case_id,
+        "operation": operation,
+        "input": {
+            "function": function_name,
+            "initialTime": 0.0,
+            "finalTime": final_time,
+            "initialState": initial_state,
+            "stepSize": step_size,
+        },
+        "expected": {
+            "status": "finished",
+            "finalState": [float(component) for component in reference.y[:, -1].tolist()],
+            "trajectory": _trajectory_points(reference.t.tolist(), reference.y),
+        },
+        "assertion": _assertion(5e-2 if operation == "solveEuler" else 1e-8, 5e-2 if operation == "solveEuler" else 1e-8),
+    }
+
+
+def _adaptive_ode_case(
+    case_id: str,
+    function_name: str,
+    final_time: float,
+    initial_state: list[float],
+    initial_step: float,
+    max_step: float,
+    absolute_tolerance: float,
+    relative_tolerance: float,
+) -> dict[str, Any]:
+    rhs = _ODE_FUNCTIONS[function_name]
+    solver = integrate.RK45(
+        rhs,
+        0.0,
+        np.array(initial_state, dtype=float),
+        final_time,
+        first_step=initial_step,
+        max_step=max_step,
+        atol=absolute_tolerance,
+        rtol=relative_tolerance,
+    )
+
+    times = [0.0]
+    states = [np.array(initial_state, dtype=float)]
+
+    while solver.status == "running":
+        solver.step()
+        times.append(float(solver.t))
+        states.append(np.array(solver.y, dtype=float))
+
+    stacked = np.stack(states, axis=1)
+
+    return {
+        "id": case_id,
+        "operation": "solveAdaptiveRk45",
+        "input": {
+            "function": function_name,
+            "initialTime": 0.0,
+            "finalTime": final_time,
+            "initialState": initial_state,
+            "initialStep": initial_step,
+            "maxStep": max_step,
+            "absoluteTolerance": absolute_tolerance,
+            "relativeTolerance": relative_tolerance,
+        },
+        "expected": {
+            "status": "finished",
+            "finalState": [float(component) for component in stacked[:, -1].tolist()],
+            "trajectory": _trajectory_points(times, stacked),
+        },
+        "assertion": _assertion(1e-8, 1e-8),
     }
 
 

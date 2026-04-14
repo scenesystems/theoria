@@ -4,27 +4,16 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
-import { ModuleParams, projectSingleObjective } from "effect-dsp/contracts"
+import { ModuleParams, ObjectiveProjection } from "effect-dsp/contracts"
 import * as Evaluate from "effect-dsp/Evaluate"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import { DemoCandidate, PredictorDemoCandidates } from "../../src/optimizers/MIPROv2/bootstrap.js"
 import { InstructionCandidate, PredictorInstructionCandidates } from "../../src/optimizers/MIPROv2/propose.js"
 import { runPhase3Search } from "../../src/optimizers/MIPROv2/search.js"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const dataset = Arr.make(
   new Example({
@@ -40,7 +29,7 @@ const dataset = Arr.make(
 describe("MIPROv2/effect-search integration", () => {
   it.effect("projects objective values through ObjectiveProjection during effect-search trials", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const baselineParams = yield* Ref.get(module.params)
       const demoCandidates = Arr.make(
@@ -104,7 +93,7 @@ describe("MIPROv2/effect-search integration", () => {
         },
         concurrency: 1
       }).pipe(Effect.provide(layer))
-      const projected = yield* projectSingleObjective(report, "mipro")
+      const projected = yield* ObjectiveProjection.fromReport({ report, mode: "single", metricName: "mipro" })
 
       const result = yield* runPhase3Search({
         module,

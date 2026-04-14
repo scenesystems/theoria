@@ -3,26 +3,15 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, Ref, Schema } from "effect"
+import { Effect, Either, Layer, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { AllTrialsFailed } from "effect-dsp/Errors"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainset = [
   new Example({
@@ -38,7 +27,7 @@ const trainset = [
 describe("Optimizer.bootstrapRS", () => {
   it.effect("selects the highest-scoring candidate on validation data", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const initial = yield* Ref.get(module.params)
 
@@ -98,7 +87,7 @@ describe("Optimizer.bootstrapRS", () => {
 
   it.effect("fails with AllTrialsFailed when all candidate evaluations fail", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })

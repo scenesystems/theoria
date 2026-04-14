@@ -48,8 +48,8 @@ export const eventsWithProgress = <Space extends SearchSpace.SearchSpace, E, R>(
     Stream.tap((event) =>
       Effect.forEach(
         Option.match(renderMode, {
-          onNone: () => Study.formatTerminalProgressEvent(event),
-          onSome: (mode) => Study.formatTerminalProgressEvent(event, { renderMode: mode })
+          onNone: () => Study.ProgressLine.projectEvent(event),
+          onSome: (mode) => Study.ProgressLine.projectEvent(event, { renderMode: mode })
         }),
         (line) => onProgress(line),
         { discard: true }

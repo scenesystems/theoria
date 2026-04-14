@@ -1,0 +1,41 @@
+{
+  "surface": "open-agent-trace",
+  "status": "experimental",
+  "fixtureBacked": true,
+  "datasetId": "badlogicgames/pi-mono",
+  "promotionRule": "Stable promotion requires a second public dataset with a materially different event grammar decoding through the same normalized corpus family while keeping projection coverage explicit.",
+  "stopRule": "If branch lineage, redaction provenance, or workflow projection cannot remain explicit without app-local heuristics, the lane stays experimental and read-only.",
+  "stableReady": false,
+  "records": [
+    {
+      "entryId": "task-first",
+      "workflowKind": "task-first",
+      "eventKinds": [
+        "compaction",
+        "message",
+        "branch-summary",
+        "custom-message",
+        "label",
+        "session-info",
+        "message",
+        "message"
+      ],
+      "coverageKinds": ["compaction", "branch-summary", "custom-message", "label", "session-info", "image"],
+      "coverageReasons": [
+        "Summary events remain explicit coverage outside the reusable workflow record.",
+        "Branch summaries remain explicit lineage coverage instead of being flattened into workflow turns.",
+        "Metadata events stay package-authored context rather than workflow-session truth.",
+        "Labels remain package-authored annotations outside the reusable workflow contract.",
+        "Session metadata stays package-authored context rather than workflow-session truth.",
+        "Image presence is preserved, but image content is not projected into workflow graphs."
+      ]
+    },
+    {
+      "entryId": "chat-continuation",
+      "workflowKind": "chat-continuation",
+      "eventKinds": ["message", "message"],
+      "coverageKinds": [],
+      "coverageReasons": []
+    }
+  ]
+}

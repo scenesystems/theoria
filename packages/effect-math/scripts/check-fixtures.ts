@@ -8,6 +8,7 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { digest } from "@scenesystems/digest"
 import { Array as Arr, Console, Effect, Either, Option, Schema } from "effect"
 
 import { FixtureManifestSchema, KnownFixtureSchema } from "../test/helpers/fixtures/schemas.js"
@@ -93,6 +94,17 @@ const program = Effect.gen(function*() {
         }
 
         const json = yield* readJsonFile(filePath)
+        const computedHash = yield* digest("blake3-256", json).pipe(
+          Effect.mapError(() => new FixtureCheckError(entry.name, entry.file, "hash computation failed"))
+        )
+        if (computedHash !== entry.hash) {
+          return new FixtureCheckError(
+            entry.name,
+            entry.file,
+            `hash mismatch: manifest says "${entry.hash}" but computed "${computedHash}"`
+          )
+        }
+
         const decoded = yield* Schema.decodeUnknown(KnownFixtureSchema)(json).pipe(Effect.either)
         return Either.match(decoded, {
           onLeft: () =>

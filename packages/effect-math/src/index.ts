@@ -68,6 +68,12 @@ export * as Geometry from "./Geometry/index.js"
 export * as Complex from "./Complex/index.js"
 
 /**
+ * @since 0.3.0
+ * @category domains
+ */
+export * as Fft from "./Fft/index.js"
+
+/**
  * @since 0.1.0
  * @category domains
  */

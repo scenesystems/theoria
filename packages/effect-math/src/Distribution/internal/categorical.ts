@@ -8,7 +8,7 @@
  */
 import { Array as Arr, Chunk, Number as N } from "effect"
 
-import { xlogy } from "../../Numeric/internal/logspace.js"
+import { xlogy } from "../../Numeric/operations.js"
 
 /**
  * PMF: P(X = k) = probs[k] for k ∈ {0, ..., n-1}, else 0.

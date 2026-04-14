@@ -7,7 +7,7 @@ import {
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
 } from "../../src/Errors/index.js"
-import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
+import { SuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 
@@ -24,11 +24,11 @@ const categoricalSpace = () =>
   })
 
 const completedContext = (nextTrialNumber: number) =>
-  new SuggestContext({
+  SuggestContext.make({
     completed: [
-      makeSuggestCompletedTrial(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
-      makeSuggestCompletedTrial(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
-      makeSuggestCompletedTrial(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
+      SuggestCompletedTrial.fromObservation(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
+      SuggestCompletedTrial.fromObservation(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
+      SuggestCompletedTrial.fromObservation(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
     ],
     pending: [],
     objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
@@ -37,10 +37,10 @@ const completedContext = (nextTrialNumber: number) =>
   })
 
 const multiObjectiveContext = (nextTrialNumber: number) =>
-  new SuggestContext({
+  SuggestContext.make({
     completed: [
-      makeSuggestCompletedTrial(0, { learningRate: 0.01, dropout: 0.2 }, [1.4, 0.8]),
-      makeSuggestCompletedTrial(1, { learningRate: 0.02, dropout: 0.1 }, [0.8, 1.2])
+      SuggestCompletedTrial.fromObservation(0, { learningRate: 0.01, dropout: 0.2 }, [1.4, 0.8]),
+      SuggestCompletedTrial.fromObservation(1, { learningRate: 0.02, dropout: 0.1 }, [0.8, 1.2])
     ],
     pending: [],
     objectiveSpec: Contracts.multiObjectiveSpec(["minimize", "minimize"]),
@@ -82,7 +82,7 @@ describe("Sampler.gpBo", () => {
   it.effect("rejects search spaces containing unsupported dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.gpBo({ seed: 3 }), categoricalSpace(), emptySuggestContext(0))
+        Sampler.suggest(Sampler.gpBo({ seed: 3 }), categoricalSpace(), SuggestContext.empty(0))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)

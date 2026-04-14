@@ -1,0 +1,35 @@
+@theme inline {
+  --color-surface-panel: var(--th-stage-0);
+  --color-surface-elevated: var(--th-stage-0);
+  --color-surface-sunken: var(--th-stage-100);
+  --color-surface-muted: var(--th-stage-200);
+  --color-surface-workspace: var(--th-stage-50);
+  --color-surface-pane: var(--th-stage-0);
+  --color-surface-canvas: var(--th-stage-0);
+  --color-surface-inspector: var(--th-stage-50);
+  --color-surface-strip: var(--th-stage-50);
+  --color-surface-toolbar: var(--th-stage-100);
+  --color-surface-detail: var(--th-stage-50);
+  --color-surface-payload: var(--th-stage-100);
+
+  --color-border-muted: var(--th-stage-200);
+  --color-border-strong: var(--th-stage-300);
+  --color-border-accent: var(--color-tone-text-300);
+  --color-border-pane: var(--th-stage-300);
+  --color-border-rail: var(--th-stage-200);
+  --color-border-selection: var(--color-tone-text-400);
+
+  --color-content-primary: var(--th-ink-950);
+  --color-content-secondary: var(--th-ink-800);
+  --color-content-muted: var(--th-ink-600);
+  --color-content-subtle: var(--th-ink-500);
+  --color-content-inverse: var(--th-stage-0);
+  --color-text-pane-meta: var(--th-ink-500);
+  --color-text-detail-label: var(--th-ink-600);
+  --color-text-detail-value: var(--th-ink-950);
+
+  --color-focus-ring: var(--color-tone-text-300);
+  --color-accent-solid: var(--color-tone-text-700);
+  --color-accent-surface: var(--color-tone-text-100);
+  --color-accent-border: var(--color-tone-text-200);
+}

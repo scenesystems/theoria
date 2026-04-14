@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
-import type { ToneClasses } from "./designSystem.js"
 import { Stack } from "./Layout.js"
+import type { Tone } from "./theme/tone.js"
 
 /**
  * Left-accent border with tone color. Used for callout blocks, example
@@ -19,7 +19,7 @@ export const AccentBorder = ({
 }: {
   readonly children: ReactNode
   readonly className?: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Stack className={`border-l-2 pl-3 ${tone.border} ${className ?? "gap-1"}`}>
     {children}

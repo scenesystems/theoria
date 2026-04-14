@@ -11,7 +11,7 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
     const stderr = yield* Ref.make<ReadonlyArray<string>>([])
 
     return {
-      sink: Study.makeTerminalSink({
+      sink: Study.TerminalSink.make({
         supportsAnsi: Effect.succeed(supportsAnsi),
         writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
         writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
@@ -24,12 +24,12 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
 describe("terminal reporter tty behavior", () => {
   it.effect("applies ANSI styling only when sink reports TTY support", () =>
     Effect.gen(function*() {
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 3, value: 0.5 })
+      const completed = StudyEvent.TrialCompleted.make({ trialNumber: 3, value: 0.5 })
       const ttyCapture = yield* makeCaptureSink(true)
       const plainCapture = yield* makeCaptureSink(false)
 
-      yield* Study.reportTerminalProgress(completed, { sink: ttyCapture.sink })
-      yield* Study.reportTerminalProgress(completed, { sink: plainCapture.sink })
+      yield* Study.TerminalReporter.report(completed, { sink: ttyCapture.sink })
+      yield* Study.TerminalReporter.report(completed, { sink: plainCapture.sink })
 
       const ttyStdout = yield* Ref.get(ttyCapture.stdout)
       const plainStdout = yield* Ref.get(plainCapture.stdout)
@@ -42,7 +42,7 @@ describe("terminal reporter tty behavior", () => {
 
   it.effect("routes failures to stderr while still respecting tty style selection", () =>
     Effect.gen(function*() {
-      const failed = StudyEvent.TrialFailed({
+      const failed = StudyEvent.TrialFailed.make({
         trialNumber: 11,
         error: new Errors.TrialError({
           trialNumber: 11,
@@ -52,7 +52,7 @@ describe("terminal reporter tty behavior", () => {
       })
       const ttyCapture = yield* makeCaptureSink(true)
 
-      yield* Study.reportTerminalProgress(failed, { sink: ttyCapture.sink })
+      yield* Study.TerminalReporter.report(failed, { sink: ttyCapture.sink })
 
       const stdout = yield* Ref.get(ttyCapture.stdout)
       const stderr = yield* Ref.get(ttyCapture.stderr)
@@ -65,13 +65,13 @@ describe("terminal reporter tty behavior", () => {
   it.effect("falls back to plain rendering when ANSI capability probing fails", () =>
     Effect.gen(function*() {
       const stdout = yield* Ref.make<ReadonlyArray<string>>([])
-      const sink = Study.makeTerminalSink({
+      const sink = Study.TerminalSink.make({
         supportsAnsi: Effect.fail("probe-unavailable"),
         writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line))
       })
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 5, value: 0.125 })
+      const completed = StudyEvent.TrialCompleted.make({ trialNumber: 5, value: 0.125 })
 
-      yield* Study.reportTerminalProgress(completed, { sink })
+      yield* Study.TerminalReporter.report(completed, { sink })
 
       const lines = yield* Ref.get(stdout)
 

@@ -131,9 +131,9 @@ export class ModuleGraphEdge extends Schema.Class<ModuleGraphEdge>("ModuleGraphE
  * {@link ModuleId} and edges by `parentId→childId` to guarantee
  * deterministic serialization regardless of discovery order.
  *
- * @see {@link makeModuleGraph} — canonical constructor with sorting
- * @see {@link stableModuleGraphTraversal} — deterministic pre-order walk
- * @see {@link moduleGraphLineage} — root-to-target path resolution
+ * @see {@link ModuleGraph.fromParts} — canonical constructor with sorting
+ * @see {@link ModuleGraph.traversal} — deterministic pre-order walk
+ * @see {@link ModuleLineage.fromGraph} — root-to-target path resolution
  *
  * @since 0.1.0
  * @category models
@@ -142,14 +142,43 @@ export class ModuleGraph extends Schema.Class<ModuleGraph>("ModuleGraph")({
   rootId: ModuleId,
   nodes: Schema.Array(ModuleGraphNode),
   edges: Schema.Array(ModuleGraphEdge)
-}) {}
+}) {
+  /**
+   * Canonical constructor that normalizes child ordering and sorts the graph for stable serialization.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static fromParts(options: {
+    readonly rootId: ModuleId
+    readonly nodes: ReadonlyArray<ModuleGraphNode>
+    readonly edges: ReadonlyArray<ModuleGraphEdge>
+  }): ModuleGraph {
+    return ModuleGraph.make({
+      rootId: options.rootId,
+      nodes: Arr.sort(Arr.map(options.nodes, normalizeNode), graphNodeOrder),
+      edges: Arr.sort(options.edges, graphEdgeOrder)
+    })
+  }
+
+  /**
+   * Walk a {@link ModuleGraph} in deterministic pre-order starting from
+   * `rootId`, returning the visited {@link ModuleId} sequence.
+   *
+   * @since 0.1.0
+   * @category combinators
+   */
+  static traversal(graph: ModuleGraph): ReadonlyArray<ModuleId> {
+    return traverseNode(nodeLookup(graph), graph.rootId, Arr.empty<ModuleId>()).order
+  }
+}
 
 /**
  * Ordered path from the graph root to a specific target module.
  * Used by optimizers to scope parameter updates to a particular
  * lineage branch.
  *
- * @see {@link moduleGraphLineage} — resolves a lineage from a graph
+ * @see {@link ModuleLineage.fromGraph} — resolves a lineage from a graph
  * @see {@link ModuleGraphProjection} — carries lineages for all nodes
  *
  * @since 0.1.0
@@ -158,77 +187,39 @@ export class ModuleGraph extends Schema.Class<ModuleGraph>("ModuleGraph")({
 export class ModuleLineage extends Schema.Class<ModuleLineage>("ModuleLineage")({
   targetId: ModuleId,
   path: Schema.Array(ModuleId)
-}) {}
+}) {
+  /**
+   * Resolve the ordered path from graph root to `targetId`, returning
+   * `None` if the target is unreachable.
+   *
+   * @since 0.1.0
+   * @category combinators
+   */
+  static fromGraph(
+    graph: ModuleGraph,
+    targetId: ModuleId
+  ): Option.Option<ModuleLineage> {
+    return Option.map(
+      findLineagePath(nodeLookup(graph), graph.rootId, targetId, Arr.empty<ModuleId>()),
+      (path) => ModuleLineage.make({ targetId, path })
+    )
+  }
+}
 
 const normalizeNode = (node: ModuleGraphNode): ModuleGraphNode =>
-  new ModuleGraphNode({
+  ModuleGraphNode.make({
     moduleId: node.moduleId,
     signature: node.signature,
     subModuleIds: uniqueSortedModuleIds(node.subModuleIds)
   })
 
 /**
- * Construct a {@link ModuleGraph} with nodes and edges sorted
- * deterministically by {@link ModuleId}. Deduplicates and sorts
- * child ID lists within each node.
- *
- * @see {@link ModuleGraph}
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeModuleGraph = (options: {
-  readonly rootId: ModuleId
-  readonly nodes: ReadonlyArray<ModuleGraphNode>
-  readonly edges: ReadonlyArray<ModuleGraphEdge>
-}): ModuleGraph =>
-  new ModuleGraph({
-    rootId: options.rootId,
-    nodes: Arr.sort(Arr.map(options.nodes, normalizeNode), graphNodeOrder),
-    edges: Arr.sort(options.edges, graphEdgeOrder)
-  })
-
-/**
- * Walk a {@link ModuleGraph} in deterministic pre-order starting from
- * `rootId`, returning the visited {@link ModuleId} sequence. Guarantees
- * stable ordering across runs for the same graph structure.
- *
- * @see {@link ModuleGraph}
- * @see {@link projectModuleGraph} — bundles traversal with lineage
- *
- * @since 0.1.0
- * @category combinators
- */
-export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<ModuleId> =>
-  traverseNode(nodeLookup(graph), graph.rootId, Arr.empty<ModuleId>()).order
-
-/**
- * Resolve the ordered path from graph root to `targetId`, returning
- * `None` if the target is unreachable. Used by optimizers to scope
- * parameter updates to a specific composition branch.
- *
- * @see {@link ModuleLineage} — the returned path model
- * @see {@link ModuleGraph}
- *
- * @since 0.1.0
- * @category combinators
- */
-export const moduleGraphLineage = (
-  graph: ModuleGraph,
-  targetId: ModuleId
-): Option.Option<ModuleLineage> =>
-  Option.map(
-    findLineagePath(nodeLookup(graph), graph.rootId, targetId, Arr.empty<ModuleId>()),
-    (path) => new ModuleLineage({ targetId, path })
-  )
-
-/**
  * Pre-computed graph analysis bundling the deterministic traversal order
  * with root-to-node lineages for every node. Produced once by
- * {@link projectModuleGraph} and consumed by optimizer seams that need
+ * {@link ModuleGraphProjection.fromGraph} and consumed by optimizer seams that need
  * stable iteration and ancestry without re-walking the graph.
  *
- * @see {@link projectModuleGraph} — the canonical projection constructor
+ * @see {@link ModuleGraphProjection.fromGraph} — the canonical projection constructor
  * @see {@link ModuleGraph} — the source graph
  *
  * @since 0.1.0
@@ -238,25 +229,23 @@ export class ModuleGraphProjection extends Schema.Class<ModuleGraphProjection>("
   rootId: ModuleId,
   traversal: Schema.Array(ModuleId),
   lineages: Schema.Array(ModuleLineage)
-}) {}
+}) {
+  /**
+   * Project a {@link ModuleGraph} into a {@link ModuleGraphProjection}
+   * containing the stable traversal order and root-to-node lineages
+   * for every discovered node.
+   *
+   * @since 0.1.0
+   * @category combinators
+   */
+  static fromGraph(graph: ModuleGraph): ModuleGraphProjection {
+    return ModuleGraphProjection.make({
+      rootId: graph.rootId,
+      traversal: ModuleGraph.traversal(graph),
+      lineages: graphLineages(graph)
+    })
+  }
+}
 
 const graphLineages = (graph: ModuleGraph): ReadonlyArray<ModuleLineage> =>
-  Arr.filterMap(graph.nodes, (node) => moduleGraphLineage(graph, node.moduleId))
-
-/**
- * Project a {@link ModuleGraph} into a {@link ModuleGraphProjection}
- * containing the stable traversal order and root-to-node lineages
- * for every discovered node.
- *
- * @see {@link ModuleGraphProjection}
- * @see {@link stableModuleGraphTraversal}
- *
- * @since 0.1.0
- * @category combinators
- */
-export const projectModuleGraph = (graph: ModuleGraph): ModuleGraphProjection =>
-  new ModuleGraphProjection({
-    rootId: graph.rootId,
-    traversal: stableModuleGraphTraversal(graph),
-    lineages: graphLineages(graph)
-  })
+  Arr.filterMap(graph.nodes, (node) => ModuleLineage.fromGraph(graph, node.moduleId))

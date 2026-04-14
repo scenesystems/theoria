@@ -1,130 +1,114 @@
-import { Separator } from "@base-ui-components/react/separator"
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { Match } from "effect"
-
-import { type Card, cardVisibleInReleaseStage } from "../../../contracts/card.js"
+import type { HomeCatalogCardPresentation } from "../../../contracts/presentation/home-catalog.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
-import { packageVersionsAtom } from "../../atoms/package-versions.js"
 import { useSpringLift } from "../../atoms/spring.js"
-import { runtimeReleaseStage } from "../../runtime/release-stage.js"
-import type { MetaItem } from "../primitives/CardMetaRow.js"
-import { CardMetaRow } from "../primitives/CardMetaRow.js"
-import { ContentCard } from "../primitives/ContentCard.js"
-import type { ToneClasses } from "../primitives/designSystem.js"
-import { Layer, Stack } from "../primitives/Layout.js"
-import { CardLink } from "../primitives/Link.js"
-import { SelectionRail } from "../primitives/SelectionLayout.js"
-import { SemanticText } from "../primitives/SemanticText.js"
-
-const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
-  { _tag: "link", label: `npm@${version}`, href: card.npmUrl },
-  { _tag: "link", label: "Source", href: card.repoUrl },
-  { _tag: "text", label: card.license }
-]
+import { StatusPill } from "../../ui/components/feedback/StatusPill.js"
+import { Card } from "../../ui/components/surface/Card.js"
+import { Box } from "../../ui/structure/Box.js"
+import { Cluster } from "../../ui/structure/Cluster.js"
+import { Link } from "../../ui/structure/Link.js"
+import { SemanticText } from "../../ui/structure/SemanticText.js"
+import { Stack } from "../../ui/structure/Stack.js"
 
 const liftPx = 3
-const liftScale = 0.008
+const shadowScale = 1.5
 
-const liftTransform = (progress: number): string | undefined =>
-  progress === 0
-    ? undefined
-    : `translateY(${(-progress * liftPx).toFixed(2)}px) scale(${(1 + progress * liftScale).toFixed(4)})`
-
-const neutralBadgeClassName =
-  "inline-flex shrink-0 items-center gap-1 rounded-full border border-stage-200/90 px-2 py-1"
-
-export const InstrumentCard = ({
-  card,
-  tone
-}: {
-  readonly card: Card
-  readonly tone: ToneClasses
-}) => {
-  const { progress, onPointerEnter, onPointerLeave } = useSpringLift(cardLiftSpring, card.id)
-  const versionsResult = useAtomValue(packageVersionsAtom)
-  const resolvedVersion = Result.match(versionsResult, {
-    onInitial: () => card.version,
-    onSuccess: (success) => success.value[card.packageName] ?? card.version,
-    onFailure: () => card.version
-  })
-  const releaseStage = runtimeReleaseStage()
-  const titleIsLinked = cardVisibleInReleaseStage(card, releaseStage)
-  const badge = Match.value(card.releaseState).pipe(
-    Match.when("coming-soon", () => ({
-      className: `${neutralBadgeClassName} text-ink-500`,
-      icon: false,
-      text: "Coming Soon"
-    })),
-    Match.orElse(() => ({
-      className:
-        `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
-      icon: true,
-      text: "Live Demo"
-    }))
+const renderMetaItem = (item: HomeCatalogCardPresentation["metaItems"][number], index: number) => {
+  const content = (
+    <SemanticText role="label" tone="inherit">
+      {item.label}
+    </SemanticText>
   )
-  const badgeSlot = (
-    <Layer as="span" className={badge.className}>
-      <SemanticText as="span" role="tab-label" text={badge.text} variant="compact" />
-      {badge.icon
-        ? <ArrowTopRightOnSquareIcon aria-hidden className="h-3 w-3 shrink-0" />
-        : null}
-    </Layer>
-  )
+
+  if (item._tag === "text") {
+    return <Box as="span" key={index} className="text-content-subtle">{content}</Box>
+  }
 
   return (
-    <ContentCard
-      className={`relative h-full ${tone.border}`}
-      density="standard"
+    <Link
+      className="transition-opacity duration-150 ease-out hover:opacity-100"
+      href={item.href}
+      key={index}
+      rel={item._tag === "external-link" ? "noopener noreferrer" : undefined}
+      target={item._tag === "external-link" ? "_blank" : undefined}
+      tone="muted"
+    >
+      {content}
+    </Link>
+  )
+}
+
+const docsMetaItem = (
+  card: HomeCatalogCardPresentation
+): HomeCatalogCardPresentation["metaItems"][number] | undefined =>
+  card.metaItems.find((item) => item._tag === "internal-link" && item.label === "Docs")
+
+const nonDocsMetaItems = (card: HomeCatalogCardPresentation): HomeCatalogCardPresentation["metaItems"] =>
+  card.metaItems.filter((item) => !(item._tag === "internal-link" && item.label === "Docs"))
+
+export const InstrumentCard = ({
+  card
+}: {
+  readonly card: HomeCatalogCardPresentation
+}) => {
+  const docs = docsMetaItem(card)
+  const filteredMeta = nonDocsMetaItems(card)
+  const { progress, onPointerEnter, onPointerLeave } = useSpringLift(cardLiftSpring, card.id)
+
+  return (
+    <Card
+      className="relative h-full overflow-hidden border-stage-200/80 bg-surface-panel/92 shadow-ui-chip"
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      shape="left-accent"
-      style={{ transform: liftTransform(progress) }}
+      padding="lg"
+      style={{
+        transform: `translateY(${String(-progress * liftPx)}px)`,
+        boxShadow: progress > 0
+          ? `0 ${String(18 + progress * 12)}px ${String(60 - progress * 10)}px -52px rgba(15,23,42,${
+            String(0.42 + progress * 0.15 * shadowScale)
+          })`
+          : undefined
+      }}
+      tone="muted"
     >
-      <Stack className="min-w-0 gap-3">
-        <SelectionRail action={badgeSlot} className="gap-y-2">
-          {titleIsLinked
+      <Box as="span" aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-tone-digest-400" />
+      <Stack className="relative z-10 h-full gap-5 pl-2">
+        <Box className="absolute right-0 top-0">
+          {docs !== undefined && docs._tag === "internal-link"
             ? (
-              <CardLink className="block min-w-0" href={card.deepDivePath}>
-                <SemanticText
-                  as="h3"
-                  className="min-w-0 text-ink-900"
-                  role="catalog-title"
-                  text={card.title}
-                  variant="compact"
-                />
-              </CardLink>
+              <Link href={docs.href} tone="inherit">
+                <StatusPill tone="neutral">{card.status.text}</StatusPill>
+              </Link>
             )
+            : <StatusPill tone="neutral">{card.status.text}</StatusPill>}
+        </Box>
+
+        <Stack className="gap-3">
+          {card.titlePath === null
+            ? <SemanticText as="h3" className="text-content-primary" role="display">{card.title}</SemanticText>
             : (
-              <SemanticText
-                as="h3"
-                className="min-w-0 text-ink-900"
-                role="catalog-title"
-                text={card.title}
-                variant="compact"
-              />
+              <Link href={card.titlePath} tone="inherit">
+                <SemanticText as="h3" className="text-content-primary" role="display">
+                  {card.title}
+                </SemanticText>
+              </Link>
             )}
-        </SelectionRail>
 
-        <SemanticText
-          as="p"
-          className="min-w-0 text-ink-700"
-          lineLimit={2}
-          role="card-summary"
-          reserveLines={2}
-          text={card.description}
-          variant="compact"
-          wrapAuthority="effect-text-projected"
-        />
+          <SemanticText className="text-content-muted" role="body">{card.description}</SemanticText>
+        </Stack>
+
+        <Cluster className="mt-auto border-t border-stage-200/80 pt-4 text-content-subtle" gap="xs">
+          {filteredMeta.flatMap((item, index) =>
+            index === 0
+              ? [renderMetaItem(item, index)]
+              : [
+                <SemanticText key={`separator-${index}`} role="label" tone="subtle">
+                  {"·"}
+                </SemanticText>,
+                renderMetaItem(item, index)
+              ]
+          )}
+        </Cluster>
       </Stack>
-
-      <Separator className="mt-auto h-px bg-stage-200/80" />
-
-      <CardMetaRow
-        className="relative z-10"
-        items={metaItems(card, resolvedVersion)}
-      />
-    </ContentCard>
+    </Card>
   )
 }

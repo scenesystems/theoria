@@ -6,3 +6,5 @@
  * @category internal
  */
 export * as Estimators from "./estimators.js"
+export * as Inference from "./inference.js"
+export * as Power from "./power.js"

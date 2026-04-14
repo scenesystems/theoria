@@ -10,7 +10,7 @@ import type { ObjectiveValue } from "../../../contracts/ObjectiveValue.js"
 import { type SearchError, TrialError } from "../../../Errors/index.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import * as StudyEvent from "../../../StudyEvent/index.js"
-import * as Trial from "../../../Trial/index.js"
+import { Trial } from "../../../Trial/index.js"
 import { appendEvent, eventPublisherFromPubSub } from "../../events.js"
 import {
   normalizeSettings,
@@ -21,15 +21,14 @@ import {
 import { mergeSeedWithPriorTrials, RuntimeSeed } from "../../runtime/priorSeed.js"
 import {
   initializeRuntime,
-  readStudyState,
+  readRuntimeState,
   setRuntimeLifecycle,
   StudyClock,
   StudyClockLayer
 } from "../../runtime/runtimeState.js"
 import { reserveTrialOrMarkSpaceExhausted } from "../../runtime/trialReservation.js"
-import { trialCountFromState } from "../../state.js"
 import { completeIfBudgetReached, ensureRunning, invalid, publishCompletion } from "./lifecycle.js"
-import { AskedTrial, HandleRuntime, makeStudyHandle, stateOf, type StudyHandle } from "./model.js"
+import { AskedTrial, HandleRuntime, stateOf, StudyHandle } from "./model.js"
 import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js"
 
 /**
@@ -90,7 +89,7 @@ export const open = <Space extends SearchSpace.SearchSpace>(
     yield* setRuntimeLifecycle(runtime, "Running")
     const completionPublishedRef = yield* Ref.make(false)
 
-    return makeStudyHandle(
+    return StudyHandle.make(
       new HandleRuntime({
         optimizePlan,
         settings,
@@ -116,7 +115,7 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
     yield* ensureRunning(state.runtime, "ask")
     yield* completeIfBudgetReached(state)
 
-    const trialNumber = trialCountFromState(yield* readStudyState(state.runtime))
+    const trialNumber = (yield* readRuntimeState(state.runtime)).suggestionState.nextTrialNumber
     yield* Effect.when(
       Effect.fail(invalid("Study.ask cannot reserve a trial because the configured trial budget is exhausted")),
       () => trialNumber >= state.settings.trials
@@ -136,13 +135,29 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
             Effect.fail(invalid("Study.ask cannot reserve a trial because the search space is exhausted"))
           )
         ),
-      onSome: (running) =>
-        appendEvent(
-          state.runtime,
-          StudyEvent.TrialStarted({ trialNumber: running.trialNumber, config: running.config })
-        ).pipe(
-          Effect.as(new AskedTrial({ trialNumber: running.trialNumber, config: running.config }))
-        )
+      onSome: (reservation) =>
+        Effect.gen(function*() {
+          const event = Option.match(reservation.diagnostics, {
+            onNone: () =>
+              StudyEvent.TrialStarted.make({
+                trialNumber: reservation.running.trialNumber,
+                config: reservation.running.config
+              }),
+            onSome: (diagnostics) =>
+              StudyEvent.TrialStarted.make({
+                trialNumber: reservation.running.trialNumber,
+                config: reservation.running.config,
+                diagnostics
+              })
+          })
+
+          yield* appendEvent(state.runtime, event)
+
+          return new AskedTrial({
+            trialNumber: reservation.running.trialNumber,
+            config: reservation.running.config
+          })
+        })
     })
   })
 

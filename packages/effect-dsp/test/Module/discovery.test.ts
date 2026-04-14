@@ -6,19 +6,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
 import * as Contracts from "effect-dsp/contracts"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const decodeModuleId = (moduleName: string) =>
   Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(
@@ -45,7 +34,7 @@ const registrationById = (
 describe("Module discovery", () => {
   it.effect("dedupes composed-of-composed modules by id deterministically", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const pipeline = yield* Module.compose({
         name: "qa-pipeline",

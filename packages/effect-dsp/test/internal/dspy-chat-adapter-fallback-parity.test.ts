@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Schema } from "effect"
 
-import { ChatParseFallbackFixtureSchema, makeFixtureRegistry } from "../helpers/dspy-fixtures/index.js"
+import { ChatParseFallbackFixtureSchema, FixtureRegistry } from "../helpers/dspy-fixtures/index.js"
 
 const fallbackEligibility = (options: {
   readonly errorType: string
@@ -15,7 +15,7 @@ const fallbackEligibility = (options: {
 describe("internal/chat-adapter fallback DSPy parity", () => {
   it.effect("matches fallback eligibility semantics across all contract cases", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const rawFixture = yield* registry.load("dspy.chat.parse-fallback.contract")
       const fixture = yield* Schema.decodeUnknown(ChatParseFallbackFixtureSchema)(rawFixture)
 

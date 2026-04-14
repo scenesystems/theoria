@@ -78,7 +78,7 @@ export {
  * Core Sampler data class defining the optimization algorithm contract for
  * suggesting, checkpointing, and restoring state.
  *
- * @see {@link makeTpe} for the primary constructor
+ * @see {@link tpe} for the primary constructor
  * @since 0.1.0
  * @category re-exports
  */

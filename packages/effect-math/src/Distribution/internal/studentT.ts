@@ -11,9 +11,7 @@
  */
 import { Number as N } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { betainc, erfinv, lnGamma } from "../../Special/operations.js"
 
 /**
  * Student's t PDF:
@@ -28,8 +26,8 @@ export const studentTPdf = (x: number, df: number): number => {
   return Math.exp(
     N.subtract(
       N.subtract(
-        lnGammaLanczos(halfDfP1),
-        lnGammaLanczos(halfDf)
+        lnGamma(halfDfP1),
+        lnGamma(halfDf)
       ),
       N.sum(
         N.multiply(0.5, Math.log(N.multiply(df, Math.PI))),
@@ -51,8 +49,8 @@ export const studentTLogpdf = (x: number, df: number): number => {
   const halfDf = N.unsafeDivide(df, 2)
   return N.subtract(
     N.subtract(
-      lnGammaLanczos(halfDfP1),
-      lnGammaLanczos(halfDf)
+      lnGamma(halfDfP1),
+      lnGamma(halfDf)
     ),
     N.sum(
       N.multiply(0.5, Math.log(N.multiply(df, Math.PI))),
@@ -73,7 +71,7 @@ export const studentTLogpdf = (x: number, df: number): number => {
 export const studentTCdf = (x: number, df: number): number => {
   const t2 = N.multiply(x, x)
   const bx = N.unsafeDivide(df, N.sum(df, t2))
-  const ib = betaincKernel(N.unsafeDivide(df, 2), 0.5, bx)
+  const ib = betainc(N.unsafeDivide(df, 2), 0.5, bx)
   return x >= 0
     ? N.subtract(1, N.multiply(0.5, ib))
     : N.multiply(0.5, ib)
@@ -111,7 +109,7 @@ const studentTQuantileLoop = (
 export const studentTQuantile = (p: number, df: number): number => {
   const guess = N.multiply(
     Math.SQRT2,
-    erfinvKernel(N.subtract(N.multiply(2, p), 1))
+    erfinv(N.subtract(N.multiply(2, p), 1))
   )
   return studentTQuantileLoop(p, df, guess, 50)
 }

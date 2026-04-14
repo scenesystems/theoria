@@ -20,6 +20,7 @@ export const OptimizerKind = Schema.Literal(
   "labeledFewShot",
   "bootstrapFewShot",
   "bootstrapRS",
+  "copro",
   "miprov2",
   "gepa",
   "ensemble"

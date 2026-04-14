@@ -19,6 +19,7 @@ import { floatCandidateTrace } from "./dimensions/float.js"
 import { intCandidateTrace } from "./dimensions/int.js"
 import type { DimensionScoreTrace } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
+import { type PreparedTpeModelContext, preparedTpeParameterObservations } from "./preparedModel.js"
 
 /**
  * A dimension score trace tagged with its parameter name for use in joint
@@ -216,14 +217,21 @@ export const traceForParameter = (
   parameter: SearchSpace.ParameterMetadata,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedModelContext: Option.Option<PreparedTpeModelContext> = Option.none()
 ): Effect.Effect<NamedDimensionScoreTrace, InvalidSamplerConfig> =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "categorical" }, ({ choices }) =>
-      categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
+      categoricalCandidateTrace(
+        rng,
+        nCandidates,
+        parameter,
+        choices,
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      ).pipe(
+        Effect.map((trace) => namedTrace(parameter.name, trace))
       )),
     Match.when({ type: "float" }, ({ low, high, scale, step }) =>
       floatCandidateTrace(
@@ -236,19 +244,36 @@ export const traceForParameter = (
         Option.fromNullable(step),
         split,
         noiseOptions,
-        acquisition
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
       ).pipe(Effect.map((trace) => namedTrace(parameter.name, trace)))),
     Match.when({ type: "int" }, ({ low, high, step }) =>
-      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.fromNullable(step), split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
+      intCandidateTrace(
+        rng,
+        nCandidates,
+        parameter,
+        low,
+        high,
+        Option.fromNullable(step),
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      ).pipe(
+        Effect.map((trace) => namedTrace(parameter.name, trace))
       )),
     Match.when({ type: "fidelity" }, ({ low, high }) =>
-      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.none(), split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
+      intCandidateTrace(
+        rng,
+        nCandidates,
+        parameter,
+        low,
+        high,
+        Option.none(),
+        split,
+        acquisition,
+        preparedTpeParameterObservations(preparedModelContext, parameter.name)
+      ).pipe(
+        Effect.map((trace) => namedTrace(parameter.name, trace))
       )),
     Match.exhaustive
   )
@@ -272,11 +297,12 @@ export const suggestMixedJoint = (
   space: SearchSpace.SearchSpace,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedModelContext: Option.Option<PreparedTpeModelContext> = Option.none()
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const traces = yield* Effect.forEach(space.params, (parameter) =>
-      traceForParameter(rng, nCandidates, parameter, split, noiseOptions, acquisition))
+      traceForParameter(rng, nCandidates, parameter, split, noiseOptions, acquisition, preparedModelContext))
     const selection = yield* selectBestMixedCandidate(traces, split, acquisition)
 
     return selection.bestConfig

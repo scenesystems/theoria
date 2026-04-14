@@ -13,7 +13,7 @@ describe("package/readme-surface", () => {
       const root = yield* path.fromFileUrl(packageRootUrl).pipe(Effect.orDie)
       const readme = yield* fileSystem.readFileString(path.join(root, "README.md")).pipe(Effect.orDie)
 
-      expect(readme).toContain("## Core Model")
+      expect(readme).toContain("## How Do I Keep Runtime Provenance?")
       expect(readme).toContain("HuggingFace.resolveLiveRuntimeConfig")
       expect(readme).toContain("HuggingFace.resolveLiveRuntimeFromConfig")
       expect(readme).toContain("HuggingFace.languageModelLayer")
@@ -21,7 +21,7 @@ describe("package/readme-surface", () => {
       expect(readme).toContain("LanguageModel.generateText")
       expect(readme).toContain("EmbeddingModel.EmbeddingModel")
       expect(readme).toContain("Runtime.resolveLiveTextProviderRuntime")
-      expect(readme).toContain("Runtime.makeRuntimeEvidence")
+      expect(readme).toContain("Runtime.RuntimeEvidence.fromResolution")
       expect(readme).toContain("EFFECT_INFERENCE_RUN_LIVE_EXAMPLES")
       expect(readme).toContain("bun run --filter 'effect-inference' examples:verify")
       expect(readme).toContain("OpenAiCompatible")

@@ -1,126 +1,32 @@
-import { Button } from "@base-ui-components/react/button"
-import { Popover } from "@base-ui-components/react/popover"
+import { Popover } from "@base-ui/react/popover"
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/20/solid"
-import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import type {
-  EvidenceOption,
-  EvidencePlaneFilter,
-  EvidencePlaneLayout,
-  EvidencePlaneOrder,
-  EvidencePlaneViewModel
-} from "../data/evidence-layout.js"
+import {
+  evidenceToolbarControlDescription,
+  evidenceToolbarControlLabel,
+  evidenceToolbarFocusStatus,
+  evidenceToolbarLayoutLabel,
+  evidenceToolbarPanelDescription,
+  evidenceToolbarPanelEyebrow,
+  evidenceToolbarTriggerLabel
+} from "../../../contracts/evidence/plane-controls-presentation.js"
+import type { EvidencePlaneViewModel } from "../../../contracts/evidence/plane-presentation.js"
+import type { EvidencePlaneFilter, EvidencePlaneOrder } from "../../../contracts/evidence/plane.js"
 
-import { surfaceMaterials } from "./designSystem.js"
+import {
+  EvidenceToolbarControlMatrix,
+  EvidenceToolbarControlRow,
+  evidenceToolbarOptionAt,
+  evidenceToolbarOptionValueAt
+} from "./EvidenceToolbarControls.js"
 import { Layer, Stack } from "./Layout.js"
 import { PlaneMetaRail } from "./PlaneMetaRail.js"
-import { SelectionCopy, SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
-
-function optionValueAt<A>(options: ReadonlyArray<EvidenceOption<A>>, index: number): Option.Option<A> {
-  return Arr.findFirst(options, (option) => option.index === index).pipe(Option.map((option) => option.value))
-}
-
-const layoutLabel = (layout: EvidencePlaneLayout): string =>
-  layout._tag === "Live" ? "Newest-first stream" : layout._tag === "Focused" ? "Focused section" : "Narrative lanes"
-
-function optionAt<A>(options: ReadonlyArray<EvidenceOption<A>>, index: number): Option.Option<EvidenceOption<A>> {
-  return Arr.findFirst(options, (option) => option.index === index)
-}
+import { surfaceMaterials } from "./theme/surface.js"
 
 const joinText = (parts: ReadonlyArray<string | null>): string =>
   parts.flatMap((part) => part === null ? [] : [part]).join(" · ")
-
-const optionGridClassName = ({
-  columns,
-  scrollable
-}: {
-  readonly columns: 1 | 2
-  readonly scrollable: boolean | undefined
-}): string =>
-  [
-    "grid gap-px overflow-hidden rounded-[1rem] border border-stage-200/72 bg-stage-200/72",
-    columns === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2",
-    scrollable === true ? "max-h-64 overflow-y-auto pr-px" : ""
-  ].join(" ")
-
-const optionButtonClassName = (active: boolean): string =>
-  [
-    "group min-w-0 bg-stage-0/90 text-left transition-colors duration-150",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-1",
-    active ? "bg-stage-50/82" : "hover:bg-stage-50/68"
-  ].join(" ")
-
-const accentClassName = (active: boolean): string => active ? "bg-ink-900" : "bg-stage-0/0 group-hover:bg-stage-300/90"
-
-function ControlOptionMatrix<A>({
-  activeIndex,
-  columns,
-  onSelect,
-  options,
-  scrollable
-}: {
-  readonly activeIndex: number
-  readonly columns: 1 | 2
-  readonly onSelect: (index: number) => void
-  readonly options: ReadonlyArray<{ readonly index: number; readonly label: string; readonly value: A }>
-  readonly scrollable?: boolean
-}) {
-  return (
-    <Layer className={optionGridClassName({ columns, scrollable })}>
-      {Arr.map(options, (option) => {
-        const active = option.index === activeIndex
-
-        return (
-          <Button
-            className={optionButtonClassName(active)}
-            key={option.index}
-            onClick={() => {
-              onSelect(option.index)
-            }}
-            type="button"
-          >
-            <SelectionRail
-              accent={<Layer aria-hidden className={`w-1 self-stretch ${accentClassName(active)}`} />}
-              className="px-3.5 py-3"
-            >
-              <SelectionCopy
-                title={option.label}
-                titleClassName={active ? "max-w-none text-ink-900" : "max-w-none text-ink-700"}
-                titleRole="selection-title"
-              />
-            </SelectionRail>
-          </Button>
-        )
-      })}
-    </Layer>
-  )
-}
-
-const ControlRow = ({
-  activeIndex,
-  columns,
-  description,
-  label,
-  onSelect,
-  options
-}: {
-  readonly activeIndex: number
-  readonly columns: 1 | 2
-  readonly description: string
-  readonly label: string
-  readonly onSelect: (index: number) => void
-  readonly options: ReadonlyArray<{ readonly index: number; readonly label: string; readonly value: unknown }>
-}) => (
-  <Stack className="gap-2.5 border-t border-stage-200/62 pt-3.5 first:border-t-0 first:pt-0">
-    <Stack className="gap-1">
-      <SemanticText as="p" className="text-ink-600" role="row-label" text={label} variant="expanded" />
-      <SemanticText as="p" className="text-ink-500" role="code-meta" text={description} variant="expanded" />
-    </Stack>
-    <ControlOptionMatrix activeIndex={activeIndex} columns={columns} onSelect={onSelect} options={options} />
-  </Stack>
-)
 
 const triggerClassName = [
   "inline-flex min-h-11 items-center gap-2 rounded-[1rem] border border-stage-200/82 bg-stage-0/82 px-3.5 py-2.5 text-ink-900 transition-colors duration-150 ease-out",
@@ -146,22 +52,22 @@ export const EvidenceToolbar = ({
   readonly onSelectSection: (sectionKey: string | null) => void
   readonly viewModel: EvidencePlaneViewModel
 }) => {
-  const activeSectionLabel = optionAt(
+  const activeSectionLabel = evidenceToolbarOptionAt(
     viewModel.controls.sectionOptions,
     viewModel.controls.activeSectionIndex
   ).pipe(
     Option.flatMap((option) => option.value === null ? Option.none() : Option.some(option.label))
   )
-  const layoutText = layoutLabel(viewModel.layout)
+  const layoutText = evidenceToolbarLayoutLabel(viewModel.layout)
   const focusText = Option.match(activeSectionLabel, {
     onNone: () => null,
-    onSome: (label) => `Focus · ${label}`
+    onSome: evidenceToolbarFocusStatus
   })
   const adjustPopover = (
     <Popover.Root>
       <Popover.Trigger className={triggerClassName}>
         <AdjustmentsHorizontalIcon aria-hidden className="h-4 w-4" />
-        <SemanticText as="span" role="button-label" text="Adjust" variant="expanded" />
+        <SemanticText as="span" role="button-label" text={evidenceToolbarTriggerLabel()} variant="expanded" />
       </Popover.Trigger>
       <Popover.Portal keepMounted>
         <Popover.Positioner
@@ -176,19 +82,19 @@ export const EvidenceToolbar = ({
             <Stack className="max-h-[min(32rem,calc(100dvh-5rem))] gap-4 overflow-y-auto p-4 sm:p-5">
               <PlaneMetaRail
                 appearance="panel"
-                description="Tune lens, order, and focus for the current evidence plane."
-                eyebrow="Evidence controls"
+                description={evidenceToolbarPanelDescription()}
+                eyebrow={evidenceToolbarPanelEyebrow()}
                 status={joinText([viewModel.overview.eyebrow, layoutText, focusText])}
               />
 
               <Stack className={`${surfaceMaterials.evidenceLane} gap-4`}>
-                <ControlRow
+                <EvidenceToolbarControlRow
                   activeIndex={viewModel.controls.activeFilterIndex}
                   columns={2}
-                  description="Results, raw data, or supporting context."
-                  label="Lens"
+                  description={evidenceToolbarControlDescription("filter")}
+                  label={evidenceToolbarControlLabel("filter")}
                   onSelect={(index) => {
-                    Option.match(optionValueAt(viewModel.controls.filterOptions, index), {
+                    Option.match(evidenceToolbarOptionValueAt(viewModel.controls.filterOptions, index), {
                       onNone: () => undefined,
                       onSome: onSelectFilter
                     })
@@ -196,13 +102,13 @@ export const EvidenceToolbar = ({
                   options={viewModel.controls.filterOptions}
                 />
 
-                <ControlRow
+                <EvidenceToolbarControlRow
                   activeIndex={viewModel.controls.activeOrderIndex}
                   columns={2}
-                  description="Curated narrative ordering or live arrival order."
-                  label="View"
+                  description={evidenceToolbarControlDescription("order")}
+                  label={evidenceToolbarControlLabel("order")}
                   onSelect={(index) => {
-                    Option.match(optionValueAt(viewModel.controls.orderOptions, index), {
+                    Option.match(evidenceToolbarOptionValueAt(viewModel.controls.orderOptions, index), {
                       onNone: () => undefined,
                       onSome: onSelectOrder
                     })
@@ -219,22 +125,22 @@ export const EvidenceToolbar = ({
                           as="p"
                           className="text-ink-600"
                           role="row-label"
-                          text="Focus"
+                          text={evidenceToolbarControlLabel("section")}
                           variant="expanded"
                         />
                         <SemanticText
                           as="p"
                           className="text-ink-500"
                           role="code-meta"
-                          text="Lock to a single section."
+                          text={evidenceToolbarControlDescription("section")}
                           variant="expanded"
                         />
                       </Stack>
-                      <ControlOptionMatrix
+                      <EvidenceToolbarControlMatrix
                         activeIndex={viewModel.controls.activeSectionIndex}
                         columns={2}
                         onSelect={(index) => {
-                          Option.match(optionValueAt(viewModel.controls.sectionOptions, index), {
+                          Option.match(evidenceToolbarOptionValueAt(viewModel.controls.sectionOptions, index), {
                             onNone: () => undefined,
                             onSome: onSelectSection
                           })

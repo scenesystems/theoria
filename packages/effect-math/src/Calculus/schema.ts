@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category schemas
  */
-import { Effect, Schema } from "effect"
+import { Chunk, Effect, Schema } from "effect"
 
 import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 import { AbsoluteTolerance, IterationBudget, RelativeTolerance, StepSize } from "../contracts/shared/BrandedScalars.js"
@@ -78,8 +78,12 @@ export const encodeCalculusDomain = (domain: CalculusDomain) =>
 export type CalculusSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const NonNegativeFiniteInteger = Schema.Number.pipe(Schema.finite(), Schema.int(), Schema.greaterThanOrEqualTo(0))
 const NonNegativeFiniteNumber = FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
 const GreaterThanOneFiniteNumber = FiniteNumber.pipe(Schema.greaterThan(1))
+const NonEmptyFiniteChunk = Schema.Chunk(FiniteNumber).pipe(
+  Schema.filter((values) => Chunk.size(values) > 0 || "Expected a non-empty state vector")
+)
 const NonEmptyFiniteNumberArray = Schema.NonEmptyArray(FiniteNumber)
 
 const SampledValues = Schema.Array(FiniteNumber).pipe(
@@ -191,6 +195,176 @@ export const AdaptiveSimpsonInput = Schema.Struct({
   relativeTolerance: Schema.optional(RelativeTolerance),
   maxDepth: Schema.optional(IterationBudget)
 }).annotations({ identifier: "AdaptiveSimpsonInput" })
+
+/**
+ * ODE solver method identifiers.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OdeMethod = Schema.Literal("euler", "rk4", "rk45")
+
+/**
+ * ODE solver method type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type OdeMethodType = typeof OdeMethod.Type
+
+/**
+ * Canonical ODE solver status values.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OdeSolveStatus = Schema.Literal("finished", "maxStepsExceeded", "stepSizeTooSmall")
+
+/**
+ * ODE solver status type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type OdeSolveStatusType = typeof OdeSolveStatus.Type
+
+/**
+ * One published trajectory point from an IVP solve.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OdeTrajectoryPoint = Schema.Struct({
+  state: NonEmptyFiniteChunk,
+  time: FiniteNumber
+}).annotations({ identifier: "OdeTrajectoryPoint" })
+
+/**
+ * ODE trajectory point type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type OdeTrajectoryPoint = typeof OdeTrajectoryPoint.Type
+
+const NonEmptyOdeTrajectory = Schema.Chunk(OdeTrajectoryPoint).pipe(
+  Schema.filter((points) => Chunk.size(points) > 0 || "Expected a non-empty ODE trajectory")
+)
+
+/**
+ * Canonical result envelope shared by the released ODE solvers.
+ *
+ * **Details**
+ * Fixed-step solvers publish trajectory points on the requested `stepSize`
+ * cadence while `functionEvaluations` records any deterministic internal
+ * substeps needed to meet the released parity envelope. Adaptive RK45 records
+ * each accepted step directly in the trajectory.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const OdeSolveResultSchema = Schema.Struct({
+  method: OdeMethod,
+  status: OdeSolveStatus,
+  finalTime: FiniteNumber,
+  finalState: NonEmptyFiniteChunk,
+  trajectory: NonEmptyOdeTrajectory,
+  acceptedSteps: NonNegativeFiniteInteger,
+  rejectedSteps: NonNegativeFiniteInteger,
+  functionEvaluations: NonNegativeFiniteInteger
+}).annotations({ identifier: "OdeSolveResult" })
+
+/**
+ * ODE solver result type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type OdeSolveResult = typeof OdeSolveResultSchema.Type
+
+const distinctInterval = <A extends { readonly finalTime: number; readonly initialTime: number }>(input: A) =>
+  input.initialTime !== input.finalTime || "Expected initialTime and finalTime to differ"
+
+/**
+ * Fixed-step Euler input envelope.
+ *
+ * **Details**
+ * `stepSize` names the published trajectory cadence. The solver may take
+ * deterministic internal substeps while preserving that external grid.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const EulerInput = Schema.Struct({
+  initialTime: FiniteNumber,
+  finalTime: FiniteNumber,
+  initialState: NonEmptyFiniteChunk,
+  stepSize: StepSize,
+  maxSteps: Schema.optional(IterationBudget)
+}).pipe(Schema.filter(distinctInterval)).annotations({ identifier: "EulerInput" })
+
+/**
+ * Fixed-step Euler input type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type EulerInputType = typeof EulerInput.Type
+
+/**
+ * Fixed-step classical RK4 input envelope.
+ *
+ * **Details**
+ * `stepSize` names the published trajectory cadence. The solver may take
+ * deterministic internal substeps while preserving that external grid.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const Rk4Input = Schema.Struct({
+  initialTime: FiniteNumber,
+  finalTime: FiniteNumber,
+  initialState: NonEmptyFiniteChunk,
+  stepSize: StepSize,
+  maxSteps: Schema.optional(IterationBudget)
+}).pipe(Schema.filter(distinctInterval)).annotations({ identifier: "Rk4Input" })
+
+/**
+ * Fixed-step RK4 input type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type Rk4InputType = typeof Rk4Input.Type
+
+/**
+ * Adaptive Dormand-Prince RK45 input envelope.
+ *
+ * **Details**
+ * `absoluteTolerance` and `relativeTolerance` map directly to the released
+ * `atol` / `rtol` semantics used by the adaptive error controller.
+ *
+ * @since 0.3.0
+ * @category schemas
+ */
+export const AdaptiveRk45Input = Schema.Struct({
+  initialTime: FiniteNumber,
+  finalTime: FiniteNumber,
+  initialState: NonEmptyFiniteChunk,
+  initialStep: Schema.optional(StepSize),
+  maxStep: Schema.optional(StepSize),
+  absoluteTolerance: Schema.optional(AbsoluteTolerance),
+  relativeTolerance: Schema.optional(RelativeTolerance),
+  maxSteps: Schema.optional(IterationBudget)
+}).pipe(Schema.filter(distinctInterval)).annotations({ identifier: "AdaptiveRk45Input" })
+
+/**
+ * Adaptive RK45 input type.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export type AdaptiveRk45InputType = typeof AdaptiveRk45Input.Type
 
 /**
  * Gradient/Jacobian/Hessian point input envelope.

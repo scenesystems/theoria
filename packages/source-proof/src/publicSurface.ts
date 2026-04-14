@@ -1,6 +1,7 @@
 import { Array as Arr, Option } from "effect"
 import * as ts from "typescript"
 
+import { nullableReleaseVersion } from "./identifiers.js"
 import {
   type PackagePublicEntrypoint,
   PackagePublicExport,
@@ -95,12 +96,12 @@ const publicExportsFromEntrypoint = (
           subpath: entrypoint.subpath,
           exportName,
           kind,
-          since: firstPreferredDocTagValue({
+          since: nullableReleaseVersion(firstPreferredDocTagValue({
             localDoc,
             exportDeclarations,
             resolvedDeclarations,
             field: "since"
-          }),
+          })),
           category: firstPreferredDocTagValue({
             localDoc,
             exportDeclarations,

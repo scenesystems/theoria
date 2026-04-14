@@ -14,6 +14,7 @@ import { Schema } from "effect"
 import { AgreementAlgorithm } from "./AgreementAlgorithm.js"
 import { KemAlgorithm } from "./KemAlgorithm.js"
 import { CryptoAlgorithm } from "./KeyPair.js"
+import { PortableCodecMaterialKind } from "./PortableArtifacts.js"
 import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 
 /**
@@ -116,6 +117,20 @@ export class KemFailed extends Schema.TaggedError<KemFailed>()(
   "KemFailed",
   {
     algorithm: KemAlgorithm,
+    reason: Schema.String
+  }
+) {}
+
+/**
+ * Portable codec input failed schema validation or base64url decoding.
+ *
+ * @since 0.2.0
+ * @category errors
+ */
+export class PortableCodecDecodeFailed extends Schema.TaggedError<PortableCodecDecodeFailed>()(
+  "PortableCodecDecodeFailed",
+  {
+    material: PortableCodecMaterialKind,
     reason: Schema.String
   }
 ) {}

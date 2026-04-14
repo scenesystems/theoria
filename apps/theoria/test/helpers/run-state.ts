@@ -1,18 +1,83 @@
-import type { DemoError } from "../../app/contracts/demo-error.js"
-import type { Metadata } from "../../app/contracts/envelope.js"
-import type { Program } from "../../app/contracts/presentation.js"
-import type { RunData } from "../../app/contracts/run.js"
-import type { LocalRunPlan } from "../../app/web/state/local-run.js"
-import { initialSurfaceState, reduceRunState, type RunOwnership, type RunState } from "../../app/web/state/types.js"
+import { Schema } from "effect"
 
-const defaultRunOwnership: RunOwnership = {
-  localDriver: true,
-  serverStream: true
+import type { EntryError } from "../../app/contracts/entry-error.js"
+import { DurableFingerprint } from "../../app/contracts/entry/fingerprint.js"
+import { type EntryId, workflowEntryId } from "../../app/contracts/entry/id.js"
+import type { Metadata } from "../../app/contracts/envelope.js"
+import type { Program } from "../../app/contracts/presentation/program.js"
+import type { StudyDraft } from "../../app/contracts/study/registry.js"
+import type { RunRequestIdentity } from "../../app/contracts/study/run-plan.js"
+import type { RunData } from "../../app/contracts/study/run.js"
+import type { LocalProjectionScript } from "../../app/web/state/run/local.js"
+import type { RunMessage } from "../../app/web/state/run/messages.js"
+import { reduceRunState } from "../../app/web/state/run/reducer.js"
+import { RunOwnership, type RunState } from "../../app/web/state/run/types.js"
+import { initialSurfaceState } from "../../app/web/state/surface/state.js"
+
+const defaultRunOwnership = RunOwnership.sharedStreaming()
+
+const durableFingerprint = (fill: string) =>
+  Schema.decodeUnknownSync(DurableFingerprint)(`blake3-256:${fill.repeat(43).slice(0, 43)}`)
+
+const identityForDraft = ({
+  draft,
+  runToken
+}: {
+  readonly draft: StudyDraft
+  readonly runToken: string
+}): RunRequestIdentity => ({
+  entryId: draft.entryId,
+  seedId: draft.seedId,
+  runToken,
+  inputFingerprint: durableFingerprint("a"),
+  controlsFingerprint: durableFingerprint("b"),
+  requestFingerprint: durableFingerprint("c")
+})
+
+const resolvedEntryId = ({
+  draft,
+  localProjectionScript
+}: {
+  readonly draft: StudyDraft | null
+  readonly localProjectionScript: LocalProjectionScript | null
+}): EntryId => draft?.entryId ?? localProjectionScript?._tag ?? workflowEntryId
+
+const baseRunState = (id: EntryId): RunState => initialSurfaceState(id).run
+
+export const runStartedMessage = ({
+  draft,
+  localProjectionScript = null,
+  ownership = defaultRunOwnership,
+  program,
+  sequence = 1,
+  startedAtMs = 0,
+  token = 1
+}: {
+  readonly draft?: StudyDraft
+  readonly localProjectionScript?: LocalProjectionScript | null
+  readonly ownership?: RunOwnership
+  readonly program: Program
+  readonly sequence?: number
+  readonly startedAtMs?: number
+  readonly token?: number
+}): RunMessage => {
+  const entryId = resolvedEntryId({ draft: draft ?? null, localProjectionScript })
+  const resolvedDraft = draft ?? initialSurfaceState(entryId).draft
+
+  return {
+    _tag: "RunStarted",
+    token,
+    sequence,
+    ownership,
+    startedAtMs,
+    draft: resolvedDraft,
+    identity: identityForDraft({ draft: resolvedDraft, runToken: `${resolvedDraft.entryId}:${token}` }),
+    localProjectionScript,
+    program
+  }
 }
 
-const baseRunState = (): RunState => initialSurfaceState("effect-text").run
-
-export const serverCompletedRunState = ({
+export const streamCompletedRunState = ({
   observedAtMs = 1,
   meta = null,
   run,
@@ -26,14 +91,14 @@ export const serverCompletedRunState = ({
   readonly summary: string
 }): RunState =>
   reduceRunState(run, {
-    _tag: "RunServerCompleted",
+    _tag: "RunStreamCompleteObserved",
     sequence,
     observedAtMs,
     summary,
     meta
   })
 
-export const localCompletedRunState = ({
+export const stepQueueDrainedRunState = ({
   observedAtMs = 1,
   run,
   sequence = 1
@@ -43,35 +108,45 @@ export const localCompletedRunState = ({
   readonly sequence?: number
 }): RunState =>
   reduceRunState(run, {
-    _tag: "RunLocalCompleted",
+    _tag: "RunStepQueueDrained",
     sequence,
     observedAtMs
   })
 
 export const runningRunState = ({
-  localRunPlan = null,
+  draft,
+  localProjectionScript = null,
   ownership = defaultRunOwnership,
   program,
   sequence = 1,
   startedAtMs = 0,
   token = 1
 }: {
-  readonly localRunPlan?: LocalRunPlan | null
+  readonly draft?: StudyDraft
+  readonly localProjectionScript?: LocalProjectionScript | null
   readonly ownership?: RunOwnership
   readonly program: Program
   readonly sequence?: number
   readonly startedAtMs?: number
   readonly token?: number
 }): RunState =>
-  reduceRunState(baseRunState(), {
-    _tag: "RunStarted",
-    token,
-    sequence,
-    ownership,
-    startedAtMs,
-    localRunPlan,
-    program
-  })
+  (() => {
+    const resolvedDraft = draft ??
+      initialSurfaceState(resolvedEntryId({ draft: draft ?? null, localProjectionScript })).draft
+
+    return reduceRunState(
+      baseRunState(resolvedDraft.entryId),
+      runStartedMessage({
+        draft: resolvedDraft,
+        localProjectionScript,
+        ownership,
+        program,
+        sequence,
+        startedAtMs,
+        token
+      })
+    )
+  })()
 
 export const pausedRunState = ({
   ownership = defaultRunOwnership,
@@ -100,7 +175,7 @@ export const failedRunState = ({
   sequence = 1,
   token = 1
 }: {
-  readonly error: DemoError
+  readonly error: EntryError
   readonly finalizedAtMs?: number
   readonly ownership?: RunOwnership
   readonly program: Program
@@ -112,25 +187,6 @@ export const failedRunState = ({
     sequence,
     finalizedAtMs,
     error
-  })
-
-export const stoppedRunState = ({
-  finalizedAtMs = 2,
-  ownership = defaultRunOwnership,
-  program,
-  sequence = 1,
-  token = 1
-}: {
-  readonly finalizedAtMs?: number
-  readonly ownership?: RunOwnership
-  readonly program: Program
-  readonly sequence?: number
-  readonly token?: number
-}): RunState =>
-  reduceRunState(runningRunState({ ownership, program, sequence, token }), {
-    _tag: "RunStopped",
-    sequence,
-    finalizedAtMs
   })
 
 export const succeededRunState = ({
@@ -149,14 +205,14 @@ export const succeededRunState = ({
   readonly token?: number
 }): RunState => {
   const started = runningRunState({ ownership, program: data.program, sequence, token })
-  const withServerCompletion = ownership.serverStream
-    ? serverCompletedRunState({ run: started, sequence, summary: data.summary, meta })
+  const withStreamCompletion = ownership.serverStream
+    ? streamCompletedRunState({ run: started, sequence, summary: data.summary, meta })
     : started
-  const withAllCompletions = ownership.localDriver
-    ? localCompletedRunState({ run: withServerCompletion, sequence })
-    : withServerCompletion
+  const withSuccessGate = ownership.projectionDriver
+    ? stepQueueDrainedRunState({ run: withStreamCompletion, sequence })
+    : withStreamCompletion
 
-  return reduceRunState(withAllCompletions, {
+  return reduceRunState(withSuccessGate, {
     _tag: "RunSucceeded",
     sequence,
     finalizedAtMs,

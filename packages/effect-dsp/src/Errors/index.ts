@@ -15,8 +15,10 @@
 export * from "./metric.js"
 
 /**
- * `ParseOutputError`, `ParseFieldDiagnostic`, and `CompositionError` — LLM
- * output parsing and module composition failures.
+ * `ParseOutputError`, `ParseFieldDiagnostic`, `CompositionError`,
+ * `ParallelExecutionError`, and the `ProgramOfThought` execution-boundary
+ * errors — LLM output parsing, module composition, batch failure policy,
+ * generated-code parsing, and interpreter-boundary failures.
  *
  * @since 0.1.0
  */

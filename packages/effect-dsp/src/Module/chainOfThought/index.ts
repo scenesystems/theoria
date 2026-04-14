@@ -8,7 +8,7 @@ import type { SignatureError } from "../../Errors/signature.js"
 import type * as Signature from "../../Signature/index.js"
 import type { Module } from "../model.js"
 import type { PredictOptions } from "../predict/index.js"
-import { makeChainOfThought } from "./runtime.js"
+import { ChainOfThoughtRuntime } from "./runtime.js"
 import type { ChainOfThoughtOutputFields } from "./schema.js"
 
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
@@ -33,7 +33,7 @@ export const chainOfThought = <
   signature: Signature.Signature<I, O>,
   options: PredictOptions = EMPTY_PREDICT_OPTIONS
 ): Effect.Effect<Module<I, ChainOfThoughtOutputFields<O>>, SignatureError> =>
-  makeChainOfThought({
+  ChainOfThoughtRuntime.allocate({
     name,
     signature,
     predictOptions: options

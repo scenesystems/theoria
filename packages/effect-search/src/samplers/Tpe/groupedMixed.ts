@@ -14,6 +14,7 @@ import { type AcquisitionOption, defaultAcquisitionName } from "./acquisition/in
 import { activeGroupParameters, orderedGroups } from "./groupedMixed/groups.js"
 import { GroupedMixedSettings } from "./groupedMixed/model.js"
 import { mergeConfigs, suggestGroup } from "./groupedMixed/scoring.js"
+import type { PreparedTpeModelContext } from "./preparedModel.js"
 
 export {
   /**
@@ -45,7 +46,8 @@ export const suggestGroupedMixedJoint = (
   split: TrialSplit,
   settings: GroupedMixedSettings,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedModelContext: Option.Option<PreparedTpeModelContext> = Option.none()
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const groups = orderedGroups(space, settings)
 
@@ -66,7 +68,8 @@ export const suggestGroupedMixedJoint = (
                 split,
                 settings,
                 noiseOptions,
-                acquisition
+                acquisition,
+                preparedModelContext
               ).pipe(
                 Effect.flatMap((groupSuggestion) => go(index + 1, mergeConfigs(partialConfig, groupSuggestion)))
               )

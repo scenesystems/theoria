@@ -1,7 +1,7 @@
 import { Match } from "effect"
 import type { ReactNode } from "react"
 
-import type { GridLayout } from "../../../contracts/layout.js"
+import type { GridLayout } from "../../../contracts/presentation/layout.js"
 
 /**
  * Schema-driven grid container. Maps `GridLayout` variants to

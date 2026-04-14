@@ -14,402 +14,406 @@
   "payload": {
     "cases": [
       {
+        "assertion": {
+          "absoluteTolerance": 1e-8,
+          "relativeTolerance": 2e-8
+        },
         "expected": 1.9999999933961732,
         "id": "deriv-x-squared-at-1",
         "input": {
           "function": "x_squared",
-          "x": 1
+          "x": 1.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 5.999999963535174,
         "id": "deriv-x-squared-at-3",
         "input": {
           "function": "x_squared",
-          "x": 3
+          "x": 3.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 11.999999882661427,
         "id": "deriv-x-cubed-at-2",
         "input": {
           "function": "x_cubed",
-          "x": 2
+          "x": 2.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 1,
+        },
+        "expected": 1.0,
         "id": "deriv-sin-at-0",
         "input": {
           "function": "sin",
-          "x": 0
+          "x": 0.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 0,
+        },
+        "expected": 0.0,
         "id": "deriv-sin-at-pi-half",
         "input": {
           "function": "sin",
           "x": 1.5707963267948966
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 0.999999993922529,
         "id": "deriv-exp-at-0",
         "input": {
           "function": "exp",
-          "x": 0
+          "x": 0.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 2.7182818218562943,
         "id": "deriv-exp-at-1",
         "input": {
           "function": "exp",
-          "x": 1
+          "x": 1.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 0.9999999994736442,
         "id": "deriv-ln-at-1",
         "input": {
           "function": "ln",
-          "x": 1
+          "x": 1.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 0.4999999969612645,
         "id": "deriv-ln-at-2",
         "input": {
           "function": "ln",
-          "x": 2
+          "x": 2.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 13.999999826097564,
         "id": "deriv-cubic-plus-linear-at-2",
         "input": {
           "function": "cubic_plus_linear",
-          "x": 2
+          "x": 2.0
         },
-        "operation": "derivative",
+        "operation": "derivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 12,
+        },
+        "expected": 12.0,
         "id": "second-deriv-x-cubed-at-2",
         "input": {
           "function": "x_cubed",
-          "x": 2
+          "x": 2.0
         },
-        "operation": "secondDerivative",
+        "operation": "secondDerivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": -0.8660254037844386,
         "id": "second-deriv-sin-at-pi-third",
         "input": {
           "function": "sin",
           "x": 1.0471975511965976
         },
-        "operation": "secondDerivative",
+        "operation": "secondDerivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 2.718281828459045,
         "id": "second-deriv-exp-at-1",
         "input": {
           "function": "exp",
-          "x": 1
+          "x": 1.0
         },
-        "operation": "secondDerivative",
+        "operation": "secondDerivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 6,
+        },
+        "expected": 6.0,
         "id": "second-deriv-cubic-plus-linear-at-1",
         "input": {
           "function": "cubic_plus_linear",
-          "x": 1
+          "x": 1.0
         },
-        "operation": "secondDerivative",
+        "operation": "secondDerivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 1,
+        },
+        "expected": 1.0,
         "id": "trap-constant",
         "input": {
           "dx": 0.25,
-          "values": [1, 1, 1, 1, 1]
+          "values": [1.0, 1.0, 1.0, 1.0, 1.0]
         },
-        "operation": "trapezoid",
+        "operation": "trapezoid"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 8,
+        },
+        "expected": 8.0,
         "id": "trap-linear",
         "input": {
-          "dx": 1,
-          "values": [0, 1, 2, 3, 4]
+          "dx": 1.0,
+          "values": [0.0, 1.0, 2.0, 3.0, 4.0]
         },
-        "operation": "trapezoid",
+        "operation": "trapezoid"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 22,
+        },
+        "expected": 22.0,
         "id": "trap-quadratic-5",
         "input": {
-          "dx": 1,
-          "values": [0, 1, 4, 9, 16]
+          "dx": 1.0,
+          "values": [0.0, 1.0, 4.0, 9.0, 16.0]
         },
-        "operation": "trapezoid",
+        "operation": "trapezoid"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 0.9979429863543573,
         "id": "trap-sine-quarter",
         "input": {
           "dx": 0.15707963267948966,
           "values": [
-            0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
-            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1
+            0.0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
+            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1.0
           ]
         },
-        "operation": "trapezoid",
+        "operation": "trapezoid"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 21,
+        },
+        "expected": 21.0,
         "id": "trap-uniform-dx",
         "input": {
           "dx": 0.5,
-          "values": [1, 4, 9, 16, 25]
+          "values": [1.0, 4.0, 9.0, 16.0, 25.0]
         },
-        "operation": "trapezoid",
+        "operation": "trapezoid"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 8,
+        },
+        "expected": 8.0,
         "id": "simpson-constant",
         "input": {
-          "dx": 1,
-          "values": [2, 2, 2, 2, 2]
+          "dx": 1.0,
+          "values": [2.0, 2.0, 2.0, 2.0, 2.0]
         },
-        "operation": "simpson",
+        "operation": "simpson"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 8,
+        },
+        "expected": 8.0,
         "id": "simpson-linear",
         "input": {
-          "dx": 1,
-          "values": [0, 1, 2, 3, 4]
+          "dx": 1.0,
+          "values": [0.0, 1.0, 2.0, 3.0, 4.0]
         },
-        "operation": "simpson",
+        "operation": "simpson"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 21.333333333333332,
         "id": "simpson-quadratic",
         "input": {
-          "dx": 1,
-          "values": [0, 1, 4, 9, 16]
+          "dx": 1.0,
+          "values": [0.0, 1.0, 4.0, 9.0, 16.0]
         },
-        "operation": "simpson",
+        "operation": "simpson"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": 1.0000033922209006,
         "id": "simpson-sine",
         "input": {
           "dx": 0.15707963267948966,
           "values": [
-            0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
-            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1
+            0.0, 0.15643446504023087, 0.3090169943749474, 0.4539904997395468, 0.5877852522924731, 0.7071067811865475,
+            0.8090169943749475, 0.8910065241883679, 0.9510565162951535, 0.9876883405951378, 1.0
           ]
         },
-        "operation": "simpson",
+        "operation": "simpson"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": 64,
+        },
+        "expected": 64.0,
         "id": "simpson-cubic",
         "input": {
-          "dx": 1,
-          "values": [0, 1, 8, 27, 64]
+          "dx": 1.0,
+          "values": [0.0, 1.0, 8.0, 27.0, 64.0]
         },
-        "operation": "simpson",
-        "assertion": {
-          "absoluteTolerance": 1e-8,
-          "relativeTolerance": 2e-8
-        }
+        "operation": "simpson"
       },
       {
-        "expected": 2,
+        "assertion": {
+          "absoluteTolerance": 1e-8,
+          "relativeTolerance": 1e-8
+        },
+        "expected": 2.0,
         "id": "adaptive-simpson-sine",
         "input": {
-          "a": 0,
+          "a": 0.0,
+          "absoluteTolerance": 1e-8,
           "b": 3.141592653589793,
           "function": "sin",
           "maxDepth": 12,
+          "relativeTolerance": 1e-8
+        },
+        "operation": "adaptiveSimpson"
+      },
+      {
+        "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 1e-8
         },
-        "operation": "adaptiveSimpson",
-        "assertion": {
-          "absoluteTolerance": 1e-8,
-          "relativeTolerance": 2e-8
-        }
-      },
-      {
         "expected": 1.7182818284590453,
         "id": "adaptive-simpson-exp",
         "input": {
-          "a": 0,
-          "b": 1,
+          "a": 0.0,
+          "absoluteTolerance": 1e-8,
+          "b": 1.0,
           "function": "exp",
           "maxDepth": 12,
-          "absoluteTolerance": 1e-8,
           "relativeTolerance": 1e-8
         },
-        "operation": "adaptiveSimpson",
+        "operation": "adaptiveSimpson"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": [8, 7],
+        },
+        "expected": [8.0, 7.0],
         "id": "gradient-quadratic-surface-point-a",
         "input": {
           "function": "quadratic_surface",
-          "point": [1, 2]
+          "point": [1.0, 2.0]
         },
-        "operation": "gradient",
+        "operation": "gradient"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "expected": [-0.25, -1],
+        },
+        "expected": [-0.25, -1.0],
         "id": "gradient-quadratic-surface-point-b",
         "input": {
           "function": "quadratic_surface",
           "point": [-0.5, 0.25]
         },
-        "operation": "gradient",
+        "operation": "gradient"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": [
-          [2, 1],
-          [2.5403023058681398, 1]
+          [2.0, 1.0],
+          [2.5403023058681398, 1.0]
         ],
         "id": "jacobian-coupled-field-point-a",
         "input": {
           "function": "coupled_field",
-          "point": [1, 2]
+          "point": [1.0, 2.0]
         },
-        "operation": "jacobian",
+        "operation": "jacobian"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": [
-          [-1, 1],
+          [-1.0, 1.0],
           [1.1275825618903728, -0.5]
         ],
         "id": "jacobian-coupled-field-point-b",
@@ -417,123 +421,119 @@
           "function": "coupled_field",
           "point": [-0.5, 0.25]
         },
-        "operation": "jacobian",
+        "operation": "jacobian"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": [
-          [2, 3],
-          [3, 2]
+          [2.0, 3.0],
+          [3.0, 2.0]
         ],
         "id": "hessian-quadratic-surface-point-a",
         "input": {
           "function": "quadratic_surface",
-          "point": [1, 2]
+          "point": [1.0, 2.0]
         },
-        "operation": "hessian",
+        "operation": "hessian"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
         "expected": [
-          [2, 3],
-          [3, 2]
+          [2.0, 3.0],
+          [3.0, 2.0]
         ],
         "id": "hessian-quadratic-surface-point-b",
         "input": {
           "function": "quadratic_surface",
           "point": [-0.5, 0.25]
         },
-        "operation": "hessian",
+        "operation": "hessian"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "id": "directional-quadratic-surface-point-a",
-        "operation": "directionalDerivative",
-        "input": {
-          "function": "quadratic_surface",
-          "point": [1, 2],
-          "direction": [1, 1]
         },
         "expected": 10.606601717798211,
+        "id": "directional-quadratic-surface-point-a",
+        "input": {
+          "direction": [1.0, 1.0],
+          "function": "quadratic_surface",
+          "point": [1.0, 2.0]
+        },
+        "operation": "directionalDerivative"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "id": "directional-quadratic-surface-point-b",
-        "operation": "directionalDerivative",
-        "input": {
-          "function": "quadratic_surface",
-          "point": [-0.5, 0.25],
-          "direction": [2, -1]
         },
         "expected": 0.22360679774997896,
-        "assertion": {
-          "absoluteTolerance": 1e-8,
-          "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "id": "divergence-coupled-field-point-a",
-        "operation": "divergence",
+        "id": "directional-quadratic-surface-point-b",
         "input": {
-          "function": "coupled_field",
-          "point": [1, 2]
-        },
-        "expected": 3,
-        "assertion": {
-          "absoluteTolerance": 1e-8,
-          "relativeTolerance": 2e-8
-        }
-      },
-      {
-        "id": "divergence-coupled-field-point-b",
-        "operation": "divergence",
-        "input": {
-          "function": "coupled_field",
+          "direction": [2.0, -1.0],
+          "function": "quadratic_surface",
           "point": [-0.5, 0.25]
+        },
+        "operation": "directionalDerivative"
+      },
+      {
+        "assertion": {
+          "absoluteTolerance": 1e-8,
+          "relativeTolerance": 2e-8
+        },
+        "expected": 3.0,
+        "id": "divergence-coupled-field-point-a",
+        "input": {
+          "function": "coupled_field",
+          "point": [1.0, 2.0]
+        },
+        "operation": "divergence"
+      },
+      {
+        "assertion": {
+          "absoluteTolerance": 1e-8,
+          "relativeTolerance": 2e-8
         },
         "expected": -1.5,
+        "id": "divergence-coupled-field-point-b",
+        "input": {
+          "function": "coupled_field",
+          "point": [-0.5, 0.25]
+        },
+        "operation": "divergence"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
+        "expected": 4.0,
         "id": "laplacian-quadratic-surface-point-a",
-        "operation": "laplacian",
         "input": {
           "function": "quadratic_surface",
-          "point": [1, 2]
+          "point": [1.0, 2.0]
         },
-        "expected": 4,
+        "operation": "laplacian"
+      },
+      {
         "assertion": {
           "absoluteTolerance": 1e-8,
           "relativeTolerance": 2e-8
-        }
-      },
-      {
+        },
+        "expected": 4.0,
         "id": "laplacian-quadratic-surface-point-b",
-        "operation": "laplacian",
         "input": {
           "function": "quadratic_surface",
           "point": [-0.5, 0.25]
         },
-        "expected": 4,
-        "assertion": {
-          "absoluteTolerance": 1e-8,
-          "relativeTolerance": 2e-8
-        }
+        "operation": "laplacian"
       }
     ]
   }

@@ -1,0 +1,21 @@
+@theme inline {
+  --color-intent-neutral-surface: var(--th-stage-100);
+  --color-intent-neutral-border: var(--th-stage-300);
+  --color-intent-neutral-content: var(--th-ink-700);
+
+  --color-intent-info-surface: var(--color-tone-text-100);
+  --color-intent-info-border: var(--color-tone-text-200);
+  --color-intent-info-content: var(--color-tone-text-800);
+
+  --color-intent-positive-surface: var(--color-tone-math-100);
+  --color-intent-positive-border: var(--color-tone-math-200);
+  --color-intent-positive-content: var(--color-tone-math-800);
+
+  --color-intent-attention-surface: var(--color-tone-search-100);
+  --color-intent-attention-border: var(--color-tone-search-200);
+  --color-intent-attention-content: var(--color-tone-search-800);
+
+  --color-intent-danger-surface: var(--th-danger-50);
+  --color-intent-danger-border: var(--th-danger-200);
+  --color-intent-danger-content: var(--th-danger-700);
+}

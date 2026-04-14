@@ -6,15 +6,19 @@
  */
 import { Chunk, Effect } from "effect"
 
+import { CalculusShapeError } from "../errors.js"
 import {
+  AdaptiveRk45Input,
   AdaptiveSimpsonInput,
   DerivativeInput,
   DirectionalDerivativeInput,
   DivergenceInput,
+  EulerInput,
   GradientInput,
   HessianInput,
   JacobianInput,
   LaplacianInput,
+  Rk4Input,
   SecondDerivativeInput,
   SimpsonInput,
   TrapezoidInput
@@ -30,9 +34,28 @@ import {
   laplacian,
   secondDerivativeLimit,
   simpson,
+  solveAdaptiveRk45,
+  solveEuler,
+  solveRk4,
   trapezoid
 } from "./pure.js"
 import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly, ridderConfigFrom } from "./shared.js"
+
+const ensureStateShape = (
+  operation: string,
+  state: Chunk.Chunk<number>,
+  derivative: Chunk.Chunk<number>
+) =>
+  Chunk.size(state) === Chunk.size(derivative)
+    ? Effect.void
+    : Effect.fail(
+      new CalculusShapeError({
+        operation,
+        expected: `state vector length ${String(Chunk.size(state))}`,
+        actual: `derivative vector length ${String(Chunk.size(derivative))}`,
+        message: "Expected derivative output dimensions to match the state vector"
+      })
+    )
 
 /**
  * Schema-decoded boundary for `derivativeLimit`.
@@ -119,6 +142,66 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
         decoded.relativeTolerance,
         decoded.maxDepth
       ))
+  })
+
+/**
+ * Schema-decoded boundary for the fixed-step Euler solver.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveEulerValidated = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: unknown
+) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeOperationInput(EulerInput, "solveEuler", input)
+    const derivative = yield* executeKernel("solveEuler.initialDerivative", () =>
+      f(decoded.initialTime, decoded.initialState))
+
+    yield* ensureStateShape("solveEuler", decoded.initialState, derivative)
+
+    return solveEuler(f, decoded)
+  })
+
+/**
+ * Schema-decoded boundary for the fixed-step RK4 solver.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveRk4Validated = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: unknown
+) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeOperationInput(Rk4Input, "solveRk4", input)
+    const derivative = yield* executeKernel("solveRk4.initialDerivative", () =>
+      f(decoded.initialTime, decoded.initialState))
+
+    yield* ensureStateShape("solveRk4", decoded.initialState, derivative)
+
+    return solveRk4(f, decoded)
+  })
+
+/**
+ * Schema-decoded boundary for the adaptive RK45 solver.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const solveAdaptiveRk45Validated = (
+  f: (time: number, state: Chunk.Chunk<number>) => Chunk.Chunk<number>,
+  input: unknown
+) =>
+  Effect.gen(function*() {
+    const decoded = yield* decodeOperationInput(AdaptiveRk45Input, "solveAdaptiveRk45", input)
+    const derivative = yield* executeKernel("solveAdaptiveRk45.initialDerivative", () =>
+      f(decoded.initialTime, decoded.initialState))
+
+    yield* ensureStateShape("solveAdaptiveRk45", decoded.initialState, derivative)
+
+    return solveAdaptiveRk45(f, decoded)
   })
 
 /**

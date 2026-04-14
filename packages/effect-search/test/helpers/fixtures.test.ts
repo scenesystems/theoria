@@ -3,11 +3,7 @@ import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Match, Schema } from "effect"
 
-import {
-  CategoricalParzenFixtureSchema,
-  makeFixtureRegistry,
-  TpeCategoricalStudyReplayFixtureSchema
-} from "./fixtures.js"
+import { CategoricalParzenFixtureSchema, FixtureRegistry, TpeCategoricalStudyReplayFixtureSchema } from "./fixtures.js"
 import { fmGateMatrix, FmGateMatrixSchema } from "./fixtures/fmMatrix.js"
 import { loadManifest } from "./fixtures/io.js"
 
@@ -72,7 +68,7 @@ const listFixtureJsonFiles = (
 describe("deterministic fixture registry", () => {
   it.effect("loads schema-validated fixtures from the manifest", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const categorical = yield* registry.load("categorical-parzen.basic")
       const replay = yield* registry.load("tpe-categorical-study.replay")
 
@@ -85,7 +81,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("asserts FM fixture namespace completeness for Wave 0 substrate", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const matrix = yield* Schema.decodeUnknown(FmGateMatrixSchema)(fmGateMatrix)
 
       yield* Effect.forEach(
@@ -102,7 +98,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("fails fast when any FM gate lacks fixture artifacts or consuming tests", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const matrix = yield* Schema.decodeUnknown(FmGateMatrixSchema)(fmGateMatrix)
 
       yield* Effect.forEach(
@@ -120,7 +116,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("validates the full fixture manifest against schema contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       yield* registry.validateManifest
     }))
 
@@ -143,7 +139,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("fails when a manifest entry points to a missing fixture file", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry({
+      const registry = FixtureRegistry.make({
         rootUrl: invalidFixtureRoot,
         manifestFileName: "manifest.missing-file.json"
       })
@@ -160,7 +156,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("fails when a fixture file contains malformed JSON", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry({
+      const registry = FixtureRegistry.make({
         rootUrl: invalidFixtureRoot,
         manifestFileName: "manifest.malformed.json"
       })
@@ -177,7 +173,7 @@ describe("deterministic fixture registry", () => {
 
   it.effect("fails when fixture JSON is schema-incompatible", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry({
+      const registry = FixtureRegistry.make({
         rootUrl: invalidFixtureRoot,
         manifestFileName: "manifest.schema-incompatible.json"
       })

@@ -28,9 +28,9 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -616,11 +616,11 @@ const program = Effect.gen(function*() {
     fallbackToLabeledFewShot: true,
     fallbackLabeledDemoCount: 3
   }).pipe(
-    Optimizer.tapBootstrapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
+    Optimizer.BootstrapProgressLine.tap((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
   const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
-  const bootstrapSummary = Optimizer.summarizeBootstrapEvents(bootstrapEvents)
+  const bootstrapSummary = Optimizer.BootstrapEventSummary.summarize(bootstrapEvents)
   const paramsAfterBootstrap = yield* Ref.get(protocolPanel.params)
   const demosAddedDuringBootstrap = paramsAfterBootstrap.demos.length - paramsBeforeBootstrap.demos.length
 
@@ -658,11 +658,11 @@ const program = Effect.gen(function*() {
     trialBudget: 6,
     seed: 33
   }).pipe(
-    Optimizer.tapMIPROv2Progress((line) => logExampleEvent("miprov2", line.text)),
+    Optimizer.MIPROv2ProgressLine.tap((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
   const miproEvents = Arr.fromIterable(miproEventsChunk)
-  const miproEventSummary = Optimizer.summarizeMIPROv2Events(miproEvents)
+  const miproEventSummary = Optimizer.MIPROv2EventSummary.summarize(miproEvents)
 
   const optimized = yield* Evaluate.run({
     module: protocolPanel,
@@ -675,20 +675,20 @@ const program = Effect.gen(function*() {
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
-  const miproOutcome = Optimizer.summarizeMIPROv2Outcome({
+  const miproOutcome = Optimizer.MIPROv2OutcomeSummary.make({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     demoCountBeforeOptimization: paramsAfterBootstrap.demos.length,
     demoCountAfterOptimization: optimizedParams.demos.length,
     eventSummary: miproEventSummary
   })
-  const optimizationObservability = Optimizer.summarizeMIPROv2OptimizationObservability({
+  const optimizationObservability = Optimizer.MIPROv2OptimizationObservability.make({
     baselineScore,
     optimizedScore,
     eventSummary: miproEventSummary
   })
   const panelSavedState = yield* Module.save(protocolPanel)
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     metricName: "collectiveMemoryProtocolFit",
@@ -736,7 +736,7 @@ const program = Effect.gen(function*() {
       demosAddedDuringBootstrap
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     streams: Arr.make(
@@ -750,7 +750,7 @@ const program = Effect.gen(function*() {
       }
     )
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     state: panelSavedState

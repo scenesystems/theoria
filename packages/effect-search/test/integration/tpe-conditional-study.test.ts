@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Match, Option, Schema } from "effect"
+import { abs, logStrict } from "effect-math/Numeric"
 
 import {
   decodeLinearTreeConditionalConfig,
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 import * as Trial from "../../src/Trial/index.js"
@@ -17,14 +17,14 @@ const decodeConditional = decodeLinearTreeConditionalConfig
 const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(LinearTreeConditionalConfigSchema)))
 const encodeValueTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(Schema.Number)))
 
-const makeSpace = () => makeLinearTreeConditionalSpace()
+const makeSpace = () => LinearTreeConditionalSpace.make()
 
 const objectiveValue = (config: ConditionalConfig): number =>
   Match.value(config).pipe(
     Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-      Float64.abs(Float64.log(learningRate) - Float64.log(0.02)) + Float64.abs(regularization - 0.15)),
+      abs(logStrict(learningRate) - logStrict(0.02)) + abs(regularization - 0.15)),
     Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-      1 + Float64.abs(maxDepth - 6) * 0.4 + Float64.abs(minSamplesLeaf - 2) * 0.3),
+      1 + abs(maxDepth - 6) * 0.4 + abs(minSamplesLeaf - 2) * 0.3),
     Match.exhaustive
   )
 

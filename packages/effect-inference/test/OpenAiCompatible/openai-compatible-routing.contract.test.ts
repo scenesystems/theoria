@@ -6,7 +6,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
   it.each([
     {
       name: "brokered",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "https://openrouter.ai/api/v1",
         serveMode: "routed-marketplace",
         authMethod: "bearer-token",
@@ -15,7 +15,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
     },
     {
       name: "dedicated",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "https://my-endpoint.example.com/v1",
         serveMode: "dedicated-endpoint",
         authMethod: "api-key",
@@ -25,7 +25,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
     },
     {
       name: "self-hosted-ollama",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "http://127.0.0.1:11434/v1",
         serveMode: "local-runtime",
         authMethod: "none",
@@ -34,7 +34,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
     },
     {
       name: "self-hosted-vllm",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "http://127.0.0.1:8000/v1",
         serveMode: "local-runtime",
         authMethod: "none",
@@ -43,7 +43,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
     },
     {
       name: "self-hosted-tgi",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "http://127.0.0.1:8080/v1",
         serveMode: "local-runtime",
         authMethod: "none",
@@ -52,7 +52,7 @@ describe("OpenAiCompatible/openai-compatible-routing", () => {
     },
     {
       name: "self-hosted-lm-studio",
-      route: OpenAiCompatible.makeOpenAiCompatibleRoute({
+      route: OpenAiCompatible.OpenAiCompatibleRoute.make({
         baseUrl: "http://127.0.0.1:1234/v1",
         serveMode: "local-runtime",
         authMethod: "none",

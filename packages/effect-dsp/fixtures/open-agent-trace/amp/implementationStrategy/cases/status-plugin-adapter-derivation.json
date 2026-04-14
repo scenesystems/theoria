@@ -1,0 +1,24 @@
+{
+  "caseId": "status-plugin-adapter-derivation",
+  "threadId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+  "captureLane": "plugin",
+  "split": "holdout",
+  "task": "Repair module parameter derivation so runtime adapters are derived from the exact declaration output rather than a shared compatibility record.",
+  "constraints": [
+    "Keep the declaration output authoritative.",
+    "Derive runtime adapters only after the exact product exists.",
+    "Do not introduce shared compatibility records, helper shims, or witness scaffolding."
+  ],
+  "files": [
+    "params.ts",
+    "adapter.ts",
+    "derive.ts",
+    "runtime.ts"
+  ],
+  "rejectedMoves": [
+    "Create a shared compatibility record for declaration and runtime layers.",
+    "Add helper shims to recover erased distinctions.",
+    "Use witness scaffolding or overload detours instead of exact derivation."
+  ],
+  "expectedStrategy": "Keep the declaration output as source of truth, derive runtime adapters only after the exact product exists, preserve noun and mechanism authority on the real seam, and avoid shared compatibility records, helper shims, witness scaffolding, overload detours, or any intermediate authority layer."
+}

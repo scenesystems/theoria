@@ -3,24 +3,18 @@ import { describe, expect, it } from "@effect/vitest"
 import { readProjectFile } from "@theoria/source-proof"
 import { Effect } from "effect"
 
-import { DemoDecodeError, DemoExecutionError, DemoRequestError } from "../../app/contracts/demo-error.js"
-import { compactErrorMessage, statusFromError, statusFromPreload, statusText } from "../../app/web/state/status.js"
-import {
-  emptyEvidenceStreamState,
-  evidenceStatusFromStream,
-  type EvidenceStreamState,
-  initialSurfaceState,
-  type PreloadState,
-  type RunState
-} from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { EntryDecodeError, EntryExecutionError, EntryRequestError } from "../../app/contracts/entry-error.js"
+import { EvidenceStreamState } from "../../app/web/state/evidence/stream.js"
+import { compactErrorMessage, statusFromError, statusFromPreload, statusText } from "../../app/web/state/run/status.js"
+import type { RunState } from "../../app/web/state/run/types.js"
+import { initialSurfaceState, type PreloadState } from "../../app/web/state/surface/state.js"
+import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/entry-fixtures.js"
 import {
   failedRunState,
-  localCompletedRunState,
   pausedRunState,
   runningRunState,
-  serverCompletedRunState,
-  stoppedRunState,
+  stepQueueDrainedRunState,
+  streamCompletedRunState,
   succeededRunState
 } from "../helpers/run-state.js"
 
@@ -29,7 +23,7 @@ const appRootUrl = new URL("../../", import.meta.url)
 describe("status runtime-boundary", () => {
   it.effect("keeps status copy free of app-local provider enums and provider-client wiring", () =>
     Effect.gen(function*() {
-      const statusPath = "app/web/state/status.ts"
+      const statusPath = "app/web/state/run/status.ts"
       const source = yield* readProjectFile(appRootUrl, statusPath)
 
       expect(source).not.toContain("\"openai\"")
@@ -41,7 +35,7 @@ describe("status runtime-boundary", () => {
     }).pipe(Effect.provide(BunContext.layer)))
 })
 
-const statusStateFrom = (id: "effect-text") => {
+const statusStateFrom = (id: "workflow") => {
   const state = initialSurfaceState(id)
   return {
     preload: state.preload,
@@ -53,6 +47,8 @@ const surfaceStatusState = (state: { readonly preload: PreloadState; readonly ru
   preload: state.preload,
   run: state.run
 })
+
+const emptyEvidenceStream = EvidenceStreamState.empty()
 
 describe("compactErrorMessage", () => {
   it.effect("returns first line only from multi-line message", () =>
@@ -105,7 +101,7 @@ describe("compactErrorMessage", () => {
 describe("statusFromError", () => {
   it.effect("execution-timeout returns timeout message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "execution-timeout",
         message: "timed out",
         retryable: true
@@ -115,7 +111,7 @@ describe("statusFromError", () => {
 
   it.effect("provider-unavailable returns compact error message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "provider-unavailable",
         message: "Provider XYZ is down",
         retryable: true
@@ -123,53 +119,49 @@ describe("statusFromError", () => {
       expect(statusFromError(error)).toBe("Provider XYZ is down")
     }))
 
-  it.effect("invalid-demo-id returns unavailable message", () =>
+  it.effect("invalid-entry-id returns unavailable message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
-        code: "invalid-demo-id",
+      const error = new EntryExecutionError({
+        code: "invalid-entry-id",
         message: "bad id",
         retryable: false
       })
-      expect(statusFromError(error)).toBe("Demo is unavailable in this runtime build.")
+      expect(statusFromError(error)).toBe("Entry is unavailable in this runtime build.")
     }))
 
   it.effect("route-not-found returns refresh message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "route-not-found",
         message: "no route",
         retryable: false
       })
-      expect(statusFromError(error)).toBe("Demo route is unavailable. Refresh and retry.")
+      expect(statusFromError(error)).toBe("Entry route is unavailable. Refresh and retry.")
     }))
 
-  it.effect("execution-failed with 'Demo execution failed.' message returns deep dive message", () =>
+  it.effect("execution-failed with 'Entry execution failed.' message returns diagnostics message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "execution-failed",
-        message: "Demo execution failed.",
+        message: "Entry execution failed.",
         retryable: false
       })
-      expect(statusFromError(error)).toBe(
-        "Demo execution failed. Open Deep Dive for full diagnostics."
-      )
+      expect(statusFromError(error)).toBe("Entry execution failed. Inspect diagnostics for details.")
     }))
 
-  it.effect("execution-failed with empty message returns deep dive message", () =>
+  it.effect("execution-failed with empty message returns diagnostics message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "execution-failed",
         message: "",
         retryable: false
       })
-      expect(statusFromError(error)).toBe(
-        "Demo execution failed. Open Deep Dive for full diagnostics."
-      )
+      expect(statusFromError(error)).toBe("Entry execution failed. Inspect diagnostics for details.")
     }))
 
   it.effect("execution-failed with custom detail returns prefixed message", () =>
     Effect.gen(function*() {
-      const error = new DemoExecutionError({
+      const error = new EntryExecutionError({
         code: "execution-failed",
         message: "Null pointer in module X",
         retryable: false
@@ -177,15 +169,15 @@ describe("statusFromError", () => {
       expect(statusFromError(error)).toBe("Execution failed: Null pointer in module X")
     }))
 
-  it.effect("DemoRequestError returns compact error message", () =>
+  it.effect("EntryRequestError returns compact error message", () =>
     Effect.gen(function*() {
-      const error = new DemoRequestError({ message: "Network timeout" })
+      const error = new EntryRequestError({ message: "Network timeout" })
       expect(statusFromError(error)).toBe("Network timeout")
     }))
 
-  it.effect("DemoDecodeError returns decode error prefix", () =>
+  it.effect("EntryDecodeError returns decode error prefix", () =>
     Effect.gen(function*() {
-      const error = new DemoDecodeError({ message: "Missing field" })
+      const error = new EntryDecodeError({ message: "Missing field" })
       expect(statusFromError(error)).toBe("Decode error: Missing field")
     }))
 })
@@ -193,30 +185,30 @@ describe("statusFromError", () => {
 describe("statusFromPreload", () => {
   it.effect("PreloadIdle returns run prompt", () =>
     Effect.gen(function*() {
-      const state = initialSurfaceState("effect-text")
+      const state = initialSurfaceState("workflow")
       expect(statusFromPreload(state.preload)).toBe(
-        "Run the demo to generate evidence and inspect code provenance."
+        "Run the study to generate evidence and inspect code provenance."
       )
     }))
 
   it.effect("PreloadLoading returns preloading message", () =>
     Effect.gen(function*() {
       const preload: PreloadState = { _tag: "PreloadLoading" }
-      const state = { ...initialSurfaceState("effect-text"), preload }
+      const state = { ...initialSurfaceState("workflow"), preload }
       expect(statusFromPreload(state.preload)).toBe("Preloading program preview…")
     }))
 
   it.effect("PreloadFailed delegates to statusFromError", () =>
     Effect.gen(function*() {
       const preload: PreloadState = { _tag: "PreloadFailed", error: errorFixture }
-      const state = { ...initialSurfaceState("effect-text"), preload }
+      const state = { ...initialSurfaceState("workflow"), preload }
       expect(statusFromPreload(state.preload)).toBe(statusFromError(errorFixture))
     }))
 
   it.effect("PreloadReady returns ready message", () =>
     Effect.gen(function*() {
       const preload: PreloadState = { _tag: "PreloadReady", data: programPreviewFixture }
-      const state = { ...initialSurfaceState("effect-text"), preload }
+      const state = { ...initialSurfaceState("workflow"), preload }
       expect(statusFromPreload(state.preload)).toBe(
         "Program preview ready. Run to generate live evidence."
       )
@@ -226,107 +218,107 @@ describe("statusFromPreload", () => {
 describe("statusText", () => {
   it.effect("RunIdle + PreloadIdle falls through to preload status", () =>
     Effect.gen(function*() {
-      expect(statusText(statusStateFrom("effect-text"), evidenceStatusFromStream(emptyEvidenceStreamState))).toBe(
-        "Run the demo to generate evidence and inspect code provenance."
+      expect(statusText(statusStateFrom("workflow"), emptyEvidenceStream.status())).toBe(
+        "Run the study to generate evidence and inspect code provenance."
       )
     }))
 
   it.effect("RunRunning returns running message", () =>
     Effect.gen(function*() {
       const run = runningRunState({ program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(emptyEvidenceStreamState))).toBe(
-        "Running demo now…"
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), emptyEvidenceStream.status())).toBe(
+        "Running study now…"
       )
     }))
 
   it.effect("RunRunning reports incremental streaming progress after the first section arrives", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
         complete: false,
         summary: null,
         meta: null
-      }
+      })
       const run = runningRunState({ program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
         "Streaming results… 1 section loaded."
       )
     }))
 
-  it.effect("RunPaused reports paused-after-complete status once server completion is recorded", () =>
+  it.effect("RunPaused keeps stream-owned pause copy once stream completion is recorded", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
         complete: false,
         summary: null,
         meta: null
-      }
-      const run = serverCompletedRunState({
+      })
+      const run = streamCompletedRunState({
         run: pausedRunState({ program: programPreviewFixture.program }),
         summary: "Server done."
       })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Run paused after server completion. Resume to finish the local stage."
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
-  it.effect("RunRunning distinguishes local completion from server completion without relying on stream.complete", () =>
+  it.effect("RunRunning keeps user-facing copy on the stream ledger even when only stream completion remains", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
         complete: false,
         summary: null,
         meta: null
-      }
-      const run = localCompletedRunState({
+      })
+      const run = stepQueueDrainedRunState({
         run: runningRunState({ program: programPreviewFixture.program })
       })
-      const state = { ...initialSurfaceState("effect-text"), run }
+      const state = { ...initialSurfaceState("workflow"), run }
 
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Local stage complete. Waiting for server completion…"
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
+        "Streaming results… 1 section loaded."
       )
     }))
 
-  it.effect("RunPaused does not ask for resume once only server completion is outstanding", () =>
+  it.effect("RunPaused keeps the same evidence-led pause copy once only stream completion is outstanding", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
         complete: false,
         summary: null,
         meta: null
-      }
-      const run = localCompletedRunState({
+      })
+      const run = stepQueueDrainedRunState({
         run: pausedRunState({ program: programPreviewFixture.program })
       })
-      const state = { ...initialSurfaceState("effect-text"), run }
+      const state = { ...initialSurfaceState("workflow"), run }
 
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Local stage complete. Waiting for server completion…"
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
-  it.effect("RunPaused switches to finalizing copy once both completion facts are present", () =>
+  it.effect("RunPaused stays on neutral pause copy once both completion facts are present", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Trial Positions", items: [{ _tag: "Text", label: "Rows", value: "2" }] }],
         complete: true,
         summary: "Server done.",
         meta: null
-      }
-      const run = localCompletedRunState({
-        run: serverCompletedRunState({
+      })
+      const run = stepQueueDrainedRunState({
+        run: streamCompletedRunState({
           run: pausedRunState({ program: programPreviewFixture.program }),
           summary: "Server done."
         })
       })
-      const state = { ...initialSurfaceState("effect-text"), run }
+      const state = { ...initialSurfaceState("workflow"), run }
 
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Finalizing live stage…"
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
+        "Run paused. Resume to continue streaming evidence."
       )
     }))
 
@@ -334,8 +326,8 @@ describe("statusText", () => {
     Effect.gen(function*() {
       const fixture = runDataFixture("All benchmarks passed with 2× speedup.")
       const run = succeededRunState({ data: fixture })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(emptyEvidenceStreamState))).toBe(
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), emptyEvidenceStream.status())).toBe(
         "All benchmarks passed with 2× speedup."
       )
     }))
@@ -343,39 +335,24 @@ describe("statusText", () => {
   it.effect("RunFailed delegates to statusFromError", () =>
     Effect.gen(function*() {
       const run = failedRunState({ error: errorFixture, program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(emptyEvidenceStreamState))).toBe(
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), emptyEvidenceStream.status())).toBe(
         statusFromError(errorFixture)
       )
     }))
 
   it.effect("RunFailed preserves partial-results context in the status text", () =>
     Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
+      const stream = EvidenceStreamState.make({
         sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
         complete: false,
         summary: null,
         meta: null
-      }
+      })
       const run = failedRunState({ error: errorFixture, program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
+      const state = { ...initialSurfaceState("workflow"), run }
+      expect(statusText(surfaceStatusState(state), stream.status())).toBe(
         `${statusFromError(errorFixture)} Partial results remain visible.`
-      )
-    }))
-
-  it.effect("RunStopped preserves partial-results context when evidence is already present", () =>
-    Effect.gen(function*() {
-      const stream: EvidenceStreamState = {
-        sections: [{ title: "Performance", items: [{ _tag: "Text", label: "Step", value: "1" }] }],
-        complete: false,
-        summary: null,
-        meta: null
-      }
-      const run = stoppedRunState({ program: programPreviewFixture.program })
-      const state = { ...initialSurfaceState("effect-text"), run }
-      expect(statusText(surfaceStatusState(state), evidenceStatusFromStream(stream))).toBe(
-        "Run stopped. Partial results remain visible."
       )
     }))
 })

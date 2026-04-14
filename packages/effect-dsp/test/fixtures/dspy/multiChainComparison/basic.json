@@ -1,0 +1,63 @@
+{
+  "fixture": "dspy.multiChainComparison.basic",
+  "metadata": {
+    "generatedAt": "2026-03-18T00:00:00Z",
+    "upstream": {
+      "name": "dspy",
+      "version": "3.1.3"
+    },
+    "generator": {
+      "script": "scripts/generate-dspy-fixtures.py",
+      "version": "0.2.0"
+    }
+  },
+  "payload": {
+    "candidateCount": 3,
+    "sampleInput": {
+      "question": "What is the capital of France?"
+    },
+    "candidateResponses": [
+      {
+        "reasoning": "Candidate one reasoning",
+        "answer": "Candidate one"
+      },
+      {
+        "reasoning": "Candidate two reasoning",
+        "answer": "Candidate two"
+      },
+      {
+        "reasoning": "Candidate three reasoning",
+        "answer": "Candidate three"
+      }
+    ],
+    "compareResponse": {
+      "reasoning": "Candidate two is best because it stays concise and grounded.",
+      "answer": "Candidate two"
+    },
+    "candidateComparisons": "Candidate 1\nreasoning: Candidate one reasoning\nanswer: Candidate one\n\nCandidate 2\nreasoning: Candidate two reasoning\nanswer: Candidate two\n\nCandidate 3\nreasoning: Candidate three reasoning\nanswer: Candidate three",
+    "reasoningAttempts": [
+      "\u00abI'm trying to Candidate one reasoning I'm not sure but my prediction is Candidate one\u00bb",
+      "\u00abI'm trying to Candidate two reasoning I'm not sure but my prediction is Candidate two\u00bb",
+      "\u00abI'm trying to Candidate three reasoning I'm not sure but my prediction is Candidate three\u00bb"
+    ],
+    "dspyPredictionKeys": ["rationale", "answer"],
+    "traceEntries": [
+      {
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
+      },
+      {
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
+      },
+      {
+        "inputKeys": ["question"],
+        "predictionKeys": ["reasoning", "answer"]
+      },
+      {
+        "inputKeys": ["reasoning_attempt_1", "reasoning_attempt_2", "reasoning_attempt_3", "question"],
+        "predictionKeys": ["rationale", "answer"]
+      }
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-import type { RunRuntimeTelemetrySection } from "../../atoms/surface.js"
+import type { RunRuntimeTelemetrySection } from "../../../contracts/presentation/run-runtime-telemetry.js"
 
 import { DataTable } from "./DataTable.js"
 
@@ -37,6 +37,9 @@ const factsSection = (rows: RunRuntimeTelemetrySection["rows"]) => (
   </Layer>
 )
 
+const traceTableRows = (rows: RunRuntimeTelemetrySection["rows"]): ReadonlyArray<ReadonlyArray<string>> =>
+  rows.map((row) => [row.label, row.value])
+
 export const RunLifecycleDiagnosticsPanel = ({
   sections
 }: {
@@ -72,7 +75,7 @@ export const RunLifecycleDiagnosticsPanel = ({
                   density="compact"
                   label={section.title}
                   layout="trace"
-                  rows={section.rows.map((row) => [row.label, row.value])}
+                  rows={traceTableRows(section.rows)}
                 />
               )
               : factsSection(section.rows)}

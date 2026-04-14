@@ -12,8 +12,7 @@
  */
 import { Number as N } from "effect"
 
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
-import { gammainccKernel } from "../../Special/internal/gammainc.js"
+import { gammaincc, lnGamma } from "../../Special/operations.js"
 
 /**
  * Log-PMF: k·ln(μ) − μ − ln(Γ(k+1)).
@@ -28,7 +27,7 @@ export const poissonLogPmf = (k: number, mu: number): number => {
 
   return N.subtract(
     N.subtract(N.multiply(k, Math.log(mu)), mu),
-    lnGammaLanczos(N.sum(k, 1))
+    lnGamma(N.sum(k, 1))
   )
 }
 
@@ -44,7 +43,7 @@ export const poissonPmf = (k: number, mu: number): number => {
 }
 
 /**
- * CDF: P(X ≤ k) = Q(k+1, μ) = gammainccKernel(k+1, μ).
+ * CDF: P(X ≤ k) = Q(k+1, μ) = gammaincc(k+1, μ).
  * Edge case: μ=0 → 1 for all k ≥ 0.
  *
  * @since 0.1.0
@@ -53,7 +52,7 @@ export const poissonPmf = (k: number, mu: number): number => {
 export const poissonCdf = (k: number, mu: number): number => {
   if (N.lessThan(k, 0)) return 0
   if (mu === 0) return 1
-  return gammainccKernel(N.sum(k, 1), mu)
+  return gammaincc(N.sum(k, 1), mu)
 }
 
 /**

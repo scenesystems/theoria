@@ -26,9 +26,9 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -481,7 +481,7 @@ const program = Effect.gen(function*() {
     maxMergeInvocations: 4,
     seed: 41
   }).pipe(
-    Optimizer.tapGEPAProgress((line) => logExampleEvent("gepa", line.text)),
+    Optimizer.GEPAProgressLine.tap((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
@@ -493,20 +493,20 @@ const program = Effect.gen(function*() {
   })
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
-  const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
+  const gepaEventSummary = Optimizer.GEPAEventSummary.summarize(gepaEvents)
   const plannerParamsAfterOptimization = yield* Ref.get(protocolPlanner.params)
   const plannerSavedState = yield* Module.save(protocolPlanner)
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
-  const outcomeSummary = Optimizer.summarizeGEPAOutcome({
+  const outcomeSummary = Optimizer.GEPAOutcomeSummary.make({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     instructionBeforeOptimization: plannerParamsBeforeOptimization.instructions,
     instructionAfterOptimization: plannerParamsAfterOptimization.instructions,
     eventSummary: gepaEventSummary
   })
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     metricName: "collectiveMemoryProtocolFit",
@@ -540,7 +540,7 @@ const program = Effect.gen(function*() {
       outcomeSummary
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     streams: Arr.make({
@@ -548,7 +548,7 @@ const program = Effect.gen(function*() {
       events: gepaEvents
     })
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
     state: plannerSavedState

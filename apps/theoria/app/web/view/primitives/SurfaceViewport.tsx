@@ -9,8 +9,8 @@ export const SurfaceViewport = ({
   readonly children: ReactNode
   readonly className?: string
 }) => (
-  <Stack className={`mx-auto w-full max-w-6xl gap-4 xl:px-4 2xl:px-6 ${className ?? ""}`.trim()}>
+  <Stack className={`w-full gap-0 ${className ?? ""}`.trim()}>
     {children}
-    <Layer aria-hidden className="h-8 shrink-0 sm:h-10" />
+    <Layer aria-hidden className="h-6 shrink-0" />
   </Stack>
 )

@@ -9,6 +9,7 @@ import { FieldRecord } from "../../../contracts/FieldValue.js"
 import { MetricResult } from "../../../contracts/MetricResult.js"
 import { withModuleParamsInstructions } from "../../../contracts/ModuleParams.js"
 import type { Example } from "../../../Example/index.js"
+import { MetricContext } from "../../../Metric/context.js"
 
 import { ReflectiveDatasetSample } from "../model.js"
 import type { CandidateScoreVector, ProgramCandidate } from "../model.js"
@@ -61,6 +62,8 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
       const decodeInput = Schema.decodeUnknown(options.module.signature.inputSchema)
       const decodeOutput = Schema.decodeUnknown(options.module.signature.outputSchema)
       const decodeFieldRecord = Schema.decodeUnknown(FieldRecord)
+      const decodeFieldRecordOrEmpty = (value: unknown) =>
+        decodeFieldRecord(value).pipe(Effect.orElseSucceed(() => ({})))
 
       return Effect.forEach(resolveValset(options), (example, index) =>
         Effect.gen(function*() {
@@ -68,10 +71,28 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           const moduleInput = yield* decodeInput(example.input).pipe(Effect.orDie)
           const expectedOutput = yield* decodeOutput(expectedOutputRaw).pipe(Effect.orDie)
           const prediction = yield* options.module.forward(moduleInput)
-          const metricInput = yield* decodeFieldRecord(moduleInput).pipe(Effect.orDie)
+          const metricInput = yield* decodeFieldRecordOrEmpty(example.input)
           const metricPrediction = yield* decodeFieldRecord(prediction).pipe(Effect.orDie)
           const metricExpectedOutput = yield* decodeFieldRecord(expectedOutput).pipe(Effect.orDie)
-          const metricResult = yield* options.metric.score(metricPrediction, metricExpectedOutput)
+          const metricResult = yield* options.metric.scoreContext(
+            Option.fromNullable(example.metadata).pipe(
+              Option.match({
+                onNone: () =>
+                  MetricContext.of({
+                    input: metricInput,
+                    prediction: metricPrediction,
+                    expected: metricExpectedOutput
+                  }),
+                onSome: (metadata) =>
+                  MetricContext.of({
+                    input: metricInput,
+                    prediction: metricPrediction,
+                    expected: metricExpectedOutput,
+                    metadata
+                  })
+              })
+            )
+          )
           const adjustedScore = Math.min(1, Math.max(0, metricResult.score + candidateBoost(candidate.candidateId)))
           const normalizedMetric = new MetricResult({
             score: adjustedScore,

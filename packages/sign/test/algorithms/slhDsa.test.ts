@@ -6,6 +6,7 @@
  * - SLH-DSA-SHA2-128s sign → verify roundtrip (smaller signatures)
  * - Expected key sizes (32B pk, 64B sk for 128-bit level)
  * - Expected signature sizes (17088B for 128f, 7856B for 128s)
+ * - Hedged signing for released surfaces (same message + key → different signatures)
  * - Invalid signature rejection
  * - Wrong public key rejection
  *
@@ -46,6 +47,16 @@ describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
       const kp = yield* slhDsaSha2128fKeygen()
       const sig = yield* slhDsaSha2128fSign(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(17088)
+    }), { timeout: 30_000 })
+
+  it.effect("hedges identical inputs with fresh signing entropy", () =>
+    Effect.gen(function*() {
+      const kp = yield* slhDsaSha2128fKeygen()
+      const sig1 = yield* slhDsaSha2128fSign(message, kp.secretKey, kp.publicKey)
+      const sig2 = yield* slhDsaSha2128fSign(message, kp.secretKey, kp.publicKey)
+      expect(sig1.signature).not.toEqual(sig2.signature)
+      expect(yield* slhDsaSha2128fVerify(sig1.signature, message, kp.publicKey)).toBe(true)
+      expect(yield* slhDsaSha2128fVerify(sig2.signature, message, kp.publicKey)).toBe(true)
     }), { timeout: 30_000 })
 
   it.effect("rejects wrong public key", () =>

@@ -10,9 +10,9 @@ import {
   asSingleObjective,
   encodeConfigTrace,
   encodeNumericTrace,
-  makeSpace,
   singleConfigTrace,
   singleObjective,
+  singleObjectiveSpace,
   singleValueTrace
 } from "../snapshot/helpers.js"
 
@@ -30,7 +30,7 @@ describe("recovery resume-from-storage", () => {
         prefix: "effect-search-recovery-resume-storage-"
       })
       const storageOptions = Study.studyStorageOptions(directory)
-      const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
+      const storage = yield* Study.StudyStorage.allocate(storageOptions).pipe(
         Effect.provide(fileSystemSink(directory)),
         Effect.provide(makeTestEnvelopeContextLayer)
       )
@@ -42,14 +42,14 @@ describe("recovery resume-from-storage", () => {
       const resumedTrials = totalTrials - checkpointTrials - replayTailTrials
 
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const stagedResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: checkpointTrials + replayTailTrials,
@@ -77,7 +77,7 @@ describe("recovery resume-from-storage", () => {
       yield* Effect.forEach(stagedSnapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
 
       const resumedResult = yield* Study.resumeFromStorage({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: resumedTrials,

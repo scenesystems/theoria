@@ -1,5 +1,5 @@
 import { Atom } from "@effect-atom/atom"
 
-import { DemoClient } from "../services/DemoClient.js"
+import { EntryClient } from "../services/EntryClient.js"
 
-export const appRuntime = Atom.runtime(DemoClient.Default)
+export const appRuntime = Atom.runtime(EntryClient.Default)

@@ -1,6 +1,6 @@
-import { surfaceMaterials } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { surfaceMaterials } from "./theme/surface.js"
 
 type ComparisonBarSurface = "panel" | "flush"
 

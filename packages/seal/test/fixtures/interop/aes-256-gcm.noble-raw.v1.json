@@ -1,0 +1,27 @@
+{
+  "fixture": "aes-256-gcm.noble-raw.v1",
+  "algorithm": "aes-256-gcm",
+  "runtime": {
+    "name": "@noble/ciphers",
+    "version": "2.1.1",
+    "surface": "gcm",
+    "mode": "raw-aead"
+  },
+  "provenance": {
+    "reference": "NIST SP 800-38D",
+    "normalizationNotes": "Ciphertext generated from the raw noble AEAD constructor with fixed key, nonce, plaintext, and associated data. Envelope fields mirror the released packEnvelope wire format plus additive key metadata."
+  },
+  "deterministicInput": {
+    "key": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
+    "nonce": "CwwNDg8QERITFBUW",
+    "plaintext": "c2VhbCBydW50aW1lIGludGVyb3AgZml4dHVyZQ",
+    "associatedData": "c2NlbmUtc3lzdGVtczphYWQ6djE"
+  },
+  "envelope": {
+    "algorithm": "aes-256-gcm",
+    "nonce": "CwwNDg8QERITFBUW",
+    "ciphertext": "NGRL8FS479l68UZK_61XtCx1BLc1reP15Nmmd49YfD9_URjvLzw3EyLtsqU",
+    "keyId": "interop-gcm",
+    "keyVersion": 3
+  }
+}

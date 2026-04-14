@@ -1,0 +1,146 @@
+/*
+ * Generated from app/contracts/presentation/text.ts by scripts/generate-text-tokens.ts.
+ * Do not edit directly.
+ */
+
+@theme {
+  /* Typography: font-family theme tokens (generated — do not edit) */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-body: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-display: Figtree, Inter, "Segoe UI", "Helvetica Neue", sans-serif;
+
+  /* Typography: semantic UI font-size tokens (generated — do not edit) */
+  --ui-type-display-lg-size: 38px;
+  --ui-type-display-size: 24px;
+  --ui-type-display-sm-size: 22px;
+  --ui-type-body-lg-size: 18px;
+  --ui-type-body-size: 16px;
+  --ui-type-body-sm-size: 14px;
+  --ui-type-eyebrow-size: 11px;
+  --ui-type-label-size: 14px;
+  --ui-type-button-size: 14px;
+  --ui-type-badge-size: 12px;
+  --ui-type-tab-size: 14px;
+  --ui-type-status-size: 14px;
+  --ui-type-workspace-title-size: 30px;
+  --ui-type-workspace-summary-size: 15px;
+  --ui-type-pane-title-size: 16px;
+  --ui-type-pane-summary-size: 14px;
+  --ui-type-pane-meta-size: 12px;
+  --ui-type-strip-label-size: 11px;
+  --ui-type-transcript-actor-size: 13px;
+  --ui-type-transcript-meta-size: 12px;
+  --ui-type-detail-label-size: 11px;
+  --ui-type-detail-value-size: 14px;
+  --ui-type-payload-label-size: 11px;
+  --ui-type-inspector-title-size: 16px;
+  --ui-type-inspector-summary-size: 14px;
+
+  /* Typography: semantic UI line-height tokens (generated — do not edit) */
+  --ui-type-display-lg-leading: 44px;
+  --ui-type-display-leading: 32px;
+  --ui-type-display-sm-leading: 30px;
+  --ui-type-body-lg-leading: 30px;
+  --ui-type-body-leading: 26px;
+  --ui-type-body-sm-leading: 22px;
+  --ui-type-eyebrow-leading: 16px;
+  --ui-type-label-leading: 20px;
+  --ui-type-button-leading: 20px;
+  --ui-type-badge-leading: 16px;
+  --ui-type-tab-leading: 20px;
+  --ui-type-status-leading: 22px;
+  --ui-type-workspace-title-leading: 36px;
+  --ui-type-workspace-summary-leading: 24px;
+  --ui-type-pane-title-leading: 22px;
+  --ui-type-pane-summary-leading: 22px;
+  --ui-type-pane-meta-leading: 18px;
+  --ui-type-strip-label-leading: 16px;
+  --ui-type-transcript-actor-leading: 18px;
+  --ui-type-transcript-meta-leading: 18px;
+  --ui-type-detail-label-leading: 16px;
+  --ui-type-detail-value-leading: 20px;
+  --ui-type-payload-label-leading: 16px;
+  --ui-type-inspector-title-leading: 22px;
+  --ui-type-inspector-summary-leading: 22px;
+
+  /* Typography: semantic UI font-weight tokens (generated — do not edit) */
+  --ui-type-display-lg-weight: 600;
+  --ui-type-display-weight: 600;
+  --ui-type-display-sm-weight: 600;
+  --ui-type-body-lg-weight: 400;
+  --ui-type-body-weight: 400;
+  --ui-type-body-sm-weight: 400;
+  --ui-type-eyebrow-weight: 600;
+  --ui-type-label-weight: 500;
+  --ui-type-button-weight: 600;
+  --ui-type-badge-weight: 600;
+  --ui-type-tab-weight: 500;
+  --ui-type-status-weight: 400;
+  --ui-type-workspace-title-weight: 600;
+  --ui-type-workspace-summary-weight: 400;
+  --ui-type-pane-title-weight: 600;
+  --ui-type-pane-summary-weight: 400;
+  --ui-type-pane-meta-weight: 500;
+  --ui-type-strip-label-weight: 600;
+  --ui-type-transcript-actor-weight: 500;
+  --ui-type-transcript-meta-weight: 400;
+  --ui-type-detail-label-weight: 500;
+  --ui-type-detail-value-weight: 400;
+  --ui-type-payload-label-weight: 500;
+  --ui-type-inspector-title-weight: 600;
+  --ui-type-inspector-summary-weight: 400;
+
+  /* Typography: semantic UI tracking tokens (generated — do not edit) */
+  --ui-type-display-lg-tracking: -0.02em;
+  --ui-type-display-tracking: -0.01em;
+  --ui-type-display-sm-tracking: -0.01em;
+  --ui-type-body-lg-tracking: 0;
+  --ui-type-body-tracking: 0;
+  --ui-type-body-sm-tracking: 0;
+  --ui-type-eyebrow-tracking: 0.12em;
+  --ui-type-label-tracking: 0.01em;
+  --ui-type-button-tracking: 0.01em;
+  --ui-type-badge-tracking: 0.02em;
+  --ui-type-tab-tracking: 0.01em;
+  --ui-type-status-tracking: 0;
+  --ui-type-workspace-title-tracking: -0.02em;
+  --ui-type-workspace-summary-tracking: 0;
+  --ui-type-pane-title-tracking: 0;
+  --ui-type-pane-summary-tracking: 0;
+  --ui-type-pane-meta-tracking: 0.04em;
+  --ui-type-strip-label-tracking: 0.12em;
+  --ui-type-transcript-actor-tracking: 0.01em;
+  --ui-type-transcript-meta-tracking: 0.02em;
+  --ui-type-detail-label-tracking: 0.08em;
+  --ui-type-detail-value-tracking: 0;
+  --ui-type-payload-label-tracking: 0.06em;
+  --ui-type-inspector-title-tracking: 0;
+  --ui-type-inspector-summary-tracking: 0;
+
+  /* Typography: semantic UI font-family tokens (generated — do not edit) */
+  --ui-type-display-lg-family: var(--font-display);
+  --ui-type-display-family: var(--font-display);
+  --ui-type-display-sm-family: var(--font-display);
+  --ui-type-body-lg-family: var(--font-body);
+  --ui-type-body-family: var(--font-body);
+  --ui-type-body-sm-family: var(--font-body);
+  --ui-type-eyebrow-family: var(--font-body);
+  --ui-type-label-family: var(--font-body);
+  --ui-type-button-family: var(--font-body);
+  --ui-type-badge-family: var(--font-body);
+  --ui-type-tab-family: var(--font-body);
+  --ui-type-status-family: var(--font-body);
+  --ui-type-workspace-title-family: var(--font-display);
+  --ui-type-workspace-summary-family: var(--font-body);
+  --ui-type-pane-title-family: var(--font-body);
+  --ui-type-pane-summary-family: var(--font-body);
+  --ui-type-pane-meta-family: var(--font-body);
+  --ui-type-strip-label-family: var(--font-body);
+  --ui-type-transcript-actor-family: var(--font-body);
+  --ui-type-transcript-meta-family: var(--font-body);
+  --ui-type-detail-label-family: var(--font-body);
+  --ui-type-detail-value-family: var(--font-body);
+  --ui-type-payload-label-family: var(--font-mono);
+  --ui-type-inspector-title-family: var(--font-body);
+  --ui-type-inspector-summary-family: var(--font-body);
+}

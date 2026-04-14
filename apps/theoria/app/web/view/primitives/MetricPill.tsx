@@ -1,4 +1,4 @@
-import type { MetricPillClasses } from "./designSystem.js"
+import type { MetricPillClasses } from "./theme/tone.js"
 
 import { Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

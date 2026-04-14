@@ -11,9 +11,9 @@ import type * as SqlClient from "@effect/sql/SqlClient"
 import { Effect, Layer, type Schema } from "effect"
 import {
   type CacheBackendError,
+  CacheDescriptor,
   type CacheError,
   type CacheResolution,
-  makeDescriptor,
   SchemaCache,
   SchemaCacheFileSystem,
   SchemaCacheMemory,
@@ -58,7 +58,7 @@ export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.eff
       > =>
         buildDspCacheKey(request).pipe(
           Effect.flatMap((key) => {
-            const descriptor = makeDescriptor(
+            const descriptor = CacheDescriptor.make(
               DSP_CACHE_NAMESPACE,
               DSP_CACHE_VERSION,
               DspCacheKey,

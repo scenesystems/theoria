@@ -329,7 +329,13 @@
           ],
           "completedCount": 4,
           "studyDuration": 0,
-          "samplerMetrics": { "checkpointTag": "Random", "completedCount": 4, "retryCountTotal": 0, "priorCount": 0 }
+          "samplerMetrics": {
+            "checkpointTag": "Random",
+            "completedCount": 4,
+            "pendingCount": 0,
+            "retryCountTotal": 0,
+            "priorCount": 0
+          }
         },
         "eventLog": [
           {
@@ -341,6 +347,16 @@
               "defaultDirection": "rtl",
               "preferEarlySoftHyphenBreak": false,
               "preferPrefixWidthsForBreakableRuns": true
+            },
+            "diagnostics": {
+              "samplerKind": "Random",
+              "preparedStateKind": "none",
+              "reusedPreparedState": false,
+              "completedCount": 0,
+              "pendingCount": 0,
+              "imputedCompletedCount": 0,
+              "belowCount": 0,
+              "aboveCount": 0
             }
           },
           { "_tag": "TrialCompleted", "trialNumber": 0, "value": 10020 },
@@ -354,6 +370,16 @@
               "defaultDirection": "rtl",
               "preferEarlySoftHyphenBreak": true,
               "preferPrefixWidthsForBreakableRuns": true
+            },
+            "diagnostics": {
+              "samplerKind": "Random",
+              "preparedStateKind": "none",
+              "reusedPreparedState": false,
+              "completedCount": 1,
+              "pendingCount": 0,
+              "imputedCompletedCount": 0,
+              "belowCount": 0,
+              "aboveCount": 0
             }
           },
           { "_tag": "TrialCompleted", "trialNumber": 1, "value": 10020 },
@@ -366,6 +392,16 @@
               "defaultDirection": "ltr",
               "preferEarlySoftHyphenBreak": true,
               "preferPrefixWidthsForBreakableRuns": true
+            },
+            "diagnostics": {
+              "samplerKind": "Random",
+              "preparedStateKind": "none",
+              "reusedPreparedState": false,
+              "completedCount": 2,
+              "pendingCount": 0,
+              "imputedCompletedCount": 0,
+              "belowCount": 0,
+              "aboveCount": 0
             }
           },
           { "_tag": "TrialCompleted", "trialNumber": 2, "value": 10020 },
@@ -378,6 +414,16 @@
               "defaultDirection": "rtl",
               "preferEarlySoftHyphenBreak": true,
               "preferPrefixWidthsForBreakableRuns": true
+            },
+            "diagnostics": {
+              "samplerKind": "Random",
+              "preparedStateKind": "none",
+              "reusedPreparedState": false,
+              "completedCount": 3,
+              "pendingCount": 0,
+              "imputedCompletedCount": 0,
+              "belowCount": 0,
+              "aboveCount": 0
             }
           },
           { "_tag": "TrialCompleted", "trialNumber": 3, "value": 10020 },

@@ -1,14 +1,14 @@
-import { Button } from "@base-ui-components/react/button"
-import { ScrollArea } from "@base-ui-components/react/scroll-area"
+import { Button } from "@base-ui/react/button"
+import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { SourceFileTab, SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SourceFileTab, SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import { HighlightedCode } from "./code/HighlightedCode.js"
-import type { CodePanelTheme } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import type { CodePanel } from "./theme/surface.js"
 
 type ExplorerFileNode = {
   readonly _tag: "file"
@@ -71,13 +71,13 @@ const treeIndentClassName = (nested: boolean): string =>
   nested ? "ml-3 gap-1 border-l border-stage-200/60 pl-3" : "gap-1"
 
 const DirectoryNode = ({
-  codePanelTheme,
+  codePanel,
   node,
   onSelectFile,
   selectedFileIndex,
   variant
 }: {
-  readonly codePanelTheme: CodePanelTheme
+  readonly codePanel: CodePanel
   readonly node: ExplorerDirectoryNode
   readonly onSelectFile: (index: number) => void
   readonly selectedFileIndex: number
@@ -87,14 +87,14 @@ const DirectoryNode = ({
     <Layer className="px-2 py-1">
       <SemanticText
         as="span"
-        className={codePanelTheme.metaHint}
+        className={codePanel.metaHint}
         role="code-meta"
         text={node.name}
         variant={variant}
       />
     </Layer>
     <ExplorerTree
-      codePanelTheme={codePanelTheme}
+      codePanel={codePanel}
       nested
       nodes={node.children}
       onSelectFile={onSelectFile}
@@ -105,14 +105,14 @@ const DirectoryNode = ({
 )
 
 const ExplorerTree = ({
-  codePanelTheme,
+  codePanel,
   nested = false,
   nodes,
   onSelectFile,
   selectedFileIndex,
   variant
 }: {
-  readonly codePanelTheme: CodePanelTheme
+  readonly codePanel: CodePanel
   readonly nested?: boolean
   readonly nodes: ReadonlyArray<ExplorerNode>
   readonly onSelectFile: (index: number) => void
@@ -124,7 +124,7 @@ const ExplorerTree = ({
       Match.value(node).pipe(
         Match.tag("directory", (directoryNode) => (
           <DirectoryNode
-            codePanelTheme={codePanelTheme}
+            codePanel={codePanel}
             key={`${directoryNode.name}:${index}`}
             node={directoryNode}
             onSelectFile={onSelectFile}
@@ -135,7 +135,7 @@ const ExplorerTree = ({
         Match.tag("file", (fileNode) => (
           <ExplorerFileButton
             active={fileNode.tab.index === selectedFileIndex}
-            codePanelTheme={codePanelTheme}
+            codePanel={codePanel}
             key={fileNode.tab.index}
             onClick={() => {
               onSelectFile(fileNode.tab.index)
@@ -152,28 +152,28 @@ const ExplorerTree = ({
 
 const explorerButtonClassName = ({
   active,
-  codePanelTheme
+  codePanel
 }: {
   readonly active: boolean
-  readonly codePanelTheme: CodePanelTheme
-}): string => active ? codePanelTheme.explorerItemActive : codePanelTheme.explorerItem
+  readonly codePanel: CodePanel
+}): string => active ? codePanel.explorerItemActive : codePanel.explorerItem
 
 const ExplorerFileButton = ({
   active,
-  codePanelTheme,
+  codePanel,
   onClick,
   tab,
   variant
 }: {
   readonly active: boolean
-  readonly codePanelTheme: CodePanelTheme
+  readonly codePanel: CodePanel
   readonly onClick: () => void
   readonly tab: SourceFileTab
   readonly variant: SurfaceVariant
 }) => (
   <Button
     className={`w-full rounded-xl border px-3 py-2 text-left transition-colors ${
-      explorerButtonClassName({ active, codePanelTheme })
+      explorerButtonClassName({ active, codePanel })
     }`}
     onClick={onClick}
     type="button"
@@ -184,7 +184,7 @@ const ExplorerFileButton = ({
 
 export const ProgramCodeWorkspace = ({
   codeClassName,
-  codePanelTheme,
+  codePanel,
   entry,
   fileName,
   filesVisible,
@@ -195,7 +195,7 @@ export const ProgramCodeWorkspace = ({
   variant
 }: {
   readonly codeClassName: string
-  readonly codePanelTheme: CodePanelTheme
+  readonly codePanel: CodePanel
   readonly entry: string
   readonly fileName: string
   readonly filesVisible: boolean
@@ -205,21 +205,21 @@ export const ProgramCodeWorkspace = ({
   readonly source: string
   readonly variant: SurfaceVariant
 }) => (
-  <Layer className={`min-h-0 flex-1 overflow-hidden ${codePanelTheme.workspace}`}>
+  <Layer className={`min-h-0 flex-1 overflow-hidden ${codePanel.workspace}`}>
     <Layer
       className={filesVisible
-        ? `grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] ${codePanelTheme.metaBorder}`
-        : `grid h-full min-h-0 grid-cols-1 ${codePanelTheme.metaBorder}`}
+        ? `grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(14rem,16rem)_minmax(0,1fr)] ${codePanel.metaBorder}`
+        : `grid h-full min-h-0 grid-cols-1 ${codePanel.metaBorder}`}
     >
       {filesVisible
         ? (
           <Stack
-            className={`min-h-0 border-b lg:border-r lg:border-b-0 ${codePanelTheme.explorer} ${codePanelTheme.metaBorder}`}
+            className={`min-h-0 border-b lg:border-r lg:border-b-0 ${codePanel.explorer} ${codePanel.metaBorder}`}
           >
-            <Cluster className={`justify-between gap-2 border-b px-3 py-3 ${codePanelTheme.metaBorder}`}>
+            <Cluster className={`justify-between gap-2 border-b px-3 py-3 ${codePanel.metaBorder}`}>
               <SemanticText
                 as="span"
-                className={codePanelTheme.metaLabel}
+                className={codePanel.metaLabel}
                 role="code-meta"
                 text="Files"
                 variant={variant}
@@ -229,7 +229,7 @@ export const ProgramCodeWorkspace = ({
               <ScrollArea.Viewport className="h-full w-full">
                 <ScrollArea.Content className="px-3 py-3">
                   <ExplorerTree
-                    codePanelTheme={codePanelTheme}
+                    codePanel={codePanel}
                     nodes={explorerTree(fileTabs)}
                     onSelectFile={onSelectFile}
                     selectedFileIndex={selectedFileIndex}
@@ -238,7 +238,7 @@ export const ProgramCodeWorkspace = ({
                 </ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar
-                className={`flex w-2.5 touch-none select-none p-0.5 ${codePanelTheme.scrollbar}`}
+                className={`flex w-2.5 touch-none select-none p-0.5 ${codePanel.scrollbar}`}
                 orientation="vertical"
               >
                 <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
@@ -250,18 +250,18 @@ export const ProgramCodeWorkspace = ({
 
       <Stack className="min-h-0 flex-1 overflow-hidden">
         <Stack
-          className={`gap-1 border-b px-4 py-3 sm:px-5 ${codePanelTheme.editorHeader} ${codePanelTheme.metaBorder}`}
+          className={`gap-1 border-b px-4 py-3 sm:px-5 ${codePanel.editorHeader} ${codePanel.metaBorder}`}
         >
           <SemanticText
             as="code"
-            className={`block truncate ${codePanelTheme.title}`}
+            className={`block truncate ${codePanel.title}`}
             role="code-meta"
             text={fileName}
             variant={variant}
           />
           <SemanticText
             as="code"
-            className={`block truncate ${codePanelTheme.metaValue}`}
+            className={`block truncate ${codePanel.metaValue}`}
             role="code-meta"
             text={entry}
             variant={variant}
@@ -278,20 +278,20 @@ export const ProgramCodeWorkspace = ({
           </ScrollArea.Viewport>
 
           <ScrollArea.Scrollbar
-            className={`flex w-2.5 touch-none select-none p-0.5 ${codePanelTheme.scrollbar}`}
+            className={`flex w-2.5 touch-none select-none p-0.5 ${codePanel.scrollbar}`}
             orientation="vertical"
           >
             <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
           </ScrollArea.Scrollbar>
 
           <ScrollArea.Scrollbar
-            className={`flex h-2.5 touch-none select-none p-0.5 ${codePanelTheme.scrollbar}`}
+            className={`flex h-2.5 touch-none select-none p-0.5 ${codePanel.scrollbar}`}
             orientation="horizontal"
           >
             <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
           </ScrollArea.Scrollbar>
 
-          <ScrollArea.Corner className={codePanelTheme.scrollCorner} />
+          <ScrollArea.Corner className={codePanel.scrollCorner} />
         </ScrollArea.Root>
       </Stack>
     </Layer>

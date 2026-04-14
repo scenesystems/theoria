@@ -39,8 +39,8 @@ describe("contracts/envelope-wiring", () => {
       const { sink, collected } = yield* makeCollectingSink
       const publisher = yield* envelopeEventPublisher(sink)
 
-      yield* publisher.publish(StudyEvent.TrialCompleted({ trialNumber: 0, value: 1.5 }))
-      yield* publisher.publish(StudyEvent.BestUpdated({ trialNumber: 0, value: 1.5 }))
+      yield* publisher.publish(StudyEvent.TrialCompleted.make({ trialNumber: 0, value: 1.5 }))
+      yield* publisher.publish(StudyEvent.BestUpdated.make({ trialNumber: 0, value: 1.5 }))
 
       const envelopes = yield* Ref.get(collected)
       expect(envelopes).toHaveLength(2)
@@ -63,7 +63,7 @@ describe("contracts/envelope-wiring", () => {
       const { sink, collected } = yield* makeCollectingSink
       const publisher = yield* envelopeEventPublisher(sink)
 
-      yield* publisher.publish(StudyEvent.TrialCompleted({ trialNumber: 0, value: 1.0 }))
+      yield* publisher.publish(StudyEvent.TrialCompleted.make({ trialNumber: 0, value: 1.0 }))
 
       const envelopes = yield* Ref.get(collected)
       const envelope = getEnvelope(envelopes, 0)
@@ -85,7 +85,7 @@ describe("contracts/envelope-wiring", () => {
 
       yield* Effect.forEach(
         [0, 1, 2, 3, 4],
-        (trialNumber) => publisher.publish(StudyEvent.TrialStarted({ trialNumber, config: {} })),
+        (trialNumber) => publisher.publish(StudyEvent.TrialStarted.make({ trialNumber, config: {} })),
         { discard: true }
       )
 
@@ -99,7 +99,7 @@ describe("contracts/envelope-wiring", () => {
       const { sink, collected } = yield* makeCollectingSink
       const publisher = yield* envelopeEventPublisher(sink)
 
-      yield* publisher.publish(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }))
+      yield* publisher.publish(StudyEvent.StudyCompleted.make({ completionReason: "budgetExhausted" }))
 
       const envelopes = yield* Ref.get(collected)
       const envelope = getEnvelope(envelopes, 0)
@@ -116,7 +116,7 @@ describe("contracts/envelope-wiring", () => {
       const { sink, collected } = yield* makeCollectingSink
       const publisher = yield* envelopeEventPublisher(sink)
 
-      yield* publisher.publish(StudyEvent.TrialCompleted({ trialNumber: 0, value: 2.0 }))
+      yield* publisher.publish(StudyEvent.TrialCompleted.make({ trialNumber: 0, value: 2.0 }))
 
       const envelopes = yield* Ref.get(collected)
       const envelope = getEnvelope(envelopes, 0)

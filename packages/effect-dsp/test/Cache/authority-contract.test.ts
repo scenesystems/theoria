@@ -6,6 +6,31 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Ref, Schema } from "effect"
 import { DspCache, DspCacheKey, DspCacheMemory } from "../../src/Cache/index.js"
 
+const AnswerSchema = Schema.Struct({ answer: Schema.String })
+
+const QaCacheRequest = {
+  make: ({
+    computeCount,
+    question,
+    answer,
+    instructions = "Answer concisely"
+  }: {
+    computeCount: Ref.Ref<number>
+    question: string
+    answer: string
+    instructions?: string
+  }) => ({
+    moduleFingerprint: "qa-module",
+    runtimeFingerprint: "runtime-v1",
+    input: { question },
+    params: { instructions, demos: [] },
+    outputSchema: AnswerSchema,
+    compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+      Effect.as({ answer })
+    )
+  })
+}
+
 describe("DspCache authority contract", () => {
   it.effect("resolve returns miss + computed value on first call", () =>
     Effect.gen(function*() {
@@ -13,16 +38,13 @@ describe("DspCache authority contract", () => {
 
       const cache = yield* DspCache
 
-      const [result, resolution] = yield* cache.resolve({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: "4" })
-        )
-      })
+      const [result, resolution] = yield* cache.resolve(
+        QaCacheRequest.make({
+          computeCount,
+          question: "What is 2+2?",
+          answer: "4"
+        })
+      )
 
       expect(result).toEqual({ answer: "4" })
       expect(resolution).toBe("miss")
@@ -35,16 +57,11 @@ describe("DspCache authority contract", () => {
 
       const cache = yield* DspCache
 
-      const request = {
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: "4" })
-        )
-      }
+      const request = QaCacheRequest.make({
+        computeCount,
+        question: "What is 2+2?",
+        answer: "4"
+      })
 
       yield* cache.resolve(request)
       const [result, resolution] = yield* cache.resolve(request)
@@ -60,19 +77,20 @@ describe("DspCache authority contract", () => {
 
       const cache = yield* DspCache
 
-      const makeRequest = (question: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: question })
-        )
-      })
-
-      const [, res1] = yield* cache.resolve(makeRequest("What is 2+2?"))
-      const [, res2] = yield* cache.resolve(makeRequest("What is 3+3?"))
+      const [, res1] = yield* cache.resolve(
+        QaCacheRequest.make({
+          computeCount,
+          question: "What is 2+2?",
+          answer: "What is 2+2?"
+        })
+      )
+      const [, res2] = yield* cache.resolve(
+        QaCacheRequest.make({
+          computeCount,
+          question: "What is 3+3?",
+          answer: "What is 3+3?"
+        })
+      )
 
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")
@@ -85,19 +103,22 @@ describe("DspCache authority contract", () => {
 
       const cache = yield* DspCache
 
-      const makeRequest = (instructions: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions, demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: "4" })
-        )
-      })
-
-      const [, res1] = yield* cache.resolve(makeRequest("Answer concisely"))
-      const [, res2] = yield* cache.resolve(makeRequest("Be verbose"))
+      const [, res1] = yield* cache.resolve(
+        QaCacheRequest.make({
+          computeCount,
+          question: "What is 2+2?",
+          answer: "4",
+          instructions: "Answer concisely"
+        })
+      )
+      const [, res2] = yield* cache.resolve(
+        QaCacheRequest.make({
+          computeCount,
+          question: "What is 2+2?",
+          answer: "4",
+          instructions: "Be verbose"
+        })
+      )
 
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")

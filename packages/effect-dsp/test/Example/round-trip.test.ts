@@ -31,6 +31,23 @@ describe("Example", () => {
     )
   })
 
+  it("round-trips contextual example metadata", () => {
+    expectSchemaRoundTrip(
+      Example,
+      new Example({
+        input: {
+          question: "What is the capital of France?"
+        },
+        output: {
+          answer: "Paris"
+        },
+        metadata: {
+          fixtureId: "amp-counter-items"
+        }
+      })
+    )
+  })
+
   it("round-trips unlabeled examples", () => {
     expectSchemaRoundTrip(
       Example,

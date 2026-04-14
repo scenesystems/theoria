@@ -8,20 +8,9 @@ import type * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 const LookupFacts = Tool.make("LookupFacts", {
   description: "Look up a concise factual answer for a question",
@@ -39,31 +28,35 @@ const emptyUsage = new Response.Usage({
   cachedInputTokens: undefined
 })
 
-const makeToolkit = (
-  callsRef: Ref.Ref<ReadonlyArray<string>>
-): Toolkit.WithHandler<{ readonly LookupFacts: typeof LookupFacts }> => ({
-  tools: {
-    LookupFacts
-  },
-  handle: (_name, params) => {
-    const result: Tool.HandlerResult<typeof LookupFacts> = {
-      isFailure: false,
-      result: String(params.question),
-      encodedResult: String(params.question)
-    }
+const LookupFactsToolkit = {
+  make: ({
+    callsRef
+  }: {
+    callsRef: Ref.Ref<ReadonlyArray<string>>
+  }): Toolkit.WithHandler<{ readonly LookupFacts: typeof LookupFacts }> => ({
+    tools: {
+      LookupFacts
+    },
+    handle: (_name, params) => {
+      const result: Tool.HandlerResult<typeof LookupFacts> = {
+        isFailure: false,
+        result: String(params.question),
+        encodedResult: String(params.question)
+      }
 
-    return Ref.update(callsRef, (entries) => Arr.append(entries, params.question)).pipe(
-      Effect.as(result)
-    )
-  }
-})
+      return Ref.update(callsRef, (entries) => Arr.append(entries, params.question)).pipe(
+        Effect.as(result)
+      )
+    }
+  })
+}
 
 describe("Module.react", () => {
   it.effect("iterates tool-using thought/action steps until final parseable output and records each step in trace", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const toolkitCalls = yield* Ref.make<ReadonlyArray<string>>([])
-      const toolkit = makeToolkit(toolkitCalls)
+      const toolkit = LookupFactsToolkit.make({ callsRef: toolkitCalls })
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           Arr.make(

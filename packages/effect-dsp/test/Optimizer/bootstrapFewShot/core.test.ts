@@ -3,31 +3,20 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Either, Layer, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { BootstrapFailed } from "effect-dsp/Errors"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 describe("Optimizer.bootstrapFewShot", () => {
   it.effect("promotes accepted trace demos into module params with deterministic round prompt context", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
@@ -68,7 +57,7 @@ describe("Optimizer.bootstrapFewShot", () => {
 
   it.effect("advances across rounds with unique prompt context markers for cache diversity", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const initialParams = yield* Ref.get(module.params)
 
@@ -125,7 +114,7 @@ describe("Optimizer.bootstrapFewShot", () => {
 
   it.effect("falls back to labeled demos when rounds produce zero accepted demos", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "London" })
@@ -158,7 +147,7 @@ describe("Optimizer.bootstrapFewShot", () => {
 
   it.effect("fails with BootstrapFailed when fallback is disabled", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       const mock = yield* MockLanguageModel.make(

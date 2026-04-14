@@ -1,19 +1,19 @@
-import { Toolbar } from "@base-ui-components/react/toolbar"
+import { Toolbar } from "@base-ui/react/toolbar"
 import { Match } from "effect"
 import * as Option from "effect/Option"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import type { RunControlActionKind } from "../../state/types.js"
-
-import type { RunControlsViewModel } from "../runControlsModel.js"
-import type { SurfaceChromeModel } from "../surfaceChromeModel.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import type { RunControlsViewModel } from "../../../contracts/presentation/run-controls.js"
+import type { SurfaceChromeModel } from "../../../contracts/presentation/surface-chrome.js"
+import type { RunControlActionKind } from "../../state/run/types.js"
 
 import { ActionButton, ActionLink } from "./ActionControl.js"
-import { badgeThemeFromSurface, type SurfaceTheme } from "./designSystem.js"
 import { Cluster, Header, Layer, Stack } from "./Layout.js"
 import { PackageBadge } from "./PackageBadge.js"
 import { SelectionRail } from "./SelectionLayout.js"
 import { SemanticText } from "./SemanticText.js"
+import { badgeFromSurface } from "./theme/badge.js"
+import { app, type Surface } from "./theme/surface.js"
 import { ThemeToggle } from "./ThemeToggle.js"
 
 const headerClassName = (variant: SurfaceVariant): string =>
@@ -26,8 +26,8 @@ const metadataGridClassName = "grid gap-1.5 sm:grid-cols-[auto_1fr] sm:gap-x-3"
 const summaryClassName = (_variant: SurfaceVariant): string => "text-ink-700"
 const actionToolbarClassName = "w-full lg:w-auto"
 
-const actionRowClassName = (backHref: Option.Option<string>): string =>
-  Option.isNone(backHref)
+const actionRowClassName = (backHref: string | null): string =>
+  backHref === null
     ? "shrink-0 justify-end gap-2"
     : "shrink-0 justify-between gap-2"
 
@@ -41,17 +41,21 @@ export const SurfaceHeader = ({
   readonly chrome: SurfaceChromeModel
   readonly controls: RunControlsViewModel
   readonly onRunControlAction: (action: RunControlActionKind) => void
-  readonly theme: SurfaceTheme
+  readonly theme: Surface
   readonly variant: SurfaceVariant
 }) => {
   const controlRow = (
     <Cluster className={actionRowClassName(chrome.backLink.href)}>
-      {Option.match(chrome.backLink.href, {
-        onNone: () => null,
-        onSome: (href) => (
-          <ActionLink className={theme.backAction} href={href} label={chrome.backLink.label} variant={variant} />
-        )
-      })}
+      {chrome.backLink.href === null
+        ? null
+        : (
+          <ActionLink
+            className={theme.backAction}
+            href={chrome.backLink.href}
+            label={chrome.backLink.label}
+            variant={variant}
+          />
+        )}
       <Cluster className="gap-2">
         {chrome.themeControl.visible ? <ThemeToggle /> : null}
         <Toolbar.Root className={actionToolbarClassName} loopFocus>
@@ -75,17 +79,6 @@ export const SurfaceHeader = ({
                   onClick={() => {
                     onRunControlAction(secondary.action)
                   }}
-                  variant={variant}
-                />
-              )
-            })}
-            {Option.match(chrome.deepDiveLink.href, {
-              onNone: () => null,
-              onSome: (href) => (
-                <ActionLink
-                  className={theme.secondaryAction}
-                  href={href}
-                  label={chrome.deepDiveLink.label}
                   variant={variant}
                 />
               )
@@ -142,7 +135,7 @@ export const SurfaceHeader = ({
     )
 
   return (
-    <Header className={headerClassName(variant)}>
+    <Header className={`${app.sectionGutter} ${headerClassName(variant)} py-4 sm:py-5`}>
       <SelectionRail
         action={controlRow}
         actionBreakpoint="lg"
@@ -153,7 +146,7 @@ export const SurfaceHeader = ({
           {variant === "expanded"
             ? (
               <PackageBadge
-                badge={badgeThemeFromSurface(theme)}
+                badge={badgeFromSurface(theme)}
                 label={chrome.badgeLabel}
                 variant={variant}
               />

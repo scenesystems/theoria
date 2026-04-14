@@ -7,7 +7,7 @@ import * as Optimizer from "effect-dsp/Optimizer"
 
 describe("Optimizer.bootstrapFewShot progress", () => {
   it("formats fallback lifecycle events with deterministic detail text", () => {
-    const activated = Optimizer.formatBootstrapEvent(
+    const activated = Optimizer.BootstrapProgressLine.project(
       Optimizer.BootstrapEvent.BootstrapFallbackActivated({
         threshold: 1,
         roundsAttempted: 1,
@@ -19,7 +19,7 @@ describe("Optimizer.bootstrapFewShot progress", () => {
         fallbackLabeledDemoCount: 3
       })
     )
-    const completed = Optimizer.formatBootstrapEvent(
+    const completed = Optimizer.BootstrapProgressLine.project(
       Optimizer.BootstrapEvent.BootstrapCompleted({
         totalDemos: 3,
         roundsUsed: 1,
@@ -59,7 +59,7 @@ describe("Optimizer.bootstrapFewShot progress", () => {
         fallbackUsed: true
       })
     )
-    const summary = Optimizer.summarizeBootstrapEvents(events)
+    const summary = Optimizer.BootstrapEventSummary.summarize(events)
 
     expect(summary.totalEvents).toBe(6)
     expect(summary.traceRejectedCount).toBe(1)

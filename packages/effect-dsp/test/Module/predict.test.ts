@@ -2,29 +2,36 @@
  * Module.predict contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
+import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schedule, TestClock } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Demo } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
 import * as Trace from "effect-dsp/Trace"
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+const emptyUsage = new Response.Usage({
+  inputTokens: undefined,
+  outputTokens: undefined,
+  totalTokens: undefined,
+  reasoningTokens: undefined,
+  cachedInputTokens: undefined
+})
+
+const malformedStructuredResponse = Arr.make(
+  Response.textPart({ text: "{\"answer\":\"Par", metadata: {} }),
+  Response.finishPart({
+    reason: "stop",
+    usage: emptyUsage,
+    metadata: {}
+  })
+)
 
 describe("Module.predict", () => {
   it("exposes deterministic parse policy defaults", () => {
-    const policy = Module.makePredictPolicy()
+    const policy = Module.PredictPolicy.make()
 
     expect(policy.parse.maxRetries).toBe(Module.DEFAULT_PARSE_MAX_RETRIES)
     expect(policy.parse.retrySchedule).toBe(Module.defaultParseRetrySchedule)
@@ -33,7 +40,7 @@ describe("Module.predict", () => {
 
   it.effect("creates a branded module with forward/ref/signature/name contracts", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
 
       expect(module._tag).toBe("Module")
@@ -45,7 +52,7 @@ describe("Module.predict", () => {
 
   it.effect("uses structured path when outputStrategy is auto and demos are empty", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )
@@ -66,7 +73,7 @@ describe("Module.predict", () => {
 
   it.effect("uses text path when outputStrategy is auto and demos are present", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed("[[ ## answer ## ]]\nParis")
       )
@@ -102,7 +109,7 @@ describe("Module.predict", () => {
 
   it.effect("records trace entries with prompt and response metadata when tracing is enabled", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )
@@ -138,7 +145,7 @@ describe("Module.predict", () => {
 
   it.effect("retries parse failures in text mode before succeeding", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           "malformed output",
@@ -181,9 +188,56 @@ describe("Module.predict", () => {
       expect(calls[1]?.method).toBe("generateText")
     }))
 
+  it.effect("retries malformed structured output before succeeding", () =>
+    Effect.gen(function*() {
+      const qa = yield* conciseFactsQaSignature
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence([
+          malformedStructuredResponse,
+          { answer: "Paris" }
+        ])
+      )
+
+      const module = yield* Module.predict("qa", qa, {
+        policy: {
+          parse: {
+            maxRetries: 1,
+            retrySchedule: (maxRetries) =>
+              Schedule.intersect(
+                Schedule.spaced("1 second"),
+                Schedule.recurs(maxRetries)
+              )
+          }
+        }
+      })
+
+      const resultFiber = yield* Effect.fork(
+        module.forward({
+          question: "What is the capital of Japan?"
+        }).pipe(
+          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        )
+      )
+
+      yield* TestClock.adjust("500 millis")
+
+      const callsBeforeRetry = yield* Ref.get(mock.calls)
+      expect(callsBeforeRetry).toHaveLength(1)
+      expect(callsBeforeRetry[0]?.method).toBe("generateObject")
+
+      yield* TestClock.adjust("1 second")
+
+      const result = yield* Effect.fromFiber(resultFiber)
+      const callsAfterRetry = yield* Ref.get(mock.calls)
+
+      expect(result).toEqual({ answer: "Paris" })
+      expect(callsAfterRetry).toHaveLength(2)
+      expect(callsAfterRetry[1]?.method).toBe("generateObject")
+    }))
+
   it.effect("applies parse policy overrides from predict options", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence([
           "malformed output",

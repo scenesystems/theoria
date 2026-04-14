@@ -50,6 +50,14 @@
       "file": "chat/system-message.basic.json"
     },
     {
+      "name": "dspy.copro.progression.basic",
+      "file": "copro/progression.basic.json"
+    },
+    {
+      "name": "dspy.copro.resume.seed-17",
+      "file": "copro/resume.seed-17.json"
+    },
+    {
       "name": "dspy.cot.reasoning-field.basic",
       "file": "cot/reasoning-field.basic.json"
     },
@@ -156,6 +164,22 @@
     {
       "name": "dspy.mipro.trial-budget-cases",
       "file": "mipro/trial-budget-cases.json"
+    },
+    {
+      "name": "dspy.multiChainComparison.basic",
+      "file": "multiChainComparison/basic.json"
+    },
+    {
+      "name": "dspy.pot.parse-error.basic",
+      "file": "pot/parse-error.basic.json"
+    },
+    {
+      "name": "dspy.pot.repair-cycle.basic",
+      "file": "pot/repair-cycle.basic.json"
+    },
+    {
+      "name": "dspy.pot.success.basic",
+      "file": "pot/success.basic.json"
     },
     {
       "name": "dspy.trace.entry-shape.basic",

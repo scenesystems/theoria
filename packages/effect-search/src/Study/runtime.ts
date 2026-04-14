@@ -208,7 +208,7 @@ export const executeStudy = <Space extends SearchSpace.SearchSpace>(
         const completionSnapshot = snapshotFromTrials(trials, snapshotMetadata)
 
         yield* setRuntimeLifecycle(runtime, "Completed")
-        yield* appendEvent(runtime, StudyEvent.StudyCompleted({ completionReason }))
+        yield* appendEvent(runtime, StudyEvent.StudyCompleted.make({ completionReason }))
         yield* writeSnapshotIfAvailable(completionSnapshot)
 
         return new ExecuteOutcome({

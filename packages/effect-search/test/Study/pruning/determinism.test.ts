@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 
-import { decodeSlotConfig, makeSlotSpace } from "../../../src/experimental/scenarios/slot.js"
+import { decodeSlotConfig, SlotSpace } from "../../../src/experimental/scenarios/slot.js"
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
 import type * as Trial from "../../../src/Trial/index.js"
 
-const space = makeSlotSpace(40)
+const space = SlotSpace.make(40)
 
 const runOptions = {
   seed: 509,

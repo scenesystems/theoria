@@ -41,7 +41,19 @@ export class HandleRuntime<Space extends SearchSpace.SearchSpace> extends Data.C
  */
 export class StudyHandle<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> extends Data.Class<{
   readonly [StudyHandleTypeId]: HandleRuntime<Space>
-}> {}
+}> {
+  /**
+   * Wraps a HandleRuntime into an opaque StudyHandle for consumer use.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static make<Space extends SearchSpace.SearchSpace>(state: HandleRuntime<Space>): StudyHandle<Space> {
+    return new StudyHandle({
+      [StudyHandleTypeId]: state
+    })
+  }
+}
 
 /**
  * Reserved trial returned by `Study.ask`.
@@ -53,19 +65,6 @@ export class AskedTrial<Config = unknown> extends Data.Class<{
   readonly trialNumber: number
   readonly config: Config
 }> {}
-
-/**
- * Wraps a HandleRuntime into an opaque StudyHandle for consumer use.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeStudyHandle = <Space extends SearchSpace.SearchSpace>(
-  state: HandleRuntime<Space>
-): StudyHandle<Space> =>
-  new StudyHandle({
-    [StudyHandleTypeId]: state
-  })
 
 /**
  * Extracts the internal HandleRuntime from an opaque StudyHandle.

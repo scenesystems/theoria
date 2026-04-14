@@ -1,5 +1,5 @@
 /**
- * Calculus — numerical differentiation and integration.
+ * Calculus — numerical differentiation, integration, and ODE solving.
  *
  * Numerical calculus here uses limit-accurate Ridder extrapolation for derivatives
  * and composite quadrature rules (trapezoidal, Simpson's 1/3, adaptive Simpson)
@@ -13,8 +13,8 @@
  * multivariate `gradient` / `jacobian` / `hessian` / `directionalDerivative`
  * / `divergence` / `laplacian`, sampled quadrature (`trapezoid`, `simpson`),
  * continuous adaptive quadrature (`adaptiveSimpson`) with independent
- * absolute and relative tolerances, schema-validated boundaries,
- * and policy-aware execution.
+ * absolute and relative tolerances, fixed-step plus adaptive IVP solvers,
+ * schema-validated boundaries, and policy-aware execution.
  *
  * Run: bun run packages/effect-math/examples/08-calculus-numerical.ts
  * @module
@@ -39,6 +39,11 @@ import {
   simpson,
   simpsonValidated,
   simpsonWithPolicies,
+  solveAdaptiveRk45Validated,
+  solveAdaptiveRk45WithPolicies,
+  solveEuler,
+  solveEulerValidated,
+  solveRk4,
   trapezoid,
   trapezoidValidated,
   trapezoidWithPolicies
@@ -47,11 +52,21 @@ import {
   AbsoluteTolerance,
   makeDeterministicRuntimePoliciesLayer,
   RelativeTolerance,
-  Seed
+  Seed,
+  StepSize
 } from "effect-math/contracts"
 
 const absoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-12)
 const relativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-12)
+const eulerStepSize = Schema.decodeSync(StepSize)(0.1)
+const rk4StepSize = Schema.decodeSync(StepSize)(0.05)
+const adaptiveStepSize = Schema.decodeSync(StepSize)(0.1)
+const adaptiveMaxStepSize = Schema.decodeSync(StepSize)(0.2)
+const adaptiveAbsoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-8)
+const adaptiveRelativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-8)
+const decayField = (_time: number, state: Chunk.Chunk<number>) => Chunk.fromIterable([-Chunk.unsafeGet(state, 0)])
+const harmonicOscillator = (_time: number, state: Chunk.Chunk<number>) =>
+  Chunk.fromIterable([Chunk.unsafeGet(state, 1), -Chunk.unsafeGet(state, 0)])
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — derivative operators ─────────────────────────
@@ -150,6 +165,43 @@ const program = Effect.gen(function*() {
   })
   yield* Console.log("adaptiveSimpsonValidated (sin over [0, π]):", adaptiveV)
 
+  // ─── Pure and validated ODE solvers — sample-cadence trajectories ───────
+  const scalarIvP = solveEuler(decayField, {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: Chunk.fromIterable([1]),
+    stepSize: eulerStepSize
+  })
+  yield* Console.log("solveEuler final decay state:", Chunk.toReadonlyArray(scalarIvP.finalState))
+  yield* Console.log("solveEuler trajectory points:", Chunk.size(scalarIvP.trajectory))
+
+  const vectorIvP = solveRk4(harmonicOscillator, {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: Chunk.fromIterable([1, 0]),
+    stepSize: rk4StepSize
+  })
+  yield* Console.log("solveRk4 final harmonic state:", Chunk.toReadonlyArray(vectorIvP.finalState))
+
+  const adaptiveIvP = yield* solveAdaptiveRk45Validated(decayField, {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: [1],
+    initialStep: 0.1,
+    maxStep: 0.2,
+    absoluteTolerance: 1e-8,
+    relativeTolerance: 1e-8
+  })
+  yield* Console.log("solveAdaptiveRk45Validated final decay state:", Chunk.toReadonlyArray(adaptiveIvP.finalState))
+
+  const validatedEuler = yield* solveEulerValidated(decayField, {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: [1],
+    stepSize: 0.1
+  })
+  yield* Console.log("solveEulerValidated status:", validatedEuler.status)
+
   // ─── Policy-aware — strict precision ─────────────────────────────
   const policies = makeDeterministicRuntimePoliciesLayer({
     seed: Seed.make(42),
@@ -170,6 +222,17 @@ const program = Effect.gen(function*() {
     Effect.provide(policies)
   )
   yield* Console.log("derivativeLimitWithPolicies d/dx(sin)|π/3:", derivativePolicyEstimate)
+
+  const adaptivePolicyIvP = yield* solveAdaptiveRk45WithPolicies(decayField, {
+    initialTime: 0,
+    finalTime: 1,
+    initialState: Chunk.fromIterable([1]),
+    initialStep: adaptiveStepSize,
+    maxStep: adaptiveMaxStepSize,
+    absoluteTolerance: adaptiveAbsoluteTolerance,
+    relativeTolerance: adaptiveRelativeTolerance
+  }).pipe(Effect.provide(policies))
+  yield* Console.log("solveAdaptiveRk45WithPolicies evaluations:", adaptivePolicyIvP.functionEvaluations)
 })
 
 BunRuntime.runMain(program)

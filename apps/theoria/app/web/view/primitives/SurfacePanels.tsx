@@ -1,8 +1,8 @@
-import { Separator } from "@base-ui-components/react/separator"
+import { Separator } from "@base-ui/react/separator"
 import { Match } from "effect"
 import type { ReactNode } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import { Section } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"

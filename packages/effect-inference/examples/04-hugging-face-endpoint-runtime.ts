@@ -15,7 +15,7 @@ export const program = Effect.gen(function*() {
     Effect.flatMap((model) => model.embedMany(["runtime provenance", "package-owned evidence"])),
     Effect.provide(embeddingLayer)
   )
-  const evidence = Runtime.makeRuntimeEvidence({
+  const evidence = Runtime.RuntimeEvidence.fromResolution({
     resolution,
     resolvedRuntime: {
       responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef,

@@ -5,11 +5,12 @@
  */
 import { Effect, Match, Option, Ref, Tuple } from "effect"
 
+import type { SuggestionDiagnostics } from "../../contracts/SuggestionDiagnostics.js"
 import * as Errors from "../../Errors/index.js"
 import type { SearchError } from "../../Errors/index.js"
 import type * as SearchSpace from "../../SearchSpace/index.js"
 import * as StudyEvent from "../../StudyEvent/index.js"
-import * as Trial from "../../Trial/index.js"
+import { Trial } from "../../Trial/index.js"
 import { appendEvent, emitLifecycleEvents } from "../events.js"
 import type { ObjectiveEvaluator } from "../objectiveEvaluator.js"
 import type { OptimizePlan, OptimizeSettings } from "../options.js"
@@ -19,7 +20,7 @@ import * as StudyObjectiveCache from "../studyObjectiveCache.js"
 import { appendTrialIfAvailable } from "../studyStorage.js"
 import { emitTrialCostedAndMarkBudget, shouldSkipByMaxCost } from "./budget.js"
 import { shouldSkipNextTrial } from "./completion.js"
-import { makeReportRefs } from "./controls.js"
+import { ReportRefs } from "./controls.js"
 import { finalizeTrialWithPrune } from "./objective.js"
 import {
   objectiveCost,
@@ -29,12 +30,13 @@ import {
   objectiveVariance
 } from "./objectiveResult.js"
 import type { PruningPolicy } from "./pruning.js"
-import { modifyStudyState, StudyClock, type StudyRuntime } from "./runtimeState.js"
+import { RuntimeState } from "./runtimeState.js"
+import { modifyRuntimeState, StudyClock, type StudyRuntime } from "./runtimeState.js"
 import { applyTrialStoppingPolicies } from "./stopping.js"
 import { TrialContext } from "./trialContext.js"
 import { evaluateObjectiveWithPolicy } from "./trialEvaluation.js"
 import type { CacheResolveAsTrialError } from "./trialEvaluation/model.js"
-import { reserveTrialOrMarkSpaceExhausted } from "./trialReservation.js"
+import { ReservedTrial, reserveTrialOrMarkSpaceExhausted } from "./trialReservation.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
@@ -50,9 +52,19 @@ const trialErrorFromCacheError = (
 
 const recordFinalizedTrial = <Config>(
   runtime: StudyRuntime<Config>,
-  finalized: Trial.Trial<Config>
+  finalized: Trial<Config>
 ): Effect.Effect<void> =>
-  modifyStudyState(runtime, (state) => Effect.succeed(Tuple.make(undefined, withFinalizedTrial(state, finalized))))
+  modifyRuntimeState(runtime, (state) =>
+    Effect.succeed(
+      Tuple.make(
+        undefined,
+        new RuntimeState({
+          lifecycle: state.lifecycle,
+          studyState: withFinalizedTrial(state.studyState, finalized),
+          suggestionState: state.suggestionState.withFinalizedTrial(finalized)
+        })
+      )
+    ))
 
 const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial")(
   <Space extends SearchSpace.SearchSpace>(
@@ -61,12 +73,13 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
     pruningPolicy: PruningPolicy,
     trialNumber: number,
     runtime: StudyRuntime<ConfigFor<Space>>,
-    running: Trial.Trial<ConfigFor<Space>>,
+    running: Trial<ConfigFor<Space>>,
+    diagnostics: Option.Option<SuggestionDiagnostics>,
     resource: Option.Option<number>
-  ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, SearchError, StudyClock | ObjectiveEvaluator> =>
+  ): Effect.Effect<Trial<ConfigFor<Space>>, SearchError, StudyClock | ObjectiveEvaluator> =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
-      const reportRefs = yield* makeReportRefs
+      const reportRefs = yield* ReportRefs.allocate
       const trialContext = new TrialContext({
         trialNumber,
         studyRuntime: runtime,
@@ -91,7 +104,12 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
           )
       })
 
-      yield* appendEvent(runtime, StudyEvent.TrialStarted({ trialNumber, config: running.config }))
+      const event = Option.match(diagnostics, {
+        onNone: () => StudyEvent.TrialStarted.make({ trialNumber, config: running.config }),
+        onSome: (diagnostics) => StudyEvent.TrialStarted.make({ trialNumber, config: running.config, diagnostics })
+      })
+
+      yield* appendEvent(runtime, event)
 
       const objectiveExitOption = yield* evaluateObjectiveWithPolicy(
         options,
@@ -111,7 +129,7 @@ const executeReservedTrial = Effect.fn("effect-search/Study.executeReservedTrial
             const cancelled = Trial.cancel(running)
             yield* recordFinalizedTrial(runtime, cancelled)
             yield* appendTrialIfAvailable(trialToSnapshot(cancelled))
-            yield* appendEvent(runtime, StudyEvent.TrialCancelled({ trialNumber, reason: "timeout" }))
+            yield* appendEvent(runtime, StudyEvent.TrialCancelled.make({ trialNumber, reason: "timeout" }))
             return cancelled
           }),
         onSome: (objectiveExit) =>
@@ -145,14 +163,24 @@ const reserveConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   config: ConfigFor<Space>,
   trialNumber: number,
   runtime: StudyRuntime<ConfigFor<Space>>
-): Effect.Effect<Trial.Trial<ConfigFor<Space>>, never, StudyClock> =>
-  modifyStudyState(runtime, (state) =>
+): Effect.Effect<ReservedTrial<ConfigFor<Space>>, never, StudyClock> =>
+  modifyRuntimeState(runtime, (state) =>
     Effect.gen(function*() {
       const clock = yield* StudyClock
       const startedAt = yield* clock.now
-      const running = Trial.makeRunning(trialNumber, config, startedAt)
+      const running = Trial.run(trialNumber, config, startedAt)
 
-      return Tuple.make(running, withReservedTrial(state, running))
+      return Tuple.make(
+        new ReservedTrial({
+          running,
+          diagnostics: Option.none()
+        }),
+        new RuntimeState({
+          lifecycle: state.lifecycle,
+          studyState: withReservedTrial(state.studyState, running),
+          suggestionState: state.suggestionState.withReservedTrial(running)
+        })
+      )
     }))
 
 /**
@@ -178,14 +206,15 @@ export const runScheduledTrial = <Space extends SearchSpace.SearchSpace>(
         const runningOption = yield* reserveTrialOrMarkSpaceExhausted(options, settings, trialNumber, runtime)
         yield* Option.match(runningOption, {
           onNone: () => Effect.void,
-          onSome: (running) =>
+          onSome: (reservation) =>
             executeReservedTrial(
               options,
               settings,
               pruningPolicy,
               trialNumber,
               runtime,
-              running,
+              reservation.running,
+              reservation.diagnostics,
               Option.none()
             ).pipe(Effect.asVoid)
         })
@@ -208,7 +237,7 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
   config: ConfigFor<Space>,
   runtime: StudyRuntime<ConfigFor<Space>>,
   resource: Option.Option<number>
-): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError, StudyClock | ObjectiveEvaluator> =>
+): Effect.Effect<Option.Option<Trial<ConfigFor<Space>>>, SearchError, StudyClock | ObjectiveEvaluator> =>
   Effect.gen(function*() {
     const skipNextTrial = yield* shouldSkipNextTrial(runtime.stopRef, runtime.completionReasonRef)
     const skipByCost = yield* shouldSkipByMaxCost(settings, runtime)
@@ -218,8 +247,17 @@ export const runConfiguredTrial = <Space extends SearchSpace.SearchSpace>(
       Match.when(true, () => Effect.succeed(Option.none())),
       Match.orElse(() =>
         reserveConfiguredTrial(config, trialNumber, runtime).pipe(
-          Effect.flatMap((running) =>
-            executeReservedTrial(options, settings, pruningPolicy, trialNumber, runtime, running, resource)
+          Effect.flatMap((reservation) =>
+            executeReservedTrial(
+              options,
+              settings,
+              pruningPolicy,
+              trialNumber,
+              runtime,
+              reservation.running,
+              reservation.diagnostics,
+              resource
+            )
           ),
           Effect.map(Option.some)
         )

@@ -1,6 +1,6 @@
 import { Match, Number as Num } from "effect"
+import { exp, log1pStrict, logStrict } from "effect-math/Numeric"
 
-import * as Float64 from "../../float64.js"
 import type { TruncatedNormalParams } from "./model.js"
 import { StandardizedBounds } from "./model.js"
 import { logDiff, logNdtr, logNormPdf, logSum, ndtr, ndtriExp } from "./normal.js"
@@ -21,7 +21,7 @@ const standardizeBounds = (params: TruncatedNormalParams): StandardizedBounds =>
 const logGaussMass = (a: number, b: number): number => {
   const massCaseLeft = (left: number, right: number): number => logDiff(logNdtr(right), logNdtr(left))
   const massCaseRight = (left: number, right: number): number => massCaseLeft(-right, -left)
-  const massCaseCentral = (left: number, right: number): number => Float64.log1p(-ndtr(left) - ndtr(-right))
+  const massCaseCentral = (left: number, right: number): number => log1pStrict(-ndtr(left) - ndtr(-right))
 
   return Match.value({ a, b }).pipe(
     Match.when(({ b: right }) => right <= 0, ({ a: left, b: right }) => massCaseLeft(left, right)),
@@ -30,7 +30,7 @@ const logGaussMass = (a: number, b: number): number => {
   )
 }
 
-const LOG_MACHINE_EPSILON = Float64.log(Number.EPSILON)
+const LOG_MACHINE_EPSILON = logStrict(Number.EPSILON)
 
 const ppfFinite = (q: number, a: number, b: number): number => {
   const logMass = logGaussMass(a, b)
@@ -38,7 +38,7 @@ const ppfFinite = (q: number, a: number, b: number): number => {
   return Match.value(a).pipe(
     Match.when((left) => left < 0, (left) => {
       const logBase = logNdtr(left)
-      const logIncrement = Float64.log(q) + logMass
+      const logIncrement = logStrict(q) + logMass
       const gap = logIncrement - logBase
       return Match.value(gap < LOG_MACHINE_EPSILON).pipe(
         Match.when(true, () => left),
@@ -47,7 +47,7 @@ const ppfFinite = (q: number, a: number, b: number): number => {
     }),
     Match.orElse(() => {
       const logBase = logNdtr(-b)
-      const logIncrement = Float64.log1p(-q) + logMass
+      const logIncrement = log1pStrict(-q) + logMass
       const gap = logIncrement - logBase
       return Match.value(gap < LOG_MACHINE_EPSILON).pipe(
         Match.when(true, () => -(-b)),
@@ -85,7 +85,7 @@ export const logPdf = (x: number, params: TruncatedNormalParams): number => {
           return Match.value(standardized).pipe(
             Match.when((value) => value < bounds.a || value > bounds.b, () => Number.NEGATIVE_INFINITY),
             Match.orElse(() =>
-              logNormPdf(standardized) - logGaussMass(bounds.a, bounds.b) - Float64.log(currentParams.sigma)
+              logNormPdf(standardized) - logGaussMass(bounds.a, bounds.b) - logStrict(currentParams.sigma)
             )
           )
         })
@@ -106,7 +106,7 @@ export const cdf = (x: number, params: TruncatedNormalParams): number => {
       const standardized = Num.unsafeDivide(currentX - currentParams.mean, currentParams.sigma)
       const numerator = logGaussMass(bounds.a, standardized)
       const denominator = logGaussMass(bounds.a, bounds.b)
-      const value = Float64.exp(numerator - denominator)
+      const value = exp(numerator - denominator)
 
       return clamp(value, 0, 1)
     })

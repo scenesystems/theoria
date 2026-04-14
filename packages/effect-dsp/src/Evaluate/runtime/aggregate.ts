@@ -8,7 +8,8 @@
 import { Array as Arr, Option, Record } from "effect"
 import { averageNumbers } from "../../Metric/score.js"
 import { type ExampleFailure, Report } from "../report.js"
-import type { ExampleOutcome, MetricEntry } from "./example.js"
+import type { ExampleOutcome } from "./example.js"
+import type { MetricEntry } from "./scoring.js"
 
 const outcomeScore = (metricName: string, outcome: ExampleOutcome): Option.Option<number> =>
   outcome.success

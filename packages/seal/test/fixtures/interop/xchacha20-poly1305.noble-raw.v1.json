@@ -1,0 +1,27 @@
+{
+  "fixture": "xchacha20-poly1305.noble-raw.v1",
+  "algorithm": "xchacha20-poly1305",
+  "runtime": {
+    "name": "@noble/ciphers",
+    "version": "2.1.1",
+    "surface": "xchacha20poly1305",
+    "mode": "raw-aead"
+  },
+  "provenance": {
+    "reference": "draft-irtf-cfrg-xchacha-03 / RFC 8439",
+    "normalizationNotes": "Ciphertext generated from the raw noble AEAD constructor with fixed key, nonce, plaintext, and associated data. Envelope fields mirror the released packEnvelope wire format plus additive key metadata."
+  },
+  "deterministicInput": {
+    "key": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA",
+    "nonce": "ZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8",
+    "plaintext": "c2VhbCBydW50aW1lIGludGVyb3AgZml4dHVyZQ",
+    "associatedData": "c2NlbmUtc3lzdGVtczphYWQ6djE"
+  },
+  "envelope": {
+    "algorithm": "xchacha20-poly1305",
+    "nonce": "ZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8",
+    "ciphertext": "UFX4lrvTgB3DTcV589t2v7K8QtO3VOI-RSWceG9UK8bb2otODuK7iFZEHMA",
+    "keyId": "interop-xchacha",
+    "keyVersion": 1
+  }
+}

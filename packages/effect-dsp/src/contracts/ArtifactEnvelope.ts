@@ -254,13 +254,13 @@ export {
   /**
    * Envelope variant wrapping a study snapshot with full provenance.
    *
-   * @since 0.1.4
+   * @since 0.2.0
    */
   StudySnapshotEnvelope,
   /**
    * Envelope variant wrapping a trial log entry with full provenance.
    *
-   * @since 0.1.4
+   * @since 0.2.0
    */
   TrialLog
 } from "effect-search/Contracts"

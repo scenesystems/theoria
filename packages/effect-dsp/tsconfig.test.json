@@ -5,6 +5,6 @@
     "types": ["@types/node", "@effect/vitest", "vitest/globals"],
     "tsBuildInfoFile": ".tsbuildinfo/test.tsbuildinfo"
   },
-  "include": ["test"],
+  "include": ["test", "fixtures", "examples"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

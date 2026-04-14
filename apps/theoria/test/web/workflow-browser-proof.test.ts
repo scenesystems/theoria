@@ -1,0 +1,351 @@
+import { Registry } from "@effect-atom/atom"
+import { describe, expect, it } from "@effect/vitest"
+import { Effect, Match, Option, Schema } from "effect"
+
+import { EntryStreamRoute } from "../../app/contracts/entry/api-route.js"
+import { workflowStudyDescriptor } from "../../app/contracts/study/workflow/descriptor.js"
+import {
+  chatHandoffWorkflowSessionId,
+  renderSensitiveWorkflowSessionId,
+  retrievalRequiredWorkflowSessionId,
+  taskBriefingWorkflowSessionId
+} from "../../app/contracts/study/workflow/fixture-manifest.js"
+import type { WorkflowSeedId } from "../../app/contracts/study/workflow/manifest.js"
+import { OpenAgentTraceCatalog } from "../../app/contracts/study/workflow/open-agent-trace.js"
+import { loadOpenAgentTraceRegistry } from "../../app/server/study/workflow/open-agent-trace/registry.js"
+import { startRun } from "../../app/web/atoms/run/execution.js"
+import { pauseRun, resetRun, resumeRun, stopRun } from "../../app/web/atoms/run/lifecycle-actions.js"
+import { surfaceAtom } from "../../app/web/atoms/surface/state.js"
+import {
+  selectWorkflowOptimizeAtom,
+  selectWorkflowRuntimeProfileAtom,
+  selectWorkflowSeedAtom,
+  selectWorkflowSurfaceProfileAtom,
+  selectWorkflowTargetModeAtom
+} from "../../app/web/atoms/workflow/draft-actions.js"
+import { importedCatalogAtom } from "../../app/web/atoms/workflow/open-agent-trace.js"
+import { workflowSurfaceViewModelAtom } from "../../app/web/atoms/workflow/surface-view-model.js"
+import type { RunControlActionKind } from "../../app/web/state/run/types.js"
+import type { SurfaceState } from "../../app/web/state/surface/state.js"
+import { makeAppClientTestRuntime } from "../helpers/entry-client.test-layer.js"
+import { errorFixture, programPreviewFixture } from "../helpers/entry-fixtures.js"
+import { emitWorkflowAuthoredStream } from "../helpers/mock-workflow-stream.js"
+
+type RunControlCommand = {
+  readonly action: RunControlActionKind
+  readonly id: "workflow"
+}
+
+type EventListener = (event: Event | MessageEvent<string>) => void
+
+class MockEventSource {
+  static instances: ReadonlyArray<MockEventSource> = []
+
+  readonly listeners: Record<string, ReadonlyArray<EventListener>> = {}
+  readonly url: string
+  closed = false
+
+  constructor(url: string) {
+    this.url = url
+    MockEventSource.instances = [...MockEventSource.instances, this]
+  }
+
+  addEventListener(type: string, listener: EventListener): void {
+    this.listeners[type] = [...(this.listeners[type] ?? []), listener]
+  }
+
+  close(): void {
+    this.closed = true
+  }
+
+  emitEvidence(data: string): void {
+    ;(this.listeners.evidence ?? []).forEach((listener) => listener(new MessageEvent("evidence", { data })))
+  }
+}
+
+const WorkflowEntryRequestJson = Schema.parseJson(workflowStudyDescriptor.runRequestSchema)
+const decodeWorkflowEntryRequestJson = Schema.decodeUnknownSync(WorkflowEntryRequestJson)
+
+const makeAsyncTestRegistry = (): Registry.Registry =>
+  Registry.make({
+    scheduleTask: (f) => {
+      queueMicrotask(f)
+    }
+  })
+
+const makeRuntime = () =>
+  makeAppClientTestRuntime({
+    run: () => Effect.fail(errorFixture),
+    runWithMeta: () => Effect.fail(errorFixture),
+    preload: () => Effect.succeed(programPreviewFixture)
+  })
+
+const makeRunControlAtom = (runtime = makeRuntime()) =>
+  runtime.fn<RunControlCommand>()(
+    ({ action, id }, ctx) =>
+      Match.value(action).pipe(
+        Match.when("run", () => startRun(id, ctx)),
+        Match.when("pause", () => pauseRun(id, ctx)),
+        Match.when("resume", () => resumeRun(id, ctx)),
+        Match.when("stop", () => stopRun(id, ctx)),
+        Match.orElse(() => resetRun(id, ctx))
+      )
+  )
+
+const readSurface = (registry: Registry.Registry): SurfaceState => registry.get(surfaceAtom("workflow"))
+
+const readWorkflowViewModel = (registry: Registry.Registry) => registry.get(workflowSurfaceViewModelAtom)
+
+const workflowRequestFromStreamUrl = (url: string) =>
+  decodeWorkflowEntryRequestJson(new URL(url, "http://127.0.0.1").searchParams.get("request") ?? "")
+
+const waitForSource = (index: number) =>
+  Effect.eventually(
+    Effect.sync(() => Option.fromNullable(MockEventSource.instances[index])).pipe(
+      Effect.flatMap(
+        Option.match({
+          onNone: () => Effect.fail(`waiting-for-source-${index}`),
+          onSome: Effect.succeed
+        })
+      )
+    )
+  )
+
+const withMockEventSource = <A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
+  const previousEventSource = globalThis.EventSource
+
+  return Effect.gen(function*() {
+    yield* Effect.sync(() => {
+      MockEventSource.instances = []
+      Reflect.set(globalThis, "EventSource", MockEventSource)
+    })
+
+    return yield* effect
+  }).pipe(
+    Effect.ensuring(
+      Effect.sync(() => {
+        MockEventSource.instances = []
+        Reflect.set(globalThis, "EventSource", previousEventSource)
+      })
+    )
+  )
+}
+
+const workflowSeedCases: ReadonlyArray<{
+  readonly seedId: WorkflowSeedId
+  readonly label: string
+}> = [
+  { seedId: taskBriefingWorkflowSessionId, label: "Task Briefing" },
+  { seedId: chatHandoffWorkflowSessionId, label: "Chat Handoff" },
+  { seedId: retrievalRequiredWorkflowSessionId, label: "Retrieval Required" },
+  { seedId: renderSensitiveWorkflowSessionId, label: "Render Sensitive" }
+]
+
+describe("workflow browser proof", () => {
+  it.effect("merges imported open-agent-trace workflows into the workflow selector catalog", () =>
+    Effect.gen(function*() {
+      const registry = makeAsyncTestRegistry()
+      const importedEntry = yield* loadOpenAgentTraceRegistry.pipe(
+        Effect.flatMap((importedRegistry) =>
+          Option.fromNullable(importedRegistry[0]).pipe(
+            Option.match({
+              onNone: () => Effect.die("open-agent-trace registry is empty"),
+              onSome: Effect.succeed
+            })
+          )
+        )
+      )
+
+      registry.mount(selectWorkflowSeedAtom)
+      registry.set(
+        importedCatalogAtom,
+        OpenAgentTraceCatalog.fromParts({
+          consumerArtifacts: [importedEntry.consumerArtifact],
+          registry: [importedEntry],
+          workflowHookups: [importedEntry.workflowHookup]
+        })
+      )
+      registry.set(selectWorkflowSeedAtom, importedEntry.workflowProjection.workflowRecord.session.sessionId)
+
+      const viewModel = readWorkflowViewModel(registry)
+
+      expect(
+        viewModel.selector.options.some(
+          (option) => option.reference.seedId === importedEntry.workflowProjection.workflowRecord.session.sessionId
+        )
+      )
+        .toBe(true)
+      expect(viewModel.selector.selected.label).toBe(importedEntry.title)
+      expect(viewModel.selector.selected.summary).toBe(importedEntry.summary)
+    }))
+
+  it.live("preserves frozen workflow seed across interruption and only adopts the next seed after reset", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeAsyncTestRegistry()
+        const runControlAtom = makeRunControlAtom(makeRuntime())
+
+        registry.mount(runControlAtom)
+        registry.mount(selectWorkflowSeedAtom)
+        registry.set(selectWorkflowSeedAtom, taskBriefingWorkflowSessionId)
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
+
+        const firstSource = yield* waitForSource(0)
+
+        expect(workflowRequestFromStreamUrl(firstSource.url).draft.seedId).toBe(taskBriefingWorkflowSessionId)
+
+        registry.set(selectWorkflowSeedAtom, renderSensitiveWorkflowSessionId)
+        registry.set(runControlAtom, { action: "stop", id: "workflow" })
+
+        const stopped = yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry)).pipe(
+            Effect.filterOrFail((state) => state.run._tag === "RunIdle", () => "waiting-for-workflow-stop")
+          )
+        )
+
+        expect(firstSource.closed).toBe(true)
+        expect(stopped.run.session.draft?.seedId).toBe(taskBriefingWorkflowSessionId)
+        expect(readWorkflowViewModel(registry).selector.selected.label).toBe("Task Briefing")
+        expect(readWorkflowViewModel(registry).selector.locked).toBe(true)
+
+        registry.set(runControlAtom, { action: "reset", id: "workflow" })
+
+        expect(readWorkflowViewModel(registry).selector.selected.label).toBe("Render Sensitive")
+        expect(readSurface(registry).run.session.draft).toBeNull()
+
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
+
+        const secondSource = yield* waitForSource(1)
+
+        expect(workflowRequestFromStreamUrl(secondSource.url).draft.seedId).toBe(renderSensitiveWorkflowSessionId)
+      })
+    ))
+
+  it.live("routes every published workflow seed through the shared workflow entry stream lane", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeAsyncTestRegistry()
+        const runControlAtom = makeRunControlAtom(makeRuntime())
+
+        registry.mount(runControlAtom)
+        registry.mount(selectWorkflowSeedAtom)
+
+        yield* Effect.forEach(
+          workflowSeedCases,
+          ({ label, seedId }, index) =>
+            Effect.gen(function*() {
+              registry.set(selectWorkflowSeedAtom, seedId)
+              registry.set(runControlAtom, { action: "run", id: "workflow" })
+
+              const source = yield* waitForSource(index)
+              const request = workflowRequestFromStreamUrl(source.url)
+
+              expect(source.url.startsWith(`${EntryStreamRoute.fromEntryId("workflow").path()}?request=`)).toBe(true)
+              expect(request.draft.seedId).toBe(seedId)
+
+              yield* emitWorkflowAuthoredStream({
+                seedId,
+                meta: {
+                  requestId: `workflow-${seedId}`,
+                  buildSha: `build-${seedId}`,
+                  durationMs: index + 17
+                },
+                source,
+                summary: `${label} browser proof.`
+              })
+
+              const succeeded = yield* Effect.eventually(
+                Effect.sync(() => readSurface(registry)).pipe(
+                  Effect.filterOrFail((state) => state.run._tag === "RunSuccess", () => `waiting-for-${seedId}-success`)
+                )
+              )
+
+              expect(succeeded.run.session.draft?.seedId).toBe(seedId)
+              expect(readWorkflowViewModel(registry).selector.selected.label).toBe(label)
+
+              registry.set(runControlAtom, { action: "reset", id: "workflow" })
+
+              yield* Effect.eventually(
+                Effect.sync(() => readSurface(registry)).pipe(
+                  Effect.filterOrFail((state) => state.run.session.draft === null, () => `waiting-for-${seedId}-reset`)
+                )
+              )
+            }),
+          { discard: true }
+        )
+      })
+    ))
+
+  it.live("freezes workflow control choices into the shared entry draft and reflected surface view model", () =>
+    withMockEventSource(
+      Effect.gen(function*() {
+        const registry = makeAsyncTestRegistry()
+        const runControlAtom = makeRunControlAtom(makeRuntime())
+
+        registry.mount(runControlAtom)
+        registry.mount(selectWorkflowSeedAtom)
+        registry.mount(selectWorkflowTargetModeAtom)
+        registry.mount(selectWorkflowOptimizeAtom)
+        registry.mount(selectWorkflowRuntimeProfileAtom)
+        registry.mount(selectWorkflowSurfaceProfileAtom)
+
+        registry.set(selectWorkflowSeedAtom, chatHandoffWorkflowSessionId)
+        registry.set(selectWorkflowTargetModeAtom, "search-winner")
+        registry.set(selectWorkflowOptimizeAtom, false)
+        registry.set(selectWorkflowRuntimeProfileAtom, "preferred")
+        registry.set(selectWorkflowSurfaceProfileAtom, "full-panel")
+
+        const draft = readSurface(registry).draft
+
+        expect(draft.entryId).toBe("workflow")
+        if (draft.entryId !== "workflow") {
+          return
+        }
+
+        expect(draft.seedId).toBe(chatHandoffWorkflowSessionId)
+        expect(draft.controls.optimize).toBe(false)
+        expect(draft.controls.targetMode).toBe("authored-optimized")
+        expect(draft.controls.runtimeProfile).toBe("preferred")
+        expect(draft.controls.surfaceProfile).toBe("full-panel")
+
+        registry.set(runControlAtom, { action: "run", id: "workflow" })
+
+        const source = yield* waitForSource(0)
+        const request = workflowRequestFromStreamUrl(source.url)
+
+        expect(request.draft.seedId).toBe(chatHandoffWorkflowSessionId)
+        expect(request.draft.controls.optimize).toBe(false)
+        expect(request.draft.controls.targetMode).toBe("authored-optimized")
+        expect(request.draft.controls.runtimeProfile).toBe("preferred")
+        expect(request.draft.controls.surfaceProfile).toBe("full-panel")
+
+        yield* emitWorkflowAuthoredStream({
+          seedId: chatHandoffWorkflowSessionId,
+          meta: {
+            requestId: "workflow-controls",
+            buildSha: "build-workflow-controls",
+            durationMs: 19
+          },
+          source,
+          summary: "Workflow controls proof."
+        })
+
+        yield* Effect.eventually(
+          Effect.sync(() => readSurface(registry)).pipe(
+            Effect.filterOrFail(
+              (state) => state.run._tag === "RunSuccess",
+              () => "waiting-for-workflow-controls-success"
+            )
+          )
+        )
+
+        const viewModel = readWorkflowViewModel(registry)
+
+        expect(viewModel.plan.controls.optimize).toBe(false)
+        expect(viewModel.plan.controls.targetMode).toBe("authored-optimized")
+        expect(viewModel.plan.controls.runtimeProfile).toBe("preferred")
+        expect(viewModel.plan.controls.surfaceProfile).toBe("full-panel")
+        expect(viewModel.runStory).toBe("baseline -> authored optimized replay")
+      })
+    ))
+})

@@ -13,7 +13,7 @@ const resolvePackageRoot = Effect.gen(function*() {
 
 const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
   Effect.gen(function*() {
-    const command = Command.make("bun", "run", "scripts/verify-publish-readiness.ts", ...args).pipe(
+    const command = Command.make("bun", "../../scripts/publish-readiness.ts", "--package=effect-search", ...args).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),
       Command.stderr("pipe")
@@ -30,6 +30,7 @@ const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
 
     return {
       exitCode: Number(exitCode),
+      output: `${stdout}${stderr}`,
       stdout,
       stderr
     }
@@ -46,7 +47,7 @@ describe("package/keyword-coverage", () => {
       ])
 
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).not.toContain("keywords.required-missing")
+      expect(result.output).not.toContain("keywords.required-missing")
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("fails when algorithm-surface keywords are missing", () =>
@@ -59,6 +60,6 @@ describe("package/keyword-coverage", () => {
       ])
 
       expect(result.exitCode).toBe(1)
-      expect(result.stderr).toContain("keywords.required-missing")
+      expect(result.output).toContain("keywords.required-missing")
     }).pipe(Effect.provide(BunContext.layer)))
 })

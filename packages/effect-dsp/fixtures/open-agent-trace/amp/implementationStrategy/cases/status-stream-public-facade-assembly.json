@@ -1,0 +1,24 @@
+{
+  "caseId": "status-stream-public-facade-assembly",
+  "threadId": "T-019d835c-ae70-72d8-9c4e-aa9b0f5000bf",
+  "captureLane": "stream-json",
+  "split": "holdout",
+  "task": "Restructure public facade assembly so compatibility shims derive from exact declaration products instead of broad migration records.",
+  "constraints": [
+    "Keep public facade assembly downstream of the exact declaration product.",
+    "Allow compatibility shims only as derived views.",
+    "Do not widen into migration-wide records or helper layers."
+  ],
+  "files": [
+    "facade.ts",
+    "compatibility.ts",
+    "derive.ts",
+    "migration.ts"
+  ],
+  "rejectedMoves": [
+    "Introduce a broad migration record before the exact product exists.",
+    "Insert helper layers between derivation and facade assembly.",
+    "Patch compatibility with witness scaffolding or overload detours."
+  ],
+  "expectedStrategy": "Keep the exact declaration product authoritative through facade assembly, derive compatibility shims only downstream, preserve the real noun/mechanism seam, and avoid broad migration records, helper layers, witness scaffolding, overload detours, or other intermediate representations."
+}

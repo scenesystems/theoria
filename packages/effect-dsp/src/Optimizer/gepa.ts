@@ -1,6 +1,6 @@
 /**
- * GEPA — Guided Evolutionary Prompt Adaptation via teacher-student debate and
- * evolutionary crossover.
+ * GEPA (Genetic-Pareto) — reflective prompt evolution via LM-based reflection
+ * and evolutionary crossover.
  *
  * @since 0.1.0
  */

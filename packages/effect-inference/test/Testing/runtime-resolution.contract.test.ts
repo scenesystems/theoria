@@ -4,11 +4,11 @@ import * as Testing from "../../src/testing/index.js"
 
 describe("Testing/runtime-resolution", () => {
   it("creates deterministic runtime-resolution fixtures", () => {
-    const desired = Testing.makeDesiredRuntimeDescriptor({
+    const desired = Testing.DesiredRuntimeDescriptor.fromTesting({
       modelRef: "hf:sentence-transformers/all-MiniLM-L6-v2"
     })
-    const resolvedRoute = Testing.makeResolvedRouteDescriptor({ desired })
-    const resolution = Testing.makeRuntimeResolution({
+    const resolvedRoute = Testing.ResolvedRouteDescriptor.fromTesting({ desired })
+    const resolution = Testing.RuntimeResolution.fromTesting({
       desired,
       resolvedRoute
     })

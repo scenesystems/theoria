@@ -917,6 +917,56 @@
         "operation": "studentTVariance"
       },
       {
+        "expected": 0.06680720126885809,
+        "id": "noncentralt-cdf-origin",
+        "input": {
+          "df": 10.0,
+          "noncentrality": 1.5,
+          "x": 0.0
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 0.6426249085997777,
+        "id": "noncentralt-cdf-positive",
+        "input": {
+          "df": 5.0,
+          "noncentrality": 0.75,
+          "x": 1.2
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 0.04254766255904942,
+        "id": "noncentralt-cdf-negative",
+        "input": {
+          "df": 8.0,
+          "noncentrality": 1.25,
+          "x": -0.5
+        },
+        "operation": "noncentralTCdf"
+      },
+      {
+        "expected": 2.5275221266253096,
+        "id": "noncentralt-quantile-upper",
+        "input": {
+          "df": 10.0,
+          "noncentrality": 1.5,
+          "p": 0.8
+        },
+        "operation": "noncentralTQuantile"
+      },
+      {
+        "expected": -2.0005452435170508,
+        "id": "noncentralt-quantile-lower",
+        "input": {
+          "df": 8.0,
+          "noncentrality": -1.0,
+          "p": 0.2
+        },
+        "operation": "noncentralTQuantile"
+      },
+      {
         "expected": 0.1,
         "id": "cat-pmf-k0",
         "input": {

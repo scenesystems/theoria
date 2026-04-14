@@ -20,7 +20,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { equalBytes, toHex, utf8ToBytes } from "../src/encoding.js"
+import { Either } from "effect"
+import { equalBytes, fromBase64Url, toBase64Url, toHex, utf8ToBytes } from "../src/encoding.js"
 
 describe("utf8ToBytes", () => {
   it("encodes ASCII correctly", () => {
@@ -63,6 +64,28 @@ describe("toHex", () => {
   it("produces 2 chars per byte", () => {
     const bytes = new Uint8Array(32).fill(0xde)
     expect(toHex(bytes).length).toBe(64)
+  })
+})
+
+describe("base64url codecs", () => {
+  it("round-trips bytes through url-safe encoding", () => {
+    const bytes = Uint8Array.from([0xff, 0x01, 0x7f, 0x20])
+    const encoded = toBase64Url(bytes)
+    const decoded = fromBase64Url(encoded)
+
+    expect(encoded.includes("+")).toBe(false)
+    expect(encoded.includes("/")).toBe(false)
+    expect(encoded.includes("=")).toBe(false)
+    expect(Either.isRight(decoded)).toBe(true)
+
+    if (Either.isRight(decoded)) {
+      expect(decoded.right).toEqual(bytes)
+    }
+  })
+
+  it("rejects malformed base64url payloads", () => {
+    const decoded = fromBase64Url("***not-base64url***")
+    expect(Either.isLeft(decoded)).toBe(true)
   })
 })
 

@@ -3,16 +3,15 @@
  * Parameters: mu (log-space mean), sigma (log-space stddev).
  * X ~ LogNormal(mu, sigma) iff ln(X) ~ Normal(mu, sigma).
  *
- * CDF delegates to erf from Special/internal/erf.js.
- * Quantile delegates to erfinv from Special/internal/erfinv.js.
+ * CDF delegates to the Special-domain erf owner surface.
+ * Quantile delegates to the Special-domain erfinv owner surface.
  *
  * @since 0.1.0
  * @category internal
  */
 import { Number as N } from "effect"
 
-import { erfAbramowitzStegun } from "../../Special/internal/erf.js"
-import { erfinvKernel } from "../../Special/internal/erfinv.js"
+import { erf, erfinv } from "../../Special/operations.js"
 
 /**
  * Precomputed √(2π) for the log-normal PDF denominator.
@@ -92,7 +91,7 @@ export const logNormalCdf = (x: number, mu: number, sigma: number): number =>
       0.5,
       N.sum(
         1,
-        erfAbramowitzStegun(
+        erf(
           N.unsafeDivide(N.subtract(Math.log(x), mu), N.multiply(sigma, Math.SQRT2))
         )
       )
@@ -111,7 +110,7 @@ export const logNormalQuantile = (p: number, mu: number, sigma: number): number 
       mu,
       N.multiply(
         N.multiply(sigma, Math.SQRT2),
-        erfinvKernel(N.subtract(N.multiply(2, p), 1))
+        erfinv(N.subtract(N.multiply(2, p), 1))
       )
     )
   )

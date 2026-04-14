@@ -27,6 +27,18 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
     "Study public API barrel re-exports all study surface types, constructors, and operations. Follow-up: reduce by splitting ask/tell and snapshot re-exports into sub-barrels."
   ],
   [
+    "src/Study/progress/formatter.ts",
+    "Progress-line formatting currently co-locates render-mode normalization, ANSI styling, and study-event projection so `ProgressLine.projectEvent` remains one pure ownership boundary. Follow-up: extract ANSI/render-mode helpers into `Study/progress/renderMode.ts` and split bracket-versus-trial event projection into focused modules when another projection noun needs to reuse the same semantics."
+  ],
+  [
+    "src/Study/runtime/trialExecution.ts",
+    "Trial execution still co-locates reservation state transitions, objective evaluation orchestration, timeout cancellation, cache integration, and finalization policy wiring so the runtime keeps one auditable trial lifecycle kernel. Follow-up: extract runtime state transition helpers into `Study/runtime/trialStateTransitions.ts` and move configured-trial reservation into a focused module once the incremental runtime boundary settles."
+  ],
+  [
+    "src/contracts/ArtifactEnvelope.ts",
+    "Artifact envelope authority now co-locates the tagged union contract, typed variant constructors, and noun-owned provenance projections so TrialLog and StudySnapshotEnvelope keep one auditable ownership boundary. Follow-up: extract the context-driven projection helpers into `contracts/artifactEnvelopeProjection.ts` while keeping `ArtifactEnvelope.ts` as the canonical union authority once the projection API settles."
+  ],
+  [
     "src/contracts/ArtifactRelation.ts",
     "Artifact relation schemas and constructors co-located for tagged union coherence. Follow-up: split relation constructors into focused modules after contract stabilization."
   ],
@@ -49,6 +61,10 @@ const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
   [
     "src/samplers/Tpe/options.ts",
     "TPE option parsing co-locates default resolution, validation, and checkpoint projection for all sampler configuration fields. Size driven by multi-line JSDoc on all exports."
+  ],
+  [
+    "src/samplers/Tpe/startup.ts",
+    "TPE startup routing now co-locates startup gating, prepared-model split reuse, and dispatch across independent, grouped, and mixed-space suggestion modes so one module remains the auditable handoff between cold-start exploration and model-driven suggestion. Follow-up: extract prepared-model-aware independent dispatch into `samplers/Tpe/startup/independent.ts` and grouped/mixed routing into `samplers/Tpe/startup/modelDriven.ts` while keeping `startup.ts` as the public phase router."
   ]
 ]
 

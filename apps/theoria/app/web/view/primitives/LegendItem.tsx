@@ -1,8 +1,8 @@
 import { Match } from "effect"
 
-import { type LegendTheme } from "./designSystem.js"
 import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { type Legend } from "./theme/evidence.js"
 
 type LegendShape = "circle" | "square" | "diamond"
 type LegendVariant = "inline" | "rail"
@@ -22,16 +22,16 @@ const swatchClassName = ({
 
 export const LegendItem = ({
   className,
+  legend,
   label,
   shape,
-  theme,
   value,
   variant = "inline"
 }: {
   readonly className?: string
+  readonly legend: Legend
   readonly label: string
   readonly shape: LegendShape
-  readonly theme: LegendTheme
   readonly value?: string
   readonly variant?: LegendVariant
 }) =>
@@ -41,14 +41,14 @@ export const LegendItem = ({
         <Layer
           aria-hidden
           as="span"
-          className={`${swatchClassName({ swatch: theme.swatch, shape })} ${
+          className={`${swatchClassName({ swatch: legend.swatch, shape })} ${
             value === undefined ? "row-span-1" : "row-span-2"
           } mt-0.5`}
         />
         <Layer as="dt" className="min-w-0">
           <SemanticText
             as="span"
-            className={`${theme.label} block max-w-none whitespace-nowrap`}
+            className={`${legend.label} block max-w-none whitespace-nowrap`}
             role="row-label"
             text={label}
             variant="expanded"
@@ -71,10 +71,10 @@ export const LegendItem = ({
     )
     : (
       <Layer className={className ?? "inline-flex items-center gap-1.5"}>
-        <Layer aria-hidden as="span" className={swatchClassName({ swatch: theme.swatch, shape })} />
+        <Layer aria-hidden as="span" className={swatchClassName({ swatch: legend.swatch, shape })} />
         <SemanticText
           as="span"
-          className={theme.label}
+          className={legend.label}
           role="code-meta"
           text={value === undefined ? label : `${label} ${value}`}
           variant="expanded"

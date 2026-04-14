@@ -10,22 +10,24 @@ import { defaultParseFeedbackTemplate, defaultParseRetrySchedule } from "../../s
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })
 
-const makeReadText = (
-  responses: Ref.Ref<ReadonlyArray<string>>,
-  feedbackLog: Ref.Ref<ReadonlyArray<string>>
-) =>
-(feedback: Option.Option<string>) =>
-  Effect.gen(function*() {
-    const queue = yield* Ref.get(responses)
+const RetryTextReader = {
+  fromResponses: (
+    responses: Ref.Ref<ReadonlyArray<string>>,
+    feedbackLog: Ref.Ref<ReadonlyArray<string>>
+  ) =>
+  (feedback: Option.Option<string>) =>
+    Effect.gen(function*() {
+      const queue = yield* Ref.get(responses)
 
-    yield* Ref.set(responses, Arr.drop(queue, 1))
-    yield* Option.match(feedback, {
-      onNone: () => Effect.void,
-      onSome: (value) => Ref.update(feedbackLog, (entries) => Arr.append(entries, value))
+      yield* Ref.set(responses, Arr.drop(queue, 1))
+      yield* Option.match(feedback, {
+        onNone: () => Effect.void,
+        onSome: (value) => Ref.update(feedbackLog, (entries) => Arr.append(entries, value))
+      })
+
+      return Option.getOrElse(Arr.head(queue), () => "[[ ## answer ## ]]\nfallback")
     })
-
-    return Option.getOrElse(Arr.head(queue), () => "[[ ## answer ## ]]\nfallback")
-  })
+}
 
 describe("internal/parse", () => {
   it.effect("decodes structured output using schema", () =>
@@ -89,7 +91,7 @@ describe("internal/parse", () => {
             maxRetries: 3,
             retrySchedule: defaultParseRetrySchedule,
             feedbackTemplate: defaultParseFeedbackTemplate,
-            readText: makeReadText(responses, feedbackLog)
+            readText: RetryTextReader.fromResponses(responses, feedbackLog)
           })
         )
       )
@@ -124,7 +126,7 @@ describe("internal/parse", () => {
               maxRetries: 2,
               retrySchedule: defaultParseRetrySchedule,
               feedbackTemplate: defaultParseFeedbackTemplate,
-              readText: makeReadText(responses, feedbackLog)
+              readText: RetryTextReader.fromResponses(responses, feedbackLog)
             })
           )
         )

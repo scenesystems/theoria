@@ -10,6 +10,14 @@ type DataTableLayout = "default" | "trace"
 
 type TableColumnKind = "index" | "measure" | "detail" | "wide"
 
+const tableShellClassName = (layout: DataTableLayout): string =>
+  layout === "trace"
+    ? "overflow-x-auto rounded-[1rem] border border-stage-200/52 bg-stage-0/16"
+    : "overflow-x-auto rounded-[0.95rem] border border-stage-200/48 bg-stage-0/18"
+
+const tableHeaderRowClassName = (density: DataTableDensity): string =>
+  `border-b border-stage-200/56 ${density === "compact" ? "bg-stage-0/36" : "bg-stage-0/44"}`
+
 const tableMinWidthClassName = ({
   kinds,
   layout
@@ -41,14 +49,14 @@ const cellClassName = ({
 
 const bodyRowClassName = ({
   density,
-  rowIndex
+  rowIndex: _rowIndex
 }: {
   readonly density: DataTableDensity
   readonly rowIndex: number
 }): string =>
-  `border-b border-stage-200/40 transition-colors hover:bg-stage-100/50 last:border-b-0 ${
-    rowIndex % 2 === 0 ? "bg-stage-0" : "bg-stage-50/30"
-  } ${density === "compact" ? "align-top" : ""}`
+  `border-b border-stage-200/28 bg-transparent transition-colors hover:bg-stage-50/28 last:border-b-0 ${
+    density === "compact" ? "align-top" : ""
+  }`
 
 const isNumeric = (value: string): boolean => {
   const trimmed = value.trim()
@@ -145,12 +153,12 @@ export const DataTable = ({
         ? (
           <Stack className="gap-0.5 px-1">
             <SemanticText as="p" className="max-w-none text-ink-700" role="row-label" text={label} variant="expanded" />
-            <SemanticText as="p" className="text-ink-600" role="code-meta" text={metaLabel} variant="expanded" />
+            <SemanticText as="p" className="text-ink-500" role="code-meta" text={metaLabel} variant="expanded" />
           </Stack>
         )
         : null}
 
-      <Layer className="overflow-x-auto border-t border-b border-stage-200/72 bg-stage-0/36">
+      <Layer className={tableShellClassName(resolvedLayout)}>
         <table
           className={`${tableMinWidthClassName({ kinds: columnKinds, layout: resolvedLayout })} w-full border-collapse`}
         >
@@ -158,7 +166,7 @@ export const DataTable = ({
             {Arr.map(columnKinds, (kind, index) => <col className={colClassNameFor(kind)} key={`${kind}-${index}`} />)}
           </colgroup>
           <thead>
-            <tr className="border-b border-stage-200/80 bg-stage-50/60">
+            <tr className={tableHeaderRowClassName(resolvedDensity)}>
               {Arr.map(
                 columns,
                 (col, i) => (
@@ -168,7 +176,7 @@ export const DataTable = ({
                   >
                     <SemanticText
                       as="p"
-                      className="text-ink-700"
+                      className="text-ink-600"
                       role="row-label"
                       text={col}
                       variant="expanded"
@@ -193,7 +201,7 @@ export const DataTable = ({
                   >
                     <SemanticText
                       as="p"
-                      className={`${alignments[colIndex] === "right" ? "tabular-nums " : ""}text-ink-800`}
+                      className={`${alignments[colIndex] === "right" ? "tabular-nums " : ""}text-ink-900`}
                       role={alignments[colIndex] === "right" ? "code-meta" : "row-value"}
                       text={cell}
                       variant="expanded"

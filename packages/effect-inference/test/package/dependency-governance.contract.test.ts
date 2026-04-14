@@ -1,7 +1,11 @@
+import { FileSystem, Path } from "@effect/platform"
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Record, Schema } from "effect"
+import { Effect, Record, Schema } from "effect"
 
 import packageJson from "../../package.json" with { type: "json" }
+
+const packageRootUrl = new URL("../../", import.meta.url)
 
 const PackageGovernanceSchema = Schema.Struct({
   dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
@@ -33,4 +37,18 @@ describe("package/dependency-governance", () => {
     expect(manifest.scripts?.["publish:check"]).toBeUndefined()
     expect(manifest.scripts?.["verify-publish-readiness"]).toBeUndefined()
   })
+
+  it.effect("delegates release-snapshot and docgen governance to the root release framework", () =>
+    Effect.gen(function*() {
+      const fileSystem = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = yield* path.fromFileUrl(packageRootUrl).pipe(Effect.orDie)
+      const packageEntries = yield* fileSystem.readDirectory(root).pipe(Effect.orDie)
+
+      expect(manifest.exports["./internal/*"]).toBeNull()
+      expect(manifest.scripts?.["release-snapshots:stamp"]).toBe("bun ../../scripts/stamp-release-snapshot.ts")
+      expect(manifest.scripts?.docgen).toBe("docgen")
+      expect(packageEntries).not.toContain("stamp-release-snapshot.ts")
+      expect(packageEntries).not.toContain("verify-publish-readiness.ts")
+    }).pipe(Effect.provide(BunContext.layer)))
 })

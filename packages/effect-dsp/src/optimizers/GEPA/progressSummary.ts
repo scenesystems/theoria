@@ -3,16 +3,16 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Match } from "effect"
+import { Array as Arr, Data, Match } from "effect"
 import type { GEPAEvent } from "./events.js"
 
 /**
  * Semantic summary projected from GEPA events.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
-export type GEPAEventSummary = Readonly<{
+export class GEPAEventSummary extends Data.Class<{
   readonly totalEvents: number
   readonly iterationStartedCount: number
   readonly mergeCheckedCount: number
@@ -32,9 +32,34 @@ export type GEPAEventSummary = Readonly<{
   readonly lastReportedFrontierSize: number
   readonly maxFrontierSize: number
   readonly parentWeightEntriesObserved: number
-}>
+}> {
+  static make = (options: {
+    readonly totalEvents: number
+    readonly iterationStartedCount: number
+    readonly mergeCheckedCount: number
+    readonly mutationProposedCount: number
+    readonly acceptanceEvaluatedCount: number
+    readonly acceptanceAcceptedCount: number
+    readonly gate1PassedCount: number
+    readonly fullValsetEvaluatedCount: number
+    readonly paretoUpdatedCount: number
+    readonly iterationCompletedCount: number
+    readonly iterationWithAcceptedCandidateCount: number
+    readonly optimizationCompletedSeen: boolean
+    readonly optimizationIterationCount: number
+    readonly optimizationBestCandidateIdSeen: boolean
+    readonly optimizationBestCandidateId: string
+    readonly optimizationFrontierSize: number
+    readonly lastReportedFrontierSize: number
+    readonly maxFrontierSize: number
+    readonly parentWeightEntriesObserved: number
+  }): GEPAEventSummary => new GEPAEventSummary(options)
 
-const EMPTY_GEPA_EVENT_SUMMARY: GEPAEventSummary = {
+  static summarize = (events: ReadonlyArray<GEPAEvent>): GEPAEventSummary =>
+    Arr.reduce(events, EMPTY_GEPA_EVENT_SUMMARY, summarizeEvent)
+}
+
+const EMPTY_GEPA_EVENT_SUMMARY = GEPAEventSummary.make({
   totalEvents: 0,
   iterationStartedCount: 0,
   mergeCheckedCount: 0,
@@ -54,25 +79,26 @@ const EMPTY_GEPA_EVENT_SUMMARY: GEPAEventSummary = {
   lastReportedFrontierSize: 0,
   maxFrontierSize: 0,
   parentWeightEntriesObserved: 0
-}
+})
 
 const withFrontierSize = (
   summary: GEPAEventSummary,
   frontierSize: number
-): GEPAEventSummary => ({
-  ...summary,
-  lastReportedFrontierSize: frontierSize,
-  maxFrontierSize: Math.max(summary.maxFrontierSize, frontierSize)
-})
+): GEPAEventSummary =>
+  GEPAEventSummary.make({
+    ...summary,
+    lastReportedFrontierSize: frontierSize,
+    maxFrontierSize: Math.max(summary.maxFrontierSize, frontierSize)
+  })
 
 const summarizeEvent = (
   summary: GEPAEventSummary,
   event: GEPAEvent
 ): GEPAEventSummary => {
-  const incremented: GEPAEventSummary = {
+  const incremented = GEPAEventSummary.make({
     ...summary,
     totalEvents: summary.totalEvents + 1
-  }
+  })
 
   return Match.value(event).pipe(
     Match.tag("IterationStarted", ({ frontierSize }) =>
@@ -83,27 +109,30 @@ const summarizeEvent = (
         },
         frontierSize
       )),
-    Match.tag("MergeChecked", () => ({
-      ...incremented,
-      mergeCheckedCount: incremented.mergeCheckedCount + 1
-    })),
-    Match.tag("MutationProposed", () => ({
-      ...incremented,
-      mutationProposedCount: incremented.mutationProposedCount + 1
-    })),
-    Match.tag("AcceptanceEvaluated", ({ accepted, gate1Passed, fullValsetEvaluated }) => ({
-      ...incremented,
-      acceptanceEvaluatedCount: incremented.acceptanceEvaluatedCount + 1,
-      acceptanceAcceptedCount: incremented.acceptanceAcceptedCount + (accepted
-        ? 1
-        : 0),
-      gate1PassedCount: incremented.gate1PassedCount + (gate1Passed
-        ? 1
-        : 0),
-      fullValsetEvaluatedCount: incremented.fullValsetEvaluatedCount + (fullValsetEvaluated
-        ? 1
-        : 0)
-    })),
+    Match.tag("MergeChecked", () =>
+      GEPAEventSummary.make({
+        ...incremented,
+        mergeCheckedCount: incremented.mergeCheckedCount + 1
+      })),
+    Match.tag("MutationProposed", () =>
+      GEPAEventSummary.make({
+        ...incremented,
+        mutationProposedCount: incremented.mutationProposedCount + 1
+      })),
+    Match.tag("AcceptanceEvaluated", ({ accepted, gate1Passed, fullValsetEvaluated }) =>
+      GEPAEventSummary.make({
+        ...incremented,
+        acceptanceEvaluatedCount: incremented.acceptanceEvaluatedCount + 1,
+        acceptanceAcceptedCount: incremented.acceptanceAcceptedCount + (accepted
+          ? 1
+          : 0),
+        gate1PassedCount: incremented.gate1PassedCount + (gate1Passed
+          ? 1
+          : 0),
+        fullValsetEvaluatedCount: incremented.fullValsetEvaluatedCount + (fullValsetEvaluated
+          ? 1
+          : 0)
+      })),
     Match.tag("ParetoUpdated", ({ frontierIndices, parentWeights }) =>
       withFrontierSize(
         {
@@ -139,13 +168,3 @@ const summarizeEvent = (
     Match.exhaustive
   )
 }
-
-/**
- * Summarize GEPA stream events into semantically meaningful counters.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const summarizeGEPAEvents = (
-  events: ReadonlyArray<GEPAEvent>
-): GEPAEventSummary => Arr.reduce(events, EMPTY_GEPA_EVENT_SUMMARY, summarizeEvent)

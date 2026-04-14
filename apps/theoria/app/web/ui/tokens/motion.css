@@ -1,0 +1,55 @@
+@theme {
+  --ease-workspace-emphasis: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --ease-workspace-reveal: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-workspace-selection-emphasis: workspace-selection-emphasis 160ms var(--ease-workspace-emphasis);
+  --animate-workspace-pane-reveal: workspace-pane-reveal 220ms var(--ease-workspace-reveal);
+  --animate-workspace-inspector-switch: workspace-inspector-switch 160ms var(--ease-workspace-reveal);
+  --animate-workspace-transcript-hover: workspace-transcript-hover 120ms ease-out;
+}
+
+@keyframes workspace-selection-emphasis {
+  from {
+    box-shadow: 0 0 0 0 rgb(from var(--color-border-selection) r g b / 0);
+    transform: translateX(0);
+  }
+
+  to {
+    box-shadow: 0 0 0 1px rgb(from var(--color-border-selection) r g b / 0.18);
+    transform: translateX(0);
+  }
+}
+
+@keyframes workspace-pane-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes workspace-inspector-switch {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes workspace-transcript-hover {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(2px);
+  }
+}

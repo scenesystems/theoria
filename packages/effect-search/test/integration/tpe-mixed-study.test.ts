@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
+import { abs, logStrict } from "effect-math/Numeric"
 
-import { decodeMixedOptimizerConfig, makeMixedOptimizerSpace } from "../../src/experimental/scenarios/mixedOptimizer.js"
-import * as Float64 from "../../src/internal/float64.js"
+import { decodeMixedOptimizerConfig, MixedOptimizerSpace } from "../../src/experimental/scenarios/mixedOptimizer.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Study from "../../src/Study/index.js"
 
@@ -38,8 +38,8 @@ const objectiveValue = (raw: unknown): number => {
   const config = decodeMixedOptimizerConfig(raw)
 
   return (
-    Float64.abs(Float64.log(config.lr) - Float64.log(0.02)) +
-    Float64.abs(config.depth - 5) * 0.25 +
+    abs(logStrict(config.lr) - logStrict(0.02)) +
+    abs(config.depth - 5) * 0.25 +
     optimizerPenalty(config.optimizer)
   )
 }
@@ -51,7 +51,7 @@ const traceFor = (result: Study.SingleObjectiveResult) => result.trials.map((tri
 
 const optimizeWith = (sampler: Sampler.Sampler, trials: number) =>
   Study.optimize({
-    space: makeMixedOptimizerSpace(),
+    space: MixedOptimizerSpace.make(),
     sampler,
     direction: "minimize",
     trials,

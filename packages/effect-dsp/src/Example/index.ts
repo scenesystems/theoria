@@ -5,6 +5,8 @@
  */
 import { Schema } from "effect"
 
+import { FieldRecord } from "../contracts/FieldValue.js"
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -21,7 +23,8 @@ import { Schema } from "effect"
  */
 export class Example extends Schema.Class<Example>("Example")({
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  output: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  output: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(FieldRecord)
 }) {}
 
 /**

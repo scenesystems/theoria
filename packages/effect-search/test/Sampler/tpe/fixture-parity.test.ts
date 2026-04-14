@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Match, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../../src/internal/float64.js"
 import { sampleWeightedCategoricalCandidatesFromRolls } from "../../../src/internal/tpe/candidates.js"
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
@@ -25,7 +25,7 @@ const REQUIRED_CONTINUOUS_FIXTURES = Arr.make(
 )
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
 const numberAt = (values: ReadonlyArray<number>, index: number): number =>
@@ -41,7 +41,7 @@ const asDistanceInput = (value: string | number | boolean | null): number => {
 }
 
 const absoluteDistance = (left: string | number | boolean | null, right: string | number | boolean | null): number =>
-  Float64.abs(asDistanceInput(left) - asDistanceInput(right))
+  abs(asDistanceInput(left) - asDistanceInput(right))
 
 describe("fixture-backed parity", () => {
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>
@@ -210,7 +210,7 @@ describe("fixture-backed parity", () => {
 
             const replayedSamples = Arr.map(
               fixture.payload.expected.candidateRolls,
-              ([kernelRoll, valueRoll]) => sampleFromParzen(parzen, kernelRoll, valueRoll)
+              (roll) => sampleFromParzen(parzen, roll.kernelRoll, roll.valueRoll)
             )
 
             yield* Effect.forEach(

@@ -1,17 +1,19 @@
 import * as Arr from "effect/Array"
 
 import { Cluster } from "./Layout.js"
-import { ExternalLink } from "./Link.js"
+import { ExternalLink, InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
 /**
  * A single metadata item displayed in the card footer row.
  *
- * - `link`: external link with hover styling (e.g. npm, source)
+ * - `external-link`: cross-origin link with hover styling (e.g. npm, source)
+ * - `internal-link`: same-origin link (e.g. package docs)
  * - `text`: plain label (e.g. license)
  */
 export type MetaItem =
-  | { readonly _tag: "link"; readonly label: string; readonly href: string }
+  | { readonly _tag: "external-link"; readonly label: string; readonly href: string }
+  | { readonly _tag: "internal-link"; readonly label: string; readonly href: string }
   | { readonly _tag: "text"; readonly label: string }
 
 const metaLinkClassName = "inline-flex items-baseline text-ink-700 transition-colors hover:text-ink-900"
@@ -34,11 +36,17 @@ export const CardMetaRow = ({
 }) => (
   <Cluster className={`flex-wrap items-baseline gap-x-2.5 gap-y-1 ${className ?? ""}`}>
     {Arr.flatMap(items, (item, index) => {
-      const element = item._tag === "link"
+      const element = item._tag === "external-link"
         ? (
           <ExternalLink className={metaLinkClassName} href={item.href} key={`item-${index}`}>
             <SemanticText as="span" role="row-label" text={item.label} variant="compact" />
           </ExternalLink>
+        )
+        : item._tag === "internal-link"
+        ? (
+          <InternalLink className={metaLinkClassName} href={item.href} key={`item-${index}`}>
+            <SemanticText as="span" role="row-label" text={item.label} variant="compact" />
+          </InternalLink>
         )
         : (
           <SemanticText

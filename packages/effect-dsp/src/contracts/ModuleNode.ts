@@ -47,31 +47,3 @@ export type ModuleNode = Readonly<{
   readonly params: Ref.Ref<ModuleParams>
   readonly subModules: HashMap.HashMap<ModuleId, ModuleNode>
 }>
-
-/**
- * Construct a {@link ModuleNode} from its constituent parts.
- *
- * @see {@link ModuleNode}
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeModuleNode = (options: ModuleNode): ModuleNode => options
-
-/**
- * Construct a {@link ModuleNodeSignature} from raw description and
- * instruction strings.
- *
- * @see {@link ModuleNodeSignature}
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeModuleNodeSignature = (
-  description: string,
-  instructions: string
-): ModuleNodeSignature =>
-  new ModuleNodeSignature({
-    description,
-    instructions
-  })

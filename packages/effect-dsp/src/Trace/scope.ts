@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, FiberRef } from "effect"
-import { emptyUsage, type Usage, usageDelta } from "../contracts/Usage.js"
+import { Usage } from "../contracts/Usage.js"
 import type { Entry } from "./model.js"
 import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
 
@@ -41,7 +41,7 @@ const nestedUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effe
     const result = yield* program
     const after = yield* FiberRef.get(UsageRef)
 
-    return Data.tuple(result, usageDelta({ before, after }))
+    return Data.tuple(result, Usage.delta({ before, after }))
   })
 
 const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effect<readonly [A, Usage], E, R> =>
@@ -52,7 +52,7 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
     return Data.tuple(result, usage)
   }).pipe(
     Effect.locally(UsageEnabledRef, true),
-    Effect.locally(UsageRef, emptyUsage)
+    Effect.locally(UsageRef, Usage.empty)
   )
 
 /**

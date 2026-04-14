@@ -19,7 +19,7 @@ import {
   PruningPolicySpi,
   PruningPolicySpiLayer
 } from "../pruning.js"
-import { ReportRefs } from "./model.js"
+import type { ReportRefs } from "./model.js"
 
 const reportError = (
   trialNumber: number,
@@ -111,19 +111,6 @@ const setPrunedDecision = (
         }))
   })(decision)
 
-/**
- * Creates fresh report refs for a single trial, with empty reports and no prune decision.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeReportRefs: Effect.Effect<ReportRefs> = Effect.gen(function*() {
-  return new ReportRefs({
-    reportsRef: yield* Ref.make<ReadonlyArray<IntermediateReport>>([]),
-    pruneRef: yield* Ref.make<Option.Option<PrunedDecision>>(Option.none())
-  })
-})
-
 const recordIntermediateReportWithSpi = (
   runtime: EventRuntime,
   reportRefs: ReportRefs,
@@ -149,7 +136,7 @@ const recordIntermediateReportWithSpi = (
       })
     )
 
-    yield* appendEvent(runtime, StudyEvent.TrialReported({ trialNumber, step, value, decision }))
+    yield* appendEvent(runtime, StudyEvent.TrialReported.make({ trialNumber, step, value, decision }))
     yield* setPrunedDecision(reportRefs.pruneRef, decision)
 
     return decision

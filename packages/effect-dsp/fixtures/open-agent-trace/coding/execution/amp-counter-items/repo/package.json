@@ -1,0 +1,11 @@
+{
+  "name": "amp-counter-items-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bun check.js",
+    "lint": "bun lint.js",
+    "test": "bun test.js",
+    "build": "bun build.js"
+  }
+}

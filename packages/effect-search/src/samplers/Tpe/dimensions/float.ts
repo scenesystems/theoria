@@ -4,9 +4,9 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
-import * as Float64 from "../../../internal/float64.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
@@ -16,6 +16,7 @@ import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from
 import { chooseBestCandidate, drawRollPairs } from "../candidates.js"
 import { objectiveVarianceFromSplit } from "../costModel.js"
 import { invalidConfig } from "../options.js"
+import type { PreparedTpeParameterObservations } from "../preparedModel.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
 import { numericValuesForParameter } from "./values.js"
@@ -111,10 +112,10 @@ const floatModel = (
             Match.orElse(() =>
               Effect.succeed(
                 new FloatModel({
-                  low: Float64.log(low),
-                  high: Float64.log(high),
-                  toModel: (value: number) => Float64.log(value),
-                  fromModel: (value: number) => Float64.exp(value)
+                  low: logStrict(low),
+                  high: logStrict(high),
+                  toModel: (value: number) => logStrict(value),
+                  fromModel: (value: number) => exp(value)
                 })
               )
             )
@@ -154,7 +155,8 @@ export const suggestFloatParameter = (
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<number, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const trace = yield* floatCandidateTrace(
@@ -167,7 +169,8 @@ export const suggestFloatParameter = (
       step,
       split,
       noiseOptions,
-      acquisition
+      acquisition,
+      preparedObservations
     )
 
     return yield* chooseBestCandidate(
@@ -198,37 +201,43 @@ export const floatCandidateTraceFromRolls = (
   split: TrialSplit,
   rolls: ReadonlyArray<CandidateRollPair>,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const model = yield* floatModel(parameter.name, low, high, scale, step)
     const empiricalVariance = objectiveVarianceFromSplit(split)
+    const belowValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.below),
+      onSome: (observations) => observations.belowNumeric
+    })
+    const aboveValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.above),
+      onSome: (observations) => observations.aboveNumeric
+    })
     const belowParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.below).map(model.toModel),
+      Arr.map(belowValues, model.toModel),
       model.low,
       model.high,
       noiseOptions,
       empiricalVariance
     )
     const aboveParzen = buildContinuousParzen(
-      numericValuesForParameter(parameter, split.above).map(model.toModel),
+      Arr.map(aboveValues, model.toModel),
       model.low,
       model.high,
       noiseOptions,
       empiricalVariance
     )
-    const modelCandidates = Arr.map(rolls, ([kernelRoll, valueRoll]) =>
-      sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    const modelCandidates = Arr.map(rolls, (roll) => sampleFromParzen(belowParzen, roll.kernelRoll, roll.valueRoll))
     const logPairs = Arr.map(modelCandidates, (candidate) =>
       Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate)))
 
     return new DimensionScoreTrace({
       candidates: Arr.map(modelCandidates, (candidate) =>
         normalizeFloat(model.fromModel(candidate), low, high, step)),
-      logL: Arr.map(logPairs, ([logL]) =>
-        logL),
-      logG: Arr.map(logPairs, ([_logL, logG]) =>
-        logG),
+      logL: Arr.map(logPairs, ([logL]) => logL),
+      logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
         scoreAcquisition({
           logL,
@@ -261,10 +270,22 @@ export const floatCandidateTrace = (
   step: Option.Option<number>,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   drawRollPairs(rng, nCandidates).pipe(
     Effect.flatMap((rolls) =>
-      floatCandidateTraceFromRolls(parameter, low, high, scale, step, split, rolls, noiseOptions, acquisition)
+      floatCandidateTraceFromRolls(
+        parameter,
+        low,
+        high,
+        scale,
+        step,
+        split,
+        rolls,
+        noiseOptions,
+        acquisition,
+        preparedObservations
+      )
     )
   )

@@ -8,7 +8,7 @@ import { Array as Arr, Effect, Match, Number as Num, Option } from "effect"
 import type { InvalidSamplerConfig } from "../../Errors/index.js"
 import * as Rng from "../../internal/rng.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
-import { type CandidateRollPair, makeCandidateRollPair } from "./dimensions/trace.js"
+import { CandidateRollPair } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
 const indices = (count: number): Array<number> =>
@@ -75,5 +75,5 @@ export const drawRollPairs = (
 ): Effect.Effect<Array<CandidateRollPair>> =>
   Effect.forEach(indices(count), () =>
     Effect.all([Rng.nextFloat(rng), Rng.nextFloat(rng)]).pipe(
-      Effect.map(([kernelRoll, valueRoll]) => makeCandidateRollPair(kernelRoll, valueRoll))
+      Effect.map(([kernelRoll, valueRoll]) => CandidateRollPair.make({ kernelRoll, valueRoll }))
     ))

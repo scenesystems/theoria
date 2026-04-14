@@ -657,7 +657,7 @@ const program = Effect.gen(function*() {
     maxMergeInvocations: 4,
     seed: 140
   }).pipe(
-    Optimizer.tapGEPAProgress((line) => logExampleEvent("gepa", line.text)),
+    Optimizer.GEPAProgressLine.tap((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
@@ -669,12 +669,12 @@ const program = Effect.gen(function*() {
   })
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
-  const gepaEventSummary = Optimizer.summarizeGEPAEvents(gepaEvents)
+  const gepaEventSummary = Optimizer.GEPAEventSummary.summarize(gepaEvents)
   const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
-  const gepaOutcome = Optimizer.summarizeGEPAOutcome({
+  const gepaOutcome = Optimizer.GEPAOutcomeSummary.make({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     instructionBeforeOptimization: panelParamsBeforeGEPA.instructions,
@@ -862,7 +862,7 @@ const program = Effect.gen(function*() {
 
   const convergenceFlowResult = yield* Study.optimize({
     space: protocolSpace,
-    sampler: Optimizer.effectSearchInterop.makeTpeSampler({
+    sampler: Optimizer.effectSearchInterop.Sampler.tpe({
       seed: 4401,
       multivariate: true,
       acquisition: "thompson"
@@ -944,7 +944,7 @@ const program = Effect.gen(function*() {
 
   const bridgeFlowResult = yield* Study.optimize({
     space: protocolSpace,
-    sampler: Optimizer.effectSearchInterop.makeTpeSampler({
+    sampler: Optimizer.effectSearchInterop.Sampler.tpe({
       seed: 4402,
       multivariate: true,
       acquisition: "pi"

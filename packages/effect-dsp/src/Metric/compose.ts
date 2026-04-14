@@ -4,9 +4,8 @@
  * @since 0.1.0
  */
 import { Array as Arr, Data, Effect, Option, Order, Record } from "effect"
-import type { MetricPayload } from "../contracts/MetricFn.js"
 import type { MetricResult } from "../contracts/MetricResult.js"
-import { fromEffect } from "./constructors.js"
+import { fromEffectContextual } from "./constructors.js"
 import { type Metric, Result } from "./model.js"
 import { averageNumbers } from "./score.js"
 
@@ -63,11 +62,11 @@ const scoreMap = (scores: ReadonlyArray<readonly [string, MetricResult]>): Reado
 export const compose = <E = never, R = never>(
   metrics: Readonly<Record<string, Metric<E, R>>>
 ): Metric<E, R> =>
-  fromEffect<E, R>("compose", (prediction: MetricPayload, expected: MetricPayload) =>
+  fromEffectContextual<E, R>("compose", (context) =>
     Effect.gen(function*() {
       const entries = sortedEntries(metrics)
       const scores = yield* Effect.forEach(entries, ([metricName, metric]) =>
-        metric.score(prediction, expected).pipe(
+        metric.scoreContext(context).pipe(
           Effect.map((result) => Data.tuple(metricName, result))
         ))
 

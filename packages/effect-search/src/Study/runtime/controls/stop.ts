@@ -16,7 +16,7 @@ import {
   type StopMode,
   StopRequest
 } from "../pruning.js"
-import { StopRef } from "./model.js"
+import type { StopRef } from "./model.js"
 
 const stopRequest = (
   mode: StopMode,
@@ -28,16 +28,6 @@ const stopRequest = (
     requestedByTrialNumber: trialNumber,
     reason
   })
-
-/**
- * Creates a fresh stop reference initialized to no active stop request.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeStopRef: Effect.Effect<StopRef> = Ref.make<Option.Option<StopRequest>>(Option.none()).pipe(
-  Effect.map((ref) => new StopRef({ ref }))
-)
 
 /**
  * Evaluates whether the current trial should continue or stop based on the stop ref and mode.
@@ -95,7 +85,7 @@ export const requestStudyStop = (
         onSome: (request) =>
           appendEvent(
             runtime,
-            StudyEvent.StudyStopRequested({
+            StudyEvent.StudyStopRequested.make({
               mode: request.mode,
               reason: request.reason,
               requestedByTrialNumber: request.requestedByTrialNumber

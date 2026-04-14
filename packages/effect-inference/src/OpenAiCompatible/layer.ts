@@ -15,10 +15,10 @@ import { Layer, Option } from "effect"
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import type { RuntimeCapabilities } from "../contracts/RuntimeCapabilities.js"
 import { defaultRuntimeCapabilities } from "../internal/defaultCapabilities.js"
-import { makeLiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
+import { LiveResolvedRouteDescriptor } from "../internal/resolvedRoute.js"
 import { ResolvedModelLayers, RuntimeResolution } from "../Runtime/services.js"
 import { planCompatibleTransport } from "./config.js"
-import { makeOpenAiCompatibleRoute } from "./metadata.js"
+import { OpenAiCompatibleRoute } from "./metadata.js"
 
 const compatibleLanguageLayer = (options: {
   readonly model: string
@@ -89,28 +89,30 @@ export const OpenAiCompatibleEmbeddingsLive = (options: {
  * @since 0.1.0
  * @category constructors
  */
-export const makeOpenAiCompatibleResolution = (
-  descriptor: DesiredRuntimeDescriptor,
-  baseUrl: string
-): RuntimeResolution => {
-  const route = planCompatibleTransport(
-    descriptor.route ??
-      makeOpenAiCompatibleRoute({
-        baseUrl,
-        serveMode: "local-runtime",
-        authMethod: "none"
-      })
-  ).route
-  const capabilities = defaultRuntimeCapabilities({ route })
+export const OpenAiCompatibleResolution = {
+  fromDescriptor: (
+    descriptor: DesiredRuntimeDescriptor,
+    baseUrl: string
+  ): RuntimeResolution => {
+    const route = planCompatibleTransport(
+      descriptor.route ??
+        OpenAiCompatibleRoute.make({
+          baseUrl,
+          serveMode: "local-runtime",
+          authMethod: "none"
+        })
+    ).route
+    const capabilities = defaultRuntimeCapabilities({ route })
 
-  return new RuntimeResolution({
-    desired: descriptor,
-    resolvedRoute: makeLiveResolvedRouteDescriptor(descriptor, route),
-    capabilities,
-    layers: resolvedModelLayers({
+    return new RuntimeResolution({
+      desired: descriptor,
+      resolvedRoute: LiveResolvedRouteDescriptor.fromDescriptor(descriptor, route),
       capabilities,
-      model: descriptor.artifact.modelRef,
-      baseUrl: route.baseUrl
+      layers: resolvedModelLayers({
+        capabilities,
+        model: descriptor.artifact.modelRef,
+        baseUrl: route.baseUrl
+      })
     })
-  })
+  }
 }

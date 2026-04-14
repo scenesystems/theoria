@@ -3,30 +3,19 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Option, Ref, Stream } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 describe("Optimizer.bootstrapFewShotStream", () => {
   it.effect("emits canonical BootstrapEvent progress over Stream", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const initialParams = yield* Ref.get(module.params)
 
@@ -95,7 +84,7 @@ describe("Optimizer.bootstrapFewShotStream", () => {
 
   it.effect("emits fallback lifecycle events when trace acceptance stays at zero", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       const initialParams = yield* Ref.get(module.params)

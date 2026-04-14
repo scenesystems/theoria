@@ -6,9 +6,7 @@
 
 export {
   /** @since 0.1.0 */
-  CacheDescriptor,
-  /** @since 0.1.0 */
-  makeDescriptor
+  CacheDescriptor
 } from "./descriptor.js"
 
 export {
@@ -57,8 +55,6 @@ export type {
 } from "./observer.js"
 
 export {
-  /** @since 0.1.0 */
-  makeSchemaCache,
   /** @since 0.1.0 */
   SchemaCache,
   /** @since 0.1.0 */

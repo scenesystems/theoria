@@ -2,7 +2,7 @@ import { Match } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
-import type { PaneScroll } from "../../../contracts/layout.js"
+import type { PaneScroll } from "../../../contracts/presentation/layout.js"
 
 const scrollClassName = (scroll: PaneScroll): string =>
   Match.value(scroll).pipe(

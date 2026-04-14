@@ -17,23 +17,24 @@ export class CacheDescriptor<Key, Value, EncodedKey = Key, EncodedValue = Value>
   readonly version: string
   readonly keySchema: Schema.Schema<Key, EncodedKey, never>
   readonly valueSchema: Schema.Schema<Value, EncodedValue, never>
-}> {}
-
-/**
- * Construct a cache descriptor from namespace/version metadata and key/value schemas.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeDescriptor = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
-  namespace: string,
-  version: string,
-  keySchema: Schema.Schema<Key, EncodedKey, never>,
-  valueSchema: Schema.Schema<Value, EncodedValue, never>
-): CacheDescriptor<Key, Value, EncodedKey, EncodedValue> =>
-  new CacheDescriptor({
-    namespace,
-    version,
-    keySchema,
-    valueSchema
-  })
+}> {
+  /**
+   * Constructs a cache descriptor from namespace/version metadata and key/value schemas.
+   *
+   * @since 0.1.0
+   * @category constructors
+   */
+  static make<Key, Value, EncodedKey = Key, EncodedValue = Value>(
+    namespace: string,
+    version: string,
+    keySchema: Schema.Schema<Key, EncodedKey, never>,
+    valueSchema: Schema.Schema<Value, EncodedValue, never>
+  ): CacheDescriptor<Key, Value, EncodedKey, EncodedValue> {
+    return new CacheDescriptor({
+      namespace,
+      version,
+      keySchema,
+      valueSchema
+    })
+  }
+}

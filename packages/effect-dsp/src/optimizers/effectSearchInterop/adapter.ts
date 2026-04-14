@@ -4,23 +4,40 @@
  *
  * @since 0.1.0
  */
-import { ask, cancel, fail, makeTpeSampler, open, pareto, result, resultSummary, snapshot, tell } from "./askTell.js"
-import { EffectSearchAcquisitionStrategySchema, EffectSearchInteropEventSchema } from "./model.js"
-import { events, eventsWithProgress } from "./progress.js"
+import {
+  ask as askEffectSearchInterop,
+  cancel as cancelEffectSearchInterop,
+  fail as failEffectSearchInterop,
+  open as openEffectSearchInterop,
+  pareto as paretoEffectSearchInterop,
+  result as resultEffectSearchInterop,
+  resultSummary as resultSummaryEffectSearchInterop,
+  Sampler as EffectSearchInteropSampler,
+  snapshot as snapshotEffectSearchInterop,
+  tell as tellEffectSearchInterop
+} from "./askTell.js"
+import {
+  EffectSearchAcquisitionStrategySchema as EffectSearchAcquisitionStrategySchemaValue,
+  EffectSearchInteropEventSchema as EffectSearchInteropEventSchemaValue
+} from "./model.js"
+import {
+  events as effectSearchInteropEvents,
+  eventsWithProgress as effectSearchInteropEventsWithProgress
+} from "./progress.js"
 
 export {
-  ask,
-  cancel,
-  events,
-  eventsWithProgress,
-  fail,
-  makeTpeSampler,
-  open,
-  pareto,
-  result,
-  resultSummary,
-  snapshot,
-  tell
+  askEffectSearchInterop as ask,
+  cancelEffectSearchInterop as cancel,
+  effectSearchInteropEvents as events,
+  effectSearchInteropEventsWithProgress as eventsWithProgress,
+  EffectSearchInteropSampler as Sampler,
+  failEffectSearchInterop as fail,
+  openEffectSearchInterop as open,
+  paretoEffectSearchInterop as pareto,
+  resultEffectSearchInterop as result,
+  resultSummaryEffectSearchInterop as resultSummary,
+  snapshotEffectSearchInterop as snapshot,
+  tellEffectSearchInterop as tell
 }
 
 /**
@@ -30,19 +47,21 @@ export {
  * @since 0.1.0
  * @category constructors
  */
-export const effectSearchInterop = {
-  EffectSearchAcquisitionStrategySchema,
-  EffectSearchInteropEventSchema,
-  makeTpeSampler,
-  open,
-  ask,
-  tell,
-  fail,
-  cancel,
-  snapshot,
-  result,
-  resultSummary,
-  events,
-  eventsWithProgress,
-  pareto
+export namespace effectSearchInterop {
+  export const EffectSearchAcquisitionStrategySchema: typeof EffectSearchAcquisitionStrategySchemaValue =
+    EffectSearchAcquisitionStrategySchemaValue
+  export const EffectSearchInteropEventSchema: typeof EffectSearchInteropEventSchemaValue =
+    EffectSearchInteropEventSchemaValue
+  export const Sampler = EffectSearchInteropSampler
+  export const open = openEffectSearchInterop
+  export const ask = askEffectSearchInterop
+  export const tell = tellEffectSearchInterop
+  export const fail = failEffectSearchInterop
+  export const cancel = cancelEffectSearchInterop
+  export const snapshot = snapshotEffectSearchInterop
+  export const result = resultEffectSearchInterop
+  export const resultSummary = resultSummaryEffectSearchInterop
+  export const events = effectSearchInteropEvents
+  export const eventsWithProgress = effectSearchInteropEventsWithProgress
+  export const pareto = paretoEffectSearchInterop
 }

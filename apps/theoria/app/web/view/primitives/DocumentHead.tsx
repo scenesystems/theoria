@@ -1,4 +1,5 @@
-import { fullCanonicalUrl, type PageMetadata, siteMetadata } from "../../../contracts/metadata.js"
+import type { PageMetadata } from "../../../contracts/presentation/metadata.js"
+import { SiteMetadata } from "../../../contracts/presentation/metadata.js"
 
 /**
  * Renders React 19 native metadata tags that are automatically hoisted
@@ -8,7 +9,8 @@ import { fullCanonicalUrl, type PageMetadata, siteMetadata } from "../../../cont
  * @since 0.1.0
  */
 export const DocumentHead = ({ metadata }: { readonly metadata: PageMetadata }) => {
-  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
+  const canonicalUrl = SiteMetadata.fullCanonicalUrl(metadata.canonicalPath)
+  const siteMetadata = SiteMetadata.current()
 
   return (
     <>

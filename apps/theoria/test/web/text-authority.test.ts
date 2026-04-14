@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { layoutRequestFor } from "../../app/contracts/text.js"
+import { layoutRequestFor } from "../../app/contracts/presentation/text.js"
 import { projectText } from "../../app/web/view/text/authority.js"
 
 describe("Theoria Text Authority", () => {

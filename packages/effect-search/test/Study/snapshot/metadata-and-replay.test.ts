@@ -10,14 +10,14 @@ import {
   encodeMultiConfigTrace,
   encodeNumericTrace,
   encodeObjectiveVectorTrace,
-  makeMultiSpace,
-  makeSpace,
   multiConfigTrace,
+  multiObjectiveSpace,
   multiParetoValueTrace,
   multiValueTrace,
   objectiveVector,
   singleConfigTrace,
   singleObjective,
+  singleObjectiveSpace,
   singleValueTrace
 } from "./helpers.js"
 
@@ -25,7 +25,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
   it.effect("captures canonical snapshot metadata and continues trial numbering", () =>
     Effect.gen(function*() {
       const seed = 501
-      const space = makeSpace()
+      const space = singleObjectiveSpace
       const sampler = Sampler.random({ seed })
       const initialResult = yield* Study.optimize({
         space,
@@ -90,14 +90,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 7
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         direction: "minimize",
         trials: firstLegTrials,
@@ -115,7 +115,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegSingle.value)
       const resumedResult = yield* Study.resume({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed }),
         snapshot,
         direction: "minimize",
@@ -150,14 +150,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: totalTrials,
         objective: singleObjective
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(options),
         direction: "minimize",
         trials: firstLegTrials,
@@ -175,7 +175,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegSingle.value)
       const resumedResult = yield* Study.resume({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.tpe(options),
         snapshot,
         direction: "minimize",
@@ -210,14 +210,14 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       const firstLegTrials = 5
       const secondLegTrials = totalTrials - firstLegTrials
       const baselineResult = yield* Study.optimize({
-        space: makeMultiSpace(),
+        space: multiObjectiveSpace,
         sampler: Sampler.tpe(options),
         directions: ["minimize", "minimize"],
         trials: totalTrials,
         objective: objectiveVector
       })
       const firstLegResult = yield* Study.optimize({
-        space: makeMultiSpace(),
+        space: multiObjectiveSpace,
         sampler: Sampler.tpe(options),
         directions: ["minimize", "minimize"],
         trials: firstLegTrials,
@@ -235,7 +235,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
 
       const snapshot = yield* Study.snapshot(firstLegMulti.value)
       const resumedResult = yield* Study.resume({
-        space: makeMultiSpace(),
+        space: multiObjectiveSpace,
         sampler: Sampler.tpe(options),
         snapshot,
         directions: ["minimize", "minimize"],

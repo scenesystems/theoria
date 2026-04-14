@@ -53,7 +53,7 @@ export const TrialStateSchema = Schema.Union(
  * Discriminated union representing the lifecycle state machine of a trial.
  * A trial begins as `Running` and transitions exactly once to a terminal
  * state — `Completed`, `Failed`, `Pruned`, or `Cancelled`. Transitions are
- * performed by the lifecycle functions in `Trial/lifecycle.ts`.
+ * performed by noun-owned combinators on {@link Trial}.
  *
  * @see {@link TrialStateSchema} for the underlying schema definition
  * @see {@link matchState} for exhaustive pattern matching over all variants
@@ -77,7 +77,7 @@ export const {
    * function is currently being evaluated. Records `startedAt` to compute
    * elapsed duration on transition to a terminal state.
    *
-   * @see {@link makeRunning} for the primary trial creation entry point
+   * @see {@link Trial.run} for the primary trial creation entry point
    *
    * @since 0.1.0
    * @category constructors
@@ -89,7 +89,7 @@ export const {
    * retry count, and optional evaluation/variance metadata.
    *
    * @see {@link CompletedState} for the narrowed type
-   * @see {@link complete} for the lifecycle transition function
+   * @see {@link Trial.complete} for the lifecycle transition
    *
    * @since 0.1.0
    * @category constructors
@@ -100,7 +100,7 @@ export const {
    * or returns an unrecoverable error. Captures the {@link TrialError} and
    * elapsed duration for post-hoc diagnostics.
    *
-   * @see {@link fail} for the lifecycle transition function
+   * @see {@link Trial.fail} for the lifecycle transition
    *
    * @since 0.1.0
    * @category constructors
@@ -112,7 +112,7 @@ export const {
    * the step at which pruning occurred, a human-readable reason, and the
    * policy name for auditability.
    *
-   * @see {@link prune} for the lifecycle transition function
+   * @see {@link Trial.prune} for the lifecycle transition
    *
    * @since 0.1.0
    * @category constructors

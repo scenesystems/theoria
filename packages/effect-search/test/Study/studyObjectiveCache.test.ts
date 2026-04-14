@@ -120,7 +120,7 @@ describe("StudyObjectiveCache", () => {
           Effect.fail(corruption)
       }
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* Study.StudyObjectiveCache.allocate().pipe(
         Effect.provideService(Cache.SchemaCache, corruptedSchemaCache)
       )
 
@@ -153,7 +153,7 @@ describe("StudyObjectiveCache", () => {
           })
       }
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* Study.StudyObjectiveCache.allocate().pipe(
         Effect.provideService(Cache.SchemaCache, failingSchemaCache)
       )
 
@@ -170,7 +170,7 @@ describe("StudyObjectiveCache", () => {
         record: (event) => Ref.update(events, (arr) => [...arr, event])
       })
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* Study.StudyObjectiveCache.allocate().pipe(
         Effect.provide(observerLayer)
       )
 
@@ -194,7 +194,7 @@ describe("StudyObjectiveCache", () => {
         record: (event) => Ref.update(events, (arr) => [...arr, event])
       })
 
-      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+      const objectiveCache = yield* Study.StudyObjectiveCache.allocate().pipe(
         Effect.provide(observerLayer)
       )
 

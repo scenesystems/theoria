@@ -2,27 +2,16 @@
  * Module params + Ref mutation contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Ref, Schema } from "effect"
+import { Effect, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Demo } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module params", () => {
   it.effect("allocates params Ref with default instructions and empty demos", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
       const params = yield* Ref.get(module.params)
 
@@ -32,7 +21,7 @@ describe("Module params", () => {
 
   it.effect("supports Ref mutation/read-back for demos and instructions", () =>
     Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
+      const qa = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", qa)
 
       yield* Ref.set(

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Option, Schema } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../src/internal/float64.js"
 import {
   cdf,
   cdfEffect,
@@ -51,7 +51,7 @@ const assertAbsoluteTolerance = (actual: number, expected: number, tolerance: nu
     return
   }
 
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
 describe("truncated normal fixture parity", () => {
@@ -161,10 +161,10 @@ describe("truncated normal fixture parity", () => {
           Effect.sync(() => {
             const params = toParams(entry)
 
-            expect(Float64.abs(sample(0, params) - params.low)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(sample(1, params) - params.high)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
-            expect(Float64.abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+            expect(abs(sample(0, params) - params.low)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
+            expect(abs(sample(1, params) - params.high)).toBeLessThanOrEqual(SAMPLE_ABSOLUTE_TOLERANCE)
+            expect(abs(cdf(params.low, params) - 0)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+            expect(abs(cdf(params.high, params) - 1)).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
           }),
         { discard: true }
       )
@@ -253,11 +253,11 @@ describe("truncated normal fixture parity", () => {
       const effectCdf = yield* cdfEffect(x, centeredParams)
       const effectLogPdf = yield* logPdfEffect(x, centeredParams)
 
-      expect(Float64.abs(effectSample - sample(q, centeredParams))).toBeLessThanOrEqual(
+      expect(abs(effectSample - sample(q, centeredParams))).toBeLessThanOrEqual(
         SAMPLE_ABSOLUTE_TOLERANCE
       )
-      expect(Float64.abs(effectCdf - cdf(x, centeredParams))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
-      expect(Float64.abs(effectLogPdf - logPdf(x, centeredParams))).toBeLessThanOrEqual(
+      expect(abs(effectCdf - cdf(x, centeredParams))).toBeLessThanOrEqual(CDF_ABSOLUTE_TOLERANCE)
+      expect(abs(effectLogPdf - logPdf(x, centeredParams))).toBeLessThanOrEqual(
         LOG_PDF_ABSOLUTE_TOLERANCE
       )
     }))

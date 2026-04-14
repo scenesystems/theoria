@@ -1,7 +1,9 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Clock, Effect } from "effect"
+import { Effect } from "effect"
 
+import { Version, VersionSuccessEnvelope } from "../../contracts/version.js"
 import { RuntimeInfo } from "../config/runtime.js"
+import { ResponseTiming } from "../kernel/response-timing.js"
 
 const jsonResponse = (body: unknown) =>
   HttpServerResponse.json(body, {
@@ -13,21 +15,10 @@ const jsonResponse = (body: unknown) =>
 
 export const versionRoute = (requestId: string) =>
   Effect.gen(function*() {
-    const startedAtMs = yield* Clock.currentTimeMillis
+    const timing = yield* ResponseTiming.start(requestId)
     const runtimeInfo = yield* RuntimeInfo
-    const endedAtMs = yield* Clock.currentTimeMillis
 
-    return jsonResponse({
-      ok: true,
-      meta: {
-        requestId,
-        buildSha: runtimeInfo.buildSha,
-        durationMs: endedAtMs - startedAtMs
-      },
-      data: {
-        service: "theoria",
-        buildSha: runtimeInfo.buildSha,
-        startedAtMs: runtimeInfo.startedAtMs
-      }
-    })
+    return yield* jsonResponse(
+      VersionSuccessEnvelope.ok(yield* timing.finish(), Version.current(runtimeInfo))
+    )
   })

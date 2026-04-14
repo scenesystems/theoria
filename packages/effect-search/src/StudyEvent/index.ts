@@ -10,7 +10,6 @@ export {
   /** @since 0.1.0 */ BracketCompletedSchema,
   /** @since 0.1.0 */ BracketStarted,
   /** @since 0.1.0 */ BracketStartedSchema,
-  /** @since 0.1.0 */ type CompletionReason,
   /** @since 0.1.0 */ CompletionReasonSchema,
   /** @since 0.1.0 */ isStudyEvent,
   /** @since 0.1.0 */ matchStudyEvent,
@@ -20,7 +19,6 @@ export {
   /** @since 0.1.0 */ RoundStartedSchema,
   /** @since 0.1.0 */ StudyCompleted,
   /** @since 0.1.0 */ StudyCompletedSchema,
-  /** @since 0.1.0 */ type StudyEvent,
   /** @since 0.1.0 */ StudyEventSchema,
   /** @since 0.1.0 */ StudyStopRequested,
   /** @since 0.1.0 */ StudyStopRequestedSchema,
@@ -40,4 +38,25 @@ export {
   /** @since 0.1.0 */ TrialRetriedSchema,
   /** @since 0.1.0 */ TrialStarted,
   /** @since 0.1.0 */ TrialStartedSchema
+} from "./model.js"
+
+export type {
+  /** @since 0.3.0 */ BestUpdated as BestUpdatedEvent,
+  /** @since 0.3.0 */ BracketCompleted as BracketCompletedEvent,
+  /** @since 0.3.0 */ BracketStarted as BracketStartedEvent,
+  /** @since 0.1.0 */ CompletionReason,
+  /** @since 0.3.0 */ RoundCompleted as RoundCompletedEvent,
+  /** @since 0.3.0 */ RoundStarted as RoundStartedEvent,
+  /** @since 0.3.0 */ StudyCompleted as StudyCompletedEvent,
+  /** @since 0.1.0 */ StudyEvent,
+  /** @since 0.3.0 */ StudyEventEncoded,
+  /** @since 0.3.0 */ StudyStopRequested as StudyStopRequestedEvent,
+  /** @since 0.3.0 */ TrialCancelled as TrialCancelledEvent,
+  /** @since 0.3.0 */ TrialCompleted as TrialCompletedEvent,
+  /** @since 0.3.0 */ TrialCosted as TrialCostedEvent,
+  /** @since 0.3.0 */ TrialFailed as TrialFailedEvent,
+  /** @since 0.3.0 */ TrialPruned as TrialPrunedEvent,
+  /** @since 0.3.0 */ TrialReported as TrialReportedEvent,
+  /** @since 0.3.0 */ TrialRetried as TrialRetriedEvent,
+  /** @since 0.3.0 */ TrialStarted as TrialStartedEvent
 } from "./model.js"

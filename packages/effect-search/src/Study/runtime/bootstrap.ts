@@ -9,15 +9,16 @@ import type { Scope } from "effect"
 
 import type * as StudyEvent from "../../StudyEvent/index.js"
 import type * as Trial from "../../Trial/index.js"
-import { bestValueFromTrials } from "../best.js"
 import type { EventPublisher } from "../events.js"
 import { noopEventPublisher } from "../events.js"
 import { type OptimizeSettings, singleDirectionFromSettings } from "../options.js"
 import type { StudyState } from "../state.js"
 import { stateFromInitialTrials, trialsFromState } from "../state.js"
-import { makeStopRef, type StopRef } from "./controls.js"
+import { StopRef } from "./controls.js"
 import type { StudyLifecycle } from "./lifecycle.js"
 import type { StudyClock } from "./runtimeState.js"
+import { SuggestionState } from "./suggestionState.js"
+import { warmStopStateFromTrials } from "./warmStopState.js"
 
 /**
  * Composite state pairing the lifecycle phase with the inner study trial data.
@@ -28,6 +29,7 @@ import type { StudyClock } from "./runtimeState.js"
 export class RuntimeState<Config = unknown> extends Data.Class<{
   readonly lifecycle: StudyLifecycle
   readonly studyState: StudyState<Config>
+  readonly suggestionState: SuggestionState
 }> {}
 
 type RuntimeMutationRequest<Config, A, E> = Request.Request<A, E> & {
@@ -82,35 +84,68 @@ export class StudyRuntime<Config = unknown> extends Data.Class<{
   readonly bestValueRef: Ref.Ref<Option.Option<number>>
   readonly noImprovementCountRef: Ref.Ref<number>
   readonly eventPublisher: EventPublisher
-}> {}
+}> {
+  /**
+   * Reconstructs the runtime handle around an already-booted state actor while
+   * deriving warm stop metrics from the recovered trial history.
+   *
+   * @since 0.3.0
+   * @category constructors
+   */
+  static fromActor<Config>(
+    settings: OptimizeSettings,
+    stateActor: RuntimeActor<Config>,
+    trials: ReadonlyArray<Trial.Trial<Config>>,
+    eventPublisher: EventPublisher
+  ): Effect.Effect<StudyRuntime<Config>> {
+    return Effect.gen(function*() {
+      const warmStopState = Option.match(singleDirectionFromSettings(settings), {
+        onNone: () => Option.none(),
+        onSome: (direction) => Option.some(warmStopStateFromTrials(direction, trials))
+      })
 
-const initialRuntimeState = <Config>(initialTrials: ReadonlyArray<Trial.Trial<Config>>): RuntimeState<Config> =>
-  new RuntimeState({
-    lifecycle: "Created",
-    studyState: stateFromInitialTrials(initialTrials)
-  })
-
-const makeRuntimeFromActor = <Config>(
-  settings: OptimizeSettings,
-  stateActor: RuntimeActor<Config>,
-  trials: ReadonlyArray<Trial.Trial<Config>>,
-  eventPublisher: EventPublisher
-): Effect.Effect<StudyRuntime<Config>> =>
-  Effect.gen(function*() {
-    return new StudyRuntime({
-      stateActor,
-      stopRef: yield* makeStopRef,
-      completionReasonRef: yield* Ref.make<Option.Option<StudyEvent.CompletionReason>>(Option.none()),
-      bestValueRef: yield* Ref.make<Option.Option<number>>(
-        Option.match(singleDirectionFromSettings(settings), {
-          onNone: () => Option.none(),
-          onSome: (direction) => bestValueFromTrials(direction, trials)
-        })
-      ),
-      noImprovementCountRef: yield* Ref.make(0),
-      eventPublisher
+      return new StudyRuntime({
+        stateActor,
+        stopRef: yield* StopRef.allocate,
+        completionReasonRef: yield* Ref.make<Option.Option<StudyEvent.CompletionReason>>(Option.none()),
+        bestValueRef: yield* Ref.make(
+          Option.match(warmStopState, {
+            onNone: () => Option.none(),
+            onSome: (state) => state.bestValue
+          })
+        ),
+        noImprovementCountRef: yield* Ref.make(
+          Option.match(warmStopState, {
+            onNone: () => 0,
+            onSome: (state) => state.noImprovementCount
+          })
+        ),
+        eventPublisher
+      })
     })
+  }
+}
+
+const runtimeStateFromStudyState = <Config>(
+  settings: OptimizeSettings,
+  lifecycle: StudyLifecycle,
+  studyState: StudyState<Config>
+): RuntimeState<Config> =>
+  new RuntimeState({
+    lifecycle,
+    studyState,
+    suggestionState: SuggestionState.fromStudyState(
+      settings.objectiveSpec,
+      studyState,
+      settings.priorWeight,
+      settings.epsilon
+    )
   })
+
+const initialRuntimeState = <Config>(
+  settings: OptimizeSettings,
+  initialTrials: ReadonlyArray<Trial.Trial<Config>>
+): RuntimeState<Config> => runtimeStateFromStudyState(settings, "Created", stateFromInitialTrials(initialTrials))
 
 /**
  * Boots a fresh study runtime from initial settings and optional prior trials, returning a scoped StudyRuntime.
@@ -124,9 +159,9 @@ export const initializeRuntime = <Config>(
   eventPublisher: EventPublisher = noopEventPublisher
 ): Effect.Effect<StudyRuntime<Config>, never, StudyClock | Scope.Scope> =>
   Effect.gen(function*() {
-    const stateActor = yield* Machine.boot(makeRuntimeMachine(initialRuntimeState(initialTrials)))
+    const stateActor = yield* Machine.boot(makeRuntimeMachine(initialRuntimeState(settings, initialTrials)))
 
-    return yield* makeRuntimeFromActor(settings, stateActor, initialTrials, eventPublisher)
+    return yield* StudyRuntime.fromActor<Config>(settings, stateActor, initialTrials, eventPublisher)
   })
 
 /**
@@ -141,6 +176,14 @@ export const restoreRuntime = <Config>(
   eventPublisher: EventPublisher = noopEventPublisher
 ): Effect.Effect<StudyRuntime<Config>, never, StudyClock | Scope.Scope> =>
   Effect.gen(function*() {
-    const stateActor = yield* Machine.boot(makeRuntimeMachine(snapshot), undefined, { previousState: snapshot })
-    return yield* makeRuntimeFromActor(settings, stateActor, trialsFromState(snapshot.studyState), eventPublisher)
+    const restoredState = runtimeStateFromStudyState(settings, snapshot.lifecycle, snapshot.studyState)
+    const stateActor = yield* Machine.boot(makeRuntimeMachine(restoredState), undefined, {
+      previousState: restoredState
+    })
+    return yield* StudyRuntime.fromActor<Config>(
+      settings,
+      stateActor,
+      trialsFromState(snapshot.studyState),
+      eventPublisher
+    )
   })

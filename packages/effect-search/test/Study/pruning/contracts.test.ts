@@ -7,11 +7,11 @@ import * as Trial from "../../../src/Trial/index.js"
 import {
   asSingleObjective,
   deterministicSampler,
-  makeSpace,
   objectiveWithInvalidReports,
   objectiveWithReports,
   objectiveWithStopProbe,
   pruneLowSlotPolicy,
+  pruningSpace,
   reportFailureReasons
 } from "./helpers.js"
 
@@ -19,7 +19,7 @@ describe("Study pruning and early stop contracts", () => {
   it.effect("marks pruned trials with typed metadata and excludes them from best selection", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: pruningSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 4,
@@ -52,7 +52,7 @@ describe("Study pruning and early stop contracts", () => {
   it.effect("surfaces invalid report semantics through typed InvalidObjectiveReport failures", () =>
     Effect.gen(function*() {
       const optimized = yield* Study.optimize({
-        space: makeSpace(),
+        space: pruningSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 4,
@@ -83,7 +83,7 @@ describe("Study pruning and early stop contracts", () => {
       const interruptHeartbeatRef = yield* Ref.make<ReadonlyArray<string>>([])
 
       const drainResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: pruningSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 3,
@@ -91,7 +91,7 @@ describe("Study pruning and early stop contracts", () => {
         objective: objectiveWithStopProbe(drainHeartbeatRef, "drain-stop")
       })
       const interruptResult = yield* Study.optimize({
-        space: makeSpace(),
+        space: pruningSpace,
         sampler: deterministicSampler,
         direction: "minimize",
         trials: 3,
@@ -121,7 +121,7 @@ describe("Study pruning and early stop contracts", () => {
     Effect.gen(function*() {
       const events = yield* Stream.runCollect(
         Study.optimizeStream({
-          space: makeSpace(),
+          space: pruningSpace,
           sampler: deterministicSampler,
           direction: "minimize",
           trials: 3,

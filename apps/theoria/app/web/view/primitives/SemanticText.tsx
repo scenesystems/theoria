@@ -2,8 +2,16 @@ import { Match } from "effect"
 import * as Arr from "effect/Array"
 import type { CSSProperties } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
-import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
+import {
+  fontFamilyCss,
+  fontWeightNumeric,
+  maxWidthFor,
+  semanticsFor,
+  type TextProjection,
+  type TextRole,
+  type TextWrapAuthority
+} from "../../../contracts/presentation/text.js"
 import { useTextProjection } from "../../atoms/text.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code"
@@ -12,23 +20,25 @@ type BlockElement = "p" | "h1" | "h2" | "h3" | "dt" | "dd"
 
 const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code"
 
-const fontSizeVar = (role: TextRole): string => `--st-fs-${role}`
-const fontWeightVar = (role: TextRole): string => `--st-fw-${role}`
-const trackingVar = (role: TextRole): string => `--st-tr-${role}`
-const fontFamilyVar = (role: TextRole): string => `--st-ff-${role}`
-const lineHeightVar = (role: TextRole): string => `--st-lh-${role}`
-const maxWidthCssVar = (role: TextRole, variant: SurfaceVariant): string => `--st-mw-${role}-${variant}`
-
 const textTransformFor = (role: TextRole): string => role === "row-label" ? "uppercase" : ""
 
-const glyphClassName = (role: TextRole): string =>
-  [
-    `text-(length:${fontSizeVar(role)})`,
-    `font-weight-(${fontWeightVar(role)})`,
-    `tracking-(${trackingVar(role)})`,
-    `font-family-(${fontFamilyVar(role)})`,
-    textTransformFor(role)
-  ].filter((c) => c.length > 0).join(" ")
+const textStyleFor = (role: TextRole): CSSProperties => {
+  const semantics = semanticsFor(role)
+
+  return {
+    fontFamily: fontFamilyCss(semantics.family),
+    fontSize: `${String(semantics.fontSize)}px`,
+    fontWeight: fontWeightNumeric(semantics.weight),
+    letterSpacing: semantics.tracking === 0 ? undefined : `${String(semantics.tracking)}em`,
+    lineHeight: `${String(semantics.lineHeight)}px`,
+    textTransform: textTransformFor(role)
+  }
+}
+
+const constrainedTextStyle = (role: TextRole, variant: SurfaceVariant): CSSProperties =>
+  shouldConstrainWidth(role)
+    ? { maxWidth: `${String(maxWidthFor(role, variant))}px` }
+    : {}
 
 const shouldConstrainWidth = (role: TextRole): boolean =>
   Match.value(role).pipe(
@@ -47,7 +57,7 @@ type ProjectionLine = TextProjection["lines"][number]
 const reservedLineStyle = (role: TextRole, reserveLines: number | undefined): CSSProperties | undefined =>
   reserveLines === undefined
     ? undefined
-    : { minHeight: `calc(var(${lineHeightVar(role)}) * ${String(reserveLines)})` }
+    : { minHeight: `${String(semanticsFor(role).lineHeight * reserveLines)}px` }
 
 const limitedProjectionLines = ({
   maxLines,
@@ -82,12 +92,20 @@ const lineClampStyle = ({
         ? {}
         : {
           overflow: "hidden",
-          maxHeight: `calc(var(${lineHeightVar(role)}) * ${String(maxLines)})`
+          maxHeight: `${String(semanticsFor(role).lineHeight * maxLines)}px`
         })
     }
 
 const combinedClassName = (contractClassName: string, className: string | undefined): string =>
   className === undefined ? contractClassName : `${className} ${contractClassName}`
+
+const combinedStyle = (
+  base: CSSProperties,
+  extension: CSSProperties | undefined
+): CSSProperties => ({
+  ...base,
+  ...(extension ?? {})
+})
 
 const ProjectedLines = ({
   preserveWhitespace,
@@ -120,11 +138,12 @@ const InlineText = ({
   readonly text: string
 }) => {
   const Component = as
-  const glyph = glyphClassName(role)
-  const leading = `leading-(${lineHeightVar(role)})`
-  const base = `whitespace-nowrap ${glyph} ${leading}`
 
-  return <Component className={combinedClassName(base, className)}>{text}</Component>
+  return (
+    <Component className={combinedClassName("whitespace-nowrap", className)} style={textStyleFor(role)}>
+      {text}
+    </Component>
+  )
 }
 
 const NoWrapBlockText = ({
@@ -139,11 +158,12 @@ const NoWrapBlockText = ({
   readonly text: string
 }) => {
   const Component = as
-  const glyph = glyphClassName(role)
-  const leading = `leading-(${lineHeightVar(role)})`
-  const base = `whitespace-nowrap ${glyph} ${leading}`
 
-  return <Component className={combinedClassName(base, className)}>{text}</Component>
+  return (
+    <Component className={combinedClassName("whitespace-nowrap", className)} style={textStyleFor(role)}>
+      {text}
+    </Component>
+  )
 }
 
 const BrowserWrappedBlockText = ({
@@ -165,19 +185,21 @@ const BrowserWrappedBlockText = ({
 }) => {
   const semantics = semanticsFor(role)
   const Component = as
-  const glyph = glyphClassName(role)
-  const leading = `leading-(${lineHeightVar(role)})`
-  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
   const whiteSpace = Match.value(semantics.whiteSpace).pipe(
     Match.when("pre-wrap", () => "whitespace-pre-wrap"),
     Match.orElse(() => "whitespace-normal")
   )
-  const fallback = `${whiteSpace} ${glyph} ${leading} ${maxWidthClass}`
 
   return (
     <Component
-      className={combinedClassName(fallback, className)}
-      style={lineClampStyle({ maxLines, reserveLines, role })}
+      className={combinedClassName(whiteSpace, className)}
+      style={combinedStyle(
+        {
+          ...textStyleFor(role),
+          ...constrainedTextStyle(role, variant)
+        },
+        lineClampStyle({ maxLines, reserveLines, role })
+      )}
     >
       {text}
     </Component>
@@ -204,22 +226,24 @@ const ProjectedWrappedBlockText = ({
   const { projection, ref } = useTextProjection({ role, text, variant })
   const semantics = semanticsFor(role)
   const Component = as
-  const glyph = glyphClassName(role)
-  const leading = `leading-(${lineHeightVar(role)})`
-  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
 
   if (projection !== null) {
-    const projected = `${glyph} ${leading} ${maxWidthClass}`
     const visibleLines = limitedProjectionLines({ maxLines, projection })
 
     return (
       <Component
         ref={ref}
-        className={combinedClassName(projected, className)}
+        className={className}
         data-lines={visibleLines.length}
         data-height={visibleLines.length * semantics.lineHeight}
         data-max-line-width={projection.summary.maxLineWidth}
-        style={reservedLineStyle(role, reserveLines)}
+        style={combinedStyle(
+          {
+            ...textStyleFor(role),
+            ...constrainedTextStyle(role, variant)
+          },
+          reservedLineStyle(role, reserveLines)
+        )}
       >
         <ProjectedLines
           preserveWhitespace={semantics.whiteSpace === "pre-wrap"}

@@ -12,7 +12,7 @@ const cloneWithConstraints = (
   trial: SuggestCompletedTrial,
   constraints: ReadonlyArray<number>
 ): SuggestCompletedTrial =>
-  new SuggestCompletedTrial({
+  SuggestCompletedTrial.make({
     trialNumber: trial.trialNumber,
     config: trial.config,
     value: trial.value,

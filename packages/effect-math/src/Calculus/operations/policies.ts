@@ -6,6 +6,14 @@
  */
 
 /**
+ * Policy-aware wrappers for ODE solver surfaces.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export * from "./policies/ode.js"
+
+/**
  * Policy-aware wrappers for multivariate calculus surfaces.
  *
  * @since 0.1.0

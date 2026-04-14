@@ -17,6 +17,7 @@ import {
   EnsembleMajorityVoteFixtureSchema,
   EvaluateEventOrderFixtureSchema,
   EvaluateReportShapeFixtureSchema,
+  FixtureRegistry,
   GepaAcceptMergeNonStrictFixtureSchema,
   GepaAcceptMutationStrictGreaterFixtureSchema,
   GepaCatalogVersionedFixturesFixtureSchema,
@@ -35,11 +36,11 @@ import {
   GepaReplaySeedContractFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
   LabeledFewShotSampleFixtureSchema,
-  makeFixtureRegistry,
   MetricScoreFeedbackFixtureSchema,
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema,
+  MultiChainComparisonFixtureSchema,
   TraceEntryShapeFixtureSchema,
   TraceFiberIsolationFixtureSchema
 } from "./dspy-fixtures/index.js"
@@ -83,7 +84,7 @@ const listFixtureJsonFiles = (
 describe("DSPy fixture registry", () => {
   it.effect("loads schema-validated fixtures from the manifest", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const basic = yield* registry.load("dspy.chat.qa-basic")
       const withDemo = yield* registry.load("dspy.chat.qa-with-demo")
       const systemMessage = yield* registry.load("dspy.chat.system-message.basic")
@@ -94,6 +95,7 @@ describe("DSPy fixture registry", () => {
       const cotReasoning = yield* registry.load("dspy.cot.reasoning-field.basic")
       const traceEntryShape = yield* registry.load("dspy.trace.entry-shape.basic")
       const traceFiberIsolation = yield* registry.load("dspy.trace.fiber-isolation.seed-0")
+      const multiChainComparison = yield* registry.load("dspy.multiChainComparison.basic")
       const evaluateReportShape = yield* registry.load("dspy.evaluate.report-shape.basic")
       const evaluateEventOrder = yield* registry.load("dspy.evaluate.event-order.basic")
       const metricScoreFeedback = yield* registry.load("dspy.metric.score-feedback.contract")
@@ -141,6 +143,9 @@ describe("DSPy fixture registry", () => {
       const decodedTraceEntryShape = yield* Schema.decodeUnknown(TraceEntryShapeFixtureSchema)(traceEntryShape)
       const decodedTraceFiberIsolation = yield* Schema.decodeUnknown(TraceFiberIsolationFixtureSchema)(
         traceFiberIsolation
+      )
+      const decodedMultiChainComparison = yield* Schema.decodeUnknown(MultiChainComparisonFixtureSchema)(
+        multiChainComparison
       )
       const decodedEvaluateReportShape = yield* Schema.decodeUnknown(EvaluateReportShapeFixtureSchema)(
         evaluateReportShape
@@ -245,6 +250,9 @@ describe("DSPy fixture registry", () => {
       expect(decodedCotReasoning.payload.outputFieldOrder[0]).toBe("reasoning")
       expect(decodedTraceEntryShape.payload.traceEntryTupleLength).toBe(3)
       expect(decodedTraceFiberIsolation.payload.crossScopeTraceLeakDetected).toBe(false)
+      expect(decodedMultiChainComparison.payload.reasoningAttempts).toHaveLength(
+        decodedMultiChainComparison.payload.candidateCount
+      )
       expect(decodedEvaluateReportShape.payload.totalExamples).toBe(decodedEvaluateReportShape.payload.examples.length)
       expect(decodedEvaluateEventOrder.payload.eventCount).toBe(decodedEvaluateEventOrder.payload.events.length)
       expect(decodedMetricScoreFeedback.payload.cases.length).toBeGreaterThan(0)
@@ -279,7 +287,7 @@ describe("DSPy fixture registry", () => {
 
   it.effect("loads namespace fixture families for CoT, trace, evaluate, metric, and optimizer contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       const cotFixtures = yield* registry.loadAll("dspy.cot.")
       const traceFixtures = yield* registry.loadAll("dspy.trace.")
       const evaluateFixtures = yield* registry.loadAll("dspy.evaluate.")
@@ -383,7 +391,7 @@ describe("DSPy fixture registry", () => {
 
   it.effect("validates the full fixture manifest against schema contracts", () =>
     Effect.gen(function*() {
-      const registry = makeFixtureRegistry()
+      const registry = FixtureRegistry.make()
       yield* registry.validateManifest
     }))
 

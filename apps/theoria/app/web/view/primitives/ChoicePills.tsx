@@ -1,19 +1,16 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import * as Arr from "effect/Array"
 
-import {
-  pillButtonClassName,
-  segmentedControlButtonClassName,
-  segmentedControlRailClassName,
-  type ToneClasses
-} from "./designSystem.js"
+import type { ChoicePillValue, TypedChoicePillOption } from "./choice-pill-model.js"
 import { Cluster, Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { pillButtonClassName, segmentedControlButtonClassName, segmentedControlRailClassName } from "./theme/button.js"
+import { type Tone } from "./theme/tone.js"
 
 type ChoicePillsAppearance = "pill" | "segment"
 
-export const ChoicePills = ({
-  activeIndex,
+export const ChoicePills = <Value extends ChoicePillValue>({
+  activeValue,
   appearance = "pill",
   className,
   disabled,
@@ -21,27 +18,27 @@ export const ChoicePills = ({
   options,
   tone
 }: {
-  readonly activeIndex: number
+  readonly activeValue: Value
   readonly appearance?: ChoicePillsAppearance
   readonly className?: string
   readonly disabled: boolean
-  readonly onSelect: (index: number) => void
-  readonly options: ReadonlyArray<{ readonly index: number; readonly label: string }>
-  readonly tone: ToneClasses
+  readonly onSelect: (value: Value) => void
+  readonly options: ReadonlyArray<TypedChoicePillOption<Value>>
+  readonly tone: Tone
 }) => {
   const optionNodes = Arr.map(options, (option) => {
-    const active = option.index === activeIndex
+    const active = option.value === activeValue
     const buttonClassName = appearance === "segment"
       ? segmentedControlButtonClassName({ active, tone })
       : pillButtonClassName({ active, tone })
 
     return (
       <Button
-        key={option.index}
+        key={option.value}
         className={buttonClassName}
         disabled={disabled}
         onClick={() => {
-          onSelect(option.index)
+          onSelect(option.value)
         }}
         type="button"
       >

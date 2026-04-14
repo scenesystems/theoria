@@ -26,8 +26,10 @@ describe("package export contracts", () => {
       "./Optimization",
       "./Geometry",
       "./Complex",
+      "./Fft",
       "./Distribution",
       "./Distribution/internal/*",
+      "./Fft/internal/*",
       "./internal/*",
       "./Numeric/internal/*",
       "./Algebra/internal/*",
@@ -58,6 +60,7 @@ describe("package export contracts", () => {
         "./Optimization/internal/*",
         "./Geometry/internal/*",
         "./Complex/internal/*",
+        "./Fft/internal/*",
         "./Distribution/internal/*"
       )
 

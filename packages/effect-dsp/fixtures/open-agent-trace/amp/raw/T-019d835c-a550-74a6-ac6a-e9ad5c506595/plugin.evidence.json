@@ -1,0 +1,43 @@
+{
+  "desired": {
+    "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+    "sourceUrl": "https://ampcode.com/threads/T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+    "visibility": "public",
+    "captureMethod": "plugin-api"
+  },
+  "resolved": {
+    "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+    "sessionId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+    "captureMethod": "plugin-api",
+    "rawFileName": "plugin.raw.json",
+    "rawDigest": "blake3-256:UhZj6QrHK4xDBHEWgQjMHP750jzrTMvKOE-7dsNI5a0",
+    "derivedFileName": "plugin.capture.json",
+    "sourceHash": "blake3-256:UhZj6QrHK4xDBHEWgQjMHP750jzrTMvKOE-7dsNI5a0"
+  },
+  "observed": {
+    "capturedAt": "2026-04-12T20:41:40.988Z",
+    "startedAt": "2026-04-12T20:40:19.331Z",
+    "firstTaskSummary": "Read README.md, confirm price.ts still satisfies the fixture requirement, run 'bun price.ts' to verify the current output, then stop.",
+    "toolNames": [
+      "Read",
+      "Bash"
+    ],
+    "shellCommands": [
+      "bun price.ts"
+    ],
+    "terminalStatus": "done",
+    "coverageKinds": [
+      "branch-lineage",
+      "usage-provenance"
+    ]
+  },
+  "capabilityGaps": [
+    "branch-lineage",
+    "usage-provenance"
+  ],
+  "reviewBoundary": {
+    "rawArtifactAuthority": true,
+    "derivedReplayAuthority": "checked-in-derived-replay",
+    "notes": "The checked-in raw public capture is authoritative. Derived replay captures exist only to provide strict, offline package loading."
+  }
+}

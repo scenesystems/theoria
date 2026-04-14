@@ -7,7 +7,7 @@ const assertLayer = <A, E, R>(_: Layer.Layer<A, E, R>): true => true
 
 describe("OpenAiCompatible/public-surface", () => {
   it("creates a normalized openai-compatible route", () => {
-    const route = OpenAiCompatible.makeOpenAiCompatibleRoute({
+    const route = OpenAiCompatible.OpenAiCompatibleRoute.make({
       baseUrl: "http://localhost:11434/v1",
       serveMode: "local-runtime",
       authMethod: "none",

@@ -3,25 +3,14 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Fiber, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Exit, Fiber, Layer, Ref, type Schema, Stream } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { Example } from "effect-dsp/Example"
 import * as Metric from "effect-dsp/Metric"
 import * as Module from "effect-dsp/Module"
 import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
 import { MockLanguageModel } from "effect-dsp/test"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../../helpers/qa-signatures.js"
 
 const trainset = Arr.make(
   new Example({
@@ -34,18 +23,20 @@ const trainset = Arr.make(
   })
 )
 
-const makeOptimizerOptions = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
-  module: Module.Module<I, O>
-) => ({
-  module,
-  trainset,
-  valset: trainset,
-  metric: Metric.exactMatch("answer"),
-  numCandidates: 4,
-  numInstructions: 4,
-  trialBudget: 6,
-  seed: 37
-})
+const Miprov2StreamOptions = {
+  fromModule: <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+    module: Module.Module<I, O>
+  ) => ({
+    module,
+    trainset,
+    valset: trainset,
+    metric: Metric.exactMatch("answer"),
+    numCandidates: 4,
+    numInstructions: 4,
+    trialBudget: 6,
+    seed: 37
+  })
+}
 
 const forceStructuredOutputStrategy = <
   I extends Schema.Struct.Fields,
@@ -69,7 +60,7 @@ const forceStructuredOutputStrategy = <
 describe("Optimizer.miprov2Stream", () => {
   it.effect("emits MIPROv2 events in canonical phase order", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       yield* forceStructuredOutputStrategy(module)
@@ -84,7 +75,7 @@ describe("Optimizer.miprov2Stream", () => {
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const events = yield* Stream.runCollect(
-        Optimizer.miprov2Stream(makeOptimizerOptions(module))
+        Optimizer.miprov2Stream(Miprov2StreamOptions.fromModule(module))
       ).pipe(Effect.provide(layer))
 
       const tags = Arr.map(Arr.fromIterable(events), (event) => event._tag)
@@ -99,7 +90,7 @@ describe("Optimizer.miprov2Stream", () => {
 
   it.live("supports interruption of the stream runtime", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
 
       yield* forceStructuredOutputStrategy(module)
@@ -117,7 +108,7 @@ describe("Optimizer.miprov2Stream", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, slowMock.service)
       const fiber = yield* Stream.runDrain(
-        Optimizer.miprov2Stream(makeOptimizerOptions(module))
+        Optimizer.miprov2Stream(Miprov2StreamOptions.fromModule(module))
       ).pipe(
         Effect.provide(layer),
         Effect.fork
@@ -132,7 +123,7 @@ describe("Optimizer.miprov2Stream", () => {
 
   it.effect("keeps stream and non-stream optimization states in parity", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const moduleA = yield* Module.predict("qa-a", signature)
       const moduleB = yield* Module.predict("qa-b", signature)
 
@@ -156,9 +147,9 @@ describe("Optimizer.miprov2Stream", () => {
       const layerA = Layer.succeed(LanguageModel.LanguageModel, mockA.service)
       const layerB = Layer.succeed(LanguageModel.LanguageModel, mockB.service)
 
-      yield* Optimizer.miprov2(makeOptimizerOptions(moduleA)).pipe(Effect.provide(layerA))
+      yield* Optimizer.miprov2(Miprov2StreamOptions.fromModule(moduleA)).pipe(Effect.provide(layerA))
       yield* Stream.runDrain(
-        Optimizer.miprov2Stream(makeOptimizerOptions(moduleB))
+        Optimizer.miprov2Stream(Miprov2StreamOptions.fromModule(moduleB))
       ).pipe(Effect.provide(layerB))
 
       const stateA = yield* Module.save(moduleA)

@@ -54,6 +54,20 @@ export class StatisticsShapeError extends Schema.TaggedError<StatisticsShapeErro
 }) {}
 
 /**
+ * Raised when an inferential input is numerically well-shaped but invalid for
+ * the requested operation, for example a zero effect-size inversion target.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class StatisticsParameterError
+  extends Schema.TaggedError<StatisticsParameterError>()("StatisticsParameterError", {
+    operation: Schema.String,
+    message: Schema.String
+  })
+{}
+
+/**
  * Raised under the `"strict"` precision policy when an operation produces a
  * non-finite result (NaN or ±Infinity) due to numerical issues such as
  * negative variance from catastrophic cancellation.
@@ -86,5 +100,6 @@ export type StatisticsBoundaryError = StatisticsDomainBoundaryError | BoundaryDe
  */
 export type StatisticsOperationError =
   | StatisticsDecodeError
+  | StatisticsParameterError
   | StatisticsShapeError
   | StatisticsDomainViolationError

@@ -5,7 +5,8 @@
   "type": "module",
   "description": "AST-backed source structure proofs for Theoria workspace tests",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
@@ -20,11 +21,17 @@
   "dependencies": {
     "@effect/platform": "0.96.0",
     "effect": "3.21.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@effect/platform-bun": "0.89.0",
     "@effect/vitest": "^0.29.0",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^25.5.0"
   }
 }

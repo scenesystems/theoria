@@ -4,8 +4,8 @@
  * @since 0.1.0
  */
 import { Option } from "effect"
+import { logStrict } from "effect-math/Numeric"
 
-import * as Float64 from "../../../internal/float64.js"
 import { scoreWithEstimatedCost } from "../../../internal/tpe/expectedImprovement.js"
 import { type AcquisitionContext, AcquisitionImplementation } from "./model.js"
 
@@ -19,8 +19,8 @@ const clampRoll = (roll: number): number =>
     : roll
 
 const gumbelNoise = (roll: number): number =>
-  -Float64.log(
-    -Float64.log(clampRoll(roll))
+  -logStrict(
+    -logStrict(clampRoll(roll))
   )
 
 /**

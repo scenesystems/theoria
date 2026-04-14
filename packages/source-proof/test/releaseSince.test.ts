@@ -2,11 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
 import {
+  packageNameFromString,
   PackagePublicExport,
   releaseGovernedVersion,
   ReleaseSinceSnapshot,
   ReleaseSinceSnapshotEntry,
   ReleaseSinceSnapshotJson,
+  releaseVersionFromString,
   stampReleaseSinceSnapshot,
   verifyReleaseSince
 } from "../src/index.js"
@@ -16,28 +18,28 @@ describe("release since governance", () => {
     Effect.sync(() => {
       expect(
         releaseGovernedVersion({
-          currentVersion: "0.1.0",
-          packageName: "effect-text",
+          currentVersion: releaseVersionFromString("0.1.0"),
+          packageName: packageNameFromString("effect-text"),
           pendingReleases: [
-            ["effect-text", "patch"],
-            ["effect-text", "minor"],
-            ["effect-math", "major"]
+            [packageNameFromString("effect-text"), "patch"],
+            [packageNameFromString("effect-text"), "minor"],
+            [packageNameFromString("effect-math"), "major"]
           ]
         })
       ).toBe("0.2.0")
 
       expect(
         releaseGovernedVersion({
-          currentVersion: "0.2.0",
-          packageName: "effect-math",
-          pendingReleases: [["effect-math", "patch"]]
+          currentVersion: releaseVersionFromString("0.2.0"),
+          packageName: packageNameFromString("effect-math"),
+          pendingReleases: [[packageNameFromString("effect-math"), "patch"]]
         })
       ).toBe("0.2.1")
 
       expect(
         releaseGovernedVersion({
-          currentVersion: "0.2.1",
-          packageName: "effect-search",
+          currentVersion: releaseVersionFromString("0.2.1"),
+          packageName: packageNameFromString("effect-search"),
           pendingReleases: []
         })
       ).toBe("0.2.1")
@@ -47,14 +49,14 @@ describe("release since governance", () => {
     Effect.gen(function*() {
       const previousSnapshots = [
         new ReleaseSinceSnapshot({
-          packageName: "fixture-package",
-          releasedVersion: "0.2.0",
+          packageName: packageNameFromString("fixture-package"),
+          releasedVersion: releaseVersionFromString("0.2.0"),
           exports: [
             new ReleaseSinceSnapshotEntry({
               subpath: ".",
               exportName: "existing",
               kind: "value",
-              firstReleasedIn: "0.1.0"
+              firstReleasedIn: releaseVersionFromString("0.1.0")
             })
           ]
         })
@@ -65,21 +67,21 @@ describe("release since governance", () => {
           subpath: ".",
           exportName: "existing",
           kind: "value",
-          since: "0.1.0",
+          since: releaseVersionFromString("0.1.0"),
           category: "operations"
         }),
         new PackagePublicExport({
           subpath: ".",
           exportName: "newFeature",
           kind: "value",
-          since: "0.3.0",
+          since: releaseVersionFromString("0.3.0"),
           category: "operations"
         })
       ]
 
       const stamped = stampReleaseSinceSnapshot({
-        packageName: "fixture-package",
-        releasedVersion: "0.3.0",
+        packageName: packageNameFromString("fixture-package"),
+        releasedVersion: releaseVersionFromString("0.3.0"),
         exports: currentExports,
         previousSnapshots
       })
@@ -110,14 +112,14 @@ describe("release since governance", () => {
 
       expect(
         verifyReleaseSince({
-          currentVersion: "0.3.0",
+          currentVersion: releaseVersionFromString("0.3.0"),
           snapshots: previousSnapshots,
           exports: [
             new PackagePublicExport({
               subpath: ".",
               exportName: "existing",
               kind: "value",
-              since: "0.2.0",
+              since: releaseVersionFromString("0.2.0"),
               category: "operations"
             }),
             new PackagePublicExport({

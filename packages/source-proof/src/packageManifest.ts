@@ -1,6 +1,7 @@
 import { Path } from "@effect/platform"
 import { Array as Arr, Effect, Option, Record as Rec, Schema } from "effect"
 
+import { PackageNameSchema, ReleaseVersionSchema } from "./identifiers.js"
 import { PackagePublicEntrypoint, SourceFilePath } from "./model.js"
 
 /**
@@ -10,8 +11,8 @@ import { PackagePublicEntrypoint, SourceFilePath } from "./model.js"
  * @category schemas
  */
 export const PackageReleaseManifestSchema = Schema.Struct({
-  name: Schema.String,
-  version: Schema.String,
+  name: PackageNameSchema,
+  version: ReleaseVersionSchema,
   exports: Schema.Record({
     key: Schema.String,
     value: Schema.Unknown

@@ -63,6 +63,12 @@ export * from "./algorithms/slhDsa.js"
 export * from "./algorithms/hybrid.js"
 
 /**
+ * @since 0.2.0
+ * @category algorithms
+ */
+export * from "./algorithmMatrix.js"
+
+/**
  * @since 0.1.0
  * @category signing
  */
@@ -85,6 +91,12 @@ export * from "./kem.js"
  * @category keys
  */
 export * from "./keyPair.js"
+
+/**
+ * @since 0.2.0
+ * @category codecs
+ */
+export * from "./codecs.js"
 
 /**
  * @since 0.1.0
@@ -115,6 +127,24 @@ export * from "./schemas/KeyPair.js"
  * @category schemas
  */
 export * from "./schemas/Signature.js"
+
+/**
+ * @since 0.2.0
+ * @category schemas
+ */
+export * from "./schemas/DetachedSignature.js"
+
+/**
+ * @since 0.2.0
+ * @category schemas
+ */
+export * from "./schemas/VerifyMany.js"
+
+/**
+ * @since 0.2.0
+ * @category schemas
+ */
+export * from "./schemas/PortableArtifacts.js"
 
 /**
  * @since 0.1.0

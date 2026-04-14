@@ -6,10 +6,14 @@ import * as Arr from "effect/Array"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
-import type { Id } from "../../app/contracts/id.js"
-import { encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence-stream.js"
-import { DeepDivePage } from "../../app/web/view/deep/DeepDivePage.js"
-import { programPreviewFixture } from "../helpers/demo-fixtures.js"
+import type { EntryId } from "../../app/contracts/entry/id.js"
+import { EntryPresentation } from "../../app/contracts/entry/routing.js"
+import { canonicalStepEvent, encodeEvidenceEventJson, StreamComplete } from "../../app/contracts/evidence/stream.js"
+import { PageMetadata } from "../../app/contracts/presentation/metadata.js"
+import { taskBriefingWorkflowSessionId } from "../../app/contracts/study/workflow/fixture-manifest.js"
+import { WorkflowCanonicalStep } from "../../app/contracts/study/workflow/step.js"
+import { EntryPage } from "../../app/web/view/entry/EntryPage.js"
+import { programPreviewFixture } from "../helpers/entry-fixtures.js"
 
 type EventListener = (event: Event | MessageEvent<string>) => void
 
@@ -50,7 +54,7 @@ const streamMeta = {
   durationMs: 1
 }
 
-const renderDeepDivePage = (id: Id): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
+const renderEntryPage = (id: EntryId): Effect.Effect<{ readonly container: HTMLDivElement; readonly root: ReturnType<typeof createRoot> }, never, never> =>
   Effect.sync(() => {
     const container = document.createElement("div")
     document.body.appendChild(container)
@@ -60,7 +64,7 @@ const renderDeepDivePage = (id: Id): Effect.Effect<{ readonly container: HTMLDiv
       <StrictMode>
         <RegistryProvider defaultIdleTTL={400}>
           <Tooltip.Provider>
-            <DeepDivePage id={id} />
+            <EntryPage entry={EntryPresentation.fromEntryId(id)} metadata={PageMetadata.fromEntryId(id)} />
           </Tooltip.Provider>
         </RegistryProvider>
       </StrictMode>
@@ -104,14 +108,14 @@ const withMockNetwork = <A,>(effect: Effect.Effect<A, never, never>): Effect.Eff
     yield* Effect.sync(() => {
       MockEventSource.instances = []
       Reflect.set(globalThis, "EventSource", MockEventSource)
-      Reflect.set(globalThis, "fetch", (input: string | URL | Request) =>
+      Reflect.set(globalThis, "fetch", (_input: string | URL | Request) =>
         Promise.resolve({
           json: () => Promise.resolve({
             ok: true,
             meta: preloadMeta,
             data: {
               ...programPreviewFixture,
-              id: String(input).includes("effect-search") ? "effect-search" : programPreviewFixture.id
+              id: "workflow"
             }
           })
         })
@@ -136,7 +140,7 @@ describe("live run controls", () => {
     () =>
       withMockNetwork(
         Effect.gen(function*() {
-          const { container, root } = yield* renderDeepDivePage("effect-search")
+          const { container, root } = yield* renderEntryPage("workflow")
 
           yield* Effect.ensuring(
             Effect.gen(function*() {
@@ -161,11 +165,30 @@ describe("live run controls", () => {
               expect(resumedPauseButton.textContent?.includes("Pause")).toBe(true)
 
               yield* Effect.sync(() => {
+                const stepEvent = encodeEvidenceEventJson(
+                  canonicalStepEvent(
+                    WorkflowCanonicalStep.make({
+                      seedId: taskBriefingWorkflowSessionId,
+                      workflowKind: "task-first",
+                      variant: "baseline",
+                      nodeId: "planner-task",
+                      nodeKind: "planner",
+                      runtimeRole: "task",
+                      stepIndex: 1,
+                      stepCount: 3,
+                      lineage: ["planner-task"],
+                      activeStateLanes: ["conversation"],
+                      outputText: "Workflow smoke test progressed to the first authored step.",
+                      aggregateScore: 0.67
+                    })
+                  )
+                )
                 const completionEvent = encodeEvidenceEventJson(
-                  new StreamComplete({ summary: "UI smoke complete.", meta: streamMeta })
+                  StreamComplete.make({ summary: "UI smoke complete.", meta: streamMeta })
                 )
 
                 openSources().forEach((source) => {
+                  source.emitEvidence(stepEvent)
                   source.emitEvidence(completionEvent)
                 })
               })

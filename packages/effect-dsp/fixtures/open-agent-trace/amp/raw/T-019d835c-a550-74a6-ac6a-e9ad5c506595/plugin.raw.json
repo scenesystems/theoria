@@ -1,0 +1,212 @@
+{
+  "threadId": "T-019d835c-a550-74a6-ac6a-e9ad5c506595",
+  "cwd": "/private/tmp/amp-open-agent-trace-price-fixture",
+  "capturedAt": "2026-04-12T20:41:40.988Z",
+  "sessionStart": {
+    "timestamp": "2026-04-12T20:40:17.894Z",
+    "payload": {
+      "thread": {
+        "id": "T-019d835c-a550-74a6-ac6a-e9ad5c506595"
+      }
+    }
+  },
+  "turns": [
+    {
+      "startedAt": "2026-04-12T20:40:19.331Z",
+      "agentStart": {
+        "timestamp": "2026-04-12T20:40:19.331Z",
+        "payload": {
+          "message": "Read README.md, confirm price.ts still satisfies the fixture requirement, run 'bun price.ts' to verify the current output, then stop.",
+          "id": 8
+        }
+      },
+      "events": [
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:20.266Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-a550-74a6-ac6a-e9ad5c506595"
+            },
+            "toolUseID": "toolu_vrtx_01QLQTn8aCgAYTe4eyjY49Wi",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-price-fixture/README.md"
+            }
+          }
+        },
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:20.729Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-a550-74a6-ac6a-e9ad5c506595"
+            },
+            "toolUseID": "toolu_vrtx_013QysvRRkbMqrgefhvB1xgK",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-price-fixture/price.ts"
+            }
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:21.002Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_01QLQTn8aCgAYTe4eyjY49Wi",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-price-fixture/README.md"
+            },
+            "status": "done"
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:21.002Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_013QysvRRkbMqrgefhvB1xgK",
+            "tool": "Read",
+            "input": {
+              "path": "/private/tmp/amp-open-agent-trace-price-fixture/price.ts"
+            },
+            "status": "done"
+          }
+        },
+        {
+          "type": "tool.call",
+          "timestamp": "2026-04-12T20:40:23.574Z",
+          "payload": {
+            "thread": {
+              "id": "T-019d835c-a550-74a6-ac6a-e9ad5c506595"
+            },
+            "toolUseID": "toolu_vrtx_01NHh5mbjvo7yJA7ngPGQpeR",
+            "tool": "Bash",
+            "input": {
+              "cmd": "bun price.ts",
+              "cwd": "/private/tmp/amp-open-agent-trace-price-fixture"
+            }
+          }
+        },
+        {
+          "type": "tool.result",
+          "timestamp": "2026-04-12T20:40:25.435Z",
+          "payload": {
+            "toolUseID": "toolu_vrtx_01NHh5mbjvo7yJA7ngPGQpeR",
+            "tool": "Bash",
+            "input": {
+              "cmd": "bun price.ts",
+              "cwd": "/private/tmp/amp-open-agent-trace-price-fixture"
+            },
+            "status": "done"
+          }
+        }
+      ],
+      "agentEnd": {
+        "timestamp": "2026-04-12T20:40:26.937Z",
+        "payload": {
+          "message": "Read README.md, confirm price.ts still satisfies the fixture requirement, run 'bun price.ts' to verify the current output, then stop.",
+          "id": 8,
+          "status": "done",
+          "messages": [
+            {
+              "role": "user",
+              "id": 8,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Read README.md, confirm price.ts still satisfies the fixture requirement, run 'bun price.ts' to verify the current output, then stop."
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 9,
+              "content": [
+                {
+                  "type": "thinking",
+                  "thinking": "The user wants me to read README.md, confirm price.ts satisfies the requirement, and run it to verify."
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_01QLQTn8aCgAYTe4eyjY49Wi",
+                  "name": "Read",
+                  "input": {
+                    "path": "/private/tmp/amp-open-agent-trace-price-fixture/README.md"
+                  }
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_013QysvRRkbMqrgefhvB1xgK",
+                  "name": "Read",
+                  "input": {
+                    "path": "/private/tmp/amp-open-agent-trace-price-fixture/price.ts"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "id": 10,
+              "content": [
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_01QLQTn8aCgAYTe4eyjY49Wi",
+                  "output": "{\"content\":\"1: # Amp Price Fixture Repo\\n2: \\n3: This tiny repo exists only to produce a public Amp thread fixture.\\n4: \\n5: Task: update `price.ts` so `formatPrice(12)` prints `$12.00`, then run `bun price.ts`.\",\"absolutePath\":\"/private/tmp/amp-open-agent-trace-price-fixture/README.md\"}",
+                  "status": "done"
+                },
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_013QysvRRkbMqrgefhvB1xgK",
+                  "output": "{\"content\":\"1: export const formatPrice = (amount: number) => `$${amount.toFixed(2)}`\\n2: \\n3: console.log(formatPrice(12))\",\"absolutePath\":\"/private/tmp/amp-open-agent-trace-price-fixture/price.ts\"}",
+                  "status": "done"
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 11,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Code looks correct — `formatPrice` uses `$${amount.toFixed(2)}` which satisfies the `$12.00` requirement. Let me verify:"
+                },
+                {
+                  "type": "tool_use",
+                  "id": "toolu_vrtx_01NHh5mbjvo7yJA7ngPGQpeR",
+                  "name": "Bash",
+                  "input": {
+                    "cmd": "bun price.ts",
+                    "cwd": "/private/tmp/amp-open-agent-trace-price-fixture"
+                  }
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "id": 12,
+              "content": [
+                {
+                  "type": "tool_result",
+                  "toolUseID": "toolu_vrtx_01NHh5mbjvo7yJA7ngPGQpeR",
+                  "output": "{\"output\":\"$12.00\\n\",\"exitCode\":0}",
+                  "status": "done"
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "id": 13,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Confirmed — `formatPrice(12)` outputs `$12.00`, matching the README requirement."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

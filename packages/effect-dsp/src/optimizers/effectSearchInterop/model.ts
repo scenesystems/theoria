@@ -64,7 +64,7 @@ export type EffectSearchTpeSamplerInput = Readonly<{
  * @since 0.1.0
  * @category constants
  */
-export const defaultEffectSearchTpeSamplerOptions = new EffectSearchTpeSamplerOptions({
+export const defaultEffectSearchTpeSamplerOptions = EffectSearchTpeSamplerOptions.make({
   seed: Option.none(),
   multivariate: true,
   acquisition: "ei"
@@ -110,7 +110,10 @@ export type EffectSearchAskedTrial<Config = unknown> = Study.AskedTrial<Config>
  * @since 0.1.0
  * @category schemas
  */
-export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
+export const EffectSearchInteropEventSchema: Schema.Schema<
+  StudyEvent.StudyEvent,
+  Schema.Schema.Encoded<typeof StudyEvent.StudyEventSchema>
+> = StudyEvent.StudyEventSchema
 
 /**
  * A study lifecycle event emitted during ask/tell orchestration.

@@ -1,0 +1,37 @@
+{
+  "fixtureId": "amp-counter-items",
+  "sourceThreadId": "T-019d8314-fca6-75bd-b996-2adcb0f10fa2",
+  "repoDirectory": "repo",
+  "patchFiles": [
+    {
+      "path": "counter.ts",
+      "content": "export const formatCount = (count: number) => `${count} items`\n\nconsole.log(formatCount(2))\n"
+    }
+  ],
+  "runManifest": [
+    {
+      "stage": "check",
+      "command": ["bun", "run", "check"]
+    },
+    {
+      "stage": "lint",
+      "command": ["bun", "run", "lint"]
+    },
+    {
+      "stage": "test",
+      "command": ["bun", "run", "test"]
+    },
+    {
+      "stage": "build",
+      "command": ["bun", "run", "build"]
+    }
+  ],
+  "requiredStrategySignals": [
+    "source of truth",
+    "exact products",
+    "real seam",
+    "avoid widening",
+    "helper indirection",
+    "sidecar witnesses"
+  ]
+}

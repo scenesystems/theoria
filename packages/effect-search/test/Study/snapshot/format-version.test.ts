@@ -3,7 +3,7 @@ import { Effect, Either, Option, Schema } from "effect"
 
 import * as Sampler from "../../../src/Sampler/index.js"
 import * as Study from "../../../src/Study/index.js"
-import { asSingleObjective, makeSpace, singleObjective } from "./helpers.js"
+import { asSingleObjective, singleObjective, singleObjectiveSpace } from "./helpers.js"
 
 const legacyPayloadFromSnapshot = (snapshot: Study.StudySnapshot): unknown => {
   const { snapshotFormatVersion: _snapshotFormatVersion, ...legacy } = snapshot
@@ -18,7 +18,7 @@ describe("snapshot format versioning", () => {
   it.effect("Study.snapshot emits snapshotFormatVersion and decodes via variant schema", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 4321 }),
         direction: "minimize",
         trials: 6,
@@ -42,7 +42,7 @@ describe("snapshot format versioning", () => {
   it.effect("decodeStudySnapshot round-trips canonical snapshot payloads deterministically", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 1212 }),
         direction: "minimize",
         trials: 5,
@@ -68,7 +68,7 @@ describe("snapshot format versioning", () => {
   it.effect("decodeStudySnapshot rejects legacy `version` payloads in prerelease format contract", () =>
     Effect.gen(function*() {
       const result = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 8181 }),
         direction: "minimize",
         trials: 4,
@@ -92,7 +92,7 @@ describe("snapshot format versioning", () => {
   it.effect("Study.resume preserves trial continuity with canonical snapshot payload", () =>
     Effect.gen(function*() {
       const firstLeg = yield* Study.optimize({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 9090 }),
         direction: "minimize",
         trials: 4,
@@ -109,7 +109,7 @@ describe("snapshot format versioning", () => {
       const firstSnapshot = yield* Study.snapshot(firstSingle.value)
 
       const resumed = yield* Study.resume({
-        space: makeSpace(),
+        space: singleObjectiveSpace,
         sampler: Sampler.random({ seed: 9090 }),
         snapshot: firstSnapshot,
         direction: "minimize",

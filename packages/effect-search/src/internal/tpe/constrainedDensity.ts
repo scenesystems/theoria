@@ -1,6 +1,6 @@
 import { Array as Arr, Data, Match, Number as Num, Option } from "effect"
+import { exp, logStrict } from "effect-math/Numeric"
 
-import * as Float64 from "../float64.js"
 import { buildContinuousParzen, type ContinuousParzen, logDensity } from "./continuousParzen.js"
 
 const RATIO_EPSILON = 1e-12
@@ -149,7 +149,7 @@ export const constraintDensityRatio = (
     Match.orElse(() => {
       const constrainedValue = finiteConstraintValue(value)
       const ratio = stabilizeRatio(
-        Float64.exp(
+        exp(
           logDensity(model.feasibleParzen, constrainedValue) -
             logDensity(model.infeasibleParzen, constrainedValue)
         )
@@ -170,7 +170,7 @@ export const constraintDensityRatioLogProduct = (
   Arr.reduce(models, 0, (sum, model, index) =>
     Num.sum(
       sum,
-      Float64.log(
+      logStrict(
         constraintDensityRatio(model, constraintValueAt(constraints, index))
       )
     ))
@@ -178,4 +178,4 @@ export const constraintDensityRatioLogProduct = (
 export const constraintDensityRatioProduct = (
   models: ReadonlyArray<ConstraintDensityModel>,
   constraints: ReadonlyArray<number>
-): number => Float64.exp(constraintDensityRatioLogProduct(models, constraints))
+): number => exp(constraintDensityRatioLogProduct(models, constraints))

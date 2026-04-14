@@ -6,24 +6,22 @@ import { Array as Arr, Effect, Fiber, Option, Ref, Stream } from "effect"
 import { SearchSpace } from "effect-search"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
-const makeSpace = () =>
-  SearchSpace.unsafeMake({
-    x: SearchSpace.float(0, 1)
-  })
+const interopSpace = SearchSpace.unsafeMake({
+  x: SearchSpace.float(0, 1)
+})
 
 describe("integration/effectSearchInterop ask/tell", () => {
   it.effect("orchestrates ask/tell via a single interop seam and returns stable summaries", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const space = makeSpace()
-        const sampler = effectSearchInterop.makeTpeSampler({
+        const sampler = effectSearchInterop.Sampler.tpe({
           seed: 71,
           acquisition: "ei"
         })
 
         const handle = yield* effectSearchInterop.open({
           direction: "maximize",
-          space,
+          space: interopSpace,
           sampler,
           trials: 2,
           objective: () => Effect.succeed(0),
@@ -56,15 +54,14 @@ describe("integration/effectSearchInterop ask/tell", () => {
   it.effect("composes progress lines with consumer telemetry without mutating event flow", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const space = makeSpace()
-        const sampler = effectSearchInterop.makeTpeSampler({
+        const sampler = effectSearchInterop.Sampler.tpe({
           seed: 97,
           acquisition: "pi"
         })
 
         const handle = yield* effectSearchInterop.open({
           direction: "maximize",
-          space,
+          space: interopSpace,
           sampler,
           trials: 1,
           objective: () => Effect.succeed(0),

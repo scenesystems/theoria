@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
+import { abs } from "effect-math/Numeric"
 
-import * as Float64 from "../../src/internal/float64.js"
 import { hypervolume2d, hypervolumeContribution2d } from "../../src/internal/hypervolume.js"
 
 const expectApprox = (actual: number, expected: number, tolerance = 1e-12): void => {
-  expect(Float64.abs(actual - expected)).toBeLessThanOrEqual(tolerance)
+  expect(abs(actual - expected)).toBeLessThanOrEqual(tolerance)
 }
 
 describe("hypervolume kernel", () => {

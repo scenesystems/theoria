@@ -3,23 +3,26 @@
  *
  * @since 0.1.0
  */
-import type { ResolvedRuntimeDescriptor } from "../contracts/ResolvedRuntimeDescriptor.js"
-import type { RuntimeEvidence } from "../contracts/RuntimeEvidence.js"
+import type { ResolvedRuntimeDescriptor as ResolvedRuntimeDescriptorModel } from "../contracts/ResolvedRuntimeDescriptor.js"
+import { RuntimeEvidence as RuntimeEvidenceContract } from "../contracts/RuntimeEvidence.js"
+import type { RuntimeEvidence as RuntimeEvidenceModel } from "../contracts/RuntimeEvidence.js"
 import type { RuntimeResolution } from "./services.js"
 
 /**
- * Combines pre-execution resolution output with post-execution runtime truth
- * into one replay-safe runtime-evidence record.
+ * Runtime-evidence assembly helpers anchored to the runtime-evidence noun.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeRuntimeEvidence = (options: {
-  readonly resolution: RuntimeResolution
-  readonly resolvedRuntime: ResolvedRuntimeDescriptor
-}): RuntimeEvidence => ({
-  desired: options.resolution.desired,
-  resolvedRoute: options.resolution.resolvedRoute,
-  resolvedRuntime: options.resolvedRuntime,
-  capabilities: options.resolution.capabilities
-})
+export const RuntimeEvidence = {
+  fromResolution: (options: {
+    readonly resolution: RuntimeResolution
+    readonly resolvedRuntime: ResolvedRuntimeDescriptorModel
+  }): RuntimeEvidenceModel =>
+    RuntimeEvidenceContract.make({
+      desired: options.resolution.desired,
+      resolvedRoute: options.resolution.resolvedRoute,
+      resolvedRuntime: options.resolvedRuntime,
+      capabilities: options.resolution.capabilities
+    })
+}

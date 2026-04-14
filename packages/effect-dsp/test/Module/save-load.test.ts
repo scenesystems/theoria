@@ -2,28 +2,17 @@
  * Module.save / Module.load persistence contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Ref, Schema } from "effect"
+import { Effect, Either, Ref } from "effect"
 import { ModuleParams } from "effect-dsp/contracts"
 import { SaveLoadError } from "effect-dsp/Errors"
 import { Demo } from "effect-dsp/Example"
 import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
-  )
+import { conciseFactsQaSignature } from "../helpers/qa-signatures.js"
 
 describe("Module.save / Module.load", () => {
   it.effect("round-trips module params through save/load on predict modules", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const module = yield* Module.predict("qa", signature)
       const expectedParams = new ModuleParams({
         instructions: "Use one-word factual answers.",
@@ -61,7 +50,7 @@ describe("Module.save / Module.load", () => {
 
   it.effect("persists and restores composed-module parameter graphs", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const root = yield* Module.compose({
         name: "qa-root",
@@ -123,7 +112,7 @@ describe("Module.save / Module.load", () => {
 
   it.effect("fails with SaveLoadError when saved state is missing module parameter entries", () =>
     Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
+      const signature = yield* conciseFactsQaSignature
       const qa = yield* Module.predict("qa", signature)
       const root = yield* Module.compose({
         name: "qa-root",

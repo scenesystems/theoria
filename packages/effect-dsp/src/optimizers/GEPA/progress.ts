@@ -3,32 +3,40 @@
  *
  * @since 0.1.0
  */
-import { Match, Stream } from "effect"
+import { Data, Match, Stream } from "effect"
 import type { Effect } from "effect"
 import type { GEPAEvent } from "./events.js"
 
 /**
  * Formatted GEPA progress line.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
-export type GEPAProgressLine = Readonly<{
+export class GEPAProgressLine extends Data.Class<{
   readonly tag: GEPAEvent["_tag"]
   readonly details: string
   readonly text: string
-}>
+}> {
+  static project = (event: GEPAEvent): GEPAProgressLine => toProgressLine(event._tag, detailsFromEvent(event))
+
+  static tap =
+    <E, R>(onProgress: GEPAProgressSink<E, R>) =>
+    <SE, SR>(stream: Stream.Stream<GEPAEvent, SE, SR>): Stream.Stream<GEPAEvent, E | SE, R | SR> =>
+      stream.pipe(Stream.tap((event) => onProgress(GEPAProgressLine.project(event))))
+}
 
 const toProgressLine = (
   tag: GEPAProgressLine["tag"],
   details: string
-): GEPAProgressLine => ({
-  tag,
-  details,
-  text: details.length > 0
-    ? `${tag} ${details}`
-    : tag
-})
+): GEPAProgressLine =>
+  new GEPAProgressLine({
+    tag,
+    details,
+    text: details.length > 0
+      ? `${tag} ${details}`
+      : tag
+  })
 
 const detailsFromEvent = (event: GEPAEvent): string =>
   Match.value(event).pipe(
@@ -70,15 +78,6 @@ const detailsFromEvent = (event: GEPAEvent): string =>
   )
 
 /**
- * Deterministically format a GEPA event as one progress line.
- *
- * @since 0.1.0
- * @category formatters
- */
-export const formatGEPAProgressEvent = (event: GEPAEvent): GEPAProgressLine =>
-  toProgressLine(event._tag, detailsFromEvent(event))
-
-/**
  * Progress sink for formatted GEPA lines.
  *
  * @since 0.1.0
@@ -89,30 +88,9 @@ export type GEPAProgressSink<E = never, R = never> = (
 ) => Effect.Effect<void, E, R>
 
 /**
- * Tap formatted GEPA progress lines from an event stream.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const tapGEPAProgress =
-  <E, R>(onProgress: GEPAProgressSink<E, R>) =>
-  <SE, SR>(stream: Stream.Stream<GEPAEvent, SE, SR>): Stream.Stream<GEPAEvent, E | SE, R | SR> =>
-    stream.pipe(
-      Stream.tap((event) => onProgress(formatGEPAProgressEvent(event)))
-    )
-
-/**
  * Semantic summary projected from GEPA events.
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category models
  */
-export type { GEPAEventSummary } from "./progressSummary.js"
-
-/**
- * Summarize GEPA stream events into semantically meaningful counters.
- *
- * @since 0.1.0
- * @category combinators
- */
-export { summarizeGEPAEvents } from "./progressSummary.js"
+export { GEPAEventSummary } from "./progressSummary.js"

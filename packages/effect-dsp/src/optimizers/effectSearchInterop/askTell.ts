@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import { type Effect, Match, Option } from "effect"
-import { Pareto, Sampler, Study } from "effect-search"
+import { Pareto, Sampler as SearchSampler, Study } from "effect-search"
 import type { ObjectiveValue } from "effect-search/Contracts"
 import type { SearchError } from "effect-search/Errors"
 import type * as SearchSpace from "effect-search/SearchSpace"
@@ -23,7 +23,7 @@ import {
 } from "./model.js"
 
 const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): EffectSearchTpeSamplerOptions =>
-  new EffectSearchTpeSamplerOptions({
+  EffectSearchTpeSamplerOptions.make({
     seed: Option.fromNullable(options.seed),
     multivariate: Option.getOrElse(
       Option.fromNullable(options.multivariate),
@@ -43,17 +43,19 @@ const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): Ef
  * @since 0.1.0
  * @category constructors
  */
-export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
-  const resolved = resolveTpeSamplerOptions(options)
+export const Sampler = {
+  tpe: (options: EffectSearchTpeSamplerInput = {}) => {
+    const resolved = resolveTpeSamplerOptions(options)
 
-  return Sampler.tpe({
-    ...Option.match(resolved.seed, {
-      onNone: () => ({}),
-      onSome: (seed) => ({ seed })
-    }),
-    multivariate: resolved.multivariate,
-    acquisition: resolved.acquisition
-  })
+    return SearchSampler.tpe({
+      ...Option.match(resolved.seed, {
+        onNone: () => ({}),
+        onSome: (seed) => ({ seed })
+      }),
+      multivariate: resolved.multivariate,
+      acquisition: resolved.acquisition
+    })
+  }
 }
 
 const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
@@ -170,7 +172,7 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
     Match.tag(
       "SingleObjective",
       ({ bestTrial, trials }) =>
-        new EffectSearchResultSummary({
+        EffectSearchResultSummary.make({
           kind: "SingleObjective",
           trialCount: trials.length,
           bestTrialNumber: Option.some(bestTrial.trialNumber),
@@ -181,7 +183,7 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
     Match.tag(
       "MultiObjective",
       ({ paretoFront, trials }) =>
-        new EffectSearchResultSummary({
+        EffectSearchResultSummary.make({
           kind: "MultiObjective",
           trialCount: trials.length,
           bestTrialNumber: Option.none(),

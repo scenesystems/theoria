@@ -103,3 +103,11 @@ export class EngineProfile extends Context.Tag("effect-text/EngineProfile")<
  * @category models
  */
 export type TextPreparationServices = WordSegmenter | MeasurementCache | EngineProfile
+
+/**
+ * Stable render-fitness identity and evidence helpers for downstream scoring.
+ *
+ * @since 0.3.0
+ * @category models
+ */
+export * from "./renderFitness.js"

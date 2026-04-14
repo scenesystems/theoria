@@ -1,0 +1,13 @@
+{
+  "datasetId": "amp-implementation-strategy",
+  "caseFiles": [
+    "cases/counter-plugin-declaration-source.json",
+    "cases/counter-stream-typed-product-first.json",
+    "cases/counter-plugin-hydration-boundary.json",
+    "cases/price-plugin-transport-before-view.json",
+    "cases/price-stream-runtime-facade-boundary.json",
+    "cases/price-plugin-authority-bridge.json",
+    "cases/status-plugin-adapter-derivation.json",
+    "cases/status-stream-public-facade-assembly.json"
+  ]
+}

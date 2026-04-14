@@ -2,19 +2,17 @@ import { HttpServerResponse } from "@effect/platform"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
-import { cardsForReleaseStage } from "../../contracts/card.js"
-import { fullCanonicalUrl } from "../../contracts/metadata.js"
+import { SiteMetadata } from "../../contracts/presentation/metadata.js"
+import { PageRoute } from "../../contracts/presentation/path.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
 export const sitemapRoute = Effect.gen(function*() {
   const stage = yield* serverReleaseStage
-  const visibleCards = cardsForReleaseStage(stage)
-
-  const urls = Arr.prepend(
-    Arr.map(visibleCards, (card) => urlEntry(fullCanonicalUrl(card.deepDivePath))),
-    urlEntry(fullCanonicalUrl("/"))
+  const urls = Arr.map(
+    PageRoute.visiblePathsForReleaseStage(stage),
+    (pathname) => urlEntry(SiteMetadata.fullCanonicalUrl(pathname))
   )
 
   const xml = [

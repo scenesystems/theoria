@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Effect, FiberRef } from "effect"
-import { accumulateUsage, type UsageSample } from "../contracts/Usage.js"
+import { Usage, type UsageSample } from "../contracts/Usage.js"
 import type { Entry } from "./model.js"
 import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
 
@@ -37,7 +37,7 @@ export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
     const usageEnabled = yield* FiberRef.get(UsageEnabledRef)
 
     return yield* Effect.if(usageEnabled, {
-      onTrue: () => FiberRef.update(UsageRef, (usage) => accumulateUsage(usage, sample)),
+      onTrue: () => FiberRef.update(UsageRef, (usage) => Usage.accumulate(usage, sample)),
       onFalse: () => Effect.void
     })
   })

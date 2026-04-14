@@ -13,7 +13,7 @@ const resolvePackageRoot = Effect.gen(function*() {
 
 const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
   Effect.gen(function*() {
-    const command = Command.make("bun", "run", "scripts/verify-publish-readiness.ts", ...args).pipe(
+    const command = Command.make("bun", "../../scripts/publish-readiness.ts", "--package=effect-search", ...args).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),
       Command.stderr("pipe")
@@ -30,6 +30,7 @@ const runPublishCheck = (root: string, args: ReadonlyArray<string>) =>
 
     return {
       exitCode: Number(exitCode),
+      output: `${stdout}${stderr}`,
       stdout,
       stderr
     }
@@ -42,8 +43,9 @@ describe("package/publish-readiness-script", () => {
       const result = yield* runPublishCheck(root, [])
 
       expect(result.exitCode).toBe(0)
-      expect(result.stderr).not.toContain("scripts.publish-check.missing")
-      expect(result.stderr).not.toContain("scripts.changeset-publish.missing-contract-check")
+      expect(result.output).not.toContain("scripts.publish-check.missing")
+      expect(result.output).not.toContain("scripts.publish-check.delegate-mismatch")
+      expect(result.output).not.toContain("scripts.changeset-publish.missing-contract-check")
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("emits actionable diagnostics for metadata, export, and keyword drift", () =>
@@ -58,8 +60,8 @@ describe("package/publish-readiness-script", () => {
       ])
 
       expect(result.exitCode).toBe(1)
-      expect(result.stderr).toContain("metadata.repository.url-forbidden")
-      expect(result.stderr).toContain("exports.root.missing-subpaths")
-      expect(result.stderr).toContain("keywords.required-missing")
+      expect(result.output).toContain("metadata.repository.url-forbidden")
+      expect(result.output).toContain("exports.root.entrypoint-missing")
+      expect(result.output).toContain("keywords.required-missing")
     }).pipe(Effect.provide(BunContext.layer)))
 })

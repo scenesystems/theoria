@@ -4,11 +4,11 @@ import * as Arr from "effect/Array"
 import * as EffectRecord from "effect/Record"
 import * as Tuple from "effect/Tuple"
 
+import { PackageVersions } from "../../contracts/capability/package-versions.js"
+
 export class PackageVersionsInfo extends Context.Tag("@theoria/app/server/config/PackageVersionsInfo")<
   PackageVersionsInfo,
-  {
-    readonly versions: Record<string, string>
-  }
+  PackageVersions
 >() {}
 
 const packagesDirUrl = new URL("../../../../../packages/", import.meta.url)
@@ -25,21 +25,22 @@ const readPackageVersion = (fs: FileSystem.FileSystem, packagesDir: string, dir:
     return Tuple.make(parsed.name, parsed.version)
   }).pipe(Effect.option)
 
-const makePackageVersions = Effect.gen(function*() {
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const packagesDir = yield* path.fromFileUrl(packagesDirUrl).pipe(Effect.orDie)
-  const entries = yield* fs.readDirectory(packagesDir)
-  const pairs = yield* Effect.forEach(entries, (entry) => readPackageVersion(fs, packagesDir, entry), {
-    concurrency: "unbounded"
+export const PackageVersionsLive = Layer.effect(
+  PackageVersionsInfo,
+  Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const packagesDir = yield* path.fromFileUrl(packagesDirUrl).pipe(Effect.orDie)
+    const entries = yield* fs.readDirectory(packagesDir)
+    const pairs = yield* Effect.forEach(entries, (entry) => readPackageVersion(fs, packagesDir, entry), {
+      concurrency: "unbounded"
+    })
+    const versions = EffectRecord.fromEntries(Arr.getSomes(pairs))
+
+    yield* Effect.log("Resolved package versions").pipe(
+      Effect.annotateLogs("packageCount", EffectRecord.keys(versions).length)
+    )
+
+    return PackageVersionsInfo.of(PackageVersions.fromRecord(versions))
   })
-  const versions = EffectRecord.fromEntries(Arr.getSomes(pairs))
-
-  yield* Effect.log("Resolved package versions").pipe(
-    Effect.annotateLogs("packageCount", EffectRecord.keys(versions).length)
-  )
-
-  return PackageVersionsInfo.of({ versions })
-})
-
-export const PackageVersionsLive = Layer.effect(PackageVersionsInfo, makePackageVersions)
+)

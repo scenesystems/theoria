@@ -15,7 +15,7 @@ import { OutputStrategySchema } from "./OutputStrategy.js"
  * strategy, and optional LM generation knobs. Each module holds a
  * `Ref<ModuleParams>` that optimizers update between trials.
  *
- * @see {@link makeDefaultModuleParams} — zero-demo seed from a Signature
+ * @see {@link ModuleParams.make} — canonical class constructor surface
  * @see {@link OutputStrategySchema} — governs how output is rendered
  * @see {@link withModuleParamsDemos} — replace demos while preserving other fields
  *
@@ -31,21 +31,6 @@ export class ModuleParams extends Schema.Class<ModuleParams>("ModuleParams")({
   temperature: Schema.optional(Schema.Number),
   maxTokens: Schema.optional(Schema.Number)
 }) {}
-
-/**
- * Create a zero-demo {@link ModuleParams} seeded with the given
- * instructions (typically derived from a {@link Signature}).
- *
- * @see {@link ModuleParams}
- *
- * @since 0.1.0
- * @category constructors
- */
-export const makeDefaultModuleParams = (instructions: string): ModuleParams =>
-  new ModuleParams({
-    instructions,
-    demos: []
-  })
 
 type ModuleParamsPatch = Readonly<{
   readonly instructions?: string
@@ -65,7 +50,7 @@ const mergeModuleParams = (
   params: ModuleParams,
   patch: ModuleParamsPatch
 ): ModuleParams =>
-  new ModuleParams({
+  ModuleParams.make({
     instructions: patch.instructions ?? params.instructions,
     demos: patch.demos ?? params.demos,
     outputStrategy: params.outputStrategy,

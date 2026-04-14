@@ -1,9 +1,10 @@
-import { Separator } from "@base-ui-components/react/separator"
+import { Separator } from "@base-ui/react/separator"
 import type { ReactNode } from "react"
 
-import { surfaceMaterials, type ToneClasses } from "./designSystem.js"
 import { Cluster, Layer, Stack } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
+import { surfaceMaterials } from "./theme/surface.js"
+import { type Tone } from "./theme/tone.js"
 
 // ---------------------------------------------------------------------------
 // ShimmerLine — the atomic building block for skeleton loading states.
@@ -75,7 +76,7 @@ export const LoadingIndicator = ({
 }: {
   readonly active: boolean
   readonly text: string
-  readonly tone: ToneClasses
+  readonly tone: Tone
 }) => (
   <Cluster className={`gap-1.5 transition-opacity duration-150 ${active ? "opacity-100" : "invisible"}`}>
     <Layer aria-hidden as="span" className={`inline-flex size-1.5 animate-pulse rounded-full ${tone.dot}`} />
@@ -145,7 +146,7 @@ export const EmptyState = ({
         as="span"
         className="text-ink-500"
         role="status"
-        text={description ?? "Run the demo to generate reproducible evidence."}
+        text={description ?? "Run the study to generate reproducible evidence."}
         variant="expanded"
       />
     </Stack>

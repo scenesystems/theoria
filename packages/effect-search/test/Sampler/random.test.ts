@@ -1,16 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Schema } from "effect"
 
-import { makeLogLearningRateSpace, makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import { emptySuggestContext } from "../../src/Sampler/index.js"
+import { LogLearningRateSpace, RandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
+import { SuggestContext } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 
 const drawConfigs = (seed: number, count: number) => {
   const sampler = Sampler.random({ seed })
-  const space = makeRandomTrainingSpace(64, 1e-3)
+  const space = RandomTrainingSpace.make(64, 1e-3)
   const draws = Arr.makeBy(count, (index) => index)
 
-  return Effect.forEach(draws, (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber)))
+  return Effect.forEach(draws, (trialNumber) => Sampler.suggest(sampler, space, SuggestContext.empty(trialNumber)))
 }
 
 describe("Sampler.random", () => {
@@ -33,7 +33,7 @@ describe("Sampler.random", () => {
   it.effect("generates values within declared space bounds", () =>
     Effect.gen(function*() {
       const candidates = yield* drawConfigs(7, 200)
-      const decode = Schema.decodeUnknownEither(makeRandomTrainingSpace(64, 1e-3).schema)
+      const decode = Schema.decodeUnknownEither(RandomTrainingSpace.make(64, 1e-3).schema)
 
       candidates.forEach((candidate) => {
         const decoded = decode(candidate)
@@ -54,12 +54,12 @@ describe("Sampler.random", () => {
   it.effect("supports log-scale float sampling", () =>
     Effect.gen(function*() {
       const sampler = Sampler.random({ seed: 9 })
-      const space = makeLogLearningRateSpace()
+      const space = LogLearningRateSpace.make()
       const decode = Schema.decodeUnknownEither(space.schema)
 
       const candidates = yield* Effect.forEach(
         Arr.makeBy(128, (index) => index),
-        (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+        (trialNumber) => Sampler.suggest(sampler, space, SuggestContext.empty(trialNumber))
       )
 
       candidates.forEach((candidate) => {

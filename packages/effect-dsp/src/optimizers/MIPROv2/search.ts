@@ -9,13 +9,13 @@ import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { Sampler as SearchSampler, SearchSpace, Study } from "effect-search"
-import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"
+import { ObjectiveProjection } from "../../contracts/ObjectiveProjection.js"
 import { AllTrialsFailed } from "../../Errors/optimizer.js"
 import * as Evaluate from "../../Evaluate/index.js"
 import type { Example } from "../../Example/index.js"
 import { noPhase3Events, Phase3Diagnostics, type RunPhase3SearchOptions } from "./phase3-model.js"
 import { phase3TrialBudget as phase3TrialBudgetFormula, resolvePhase3Cadence } from "./runtime/budget.js"
-import { applyPhase3Config, evaluateBaseline, evaluateTrial, makePhase3TrialRefs } from "./runtime/evaluate.js"
+import { applyPhase3Config, evaluateBaseline, evaluateTrial } from "./runtime/evaluate.js"
 import { demoDimensionName, instructionDimensionName, type Phase3Config } from "./runtime/model.js"
 import {
   baselineConfig,
@@ -25,6 +25,7 @@ import {
   resolveBestConfig,
   resolveBindings
 } from "./runtime/search-space.js"
+import { Phase3TrialRefs } from "./runtime/trialRefs.js"
 
 export { noPhase3Events, Phase3Diagnostics } from "./phase3-model.js"
 export type { Phase3EventSink, Phase3SearchResult, RunPhase3SearchOptions } from "./phase3-model.js"
@@ -94,7 +95,7 @@ export const runPhase3Search = <
         })
     )
     const minibatchExamples = Arr.take(options.valset, cadence.minibatchSize)
-    const refs = yield* makePhase3TrialRefs
+    const refs = yield* Phase3TrialRefs.allocate
     const evaluateOn = (config: Phase3Config, examples: ReadonlyArray<Example>) =>
       Effect.gen(function*() {
         yield* applyPhase3Config({
@@ -111,7 +112,11 @@ export const runPhase3Search = <
           },
           concurrency: 1
         }).pipe(Effect.provide(evaluationContext))
-        const projection = yield* projectSingleObjective(report, "miprov2")
+        const projection = yield* ObjectiveProjection.fromReport({
+          report,
+          mode: "single",
+          metricName: "miprov2"
+        })
 
         return yield* objectiveScore(projection.objective)
       })

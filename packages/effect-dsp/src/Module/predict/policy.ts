@@ -47,7 +47,7 @@ export type ParsePolicy = Readonly<{
 /**
  * Top-level policy for a predict module governing parse retry behavior.
  *
- * @see {@link makePredictPolicy}
+ * @see {@link PredictPolicy.make}
  * @see {@link DEFAULT_PREDICT_POLICY}
  *
  * @since 0.1.0
@@ -59,7 +59,7 @@ export type PredictPolicy = Readonly<{
 
 /**
  * Partial parse policy — any omitted fields fall back to built-in defaults
- * when resolved via `makePredictPolicy`.
+ * when resolved via `PredictPolicy.make`.
  *
  * @see {@link ParsePolicy}
  *
@@ -183,27 +183,29 @@ const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy => ({
  * @see {@link PredictPolicy}
  * @see {@link DEFAULT_PREDICT_POLICY}
  *
- * @since 0.1.0
+ * @since 0.2.0
  * @category constructors
  */
-export const makePredictPolicy = (
-  overrides: PredictPolicyOverrides = EMPTY_PREDICT_POLICY_OVERRIDES
-): PredictPolicy => ({
-  parse: resolveParsePolicy(
-    Option.getOrElse(
-      Option.fromNullable(overrides.parse),
-      () => EMPTY_PARSE_POLICY_OVERRIDES
+export const PredictPolicy = {
+  make: (
+    overrides: PredictPolicyOverrides = EMPTY_PREDICT_POLICY_OVERRIDES
+  ): PredictPolicy => ({
+    parse: resolveParsePolicy(
+      Option.getOrElse(
+        Option.fromNullable(overrides.parse),
+        () => EMPTY_PARSE_POLICY_OVERRIDES
+      )
     )
-  )
-})
+  })
+}
 
 /**
  * Ready-to-use predict policy with 3 retries, exponential backoff, and
  * field-level diagnostic feedback.
  *
- * @see {@link makePredictPolicy}
+ * @see {@link PredictPolicy.make}
  *
  * @since 0.1.0
  * @category constants
  */
-export const DEFAULT_PREDICT_POLICY: PredictPolicy = makePredictPolicy()
+export const DEFAULT_PREDICT_POLICY: PredictPolicy = PredictPolicy.make()

@@ -8,8 +8,8 @@ import type { Text } from "effect-text"
 import * as TextReact from "effect-text/react"
 import { useMemo } from "react"
 
-import { SurfaceVariant } from "../../contracts/presentation.js"
-import { maxWidthFor, type TextProjection, TextRole } from "../../contracts/text.js"
+import { SurfaceVariant } from "../../contracts/presentation/program.js"
+import { maxWidthFor, type TextProjection, TextRole } from "../../contracts/presentation/text.js"
 import { prepareIdentityForTextProjection, prepareTextProjection, projectPreparedText } from "../view/text/authority.js"
 
 import {
@@ -17,7 +17,7 @@ import {
   type ElementWidthHandle,
   type ElementWidthSlot,
   useElementWidthHandle
-} from "./element-observation.js"
+} from "./surface/element-observation.js"
 
 type TextProjectionRequest = {
   readonly role: typeof TextRole.Type
@@ -48,13 +48,6 @@ export type TextProjectionAuthority = {
   }) => TextProjection
 }
 
-const makeTextProjectionRequest = ({
-  role,
-  text,
-  variant,
-  widthSlot
-}: TextProjectionRequest): TextProjectionRequest => ({ role, text, variant, widthSlot })
-
 const isTextRole = Schema.is(TextRole)
 const isSurfaceVariant = Schema.is(SurfaceVariant)
 
@@ -73,53 +66,59 @@ const textProjectionPrepareKey = ({
   readonly text: TextProjectionRequest["text"]
 }>): string => TextReact.prepareIdentityKey(prepareIdentityForTextProjection({ role, text }))
 
-export const makeTextProjectionAtom = (
-  authority: TextProjectionAuthority = defaultTextProjectionAuthority
-): (request: TextProjectionRequest) => AtomType.Atom<TextProjection | null> => {
-  const preparedResultAtom = Atom.family((prepareKey: string) =>
-    textRuntime.atom(
-      () => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)),
-      { initialValue: null }
-    )
-  )
-
-  return Atom.family((request: TextProjectionRequest) => {
-    if (!isTextRole(request.role) || !isSurfaceVariant(request.variant)) {
-      return Atom.make(() => null)
-    }
-
-    const contractMax = maxWidthFor(request.role, request.variant)
-    const prepareKey = textProjectionPrepareKey(request)
-
-    const effectiveWidthAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
-      const containerWidth = get(elementWidthAtom(request.widthSlot))
-      return containerWidth > 0 ? Math.min(contractMax, containerWidth) : contractMax
-    })
-
-    return Atom.make((get: AtomType.Context) => {
-      const effectiveWidth = get(effectiveWidthAtom)
-      const preparedResult = get(preparedResultAtom(prepareKey))
-
-      return Result.value(preparedResult).pipe(
-        Option.flatMap(Option.fromNullable),
-        Option.map((prepared) =>
-          authority.project({
-            prepared,
-            request: {
-              role: request.role,
-              variant: request.variant,
-              text: request.text
-            },
-            maxWidth: effectiveWidth
-          })
-        ),
-        Option.getOrElse(() => null)
+export class TextProjectionAtom {
+  static make(authority: TextProjectionAuthority = defaultTextProjectionAuthority): TextProjectionAtom {
+    const preparedResultAtom = Atom.family((prepareKey: string) =>
+      textRuntime.atom(
+        () => authority.prepare(TextReact.prepareIdentityFromKey(prepareKey)),
+        { initialValue: null }
       )
-    })
-  })
+    )
+
+    return new TextProjectionAtom(
+      Atom.family((request: TextProjectionRequest) => {
+        if (!isTextRole(request.role) || !isSurfaceVariant(request.variant)) {
+          return Atom.make(() => null)
+        }
+
+        const contractMax = maxWidthFor(request.role, request.variant)
+        const prepareKey = textProjectionPrepareKey(request)
+
+        const effectiveWidthAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
+          const containerWidth = get(elementWidthAtom(request.widthSlot))
+          return containerWidth > 0 ? Math.min(contractMax, containerWidth) : contractMax
+        })
+
+        return Atom.make((get: AtomType.Context) => {
+          const effectiveWidth = get(effectiveWidthAtom)
+          const preparedResult = get(preparedResultAtom(prepareKey))
+
+          return Result.value(preparedResult).pipe(
+            Option.flatMap(Option.fromNullable),
+            Option.map((prepared) =>
+              authority.project({
+                prepared,
+                request: {
+                  role: request.role,
+                  variant: request.variant,
+                  text: request.text
+                },
+                maxWidth: effectiveWidth
+              })
+            ),
+            Option.getOrElse(() => null)
+          )
+        })
+      })
+    )
+  }
+
+  private constructor(
+    readonly atom: (request: TextProjectionRequest) => AtomType.Atom<TextProjection | null>
+  ) {}
 }
 
-const textProjectionAtom = makeTextProjectionAtom()
+const textProjectionAtom = TextProjectionAtom.make()
 
 export const useTextProjection = ({
   role,
@@ -131,11 +130,13 @@ export const useTextProjection = ({
   readonly variant: typeof SurfaceVariant.Type
 }): TextProjectionHandle => {
   const width = useElementWidthHandle()
-  const request = useMemo(
-    () => makeTextProjectionRequest({ role, text, variant, widthSlot: width.slot }),
-    [role, text, variant, width.slot]
-  )
-  const projection = useAtomValue(textProjectionAtom(request))
+  const request = useMemo<TextProjectionRequest>(() => ({ role, text, variant, widthSlot: width.slot }), [
+    role,
+    text,
+    variant,
+    width.slot
+  ])
+  const projection = useAtomValue(textProjectionAtom.atom(request))
 
   return {
     projection,

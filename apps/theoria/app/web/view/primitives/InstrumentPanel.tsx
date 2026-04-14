@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 
-import { surfaceMaterials } from "./designSystem.js"
 import { Layer, Stack } from "./Layout.js"
 import { type DisplayMetric, MetricStrip } from "./MetricStrip.js"
+import { surfaceMaterials } from "./theme/surface.js"
 
 export const InstrumentPanel = ({
   children,

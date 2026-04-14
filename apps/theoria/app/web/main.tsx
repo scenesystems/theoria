@@ -1,17 +1,15 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
+import { PageLocation } from "../contracts/presentation/page-location.js"
 import { App } from "./App.js"
-import { parsePathname } from "./services/path.js"
 
 const mountNode = document.getElementById("root")
 
 if (mountNode !== null) {
-  const route = parsePathname(window.location.pathname)
-
   createRoot(mountNode).render(
     <StrictMode>
-      <App route={route} />
+      <App location={PageLocation.fromPathnameSearch(window.location.pathname, window.location.search)} />
     </StrictMode>
   )
 }

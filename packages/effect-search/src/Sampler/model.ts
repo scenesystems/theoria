@@ -3,13 +3,15 @@
  *
  * @since 0.1.0
  */
-import type { Effect } from "effect"
+import type { Effect, Option } from "effect"
 import { Data } from "effect"
 
+import type { SuggestionDiagnostics } from "../contracts/SuggestionDiagnostics.js"
 import type { InvalidStudyConfig, SearchError } from "../Errors/index.js"
 import type * as SearchSpace from "../SearchSpace/index.js"
 import type { SamplerCheckpoint, SamplerKind } from "./kinds.js"
 import type { PendingImputationPolicy } from "./PendingImputationPolicy.js"
+import type { PreparedSuggestionState } from "./preparation.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
@@ -37,6 +39,16 @@ export class Sampler extends Data.Class<{
   readonly pendingImputationPolicy: PendingImputationPolicy
   readonly acquire?: Effect.Effect<void, SearchError>
   readonly release?: Effect.Effect<void>
+  readonly prepareSuggestion?: (
+    space: SearchSpace.SearchSpace,
+    context: SuggestContext,
+    previous: Option.Option<PreparedSuggestionState>
+  ) => Effect.Effect<readonly [PreparedSuggestionState, SuggestionDiagnostics], SearchError>
+  readonly suggestPrepared?: (
+    space: SearchSpace.SearchSpace,
+    context: SuggestContext,
+    prepared: PreparedSuggestionState
+  ) => Effect.Effect<unknown, SearchError>
   readonly suggest: (
     space: SearchSpace.SearchSpace,
     context: SuggestContext

@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
  * Internal (same-origin) navigation link.
  *
  * Renders a plain anchor for client-side navigation. Use for all internal
- * hrefs (e.g. `/demos/effect-text`).
+ * hrefs (e.g. `/entries/effect-text`).
  */
 export const InternalLink = ({
   children,

@@ -143,7 +143,9 @@ bun run changeset:version      # Apply version bumps
 bun run changeset:publish      # Publish to npm
 ```
 
-Each package runs `publish:check` before release to enforce repository metadata, export boundaries, and keyword coverage.
+Release-governed package seams are profile-driven under the root framework. Every governed package delegates `release-snapshots:stamp` to the root CLI, while only packages whose profile explicitly requires `publish:check` or `changeset-publish` expose those scripts, and those scripts must stay as thin manifest-level adapters over the root-owned framework.
+
+Pending changesets are the release-target authority for governed snapshots. In normal release work, prefer root `bun run changeset` followed by `bun run changeset:version`, because that path bumps manifests and stamps governed package snapshots in one flow. When an agent or maintainer runs package-local `release-snapshots:stamp`, the root CLI now resolves the next governed version from `.changeset/*.md` before writing the snapshot; if no pending changeset exists for that package, stamping falls back to the current `package.json` version.
 
 ---
 

@@ -40,9 +40,17 @@ export const DesiredRuntimeDescriptorSchema = Schema.Struct({
 })
 
 /**
+ * Canonical desired-runtime descriptor constructor surface.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const DesiredRuntimeDescriptor = DesiredRuntimeDescriptorSchema
+
+/**
  * Extracted desired-runtime descriptor type.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type DesiredRuntimeDescriptor = Schema.Schema.Type<typeof DesiredRuntimeDescriptorSchema>
+export type DesiredRuntimeDescriptor = Schema.Schema.Type<typeof DesiredRuntimeDescriptor>

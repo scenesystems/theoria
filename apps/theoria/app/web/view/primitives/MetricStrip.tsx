@@ -1,10 +1,12 @@
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
-import type { MetricAppearance } from "./designSystem.js"
-import { metricPillClassesFor, surfaceMaterials } from "./designSystem.js"
+import type { PresentationMetric } from "../../../contracts/presentation/metric.js"
+
 import { Layer } from "./Layout.js"
 import { MetricPill } from "./MetricPill.js"
+import { surfaceMaterials } from "./theme/surface.js"
+import { metricPillClassesFor } from "./theme/tone.js"
 
 type MetricStripVariant = "strip" | "grid"
 
@@ -15,10 +17,10 @@ type MetricStripDensity = "standard" | "compact"
 type MetricStripSurface = "panel" | "flush"
 
 export type DisplayMetric = {
-  readonly label: string
-  readonly value: string
-  readonly appearance?: MetricAppearance
-  readonly enabled?: boolean
+  readonly label: PresentationMetric["label"]
+  readonly value: PresentationMetric["value"]
+  readonly appearance?: PresentationMetric["appearance"]
+  readonly enabled?: PresentationMetric["enabled"]
 }
 
 const shellClassName = ({

@@ -1,8 +1,8 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import { Match } from "effect"
 import type { ReactNode } from "react"
 
-import type { SurfaceVariant } from "../../../contracts/presentation.js"
+import type { SurfaceVariant } from "../../../contracts/presentation/program.js"
 
 import { InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"

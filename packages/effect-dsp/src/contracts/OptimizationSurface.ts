@@ -29,7 +29,6 @@ export {
    * @since 0.1.0
    * @category combinators
    */
-  projectTraceObjectiveProjection as projectOptimizationObjective,
   /**
    * Deterministic trace-entry projection carrying the fields an optimizer's
    * objective function needs — I/O, tokens, timing, and score.
@@ -40,34 +39,13 @@ export {
   TraceObjectiveProjection as OptimizationObjectiveSurface
 } from "./TraceProjection.js"
 
-export {
-  /**
-   * Pre-computed traversal + lineage analysis of the module composition DAG,
-   * re-exported under an optimization-domain alias.
-   *
-   * @see {@link ModuleGraphProjection}
-   * @since 0.1.0
-   * @category models
-   */
-  ModuleGraphProjection as OptimizationModuleGraphSurface,
-  /**
-   * Project a module composition DAG into deterministic traversal order
-   * and root-to-node lineages.
-   *
-   * @see {@link ModuleGraphProjection}
-   * @since 0.1.0
-   * @category combinators
-   */
-  projectModuleGraph as projectOptimizationModuleGraph
-} from "./ModuleGraph.js"
-
 /**
  * Schema-level declaration that generic search primitives (traversal,
  * sampling, Pareto filtering) are sourced from `effect-search`. Serves
  * as a machine-readable provenance record — `effect-dsp` owns only the
  * domain-specific objective projections.
  *
- * @see {@link searchPrimitiveOwnership} — canonical instance
+ * @see {@link SearchPrimitiveOwnership.effectSearch} — canonical instance
  * @see {@link EffectSearchInteropOwnership} — interop-specific variant
  *
  * @since 0.1.0
@@ -77,28 +55,26 @@ export class SearchPrimitiveOwnership extends Schema.Class<SearchPrimitiveOwners
   traversal: Schema.Literal("effect-search"),
   sampler: Schema.Literal("effect-search"),
   pareto: Schema.Literal("effect-search")
-}) {}
-
-/**
- * Singleton {@link SearchPrimitiveOwnership} instance.
- *
- * @see {@link SearchPrimitiveOwnership}
- *
- * @since 0.1.0
- * @category constants
- */
-export const searchPrimitiveOwnership = new SearchPrimitiveOwnership({
-  traversal: "effect-search",
-  sampler: "effect-search",
-  pareto: "effect-search"
-})
+}) {
+  /**
+   * Canonical ownership record for generic search primitives sourced from `effect-search`.
+   *
+   * @since 0.1.0
+   * @category constants
+   */
+  static readonly effectSearch = SearchPrimitiveOwnership.make({
+    traversal: "effect-search",
+    sampler: "effect-search",
+    pareto: "effect-search"
+  })
+}
 
 /**
  * Schema-level declaration that ask/tell, Pareto, acquisition, and
  * progress-streaming capabilities are sourced from `effect-search`
  * interop APIs.
  *
- * @see {@link effectSearchInteropOwnership} — canonical instance
+ * @see {@link EffectSearchInteropOwnership.effectSearch} — canonical instance
  * @see {@link SearchPrimitiveOwnership} — generic search variant
  *
  * @since 0.1.0
@@ -111,22 +87,20 @@ export class EffectSearchInteropOwnership extends Schema.Class<EffectSearchInter
   pareto: Schema.Literal("effect-search"),
   acquisition: Schema.Literal("effect-search"),
   progress: Schema.Literal("effect-search")
-}) {}
-
-/**
- * Singleton {@link EffectSearchInteropOwnership} instance.
- *
- * @see {@link EffectSearchInteropOwnership}
- *
- * @since 0.1.0
- * @category constants
- */
-export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
-  askTell: "effect-search",
-  pareto: "effect-search",
-  acquisition: "effect-search",
-  progress: "effect-search"
-})
+}) {
+  /**
+   * Canonical ownership record for `effect-search` interop capabilities.
+   *
+   * @since 0.1.0
+   * @category constants
+   */
+  static readonly effectSearch = EffectSearchInteropOwnership.make({
+    askTell: "effect-search",
+    pareto: "effect-search",
+    acquisition: "effect-search",
+    progress: "effect-search"
+  })
+}
 
 /**
  * Snapshot of a module's learnable parameter state projected into scalar
@@ -134,7 +108,7 @@ export const effectSearchInteropOwnership = new EffectSearchInteropOwnership({
  * searchable surface from the mutable `Ref<ModuleParams>` so optimizers
  * can reason about parameter geometry without runtime references.
  *
- * @see {@link projectOptimizationParameters} — canonical projection function
+ * @see {@link OptimizationParameterSurface.fromModuleParams} — canonical projection function
  * @see {@link ModuleParams} — the source parameter bundle
  *
  * @since 0.1.0
@@ -148,7 +122,25 @@ export class OptimizationParameterSurface
     temperature: Schema.OptionFromSelf(Schema.Number),
     maxTokens: Schema.OptionFromSelf(Schema.Number)
   })
-{}
+{
+  /**
+   * Snapshot the current {@link ModuleParams} into an immutable
+   * {@link OptimizationParameterSurface}. Resolves nullable fields into
+   * `Option` so the surface is self-describing.
+   *
+   * @since 0.1.0
+   * @category combinators
+   */
+  static fromModuleParams(params: ModuleParams): OptimizationParameterSurface {
+    return OptimizationParameterSurface.make({
+      instructions: params.instructions,
+      demoCount: params.demos.length,
+      outputStrategy: params.outputStrategy ?? "auto",
+      temperature: Option.fromNullable(params.temperature),
+      maxTokens: Option.fromNullable(params.maxTokens)
+    })
+  }
+}
 
 const OptimizationDimensionValue = Schema.Union(Schema.String, Schema.Number)
 
@@ -157,7 +149,7 @@ const OptimizationDimensionValue = Schema.Union(Schema.String, Schema.Number)
  * space. Each dimension captures either a string (e.g. instruction text)
  * or a number (e.g. demo count, temperature).
  *
- * @see {@link projectOptimizationDimensions} — produces these from ModuleParams
+ * @see {@link OptimizationDimension.fromModuleParams} — produces these from ModuleParams
  * @see {@link OptimizationParameterSurface} — the parameter snapshot they derive from
  *
  * @since 0.1.0
@@ -166,59 +158,52 @@ const OptimizationDimensionValue = Schema.Union(Schema.String, Schema.Number)
 export class OptimizationDimension extends Schema.Class<OptimizationDimension>("OptimizationDimension")({
   name: Schema.String,
   value: OptimizationDimensionValue
-}) {}
+}) {
+  /**
+   * Lift an optional numeric parameter into a deterministic dimension list.
+   *
+   * @since 0.2.0
+   * @category constructors
+   */
+  static fromOptionalNumber(options: {
+    readonly name: string
+    readonly value: Option.Option<number>
+  }): ReadonlyArray<OptimizationDimension> {
+    return Option.match(options.value, {
+      onNone: () => [],
+      onSome: (numberValue) => [OptimizationDimension.make({ name: options.name, value: numberValue })]
+    })
+  }
 
-const optionalDimension = (
-  name: string,
-  value: Option.Option<number>
-): ReadonlyArray<OptimizationDimension> =>
-  Option.match(value, {
-    onNone: () => [],
-    onSome: (numberValue) => [new OptimizationDimension({ name, value: numberValue })]
-  })
+  /**
+   * Decompose {@link ModuleParams} into an array of named
+   * {@link OptimizationDimension} values — instructions, demo count,
+   * output strategy, and optionally temperature and maxTokens.
+   *
+   * @since 0.1.0
+   * @category combinators
+   */
+  static fromModuleParams(params: ModuleParams): ReadonlyArray<OptimizationDimension> {
+    const projection = OptimizationParameterSurface.fromModuleParams(params)
 
-/**
- * Snapshot the current {@link ModuleParams} into an immutable
- * {@link OptimizationParameterSurface}. Resolves nullable fields into
- * `Option` so the surface is self-describing.
- *
- * @see {@link OptimizationParameterSurface}
- * @see {@link ModuleParams}
- *
- * @since 0.1.0
- * @category combinators
- */
-export const projectOptimizationParameters = (params: ModuleParams): OptimizationParameterSurface =>
-  new OptimizationParameterSurface({
-    instructions: params.instructions,
-    demoCount: params.demos.length,
-    outputStrategy: params.outputStrategy ?? "auto",
-    temperature: Option.fromNullable(params.temperature),
-    maxTokens: Option.fromNullable(params.maxTokens)
-  })
+    const required = Arr.make(
+      OptimizationDimension.make({ name: "instructions", value: projection.instructions }),
+      OptimizationDimension.make({ name: "demoCount", value: projection.demoCount }),
+      OptimizationDimension.make({ name: "outputStrategy", value: projection.outputStrategy })
+    )
 
-/**
- * Decompose {@link ModuleParams} into an array of named
- * {@link OptimizationDimension} values — instructions, demo count,
- * output strategy, and optionally temperature and maxTokens.
- *
- * @see {@link OptimizationDimension}
- * @see {@link projectOptimizationParameters}
- *
- * @since 0.1.0
- * @category combinators
- */
-export const projectOptimizationDimensions = (params: ModuleParams): ReadonlyArray<OptimizationDimension> => {
-  const projection = projectOptimizationParameters(params)
-
-  const required = Arr.make(
-    new OptimizationDimension({ name: "instructions", value: projection.instructions }),
-    new OptimizationDimension({ name: "demoCount", value: projection.demoCount }),
-    new OptimizationDimension({ name: "outputStrategy", value: projection.outputStrategy })
-  )
-
-  return Arr.appendAll(
-    Arr.appendAll(required, optionalDimension("temperature", projection.temperature)),
-    optionalDimension("maxTokens", projection.maxTokens)
-  )
+    return Arr.appendAll(
+      Arr.appendAll(
+        required,
+        OptimizationDimension.fromOptionalNumber({
+          name: "temperature",
+          value: projection.temperature
+        })
+      ),
+      OptimizationDimension.fromOptionalNumber({
+        name: "maxTokens",
+        value: projection.maxTokens
+      })
+    )
+  }
 }

@@ -159,6 +159,97 @@ export const ChainOfThoughtReasoningFixtureSchema = Schema.Struct({
 
 export type ChainOfThoughtReasoningFixture = Schema.Schema.Type<typeof ChainOfThoughtReasoningFixtureSchema>
 
+const ProgramOfThoughtResponseSchema = Schema.Struct({
+  reasoning: Schema.String,
+  answer: Schema.optional(Schema.String),
+  generated_code: Schema.optional(Schema.String)
+})
+
+const ProgramOfThoughtTraceEntrySchema = Schema.Struct({
+  inputKeys: Schema.Array(Schema.String),
+  predictionKeys: Schema.Array(Schema.String)
+})
+
+const MultiChainComparisonResponseSchema = Schema.Struct({
+  reasoning: Schema.String,
+  answer: Schema.String
+})
+
+export const ProgramOfThoughtSuccessFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.pot.success.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    maxIterations: Schema.Number,
+    sampleInput: Schema.Struct({
+      question: Schema.String
+    }),
+    responses: Schema.Struct({
+      generate: ProgramOfThoughtResponseSchema,
+      answer: ProgramOfThoughtResponseSchema
+    }),
+    codeOutput: Schema.String,
+    dspyPredictionKeys: Schema.Array(Schema.String),
+    traceEntries: Schema.Array(ProgramOfThoughtTraceEntrySchema)
+  })
+})
+
+export type ProgramOfThoughtSuccessFixture = Schema.Schema.Type<typeof ProgramOfThoughtSuccessFixtureSchema>
+
+export const ProgramOfThoughtRepairFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.pot.repair-cycle.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    maxIterations: Schema.Number,
+    sampleInput: Schema.Struct({
+      question: Schema.String
+    }),
+    responses: Schema.Struct({
+      generate: ProgramOfThoughtResponseSchema,
+      repair: ProgramOfThoughtResponseSchema,
+      answer: ProgramOfThoughtResponseSchema
+    }),
+    executionError: Schema.String,
+    codeOutput: Schema.String,
+    dspyPredictionKeys: Schema.Array(Schema.String),
+    traceEntries: Schema.Array(ProgramOfThoughtTraceEntrySchema)
+  })
+})
+
+export type ProgramOfThoughtRepairFixture = Schema.Schema.Type<typeof ProgramOfThoughtRepairFixtureSchema>
+
+export const ProgramOfThoughtParseErrorFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.pot.parse-error.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    maxIterations: Schema.Number,
+    responses: Schema.Struct({
+      generate: ProgramOfThoughtResponseSchema
+    }),
+    expectedError: Schema.String
+  })
+})
+
+export type ProgramOfThoughtParseErrorFixture = Schema.Schema.Type<typeof ProgramOfThoughtParseErrorFixtureSchema>
+
+export const MultiChainComparisonFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.multiChainComparison.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    candidateCount: Schema.Number,
+    sampleInput: Schema.Struct({
+      question: Schema.String
+    }),
+    candidateResponses: Schema.Array(MultiChainComparisonResponseSchema),
+    compareResponse: MultiChainComparisonResponseSchema,
+    candidateComparisons: Schema.String,
+    reasoningAttempts: Schema.Array(Schema.String),
+    dspyPredictionKeys: Schema.Array(Schema.String),
+    traceEntries: Schema.Array(ProgramOfThoughtTraceEntrySchema)
+  })
+})
+
+export type MultiChainComparisonFixture = Schema.Schema.Type<typeof MultiChainComparisonFixtureSchema>
+
 export const TraceEntryShapeFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.trace.entry-shape.basic"),
   metadata: FixtureMetadataSchema,
@@ -474,6 +565,57 @@ export const MiproTrialBudgetCasesFixtureSchema = Schema.Struct({
 })
 
 export type MiproTrialBudgetCasesFixture = Schema.Schema.Type<typeof MiproTrialBudgetCasesFixtureSchema>
+
+const CoproAcceptedUpdateSchema = Schema.Struct({
+  step: Schema.Number,
+  instruction: Schema.String,
+  score: Schema.Number,
+  changed: Schema.Boolean
+})
+
+const CoproTrialRecordSchema = Schema.Struct({
+  trialNumber: Schema.Number,
+  step: Schema.Number,
+  candidateIndex: Schema.Number,
+  instruction: Schema.String,
+  score: Schema.Number,
+  improved: Schema.Boolean
+})
+
+export const CoproProgressionFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.copro.progression.basic"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    seed: Schema.Number,
+    numCandidates: Schema.Number,
+    maxSteps: Schema.Number,
+    baselineInstruction: Schema.String,
+    baselineScore: Schema.Number,
+    seedCandidates: Schema.Array(Schema.String),
+    refinementCandidates: Schema.Array(Schema.String),
+    acceptedUpdates: Schema.Array(CoproAcceptedUpdateSchema),
+    trials: Schema.Array(CoproTrialRecordSchema),
+    expectedBestInstruction: Schema.String,
+    expectedBestScore: Schema.Number
+  })
+})
+
+export type CoproProgressionFixture = Schema.Schema.Type<typeof CoproProgressionFixtureSchema>
+
+export const CoproResumeFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("dspy.copro.resume.seed-17"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    seed: Schema.Number,
+    interruptionAfterStep: Schema.Number,
+    expectedNextStep: Schema.Number,
+    expectedTotalTrials: Schema.Number,
+    expectedBestInstruction: Schema.String,
+    expectedBestScore: Schema.Number
+  })
+})
+
+export type CoproResumeFixture = Schema.Schema.Type<typeof CoproResumeFixtureSchema>
 
 const GepaCatalogFixtureEntrySchema = Schema.Struct({
   name: Schema.String,
@@ -872,6 +1014,10 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.chat.parse-sections.basic",
   "dspy.chat.parse-fallback.contract",
   "dspy.cot.reasoning-field.basic",
+  "dspy.pot.success.basic",
+  "dspy.pot.repair-cycle.basic",
+  "dspy.pot.parse-error.basic",
+  "dspy.multiChainComparison.basic",
   "dspy.trace.entry-shape.basic",
   "dspy.trace.fiber-isolation.seed-0",
   "dspy.evaluate.report-shape.basic",
@@ -885,6 +1031,8 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.mipro.phase-config",
   "dspy.mipro.tips-vocabulary",
   "dspy.mipro.trial-budget-cases",
+  "dspy.copro.progression.basic",
+  "dspy.copro.resume.seed-17",
   "dspy.gepa.pareto.score-matrix.basic",
   "dspy.gepa.pareto.score-matrix.ties",
   "dspy.gepa.selection.weights.seed-42",
@@ -937,6 +1085,10 @@ export const KnownFixtureSchema = Schema.Union(
   ChatParseSectionsFixtureSchema,
   ChatParseFallbackFixtureSchema,
   ChainOfThoughtReasoningFixtureSchema,
+  ProgramOfThoughtSuccessFixtureSchema,
+  ProgramOfThoughtRepairFixtureSchema,
+  ProgramOfThoughtParseErrorFixtureSchema,
+  MultiChainComparisonFixtureSchema,
   TraceEntryShapeFixtureSchema,
   TraceFiberIsolationFixtureSchema,
   EvaluateReportShapeFixtureSchema,
@@ -950,6 +1102,8 @@ export const KnownFixtureSchema = Schema.Union(
   MiproPhaseConfigFixtureSchema,
   MiproTipsVocabularyFixtureSchema,
   MiproTrialBudgetCasesFixtureSchema,
+  CoproProgressionFixtureSchema,
+  CoproResumeFixtureSchema,
   GepaParetoScoreMatrixFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
   GepaReflectDatasetShapeFixtureSchema,

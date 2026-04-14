@@ -1,0 +1,33 @@
+{
+  "fixture": "effect-dsp.parallel.concurrency.basic",
+  "payload": {
+    "concurrency": 2,
+    "failurePolicy": "fail-fast",
+    "branches": [
+      {
+        "question": "One question",
+        "answer": "One",
+        "yieldCount": 4
+      },
+      {
+        "question": "Two question",
+        "answer": "Two",
+        "yieldCount": 1
+      },
+      {
+        "question": "Three question",
+        "answer": "Three",
+        "yieldCount": 3
+      },
+      {
+        "question": "Four question",
+        "answer": "Four",
+        "yieldCount": 2
+      }
+    ],
+    "expectedOutputAnswers": ["One", "Two", "Three", "Four"],
+    "expectedMaxConcurrency": 2,
+    "expectedCallCount": 4,
+    "expectedCachedCount": 0
+  }
+}

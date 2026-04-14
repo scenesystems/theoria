@@ -12,6 +12,7 @@ import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type * as SearchSpace from "../../../SearchSpace/index.js"
 import { type AcquisitionOption, defaultAcquisitionName, scoreAcquisition } from "../acquisition/index.js"
 import { chooseBestCandidate, drawRollPairs } from "../candidates.js"
+import type { PreparedTpeParameterObservations } from "../preparedModel.js"
 import { expandedBoundsForStep, normalizeFloat } from "./float.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
@@ -46,10 +47,21 @@ export const suggestIntParameter = (
   high: number,
   step: Option.Option<number>,
   split: TrialSplit,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<number, InvalidSamplerConfig> =>
   Effect.gen(function*() {
-    const trace = yield* intCandidateTrace(rng, nCandidates, parameter, low, high, step, split, acquisition)
+    const trace = yield* intCandidateTrace(
+      rng,
+      nCandidates,
+      parameter,
+      low,
+      high,
+      step,
+      split,
+      acquisition,
+      preparedObservations
+    )
 
     return yield* chooseBestCandidate(
       trace.candidates,
@@ -77,26 +89,32 @@ export const intCandidateTraceFromRolls = (
   step: Option.Option<number>,
   split: TrialSplit,
   rolls: ReadonlyArray<CandidateRollPair>,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   Effect.gen(function*() {
     const stride = Option.getOrElse(step, () => 1)
     const [modelLow, modelHigh] = expandedBoundsForStep(low, high, Option.some(stride))
+    const belowValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.below),
+      onSome: (observations) => observations.belowNumeric
+    })
+    const aboveValues = Option.match(preparedObservations, {
+      onNone: () => numericValuesForParameter(parameter, split.above),
+      onSome: (observations) => observations.aboveNumeric
+    })
 
-    const belowParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.below), modelLow, modelHigh)
-    const aboveParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.above), modelLow, modelHigh)
-    const modelCandidates = Arr.map(rolls, ([kernelRoll, valueRoll]) =>
-      sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    const belowParzen = buildContinuousParzen(belowValues, modelLow, modelHigh)
+    const aboveParzen = buildContinuousParzen(aboveValues, modelLow, modelHigh)
+    const modelCandidates = Arr.map(rolls, (roll) => sampleFromParzen(belowParzen, roll.kernelRoll, roll.valueRoll))
     const logPairs = Arr.map(modelCandidates, (candidate) =>
       Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate)))
 
     return new DimensionScoreTrace({
       candidates: Arr.map(modelCandidates, (candidate) =>
         normalizeInt(candidate, low, high, step)),
-      logL: Arr.map(logPairs, ([logL]) =>
-        logL),
-      logG: Arr.map(logPairs, ([_logL, logG]) =>
-        logG),
+      logL: Arr.map(logPairs, ([logL]) => logL),
+      logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
         scoreAcquisition({
           logL,
@@ -127,8 +145,11 @@ export const intCandidateTrace = (
   high: number,
   step: Option.Option<number>,
   split: TrialSplit,
-  acquisition: AcquisitionOption = defaultAcquisitionName
+  acquisition: AcquisitionOption = defaultAcquisitionName,
+  preparedObservations: Option.Option<PreparedTpeParameterObservations> = Option.none()
 ): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
   drawRollPairs(rng, nCandidates).pipe(
-    Effect.flatMap((rolls) => intCandidateTraceFromRolls(parameter, low, high, step, split, rolls, acquisition))
+    Effect.flatMap((rolls) =>
+      intCandidateTraceFromRolls(parameter, low, high, step, split, rolls, acquisition, preparedObservations)
+    )
   )

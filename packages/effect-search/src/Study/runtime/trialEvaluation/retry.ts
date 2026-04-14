@@ -87,7 +87,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
               onSuccess: () =>
                 appendEvent(
                   runtime,
-                  StudyEvent.TrialRetried({
+                  StudyEvent.TrialRetried.make({
                     trialNumber,
                     attempt: Num.increment(attempt),
                     error

@@ -23,7 +23,7 @@ describe("Runtime/open-model-route-selection", () => {
         }
       )
 
-      const resolution = OpenAiCompatible.makeOpenAiCompatibleResolution(
+      const resolution = OpenAiCompatible.OpenAiCompatibleResolution.fromDescriptor(
         desired,
         desired.route?.baseUrl ?? "http://127.0.0.1/v1"
       )

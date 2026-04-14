@@ -11,8 +11,7 @@
  */
 import { Number as N } from "effect"
 
-import { betaincKernel } from "../../Special/internal/betainc.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
+import { betainc, lnGamma } from "../../Special/operations.js"
 
 /**
  * Log-PMF: ln C(n,k) + k·ln(p) + (n−k)·ln(1−p).
@@ -27,8 +26,8 @@ export const binomialLogPmf = (k: number, n: number, p: number): number => {
   if (p === 1) return k === n ? 0 : -Infinity
 
   const lnCoeff = N.subtract(
-    lnGammaLanczos(N.sum(n, 1)),
-    N.sum(lnGammaLanczos(N.sum(k, 1)), lnGammaLanczos(N.sum(N.subtract(n, k), 1)))
+    lnGamma(N.sum(n, 1)),
+    N.sum(lnGamma(N.sum(k, 1)), lnGamma(N.sum(N.subtract(n, k), 1)))
   )
 
   return N.sum(
@@ -64,7 +63,7 @@ export const binomialCdf = (k: number, n: number, p: number): number => {
   if (p === 0) return N.greaterThanOrEqualTo(k, 0) ? 1 : 0
   if (p === 1) return N.greaterThanOrEqualTo(k, n) ? 1 : 0
 
-  return N.subtract(1, betaincKernel(N.sum(k, 1), N.subtract(n, k), p))
+  return N.subtract(1, betainc(N.sum(k, 1), N.subtract(n, k), p))
 }
 
 /**

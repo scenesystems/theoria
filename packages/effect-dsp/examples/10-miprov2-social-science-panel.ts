@@ -25,9 +25,9 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
-  makeStandardEvents,
-  makeStandardModuleState,
-  makeStandardSummary,
+  StandardExampleEvents,
+  StandardExampleSummary,
+  StandardModuleState,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -216,11 +216,11 @@ const program = Effect.gen(function*() {
     threshold: 1,
     teacher: teacherLayer
   }).pipe(
-    Optimizer.tapBootstrapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
+    Optimizer.BootstrapProgressLine.tap((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
   const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
-  const bootstrapSummary = Optimizer.summarizeBootstrapEvents(bootstrapEvents)
+  const bootstrapSummary = Optimizer.BootstrapEventSummary.summarize(bootstrapEvents)
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
     totalEvents: bootstrapSummary.totalEvents,
@@ -252,12 +252,12 @@ const program = Effect.gen(function*() {
     trialBudget: 6,
     seed: 17
   }).pipe(
-    Optimizer.tapMIPROv2Progress((line) => logExampleEvent("miprov2", line.text)),
+    Optimizer.MIPROv2ProgressLine.tap((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
 
   const miproEvents = Arr.fromIterable(miproEventsChunk)
-  const miproEventSummary = Optimizer.summarizeMIPROv2Events(miproEvents)
+  const miproEventSummary = Optimizer.MIPROv2EventSummary.summarize(miproEvents)
   const optimized = yield* Evaluate.run({
     module: planner,
     examples: evalset,
@@ -268,7 +268,7 @@ const program = Effect.gen(function*() {
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const outcomeSummary = Optimizer.summarizeMIPROv2Outcome({
+  const outcomeSummary = Optimizer.MIPROv2OutcomeSummary.make({
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     demoCountBeforeOptimization: baselineParams.demos.length,
@@ -276,7 +276,7 @@ const program = Effect.gen(function*() {
     eventSummary: miproEventSummary
   })
   const plannerSavedState = yield* Module.save(planner)
-  const summaryArtifact = makeStandardSummary({
+  const summaryArtifact = StandardExampleSummary.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     metricName: "exactMatch",
@@ -320,7 +320,7 @@ const program = Effect.gen(function*() {
       outcomeSummary
     }
   })
-  const eventsArtifact = makeStandardEvents({
+  const eventsArtifact = StandardExampleEvents.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     streams: Arr.make(
@@ -334,7 +334,7 @@ const program = Effect.gen(function*() {
       }
     )
   })
-  const moduleStateArtifact = makeStandardModuleState({
+  const moduleStateArtifact = StandardModuleState.make({
     exampleName: EXAMPLE_NAME,
     optimizer: "miprov2",
     state: plannerSavedState

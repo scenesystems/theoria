@@ -11,7 +11,7 @@ import {
   releaseNotesScene,
   researchAbstractScene,
   supportChatScene
-} from "./reflow-scenes.js"
+} from "./presentation/reflow-scenes.js"
 
 export const CorpusEntry = Schema.Struct({
   id: Schema.String.pipe(Schema.minLength(1)),
@@ -63,7 +63,7 @@ export const corpus: ReadonlyArray<CorpusEntry> = [
     label: "Release notes",
     scene: releaseNotesScene,
     text:
-      "This release introduces deterministic replay for constrained optimization studies, lane-specific timeout policies, capability reporting for provider-bound demonstrations, and a stricter projection pipeline for text-heavy scenes. The headline improvement is not cosmetic polish; it is trustworthiness. Layout preparation is now amortized, evidence streams remain attributable, and the live stage is far less willing to fake consistency when the underlying contract disagrees with what the browser is showing."
+      "This release introduces deterministic replay for constrained optimization studies, lane-specific timeout policies, capability reporting for provider-bound study runs, and a stricter projection pipeline for text-heavy scenes. The headline improvement is not cosmetic polish; it is trustworthiness. Layout preparation is now amortized, evidence streams remain attributable, and the live stage is far less willing to fake consistency when the underlying contract disagrees with what the browser is showing."
   },
   {
     id: "multilingual",
@@ -77,13 +77,13 @@ export const corpus: ReadonlyArray<CorpusEntry> = [
     label: "Code commentary",
     scene: codeCommentaryScene,
     text:
-      "The baseline implementation repeatedly recomputed expensive preparation for every viewport width, every obstacle toggle, and every nearby visual adjustment, which made the demo look dynamic while quietly erasing the very distinction it claimed to teach. The corrected path prepares once, preserves that handle as the semantic authority, and projects every subsequent layout summary as a pure function of width, line height, and obstacle bands. That separation is not just a performance trick; it is the same architectural ethic we want everywhere else in the company: derive from one contract, render faithfully, and make drift obvious instead of silently compensating for it."
+      "The baseline implementation repeatedly recomputed expensive preparation for every viewport width, every obstacle toggle, and every nearby visual adjustment, which made the surface look dynamic while quietly erasing the very distinction it claimed to teach. The corrected path prepares once, preserves that handle as the semantic authority, and projects every subsequent layout summary as a pure function of width, line height, and obstacle bands. That separation is not just a performance trick; it is the same architectural ethic we want everywhere else in the company: derive from one contract, render faithfully, and make drift obvious instead of silently compensating for it."
   },
   {
     id: "product-copy",
     label: "Product copy",
     scene: productCopyScene,
     text:
-      "Ask one real question, run a live demonstration, compare baseline versus improved behavior, and inspect the exact code path that produced every reported metric, trace, and claim. Scene Systems is built for teams who are tired of hand-wavy software theater: we want tools that show their work, interfaces that stay loyal to their contracts, and research environments where humans and agents can think together without hiding the evidence under a polished surface."
+      "Ask one real question, run a live study, compare baseline versus improved behavior, and inspect the exact code path that produced every reported metric, trace, and claim. Scene Systems is built for teams who are tired of hand-wavy software theater: we want tools that show their work, interfaces that stay loyal to their contracts, and research environments where humans and agents can think together without hiding the evidence under a polished surface."
   }
 ]

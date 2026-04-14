@@ -7,20 +7,20 @@ import * as StudyEvent from "../../../src/StudyEvent/index.js"
 describe("formatter boundary", () => {
   it.effect("keeps pure formatter output independent from sink effects", () =>
     Effect.gen(function*() {
-      const event = StudyEvent.TrialPruned({
+      const event = StudyEvent.TrialPruned.make({
         trialNumber: 8,
         step: 3,
         reason: "plateau",
         policy: "threshold-pruner"
       })
 
-      const first = Study.formatTerminalProgressEvent(event, { renderMode: "plain" })
-      const second = Study.formatTerminalProgressEvent(event, { renderMode: "plain" })
+      const first = Study.ProgressLine.projectEvent(event, { renderMode: "plain" })
+      const second = Study.ProgressLine.projectEvent(event, { renderMode: "plain" })
       expect(first).toEqual(second)
 
       const stdout = yield* Ref.make<ReadonlyArray<string>>([])
       const stderr = yield* Ref.make<ReadonlyArray<string>>([])
-      const sink = Study.makeTerminalSink({
+      const sink = Study.TerminalSink.make({
         supportsAnsi: Effect.succeed(false),
         writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
         writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))

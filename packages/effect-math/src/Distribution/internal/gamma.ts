@@ -2,17 +2,15 @@
  * Gamma distribution kernels.
  * Parameters: shape (k > 0), scale (θ > 0). Mean = kθ.
  *
- * CDF delegates to gammainc from Special/internal/gammainc.js.
- * Log-normalisation uses lnGamma from Special/internal/gamma.js.
+ * CDF delegates to the Special-domain gammainc owner surface.
+ * Log-normalisation uses the Special-domain lnGamma owner surface.
  *
  * @since 0.1.0
  * @category internal
  */
 import { Number as N } from "effect"
 
-import { digammaKernel } from "../../Special/internal/digamma.js"
-import { lnGammaLanczos } from "../../Special/internal/gamma.js"
-import { gammaincKernel } from "../../Special/internal/gammainc.js"
+import { digamma, gammainc, lnGamma } from "../../Special/operations.js"
 
 /**
  * Gamma PDF: x^{k−1} e^{−x/θ} / (θ^k Γ(k)) for x > 0.
@@ -36,7 +34,7 @@ export const gammaPdf = (x: number, shape: number, scale: number): number => {
       ),
       N.sum(
         N.multiply(shape, Math.log(scale)),
-        lnGammaLanczos(shape)
+        lnGamma(shape)
       )
     )
   )
@@ -57,7 +55,7 @@ export const gammaLogpdf = (x: number, shape: number, scale: number): number => 
     ),
     N.sum(
       N.multiply(shape, Math.log(scale)),
-      lnGammaLanczos(shape)
+      lnGamma(shape)
     )
   )
 }
@@ -70,7 +68,7 @@ export const gammaLogpdf = (x: number, shape: number, scale: number): number => 
  */
 export const gammaCdf = (x: number, shape: number, scale: number): number => {
   if (x <= 0) return 0
-  return gammaincKernel(shape, N.unsafeDivide(x, scale))
+  return gammainc(shape, N.unsafeDivide(x, scale))
 }
 
 /**
@@ -138,7 +136,7 @@ export const gammaEntropy = (shape: number, scale: number): number =>
   N.sum(
     N.sum(shape, Math.log(scale)),
     N.sum(
-      lnGammaLanczos(shape),
-      N.multiply(N.subtract(1, shape), digammaKernel(shape))
+      lnGamma(shape),
+      N.multiply(N.subtract(1, shape), digamma(shape))
     )
   )

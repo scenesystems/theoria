@@ -1,6 +1,7 @@
 import { Match } from "effect"
 
-import type { EvidenceItem } from "../../../contracts/evidence.js"
+import type { EvidenceItem } from "../../../contracts/evidence/item.js"
+import { presentationDetailRow } from "../../../contracts/presentation/detail-row.js"
 
 import { formatDelta, formatNumber, formatScalar } from "../data/format.js"
 import { ComparisonBar } from "./ComparisonBar.js"
@@ -47,9 +48,9 @@ export const EvidenceItemRenderer = ({
           label={i.label}
           surface={surface}
           summaryItems={[
-            { label: "Min", value: formatNumber(min) },
-            { label: "Max", value: formatNumber(max) },
-            { label: "Latest", value: formatNumber(latest) }
+            presentationDetailRow("Min", formatNumber(min)),
+            presentationDetailRow("Max", formatNumber(max)),
+            presentationDetailRow("Latest", formatNumber(latest))
           ]}
           unit={i.unit}
           values={i.values}

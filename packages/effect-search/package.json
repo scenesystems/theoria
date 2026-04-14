@@ -52,30 +52,30 @@
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "check:examples": "tsc -b tsconfig.examples.json",
-    "lint": "eslint --max-warnings=0 src test",
-    "lint:fix": "eslint --max-warnings=0 --fix src test",
+    "lint": "eslint --max-warnings=0 src test benchmark",
+    "lint:fix": "eslint --max-warnings=0 --fix src test benchmark",
     "test": "vitest run --root ../.. packages/effect-search/test",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3 && bun ../../scripts/resolve-workspace-deps.ts",
+    "bench": "bun run benchmark/run.ts",
     "clean": "rm -rf build dist .tsbuildinfo",
     "docgen": "docgen",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:generate": "uv run scripts/generate-optuna-fixtures.py",
     "fixtures:lock": "uv lock --script scripts/generate-optuna-fixtures.py && uv lock --script scripts/verify-optuna-fixtures.py",
     "fixtures:verify": "uv run scripts/verify-optuna-fixtures.py",
-    "publish:check": "bun run scripts/verify-publish-readiness.ts",
-    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
+    "publish:check": "bun ../../scripts/publish-readiness.ts --package=effect-search",
+    "release-snapshots:stamp": "bun ../../scripts/stamp-release-snapshot.ts",
     "changeset-version": "changeset version",
-    "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
+    "changeset-publish": "bun run build && bun run publish:check -- --require-packed-manifest --enforce-monorepo-topology && bun run test && changeset publish"
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
     "effect-math": "workspace:^"
   },
   "devDependencies": {
-    "effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {

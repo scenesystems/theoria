@@ -15,7 +15,7 @@ describe("pubsub event fanout", () => {
         })
         const publisher = fanoutEventPublisher(eventPublisherFromPubSub(pubsub), mirroredPublisher)
 
-        const event = StudyEvent.TrialStarted({ trialNumber: 1, config: { x: 0.5 } })
+        const event = StudyEvent.TrialStarted.make({ trialNumber: 1, config: { x: 0.5 } })
         const stream = yield* Stream.fromPubSub(pubsub, { scoped: true })
         const streamFiber = yield* stream.pipe(
           Stream.take(1),

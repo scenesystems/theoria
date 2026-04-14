@@ -1,10 +1,9 @@
 /**
- * Runtime resolver services, config decoding, runtime-evidence assembly, and
- * deterministic testing helpers.
+ * Runtime resolver services, config decoding, and runtime-evidence assembly.
  *
  * Resolver output stays pre-execution: route provenance, conservative
  * capability truth, and live model layers. Post-execution response metadata is
- * assembled separately through `makeRuntimeEvidence(...)`.
+ * assembled separately through `RuntimeEvidence.fromResolution(...)`.
  *
  * @since 0.1.0
  */
@@ -21,5 +20,3 @@ export * from "./evidence.js"
 export * from "./liveTextProviderConfig.js"
 /** @since 0.1.0 */
 export * from "./liveTextProvider.js"
-/** @since 0.1.0 */
-export * from "./testing.js"

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number as Num, Option, Ref, Schema } from "effect"
+import { abs, logStrict } from "effect-math/Numeric"
 
 import { normalizeObjectiveVector } from "../../src/contracts/index.js"
 import {
   decodeLinearTreeConditionalConfig,
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import { makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import { makeSlotSpace } from "../../src/experimental/scenarios/slot.js"
-import * as Float64 from "../../src/internal/float64.js"
+import { RandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
+import { SlotSpace } from "../../src/experimental/scenarios/slot.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -24,7 +24,7 @@ const deterministicSampler = new Sampler.Sampler({
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
 
-const singleSpace = () => makeSlotSpace(40)
+const singleSpace = () => SlotSpace.make(40)
 
 const decodeSingleConfig = Schema.decodeUnknownSync(singleSpace().schema)
 
@@ -101,7 +101,7 @@ const asSingleObjective = (result: Study.StudyResult) =>
 const asMultiObjective = (result: Study.StudyResult) =>
   result._tag === "MultiObjective" ? Option.some(result) : Option.none()
 
-const bootstrapSpace = makeRandomTrainingSpace(32)
+const bootstrapSpace = RandomTrainingSpace.make(32)
 const decodeBootstrapConfig = Schema.decodeUnknownSync(bootstrapSpace.schema)
 
 const bootstrapFiniteGridSpace = SearchSpace.unsafeMake({
@@ -151,7 +151,7 @@ const isCoupledBestPair = (raw: unknown): boolean => {
   return config.demo === preferredDemo
 }
 
-const conditionalSpace = makeLinearTreeConditionalSpace()
+const conditionalSpace = LinearTreeConditionalSpace.make()
 const decodeConditionalConfig = decodeLinearTreeConditionalConfig
 const encodeConditionalTrace = Schema.encodeSync(
   Schema.parseJson(Schema.Array(LinearTreeConditionalConfigSchema))
@@ -163,18 +163,18 @@ const encodeObjectiveVectors = Schema.encodeSync(
 const conditionalLatency = (raw: unknown): number =>
   Match.value(decodeConditionalConfig(raw)).pipe(
     Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-      Float64.abs(Float64.log(learningRate) - Float64.log(0.015)) + regularization * 0.2),
+      abs(logStrict(learningRate) - logStrict(0.015)) + regularization * 0.2),
     Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-      0.6 + Float64.abs(maxDepth - 6) * 0.2 + Float64.abs(minSamplesLeaf - 2) * 0.1),
+      0.6 + abs(maxDepth - 6) * 0.2 + abs(minSamplesLeaf - 2) * 0.1),
     Match.exhaustive
   )
 
 const conditionalLoss = (raw: unknown): number =>
   Match.value(decodeConditionalConfig(raw)).pipe(
     Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-      Float64.abs(learningRate - 0.02) * 6 + Float64.abs(regularization - 0.2)),
+      abs(learningRate - 0.02) * 6 + abs(regularization - 0.2)),
     Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-      0.4 + Float64.abs(maxDepth - 7) * 0.25 + Float64.abs(minSamplesLeaf - 2) * 0.35),
+      0.4 + abs(maxDepth - 7) * 0.25 + abs(minSamplesLeaf - 2) * 0.35),
     Match.exhaustive
   )
 
@@ -273,8 +273,8 @@ describe("optimizer readiness pruning regression", () => {
 
                 return Effect.sleep("4 millis").pipe(
                   Effect.as(
-                    Float64.abs(Float64.log(config.lr) - Float64.log(0.01)) +
-                      Float64.abs(config.batchSize - 32) * 0.05 +
+                    abs(logStrict(config.lr) - logStrict(0.01)) +
+                      abs(config.batchSize - 32) * 0.05 +
                       (config.useBatchNorm ? 0 : 0.15) +
                       optimizerPenalty
                   )

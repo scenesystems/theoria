@@ -21,14 +21,33 @@ import {
   NumericDomainBoundaryError,
   NumericDomainViolationError
 } from "./errors.js"
+import * as Hyperbolic from "./internal/hyperbolic.js"
+import * as Integer from "./internal/integer.js"
 import * as Logspace from "./internal/logspace.js"
 import * as LogSumExp from "./internal/logSumExp.js"
 import * as Reduction from "./internal/reduction.js"
+import * as Rounding from "./internal/rounding.js"
 import * as Scalar from "./internal/scalar.js"
 import * as Selection from "./internal/selection.js"
 import * as Transcendental from "./internal/transcendental.js"
+import * as Trigonometric from "./internal/trigonometric.js"
 import { NumericDomainModel } from "./model.js"
-import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogSumExpInput, ReductionInput } from "./schema.js"
+import {
+  AngleConversionInput,
+  ArgmaxInput,
+  Atan2Input,
+  ClosedUnitScalarInput,
+  DivideInput,
+  HypotInput,
+  Int32MultiplyInput,
+  LogaddexpInput,
+  LogInput,
+  LogSumExpInput,
+  OpenUnitScalarInput,
+  ReductionInput,
+  ScalarAtLeastOneInput,
+  UnaryFiniteScalarInput
+} from "./schema.js"
 
 /**
  * Division with zero-divisor guard — returns `None` instead of producing
@@ -84,6 +103,249 @@ export const unsafeDivide: {
  * @category operations
  */
 export const safeDivideFinite: (dividend: number, divisor: number) => Option.Option<number> = Scalar.safeDivideFinite
+
+/**
+ * Canonical circle constant used by downstream samplers and density kernels.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const PI = Math.PI
+
+/**
+ * Canonical base of the natural logarithm used by downstream log-space
+ * transforms.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const E = Transcendental.E
+
+/**
+ * Canonical natural logarithm of two used by strict logarithm kernels.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const LN_2 = Transcendental.LN_2
+
+/**
+ * Canonical square root of two used by Gaussian and Fourier-domain helpers.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const SQRT_2 = Math.SQRT2
+
+/**
+ * Canonical IEEE-754 machine epsilon for float64 computations.
+ *
+ * @since 0.2.1
+ * @category constants
+ */
+export const EPSILON = Number.EPSILON
+
+/**
+ * Absolute value on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const abs: (value: number) => number = Transcendental.abs
+
+/**
+ * Square root on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const sqrt: (value: number) => number = Math.sqrt
+
+/**
+ * Natural exponential on float64 scalars.
+ *
+ * @since 0.2.1
+ * @category operations
+ */
+export const exp: (value: number) => number = Transcendental.exp
+
+/**
+ * Canonical turn constant used by downstream geometry, rendering, and phase
+ * computations that want one full revolution in radians.
+ *
+ * @since 0.3.0
+ * @category constants
+ */
+export const TAU = EffectNumber.multiply(2, PI)
+
+/**
+ * Converts degrees into radians on the released real-scalar surface so
+ * downstream geometry and render helpers can stay on `effect-math/Numeric`.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const degreesToRadians: (value: number) => number = Rounding.degreesToRadians
+
+/**
+ * Converts radians into degrees on the released real-scalar surface.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const radiansToDegrees: (value: number) => number = Rounding.radiansToDegrees
+
+/**
+ * Circular sine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sin: (value: number) => number = Trigonometric.sin
+
+/**
+ * Circular cosine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const cos: (value: number) => number = Trigonometric.cos
+
+/**
+ * Circular tangent on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const tan: (value: number) => number = Trigonometric.tan
+
+/**
+ * Inverse circular sine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const asin: (value: number) => number = Trigonometric.asin
+
+/**
+ * Inverse circular cosine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const acos: (value: number) => number = Trigonometric.acos
+
+/**
+ * Inverse circular tangent on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atan: (value: number) => number = Trigonometric.atan
+
+/**
+ * Quadrant-sensitive inverse tangent on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atan2: (y: number, x: number) => number = Trigonometric.atan2
+
+/**
+ * Hyperbolic sine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sinh: (value: number) => number = Hyperbolic.sinh
+
+/**
+ * Hyperbolic cosine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const cosh: (value: number) => number = Hyperbolic.cosh
+
+/**
+ * Hyperbolic tangent on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const tanh: (value: number) => number = Hyperbolic.tanh
+
+/**
+ * Inverse hyperbolic sine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const asinh: (value: number) => number = Hyperbolic.asinh
+
+/**
+ * Inverse hyperbolic cosine on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const acosh: (value: number) => number = Hyperbolic.acosh
+
+/**
+ * Inverse hyperbolic tangent on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atanh: (value: number) => number = Hyperbolic.atanh
+
+/**
+ * Euclidean magnitude from two real scalar coordinates.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const hypot: (left: number, right: number) => number = Rounding.hypot
+
+/**
+ * IEEE-754 floor on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const floor: (value: number) => number = Rounding.floor
+
+/**
+ * IEEE-754 ceiling on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const ceil: (value: number) => number = Rounding.ceil
+
+/**
+ * IEEE-754 round-to-nearest on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const round: (value: number) => number = Rounding.round
+
+/**
+ * IEEE-754 truncate-toward-zero on real scalar inputs.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const trunc: (value: number) => number = Rounding.trunc
+
+/**
+ * Deterministic signed 32-bit multiplication for hashing and PRNG-style flows.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const imul: (left: number, right: number) => number = Integer.imul
 
 /**
  * Natural logarithm delegating directly to `Math.log`. Returns `NaN` for
@@ -221,6 +483,446 @@ export const between: {
  * @category operations
  */
 export const loadNumericDomain = Effect.succeed(NumericDomainModel)
+
+const decodeNumericInput = <A, I>(schema: Schema.Schema<A, I, never>, operation: string, input: unknown) =>
+  Schema.decodeUnknown(schema)(input, {
+    onExcessProperty: "error"
+  }).pipe(
+    Effect.mapError((error) =>
+      new NumericDecodeError({
+        operation,
+        message: error.message
+      })
+    )
+  )
+
+const withNumericScalarPolicies = (operation: string, compute: () => number, input: string) =>
+  withScalarPolicyGuards({
+    operation: `Numeric.${operation}`,
+    compute,
+    makeError: (message) => new NumericDomainViolationError({ operation, message }),
+    annotations: (result) => ({ input, result: String(result) })
+  })
+
+/**
+ * Boundary-validated degree-to-radian conversion.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const degreesToRadiansValidated = (input: unknown) =>
+  decodeNumericInput(AngleConversionInput, "degreesToRadians", input).pipe(
+    Effect.map(({ value }) => Rounding.degreesToRadians(value))
+  )
+
+/**
+ * Boundary-validated radian-to-degree conversion.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const radiansToDegreesValidated = (input: unknown) =>
+  decodeNumericInput(AngleConversionInput, "radiansToDegrees", input).pipe(
+    Effect.map(({ value }) => Rounding.radiansToDegrees(value))
+  )
+
+/**
+ * Boundary-validated circular sine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const sinValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "sin", input).pipe(
+    Effect.map(({ value }) => Trigonometric.sin(value))
+  )
+
+/**
+ * Boundary-validated circular cosine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const cosValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "cos", input).pipe(
+    Effect.map(({ value }) => Trigonometric.cos(value))
+  )
+
+/**
+ * Boundary-validated circular tangent.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const tanValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "tan", input).pipe(
+    Effect.map(({ value }) => Trigonometric.tan(value))
+  )
+
+/**
+ * Boundary-validated inverse circular sine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const asinValidated = (input: unknown) =>
+  decodeNumericInput(ClosedUnitScalarInput, "asin", input).pipe(
+    Effect.map(({ value }) => Trigonometric.asin(value))
+  )
+
+/**
+ * Boundary-validated inverse circular cosine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const acosValidated = (input: unknown) =>
+  decodeNumericInput(ClosedUnitScalarInput, "acos", input).pipe(
+    Effect.map(({ value }) => Trigonometric.acos(value))
+  )
+
+/**
+ * Boundary-validated inverse circular tangent.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const atanValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "atan", input).pipe(
+    Effect.map(({ value }) => Trigonometric.atan(value))
+  )
+
+/**
+ * Boundary-validated quadrant-sensitive inverse tangent.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const atan2Validated = (input: unknown) =>
+  decodeNumericInput(Atan2Input, "atan2", input).pipe(
+    Effect.map(({ y, x }) => Trigonometric.atan2(y, x))
+  )
+
+/**
+ * Boundary-validated hyperbolic sine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const sinhValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "sinh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.sinh(value))
+  )
+
+/**
+ * Boundary-validated hyperbolic cosine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const coshValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "cosh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.cosh(value))
+  )
+
+/**
+ * Boundary-validated hyperbolic tangent.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const tanhValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "tanh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.tanh(value))
+  )
+
+/**
+ * Boundary-validated inverse hyperbolic sine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const asinhValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "asinh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.asinh(value))
+  )
+
+/**
+ * Boundary-validated inverse hyperbolic cosine.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const acoshValidated = (input: unknown) =>
+  decodeNumericInput(ScalarAtLeastOneInput, "acosh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.acosh(value))
+  )
+
+/**
+ * Boundary-validated inverse hyperbolic tangent.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const atanhValidated = (input: unknown) =>
+  decodeNumericInput(OpenUnitScalarInput, "atanh", input).pipe(
+    Effect.map(({ value }) => Hyperbolic.atanh(value))
+  )
+
+/**
+ * Boundary-validated Euclidean magnitude.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const hypotValidated = (input: unknown) =>
+  decodeNumericInput(HypotInput, "hypot", input).pipe(
+    Effect.map(({ left, right }) => Rounding.hypot(left, right))
+  )
+
+/**
+ * Boundary-validated IEEE-754 floor.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const floorValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "floor", input).pipe(
+    Effect.map(({ value }) => Rounding.floor(value))
+  )
+
+/**
+ * Boundary-validated IEEE-754 ceiling.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const ceilValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "ceil", input).pipe(
+    Effect.map(({ value }) => Rounding.ceil(value))
+  )
+
+/**
+ * Boundary-validated IEEE-754 round-to-nearest.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const roundValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "round", input).pipe(
+    Effect.map(({ value }) => Rounding.round(value))
+  )
+
+/**
+ * Boundary-validated IEEE-754 truncate-toward-zero.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const truncValidated = (input: unknown) =>
+  decodeNumericInput(UnaryFiniteScalarInput, "trunc", input).pipe(
+    Effect.map(({ value }) => Rounding.trunc(value))
+  )
+
+/**
+ * Boundary-validated deterministic signed 32-bit multiplication.
+ *
+ * @since 0.3.0
+ * @category validated operations
+ */
+export const imulValidated = (input: unknown) =>
+  decodeNumericInput(Int32MultiplyInput, "imul", input).pipe(
+    Effect.map(({ left, right }) => Integer.imul(left, right))
+  )
+
+/**
+ * Policy-aware degree-to-radian conversion.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const degreesToRadiansWithPolicies = (value: number) =>
+  withNumericScalarPolicies("degreesToRadiansWithPolicies", () => Rounding.degreesToRadians(value), String(value))
+
+/**
+ * Policy-aware radian-to-degree conversion.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const radiansToDegreesWithPolicies = (value: number) =>
+  withNumericScalarPolicies("radiansToDegreesWithPolicies", () => Rounding.radiansToDegrees(value), String(value))
+
+/**
+ * Policy-aware circular sine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sinWithPolicies = (value: number) =>
+  withNumericScalarPolicies("sinWithPolicies", () => Trigonometric.sin(value), String(value))
+
+/**
+ * Policy-aware circular cosine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const cosWithPolicies = (value: number) =>
+  withNumericScalarPolicies("cosWithPolicies", () => Trigonometric.cos(value), String(value))
+
+/**
+ * Policy-aware circular tangent.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const tanWithPolicies = (value: number) =>
+  withNumericScalarPolicies("tanWithPolicies", () => Trigonometric.tan(value), String(value))
+
+/**
+ * Policy-aware inverse circular sine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const asinWithPolicies = (value: number) =>
+  withNumericScalarPolicies("asinWithPolicies", () => Trigonometric.asin(value), String(value))
+
+/**
+ * Policy-aware inverse circular cosine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const acosWithPolicies = (value: number) =>
+  withNumericScalarPolicies("acosWithPolicies", () => Trigonometric.acos(value), String(value))
+
+/**
+ * Policy-aware inverse circular tangent.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atanWithPolicies = (value: number) =>
+  withNumericScalarPolicies("atanWithPolicies", () => Trigonometric.atan(value), String(value))
+
+/**
+ * Policy-aware quadrant-sensitive inverse tangent.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atan2WithPolicies = (y: number, x: number) =>
+  withNumericScalarPolicies("atan2WithPolicies", () => Trigonometric.atan2(y, x), `y=${y}, x=${x}`)
+
+/**
+ * Policy-aware hyperbolic sine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const sinhWithPolicies = (value: number) =>
+  withNumericScalarPolicies("sinhWithPolicies", () => Hyperbolic.sinh(value), String(value))
+
+/**
+ * Policy-aware hyperbolic cosine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const coshWithPolicies = (value: number) =>
+  withNumericScalarPolicies("coshWithPolicies", () => Hyperbolic.cosh(value), String(value))
+
+/**
+ * Policy-aware hyperbolic tangent.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const tanhWithPolicies = (value: number) =>
+  withNumericScalarPolicies("tanhWithPolicies", () => Hyperbolic.tanh(value), String(value))
+
+/**
+ * Policy-aware inverse hyperbolic sine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const asinhWithPolicies = (value: number) =>
+  withNumericScalarPolicies("asinhWithPolicies", () => Hyperbolic.asinh(value), String(value))
+
+/**
+ * Policy-aware inverse hyperbolic cosine.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const acoshWithPolicies = (value: number) =>
+  withNumericScalarPolicies("acoshWithPolicies", () => Hyperbolic.acosh(value), String(value))
+
+/**
+ * Policy-aware inverse hyperbolic tangent.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const atanhWithPolicies = (value: number) =>
+  withNumericScalarPolicies("atanhWithPolicies", () => Hyperbolic.atanh(value), String(value))
+
+/**
+ * Policy-aware Euclidean magnitude.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const hypotWithPolicies = (left: number, right: number) =>
+  withNumericScalarPolicies("hypotWithPolicies", () => Rounding.hypot(left, right), `left=${left}, right=${right}`)
+
+/**
+ * Policy-aware IEEE-754 floor.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const floorWithPolicies = (value: number) =>
+  withNumericScalarPolicies("floorWithPolicies", () => Rounding.floor(value), String(value))
+
+/**
+ * Policy-aware IEEE-754 ceiling.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const ceilWithPolicies = (value: number) =>
+  withNumericScalarPolicies("ceilWithPolicies", () => Rounding.ceil(value), String(value))
+
+/**
+ * Policy-aware IEEE-754 round-to-nearest.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const roundWithPolicies = (value: number) =>
+  withNumericScalarPolicies("roundWithPolicies", () => Rounding.round(value), String(value))
+
+/**
+ * Policy-aware IEEE-754 truncate-toward-zero.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const truncWithPolicies = (value: number) =>
+  withNumericScalarPolicies("truncWithPolicies", () => Rounding.trunc(value), String(value))
+
+/**
+ * Policy-aware deterministic signed 32-bit multiplication.
+ *
+ * @since 0.3.0
+ * @category operations
+ */
+export const imulWithPolicies = (left: number, right: number) =>
+  withNumericScalarPolicies("imulWithPolicies", () => Integer.imul(left, right), `left=${left}, right=${right}`)
 
 /**
  * Boundary-validated safe division. Accepts `unknown` input, decodes it

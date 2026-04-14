@@ -1,4 +1,4 @@
-import { Button } from "@base-ui-components/react/button"
+import { Button } from "@base-ui/react/button"
 import { Match } from "effect"
 import * as Option from "effect/Option"
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react"

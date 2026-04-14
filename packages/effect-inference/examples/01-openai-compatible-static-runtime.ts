@@ -9,12 +9,12 @@ const desired: DesiredRuntimeDescriptor = {
   artifact: { modelRef: "local/llama-3.2" }
 }
 
-const resolution = OpenAiCompatible.makeOpenAiCompatibleResolution(
+const resolution = OpenAiCompatible.OpenAiCompatibleResolution.fromDescriptor(
   desired,
   "http://localhost:11434/v1"
 )
 
-const evidence = Runtime.makeRuntimeEvidence({
+const evidence = Runtime.RuntimeEvidence.fromResolution({
   resolution,
   resolvedRuntime: {
     responseModel: "local/llama-3.2"

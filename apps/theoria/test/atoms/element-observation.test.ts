@@ -2,7 +2,7 @@ import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { elementWidthAtom, makeElementWidthSlot } from "../../app/web/atoms/element-observation.js"
+import { elementWidthAtom, ElementWidthSlot } from "../../app/web/atoms/surface/element-observation.js"
 
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({
@@ -17,7 +17,7 @@ describe("element observation", () => {
   it.effect("release mount-scoped width state once the last subscriber detaches", () =>
     Effect.gen(function*() {
       const registry = makeTestRegistry()
-      const slot = makeElementWidthSlot()
+      const slot = ElementWidthSlot.make()
       const remove = registry.subscribe(elementWidthAtom(slot), () => undefined)
       const waitForTimeout = Effect.async<void, never, never>((resume) => {
         const handle = setTimeout(() => {

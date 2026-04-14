@@ -4,7 +4,7 @@ import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 import { singleObjectiveSpec } from "../../../src/contracts/index.js"
 import {
   LinearTreeConditionalConfigSchema,
-  makeLinearTreeConditionalSpace
+  LinearTreeConditionalSpace
 } from "../../../src/experimental/scenarios/conditionalLinearTree.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
 import { SuggestCompletedTrial, SuggestContext } from "../../../src/Sampler/index.js"
@@ -12,7 +12,7 @@ import * as Sampler from "../../../src/Sampler/index.js"
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/samplers/Tpe/dimensions/values.js"
 import type * as SearchSpace from "../../../src/SearchSpace/index.js"
 
-const makeConditionalSpace = () => makeLinearTreeConditionalSpace()
+const makeConditionalSpace = () => LinearTreeConditionalSpace.make()
 
 const splitHistory = () => [
   new CompletedTrialForSplit({
@@ -38,22 +38,22 @@ const splitHistory = () => [
 ]
 
 const completedHistory = () => [
-  new SuggestCompletedTrial({
+  SuggestCompletedTrial.make({
     trialNumber: 0,
     config: { model: "linear", learningRate: 0.03, regularization: 0.4 },
     value: 0.5
   }),
-  new SuggestCompletedTrial({
+  SuggestCompletedTrial.make({
     trialNumber: 1,
     config: { model: "linear", learningRate: 0.01, regularization: 0.2 },
     value: 0.2
   }),
-  new SuggestCompletedTrial({
+  SuggestCompletedTrial.make({
     trialNumber: 2,
     config: { model: "tree", maxDepth: 9, minSamplesLeaf: 2 },
     value: 2.8
   }),
-  new SuggestCompletedTrial({
+  SuggestCompletedTrial.make({
     trialNumber: 3,
     config: { model: "tree", maxDepth: 4, minSamplesLeaf: 1 },
     value: 2.1
@@ -94,7 +94,7 @@ describe("TPE conditional branch-aware density behavior", () => {
     Effect.gen(function*() {
       const space = makeConditionalSpace()
       const sampler = Sampler.tpe({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 })
-      const context = new SuggestContext({
+      const context = SuggestContext.make({
         completed: completedHistory(),
         pending: [],
         objectiveSpec: singleObjectiveSpec(),
@@ -130,9 +130,9 @@ describe("TPE conditional branch-aware density behavior", () => {
     Effect.gen(function*() {
       const space = makeConditionalSpace()
       const sampler = Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })
-      const context = new SuggestContext({
+      const context = SuggestContext.make({
         completed: [
-          new SuggestCompletedTrial({
+          SuggestCompletedTrial.make({
             trialNumber: 0,
             config: { model: "tree", maxDepth: 11, minSamplesLeaf: 1 },
             value: 3.5
