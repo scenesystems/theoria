@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "Setting up theoria orb with repository-pinned runtimes and Bun dependencies..."
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "Bun is required for this repository. Install Bun before running orb setup." >&2
+  exit 1
+fi
+
+# Orb changes are committed or synced separately, so developer Git hooks are unnecessary here.
+export HUSKY=0
+
+required_bun_version="$(tr -d '[:space:]' < .bun-version)"
+current_bun_version="$(bun --version)"
+
+if [ "$current_bun_version" != "$required_bun_version" ]; then
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64)
+      bun_platform="bun-linux-x64"
+      ;;
+    Linux-aarch64 | Linux-arm64)
+      bun_platform="bun-linux-aarch64"
+      ;;
+    *)
+      echo "Unsupported Bun platform for automatic orb setup: $(uname -s)-$(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+
+  echo "Installing Bun $required_bun_version for theoria orb tools..."
+  bun_install_root="$HOME/.local/share/theoria-bun/bun-v$required_bun_version"
+  bun_archive="$bun_install_root/$bun_platform.zip"
+  bun_shasums="$bun_install_root/SHASUMS256.txt"
+  bun_release_url="https://github.com/oven-sh/bun/releases/download/bun-v$required_bun_version"
+
+  mkdir -p "$bun_install_root" "$HOME/.local/bin"
+
+  if [ ! -x "$bun_install_root/$bun_platform/bun" ]; then
+    curl -fsSL "$bun_release_url/$bun_platform.zip" -o "$bun_archive"
+    curl -fsSL "$bun_release_url/SHASUMS256.txt" -o "$bun_shasums"
+    (cd "$bun_install_root" && grep "  $bun_platform.zip$" "$bun_shasums" | sha256sum -c -)
+    unzip -q -o "$bun_archive" -d "$bun_install_root"
+  fi
+
+  ln -sfn "$bun_install_root/$bun_platform/bun" "$HOME/.local/bin/bun"
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+required_node_major="$(tr -d '[:space:]' < .node-version)"
+current_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+
+if [ "$current_node_major" != "$required_node_major" ]; then
+  case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64)
+      node_platform="linux-x64"
+      ;;
+    Linux-aarch64 | Linux-arm64)
+      node_platform="linux-arm64"
+      ;;
+    *)
+      echo "Unsupported Node platform for automatic orb setup: $(uname -s)-$(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+
+  echo "Installing the latest Node $required_node_major release for theoria orb tools..."
+  node_version="$(
+    bun -e '
+const [major, platform] = process.argv.slice(1)
+const releases = await fetch("https://nodejs.org/dist/index.json").then((response) => response.json())
+const release = releases.find((entry) => entry.version.startsWith(`v${major}.`) && entry.files.includes(platform))
+
+if (!release) {
+  process.exit(1)
+}
+
+console.log(release.version)
+' "$required_node_major" "$node_platform"
+  )"
+
+  node_install_root="$HOME/.local/share/theoria-node"
+  node_release_dir="$node_install_root/node-$node_version-$node_platform"
+  node_archive="$node_install_root/node-$node_version-$node_platform.tar.xz"
+  node_shasums="$node_install_root/SHASUMS256-$node_version.txt"
+
+  mkdir -p "$node_install_root" "$HOME/.local/bin"
+
+  if [ ! -x "$node_release_dir/bin/node" ]; then
+    curl -fsSL "https://nodejs.org/dist/$node_version/node-$node_version-$node_platform.tar.xz" -o "$node_archive"
+    curl -fsSL "https://nodejs.org/dist/$node_version/SHASUMS256.txt" -o "$node_shasums"
+    (cd "$node_install_root" && grep "  node-$node_version-$node_platform.tar.xz$" "$node_shasums" | sha256sum -c -)
+    tar -xJf "$node_archive" -C "$node_install_root"
+  fi
+
+  ln -sfn "$node_release_dir/bin/node" "$HOME/.local/bin/node"
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if [ ! -f .env ] && [ -f .env.example ]; then
+  cp -- .env.example .env
+fi
+
+mkdir -p .tmp
+
+bun install --frozen-lockfile
+
+echo "theoria orb setup complete."

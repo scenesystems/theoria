@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Setup artifacts persist across pauses. Repair only their command links here; never reinstall.
+required_bun_version="$(tr -d '[:space:]' < .bun-version)"
+bun_binary="$HOME/.local/share/theoria-bun/bun-v$required_bun_version"
+
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)
+    bun_binary="$bun_binary/bun-linux-x64/bun"
+    ;;
+  Linux-aarch64 | Linux-arm64)
+    bun_binary="$bun_binary/bun-linux-aarch64/bun"
+    ;;
+  *)
+    echo "Unsupported platform on orb resume: $(uname -s)-$(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+if [ -x "$bun_binary" ]; then
+  mkdir -p "$HOME/.local/bin"
+  ln -sfn "$bun_binary" "$HOME/.local/bin/bun"
+fi
+
+required_node_major="$(tr -d '[:space:]' < .node-version)"
+current_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+
+if [ "$current_node_major" != "$required_node_major" ]; then
+  node_binary="$(find "$HOME/.local/share/theoria-node" -mindepth 3 -maxdepth 3 -type f -path '*/bin/node' -perm -u+x -print 2>/dev/null | sort -V | tail -n 1)"
+
+  if [ -z "$node_binary" ]; then
+    echo "Pinned Node runtime is missing; rerun .agents/setup." >&2
+    exit 1
+  fi
+
+  mkdir -p "$HOME/.local/bin"
+  ln -sfn "$node_binary" "$HOME/.local/bin/node"
+fi
+
+if [ ! -d node_modules ]; then
+  echo "Bun dependencies are missing; rerun .agents/setup." >&2
+  exit 1
+fi
+
+echo "theoria orb resume checks complete."
