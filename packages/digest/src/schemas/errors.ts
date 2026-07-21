@@ -4,7 +4,7 @@
  * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
  * catchable via `Effect.catchTag`, serializable via Schema.
  *
- * @see {@link durableFingerprint} — the operation that produces FingerprintUnsupportedValue
+ * @see {@link durableFingerprint} — canonical fingerprinting with closed errors
  * @see {@link blake3Mac} — the operation that produces InvalidKeyLength
  *
  * @since 0.1.0
@@ -26,21 +26,6 @@ export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
   {
     expected: Schema.Number,
     actual: Schema.Number
-  }
-) {}
-
-/**
- * Raised when `durableFingerprint` encounters a value that cannot
- * participate in deterministic canonicalization.
- *
- * @since 0.1.0
- * @category errors
- */
-export class FingerprintUnsupportedValue extends Schema.TaggedError<FingerprintUnsupportedValue>()(
-  "FingerprintUnsupportedValue",
-  {
-    valueType: Schema.String,
-    reason: Schema.String
   }
 ) {}
 

@@ -16,12 +16,13 @@
  *
  * @example
  * ```ts
- * import { blake3Hash, canonicalize, digest, durableFingerprint, utf8ToBytes } from "@scenesystems/digest"
+ * import { blake3Hash, canonicalize, digest, durableFingerprint, encodeUtf8 } from "@scenesystems/digest"
  * import { Effect } from "effect"
  *
  * const program = Effect.gen(function*() {
  *   const canonical = yield* canonicalize({ key: "value" })
- *   const hash = yield* blake3Hash(utf8ToBytes(canonical))
+ *   const bytes = yield* encodeUtf8(canonical)
+ *   const hash = yield* blake3Hash(bytes)
  *   const tagged = yield* digest("blake3-256", { key: "value" })
  *   const key = yield* durableFingerprint({ question: "What is 2+2?" })
  * })

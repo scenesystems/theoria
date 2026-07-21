@@ -7,10 +7,10 @@
 
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Effect, Schema } from "effect"
 import { HashFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { digestBytesHex } from "../../src/convenience.js"
+import { encodeFixtureUtf8 } from "../helpers/bytes.js"
 import { loadExternalFixtureManifest, readExternalFixture } from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
 
@@ -41,7 +41,7 @@ describe("external conformance — hash", () => {
 
       yield* Effect.forEach(fixtures, ({ source, fixture }) =>
         Effect.gen(function*() {
-          const digestHex = yield* digestBytesHex(fixture.algorithm, utf8ToBytes(fixture.inputUtf8))
+          const digestHex = yield* digestBytesHex(fixture.algorithm, encodeFixtureUtf8(fixture.inputUtf8))
           expectStringMatch(
             fixture.id,
             fixture.algorithm,

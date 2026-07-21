@@ -21,8 +21,7 @@ import { Effect } from "effect"
 import { blake3Hash } from "../src/algorithms/blake3.js"
 import { canonicalize } from "../src/canonicalize.js"
 import { digest } from "../src/digest.js"
-import { toBase64Url } from "../src/encoding.js"
-import { utf8ToBytes } from "../src/internal/bytes.js"
+import { encodeUtf8, toBase64Url } from "../src/encoding.js"
 
 describe("digest — algorithm-tagged output", () => {
   it.effect("BLAKE3 digest produces 'blake3-256:<base64url>' format", () =>
@@ -51,7 +50,7 @@ describe("digest — pipeline composition", () => {
     Effect.gen(function*() {
       const input = { key: "value" }
       const canonical = yield* canonicalize(input)
-      const bytes = utf8ToBytes(canonical)
+      const bytes = yield* encodeUtf8(canonical)
       const hash = yield* blake3Hash(bytes)
       const encoded = toBase64Url(hash)
       const manual = `blake3-256:${encoded}`

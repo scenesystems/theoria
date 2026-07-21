@@ -11,8 +11,8 @@
  *   older GitHub endpoints). New integrations should use SHA-256.
  *
  * Pure `Uint8Array` in/out — key and message are both byte arrays.
- * Callers handle encoding (use `@noble/hashes/utils.js` for
- * `utf8ToBytes` / `hexToBytes` conversions).
+ * Callers use {@link encodeUtf8} for strict text encoding or the raw-byte
+ * decoding APIs appropriate to their wire format.
  *
  * Output length matches the underlying hash: 32 bytes for SHA-256,
  * 20 bytes for SHA-1. Encode with {@link toBase64Url} or
@@ -20,12 +20,12 @@
  *
  * @example
  * ```ts
- * import { hmacSha256, toBase64Url, utf8ToBytes } from "@scenesystems/digest"
+ * import { encodeUtf8, hmacSha256, toBase64Url } from "@scenesystems/digest"
  * import { Effect } from "effect"
  *
  * const program = Effect.gen(function*() {
- *   const key = utf8ToBytes("webhook-secret")
- *   const message = utf8ToBytes('{"event":"charge.succeeded"}')
+ *   const key = yield* encodeUtf8("webhook-secret")
+ *   const message = yield* encodeUtf8('{"event":"charge.succeeded"}')
  *   const mac = yield* hmacSha256(key, message)
  *   const encoded = toBase64Url(mac)
  * })

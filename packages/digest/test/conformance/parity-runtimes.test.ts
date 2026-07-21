@@ -7,10 +7,10 @@
 
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Effect, Schema } from "effect"
 import { RuntimeParityFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { digestBytesHex } from "../../src/convenience.js"
+import { encodeFixtureUtf8 } from "../helpers/bytes.js"
 import {
   loadExternalFixtureManifest,
   readExternalFixture,
@@ -55,7 +55,7 @@ describe("external conformance — parity runtimes", () => {
       yield* Effect.forEach(fixtures, ({ source, fixture }) =>
         Effect.forEach(fixture.cases, (vector) =>
           Effect.gen(function*() {
-            const actual = yield* digestBytesHex(vector.algorithm, utf8ToBytes(vector.inputUtf8))
+            const actual = yield* digestBytesHex(vector.algorithm, encodeFixtureUtf8(vector.inputUtf8))
             expectStringMatch(
               `${fixture.runtime}:${vector.id}`,
               vector.algorithm,

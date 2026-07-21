@@ -14,6 +14,7 @@ import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Reco
 
 import {
   callExpressionTargets,
+  exportedDeclarationNames,
   moduleSpecifiers,
   parseTypeScript,
   referencesInternalBoundary,
@@ -139,6 +140,7 @@ const canonicalizationSourceAudit: Effect.Effect<
   {
     readonly oldValidatorImports: Array<string>
     readonly stringCallSites: Array<string>
+    readonly supersededExports: Array<string>
   },
   never,
   FileSystem.FileSystem | Path.Path
@@ -157,13 +159,21 @@ const canonicalizationSourceAudit: Effect.Effect<
         stringCallSites: Arr.map(
           Arr.filter(callExpressionTargets(sourceFile), (target) => target === "String"),
           (target) => `${file.relative}:${target}`
+        ),
+        supersededExports: Arr.map(
+          Arr.filter(
+            exportedDeclarationNames(sourceFile),
+            (name) => name === "utf8ToBytes" || name === "FingerprintUnsupportedValue"
+          ),
+          (name) => `${file.relative}:${name}`
         )
       }))
     ))
 
   return {
     oldValidatorImports: Arr.flatMap(findings, ({ oldValidatorImports }) => oldValidatorImports),
-    stringCallSites: Arr.flatMap(findings, ({ stringCallSites }) => stringCallSites)
+    stringCallSites: Arr.flatMap(findings, ({ stringCallSites }) => stringCallSites),
+    supersededExports: Arr.flatMap(findings, ({ supersededExports }) => supersededExports)
   }
 })
 
@@ -210,6 +220,12 @@ describe("governance", () => {
       const audit = yield* canonicalizationSourceAudit
       expect(audit.oldValidatorImports).toEqual([])
       expect(audit.stringCallSites).toEqual(["src/internal/jcs.ts:String"])
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("deletes superseded public APIs from source", () =>
+    Effect.gen(function*() {
+      const audit = yield* canonicalizationSourceAudit
+      expect(audit.supersededExports).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("preserves export governance contracts", () =>

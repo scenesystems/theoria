@@ -117,13 +117,14 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
  *
  * @example
  * ```ts
- * import { digestByteStream, utf8ToBytes } from "@scenesystems/digest"
+ * import { digestByteStream, encodeUtf8 } from "@scenesystems/digest"
  * import { Effect, Stream } from "effect"
  *
- * const program = digestByteStream("blake3-256", Stream.fromIterable([
- *   utf8ToBytes("scene-"),
- *   utf8ToBytes("systems")
- * ]))
+ * const program = Effect.gen(function*() {
+ *   const first = yield* encodeUtf8("scene-")
+ *   const second = yield* encodeUtf8("systems")
+ *   return yield* digestByteStream("blake3-256", Stream.fromIterable([first, second]))
+ * })
  * ```
  *
  * @since 0.2.0

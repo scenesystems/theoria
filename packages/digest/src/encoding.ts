@@ -9,8 +9,9 @@
  *
  * URL-safe alphabet: `A-Z a-z 0-9 - _` (no `+` `/` `=`).
  *
- * Encode operations are pure (cannot fail). Decode operations
- * return `Either` — left for malformed input, right for bytes.
+ * Raw-byte encode operations are pure. Strict text encoding returns an Effect
+ * that rejects malformed UTF-16, while decode operations return `Either` —
+ * left for malformed input, right for bytes.
  *
  * @see {@link blake3Hash} — produces `Uint8Array` that this module encodes
  * @see {@link sha256} — produces `Uint8Array` that this module encodes
@@ -20,19 +21,10 @@
  * @category encoding
  */
 
-import { utf8ToBytes as _utf8ToBytes } from "@noble/hashes/utils.js"
 import { Effect, type Either, Encoding, Option } from "effect"
 
 import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
 import type { InvalidUnicode } from "./schemas/errors.js"
-
-/**
- * Convert a UTF-8 string to bytes.
- *
- * @since 0.1.0
- * @category encoding
- */
-export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
 
 /**
  * Strictly encode well-formed Unicode text as UTF-8 bytes.
