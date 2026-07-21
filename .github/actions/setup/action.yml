@@ -5,9 +5,6 @@ inputs:
   bun-version-file:
     description: File to read bun version from
     default: ".bun-version"
-  registry-url:
-    description: Optional npm registry URL for publishing
-    required: false
 
 runs:
   using: composite
@@ -20,11 +17,3 @@ runs:
     - name: Install dependencies
       shell: bash
       run: bun install --frozen-lockfile
-
-    - name: Set npm registry (for publishing)
-      if: inputs.registry-url != ''
-      shell: bash
-      run: |
-        echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-      env:
-        NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
