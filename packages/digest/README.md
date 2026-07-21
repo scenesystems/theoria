@@ -289,12 +289,9 @@ See the [`examples/`](./examples) directory for complete runnable programs.
 
 ## Fixture Workflow
 
-Digest cross-language conformance fixtures are deterministic generated artifacts committed to the repository. Tests consume checked-in fixture outputs so expected values are not derived from the implementation under test.
+Digest conformance tests consume checked-in authoritative external fixtures so expected values are never derived from the implementation under test. Fixture lifecycle tooling is implemented in TypeScript with Effect.
 
 ```sh
-# Generate runtime parity outputs (Python + Rust)
-bun run fixtures:generate
-
 # Validate fixture schema/provenance/hash contracts
 bun run fixtures:check
 
@@ -305,7 +302,7 @@ bun run fixtures:stamp
 bun run fixtures:verify
 ```
 
-Fixture provenance is tracked in `test/fixtures/external/sources.manifest.json`. Runtime parity outputs are committed in `test/fixtures/parity/generated/`.
+Fixture provenance is tracked in `test/fixtures/external/sources.manifest.json`.
 
 ## Cryptographic foundations
 

@@ -3,7 +3,6 @@
  *
  * HMAC-SHA256 vectors from RFC 4231 (test cases 1–4).
  * HMAC-SHA1 vectors from RFC 2202 (test cases 1–2).
- * Verified against Python `hmac` module and `openssl dgst`.
  *
  * @since 0.1.0
  * @category test-helpers

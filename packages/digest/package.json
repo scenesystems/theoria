@@ -43,8 +43,6 @@
     "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
-    "fixtures:generate": "uv run scripts/parity/python/generate.py && cargo run --manifest-path scripts/parity/rust/Cargo.toml",
-    "fixtures:lock": "uv lock --script scripts/parity/python/generate.py",
     "fixtures:verify": "bun run fixtures:check && bun run test -- test/conformance",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",

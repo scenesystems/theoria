@@ -1,8 +1,8 @@
 /**
  * External conformance fixture loading helpers.
  *
- * These helpers define the target-state fixture contract for cross-language
- * parity work. RED tests consume this loader before fixtures are populated.
+ * These helpers define the target-state contract for independently sourced
+ * fixture data consumed by Effect-native conformance tests.
  */
 
 import { FileSystem, Path } from "@effect/platform"

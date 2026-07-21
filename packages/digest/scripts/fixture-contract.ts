@@ -8,12 +8,10 @@ import {
   HmacFixtureSchema,
   JcsFixtureSchema,
   type FixtureKind,
-  RuntimeParityFixtureSchema,
   UnicodeAdversarialFixtureSchema
 } from "./fixture-schemas.js"
 
 export const EXTERNAL_FIXTURE_ROOT = "test/fixtures/external"
-export const PARITY_FIXTURE_ROOT = "test/fixtures/parity/generated"
 export const MANIFEST_FILE = "sources.manifest.json"
 export { FixtureKindSchema, FixtureManifestSchema }
 export type { FixtureKind }
@@ -35,8 +33,6 @@ export const validateFixtureByKind = (
       Schema.decodeUnknown(HmacFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
     Match.when("hkdf", () =>
       Schema.decodeUnknown(HkdfCorpusFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
-    Match.when("parity-runtime", () =>
-      Schema.decodeUnknown(RuntimeParityFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
     Match.when("unicode-adversarial", () =>
       Schema.decodeUnknown(UnicodeAdversarialFixtureSchema)(content, { onExcessProperty: "error" }).pipe(
         Effect.asVoid

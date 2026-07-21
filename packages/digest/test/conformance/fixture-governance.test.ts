@@ -17,12 +17,10 @@ const EXPECTED_SOURCE_IDS = [
   "cyberphone-jcs-corpus",
   "local-malformed-unicode-adversarial",
   "nist-cavp-sha256-short-message",
-  "python-runtime-parity-generated",
   "rfc2202-hmac-sha1",
   "rfc4231-hmac-sha256",
   "rfc5869-hkdf-sha256",
   "rfc8785-canonicalization",
-  "rust-runtime-parity-generated",
   "wycheproof-hkdf-sha512"
 ]
 
@@ -64,7 +62,6 @@ describe("external conformance — fixture governance", () => {
         "hkdf",
         "hmac",
         "jcs",
-        "parity-runtime",
         "unicode-adversarial"
       ])
     }).pipe(Effect.provide(BunContext.layer)))

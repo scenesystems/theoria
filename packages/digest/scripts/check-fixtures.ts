@@ -1,5 +1,5 @@
 /**
- * Fixture schema-check script — validates digest external/parity fixture JSON
+ * Fixture schema-check script — validates digest external fixture JSON
  * against schema contracts and verifies source manifest content hashes.
  *
  * Usage: bun run fixtures:check
@@ -12,7 +12,6 @@ import {
   EXTERNAL_FIXTURE_ROOT,
   FixtureManifestSchema,
   MANIFEST_FILE,
-  PARITY_FIXTURE_ROOT,
   validateFixtureByKind
 } from "./fixture-contract.js"
 
@@ -88,8 +87,6 @@ const program = Effect.gen(function*() {
   const cwd = yield* Effect.sync(() => process.cwd())
 
   const externalRoot = pathService.join(cwd, EXTERNAL_FIXTURE_ROOT)
-  const parityRoot = pathService.join(cwd, PARITY_FIXTURE_ROOT)
-  const repositoryRoot = pathService.normalize(pathService.join(cwd, "../.."))
   const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
 
   const manifestContent = yield* readJsonContent(manifestPath)
@@ -120,22 +117,6 @@ const program = Effect.gen(function*() {
         )
       }
 
-      if (source.origin === "generated") {
-        const generatorPath = pathService.normalize(pathService.join(repositoryRoot, source.sourceLocator))
-        const generatorBytes = yield* fileSystem.readFile(generatorPath).pipe(
-          Effect.mapError(() => new FixtureCheckError(source.id, source.sourceLocator, "generator file not found"))
-        )
-        const generatorRevision = `sha256:${yield* toSha256Hex(generatorBytes)}`
-
-        if (generatorRevision !== source.revision) {
-          return new FixtureCheckError(
-            source.id,
-            source.sourceLocator,
-            `generator revision mismatch: expected ${source.revision}, got ${generatorRevision}`
-          )
-        }
-      }
-
       return null
     }).pipe(Effect.catchAll((error) => Effect.succeed(error))))
 
@@ -144,15 +125,10 @@ const program = Effect.gen(function*() {
   )
 
   const externalJsonFiles = yield* findJsonFiles(fileSystem, pathService, externalRoot, "")
-  const parityJsonFiles = yield* findJsonFiles(fileSystem, pathService, parityRoot, "")
-
-  const scannedFixturePaths = [
-    ...Arr.filter(
-      Arr.map(externalJsonFiles, (file) => normalizeRelativePath(pathService, file)),
-      (file) => file !== MANIFEST_FILE
-    ),
-    ...Arr.map(parityJsonFiles, (file) => normalizeRelativePath(pathService, `../parity/generated/${file}`))
-  ]
+  const scannedFixturePaths = Arr.filter(
+    Arr.map(externalJsonFiles, (file) => normalizeRelativePath(pathService, file)),
+    (file) => file !== MANIFEST_FILE
+  )
 
   const orphanErrors = Arr.filterMap(scannedFixturePaths, (fixturePath) =>
     Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)

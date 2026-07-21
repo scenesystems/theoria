@@ -204,31 +204,6 @@
       "contentSha256": "f50d3ec52629b2667c8591fb2f44cf75144933bc0cc5a870fcba278781fde5fa"
     },
     {
-      "id": "python-runtime-parity-generated",
-      "kind": "parity-runtime",
-      "fixturePath": "../parity/generated/python.json",
-      "origin": "generated",
-      "sourceLocator": "packages/digest/scripts/parity/python/generate.py",
-      "revision": "sha256:1abb35b09b63549a30c7966cced18babb9926d106e166765eefdbe5d911ed7d8",
-      "sourcePaths": [
-        "packages/digest/scripts/parity/python/generate.py",
-        "inline dependency pin blake3==1.0.8",
-        "Python standard library hashlib.sha256"
-      ],
-      "sourceSelectors": ["PARITY_CASES", "compute_digest"],
-      "retrievedAt": "2026-07-21",
-      "sourceLicense": "MIT",
-      "licenseUrl": "https://github.com/scenesystems/theoria/blob/680588ca4b0f289a18aeb0a508c1c395d79aff2f/LICENSE",
-      "sourceNotice": "The local deterministic generator uses independently implemented Python runtimes with an exact blake3 dependency pin and a fixed generatedAt value.",
-      "transformations": [
-        "Encode the fixed well-formed parity input strings as UTF-8 in Python.",
-        "Compute SHA-256 through hashlib and BLAKE3 through blake3 1.0.8, then emit sorted fixed cases as lowercase hex."
-      ],
-      "exclusions": [],
-      "localVerdictRemaps": [],
-      "contentSha256": "b91165ced04e1a6ac34a06e48561bb01686c824bafe324004a87e3d4edbde256"
-    },
-    {
       "id": "rfc2202-hmac-sha1",
       "kind": "hmac",
       "fixturePath": "rfc2202/hmac-sha1.json",
@@ -357,34 +332,6 @@
         }
       ],
       "contentSha256": "220d4f1e215ed73b6b654c331bbc1160784a3887c75689b6e896fb4ccc6fcf0c"
-    },
-    {
-      "id": "rust-runtime-parity-generated",
-      "kind": "parity-runtime",
-      "fixturePath": "../parity/generated/rust.json",
-      "origin": "generated",
-      "sourceLocator": "packages/digest/scripts/parity/rust/src/main.rs",
-      "revision": "sha256:7974ef5b9da86aa3f15870ac943d64da709e7347c5d0627e77056f7e8ac5365c",
-      "sourcePaths": [
-        "packages/digest/scripts/parity/rust/src/main.rs",
-        "packages/digest/scripts/parity/rust/Cargo.lock"
-      ],
-      "sourceSelectors": [
-        "parity_cases",
-        "compute_digest",
-        "Cargo.lock blake3 1.8.3 and sha2 0.10.9 dependency resolutions"
-      ],
-      "retrievedAt": "2026-07-21",
-      "sourceLicense": "MIT",
-      "licenseUrl": "https://github.com/scenesystems/theoria/blob/680588ca4b0f289a18aeb0a508c1c395d79aff2f/LICENSE",
-      "sourceNotice": "The local deterministic generator uses independently implemented Rust crates pinned by Cargo.lock and a fixed generatedAt value. Cargo.lock SHA-256 is bdd8df2bc7b1573458756eff6cf4acd04e6f614fc52b57072cf1ea23cb5c3181.",
-      "transformations": [
-        "Encode the fixed well-formed parity input strings as UTF-8 in Rust.",
-        "Compute SHA-256 through sha2 and BLAKE3 through blake3, then emit fixed cases as lowercase hex."
-      ],
-      "exclusions": [],
-      "localVerdictRemaps": [],
-      "contentSha256": "1f83c342bc9baebbd23ba095d7a09322f302b5ec0fd6326ae0b3e02030bf0c4d"
     },
     {
       "id": "wycheproof-hkdf-sha512",

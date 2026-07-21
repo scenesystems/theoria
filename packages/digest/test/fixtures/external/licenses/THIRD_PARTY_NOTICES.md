@@ -1,6 +1,6 @@
 # Third-party fixture notices
 
-These notices cover the external and generated conformance fixtures vendored for Digest Commit 10. The normalized fixture transformations and exclusions, together with the authoritative local content hashes, are recorded in [`../sources.manifest.json`](../sources.manifest.json).
+These notices cover the external conformance fixtures vendored for Digest Commit 10. The normalized fixture transformations and exclusions, together with the authoritative local content hashes, are recorded in [`../sources.manifest.json`](../sources.manifest.json).
 
 ## Repository test vectors
 
@@ -24,7 +24,3 @@ Current and historical IETF Trust copyright and license information is available
 The SHA-256 short-message fixture derives from the NIST Cryptographic Algorithm Validation Program archive [`shabytetestvectors.zip`](https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/shs/shabytetestvectors.zip), archive SHA-256 `929ef80b7b3418aca026643f6f248815913b60e01741a44bba9e118067f4c9b8`, internal path `shabytetestvectors/SHA256ShortMsg.rsp`. NIST works are generally not subject to copyright in the United States under 17 U.S.C. § 105; see NIST's [Copyrights, fair use, and licensing statements for SRD, data, and software](https://www.nist.gov/open/copyrights-fair-use-and-licensing-statements-srd-data-and-software).
 
 Use of these vectors does not constitute or replace NIST CAVP validation. No claim of CAVP validation is made for Theoria or for an implementation merely because it passes these fixtures.
-
-## Generated parity outputs
-
-The Python and Rust parity outputs are generated within the MIT-licensed [Theoria repository](https://github.com/scenesystems/theoria) from pinned, independent Python and Rust runtimes. Their exact generator and dependency pins are recorded in [`../sources.manifest.json`](../sources.manifest.json).

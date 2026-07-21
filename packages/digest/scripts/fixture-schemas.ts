@@ -12,7 +12,6 @@ export const FixtureKindSchema = Schema.Literal(
   "hmac",
   "hkdf",
   "jcs",
-  "parity-runtime",
   "unicode-adversarial"
 )
 
@@ -32,7 +31,7 @@ export const FixtureSourceSchema = Schema.Struct({
   id: Schema.NonEmptyString,
   kind: FixtureKindSchema,
   fixturePath: Schema.NonEmptyString,
-  origin: Schema.Literal("external", "generated", "local-adversarial"),
+  origin: Schema.Literal("external", "local-adversarial"),
   sourceLocator: Schema.NonEmptyString,
   revision: Schema.NonEmptyString,
   sourcePaths: Schema.NonEmptyArray(Schema.NonEmptyString),
@@ -176,21 +175,6 @@ export const UnicodeAdversarialFixtureSchema = Schema.parseJson(
         input: Schema.String,
         expectedTag: Schema.Literal("InvalidUnicode"),
         expectedCodeUnitIndex: NonNegativeIntSchema
-      })
-    )
-  })
-)
-
-export const RuntimeParityFixtureSchema = Schema.parseJson(
-  Schema.Struct({
-    runtime: Schema.Literal("python", "rust"),
-    generatedAt: Schema.String,
-    cases: Schema.NonEmptyArray(
-      Schema.Struct({
-        id: Schema.NonEmptyString,
-        algorithm: Schema.Literal("blake3-256", "sha256"),
-        inputUtf8: Schema.String,
-        expectedHex: Sha256HexSchema
       })
     )
   })
