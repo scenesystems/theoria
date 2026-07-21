@@ -23,8 +23,6 @@
     { "subpath": ".", "exportName": "digestCanonicalJsonBytes", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": ".", "exportName": "digestCanonicalJsonHex", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": ".", "exportName": "digestSchemaValue", "kind": "value", "firstReleasedIn": "0.1.0" },
-    { "subpath": ".", "exportName": "DigestStreaming", "kind": "value", "firstReleasedIn": "0.2.0" },
-    { "subpath": ".", "exportName": "DigestStreamingLive", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": ".", "exportName": "digestUtf8", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "digestUtf8Base64Url", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "digestUtf8Stream", "kind": "value", "firstReleasedIn": "0.2.0" },

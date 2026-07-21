@@ -31,7 +31,8 @@ const INTERNAL_IMPORT_ALLOWED_PREFIXES = [
   "src/canonicalize.ts",
   "src/convenience.ts",
   "src/digest.ts",
-  "src/encoding.ts"
+  "src/encoding.ts",
+  "src/streaming.ts"
 ]
 
 const ManifestExportKeysSchema = Schema.parseJson(
