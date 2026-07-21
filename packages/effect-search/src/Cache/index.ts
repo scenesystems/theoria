@@ -33,9 +33,9 @@ export {
   /** @since 0.1.0 */
   durableFingerprint,
   /** @since 0.1.0 */
-  FingerprintUnsupportedValue,
-  /** @since 0.1.0 */
-  runtimeFingerprint
+  runtimeFingerprint,
+  /** @since 0.3.0 */
+  RuntimeFingerprintError
 } from "./fingerprint.js"
 
 export {

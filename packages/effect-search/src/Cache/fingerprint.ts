@@ -11,10 +11,7 @@ export {
 
 export {
   /** @since 0.1.0 */
-  FingerprintUnsupportedValue
-} from "./fingerprintError.js"
-
-export {
-  /** @since 0.1.0 */
-  runtimeFingerprint
+  runtimeFingerprint,
+  /** @since 0.3.0 */
+  RuntimeFingerprintError
 } from "./runtimeFingerprint.js"
