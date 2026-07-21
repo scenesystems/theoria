@@ -26,7 +26,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Effect, Exit, Option } from "effect"
 import { blake3DeriveKey, blake3Hash, blake3Mac } from "../../src/algorithms/blake3.js"
-import { InvalidKeyLength } from "../../src/schemas/errors.js"
+import { InvalidKeyLength, InvalidUnicode } from "../../src/schemas/errors.js"
 import { expectByteLength, expectDigest } from "../helpers/assertions.js"
 import { contexts, deriveVectors, hashVectors, macVectors } from "../helpers/vectors/blake3.vectors.js"
 
@@ -184,5 +184,22 @@ describe("blake3DeriveKey — derive key mode", () => {
       const result = yield* blake3DeriveKey(contexts.ctx1, new Uint8Array(0))
       expectDigest(result, deriveVectors.ctx1Empty)
       expectByteLength(result, 32)
+    }))
+
+  it.effect("blake3DeriveKey rejects an ill-formed context", () =>
+    Effect.gen(function*() {
+      const exit = yield* Effect.exit(blake3DeriveKey("domain/\uD800", utf8ToBytes("input")))
+      expect(exit).toStrictEqual(
+        Exit.fail(new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 7 }))
+      )
+    }))
+
+  it.effect("blake3DeriveKey accepts astral context without normalization", () =>
+    Effect.gen(function*() {
+      const input = utf8ToBytes("input")
+      const decomposed = yield* blake3DeriveKey("scene/😀/e\u0301", input)
+      const canonical = yield* blake3DeriveKey("scene/😀/é", input)
+      expectByteLength(decomposed, 32)
+      expect(decomposed).not.toEqual(canonical)
     }))
 })

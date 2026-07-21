@@ -49,6 +49,8 @@ import {
   digestBytesHex,
   digestUtf8,
   digestUtf8Base64Url,
+  encodeUtf8,
+  InvalidUnicode,
   UnsupportedValue
 } from "../src/index.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -122,6 +124,23 @@ describe("digestUtf8 — algorithm-parameterized string hashing", () => {
       const fromBytes = yield* digestBytes("sha256", utf8ToBytes("hello"))
       expect(fromUtf8).toEqual(fromBytes)
     }))
+
+  it.effect("digestUtf8 rejects ill-formed text", () =>
+    Effect.gen(function*() {
+      const exit = yield* Effect.exit(digestUtf8("blake3-256", "ok\uD800"))
+      expect(exit).toStrictEqual(
+        Exit.fail(new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 2 }))
+      )
+    }))
+
+  it.effect("well-formed digestUtf8 equals digestBytes of encodeUtf8", () =>
+    Effect.gen(function*() {
+      const text = "scene 😀 e\u0301"
+      const bytes = yield* encodeUtf8(text)
+      const fromText = yield* digestUtf8("sha256", text)
+      const fromBytes = yield* digestBytes("sha256", bytes)
+      expect(fromText).toEqual(fromBytes)
+    }))
 })
 
 // ---------------------------------------------------------------------------
@@ -176,6 +195,14 @@ describe("digestUtf8Base64Url — hash string + base64url encode", () => {
       const fromUtf8 = yield* digestUtf8Base64Url("sha256", "hello")
       const fromBytes = yield* digestBytesBase64Url("sha256", utf8ToBytes("hello"))
       expect(fromUtf8).toBe(fromBytes)
+    }))
+
+  it.effect("digestUtf8Base64Url rejects ill-formed text", () =>
+    Effect.gen(function*() {
+      const exit = yield* Effect.exit(digestUtf8Base64Url("sha256", "a\uDC00"))
+      expect(exit).toStrictEqual(
+        Exit.fail(new InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 1 }))
+      )
     }))
 })
 

@@ -24,11 +24,10 @@ import { Effect, Match } from "effect"
 import { blake3Hash } from "./algorithms/blake3.js"
 import { sha256 } from "./algorithms/sha256.js"
 import { canonicalize } from "./canonicalize.js"
-import { toBase64Url, toHex } from "./encoding.js"
-import { utf8ToBytes } from "./internal/bytes.js"
+import { encodeUtf8, toBase64Url, toHex } from "./encoding.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
-import type { CanonicalizationError } from "./schemas/errors.js"
+import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
 
 const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array): Effect.Effect<Uint8Array> =>
   Match.value(algorithm).pipe(
@@ -54,8 +53,8 @@ export const digestBytes = (
 /**
  * Hash a UTF-8 string using the specified algorithm.
  *
- * Converts the string to bytes via UTF-8 encoding, then hashes.
- * Equivalent to `digestBytes(algorithm, utf8ToBytes(text))`.
+ * Strictly encodes well-formed Unicode without normalization, then hashes.
+ * Malformed UTF-16 fails with its offending code-unit index.
  *
  * @since 0.1.0
  * @category digest
@@ -63,7 +62,7 @@ export const digestBytes = (
 export const digestUtf8 = (
   algorithm: DigestAlgorithm,
   text: string
-): Effect.Effect<Uint8Array> => hashBytes(algorithm, utf8ToBytes(text))
+): Effect.Effect<Uint8Array, InvalidUnicode> => Effect.flatMap(encodeUtf8(text), (bytes) => hashBytes(algorithm, bytes))
 
 /**
  * Hash raw bytes and encode the digest as base64url (no padding).
@@ -81,7 +80,8 @@ export const digestBytesBase64Url = (
 /**
  * Hash a UTF-8 string and encode the digest as base64url (no padding).
  *
- * Equivalent to `digestBytesBase64Url(algorithm, utf8ToBytes(text))`.
+ * Strictly encodes well-formed Unicode without normalization, then hashes and
+ * encodes the digest. Malformed UTF-16 fails with its offending code-unit index.
  *
  * @since 0.1.0
  * @category digest
@@ -89,7 +89,7 @@ export const digestBytesBase64Url = (
 export const digestUtf8Base64Url = (
   algorithm: DigestAlgorithm,
   text: string
-): Effect.Effect<string> => Effect.map(hashBytes(algorithm, utf8ToBytes(text)), toBase64Url)
+): Effect.Effect<string, InvalidUnicode> => Effect.map(digestUtf8(algorithm, text), toBase64Url)
 
 /**
  * Hash raw bytes and encode the digest as lowercase hex.
