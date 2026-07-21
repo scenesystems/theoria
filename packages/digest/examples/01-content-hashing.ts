@@ -10,12 +10,12 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { blake3Hash, digestUtf8, sha256, toBase64Url, toHex, utf8ToBytes } from "@scenesystems/digest"
+import { blake3Hash, digestUtf8, encodeUtf8, sha256, toBase64Url, toHex } from "@scenesystems/digest"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
   const message = "hello, content hashing!"
-  const bytes = utf8ToBytes(message)
+  const bytes = yield* encodeUtf8(message)
 
   const blake3Digest = yield* blake3Hash(bytes)
   const blake3B64 = toBase64Url(blake3Digest)

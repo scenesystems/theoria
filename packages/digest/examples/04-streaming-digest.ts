@@ -14,13 +14,13 @@ import {
   digestBytesHex,
   digestByteStreamBase64Url,
   digestByteStreamHex,
-  utf8ToBytes
+  encodeUtf8
 } from "@scenesystems/digest"
 import { Effect, Stream } from "effect"
 
 const program = Effect.gen(function*() {
-  const chunks = [utf8ToBytes("stream-"), utf8ToBytes("safe-"), utf8ToBytes("digest")]
-  const whole = utf8ToBytes("stream-safe-digest")
+  const chunks = yield* Effect.all([encodeUtf8("stream-"), encodeUtf8("safe-"), encodeUtf8("digest")])
+  const whole = yield* encodeUtf8("stream-safe-digest")
 
   const streamedB64 = yield* digestByteStreamBase64Url("blake3-256", Stream.fromIterable(chunks))
   const oneShotB64 = yield* digestBytesBase64Url("blake3-256", whole)

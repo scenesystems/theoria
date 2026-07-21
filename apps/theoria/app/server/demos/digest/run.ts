@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
-import { canonicalize, digest, digestBytes, hmacSha256, toBase64Url, toHex, utf8ToBytes } from "@scenesystems/digest"
+import { canonicalize, digest, digestBytes, encodeUtf8, hmacSha256, toBase64Url, toHex } from "@scenesystems/digest"
 import type { Program } from "../../../contracts/presentation.js"
 import type { RunData } from "../../../contracts/run.js"
 
@@ -38,7 +38,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const blake3Permuted = yield* digest("blake3-256", permutedValue)
   const digestMatch = blake3Original.value === blake3Permuted
 
-  const canonicalBytes = utf8ToBytes(canonical)
+  const canonicalBytes = yield* encodeUtf8(canonical)
   const blake3Raw = yield* digestBytes("blake3-256", canonicalBytes)
   const sha256Raw = yield* digestBytes("sha256", canonicalBytes)
   const blake3Hex = toHex(blake3Raw)
@@ -46,7 +46,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
   const blake3B64 = toBase64Url(blake3Raw)
   const sha256B64 = toBase64Url(sha256Raw)
 
-  const hmacKey = utf8ToBytes(hmacKeyText)
+  const hmacKey = yield* encodeUtf8(hmacKeyText)
   const hmacMac = yield* hmacSha256(hmacKey, canonicalBytes)
   const hmacB64 = toBase64Url(hmacMac)
 
