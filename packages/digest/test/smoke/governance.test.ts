@@ -29,7 +29,8 @@ const OVERSIZE_SOURCE_FILE_NOTES_MAP = HashMap.fromIterable(OVERSIZE_SOURCE_FILE
 const INTERNAL_IMPORT_ALLOWED_PREFIXES = [
   "src/canonicalize.ts",
   "src/convenience.ts",
-  "src/digest.ts"
+  "src/digest.ts",
+  "src/encoding.ts"
 ]
 
 const ManifestExportKeysSchema = Schema.parseJson(

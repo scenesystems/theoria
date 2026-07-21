@@ -21,7 +21,10 @@
  */
 
 import { utf8ToBytes as _utf8ToBytes } from "@noble/hashes/utils.js"
-import { type Either, Encoding } from "effect"
+import { Effect, type Either, Encoding, Option } from "effect"
+
+import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
+import type { InvalidUnicode } from "./schemas/errors.js"
 
 /**
  * Convert a UTF-8 string to bytes.
@@ -30,6 +33,33 @@ import { type Either, Encoding } from "effect"
  * @category encoding
  */
 export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
+
+/**
+ * Strictly encode well-formed Unicode text as UTF-8 bytes.
+ *
+ * Malformed UTF-16 fails with the offending code-unit index relative to the
+ * input text. Valid text is preserved exactly without Unicode normalization.
+ *
+ * @example
+ * ```ts
+ * import { encodeUtf8 } from "@scenesystems/digest"
+ * import { Effect } from "effect"
+ *
+ * const program = Effect.gen(function*() {
+ *   return yield* encodeUtf8("hello 😀")
+ * })
+ * ```
+ *
+ * @since 0.3.0
+ * @category encoding
+ */
+export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnicode> =>
+  Effect.suspend(() =>
+    Option.match(unicodeFault(text), {
+      onNone: () => Effect.sync(() => encodeUtf8Unchecked(text)),
+      onSome: Effect.fail
+    })
+  )
 
 /**
  * Encode bytes to base64url string (no padding).

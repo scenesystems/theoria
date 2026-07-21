@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.build.base.json",
   "compilerOptions": {
+    "lib": ["ES2024", "DOM"],
     "rootDir": "src",
     "outDir": "build/esm",
     "declarationDir": "build/dts",
