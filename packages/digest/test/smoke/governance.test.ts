@@ -13,6 +13,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Record, Schema } from "effect"
 
 import {
+  callExpressionTargets,
   moduleSpecifiers,
   parseTypeScript,
   referencesInternalBoundary,
@@ -133,6 +134,38 @@ const internalBoundaryViolations: Effect.Effect<Array<string>, never, FileSystem
   }
 )
 
+const canonicalizationSourceAudit: Effect.Effect<
+  {
+    readonly oldValidatorImports: Array<string>
+    readonly stringCallSites: Array<string>
+  },
+  never,
+  FileSystem.FileSystem | Path.Path
+> = Effect.gen(function*() {
+  const fileSystem = yield* FileSystem.FileSystem
+  const files = yield* listTypeScriptFiles
+  const findings = yield* Effect.forEach(files, (file) =>
+    fileSystem.readFileString(file.absolute).pipe(
+      Effect.orDie,
+      Effect.map((content) => parseTypeScript(file.relative, content)),
+      Effect.map((sourceFile) => ({
+        oldValidatorImports: Arr.map(
+          Arr.filter(moduleSpecifiers(sourceFile), (specifier) => specifier.endsWith("/validation.js")),
+          () => file.relative
+        ),
+        stringCallSites: Arr.map(
+          Arr.filter(callExpressionTargets(sourceFile), (target) => target === "String"),
+          (target) => `${file.relative}:${target}`
+        )
+      }))
+    ))
+
+  return {
+    oldValidatorImports: Arr.flatMap(findings, ({ oldValidatorImports }) => oldValidatorImports),
+    stringCallSites: Arr.flatMap(findings, ({ stringCallSites }) => stringCallSites)
+  }
+})
+
 const packageExportKeys: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
     const packageJson = yield* packageManifestJson
@@ -169,6 +202,13 @@ describe("governance", () => {
   it.effect("keeps internal imports behind approved file boundaries", () =>
     Effect.gen(function*() {
       expect(yield* internalBoundaryViolations).toEqual([])
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("keeps only intentional finite-number String serialization", () =>
+    Effect.gen(function*() {
+      const audit = yield* canonicalizationSourceAudit
+      expect(audit.oldValidatorImports).toEqual([])
+      expect(audit.stringCallSites).toEqual(["src/internal/jcs.ts:String"])
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("preserves export governance contracts", () =>

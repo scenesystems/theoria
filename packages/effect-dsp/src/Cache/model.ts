@@ -69,7 +69,7 @@ const fingerprintOrCorrupt = (
     Effect.mapError((cause) =>
       new CacheCorrupt({
         key: DSP_CACHE_NAMESPACE,
-        reason: `${label} fingerprint: ${cause.reason}`
+        reason: `${label} fingerprint: ${cause._tag}`
       })
     )
   )

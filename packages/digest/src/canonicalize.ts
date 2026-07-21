@@ -27,23 +27,19 @@
  * @category canonicalization
  */
 
-import { Effect, Either } from "effect"
+import type { Effect } from "effect"
 import { canonicalizeValue } from "./internal/jcs.js"
-import type { FingerprintUnsupportedValue } from "./schemas/errors.js"
+import type { CanonicalizationError } from "./schemas/errors.js"
 
 /**
  * Canonicalize a value to RFC 8785 JCS canonical JSON.
  *
- * Fails with `FingerprintUnsupportedValue` when the value contains
- * types that cannot participate in deterministic serialization.
+ * Fails with a closed `CanonicalizationError` when the value is outside the
+ * strict canonical domain.
  *
  * @since 0.1.0
  * @category canonicalization
  */
 export const canonicalize = (
   value: unknown
-): Effect.Effect<string, FingerprintUnsupportedValue> =>
-  Either.match(canonicalizeValue(value), {
-    onLeft: (err) => Effect.fail(err),
-    onRight: (result) => Effect.succeed(result)
-  })
+): Effect.Effect<string, CanonicalizationError> => canonicalizeValue(value)

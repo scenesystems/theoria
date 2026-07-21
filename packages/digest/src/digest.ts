@@ -27,10 +27,11 @@ import { blake3Hash } from "./algorithms/blake3.js"
 import { sha256 } from "./algorithms/sha256.js"
 import { canonicalize } from "./canonicalize.js"
 import { toBase64Url } from "./encoding.js"
-import { utf8ToBytes } from "./internal/bytes.js"
-import type { FingerprintUnsupportedValue } from "./schemas/errors.js"
+import { encodeUtf8Unchecked } from "./internal/unicode.js"
+import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
+import type { CanonicalizationError } from "./schemas/errors.js"
 
-const hashBytes = (algorithm: "blake3-256" | "sha256", bytes: Uint8Array) =>
+const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array) =>
   Match.value(algorithm).pipe(
     Match.when("blake3-256", () => blake3Hash(bytes)),
     Match.when("sha256", () => sha256(bytes)),
@@ -46,12 +47,12 @@ const hashBytes = (algorithm: "blake3-256" | "sha256", bytes: Uint8Array) =>
  * @category digest
  */
 export const digest = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   value: unknown
-): Effect.Effect<string, FingerprintUnsupportedValue> =>
+): Effect.Effect<string, CanonicalizationError> =>
   Effect.gen(function*() {
     const canonical = yield* canonicalize(value)
-    const bytes = utf8ToBytes(canonical)
+    const bytes = encodeUtf8Unchecked(canonical)
     const hash = yield* hashBytes(algorithm, bytes)
     const encoded = toBase64Url(hash)
     return `${algorithm}:${encoded}`

@@ -5,7 +5,7 @@
  */
 import { durableFingerprint as _durableFingerprint } from "@scenesystems/digest"
 
-import type { FingerprintUnsupportedValue } from "@scenesystems/digest"
+import type { CanonicalizationError } from "@scenesystems/digest"
 import type { Effect } from "effect"
 
 /**
@@ -19,5 +19,4 @@ import type { Effect } from "effect"
  * @since 0.1.0
  * @category utils
  */
-export const durableFingerprint: (value: unknown) => Effect.Effect<string, FingerprintUnsupportedValue> =
-  _durableFingerprint
+export const durableFingerprint: (value: unknown) => Effect.Effect<string, CanonicalizationError> = _durableFingerprint

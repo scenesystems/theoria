@@ -31,7 +31,7 @@ const isUnpairedSurrogateAt = (text: string, codeUnitIndex: number): boolean => 
 
 /** @internal */
 export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
-  if (text.isWellFormed()) {
+  if (Reflect.apply(Reflect.get(String.prototype, "isWellFormed"), text, [])) {
     return Option.none()
   }
 
@@ -50,7 +50,8 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   )
 }
 
-const textEncoder = new TextEncoder()
+const textEncoder = Reflect.construct<[], object>(Reflect.get(globalThis, "TextEncoder"), [])
 
 /** @internal */
-export const encodeUtf8Unchecked = (text: string): Uint8Array => textEncoder.encode(text)
+export const encodeUtf8Unchecked = (text: string): Uint8Array =>
+  Reflect.apply(Reflect.get(textEncoder, "encode"), textEncoder, [text])

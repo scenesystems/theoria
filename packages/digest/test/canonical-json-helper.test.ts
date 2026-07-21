@@ -15,7 +15,7 @@ import {
   digestCanonicalJsonBase64Url,
   digestCanonicalJsonBytes,
   digestCanonicalJsonHex,
-  FingerprintUnsupportedValue,
+  UnsupportedValue,
   utf8ToBytes
 } from "../src/index.js"
 
@@ -45,16 +45,11 @@ describe("digestCanonicalJsonBytes", () => {
       expect(a).toEqual(b)
     }))
 
-  it.effect("propagates FingerprintUnsupportedValue for non-JSON-safe input", () =>
+  it.effect("propagates UnsupportedValue for non-JSON-safe input", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(digestCanonicalJsonBytes("sha256", { key: undefined }))
       expect(exit).toStrictEqual(
-        Exit.fail(
-          new FingerprintUnsupportedValue({
-            valueType: "undefined",
-            reason: "undefined is not representable in JSON"
-          })
-        )
+        Exit.fail(new UnsupportedValue({ reason: "undefined" }))
       )
     }))
 })

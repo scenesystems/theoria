@@ -29,7 +29,8 @@
 
 import { Effect, type ParseResult, Schema } from "effect"
 import { digest } from "./digest.js"
-import type { FingerprintUnsupportedValue } from "./schemas/errors.js"
+import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
+import type { CanonicalizationError } from "./schemas/errors.js"
 
 /**
  * Digest a Schema-typed value through the full pipeline.
@@ -43,9 +44,9 @@ import type { FingerprintUnsupportedValue } from "./schemas/errors.js"
  * @since 0.1.0
  * @category digest
  */
-export const digestSchemaValue = <A, I>(
-  schema: Schema.Schema<A, I>,
+export const digestSchemaValue = <A, I, R>(
+  schema: Schema.Schema<A, I, R>,
   value: A,
-  algorithm: "blake3-256" | "sha256" = "blake3-256"
-): Effect.Effect<string, FingerprintUnsupportedValue | ParseResult.ParseError> =>
+  algorithm: DigestAlgorithm = "blake3-256"
+): Effect.Effect<string, CanonicalizationError | ParseResult.ParseError, R> =>
   Effect.flatMap(Schema.encode(schema)(value), (encoded) => digest(algorithm, encoded))

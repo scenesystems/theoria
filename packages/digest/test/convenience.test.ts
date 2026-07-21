@@ -34,7 +34,7 @@
  * ### canonicalJsonBytes(value) — canonicalize to UTF-8 bytes
  * - Produces Uint8Array from structured value
  * - Matches manual canonicalize → utf8ToBytes pipeline
- * - Rejects non-JSON-safe values with FingerprintUnsupportedValue
+ * - Rejects non-JSON-safe values with UnsupportedValue
  * - Deterministic output
  */
 
@@ -49,7 +49,7 @@ import {
   digestBytesHex,
   digestUtf8,
   digestUtf8Base64Url,
-  FingerprintUnsupportedValue
+  UnsupportedValue
 } from "../src/index.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
 import { hashVectors } from "./helpers/vectors/blake3.vectors.js"
@@ -238,13 +238,11 @@ describe("canonicalJsonBytes — canonicalize to UTF-8 bytes", () => {
       expect(a).toEqual(b)
     }))
 
-  it.effect("rejects undefined with FingerprintUnsupportedValue", () =>
+  it.effect("rejects undefined with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(canonicalJsonBytes({ key: undefined }))
       expect(exit).toStrictEqual(
-        Exit.fail(
-          new FingerprintUnsupportedValue({ valueType: "undefined", reason: "undefined is not representable in JSON" })
-        )
+        Exit.fail(new UnsupportedValue({ reason: "undefined" }))
       )
     }))
 })
