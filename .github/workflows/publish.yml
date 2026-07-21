@@ -1,0 +1,54 @@
+name: Publish Packages
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: npm-publish
+  # Publishing must never be interrupted or overlap another publish.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  publish:
+    name: Publish Packages
+    if: github.repository_owner == 'scenesystems' && github.ref == 'refs/heads/main'
+    environment: npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # npm Trusted Publishing requires Node >=22.14 and npm >=11.5.1.
+      # Node 24 is npm's recommended GitHub Actions toolchain.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Publish unpublished package versions
+        uses: changesets/action@v1
+        with:
+          publish: bun run changeset:publish
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
