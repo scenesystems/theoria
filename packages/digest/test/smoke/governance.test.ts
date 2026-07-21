@@ -41,6 +41,14 @@ const ManifestExportKeysSchema = Schema.parseJson(
   })
 )
 
+const PinnedNobleHashesManifestSchema = Schema.parseJson(
+  Schema.Struct({
+    dependencies: Schema.Struct({
+      "@noble/hashes": Schema.Literal("2.0.1")
+    })
+  })
+)
+
 const EXPECTED_EXPORT_KEYS = [
   "."
 ]
@@ -51,6 +59,13 @@ class SourceFilePath extends Data.Class<{
 }> {}
 
 const packageRootUrl = new URL("../../", import.meta.url)
+
+const packageManifestJson: Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
+  const fileSystem = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const root = yield* resolveRootFrom(packageRootUrl)
+  return yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
+})
 
 const listTypeScriptFiles: Effect.Effect<Array<SourceFilePath>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
@@ -119,14 +134,18 @@ const internalBoundaryViolations: Effect.Effect<Array<string>, never, FileSystem
 
 const packageExportKeys: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const root = yield* resolveRootFrom(packageRootUrl)
-    const packageJsonPath = path.join(root, "package.json")
-    const packageJson = yield* fileSystem.readFileString(packageJsonPath).pipe(Effect.orDie)
+    const packageJson = yield* packageManifestJson
     const decoded = yield* Schema.decodeUnknown(ManifestExportKeysSchema)(packageJson).pipe(Effect.orDie)
 
     return Arr.sort(Record.keys(decoded.exports), Order.string)
+  }
+)
+
+const packageNobleHashesVersion: Effect.Effect<"2.0.1", never, FileSystem.FileSystem | Path.Path> = Effect.gen(
+  function*() {
+    const packageJson = yield* packageManifestJson
+    const decoded = yield* Schema.decodeUnknown(PinnedNobleHashesManifestSchema)(packageJson).pipe(Effect.orDie)
+    return decoded.dependencies["@noble/hashes"]
   }
 )
 
@@ -155,5 +174,10 @@ describe("governance", () => {
     Effect.gen(function*() {
       const exportKeys = yield* packageExportKeys
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("pins @noble/hashes to the audited exact version", () =>
+    Effect.gen(function*() {
+      expect(yield* packageNobleHashesVersion).toBe("2.0.1")
     }).pipe(Effect.provide(BunContext.layer)))
 })

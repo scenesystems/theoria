@@ -54,7 +54,7 @@
     "docgen": "docgen"
   },
   "dependencies": {
-    "@noble/hashes": "^2.0.0"
+    "@noble/hashes": "2.0.1"
   },
   "devDependencies": {
     "@theoria/source-proof": "workspace:*"
