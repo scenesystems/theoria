@@ -1,0 +1,81 @@
+{
+  "format": "jcs-cases-v1",
+  "cases": [
+    {
+      "id": "cyberphone-jcs-corpus:arrays",
+      "input": [
+        56,
+        {
+          "1": [],
+          "10": null,
+          "d": true
+        }
+      ],
+      "expectedCanonical": "[56,{\"1\":[],\"10\":null,\"d\":true}]"
+    },
+    {
+      "id": "cyberphone-jcs-corpus:french",
+      "input": {
+        "peach": "This sorting order",
+        "péché": "is wrong according to French",
+        "pêche": "but canonicalization MUST",
+        "sin": "ignore locale"
+      },
+      "expectedCanonical": "{\"peach\":\"This sorting order\",\"péché\":\"is wrong according to French\",\"pêche\":\"but canonicalization MUST\",\"sin\":\"ignore locale\"}"
+    },
+    {
+      "id": "cyberphone-jcs-corpus:structures",
+      "input": {
+        "1": {
+          "f": {
+            "f": "hi",
+            "F": 5
+          },
+          "\n": 56
+        },
+        "10": {},
+        "111": [
+          {
+            "e": "yes",
+            "E": "no"
+          }
+        ],
+        "": "empty",
+        "a": {},
+        "A": {}
+      },
+      "expectedCanonical": "{\"\":\"empty\",\"1\":{\"\\n\":56,\"f\":{\"F\":5,\"f\":\"hi\"}},\"10\":{},\"111\":[{\"E\":\"no\",\"e\":\"yes\"}],\"A\":{},\"a\":{}}"
+    },
+    {
+      "id": "cyberphone-jcs-corpus:unicode",
+      "input": {
+        "Unnormalized Unicode": "Å"
+      },
+      "expectedCanonical": "{\"Unnormalized Unicode\":\"Å\"}"
+    },
+    {
+      "id": "cyberphone-jcs-corpus:values",
+      "input": {
+        "numbers": [333333333.3333333, 1e30, 4.5, 0.002, 1e-27],
+        "string": "€$\u000f\nA'B\"\\\\\"/",
+        "literals": [null, true, false]
+      },
+      "expectedCanonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}"
+    },
+    {
+      "id": "cyberphone-jcs-corpus:weird",
+      "input": {
+        "1": "One",
+        "€": "Euro Sign",
+        "\r": "Carriage Return",
+        "\n": "Newline",
+        "": "Control",
+        "😂": "Smiley",
+        "ö": "Latin Small Letter O With Diaeresis",
+        "דּ": "Hebrew Letter Dalet With Dagesh",
+        "</script>": "Browser Challenge"
+      },
+      "expectedCanonical": "{\"\\n\":\"Newline\",\"\\r\":\"Carriage Return\",\"1\":\"One\",\"</script>\":\"Browser Challenge\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😂\":\"Smiley\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}"
+    }
+  ]
+}

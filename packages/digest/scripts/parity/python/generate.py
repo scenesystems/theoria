@@ -19,23 +19,16 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Literal
 
 import blake3
 
 GeneratedAt = Literal["2026-03-25T00:00:00Z"]
 
-
-class Source(TypedDict):
-    id: str
-    kind: str
-    fixturePath: str
-
-
-class HashFixture(TypedDict):
-    id: str
-    algorithm: Literal["blake3-256", "sha256"]
-    inputUtf8: str
+PARITY_CASES = (
+    ("blake3:empty", "blake3-256", ""),
+    ("sha256:abc", "sha256", "abc"),
+)
 
 
 def compute_digest(algorithm: str, input_utf8: str) -> str:
@@ -58,25 +51,17 @@ def main() -> None:
     args = parser.parse_args()
 
     package_root = Path(__file__).resolve().parents[3]
-    external_root = package_root / "test" / "fixtures" / "external"
-    manifest_path = external_root / "sources.manifest.json"
     output_path = package_root / "test" / "fixtures" / "parity" / "generated" / "python.json"
 
-    manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
-    sources = [source for source in manifest["sources"] if source["kind"] == "hash"]
-
-    cases: list[dict[str, str]] = []
-    for source in sorted(sources, key=lambda entry: entry["id"]):
-        fixture_path = external_root / source["fixturePath"]
-        fixture: HashFixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-        cases.append(
-            {
-                "id": fixture["id"],
-                "algorithm": fixture["algorithm"],
-                "inputUtf8": fixture["inputUtf8"],
-                "expectedHex": compute_digest(fixture["algorithm"], fixture["inputUtf8"]),
-            }
-        )
+    cases = [
+        {
+            "id": case_id,
+            "algorithm": algorithm,
+            "inputUtf8": input_utf8,
+            "expectedHex": compute_digest(algorithm, input_utf8),
+        }
+        for case_id, algorithm, input_utf8 in PARITY_CASES
+    ]
 
     document = {
         "runtime": "python",

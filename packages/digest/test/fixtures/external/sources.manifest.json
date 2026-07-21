@@ -1,92 +1,437 @@
 {
   "sources": [
     {
-      "id": "rfc8785-appendix",
-      "kind": "jcs",
-      "fixturePath": "rfc8785/appendix-b-key-order.json",
-      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc8785.html#appendix-B",
-      "revision": "rfc8785",
-      "retrievedAt": "2026-03-25",
-      "sourceLicense": "IETF Trust Legal Provisions",
-      "normalizationNotes": "Subset fixture normalized to a single key-order object for deterministic JCS parity checks.",
-      "contentSha256": "27c86d850b190e53c21c7ade3226cc36e5d599e1427cf4f9d7fb02996b432fea"
+      "id": "blake3-official-vectors",
+      "kind": "blake3",
+      "fixturePath": "blake3/test-vectors.json",
+      "origin": "external",
+      "sourceLocator": "https://raw.githubusercontent.com/BLAKE3-team/BLAKE3/8aa5145039b972ba30e98e788752d37d14568824/test_vectors/test_vectors.json",
+      "revision": "8aa5145039b972ba30e98e788752d37d14568824",
+      "sourcePaths": ["test_vectors/test_vectors.json"],
+      "sourceSelectors": ["key", "context_string", "cases[*].{input_len,hash,keyed_hash,derive_key}"],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "CC0-1.0",
+      "licenseUrl": "https://github.com/BLAKE3-team/BLAKE3/blob/8aa5145039b972ba30e98e788752d37d14568824/LICENSE_CC0",
+      "sourceNotice": "BLAKE3 offers this work under CC0-1.0, Apache-2.0, or Apache-2.0 WITH LLVM-exception; this fixture uses CC0-1.0. No separate NOTICE file exists at the pinned revision.",
+      "transformations": [
+        "Payload is copied byte-for-byte from the pinned upstream JSON.",
+        "Conformance regenerates input byte i as i modulo 251 and compares the first 32 bytes (64 hex characters) of each preserved 131-byte XOF output because digest exposes the standard 32-byte output."
+      ],
+      "exclusions": [],
+      "localVerdictRemaps": [],
+      "contentSha256": "dcb91ea8accc77e6d6e632af7cdc1a99a9f3ae78cf648da595c7d064db32f624"
     },
     {
       "id": "cyberphone-jcs-corpus",
       "kind": "jcs",
-      "fixturePath": "jcs-corpus/key-order-object.json",
-      "sourceUrl": "https://github.com/cyberphone/json-canonicalization",
-      "revision": "subset-snapshot-2026-03-25",
-      "retrievedAt": "2026-03-25",
-      "sourceLicense": "MIT",
-      "normalizationNotes": "Pinned corpus subset reduced to key-order object coverage for deterministic fixture replay.",
-      "contentSha256": "b56e9189c81b6f867ce7e29d9842739a3c9e8e3f9a5f37c7c2dcf1a96af6dcee"
+      "fixturePath": "jcs-corpus/cyberphone-testdata.json",
+      "origin": "external",
+      "sourceLocator": "https://github.com/cyberphone/json-canonicalization/tree/19d51d7fe467d4706a3ff08adf8a748f29fc21e0/testdata",
+      "revision": "19d51d7fe467d4706a3ff08adf8a748f29fc21e0",
+      "sourcePaths": [
+        "testdata/input/arrays.json",
+        "testdata/output/arrays.json",
+        "testdata/input/french.json",
+        "testdata/output/french.json",
+        "testdata/input/structures.json",
+        "testdata/output/structures.json",
+        "testdata/input/unicode.json",
+        "testdata/output/unicode.json",
+        "testdata/input/values.json",
+        "testdata/output/values.json",
+        "testdata/input/weird.json",
+        "testdata/output/weird.json"
+      ],
+      "sourceSelectors": [
+        "arrays input/output pair",
+        "french input/output pair",
+        "structures input/output pair",
+        "unicode input/output pair",
+        "values input/output pair",
+        "weird input/output pair"
+      ],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "Apache-2.0",
+      "licenseUrl": "https://github.com/cyberphone/json-canonicalization/blob/19d51d7fe467d4706a3ff08adf8a748f29fc21e0/LICENSE",
+      "sourceNotice": "Copyright 2018 Anders Rundgren. The repository-level Apache-2.0 license applies to testdata; no separate NOTICE file exists.",
+      "transformations": [
+        "Each upstream input is decoded with an independent standard JSON parser.",
+        "Each expected output file is preserved byte-for-byte; the pinned upstream output files contain no terminal line ending. Those bytes are encoded as expectedCanonical in a UTF-8 JSON wrapper.",
+        "Cases are ordered by the fixed allowlist arrays, french, structures, unicode, values, weird."
+      ],
+      "exclusions": [
+        {
+          "selector": "testdata/outhex/arrays.txt",
+          "reason": "Redundant hexadecimal rendering of the included arrays output pair."
+        },
+        {
+          "selector": "testdata/outhex/french.txt",
+          "reason": "Redundant hexadecimal rendering of the included french output pair."
+        },
+        {
+          "selector": "testdata/outhex/structures.txt",
+          "reason": "Redundant hexadecimal rendering of the included structures output pair."
+        },
+        {
+          "selector": "testdata/outhex/unicode.txt",
+          "reason": "Redundant hexadecimal rendering of the included unicode output pair."
+        },
+        {
+          "selector": "testdata/outhex/values.txt",
+          "reason": "Redundant hexadecimal rendering of the included values output pair."
+        },
+        {
+          "selector": "testdata/outhex/weird.txt",
+          "reason": "Redundant hexadecimal rendering of the included weird output pair."
+        },
+        {
+          "selector": "testdata/README.md",
+          "reason": "Documentation, not a canonicalization input/output pair."
+        },
+        {
+          "selector": "testdata/numgen.go",
+          "reason": "Generator source, not a checked-in canonicalization input/output pair."
+        },
+        {
+          "selector": "testdata/numgen.js",
+          "reason": "Generator source, not a checked-in canonicalization input/output pair."
+        },
+        {
+          "selector": "README-linked 100-million-number corpus",
+          "reason": "Separately hosted generated stress corpus outside the six pinned direct input/output pairs."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "e22cdc6b3b77a74247b3013f9353289a38e54b605477a7929cb7f6f42d0f5557"
     },
     {
-      "id": "blake3-official-vectors-subset",
-      "kind": "hash",
-      "fixturePath": "blake3/hash-empty.json",
-      "sourceUrl": "https://github.com/BLAKE3-team/BLAKE3/blob/master/test_vectors/test_vectors.json",
-      "revision": "test_vectors.json",
-      "retrievedAt": "2026-03-25",
-      "sourceLicense": "CC0-1.0",
-      "normalizationNotes": "Subset fixture keeps deterministic empty-input hash case from the official vector corpus.",
-      "contentSha256": "0a545c0cd5c87b9d202de30a854559705c4c2463e1e9e619a982bc02c7098771"
-    },
-    {
-      "id": "sha256-fips180-4",
-      "kind": "hash",
-      "fixturePath": "sha256/abc.json",
-      "sourceUrl": "https://csrc.nist.gov/pubs/fips/180-4/final",
-      "revision": "fips-180-4",
-      "retrievedAt": "2026-03-25",
-      "sourceLicense": "NIST publication",
-      "normalizationNotes": "Fixture uses canonical \"abc\" SHA-256 vector from FIPS 180-4 Appendix examples.",
-      "contentSha256": "ce7d5bf33ea533afe4610f4f57b1e1ba98fd6e7581cf29e111875dfd76bfe1a2"
-    },
-    {
-      "id": "rfc4231-hmac-sha256-case-1",
-      "kind": "hmac-hkdf",
-      "fixturePath": "rfc4231/hmac-sha256-case-1.json",
-      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc4231",
-      "revision": "rfc4231",
-      "retrievedAt": "2026-03-25",
+      "id": "local-malformed-unicode-adversarial",
+      "kind": "unicode-adversarial",
+      "fixturePath": "unicode/malformed-unicode.json",
+      "origin": "local-adversarial",
+      "sourceLocator": "https://www.rfc-editor.org/rfc/rfc8785.html#section-3.2.2.2",
+      "revision": "rfc8785-local-adversarial-v1",
+      "sourcePaths": ["RFC 8785 Section 3.2.2.2"],
+      "sourceSelectors": [
+        "Invalid Unicode data such as lone surrogates MUST terminate canonicalization with an appropriate error."
+      ],
+      "retrievedAt": "2026-07-21",
       "sourceLicense": "IETF Trust Legal Provisions",
-      "normalizationNotes": "Fixture encodes RFC 4231 HMAC-SHA256 case 1 with hex-normalized key and message payloads.",
-      "contentSha256": "ebdc3248ac6bc4ce0a6b62686ee0d9494c9f91f54250f5219019b2143e5107ce"
+      "licenseUrl": "https://trustee.ietf.org/license-info/",
+      "sourceNotice": "Copyright 2020 IETF Trust and the RFC 8785 authors. Concrete malformed UTF-16 carriers and typed verdicts are local adversarial cases, not RFC test vectors.",
+      "transformations": [
+        "Construct local lead- and trail-surrogate cases in values and keys at explicit UTF-16 code-unit indices.",
+        "Map the RFC's required termination to the package-owned bounded InvalidUnicode(codeUnitIndex) error."
+      ],
+      "exclusions": [],
+      "localVerdictRemaps": [
+        {
+          "selector": "local-malformed-unicode:lone-lead-value",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=0)",
+          "reason": "Unpaired leading surrogate in a value."
+        },
+        {
+          "selector": "local-malformed-unicode:lone-trail-value",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=0)",
+          "reason": "Unpaired trailing surrogate in a value."
+        },
+        {
+          "selector": "local-malformed-unicode:embedded-lead-value",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=6)",
+          "reason": "Unpaired leading surrogate after six valid code units in a value."
+        },
+        {
+          "selector": "local-malformed-unicode:embedded-trail-value",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=6)",
+          "reason": "Unpaired trailing surrogate after six valid code units in a value."
+        },
+        {
+          "selector": "local-malformed-unicode:lone-lead-key",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=0)",
+          "reason": "Unpaired leading surrogate in an object key."
+        },
+        {
+          "selector": "local-malformed-unicode:lone-trail-key",
+          "upstreamVerdict": "Terminate with an appropriate error.",
+          "localVerdict": "InvalidUnicode(codeUnitIndex=0)",
+          "reason": "Unpaired trailing surrogate in an object key."
+        }
+      ],
+      "contentSha256": "b570716c98886cab45a64f76c84ed48f60f68bbd7762b7398527907e24e6b2c6"
     },
     {
-      "id": "rfc5869-hkdf-sha256-case-1",
-      "kind": "hmac-hkdf",
-      "fixturePath": "rfc5869/hkdf-sha256-case-1.json",
-      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc5869",
-      "revision": "rfc5869",
-      "retrievedAt": "2026-03-25",
-      "sourceLicense": "IETF Trust Legal Provisions",
-      "normalizationNotes": "Fixture encodes RFC 5869 HKDF-SHA256 case 1 with explicit salt, info, and output length fields.",
-      "contentSha256": "992f21cbcdb000c9434c351624eacaf8132d2a29d3ecbaacdfeff0484f81de51"
+      "id": "nist-cavp-sha256-short-message",
+      "kind": "hash",
+      "fixturePath": "sha256/nist-cavp-short-message.json",
+      "origin": "external",
+      "sourceLocator": "https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/shs/shabytetestvectors.zip",
+      "revision": "sha256:929ef80b7b3418aca026643f6f248815913b60e01741a44bba9e118067f4c9b8",
+      "sourcePaths": ["shabytetestvectors/SHA256ShortMsg.rsp"],
+      "sourceSelectors": ["All 65 Len/Msg/MD records under [L = 32], Len 0 through 512 bits in 8-bit increments."],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "United States public domain under 17 U.S.C. § 105",
+      "licenseUrl": "https://www.nist.gov/open/copyrights-fair-use-and-licensing-statements-srd-data-and-software",
+      "sourceNotice": "NIST CAVS 11.0 SHA-256 byte-oriented short-message vectors, generated 2011-03-15. Use does not replace CAVP validation.",
+      "transformations": [
+        "Verify the downloaded archive SHA-256 before offline extraction.",
+        "Remap every .rsp Len/Msg/MD record to Schema-decoded JSON with Len in bits, lowercase hex payloads, and no cryptographic recomputation.",
+        "Map the Len=0 placeholder Msg=00 to an empty inputHex; require every other Len to be divisible by 8 and match the decoded message byte length."
+      ],
+      "exclusions": [
+        {
+          "selector": "shabytetestvectors/SHA256LongMsg.rsp",
+          "reason": "Long-message vectors are outside this ratified short-message checkpoint."
+        },
+        {
+          "selector": "shabytetestvectors/SHA256Monte.rsp and SHA256Monte.txt",
+          "reason": "Monte Carlo vectors and intermediate results are outside this ratified short-message checkpoint."
+        },
+        {
+          "selector": "shabytetestvectors/{SHA1,SHA224,SHA384,SHA512,SHA512_224,SHA512_256}*",
+          "reason": "Algorithms other than SHA-256 are outside this package checkpoint."
+        },
+        {
+          "selector": "shabytetestvectors/Readme.txt",
+          "reason": "Archive documentation, not a hash vector payload."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "f50d3ec52629b2667c8591fb2f44cf75144933bc0cc5a870fcba278781fde5fa"
     },
     {
       "id": "python-runtime-parity-generated",
       "kind": "parity-runtime",
       "fixturePath": "../parity/generated/python.json",
-      "sourceUrl": "https://github.com/scenesystems/theoria/blob/main/packages/digest/scripts/parity/python/generate.py",
-      "revision": "generated-at-2026-03-25T00:00:00Z",
-      "retrievedAt": "2026-03-25",
+      "origin": "generated",
+      "sourceLocator": "packages/digest/scripts/parity/python/generate.py",
+      "revision": "sha256:1abb35b09b63549a30c7966cced18babb9926d106e166765eefdbe5d911ed7d8",
+      "sourcePaths": [
+        "packages/digest/scripts/parity/python/generate.py",
+        "inline dependency pin blake3==1.0.8",
+        "Python standard library hashlib.sha256"
+      ],
+      "sourceSelectors": ["PARITY_CASES", "compute_digest"],
+      "retrievedAt": "2026-07-21",
       "sourceLicense": "MIT",
-      "normalizationNotes": "Generated parity output is deterministic and derived from manifest-declared hash fixture sources.",
+      "licenseUrl": "https://github.com/scenesystems/theoria/blob/680588ca4b0f289a18aeb0a508c1c395d79aff2f/LICENSE",
+      "sourceNotice": "The local deterministic generator uses independently implemented Python runtimes with an exact blake3 dependency pin and a fixed generatedAt value.",
+      "transformations": [
+        "Encode the fixed well-formed parity input strings as UTF-8 in Python.",
+        "Compute SHA-256 through hashlib and BLAKE3 through blake3 1.0.8, then emit sorted fixed cases as lowercase hex."
+      ],
+      "exclusions": [],
+      "localVerdictRemaps": [],
       "contentSha256": "b91165ced04e1a6ac34a06e48561bb01686c824bafe324004a87e3d4edbde256"
+    },
+    {
+      "id": "rfc2202-hmac-sha1",
+      "kind": "hmac",
+      "fixturePath": "rfc2202/hmac-sha1.json",
+      "origin": "external",
+      "sourceLocator": "https://www.rfc-editor.org/rfc/rfc2202.html#section-3",
+      "revision": "rfc2202",
+      "sourcePaths": ["RFC 2202 Section 3, Test Cases 1 through 7"],
+      "sourceSelectors": ["All HMAC-SHA-1 key, data, and full digest fields for test_case 1 through 7."],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "Internet Society RFC redistribution terms",
+      "licenseUrl": "https://www.rfc-editor.org/rfc/rfc2202.html",
+      "sourceNotice": "Copyright 1997 The Internet Society. Distribution of RFC 2202 is unlimited; the document's HMAC cases were cross-verified by three independent implementations.",
+      "transformations": [
+        "Expand every repeated byte description exactly and encode RFC ASCII strings without trailing NUL as lowercase hexadecimal bytes.",
+        "Preserve each full 20-byte HMAC-SHA-1 digest as expectedHex."
+      ],
+      "exclusions": [
+        {
+          "selector": "RFC 2202 Section 2 HMAC-MD5 cases 1 through 7",
+          "reason": "HMAC-MD5 is not implemented by digest."
+        },
+        {
+          "selector": "RFC 2202 Section 3 test_case 5 digest-96",
+          "reason": "The fixture preserves and verifies the same case's full 20-byte digest instead of its redundant 12-byte truncation."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "e3fd97fc52879e6980dd601ff1b00d5dca47233f79218aeb9b27b5b40d67fb2c"
+    },
+    {
+      "id": "rfc4231-hmac-sha256",
+      "kind": "hmac",
+      "fixturePath": "rfc4231/hmac-sha256.json",
+      "origin": "external",
+      "sourceLocator": "https://www.rfc-editor.org/rfc/rfc4231.html#section-4",
+      "revision": "rfc4231",
+      "sourcePaths": ["RFC 4231 Sections 4.2 through 4.8"],
+      "sourceSelectors": ["All HMAC-SHA-256 key, data, and digest fields for Test Cases 1 through 7."],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "BCP 78 / Internet Society (2005)",
+      "licenseUrl": "https://www.rfc-editor.org/rfc/rfc4231.html",
+      "sourceNotice": "Copyright 2005 The Internet Society. RFC 4231's vectors were cross-verified by three independent implementations.",
+      "transformations": [
+        "Concatenate wrapped RFC hex lines, expand repeated byte descriptions, and encode displayed ASCII strings as lowercase hexadecimal bytes.",
+        "Preserve the RFC's 16-byte truncated HMAC-SHA-256 expectation for Test Case 5 and all 32-byte expectations for the other cases."
+      ],
+      "exclusions": [
+        {
+          "selector": "RFC 4231 HMAC-SHA-224, HMAC-SHA-384, and HMAC-SHA-512 fields in Test Cases 1 through 7",
+          "reason": "Only HMAC-SHA-256 is implemented by digest from this RFC family."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "49a5694df159385c2ee32ec342fdc286e4ba05f910a3a6f846aa20db0135c3da"
+    },
+    {
+      "id": "rfc5869-hkdf-sha256",
+      "kind": "hkdf",
+      "fixturePath": "rfc5869/hkdf-sha256.json",
+      "origin": "external",
+      "sourceLocator": "https://www.rfc-editor.org/rfc/rfc5869.html#appendix-A",
+      "revision": "rfc5869",
+      "sourcePaths": ["RFC 5869 Appendix A.1 through A.3"],
+      "sourceSelectors": ["All HKDF-SHA-256 IKM, salt, info, L, and OKM fields in Test Cases 1 through 3."],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "IETF Trust Legal Provisions",
+      "licenseUrl": "https://trustee.ietf.org/license-info/",
+      "sourceNotice": "Copyright 2010 IETF Trust and the RFC 5869 authors. Extracted code components are subject to the IETF Trust Simplified BSD terms.",
+      "transformations": [
+        "Concatenate wrapped RFC hexadecimal fields and preserve OKM, not PRK, as expectedHex.",
+        "Represent Appendix A.3's explicit zero-length salt and info as empty hexadecimal strings."
+      ],
+      "exclusions": [
+        {
+          "selector": "RFC 5869 Appendix A.4 through A.7 HKDF-SHA-1 cases",
+          "reason": "The ratified fixture family is HKDF-SHA-256; HKDF-SHA-1 is not implemented by digest."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "c38f19f84889f2f854bb3621aabbec3ab19e7523ed58107d689bd62b1351319f"
+    },
+    {
+      "id": "rfc8785-canonicalization",
+      "kind": "jcs",
+      "fixturePath": "rfc8785/canonicalization.json",
+      "origin": "external",
+      "sourceLocator": "https://www.rfc-editor.org/rfc/rfc8785.html",
+      "revision": "rfc8785",
+      "sourcePaths": ["RFC 8785 Sections 3.2.2 through 3.2.3", "RFC 8785 Appendix B"],
+      "sourceSelectors": [
+        "Section 3.2.2 primitive serialization sample",
+        "Section 3.2.3 canonical sample and UTF-16 property sorting sample",
+        "Appendix B rows with a nonblank JSON Representation"
+      ],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "IETF Trust Legal Provisions",
+      "licenseUrl": "https://trustee.ietf.org/license-info/",
+      "sourceNotice": "Copyright 2020 IETF Trust and the RFC 8785 authors. RFC examples are normalized into schema-decoded test payloads.",
+      "transformations": [
+        "Remove RFC display-only line wraps from canonical strings without changing any JSON byte or code point.",
+        "Decode each Appendix B IEEE-754 hexadecimal value independently into a JavaScript JSON number and verify a Bun/Node DataView round-trip returns the same 64-bit pattern.",
+        "Preserve each nonblank Appendix B JSON Representation verbatim as expectedCanonical."
+      ],
+      "exclusions": [
+        {
+          "selector": "RFC 8785 Appendix B IEEE-754 7fffffffffffffff (NaN)",
+          "reason": "The RFC table has no JSON Representation because NaN is outside I-JSON and cannot be carried in a JSON fixture."
+        },
+        {
+          "selector": "RFC 8785 Appendix B IEEE-754 7ff0000000000000 (Infinity)",
+          "reason": "The RFC table has no JSON Representation because Infinity is outside I-JSON and cannot be carried in a JSON fixture."
+        }
+      ],
+      "localVerdictRemaps": [
+        {
+          "selector": "RFC 8785 Appendix B IEEE-754 7fffffffffffffff (NaN)",
+          "upstreamVerdict": "No JSON Representation; terminate with an appropriate error.",
+          "localVerdict": "UnsupportedValue(kind=NonFiniteNumber)",
+          "reason": "digest exposes a bounded typed error for non-finite JavaScript numbers."
+        },
+        {
+          "selector": "RFC 8785 Appendix B IEEE-754 7ff0000000000000 (Infinity)",
+          "upstreamVerdict": "No JSON Representation; terminate with an appropriate error.",
+          "localVerdict": "UnsupportedValue(kind=NonFiniteNumber)",
+          "reason": "digest exposes a bounded typed error for non-finite JavaScript numbers."
+        }
+      ],
+      "contentSha256": "220d4f1e215ed73b6b654c331bbc1160784a3887c75689b6e896fb4ccc6fcf0c"
     },
     {
       "id": "rust-runtime-parity-generated",
       "kind": "parity-runtime",
       "fixturePath": "../parity/generated/rust.json",
-      "sourceUrl": "https://github.com/scenesystems/theoria/blob/main/packages/digest/scripts/parity/rust/src/main.rs",
-      "revision": "generated-at-2026-03-25T00:00:00Z",
-      "retrievedAt": "2026-03-25",
+      "origin": "generated",
+      "sourceLocator": "packages/digest/scripts/parity/rust/src/main.rs",
+      "revision": "sha256:7974ef5b9da86aa3f15870ac943d64da709e7347c5d0627e77056f7e8ac5365c",
+      "sourcePaths": [
+        "packages/digest/scripts/parity/rust/src/main.rs",
+        "packages/digest/scripts/parity/rust/Cargo.lock"
+      ],
+      "sourceSelectors": [
+        "parity_cases",
+        "compute_digest",
+        "Cargo.lock blake3 1.8.3 and sha2 0.10.9 dependency resolutions"
+      ],
+      "retrievedAt": "2026-07-21",
       "sourceLicense": "MIT",
-      "normalizationNotes": "Generated parity output is deterministic and derived from manifest-declared hash fixture sources.",
+      "licenseUrl": "https://github.com/scenesystems/theoria/blob/680588ca4b0f289a18aeb0a508c1c395d79aff2f/LICENSE",
+      "sourceNotice": "The local deterministic generator uses independently implemented Rust crates pinned by Cargo.lock and a fixed generatedAt value. Cargo.lock SHA-256 is bdd8df2bc7b1573458756eff6cf4acd04e6f614fc52b57072cf1ea23cb5c3181.",
+      "transformations": [
+        "Encode the fixed well-formed parity input strings as UTF-8 in Rust.",
+        "Compute SHA-256 through sha2 and BLAKE3 through blake3, then emit fixed cases as lowercase hex."
+      ],
+      "exclusions": [],
+      "localVerdictRemaps": [],
       "contentSha256": "1f83c342bc9baebbd23ba095d7a09322f302b5ec0fd6326ae0b3e02030bf0c4d"
+    },
+    {
+      "id": "wycheproof-hkdf-sha512",
+      "kind": "hkdf",
+      "fixturePath": "wycheproof/hkdf-sha512.json",
+      "origin": "external",
+      "sourceLocator": "https://raw.githubusercontent.com/C2SP/wycheproof/e0df04e0c033f2d25c5051dd06230336c7822358/testvectors_v1/hkdf_sha512_test.json",
+      "revision": "e0df04e0c033f2d25c5051dd06230336c7822358",
+      "sourcePaths": [
+        "testvectors_v1/hkdf_sha512_test.json",
+        "schemas/hkdf_test_schema_v1.json",
+        "schemas/common.json"
+      ],
+      "sourceSelectors": [
+        "algorithm=HKDF-SHA-512",
+        "schema=hkdf_test_schema_v1.json",
+        "all four HkdfTest groups",
+        "all tests with result=valid"
+      ],
+      "retrievedAt": "2026-07-21",
+      "sourceLicense": "Apache-2.0",
+      "licenseUrl": "https://github.com/C2SP/wycheproof/blob/e0df04e0c033f2d25c5051dd06230336c7822358/LICENSE",
+      "sourceNotice": "The repository-level Apache-2.0 license applies to the vector and schemas. No separate NOTICE file exists at the pinned revision.",
+      "transformations": [
+        "Payload is copied byte-for-byte from the pinned upstream JSON.",
+        "Conformance strictly hex-decodes ikm, salt, info, and okm, treats empty strings as empty byte arrays, and executes every result=valid case."
+      ],
+      "exclusions": [
+        {
+          "selector": "tcId 22",
+          "reason": "result=invalid requests 16321 bytes and has no expected OKM; retained in the raw payload but excluded from known-output conformance."
+        },
+        {
+          "selector": "tcId 45",
+          "reason": "result=invalid requests 16321 bytes and has no expected OKM; retained in the raw payload but excluded from known-output conformance."
+        },
+        {
+          "selector": "tcId 68",
+          "reason": "result=invalid requests 16321 bytes and has no expected OKM; retained in the raw payload but excluded from known-output conformance."
+        },
+        {
+          "selector": "result=acceptable",
+          "reason": "Strict known-output conformance excludes acceptable verdicts; this pinned file contains none."
+        }
+      ],
+      "localVerdictRemaps": [],
+      "contentSha256": "af70cc181c0f0bb10d447b504807b2eb6ce5323a833efc948db97090e155fb9d"
     }
   ]
 }

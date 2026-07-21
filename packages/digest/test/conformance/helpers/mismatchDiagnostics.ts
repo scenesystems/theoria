@@ -23,7 +23,7 @@ const formatDiagnostics = (
   fixtureId: string,
   algorithm: string,
   sourceId: string,
-  sourceUrl: string,
+  sourceLocator: string,
   fixturePath: string,
   expected: string,
   actual: string
@@ -39,7 +39,7 @@ const formatDiagnostics = (
     `fixture: ${fixtureId}`,
     `algorithm: ${algorithm}`,
     `source: ${sourceId}`,
-    `origin: ${sourceUrl}`,
+    `origin: ${sourceLocator}`,
     `fixturePath: ${fixturePath}`,
     `firstDifferenceIndex: ${indexLabel}`,
     `expectedChar: ${charAt(expected, index)}`,
@@ -51,11 +51,11 @@ export const expectStringMatch = (
   fixtureId: string,
   algorithm: string,
   sourceId: string,
-  sourceUrl: string,
+  sourceLocator: string,
   fixturePath: string,
   actual: string,
   expected: string
 ): void =>
-  expect(actual, formatDiagnostics(fixtureId, algorithm, sourceId, sourceUrl, fixturePath, expected, actual)).toBe(
+  expect(actual, formatDiagnostics(fixtureId, algorithm, sourceId, sourceLocator, fixturePath, expected, actual)).toBe(
     expected
   )

@@ -60,7 +60,7 @@ describe("external conformance — parity runtimes", () => {
               `${fixture.runtime}:${vector.id}`,
               vector.algorithm,
               source.id,
-              source.sourceUrl,
+              source.sourceLocator,
               source.fixturePath,
               actual,
               vector.expectedHex

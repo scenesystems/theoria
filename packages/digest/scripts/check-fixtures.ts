@@ -7,8 +7,6 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Console, Effect, Option, Schema } from "effect"
-import { sha256 } from "../src/algorithms/sha256.js"
-import { toHex } from "../src/encoding.js"
 import {
   decodeUnknownJson,
   EXTERNAL_FIXTURE_ROOT,
@@ -30,7 +28,8 @@ class FixtureCheckError {
 
 const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => sha256(bytes).pipe(Effect.map(toHex))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
+  Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
 
 const normalizeRelativePath = (pathService: Path.Path, value: string): string =>
   value.split(pathService.sep).join("/")
@@ -90,10 +89,13 @@ const program = Effect.gen(function*() {
 
   const externalRoot = pathService.join(cwd, EXTERNAL_FIXTURE_ROOT)
   const parityRoot = pathService.join(cwd, PARITY_FIXTURE_ROOT)
+  const repositoryRoot = pathService.normalize(pathService.join(cwd, "../.."))
   const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
 
   const manifestContent = yield* readJsonContent(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent).pipe(
+  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.mapError(() => new FixtureCheckError("manifest", manifestPath, "manifest schema decode failed"))
   )
 
@@ -116,6 +118,22 @@ const program = Effect.gen(function*() {
           source.fixturePath,
           `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`
         )
+      }
+
+      if (source.origin === "generated") {
+        const generatorPath = pathService.normalize(pathService.join(repositoryRoot, source.sourceLocator))
+        const generatorBytes = yield* fileSystem.readFile(generatorPath).pipe(
+          Effect.mapError(() => new FixtureCheckError(source.id, source.sourceLocator, "generator file not found"))
+        )
+        const generatorRevision = `sha256:${yield* toSha256Hex(generatorBytes)}`
+
+        if (generatorRevision !== source.revision) {
+          return new FixtureCheckError(
+            source.id,
+            source.sourceLocator,
+            `generator revision mismatch: expected ${source.revision}, got ${generatorRevision}`
+          )
+        }
       }
 
       return null

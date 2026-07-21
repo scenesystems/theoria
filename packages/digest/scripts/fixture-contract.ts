@@ -1,12 +1,15 @@
 import { Effect, Match, Schema } from "effect"
 import {
+  Blake3FixtureSchema,
   FixtureKindSchema,
   FixtureManifestSchema,
   HashFixtureSchema,
-  HmacHkdfFixtureSchema,
+  HkdfCorpusFixtureSchema,
+  HmacFixtureSchema,
   JcsFixtureSchema,
   type FixtureKind,
-  RuntimeParityFixtureSchema
+  RuntimeParityFixtureSchema,
+  UnicodeAdversarialFixtureSchema
 } from "./fixture-schemas.js"
 
 export const EXTERNAL_FIXTURE_ROOT = "test/fixtures/external"
@@ -22,11 +25,21 @@ export const validateFixtureByKind = (
   content: string
 ): Effect.Effect<void, unknown, never> =>
   Match.value(kind).pipe(
-    Match.when("jcs", () => Schema.decodeUnknown(JcsFixtureSchema)(content).pipe(Effect.asVoid)),
-    Match.when("hash", () => Schema.decodeUnknown(HashFixtureSchema)(content).pipe(Effect.asVoid)),
-    Match.when("hmac-hkdf", () =>
-      Schema.decodeUnknown(HmacHkdfFixtureSchema)(content).pipe(Effect.asVoid)),
+    Match.when("blake3", () =>
+      Schema.decodeUnknown(Blake3FixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("jcs", () =>
+      Schema.decodeUnknown(JcsFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hash", () =>
+      Schema.decodeUnknown(HashFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hmac", () =>
+      Schema.decodeUnknown(HmacFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hkdf", () =>
+      Schema.decodeUnknown(HkdfCorpusFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
     Match.when("parity-runtime", () =>
-      Schema.decodeUnknown(RuntimeParityFixtureSchema)(content).pipe(Effect.asVoid)),
+      Schema.decodeUnknown(RuntimeParityFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("unicode-adversarial", () =>
+      Schema.decodeUnknown(UnicodeAdversarialFixtureSchema)(content, { onExcessProperty: "error" }).pipe(
+        Effect.asVoid
+      )),
     Match.exhaustive
   )

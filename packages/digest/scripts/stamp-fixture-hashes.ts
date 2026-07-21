@@ -6,9 +6,7 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Effect, Option } from "effect"
-import { sha256 } from "../src/algorithms/sha256.js"
-import { toHex } from "../src/encoding.js"
+import { Array as Arr, Console, Effect, Option, Schema } from "effect"
 import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
 
 class FixtureStampError {
@@ -20,7 +18,8 @@ class FixtureStampError {
   ) {}
 }
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => sha256(bytes).pipe(Effect.map(toHex))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
+  Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -32,7 +31,9 @@ const program = Effect.gen(function*() {
   const manifestRaw = yield* fileSystem.readFileString(manifestPath).pipe(
     Effect.mapError(() => new FixtureStampError(manifestPath, "manifest file not found"))
   )
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestRaw).pipe(
+  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestRaw, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.mapError(() => new FixtureStampError(manifestPath, "manifest schema decode failed"))
   )
 
