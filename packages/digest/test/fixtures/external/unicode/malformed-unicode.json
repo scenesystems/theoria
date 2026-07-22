@@ -1,0 +1,47 @@
+{
+  "format": "unicode-adversarial-v1",
+  "cases": [
+    {
+      "id": "local-malformed-unicode:lone-lead-value",
+      "target": "value",
+      "input": "\ud800",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 0
+    },
+    {
+      "id": "local-malformed-unicode:lone-trail-value",
+      "target": "value",
+      "input": "\udc00",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 0
+    },
+    {
+      "id": "local-malformed-unicode:embedded-lead-value",
+      "target": "value",
+      "input": "prefix\ud800",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 6
+    },
+    {
+      "id": "local-malformed-unicode:embedded-trail-value",
+      "target": "value",
+      "input": "prefix\udc00",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 6
+    },
+    {
+      "id": "local-malformed-unicode:lone-lead-key",
+      "target": "key",
+      "input": "\ud800",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 0
+    },
+    {
+      "id": "local-malformed-unicode:lone-trail-key",
+      "target": "key",
+      "input": "\udc00",
+      "expectedTag": "InvalidUnicode",
+      "expectedCodeUnitIndex": 0
+    }
+  ]
+}

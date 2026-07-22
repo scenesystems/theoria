@@ -13,7 +13,7 @@
  * - BLAKE3-256 golden vector correctness
  * - SHA-256 golden vector correctness
  * - Empty string handling
- * - Equivalent to manual utf8ToBytes → digestBytes
+ * - Equivalent to strict encodeUtf8 → digestBytes
  *
  * ### digestBytesBase64Url(algorithm, bytes) — hash + base64url
  * - BLAKE3-256 golden vector correctness
@@ -24,7 +24,7 @@
  * ### digestUtf8Base64Url(algorithm, text) — hash string + base64url
  * - BLAKE3-256 golden vector correctness
  * - SHA-256 golden vector correctness
- * - Equivalent to digestBytesBase64Url(algo, utf8ToBytes(text))
+ * - Equivalent to digestBytesBase64Url(algo, encodeUtf8(text))
  *
  * ### digestBytesHex(algorithm, bytes) — hash + hex
  * - BLAKE3-256 golden vector correctness
@@ -33,13 +33,12 @@
  *
  * ### canonicalJsonBytes(value) — canonicalize to UTF-8 bytes
  * - Produces Uint8Array from structured value
- * - Matches manual canonicalize → utf8ToBytes pipeline
- * - Rejects non-JSON-safe values with FingerprintUnsupportedValue
+ * - Matches manual canonicalize → encodeUtf8 pipeline
+ * - Rejects non-JSON-safe values with UnsupportedValue
  * - Deterministic output
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Effect, Exit } from "effect"
 import {
   canonicalize,
@@ -49,9 +48,12 @@ import {
   digestBytesHex,
   digestUtf8,
   digestUtf8Base64Url,
-  FingerprintUnsupportedValue
+  encodeUtf8,
+  InvalidUnicode,
+  UnsupportedValue
 } from "../src/index.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
+import { encodeFixtureUtf8 } from "./helpers/bytes.js"
 import { hashVectors } from "./helpers/vectors/blake3.vectors.js"
 import { digestBase64UrlVectors } from "./helpers/vectors/convenience.vectors.js"
 import { sha256Vectors } from "./helpers/vectors/sha256.vectors.js"
@@ -62,19 +64,19 @@ import { sha256Vectors } from "./helpers/vectors/sha256.vectors.js"
 describe("digestBytes — algorithm-parameterized raw byte hashing", () => {
   it.effect("BLAKE3-256 produces correct hash for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytes("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytes("blake3-256", encodeFixtureUtf8("hello"))
       expectDigest(result, hashVectors.hello)
     }))
 
   it.effect("SHA-256 produces correct hash for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytes("sha256", utf8ToBytes("hello"))
+      const result = yield* digestBytes("sha256", encodeFixtureUtf8("hello"))
       expectDigest(result, sha256Vectors.hello)
     }))
 
   it.effect("different algorithms produce different output for same input", () =>
     Effect.gen(function*() {
-      const input = utf8ToBytes("hello")
+      const input = encodeFixtureUtf8("hello")
       const b3 = yield* digestBytes("blake3-256", input)
       const sha = yield* digestBytes("sha256", input)
       expect(b3).not.toEqual(sha)
@@ -82,7 +84,7 @@ describe("digestBytes — algorithm-parameterized raw byte hashing", () => {
 
   it.effect("output is always 32 bytes", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytes("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytes("blake3-256", encodeFixtureUtf8("hello"))
       expectByteLength(result, 32)
     }))
 
@@ -116,11 +118,29 @@ describe("digestUtf8 — algorithm-parameterized string hashing", () => {
       expectDigest(result, hashVectors.empty)
     }))
 
-  it.effect("equivalent to manual utf8ToBytes → digestBytes", () =>
+  it.effect("equivalent to strict encodeUtf8 → digestBytes", () =>
     Effect.gen(function*() {
       const fromUtf8 = yield* digestUtf8("sha256", "hello")
-      const fromBytes = yield* digestBytes("sha256", utf8ToBytes("hello"))
+      const bytes = yield* encodeUtf8("hello")
+      const fromBytes = yield* digestBytes("sha256", bytes)
       expect(fromUtf8).toEqual(fromBytes)
+    }))
+
+  it.effect("digestUtf8 rejects ill-formed text", () =>
+    Effect.gen(function*() {
+      const exit = yield* Effect.exit(digestUtf8("blake3-256", "ok\uD800"))
+      expect(exit).toStrictEqual(
+        Exit.fail(new InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 2 }))
+      )
+    }))
+
+  it.effect("well-formed digestUtf8 equals digestBytes of encodeUtf8", () =>
+    Effect.gen(function*() {
+      const text = "scene 😀 e\u0301"
+      const bytes = yield* encodeUtf8(text)
+      const fromText = yield* digestUtf8("sha256", text)
+      const fromBytes = yield* digestBytes("sha256", bytes)
+      expect(fromText).toEqual(fromBytes)
     }))
 })
 
@@ -130,25 +150,25 @@ describe("digestUtf8 — algorithm-parameterized string hashing", () => {
 describe("digestBytesBase64Url — hash + base64url encode", () => {
   it.effect("BLAKE3-256 produces correct base64url for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesBase64Url("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytesBase64Url("blake3-256", encodeFixtureUtf8("hello"))
       expect(result).toBe(digestBase64UrlVectors.blake3.hello)
     }))
 
   it.effect("SHA-256 produces correct base64url for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesBase64Url("sha256", utf8ToBytes("hello"))
+      const result = yield* digestBytesBase64Url("sha256", encodeFixtureUtf8("hello"))
       expect(result).toBe(digestBase64UrlVectors.sha256.hello)
     }))
 
   it.effect("output is exactly 43 characters for 256-bit digest", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesBase64Url("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytesBase64Url("blake3-256", encodeFixtureUtf8("hello"))
       expect(result.length).toBe(43)
     }))
 
   it.effect("URL-safe alphabet only — no + / =", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesBase64Url("sha256", utf8ToBytes("test"))
+      const result = yield* digestBytesBase64Url("sha256", encodeFixtureUtf8("test"))
       expect(result).not.toContain("+")
       expect(result).not.toContain("/")
       expect(result).not.toContain("=")
@@ -171,11 +191,20 @@ describe("digestUtf8Base64Url — hash string + base64url encode", () => {
       expect(result).toBe(digestBase64UrlVectors.sha256.abc)
     }))
 
-  it.effect("equivalent to digestBytesBase64Url with utf8ToBytes", () =>
+  it.effect("equivalent to digestBytesBase64Url with encodeUtf8", () =>
     Effect.gen(function*() {
       const fromUtf8 = yield* digestUtf8Base64Url("sha256", "hello")
-      const fromBytes = yield* digestBytesBase64Url("sha256", utf8ToBytes("hello"))
+      const bytes = yield* encodeUtf8("hello")
+      const fromBytes = yield* digestBytesBase64Url("sha256", bytes)
       expect(fromUtf8).toBe(fromBytes)
+    }))
+
+  it.effect("digestUtf8Base64Url rejects ill-formed text", () =>
+    Effect.gen(function*() {
+      const exit = yield* Effect.exit(digestUtf8Base64Url("sha256", "a\uDC00"))
+      expect(exit).toStrictEqual(
+        Exit.fail(new InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 1 }))
+      )
     }))
 })
 
@@ -185,19 +214,19 @@ describe("digestUtf8Base64Url — hash string + base64url encode", () => {
 describe("digestBytesHex — hash + hex encode", () => {
   it.effect("BLAKE3-256 produces correct hex for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesHex("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytesHex("blake3-256", encodeFixtureUtf8("hello"))
       expect(result).toBe(hashVectors.hello)
     }))
 
   it.effect("SHA-256 produces correct hex for 'hello'", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesHex("sha256", utf8ToBytes("hello"))
+      const result = yield* digestBytesHex("sha256", encodeFixtureUtf8("hello"))
       expect(result).toBe(sha256Vectors.hello)
     }))
 
   it.effect("output is exactly 64 characters of lowercase hex", () =>
     Effect.gen(function*() {
-      const result = yield* digestBytesHex("blake3-256", utf8ToBytes("hello"))
+      const result = yield* digestBytesHex("blake3-256", encodeFixtureUtf8("hello"))
       expect(result.length).toBe(64)
       expect(result).toMatch(/^[0-9a-f]{64}$/)
     }))
@@ -214,11 +243,11 @@ describe("canonicalJsonBytes — canonicalize to UTF-8 bytes", () => {
       expect(result.length).toBeGreaterThan(0)
     }))
 
-  it.effect("matches manual canonicalize → utf8ToBytes pipeline", () =>
+  it.effect("matches manual canonicalize → encodeUtf8 pipeline", () =>
     Effect.gen(function*() {
       const value = { z: 1, a: 2 }
       const canonical = yield* canonicalize(value)
-      const manualBytes = utf8ToBytes(canonical)
+      const manualBytes = yield* encodeUtf8(canonical)
       const pipelineBytes = yield* canonicalJsonBytes(value)
       expect(pipelineBytes).toEqual(manualBytes)
     }))
@@ -238,13 +267,11 @@ describe("canonicalJsonBytes — canonicalize to UTF-8 bytes", () => {
       expect(a).toEqual(b)
     }))
 
-  it.effect("rejects undefined with FingerprintUnsupportedValue", () =>
+  it.effect("rejects undefined with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(canonicalJsonBytes({ key: undefined }))
       expect(exit).toStrictEqual(
-        Exit.fail(
-          new FingerprintUnsupportedValue({ valueType: "undefined", reason: "undefined is not representable in JSON" })
-        )
+        Exit.fail(new UnsupportedValue({ reason: "undefined" }))
       )
     }))
 })

@@ -4,6 +4,7 @@
   "compilerOptions": {},
   "files": [],
   "references": [
+    { "path": "./scripts/tsconfig.json" },
     { "path": "./packages/digest/tsconfig.src.json" },
     { "path": "./packages/effect-dsp/tsconfig.src.json" },
     { "path": "./packages/effect-inference/tsconfig.src.json" },

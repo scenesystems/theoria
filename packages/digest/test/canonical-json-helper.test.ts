@@ -15,25 +15,27 @@ import {
   digestCanonicalJsonBase64Url,
   digestCanonicalJsonBytes,
   digestCanonicalJsonHex,
-  FingerprintUnsupportedValue,
-  utf8ToBytes
+  encodeUtf8,
+  UnsupportedValue
 } from "../src/index.js"
 
 describe("digestCanonicalJsonBytes", () => {
-  it.effect("matches canonicalize -> utf8ToBytes -> digestBytes for BLAKE3", () =>
+  it.effect("matches canonicalize -> encodeUtf8 -> digestBytes for BLAKE3", () =>
     Effect.gen(function*() {
       const value = { b: 2, a: 1 }
       const canonical = yield* canonicalize(value)
-      const manual = yield* digestBytes("blake3-256", utf8ToBytes(canonical))
+      const bytes = yield* encodeUtf8(canonical)
+      const manual = yield* digestBytes("blake3-256", bytes)
       const helper = yield* digestCanonicalJsonBytes("blake3-256", value)
       expect(helper).toEqual(manual)
     }))
 
-  it.effect("matches canonicalize -> utf8ToBytes -> digestBytes for SHA-256", () =>
+  it.effect("matches canonicalize -> encodeUtf8 -> digestBytes for SHA-256", () =>
     Effect.gen(function*() {
       const value = { id: "a-1", nested: { k: "v" } }
       const canonical = yield* canonicalize(value)
-      const manual = yield* digestBytes("sha256", utf8ToBytes(canonical))
+      const bytes = yield* encodeUtf8(canonical)
+      const manual = yield* digestBytes("sha256", bytes)
       const helper = yield* digestCanonicalJsonBytes("sha256", value)
       expect(helper).toEqual(manual)
     }))
@@ -45,26 +47,22 @@ describe("digestCanonicalJsonBytes", () => {
       expect(a).toEqual(b)
     }))
 
-  it.effect("propagates FingerprintUnsupportedValue for non-JSON-safe input", () =>
+  it.effect("propagates UnsupportedValue for non-JSON-safe input", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(digestCanonicalJsonBytes("sha256", { key: undefined }))
       expect(exit).toStrictEqual(
-        Exit.fail(
-          new FingerprintUnsupportedValue({
-            valueType: "undefined",
-            reason: "undefined is not representable in JSON"
-          })
-        )
+        Exit.fail(new UnsupportedValue({ reason: "undefined" }))
       )
     }))
 })
 
 describe("digestCanonicalJsonBase64Url", () => {
-  it.effect("matches canonicalize -> utf8ToBytes -> digestBytesBase64Url", () =>
+  it.effect("matches canonicalize -> encodeUtf8 -> digestBytesBase64Url", () =>
     Effect.gen(function*() {
       const value = { prompt: "hello", version: 1 }
       const canonical = yield* canonicalize(value)
-      const manual = yield* digestBytesBase64Url("blake3-256", utf8ToBytes(canonical))
+      const bytes = yield* encodeUtf8(canonical)
+      const manual = yield* digestBytesBase64Url("blake3-256", bytes)
       const helper = yield* digestCanonicalJsonBase64Url("blake3-256", value)
       expect(helper).toBe(manual)
       expect(helper).toMatch(/^[A-Za-z0-9_-]{43}$/)
@@ -72,11 +70,12 @@ describe("digestCanonicalJsonBase64Url", () => {
 })
 
 describe("digestCanonicalJsonHex", () => {
-  it.effect("matches canonicalize -> utf8ToBytes -> digestBytesHex", () =>
+  it.effect("matches canonicalize -> encodeUtf8 -> digestBytesHex", () =>
     Effect.gen(function*() {
       const value = { prompt: "hello", version: 1 }
       const canonical = yield* canonicalize(value)
-      const manual = yield* digestBytesHex("sha256", utf8ToBytes(canonical))
+      const bytes = yield* encodeUtf8(canonical)
+      const manual = yield* digestBytesHex("sha256", bytes)
       const helper = yield* digestCanonicalJsonHex("sha256", value)
       expect(helper).toBe(manual)
       expect(helper).toMatch(/^[0-9a-f]{64}$/)

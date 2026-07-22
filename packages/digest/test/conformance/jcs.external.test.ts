@@ -8,9 +8,13 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Schema } from "effect"
-import { JcsFixtureSchema } from "../../scripts/fixture-schemas.js"
+import { JcsFixtureSchema, UnicodeAdversarialFixtureSchema } from "../../scripts/fixture-schemas.js"
 import { canonicalize } from "../../src/canonicalize.js"
-import { loadExternalFixtureManifest, readExternalFixture } from "./helpers/externalFixtures.js"
+import {
+  loadExternalFixtureManifest,
+  readExternalFixture,
+  selectExternalSourcesByKind
+} from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
 
 describe("external conformance — jcs", () => {
@@ -19,7 +23,7 @@ describe("external conformance — jcs", () => {
       const manifest = yield* loadExternalFixtureManifest
       const ids = Arr.map(manifest.sources, (source) => source.id)
 
-      expect(ids).toContain("rfc8785-appendix")
+      expect(ids).toContain("rfc8785-canonicalization")
       expect(ids).toContain("cyberphone-jcs-corpus")
     }).pipe(Effect.provide(BunContext.layer)))
 
@@ -40,17 +44,49 @@ describe("external conformance — jcs", () => {
         ))
 
       yield* Effect.forEach(fixtures, ({ source, fixture }) =>
-        Effect.gen(function*() {
-          const canonical = yield* canonicalize(fixture.input)
-          expectStringMatch(
-            fixture.id,
-            "jcs",
-            source.id,
-            source.sourceUrl,
-            source.fixturePath,
-            canonical,
-            fixture.expectedCanonical
+        Effect.forEach(fixture.cases, (vector) =>
+          Effect.gen(function*() {
+            const canonical = yield* canonicalize(vector.input)
+            expectStringMatch(
+              vector.id,
+              "jcs",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              canonical,
+              vector.expectedCanonical
+            )
+          })))
+
+      expect(Arr.flatMap(fixtures, ({ fixture }) =>
+        fixture.cases)).toHaveLength(32)
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("rejects every local malformed-Unicode key and value verdict", () =>
+    Effect.gen(function*() {
+      const manifest = yield* loadExternalFixtureManifest
+      const sources = selectExternalSourcesByKind(manifest, "unicode-adversarial")
+      const fixtures = yield* Effect.forEach(sources, (source) =>
+        readExternalFixture(source.fixturePath).pipe(
+          Effect.flatMap((content) =>
+            Schema.decodeUnknown(UnicodeAdversarialFixtureSchema)(content, {
+              onExcessProperty: "error"
+            }).pipe(Effect.orDie)
           )
+        ))
+
+      const cases = Arr.flatMap(fixtures, ({ cases }) => cases)
+      yield* Effect.forEach(cases, (vector) =>
+        Effect.gen(function*() {
+          const input = vector.target === "key" ? { [vector.input]: "value" } : vector.input
+          const error = yield* Effect.flip(canonicalize(input))
+
+          expect(error).toMatchObject({
+            _tag: vector.expectedTag,
+            codeUnitIndex: vector.expectedCodeUnitIndex
+          })
         }))
+
+      expect(cases).toHaveLength(6)
     }).pipe(Effect.provide(BunContext.layer)))
 })

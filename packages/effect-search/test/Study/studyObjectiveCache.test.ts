@@ -1,7 +1,7 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Layer, Number as Num, Ref, Schedule } from "effect"
+import { Array as Arr, Data, Effect, Either, Layer, Number as Num, Ref, Schedule, Schema, Tuple } from "effect"
 
 import * as Cache from "../../src/Cache/index.js"
 import type { CacheObservabilityEvent } from "../../src/Cache/observer.js"
@@ -9,6 +9,16 @@ import { CacheObserver } from "../../src/Cache/observer.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
 import * as Study from "../../src/Study/index.js"
+
+class SchemaConfig extends Schema.Class<SchemaConfig>("SchemaConfig")({
+  label: Schema.String,
+  value: Schema.Number
+}) {}
+
+class DataConfig extends Data.Class<{
+  readonly label: string
+  readonly value: number
+}> {}
 
 const singleChoiceSpace = () =>
   SearchSpace.unsafeMake({
@@ -206,5 +216,106 @@ describe("StudyObjectiveCache", () => {
 
       const invalidation = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected invalidation event"))
       expect(Either.isRight(invalidation) && Either.getOrNull(invalidation)?._tag).toBe("Invalidation")
+    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+
+  it.effect("fingerprints Schema and Data class configs by their stable encoded wire", () =>
+    Effect.gen(function*() {
+      const events = yield* Ref.make<ReadonlyArray<CacheObservabilityEvent>>([])
+      const observerLayer = Layer.succeed(CacheObserver, {
+        record: (event) => Ref.update(events, (arr) => [...arr, event])
+      })
+      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+        Effect.provide(observerLayer)
+      )
+      const firstSchema = new SchemaConfig({ label: "shared", value: 1 })
+      const repeatedSchema = new SchemaConfig({ label: "shared", value: 1 })
+      const distinctSchema = new SchemaConfig({ label: "shared", value: 2 })
+      const firstData = new DataConfig({ label: "shared", value: 1 })
+      const distinctData = new DataConfig({ label: "shared", value: 2 })
+
+      yield* objectiveCache.resolve({ config: firstSchema, compute: Effect.succeed(1) })
+      yield* objectiveCache.resolve({ config: repeatedSchema, compute: Effect.succeed(1) })
+      yield* objectiveCache.resolve({ config: distinctSchema, compute: Effect.succeed(2) })
+      yield* objectiveCache.resolve({ config: firstData, compute: Effect.succeed(1) })
+      yield* objectiveCache.resolve({ config: distinctData, compute: Effect.succeed(2) })
+
+      const recorded = yield* Ref.get(events)
+      const fingerprints = Arr.map(recorded, ({ fingerprint }) => fingerprint)
+
+      expect(fingerprints).toEqual([
+        "blake3-256:eNAldYVmdguq9wLJMKZB8P8sugAAfF9VZ2KzjH4dRgU",
+        "blake3-256:eNAldYVmdguq9wLJMKZB8P8sugAAfF9VZ2KzjH4dRgU",
+        "blake3-256:p9LBI0jiNuLgbM7SoTuTK6Bhf9WedALSKINdPc6tsDo",
+        "blake3-256:eNAldYVmdguq9wLJMKZB8P8sugAAfF9VZ2KzjH4dRgU",
+        "blake3-256:p9LBI0jiNuLgbM7SoTuTK6Bhf9WedALSKINdPc6tsDo"
+      ])
+      expect(Arr.map(recorded, ({ _tag }) => _tag)).toEqual(["Miss", "Hit", "Miss", "Hit", "Hit"])
+    }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+
+  it.effect("propagates key encoding and malformed Unicode failures without computing or observing unknown", () =>
+    Effect.gen(function*() {
+      const schemaCache = yield* Cache.SchemaCache
+      const events = yield* Ref.make<ReadonlyArray<CacheObservabilityEvent>>([])
+      const computed = yield* Ref.make(false)
+      const backendCalled = yield* Ref.make(false)
+      const observerLayer = Layer.succeed(CacheObserver, {
+        record: (event) => Ref.update(events, (arr) => [...arr, event])
+      })
+      const permissiveSchemaCache = {
+        ...schemaCache,
+        resolve: <Key, Value, E, Requirement, EncodedKey = Key, EncodedValue = Value>({
+          compute
+        }: {
+          readonly descriptor: Cache.CacheDescriptor<Key, Value, EncodedKey, EncodedValue>
+          readonly key: Key
+          readonly compute: Effect.Effect<Value, E, Requirement>
+        }): Effect.Effect<readonly [Value, Cache.CacheResolution], E | Cache.CacheError, Requirement> =>
+          Ref.set(backendCalled, true).pipe(
+            Effect.zipRight(compute),
+            Effect.map((value) => Tuple.make(value, "miss"))
+          ),
+        remove: <Key, Value, EncodedKey = Key, EncodedValue = Value>(
+          _descriptor: Cache.CacheDescriptor<Key, Value, EncodedKey, EncodedValue>,
+          _key: Key
+        ) => Ref.set(backendCalled, true)
+      }
+      const objectiveCache = yield* Study.makeStudyObjectiveCache().pipe(
+        Effect.provide(observerLayer),
+        Effect.provideService(Cache.SchemaCache, permissiveSchemaCache)
+      )
+      const malformedValue = yield* Effect.either(
+        objectiveCache.resolve({
+          config: { text: "\uD800" },
+          compute: Ref.set(computed, true).pipe(Effect.as(1))
+        })
+      )
+      const malformedKey = yield* Effect.either(objectiveCache.invalidate({ ["\uD800"]: "value" }))
+      const encodingFailure = yield* Effect.either(
+        objectiveCache.resolve({
+          config: undefined,
+          compute: Ref.set(computed, true).pipe(Effect.as(1))
+        })
+      )
+      const expected = new Cache.CacheCorrupt({
+        key: "study/objective:v1:",
+        reason: "fingerprint failure: InvalidUnicode"
+      })
+
+      expect(malformedValue).toEqual(Either.left(expected))
+      expect(malformedKey).toEqual(Either.left(expected))
+      expect(Either.isLeft(encodingFailure)).toBe(true)
+
+      if (Either.isLeft(encodingFailure)) {
+        expect(encodingFailure.left).toBeInstanceOf(Cache.CacheCorrupt)
+
+        if (encodingFailure.left._tag === "effect-search/CacheCorrupt") {
+          expect(encodingFailure.left.key).toBe("study/objective:v1:")
+          expect(encodingFailure.left.reason).toContain("Expected")
+        }
+      }
+
+      expect(yield* Ref.get(computed)).toBe(false)
+      expect(yield* Ref.get(backendCalled)).toBe(false)
+      expect(yield* Ref.get(events)).toEqual([])
     }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
 })

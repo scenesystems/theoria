@@ -29,14 +29,14 @@
  *
  * @example
  * ```ts
- * import { hkdfSha256, utf8ToBytes } from "@scenesystems/digest"
+ * import { encodeUtf8, hkdfSha256 } from "@scenesystems/digest"
  * import { Effect, Option } from "effect"
  *
  * // Derive an AES-256 key from raw key material (e.g., X25519 shared secret)
  * const program = Effect.gen(function*() {
  *   const sharedSecret = new Uint8Array(32) // from key agreement
  *   const salt = Option.some(new Uint8Array(32)) // random salt
- *   const info = utf8ToBytes("aes-256-key")
+ *   const info = yield* encodeUtf8("aes-256-key")
  *   const aesKey = yield* hkdfSha256(sharedSecret, salt, info, 32)
  * })
  * ```

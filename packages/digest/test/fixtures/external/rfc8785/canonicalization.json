@@ -1,0 +1,147 @@
+{
+  "format": "jcs-cases-v1",
+  "cases": [
+    {
+      "id": "rfc8785:sections-3.2.2-3.2.3",
+      "input": {
+        "numbers": [333333333.33333329, 1e30, 4.5, 2e-3, 0.000000000000000000000000001],
+        "string": "€$\u000f\nA'B\"\\\\\"/",
+        "literals": [null, true, false]
+      },
+      "expectedCanonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}"
+    },
+    {
+      "id": "rfc8785:section-3.2.3-property-sort",
+      "input": {
+        "€": "Euro Sign",
+        "\r": "Carriage Return",
+        "דּ": "Hebrew Letter Dalet With Dagesh",
+        "1": "One",
+        "😀": "Emoji: Grinning Face",
+        "": "Control",
+        "ö": "Latin Small Letter O With Diaeresis"
+      },
+      "expectedCanonical": "{\"\\r\":\"Carriage Return\",\"1\":\"One\",\"\":\"Control\",\"ö\":\"Latin Small Letter O With Diaeresis\",\"€\":\"Euro Sign\",\"😀\":\"Emoji: Grinning Face\",\"דּ\":\"Hebrew Letter Dalet With Dagesh\"}"
+    },
+    {
+      "id": "rfc8785:appendix-b:0000000000000000",
+      "input": 0,
+      "expectedCanonical": "0"
+    },
+    {
+      "id": "rfc8785:appendix-b:8000000000000000",
+      "input": -0,
+      "expectedCanonical": "0"
+    },
+    {
+      "id": "rfc8785:appendix-b:0000000000000001",
+      "input": 5e-324,
+      "expectedCanonical": "5e-324"
+    },
+    {
+      "id": "rfc8785:appendix-b:8000000000000001",
+      "input": -5e-324,
+      "expectedCanonical": "-5e-324"
+    },
+    {
+      "id": "rfc8785:appendix-b:7fefffffffffffff",
+      "input": 1.7976931348623157e308,
+      "expectedCanonical": "1.7976931348623157e+308"
+    },
+    {
+      "id": "rfc8785:appendix-b:ffefffffffffffff",
+      "input": -1.7976931348623157e308,
+      "expectedCanonical": "-1.7976931348623157e+308"
+    },
+    {
+      "id": "rfc8785:appendix-b:4340000000000000",
+      "input": 9007199254740992,
+      "expectedCanonical": "9007199254740992"
+    },
+    {
+      "id": "rfc8785:appendix-b:c340000000000000",
+      "input": -9007199254740992,
+      "expectedCanonical": "-9007199254740992"
+    },
+    {
+      "id": "rfc8785:appendix-b:4430000000000000",
+      "input": 295147905179352830000,
+      "expectedCanonical": "295147905179352830000"
+    },
+    {
+      "id": "rfc8785:appendix-b:44b52d02c7e14af5",
+      "input": 9.999999999999997e22,
+      "expectedCanonical": "9.999999999999997e+22"
+    },
+    {
+      "id": "rfc8785:appendix-b:44b52d02c7e14af6",
+      "input": 1e23,
+      "expectedCanonical": "1e+23"
+    },
+    {
+      "id": "rfc8785:appendix-b:44b52d02c7e14af7",
+      "input": 1.0000000000000001e23,
+      "expectedCanonical": "1.0000000000000001e+23"
+    },
+    {
+      "id": "rfc8785:appendix-b:444b1ae4d6e2ef4e",
+      "input": 999999999999999700000,
+      "expectedCanonical": "999999999999999700000"
+    },
+    {
+      "id": "rfc8785:appendix-b:444b1ae4d6e2ef4f",
+      "input": 999999999999999900000,
+      "expectedCanonical": "999999999999999900000"
+    },
+    {
+      "id": "rfc8785:appendix-b:444b1ae4d6e2ef50",
+      "input": 1e21,
+      "expectedCanonical": "1e+21"
+    },
+    {
+      "id": "rfc8785:appendix-b:3eb0c6f7a0b5ed8c",
+      "input": 9.999999999999997e-7,
+      "expectedCanonical": "9.999999999999997e-7"
+    },
+    {
+      "id": "rfc8785:appendix-b:3eb0c6f7a0b5ed8d",
+      "input": 0.000001,
+      "expectedCanonical": "0.000001"
+    },
+    {
+      "id": "rfc8785:appendix-b:41b3de4355555553",
+      "input": 333333333.3333332,
+      "expectedCanonical": "333333333.3333332"
+    },
+    {
+      "id": "rfc8785:appendix-b:41b3de4355555554",
+      "input": 333333333.33333325,
+      "expectedCanonical": "333333333.33333325"
+    },
+    {
+      "id": "rfc8785:appendix-b:41b3de4355555555",
+      "input": 333333333.3333333,
+      "expectedCanonical": "333333333.3333333"
+    },
+    {
+      "id": "rfc8785:appendix-b:41b3de4355555556",
+      "input": 333333333.3333334,
+      "expectedCanonical": "333333333.3333334"
+    },
+    {
+      "id": "rfc8785:appendix-b:41b3de4355555557",
+      "input": 333333333.33333343,
+      "expectedCanonical": "333333333.33333343"
+    },
+    {
+      "id": "rfc8785:appendix-b:becbf647612f3696",
+      "input": -0.0000033333333333333333,
+      "expectedCanonical": "-0.0000033333333333333333"
+    },
+    {
+      "id": "rfc8785:appendix-b:43143ff3c1cb0959",
+      "input": 1424953923781206.2,
+      "expectedCanonical": "1424953923781206.2"
+    }
+  ]
+}

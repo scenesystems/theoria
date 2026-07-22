@@ -24,11 +24,12 @@ import { Effect, Match } from "effect"
 import { blake3Hash } from "./algorithms/blake3.js"
 import { sha256 } from "./algorithms/sha256.js"
 import { canonicalize } from "./canonicalize.js"
-import { toBase64Url, toHex } from "./encoding.js"
-import { utf8ToBytes } from "./internal/bytes.js"
-import type { FingerprintUnsupportedValue } from "./schemas/errors.js"
+import { encodeUtf8, toBase64Url, toHex } from "./encoding.js"
+import { encodeUtf8Unchecked } from "./internal/unicode.js"
+import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
+import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
 
-const hashBytes = (algorithm: "blake3-256" | "sha256", bytes: Uint8Array): Effect.Effect<Uint8Array> =>
+const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array): Effect.Effect<Uint8Array> =>
   Match.value(algorithm).pipe(
     Match.when("blake3-256", () => blake3Hash(bytes)),
     Match.when("sha256", () => sha256(bytes)),
@@ -45,23 +46,23 @@ const hashBytes = (algorithm: "blake3-256" | "sha256", bytes: Uint8Array): Effec
  * @category digest
  */
 export const digestBytes = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   bytes: Uint8Array
 ): Effect.Effect<Uint8Array> => hashBytes(algorithm, bytes)
 
 /**
  * Hash a UTF-8 string using the specified algorithm.
  *
- * Converts the string to bytes via UTF-8 encoding, then hashes.
- * Equivalent to `digestBytes(algorithm, utf8ToBytes(text))`.
+ * Strictly encodes well-formed Unicode without normalization, then hashes.
+ * Malformed UTF-16 fails with its offending code-unit index.
  *
  * @since 0.1.0
  * @category digest
  */
 export const digestUtf8 = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   text: string
-): Effect.Effect<Uint8Array> => hashBytes(algorithm, utf8ToBytes(text))
+): Effect.Effect<Uint8Array, InvalidUnicode> => Effect.flatMap(encodeUtf8(text), (bytes) => hashBytes(algorithm, bytes))
 
 /**
  * Hash raw bytes and encode the digest as base64url (no padding).
@@ -72,22 +73,23 @@ export const digestUtf8 = (
  * @category digest
  */
 export const digestBytesBase64Url = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   bytes: Uint8Array
 ): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toBase64Url)
 
 /**
  * Hash a UTF-8 string and encode the digest as base64url (no padding).
  *
- * Equivalent to `digestBytesBase64Url(algorithm, utf8ToBytes(text))`.
+ * Strictly encodes well-formed Unicode without normalization, then hashes and
+ * encodes the digest. Malformed UTF-16 fails with its offending code-unit index.
  *
  * @since 0.1.0
  * @category digest
  */
 export const digestUtf8Base64Url = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   text: string
-): Effect.Effect<string> => Effect.map(hashBytes(algorithm, utf8ToBytes(text)), toBase64Url)
+): Effect.Effect<string, InvalidUnicode> => Effect.map(digestUtf8(algorithm, text), toBase64Url)
 
 /**
  * Hash raw bytes and encode the digest as lowercase hex.
@@ -98,22 +100,24 @@ export const digestUtf8Base64Url = (
  * @category digest
  */
 export const digestBytesHex = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   bytes: Uint8Array
 ): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toHex)
 
 /**
  * Canonicalize a structured value to UTF-8 bytes via RFC 8785 JCS.
  *
- * Composes {@link canonicalize} (string output) with UTF-8 encoding
- * to produce the raw bytes ready for hashing.
+ * Composes strict, stack-safe {@link canonicalize} with UTF-8 encoding to
+ * produce the exact canonical bytes ready for hashing. Malformed Unicode in
+ * values or keys fails through `CanonicalizationError`; replacement text is
+ * never emitted.
  *
  * @since 0.1.0
  * @category canonicalization
  */
 export const canonicalJsonBytes = (
   value: unknown
-): Effect.Effect<Uint8Array, FingerprintUnsupportedValue> => Effect.map(canonicalize(value), utf8ToBytes)
+): Effect.Effect<Uint8Array, CanonicalizationError> => Effect.map(canonicalize(value), encodeUtf8Unchecked)
 
 /**
  * Canonicalize structured data via RFC 8785 JCS, then hash the canonical bytes.
@@ -124,9 +128,9 @@ export const canonicalJsonBytes = (
  * @category digest
  */
 export const digestCanonicalJsonBytes = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   value: unknown
-): Effect.Effect<Uint8Array, FingerprintUnsupportedValue> =>
+): Effect.Effect<Uint8Array, CanonicalizationError> =>
   Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytes(algorithm, bytes))
 
 /**
@@ -136,9 +140,9 @@ export const digestCanonicalJsonBytes = (
  * @category digest
  */
 export const digestCanonicalJsonBase64Url = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   value: unknown
-): Effect.Effect<string, FingerprintUnsupportedValue> =>
+): Effect.Effect<string, CanonicalizationError> =>
   Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytesBase64Url(algorithm, bytes))
 
 /**
@@ -148,7 +152,7 @@ export const digestCanonicalJsonBase64Url = (
  * @category digest
  */
 export const digestCanonicalJsonHex = (
-  algorithm: "blake3-256" | "sha256",
+  algorithm: DigestAlgorithm,
   value: unknown
-): Effect.Effect<string, FingerprintUnsupportedValue> =>
+): Effect.Effect<string, CanonicalizationError> =>
   Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytesHex(algorithm, bytes))

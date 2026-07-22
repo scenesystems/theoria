@@ -1,9 +1,6 @@
 /**
  * Golden test vectors for convenience digest and HMAC functions.
  *
- * Verified against `@noble/hashes` direct output and cross-checked
- * with `openssl dgst` / Python `hmac` module.
- *
  * @since 0.1.0
  * @category test-helpers
  */

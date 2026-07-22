@@ -1,19 +1,17 @@
 /**
- * RFC 8785 JCS implementation internals.
- *
- * Recursive canonical JSON serializer. Object keys sorted by
- * UTF-16 code unit order, ES2015 number serialization, nested
- * object/array recursion.
+ * Stack-safe RFC 8785 canonical serializer.
  *
  * @internal
  */
 
-import { Array as Arr, Either, Option, Order, Predicate, Record, Tuple } from "effect"
-import type { FingerprintUnsupportedValue } from "../schemas/errors.js"
-import { validateValue } from "./validation.js"
+import { Array as Arr, Chunk, Data, Effect, Either, HashSet, Option } from "effect"
+
+import type { CanonicalizationError } from "../schemas/errors.js"
+import { UnsupportedValue } from "../schemas/errors.js"
+import { AdmittedValue, admitValue } from "./admission.js"
 
 const escapeJsonString = (s: string): string => {
-  const escaped = Arr.fromIterable(s).map((ch) => {
+  const escaped = Arr.map(Arr.fromIterable(s), (ch) => {
     const code = ch.charCodeAt(0)
     if (ch === "\"") return "\\\""
     if (ch === "\\") return "\\\\"
@@ -32,59 +30,127 @@ const escapeJsonString = (s: string): string => {
 
 const serializeNumber = (n: number): string => Object.is(n, -0) ? "0" : String(n)
 
-const serializeArray = (
-  values: ReadonlyArray<unknown>
-): Either.Either<string, FingerprintUnsupportedValue> => {
-  const results = Arr.map(values, canonicalizeValue)
-  const firstError = Arr.findFirst(results, Either.isLeft)
-  return Option.match(firstError, {
-    onNone: () =>
-      Either.right(
-        `[${Arr.map(results, (r) => Either.getOrElse(r, () => "")).join(",")}]`
-      ),
-    onSome: (err) => err
-  })
-}
+type Frame =
+  | { readonly _tag: "Enter"; readonly value: unknown }
+  | { readonly _tag: "EmitText"; readonly text: string }
+  | { readonly _tag: "CloseContainer"; readonly identity: object; readonly text: "]" | "}" }
 
-const entryKeyOrder = Order.mapInput(Order.string, (entry: readonly [string, unknown]) => Tuple.getFirst(entry))
+const Frame = Data.taggedEnum<Frame>()
 
-const serializeObject = (
-  obj: { readonly [x: string]: unknown }
-): Either.Either<string, FingerprintUnsupportedValue> => {
-  const entries = Record.toEntries(obj)
-  const sorted = Arr.sort(entries, entryKeyOrder)
-  const entryResults = Arr.map(sorted, (entry) =>
-    Either.map(
-      canonicalizeValue(Tuple.getSecond(entry)),
-      (serialized) => `${escapeJsonString(Tuple.getFirst(entry))}:${serialized}`
-    ))
-  const firstError = Arr.findFirst(entryResults, Either.isLeft)
-  return Option.match(firstError, {
-    onNone: () =>
-      Either.right(
-        `{${Arr.map(entryResults, (r) => Either.getOrElse(r, () => "")).join(",")}}`
-      ),
-    onSome: (err) => err
+class SerializerState extends Data.Class<{
+  readonly todo: Chunk.Chunk<Frame>
+  readonly output: Chunk.Chunk<string>
+  readonly active: HashSet.HashSet<object>
+}> {}
+
+const updateActive = (
+  operation: () => HashSet.HashSet<object>
+): Effect.Effect<HashSet.HashSet<object>, UnsupportedValue> =>
+  Effect.try({
+    try: operation,
+    catch: () => new UnsupportedValue({ reason: "reflection-failure" })
   })
-}
+
+const arrayFrames = (
+  values: ReadonlyArray<unknown>,
+  identity: object
+): Array<Frame> =>
+  Arr.append(
+    Arr.flatMap(values, (value, index) =>
+      index === 0
+        ? [Frame.Enter({ value })]
+        : [Frame.EmitText({ text: "," }), Frame.Enter({ value })]),
+    Frame.CloseContainer({ identity, text: "]" })
+  )
+
+const recordFrames = (
+  entries: ReadonlyArray<readonly [string, unknown]>,
+  identity: object
+): Array<Frame> =>
+  Arr.append(
+    Arr.flatMap(entries, ([key, value], index) => {
+      const entry = [Frame.EmitText({ text: `${escapeJsonString(key)}:` }), Frame.Enter({ value })]
+      return index === 0 ? entry : Arr.prepend(entry, Frame.EmitText({ text: "," }))
+    }),
+    Frame.CloseContainer({ identity, text: "}" })
+  )
+
+const enterContainer = (
+  state: SerializerState,
+  identity: object,
+  open: "[" | "{",
+  frames: ReadonlyArray<Frame>
+): Effect.Effect<SerializerState, UnsupportedValue> =>
+  Effect.map(updateActive(() => HashSet.add(state.active, identity)), (active) =>
+    new SerializerState({
+      todo: Chunk.prependAll(state.todo, Chunk.fromIterable(frames)),
+      output: Chunk.append(state.output, open),
+      active
+    }))
+
+const processAdmitted = (
+  state: SerializerState,
+  admitted: AdmittedValue
+): Effect.Effect<SerializerState, UnsupportedValue> =>
+  AdmittedValue.$match(admitted, {
+    Null: () => Effect.succeed(new SerializerState({ ...state, output: Chunk.append(state.output, "null") })),
+    Boolean: ({ value }) =>
+      Effect.succeed(
+        new SerializerState({ ...state, output: Chunk.append(state.output, value ? "true" : "false") })
+      ),
+    Number: ({ value }) =>
+      Effect.succeed(new SerializerState({ ...state, output: Chunk.append(state.output, serializeNumber(value)) })),
+    String: ({ value }) =>
+      Effect.succeed(new SerializerState({ ...state, output: Chunk.append(state.output, escapeJsonString(value)) })),
+    Array: ({ identity, values }) => enterContainer(state, identity, "[", arrayFrames(values, identity)),
+    Record: ({ entries, identity }) => enterContainer(state, identity, "{", recordFrames(entries, identity))
+  })
+
+const processFrame = (
+  state: SerializerState,
+  frame: Frame
+): Effect.Effect<SerializerState, CanonicalizationError> =>
+  Frame.$match(frame, {
+    Enter: ({ value }) =>
+      Either.match(admitValue(value, state.active), {
+        onLeft: Effect.fail,
+        onRight: (admitted) => processAdmitted(state, admitted)
+      }),
+    EmitText: ({ text }) => Effect.succeed(new SerializerState({ ...state, output: Chunk.append(state.output, text) })),
+    CloseContainer: ({ identity, text }) =>
+      Effect.map(updateActive(() => HashSet.remove(state.active, identity)), (active) =>
+        new SerializerState({
+          ...state,
+          output: Chunk.append(state.output, text),
+          active
+        }))
+  })
+
+const serializerStep = (state: SerializerState): Effect.Effect<SerializerState, CanonicalizationError> =>
+  Option.match(Chunk.head(state.todo), {
+    onNone: () => Effect.succeed(state),
+    onSome: (frame) => processFrame(new SerializerState({ ...state, todo: Chunk.drop(state.todo, 1) }), frame)
+  })
 
 /**
- * Recursively serialize a value to RFC 8785 canonical JSON.
+ * Serialize a value to RFC 8785 canonical JSON without call-stack growth.
  *
  * @internal
  */
 export const canonicalizeValue = (
   value: unknown
-): Either.Either<string, FingerprintUnsupportedValue> => {
-  const validated = validateValue(value)
-  if (Either.isLeft(validated)) return Either.left(validated.left)
-
-  if (Predicate.isNull(value)) return Either.right("null")
-  if (Predicate.isString(value)) return Either.right(escapeJsonString(value))
-  if (Predicate.isBoolean(value)) return Either.right(value ? "true" : "false")
-  if (Predicate.isNumber(value)) return Either.right(serializeNumber(value))
-  if (Arr.isArray(value)) return serializeArray(value)
-  if (Predicate.isRecord(value)) return serializeObject(value)
-
-  return Either.right(String(value))
-}
+): Effect.Effect<string, CanonicalizationError> =>
+  Effect.map(
+    Effect.iterate<SerializerState, never, CanonicalizationError>(
+      new SerializerState({
+        todo: Chunk.of(Frame.Enter({ value })),
+        output: Chunk.empty(),
+        active: HashSet.empty()
+      }),
+      {
+        while: ({ todo }) => !Chunk.isEmpty(todo),
+        body: serializerStep
+      }
+    ),
+    ({ output }) => Chunk.join(output, "")
+  )

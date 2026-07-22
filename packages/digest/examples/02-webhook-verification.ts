@@ -10,23 +10,23 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { hmacSha1Hex, hmacSha256Base64Url, utf8ToBytes } from "@scenesystems/digest"
+import { encodeUtf8, hmacSha1Hex, hmacSha256Base64Url } from "@scenesystems/digest"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
-  const stripeSecret = utf8ToBytes("whsec_stripe_test_secret_key")
-  const stripePayload = utf8ToBytes("{\"id\":\"evt_1\",\"type\":\"charge.succeeded\",\"amount\":2000}")
+  const stripeSecret = yield* encodeUtf8("whsec_stripe_test_secret_key")
+  const stripePayload = yield* encodeUtf8("{\"id\":\"evt_1\",\"type\":\"charge.succeeded\",\"amount\":2000}")
 
   const stripeSignature = yield* hmacSha256Base64Url(stripeSecret, stripePayload)
   const recomputed = yield* hmacSha256Base64Url(stripeSecret, stripePayload)
   yield* Effect.log("Stripe HMAC-SHA256", { signature: stripeSignature, verified: stripeSignature === recomputed })
 
-  const tampered = utf8ToBytes("{\"id\":\"evt_1\",\"type\":\"charge.succeeded\",\"amount\":9999}")
+  const tampered = yield* encodeUtf8("{\"id\":\"evt_1\",\"type\":\"charge.succeeded\",\"amount\":9999}")
   const tamperedSig = yield* hmacSha256Base64Url(stripeSecret, tampered)
   yield* Effect.log("Tampered payload", { rejected: stripeSignature !== tamperedSig })
 
-  const shopifySecret = utf8ToBytes("shopify_webhook_secret")
-  const shopifyPayload = utf8ToBytes("{\"order_id\":12345,\"total\":\"49.99\"}")
+  const shopifySecret = yield* encodeUtf8("shopify_webhook_secret")
+  const shopifyPayload = yield* encodeUtf8("{\"order_id\":12345,\"total\":\"49.99\"}")
 
   const shopifySignature = yield* hmacSha1Hex(shopifySecret, shopifyPayload)
   const shopifyRecomputed = yield* hmacSha1Hex(shopifySecret, shopifyPayload)

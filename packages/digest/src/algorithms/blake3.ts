@@ -31,9 +31,10 @@
  */
 
 import { blake3 } from "@noble/hashes/blake3.js"
-import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Effect, Option } from "effect"
+import { encodeUtf8 } from "../encoding.js"
 import { InvalidKeyLength } from "../schemas/errors.js"
+import type { InvalidUnicode } from "../schemas/errors.js"
 
 /**
  * Hash `input` bytes using BLAKE3 default mode.
@@ -65,10 +66,10 @@ export const blake3Mac = (
  * Derive a key from `input` using BLAKE3 KDF mode with `context`
  * domain separation.
  *
- * Context must be a hardcoded ASCII string — it is UTF-8 encoded
- * internally before passing to Noble. When `dkLen` is `Option.some`,
- * the output length is set to that value; otherwise Noble defaults
- * to 32 bytes.
+ * Context must be well-formed Unicode. It is UTF-8 encoded without
+ * normalization before passing to Noble; malformed UTF-16 fails with its
+ * offending code-unit index. When `dkLen` is `Option.some`, the output length
+ * is set to that value; otherwise Noble defaults to 32 bytes.
  *
  * @since 0.1.0
  * @category algorithms
@@ -77,11 +78,11 @@ export const blake3DeriveKey = (
   context: string,
   input: Uint8Array,
   dkLen: Option.Option<number> = Option.none()
-): Effect.Effect<Uint8Array> =>
-  Effect.sync(() => {
-    const ctx = utf8ToBytes(context)
-    return Option.match(dkLen, {
-      onNone: () => blake3(input, { context: ctx }),
-      onSome: (len) => blake3(input, { context: ctx, dkLen: len })
-    })
-  })
+): Effect.Effect<Uint8Array, InvalidUnicode> =>
+  Effect.flatMap(encodeUtf8(context), (ctx) =>
+    Effect.sync(() =>
+      Option.match(dkLen, {
+        onNone: () => blake3(input, { context: ctx }),
+        onSome: (len) => blake3(input, { context: ctx, dkLen: len })
+      })
+    ))

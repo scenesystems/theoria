@@ -17,15 +17,15 @@
  * - Integer, fractional, negative, zero
  *
  * ### Rejection of non-JSON-safe values
- * - undefined → FingerprintUnsupportedValue
- * - function → FingerprintUnsupportedValue
- * - Symbol → FingerprintUnsupportedValue
+ * - undefined → UnsupportedValue
+ * - function → UnsupportedValue
+ * - Symbol → UnsupportedValue
  */
 
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit } from "effect"
 import { canonicalize } from "../src/canonicalize.js"
-import { FingerprintUnsupportedValue } from "../src/schemas/errors.js"
+import { UnsupportedValue } from "../src/schemas/errors.js"
 import { keySortingVectors, numberVectors, valueTypeVectors } from "./helpers/vectors/jcs.vectors.js"
 
 describe("canonicalize — RFC 8785 key sorting", () => {
@@ -119,29 +119,27 @@ describe("canonicalize — ES2015 number serialization", () => {
 })
 
 describe("canonicalize — rejection of non-JSON-safe values", () => {
-  it.effect("rejects undefined with FingerprintUnsupportedValue", () =>
+  it.effect("rejects undefined with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(canonicalize({ key: undefined }))
       expect(exit).toStrictEqual(
-        Exit.fail(
-          new FingerprintUnsupportedValue({ valueType: "undefined", reason: "undefined is not representable in JSON" })
-        )
+        Exit.fail(new UnsupportedValue({ reason: "undefined" }))
       )
     }))
 
-  it.effect("rejects function with FingerprintUnsupportedValue", () =>
+  it.effect("rejects function with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(canonicalize({ key: () => 1 }))
       expect(exit).toStrictEqual(
-        Exit.fail(new FingerprintUnsupportedValue({ valueType: "function", reason: "functions are not serializable" }))
+        Exit.fail(new UnsupportedValue({ reason: "function" }))
       )
     }))
 
-  it.effect("rejects Symbol with FingerprintUnsupportedValue", () =>
+  it.effect("rejects Symbol with UnsupportedValue", () =>
     Effect.gen(function*() {
       const exit = yield* Effect.exit(canonicalize({ key: Symbol("test") }))
       expect(exit).toStrictEqual(
-        Exit.fail(new FingerprintUnsupportedValue({ valueType: "symbol", reason: "symbols are not serializable" }))
+        Exit.fail(new UnsupportedValue({ reason: "symbol" }))
       )
     }))
 })

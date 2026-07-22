@@ -1,9 +1,6 @@
 /**
  * HKDF golden test vectors from RFC 5869.
  *
- * Verified against Python `hmac` + manual extract/expand and
- * cross-checked with the RFC appendix.
- *
  * @since 0.1.0
  * @category test-helpers
  */

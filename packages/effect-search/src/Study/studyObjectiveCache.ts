@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type * as SqlClient from "@effect/sql/SqlClient"
-import { Data, Effect, Layer, Option, Schema } from "effect"
+import { Data, Effect, Layer, Option, ParseResult, Schema } from "effect"
 import type * as Context from "effect/Context"
 
 import * as Cache from "../Cache/index.js"
@@ -64,6 +64,36 @@ export const studyObjectiveCacheOptions = (scope: string): StudyObjectiveCacheOp
 const descriptorFor = (options: StudyObjectiveCacheOptions) =>
   Cache.makeDescriptor(`${options.scope}/objective`, "v1", StudyObjectiveCacheKeySchema, ObjectiveValueSchema)
 
+const descriptorPrefix = (descriptor: Cache.CacheDescriptor<StudyObjectiveCacheKey, ObjectiveValue>): string =>
+  `${descriptor.namespace}:${descriptor.version}:`
+
+const prepareKey = (
+  descriptor: Cache.CacheDescriptor<StudyObjectiveCacheKey, ObjectiveValue>,
+  config: unknown
+): Effect.Effect<{
+  readonly encoded: StudyObjectiveCacheKey
+  readonly fingerprint: string
+}, Cache.CacheCorrupt> =>
+  Schema.encodeUnknown(descriptor.keySchema)(config).pipe(
+    Effect.mapError((error) =>
+      new Cache.CacheCorrupt({
+        key: descriptorPrefix(descriptor),
+        reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
+      })
+    ),
+    Effect.flatMap((encoded) =>
+      Cache.durableFingerprint(encoded).pipe(
+        Effect.map((fingerprint) => ({ encoded, fingerprint })),
+        Effect.mapError((cause) =>
+          new Cache.CacheCorrupt({
+            key: descriptorPrefix(descriptor),
+            reason: `fingerprint failure: ${cause._tag}`
+          })
+        )
+      )
+    )
+  )
+
 /**
  * @since 0.1.0
  * @category services
@@ -72,10 +102,10 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
   StudyObjectiveCache,
   {
     readonly resolve: <E, Requirement>(args: {
-      readonly config: StudyObjectiveCacheKey
+      readonly config: unknown
       readonly compute: Effect.Effect<ObjectiveValue, E, Requirement>
     }) => Effect.Effect<readonly [ObjectiveValue, Cache.CacheResolution], Cache.CacheError | E, Requirement>
-    readonly invalidate: (config: StudyObjectiveCacheKey) => Effect.Effect<void, Cache.CacheError>
+    readonly invalidate: (config: unknown) => Effect.Effect<void, Cache.CacheError>
   }
 >() {}
 
@@ -111,12 +141,11 @@ export const makeStudyObjectiveCache = (
 
     return {
       resolve: ({ config, compute }) =>
-        Cache.durableFingerprint(config).pipe(
-          Effect.catchAll(() => Effect.succeed("unknown")),
-          Effect.flatMap((fingerprint) =>
+        prepareKey(descriptor, config).pipe(
+          Effect.flatMap(({ encoded, fingerprint }) =>
             schemaCache.resolve({
               descriptor,
-              key: config,
+              key: encoded,
               compute
             }).pipe(
               Effect.tap(([, resolution]) =>
@@ -130,10 +159,9 @@ export const makeStudyObjectiveCache = (
           )
         ),
       invalidate: (config) =>
-        Cache.durableFingerprint(config).pipe(
-          Effect.catchAll(() => Effect.succeed("unknown")),
-          Effect.flatMap((fingerprint) =>
-            schemaCache.remove(descriptor, config).pipe(
+        prepareKey(descriptor, config).pipe(
+          Effect.flatMap(({ encoded, fingerprint }) =>
+            schemaCache.remove(descriptor, encoded).pipe(
               Effect.tap(() => emitObservation({ _tag: "Invalidation", fingerprint, scope: options.scope }))
             )
           )

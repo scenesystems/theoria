@@ -45,7 +45,7 @@ const cacheKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
         Effect.mapError((cause) =>
           new CacheCorrupt({
             key: cachePrefix(descriptor.namespace, descriptor.version),
-            reason: `fingerprint failure: ${String(cause)}`
+            reason: `fingerprint failure: ${cause._tag}`
           })
         )
       )

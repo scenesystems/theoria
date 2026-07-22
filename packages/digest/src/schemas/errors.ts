@@ -4,7 +4,7 @@
  * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
  * catchable via `Effect.catchTag`, serializable via Schema.
  *
- * @see {@link durableFingerprint} — the operation that produces FingerprintUnsupportedValue
+ * @see {@link durableFingerprint} — canonical fingerprinting with closed errors
  * @see {@link blake3Mac} — the operation that produces InvalidKeyLength
  *
  * @since 0.1.0
@@ -30,16 +30,94 @@ export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
 ) {}
 
 /**
- * Raised when `durableFingerprint` encounters a value that cannot
- * participate in deterministic canonicalization.
+ * Raised when text contains an unpaired UTF-16 surrogate.
  *
- * @since 0.1.0
+ * Diagnostics contain only the surrogate kind and absolute code-unit index;
+ * rejected text is never retained.
+ *
+ * @since 0.3.0
  * @category errors
  */
-export class FingerprintUnsupportedValue extends Schema.TaggedError<FingerprintUnsupportedValue>()(
-  "FingerprintUnsupportedValue",
+export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
+  "InvalidUnicode",
   {
-    valueType: Schema.String,
-    reason: Schema.String
+    kind: Schema.Literal("lone-high-surrogate", "lone-low-surrogate"),
+    codeUnitIndex: Schema.Number.pipe(
+      Schema.int(),
+      Schema.greaterThanOrEqualTo(0)
+    )
   }
 ) {}
+
+/**
+ * Raised when canonicalization encounters a value outside the supported
+ * plain-data domain.
+ *
+ * Diagnostics contain only a closed structural reason; rejected values, keys,
+ * paths, and preimages are never retained.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
+  "UnsupportedValue",
+  {
+    reason: Schema.Literal(
+      "undefined",
+      "nan",
+      "non-finite-number",
+      "bigint",
+      "function",
+      "symbol",
+      "date",
+      "regexp",
+      "typed-array",
+      "map",
+      "set",
+      "weak-collection",
+      "promise",
+      "unsupported-prototype",
+      "accessor-property",
+      "symbol-property",
+      "non-enumerable-property",
+      "sparse-array",
+      "array-extra-property",
+      "reflection-failure"
+    )
+  }
+) {}
+
+/**
+ * Raised when canonicalization encounters a cyclic object graph.
+ *
+ * No object identity or traversal path is retained.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class CyclicValue extends Schema.TaggedError<CyclicValue>()(
+  "CyclicValue",
+  {}
+) {}
+
+/**
+ * Closed error schema for strict canonicalization.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export const CanonicalizationError = Schema.Union(
+  InvalidUnicode,
+  UnsupportedValue,
+  CyclicValue
+)
+
+/**
+ * Closed error type for strict canonicalization.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export type CanonicalizationError = Schema.Schema.Type<
+  typeof CanonicalizationError
+>

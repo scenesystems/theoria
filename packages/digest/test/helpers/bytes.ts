@@ -11,6 +11,19 @@
  */
 import { Array as Arr } from "effect"
 
+const fixtureTextEncoder = new TextEncoder()
+
+/**
+ * Encode known well-formed fixture text as UTF-8 bytes.
+ *
+ * Use the public effectful encoder in tests that exercise text behavior. This
+ * helper exists only to prepare fixed raw-byte cryptographic vectors.
+ *
+ * @since 0.3.0
+ * @category test-helpers
+ */
+export const encodeFixtureUtf8 = (text: string): Uint8Array => fixtureTextEncoder.encode(text)
+
 /**
  * Convert hex string to Uint8Array.
  *

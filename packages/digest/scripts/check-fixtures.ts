@@ -1,5 +1,5 @@
 /**
- * Fixture schema-check script — validates digest external/parity fixture JSON
+ * Fixture schema-check script — validates digest external fixture JSON
  * against schema contracts and verifies source manifest content hashes.
  *
  * Usage: bun run fixtures:check
@@ -7,14 +7,11 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Console, Effect, Option, Schema } from "effect"
-import { sha256 } from "../src/algorithms/sha256.js"
-import { toHex } from "../src/encoding.js"
 import {
   decodeUnknownJson,
   EXTERNAL_FIXTURE_ROOT,
   FixtureManifestSchema,
   MANIFEST_FILE,
-  PARITY_FIXTURE_ROOT,
   validateFixtureByKind
 } from "./fixture-contract.js"
 
@@ -30,7 +27,8 @@ class FixtureCheckError {
 
 const toText = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => sha256(bytes).pipe(Effect.map(toHex))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
+  Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
 
 const normalizeRelativePath = (pathService: Path.Path, value: string): string =>
   value.split(pathService.sep).join("/")
@@ -89,11 +87,12 @@ const program = Effect.gen(function*() {
   const cwd = yield* Effect.sync(() => process.cwd())
 
   const externalRoot = pathService.join(cwd, EXTERNAL_FIXTURE_ROOT)
-  const parityRoot = pathService.join(cwd, PARITY_FIXTURE_ROOT)
   const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
 
   const manifestContent = yield* readJsonContent(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent).pipe(
+  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestContent, {
+    onExcessProperty: "error"
+  }).pipe(
     Effect.mapError(() => new FixtureCheckError("manifest", manifestPath, "manifest schema decode failed"))
   )
 
@@ -126,15 +125,10 @@ const program = Effect.gen(function*() {
   )
 
   const externalJsonFiles = yield* findJsonFiles(fileSystem, pathService, externalRoot, "")
-  const parityJsonFiles = yield* findJsonFiles(fileSystem, pathService, parityRoot, "")
-
-  const scannedFixturePaths = [
-    ...Arr.filter(
-      Arr.map(externalJsonFiles, (file) => normalizeRelativePath(pathService, file)),
-      (file) => file !== MANIFEST_FILE
-    ),
-    ...Arr.map(parityJsonFiles, (file) => normalizeRelativePath(pathService, `../parity/generated/${file}`))
-  ]
+  const scannedFixturePaths = Arr.filter(
+    Arr.map(externalJsonFiles, (file) => normalizeRelativePath(pathService, file)),
+    (file) => file !== MANIFEST_FILE
+  )
 
   const orphanErrors = Arr.filterMap(scannedFixturePaths, (fixturePath) =>
     Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)

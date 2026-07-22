@@ -3,14 +3,25 @@
  *
  * @since 0.1.0
  */
-import { blake3Hash, toBase64Url, utf8ToBytes } from "@scenesystems/digest"
+import { blake3Hash, encodeUtf8, toBase64Url } from "@scenesystems/digest"
+import type { InvalidUnicode } from "@scenesystems/digest"
 
-import { Array as Arr, Chunk, Effect, Match, Option, Order, Predicate, Record as Rec } from "effect"
-
-import { FingerprintUnsupportedValue } from "@scenesystems/digest"
+import { Array as Arr, Chunk, Effect, Match, Option, Order, Predicate, Record as Rec, Schema } from "effect"
 
 const RUNTIME_DIGEST_PREFIX = "runtime-blake3-256"
-const DIGEST_PATTERN = /^[A-Za-z0-9_-]{43}$/
+
+/**
+ * Closed rejection reasons for values outside runtime fingerprint identity.
+ *
+ * @since 0.3.0
+ * @category errors
+ */
+export class RuntimeFingerprintError extends Schema.TaggedError<RuntimeFingerprintError>()(
+  "effect-search/RuntimeFingerprintError",
+  {
+    reason: Schema.Literal("function", "symbol", "unsupported-value")
+  }
+) {}
 
 const isStruct = (input: unknown): input is Readonly<Record<string, unknown>> => {
   if (typeof input !== "object" || input === null || Arr.isArray(input)) {
@@ -67,18 +78,10 @@ const taggedIdentityTokens = (value: Readonly<Record<string, unknown>>): Chunk.C
     })
   )
 
-const unsupportedValue = (
-  valueType: string,
-  reason: string
-): Effect.Effect<never, FingerprintUnsupportedValue> =>
-  Effect.fail(
-    new FingerprintUnsupportedValue({
-      valueType,
-      reason
-    })
-  )
+const unsupportedValue = (reason: RuntimeFingerprintError["reason"]): Effect.Effect<never, RuntimeFingerprintError> =>
+  Effect.fail(new RuntimeFingerprintError({ reason }))
 
-const arrayTokens = (values: ReadonlyArray<unknown>): Effect.Effect<Chunk.Chunk<string>, FingerprintUnsupportedValue> =>
+const arrayTokens = (values: ReadonlyArray<unknown>): Effect.Effect<Chunk.Chunk<string>, RuntimeFingerprintError> =>
   Effect.forEach(values, canonicalTokens).pipe(
     Effect.map((memberTokens) =>
       Arr.reduce(
@@ -92,7 +95,7 @@ const arrayTokens = (values: ReadonlyArray<unknown>): Effect.Effect<Chunk.Chunk<
 
 const structTokens = (
   record: Readonly<Record<string, unknown>>
-): Effect.Effect<Chunk.Chunk<string>, FingerprintUnsupportedValue> => {
+): Effect.Effect<Chunk.Chunk<string>, RuntimeFingerprintError> => {
   const sortedKeys = Arr.sort(Rec.keys(record), Order.string)
   const withIdentity = Chunk.appendAll(
     Chunk.of(`obj:${sortedKeys.length}:start`),
@@ -122,7 +125,7 @@ const structTokens = (
   )
 }
 
-const canonicalTokens = (value: unknown): Effect.Effect<Chunk.Chunk<string>, FingerprintUnsupportedValue> =>
+const canonicalTokens = (value: unknown): Effect.Effect<Chunk.Chunk<string>, RuntimeFingerprintError> =>
   Match.value(value).pipe(
     Match.when(Predicate.isUndefined, () => Effect.succeed(Chunk.of("undefined"))),
     Match.when((input: unknown): input is null => input === null, () => Effect.succeed(Chunk.of("null"))),
@@ -142,56 +145,38 @@ const canonicalTokens = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Fin
     }),
     Match.when((candidate: unknown): candidate is ReadonlyArray<unknown> => Arr.isArray(candidate), arrayTokens),
     Match.when(isStruct, structTokens),
-    Match.when(
-      Match.symbol,
-      (symbol) => unsupportedValue("symbol", `unsupported symbol key: ${String(symbol.description)}`)
-    ),
-    Match.when(
-      Predicate.isFunction,
-      () => unsupportedValue("function", "functions are not supported for runtime fingerprints")
-    ),
-    Match.orElse((unknownValue) =>
-      unsupportedValue(
-        typeof unknownValue,
-        `unsupported key value for runtime fingerprint: ${String(unknownValue)}`
-      )
-    )
+    Match.when(Match.symbol, () => unsupportedValue("symbol")),
+    Match.when(Predicate.isFunction, () => unsupportedValue("function")),
+    Match.orElse(() => unsupportedValue("unsupported-value"))
   )
 
 const tokenPayload = (tokens: Chunk.Chunk<string>): string =>
   Chunk.reduce(tokens, "", (payload, token) => `${payload}${token.length}:${token};`)
 
-const digestPayload = (payload: string): Effect.Effect<string, FingerprintUnsupportedValue> =>
+const digestPayload = (payload: string): Effect.Effect<string, InvalidUnicode> =>
   Effect.gen(function*() {
-    const bytes = yield* Effect.try({
-      try: () => utf8ToBytes(payload),
-      catch: (cause) =>
-        new FingerprintUnsupportedValue({
-          valueType: "digest",
-          reason: String(cause)
-        })
-    })
+    const bytes = yield* encodeUtf8(payload)
     const hash = yield* blake3Hash(bytes)
-    const digest = toBase64Url(hash)
-    return yield* Match.value(DIGEST_PATTERN.test(digest)).pipe(
-      Match.when(true, () => Effect.succeed(digest)),
-      Match.orElse(() => unsupportedValue("digest", `invalid base64url digest shape: ${digest}`))
-    )
+    return toBase64Url(hash)
   })
 
-const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, FingerprintUnsupportedValue> =>
+const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, InvalidUnicode> =>
   digestPayload(tokenPayload(tokens))
 
 /**
  * Deterministic runtime fingerprint string for unknown values.
  *
  * Runtime fingerprints are stable for in-memory identity checks but are not
- * the durable cache-key authority.
+ * the durable cache-key authority. Malformed text exposes digest's
+ * `InvalidUnicode`; its code-unit index is relative to the internal canonical
+ * token payload rather than the original runtime value.
  *
  * @since 0.1.0
  * @category utils
  */
-export const runtimeFingerprint = (value: unknown): Effect.Effect<string, FingerprintUnsupportedValue> =>
+export const runtimeFingerprint = (
+  value: unknown
+): Effect.Effect<string, InvalidUnicode | RuntimeFingerprintError> =>
   canonicalTokens(value).pipe(
     Effect.flatMap(digestTokens),
     Effect.map((digest) => `${RUNTIME_DIGEST_PREFIX}:${digest}`)

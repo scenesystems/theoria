@@ -20,12 +20,12 @@
  * import { Effect } from "effect"
  *
  * const key = durableFingerprint({ question: "What is 2+2?" })
- * // Effect<string, FingerprintUnsupportedValue>
+ * // Effect<string, CanonicalizationError>
  * ```
  *
  * @see {@link canonicalize} — stage 1: deterministic JSON serialization
  * @see {@link blake3Hash} — stage 2: primary hash algorithm
- * @see {@link FingerprintUnsupportedValue} — error for non-JSON-safe inputs
+ * @see {@link CanonicalizationError} — closed strict-admission error union
  * @see {@link ContentDigest} — typed result schema
  *
  * @since 0.1.0
@@ -34,7 +34,7 @@
 
 import type { Effect } from "effect"
 import { digest } from "../digest.js"
-import type { FingerprintUnsupportedValue } from "./errors.js"
+import type { CanonicalizationError } from "./errors.js"
 
 /**
  * Compute a durable, deterministic fingerprint of a structured value.
@@ -47,4 +47,4 @@ import type { FingerprintUnsupportedValue } from "./errors.js"
  */
 export const durableFingerprint = (
   value: unknown
-): Effect.Effect<string, FingerprintUnsupportedValue> => digest("blake3-256", value)
+): Effect.Effect<string, CanonicalizationError> => digest("blake3-256", value)

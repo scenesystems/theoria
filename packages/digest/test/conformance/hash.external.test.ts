@@ -7,32 +7,36 @@
 
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Effect, Schema } from "effect"
-import { HashFixtureSchema } from "../../scripts/fixture-schemas.js"
-import { digestBytesHex } from "../../src/convenience.js"
-import { loadExternalFixtureManifest, readExternalFixture } from "./helpers/externalFixtures.js"
+import { Blake3FixtureSchema, HashFixtureSchema } from "../../scripts/fixture-schemas.js"
+import { blake3DeriveKey, blake3Hash, blake3Mac } from "../../src/algorithms/blake3.js"
+import { sha256 } from "../../src/algorithms/sha256.js"
+import { toHex } from "../../src/encoding.js"
+import { encodeFixtureUtf8 } from "../helpers/bytes.js"
+import { hexToBytes } from "../helpers/bytes.js"
+import {
+  loadExternalFixtureManifest,
+  readExternalFixture,
+  selectExternalSourcesByKind
+} from "./helpers/externalFixtures.js"
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
 
+const makeBlake3VectorInput = (length: number): Uint8Array =>
+  length === 0
+    ? new Uint8Array()
+    : Uint8Array.from(Arr.makeBy(length, (index) => index % 251))
+
 describe("external conformance — hash", () => {
-  it.effect("pins external corpus for BLAKE3 and SHA-256", () =>
+  it.effect("matches every NIST CAVP SHA-256 short-message output", () =>
     Effect.gen(function*() {
       const manifest = yield* loadExternalFixtureManifest
-      const hashSources = Arr.filter(manifest.sources, (source) => source.kind === "hash")
-
-      expect(hashSources.length).toBeGreaterThan(0)
-      expect(hashSources.some((source) => source.id.includes("blake3"))).toBe(true)
-      expect(hashSources.some((source) => source.id.includes("sha256"))).toBe(true)
-    }).pipe(Effect.provide(BunContext.layer)))
-
-  it.effect("matches expected digest outputs for every external hash fixture", () =>
-    Effect.gen(function*() {
-      const manifest = yield* loadExternalFixtureManifest
-      const hashSources = Arr.filter(manifest.sources, (source) => source.kind === "hash")
+      const hashSources = selectExternalSourcesByKind(manifest, "hash")
 
       const fixtures = yield* Effect.forEach(hashSources, (source) =>
         readExternalFixture(source.fixturePath).pipe(
-          Effect.flatMap((content) => Schema.decodeUnknown(HashFixtureSchema)(content).pipe(Effect.orDie)),
+          Effect.flatMap((content) =>
+            Schema.decodeUnknown(HashFixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.orDie)
+          ),
           Effect.map((fixture) => ({
             source,
             fixture
@@ -40,17 +44,74 @@ describe("external conformance — hash", () => {
         ))
 
       yield* Effect.forEach(fixtures, ({ source, fixture }) =>
-        Effect.gen(function*() {
-          const digestHex = yield* digestBytesHex(fixture.algorithm, utf8ToBytes(fixture.inputUtf8))
-          expectStringMatch(
-            fixture.id,
-            fixture.algorithm,
-            source.id,
-            source.sourceUrl,
-            source.fixturePath,
-            digestHex,
-            fixture.expectedHex
-          )
-        }))
+        Effect.forEach(fixture.cases, (vector) =>
+          Effect.gen(function*() {
+            const digestHex = toHex(yield* sha256(hexToBytes(vector.inputHex)))
+            expectStringMatch(
+              vector.id,
+              fixture.algorithm,
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              digestHex,
+              vector.expectedHex
+            )
+          })))
+
+      expect(Arr.flatMap(fixtures, ({ fixture }) =>
+        fixture.cases)).toHaveLength(65)
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("matches all three modes for every official BLAKE3 vector", () =>
+    Effect.gen(function*() {
+      const manifest = yield* loadExternalFixtureManifest
+      const sources = selectExternalSourcesByKind(manifest, "blake3")
+      const fixtures = yield* Effect.forEach(sources, (source) =>
+        readExternalFixture(source.fixturePath).pipe(
+          Effect.flatMap((content) =>
+            Schema.decodeUnknown(Blake3FixtureSchema)(content, { onExcessProperty: "error" }).pipe(Effect.orDie)
+          ),
+          Effect.map((fixture) => ({ source, fixture }))
+        ))
+
+      yield* Effect.forEach(fixtures, ({ fixture, source }) =>
+        Effect.forEach(fixture.cases, (vector) =>
+          Effect.gen(function*() {
+            const input = makeBlake3VectorInput(vector.input_len)
+            const hash = yield* blake3Hash(input)
+            const keyedHash = yield* blake3Mac(encodeFixtureUtf8(fixture.key), input)
+            const derivedKey = yield* blake3DeriveKey(fixture.context_string, input)
+
+            expectStringMatch(
+              `blake3:${vector.input_len}:hash`,
+              "blake3-hash",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              toHex(hash),
+              vector.hash.slice(0, 64)
+            )
+            expectStringMatch(
+              `blake3:${vector.input_len}:keyed_hash`,
+              "blake3-keyed_hash",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              toHex(keyedHash),
+              vector.keyed_hash.slice(0, 64)
+            )
+            expectStringMatch(
+              `blake3:${vector.input_len}:derive_key`,
+              "blake3-derive_key",
+              source.id,
+              source.sourceLocator,
+              source.fixturePath,
+              toHex(derivedKey),
+              vector.derive_key.slice(0, 64)
+            )
+          })))
+
+      expect(Arr.flatMap(fixtures, ({ fixture }) =>
+        fixture.cases)).toHaveLength(35)
     }).pipe(Effect.provide(BunContext.layer)))
 })
