@@ -20,11 +20,11 @@
  * @category digest
  */
 
-import { Effect, Match } from "effect"
+import { Chunk, Effect, Match } from "effect"
 import { blake3Hash } from "./algorithms/blake3.js"
 import { sha256 } from "./algorithms/sha256.js"
-import { canonicalize } from "./canonicalize.js"
 import { encodeUtf8, toBase64Url, toHex } from "./encoding.js"
+import { canonicalizeSegments } from "./internal/jcs.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
@@ -117,7 +117,16 @@ export const digestBytesHex = (
  */
 export const canonicalJsonBytes = (
   value: unknown
-): Effect.Effect<Uint8Array, CanonicalizationError> => Effect.map(canonicalize(value), encodeUtf8Unchecked)
+): Effect.Effect<Uint8Array, CanonicalizationError> =>
+  Effect.map(canonicalizeSegments(value), (segments) => {
+    const encoded = Chunk.map(segments, encodeUtf8Unchecked)
+    const output = new Uint8Array(Chunk.reduce(encoded, 0, (total, bytes) => total + bytes.length))
+    Chunk.reduce(encoded, 0, (offset, bytes) => {
+      output.set(bytes, offset)
+      return offset + bytes.length
+    })
+    return output
+  })
 
 /**
  * Canonicalize structured data via RFC 8785 JCS, then hash the canonical bytes.

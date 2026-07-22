@@ -8,6 +8,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit, FastCheck as fc } from "effect"
 
+import { canonicalize } from "../src/canonicalize.js"
+import { canonicalJsonBytes } from "../src/convenience.js"
 import { encodeUtf8 } from "../src/encoding.js"
 import { InvalidUnicode } from "../src/schemas/errors.js"
 
@@ -15,6 +17,16 @@ const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true })
 
 describe("encodeUtf8", () => {
+  it.effect("keeps an astral scalar intact across the canonical byte segment boundary", () =>
+    Effect.gen(function*() {
+      const value = `${"a".repeat(32 * 1024 - 2)}😀`
+      const canonical = yield* canonicalize(value)
+      const bytes = yield* canonicalJsonBytes(value)
+
+      expect(bytes).toStrictEqual(new TextEncoder().encode(canonical))
+      expect(new TextDecoder().decode(bytes)).not.toContain("�")
+    }))
+
   it.effect("encodes ASCII BMP and astral text to exact UTF-8 bytes", () =>
     Effect.gen(function*() {
       const encoded = yield* encodeUtf8("Aé€😀")

@@ -58,7 +58,9 @@ They reject `undefined`, non-finite numbers, `bigint`, functions, symbols, spars
 
 Object keys and string values are validated before serialization. Every public text path rejects unpaired UTF-16 surrogates, preserves valid text without Unicode normalization, and never inserts U+FFFD as replacement text. An explicit U+FFFD in admitted input is preserved. `canonicalize` sorts record keys by UTF-16 code units as required by RFC 8785.
 
-Canonicalization uses an explicit stack-safe state machine and has no call-stack growth with input depth. For an admitted graph its cost is linear in visited nodes and emitted output plus key sorting for each record. One-shot canonicalization and digest operations execute deterministic traversal and do not inject cooperative yield points. Consumers that require a bounded latency envelope must enforce their own size/depth admission before calling one-shot operations; use the stream APIs for incrementally available byte or text inputs.
+Canonicalization uses an explicit stack-safe state machine and has no call-stack growth with input depth. For an admitted graph its cost is linear in visited nodes and emitted output plus key sorting for each record. One-shot canonicalization and digest operations process at most 512 traversal units before yielding to the Effect scheduler and periodically give host timers an opportunity to run.
+
+The input graph must remain quiescent for the lifetime of each Effect execution. Each container's `Reflect.ownKeys` result is captured once, each listed own descriptor is captured once without invoking getters, and already captured observations remain snapshots while traversal continues. This is not an atomic whole-graph snapshot guarantee: concurrent mutation is outside the supported contract. Admission and error precedence remain deterministic over the completed observed snapshot. Interruption discards all private traversal state and partial output; no bytes or text escape.
 
 Property getters are never evaluated. Proxy/reflection failures close to `UnsupportedValue({ reason: "reflection-failure" })`; a cooperative object API cannot make a liveness guarantee for arbitrary hostile proxy traps. Parse hostile bytes into an owner-bounded plain-data value before canonicalization.
 
@@ -195,6 +197,8 @@ bun run test
 bun run fixtures:verify
 bun run build
 bun run publish:check --require-packed-manifest
+bun run benchmark:canonicalization:bun
+bun run benchmark:canonicalization:node
 ```
 
 Complete runnable programs are in [`examples/`](./examples).

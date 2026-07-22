@@ -40,9 +40,8 @@ import type { CanonicalizationError } from "./schemas/errors.js"
  * canonicalize → hash → base64url pipeline.
  *
  * Schema requirements are preserved in `R`, and encoding failures remain
- * distinguishable from the closed canonicalization failures. The one-shot
- * canonical traversal is deterministic and does not inject cooperative yield
- * points; consumers own workload admission before calling it.
+ * distinguishable from the closed canonicalization failures. Canonical traversal
+ * is deterministic, stack-safe, and cooperative in fixed-size Effect batches.
  *
  * Default algorithm is `"blake3-256"`.
  *

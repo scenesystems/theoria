@@ -29,6 +29,17 @@ const isUnpairedSurrogateAt = (text: string, codeUnitIndex: number): boolean => 
     : isLowSurrogate(codeUnit) && !isHighSurrogate(text.charCodeAt(codeUnitIndex - 1))
 }
 
+/** Inspect one UTF-16 code unit using the package's canonical Unicode law. @internal */
+export const unicodeFaultAt = (text: string, codeUnitIndex: number): Option.Option<InvalidUnicode> =>
+  isUnpairedSurrogateAt(text, codeUnitIndex)
+    ? Option.some(
+      new InvalidUnicode({
+        kind: isHighSurrogate(text.charCodeAt(codeUnitIndex)) ? "lone-high-surrogate" : "lone-low-surrogate",
+        codeUnitIndex
+      })
+    )
+    : Option.none()
+
 /** @internal */
 export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   if (Reflect.apply(Reflect.get(String.prototype, "isWellFormed"), text, [])) {

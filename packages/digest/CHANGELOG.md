@@ -1,5 +1,13 @@
 # @scenesystems/digest
 
+## 0.3.1
+
+### Patch Changes
+
+- Make strict, stack-safe RFC 8785 canonicalization cooperative and efficient for wide values. Canonicalization now traverses fixed-size Effect batches, periodically admits host timers, retains only depth-bounded cursor frames, and buffers output in bounded segments while preserving exact bytes, rejection precedence, descriptor snapshots, and public APIs.
+
+  Inputs must remain quiescent for the lifetime of each canonicalization Effect execution. Interruption discards all private traversal state and partial output.
+
 ## 0.3.0
 
 ### Minor Changes

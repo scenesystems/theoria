@@ -37,9 +37,10 @@ import type { CanonicalizationError } from "./schemas/errors.js"
  * Canonicalize a value to RFC 8785 JCS canonical JSON.
  *
  * The admitted domain is finite JSON primitives, dense arrays, and plain data
- * records. Traversal is stack-safe and deterministic and does not inject
- * cooperative yield points. Values outside that domain fail with the closed,
- * bounded `CanonicalizationError` union.
+ * records. Traversal is stack-safe, deterministic, and cooperative in fixed-size
+ * Effect batches. The input graph must remain quiescent throughout execution;
+ * interruption publishes no partial output. Values outside that domain fail with
+ * the closed, bounded `CanonicalizationError` union.
  *
  * @since 0.1.0
  * @category canonicalization
