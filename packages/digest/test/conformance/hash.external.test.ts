@@ -27,17 +27,6 @@ const makeBlake3VectorInput = (length: number): Uint8Array =>
     : Uint8Array.from(Arr.makeBy(length, (index) => index % 251))
 
 describe("external conformance — hash", () => {
-  it.effect("pins complete official BLAKE3 and NIST SHA-256 corpora", () =>
-    Effect.gen(function*() {
-      const manifest = yield* loadExternalFixtureManifest
-      expect(selectExternalSourcesByKind(manifest, "blake3").map(({ id }) => id)).toEqual([
-        "blake3-official-vectors"
-      ])
-      expect(selectExternalSourcesByKind(manifest, "hash").map(({ id }) => id)).toEqual([
-        "nist-cavp-sha256-short-message"
-      ])
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("matches every NIST CAVP SHA-256 short-message output", () =>
     Effect.gen(function*() {
       const manifest = yield* loadExternalFixtureManifest

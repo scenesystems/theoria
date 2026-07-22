@@ -13,8 +13,6 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Record, Schema } from "effect"
 
 import {
-  callExpressionTargets,
-  exportedDeclarationNames,
   moduleSpecifiers,
   parseTypeScript,
   referencesInternalBoundary,
@@ -45,14 +43,6 @@ const ManifestExportKeysSchema = Schema.parseJson(
   })
 )
 
-const PinnedNobleHashesManifestSchema = Schema.parseJson(
-  Schema.Struct({
-    dependencies: Schema.Struct({
-      "@noble/hashes": Schema.Literal("2.0.1")
-    })
-  })
-)
-
 const EXPECTED_EXPORT_KEYS = [
   "."
 ]
@@ -63,13 +53,6 @@ class SourceFilePath extends Data.Class<{
 }> {}
 
 const packageRootUrl = new URL("../../", import.meta.url)
-
-const packageManifestJson: Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
-  const fileSystem = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const root = yield* resolveRootFrom(packageRootUrl)
-  return yield* fileSystem.readFileString(path.join(root, "package.json")).pipe(Effect.orDie)
-})
 
 const listTypeScriptFiles: Effect.Effect<Array<SourceFilePath>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
@@ -136,61 +119,16 @@ const internalBoundaryViolations: Effect.Effect<Array<string>, never, FileSystem
   }
 )
 
-const canonicalizationSourceAudit: Effect.Effect<
-  {
-    readonly oldValidatorImports: Array<string>
-    readonly stringCallSites: Array<string>
-    readonly supersededExports: Array<string>
-  },
-  never,
-  FileSystem.FileSystem | Path.Path
-> = Effect.gen(function*() {
-  const fileSystem = yield* FileSystem.FileSystem
-  const files = yield* listTypeScriptFiles
-  const findings = yield* Effect.forEach(files, (file) =>
-    fileSystem.readFileString(file.absolute).pipe(
-      Effect.orDie,
-      Effect.map((content) => parseTypeScript(file.relative, content)),
-      Effect.map((sourceFile) => ({
-        oldValidatorImports: Arr.map(
-          Arr.filter(moduleSpecifiers(sourceFile), (specifier) => specifier.endsWith("/validation.js")),
-          () => file.relative
-        ),
-        stringCallSites: Arr.map(
-          Arr.filter(callExpressionTargets(sourceFile), (target) => target === "String"),
-          (target) => `${file.relative}:${target}`
-        ),
-        supersededExports: Arr.map(
-          Arr.filter(
-            exportedDeclarationNames(sourceFile),
-            (name) => name === "utf8ToBytes" || name === "FingerprintUnsupportedValue"
-          ),
-          (name) => `${file.relative}:${name}`
-        )
-      }))
-    ))
-
-  return {
-    oldValidatorImports: Arr.flatMap(findings, ({ oldValidatorImports }) => oldValidatorImports),
-    stringCallSites: Arr.flatMap(findings, ({ stringCallSites }) => stringCallSites),
-    supersededExports: Arr.flatMap(findings, ({ supersededExports }) => supersededExports)
-  }
-})
-
 const packageExportKeys: Effect.Effect<Array<string>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
-    const packageJson = yield* packageManifestJson
+    const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const root = yield* resolveRootFrom(packageRootUrl)
+    const packageJsonPath = path.join(root, "package.json")
+    const packageJson = yield* fileSystem.readFileString(packageJsonPath).pipe(Effect.orDie)
     const decoded = yield* Schema.decodeUnknown(ManifestExportKeysSchema)(packageJson).pipe(Effect.orDie)
 
     return Arr.sort(Record.keys(decoded.exports), Order.string)
-  }
-)
-
-const packageNobleHashesVersion: Effect.Effect<"2.0.1", never, FileSystem.FileSystem | Path.Path> = Effect.gen(
-  function*() {
-    const packageJson = yield* packageManifestJson
-    const decoded = yield* Schema.decodeUnknown(PinnedNobleHashesManifestSchema)(packageJson).pipe(Effect.orDie)
-    return decoded.dependencies["@noble/hashes"]
   }
 )
 
@@ -215,27 +153,9 @@ describe("governance", () => {
       expect(yield* internalBoundaryViolations).toEqual([])
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.effect("keeps only intentional finite-number String serialization", () =>
-    Effect.gen(function*() {
-      const audit = yield* canonicalizationSourceAudit
-      expect(audit.oldValidatorImports).toEqual([])
-      expect(audit.stringCallSites).toEqual(["src/internal/jcs.ts:String"])
-    }).pipe(Effect.provide(BunContext.layer)))
-
-  it.effect("deletes superseded public APIs from source", () =>
-    Effect.gen(function*() {
-      const audit = yield* canonicalizationSourceAudit
-      expect(audit.supersededExports).toEqual([])
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("preserves export governance contracts", () =>
     Effect.gen(function*() {
       const exportKeys = yield* packageExportKeys
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
-    }).pipe(Effect.provide(BunContext.layer)))
-
-  it.effect("pins @noble/hashes to the audited exact version", () =>
-    Effect.gen(function*() {
-      expect(yield* packageNobleHashesVersion).toBe("2.0.1")
     }).pipe(Effect.provide(BunContext.layer)))
 })

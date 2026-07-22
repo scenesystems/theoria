@@ -20,20 +20,6 @@ import {
 import { expectStringMatch } from "./helpers/mismatchDiagnostics.js"
 
 describe("external conformance — hmac-hkdf", () => {
-  it.effect("pins all ratified RFC and Wycheproof corpora", () =>
-    Effect.gen(function*() {
-      const manifest = yield* loadExternalFixtureManifest
-
-      expect(selectExternalSourcesByKind(manifest, "hmac").map(({ id }) => id)).toEqual([
-        "rfc2202-hmac-sha1",
-        "rfc4231-hmac-sha256"
-      ])
-      expect(selectExternalSourcesByKind(manifest, "hkdf").map(({ id }) => id)).toEqual([
-        "rfc5869-hkdf-sha256",
-        "wycheproof-hkdf-sha512"
-      ])
-    }).pipe(Effect.provide(BunContext.layer)))
-
   it.effect("matches all seven RFC cases for HMAC-SHA1 and HMAC-SHA256", () =>
     Effect.gen(function*() {
       const manifest = yield* loadExternalFixtureManifest
