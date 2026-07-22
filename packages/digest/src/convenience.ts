@@ -107,8 +107,10 @@ export const digestBytesHex = (
 /**
  * Canonicalize a structured value to UTF-8 bytes via RFC 8785 JCS.
  *
- * Composes {@link canonicalize} (string output) with UTF-8 encoding
- * to produce the raw bytes ready for hashing.
+ * Composes strict, stack-safe {@link canonicalize} with UTF-8 encoding to
+ * produce the exact canonical bytes ready for hashing. Malformed Unicode in
+ * values or keys fails through `CanonicalizationError`; replacement text is
+ * never emitted.
  *
  * @since 0.1.0
  * @category canonicalization

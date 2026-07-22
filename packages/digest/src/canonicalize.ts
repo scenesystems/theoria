@@ -14,9 +14,11 @@
  * - No whitespace between tokens
  * - No BOM
  * - `null` is preserved; `undefined` is rejected
- * - Nested objects and arrays are recursed
+ * - Nested objects and arrays are serialized by an explicit stack-safe machine
  *
- * Returns a canonical JSON string. Callers compose with
+ * Strings and object keys must be well-formed Unicode and are preserved without
+ * normalization. Property accessors and unsupported reflection are rejected;
+ * getters are never evaluated. Callers compose the canonical JSON string with
  * {@link blake3Hash} or {@link sha256} for the full digest pipeline.
  *
  * @see https://www.rfc-editor.org/rfc/rfc8785
@@ -34,8 +36,10 @@ import type { CanonicalizationError } from "./schemas/errors.js"
 /**
  * Canonicalize a value to RFC 8785 JCS canonical JSON.
  *
- * Fails with a closed `CanonicalizationError` when the value is outside the
- * strict canonical domain.
+ * The admitted domain is finite JSON primitives, dense arrays, and plain data
+ * records. Traversal is stack-safe and deterministic and does not inject
+ * cooperative yield points. Values outside that domain fail with the closed,
+ * bounded `CanonicalizationError` union.
  *
  * @since 0.1.0
  * @category canonicalization

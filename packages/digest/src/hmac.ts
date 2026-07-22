@@ -7,8 +7,7 @@
  * - **HMAC-SHA256** — webhook signature verification (Stripe,
  *   GitHub), API key derivation, and any context requiring a
  *   PRF keyed by a shared secret.
- * - **HMAC-SHA1** — legacy webhook compatibility only (Shopify,
- *   older GitHub endpoints). New integrations should use SHA-256.
+ * - **HMAC-SHA1** — protocols that explicitly specify SHA-1.
  *
  * Pure `Uint8Array` in/out — key and message are both byte arrays.
  * Callers use {@link encodeUtf8} for strict text encoding or the raw-byte
@@ -62,9 +61,7 @@ export const hmacSha256 = (
 /**
  * Compute HMAC-SHA1 of `message` using `key`.
  *
- * Legacy compatibility only — use {@link hmacSha256} for new
- * integrations. Required by older webhook providers (Shopify,
- * legacy GitHub endpoints).
+ * Use when an external protocol explicitly specifies HMAC-SHA1.
  *
  * @since 0.1.0
  * @category authentication
@@ -92,8 +89,8 @@ export const hmacSha256Base64Url = (
 /**
  * Compute HMAC-SHA1 and encode as lowercase hex.
  *
- * Legacy webhook compatibility only — use {@link hmacSha256Base64Url}
- * for new integrations. Returns a 40-character hex string.
+ * Use when an external protocol specifies HMAC-SHA1 as lowercase hex.
+ * Returns a 40-character string.
  *
  * @since 0.1.0
  * @category authentication

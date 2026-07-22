@@ -6,69 +6,70 @@ alwaysApply: true
 
 # @scenesystems/digest
 
-Cryptographic content hashing and canonicalization for Effect.
+Strict canonicalization and cryptographic digest primitives for Effect.
 
-## Commands
+## Required checks
 
-| Task               | Command                   |
-| ------------------ | ------------------------- |
-| Type check         | `bun run check`           |
-| Lint               | `bun run lint`            |
-| Test               | `bun run test`            |
-| Build              | `bun run build`           |
-| Fixture check      | `bun run fixtures:check`  |
-| Fixture verify     | `bun run fixtures:verify` |
-| Fixture hash stamp | `bun run fixtures:stamp`  |
+| Task                               | Command                                           |
+| ---------------------------------- | ------------------------------------------------- |
+| Source typecheck                   | `bun run check`                                   |
+| Test typecheck                     | `bun run check:tests`                             |
+| Example typecheck                  | `bun run check:examples`                          |
+| Lint                               | `bun run lint`                                    |
+| Behavioral and conformance tests   | `bun run test`                                    |
+| Fixture governance and conformance | `bun run fixtures:verify`                         |
+| Build                              | `bun run build`                                   |
+| Packed release evidence            | `bun run publish:check --require-packed-manifest` |
 
-All four gates must pass clean before any work is considered complete.
-
-For fixture work, fixture checks and conformance tests are required as part of completion proof.
+Use the smallest targeted check while developing, then run every relevant package and workspace gate before committing. Tests must prove behavior. Enforce documentation, manifest, export, and release metadata with dedicated build or publish checks rather than test assertions about files or identifiers existing.
 
 ## Architecture
 
-Single entrypoint — `@scenesystems/digest`. Effect is a required
-peer dependency. Schema is the single source of truth for all types.
+The package has one public entrypoint, `@scenesystems/digest`. Effect is a required peer dependency. Public errors and branded values are Schema-owned. Noble Hashes provides the cryptographic kernels and remains private behind package-owned Effects.
 
-### Modules
+### Public modules
 
-- `src/algorithms/blake3.ts` — BLAKE3 multi-mode: hash, keyed MAC, derive_key KDF
+- `src/algorithms/blake3.ts` — BLAKE3 hash, keyed MAC, and context KDF
 - `src/algorithms/sha256.ts` — SHA-256 digest
-- `src/canonicalize.ts` — RFC 8785 JCS canonicalization
-- `src/encoding.ts` — base64url encode/decode, hex encode/decode, utf8ToBytes
-- `src/digest.ts` — unified canonicalize → hash → encode pipeline
-- `src/convenience.ts` — algorithm-parameterized digest functions (digestBytes, digestUtf8, base64url/hex variants, canonicalJsonBytes)
-- `src/digestSchemaValue.ts` — Schema.encode → JCS → hash pipeline
-- `src/hmac.ts` — HMAC-SHA256, HMAC-SHA1, hmacSha256Base64Url, hmacSha1Hex
-- `src/kdf.ts` — HKDF-SHA256 and HKDF-SHA512 key derivation (RFC 5869)
+- `src/canonicalize.ts` — strict, stack-safe RFC 8785 JCS canonicalization
+- `src/encoding.ts` — strict UTF-8 plus base64url and hex encoding/decoding
+- `src/digest.ts` — canonicalize → UTF-8 → hash → base64url → algorithm tag
+- `src/convenience.ts` — byte, text, and canonical JSON digest helpers
+- `src/digestSchemaValue.ts` — Schema encode → canonical digest pipeline with `R` preservation
+- `src/streaming.ts` — incremental byte and strict text digest pipelines
+- `src/hmac.ts` — HMAC-SHA256 and HMAC-SHA1
+- `src/kdf.ts` — RFC 5869 HKDF-SHA256 and HKDF-SHA512
+- `src/schemas/` — digest schemas, closed errors, and durable fingerprinting
 
-### Schemas (`src/schemas/`)
+### Private implementation
 
-- `src/schemas/DigestAlgorithm.ts` — `Schema.Literal("blake3-256", "sha256")`
-- `src/schemas/Digest256.ts` — branded 43-char base64url schema
-- `src/schemas/ContentDigest.ts` — algorithm-tagged digest pair
-- `src/schemas/durableFingerprint.ts` — Effect-wrapped canonical fingerprinting
-- `src/schemas/errors.ts` — `Schema.TaggedError` types
+`src/internal/*` is blocked by the exports map.
 
-### Internal (`src/internal/`)
+- `src/internal/unicode.ts` is the only Unicode scalar-well-formedness and unchecked UTF-8 kernel.
+- `src/internal/admission.ts` snapshots and admits the strict plain-data canonical domain without evaluating getters.
+- `src/internal/jcs.ts` serializes with an explicit stack-safe state machine.
 
-Private implementation. Blocked from consumers via exports map.
+Do not create a second canonicalization law, text encoder, public subpath, mutable algorithm registry, injectable crypto provider, or owner-specific identity policy here.
 
-- `src/internal/bytes.ts` — UTF-8 encoding, buffer ops
-- `src/internal/jcs.ts` — recursive JCS engine
-- `src/internal/validation.ts` — input guards
+## Canonicalization law
 
-## Conventions
+- Admit only `null`, booleans, finite numbers, well-formed Unicode strings, dense arrays, and plain records with `Object.prototype` or `null` prototype and own enumerable string-keyed data properties.
+- Validate strings and keys before encoding. Preserve valid text exactly; never normalize or replace malformed text.
+- Reject unsupported values, hostile descriptors/reflection, and cycles through the closed `CanonicalizationError` union.
+- Keep errors bounded and deterministic: no rejected text, keys, paths, or preimages.
+- Keep one-shot traversal deterministic and stack-safe. Do not inject scheduling behavior; workload bounds belong to consumers before the call.
+- Preserve upstream `E` and `R` in stream APIs. Text stream failures report partition-independent absolute UTF-16 code-unit indices.
 
-- **Effect-native discipline** — no async/await, throw/try-catch, new Error(), console.\*, let, for/while, switch
-- **Tests always use `@effect/vitest`** with `it.effect()` for schema tests
-- **Golden test vectors** from RFC 8785, NIST FIPS 180-4, and BLAKE3 reference
-- **Schema is the single source of truth** — types are defined as Schema in `src/schemas/`, extracted via `Schema.Type` and `import type`
+## Effect and test discipline
 
-## Governance
+- Model expected fallibility with `Effect`; use `Schema.TaggedError` for closed public errors and `Match.exhaustive` for fixed algorithm dispatch.
+- Do not use `Effect.run*` in source or tests. Use `@effect/vitest`, `it.effect`, and `Effect.exit` for failure assertions.
+- Test observable laws and exact failure values. Property tests supplement independent known-answer vectors; provider round trips are not conformance evidence.
+- Keep production files within the repository's 240-line limit.
+- Never expose Noble-specific types from the public API.
 
-- `internal/*` blocked from consumers via exports map
-- No `@noble/hashes` types leak through public surface
-- 240 LOC file-size limit applies
-- Authoritative external fixtures are committed under `test/fixtures/external/`
-- Do not derive expected conformance outputs from code under test during test execution
-- Keep `test/fixtures/external/sources.manifest.json` as the canonical fixture provenance and hash source
+## Fixture governance
+
+All repository fixture tooling is implemented in TypeScript and Effect. Do not introduce external runtime generators or another implementation language into the digest workflow.
+
+Keep independent upstream vectors under `test/fixtures/external/`. Never derive expected cryptographic or canonicalization outputs from this package or Noble during test execution. `test/fixtures/external/sources.manifest.json` is the canonical record for source revision, license, transformation, exclusion, verdict mapping, and local content hash.

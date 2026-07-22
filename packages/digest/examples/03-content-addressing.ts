@@ -3,23 +3,34 @@
  *
  * What this shows: JCS canonicalization makes key order irrelevant, so two objects
  * with the same keys and values always hash identically. The `digest` function
- * chains canonicalize → hash → encode → tag into a single pipeline. Use
- * `durableFingerprint` for cache keys and `digestSchemaValue` for Schema-aware
- * hashing that respects encoding (e.g. Date → ISO string before hashing).
+ * chains canonicalize → hash → encode → tag into a single pipeline. Strict
+ * canonicalization rejects malformed Unicode instead of replacing it. Use
+ * `digestSchemaValue` when a Schema must first encode a rich value to its wire form.
  *
  * Run: bun run examples/03-content-addressing.ts
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { canonicalize, digest, digestSchemaValue, durableFingerprint } from "@scenesystems/digest"
-import { Effect, Schema } from "effect"
+import { canonicalize, canonicalJsonBytes, digest, digestSchemaValue, durableFingerprint } from "@scenesystems/digest"
+import { Effect, Either, Schema } from "effect"
 
 const program = Effect.gen(function*() {
   const obj1 = { z: 1, a: 2, m: 3 }
   const obj2 = { a: 2, m: 3, z: 1 }
   const canon1 = yield* canonicalize(obj1)
   const canon2 = yield* canonicalize(obj2)
-  yield* Effect.log("Canonical form", { canonical: canon1, keyOrderInvariant: canon1 === canon2 })
+  const canonicalBytes = yield* canonicalJsonBytes(obj1)
+  yield* Effect.log("Canonical form", {
+    canonical: canon1,
+    byteLength: canonicalBytes.length,
+    keyOrderInvariant: canon1 === canon2
+  })
+
+  const malformed = yield* Effect.either(canonicalize({ value: "\uD800" }))
+  yield* Effect.log("Strict Unicode", {
+    rejected: Either.isLeft(malformed),
+    errorTag: Either.isLeft(malformed) ? malformed.left._tag : undefined
+  })
 
   const tagged = yield* digest("blake3-256", { user: "alice", score: 42 })
   const tagged2 = yield* digest("blake3-256", { score: 42, user: "alice" })

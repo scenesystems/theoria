@@ -1,9 +1,9 @@
 /**
  * Streaming Digest — hash chunked data with Effect Stream.
  *
- * What this shows: hash byte chunks incrementally with the streaming helpers,
- * compare against one-shot digest helpers for parity, and emit both base64url
- * and hex outputs.
+ * What this shows: hash byte and text chunks incrementally, compare against
+ * one-shot digest helpers for parity, and preserve a valid surrogate pair split
+ * across text chunks.
  *
  * Run: bun run examples/04-streaming-digest.ts
  */
@@ -14,6 +14,8 @@ import {
   digestBytesHex,
   digestByteStreamBase64Url,
   digestByteStreamHex,
+  digestUtf8Base64Url,
+  digestUtf8StreamBase64Url,
   encodeUtf8
 } from "@scenesystems/digest"
 import { Effect, Stream } from "effect"
@@ -38,6 +40,17 @@ const program = Effect.gen(function*() {
     streamed: streamedHex,
     oneShot: oneShotHex,
     matches: streamedHex === oneShotHex
+  })
+
+  const streamedText = yield* digestUtf8StreamBase64Url(
+    "blake3-256",
+    Stream.fromIterable(["surrogate-", "\uD83D", "\uDE00"])
+  )
+  const oneShotText = yield* digestUtf8Base64Url("blake3-256", "surrogate-😀")
+  yield* Effect.log("UTF-8 stream parity", {
+    streamed: streamedText,
+    oneShot: oneShotText,
+    matches: streamedText === oneShotText
   })
 })
 

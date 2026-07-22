@@ -39,6 +39,11 @@ import type { CanonicalizationError } from "./schemas/errors.js"
  * portable wire form, then runs the standard
  * canonicalize → hash → base64url pipeline.
  *
+ * Schema requirements are preserved in `R`, and encoding failures remain
+ * distinguishable from the closed canonicalization failures. The one-shot
+ * canonical traversal is deterministic and does not inject cooperative yield
+ * points; consumers own workload admission before calling it.
+ *
  * Default algorithm is `"blake3-256"`.
  *
  * @since 0.1.0

@@ -2,10 +2,12 @@
 "@scenesystems/digest": minor
 ---
 
-Make canonicalization and every public text path Unicode-strict with closed, Schema-owned errors.
+Ship strict, stack-safe RFC 8785 canonicalization and one Unicode law across the public digest surface.
 
-- Replace `utf8ToBytes` with the effectful `encodeUtf8`, remove `DigestStreaming` and `DigestStreamingLive` in favor of the existing `digestByteStream*` and strict `digestUtf8Stream*` functions, and replace `FingerprintUnsupportedValue` with `CanonicalizationError`.
-- Add `InvalidUnicode`, `UnsupportedValue`, `CyclicValue`, and the `CanonicalizationError` Schema/type union.
-- Reject malformed UTF-16 rather than silently replacing unpaired surrogates, including in BLAKE3 contexts, canonical JSON, digest convenience functions, and UTF-8 streams.
-- Reject non-plain canonical inputs including unsupported primitives and built-ins, accessors, symbol or non-enumerable properties, sparse or augmented arrays, unsupported prototypes, reflection failures, and cyclic graphs.
-- Add `InvalidUnicode` to text-stream error channels while preserving upstream stream failures and reporting partition-independent absolute UTF-16 code-unit indices.
+- Every public text path rejects malformed UTF-16 with `InvalidUnicode` and preserves well-formed text without normalization or replacement.
+- `encodeUtf8` is the sole public string-to-byte operation; direct Effect functions are the complete digest and streaming API.
+- Canonicalization admits only finite JSON primitives, dense arrays, and plain data records; unsupported primitives, built-ins, descriptors, prototypes, reflection, and cyclic graphs fail through the closed `CanonicalizationError` Schema union.
+- Canonicalization diagnostics are bounded structural data and never contain rejected text, keys, paths, or preimages.
+- `canonicalJsonBytes`, canonical digest helpers, durable fingerprints, and Schema-aware digests share the same strict, stack-safe canonicalization kernel.
+- Byte streams preserve upstream errors unchanged. Text streams preserve valid surrogate pairs split across chunks and report malformed text with partition-independent absolute UTF-16 code-unit indices.
+- Repository fixture governance is TypeScript- and Effect-native, while cryptographic and JCS expectations remain independently sourced from pinned upstream standards corpora.

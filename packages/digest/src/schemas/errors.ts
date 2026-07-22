@@ -32,6 +32,9 @@ export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
 /**
  * Raised when text contains an unpaired UTF-16 surrogate.
  *
+ * Diagnostics contain only the surrogate kind and absolute code-unit index;
+ * rejected text is never retained.
+ *
  * @since 0.3.0
  * @category errors
  */
@@ -49,6 +52,9 @@ export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
 /**
  * Raised when canonicalization encounters a value outside the supported
  * plain-data domain.
+ *
+ * Diagnostics contain only a closed structural reason; rejected values, keys,
+ * paths, and preimages are never retained.
  *
  * @since 0.3.0
  * @category errors
@@ -83,6 +89,8 @@ export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
 
 /**
  * Raised when canonicalization encounters a cyclic object graph.
+ *
+ * No object identity or traversal path is retained.
  *
  * @since 0.3.0
  * @category errors

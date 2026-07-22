@@ -1,327 +1,212 @@
 # @scenesystems/digest
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Cryptographic content hashing and canonicalization for [Effect](https://effect.website). Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem.
+Strict canonicalization and cryptographic digest primitives for [Effect](https://effect.website), built on [Noble Hashes](https://paulmillr.com/noble/).
 
-## Installation
+## Install
 
 ```sh
-npm install @scenesystems/digest
-# or
-pnpm add @scenesystems/digest
-# or
-bun add @scenesystems/digest
+bun add @scenesystems/digest effect
 ```
 
-Requires `effect` ≥ 3.20.0 as a peer dependency.
+`effect` is a required peer dependency (`^3.20.0`). The package has one public entrypoint: `@scenesystems/digest`.
 
-## Why this package?
+## Content identity
 
-Content-addressing, cache identity, and artifact integrity all require the same three-stage pipeline: **canonicalize** structured data into a deterministic byte sequence, **hash** it with a cryptographic digest, and **encode** the result for storage or transport. `@scenesystems/digest` composes these stages into a single Effect-native API with typed errors, branded schemas, and zero runtime dependencies beyond `@noble/hashes`.
+The content-addressing pipeline is:
 
-- **BLAKE3-256** primary — fastest secure hash, native domain separation via context mode
-- **SHA-256** secondary — FIPS compatibility, webhook verification, API key hashing
-- **RFC 8785 JCS** canonicalization — cross-language deterministic JSON serialization
-- **base64url** encoding — URL-safe, 43 chars for 256-bit digests, no padding
-
-### Choosing an algorithm
-
-Use **BLAKE3-256** for internal content-addressing, cache keys, artifact integrity, and anywhere you control both producer and consumer. It's faster than SHA-256 and provides built-in domain separation through context mode — no manual salt concatenation needed.
-
-Use **SHA-256** when interacting with external systems that expect it: webhook signature verification (Stripe, GitHub), API key hashing for database lookup, or regulatory contexts where FIPS familiarity matters.
-
-## Quick start
+```text
+admitted value → RFC 8785 JCS → strict UTF-8 → BLAKE3-256 or SHA-256 → base64url → algorithm tag
+```
 
 ```ts typecheck
-import { digest, durableFingerprint } from "@scenesystems/digest"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  // Full pipeline: canonicalize → hash → base64url → algorithm tag
-  const tagged = yield* digest("blake3-256", { user: "alice", score: 42 })
-  // "blake3-256:eT9Imnjd2CADODvozkIZQ3Cyt0k9yWL5A5rk3HlVTxo"
-
-  // Durable cache key fingerprint (BLAKE3-256)
-  const key = yield* durableFingerprint({ question: "What is 2+2?" })
-  // "blake3-256:JKgumbizHUBR-kvvgYdMpe4m6sQ-2m3W-y7fZBS20JY"
-})
-```
-
-## API
-
-### Algorithms
-
-| Function                                  | Description                                                             |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| `blake3Hash(bytes)`                       | BLAKE3-256 hash → `Effect<Uint8Array>`                                  |
-| `blake3Mac(key, message)`                 | BLAKE3 keyed MAC (32-byte key) → `Effect<Uint8Array, InvalidKeyLength>` |
-| `blake3DeriveKey(context, input, dkLen?)` | BLAKE3 KDF with domain separation → `Effect<Uint8Array>`                |
-| `sha256(bytes)`                           | SHA-256 hash → `Effect<Uint8Array>`                                     |
-
-### Convenience digest functions
-
-| Function                                 | Description                                |
-| ---------------------------------------- | ------------------------------------------ |
-| `digestBytes(algorithm, bytes)`          | Hash raw bytes → `Effect<Uint8Array>`      |
-| `digestUtf8(algorithm, text)`            | Hash a UTF-8 string → `Effect<Uint8Array>` |
-| `digestBytesBase64Url(algorithm, bytes)` | Hash + base64url encode → `Effect<string>` |
-| `digestUtf8Base64Url(algorithm, text)`   | Hash string + base64url → `Effect<string>` |
-| `digestBytesHex(algorithm, bytes)`       | Hash + hex encode → `Effect<string>`       |
-
-### Canonical JSON digest helpers
-
-| Function                                         | Description                                                        |
-| ------------------------------------------------ | ------------------------------------------------------------------ |
-| `digestCanonicalJsonBytes(algorithm, value)`     | RFC 8785 JCS canonicalize + hash → `Effect<Uint8Array, E>`         |
-| `digestCanonicalJsonBase64Url(algorithm, value)` | RFC 8785 JCS canonicalize + hash + base64url → `Effect<string, E>` |
-| `digestCanonicalJsonHex(algorithm, value)`       | RFC 8785 JCS canonicalize + hash + hex → `Effect<string, E>`       |
-
-### Streaming digest functions
-
-These helpers consume `Stream.Stream` inputs and are implemented with Effect `Stream.runFold`, so callers can hash large payloads incrementally without pre-concatenating full input buffers.
-
-| Function                                       | Description                                             |
-| ---------------------------------------------- | ------------------------------------------------------- |
-| `digestByteStream(algorithm, chunks)`          | Hash a `Stream<Uint8Array>` → `Effect<Uint8Array>`      |
-| `digestUtf8Stream(algorithm, chunks)`          | Hash a `Stream<string>` as UTF-8 → `Effect<Uint8Array>` |
-| `digestUtf8StreamBase64Url(algorithm, chunks)` | Hash UTF-8 stream + base64url encode → `Effect<string>` |
-| `digestUtf8StreamHex(algorithm, chunks)`       | Hash UTF-8 stream + hex encode → `Effect<string>`       |
-| `digestByteStreamBase64Url(algorithm, chunks)` | Hash stream + base64url encode → `Effect<string>`       |
-| `digestByteStreamHex(algorithm, chunks)`       | Hash stream + hex encode → `Effect<string>`             |
-
-### Streaming service and layer
-
-| Export                | Description                                                |
-| --------------------- | ---------------------------------------------------------- |
-| `DigestStreaming`     | Effect service tag for injectable streaming digest helpers |
-| `DigestStreamingLive` | Layer providing `DigestStreaming` from the module helpers  |
-
-### Canonicalization
-
-| Function                    | Description                           |
-| --------------------------- | ------------------------------------- |
-| `canonicalize(value)`       | RFC 8785 JCS → canonical JSON string  |
-| `canonicalJsonBytes(value)` | JCS → UTF-8 bytes (ready for hashing) |
-
-### Content-addressing pipelines
-
-| Function                                       | Description                                            |
-| ---------------------------------------------- | ------------------------------------------------------ |
-| `digest(algorithm, value)`                     | Canonicalize → hash → base64url → `"algorithm:digest"` |
-| `digestSchemaValue(schema, value, algorithm?)` | Schema.encode → JCS → hash (default BLAKE3-256)        |
-| `durableFingerprint(value)`                    | Canonical BLAKE3-256 fingerprint for cache keys        |
-
-### Message authentication (HMAC)
-
-| Function                            | Description                                 |
-| ----------------------------------- | ------------------------------------------- |
-| `hmacSha256(key, message)`          | HMAC-SHA256 → `Effect<Uint8Array>`          |
-| `hmacSha1(key, message)`            | HMAC-SHA1 (legacy) → `Effect<Uint8Array>`   |
-| `hmacSha256Base64Url(key, message)` | HMAC-SHA256 + base64url → `Effect<string>`  |
-| `hmacSha1Hex(key, message)`         | HMAC-SHA1 + hex (legacy) → `Effect<string>` |
-
-### Key derivation (HKDF)
-
-| Function                             | Description                                   |
-| ------------------------------------ | --------------------------------------------- |
-| `hkdfSha256(ikm, salt, info, dkLen)` | HKDF-SHA256 (RFC 5869) → `Effect<Uint8Array>` |
-| `hkdfSha512(ikm, salt, info, dkLen)` | HKDF-SHA512 (RFC 5869) → `Effect<Uint8Array>` |
-
-### Encoding
-
-| Function             | Description                           |
-| -------------------- | ------------------------------------- |
-| `utf8ToBytes(str)`   | UTF-8 string → `Uint8Array`           |
-| `toBase64Url(bytes)` | Bytes → base64url string (no padding) |
-| `fromBase64Url(str)` | Base64url string → bytes              |
-| `toHex(bytes)`       | Bytes → lowercase hex string          |
-| `fromHex(hex)`       | Hex string → bytes                    |
-
-### Schema types
-
-| Type              | Description                                     |
-| ----------------- | ----------------------------------------------- |
-| `DigestAlgorithm` | `Schema.Literal("blake3-256", "sha256")`        |
-| `Digest256`       | Branded 43-char base64url string                |
-| `ContentDigest`   | Schema.Class with `algorithm` + `digest` fields |
-
-### Errors
-
-| Error                         | Raised by                                                               |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| `InvalidKeyLength`            | `blake3Mac` when key ≠ 32 bytes                                         |
-| `FingerprintUnsupportedValue` | `canonicalize`, `digest`, `durableFingerprint` for non-JSON-safe values |
-
-## Examples
-
-### Content hashing
-
-```ts
-import { blake3Hash, digestUtf8, toBase64Url, utf8ToBytes } from "@scenesystems/digest"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  // Raw BLAKE3 hash with manual encoding
-  const hash = yield* blake3Hash(utf8ToBytes("hello"))
-  const encoded = toBase64Url(hash) // 43-char base64url
-
-  // Convenience: string → hash in one call
-  const same = yield* digestUtf8("blake3-256", "hello")
-})
-```
-
-### Streaming content hashing
-
-```ts
-import { digestByteStreamBase64Url, digestBytesBase64Url, utf8ToBytes } from "@scenesystems/digest"
-import { Effect, Stream } from "effect"
-
-const program = Effect.gen(function* () {
-  const chunks = [utf8ToBytes("scene-"), utf8ToBytes("systems-"), utf8ToBytes("stream")]
-
-  const streamed = yield* digestByteStreamBase64Url("blake3-256", Stream.fromIterable(chunks))
-  const oneShot = yield* digestBytesBase64Url("blake3-256", utf8ToBytes("scene-systems-stream"))
-
-  // true — stream digest is invariant to chunking strategy
-  const parity = streamed === oneShot
-})
-```
-
-### Streaming via dependency injection
-
-```ts
-import { DigestStreaming, DigestStreamingLive, utf8ToBytes } from "@scenesystems/digest"
-import { Effect, Stream } from "effect"
-
-const program = Effect.gen(function* () {
-  const digestStreaming = yield* DigestStreaming
-  return yield* digestStreaming.digestByteStreamBase64Url(
-    "sha256",
-    Stream.fromIterable([utf8ToBytes("chunk-1"), utf8ToBytes("chunk-2")])
-  )
-}).pipe(Effect.provide(DigestStreamingLive))
-```
-
-### Webhook signature verification
-
-```ts
-import { hmacSha256Base64Url, utf8ToBytes } from "@scenesystems/digest"
-import { Effect } from "effect"
-
-const verifyWebhook = (secret: string, payload: string, expectedSig: string) =>
-  Effect.gen(function* () {
-    const computed = yield* hmacSha256Base64Url(utf8ToBytes(secret), utf8ToBytes(payload))
-    return computed === expectedSig
-  })
-```
-
-### Schema-aware content addressing
-
-```ts
-import { digestSchemaValue } from "@scenesystems/digest"
+import { canonicalJsonBytes, digest, digestSchemaValue } from "@scenesystems/digest"
 import { Effect, Schema } from "effect"
 
 const Event = Schema.Struct({
-  action: Schema.String,
-  createdAt: Schema.DateFromString
+  name: Schema.String,
+  occurredAt: Schema.DateFromString
 })
 
 const program = Effect.gen(function* () {
-  // Date is encoded to ISO string before hashing
-  const fingerprint = yield* digestSchemaValue(Event, { action: "deploy", createdAt: new Date("2025-01-15T12:00:00Z") })
-  // "blake3-256:<base64url>" — deterministic across runs
+  const canonicalBytes = yield* canonicalJsonBytes({ score: 42, user: "alice" })
+  const tagged = yield* digest("blake3-256", { score: 42, user: "alice" })
+  const schemaTagged = yield* digestSchemaValue(Event, {
+    name: "deploy",
+    occurredAt: new Date("2026-07-22T00:00:00.000Z")
+  })
+
+  return { canonicalBytes, tagged, schemaTagged }
 })
 ```
 
-### BLAKE3 domain-separated key derivation
+`digest` and `digestSchemaValue` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters.
+
+Digest identifies exact bytes. It does not define application domains, versions, normalization policy, ownership, or authenticity.
+
+## Strict canonicalization contract
+
+`canonicalize` and `canonicalJsonBytes` admit only:
+
+- `null`, booleans, finite ECMAScript numbers, and well-formed Unicode strings;
+- dense arrays containing admitted values; and
+- plain records whose prototype is `Object.prototype` or `null`, containing only own enumerable string-keyed data properties whose values are admitted.
+
+They reject `undefined`, non-finite numbers, `bigint`, functions, symbols, sparse or augmented arrays, typed arrays, `Date`, `RegExp`, maps, sets, weak collections, promises, accessors, symbol or non-enumerable properties, unsupported prototypes, cyclic graphs, and reflection failures.
+
+Object keys and string values are validated before serialization. Every public text path rejects unpaired UTF-16 surrogates, preserves valid text without Unicode normalization, and never inserts U+FFFD as replacement text. An explicit U+FFFD in admitted input is preserved. `canonicalize` sorts record keys by UTF-16 code units as required by RFC 8785.
+
+Canonicalization uses an explicit stack-safe state machine and has no call-stack growth with input depth. For an admitted graph its cost is linear in visited nodes and emitted output plus key sorting for each record. One-shot canonicalization and digest operations execute deterministic traversal and do not inject cooperative yield points. Consumers that require a bounded latency envelope must enforce their own size/depth admission before calling one-shot operations; use the stream APIs for incrementally available byte or text inputs.
+
+Property getters are never evaluated. Proxy/reflection failures close to `UnsupportedValue({ reason: "reflection-failure" })`; a cooperative object API cannot make a liveness guarantee for arbitrary hostile proxy traps. Parse hostile bytes into an owner-bounded plain-data value before canonicalization.
+
+### Errors
+
+The closed canonicalization error type is:
+
+```text
+CanonicalizationError = InvalidUnicode | UnsupportedValue | CyclicValue
+```
+
+- `InvalidUnicode` reports `kind` and an absolute UTF-16 `codeUnitIndex`.
+- `UnsupportedValue` reports only a closed `reason` literal.
+- `CyclicValue` carries no fields.
+
+Diagnostics are bounded: they contain no rejected text, object keys, object paths, canonical preimages, or raw digest material.
+
+The primary signatures are:
 
 ```ts
-import { blake3DeriveKey, blake3Mac } from "@scenesystems/digest"
-import { Effect } from "effect"
+canonicalize(value: unknown): Effect.Effect<string, CanonicalizationError>
+canonicalJsonBytes(value: unknown): Effect.Effect<Uint8Array, CanonicalizationError>
+digest(algorithm: DigestAlgorithm, value: unknown): Effect.Effect<string, CanonicalizationError>
+digestSchemaValue<A, I, R>(
+  schema: Schema.Schema<A, I, R>,
+  value: A,
+  algorithm?: DigestAlgorithm
+): Effect.Effect<string, CanonicalizationError | ParseResult.ParseError, R>
+```
+
+`digestSchemaValue` first applies `Schema.encode`, then admits and canonicalizes the encoded value. Schema requirements remain in `R`, and `ParseResult.ParseError` remains distinguishable from canonicalization failures.
+
+## Text and byte hashing
+
+Text APIs use the same strict UTF-16 validation as canonicalization. Raw-byte APIs accept arbitrary bytes.
+
+| API                                      | Result                                      |
+| ---------------------------------------- | ------------------------------------------- |
+| `encodeUtf8(text)`                       | `Effect.Effect<Uint8Array, InvalidUnicode>` |
+| `digestUtf8(algorithm, text)`            | `Effect.Effect<Uint8Array, InvalidUnicode>` |
+| `digestUtf8Base64Url(algorithm, text)`   | `Effect.Effect<string, InvalidUnicode>`     |
+| `digestBytes(algorithm, bytes)`          | `Effect.Effect<Uint8Array>`                 |
+| `digestBytesBase64Url(algorithm, bytes)` | `Effect.Effect<string>`                     |
+| `digestBytesHex(algorithm, bytes)`       | `Effect.Effect<string>`                     |
+| `blake3Hash(bytes)`                      | `Effect.Effect<Uint8Array>`                 |
+| `sha256(bytes)`                          | `Effect.Effect<Uint8Array>`                 |
+
+`toBase64Url` and `toHex` are pure encoders. `fromBase64Url` and `fromHex` return `Either` with Effect encoding decode errors.
+
+## Streaming
+
+Streaming hashers consume `Stream.Stream` directly and preserve upstream `E` and `R` types:
+
+```ts typecheck
+import { digestUtf8Base64Url, digestUtf8StreamBase64Url } from "@scenesystems/digest"
+import { Effect, Stream } from "effect"
 
 const program = Effect.gen(function* () {
-  // Derive a key from context string + input (no salt needed)
-  const derived = yield* blake3DeriveKey("myapp/cache-v1", new Uint8Array(32))
+  const chunks = Stream.fromIterable(["scene-", "\uD83D", "\uDE00"])
+  const streamed = yield* digestUtf8StreamBase64Url("blake3-256", chunks)
+  const oneShot = yield* digestUtf8Base64Url("blake3-256", "scene-😀")
 
-  // Keyed MAC with a 32-byte key
-  const mac = yield* blake3Mac(derived, new Uint8Array([1, 2, 3]))
+  return streamed === oneShot
 })
 ```
 
-### HKDF key derivation
+| API                                            | Error/environment contract                          |
+| ---------------------------------------------- | --------------------------------------------------- |
+| `digestByteStream(algorithm, chunks)`          | `Effect.Effect<Uint8Array, E, R>`                   |
+| `digestByteStreamBase64Url(algorithm, chunks)` | `Effect.Effect<string, E, R>`                       |
+| `digestByteStreamHex(algorithm, chunks)`       | `Effect.Effect<string, E, R>`                       |
+| `digestUtf8Stream(algorithm, chunks)`          | `Effect.Effect<Uint8Array, E \| InvalidUnicode, R>` |
+| `digestUtf8StreamBase64Url(algorithm, chunks)` | `Effect.Effect<string, E \| InvalidUnicode, R>`     |
+| `digestUtf8StreamHex(algorithm, chunks)`       | `Effect.Effect<string, E \| InvalidUnicode, R>`     |
 
-```ts
-import { hkdfSha256, utf8ToBytes } from "@scenesystems/digest"
-import { Effect, Option } from "effect"
+Text streams carry at most one trailing high surrogate across chunk boundaries. Valid surrogate pairs split across chunks hash exactly like the one-shot text; malformed text fails with a partition-independent absolute code-unit index.
 
-const program = Effect.gen(function* () {
-  const sharedSecret = new Uint8Array(32) // e.g., from X25519 key agreement
-  const salt = Option.some(crypto.getRandomValues(new Uint8Array(32)))
-  const info = utf8ToBytes("aes-256-gcm-key")
+## Canonical digest helpers
 
-  const aesKey = yield* hkdfSha256(sharedSecret, salt, info, 32)
-  // salt is Option<Uint8Array> — Option.none() uses zero-bytes per RFC 5869
-})
-```
+| API                                              | Result                                                                           |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `digestCanonicalJsonBytes(algorithm, value)`     | canonicalize + hash → `Effect.Effect<Uint8Array, CanonicalizationError>`         |
+| `digestCanonicalJsonBase64Url(algorithm, value)` | canonicalize + hash + base64url → `Effect.Effect<string, CanonicalizationError>` |
+| `digestCanonicalJsonHex(algorithm, value)`       | canonicalize + hash + hex → `Effect.Effect<string, CanonicalizationError>`       |
+| `durableFingerprint(value)`                      | canonical BLAKE3-256 algorithm-tagged text                                       |
 
-### Error handling
+## MAC and key derivation
 
-```ts
-import { blake3Mac, canonicalize, FingerprintUnsupportedValue, InvalidKeyLength } from "@scenesystems/digest"
-import { Effect } from "effect"
+| API                                       | Result                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------- |
+| `blake3Mac(key, message)`                 | BLAKE3 keyed mode; exactly 32-byte key; `InvalidKeyLength` on mismatch          |
+| `blake3DeriveKey(context, input, dkLen?)` | BLAKE3 context mode; strict context text; `InvalidUnicode` on malformed context |
+| `hmacSha256(key, message)`                | HMAC-SHA256 bytes                                                               |
+| `hmacSha256Base64Url(key, message)`       | HMAC-SHA256 base64url                                                           |
+| `hmacSha1(key, message)`                  | HMAC-SHA1 bytes for protocols that specify SHA-1                                |
+| `hmacSha1Hex(key, message)`               | HMAC-SHA1 lowercase hex                                                         |
+| `hkdfSha256(ikm, salt, info, dkLen)`      | RFC 5869 HKDF-SHA256                                                            |
+| `hkdfSha512(ikm, salt, info, dkLen)`      | RFC 5869 HKDF-SHA512                                                            |
 
-const program = Effect.gen(function* () {
-  // canonicalize rejects non-JSON-safe values with a typed error
-  const result = yield* canonicalize({ key: "value" }).pipe(
-    Effect.catchTag("FingerprintUnsupportedValue", (e) => Effect.succeed(`rejected: ${e.valueType} — ${e.reason}`))
-  )
+Secret text must be converted explicitly with `encodeUtf8` or decoded from its wire encoding before use. MAC comparison policy belongs to the caller's protocol implementation.
 
-  // blake3Mac rejects wrong-length keys
-  const mac = yield* blake3Mac(new Uint8Array(16), new Uint8Array(0)).pipe(
-    Effect.catchTag("InvalidKeyLength", (e) => Effect.succeed(`expected ${e.expected} bytes, got ${e.actual}`))
-  )
-})
-```
+## Schemas
 
-See the [`examples/`](./examples) directory for complete runnable programs.
+- `DigestAlgorithm` — `Schema.Literal("blake3-256", "sha256")`
+- `Digest256` — branded 43-character base64url text
+- `ContentDigest` — `Schema.Class` containing `algorithm` and `digest`
+- `InvalidKeyLength`, `InvalidUnicode`, `UnsupportedValue`, and `CyclicValue` — `Schema.TaggedError` values
+- `CanonicalizationError` — closed Schema and type union
 
-## Fixture Workflow
+## Runtime and conformance evidence
 
-Digest conformance tests consume checked-in authoritative external fixtures so expected values are never derived from the implementation under test. Fixture lifecycle tooling is implemented in TypeScript with Effect.
+The packed ESM and CJS artifact is exercised under Node 22, Bun 1.3.9, and Chromium. Those are the release runtime claims; other engines are not implied by this evidence.
+
+Conformance uses checked-in independent upstream vectors rather than outputs generated by this package or Noble at test time:
+
+- RFC 8785 and Cyberphone JCS vectors;
+- BLAKE3 reference vectors;
+- NIST SHA-256 vectors;
+- RFC 4231 HMAC-SHA256 and RFC 2202 HMAC-SHA1 vectors; and
+- RFC 5869 and Project Wycheproof HKDF vectors.
+
+`test/fixtures/external/sources.manifest.json` records source revisions, licenses, transformations, exclusions, and local SHA-256 hashes. Repository fixture governance is implemented in TypeScript with Effect.
+
+Noble's audits cover its primitive implementations. They do not replace review of this package's admission rules, option selection, error mapping, or conformance interpretation.
+
+## Development
 
 ```sh
-# Validate fixture schema/provenance/hash contracts
-bun run fixtures:check
-
-# Recompute and stamp source manifest contentSha256 fields
-bun run fixtures:stamp
-
-# Verify fixture contracts + conformance suites
+bun run check
+bun run check:tests
+bun run check:examples
+bun run lint
+bun run test
 bun run fixtures:verify
+bun run build
+bun run publish:check --require-packed-manifest
 ```
 
-Fixture provenance is tracked in `test/fixtures/external/sources.manifest.json`.
+Complete runnable programs are in [`examples/`](./examples).
 
-## Cryptographic foundations
+## Standards
 
-All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
-
-| Dependency      | Audits   | Purpose                     |
-| --------------- | -------- | --------------------------- |
-| `@noble/hashes` | 6 audits | BLAKE3, SHA-256, HMAC, HKDF |
-
-### Standards
-
-| Algorithm | Specification                                                                                |
-| --------- | -------------------------------------------------------------------------------------------- |
-| BLAKE3    | [O'Connor et al. (2020)](https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf) |
-| SHA-256   | [NIST FIPS 180-4](https://doi.org/10.6028/NIST.FIPS.180-4)                                   |
-| HMAC      | [RFC 2104](https://www.rfc-editor.org/rfc/rfc2104)                                           |
-| HKDF      | [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869)                                           |
-| JCS       | [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)                                           |
+- [RFC 8785 — JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
+- [BLAKE3 specification](https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf)
+- [FIPS 180-4 — SHA-256](https://doi.org/10.6028/NIST.FIPS.180-4)
+- [RFC 2104 — HMAC](https://www.rfc-editor.org/rfc/rfc2104)
+- [RFC 5869 — HKDF](https://www.rfc-editor.org/rfc/rfc5869)
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](../../LICENSE) — Copyright © 2026 Scene Systems

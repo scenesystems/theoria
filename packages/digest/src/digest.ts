@@ -41,7 +41,9 @@ const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array) =>
 /**
  * Digest a structured value through the full pipeline.
  *
- * Returns an algorithm-tagged string: `"<algorithm>:<base64url>"`.
+ * Returns an algorithm-tagged string: `"<algorithm>:<base64url>"`. The
+ * canonicalization stage is strict and stack-safe, preserves admitted Unicode
+ * exactly, and rejects malformed or unsupported values with bounded errors.
  *
  * @since 0.1.0
  * @category digest
