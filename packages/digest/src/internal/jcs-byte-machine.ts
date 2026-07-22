@@ -37,7 +37,7 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
                 return next + 1
               })
             ),
-            (next) => Effect.as(cooperate(encodeBatches), next)
+            (next) => next < Chunk.size(segments) ? Effect.as(cooperate(encodeBatches), next) : Effect.succeed(next)
           )
       }),
       () => {
@@ -58,7 +58,7 @@ export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.E
                     return next + 1
                   })
                 ),
-                (next) => Effect.as(cooperate(copyBatches), next)
+                (next) => next < Chunk.size(segments) ? Effect.as(cooperate(copyBatches), next) : Effect.succeed(next)
               )
           }),
           output

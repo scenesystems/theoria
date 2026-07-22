@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Exit, Fiber, Record as Rec } from "effect"
+import { Array as Arr, Chunk, Effect, Exit, Fiber, MutableRef, Record as Rec, Scheduler } from "effect"
 
 import { canonicalJsonBytes } from "../src/convenience.js"
-import { encodeCanonicalSegments } from "../src/internal/jcs.js"
+import { canonicalizeSegments, encodeCanonicalSegments } from "../src/internal/jcs.js"
 import type { CanonicalizationError } from "../src/schemas/errors.js"
 
 const WIDTH = 65_536
@@ -28,6 +28,44 @@ const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<
     ({ probe }) => Effect.as(effect, probe).pipe(Effect.map(({ ticks }) => ticks)),
     ({ handle }) => Effect.sync(() => clearInterval(handle))
   )
+
+const scheduledTasksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
+  Effect.suspend(() => {
+    const scheduled = MutableRef.make(0)
+    const scheduler = Scheduler.make(
+      (task, priority, fiber) => {
+        MutableRef.update(scheduled, (count) => count + 1)
+        Scheduler.defaultScheduler.scheduleTask(task, priority, fiber)
+      },
+      () => false
+    )
+    return Effect.map(Effect.withScheduler(effect, scheduler), () => MutableRef.get(scheduled))
+  })
+
+it.effect("single-batch canonicalJsonBytes does not schedule terminal no-progress yields", () =>
+  Effect.gen(function*() {
+    const scheduled = yield* scheduledTasksDuring(canonicalJsonBytes({ value: 1 }))
+    expect(scheduled).toBe(0)
+  }))
+
+it.effect("multi-batch traversal, segment encoding, and segment copying retain continuing yields", () =>
+  Effect.gen(function*() {
+    const traversalTasks = yield* scheduledTasksDuring(canonicalizeSegments(Arr.makeBy(1_024, (index) => index)))
+    const assemblyTasks = yield* scheduledTasksDuring(
+      encodeCanonicalSegments(Chunk.fromIterable(Arr.makeBy(5, (index) => String(index))))
+    )
+    expect(traversalTasks).toBeGreaterThan(0)
+    expect(assemblyTasks).toBe(2)
+  }))
+
+it.effect("multi-batch canonical byte assembly remains interruptible", () =>
+  Effect.gen(function*() {
+    const segments = Chunk.fromIterable(Arr.makeBy(512, (index) => String(index)))
+    const fiber = yield* Effect.fork(encodeCanonicalSegments(segments))
+    yield* Effect.yieldNow()
+    const exit = yield* Fiber.interrupt(fiber)
+    expect(Exit.isInterrupted(exit)).toBe(true)
+  }))
 
 it.live.each<readonly [string, () => Effect.Effect<Uint8Array, CanonicalizationError>]>(
   [

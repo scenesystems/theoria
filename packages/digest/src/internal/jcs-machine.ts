@@ -48,7 +48,7 @@ const execute = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Canonicaliz
       Effect.iterate(state, {
         while: (current) => !MutableList.isEmpty(current.stack) && Option.isNone(MutableRef.get(current.failure)),
         body: (current) =>
-          Effect.zipLeft(
+          Effect.flatMap(
             Effect.sync(() => {
               CONTROL_TOKENS.some(() => {
                 if (MutableList.isEmpty(current.stack) || Option.isSome(MutableRef.get(current.failure))) return true
@@ -57,14 +57,20 @@ const execute = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Canonicaliz
               })
               return current
             }),
-            Effect.zipRight(
-              Effect.yieldNow(),
-              Effect.suspend(() => {
-                const next = MutableRef.get(batches) + 1
-                MutableRef.set(batches, next % HOST_YIELD_BATCHES)
-                return next === HOST_YIELD_BATCHES ? Effect.sleep(0) : Effect.void
-              })
-            )
+            (nextState) =>
+              MutableList.isEmpty(nextState.stack) || Option.isSome(MutableRef.get(nextState.failure))
+                ? Effect.succeed(nextState)
+                : Effect.as(
+                  Effect.zipRight(
+                    Effect.yieldNow(),
+                    Effect.suspend(() => {
+                      const next = MutableRef.get(batches) + 1
+                      MutableRef.set(batches, next % HOST_YIELD_BATCHES)
+                      return next === HOST_YIELD_BATCHES ? Effect.sleep(0) : Effect.void
+                    })
+                  ),
+                  nextState
+                )
           )
         // Bun timers require a host boundary in addition to fiber yielding. Amortize that
         // boundary while retaining Effect scheduler cooperation after every fixed-size batch.
