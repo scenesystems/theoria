@@ -1,5 +1,5 @@
 {
-  "packageName": "effect-inference",
+  "packageName": "@scenesystems/effect-inference",
   "releasedVersion": "0.1.0",
   "exports": [
     { "subpath": ".", "exportName": "Contracts", "kind": "namespace", "firstReleasedIn": "0.1.0" },

@@ -1,5 +1,5 @@
+import { LinearAlgebra } from "@scenesystems/effect-math"
 import { Chunk } from "effect"
-import { LinearAlgebra } from "effect-math"
 
 import { WordmarkMorph } from "./WordmarkMorph.js"
 
@@ -103,7 +103,7 @@ const CubeMark = ({ className }: { readonly className?: string }) => (
 /**
  * Branded Theoria logo — isometric cube mark + wordmark.
  *
- * The cube is a single voxel projected via effect-math `LinearAlgebra.matvec`
+ * The cube is a single voxel projected via @scenesystems/effect-math `LinearAlgebra.matvec`
  * at the canonical isometric angle (atan(√2), π/4). The viewBox is computed
  * from the tight bounding box of the projected faces so the cube is
  * perfectly centered with no wasted space.

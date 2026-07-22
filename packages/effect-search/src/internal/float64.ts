@@ -1,4 +1,4 @@
-import { expm1Strict, log1pStrict, logStrict } from "effect-math/Numeric"
+import { expm1Strict, log1pStrict, logStrict } from "@scenesystems/effect-math/Numeric"
 
 export const PI = 3.141592653589793
 export const E = 2.718281828459045

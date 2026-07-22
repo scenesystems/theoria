@@ -32,4 +32,14 @@ describe("Theoria Card Publication Contracts", () => {
     ])
     expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign"])
   })
+
+  it("publishes scoped numerical and inference npm identities without changing card IDs", () => {
+    const math = effectCards.find((card) => card.id === "effect-math")
+    const inference = effectCards.find((card) => card.id === "effect-inference")
+
+    expect(math?.packageName).toBe("@scenesystems/effect-math")
+    expect(math?.npmUrl).toBe("https://www.npmjs.com/package/@scenesystems/effect-math")
+    expect(inference?.packageName).toBe("@scenesystems/effect-inference")
+    expect(inference?.npmUrl).toBe("https://www.npmjs.com/package/@scenesystems/effect-inference")
+  })
 })

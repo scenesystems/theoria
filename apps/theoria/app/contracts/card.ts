@@ -88,7 +88,7 @@ export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-math",
     title: "effect-math",
-    packageName: "effect-math",
+    packageName: "@scenesystems/effect-math",
     description: "Combines numerical and statistical computing with typed errors and policy-aware operations.",
     useCase: "Numerical analysis and statistical modeling inside application code.",
     summary: "Explore how sample size, effect size, and target power trade off.",
@@ -97,7 +97,7 @@ export const cards: ReadonlyArray<Card> = [
     group: "effect",
     releaseState: "published",
     version: "0.2.0",
-    npmUrl: "https://www.npmjs.com/package/effect-math",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-math",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
     license: "MIT",
     interactiveLabel: "Power Explorer"
@@ -157,7 +157,7 @@ export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-inference",
     title: "effect-inference",
-    packageName: "effect-inference",
+    packageName: "@scenesystems/effect-inference",
     description:
       "Resolves model requests for text and embeddings across providers while keeping request intent, routing, and execution evidence separate.",
     useCase: "Keep requested model intent, resolved route, and execution evidence separate.",
@@ -167,7 +167,7 @@ export const cards: ReadonlyArray<Card> = [
     group: "effect",
     releaseState: "coming-soon",
     version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/effect-inference",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-inference",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-inference",
     license: "MIT"
   },

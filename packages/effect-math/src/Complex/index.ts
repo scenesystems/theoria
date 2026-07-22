@@ -8,7 +8,7 @@
  * `PrecisionPolicyService` and `DiagnosticsPolicyService` from context.
  *
  * @since 0.1.0
- * @module effect-math/Complex
+ * @module @scenesystems/effect-math/Complex
  */
 
 /**

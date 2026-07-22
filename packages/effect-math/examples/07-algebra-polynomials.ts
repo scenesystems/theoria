@@ -28,8 +28,8 @@ import {
   polyEval,
   polyEvalValidated,
   polyEvalWithPolicies
-} from "effect-math/Algebra"
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+} from "@scenesystems/effect-math/Algebra"
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — polynomial evaluation ─────────────────────────

@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
+import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "@scenesystems/effect-math/Probability"
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
-import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "effect-math/Probability"
 
 import * as Rng from "../../internal/rng.js"
 import type { BuiltInAcquisitionName, SuggestContext } from "../../Sampler/index.js"

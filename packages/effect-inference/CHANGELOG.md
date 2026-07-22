@@ -1,4 +1,6 @@
-# effect-inference
+# @scenesystems/effect-inference
+
+The scoped identity continues the release history of the former unscoped `effect-inference` package.
 
 ## 0.1.0
 

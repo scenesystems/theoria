@@ -42,13 +42,13 @@ import {
   trapezoid,
   trapezoidValidated,
   trapezoidWithPolicies
-} from "effect-math/Calculus"
+} from "@scenesystems/effect-math/Calculus"
 import {
   AbsoluteTolerance,
   makeDeterministicRuntimePoliciesLayer,
   RelativeTolerance,
   Seed
-} from "effect-math/contracts"
+} from "@scenesystems/effect-math/contracts"
 
 const absoluteTolerance = Schema.decodeSync(AbsoluteTolerance)(1e-12)
 const relativeTolerance = Schema.decodeSync(RelativeTolerance)(1e-12)

@@ -18,7 +18,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Number as N } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
   bisect,
   bisectValidated,
@@ -26,7 +26,7 @@ import {
   goldenSection,
   goldenSectionValidated,
   goldenSectionWithPolicies
-} from "effect-math/Optimization"
+} from "@scenesystems/effect-math/Optimization"
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — bisection root-finding ──────────────────────

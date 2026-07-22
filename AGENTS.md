@@ -8,15 +8,16 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                 | npm                           | Deps                                                      |
-| -------------------- | ------------------------- | ----------------------------- | --------------------------------------------------------- |
-| effect-search        | `packages/effect-search/` | `@scenesystems/effect-search` | effect, @scenesystems/digest                              |
-| effect-dsp           | `packages/effect-dsp/`    | `@scenesystems/effect-dsp`    | @scenesystems/effect-search, @effect/ai (peer)            |
-| effect-text          | `packages/effect-text/`   | `@scenesystems/effect-text`   | effect, @scenesystems/effect-search                       |
-| effect-math          | `packages/effect-math/`   | `effect-math`                 | effect                                                    |
-| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest`        | @noble/hashes, effect                                     |
-| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`          | @noble/ciphers, effect                                    |
-| @scenesystems/sign   | `packages/sign/`          | `@scenesystems/sign`          | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
+| Package              | Directory                    | npm                              | Deps                                                      |
+| -------------------- | ---------------------------- | -------------------------------- | --------------------------------------------------------- |
+| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/digest                              |
+| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @effect/ai (peer)            |
+| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search                       |
+| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                    |
+| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                        |
+| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                     |
+| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
+| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
 The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
@@ -43,7 +44,7 @@ The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal
 | Build             | `bun run build`       |
 | Clean             | `bun run clean`       |
 
-Per-package: `bun run --filter 'effect-math' check`
+Per-package: `bun run --filter '@scenesystems/effect-math' check`
 
 **CRITICAL:** The `--filter` flag goes after `run`, NOT before it. The pattern matches package names from `package.json`, not directory paths. Glob patterns work: `bun run --filter '@scenesystems/*' build`.
 

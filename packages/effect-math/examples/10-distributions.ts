@@ -17,7 +17,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
   betaCdf,
   betaCdfValidated,
@@ -46,7 +46,7 @@ import {
   studentTMean,
   uniformMean,
   uniformPdf
-} from "effect-math/Distribution"
+} from "@scenesystems/effect-math/Distribution"
 
 const program = Effect.gen(function*() {
   // ─── Normal ──────────────────────────────────────────────────────

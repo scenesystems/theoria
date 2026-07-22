@@ -22,7 +22,7 @@ const manualChunkNameFor = (id: string): string | undefined => {
     return "effect-search"
   }
 
-  if (id.includes("/packages/effect-math/") || id.includes("/node_modules/effect-math/")) {
+  if (id.includes("/packages/effect-math/") || id.includes("/node_modules/@scenesystems/effect-math/")) {
     return "effect-math"
   }
 

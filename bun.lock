@@ -58,13 +58,13 @@
         "@heroicons/react": "^2.2.0",
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-dsp": "workspace:^",
+        "@scenesystems/effect-inference": "workspace:^",
+        "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
         "@scenesystems/effect-text": "workspace:^",
         "@scenesystems/seal": "workspace:^",
         "@scenesystems/sign": "workspace:^",
         "effect": "3.21.0",
-        "effect-inference": "workspace:^",
-        "effect-math": "workspace:^",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
       },
@@ -98,12 +98,12 @@
       "version": "0.1.5",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
+        "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
-        "effect-math": "workspace:^",
       },
       "devDependencies": {
+        "@scenesystems/effect-inference": "workspace:^",
         "@theoria/source-proof": "workspace:*",
-        "effect-inference": "workspace:^",
       },
       "peerDependencies": {
         "@effect/ai": ">=0.35.0",
@@ -111,7 +111,7 @@
       },
     },
     "packages/effect-inference": {
-      "name": "effect-inference",
+      "name": "@scenesystems/effect-inference",
       "version": "0.1.0",
       "dependencies": {
         "@effect/ai-anthropic": "0.25.0",
@@ -129,8 +129,8 @@
       },
     },
     "packages/effect-math": {
-      "name": "effect-math",
-      "version": "0.2.0",
+      "name": "@scenesystems/effect-math",
+      "version": "0.2.1",
       "devDependencies": {
         "@scenesystems/digest": "workspace:^",
       },
@@ -143,11 +143,11 @@
       "version": "0.3.0",
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
-        "effect-math": "workspace:^",
+        "@scenesystems/effect-math": "workspace:^",
       },
       "devDependencies": {
+        "@scenesystems/effect-inference": "workspace:^",
         "@theoria/source-proof": "workspace:*",
-        "effect-inference": "workspace:^",
       },
       "peerDependencies": {
         "@effect/experimental": "^0.60.0",
@@ -163,8 +163,8 @@
       "name": "@scenesystems/effect-text",
       "version": "0.2.1",
       "dependencies": {
+        "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
-        "effect-math": "workspace:^",
       },
       "devDependencies": {
         "@theoria/source-proof": "workspace:*",
@@ -598,6 +598,10 @@
 
     "@scenesystems/effect-dsp": ["@scenesystems/effect-dsp@workspace:packages/effect-dsp"],
 
+    "@scenesystems/effect-inference": ["@scenesystems/effect-inference@workspace:packages/effect-inference"],
+
+    "@scenesystems/effect-math": ["@scenesystems/effect-math@workspace:packages/effect-math"],
+
     "@scenesystems/effect-search": ["@scenesystems/effect-search@workspace:packages/effect-search"],
 
     "@scenesystems/effect-text": ["@scenesystems/effect-text@workspace:packages/effect-text"],
@@ -833,10 +837,6 @@
     "eastasianwidth": ["eastasianwidth@0.2.0", "", {}, "sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA=="],
 
     "effect": ["effect@3.21.0", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-PPN80qRokCd1f015IANNhrwOnLO7GrrMQfk4/lnZRE/8j7UPWrNNjPV0uBrZutI/nHzernbW+J0hdqQysHiSnQ=="],
-
-    "effect-inference": ["effect-inference@workspace:packages/effect-inference"],
-
-    "effect-math": ["effect-math@workspace:packages/effect-math"],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.321", "", {}, "sha512-L2C7Q279W2D/J4PLZLk7sebOILDSWos7bMsMNN06rK482umHUrh/3lM8G7IlHFOYip2oAg5nha1rCMxr/rs6ZQ=="],
 

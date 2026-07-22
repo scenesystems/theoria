@@ -1,6 +1,6 @@
 import * as Arr from "effect/Array"
 
-import { normalPdf, normalQuantile } from "effect-math/Distribution"
+import { normalPdf, normalQuantile } from "@scenesystems/effect-math/Distribution"
 
 import { nonCentrality } from "../../../contracts/demo/power.js"
 import type { PowerProjection } from "../../atoms/power-animation.js"

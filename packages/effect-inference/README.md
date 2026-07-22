@@ -1,17 +1,17 @@
-# `effect-inference`
+# `@scenesystems/effect-inference`
 
 Effect-native provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence for text and embeddings workloads.
 
 ## Core Model
 
-`effect-inference` separates each part of runtime truth into its own authority:
+`@scenesystems/effect-inference` separates each part of runtime truth into its own authority:
 
 - `DesiredRuntimeDescriptor` records what you want to run.
 - `ResolvedRouteDescriptor` records how that request mapped onto a provider route, base URL, endpoint, deployment, and provider model where known.
 - `ResolvedRuntimeDescriptor` records what actually happened after a call completes, including response model identity, usage, finish metadata, and provider metadata.
 - `RuntimeEvidence` joins the pre-execution resolution record with post-execution runtime truth so downstream packages can store one replay-safe artifact.
 
-This is the main value of the package: callers work against `@effect/ai` `LanguageModel` and `EmbeddingModel`, while `effect-inference` keeps the runtime metadata around those calls explicit and serializable.
+This is the main value of the package: callers work against `@effect/ai` `LanguageModel` and `EmbeddingModel`, while `@scenesystems/effect-inference` keeps the runtime metadata around those calls explicit and serializable.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ This is the main value of the package: callers work against `@effect/ai` `Langua
 import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Redacted } from "effect"
-import { HuggingFace, Runtime } from "effect-inference"
+import { HuggingFace, Runtime } from "@scenesystems/effect-inference"
 
 const program = Effect.gen(function* () {
   const resolution = yield* HuggingFace.resolveLiveRuntime({
@@ -67,7 +67,7 @@ If you want a config-driven helper for hosted and brokered text providers, `Runt
 
 ## Live Example Verification
 
-`bun run --filter 'effect-inference' examples:verify` executes the live examples behind an explicit opt-in gate. Set `EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true` to enable the harness and optionally pass `EFFECT_INFERENCE_LIVE_EXAMPLES` as a comma-separated list of `runtime-config-decoding`, `hugging-face-routed-runtime`, and `hugging-face-endpoint-runtime`.
+`bun run --filter '@scenesystems/effect-inference' examples:verify` executes the live examples behind an explicit opt-in gate. Set `EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true` to enable the harness and optionally pass `EFFECT_INFERENCE_LIVE_EXAMPLES` as a comma-separated list of `runtime-config-decoding`, `hugging-face-routed-runtime`, and `hugging-face-endpoint-runtime`.
 
 The Hugging Face config helper reads env-backed keys such as `HUGGINGFACE_ACCESS_TOKEN`, `HUGGINGFACE_SELECTION_POLICY`, `HUGGINGFACE_ENDPOINT_BASE_URL`, `HUGGINGFACE_ENDPOINT_ID`, `HUGGINGFACE_DEPLOYMENT_ID`, and `HUGGINGFACE_RUNTIME_FLAVOR`. The routed example only needs a token unless you want to override the router URL or selection policy. The endpoint example needs a token plus real endpoint coordinates.
 
@@ -87,18 +87,18 @@ The Hugging Face config helper reads env-backed keys such as `HUGGINGFACE_ACCESS
 
 ## Entry Points
 
-- `effect-inference`
-- `effect-inference/Contracts`
-- `effect-inference/Errors`
-- `effect-inference/Runtime`
-- `effect-inference/OpenAiCompatible`
-- `effect-inference/HuggingFace`
-- `effect-inference/Testing`
-- `effect-inference/experimental`
+- `@scenesystems/effect-inference`
+- `@scenesystems/effect-inference/Contracts`
+- `@scenesystems/effect-inference/Errors`
+- `@scenesystems/effect-inference/Runtime`
+- `@scenesystems/effect-inference/OpenAiCompatible`
+- `@scenesystems/effect-inference/HuggingFace`
+- `@scenesystems/effect-inference/Testing`
+- `@scenesystems/effect-inference/experimental`
 
 ## Testing
 
-`effect-inference/Testing` exports deterministic fixtures and static layers so downstream packages can prove runtime boundaries without importing live provider adapters:
+`@scenesystems/effect-inference/Testing` exports deterministic fixtures and static layers so downstream packages can prove runtime boundaries without importing live provider adapters:
 
 - `Testing.makeDesiredRuntimeDescriptor`
 - `Testing.makeResolvedRouteDescriptor`

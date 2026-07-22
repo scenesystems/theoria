@@ -1,5 +1,5 @@
 /**
- * Pure power analysis computations built on effect-math Distribution kernels.
+ * Pure power analysis computations built on @scenesystems/effect-math Distribution kernels.
  *
  * Provides standard error, non-centrality parameter, two-sided power,
  * required sample size (binary search), overlap coefficient, PDF curve
@@ -10,7 +10,7 @@
  */
 import * as Arr from "effect/Array"
 
-import { normalCdf, normalPdf, normalQuantile } from "effect-math/Distribution"
+import { normalCdf, normalPdf, normalQuantile } from "@scenesystems/effect-math/Distribution"
 
 export const defaultPowerControls: {
   readonly d: 0.5

@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
+import { logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Data, Effect, Match, Number as Num, Option, Predicate } from "effect"
-import { logStrict } from "effect-math/Numeric"
 
 import type { Distribution } from "../../contracts/Distribution.js"
 import { SamplerSearchSpaceUnsupported } from "../../Errors/index.js"

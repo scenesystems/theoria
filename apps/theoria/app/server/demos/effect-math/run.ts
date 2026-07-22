@@ -206,7 +206,7 @@ const configurationSection = (request: EffectMathStreamRequest): EvidenceSection
     {
       _tag: "Text",
       label: "Kernels used",
-      value: "normalCdf, normalQuantile, normalPdf from effect-math/Distribution"
+      value: "normalCdf, normalQuantile, normalPdf from @scenesystems/effect-math/Distribution"
     },
     {
       _tag: "Text",
@@ -246,7 +246,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
 
   return {
     id: "effect-math",
-    packageName: "effect-math",
+    packageName: "@scenesystems/effect-math",
     summary:
       `effect-math computed ${effectSizes.length} effect sizes × ${sampleSizes.length} sample sizes × ${alphaLevels.length} alpha levels of power analysis using Distribution kernels.`,
     durationMs: endedAt - startedAt,

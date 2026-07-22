@@ -34,7 +34,7 @@ export const loadAlgebraDomain = Effect.succeed(AlgebraDomainModel)
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  * import { Chunk } from "effect"
  *
  * Algebra.polyEval(Chunk.fromIterable([1, -2, 1]), 3) // 4 (= 1 − 6 + 9)
@@ -53,7 +53,7 @@ export const polyEval: (coefficients: Chunk.Chunk<number>, x: number) => number 
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  * import { Chunk } from "effect"
  *
  * Algebra.polyDerivative(Chunk.fromIterable([2, 0, -3, 1]))
@@ -72,7 +72,7 @@ export const polyDerivative: (coefficients: Chunk.Chunk<number>) => Chunk.Chunk<
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  *
  * Algebra.gcd(12, 8) // 4
  * ```
@@ -89,7 +89,7 @@ export const gcd: (a: number, b: number) => number = Integer.gcd
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  *
  * Algebra.lcm(12, 8) // 24
  * ```
@@ -105,7 +105,7 @@ export const lcm: (a: number, b: number) => number = Integer.lcm
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  *
  * Algebra.factorial(5) // 120
  * ```
@@ -251,12 +251,12 @@ export const factorialValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Algebra } from "effect-math"
+ * import { Algebra } from "@scenesystems/effect-math"
  * import { Chunk, Effect, Layer } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "effect-math/contracts"
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

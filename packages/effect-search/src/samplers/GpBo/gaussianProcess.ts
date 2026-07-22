@@ -3,8 +3,13 @@
  *
  * @since 0.1.0
  */
+import {
+  backwardSubstitutionUpper,
+  cholesky,
+  forwardSubstitutionLower,
+  transpose
+} from "@scenesystems/effect-math/LinearAlgebra"
 import { Array as Arr, Chunk, Data, Option } from "effect"
-import { backwardSubstitutionUpper, cholesky, forwardSubstitutionLower, transpose } from "effect-math/LinearAlgebra"
 
 import { dotProduct, squaredDistance } from "../shared/math.js"
 

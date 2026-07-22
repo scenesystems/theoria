@@ -39,7 +39,7 @@ export const loadLinearAlgebraDomain = Effect.succeed(LinearAlgebraDomainModel)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const result = LinearAlgebra.dot(
  *   Chunk.fromIterable([1, 2, 3]),
@@ -62,7 +62,7 @@ export const dot: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = V
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * LinearAlgebra.normL2(Chunk.fromIterable([3, 4])) // 5
  * ```
@@ -131,7 +131,7 @@ export const vectorScale: (
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * // 2×2 identity matrix times [3, 7] → [3, 7]
  * const y = LinearAlgebra.matvec(
@@ -195,7 +195,7 @@ export const frobeniusNorm = (
  * @example
  * ```ts
  * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const decomposed = LinearAlgebra.cholesky(
  *   Chunk.fromIterable([4, 2, 2, 3]),
@@ -225,7 +225,7 @@ export const cholesky = (
  * @example
  * ```ts
  * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const solved = LinearAlgebra.forwardSubstitutionLower(
  *   Chunk.fromIterable([2, 0, 1, 2]),
@@ -254,7 +254,7 @@ export const forwardSubstitutionLower = (
  * @example
  * ```ts
  * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const solved = LinearAlgebra.backwardSubstitutionUpper(
  *   Chunk.fromIterable([2, 1, 0, 2]),
@@ -284,7 +284,7 @@ export const backwardSubstitutionUpper = (
  * @example
  * ```ts
  * import { Chunk, Option } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const solved = LinearAlgebra.solveSpd(
  *   Chunk.fromIterable([4, 1, 1, 3]),
@@ -318,7 +318,7 @@ export const solveSpd = (
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const program = LinearAlgebra.dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
  *   Effect.catchTag("ShapeMismatchError", (e) =>
@@ -368,7 +368,7 @@ export const dotValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const program = LinearAlgebra.matvecValidated({
  *   data: [1, 0, 0, 1], rows: 2, cols: 2, x: [3, 7]
@@ -436,7 +436,7 @@ export const matvecValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const program = LinearAlgebra.normValidated({ values: [3, 4], kind: "L2" })
  * // Effect succeeds with 5
@@ -478,7 +478,7 @@ export const normValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { LinearAlgebra } from "effect-math"
+ * import { LinearAlgebra } from "@scenesystems/effect-math"
  *
  * const program = LinearAlgebra.transposeValidated({
  *   data: [1, 2, 3, 4], rows: 2, cols: 2
@@ -545,7 +545,7 @@ export const transposeValidated = (input: unknown) =>
  *   DiagnosticsPolicyService,
  *   LinearAlgebra,
  *   PrecisionPolicyService
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(BackendPolicyService, { policy: "scalar" }),
@@ -593,7 +593,7 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
  *   DiagnosticsPolicyService,
  *   LinearAlgebra,
  *   PrecisionPolicyService
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

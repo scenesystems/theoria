@@ -18,8 +18,8 @@ describe("integration/inference-runtime-boundary", () => {
       const parsed = parseTypeScript(exampleRuntimePath, source)
       const imports = moduleSpecifiers(parsed)
 
-      expect(imports).toContain("effect-inference/Runtime")
-      expect(imports).toContain("effect-inference/Errors")
+      expect(imports).toContain("@scenesystems/effect-inference/Runtime")
+      expect(imports).toContain("@scenesystems/effect-inference/Errors")
       expect(source).toContain("resolveLiveTextProviderRuntime")
       expect(source).toContain("liveTextProviderLayer")
       expect(imports).not.toContain("@effect/ai-openai/OpenAiClient")

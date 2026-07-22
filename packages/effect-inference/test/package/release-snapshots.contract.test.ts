@@ -30,7 +30,7 @@ describe("package/release-snapshots", () => {
         releasedVersion: releaseVersion
       })
 
-      expect(snapshot.packageName).toBe("effect-inference")
+      expect(snapshot.packageName).toBe("@scenesystems/effect-inference")
       expect(snapshot.releasedVersion).toBe(releaseVersion)
       expect(snapshot.exports.map((entry) => entry.subpath)).toEqual(
         expect.arrayContaining([

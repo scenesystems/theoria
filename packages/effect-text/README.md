@@ -56,7 +56,7 @@ lines, cursor stepping, streaming projection, or variable-width layout.
 | `Browser`                  | Browser measurer layers, cache freshness, support data, parity harness helpers                                                                       |
 | `React`                    | Prepare-identity helpers and pure prepared-layout projection helpers                                                                                 |
 | `Errors`                   | `MeasurementFailed`, `TextLayoutDecodeError`, `PrepareError`                                                                                         |
-| `Experimental.Calibration` | Additive `effect-search` studies with internal `effect-math` scoring adapters                                                                        |
+| `Experimental.Calibration` | Additive `@scenesystems/effect-search` studies with internal `@scenesystems/effect-math` scoring adapters                                            |
 
 Ownership boundaries are deliberate:
 
@@ -151,8 +151,8 @@ bun run verify:support-manifest
 
 The prepare/layout split is inspired by
 [pretext](https://github.com/chenglou/pretext). `Experimental.Calibration`
-builds on the local [`effect-search`](../effect-search/README.md) package for
-seeded studies and uses [`effect-math`](../effect-math/README.md) behind
+builds on the local [`@scenesystems/effect-search`](../effect-search/README.md) package for
+seeded studies and uses [`@scenesystems/effect-math`](../effect-math/README.md) behind
 internal adapters for loss aggregation and summary statistics.
 
 ## License

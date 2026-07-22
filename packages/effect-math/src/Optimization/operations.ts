@@ -35,7 +35,7 @@ export const loadOptimizationDomain = Effect.succeed(OptimizationDomainModel)
  *
  * @example
  * ```ts
- * import { Optimization } from "effect-math"
+ * import { Optimization } from "@scenesystems/effect-math"
  *
  * Optimization.bisect((x) => x * x - 2, 0, 2) // ≈ √2 ≈ 1.41421
  * ```
@@ -60,7 +60,7 @@ export const bisect: (
  *
  * @example
  * ```ts
- * import { Optimization } from "effect-math"
+ * import { Optimization } from "@scenesystems/effect-math"
  *
  * Optimization.goldenSection((x) => x * x, -2, 2) // ≈ 0
  * ```
@@ -144,12 +144,12 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  *
  * @example
  * ```ts
- * import { Optimization } from "effect-math"
+ * import { Optimization } from "@scenesystems/effect-math"
  * import { Effect, Layer } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "effect-math/contracts"
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

@@ -42,7 +42,7 @@ export const loadComplexDomain = Effect.succeed(ComplexDomainModel)
  *
  * @example
  * ```ts
- * import { of } from "effect-math/Complex"
+ * import { of } from "@scenesystems/effect-math/Complex"
  *
  * const z = of(3, 4)
  * z.re  // 3
@@ -116,7 +116,7 @@ export const i: Complex = new Complex({ re: 0, im: 1 })
  *
  * @example
  * ```ts
- * import { add, of } from "effect-math/Complex"
+ * import { add, of } from "@scenesystems/effect-math/Complex"
  *
  * const z = add(of(1, 2), of(3, 4))
  * // z = 4 + 6i
@@ -546,7 +546,7 @@ export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
  *
  * @example
  * ```ts
- * import { complexDerivative, sin } from "effect-math/Complex"
+ * import { complexDerivative, sin } from "@scenesystems/effect-math/Complex"
  *
  * const sinDerivative = complexDerivative(sin, 0)
  * // ≈ 1.0 (cos(0))

@@ -1,14 +1,14 @@
 /**
  * Internal scoring adapters for experimental calibration studies.
  *
- * `effect-math` stays behind this adapter so the public experimental surface
+ * `@scenesystems/effect-math` stays behind this adapter so the public experimental surface
  * exposes package-local schemas rather than foreign numeric-model types.
  *
  * @internal
  * @since 0.2.0
  */
+import { Statistics } from "@scenesystems/effect-math"
 import { Chunk, Effect, HashMap, Number as Num, Option } from "effect"
-import { Statistics } from "effect-math"
 import * as MutableRef from "effect/MutableRef"
 
 import type {
@@ -73,7 +73,7 @@ export const scoreCaseResult = (
   )
 
 /**
- * Summarize per-case losses through `effect-math` statistics kernels.
+ * Summarize per-case losses through `@scenesystems/effect-math` statistics kernels.
  *
  * @since 0.2.0
  * @category internals

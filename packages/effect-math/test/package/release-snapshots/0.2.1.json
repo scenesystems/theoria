@@ -1,5 +1,5 @@
 {
-  "packageName": "effect-math",
+  "packageName": "@scenesystems/effect-math",
   "releasedVersion": "0.2.1",
   "exports": [
     { "subpath": ".", "exportName": "AbsoluteTolerance", "kind": "value", "firstReleasedIn": "0.1.0" },

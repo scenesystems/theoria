@@ -68,7 +68,7 @@ export const standardNormalCdf: (x: number) => number = Distributions.standardNo
  *
  * @example
  * ```ts
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const z = Probability.standardNormalTransform(0.975)
  * // z ≈ 1.95996
@@ -134,7 +134,7 @@ export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = En
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const program = Probability.normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
  * // Effect succeeds with ≈ 0.3989
@@ -169,7 +169,7 @@ export const normalPdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const program = Probability.normalCdfValidated({ x: 0, mu: 0, sigma: 1 })
  * // Effect succeeds with 0.5
@@ -205,7 +205,7 @@ export const normalCdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const program = Probability.uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
  * // Effect succeeds with 1
@@ -250,7 +250,7 @@ export const uniformPdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const program = Probability.uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
  * // Effect succeeds with 0.5
@@ -294,7 +294,7 @@ export const uniformCdfValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Probability } from "effect-math"
+ * import { Probability } from "@scenesystems/effect-math"
  *
  * const program = Probability.entropyValidated({ probabilities: [0.5, 0.5] })
  * // Effect succeeds with ln(2) ≈ 0.6931
@@ -337,7 +337,7 @@ export const entropyValidated = (input: unknown) =>
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
  *   Probability
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
