@@ -1,8 +1,8 @@
 /**
  * Deterministic, durable fingerprint for cache key identity.
  *
- * The canonical fingerprinting function consumed by `effect-search/Cache`
- * and `effect-dsp/Cache`. Composes three stages:
+ * The canonical fingerprinting function consumed by `@scenesystems/effect-search/Cache`
+ * and `@scenesystems/effect-dsp/Cache`. Composes three stages:
  *
  * 1. **Canonicalize**: RFC 8785 JCS — sorted keys, ES2015 numbers
  * 2. **Hash**: BLAKE3-256 (via `@noble/hashes/blake3.js`)

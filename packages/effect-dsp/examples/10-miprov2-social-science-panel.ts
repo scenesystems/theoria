@@ -22,8 +22,8 @@
  * Run: bun run examples/10-miprov2-social-science-panel.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
   makeStandardEvents,
   makeStandardModuleState,

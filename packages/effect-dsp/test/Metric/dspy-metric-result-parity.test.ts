@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Effect, Option, Schema } from "effect"
-import * as Metric from "effect-dsp/Metric"
 
 import { makeFixtureRegistry, MetricScoreFeedbackFixtureSchema } from "../helpers/dspy-fixtures/index.js"
 

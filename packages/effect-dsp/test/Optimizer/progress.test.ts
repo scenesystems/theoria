@@ -2,8 +2,8 @@
  * Optimizer progress formatting and semantic-summary contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import { Array as Arr, Effect, Option, Ref, Schema, Stream } from "effect"
-import * as Optimizer from "effect-dsp/Optimizer"
 
 const sampleMIPROEvents = Arr.make(
   Optimizer.MIPROv2Event.Phase3Started({ numTrials: 6 }),

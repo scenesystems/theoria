@@ -16,14 +16,14 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 import {
   browserParityArtifactRelativePath,
   browserParityCasesForProfile,
   browserParityLayer,
   BrowserSupportManifest,
   type BrowserSupportProfileType
-} from "effect-text/browser"
+} from "@scenesystems/effect-text/browser"
 
 const renderProfileReport = (profile: BrowserSupportProfileType) =>
   Effect.gen(function*() {

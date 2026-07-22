@@ -3,10 +3,10 @@
  *
  * @since 0.2.0
  */
+import type { Study } from "@scenesystems/effect-search"
+import { Sampler, SearchSpace } from "@scenesystems/effect-search"
 import { Effect, Option } from "effect"
 import type { Layer } from "effect"
-import type { Study } from "effect-search"
-import { Sampler, SearchSpace } from "effect-search"
 
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import { evaluateProfile } from "./evaluation.js"

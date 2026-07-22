@@ -556,7 +556,7 @@ describe("Governance", () => {
       Effect.gen(function*() {
         const sourceFile = yield* readParsedProjectFile("src/contracts/ObjectiveProjection.ts")
 
-        expect(moduleSpecifiers(sourceFile)).toContain("effect-search/Contracts")
+        expect(moduleSpecifiers(sourceFile)).toContain("@scenesystems/effect-search/Contracts")
       }).pipe(Effect.provide(BunContext.layer)))
 
     it.effect("keeps deterministic seed stepping delegated to effect-search shared contracts", () =>
@@ -573,7 +573,7 @@ describe("Governance", () => {
 
         const seedContract = yield* readParsedProjectFile("src/contracts/DeterministicSeed.ts")
 
-        expect(moduleSpecifiers(seedContract)).toContain("effect-search/Sampler")
+        expect(moduleSpecifiers(seedContract)).toContain("@scenesystems/effect-search/Sampler")
         expect(exportedDeclarationNames(seedContract)).toContain("normalizeDeterministicSeed")
         expect(exportedDeclarationNames(seedContract)).toContain("nextDeterministicSeed")
       }).pipe(Effect.provide(BunContext.layer)))

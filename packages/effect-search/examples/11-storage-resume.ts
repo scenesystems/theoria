@@ -16,7 +16,7 @@ import { FileSystem } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Schema } from "effect"
 
-import { Contracts, Sampler, SearchSpace, Study } from "effect-search"
+import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const objectiveValue = (x: number, y: number): number => (x - 0.4) ** 2 + (y - 1.2) ** 2
 

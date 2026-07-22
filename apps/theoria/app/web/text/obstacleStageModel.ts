@@ -1,4 +1,4 @@
-import type { Text } from "effect-text"
+import type { Text } from "@scenesystems/effect-text"
 import * as Arr from "effect/Array"
 
 import { obstacleGapPx } from "../../contracts/demo/text.js"

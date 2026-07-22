@@ -30,7 +30,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
 
   return {
     id: "effect-text",
-    packageName: "effect-text",
+    packageName: "@scenesystems/effect-text",
     summary:
       "Browser-backed measurement, prepared-handle reuse, obstacle-aware reflow, and optional calibration work — all grounded in the shipped effect-text browser and React surfaces.",
     durationMs: endedAt - startedAt,

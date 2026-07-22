@@ -1,5 +1,5 @@
 /**
- * DspCache layer constructors delegating to `effect-search/Cache` shared
+ * DspCache layer constructors delegating to `@scenesystems/effect-search/Cache` shared
  * authority backends.
  *
  * @since 0.1.0
@@ -8,7 +8,6 @@ import type * as PlatformError from "@effect/platform/Error"
 import type * as FileSystem from "@effect/platform/FileSystem"
 import type * as Path from "@effect/platform/Path"
 import type * as SqlClient from "@effect/sql/SqlClient"
-import { Effect, Layer, type Schema } from "effect"
 import {
   type CacheBackendError,
   type CacheError,
@@ -18,7 +17,8 @@ import {
   SchemaCacheFileSystem,
   SchemaCacheMemory,
   SchemaCacheSql
-} from "effect-search/Cache"
+} from "@scenesystems/effect-search/Cache"
+import { Effect, Layer, type Schema } from "effect"
 
 import { buildDspCacheKey, DspCache, DspCacheKey } from "./model.js"
 
@@ -27,7 +27,7 @@ const DSP_CACHE_VERSION = "v1"
 
 /**
  * Live implementation of {@link DspCache} backed by a {@link SchemaCache}
- * service from `effect-search/Cache`. Constructs a `CacheDescriptor`
+ * service from `@scenesystems/effect-search/Cache`. Constructs a `CacheDescriptor`
  * per-resolve call using the caller's `outputSchema` as the value codec
  * and {@link DspCacheKey} as the key codec.
  *

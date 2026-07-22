@@ -1,5 +1,5 @@
+import { Study } from "@scenesystems/effect-search"
 import { Effect, Queue } from "effect"
-import { Study } from "effect-search"
 
 import type { CanonicalStep } from "../../contracts/canonical-step.js"
 import { DspRunFrame } from "../../contracts/demo/dsp-runtime.js"

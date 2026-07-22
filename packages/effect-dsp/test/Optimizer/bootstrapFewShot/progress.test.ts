@@ -2,8 +2,8 @@
  * BootstrapFewShot progress formatting and summary contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import { Array as Arr } from "effect"
-import * as Optimizer from "effect-dsp/Optimizer"
 
 describe("Optimizer.bootstrapFewShot progress", () => {
   it("formats fallback lifecycle events with deterministic detail text", () => {

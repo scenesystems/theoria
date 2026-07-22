@@ -6,7 +6,7 @@ import type { RunData } from "../../app/contracts/run.js"
 export const effectTextCardFixture: Card = {
   id: "effect-text",
   title: "effect-text",
-  packageName: "effect-text",
+  packageName: "@scenesystems/effect-text",
   description: "Effect-native text preparation, measurement, and greedy multiline layout",
   useCase: "Deterministic semantic text layout projection for renderer authority.",
   summary: "Browser-backed measurement and prepared-handle reuse across a multi-domain text corpus.",
@@ -16,7 +16,7 @@ export const effectTextCardFixture: Card = {
   group: "effect",
   releaseState: "published",
   version: "0.0.0",
-  npmUrl: "https://www.npmjs.com/package/effect-text",
+  npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
   repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
   license: "MIT"
 }
@@ -29,7 +29,7 @@ export const errorFixture = new DemoExecutionError({
 
 export const runDataFixture = (summary: string): RunData => ({
   id: "effect-text",
-  packageName: "effect-text",
+  packageName: "@scenesystems/effect-text",
   summary,
   durationMs: 3,
   program: {

@@ -2,9 +2,9 @@
  * Signature validation and default instruction derivation.
  */
 import { describe, expect, it } from "@effect/vitest"
+import type { SignatureError } from "@scenesystems/effect-dsp/Errors"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Cause, Effect, Exit, Option, Schema } from "effect"
-import type { SignatureError } from "effect-dsp/Errors"
-import * as Signature from "effect-dsp/Signature"
 
 describe("Signature", () => {
   describe("validation", () => {

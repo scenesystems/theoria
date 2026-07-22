@@ -5,8 +5,8 @@
  * @since 0.1.0
  * @internal
  */
+import { Study } from "@scenesystems/effect-search"
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
-import { Study } from "effect-search"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import type { Example } from "../../../Example/index.js"

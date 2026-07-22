@@ -3,8 +3,8 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Layer, Ref, Schema } from "effect"
-import { MockLanguageModel } from "effect-dsp/test"
 import { callLm, callLmText } from "../../src/internal/lm.js"
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })

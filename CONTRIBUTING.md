@@ -37,8 +37,8 @@ bun run build       # Build
 Per-package:
 
 ```sh
-bun run --filter effect-search check
-bun run --filter effect-search test
+bun run --filter @scenesystems/effect-search check
+bun run --filter @scenesystems/effect-search test
 ```
 
 ## Fixture Generation
@@ -54,3 +54,30 @@ bun run changeset
 ```
 
 Maintainers handle version bumps and publishing.
+
+### Public npm packages from a private repository
+
+Published workspace packages use public npm access even when the GitHub repository is private. Public consumers do not need GitHub access or an npm read token, but everything included in an npm tarball is publicly downloadable.
+
+Provenance is disabled because npm cannot generate provenance attestations from a private source repository. Keep Trusted Publishing configured separately on every npm package with these values:
+
+| Field                | Value          |
+| -------------------- | -------------- |
+| Provider             | GitHub Actions |
+| Organization or user | `scenesystems` |
+| Repository           | `theoria`      |
+| Workflow filename    | `publish.yml`  |
+| Environment          | `npm`          |
+| Allowed action       | `npm publish`  |
+
+The first releases under the new scoped identities must exist on npm before their Trusted Publishers can be configured. After `bun run release:check`, bootstrap them with maintainer authentication and provenance disabled:
+
+```sh
+npm publish packages/effect-search/dist --access public --provenance=false
+npm publish packages/effect-dsp/dist --access public --provenance=false
+npm publish packages/effect-text/dist --access public --provenance=false
+```
+
+`@scenesystems/digest` retains its existing public identity and does not require a visibility migration. Deprecate the old unscoped `effect-search`, `effect-dsp`, and `effect-text` packages only after the replacement packages are published and consumers have migrated.
+
+If the GitHub repository becomes public again, provenance can be re-enabled for subsequent releases by restoring `publishConfig.provenance` to `true`. Provenance cannot be added retroactively to existing npm versions.

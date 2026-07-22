@@ -3,8 +3,8 @@
  * study runtime helper.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Effect, Number as Num, Ref } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
 
 const singleChoiceSpace = () =>
   SearchSpace.unsafeMake({

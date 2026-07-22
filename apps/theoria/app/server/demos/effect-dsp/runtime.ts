@@ -2,7 +2,7 @@ import { Clock, Effect, Match, Option, Ref, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
 
 import {
   defaultDspModuleType,

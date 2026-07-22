@@ -6,12 +6,12 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Signature } from "@scenesystems/effect-dsp"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
+import { Contracts } from "@scenesystems/effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Signature } from "effect-dsp"
-import { ModuleParams } from "effect-dsp/contracts"
-import { MockLanguageModel } from "effect-dsp/test"
-import { Contracts } from "effect-search"
-import { Sampler, SearchSpace, Study } from "effect-search"
 import {
   makeStandardEvents,
   makeStandardModuleState,

@@ -4,8 +4,8 @@
  * @since 0.1.0
  * @internal
  */
+import { streamFromEmitter } from "@scenesystems/effect-search/Study"
 import type { Effect, Stream } from "effect"
-import { streamFromEmitter } from "effect-search/Study"
 import type { MIPROv2Event as MIPROv2EventType } from "../events.js"
 import type { Phase3EventSink } from "../phase3-model.js"
 

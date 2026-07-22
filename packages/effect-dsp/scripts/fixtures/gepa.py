@@ -422,11 +422,11 @@ REPLAY_PARAMS = {
 
 GOVERNANCE_PUBLIC_SEAMS = {
     "allowedEffectSearchImports": [
-        "effect-search/Pareto",
-        "effect-search/Sampler",
-        "effect-search/Study",
+        "@scenesystems/effect-search/Pareto",
+        "@scenesystems/effect-search/Sampler",
+        "@scenesystems/effect-search/Study",
     ],
-    "forbiddenEffectSearchImportPrefixes": ["effect-search/internal/"],
+    "forbiddenEffectSearchImportPrefixes": ["@scenesystems/effect-search/internal/"],
     "allowedRuntimeImportOwners": [
         "src/contracts/DeterministicSeed.ts",
         "src/optimizers/GEPA/pareto.ts",

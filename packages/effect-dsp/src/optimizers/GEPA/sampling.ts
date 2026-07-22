@@ -5,7 +5,6 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import { Array as Arr } from "effect"
 import {
   sampleWeightedIndices,
   sampleWeightedPair,
@@ -13,7 +12,8 @@ import {
   type SelectWeightedIndexOptions,
   selectWeightedIndexWithPolicy,
   type WeightedIndex
-} from "effect-search/Sampler"
+} from "@scenesystems/effect-search/Sampler"
+import { Array as Arr } from "effect"
 
 import { type ParentSelectionWeight } from "./model.js"
 

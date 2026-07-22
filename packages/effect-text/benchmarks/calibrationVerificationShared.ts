@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { Sampler, Study } from "effect-search"
+import { Sampler, Study } from "@scenesystems/effect-search"
 import * as Arr from "effect/Array"
 
 import { Experimental } from "../src/index.js"

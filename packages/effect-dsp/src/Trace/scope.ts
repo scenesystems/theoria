@@ -62,7 +62,7 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
  *
  * @example
  * ```ts
- * import { Trace } from "effect-dsp"
+ * import { Trace } from "@scenesystems/effect-dsp"
  * import { Effect } from "effect"
  *
  * const program = Effect.gen(function*() {

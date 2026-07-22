@@ -14,11 +14,11 @@ const manualChunkNameFor = (id: string): string | undefined => {
     return "effect-core"
   }
 
-  if (id.includes("/packages/effect-text/") || id.includes("/node_modules/effect-text/")) {
+  if (id.includes("/packages/effect-text/") || id.includes("/node_modules/@scenesystems/effect-text/")) {
     return "effect-text"
   }
 
-  if (id.includes("/packages/effect-search/") || id.includes("/node_modules/effect-search/")) {
+  if (id.includes("/packages/effect-search/") || id.includes("/node_modules/@scenesystems/effect-search/")) {
     return "effect-search"
   }
 

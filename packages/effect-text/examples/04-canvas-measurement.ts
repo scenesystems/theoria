@@ -16,7 +16,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect, Layer, Match } from "effect"
 
-import { Browser, Contracts, Text } from "effect-text"
+import { Browser, Contracts, Text } from "@scenesystems/effect-text"
 
 class DemoCanvasContext {
   direction: "inherit" = "inherit"

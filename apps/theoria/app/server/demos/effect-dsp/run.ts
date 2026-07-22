@@ -41,7 +41,7 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
 
     return {
       id: "effect-dsp",
-      packageName: "effect-dsp",
+      packageName: "@scenesystems/effect-dsp",
       summary:
         "effect-dsp froze the approved DSP manifest, evaluated a typed module, optimized demonstrations, and re-evaluated the same scenario under shared runtime authority.",
       durationMs: endedAt - startedAt,

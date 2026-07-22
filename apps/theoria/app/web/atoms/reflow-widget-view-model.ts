@@ -1,6 +1,6 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import type { Text } from "effect-text"
+import type { Text } from "@scenesystems/effect-text"
 import * as Arr from "effect/Array"
 
 import { corpus } from "../../contracts/corpus.js"

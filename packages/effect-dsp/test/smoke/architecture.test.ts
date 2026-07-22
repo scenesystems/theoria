@@ -312,7 +312,7 @@ const bootstrapFewShotStreamingOwnership: Effect.Effect<boolean, never, FileSyst
 
     if (source === "") return false
 
-    return source.includes("from \"effect-search/Study\"") && source.includes("streamFromEmitter(")
+    return source.includes("from \"@scenesystems/effect-search/Study\"") && source.includes("streamFromEmitter(")
   }
 )
 
@@ -322,7 +322,7 @@ const bootstrapRsEffectSearchSeamOwnership: Effect.Effect<boolean, never, FileSy
 
     if (source === "") return false
 
-    return source.includes("from \"effect-search\"") && source.includes("Study.maximize(")
+    return source.includes("from \"@scenesystems/effect-search\"") && source.includes("Study.maximize(")
   })
 
 const ensembleConcurrencyOwnership: Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
@@ -374,7 +374,7 @@ const miproSearchEffectSearchSeamOwnership: Effect.Effect<boolean, never, FileSy
 
     if (searchSource === "" || searchSpaceSource === "") return false
 
-    return searchSource.includes("from \"effect-search\"") &&
+    return searchSource.includes("from \"@scenesystems/effect-search\"") &&
       searchSpaceSource.includes("SearchSpace.categorical(") &&
       searchSource.includes("SearchSampler.tpe(") &&
       searchSource.includes("Study.maximize(")
@@ -421,7 +421,7 @@ const m5InteropAdapterOwnership: Effect.Effect<boolean, never, FileSystem.FileSy
 
     return adapterSource.includes("from \"./askTell.js\"") &&
       adapterSource.includes("from \"./progress.js\"") &&
-      askTellSource.includes("from \"effect-search\"") &&
+      askTellSource.includes("from \"@scenesystems/effect-search\"") &&
       askTellSource.includes("Study.open(") &&
       askTellSource.includes("Study.ask(") &&
       askTellSource.includes("Study.tell(") &&

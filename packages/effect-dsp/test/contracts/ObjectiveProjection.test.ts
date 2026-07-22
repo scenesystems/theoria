@@ -2,9 +2,9 @@
  * Objective projection seams from Evaluate reports to effect-search objective values.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Effect, Option, Schema } from "effect"
-import * as Contracts from "effect-dsp/contracts"
-import * as Evaluate from "effect-dsp/Evaluate"
 
 const makeReport = () =>
   new Evaluate.Report({

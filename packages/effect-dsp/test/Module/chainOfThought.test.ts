@@ -3,12 +3,12 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { Demo } from "@scenesystems/effect-dsp/Example"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Layer, Record, Ref, Schema } from "effect"
-import { ModuleParams } from "effect-dsp/contracts"
-import { Demo } from "effect-dsp/Example"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-import { MockLanguageModel } from "effect-dsp/test"
 
 const makeQaSignature = () =>
   Signature.make(

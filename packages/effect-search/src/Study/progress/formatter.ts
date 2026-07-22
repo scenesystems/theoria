@@ -20,7 +20,7 @@ const ANSI_RED = "\u001b[31m"
  * @example
  * ```ts
  * import { Schema } from "effect"
- * import { TerminalRenderModeSchema } from "effect-search/Study"
+ * import { TerminalRenderModeSchema } from "@scenesystems/effect-search/Study"
  *
  * const mode = Schema.decodeSync(TerminalRenderModeSchema)("plain")
  * ```
@@ -38,7 +38,7 @@ export type TerminalRenderMode = Schema.Schema.Type<typeof TerminalRenderModeSch
  *
  * @example
  * ```ts
- * import { ProgressLine } from "effect-search/Study"
+ * import { ProgressLine } from "@scenesystems/effect-search/Study"
  *
  * const line = new ProgressLine({ channel: "stdout", text: "trial#1 started" })
  * ```
@@ -208,8 +208,8 @@ const formatEvent = (event: StudyEvent.StudyEvent, renderMode: TerminalRenderMod
  *
  * @example
  * ```ts
- * import { formatTerminalProgressEvent } from "effect-search/Study"
- * import { TrialCompleted } from "effect-search/StudyEvent"
+ * import { formatTerminalProgressEvent } from "@scenesystems/effect-search/Study"
+ * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
  *
  * const lines = formatTerminalProgressEvent(
  *   TrialCompleted({ trialNumber: 1, value: 0.42 }),

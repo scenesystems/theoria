@@ -6,11 +6,11 @@ import * as Response from "@effect/ai/Response"
 import * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
+import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-import { MockLanguageModel } from "effect-dsp/test"
-import * as Trace from "effect-dsp/Trace"
 
 const makeQaSignature = () =>
   Signature.make(

@@ -1,12 +1,14 @@
 ---
-description: Development guidelines for effect-dsp
+description: Development guidelines for @scenesystems/effect-dsp
 globs: "**/*.ts, **/*.mts"
 alwaysApply: true
 ---
 
-# effect-dsp
+# @scenesystems/effect-dsp
 
 Effect-native implementation of the DSPy paradigm for TypeScript. Programming — not prompting — language models, with Effect.
+
+Runtime search primitives come from `@scenesystems/effect-search`.
 
 ## Commands
 

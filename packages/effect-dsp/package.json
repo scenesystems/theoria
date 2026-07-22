@@ -1,5 +1,5 @@
 {
-  "name": "effect-dsp",
+  "name": "@scenesystems/effect-dsp",
   "version": "0.1.5",
   "type": "module",
   "description": "Effect-native DSPy — programming, not prompting, language models",
@@ -24,7 +24,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true,
+    "provenance": false,
     "directory": "dist"
   },
   "exports": {
@@ -62,7 +62,7 @@
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
     "effect-math": "workspace:^",
-    "effect-search": "workspace:^"
+    "@scenesystems/effect-search": "workspace:^"
   },
   "devDependencies": {
     "effect-inference": "workspace:^",

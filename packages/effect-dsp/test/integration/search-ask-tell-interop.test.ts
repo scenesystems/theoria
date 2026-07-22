@@ -2,8 +2,8 @@
  * Ask/tell + progress composition through the effectSearchInterop seam.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Fiber, Option, Ref, Stream } from "effect"
-import { SearchSpace } from "effect-search"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
 const makeSpace = () =>

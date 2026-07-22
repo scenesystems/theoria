@@ -2,8 +2,8 @@
  * Metric composition contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Effect } from "effect"
-import * as Metric from "effect-dsp/Metric"
 
 describe("Metric.compose", () => {
   it.effect("aggregates child metrics into a deterministic score", () =>

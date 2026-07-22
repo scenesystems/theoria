@@ -15,7 +15,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Effect, Stream } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const objectiveValue = (x: number, depth: number): number => Math.abs(x - 0.35) + depth * 0.05
 

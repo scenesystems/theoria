@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 import { type CorpusEntry, customCorpusEntry } from "../../../contracts/corpus.js"
 import { effectTextProjectionWidths as widths } from "../../../contracts/demo/text.js"
 import type { EvidenceItem, EvidenceSection } from "../../../contracts/evidence.js"

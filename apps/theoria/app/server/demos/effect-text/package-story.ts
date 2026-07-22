@@ -1,7 +1,7 @@
+import * as Browser from "@scenesystems/effect-text/browser"
+import * as Experimental from "@scenesystems/effect-text/experimental"
+import * as TextReact from "@scenesystems/effect-text/react"
 import { Effect } from "effect"
-import * as Browser from "effect-text/browser"
-import * as Experimental from "effect-text/experimental"
-import * as TextReact from "effect-text/react"
 
 import type { EvidenceSection } from "../../../contracts/evidence.js"
 

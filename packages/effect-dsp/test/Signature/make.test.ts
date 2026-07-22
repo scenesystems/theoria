@@ -2,8 +2,8 @@
  * Signature.make: creation, field extraction, type-level correctness.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Option, Schema } from "effect"
-import * as Signature from "effect-dsp/Signature"
 
 describe("Signature", () => {
   describe("make", () => {

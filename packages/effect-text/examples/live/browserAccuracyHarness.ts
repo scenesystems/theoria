@@ -8,7 +8,7 @@ import {
   type BrowserParityArtifactType,
   BrowserSupportManifest,
   renderBrowserParityArtifact
-} from "effect-text/browser"
+} from "@scenesystems/effect-text/browser"
 
 const normalizeArtifactText = (text: string): string => text.trimEnd()
 

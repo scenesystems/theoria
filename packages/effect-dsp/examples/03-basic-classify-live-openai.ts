@@ -12,8 +12,8 @@
  * Run: bun run examples/03-basic-classify-live-openai.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Module, Signature } from "@scenesystems/effect-dsp"
 import { Effect, Schema } from "effect"
-import { Module, Signature } from "effect-dsp"
 
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 

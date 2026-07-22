@@ -15,7 +15,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const qualityScore = (temperature: number, rerankDepth: number, maxTokens: number): number =>
   (1 - Math.abs(temperature - 0.65))

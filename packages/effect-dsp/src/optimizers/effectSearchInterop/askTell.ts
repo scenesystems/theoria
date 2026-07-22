@@ -5,11 +5,11 @@
  *
  * @since 0.1.0
  */
+import { Pareto, Sampler, Study } from "@scenesystems/effect-search"
+import type { ObjectiveValue } from "@scenesystems/effect-search/Contracts"
+import type { SearchError } from "@scenesystems/effect-search/Errors"
+import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import { type Effect, Match, Option } from "effect"
-import { Pareto, Sampler, Study } from "effect-search"
-import type { ObjectiveValue } from "effect-search/Contracts"
-import type { SearchError } from "effect-search/Errors"
-import type * as SearchSpace from "effect-search/SearchSpace"
 import type * as Scope from "effect/Scope"
 
 import {

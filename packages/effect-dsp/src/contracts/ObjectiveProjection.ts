@@ -5,8 +5,8 @@
  *
  * @since 0.1.0
  */
+import type { ObjectiveValue as EffectSearchObjectiveValue } from "@scenesystems/effect-search/Contracts"
 import { Array as Arr, Effect, Option, Order, Record, Schema } from "effect"
-import type { ObjectiveValue as EffectSearchObjectiveValue } from "effect-search/Contracts"
 import { ExampleFailure, type Report } from "../Evaluate/report.js"
 
 /**

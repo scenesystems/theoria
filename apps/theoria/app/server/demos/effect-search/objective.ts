@@ -9,8 +9,8 @@
  */
 import { Data, Effect, Match } from "effect"
 
-import type { Sampler } from "effect-search"
-import { SearchSpace, Study } from "effect-search"
+import type { Sampler } from "@scenesystems/effect-search"
+import { SearchSpace, Study } from "@scenesystems/effect-search"
 
 import { type Config2D, defaultTrialBudget, objectiveAt, searchBounds } from "../../../contracts/demo/objective.js"
 

@@ -1,5 +1,5 @@
 {
-  "name": "effect-text",
+  "name": "@scenesystems/effect-text",
   "version": "0.2.1",
   "type": "module",
   "description": "Effect-native text preparation, measurement, and greedy multiline layout",
@@ -24,7 +24,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true,
+    "provenance": false,
     "directory": "dist"
   },
   "exports": {
@@ -69,7 +69,7 @@
   },
   "dependencies": {
     "effect-math": "workspace:^",
-    "effect-search": "workspace:^"
+    "@scenesystems/effect-search": "workspace:^"
   },
   "devDependencies": {
     "@theoria/source-proof": "workspace:*"

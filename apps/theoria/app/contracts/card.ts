@@ -105,7 +105,7 @@ export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-search",
     title: "effect-search",
-    packageName: "effect-search",
+    packageName: "@scenesystems/effect-search",
     description:
       "Runs optimization studies with adaptive samplers when each evaluation is too expensive for trial and error.",
     useCase: "Hyperparameter tuning, experiment design, and other expensive search problems.",
@@ -115,7 +115,7 @@ export const cards: ReadonlyArray<Card> = [
     group: "effect",
     releaseState: "published",
     version: "0.2.0",
-    npmUrl: "https://www.npmjs.com/package/effect-search",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-search",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
     license: "MIT",
     interactiveLabel: "Live Optimization"
@@ -123,7 +123,7 @@ export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-dsp",
     title: "effect-dsp",
-    packageName: "effect-dsp",
+    packageName: "@scenesystems/effect-dsp",
     description: "Turns language-model workflows into typed programs you can trace, evaluate, and optimize.",
     useCase: "Build, evaluate, and optimize LLM workflows without hand-managing prompts.",
     summary: "Run a typed classifier and compare it with a heuristic baseline.",
@@ -132,7 +132,7 @@ export const cards: ReadonlyArray<Card> = [
     group: "effect",
     releaseState: "published",
     version: "0.1.4",
-    npmUrl: "https://www.npmjs.com/package/effect-dsp",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-dsp",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
     license: "MIT",
     interactiveLabel: "Typed Evaluation"
@@ -140,7 +140,7 @@ export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-text",
     title: "effect-text",
-    packageName: "effect-text",
+    packageName: "@scenesystems/effect-text",
     description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
     useCase: "Prepare text once, then reflow it across widths and obstacles.",
     summary: "Measure in the browser and reflow the same text as the container changes.",
@@ -149,7 +149,7 @@ export const cards: ReadonlyArray<Card> = [
     group: "effect",
     releaseState: "published",
     version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/effect-text",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
     license: "MIT",
     interactiveLabel: "Live Reflow"

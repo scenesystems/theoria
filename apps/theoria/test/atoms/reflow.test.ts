@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Text } from "@scenesystems/effect-text"
 import { Effect, Option, Order } from "effect"
-import { Text } from "effect-text"
 import * as Arr from "effect/Array"
 
 import { corpus } from "../../app/contracts/corpus.js"

@@ -35,7 +35,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
-import { Contracts, Sampler, SearchSpace, Study } from "effect-search"
+import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const CONTACT_LOAD: Readonly<Record<string, number>> = {
   daily: 1.0,

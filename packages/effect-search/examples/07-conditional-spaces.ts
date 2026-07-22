@@ -15,7 +15,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const linearLoss = (learningRate: number, regularization: number): number =>
   (Math.log10(learningRate) - Math.log10(0.02)) ** 2 + regularization * 0.4

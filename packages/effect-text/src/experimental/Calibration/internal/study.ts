@@ -4,10 +4,10 @@
  * @internal
  * @since 0.2.0
  */
+import { Study } from "@scenesystems/effect-search"
+import type * as EffectSearch from "@scenesystems/effect-search"
 import { Chunk, Effect, Number as Num, Option, Ref, Stream } from "effect"
 import type { Layer } from "effect"
-import { Study } from "effect-search"
-import type * as EffectSearch from "effect-search"
 import * as Arr from "effect/Array"
 
 import type { MeasurementCache, WordSegmenter } from "../../../contracts/index.js"

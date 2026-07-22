@@ -17,7 +17,7 @@
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 
 const prepareInput: Text.PrepareInputType = {
   text: "colouration",

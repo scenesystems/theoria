@@ -2,11 +2,11 @@
  * MIPROv2 Phase 1 demo-candidate generation contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { Example } from "@scenesystems/effect-dsp/Example"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
-import { ModuleParams } from "effect-dsp/contracts"
-import { Example } from "effect-dsp/Example"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 import { collectModuleParamRefs } from "../../../src/internal/module-params.js"
 import { generateDemoCandidates } from "../../../src/optimizers/MIPROv2/bootstrap.js"
 

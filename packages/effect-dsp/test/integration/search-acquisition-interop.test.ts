@@ -2,8 +2,8 @@
  * Acquisition strategy interop proofs through effectSearchInterop.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { SearchSpace } from "@scenesystems/effect-search"
 import { Effect, Either, Schema } from "effect"
-import { SearchSpace } from "effect-search"
 import { effectSearchInterop } from "../../src/optimizers/effectSearchInterop/index.js"
 
 const makeSpace = () =>

@@ -2,8 +2,8 @@
  * Output parsing tests for structured and text paths.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { ParseOutputError } from "@scenesystems/effect-dsp/Errors"
 import { Array as Arr, Cause, Effect, Exit, Option, Ref, Schema, TestClock } from "effect"
-import { ParseOutputError } from "effect-dsp/Errors"
 import { parseStructuredOutput, parseTextOutput } from "../../src/internal/parse/decode.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../src/internal/parse/retry.js"
 import { defaultParseFeedbackTemplate, defaultParseRetrySchedule } from "../../src/Module/predict/policy.js"

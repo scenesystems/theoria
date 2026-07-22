@@ -52,11 +52,11 @@ Sometimes you can't write a formula for what you're optimizing. You can run a th
 ## Installation
 
 ```sh
-npm install effect-search effect @effect/platform @effect/experimental
+npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
 # or
-pnpm add effect-search effect @effect/platform @effect/experimental
+pnpm add @scenesystems/effect-search effect @effect/platform @effect/experimental
 # or
-bun add effect-search effect @effect/platform @effect/experimental
+bun add @scenesystems/effect-search effect @effect/platform @effect/experimental
 ```
 
 `effect`, `@effect/platform`, and `@effect/experimental` are peer dependencies — install them alongside `effect-search`.
@@ -67,7 +67,7 @@ Tell it what to search, how to score, and how many tries you want:
 
 ```ts typecheck
 import { Effect, Match } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   // 1. Define what you're searching over
@@ -255,7 +255,7 @@ Find the temperature, system prompt style, and few-shot count that produce the b
 
 ```ts
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -288,7 +288,7 @@ Search over model hyperparameters to minimize validation loss:
 
 ```ts
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -321,7 +321,7 @@ Find the worker count, batch size, and strategy that maximize throughput:
 
 ```ts
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -356,7 +356,7 @@ When you care about trade-offs — not just one number — use `directions` to o
 
 ```ts
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study, Contracts } from "effect-search"
+import { Sampler, SearchSpace, Study, Contracts } from "@scenesystems/effect-search"
 
 // Each setting has a latency cost and a quality cost
 const costs: Record<string, { latency: number; quality: number }> = {
@@ -402,10 +402,10 @@ Effect.runPromise(program)
 
 ## Pareto utilities
 
-You can access Pareto and hypervolume math directly via `Pareto` from the root package, or as a subpath import from `effect-search/Pareto`.
+You can access Pareto and hypervolume math directly via `Pareto` from the root package, or as a subpath import from `@scenesystems/effect-search/Pareto`.
 
 ```ts
-import { Pareto } from "effect-search"
+import { Pareto } from "@scenesystems/effect-search"
 
 const points = [
   [1, 4],
@@ -429,7 +429,7 @@ Use ask/tell mode when evaluation happens outside `Study.optimize`, such as exte
 
 ```ts
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.scoped(
   Effect.gen(function* () {
@@ -526,7 +526,7 @@ When your evaluation has a natural fidelity axis — training epochs, data fract
 
 ```ts
 import { Effect } from "effect"
-import { Scheduler, SearchSpace, Study } from "effect-search"
+import { Scheduler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -780,7 +780,7 @@ Watch optimization happen in real time with the first-party terminal reporter:
 
 ```ts
 import { Chunk, Effect, Stream } from "effect"
-import { Study } from "effect-search"
+import { Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const events = yield* Study.optimizeStream({
@@ -831,7 +831,7 @@ Study.optimizeStream({
 For one-shot event emission (for example, in manual orchestration adapters), use `Study.reportTerminalProgress`:
 
 ```ts
-import { Study, StudyEvent } from "effect-search"
+import { Study, StudyEvent } from "@scenesystems/effect-search"
 
 yield * Study.reportTerminalProgress(StudyEvent.StudyCompleted({ completionReason: "budgetExhausted" }), { sink })
 ```
@@ -843,7 +843,7 @@ To inspect optimization spans and fibers in real time, provide `DevTools.layer()
 ```ts
 import * as DevTools from "@effect/experimental/DevTools"
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({ x: SearchSpace.float(-5, 5) })
@@ -868,7 +868,7 @@ When your objective hits external APIs (LLMs, embedding endpoints, evaluators), 
 ```ts
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { Effect } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
@@ -967,7 +967,7 @@ import {
   Study,
   StudyEvent,
   Trial
-} from "effect-search"
+} from "@scenesystems/effect-search"
 ```
 
 | Module         | Key exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -983,7 +983,7 @@ import {
 | `Pareto`       | `dominates`, `nonDominatedIndices`, `nonDominatedSort`, `nonDominatedRanks`, `hypervolume2d`, `hypervolumeContribution2d`, `ObjectiveVectorSchema`                                                                                                                                                                                                                                                                                                                                       |
 | `Experimental` | Unstable extension surface for advanced integrations                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
-Subpath imports are also available: `import * as SearchSpace from "effect-search/SearchSpace"` and `import * as Pareto from "effect-search/Pareto"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
+Subpath imports are also available: `import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"` and `import * as Pareto from "@scenesystems/effect-search/Pareto"`. Internal modules (`internal/*`) are blocked from consumers via the package exports map.
 
 ## FAQ
 

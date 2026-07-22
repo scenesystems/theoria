@@ -1,11 +1,11 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import { Example } from "@scenesystems/effect-dsp/Example"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
-import { Example } from "effect-dsp/Example"
-import * as Module from "effect-dsp/Module"
-import * as Optimizer from "effect-dsp/Optimizer"
-import * as Signature from "effect-dsp/Signature"
-import { MockLanguageModel } from "effect-dsp/test"
 
 import { LabeledFewShotSampleFixtureSchema, makeFixtureRegistry } from "../../helpers/dspy-fixtures/index.js"
 

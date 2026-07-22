@@ -35,7 +35,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Either, Match, Schema } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const ADOPTION_LIFT: Readonly<Record<string, number>> = {
   inline: 0.08,

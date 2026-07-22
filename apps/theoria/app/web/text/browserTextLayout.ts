@@ -1,7 +1,7 @@
+import { Text } from "@scenesystems/effect-text"
+import * as Browser from "@scenesystems/effect-text/browser"
+import * as Contracts from "@scenesystems/effect-text/contracts"
 import { Layer, Option } from "effect"
-import { Text } from "effect-text"
-import * as Browser from "effect-text/browser"
-import * as Contracts from "effect-text/contracts"
 
 const makeCanvasContext = (): Option.Option<CanvasRenderingContext2D> => {
   if (typeof document === "undefined") {

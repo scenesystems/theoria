@@ -1,5 +1,5 @@
 {
-  "packageName": "effect-dsp",
+  "packageName": "@scenesystems/effect-dsp",
   "releasedVersion": "0.1.5",
   "exports": [
     { "subpath": ".", "exportName": "Cache", "kind": "namespace", "firstReleasedIn": "0.1.0" },

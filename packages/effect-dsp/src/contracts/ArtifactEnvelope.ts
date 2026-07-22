@@ -2,7 +2,7 @@
  * Re-exports of the `effect-search` artifact envelope system — typed
  * provenance wrappers for every artifact produced during optimization.
  *
- * Source of truth lives in `effect-search/Contracts`. The `EffectDsp` producer
+ * Source of truth lives in `@scenesystems/effect-search/Contracts`. The `EffectDsp` producer
  * variant carries DSP-specific context (optimizer, metricName, exampleName)
  * directly — no separate extension type needed.
  *
@@ -263,4 +263,4 @@ export {
    * @since 0.1.4
    */
   TrialLog
-} from "effect-search/Contracts"
+} from "@scenesystems/effect-search/Contracts"

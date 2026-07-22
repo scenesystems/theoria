@@ -2,8 +2,8 @@
  * Property-style invariants for metric range and determinism.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Effect } from "effect"
-import * as Metric from "effect-dsp/Metric"
 import fc from "fast-check"
 
 const sentenceArbitrary = fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 1, maxLength: 6 }).map((

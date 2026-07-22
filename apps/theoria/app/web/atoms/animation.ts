@@ -1,8 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
+import { Study } from "@scenesystems/effect-search"
 import type { Deferred, Stream } from "effect"
 import { Clock, Effect, Queue } from "effect"
-import { Study } from "effect-search"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 
