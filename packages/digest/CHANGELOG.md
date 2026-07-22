@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.3.2
+
+### Patch Changes
+
+- Avoid terminal no-progress scheduler yields after the final canonical traversal, UTF-8 encoding, and byte-copy batches. Continuing work retains the 0.3.1 fixed batch sizes, host-timer cadence, and interruption behavior, while repeated small canonicalizations no longer consume three unnecessary Effect turns. Canonical bytes, the admitted domain, errors and their precedence, and public APIs remain unchanged.
+
 ## 0.3.1
 
 ### Patch Changes
