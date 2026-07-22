@@ -5,10 +5,10 @@
  * @since 0.1.0
  * @internal
  */
+import type { Study } from "@scenesystems/effect-search"
+import { SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Match, Option, Predicate, Record } from "effect"
 import type { Schema } from "effect"
-import type { Study } from "effect-search"
-import { SearchSpace } from "effect-search"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import { collectModuleParamRefs } from "../../../internal/module-params.js"
 import type { Module as DspModule } from "../../../Module/model.js"

@@ -2,9 +2,9 @@
  * Trace schema + projection determinism contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Effect, Option, Schema } from "effect"
-import * as Contracts from "effect-dsp/contracts"
-import * as Trace from "effect-dsp/Trace"
 
 const makeTraceEntry = () =>
   new Trace.Entry({

@@ -30,7 +30,7 @@ const SourceManifest = Schema.parseJson(
     bugs: Bugs,
     publishConfig: Schema.Struct({
       access: Schema.Literal("public"),
-      provenance: Schema.Literal(true),
+      provenance: Schema.Literal(false),
       directory: Schema.Literal("dist")
     }),
     exports: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
@@ -52,7 +52,6 @@ const PackedManifest = Schema.parseJson(
     license: Schema.Literal("MIT"),
     homepage: Schema.Literal(HOMEPAGE),
     repository: Repository,
-    publishConfig: Schema.Struct({ provenance: Schema.Literal(true) }),
     exports: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
     dependencies: Schema.Record({ key: Schema.String, value: Schema.String }),
     peerDependencies: Schema.Record({ key: Schema.String, value: Schema.String })

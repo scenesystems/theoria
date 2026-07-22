@@ -2,8 +2,8 @@
  * Built-in metric contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Effect } from "effect"
-import * as Metric from "effect-dsp/Metric"
 
 describe("Metric built-ins", () => {
   it.effect("exactMatch scores 1 for exact equality and 0 for mismatch", () =>

@@ -2,12 +2,12 @@
  * Module.save / Module.load persistence contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { SaveLoadError } from "@scenesystems/effect-dsp/Errors"
+import { Demo } from "@scenesystems/effect-dsp/Example"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Either, Ref, Schema } from "effect"
-import { ModuleParams } from "effect-dsp/contracts"
-import { SaveLoadError } from "effect-dsp/Errors"
-import { Demo } from "effect-dsp/Example"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
 
 const makeQaSignature = () =>
   Signature.make(

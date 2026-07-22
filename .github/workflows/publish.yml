@@ -37,7 +37,8 @@ jobs:
           fetch-depth: 0
 
       # Digest release evidence is certified on Node 22. npm Trusted
-      # Publishing additionally requires Node >=22.14 and npm >=11.5.1.
+      # Publishing additionally requires Node >=22.14. npm 11.5.2 contains
+      # the corrected OIDC package-visibility behavior.
       - uses: actions/setup-node@v6
         with:
           node-version-file: ".node-version"
@@ -46,7 +47,7 @@ jobs:
 
       - name: Install npm for Trusted Publishing
         run: |
-          npm install --global npm@11.5.1
+          npm install --global npm@11.5.2
           node --version
           npm --version
 

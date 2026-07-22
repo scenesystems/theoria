@@ -21,9 +21,9 @@ const GITHUB_BRANCH = "main"
 
 const PACKAGES: ReadonlyArray<PackageDocConfig> = [
   ["effect-math", "effect-math", 1, "effect"],
-  ["effect-search", "effect-search", 2, "effect"],
-  ["effect-dsp", "effect-dsp", 3, "effect"],
-  ["effect-text", "effect-text", 4, "effect"],
+  ["effect-search", "@scenesystems/effect-search", 2, "effect"],
+  ["effect-dsp", "@scenesystems/effect-dsp", 3, "effect"],
+  ["effect-text", "@scenesystems/effect-text", 4, "effect"],
   ["digest", "@scenesystems/digest", 1, "scenesystems"],
   ["seal", "@scenesystems/seal", 2, "scenesystems"],
   ["sign", "@scenesystems/sign", 3, "scenesystems"]

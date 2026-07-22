@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Stream } from "effect"
 
-import { Sampler } from "effect-search"
+import { Sampler } from "@scenesystems/effect-search"
 import type { EvidenceSection } from "../../../contracts/evidence.js"
 import type { RunData } from "../../../contracts/run.js"
 import type { StreamManifest } from "../../../contracts/stream-manifest.js"
@@ -64,7 +64,7 @@ export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.P
 
   return {
     id: "effect-search",
-    packageName: "effect-search",
+    packageName: "@scenesystems/effect-search",
     summary: "effect-search compared adaptive TPE against random search under fixed budget.",
     durationMs: endedAt - startedAt,
     program: runnableProgram,

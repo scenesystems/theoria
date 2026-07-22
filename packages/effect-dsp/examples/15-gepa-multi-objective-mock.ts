@@ -11,9 +11,9 @@
  * Run: bun run examples/15-gepa-multi-objective-mock.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Option, Predicate, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
-import { MockLanguageModel } from "effect-dsp/test"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"
 
 const fieldText = (record: Readonly<Record<string, unknown>>, field: string): string =>

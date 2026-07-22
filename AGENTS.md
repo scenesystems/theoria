@@ -8,17 +8,17 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                 | npm                    | Deps                                                      |
-| -------------------- | ------------------------- | ---------------------- | --------------------------------------------------------- |
-| effect-search        | `packages/effect-search/` | `effect-search`        | effect, @scenesystems/digest                              |
-| effect-dsp           | `packages/effect-dsp/`    | `effect-dsp`           | effect-search, @effect/ai (peer)                          |
-| effect-text          | `packages/effect-text/`   | `effect-text`          | effect, effect-search                                     |
-| effect-math          | `packages/effect-math/`   | `effect-math`          | effect                                                    |
-| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest` | @noble/hashes, effect                                     |
-| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`   | @noble/ciphers, effect                                    |
-| @scenesystems/sign   | `packages/sign/`          | `@scenesystems/sign`   | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
+| Package              | Directory                 | npm                           | Deps                                                      |
+| -------------------- | ------------------------- | ----------------------------- | --------------------------------------------------------- |
+| effect-search        | `packages/effect-search/` | `@scenesystems/effect-search` | effect, @scenesystems/digest                              |
+| effect-dsp           | `packages/effect-dsp/`    | `@scenesystems/effect-dsp`    | @scenesystems/effect-search, @effect/ai (peer)            |
+| effect-text          | `packages/effect-text/`   | `@scenesystems/effect-text`   | effect, @scenesystems/effect-search                       |
+| effect-math          | `packages/effect-math/`   | `effect-math`                 | effect                                                    |
+| @scenesystems/digest | `packages/digest/`        | `@scenesystems/digest`        | @noble/hashes, effect                                     |
+| @scenesystems/seal   | `packages/seal/`          | `@scenesystems/seal`          | @noble/ciphers, effect                                    |
+| @scenesystems/sign   | `packages/sign/`          | `@scenesystems/sign`          | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-All `@scenesystems/*` packages have a single entrypoint (`.`). Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
@@ -112,7 +112,7 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 - Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - All randomness through Effect `Random` with seeded generators.
-- `@scenesystems/*` packages: single entrypoint (`.`), Effect required, Schema is sole type source.
+- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
 
 ---
 

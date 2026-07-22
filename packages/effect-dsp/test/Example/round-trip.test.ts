@@ -2,8 +2,8 @@
  * Example and Demo schema round-trip proofs.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { Demo, Example } from "@scenesystems/effect-dsp/Example"
 import { Schema } from "effect"
-import { Demo, Example } from "effect-dsp/Example"
 
 const expectSchemaRoundTrip = <A, I>(
   schema: Schema.Schema<A, I, never>,

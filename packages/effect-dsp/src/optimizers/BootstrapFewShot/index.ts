@@ -6,9 +6,9 @@
  * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
+import { streamFromEmitter } from "@scenesystems/effect-search/Study"
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema, Stream } from "effect"
-import { streamFromEmitter } from "effect-search/Study"
 import type * as Layer from "effect/Layer"
 import { withModuleParamsDemosAndInstructions } from "../../contracts/ModuleParams.js"
 import { BootstrapFailed } from "../../Errors/optimizer.js"

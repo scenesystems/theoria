@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
+import type { Study } from "@scenesystems/effect-search"
 import { Effect, Schema } from "effect"
-import type { Study } from "effect-search"
 import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import type { Module as DspModule } from "../../Module/model.js"

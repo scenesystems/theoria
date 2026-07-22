@@ -1,11 +1,11 @@
 /**
- * Deterministic PRNG seed helpers delegating to `effect-search/Sampler`.
+ * Deterministic PRNG seed helpers delegating to `@scenesystems/effect-search/Sampler`.
  * Ensures all optimizer runtimes share the same seed algebra for
  * reproducible trial sequences.
  *
  * @since 0.1.0
  */
-import * as Sampler from "effect-search/Sampler"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
 
 /**
  * Clamp and normalize a user-provided seed into a positive integer

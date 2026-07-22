@@ -1,5 +1,5 @@
+import { Text } from "@scenesystems/effect-text"
 import { Match, Schema } from "effect"
-import { Text } from "effect-text"
 import * as HashMap from "effect/HashMap"
 
 import { type SurfaceVariant, SurfaceVariant as SurfaceVariantSchema } from "./presentation.js"

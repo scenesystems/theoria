@@ -66,7 +66,7 @@ const computeHypervolume2d = (
  *
  * @example
  * ```ts
- * import { Pareto } from "effect-search"
+ * import { Pareto } from "@scenesystems/effect-search"
  *
  * Pareto.hypervolume2d(
  *   [

@@ -1,6 +1,6 @@
+import { Text } from "@scenesystems/effect-text"
+import type { PreparedTextWithSegments } from "@scenesystems/effect-text/Text"
 import { Option, Order } from "effect"
-import { Text } from "effect-text"
-import type { PreparedTextWithSegments } from "effect-text/Text"
 import * as Arr from "effect/Array"
 
 import type { Obstacle } from "../../contracts/obstacle.js"

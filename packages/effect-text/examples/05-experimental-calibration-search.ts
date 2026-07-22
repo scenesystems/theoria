@@ -14,10 +14,10 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
+import { Sampler } from "@scenesystems/effect-search"
 import { Effect } from "effect"
-import { Sampler } from "effect-search"
 
-import { Experimental } from "effect-text"
+import { Experimental } from "@scenesystems/effect-text"
 
 import {
   calibrationServices,

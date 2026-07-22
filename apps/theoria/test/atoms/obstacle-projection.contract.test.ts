@@ -17,7 +17,7 @@ describe("obstacle projection contract", () => {
       const source = yield* readProjectFile(appRootUrl, "app/web/text/obstacleProjection.ts")
       const sourceFile = parseTypeScript("obstacleProjection.ts", source)
       const specifiers = moduleSpecifiers(sourceFile)
-      const effectTextSpecifiers = specifiers.filter((specifier) => specifier.startsWith("effect-text"))
+      const effectTextSpecifiers = specifiers.filter((specifier) => specifier.startsWith("@scenesystems/effect-text"))
       const callTargets = callExpressionTargets(sourceFile)
       const identifiers = identifierNames(sourceFile)
 
@@ -25,7 +25,7 @@ describe("obstacle projection contract", () => {
       expect(
         effectTextSpecifiers.every(
           (specifier) =>
-            (specifier === "effect-text" || specifier === "effect-text/Text") &&
+            (specifier === "@scenesystems/effect-text" || specifier === "@scenesystems/effect-text/Text") &&
             !specifier.includes("/internal") &&
             !specifier.includes("/src/")
         )

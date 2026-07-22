@@ -15,7 +15,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Option } from "effect"
 
-import { Sampler, Scheduler, SearchSpace, Study } from "effect-search"
+import { Sampler, Scheduler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

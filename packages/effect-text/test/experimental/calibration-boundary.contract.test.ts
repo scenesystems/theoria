@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Sampler } from "@scenesystems/effect-search"
 import { Effect, Layer, Option, Ref } from "effect"
-import { Sampler } from "effect-search"
 
 import { Contracts, Experimental, Text } from "../../src/index.js"
 import {

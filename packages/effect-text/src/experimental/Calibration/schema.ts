@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
+import { Study, StudyEvent } from "@scenesystems/effect-search"
 import { Schema } from "effect"
 import { Statistics } from "effect-math"
-import { Study, StudyEvent } from "effect-search"
 
 import {
   BaseTextDirection,

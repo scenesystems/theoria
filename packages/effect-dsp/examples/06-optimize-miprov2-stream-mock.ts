@@ -4,10 +4,10 @@
  * Run: bun run examples/06-optimize-miprov2-stream-mock.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
-import { ModuleParams } from "effect-dsp/contracts"
-import { MockLanguageModel } from "effect-dsp/test"
 import {
   makeStandardEvents,
   makeStandardModuleState,

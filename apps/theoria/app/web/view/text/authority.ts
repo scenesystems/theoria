@@ -1,6 +1,6 @@
+import { Text } from "@scenesystems/effect-text"
+import * as TextReact from "@scenesystems/effect-text/react"
 import { Effect, Option } from "effect"
-import { Text } from "effect-text"
-import * as TextReact from "effect-text/react"
 
 import { layoutRequestFor, prepareInputFor, type TextProjectionRequest } from "../../../contracts/text.js"
 import {

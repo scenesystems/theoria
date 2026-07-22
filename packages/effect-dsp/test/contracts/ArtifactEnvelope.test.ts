@@ -2,9 +2,9 @@
  * Canonical artifact/provenance envelope contract tests.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import * as SearchContracts from "@scenesystems/effect-search/Contracts"
 import { Effect, Schema } from "effect"
-import * as Contracts from "effect-dsp/contracts"
-import * as SearchContracts from "effect-search/Contracts"
 
 describe("contracts/ArtifactEnvelope", () => {
   it("re-exports are identity-equal to effect-search originals", () => {

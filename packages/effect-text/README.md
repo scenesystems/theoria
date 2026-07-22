@@ -15,7 +15,7 @@ obstacle changes without re-entering services.
 ## Install
 
 ```sh
-npm install effect-text effect
+npm install @scenesystems/effect-text effect
 ```
 
 Use the equivalent `pnpm add` or `bun add` command if that is your package
@@ -25,7 +25,7 @@ manager. `effect` is a required peer dependency.
 
 ```ts typecheck
 import { Effect } from "effect"
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 
 const program = Effect.gen(function* () {
   const prepared = yield* Text.prepareWithSegments({
@@ -60,9 +60,9 @@ lines, cursor stepping, streaming projection, or variable-width layout.
 
 Ownership boundaries are deliberate:
 
-- `effect-text/browser` owns support data, browser measurement, font-readiness
+- `@scenesystems/effect-text/browser` owns support data, browser measurement, font-readiness
   revision helpers, and parity artifacts.
-- `effect-text/react` stays framework-thin: prepare identity plus pure
+- `@scenesystems/effect-text/react` stays framework-thin: prepare identity plus pure
   prepared-layout projection only.
 - `Experimental.Calibration` is additive and does not make layout effectful.
 

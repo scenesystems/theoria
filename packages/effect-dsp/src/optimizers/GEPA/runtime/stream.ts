@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
+import { streamFromEmitter } from "@scenesystems/effect-search/Study"
 import type { Effect, Stream } from "effect"
-import { streamFromEmitter } from "effect-search/Study"
 
 import type { GEPAEvent as GEPAEventType } from "../events.js"
 

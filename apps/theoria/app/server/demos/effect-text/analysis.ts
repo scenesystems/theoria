@@ -1,6 +1,6 @@
 import { Clock, Effect, Option, type Scope } from "effect"
 
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 import { corpus } from "../../../contracts/corpus.js"
 import { effectTextProjectionWidths as widths } from "../../../contracts/demo/text.js"
 import { legalPolicyScene } from "../../../contracts/reflow-scenes.js"

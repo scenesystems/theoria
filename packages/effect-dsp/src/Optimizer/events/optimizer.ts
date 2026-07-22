@@ -3,8 +3,8 @@
  *
  * @since 0.1.0
  */
+import { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
 import { Data, Effect, Schema } from "effect"
-import { StudyEventSchema as EffectSearchInteropEventSchema } from "effect-search/StudyEvent"
 import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
 import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from "./bootstrap.js"
@@ -20,7 +20,7 @@ export {
    * @category events
    */
   StudyEventSchema as EffectSearchInteropEventSchema
-} from "effect-search/StudyEvent"
+} from "@scenesystems/effect-search/StudyEvent"
 
 /**
  * Discriminated union schema wrapping all optimizer-specific and evaluation

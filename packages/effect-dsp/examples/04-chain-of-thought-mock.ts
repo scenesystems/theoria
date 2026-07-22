@@ -4,9 +4,9 @@
  * Run: bun run examples/04-chain-of-thought-mock.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Module, Signature } from "@scenesystems/effect-dsp"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Schema } from "effect"
-import { Module, Signature } from "effect-dsp"
-import { MockLanguageModel } from "effect-dsp/test"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"
 
 const program = Effect.gen(function*() {

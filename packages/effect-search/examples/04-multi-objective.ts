@@ -16,7 +16,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Effect, Match, Option } from "effect"
 
-import { Contracts, Sampler, SearchSpace, Study } from "effect-search"
+import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const latencyCost: Readonly<Record<string, number>> = {
   baseline: 0.3,

@@ -2,8 +2,8 @@
  * Effectful metric constructor contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Effect, Ref } from "effect"
-import * as Metric from "effect-dsp/Metric"
 
 describe("Metric.fromEffect", () => {
   it.effect("constructs an effectful scorer with deterministic side effects", () =>

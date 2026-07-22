@@ -21,8 +21,8 @@
 import * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Schema } from "effect"
-import { Evaluate, Example, Metric, Module, Signature, Trace } from "effect-dsp"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // ── Tools ──────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 {
-  "packageName": "effect-text",
+  "packageName": "@scenesystems/effect-text",
   "releasedVersion": "0.2.1",
   "exports": [
     { "subpath": ".", "exportName": "Browser", "kind": "namespace", "firstReleasedIn": "0.2.0" },

@@ -4,10 +4,10 @@
  * Run: bun run examples/05-optimize-bootstrap-mock.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
-import { ModuleParams } from "effect-dsp/contracts"
-import { MockLanguageModel } from "effect-dsp/test"
 import { mockLanguageModelLayer } from "./shared/mock-language-model.js"
 
 const trainset = Arr.make(

@@ -15,7 +15,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import { Text } from "effect-text"
+import { Text } from "@scenesystems/effect-text"
 
 const program = Effect.gen(function*() {
   const prepared = yield* Text.prepareWithSegments({

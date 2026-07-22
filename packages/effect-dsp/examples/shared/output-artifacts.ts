@@ -6,7 +6,6 @@
  * disk as derived presentation.
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Clock, DateTime, Effect, Layer, Schema } from "effect"
 import {
   ArtifactLineage,
   type ArtifactPayload,
@@ -20,7 +19,8 @@ import {
   PackageVersion,
   RunId,
   SourceRef
-} from "effect-search/Contracts"
+} from "@scenesystems/effect-search/Contracts"
+import { Clock, DateTime, Effect, Layer, Schema } from "effect"
 
 export type ExampleArtifacts = Readonly<{
   readonly runId: string

@@ -16,7 +16,7 @@ import * as DevTools from "@effect/experimental/DevTools"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

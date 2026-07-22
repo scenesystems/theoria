@@ -149,7 +149,7 @@ export const dominatesNormalized = (
  *
  * @example
  * ```ts
- * import { Pareto } from "effect-search"
+ * import { Pareto } from "@scenesystems/effect-search"
  *
  * Pareto.dominates([0.2, 0.8], [0.3, 0.7], ["minimize", "maximize"])
  * // => true

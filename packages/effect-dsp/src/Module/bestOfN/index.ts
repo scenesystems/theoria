@@ -41,9 +41,9 @@ export type BestOfNOptions<
  *
  * @example
  * ```ts
- * import { Module, Signature } from "effect-dsp"
+ * import { Module, Signature } from "@scenesystems/effect-dsp"
  * import { Effect, Schema } from "effect"
- * import { MetricResult } from "effect-dsp/contracts"
+ * import { MetricResult } from "@scenesystems/effect-dsp/contracts"
  *
  * const program = Effect.gen(function*() {
  *   const sig = yield* Signature.make("Classify sentiment", { text: Schema.String }, { label: Schema.String })

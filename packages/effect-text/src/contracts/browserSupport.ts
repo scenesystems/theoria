@@ -83,7 +83,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
 export type BrowserSupportProfileType = typeof BrowserSupportProfileSchema.Type
 
 /**
- * Browser support data exported by `effect-text/browser`.
+ * Browser support data exported by `@scenesystems/effect-text/browser`.
  *
  * @since 0.2.0
  * @category schemas

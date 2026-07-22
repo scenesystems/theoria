@@ -12,10 +12,10 @@
  * Run: bun run examples/01-effect-search-interop.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Chunk, Effect, Fiber, Ref, Stream } from "effect"
-import { SearchSpace } from "effect-search"
 
-import { Optimizer } from "effect-dsp"
+import { Optimizer } from "@scenesystems/effect-dsp"
 
 const maximizeDirections: ReadonlyArray<"maximize" | "minimize"> = ["maximize", "maximize"]
 

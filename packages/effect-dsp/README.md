@@ -45,11 +45,11 @@ An Effect-native implementation of the [DSPy](https://dspy.ai/) paradigm for Typ
 ## Installation
 
 ```sh
-npm install effect-dsp effect @effect/ai
+npm install @scenesystems/effect-dsp effect @effect/ai
 # or
-pnpm add effect-dsp effect @effect/ai
+pnpm add @scenesystems/effect-dsp effect @effect/ai
 # or
-bun add effect-dsp effect @effect/ai
+bun add @scenesystems/effect-dsp effect @effect/ai
 ```
 
 `effect` and `@effect/ai` are peer dependencies. `effect-search` is a runtime dependency used by optimizer surfaces.
@@ -59,7 +59,7 @@ bun add effect-dsp effect @effect/ai
 ```ts typecheck
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Layer, Schema } from "effect"
-import { Module, Signature, Trace } from "effect-dsp"
+import { Module, Signature, Trace } from "@scenesystems/effect-dsp"
 
 declare const lmService: LanguageModel.Service
 
@@ -96,8 +96,8 @@ Live optimization examples:
 
 ```ts
 import { Effect } from "effect"
-import { SearchSpace } from "effect-search"
-import { Optimizer } from "effect-dsp"
+import { SearchSpace } from "@scenesystems/effect-search"
+import { Optimizer } from "@scenesystems/effect-dsp"
 
 const space = SearchSpace.unsafeMake({ x: SearchSpace.float(0, 1) })
 const sampler = Optimizer.effectSearchInterop.makeTpeSampler({
@@ -124,7 +124,7 @@ const program = Effect.scoped(
 ## API at a glance
 
 ```ts
-import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace } from "effect-dsp"
+import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace } from "@scenesystems/effect-dsp"
 ```
 
 | Namespace   | Key exports                                                                                                                                  |
@@ -138,7 +138,7 @@ import { Errors, Evaluate, Example, Metric, Module, Optimizer, Signature, Trace 
 | `Optimizer` | `labeledFewShot`, `bootstrapFewShot`, `bootstrapRS`, `ensemble`, `miprov2`, `effectSearchInterop` plus event schemas and tagged constructors |
 | `Errors`    | Tagged error variants (`SignatureError`, `ParseOutputError`, `BootstrapFailed`, ...) and `DspError` union                                    |
 
-Subpath imports are available (`effect-dsp/Signature`, `effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
+Subpath imports are available (`@scenesystems/effect-dsp/Signature`, `@scenesystems/effect-dsp/Module`, etc.). Internal and optimizer-implementation subpaths are blocked from consumers via the exports map.
 
 ## Roadmap
 

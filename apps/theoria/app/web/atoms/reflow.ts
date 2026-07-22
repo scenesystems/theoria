@@ -1,8 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Result } from "@effect-atom/atom"
+import { Text } from "@scenesystems/effect-text"
 import { Effect, Layer, Option } from "effect"
-import { Text } from "effect-text"
 
 import { corpus, type CorpusEntry, customCorpusEntry } from "../../contracts/corpus.js"
 import {

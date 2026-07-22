@@ -17,7 +17,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const trialCount = 45
 

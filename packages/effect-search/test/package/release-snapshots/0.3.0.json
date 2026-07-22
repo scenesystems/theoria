@@ -1,5 +1,5 @@
 {
-  "packageName": "effect-search",
+  "packageName": "@scenesystems/effect-search",
   "releasedVersion": "0.3.0",
   "exports": [
     { "subpath": ".", "exportName": "Cache", "kind": "namespace", "firstReleasedIn": "0.1.0" },

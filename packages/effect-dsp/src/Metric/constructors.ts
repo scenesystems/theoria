@@ -13,7 +13,7 @@ import { Metric } from "./model.js"
  *
  * @example
  * ```ts
- * import { Metric } from "effect-dsp"
+ * import { Metric } from "@scenesystems/effect-dsp"
  *
  * const accuracy = Metric.make("accuracy", (prediction, expected) =>
  *   new Metric.Result({

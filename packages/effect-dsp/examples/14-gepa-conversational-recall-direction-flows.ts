@@ -26,9 +26,9 @@
  * Run: bun run examples/14-gepa-conversational-recall-direction-flows.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import { Contracts, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
-import { Contracts, SearchSpace, Study } from "effect-search"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 /**

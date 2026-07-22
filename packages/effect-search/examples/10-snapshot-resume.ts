@@ -15,7 +15,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Schema } from "effect"
 
-import { Sampler, SearchSpace, Study } from "effect-search"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const objectiveValue = (x: number, y: number): number => (x - 1.25) ** 2 + (y + 0.8) ** 2
 

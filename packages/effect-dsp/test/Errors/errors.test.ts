@@ -2,7 +2,6 @@
  * Error model: Schema.TaggedError yieldability, discrimination, and union.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, Option, Schema } from "effect"
 import {
   AllTrialsFailed,
   BootstrapFailed,
@@ -16,7 +15,8 @@ import {
   SaveLoadError,
   SignatureError,
   TraceError
-} from "effect-dsp/Errors"
+} from "@scenesystems/effect-dsp/Errors"
+import { Effect, Exit, Option, Schema } from "effect"
 
 const expectSchemaRoundTrip = <A, I>(
   schema: Schema.Schema<A, I, never>,

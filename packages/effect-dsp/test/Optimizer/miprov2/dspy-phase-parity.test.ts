@@ -3,12 +3,12 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import { Example } from "@scenesystems/effect-dsp/Example"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
-import { Example } from "effect-dsp/Example"
-import * as Metric from "effect-dsp/Metric"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-import { MockLanguageModel } from "effect-dsp/test"
 
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 import { resolvePhase3Cadence } from "../../../src/optimizers/MIPROv2/runtime/budget.js"

@@ -41,9 +41,9 @@ import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import * as Study from "effect-search/Study"
- * import * as Sampler from "effect-search/Sampler"
- * import * as SearchSpace from "effect-search/SearchSpace"
+ * import * as Study from "@scenesystems/effect-search/Study"
+ * import * as Sampler from "@scenesystems/effect-search/Sampler"
+ * import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
  *
  * const space = SearchSpace.unsafeMake({ lr: SearchSpace.float(0, 1) })
  *

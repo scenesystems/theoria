@@ -4,9 +4,9 @@
  *
  * @since 0.1.0
  */
+import { Study } from "@scenesystems/effect-search"
+import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import { Effect, Option, Stream } from "effect"
-import { Study } from "effect-search"
-import type * as SearchSpace from "effect-search/SearchSpace"
 
 import {
   type EffectSearchInteropEvent,

@@ -93,7 +93,7 @@ describe("GEPA seam governance", () => {
         ([absolutePath, source]) =>
           moduleSpecifiers(parseTypeScript(absolutePath, source)).some((specifier) => {
               const segments = pathSegments(specifier)
-              return segments[0] === "effect-search" && segments[1] === "internal"
+              return segments[0] === "@scenesystems" && segments[1] === "effect-search" && segments[2] === "internal"
             })
             ? Option.some(toRelativePath(path, root, absolutePath))
             : Option.none<string>()
@@ -104,8 +104,8 @@ describe("GEPA seam governance", () => {
         ([absolutePath, source]) =>
           moduleSpecifiers(parseTypeScript(absolutePath, source)).flatMap((specifier) => {
             const segments = pathSegments(specifier)
-            return segments[0] === "effect-search" && segments.length > 1
-              ? [segments[1]]
+            return segments[0] === "@scenesystems" && segments[1] === "effect-search" && segments.length > 2
+              ? [segments[2]]
               : []
           })
       )

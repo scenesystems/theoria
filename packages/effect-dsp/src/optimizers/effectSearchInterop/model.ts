@@ -4,11 +4,11 @@
  *
  * @since 0.1.0
  */
+import type * as Sampler from "@scenesystems/effect-search/Sampler"
+import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import type * as Study from "@scenesystems/effect-search/Study"
+import * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
 import { Option, Schema } from "effect"
-import type * as Sampler from "effect-search/Sampler"
-import type * as SearchSpace from "effect-search/SearchSpace"
-import type * as Study from "effect-search/Study"
-import * as StudyEvent from "effect-search/StudyEvent"
 
 /**
  * Schema for the TPE acquisition strategies available through the adapter:

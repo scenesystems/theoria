@@ -1,11 +1,16 @@
 /**
- * DspCache service — thin projection of `effect-search/Cache` shared
+ * DspCache service — thin projection of `@scenesystems/effect-search/Cache` shared
  * authority for module-level LM call memoization.
  *
  * @since 0.1.0
  */
+import {
+  CacheCorrupt,
+  type CacheError,
+  type CacheResolution,
+  durableFingerprint
+} from "@scenesystems/effect-search/Cache"
 import { Effect, FiberRef, Schema } from "effect"
-import { CacheCorrupt, type CacheError, type CacheResolution, durableFingerprint } from "effect-search/Cache"
 
 import { RolloutRef } from "./refs.js"
 
@@ -33,7 +38,7 @@ const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 
 /**
  * Thin adapter projecting DSP-specific module/input/params/rollout
- * semantics onto the `effect-search/Cache` shared authority. No hashing
+ * semantics onto the `@scenesystems/effect-search/Cache` shared authority. No hashing
  * logic lives here — `durableFingerprint` from `effect-search` handles
  * all content hashing.
  *
@@ -77,7 +82,7 @@ const fingerprintOrCorrupt = (
 /**
  * Build a {@link DspCacheKey} from request fields and the current
  * {@link RolloutRef}. Hashes `input` and `params` via
- * `durableFingerprint` from `effect-search/Cache` — no hashing logic
+ * `durableFingerprint` from `@scenesystems/effect-search/Cache` — no hashing logic
  * lives in `effect-dsp`.
  *
  * @see {@link DspCacheKey} — the composite key returned

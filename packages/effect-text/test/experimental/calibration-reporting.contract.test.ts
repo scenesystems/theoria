@@ -1,8 +1,8 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { Contracts as SearchContracts, Sampler, Study } from "@scenesystems/effect-search"
 import { Effect, Layer, Option, Schema } from "effect"
-import { Contracts as SearchContracts, Sampler, Study } from "effect-search"
 
 import { Experimental } from "../../src/index.js"
 import {

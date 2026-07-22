@@ -13,7 +13,7 @@ type DependencyMap = Schema.Schema.Type<typeof DependencyMapSchema>
 type PackageManifest = Schema.Schema.Type<typeof PackageManifestSchema>
 
 const REQUIRED_PEER_DEPENDENCIES = ["effect", "@effect/ai"]
-const REQUIRED_RUNTIME_DEPENDENCIES = ["@scenesystems/digest", "effect-math", "effect-search"]
+const REQUIRED_RUNTIME_DEPENDENCIES = ["@scenesystems/digest", "effect-math", "@scenesystems/effect-search"]
 
 const PACKAGE_JSON_FILE = "package.json"
 

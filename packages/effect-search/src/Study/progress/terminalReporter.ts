@@ -15,8 +15,8 @@ import { defaultTerminalSink, type TerminalSink, writeProgressLines } from "./te
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { makeTerminalReporter } from "effect-search/Study"
- * import type { StudyEvent } from "effect-search/StudyEvent"
+ * import { makeTerminalReporter } from "@scenesystems/effect-search/Study"
+ * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
  *
  * declare const event: StudyEvent
  * Effect.gen(function*() {
@@ -54,8 +54,8 @@ const resolveRenderMode = (sink: TerminalSink): Effect.Effect<TerminalRenderMode
  * @example
  * ```ts
  * import { Effect, Stream } from "effect"
- * import { makeTerminalReporter, makeTerminalSink } from "effect-search/Study"
- * import type { StudyEvent } from "effect-search/StudyEvent"
+ * import { makeTerminalReporter, makeTerminalSink } from "@scenesystems/effect-search/Study"
+ * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
  *
  * declare const stream: Stream.Stream<StudyEvent>
  * const sink = makeTerminalSink()
@@ -87,8 +87,8 @@ export const makeTerminalReporter = (options?: {
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { reportTerminalProgress, makeTerminalSink } from "effect-search/Study"
- * import { StudyCompleted } from "effect-search/StudyEvent"
+ * import { reportTerminalProgress, makeTerminalSink } from "@scenesystems/effect-search/Study"
+ * import { StudyCompleted } from "@scenesystems/effect-search/StudyEvent"
  *
  * const sink = makeTerminalSink()
  * Effect.gen(function*() {
@@ -119,8 +119,8 @@ export const reportTerminalProgress = (
  * @example
  * ```ts
  * import { Stream } from "effect"
- * import { tapTerminalProgress, makeTerminalSink } from "effect-search/Study"
- * import type { StudyEvent } from "effect-search/StudyEvent"
+ * import { tapTerminalProgress, makeTerminalSink } from "@scenesystems/effect-search/Study"
+ * import type { StudyEvent } from "@scenesystems/effect-search/StudyEvent"
  *
  * const sink = makeTerminalSink()
  * const tap = <E, R>(stream: Stream.Stream<StudyEvent, E, R>) =>

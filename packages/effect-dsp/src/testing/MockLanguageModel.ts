@@ -412,7 +412,7 @@ const makeService = (
  *
  * @example
  * ```ts
- * import { MockLanguageModel } from "effect-dsp/testing"
+ * import { MockLanguageModel } from "@scenesystems/effect-dsp/testing"
  * import * as LanguageModel from "@effect/ai/LanguageModel"
  * import { Effect, Layer } from "effect"
  *

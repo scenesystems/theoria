@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @internal
  */
-import * as Sampler from "effect-search/Sampler"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
 
 /**
  * Normalizes a seed to a deterministic positive integer suitable for

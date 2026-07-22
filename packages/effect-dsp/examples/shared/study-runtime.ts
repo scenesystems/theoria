@@ -1,10 +1,10 @@
 /**
  * Reusable effect-search runtime composition for examples.
  */
+import { Contracts, Study } from "@scenesystems/effect-search"
+import type * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
 import { Effect, Layer, Option } from "effect"
 import type { Stream } from "effect"
-import { Contracts, Study } from "effect-search"
-import type * as StudyEvent from "effect-search/StudyEvent"
 
 const DEFAULT_CACHE_PREFIX = "effect-dsp/examples"
 

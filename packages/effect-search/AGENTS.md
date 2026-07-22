@@ -1,12 +1,12 @@
 ---
-description: Development guidelines for effect-search
+description: Development guidelines for @scenesystems/effect-search
 globs: "**/*.ts, **/*.mts"
 alwaysApply: true
 ---
 
-# effect-search
+# @scenesystems/effect-search
 
-Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.20.0)`, `@effect/platform`, `@effect/experimental`. Runtime dependencies: `@scenesystems/digest`, `effect-math`. This is the optimization engine consumed by `effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
+Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.20.0)`, `@effect/platform`, `@effect/experimental`. Runtime dependencies: `@scenesystems/digest`, `effect-math`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
 
 ## Commands
 

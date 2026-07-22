@@ -1,8 +1,8 @@
 import { FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { Sampler } from "@scenesystems/effect-search"
 import { Effect } from "effect"
-import { Sampler } from "effect-search"
 import * as Arr from "effect/Array"
 
 import { listTypeScriptFilesInDir, moduleSpecifiers, parseTypeScript } from "@theoria/source-proof"

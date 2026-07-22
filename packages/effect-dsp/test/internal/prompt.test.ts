@@ -2,10 +2,10 @@
  * Prompt construction golden fixtures.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { Demo } from "@scenesystems/effect-dsp/Example"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Schema } from "effect"
-import { ModuleParams } from "effect-dsp/contracts"
-import { Demo } from "effect-dsp/Example"
-import * as Signature from "effect-dsp/Signature"
 import { buildPrompt } from "../../src/internal/prompt/render.js"
 import { qaPromptWithDemo, qaPromptWithoutDemos } from "../fixtures/prompt/qa-prompt.fixture.js"
 

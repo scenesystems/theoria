@@ -15,7 +15,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
 import { Effect, Layer, Ref } from "effect"
 
-import { Contracts, Text } from "effect-text"
+import { Contracts, Text } from "@scenesystems/effect-text"
 
 const program = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)

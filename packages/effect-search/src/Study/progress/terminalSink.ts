@@ -72,7 +72,7 @@ const writeProcessStderr = (line: string): Effect.Effect<void> => writeProcessLi
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { makeTerminalSink } from "effect-search/Study"
+ * import { makeTerminalSink } from "@scenesystems/effect-search/Study"
  *
  * const sink = makeTerminalSink({
  *   supportsAnsi: Effect.succeed(false),
@@ -96,7 +96,7 @@ export class TerminalSink extends Data.Class<{
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { makeTerminalSink } from "effect-search/Study"
+ * import { makeTerminalSink } from "@scenesystems/effect-search/Study"
  *
  * const sink = makeTerminalSink({
  *   supportsAnsi: Effect.succeed(false),
@@ -125,8 +125,8 @@ export const makeTerminalSink = (options?: {
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { reportTerminalProgress, defaultTerminalSink } from "effect-search/Study"
- * import { TrialCompleted } from "effect-search/StudyEvent"
+ * import { reportTerminalProgress, defaultTerminalSink } from "@scenesystems/effect-search/Study"
+ * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
  *
  * Effect.gen(function*() {
  *   yield* reportTerminalProgress(
@@ -147,8 +147,8 @@ export const defaultTerminalSink: TerminalSink = makeTerminalSink()
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { formatTerminalProgressEvent, writeProgressLines, defaultTerminalSink } from "effect-search/Study"
- * import { TrialCompleted } from "effect-search/StudyEvent"
+ * import { formatTerminalProgressEvent, writeProgressLines, defaultTerminalSink } from "@scenesystems/effect-search/Study"
+ * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
  *
  * const lines = formatTerminalProgressEvent(TrialCompleted({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
  * Effect.gen(function*() {

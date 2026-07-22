@@ -23,8 +23,8 @@
  * Run: bun run examples/11-gepa-teacher-student-debate.ts
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "effect-dsp"
 import {
   makeStandardEvents,
   makeStandardModuleState,

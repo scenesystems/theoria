@@ -1,5 +1,5 @@
 {
-  "name": "effect-search",
+  "name": "@scenesystems/effect-search",
   "version": "0.3.0",
   "type": "module",
   "description": "Effect-native black-box optimization for TypeScript",
@@ -27,7 +27,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": true,
+    "provenance": false,
     "directory": "dist"
   },
   "exports": {

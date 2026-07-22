@@ -2,10 +2,10 @@
  * Optimization surface contracts for effect-search objective/dimension seams.
  */
 import { describe, expect, it } from "@effect/vitest"
+import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import { Demo } from "@scenesystems/effect-dsp/Example"
+import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Effect, Option, Schema } from "effect"
-import * as Contracts from "effect-dsp/contracts"
-import { Demo } from "effect-dsp/Example"
-import * as Trace from "effect-dsp/Trace"
 
 const decodeModuleId = (moduleName: string) =>
   Schema.decodeUnknown(Contracts.ModuleId)(moduleName).pipe(

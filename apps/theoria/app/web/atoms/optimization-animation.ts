@@ -1,8 +1,8 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import type { Stream } from "effect"
 import { Clock, Effect, Option, Ref, Schema } from "effect"
-import { Sampler, SearchSpace, Study } from "effect-search"
 import * as Arr from "effect/Array"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"

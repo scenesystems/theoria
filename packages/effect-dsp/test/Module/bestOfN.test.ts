@@ -3,12 +3,12 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import { MetricResult } from "@scenesystems/effect-dsp/contracts"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
+import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Effect, FiberRef, Layer, Option, Ref, Schema } from "effect"
-import { MetricResult } from "effect-dsp/contracts"
-import * as Module from "effect-dsp/Module"
-import * as Signature from "effect-dsp/Signature"
-import { MockLanguageModel } from "effect-dsp/test"
-import * as Trace from "effect-dsp/Trace"
 import { RolloutRef } from "../../src/Cache/refs.js"
 
 const makeQaSignature = () =>

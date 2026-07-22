@@ -1,5 +1,5 @@
 /**
- * Shared cache authority surface — thin DSP adapter over `effect-search/Cache`.
+ * Shared cache authority surface — thin DSP adapter over `@scenesystems/effect-search/Cache`.
  *
  * @since 0.1.0
  */
