@@ -1,5 +1,16 @@
 # effect-dsp
 
+## 0.1.5
+
+### Patch Changes
+
+- [#29](https://github.com/scenesystems/theoria/pull/29) [`3ee66ed`](https://github.com/scenesystems/theoria/commit/3ee66ed7f37d3a846971dde35acd608fd1bf7def) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Keep cache fingerprint failures bounded while adopting digest's closed canonicalization error contract.
+
+- Updated dependencies [[`cfc5080`](https://github.com/scenesystems/theoria/commit/cfc508039f05eb96dd8004e75ae485f232c848f1), [`5956e18`](https://github.com/scenesystems/theoria/commit/5956e18f32182df8f10dcd8f44d4458e664acd82)]:
+  - @scenesystems/digest@0.3.0
+  - effect-search@0.3.0
+  - effect-math@0.2.1
+
 ## 0.1.4
 
 ### Patch Changes
