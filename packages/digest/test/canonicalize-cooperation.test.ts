@@ -1,11 +1,13 @@
 /* eslint-disable no-restricted-syntax */
 import { expect, it } from "@effect/vitest"
-import { Effect, Exit, Fiber } from "effect"
+import { Array as Arr, Chunk, Effect, Exit, Fiber } from "effect"
 
 import { canonicalJsonBytes } from "../src/convenience.js"
+import { encodeCanonicalSegments } from "../src/internal/jcs.js"
 
 const WIDTH = 65_536
 const INTERRUPT_WIDTH = 262_144
+const LONG_TEXT = "value".repeat(WIDTH)
 
 const wideArray = (): ReadonlyArray<ReadonlyArray<number>> =>
   Array.from({ length: WIDTH }, (_, index) => [index, index + 0.5])
@@ -29,7 +31,9 @@ const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<
 it.live.each(
   [
     ["array", () => canonicalJsonBytes(wideArray())],
-    ["record", () => canonicalJsonBytes(wideRecord())]
+    ["record", () => canonicalJsonBytes(wideRecord())],
+    ["long string", () => canonicalJsonBytes(LONG_TEXT)],
+    ["long record key", () => canonicalJsonBytes({ [LONG_TEXT]: true })]
   ] as const
 )("canonicalJsonBytes yields to the host timer while traversing a wide %s", ([, operation]) =>
   Effect.gen(function*() {
@@ -53,6 +57,14 @@ it.live("canonicalJsonBytes can be interrupted before a wide traversal publishes
     const exit = yield* Fiber.interrupt(fiber)
     expect(Exit.isInterrupted(exit)).toBe(true)
     expect(probe.descriptors).toBeLessThan(INTERRUPT_WIDTH)
+  }), 30_000)
+
+it.live("canonicalJsonBytes assembles canonical UTF-8 segments cooperatively", () =>
+  Effect.gen(function*() {
+    const segment = "😀".repeat(16 * 1024)
+    const segments = Chunk.fromIterable(Arr.makeBy(512, () => segment))
+    const ticks = yield* hostTimerTicksDuring(encodeCanonicalSegments(segments))
+    expect(ticks).toBeGreaterThan(0)
   }), 30_000)
 
 it.effect("one canonicalJsonBytes Effect is fresh when executed more than once", () => {

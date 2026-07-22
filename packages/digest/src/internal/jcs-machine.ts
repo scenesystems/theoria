@@ -15,6 +15,9 @@ import { ref, State } from "./jcs-model.js"
 import { processClose, processCursor, processKeys, processString, processVisit } from "./jcs-serialization-machine.js"
 
 const BATCH = 512
+// Bun 1.3.9 imposes an approximately 1 ms floor on sleep(0). Every-batch host
+// turns made the 65,536-point benchmark roughly 8x slower without improving its
+// delay gate, so fibers yield every batch while host timers run every 32 batches.
 const HOST_YIELD_BATCHES = 32
 const CONTROL_TOKENS: ReadonlyArray<number> = Arr.makeBy(BATCH, (index) => index)
 
