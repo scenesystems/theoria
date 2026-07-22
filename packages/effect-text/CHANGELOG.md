@@ -1,5 +1,13 @@
 # effect-text
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [[`5956e18`](https://github.com/scenesystems/theoria/commit/5956e18f32182df8f10dcd8f44d4458e664acd82)]:
+  - effect-search@0.3.0
+  - effect-math@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

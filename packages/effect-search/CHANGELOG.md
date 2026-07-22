@@ -1,5 +1,21 @@
 # effect-search
 
+## 0.3.0
+
+### Minor Changes
+
+- [#29](https://github.com/scenesystems/theoria/pull/29) [`5956e18`](https://github.com/scenesystems/theoria/commit/5956e18f32182df8f10dcd8f44d4458e664acd82) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Adopt the strict digest 0.3 text and error contracts for cache fingerprinting.
+  - Replace the re-exported `FingerprintUnsupportedValue` with the closed, package-owned `RuntimeFingerprintError` for runtime-only value rejection.
+  - Propagate digest's `InvalidUnicode` directly from runtime fingerprint text encoding instead of replacement-encoding malformed UTF-16.
+  - Continue exposing digest's `CanonicalizationError` directly from durable JCS fingerprint operations.
+  - Fingerprint study objective cache observations from the Schema-encoded key wire and propagate encoding or Unicode failures through `CacheError` instead of recording the shared `"unknown"` label.
+
+### Patch Changes
+
+- Updated dependencies [[`cfc5080`](https://github.com/scenesystems/theoria/commit/cfc508039f05eb96dd8004e75ae485f232c848f1)]:
+  - @scenesystems/digest@0.3.0
+  - effect-math@0.2.1
+
 ## 0.2.1
 
 ### Patch Changes
