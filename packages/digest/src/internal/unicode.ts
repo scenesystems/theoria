@@ -1,12 +1,13 @@
 /**
  * Strict Unicode validation and UTF-8 encoding.
  *
- * This is the package's only scalar-well-formedness implementation. The Web
- * `TextEncoder` is safe to call only after `unicodeFault` accepts the input.
+ * This is the package's only scalar-well-formedness implementation. The byte
+ * encoder is safe to call only after `unicodeFault` accepts the input.
  *
  * @internal
  */
 
+import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Option } from "effect"
 
 import { InvalidUnicode } from "../schemas/errors.js"
@@ -61,8 +62,5 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   )
 }
 
-const textEncoder = new TextEncoder()
-
 /** @internal */
-export const encodeUtf8Unchecked = (text: string): Uint8Array =>
-  Reflect.apply(Reflect.get(textEncoder, "encode"), textEncoder, [text])
+export const encodeUtf8Unchecked = (text: string): Uint8Array => utf8ToBytes(text)
