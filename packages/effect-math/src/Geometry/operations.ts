@@ -35,7 +35,7 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * Geometry.euclideanDistance(
  *   Chunk.fromIterable([0, 0]),
@@ -58,7 +58,7 @@ export const euclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * Geometry.squaredEuclideanDistance(
  *   Chunk.fromIterable([0, 0]),
@@ -103,7 +103,7 @@ export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
  * @example
  * ```ts
  * import { Chunk } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * Chunk.toReadonlyArray(
  *   Geometry.midpoint(
@@ -136,7 +136,7 @@ export const midpoint: (
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * const program = Geometry.distanceValidated({
  *   a: [0, 0], b: [3, 4], metric: "euclidean"
@@ -196,7 +196,7 @@ export const distanceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * const program = Geometry.midpointValidated({ a: [0, 0], b: [4, 6] })
  * // Effect succeeds with [2, 3]
@@ -244,7 +244,7 @@ export const midpointValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Geometry } from "effect-math"
+ * import { Geometry } from "@scenesystems/effect-math"
  *
  * const program = Geometry.centroidValidated({
  *   points: [[0, 0], [4, 6], [2, 3]]
@@ -309,7 +309,7 @@ export const centroidValidated = (input: unknown) =>
  *   DiagnosticsPolicyService,
  *   Geometry,
  *   PrecisionPolicyService
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

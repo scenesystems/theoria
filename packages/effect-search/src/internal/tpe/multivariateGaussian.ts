@@ -1,5 +1,5 @@
+import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Equal, Match, Number as Num, Option } from "effect"
-import { logStrict, logSumExp } from "effect-math/Numeric"
 
 import { ndtriExp } from "./truncatedNormal/normal.js"
 

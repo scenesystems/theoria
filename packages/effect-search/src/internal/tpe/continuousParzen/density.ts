@@ -1,5 +1,5 @@
+import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Effect, Match, Number as Num } from "effect"
-import { logStrict, logSumExp } from "effect-math/Numeric"
 
 import type { InvalidSamplerConfig } from "../../../Errors/index.js"
 import { logPdf as truncatedLogPdf, logPdfEffect as truncatedLogPdfEffect } from "../truncatedNormal.js"

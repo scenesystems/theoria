@@ -1,4 +1,6 @@
-# effect-math
+# @scenesystems/effect-math
+
+The scoped identity continues the release history of the former unscoped `effect-math` package.
 
 ## 0.2.1
 

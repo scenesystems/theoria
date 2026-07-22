@@ -4,10 +4,11 @@
 
 ## Packages
 
-- effect-math: Foundational numerics, linear algebra, statistics, and optimization for Effect
-- effect-search: Effect-native black-box optimization for TypeScript
-- effect-dsp: Effect-native DSPy — programming, not prompting, language models
-- effect-text: Effect-native text preparation, measurement, and greedy multiline layout
+- @scenesystems/effect-math: Foundational numerics, linear algebra, statistics, and optimization for Effect
+- @scenesystems/effect-search: Effect-native black-box optimization for TypeScript
+- @scenesystems/effect-dsp: Effect-native DSPy — programming, not prompting, language models
+- @scenesystems/effect-text: Effect-native text preparation, measurement, and greedy multiline layout
+- @scenesystems/effect-inference: Provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence
 
 ## Links
 

@@ -1,5 +1,14 @@
 # effect-dsp
 
+## 0.1.6
+
+### Patch Changes
+
+- Move numerical and inference dependencies to the scoped `@scenesystems/effect-math` and `@scenesystems/effect-inference` package identities.
+
+- Updated dependencies []:
+  - @scenesystems/effect-search@0.3.1
+
 ## 0.1.5
 
 ### Patch Changes

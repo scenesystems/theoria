@@ -1,6 +1,6 @@
+import { logaddexp } from "@scenesystems/effect-math/Numeric"
+import { erf, erfc } from "@scenesystems/effect-math/Special"
 import { Match, Number as Num } from "effect"
-import { logaddexp } from "effect-math/Numeric"
-import { erf, erfc } from "effect-math/Special"
 
 import * as Float64 from "../../float64.js"
 import {

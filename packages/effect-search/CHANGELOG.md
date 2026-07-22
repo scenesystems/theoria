@@ -1,5 +1,11 @@
 # effect-search
 
+## 0.3.1
+
+### Patch Changes
+
+- Move numerical and inference dependencies to the scoped `@scenesystems/effect-math` and `@scenesystems/effect-inference` package identities.
+
 ## 0.3.0
 
 ### Minor Changes

@@ -3,10 +3,10 @@
  *
  * @since 0.1.0
  */
+import { squaredEuclideanDistance } from "@scenesystems/effect-math/Geometry"
+import { dot, normL2 } from "@scenesystems/effect-math/LinearAlgebra"
+import { minimum } from "@scenesystems/effect-math/Statistics"
 import { Array as Arr, Chunk, Option } from "effect"
-import { squaredEuclideanDistance } from "effect-math/Geometry"
-import { dot, normL2 } from "effect-math/LinearAlgebra"
-import { minimum } from "effect-math/Statistics"
 
 const vectorValueAt = (
   vector: ReadonlyArray<number>,

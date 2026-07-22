@@ -38,7 +38,7 @@ import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogSumExpInput, Red
  *
  * @example
  * ```ts
- * import { Numeric } from "effect-math"
+ * import { Numeric } from "@scenesystems/effect-math"
  * import { Option, pipe } from "effect"
  *
  * assert.deepStrictEqual(Numeric.safeDivide(10, 2), Option.some(5))
@@ -317,7 +317,7 @@ export const logValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Numeric } from "effect-math"
+ * import { Numeric } from "@scenesystems/effect-math"
  * import { Effect } from "effect"
  *
  * // Decodes unknown input, validates non-empty finite vector, then sums
@@ -381,13 +381,13 @@ export const argmaxValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Numeric } from "effect-math"
+ * import { Numeric } from "@scenesystems/effect-math"
  * import { Effect, Layer } from "effect"
  * import {
  *   BackendPolicyService,
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "effect-math/contracts"
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
  *   Layer.succeed(BackendPolicyService, { policy: "typed-array" }),
@@ -469,12 +469,12 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  *
  * @example
  * ```ts
- * import { Numeric } from "effect-math"
+ * import { Numeric } from "@scenesystems/effect-math"
  * import { Effect, Layer } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "effect-math/contracts"
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

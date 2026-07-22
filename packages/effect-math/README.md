@@ -1,4 +1,4 @@
-# `effect-math`
+# `@scenesystems/effect-math`
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
@@ -23,9 +23,9 @@ Most math libraries give you raw functions that throw on bad input, mutate buffe
 ## Installation
 
 ```sh
-npm install effect-math
+npm install @scenesystems/effect-math
 # or
-bun add effect-math
+bun add @scenesystems/effect-math
 ```
 
 Peer dependency: `effect >= 3.20.0`
@@ -36,13 +36,13 @@ Pure kernels work directly — no Effect runtime needed:
 
 ```ts typecheck
 import { Chunk } from "effect"
-import { dot, normL2, vectorAdd } from "effect-math/LinearAlgebra"
-import { euclideanDistance } from "effect-math/Geometry"
-import { mean, variance } from "effect-math/Statistics"
-import { normalPdf, standardNormalCdf } from "effect-math/Probability"
-import { gamma, erf, beta } from "effect-math/Special"
-import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "effect-math/Distribution"
-import { of, add, abs, sin, complexDerivative } from "effect-math/Complex"
+import { dot, normL2, vectorAdd } from "@scenesystems/effect-math/LinearAlgebra"
+import { euclideanDistance } from "@scenesystems/effect-math/Geometry"
+import { mean, variance } from "@scenesystems/effect-math/Statistics"
+import { normalPdf, standardNormalCdf } from "@scenesystems/effect-math/Probability"
+import { gamma, erf, beta } from "@scenesystems/effect-math/Special"
+import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "@scenesystems/effect-math/Distribution"
+import { of, add, abs, sin, complexDerivative } from "@scenesystems/effect-math/Complex"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
@@ -78,8 +78,12 @@ When you need precision enforcement or diagnostics, use policy-aware operations 
 
 ```ts
 import { Chunk, Effect, Layer } from "effect"
-import { dotWithPolicies } from "effect-math/LinearAlgebra"
-import { BackendPolicyService, DiagnosticsPolicyService, PrecisionPolicyService } from "effect-math/contracts"
+import { dotWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
+import {
+  BackendPolicyService,
+  DiagnosticsPolicyService,
+  PrecisionPolicyService
+} from "@scenesystems/effect-math/contracts"
 
 const program = Effect.gen(function* () {
   const a = Chunk.fromIterable([1, 2, 3])
@@ -102,19 +106,19 @@ Under `"strict"` precision, non-finite results fail with a typed error instead o
 
 Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
 
-| Domain            | Import                      | What it does                                                                                                                                                                                                            |
-| ----------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`                                                                                                                                                            |
-| **LinearAlgebra** | `effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
-| **Geometry**      | `effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
-| **Probability**   | `effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
-| **Statistics**    | `effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max                                                                                                                                                                 |
-| **Special**       | `effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
-| **Algebra**       | `effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
-| **Calculus**      | `effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration |
-| **Optimization**  | `effect-math/Optimization`  | Bisection root-finding, golden section minimization                                                                                                                                                                     |
-| **Distribution**  | `effect-math/Distribution`  | 10-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, entropy                                                     |
-| **Complex**       | `effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                |
+| Domain            | Import                                    | What it does                                                                                                                                                                                                            |
+| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Numeric**       | `@scenesystems/effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`                                                                                                                                                            |
+| **LinearAlgebra** | `@scenesystems/effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
+| **Geometry**      | `@scenesystems/effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
+| **Probability**   | `@scenesystems/effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
+| **Statistics**    | `@scenesystems/effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max                                                                                                                                                                 |
+| **Special**       | `@scenesystems/effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
+| **Algebra**       | `@scenesystems/effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
+| **Calculus**      | `@scenesystems/effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration |
+| **Optimization**  | `@scenesystems/effect-math/Optimization`  | Bisection root-finding, golden section minimization                                                                                                                                                                     |
+| **Distribution**  | `@scenesystems/effect-math/Distribution`  | 10-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, entropy                                                     |
+| **Complex**       | `@scenesystems/effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                |
 
 Internal modules are blocked from import via the package `exports` map.
 
@@ -137,8 +141,8 @@ Every domain defines typed errors using `Schema.TaggedError`. Match on `_tag` to
 
 ```ts
 import { Chunk, Effect, Layer } from "effect"
-import { normWithPolicies } from "effect-math/LinearAlgebra"
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "effect-math/contracts"
+import { normWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
+import { DiagnosticsPolicyService, PrecisionPolicyService } from "@scenesystems/effect-math/contracts"
 
 const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
   Effect.catchTag("LinearAlgebraDomainViolationError", (e) => Effect.succeed(`caught: ${e.message}`)),
@@ -172,13 +176,21 @@ Each domain also defines a `DomainViolationError` raised under `"strict"` precis
 
 ```ts
 // Pure kernels — no Effect wrapper
-import { dot, normL2, vectorAdd, vectorScale, matvec, transpose, frobeniusNorm } from "effect-math/LinearAlgebra"
-import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "effect-math/Geometry"
-import { mean, variance, standardDeviation, covariance, minimum, maximum } from "effect-math/Statistics"
-import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "effect-math/Probability"
-import { safeDivide, log1p, expm1, sum, clamp, between } from "effect-math/Numeric"
-import { gamma, lnGamma, beta, erf, erfc, digamma } from "effect-math/Special"
-import { polyEval, polyDerivative, gcd, lcm, factorial } from "effect-math/Algebra"
+import {
+  dot,
+  normL2,
+  vectorAdd,
+  vectorScale,
+  matvec,
+  transpose,
+  frobeniusNorm
+} from "@scenesystems/effect-math/LinearAlgebra"
+import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "@scenesystems/effect-math/Geometry"
+import { mean, variance, standardDeviation, covariance, minimum, maximum } from "@scenesystems/effect-math/Statistics"
+import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "@scenesystems/effect-math/Probability"
+import { safeDivide, log1p, expm1, sum, clamp, between } from "@scenesystems/effect-math/Numeric"
+import { gamma, lnGamma, beta, erf, erfc, digamma } from "@scenesystems/effect-math/Special"
+import { polyEval, polyDerivative, gcd, lcm, factorial } from "@scenesystems/effect-math/Algebra"
 import {
   derivativeLimit,
   secondDerivativeLimit,
@@ -193,8 +205,8 @@ import {
   trapezoid,
   simpson,
   adaptiveSimpson
-} from "effect-math/Calculus"
-import { bisect, goldenSection } from "effect-math/Optimization"
+} from "@scenesystems/effect-math/Calculus"
+import { bisect, goldenSection } from "@scenesystems/effect-math/Optimization"
 import {
   normalPdf as dNormalPdf,
   normalCdf as dNormalCdf,
@@ -215,7 +227,7 @@ import {
   normalEntropy as dNormalEntropy,
   betaMean as dBetaMean,
   gammaMean
-} from "effect-math/Distribution"
+} from "@scenesystems/effect-math/Distribution"
 import {
   of,
   add,
@@ -242,25 +254,25 @@ import {
   complexScale,
   fromRealChunk,
   toRealChunk
-} from "effect-math/Complex"
+} from "@scenesystems/effect-math/Complex"
 
 // Policy-aware — read runtime services from Effect context
-import { dotWithPolicies, normWithPolicies } from "effect-math/LinearAlgebra"
-import { distanceWithPolicies } from "effect-math/Geometry"
+import { dotWithPolicies, normWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
+import { distanceWithPolicies } from "@scenesystems/effect-math/Geometry"
 import {
   summaryStatisticsWithPolicies,
   meanWithPolicies,
   varianceWithPolicies,
   covarianceWithPolicies
-} from "effect-math/Statistics"
+} from "@scenesystems/effect-math/Statistics"
 import {
   normalPdfWithPolicies,
   normalCdfWithPolicies,
   uniformPdfWithPolicies,
   uniformCdfWithPolicies,
   entropyWithPolicies
-} from "effect-math/Probability"
-import { sumWithPolicies } from "effect-math/Numeric"
+} from "@scenesystems/effect-math/Probability"
+import { sumWithPolicies } from "@scenesystems/effect-math/Numeric"
 import {
   gammaWithPolicies,
   erfWithPolicies,
@@ -268,14 +280,14 @@ import {
   betaWithPolicies,
   erfcWithPolicies,
   digammaWithPolicies
-} from "effect-math/Special"
+} from "@scenesystems/effect-math/Special"
 import {
   polyEvalWithPolicies,
   factorialWithPolicies,
   polyDerivativeWithPolicies,
   gcdWithPolicies,
   lcmWithPolicies
-} from "effect-math/Algebra"
+} from "@scenesystems/effect-math/Algebra"
 import {
   derivativeLimitWithPolicies,
   secondDerivativeLimitWithPolicies,
@@ -290,9 +302,13 @@ import {
   trapezoidWithPolicies,
   simpsonWithPolicies,
   adaptiveSimpsonWithPolicies
-} from "effect-math/Calculus"
-import { bisectWithPolicies, goldenSectionWithPolicies } from "effect-math/Optimization"
-import { normalPdfWithPolicies, normalCdfWithPolicies, betaCdfWithPolicies } from "effect-math/Distribution"
+} from "@scenesystems/effect-math/Calculus"
+import { bisectWithPolicies, goldenSectionWithPolicies } from "@scenesystems/effect-math/Optimization"
+import {
+  normalPdfWithPolicies,
+  normalCdfWithPolicies,
+  betaCdfWithPolicies
+} from "@scenesystems/effect-math/Distribution"
 
 // Runtime policy services and layer constructors
 import {
@@ -301,7 +317,7 @@ import {
   DiagnosticsPolicyService,
   RngPolicyService,
   makeDeterministicRuntimePoliciesLayer
-} from "effect-math/contracts"
+} from "@scenesystems/effect-math/contracts"
 ```
 
 ## Status

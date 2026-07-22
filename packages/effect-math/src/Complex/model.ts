@@ -20,7 +20,7 @@ import type { ComplexDomain } from "./schema.js"
  *
  * @example
  * ```ts
- * import { Complex } from "effect-math/Complex"
+ * import { Complex } from "@scenesystems/effect-math/Complex"
  *
  * const z = new Complex({ re: 3, im: 4 })
  * z.re  // 3

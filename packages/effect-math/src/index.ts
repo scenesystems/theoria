@@ -1,5 +1,5 @@
 /**
- * effect-math root entrypoint.
+ * @scenesystems/effect-math root entrypoint.
  *
  * Domain-first mathematics substrate for Effect.
  *

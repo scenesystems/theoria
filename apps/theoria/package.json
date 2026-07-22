@@ -32,8 +32,8 @@
     "@scenesystems/seal": "workspace:^",
     "@scenesystems/sign": "workspace:^",
     "effect": "3.21.0",
-    "effect-inference": "workspace:^",
-    "effect-math": "workspace:^",
+    "@scenesystems/effect-inference": "workspace:^",
+    "@scenesystems/effect-math": "workspace:^",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

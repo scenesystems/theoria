@@ -52,7 +52,7 @@ export const loadSpecialDomain = Effect.succeed(SpecialDomainModel)
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  *
  * Special.gamma(5)   // 24 (= 4!)
  * Special.gamma(0.5) // √π ≈ 1.7725
@@ -73,7 +73,7 @@ export const gamma: (x: number) => number = Gamma.gammaLanczos
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  *
  * Special.lnGamma(1)   // 0  (= ln(1))
  * Special.lnGamma(100) // ≈ 359.13
@@ -92,7 +92,7 @@ export const lnGamma: (x: number) => number = Gamma.lnGammaLanczos
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  *
  * Special.beta(1, 1)     // 1
  * Special.beta(0.5, 0.5) // π ≈ 3.14159
@@ -112,7 +112,7 @@ export const beta: (a: number, b: number) => number = Beta.betaFromGamma
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  *
  * Special.erf(0) // 0
  * Special.erf(1) // ≈ 0.8427
@@ -143,7 +143,7 @@ export const erfc: (x: number) => number = Erf.erfcAbramowitzStegun
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  *
  * Special.digamma(1) // −γ ≈ −0.5772 (Euler–Mascheroni constant)
  * Special.digamma(2) // 1 − γ ≈ 0.4228
@@ -311,12 +311,12 @@ export const digammaValidated = (input: unknown) =>
  *
  * @example
  * ```ts
- * import { Special } from "effect-math"
+ * import { Special } from "@scenesystems/effect-math"
  * import { Effect, Layer } from "effect"
  * import {
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService
- * } from "effect-math/contracts"
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const layer = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),

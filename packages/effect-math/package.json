@@ -1,5 +1,5 @@
 {
-  "name": "effect-math",
+  "name": "@scenesystems/effect-math",
   "version": "0.2.1",
   "type": "module",
   "description": "Foundational numerics, linear algebra, statistics, and optimization for Effect",

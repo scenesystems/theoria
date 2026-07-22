@@ -51,7 +51,7 @@ describe("Experimental.Calibration effect-math integration contracts", () => {
       const sourceFiles = yield* parsedSourceFiles
       const effectMathImporters = Arr.filter(
         sourceFiles,
-        (file) => Arr.some(file.specifiers, (specifier) => specifier === "effect-math")
+        (file) => Arr.some(file.specifiers, (specifier) => specifier === "@scenesystems/effect-math")
       )
 
       expect(effectMathImporters.length).toBeGreaterThan(0)
@@ -97,7 +97,7 @@ describe("Experimental.Calibration effect-math integration contracts", () => {
       const publicLeakPaths = Arr.filter(
         sourceFiles,
         (file) =>
-          Arr.some(file.specifiers, (specifier) => specifier === "effect-math") &&
+          Arr.some(file.specifiers, (specifier) => specifier === "@scenesystems/effect-math") &&
           (
             file.path.startsWith("src/Text/") ||
             file.path.startsWith("src/contracts/") ||

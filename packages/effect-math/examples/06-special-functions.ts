@@ -19,7 +19,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "effect-math/contracts"
+import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
   beta,
   betaValidated,
@@ -32,7 +32,7 @@ import {
   gammaValidated,
   gammaWithPolicies,
   lnGamma
-} from "effect-math/Special"
+} from "@scenesystems/effect-math/Special"
 
 const program = Effect.gen(function*() {
   // ─── Pure kernels — gamma function ───────────────────────────────

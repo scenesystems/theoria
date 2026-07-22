@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
+import { Statistics } from "@scenesystems/effect-math"
 import { Study, StudyEvent } from "@scenesystems/effect-search"
 import { Schema } from "effect"
-import { Statistics } from "effect-math"
 
 import {
   BaseTextDirection,
@@ -220,7 +220,7 @@ const NonEmptyCalibrationLossSummary = Statistics.SummaryStatistics.pipe(
  * Summary statistics for per-case experimental calibration losses.
  *
  * Empty corpora report one explicit zero summary, while non-empty corpora
- * derive their shape from `effect-math/Statistics.SummaryStatistics` and only
+ * derive their shape from `@scenesystems/effect-math/Statistics.SummaryStatistics` and only
  * rename `min`/`max` into the calibration surface's `minimum`/`maximum` keys.
  *
  * @since 0.2.0

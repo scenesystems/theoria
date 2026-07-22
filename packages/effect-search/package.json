@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-search",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Effect-native black-box optimization for TypeScript",
   "license": "MIT",
@@ -72,10 +72,10 @@
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
-    "effect-math": "workspace:^"
+    "@scenesystems/effect-math": "workspace:^"
   },
   "devDependencies": {
-    "effect-inference": "workspace:^",
+    "@scenesystems/effect-inference": "workspace:^",
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {

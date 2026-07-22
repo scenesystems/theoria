@@ -128,7 +128,7 @@ export const maximum: (values: Chunk.Chunk<number>) => Option.Option<number> = E
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.meanValidated({ values: [2, 4, 6] })
  * // Effect succeeds with 4
@@ -163,7 +163,7 @@ export const meanValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.varianceValidated({ values: [2, 4, 6] })
  * // Effect succeeds with 4
@@ -210,7 +210,7 @@ export const varianceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.summaryStatisticsValidated({ values: [2, 4, 6, 8] })
  * ```
@@ -270,7 +270,7 @@ export const summaryStatisticsValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.covarianceValidated({ a: [1, 2, 3], b: [4, 5, 6] })
  * // Effect succeeds with 1
@@ -331,7 +331,7 @@ export const covarianceValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.minimumValidated({ values: [3, 1, 2] })
  * // Effect succeeds with Option.some(1)
@@ -365,7 +365,7 @@ export const minimumValidated = (input: unknown) =>
  * @example
  * ```ts
  * import { Effect } from "effect"
- * import { Statistics } from "effect-math"
+ * import { Statistics } from "@scenesystems/effect-math"
  *
  * const program = Statistics.maximumValidated({ values: [3, 1, 2] })
  * // Effect succeeds with Option.some(3)
@@ -409,7 +409,7 @@ export const maximumValidated = (input: unknown) =>
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
  *   Statistics
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
@@ -503,7 +503,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
  *   Statistics
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
@@ -548,7 +548,7 @@ export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
  *   Statistics
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
@@ -606,7 +606,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
  *   DiagnosticsPolicyService,
  *   PrecisionPolicyService,
  *   Statistics
- * } from "effect-math"
+ * } from "@scenesystems/effect-math"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
