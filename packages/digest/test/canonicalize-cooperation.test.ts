@@ -1,19 +1,20 @@
-/* eslint-disable no-restricted-syntax */
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Exit, Fiber } from "effect"
+import { Array as Arr, Chunk, Effect, Exit, Fiber, Record as Rec } from "effect"
 
 import { canonicalJsonBytes } from "../src/convenience.js"
 import { encodeCanonicalSegments } from "../src/internal/jcs.js"
+import type { CanonicalizationError } from "../src/schemas/errors.js"
 
 const WIDTH = 65_536
 const INTERRUPT_WIDTH = 262_144
 const LONG_TEXT = "value".repeat(WIDTH)
 
-const wideArray = (): ReadonlyArray<ReadonlyArray<number>> =>
-  Array.from({ length: WIDTH }, (_, index) => [index, index + 0.5])
+const wideArray = (): ReadonlyArray<ReadonlyArray<number>> => Arr.makeBy(WIDTH, (index) => [index, index + 0.5])
 
 const wideRecord = (): Readonly<Record<string, number>> =>
-  Object.fromEntries(Array.from({ length: WIDTH }, (_, index) => [`key-${String(index).padStart(5, "0")}`, index]))
+  Rec.fromEntries(
+    Arr.makeBy(WIDTH, (index): readonly [string, number] => [`key-${String(index).padStart(5, "0")}`, index])
+  )
 
 const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
   Effect.acquireUseRelease(
@@ -28,13 +29,13 @@ const hostTimerTicksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<
     ({ handle }) => Effect.sync(() => clearInterval(handle))
   )
 
-it.live.each(
+it.live.each<readonly [string, () => Effect.Effect<Uint8Array, CanonicalizationError>]>(
   [
     ["array", () => canonicalJsonBytes(wideArray())],
     ["record", () => canonicalJsonBytes(wideRecord())],
     ["long string", () => canonicalJsonBytes(LONG_TEXT)],
     ["long record key", () => canonicalJsonBytes({ [LONG_TEXT]: true })]
-  ] as const
+  ]
 )("canonicalJsonBytes yields to the host timer while traversing a wide %s", ([, operation]) =>
   Effect.gen(function*() {
     const ticks = yield* hostTimerTicksDuring(operation())
@@ -43,7 +44,7 @@ it.live.each(
 
 it.live("canonicalJsonBytes can be interrupted before a wide traversal publishes bytes", () =>
   Effect.gen(function*() {
-    const target = Array.from({ length: INTERRUPT_WIDTH }, (_, index) => [index, index + 0.5])
+    const target = Arr.makeBy(INTERRUPT_WIDTH, (index) => [index, index + 0.5])
     const probe = { descriptors: 0 }
     const value = new Proxy(target, {
       getOwnPropertyDescriptor: (proxied, key) => {
@@ -51,9 +52,8 @@ it.live("canonicalJsonBytes can be interrupted before a wide traversal publishes
         return Reflect.getOwnPropertyDescriptor(proxied, key)
       }
     })
-    const hostTimer = yield* Effect.sync(() => new Promise<void>((resolve) => setTimeout(resolve, 0)))
     const fiber = yield* Effect.fork(canonicalJsonBytes(value))
-    yield* Effect.promise(() => hostTimer)
+    yield* Effect.sleep(0)
     const exit = yield* Fiber.interrupt(fiber)
     expect(Exit.isInterrupted(exit)).toBe(true)
     expect(probe.descriptors).toBeLessThan(INTERRUPT_WIDTH)
