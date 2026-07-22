@@ -53,14 +53,14 @@ export const classifyPrimitive = (value: unknown): Either.Either<Primitive, Unsu
 export const classifyContainer = (value: object): Either.Either<Container, Unsupported> =>
   reflect(() => {
     if (ArrayBuffer.isView(value)) return unsupported("typed-array")
-    if (value instanceof globalThis.Date) return unsupported("date")
-    if (value instanceof globalThis.RegExp) return unsupported("regexp")
-    if (value instanceof globalThis.Map) return unsupported("map")
-    if (value instanceof globalThis.Set) return unsupported("set")
-    if (value instanceof globalThis.WeakMap || value instanceof globalThis.WeakSet) {
+    if (value instanceof Date) return unsupported("date")
+    if (value instanceof RegExp) return unsupported("regexp")
+    if (value instanceof Map) return unsupported("map")
+    if (value instanceof Set) return unsupported("set")
+    if (value instanceof WeakMap || value instanceof WeakSet) {
       return unsupported("weak-collection")
     }
-    if (value instanceof globalThis.Promise) return unsupported("promise")
+    if (value instanceof Promise) return unsupported("promise")
     if (Arr.isArray(value)) return Container.Array({ identity: value })
     const prototype = Reflect.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) return unsupported("unsupported-prototype")

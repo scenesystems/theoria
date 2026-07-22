@@ -61,7 +61,7 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   )
 }
 
-const textEncoder = Reflect.construct<[], object>(Reflect.get(globalThis, "TextEncoder"), [])
+const textEncoder = new TextEncoder()
 
 /** @internal */
 export const encodeUtf8Unchecked = (text: string): Uint8Array =>
