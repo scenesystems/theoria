@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, HashSet } from "effect"
+import { Effect, Equal, Exit, Hash, HashSet } from "effect"
 
 import { canonicalize } from "../src/canonicalize.js"
 import { CyclicValue, InvalidUnicode, UnsupportedValue } from "../src/schemas/errors.js"
@@ -11,6 +11,19 @@ const expectUnsupported = (value: unknown, reason: UnsupportedValue["reason"]): 
   })
 
 class UnsupportedInstance {}
+
+const revokedHashTarget = Proxy.revocable({}, {})
+revokedHashTarget.revoke()
+
+class ThrowingHashArray extends Array<number> {
+  [Hash.symbol](): number {
+    return Reflect.ownKeys(revokedHashTarget.proxy).length
+  }
+
+  [Equal.symbol](other: unknown): boolean {
+    return this === other
+  }
+}
 
 const unsupportedValueCases: ReadonlyArray<readonly [string, unknown, UnsupportedValue["reason"]]> = [
   ["undefined", undefined, "undefined"],
@@ -39,6 +52,17 @@ describe("canonicalize — exact strict admission", () => {
     const value = Object.defineProperties({}, {
       [Symbol("secret")]: { value: 1, enumerable: true },
       accessor: { get: () => 1, enumerable: false }
+    })
+    return expectUnsupported(value, "symbol-property")
+  })
+
+  it.effect("rejects a captured symbol before a throwing descriptor trap", () => {
+    const symbol = Symbol("first")
+    const revoked = Proxy.revocable({}, {})
+    revoked.revoke()
+    const value = new Proxy({}, {
+      ownKeys: () => ["broken", symbol],
+      getOwnPropertyDescriptor: () => Reflect.getOwnPropertyDescriptor(revoked.proxy, "broken")
     })
     return expectUnsupported(value, "symbol-property")
   })
@@ -80,6 +104,18 @@ describe("canonicalize — exact strict admission", () => {
       "array-extra-property"
     ))
 
+  it.effect("treats a non-enumerable numeric key at or above captured length as an array extra", () => {
+    const target = [1]
+    const value = new Proxy(target, {
+      ownKeys: () => ["0", "1", "length"],
+      getOwnPropertyDescriptor: (proxied, key) =>
+        key === "1"
+          ? { configurable: true, enumerable: false, value: 2, writable: true }
+          : Reflect.getOwnPropertyDescriptor(proxied, key)
+    })
+    return expectUnsupported(value, "array-extra-property")
+  })
+
   it.effect("maps throwing reflection to reflection-failure", () => {
     const revoked = Proxy.revocable({}, {})
     revoked.revoke()
@@ -87,6 +123,11 @@ describe("canonicalize — exact strict admission", () => {
       Object.defineProperty({}, Symbol("secret"), { value: 1 }),
       { ownKeys: () => Reflect.ownKeys(revoked.proxy) }
     )
+    return expectUnsupported(value, "reflection-failure")
+  })
+
+  it.effect("maps throwing active-set hashing to reflection-failure", () => {
+    const value = ThrowingHashArray.from([1])
     return expectUnsupported(value, "reflection-failure")
   })
 

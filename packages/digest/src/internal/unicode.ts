@@ -1,12 +1,13 @@
 /**
  * Strict Unicode validation and UTF-8 encoding.
  *
- * This is the package's only scalar-well-formedness implementation. The Web
- * `TextEncoder` is safe to call only after `unicodeFault` accepts the input.
+ * This is the package's only scalar-well-formedness implementation. The byte
+ * encoder is safe to call only after `unicodeFault` accepts the input.
  *
  * @internal
  */
 
+import { utf8ToBytes } from "@noble/hashes/utils.js"
 import { Array as Arr, Option } from "effect"
 
 import { InvalidUnicode } from "../schemas/errors.js"
@@ -29,6 +30,17 @@ const isUnpairedSurrogateAt = (text: string, codeUnitIndex: number): boolean => 
     : isLowSurrogate(codeUnit) && !isHighSurrogate(text.charCodeAt(codeUnitIndex - 1))
 }
 
+/** Inspect one UTF-16 code unit using the package's canonical Unicode law. @internal */
+export const unicodeFaultAt = (text: string, codeUnitIndex: number): Option.Option<InvalidUnicode> =>
+  isUnpairedSurrogateAt(text, codeUnitIndex)
+    ? Option.some(
+      new InvalidUnicode({
+        kind: isHighSurrogate(text.charCodeAt(codeUnitIndex)) ? "lone-high-surrogate" : "lone-low-surrogate",
+        codeUnitIndex
+      })
+    )
+    : Option.none()
+
 /** @internal */
 export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   if (Reflect.apply(Reflect.get(String.prototype, "isWellFormed"), text, [])) {
@@ -50,8 +62,5 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
   )
 }
 
-const textEncoder = Reflect.construct<[], object>(Reflect.get(globalThis, "TextEncoder"), [])
-
 /** @internal */
-export const encodeUtf8Unchecked = (text: string): Uint8Array =>
-  Reflect.apply(Reflect.get(textEncoder, "encode"), textEncoder, [text])
+export const encodeUtf8Unchecked = (text: string): Uint8Array => utf8ToBytes(text)

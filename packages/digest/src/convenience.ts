@@ -23,9 +23,8 @@
 import { Effect, Match } from "effect"
 import { blake3Hash } from "./algorithms/blake3.js"
 import { sha256 } from "./algorithms/sha256.js"
-import { canonicalize } from "./canonicalize.js"
 import { encodeUtf8, toBase64Url, toHex } from "./encoding.js"
-import { encodeUtf8Unchecked } from "./internal/unicode.js"
+import { canonicalizeSegments, encodeCanonicalSegments } from "./internal/jcs.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
 
@@ -117,7 +116,8 @@ export const digestBytesHex = (
  */
 export const canonicalJsonBytes = (
   value: unknown
-): Effect.Effect<Uint8Array, CanonicalizationError> => Effect.map(canonicalize(value), encodeUtf8Unchecked)
+): Effect.Effect<Uint8Array, CanonicalizationError> =>
+  Effect.flatMap(canonicalizeSegments(value), encodeCanonicalSegments)
 
 /**
  * Canonicalize structured data via RFC 8785 JCS, then hash the canonical bytes.
