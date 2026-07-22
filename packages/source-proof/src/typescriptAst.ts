@@ -13,7 +13,7 @@ export const parseTypeScript = (fileName: string, source: string): ts.SourceFile
   ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
 
 /**
- * Collects import, export, and dynamic-import module specifiers from a parsed source file.
+ * Collects import, export, dynamic-import, and import-type module specifiers from a parsed source file.
  *
  * @since 0.0.0
  * @category queries
@@ -32,6 +32,10 @@ export const moduleSpecifiers = (sourceFile: ts.SourceFile): ReadonlyArray<strin
         onNone: () => [],
         onSome: (firstArgument) => (ts.isStringLiteral(firstArgument) ? [firstArgument.text] : [])
       })
+    }
+
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+      return ts.isStringLiteral(node.argument.literal) ? [node.argument.literal.text] : []
     }
 
     return []
