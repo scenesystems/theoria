@@ -120,11 +120,25 @@ const runSchemaValueByteLimit = (kat: Extract<DigestKat, { readonly _tag: "Schem
         onSuccess: () => failKat(kat.id, "schema-digest-bound-plus-one-accepted")
       })
     )
+    const invalid = yield* Digest.digestSchemaValueWithByteLimit(
+      Schema.Unknown,
+      kat.input,
+      -1
+    ).pipe(
+      Effect.matchEffect({
+        onFailure: Effect.succeed,
+        onSuccess: () => failKat(kat.id, "schema-digest-invalid-limit-accepted")
+      })
+    )
 
     yield* verify(kat.id, "schema-digest-existing", existing, kat.expectedDigest)
-    yield* verify(kat.id, "schema-digest-exact-bound", exact, kat.expectedDigest)
+    yield* verify(kat.id, "schema-digest-exact-bound", exact.digest, kat.expectedDigest)
+    yield* verify(kat.id, "schema-digest-canonical-byte-length", exact.canonicalByteLength, kat.maximumBytes)
     if (excess._tag !== "CanonicalByteLimitExceeded") {
       return yield* failKat(kat.id, "schema-digest-excess-classification")
+    }
+    if (invalid._tag !== "InvalidCanonicalByteLimit") {
+      return yield* failKat(kat.id, "schema-digest-invalid-limit-classification")
     }
   })
 

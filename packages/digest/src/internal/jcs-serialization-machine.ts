@@ -31,7 +31,7 @@ const scalarWidth = (text: string, at: number): number => {
 export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }>): void => {
   const entry = MutableRef.get(frame.entry)
   if (entry === frame.entries.length) {
-    emit(state, "{")
+    if (!emit(state, "{")) return
     return push(state, { _tag: "RecordCursor", identity: frame.identity, entries: frame.entries, at: ref(0) })
   }
   const key = frame.entries[entry]!.key, code = MutableRef.get(frame.code)
@@ -48,11 +48,14 @@ export const processKeys = (state: State, frame: Extract<Frame, { _tag: "Keys" }
 
 export const processString = (state: State, frame: Extract<Frame, { _tag: "String" }>): void => {
   const at = MutableRef.get(frame.at)
-  if (at === frame.text.length) return emit(state, `"${frame.suffix}`)
+  if (at === frame.text.length) {
+    emit(state, `"${frame.suffix}`)
+    return
+  }
   const fault = unicodeFaultAt(frame.text, at)
   if (Option.isSome(fault)) return fail(state, fault.value)
   const width = scalarWidth(frame.text, at)
-  emit(state, width === 2 ? frame.text.slice(at, at + 2) : escapeUnit(frame.text, at))
+  if (!emit(state, width === 2 ? frame.text.slice(at, at + 2) : escapeUnit(frame.text, at))) return
   MutableRef.set(frame.at, at + width)
   push(state, frame)
 }
@@ -63,13 +66,13 @@ export const processCursor = (state: State, frame: Extract<Frame, { _tag: "Array
   if (at === length) {
     return push(state, { _tag: "Close", identity: frame.identity, token: frame._tag === "ArrayCursor" ? "]" : "}" })
   }
-  if (at > 0) emit(state, ",")
+  if (at > 0 && !emit(state, ",")) return
   MutableRef.set(frame.at, at + 1)
   push(state, frame)
   if (frame._tag === "RecordCursor") {
     const entry = frame.entries[at]!
+    if (!emit(state, "\"")) return
     push(state, { _tag: "Visit", value: entry.value })
-    emit(state, "\"")
     return push(state, { _tag: "String", text: entry.key, at: ref(0), suffix: ":" })
   }
   push(state, { _tag: "Visit", value: frame.values[at] })
@@ -81,7 +84,7 @@ export const processVisit = (state: State, frame: Extract<Frame, { _tag: "Visit"
   const value = result.right
   if (value._tag === "Object") return startObject(state, value.value)
   if (value._tag === "String") {
-    emit(state, "\"")
+    if (!emit(state, "\"")) return
     return push(state, { _tag: "String", text: value.value, at: ref(0), suffix: "" })
   }
   emit(
@@ -95,7 +98,7 @@ export const processVisit = (state: State, frame: Extract<Frame, { _tag: "Visit"
 }
 
 export const processClose = (state: State, frame: Extract<Frame, { _tag: "Close" }>): void => {
-  emit(state, frame.token)
+  if (!emit(state, frame.token)) return
   const removed = reflect(() => MutableHashSet.remove(state.active, frame.identity))
   if (Either.isLeft(removed)) fail(state, removed.left)
 }

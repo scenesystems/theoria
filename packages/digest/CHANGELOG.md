@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.3.4
+
+### Patch Changes
+
+- Correct `digestSchemaValueWithByteLimit` to stop canonical UTF-8 emission at the first byte beyond its inclusive limit, before complete oversized-preimage materialization and before hash dispatch. Successful calls now return the provider-owned `{ digest, canonicalByteLength }` result, while invalid limits and excess use the fieldless, redacted `InvalidCanonicalByteLimit` and `CanonicalByteLimitExceeded` classifications. The unbounded API and all canonical, digest, Unit, Catalog, and Graph Fingerprint identity bytes remain unchanged.
+
 ## 0.3.3
 
 ### Patch Changes

@@ -1,8 +1,8 @@
 /** Cooperative JCS Effect execution orchestrator. @internal */
 
-import { Array as Arr, Chunk, Effect, MutableHashSet, MutableList, MutableRef, Option } from "effect"
+import { Array as Arr, Chunk, Data, Effect, MutableHashSet, MutableList, MutableRef, Option } from "effect"
 
-import type { CanonicalizationError } from "../schemas/errors.js"
+import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../schemas/errors.js"
 import {
   processArrayCheck,
   processArrayFill,
@@ -11,7 +11,7 @@ import {
   processSymbols
 } from "./jcs-admission-machine.js"
 import type { Frame } from "./jcs-model.js"
-import { ref, State } from "./jcs-model.js"
+import { ByteBudget, exceeded, ref, State } from "./jcs-model.js"
 import { processClose, processCursor, processKeys, processString, processVisit } from "./jcs-serialization-machine.js"
 
 const BATCH = 512
@@ -20,6 +20,11 @@ const BATCH = 512
 // delay gate, so fibers yield every batch while host timers run every 32 batches.
 const HOST_YIELD_BATCHES = 32
 const CONTROL_TOKENS: ReadonlyArray<number> = Arr.makeBy(BATCH, (index) => index)
+
+export class BoundedCanonicalSegments extends Data.Class<{
+  readonly segments: Chunk.Chunk<string>
+  readonly canonicalByteLength: number
+}> {}
 
 const process = (state: State, frame: Frame): void => {
   if (frame._tag === "Visit") return processVisit(state, frame)
@@ -34,7 +39,13 @@ const process = (state: State, frame: Frame): void => {
   processClose(state, frame)
 }
 
-const execute = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
+const stopped = (state: State): boolean =>
+  MutableList.isEmpty(state.stack) || Option.isSome(MutableRef.get(state.failure)) || exceeded(state)
+
+const execute = (
+  value: unknown,
+  maximumBytes: Option.Option<number>
+): Effect.Effect<State, CanonicalizationError> =>
   Effect.suspend(() => {
     const batches = ref(0)
     const state = new State({
@@ -42,23 +53,26 @@ const execute = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Canonicaliz
       active: MutableHashSet.empty(),
       segments: MutableList.empty(),
       pending: ref(""),
+      budget: Option.map(maximumBytes, (maximum) =>
+        new ByteBudget({ maximumBytes: maximum, byteLength: ref(0), exceeded: ref(false) })),
       failure: ref(Option.none())
     })
     return Effect.flatMap(
       Effect.iterate(state, {
-        while: (current) => !MutableList.isEmpty(current.stack) && Option.isNone(MutableRef.get(current.failure)),
+        while: (current) =>
+          !stopped(current),
         body: (current) =>
           Effect.flatMap(
             Effect.sync(() => {
               CONTROL_TOKENS.some(() => {
-                if (MutableList.isEmpty(current.stack) || Option.isSome(MutableRef.get(current.failure))) return true
+                if (stopped(current)) return true
                 process(current, MutableList.shift(current.stack)!)
                 return false
               })
               return current
             }),
             (nextState) =>
-              MutableList.isEmpty(nextState.stack) || Option.isSome(MutableRef.get(nextState.failure))
+              stopped(nextState)
                 ? Effect.succeed(nextState)
                 : Effect.as(
                   Effect.zipRight(
@@ -78,14 +92,35 @@ const execute = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Canonicaliz
       (current) => {
         const failure = MutableRef.get(current.failure)
         if (Option.isSome(failure)) return Effect.fail(failure.value)
-        const pending = MutableRef.get(current.pending)
-        if (pending.length > 0) MutableList.append(current.segments, pending)
-        return Effect.succeed(Chunk.fromIterable(current.segments))
+        return Effect.succeed(current)
       }
     )
   })
 
+const segments = (state: State): Chunk.Chunk<string> => {
+  const pending = MutableRef.get(state.pending)
+  if (pending.length > 0) MutableList.append(state.segments, pending)
+  return Chunk.fromIterable(state.segments)
+}
+
 export const canonicalizeSegments = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
-  execute(value)
+  Effect.map(execute(value, Option.none()), segments)
+export const canonicalizeSegmentsWithByteLimit = (
+  value: unknown,
+  maximumBytes: number
+): Effect.Effect<BoundedCanonicalSegments, CanonicalizationError | CanonicalByteLimitExceeded> =>
+  Effect.flatMap(execute(value, Option.some(maximumBytes)), (state) =>
+    Option.match(state.budget, {
+      onNone: () => Effect.dieMessage("bounded canonicalization requires a byte budget"),
+      onSome: (budget) =>
+        MutableRef.get(budget.exceeded)
+          ? new CanonicalByteLimitExceeded({})
+          : Effect.succeed(
+            new BoundedCanonicalSegments({
+              segments: segments(state),
+              canonicalByteLength: MutableRef.get(budget.byteLength)
+            })
+          )
+    }))
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>
-  Effect.map(execute(value), (segments) => Chunk.join(segments, ""))
+  Effect.map(canonicalizeSegments(value), (output) => Chunk.join(output, ""))
