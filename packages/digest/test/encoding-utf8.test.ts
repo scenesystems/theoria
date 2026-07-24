@@ -11,6 +11,7 @@ import { Effect, Exit, FastCheck as fc } from "effect"
 import { canonicalize } from "../src/canonicalize.js"
 import { canonicalJsonBytes } from "../src/convenience.js"
 import { encodeUtf8 } from "../src/encoding.js"
+import { utf8ByteLengthUnchecked } from "../src/internal/unicode.js"
 import { InvalidUnicode } from "../src/schemas/errors.js"
 
 const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
@@ -98,6 +99,17 @@ describe("encodeUtf8", () => {
       Effect.gen(function*() {
         const encoded = yield* encodeUtf8(text)
         expect(utf8Decoder.decode(encoded)).toBe(text)
+      }),
+    { fastCheck: { numRuns: 200 } }
+  )
+
+  it.effect.prop(
+    "measures every generated well-formed string exactly like the sole UTF-8 encoder",
+    [wellFormedString],
+    ([text]) =>
+      Effect.gen(function*() {
+        const encoded = yield* encodeUtf8(text)
+        expect(utf8ByteLengthUnchecked(text)).toBe(encoded.byteLength)
       }),
     { fastCheck: { numRuns: 200 } }
   )

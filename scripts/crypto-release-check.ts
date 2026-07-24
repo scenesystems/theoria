@@ -185,7 +185,8 @@ const assertPackedCjsCapability = (directory: string) =>
       "  const existing = yield* Digest.digestSchemaValue(Schema.String, \"😀\")",
       "  const exact = yield* Digest.digestSchemaValueWithByteLimit(Schema.String, \"😀\", 6)",
       "  const excess = yield* Effect.flip(Digest.digestSchemaValueWithByteLimit(Schema.String, \"😀\", 5))",
-      "  return { equivalent: exact === existing, excess: excess._tag }",
+      "  const invalid = yield* Effect.flip(Digest.digestSchemaValueWithByteLimit(Schema.String, \"😀\", -1))",
+      "  return { equivalent: exact.digest === existing, canonicalByteLength: exact.canonicalByteLength, excess: excess._tag, invalid: invalid._tag }",
       "}))",
       "process.stdout.write(JSON.stringify(report))"
     ].join("\n")
@@ -199,7 +200,9 @@ const assertPackedCjsCapability = (directory: string) =>
       "packed-cjs-byte-limit",
       Schema.parseJson(Schema.Struct({
         equivalent: Schema.Literal(true),
-        excess: Schema.Literal("CanonicalByteLimitExceeded")
+        canonicalByteLength: Schema.Literal(6),
+        excess: Schema.Literal("CanonicalByteLimitExceeded"),
+        invalid: Schema.Literal("InvalidCanonicalByteLimit")
       })),
       output
     )
@@ -216,18 +219,23 @@ const assertPackedNodeNextDeclarations = (root: string, directory: string) =>
       [
         "import {",
         "  CanonicalByteLimitExceeded,",
+        "  type CanonicalByteLimitError,",
         "  type CanonicalizationError,",
-        "  digestSchemaValueWithByteLimit",
+        "  digestSchemaValueWithByteLimit,",
+        "  InvalidCanonicalByteLimit,",
+        "  SchemaValueDigest",
         "} from \"@scenesystems/digest\"",
         "import { Effect, type ParseResult, Schema } from \"effect\"",
         "const program: Effect.Effect<",
-        "  string,",
-        "  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,",
+        "  SchemaValueDigest,",
+        "  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,",
         "  never",
         "> = digestSchemaValueWithByteLimit(Schema.String, \"value\", 7)",
         "const excess = new CanonicalByteLimitExceeded({})",
+        "const invalid = new InvalidCanonicalByteLimit({})",
         "void program",
         "void excess",
+        "void invalid",
         ""
       ].join("\n")
     ).pipe(Effect.mapError(() => checkError("packed-nodenext-declarations", sourcePath)))

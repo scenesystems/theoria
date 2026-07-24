@@ -18,13 +18,15 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Cause, Effect, Exit, Fiber, MutableRef, Option, Schema } from "effect"
+import { Array as Arr, Effect, Exit, Fiber, MutableRef, Schema } from "effect"
 import {
   CanonicalByteLimitExceeded,
   canonicalJsonBytes,
   digestBytesBase64Url,
   digestSchemaValue,
-  digestSchemaValueWithByteLimit
+  digestSchemaValueWithByteLimit,
+  InvalidCanonicalByteLimit,
+  SchemaValueDigest
 } from "../src/index.js"
 import type { DigestAlgorithm } from "../src/index.js"
 
@@ -56,6 +58,15 @@ const jcsSensitiveValue = {
 }
 
 const algorithms: ReadonlyArray<DigestAlgorithm> = ["blake3-256", "sha256"]
+
+const canonicalScalarCases: ReadonlyArray<readonly [unknown, number]> = [
+  ["A", 3],
+  ["é", 4],
+  ["€", 5],
+  ["😀", 6],
+  ["\n", 4],
+  [{}, 2]
+]
 
 const requireNoEnvironment = <A, E>(effect: Effect.Effect<A, E, never>): Effect.Effect<A, E, never> => effect
 
@@ -125,7 +136,7 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
             4_096,
             algorithm
           )
-          expect(bounded).toBe(existing)
+          expect(bounded.digest).toBe(existing)
         }), { discard: true })
     }))
 
@@ -139,7 +150,7 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       const existing = yield* digestSchemaValue(Schema.String, value)
       const overLimit = yield* Effect.exit(digestSchemaValueWithByteLimit(Schema.String, value, 5))
 
-      expect(exact).toBe(existing)
+      expect(exact).toStrictEqual(new SchemaValueDigest({ digest: existing, canonicalByteLength: 6 }))
       expect(overLimit).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
     }))
 
@@ -154,10 +165,15 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
         canonicalBytes.byteLength
       )
 
-      expect(bounded).toBe(`blake3-256:${base64Url}`)
+      expect(bounded).toStrictEqual(
+        new SchemaValueDigest({
+          digest: `blake3-256:${base64Url}`,
+          canonicalByteLength: canonicalBytes.byteLength
+        })
+      )
     }))
 
-  it.effect("treats an invalid maximum as a caller defect rather than an excess classification", () =>
+  it.effect("rejects invalid maxima through a fieldless provider classification", () =>
     Effect.gen(function*() {
       yield* Effect.forEach(
         [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1],
@@ -166,12 +182,7 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
             const exit = yield* Effect.exit(
               digestSchemaValueWithByteLimit(Schema.String, "value", maximumBytes)
             )
-            const defect = Exit.match(exit, {
-              onFailure: Cause.dieOption,
-              onSuccess: () => Option.none()
-            })
-
-            expect(Option.isSome(defect)).toBe(true)
+            expect(exit).toStrictEqual(Exit.fail(new InvalidCanonicalByteLimit({})))
           }),
         { discard: true }
       )
@@ -233,4 +244,107 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       }),
     30_000
   )
+})
+
+describe("digestSchemaValueWithByteLimit — early bounded canonical identity", () => {
+  it.effect("returns the existing tagged digest and exact canonical byte length for both algorithms", () =>
+    Effect.gen(function*() {
+      const encoded = yield* Schema.encode(JcsSensitiveValue)(jcsSensitiveValue)
+      const canonicalBytes = yield* canonicalJsonBytes(encoded)
+
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const existing = yield* digestSchemaValue(JcsSensitiveValue, jcsSensitiveValue, algorithm)
+          const bounded = yield* requireNoEnvironment(
+            digestSchemaValueWithByteLimit(
+              JcsSensitiveValue,
+              jcsSensitiveValue,
+              canonicalBytes.byteLength,
+              algorithm
+            )
+          )
+
+          expect(bounded).toStrictEqual(
+            new SchemaValueDigest({
+              digest: existing,
+              canonicalByteLength: canonicalBytes.byteLength
+            })
+          )
+        }), { discard: true })
+    }))
+
+  it.effect.each(canonicalScalarCases)(
+    "enforces the exact inclusive boundary across canonical UTF-8 forms %#",
+    ([value, canonicalByteLength]) =>
+      Effect.gen(function*() {
+        const exact = yield* digestSchemaValueWithByteLimit(Schema.Unknown, value, canonicalByteLength)
+        const excess = yield* Effect.exit(
+          digestSchemaValueWithByteLimit(Schema.Unknown, value, canonicalByteLength - 1)
+        )
+
+        expect(exact.canonicalByteLength).toBe(canonicalByteLength)
+        expect(excess).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
+      })
+  )
+
+  it.effect("preserves exact bounds and digest parity for long strings and record keys", () =>
+    Effect.gen(function*() {
+      const text = "😀line\\n\"".repeat(8_192)
+      const values: ReadonlyArray<unknown> = [text, { [text]: "value" }]
+
+      yield* Effect.forEach(values, (value) =>
+        Effect.gen(function*() {
+          const bytes = yield* canonicalJsonBytes(value)
+          const existing = yield* digestSchemaValue(Schema.Unknown, value)
+          const exact = yield* digestSchemaValueWithByteLimit(Schema.Unknown, value, bytes.byteLength)
+          const excess = yield* Effect.exit(
+            digestSchemaValueWithByteLimit(Schema.Unknown, value, bytes.byteLength - 1)
+          )
+
+          expect(exact).toStrictEqual(
+            new SchemaValueDigest({ digest: existing, canonicalByteLength: bytes.byteLength })
+          )
+          expect(excess).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
+        }), { discard: true })
+    }))
+
+  it.effect("stops before traversing later containers after the first excess byte", () =>
+    Effect.gen(function*() {
+      const width = 4_096
+      const visited = MutableRef.make(0)
+      const value = Arr.makeBy(width, (index) =>
+        new Proxy({ index, text: "value".repeat(16) }, {
+          ownKeys: (target) => {
+            MutableRef.increment(visited)
+            return Reflect.ownKeys(target)
+          }
+        }))
+
+      const exit = yield* Effect.exit(digestSchemaValueWithByteLimit(Schema.Unknown, value, 64))
+
+      expect(exit).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
+      expect(MutableRef.get(visited)).toBeGreaterThan(0)
+      expect(MutableRef.get(visited)).toBeLessThan(width)
+    }))
+
+  it.effect("uses deterministic machine-order precedence around the excess boundary", () =>
+    Effect.gen(function*() {
+      const before = yield* Effect.flip(
+        digestSchemaValueWithByteLimit(Schema.Unknown, [undefined, "value".repeat(64)], 8)
+      )
+      const after = yield* Effect.flip(
+        digestSchemaValueWithByteLimit(Schema.Unknown, ["value".repeat(64), undefined], 8)
+      )
+      const key = yield* Effect.flip(
+        digestSchemaValueWithByteLimit(Schema.Unknown, { ["\uD800"]: true }, 0)
+      )
+
+      expect(before).toMatchObject({ _tag: "UnsupportedValue", reason: "undefined" })
+      expect(after).toStrictEqual(new CanonicalByteLimitExceeded({}))
+      expect(key).toMatchObject({
+        _tag: "InvalidUnicode",
+        kind: "lone-high-surrogate",
+        codeUnitIndex: 0
+      })
+    }))
 })

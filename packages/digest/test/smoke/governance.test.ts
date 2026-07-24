@@ -178,7 +178,7 @@ describe("governance", () => {
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.effect("keeps byte-limit admission before the sole tagged-byte digest call", () =>
+  it.effect("keeps bounded canonical emission before the sole tagged-byte digest call", () =>
     Effect.gen(function*() {
       const boundedInitializer = yield* initializerText(
         "src/digestSchemaValue.ts",
@@ -196,25 +196,70 @@ describe("governance", () => {
       expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([
         new ExpressionInvocation({ kind: "call", target: "Schema.encode()", arguments: ["value"] })
       ])
-      expect(Arr.filter(invocations, ({ target }) => target === "canonicalJsonBytes")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "canonicalJsonBytes", arguments: ["encoded"] })
-      ])
       expect(conditionalInvocations(bounded)).toContainEqual(
         new ConditionalInvocation({
           condition: new ExpressionInvocation({
             kind: "call",
-            target: "Num.greaterThan",
-            arguments: ["bytes.byteLength", "maximumBytes"]
+            target: "isByteLimit",
+            arguments: ["maximumBytes"]
           }),
           whenTrue: new ExpressionInvocation({
+            kind: "call",
+            target: "Effect.flatMap",
+            arguments: [
+              "Schema.encode(schema)(value)",
+              "(encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)"
+            ]
+          }),
+          whenFalse: new ExpressionInvocation({
             kind: "new",
-            target: "CanonicalByteLimitExceeded",
+            target: "InvalidCanonicalByteLimit",
             arguments: ["{}"]
+          })
+        })
+      )
+
+      const digestEncodedBoundedInitializer = yield* initializerText(
+        "src/digestSchemaValue.ts",
+        "digestEncodedBounded"
+      )
+      const digestEncodedBounded = parseTypeScript(
+        "digestEncodedBounded.initializer.ts",
+        `const value = ${digestEncodedBoundedInitializer}`
+      )
+      const boundedInvocations = callInvocations(digestEncodedBounded)
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "canonicalizeSegmentsWithByteLimit")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "canonicalizeSegmentsWithByteLimit",
+          arguments: ["encoded", "maximumBytes"]
+        })
+      ])
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "encodeCanonicalSegments")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "encodeCanonicalSegments", arguments: ["segments"] })
+      ])
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "digestBytesTagged")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "digestBytesTagged", arguments: ["algorithm", "bytes"] })
+      ])
+      expect(conditionalInvocations(digestEncodedBounded)).toContainEqual(
+        new ConditionalInvocation({
+          condition: new ExpressionInvocation({
+            kind: "call",
+            target: "Num.Equivalence",
+            arguments: ["bytes.byteLength", "canonicalByteLength"]
+          }),
+          whenTrue: new ExpressionInvocation({
+            kind: "call",
+            target: "Effect.map",
+            arguments: [
+              "digestBytesTagged(algorithm, bytes)",
+              "(tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength: bytes.byteLength })"
+            ]
           }),
           whenFalse: new ExpressionInvocation({
             kind: "call",
-            target: "digestBytesTagged",
-            arguments: ["algorithm", "bytes"]
+            target: "Effect.dieMessage",
+            arguments: ["BYTE_LENGTH_MISMATCH_MESSAGE"]
           })
         })
       )

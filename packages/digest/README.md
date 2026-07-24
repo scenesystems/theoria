@@ -37,7 +37,7 @@ const program = Effect.gen(function* () {
     name: "deploy",
     occurredAt: new Date("2026-07-22T00:00:00.000Z")
   })
-  const boundedSchemaTagged = yield* digestSchemaValueWithByteLimit(
+  const boundedSchemaDigest = yield* digestSchemaValueWithByteLimit(
     Event,
     {
       name: "deploy",
@@ -46,11 +46,11 @@ const program = Effect.gen(function* () {
     1_024
   )
 
-  return { boundedSchemaTagged, canonicalBytes, tagged, schemaTagged }
+  return { boundedSchemaDigest, canonicalBytes, tagged, schemaTagged }
 })
 ```
 
-`digest`, `digestSchemaValue`, and `digestSchemaValueWithByteLimit` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters.
+`digest` and `digestSchemaValue` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters. `digestSchemaValueWithByteLimit` returns that tagged text as `digest` together with its exact `canonicalByteLength`.
 
 Digest identifies exact bytes. It does not define application domains, versions, normalization policy, ownership, or authenticity.
 
@@ -107,15 +107,17 @@ digestSchemaValueWithByteLimit<A, I>(
   maximumBytes: number,
   algorithm?: DigestAlgorithm
 ): Effect.Effect<
-  string,
-  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,
+  SchemaValueDigest,
+  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,
   never
 >
 ```
 
 `digestSchemaValue` first applies `Schema.encode`, then admits and canonicalizes the encoded value. Schema requirements remain in `R`, and `ParseResult.ParseError` remains distinguishable from canonicalization failures.
 
-`digestSchemaValueWithByteLimit` is the resource-qualified form for schemas with no environment requirements. It encodes once, canonicalizes once to strict UTF-8, and applies `maximumBytes` as an inclusive limit to that exact byte sequence. The exact bound succeeds; an over-limit value fails with the fieldless, redacted `CanonicalByteLimitExceeded` before algorithm dispatch. Under the limit, those same measured bytes are hashed and the result is identical to `digestSchemaValue` for the same schema value and algorithm. `maximumBytes` must be a non-negative safe integer; an invalid maximum is a caller defect rather than an excess classification.
+`digestSchemaValueWithByteLimit` is the resource-qualified form for schemas with no environment requirements. It encodes once and traverses the encoded value once through the same strict JCS authority as the unbounded operation. Canonical UTF-8 emission is counted as traversal proceeds and stops at the first fragment containing byte `maximumBytes + 1`; an oversized preimage is not fully materialized and BLAKE3/SHA-256 is not dispatched. The limit is inclusive, so the exact bound succeeds. Success returns `SchemaValueDigest({ digest, canonicalByteLength })`; `digest` is byte-identical to `digestSchemaValue`, and `canonicalByteLength` comes from the exact final byte array passed to the tagged digest authority.
+
+`maximumBytes` must be a non-negative safe integer. Invalid maxima fail with fieldless, redacted `InvalidCanonicalByteLimit`; excess fails with fieldless, redacted `CanonicalByteLimitExceeded`. `CanonicalByteLimitError` is the closed union of those classifications. RFC 8785 record key ordering and strict descriptor admission require bounded snapshot and sort state for the current container, so this is bounded early canonical UTF-8 emission rather than a second serializer or an independently streamed object-ordering law.
 
 ## Text and byte hashing
 

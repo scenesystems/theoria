@@ -15,9 +15,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Exit, Schema } from "effect"
 import {
+  CanonicalByteLimitError,
   CanonicalByteLimitExceeded,
   CanonicalizationError,
   CyclicValue,
+  InvalidCanonicalByteLimit,
   InvalidKeyLength,
   InvalidUnicode,
   UnsupportedValue
@@ -206,6 +208,43 @@ describe("CanonicalByteLimitExceeded — Schema.TaggedError", () => {
 
       expect(encoded).toStrictEqual({ _tag: "CanonicalByteLimitExceeded" })
       expect(decoded._tag).toBe("CanonicalByteLimitExceeded")
+    }))
+})
+
+describe("InvalidCanonicalByteLimit — Schema.TaggedError", () => {
+  it.effect("is yieldable and catchable via Effect.catchTag", () =>
+    Effect.gen(function*() {
+      const result = yield* new InvalidCanonicalByteLimit({}).pipe(
+        Effect.catchTag("InvalidCanonicalByteLimit", (error) => Effect.succeed(error._tag))
+      )
+      expect(result).toBe("InvalidCanonicalByteLimit")
+    }))
+
+  it.effect("round-trips without retaining the rejected limit", () =>
+    Effect.gen(function*() {
+      const encoded = yield* Schema.encode(InvalidCanonicalByteLimit)(new InvalidCanonicalByteLimit({}))
+      const decoded = yield* Schema.decodeUnknown(InvalidCanonicalByteLimit)(encoded)
+
+      expect(encoded).toStrictEqual({ _tag: "InvalidCanonicalByteLimit" })
+      expect(decoded._tag).toBe("InvalidCanonicalByteLimit")
+    }))
+})
+
+describe("CanonicalByteLimitError — closed Schema union", () => {
+  it.effect("round-trips invalid and exceeded classifications without diagnostic fields", () =>
+    Effect.gen(function*() {
+      const errors = [new InvalidCanonicalByteLimit({}), new CanonicalByteLimitExceeded({})]
+      const encoded = yield* Effect.forEach(errors, (error) => Schema.encode(CanonicalByteLimitError)(error))
+      const decoded = yield* Effect.forEach(encoded, (value) => Schema.decodeUnknown(CanonicalByteLimitError)(value))
+
+      expect(encoded).toStrictEqual([
+        { _tag: "InvalidCanonicalByteLimit" },
+        { _tag: "CanonicalByteLimitExceeded" }
+      ])
+      expect(Arr.map(decoded, (error) => error._tag)).toStrictEqual([
+        "InvalidCanonicalByteLimit",
+        "CanonicalByteLimitExceeded"
+      ])
     }))
 })
 

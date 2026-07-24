@@ -115,7 +115,7 @@ export const processArrayCheck = (state: State, frame: Extract<Frame, { _tag: "A
 export const processArrayFill = (state: State, frame: Extract<Frame, { _tag: "ArrayFill" }>): void => {
   const at = MutableRef.get(frame.at)
   if (at === frame.entries.length) {
-    emit(state, "[")
+    if (!emit(state, "[")) return
     return push(state, { _tag: "ArrayCursor", identity: frame.identity, values: frame.values, at: ref(0) })
   }
   const entry = frame.entries[at]!

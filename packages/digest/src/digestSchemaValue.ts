@@ -28,14 +28,47 @@
  */
 
 import { Effect, Number as Num, type ParseResult, Schema } from "effect"
-import { canonicalJsonBytes } from "./convenience.js"
 import { digest } from "./digest.js"
 import { digestBytesTagged } from "./internal/digest-bytes.js"
+import { canonicalizeSegmentsWithByteLimit, encodeCanonicalSegments } from "./internal/jcs.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
-import { CanonicalByteLimitExceeded, type CanonicalizationError } from "./schemas/errors.js"
+import {
+  type CanonicalByteLimitError,
+  type CanonicalByteLimitExceeded,
+  type CanonicalizationError,
+  InvalidCanonicalByteLimit
+} from "./schemas/errors.js"
 
 const isByteLimit = Schema.is(Schema.NonNegativeInt)
-const INVALID_BYTE_LIMIT_MESSAGE = "digestSchemaValueWithByteLimit maximumBytes must be a non-negative safe integer"
+const BYTE_LENGTH_MISMATCH_MESSAGE = "bounded canonical byte length did not match encoded bytes"
+
+/**
+ * A tagged Schema-value digest together with its exact canonical UTF-8 length.
+ *
+ * @since 0.3.4
+ * @category schemas
+ */
+export class SchemaValueDigest extends Schema.Class<SchemaValueDigest>("SchemaValueDigest")({
+  digest: Schema.String,
+  canonicalByteLength: Schema.NonNegativeInt
+}) {}
+
+const digestEncodedBounded = (
+  encoded: unknown,
+  maximumBytes: number,
+  algorithm: DigestAlgorithm
+): Effect.Effect<SchemaValueDigest, CanonicalByteLimitExceeded | CanonicalizationError> =>
+  Effect.flatMap(
+    canonicalizeSegmentsWithByteLimit(encoded, maximumBytes),
+    ({ canonicalByteLength, segments }) =>
+      Effect.flatMap(encodeCanonicalSegments(segments), (bytes) =>
+        Num.Equivalence(bytes.byteLength, canonicalByteLength)
+          ? Effect.map(
+            digestBytesTagged(algorithm, bytes),
+            (tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength: bytes.byteLength })
+          )
+          : Effect.dieMessage(BYTE_LENGTH_MISMATCH_MESSAGE))
+  )
 
 /**
  * Digest a Schema-typed value through the full pipeline.
@@ -64,17 +97,13 @@ export const digestSchemaValue = <A, I, R>(
  * Digest a Schema value only when its exact canonical UTF-8 preimage is within
  * an inclusive byte limit.
  *
- * The value is encoded once and canonicalized once. The resulting canonical
- * byte array is measured before hashing; an exact-bound value succeeds, while
- * a value over the limit fails with the fieldless
- * {@link CanonicalByteLimitExceeded} classification before algorithm dispatch.
- * Successful calls hash that same measured byte array and return exactly the
- * algorithm-tagged text produced by {@link digestSchemaValue}.
+ * Schema encoding and canonical traversal each occur once. Traversal stops at
+ * the first canonical fragment containing byte `maximumBytes + 1`, before the
+ * complete oversized preimage is materialized and before hash dispatch. On
+ * success, `canonicalByteLength` is read from the exact byte array passed to
+ * the sole tagged-byte digest authority.
  *
- * This limit constrains the canonical bytes admitted to hashing. It is not a
- * traversal or allocation guard because canonical bytes must be materialized
- * before their exact length is known. `maximumBytes` must be a non-negative
- * safe integer; an invalid maximum is a caller defect.
+ * `maximumBytes` is inclusive and must be a non-negative safe integer.
  *
  * Default algorithm is `"blake3-256"`.
  *
@@ -87,17 +116,10 @@ export const digestSchemaValueWithByteLimit = <A, I>(
   maximumBytes: number,
   algorithm: DigestAlgorithm = "blake3-256"
 ): Effect.Effect<
-  string,
-  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,
+  SchemaValueDigest,
+  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,
   never
 > =>
-  !isByteLimit(maximumBytes)
-    ? Effect.dieMessage(INVALID_BYTE_LIMIT_MESSAGE)
-    : Effect.flatMap(
-      Schema.encode(schema)(value),
-      (encoded) =>
-        Effect.flatMap(canonicalJsonBytes(encoded), (bytes) =>
-          Num.greaterThan(bytes.byteLength, maximumBytes)
-            ? new CanonicalByteLimitExceeded({})
-            : digestBytesTagged(algorithm, bytes))
-    )
+  isByteLimit(maximumBytes)
+    ? Effect.flatMap(Schema.encode(schema)(value), (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm))
+    : new InvalidCanonicalByteLimit({})

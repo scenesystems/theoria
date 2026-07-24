@@ -8,7 +8,7 @@
  */
 
 import { utf8ToBytes } from "@noble/hashes/utils.js"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Iterable, Option } from "effect"
 
 import { InvalidUnicode } from "../schemas/errors.js"
 
@@ -64,3 +64,10 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> => {
 
 /** @internal */
 export const encodeUtf8Unchecked = (text: string): Uint8Array => utf8ToBytes(text)
+
+/** Measure well-formed text using the package's canonical UTF-8 law. @internal */
+export const utf8ByteLengthUnchecked = (text: string): number =>
+  Iterable.reduce(text, 0, (length, character) => {
+    const codeUnit = character.charCodeAt(0)
+    return length + (character.length === 2 ? 4 : codeUnit < 0x80 ? 1 : codeUnit < 0x800 ? 2 : 3)
+  })

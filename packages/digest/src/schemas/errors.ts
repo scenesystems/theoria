@@ -115,6 +115,39 @@ export class CanonicalByteLimitExceeded extends Schema.TaggedError<CanonicalByte
 ) {}
 
 /**
+ * Raised when a canonical byte limit is not a non-negative safe integer.
+ *
+ * The error is intentionally fieldless: the rejected limit is not retained in
+ * diagnostics.
+ *
+ * @since 0.3.4
+ * @category errors
+ */
+export class InvalidCanonicalByteLimit extends Schema.TaggedError<InvalidCanonicalByteLimit>()(
+  "InvalidCanonicalByteLimit",
+  {}
+) {}
+
+/**
+ * Closed error schema for canonical byte-limit validation and excess.
+ *
+ * @since 0.3.4
+ * @category errors
+ */
+export const CanonicalByteLimitError = Schema.Union(
+  InvalidCanonicalByteLimit,
+  CanonicalByteLimitExceeded
+)
+
+/**
+ * Closed error type for canonical byte limits.
+ *
+ * @since 0.3.4
+ * @category errors
+ */
+export type CanonicalByteLimitError = Schema.Schema.Type<typeof CanonicalByteLimitError>
+
+/**
  * Closed error schema for strict canonicalization.
  *
  * @since 0.3.0
