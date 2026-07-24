@@ -27,10 +27,15 @@
  * @category digest
  */
 
-import { Effect, type ParseResult, Schema } from "effect"
+import { Effect, Number as Num, type ParseResult, Schema } from "effect"
+import { canonicalJsonBytes } from "./convenience.js"
 import { digest } from "./digest.js"
+import { digestBytesTagged } from "./internal/digest-bytes.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
-import type { CanonicalizationError } from "./schemas/errors.js"
+import { CanonicalByteLimitExceeded, type CanonicalizationError } from "./schemas/errors.js"
+
+const isByteLimit = Schema.is(Schema.NonNegativeInt)
+const INVALID_BYTE_LIMIT_MESSAGE = "digestSchemaValueWithByteLimit maximumBytes must be a non-negative safe integer"
 
 /**
  * Digest a Schema-typed value through the full pipeline.
@@ -54,3 +59,45 @@ export const digestSchemaValue = <A, I, R>(
   algorithm: DigestAlgorithm = "blake3-256"
 ): Effect.Effect<string, CanonicalizationError | ParseResult.ParseError, R> =>
   Effect.flatMap(Schema.encode(schema)(value), (encoded) => digest(algorithm, encoded))
+
+/**
+ * Digest a Schema value only when its exact canonical UTF-8 preimage is within
+ * an inclusive byte limit.
+ *
+ * The value is encoded once and canonicalized once. The resulting canonical
+ * byte array is measured before hashing; an exact-bound value succeeds, while
+ * a value over the limit fails with the fieldless
+ * {@link CanonicalByteLimitExceeded} classification before algorithm dispatch.
+ * Successful calls hash that same measured byte array and return exactly the
+ * algorithm-tagged text produced by {@link digestSchemaValue}.
+ *
+ * This limit constrains the canonical bytes admitted to hashing. It is not a
+ * traversal or allocation guard because canonical bytes must be materialized
+ * before their exact length is known. `maximumBytes` must be a non-negative
+ * safe integer; an invalid maximum is a caller defect.
+ *
+ * Default algorithm is `"blake3-256"`.
+ *
+ * @since 0.3.3
+ * @category digest
+ */
+export const digestSchemaValueWithByteLimit = <A, I>(
+  schema: Schema.Schema<A, I, never>,
+  value: A,
+  maximumBytes: number,
+  algorithm: DigestAlgorithm = "blake3-256"
+): Effect.Effect<
+  string,
+  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,
+  never
+> =>
+  !isByteLimit(maximumBytes)
+    ? Effect.dieMessage(INVALID_BYTE_LIMIT_MESSAGE)
+    : Effect.flatMap(
+      Schema.encode(schema)(value),
+      (encoded) =>
+        Effect.flatMap(canonicalJsonBytes(encoded), (bytes) =>
+          Num.greaterThan(bytes.byteLength, maximumBytes)
+            ? new CanonicalByteLimitExceeded({})
+            : digestBytesTagged(algorithm, bytes))
+    )

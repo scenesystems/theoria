@@ -13,11 +13,17 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Order, Record, Schema } from "effect"
 
 import {
+  callInvocations,
+  ConditionalInvocation,
+  conditionalInvocations,
+  ExpressionInvocation,
   moduleSpecifiers,
   parseTypeScript,
+  readProjectFile,
   referencesInternalBoundary,
   resolveRootFrom,
-  toSourceFilePath
+  toSourceFilePath,
+  variableInitializerTexts
 } from "@theoria/source-proof"
 
 const MAX_SOURCE_FILE_LINES = 240
@@ -30,6 +36,7 @@ const INTERNAL_IMPORT_ALLOWED_PREFIXES = [
   "src/canonicalize.ts",
   "src/convenience.ts",
   "src/digest.ts",
+  "src/digestSchemaValue.ts",
   "src/encoding.ts",
   "src/streaming.ts"
 ]
@@ -53,6 +60,18 @@ class SourceFilePath extends Data.Class<{
 }> {}
 
 const packageRootUrl = new URL("../../", import.meta.url)
+
+const initializerText = (relativePath: string, variableName: string) =>
+  readProjectFile(packageRootUrl, relativePath).pipe(
+    Effect.map((source) => parseTypeScript(relativePath, source)),
+    Effect.map((sourceFile) => variableInitializerTexts(sourceFile, variableName)),
+    Effect.flatMap((initializers) =>
+      Option.match(Arr.head(initializers), {
+        onNone: () => Effect.dieMessage(`Missing initializer for ${variableName}`),
+        onSome: Effect.succeed
+      })
+    )
+  )
 
 const listTypeScriptFiles: Effect.Effect<Array<SourceFilePath>, never, FileSystem.FileSystem | Path.Path> = Effect.gen(
   function*() {
@@ -157,5 +176,56 @@ describe("governance", () => {
     Effect.gen(function*() {
       const exportKeys = yield* packageExportKeys
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
+    }).pipe(Effect.provide(BunContext.layer)))
+
+  it.effect("keeps byte-limit admission before the sole tagged-byte digest call", () =>
+    Effect.gen(function*() {
+      const boundedInitializer = yield* initializerText(
+        "src/digestSchemaValue.ts",
+        "digestSchemaValueWithByteLimit"
+      )
+      const bounded = parseTypeScript(
+        "digestSchemaValueWithByteLimit.initializer.ts",
+        `const value = ${boundedInitializer}`
+      )
+      const invocations = callInvocations(bounded)
+
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "Schema.encode", arguments: ["schema"] })
+      ])
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "Schema.encode()", arguments: ["value"] })
+      ])
+      expect(Arr.filter(invocations, ({ target }) => target === "canonicalJsonBytes")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "canonicalJsonBytes", arguments: ["encoded"] })
+      ])
+      expect(conditionalInvocations(bounded)).toContainEqual(
+        new ConditionalInvocation({
+          condition: new ExpressionInvocation({
+            kind: "call",
+            target: "Num.greaterThan",
+            arguments: ["bytes.byteLength", "maximumBytes"]
+          }),
+          whenTrue: new ExpressionInvocation({
+            kind: "new",
+            target: "CanonicalByteLimitExceeded",
+            arguments: ["{}"]
+          }),
+          whenFalse: new ExpressionInvocation({
+            kind: "call",
+            target: "digestBytesTagged",
+            arguments: ["algorithm", "bytes"]
+          })
+        })
+      )
+
+      const taggedInitializer = yield* initializerText("src/internal/digest-bytes.ts", "digestBytesTagged")
+      const tagged = parseTypeScript(
+        "digestBytesTagged.initializer.ts",
+        `const value = ${taggedInitializer}`
+      )
+      expect(Arr.filter(callInvocations(tagged), ({ target }) => target === "hashBytes")).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "hashBytes", arguments: ["algorithm", "bytes"] })
+      ])
     }).pipe(Effect.provide(BunContext.layer)))
 })

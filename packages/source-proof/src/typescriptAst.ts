@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Data, Option } from "effect"
 import * as ts from "typescript"
 
 import { collectFromAst, renderExpressionChain } from "./internal/traversal.js"
@@ -11,6 +11,121 @@ import { collectFromAst, renderExpressionChain } from "./internal/traversal.js"
  */
 export const parseTypeScript = (fileName: string, source: string): ts.SourceFile =>
   ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+
+/**
+ * Parses JSON with the JSONC extensions accepted by TypeScript configuration files.
+ *
+ * @since 0.0.0
+ * @category parsing
+ */
+export const parseJsonc = (fileName: string, source: string): Option.Option<unknown> => {
+  const parsed = ts.parseConfigFileTextToJson(fileName, source)
+  return Option.match(Option.fromNullable(parsed.error), {
+    onNone: () => Option.some(parsed.config),
+    onSome: () => Option.none()
+  })
+}
+
+/**
+ * Structural invocation details extracted from a call or constructor expression.
+ *
+ * @since 0.0.0
+ * @category models
+ */
+export class ExpressionInvocation extends Data.Class<{
+  readonly kind: "call" | "new"
+  readonly target: string
+  readonly arguments: ReadonlyArray<string>
+}> {}
+
+/**
+ * Structural invocation details for the three arms of a conditional expression.
+ *
+ * @since 0.0.0
+ * @category models
+ */
+export class ConditionalInvocation extends Data.Class<{
+  readonly condition: ExpressionInvocation
+  readonly whenTrue: ExpressionInvocation
+  readonly whenFalse: ExpressionInvocation
+}> {}
+
+const invocationTarget = (expression: ts.Expression): Option.Option<string> => {
+  if (ts.isParenthesizedExpression(expression)) {
+    return invocationTarget(expression.expression)
+  }
+
+  if (ts.isCallExpression(expression)) {
+    return Option.map(invocationTarget(expression.expression), (target) => `${target}()`)
+  }
+
+  return renderExpressionChain(expression)
+}
+
+const expressionInvocation = (
+  sourceFile: ts.SourceFile,
+  expression: ts.Expression
+): Option.Option<ExpressionInvocation> => {
+  if (ts.isCallExpression(expression)) {
+    return Option.map(invocationTarget(expression.expression), (target) =>
+      new ExpressionInvocation({
+        kind: "call",
+        target,
+        arguments: Arr.map(expression.arguments, (argument) => argument.getText(sourceFile))
+      }))
+  }
+
+  if (ts.isNewExpression(expression)) {
+    return Option.map(invocationTarget(expression.expression), (target) =>
+      new ExpressionInvocation({
+        kind: "new",
+        target,
+        arguments: Arr.map(Option.getOrElse(Option.fromNullable(expression.arguments), Arr.empty), (argument) =>
+          argument.getText(sourceFile))
+      }))
+  }
+
+  return Option.none()
+}
+
+/**
+ * Collects structural call-expression targets and argument texts.
+ *
+ * @since 0.0.0
+ * @category queries
+ */
+export const callInvocations = (sourceFile: ts.SourceFile): ReadonlyArray<ExpressionInvocation> =>
+  collectFromAst(sourceFile, (node) =>
+    ts.isCallExpression(node)
+      ? Option.match(expressionInvocation(sourceFile, node), {
+        onNone: () => [],
+        onSome: (invocation) => [invocation]
+      })
+      : [])
+
+/**
+ * Collects conditionals whose condition and both branches are calls or constructors.
+ *
+ * @since 0.0.0
+ * @category queries
+ */
+export const conditionalInvocations = (sourceFile: ts.SourceFile): ReadonlyArray<ConditionalInvocation> =>
+  collectFromAst(sourceFile, (node) => {
+    if (!ts.isConditionalExpression(node)) {
+      return []
+    }
+
+    return Option.all({
+      condition: expressionInvocation(sourceFile, node.condition),
+      whenTrue: expressionInvocation(sourceFile, node.whenTrue),
+      whenFalse: expressionInvocation(sourceFile, node.whenFalse)
+    }).pipe(
+      Option.match({
+        onNone: () => [],
+        onSome: (invocations) => [new ConditionalInvocation(invocations)]
+      })
+    )
+  })
 
 /**
  * Collects import, export, dynamic-import, and import-type module specifiers from a parsed source file.

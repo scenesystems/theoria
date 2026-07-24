@@ -162,7 +162,7 @@ const assertPublicRoot = (
       output
     )
     if (!sameStrings(exports, expectedExports)) {
-      return yield* Effect.fail(checkError(`packed-${moduleKind}-root`, "public exports differ from 0.3.0 snapshot"))
+      return yield* Effect.fail(checkError(`packed-${moduleKind}-root`, "public exports differ from release snapshot"))
     }
     const internalSource = moduleKind === "esm"
       ? `await import(${encodeJsString(`${PACKAGE_NAME}/internal/jcs`)})`
@@ -174,6 +174,79 @@ const assertPublicRoot = (
     if (denial.exitCode === 0 || !denial.stderr.includes("ERR_PACKAGE_PATH_NOT_EXPORTED")) {
       return yield* Effect.fail(checkError(`packed-${moduleKind}-internal`, "internal subpath resolved"))
     }
+  })
+
+const assertPackedCjsCapability = (directory: string) =>
+  Effect.gen(function*() {
+    const source = [
+      `const Digest = require(${encodeJsString(PACKAGE_NAME)})`,
+      "const { Effect, Schema } = require(\"effect\")",
+      "const report = Effect.runSync(Effect.gen(function*() {",
+      "  const existing = yield* Digest.digestSchemaValue(Schema.String, \"😀\")",
+      "  const exact = yield* Digest.digestSchemaValueWithByteLimit(Schema.String, \"😀\", 6)",
+      "  const excess = yield* Effect.flip(Digest.digestSchemaValueWithByteLimit(Schema.String, \"😀\", 5))",
+      "  return { equivalent: exact === existing, excess: excess._tag }",
+      "}))",
+      "process.stdout.write(JSON.stringify(report))"
+    ].join("\n")
+    const output = yield* runCommand(
+      "packed-cjs-byte-limit",
+      directory,
+      "node",
+      ["--input-type=commonjs", "--eval", source]
+    )
+    const report = yield* decodeJson(
+      "packed-cjs-byte-limit",
+      Schema.parseJson(Schema.Struct({
+        equivalent: Schema.Literal(true),
+        excess: Schema.Literal("CanonicalByteLimitExceeded")
+      })),
+      output
+    )
+    return report
+  })
+
+const assertPackedNodeNextDeclarations = (root: string, directory: string) =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const sourcePath = path.join(directory, "node-next-consumer.ts")
+    yield* fileSystem.writeFileString(
+      sourcePath,
+      [
+        "import {",
+        "  CanonicalByteLimitExceeded,",
+        "  type CanonicalizationError,",
+        "  digestSchemaValueWithByteLimit",
+        "} from \"@scenesystems/digest\"",
+        "import { Effect, type ParseResult, Schema } from \"effect\"",
+        "const program: Effect.Effect<",
+        "  string,",
+        "  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,",
+        "  never",
+        "> = digestSchemaValueWithByteLimit(Schema.String, \"value\", 7)",
+        "const excess = new CanonicalByteLimitExceeded({})",
+        "void program",
+        "void excess",
+        ""
+      ].join("\n")
+    ).pipe(Effect.mapError(() => checkError("packed-nodenext-declarations", sourcePath)))
+    yield* runCommand(
+      "packed-nodenext-declarations",
+      directory,
+      path.join(root, "node_modules/.bin/tsc"),
+      [
+        "--noEmit",
+        "--strict",
+        "--target",
+        "ES2022",
+        "--module",
+        "NodeNext",
+        "--moduleResolution",
+        "NodeNext",
+        sourcePath
+      ]
+    )
   })
 
 const materializeRuntimeProfile = (root: string, esmDirectory: string, profile: DigestKatProfileType) =>
@@ -311,6 +384,8 @@ const program = Effect.gen(function*() {
   yield* installConsumer(cjsDirectory)
   yield* assertPublicRoot(esmDirectory, "esm", profile.expectedExports)
   yield* assertPublicRoot(cjsDirectory, "cjs", profile.expectedExports)
+  yield* assertPackedCjsCapability(cjsDirectory)
+  yield* assertPackedNodeNextDeclarations(root, esmDirectory)
   yield* materializeRuntimeProfile(root, esmDirectory, profile.kats)
 
   const nodeReport = yield* runRuntimeKats(esmDirectory, "node")

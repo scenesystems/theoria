@@ -22,7 +22,7 @@ admitted value → RFC 8785 JCS → strict UTF-8 → BLAKE3-256 or SHA-256 → b
 ```
 
 ```ts typecheck
-import { canonicalJsonBytes, digest, digestSchemaValue } from "@scenesystems/digest"
+import { canonicalJsonBytes, digest, digestSchemaValue, digestSchemaValueWithByteLimit } from "@scenesystems/digest"
 import { Effect, Schema } from "effect"
 
 const Event = Schema.Struct({
@@ -37,12 +37,20 @@ const program = Effect.gen(function* () {
     name: "deploy",
     occurredAt: new Date("2026-07-22T00:00:00.000Z")
   })
+  const boundedSchemaTagged = yield* digestSchemaValueWithByteLimit(
+    Event,
+    {
+      name: "deploy",
+      occurredAt: new Date("2026-07-22T00:00:00.000Z")
+    },
+    1_024
+  )
 
-  return { canonicalBytes, tagged, schemaTagged }
+  return { boundedSchemaTagged, canonicalBytes, tagged, schemaTagged }
 })
 ```
 
-`digest` and `digestSchemaValue` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters.
+`digest`, `digestSchemaValue`, and `digestSchemaValueWithByteLimit` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters.
 
 Digest identifies exact bytes. It does not define application domains, versions, normalization policy, ownership, or authenticity.
 
@@ -93,9 +101,21 @@ digestSchemaValue<A, I, R>(
   value: A,
   algorithm?: DigestAlgorithm
 ): Effect.Effect<string, CanonicalizationError | ParseResult.ParseError, R>
+digestSchemaValueWithByteLimit<A, I>(
+  schema: Schema.Schema<A, I, never>,
+  value: A,
+  maximumBytes: number,
+  algorithm?: DigestAlgorithm
+): Effect.Effect<
+  string,
+  CanonicalByteLimitExceeded | CanonicalizationError | ParseResult.ParseError,
+  never
+>
 ```
 
 `digestSchemaValue` first applies `Schema.encode`, then admits and canonicalizes the encoded value. Schema requirements remain in `R`, and `ParseResult.ParseError` remains distinguishable from canonicalization failures.
+
+`digestSchemaValueWithByteLimit` is the resource-qualified form for schemas with no environment requirements. It encodes once, canonicalizes once to strict UTF-8, and applies `maximumBytes` as an inclusive limit to that exact byte sequence. The exact bound succeeds; an over-limit value fails with the fieldless, redacted `CanonicalByteLimitExceeded` before algorithm dispatch. Under the limit, those same measured bytes are hashed and the result is identical to `digestSchemaValue` for the same schema value and algorithm. `maximumBytes` must be a non-negative safe integer; an invalid maximum is a caller defect rather than an excess classification.
 
 ## Text and byte hashing
 
@@ -171,7 +191,7 @@ Secret text must be converted explicitly with `encodeUtf8` or decoded from its w
 - `DigestAlgorithm` — `Schema.Literal("blake3-256", "sha256")`
 - `Digest256` — branded 43-character base64url text
 - `ContentDigest` — `Schema.Class` containing `algorithm` and `digest`
-- `InvalidKeyLength`, `InvalidUnicode`, `UnsupportedValue`, and `CyclicValue` — `Schema.TaggedError` values
+- `InvalidKeyLength`, `InvalidUnicode`, `UnsupportedValue`, `CyclicValue`, and `CanonicalByteLimitExceeded` — `Schema.TaggedError` values
 - `CanonicalizationError` — closed Schema and type union
 
 ## Runtime and conformance evidence

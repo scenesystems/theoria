@@ -15,6 +15,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Exit, Schema } from "effect"
 import {
+  CanonicalByteLimitExceeded,
   CanonicalizationError,
   CyclicValue,
   InvalidKeyLength,
@@ -186,6 +187,25 @@ describe("CyclicValue — Schema.TaggedError", () => {
 
       expect(encoded).toStrictEqual({ _tag: "CyclicValue" })
       expect(decoded._tag).toBe("CyclicValue")
+    }))
+})
+
+describe("CanonicalByteLimitExceeded — Schema.TaggedError", () => {
+  it.effect("is yieldable and catchable via Effect.catchTag", () =>
+    Effect.gen(function*() {
+      const result = yield* new CanonicalByteLimitExceeded({}).pipe(
+        Effect.catchTag("CanonicalByteLimitExceeded", (error) => Effect.succeed(error._tag))
+      )
+      expect(result).toBe("CanonicalByteLimitExceeded")
+    }))
+
+  it.effect("round-trips without retaining byte lengths or candidate material", () =>
+    Effect.gen(function*() {
+      const encoded = yield* Schema.encode(CanonicalByteLimitExceeded)(new CanonicalByteLimitExceeded({}))
+      const decoded = yield* Schema.decodeUnknown(CanonicalByteLimitExceeded)(encoded)
+
+      expect(encoded).toStrictEqual({ _tag: "CanonicalByteLimitExceeded" })
+      expect(decoded._tag).toBe("CanonicalByteLimitExceeded")
     }))
 })
 

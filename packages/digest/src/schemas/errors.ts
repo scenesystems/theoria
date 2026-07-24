@@ -101,6 +101,20 @@ export class CyclicValue extends Schema.TaggedError<CyclicValue>()(
 ) {}
 
 /**
+ * Raised when canonical UTF-8 bytes exceed a caller's inclusive byte limit.
+ *
+ * The error is intentionally fieldless: canonical byte lengths, limits, and
+ * preimage material are not retained in diagnostics.
+ *
+ * @since 0.3.3
+ * @category errors
+ */
+export class CanonicalByteLimitExceeded extends Schema.TaggedError<CanonicalByteLimitExceeded>()(
+  "CanonicalByteLimitExceeded",
+  {}
+) {}
+
+/**
  * Closed error schema for strict canonicalization.
  *
  * @since 0.3.0

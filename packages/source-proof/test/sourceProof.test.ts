@@ -1,9 +1,19 @@
 import { Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
-import { moduleSpecifiers, parseTypeScript, readProjectFile, resolveRootFrom } from "../src/index.js"
+import {
+  callInvocations,
+  ConditionalInvocation,
+  conditionalInvocations,
+  ExpressionInvocation,
+  moduleSpecifiers,
+  parseJsonc,
+  parseTypeScript,
+  readProjectFile,
+  resolveRootFrom
+} from "../src/index.js"
 
 const packageRootUrl = new URL("../", import.meta.url)
 
@@ -37,5 +47,40 @@ describe("source proof", () => {
       )
 
       expect(moduleSpecifiers(sourceFile)).toEqual(["@noble/hashes/utils.js"])
+    }))
+
+  it.effect("parses JSONC without exposing the TypeScript parser to consumers", () =>
+    Effect.sync(() => {
+      expect(parseJsonc("fixture.jsonc", "{ \"value\": 1, }")).toEqual(Option.some({ value: 1 }))
+      expect(parseJsonc("fixture.jsonc", "{ invalid }")).toEqual(Option.none())
+    }))
+
+  it.effect("collects structural call and conditional invocation details", () =>
+    Effect.sync(() => {
+      const sourceFile = parseTypeScript(
+        "fixture.ts",
+        "const value = Schema.encode(schema)(input)\n"
+          + "const result = Num.greaterThan(bytes.byteLength, maximumBytes)"
+          + " ? new Excess({}) : digestBytesTagged(algorithm, bytes)\n"
+      )
+
+      expect(callInvocations(sourceFile)).toContainEqual(
+        new ExpressionInvocation({ kind: "call", target: "Schema.encode()", arguments: ["input"] })
+      )
+      expect(conditionalInvocations(sourceFile)).toEqual([
+        new ConditionalInvocation({
+          condition: new ExpressionInvocation({
+            kind: "call",
+            target: "Num.greaterThan",
+            arguments: ["bytes.byteLength", "maximumBytes"]
+          }),
+          whenTrue: new ExpressionInvocation({ kind: "new", target: "Excess", arguments: ["{}"] }),
+          whenFalse: new ExpressionInvocation({
+            kind: "call",
+            target: "digestBytesTagged",
+            arguments: ["algorithm", "bytes"]
+          })
+        })
+      ])
     }))
 })
