@@ -22,21 +22,12 @@
  * @category digest
  */
 
-import { Effect, Match } from "effect"
-import { blake3Hash } from "./algorithms/blake3.js"
-import { sha256 } from "./algorithms/sha256.js"
+import { Effect } from "effect"
 import { canonicalize } from "./canonicalize.js"
-import { toBase64Url } from "./encoding.js"
+import { digestBytesTagged } from "./internal/digest-bytes.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError } from "./schemas/errors.js"
-
-const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array) =>
-  Match.value(algorithm).pipe(
-    Match.when("blake3-256", () => blake3Hash(bytes)),
-    Match.when("sha256", () => sha256(bytes)),
-    Match.exhaustive
-  )
 
 /**
  * Digest a structured value through the full pipeline.
@@ -55,7 +46,5 @@ export const digest = (
   Effect.gen(function*() {
     const canonical = yield* canonicalize(value)
     const bytes = encodeUtf8Unchecked(canonical)
-    const hash = yield* hashBytes(algorithm, bytes)
-    const encoded = toBase64Url(hash)
-    return `${algorithm}:${encoded}`
+    return yield* digestBytesTagged(algorithm, bytes)
   })

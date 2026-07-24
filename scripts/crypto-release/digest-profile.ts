@@ -1,7 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Option, Order, Record, Schema } from "effect"
-import * as ts from "typescript"
 
+import { parseJsonc } from "@theoria/source-proof"
 import {
   Blake3FixtureSchema,
   FixtureManifestSchema,
@@ -31,17 +31,17 @@ const BunLock = Schema.Struct({
   packages: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 })
 
-const NobleLockEntry = Schema.Tuple(
+const DigestProviderLockEntry = Schema.Tuple(
   Schema.Literal(`@noble/hashes@${NOBLE_VERSION}`),
-  Schema.String,
-  Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  Schema.Literal(""),
+  Schema.Record({ key: Schema.String, value: Schema.Never }),
   Schema.Literal(NOBLE_SRI)
 )
 
 const ReleaseSnapshot = Schema.parseJson(
   Schema.Struct({
     packageName: Schema.Literal(PACKAGE_NAME),
-    releasedVersion: Schema.Literal("0.3.0"),
+    releasedVersion: Schema.Literal("0.3.3"),
     exports: Schema.NonEmptyArray(
       Schema.Struct({
         subpath: Schema.Literal("."),
@@ -55,6 +55,26 @@ const ReleaseSnapshot = Schema.parseJson(
 
 const profileError = (stage: string, detail: string): CryptoReleaseCheckError =>
   new CryptoReleaseCheckError({ stage, detail })
+
+const verifyProviderLockEntrySchema = Effect.gen(function*() {
+  const invalidEntries = [
+    [`@noble/hashes@${NOBLE_VERSION}`, "registry", {}, NOBLE_SRI],
+    [`@noble/hashes@${NOBLE_VERSION}`, "", { dependencies: { foreign: "1" } }, NOBLE_SRI],
+    ["@noble/hashes@2.0.0", "", {}, NOBLE_SRI],
+    [`@noble/hashes@${NOBLE_VERSION}`, "", {}, "sha512-wrong"]
+  ]
+  const rejected = yield* Effect.forEach(
+    invalidEntries,
+    (entry) =>
+      Schema.decodeUnknown(DigestProviderLockEntry)(entry, { onExcessProperty: "error" }).pipe(
+        Effect.match({ onFailure: () => true, onSuccess: () => false })
+      )
+  )
+
+  if (!Arr.every(rejected, (value) => value)) {
+    return yield* Effect.fail(profileError("provider-lock-entry-schema", "non-exact tuple was admitted"))
+  }
+})
 
 const requireOption = <A>(
   value: Option.Option<A>,
@@ -80,16 +100,16 @@ const loadLockProvider = (root: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    yield* verifyProviderLockEntrySchema
     yield* decodeFile(path.join(root, "packages/digest/package.json"), DigestManifest)
     const lockContent = yield* fileSystem.readFileString(path.join(root, "bun.lock")).pipe(
       Effect.mapError(() => profileError("read-lockfile", "bun.lock"))
     )
-    const parsed = ts.parseConfigFileTextToJson("bun.lock", lockContent)
-    yield* Option.match(Option.fromNullable(parsed.error), {
-      onNone: () => Effect.void,
-      onSome: () => Effect.fail(profileError("parse-lockfile", "bun.lock is not valid JSONC"))
+    const parsed = yield* Option.match(parseJsonc("bun.lock", lockContent), {
+      onNone: () => Effect.fail(profileError("parse-lockfile", "bun.lock is not valid JSONC")),
+      onSome: Effect.succeed
     })
-    const lock = yield* Schema.decodeUnknown(BunLock)(parsed.config).pipe(
+    const lock = yield* Schema.decodeUnknown(BunLock)(parsed).pipe(
       Effect.mapError(() => profileError("decode-lockfile", "bun.lock packages map"))
     )
     const nobleEntry = yield* requireOption(
@@ -97,7 +117,7 @@ const loadLockProvider = (root: string) =>
       "provider-lock-entry",
       "@noble/hashes"
     )
-    yield* Schema.decodeUnknown(NobleLockEntry)(nobleEntry).pipe(
+    yield* Schema.decodeUnknown(DigestProviderLockEntry)(nobleEntry, { onExcessProperty: "error" }).pipe(
       Effect.mapError(() => profileError("provider-lock-entry", "@noble/hashes version or SRI drifted"))
     )
     const remoteTags = yield* runCommand(
@@ -276,6 +296,14 @@ const loadRuntimeKats = (
           expectedCanonical: cyberphoneCase.expectedCanonical
         },
         {
+          _tag: "SchemaValueByteLimit",
+          id: "digest-schema-value:exact-canonical-byte-limit",
+          sourceId: rfcJcsSource.id,
+          input: rfcJcsCase.input,
+          maximumBytes: 180,
+          expectedDigest: "blake3-256:HZLbIj7YWv9QJDzzODDwOIq_Qi1c6M0PKHWyxx68kz0"
+        },
+        {
           _tag: "InvalidUnicode",
           id: unicodeValueCase.id,
           sourceId: unicodeSource.id,
@@ -313,7 +341,7 @@ export const loadDigestReleaseProfile = (root: string) =>
     const kats = yield* loadRuntimeKats(fixtureRoot, manifest)
     const provider = yield* loadLockProvider(root)
     const snapshot = yield* decodeFile(
-      path.join(root, "packages/digest/test/package/release-snapshots/0.3.0.json"),
+      path.join(root, "packages/digest/test/package/release-snapshots/0.3.3.json"),
       ReleaseSnapshot
     )
 

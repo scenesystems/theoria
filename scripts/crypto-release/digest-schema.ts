@@ -54,6 +54,12 @@ export const DigestKat = Schema.Union(
     input: Schema.Unknown,
     expectedCanonical: Schema.String
   }),
+  Schema.TaggedStruct("SchemaValueByteLimit", {
+    ...KatIdentity,
+    input: Schema.Unknown,
+    maximumBytes: PositiveInt,
+    expectedDigest: Schema.NonEmptyString
+  }),
   Schema.TaggedStruct("InvalidUnicode", {
     ...KatIdentity,
     target: Schema.Literal("key", "value"),

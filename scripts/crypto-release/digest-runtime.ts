@@ -98,6 +98,36 @@ const runJcs = (kat: Extract<DigestKat, { readonly _tag: "Jcs" }>) =>
     yield* verify(kat.id, "canonical-json-bytes", decoded, kat.expectedCanonical)
   })
 
+const runSchemaValueByteLimit = (kat: Extract<DigestKat, { readonly _tag: "SchemaValueByteLimit" }>) =>
+  Effect.gen(function*() {
+    const existing = yield* Digest.digestSchemaValue(Schema.Unknown, kat.input).pipe(
+      Effect.mapError(() => new DigestKatFailure({ katId: kat.id, operation: "schema-digest-existing" }))
+    )
+    const exact = yield* Digest.digestSchemaValueWithByteLimit(
+      Schema.Unknown,
+      kat.input,
+      kat.maximumBytes
+    ).pipe(
+      Effect.mapError(() => new DigestKatFailure({ katId: kat.id, operation: "schema-digest-exact-bound" }))
+    )
+    const excess = yield* Digest.digestSchemaValueWithByteLimit(
+      Schema.Unknown,
+      kat.input,
+      kat.maximumBytes - 1
+    ).pipe(
+      Effect.matchEffect({
+        onFailure: Effect.succeed,
+        onSuccess: () => failKat(kat.id, "schema-digest-bound-plus-one-accepted")
+      })
+    )
+
+    yield* verify(kat.id, "schema-digest-existing", existing, kat.expectedDigest)
+    yield* verify(kat.id, "schema-digest-exact-bound", exact, kat.expectedDigest)
+    if (excess._tag !== "CanonicalByteLimitExceeded") {
+      return yield* failKat(kat.id, "schema-digest-excess-classification")
+    }
+  })
+
 const runInvalidUnicode = (kat: Extract<DigestKat, { readonly _tag: "InvalidUnicode" }>) =>
   Effect.gen(function*() {
     const input = kat.target === "key" ? { [kat.input]: "value" } : kat.input
@@ -125,6 +155,7 @@ const runKat = (kat: DigestKat): Effect.Effect<void, DigestKatFailure> =>
     Match.tag("Hmac", runHmac),
     Match.tag("Hkdf", runHkdf),
     Match.tag("Jcs", runJcs),
+    Match.tag("SchemaValueByteLimit", runSchemaValueByteLimit),
     Match.tag("InvalidUnicode", runInvalidUnicode),
     Match.exhaustive
   )

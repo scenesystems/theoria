@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.3.3
+
+### Patch Changes
+
+- Add `digestSchemaValueWithByteLimit`, a provider-owned Schema digest operation that encodes and canonicalizes once, applies an exact inclusive limit to the resulting UTF-8 bytes, and hashes that same byte sequence. Values over the limit fail with the fieldless `CanonicalByteLimitExceeded` classification before algorithm dispatch. Existing digest bytes, algorithms, tags, errors, and APIs remain unchanged.
+
 ## 0.3.2
 
 ### Patch Changes

@@ -20,20 +20,12 @@
  * @category digest
  */
 
-import { Effect, Match } from "effect"
-import { blake3Hash } from "./algorithms/blake3.js"
-import { sha256 } from "./algorithms/sha256.js"
+import { Effect } from "effect"
 import { encodeUtf8, toBase64Url, toHex } from "./encoding.js"
+import { hashBytes } from "./internal/digest-bytes.js"
 import { canonicalizeSegments, encodeCanonicalSegments } from "./internal/jcs.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
-
-const hashBytes = (algorithm: DigestAlgorithm, bytes: Uint8Array): Effect.Effect<Uint8Array> =>
-  Match.value(algorithm).pipe(
-    Match.when("blake3-256", () => blake3Hash(bytes)),
-    Match.when("sha256", () => sha256(bytes)),
-    Match.exhaustive
-  )
 
 /**
  * Hash raw bytes using the specified algorithm.
