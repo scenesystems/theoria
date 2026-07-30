@@ -4,7 +4,7 @@
  * Verifies:
  * - Algorithm dispatch routes to correct signature implementation
  * - sign("ed25519", ...) produces Ed25519 signatures
- * - sign("ml-dsa-65", ...) produces ML-DSA-65 signatures
+ * - sign("ml-dsa-65", ...) fails closed because it cannot receive hedging entropy
  * - sign("secp256k1-ecdsa", ...) produces ECDSA signatures
  * - sign("secp256k1-schnorr", ...) produces Schnorr signatures
  * - Algorithm-tagged Signature output carries correct algorithm field
@@ -58,13 +58,11 @@ describe("Unified sign/verify pipeline", () => {
       expect(valid).toBe(true)
     }))
 
-  it.effect("sign('ml-dsa-65') → verify roundtrip", () =>
+  it.effect("sign('ml-dsa-65') requires migration to an explicit signing mode", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
-      const sig = yield* sign("ml-dsa-65", message, kp.secretKey, kp.publicKey)
-      expect(sig.algorithm).toBe("ml-dsa-65")
-      const valid = yield* verify(sig, message)
-      expect(valid).toBe(true)
+      const error = yield* Effect.flip(sign("ml-dsa-65", message, kp.secretKey, kp.publicKey))
+      expect(error._tag).toBe("SigningFailed")
     }))
 
   it.effect("sign('ml-dsa-87') → verify roundtrip", () =>

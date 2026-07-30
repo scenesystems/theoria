@@ -1,0 +1,1994 @@
+{
+  "schema": "@scenesystems/sign ed25519 strict conformance v1",
+  "encoding": "lowercase hex",
+  "messageSemantics": "pure Ed25519",
+  "cases": [
+    {
+      "id": "rfc8032-7.1-1",
+      "sourceSet": "RFC 8032 section 7.1",
+      "publicKey": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "privateKeySeed": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+      "message": "",
+      "signature": "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
+      "strictVerdict": "valid"
+    },
+    {
+      "id": "rfc8032-7.1-2",
+      "sourceSet": "RFC 8032 section 7.1",
+      "publicKey": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "privateKeySeed": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+      "message": "72",
+      "signature": "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+      "strictVerdict": "valid"
+    },
+    {
+      "id": "rfc8032-7.1-3",
+      "sourceSet": "RFC 8032 section 7.1",
+      "publicKey": "77d1d8ebacd13f4e2f8a40e28c4a63bc9ce3bfb69716334bcb28a33eb134086c",
+      "privateKeySeed": "002fdd1f7641793ab064bb7aa848f762e7ec6e332ffc26eeacda141ae33b1783",
+      "message": "5ac1dfc324f43e6cb79a87ab0470fa857b51fb944982e19074ca44b1e40082c1d07b92efa7ea55ad42b7c027e0b9e33756d95a2c1796a7c2066811dc41858377d4b835c1688d638884cd2ad8970b74c1a54aadd27064163928a77988b24403aa85af82ceab6b728e554761af7175aeb99215b7421e4474c04d213e01ff03e3529b11077cdf28964b8c49c5649e3a46fa0a09dcd59dcad58b9b922a83210acd5e65065531400234f5e40cddcf9804968e3e9ac6f5c44af65001e158067fc3a660502d13fa8874fa93332138d9606bc41b4cee7edc39d753dae12a873941bb357f7e92a4498847d6605456cb8c0b425a47d7d3ca37e54e903a41e6450a35ebe5237c6f0c1bbbc1fd71fb7cd893d189850295c199b7d88af26bc8548975fda1099ffefee42a52f3428ddff35e0173d3339562507ac5d2c45bbd2c19cfe89b",
+      "signature": "0df3aa0d0999ad3dc580378f52d152700d5b3b057f56a66f92112e441e1cb9123c66f18712c87efe22d2573777296241216904d7cdd7d5ea433928bd2872fa0c",
+      "strictVerdict": "valid"
+    },
+    {
+      "id": "zip215-1",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-2",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-3",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-4",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-5",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-6",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-7",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-8",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-9",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-10",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-11",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-12",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-13",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-14",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-15",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-16",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-17",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": true,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-18",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-19",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-20",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": true,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-21",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-22",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-23",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-24",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-25",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-26",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-27",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-28",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-29",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-30",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-31",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-32",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-33",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-34",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-35",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-36",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-37",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-38",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-39",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-40",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-41",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-42",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-43",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-44",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-45",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-46",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-47",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-48",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-49",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-50",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-51",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-52",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-53",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-54",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-55",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-56",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-57",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-58",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-59",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-60",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-61",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-62",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-63",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-64",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-65",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-66",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-67",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-68",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-69",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-70",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-71",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-72",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-73",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-74",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-75",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-76",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": true,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-77",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-78",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-79",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-80",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-81",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-82",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-83",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-84",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-85",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-86",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-87",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-88",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-89",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-90",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-91",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-92",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-93",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-94",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-95",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-96",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-97",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-98",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0000000000000000000000000000000000000000000000000000000000000000",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-99",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-100",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-101",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-102",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-103",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-104",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-105",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-106",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-107",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-108",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-109",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-110",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-111",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-112",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-113",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-114",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-115",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-116",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-117",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-118",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-119",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-120",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-121",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-122",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-123",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-124",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-125",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-126",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "0100000000000000000000000000000000000000000000000000000000000080",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-127",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-128",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-129",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-130",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-131",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-132",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-133",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-134",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-135",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-136",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-137",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-138",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-139",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-140",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-141",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-142",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-143",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-144",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-145",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-146",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-147",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-148",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-149",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-150",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-151",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-152",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-153",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-154",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-155",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-156",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-157",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-158",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-159",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-160",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-161",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-162",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-163",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-164",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-165",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-166",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-167",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-168",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-169",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-170",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-171",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-172",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-173",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-174",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-175",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-176",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-177",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-178",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-179",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-180",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-181",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-182",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-183",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-184",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-185",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-186",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-187",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-188",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc850000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-189",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-190",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-191",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "01000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-192",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-193",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-194",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-195",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    },
+    {
+      "id": "zip215-196",
+      "sourceSet": "ZIP-215 distinction matrix",
+      "publicKey": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "message": "",
+      "signature": "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000",
+      "upstreamValidLegacy": false,
+      "upstreamValidZip215": true,
+      "strictVerdict": "invalid-input"
+    }
+  ]
+}
