@@ -17,8 +17,7 @@
  * @since 0.1.0
  * @category signing
  */
-import type { Effect } from "effect"
-import { Match } from "effect"
+import { Effect, Match } from "effect"
 import { ed25519Sign, ed25519Verify } from "./algorithms/ed25519.js"
 import {
   mlDsa44Sign,
@@ -44,7 +43,7 @@ import {
   slhDsaSha2256fSign,
   slhDsaSha2256fVerify
 } from "./algorithms/slhDsa.js"
-import type { SigningFailed, VerificationFailed } from "./schemas/errors.js"
+import { type SigningFailed, VerificationFailed } from "./schemas/errors.js"
 import type { Signature } from "./schemas/Signature.js"
 import type { SignatureAlgorithm } from "./schemas/SignatureAlgorithm.js"
 
@@ -90,11 +89,17 @@ export const verify = (
   message: Uint8Array
 ): Effect.Effect<boolean, VerificationFailed> =>
   Match.value(sig.algorithm).pipe(
-    Match.when("ed25519", () => ed25519Verify(sig.signature, message, sig.publicKey)),
+    Match.when("ed25519", () =>
+      ed25519Verify(sig.signature, message, sig.publicKey).pipe(
+        Effect.mapError(() => new VerificationFailed({ algorithm: "ed25519", reason: "verification rejected" }))
+      )),
     Match.when("secp256k1-ecdsa", () => secp256k1EcdsaVerify(sig.signature, message, sig.publicKey)),
     Match.when("secp256k1-schnorr", () => secp256k1SchnorrVerify(sig.signature, message, sig.publicKey)),
     Match.when("ml-dsa-44", () => mlDsa44Verify(sig.signature, message, sig.publicKey)),
-    Match.when("ml-dsa-65", () => mlDsa65Verify(sig.signature, message, sig.publicKey)),
+    Match.when("ml-dsa-65", () =>
+      mlDsa65Verify(sig.signature, message, sig.publicKey, new Uint8Array(0)).pipe(
+        Effect.mapError(() => new VerificationFailed({ algorithm: "ml-dsa-65", reason: "verification rejected" }))
+      )),
     Match.when("ml-dsa-87", () => mlDsa87Verify(sig.signature, message, sig.publicKey)),
     Match.when("slh-dsa-sha2-128f", () => slhDsaSha2128fVerify(sig.signature, message, sig.publicKey)),
     Match.when("slh-dsa-sha2-128s", () => slhDsaSha2128sVerify(sig.signature, message, sig.publicKey)),

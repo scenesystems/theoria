@@ -17,6 +17,34 @@ import { CryptoAlgorithm } from "./KeyPair.js"
 import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 
 /**
+ * A direct verifier received input outside its frozen suite profile.
+ *
+ * The error is deliberately material-free: it does not retain the algorithm,
+ * verification key, signature, message, context, or a backend diagnostic.
+ *
+ * @since 0.1.1
+ * @category errors
+ */
+export class InvalidVerificationInput extends Schema.TaggedError<InvalidVerificationInput>()(
+  "InvalidVerificationInput",
+  {}
+) {}
+
+/**
+ * A direct verifier could not execute its backend after input admission.
+ *
+ * The error is deliberately material-free and does not expose provider text
+ * or an underlying exception.
+ *
+ * @since 0.1.1
+ * @category errors
+ */
+export class VerificationUnavailable extends Schema.TaggedError<VerificationUnavailable>()(
+  "VerificationUnavailable",
+  {}
+) {}
+
+/**
  * Signing operation failed.
  *
  * Carries `algorithm` (which signer was attempted) and `reason`

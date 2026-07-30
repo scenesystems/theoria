@@ -33,6 +33,12 @@
 export * from "./algorithms/ed25519.js"
 
 /**
+ * @since 0.1.1
+ * @category algorithms
+ */
+export * from "./algorithms/p256.js"
+
+/**
  * @since 0.1.0
  * @category algorithms
  */

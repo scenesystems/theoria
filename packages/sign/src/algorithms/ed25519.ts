@@ -10,7 +10,8 @@
  */
 import { ed25519 } from "@noble/curves/ed25519.js"
 import { Effect } from "effect"
-import { SigningFailed, VerificationFailed } from "../schemas/errors.js"
+import { detachVerificationInputs } from "../internal/verificationInput.js"
+import { InvalidVerificationInput, SigningFailed, VerificationUnavailable } from "../schemas/errors.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
@@ -36,7 +37,12 @@ export const ed25519Sign = (
   })
 
 /**
- * Verify an Ed25519 signature against a message and public key.
+ * Verify a detached pure-Ed25519 signature using the strict RFC 8032 profile.
+ *
+ * Both encoded points must be canonical and non-small-order, `S` must be less
+ * than the subgroup order, and Noble's ZIP-215 mode is explicitly disabled.
+ * Malformed input fails with `InvalidVerificationInput`; a canonical signature
+ * that does not match returns `false`.
  *
  * @since 0.1.0
  * @category algorithms
@@ -45,11 +51,42 @@ export const ed25519Verify = (
   signature: Uint8Array,
   message: Uint8Array,
   publicKey: Uint8Array
-): Effect.Effect<boolean, VerificationFailed> =>
-  Effect.try({
-    try: () => ed25519.verify(signature, message, publicKey),
-    catch: (error) => new VerificationFailed({ algorithm: "ed25519", reason: String(error) })
-  })
+): Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable> => {
+  const detached = detachVerificationInputs(signature, message, publicKey)
+  return detached.pipe(Effect.flatMap((input) =>
+    Effect.gen(function*() {
+      if (input.signature.length !== 64 || input.publicKey.length !== 32) {
+        return yield* new InvalidVerificationInput({})
+      }
+
+      const verificationKeyPoint = yield* Effect.try({
+        try: () => ed25519.Point.fromBytes(input.publicKey, false),
+        catch: () => new InvalidVerificationInput({})
+      })
+      if (verificationKeyPoint.isSmallOrder()) {
+        return yield* new InvalidVerificationInput({})
+      }
+
+      const signaturePoint = yield* Effect.try({
+        try: () => ed25519.Point.fromBytes(input.signature.subarray(0, 32), false),
+        catch: () => new InvalidVerificationInput({})
+      })
+      if (signaturePoint.isSmallOrder()) {
+        return yield* new InvalidVerificationInput({})
+      }
+
+      yield* Effect.try({
+        try: () => ed25519.Point.Fn.fromBytes(input.signature.subarray(32, 64)),
+        catch: () => new InvalidVerificationInput({})
+      })
+
+      return yield* Effect.try({
+        try: () => ed25519.verify(input.signature, input.message, input.publicKey, { zip215: false }),
+        catch: () => new VerificationUnavailable({})
+      })
+    })
+  ))
+}
 
 /**
  * Generate an Ed25519 key pair.
