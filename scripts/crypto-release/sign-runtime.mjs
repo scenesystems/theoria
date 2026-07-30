@@ -45,6 +45,11 @@ const expectedResults = [
 if (actual.length !== expectedResults.length || actual.some((value, index) => value !== expectedResults[index])) {
   throw new Error("packed conformance corpus mismatch")
 }
+const classifications = {
+  verified: actual.filter((value) => value === true).length,
+  nonmatch: actual.filter((value) => value === false).length,
+  invalidInput: actual.filter((value) => value === "InvalidVerificationInput").length
+}
 
 const message = new Uint8Array(8_192).fill(0x5a)
 const edSecret = new Uint8Array(32).fill(7)
@@ -94,6 +99,7 @@ process.stdout.write(
     runtime: process.versions.bun === undefined ? `Node ${process.version}` : `Bun ${process.versions.bun}`,
     moduleMode,
     corpusCases: actual.length,
+    classifications,
     timing,
     peakProcessTreeRssBytes: process.resourceUsage().maxRSS * 1_024,
     hardware: {

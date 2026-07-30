@@ -70,3 +70,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
       - run: bun run build
+
+  sign-release:
+    name: Sign packed browser qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+      - run: bun run --filter '@scenesystems/sign' build
+      - run: bun run --filter '@scenesystems/sign' publish:check --require-packed-manifest

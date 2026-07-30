@@ -8,6 +8,7 @@
  */
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { chromium } from "@playwright/test"
 import { parseJsonc } from "@theoria/source-proof"
 import { Array as Arr, Console, Effect, Option, Order, Record, Schema } from "effect"
 
@@ -42,13 +43,15 @@ const TOOL_PACKAGES = [
   "@babel/cli",
   "babel-plugin-annotate-pure-calls",
   "@babel/plugin-transform-export-namespace-from",
-  "@babel/plugin-transform-modules-commonjs"
+  "@babel/plugin-transform-modules-commonjs",
+  "@playwright/test"
 ]
 const CONFIG_FILES = [
   "tsconfig.base.json",
   "tsconfig.build.base.json",
   "packages/sign/tsconfig.src.json",
   "packages/sign/tsconfig.build.json",
+  "scripts/tsconfig.json",
   ".prettierrc",
   "eslint.config.mjs"
 ]
@@ -95,10 +98,16 @@ const ManifestJson = Schema.parseJson(Schema.Struct({
 }))
 const BunLock = Schema.Struct({ packages: Schema.Record({ key: Schema.String, value: Schema.Unknown }) })
 const Fixture = Schema.parseJson(Schema.Struct({ cases: Schema.Array(Schema.Unknown) }))
+const ClassificationCounts = Schema.Struct({
+  verified: Schema.NonNegativeInt,
+  nonmatch: Schema.NonNegativeInt,
+  invalidInput: Schema.NonNegativeInt
+})
 const RuntimeReportJson = Schema.parseJson(Schema.Struct({
   runtime: Schema.NonEmptyString,
   moduleMode: Schema.Literal("esm", "cjs"),
   corpusCases: Schema.Positive,
+  classifications: ClassificationCounts,
   timing: Schema.Record({
     key: Schema.String,
     value: Schema.Struct({ p50: Schema.Number, p95: Schema.Number, p99: Schema.Number, max: Schema.Number })
@@ -118,6 +127,11 @@ const RuntimeReportJson = Schema.parseJson(Schema.Struct({
     mlDsa65: Schema.Literal("InvalidVerificationInput")
   })
 }))
+const BrowserRuntimeReport = Schema.Struct({
+  format: Schema.Literal("@scenesystems/sign-browser-runtime-v1"),
+  corpusCases: Schema.Positive,
+  classifications: ClassificationCounts
+})
 
 const failure = (stage: string, detail: string) => new CryptoReleaseCheckError({ stage, detail })
 const root = Path.Path.pipe(
@@ -145,6 +159,73 @@ const identities = (rootDirectory: string, paths: ReadonlyArray<string>) =>
     Arr.sort(paths, Order.string),
     (entry) => readSha256Hex(`${rootDirectory}/${entry}`).pipe(Effect.map((sha256) => ({ path: entry, sha256 })))
   )
+
+const playwrightEffect = <A>(stage: string, evaluate: () => Promise<A>) =>
+  Effect.tryPromise({
+    try: evaluate,
+    catch: () => failure(stage, "Playwright operation failed")
+  })
+
+const runBrowserProfile = (workspace: string, consumer: string, fixtureRoot: string) =>
+  Effect.gen(function*() {
+    const fileSystem = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const readFixture = (file: string) =>
+      fileSystem.readFileString(path.join(fixtureRoot, file)).pipe(
+        Effect.mapError(() => failure("sign-browser-profile", file))
+      )
+    const ed25519 = yield* readFixture("ed25519.json")
+    const p256 = yield* readFixture("p256.json")
+    const mlDsa65 = yield* readFixture("ml-dsa-65.json")
+    yield* fileSystem.writeFileString(
+      path.join(consumer, "sign-browser-profile.ts"),
+      `export default {"ed25519":${ed25519},"p256":${p256},"mlDsa65":${mlDsa65}}\n`
+    )
+    yield* fileSystem.copyFile(
+      path.join(workspace, "scripts/crypto-release/sign-browser-runtime.ts"),
+      path.join(consumer, "sign-browser-runtime.ts")
+    )
+    yield* fileSystem.writeFileString(
+      path.join(consumer, "sign-browser-entry.ts"),
+      [
+        "import { Runtime } from \"effect\"",
+        "import profile from \"./sign-browser-profile.ts\"",
+        "import { runSignBrowserProfile } from \"./sign-browser-runtime.ts\"",
+        "Reflect.set(globalThis, \"__THEORIA_SIGN_RELEASE_REPORT__\",",
+        "  Runtime.runSync(Runtime.defaultRuntime)(runSignBrowserProfile(profile)))",
+        ""
+      ].join("\n")
+    )
+    const playwright = yield* runCommand("sign-playwright-version", workspace, "bunx", ["playwright", "--version"])
+    yield* runCommand("sign-playwright-install", workspace, "bunx", ["playwright", "install", "chromium"])
+    yield* runCommand("sign-browser-bundle", consumer, "bun", [
+      "build",
+      "sign-browser-entry.ts",
+      "--target",
+      "browser",
+      "--outfile",
+      "sign-browser-profile.js"
+    ])
+    const browser = yield* Effect.acquireRelease(
+      playwrightEffect("sign-browser-launch", () => chromium.launch({ headless: true })),
+      (instance) => Effect.promise(() => instance.close())
+    )
+    const page = yield* playwrightEffect("sign-browser-page", () => browser.newPage())
+    yield* playwrightEffect("sign-browser-content", () =>
+      page.setContent("<!doctype html><title>sign release profile</title>"))
+    yield* playwrightEffect("sign-browser-script", () =>
+      page.addScriptTag({ path: path.join(consumer, "sign-browser-profile.js") }))
+    const unknownReport = yield* playwrightEffect("sign-browser-report", () =>
+      page.evaluate(() =>
+        Reflect.get(globalThis, "__THEORIA_SIGN_RELEASE_REPORT__")
+      ))
+    const report = yield* Schema.decodeUnknown(BrowserRuntimeReport)(unknownReport).pipe(
+      Effect.mapError(() =>
+        failure("sign-browser-report", "browser returned an invalid report")
+      )
+    )
+    return { playwright, chromium: browser.version(), report }
+  }).pipe(Effect.scoped)
 
 const buildDescriptorBody = (workspace: string) =>
   Effect.gen(function*() {
@@ -188,7 +269,9 @@ const buildDescriptorBody = (workspace: string) =>
       "--exclude-standard",
       "--",
       PACKAGE_DIRECTORY,
+      ".github/workflows/check.yml",
       "scripts/crypto-release/sign.ts",
+      "scripts/crypto-release/sign-browser-runtime.ts",
       "scripts/crypto-release/sign-runtime.mjs"
     ])
     const sourcePaths = Arr.filter(listedSource.split("\n"), (entry) =>
@@ -256,7 +339,8 @@ const buildDescriptorBody = (workspace: string) =>
           "tsc NodeNext ESM + declarations",
           "Babel annotated ESM",
           "Babel CommonJS",
-          "@effect/build-utils pack-v3"
+          "@effect/build-utils pack-v3",
+          "Bun browser bundle + Playwright Chromium"
         ]
       },
       suiteProfiles: {
@@ -367,6 +451,25 @@ const qualify = (workspace: string) =>
     if (Arr.some(reports, (report) => report.corpusCases !== descriptor.body.corpus.totalCases)) {
       return yield* Effect.fail(failure("sign-packed-corpus", "corpus count drifted"))
     }
+    const browser = yield* runBrowserProfile(workspace, consumer, fixtureRoot)
+    if (browser.report.corpusCases !== descriptor.body.corpus.totalCases) {
+      return yield* Effect.fail(failure("sign-browser-corpus", "corpus count drifted"))
+    }
+    const baseline = yield* Option.match(Arr.head(reports), {
+      onNone: () => Effect.fail(failure("sign-classification-parity", "no host runtime report")),
+      onSome: (report) => Effect.succeed(report.classifications)
+    })
+    const classificationReports = [
+      ...Arr.map(reports, (report) => report.classifications),
+      browser.report.classifications
+    ]
+    if (
+      Arr.some(classificationReports, (entry) =>
+        entry.verified !== baseline.verified || entry.nonmatch !== baseline.nonmatch ||
+        entry.invalidInput !== baseline.invalidInput)
+    ) {
+      return yield* Effect.fail(failure("sign-classification-parity", "runtime classifications differ"))
+    }
     const declarations = [
       "import { ed25519Verify, mlDsa65Verify, p256Sha256P1363LowSVerify,",
       "type InvalidVerificationInput, type VerificationUnavailable } from \"@scenesystems/sign\"",
@@ -401,12 +504,18 @@ const qualify = (workspace: string) =>
       "-e",
       "process.stdout.write(JSON.stringify(Object.keys(require('@scenesystems/sign')).sort()))"
     ])
-    if (esmExports !== cjsExports) return yield* Effect.fail(failure("sign-export-parity", "ESM and CJS differ"))
+    if (esmExports !== cjsExports) {
+      return yield* Effect.fail(failure("sign-export-parity", "ESM and CJS differ"))
+    }
     const denied = yield* Effect.forEach([
       "import('@scenesystems/sign/internal/x')",
       "require('@scenesystems/sign/internal/x')"
-    ], (source) => runCommandExit(consumer, "node", ["-e", source]))
-    if (Arr.some(denied, ({ exitCode }) => exitCode === 0)) {
+    ], (source) =>
+      runCommandExit(consumer, "node", ["-e", source]))
+    if (
+      Arr.some(denied, ({ exitCode }) =>
+        exitCode === 0)
+    ) {
       return yield* Effect.fail(failure("sign-private-export", "resolved"))
     }
     const tarballSha256 = yield* readSha256Hex(tarball)
@@ -417,6 +526,7 @@ const qualify = (workspace: string) =>
       descriptorFingerprint: descriptor.fingerprint,
       package: { name: PACKAGE_NAME, version: descriptor.body.packageVersion, tarballSha256 },
       reports,
+      browser,
       declarations: "strict NodeNext; skipLibCheck false",
       exports: "ESM/CJS parity",
       responsiveness: "one synchronous indivisible primitive; scheduler block is each reported operation duration",
@@ -435,7 +545,11 @@ const qualify = (workspace: string) =>
       `${yield* renderCanonical(binding)}\n`
     )
     yield* fileSystem.copyFile(tarball, path.join(evidenceRoot, "sign.tgz"))
-    yield* Console.log(`[crypto:release:sign] qualified ${String(descriptor.body.corpus.totalCases)} cases`)
+    yield* Console.log(
+      `[crypto:release:sign] qualified ${
+        String(descriptor.body.corpus.totalCases)
+      } cases in Node, Bun, and ${browser.chromium}`
+    )
   }).pipe(Effect.scoped)
 
 const program = Effect.gen(function*() {
