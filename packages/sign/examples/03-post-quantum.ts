@@ -10,7 +10,15 @@
  */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { decapsulate, encapsulate, equalBytes, generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
+import {
+  decapsulate,
+  encapsulate,
+  equalBytes,
+  generateKeyPair,
+  mlDsa65SignHedged,
+  mlDsa65Verify,
+  utf8ToBytes
+} from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
@@ -21,8 +29,10 @@ const program = Effect.gen(function*() {
   })
 
   const message = utf8ToBytes("quantum-resistant document signing")
-  const sig = yield* sign("ml-dsa-65", message, sigKeys.secretKey, sigKeys.publicKey)
-  const valid = yield* verify(sig, message)
+  const context = new Uint8Array(0)
+  const entropy32 = crypto.getRandomValues(new Uint8Array(32))
+  const sig = yield* mlDsa65SignHedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
+  const valid = yield* mlDsa65Verify(sig.signature, message, sigKeys.publicKey, context)
   yield* Effect.log("ML-DSA-65 signature", {
     signatureBytes: sig.signature.length,
     verified: valid

@@ -21,6 +21,8 @@ Requires `effect` ≥ 3.20.0 as a peer dependency.
 
 Digital signatures prove who sent a message. Key agreement lets two parties derive a shared secret. Key encapsulation does the same thing but with quantum resistance. `@scenesystems/sign` provides all three families through a single Effect-native API with typed errors, self-describing output types, and exhaustive algorithm dispatch — from Ed25519 to post-quantum ML-DSA and the XWing hybrid KEM.
 
+For identity and protocol owners, the package also exposes suite-specific direct verification functions. Those functions take a detached signature and an explicit public key, never dispatch from an algorithm field, and never accept or return the package's self-describing `Signature` carrier.
+
 - **Ed25519 + secp256k1** — classical signatures for general use and blockchain compatibility
 - **ML-DSA + SLH-DSA** — NIST post-quantum signatures (FIPS 204/205) at multiple security levels
 - **X25519** — elliptic-curve Diffie–Hellman key agreement
@@ -33,6 +35,7 @@ Digital signatures prove who sent a message. Key agreement lets two parties deri
 | Algorithm           | Family          | Security | Signature size | Use case                       |
 | ------------------- | --------------- | -------- | -------------- | ------------------------------ |
 | `ed25519`           | EdDSA           | 128-bit  | 64 B           | General purpose, fast          |
+| P-256/SHA-256       | ECDSA           | 128-bit  | 64 B           | Strict direct verification     |
 | `secp256k1-ecdsa`   | ECDSA           | 128-bit  | 64 B           | Bitcoin/Ethereum compatibility |
 | `secp256k1-schnorr` | Schnorr         | 128-bit  | 64 B           | Taproot/batch verification     |
 | `ml-dsa-44`         | Lattice (PQ)    | NIST 2   | 2,420 B        | Post-quantum, smallest         |
@@ -83,6 +86,44 @@ const program = Effect.gen(function* () {
 })
 ```
 
+## Strict direct verification
+
+Use the direct functions when the calling protocol owns suite selection and supplies the verification key independently:
+
+```ts typecheck
+import { ed25519Verify, mlDsa65Verify, p256Sha256P1363LowSVerify } from "@scenesystems/sign"
+
+declare const signature64: Uint8Array
+declare const signature3309: Uint8Array
+declare const protectedMessage: Uint8Array
+declare const ed25519PublicKey32: Uint8Array
+declare const uncompressedP256PublicKey65: Uint8Array
+declare const mlDsa65PublicKey1952: Uint8Array
+
+const ed25519 = ed25519Verify(signature64, protectedMessage, ed25519PublicKey32)
+const p256 = p256Sha256P1363LowSVerify(signature64, protectedMessage, uncompressedP256PublicKey65)
+const mlDsa65 = mlDsa65Verify(signature3309, protectedMessage, mlDsa65PublicKey1952, new Uint8Array(0))
+```
+
+The direct boundary has one result law:
+
+| Outcome                                                               | Effect result              |
+| --------------------------------------------------------------------- | -------------------------- |
+| Canonical, well-formed signature verifies                             | `true`                     |
+| Canonical, well-formed signature does not verify                      | `false`                    |
+| Malformed, noncanonical, wrong-length, or unsupported primitive input | `InvalidVerificationInput` |
+| Admitted input reaches a backend that cannot execute                  | `VerificationUnavailable`  |
+
+Both errors are material-free tagged errors. They contain no algorithm, key, signature, message, context, backend reason, or underlying exception. Inputs are detached before primitive execution and are not mutated or retained.
+
+The exact profiles are:
+
+- **Ed25519:** pure RFC 8032, 32-byte canonical non-small-order public key, 64-byte signature, canonical non-small-order `R`, `S < L`, and Noble verification explicitly invoked with `{ zip215: false }`.
+- **P-256:** NIST P-256, SHA-256 applied exactly once by the verifier, exactly 65-byte uncompressed SEC1 keys, exactly 64-byte IEEE P1363 `r || s`, in-range scalars, and low-S only. DER, compressed keys, high-S, malformed points, and alternate encodings are rejected.
+- **ML-DSA-65:** pure FIPS 204, exactly 1,952-byte public keys and 3,309-byte signatures, canonical hint encoding, and a required explicit context. Identity v1 callers use `new Uint8Array(0)`; a nonempty context is a distinct profile.
+
+These Noble primitives execute synchronously and indivisibly. Wrapping the result in Effect does not claim cooperative interruption. The provider admits protected messages through 8,192 bytes; bound-plus-one fails before copying or primitive execution. This provider execution bound is not an Identity wire-format limit. The release profile requires p95 ≤ 10 ms and an observed maximum ≤ 100 ms per call on the qualified Bun 1.3.x and Node 22.x x64 runtime class.
+
 ## API
 
 ### Signing
@@ -91,6 +132,8 @@ const program = Effect.gen(function* () {
 | ------------------------------------------------ | ------------------------------------------------------ |
 | `sign(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<Signature>`                   |
 | `verify(signature, message)`                     | Verify a self-describing signature → `Effect<boolean>` |
+
+ML-DSA-65 does not select an implicit signing mode. `mlDsa65SignHedged(message, secretKey, publicKey, context, entropy32)` requires exactly 32 bytes of caller-supplied cryptographic entropy and does not read ambient randomness. `mlDsa65SignDeterministic(...)` is separately named for conformance use. The legacy `mlDsa65Sign(...)` and generic `sign("ml-dsa-65", ...)` entrypoints fail closed because they cannot receive explicit hedging entropy.
 
 ### Key agreement
 
@@ -133,12 +176,14 @@ const program = Effect.gen(function* () {
 
 ### Errors
 
-| Error                 | Raised by         | Description                          |
-| --------------------- | ----------------- | ------------------------------------ |
-| `SigningFailed`       | `sign`            | Signing operation failed             |
-| `VerificationFailed`  | `verify`          | Signature is valid but doesn't match |
-| `InvalidSignature`    | `verify`          | Signature data is malformed          |
-| `KeyGenerationFailed` | `generateKeyPair` | Key generation failed                |
+| Error                      | Raised by           | Description                                      |
+| -------------------------- | ------------------- | ------------------------------------------------ |
+| `InvalidVerificationInput` | direct verification | Input is outside the frozen primitive profile    |
+| `VerificationUnavailable`  | direct verification | Admitted input could not be executed             |
+| `SigningFailed`            | `sign`              | Signing operation failed                         |
+| `VerificationFailed`       | legacy `verify`     | Legacy verification backend rejected the request |
+| `InvalidSignature`         | legacy `verify`     | Signature data is malformed                      |
+| `KeyGenerationFailed`      | `generateKeyPair`   | Key generation failed                            |
 
 ## Examples
 
@@ -201,16 +246,18 @@ const program = Effect.gen(function* () {
 ### Post-quantum signatures
 
 ```ts
-import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
+import { generateKeyPair, mlDsa65SignHedged, mlDsa65Verify, utf8ToBytes } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function* () {
   // ML-DSA-65 — NIST FIPS 204, recommended parameter set
   const keys = yield* generateKeyPair("ml-dsa-65")
   const message = utf8ToBytes("quantum-resistant document")
+  const context = new Uint8Array(0)
+  const entropy32 = crypto.getRandomValues(new Uint8Array(32))
 
-  const sig = yield* sign("ml-dsa-65", message, keys.secretKey, keys.publicKey)
-  const valid = yield* verify(sig, message)
+  const sig = yield* mlDsa65SignHedged(message, keys.secretKey, keys.publicKey, context, entropy32)
+  const valid = yield* mlDsa65Verify(sig.signature, message, keys.publicKey, context)
   // true — verified with post-quantum security
 })
 ```
