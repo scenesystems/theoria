@@ -44,18 +44,19 @@
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/sign/test",
+    "publish:check": "bun run ../../scripts/crypto-release/sign.ts",
     "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3 && bun run ../../scripts/crypto-release/sign.ts --embed",
     "clean": "rm -rf build dist .tsbuildinfo",
     "docgen": "docgen"
   },
   "dependencies": {
-    "@noble/curves": "^2.0.0",
-    "@noble/hashes": "^2.0.0",
-    "@noble/post-quantum": "^0.5.0"
+    "@noble/curves": "2.0.1",
+    "@noble/hashes": "2.0.1",
+    "@noble/post-quantum": "0.5.4"
   },
   "devDependencies": {
     "@theoria/source-proof": "workspace:*"

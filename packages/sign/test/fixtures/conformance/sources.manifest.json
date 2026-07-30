@@ -1,0 +1,112 @@
+{
+  "schema": "@scenesystems/sign conformance provenance manifest v1",
+  "retrievalDate": "2026-07-30",
+  "payloads": [
+    {
+      "file": "ed25519.json",
+      "sha256": "52e73e88b5b2af7a33ee255da0fc2598a7dad2533026a3afb25eb347d016f1ef",
+      "sources": [
+        {
+          "locator": "https://github.com/paulmillr/noble-curves",
+          "revision": "99d97742b6ec04e1fe9e20857099dc89c9378dcf",
+          "path": "test/vectors/rfc8032-ed25519.json",
+          "selector": "array indexes 0-2 (RFC 8032 section 7.1 vectors 1-3)"
+        },
+        {
+          "locator": "https://github.com/paulmillr/noble-curves",
+          "revision": "99d97742b6ec04e1fe9e20857099dc89c9378dcf",
+          "path": "test/vectors/ed25519/zip215.json",
+          "selector": "all 196 array entries; exhaustive upstream ZIP-215 distinction matrix"
+        }
+      ],
+      "licenseNotice": "noble-curves is MIT licensed; copyright Paul Miller (paulmillr.com). Source license: https://github.com/paulmillr/noble-curves/blob/99d97742b6ec04e1fe9e20857099dc89c9378dcf/LICENSE",
+      "transformations": [
+        "Renamed upstream fields to self-describing field names and added stable one-based case IDs.",
+        "Preserved key, seed, message, and signature hex bytes without cryptographic generation.",
+        "Mapped RFC vectors to valid and ZIP-215 cases to invalid-input under the stricter canonical and non-small-order point admission profile."
+      ],
+      "exclusions": [
+        "RFC 8032 source array index 3 was excluded because the requested selector is vectors 1-3.",
+        "No ZIP-215 entries were excluded."
+      ],
+      "localVerdictRemaps": [
+        {
+          "caseIds": ["zip215-17", "zip215-20", "zip215-76"],
+          "upstreamResult": "valid in legacy and ZIP-215 modes",
+          "localVerdict": "invalid-input",
+          "reason": "These cases use a small-order encoded public key or R and the frozen profile rejects both before strict RFC 8032 verification."
+        }
+      ]
+    },
+    {
+      "file": "p256.json",
+      "sha256": "96361d50ddaf01e3e631bac3457fe38405d22e954f6266442848151d7959b526",
+      "sources": [
+        {
+          "locator": "https://github.com/C2SP/wycheproof",
+          "revision": "e0df04e0c033f2d25c5051dd06230336c7822358",
+          "path": "testvectors_v1/ecdsa_secp256r1_sha256_p1363_test.json",
+          "selector": "tcId in [1,2,11,64,121,149,205,221,225]"
+        }
+      ],
+      "licenseNotice": "C2SP Wycheproof is Apache-2.0 licensed. Source license: https://github.com/C2SP/wycheproof/blob/e0df04e0c033f2d25c5051dd06230336c7822358/LICENSE",
+      "transformations": [
+        "Flattened selected tests while preserving tcId, result, flags, comment, uncompressed public key coordinates, message, and signature.",
+        "Added strictVerdict for fixed-width P1363 parsing, scalar range checks, signature matching, and the local low-S profile.",
+        "Preserved upstream lowercase hex bytes without cryptographic generation."
+      ],
+      "exclusions": [
+        "All unselected tests were excluded for corpus size; the retained cases cover low-S valid, high-S, out-of-range/long, zero scalar, short encodings, canonical nonmatches, and an additional valid alternate key.",
+        "The upstream P1363 file does not represent malformed-length or off-curve public-key encodings; its public keys are uncompressed curve points."
+      ],
+      "localVerdictRemaps": [
+        {
+          "tcId": 64,
+          "upstreamResult": "valid",
+          "localVerdict": "invalid-input",
+          "reason": "The upstream-valid signature has high-S and the local P-256 profile requires low-S."
+        },
+        {
+          "tcId": 205,
+          "upstreamResult": "invalid",
+          "localVerdict": "invalid-input",
+          "reason": "The supplied uncompressed public-key coordinates do not decode to an admitted P-256 curve point."
+        }
+      ]
+    },
+    {
+      "file": "ml-dsa-65.json",
+      "sha256": "3a347e0501bf74c817d3efc995440b0b9db5d1fb313dde1dc3d856aded9e6cf7",
+      "sources": [
+        {
+          "locator": "https://github.com/usnistgov/ACVP-Server",
+          "revision": "112690e8484dba7077709a05b1f3af58ddefdd5d",
+          "path": "gen-val/json-files/ML-DSA-sigVer-FIPS204/prompt.json",
+          "selector": "all tgId 3 cases (ML-DSA-65, external, pure), tcId 31-45"
+        },
+        {
+          "locator": "https://github.com/usnistgov/ACVP-Server",
+          "revision": "112690e8484dba7077709a05b1f3af58ddefdd5d",
+          "path": "gen-val/json-files/ML-DSA-sigVer-FIPS204/expectedResults.json",
+          "selector": "all tgId 3 cases, tcId 31-45"
+        }
+      ],
+      "licenseNotice": "NIST ACVP-Server software and data are provided by NIST; see the repository LICENSE and DISCLAIMER at revision 112690e8484dba7077709a05b1f3af58ddefdd5d: https://github.com/usnistgov/ACVP-Server/tree/112690e8484dba7077709a05b1f3af58ddefdd5d",
+      "transformations": [
+        "Joined prompt cases to expectedResults by tgId and tcId.",
+        "Preserved uppercase public key, message, signature, and context hex bytes without generating bytes using installed Noble.",
+        "Retained all 15 tgId 3 cases (tcId 31-45).",
+        "Classified canonical false cases as nonmatch and the three independently decoded noncanonical hint encodings as invalid-input under the frozen direct-verification result law."
+      ],
+      "exclusions": ["Other parameter sets, preHash mode, and internal signature interfaces were excluded."],
+      "localVerdictRemaps": [
+        {
+          "tcIds": [32, 39, 44],
+          "upstreamResult": "false",
+          "localVerdict": "invalid-input",
+          "reason": "FIPS 204 hint decoding rejects the endpoint ordering, strictly increasing index, or zero-padding structure before primitive verification."
+        }
+      ]
+    }
+  ]
+}

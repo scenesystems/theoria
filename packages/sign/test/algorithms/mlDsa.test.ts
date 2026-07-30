@@ -19,6 +19,7 @@ import {
   mlDsa44Verify,
   mlDsa65Keygen,
   mlDsa65Sign,
+  mlDsa65SignDeterministic,
   mlDsa65Verify,
   mlDsa87Keygen,
   mlDsa87Sign,
@@ -26,6 +27,7 @@ import {
 } from "../../src/algorithms/mlDsa.js"
 
 const message = new TextEncoder().encode("post-quantum hello")
+const EMPTY_CONTEXT = new Uint8Array(0)
 
 describe("ML-DSA-44 — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
@@ -80,8 +82,8 @@ describe("ML-DSA-65 — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
-      const sig = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
-      const valid = yield* mlDsa65Verify(sig.signature, message, kp.publicKey)
+      const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
+      const valid = yield* mlDsa65Verify(sig.signature, message, kp.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(true)
     }))
 
@@ -96,7 +98,7 @@ describe("ML-DSA-65 — algorithm contracts", () => {
   it.effect("expected signature size — 3309B", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
-      const sig = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
+      const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(3309)
     }))
 
@@ -104,19 +106,26 @@ describe("ML-DSA-65 — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp1 = yield* mlDsa65Keygen()
       const kp2 = yield* mlDsa65Keygen()
-      const sig = yield* mlDsa65Sign(message, kp1.secretKey, kp1.publicKey)
-      const valid = yield* mlDsa65Verify(sig.signature, message, kp2.publicKey)
+      const sig = yield* mlDsa65SignDeterministic(message, kp1.secretKey, kp1.publicKey)
+      const valid = yield* mlDsa65Verify(sig.signature, message, kp2.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(false)
     }))
 
   it.effect("rejects tampered signature", () =>
     Effect.gen(function*() {
       const kp = yield* mlDsa65Keygen()
-      const sig = yield* mlDsa65Sign(message, kp.secretKey, kp.publicKey)
+      const sig = yield* mlDsa65SignDeterministic(message, kp.secretKey, kp.publicKey)
       const tampered = new Uint8Array(sig.signature)
       tampered[0] = tampered[0]! ^ 0xff
-      const valid = yield* mlDsa65Verify(tampered, message, kp.publicKey)
+      const valid = yield* mlDsa65Verify(tampered, message, kp.publicKey, EMPTY_CONTEXT)
       expect(valid).toBe(false)
+    }))
+
+  it.effect("fails the legacy signing entrypoint closed instead of selecting a default mode", () =>
+    Effect.gen(function*() {
+      const kp = yield* mlDsa65Keygen()
+      const error = yield* Effect.flip(mlDsa65Sign(message, kp.secretKey, kp.publicKey))
+      expect(error._tag).toBe("SigningFailed")
     }))
 })
 

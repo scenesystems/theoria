@@ -1,0 +1,151 @@
+{
+  "schema": "@scenesystems/sign P-256 SHA-256 P1363 low-S conformance v1",
+  "encoding": "lowercase hex",
+  "profile": {
+    "curve": "P-256",
+    "hash": "SHA-256",
+    "signatureEncoding": "IEEE P1363",
+    "requireLowS": true
+  },
+  "cases": [
+    {
+      "tcId": 1,
+      "comment": "signature malleability",
+      "flags": ["ValidSignature"],
+      "result": "valid",
+      "publicKey": {
+        "uncompressed": "042927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e",
+        "wx": "2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838",
+        "wy": "00c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"
+      },
+      "message": "313233343030",
+      "signature": "2ba3a8be6b94d5ec80a6d9d1190a436effe50d85a1eee859b8cc6af9bd5c2e184cd60b855d442f5b3c7b11eb6c4e0ae7525fe710fab9aa7c77a67f79e6fadd76",
+      "strictVerdict": "valid",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 2,
+      "comment": "replaced r by r + n",
+      "flags": ["RangeCheck"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "042927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e",
+        "wx": "2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838",
+        "wy": "00c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"
+      },
+      "message": "313233343030",
+      "signature": "012ba3a8bd6b94d5ed80a6d9d1190a436ebccc0833490686deac8635bcb9bf536900b329f479a2bbd0a5c384ee1493b1f5186a87139cac5df4087c134b49156847db",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 11,
+      "comment": "Signature with special case values r=0 and s=0",
+      "flags": ["InvalidSignature"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "042927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e",
+        "wx": "2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838",
+        "wy": "00c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"
+      },
+      "message": "313233343030",
+      "signature": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 64,
+      "comment": "special case hash",
+      "flags": ["SpecialCaseHash"],
+      "result": "valid",
+      "publicKey": {
+        "uncompressed": "042927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e",
+        "wx": "2927b10512bae3eddcfe467828128bad2903269919f7086069c8c4df6c732838",
+        "wy": "00c7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e"
+      },
+      "message": "33393439343031323135",
+      "signature": "bfab3098252847b328fadf2f89b95c851a7f0eb390763378f37e90119d5ba3ddbdd64e234e832b1067c2d058ccb44d978195ccebb65c2aaf1e2da9b8b4987e3b",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": {
+        "from": "valid",
+        "to": "invalid-input",
+        "reason": "valid upstream ECDSA signature has high-S and is rejected by the local low-S profile"
+      }
+    },
+    {
+      "tcId": 121,
+      "comment": "incorrect size of signature",
+      "flags": ["SmallRandS", "ArithmeticError", "SignatureSize"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "04a71af64de5126a4a4e02b7922d66ce9415ce88a4c9d25514d91082c8725ac9575d47723c8fbe580bb369fec9c2665d8e30a435b9932645482e7c9f11e872296b",
+        "wx": "00a71af64de5126a4a4e02b7922d66ce9415ce88a4c9d25514d91082c8725ac957",
+        "wy": "5d47723c8fbe580bb369fec9c2665d8e30a435b9932645482e7c9f11e872296b"
+      },
+      "message": "313233343030",
+      "signature": "0501",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 149,
+      "comment": "incorrect size of signature",
+      "flags": ["ArithmeticError", "SignatureSize"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "04b98740e69e61a325d5f772e3b5c4f67fb7150b16a9afeca9ddc4afcbb6fa0549c446e814138e4ebc82dbf86a390056d4595dcf45e381fef217a4597d7bd51498",
+        "wx": "00b98740e69e61a325d5f772e3b5c4f67fb7150b16a9afeca9ddc4afcbb6fa0549",
+        "wy": "00c446e814138e4ebc82dbf86a390056d4595dcf45e381fef217a4597d7bd51498"
+      },
+      "message": "313233343030",
+      "signature": "8a598e563a89f526c32ebec8de26367c84f633e2042630e99dd0f1e16f7a04bf",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 205,
+      "comment": "duplication bug",
+      "flags": ["PointDuplication"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "045b812fd521aafa69835a849cce6fbdeb6983b442d2444fe70e134c027fc469637c75bf0c5c9f6d17ffb16d2726bf30a9c7aaf31a8d317472b1ea145ab66db616",
+        "wx": "5b812fd521aafa69835a849cce6fbdeb6983b442d2444fe70e134c027fc46963",
+        "wy": "7c75bf0c5c9f6d17ffb16d2726bf30a9c7aaf31a8d317472b1ea145ab66db616"
+      },
+      "message": "313233343030",
+      "signature": "6f2347cab7dd76858fe0555ac3bc99048c4aacafdfb6bcbe05ea6c42c4934569bb726660235793aa9957a61e76e00c2c435109cf9a15dd624d53f4301047856b",
+      "strictVerdict": "invalid-input",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 221,
+      "comment": "public key shares x-coordinate with generator",
+      "flags": ["PointDuplication"],
+      "result": "invalid",
+      "publicKey": {
+        "uncompressed": "046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+        "wx": "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+        "wy": "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+      },
+      "message": "313233343030",
+      "signature": "bb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023249249246db6db6ddb6db6db6db6db6dad4591868595a8ee6bf5f864ff7be0c2",
+      "strictVerdict": "nonmatch",
+      "localVerdictRemap": null
+    },
+    {
+      "tcId": 225,
+      "comment": "pseudorandom signature",
+      "flags": ["ValidSignature"],
+      "result": "valid",
+      "publicKey": {
+        "uncompressed": "0404aaec73635726f213fb8a9e64da3b8632e41495a944d0045b522eba7240fad587d9315798aaa3a5ba01775787ced05eaaf7b4e09fc81d6d1aa546e8365d525d",
+        "wx": "04aaec73635726f213fb8a9e64da3b8632e41495a944d0045b522eba7240fad5",
+        "wy": "0087d9315798aaa3a5ba01775787ced05eaaf7b4e09fc81d6d1aa546e8365d525d"
+      },
+      "message": "",
+      "signature": "b292a619339f6e567a305c951c0dcbcc42d16e47f219f9e98e76e09d8770b34a0177e60492c5a8242f76f07bfe3661bde59ec2a17ce5bd2dab2abebdf89a62e2",
+      "strictVerdict": "valid",
+      "localVerdictRemap": null
+    }
+  ]
+}

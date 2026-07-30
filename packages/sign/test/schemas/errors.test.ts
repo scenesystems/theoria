@@ -1,7 +1,7 @@
 /**
  * Error model contract tests.
  *
- * Verifies all four errors are:
+ * Verifies errors are:
  * - Yieldable in Effect.gen
  * - Catchable via Effect.catchTag
  * - Carry expected fields
@@ -10,7 +10,35 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
-import { InvalidSignature, KeyGenerationFailed, SigningFailed, VerificationFailed } from "../../src/schemas/errors.js"
+import {
+  InvalidSignature,
+  InvalidVerificationInput,
+  KeyGenerationFailed,
+  SigningFailed,
+  VerificationFailed,
+  VerificationUnavailable
+} from "../../src/schemas/errors.js"
+
+describe("direct verification errors", () => {
+  it.effect("are yieldable, catchable, schema-serializable, and material-free", () =>
+    Effect.gen(function*() {
+      const invalid = new InvalidVerificationInput({})
+      const unavailable = new VerificationUnavailable({})
+      const invalidTag = yield* invalid.pipe(
+        Effect.catchTag("InvalidVerificationInput", (error) => Effect.succeed(error._tag))
+      )
+      const encodedInvalid = yield* Schema.encode(InvalidVerificationInput)(invalid)
+      const decodedInvalid = yield* Schema.decode(InvalidVerificationInput)(encodedInvalid)
+      const encodedUnavailable = yield* Schema.encode(VerificationUnavailable)(unavailable)
+      const decodedUnavailable = yield* Schema.decode(VerificationUnavailable)(encodedUnavailable)
+
+      expect(invalidTag).toBe("InvalidVerificationInput")
+      expect(encodedInvalid).toEqual({ _tag: "InvalidVerificationInput" })
+      expect(encodedUnavailable).toEqual({ _tag: "VerificationUnavailable" })
+      expect(decodedInvalid._tag).toBe("InvalidVerificationInput")
+      expect(decodedUnavailable._tag).toBe("VerificationUnavailable")
+    }))
+})
 
 describe("SigningFailed — Schema.TaggedError", () => {
   it.effect("is yieldable in Effect.gen", () =>
