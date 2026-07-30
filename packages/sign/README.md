@@ -114,7 +114,7 @@ The direct boundary has one result law:
 | Malformed, noncanonical, wrong-length, or unsupported primitive input | `InvalidVerificationInput` |
 | Admitted input reaches a backend that cannot execute                  | `VerificationUnavailable`  |
 
-Both errors are material-free tagged errors. They contain no algorithm, key, signature, message, context, backend reason, or underlying exception. Inputs are detached before primitive execution and are not mutated or retained.
+Both errors are material-free tagged errors. They contain no algorithm, key, signature, message, context, backend reason, or underlying exception. Admission and input detachment occur lazily on every execution of the returned Effect. Expected type, bound, detached-buffer, or typed-array copy failures produce `InvalidVerificationInput`; they do not throw during Effect construction or escape as defects. The execution snapshot is not mutated or retained after primitive execution.
 
 The exact profiles are:
 

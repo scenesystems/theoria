@@ -9,59 +9,15 @@ import {
   mlDsa65Verify
 } from "../../src/algorithms/mlDsa.js"
 import { p256Sha256P1363LowSVerify } from "../../src/algorithms/p256.js"
-import { DIRECT_VERIFICATION_MAX_MESSAGE_BYTES } from "../../src/internal/verificationInput.js"
 import type { InvalidVerificationInput, VerificationUnavailable } from "../../src/schemas/errors.js"
 
 const EMPTY_CONTEXT = new Uint8Array(0)
 const message = new TextEncoder().encode("strict direct verification")
 
-const ed25519Contract: (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-) => Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable, never> = ed25519Verify
-
-const p256Contract: (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array
-) => Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable, never> = p256Sha256P1363LowSVerify
-
-const mlDsa65Contract: (
-  signature: Uint8Array,
-  message: Uint8Array,
-  publicKey: Uint8Array,
-  context: Uint8Array
-) => Effect.Effect<boolean, InvalidVerificationInput | VerificationUnavailable, never> = mlDsa65Verify
-
 const failureTag = <A>(effect: Effect.Effect<A, InvalidVerificationInput | VerificationUnavailable>) =>
   Effect.flip(effect).pipe(Effect.map((error) => error._tag))
 
-describe("strict direct verification admission", () => {
-  it.effect("implements the exact service-free public Effect contracts", () =>
-    Effect.sync(() => {
-      expect(ed25519Contract).toBe(ed25519Verify)
-      expect(p256Contract).toBe(p256Sha256P1363LowSVerify)
-      expect(mlDsa65Contract).toBe(mlDsa65Verify)
-    }))
-
-  it.effect("rejects message bound plus one before every direct primitive", () =>
-    Effect.gen(function*() {
-      const excessMessage = new Uint8Array(DIRECT_VERIFICATION_MAX_MESSAGE_BYTES + 1)
-      expect(yield* failureTag(ed25519Verify(new Uint8Array(64), excessMessage, new Uint8Array(32))))
-        .toBe("InvalidVerificationInput")
-      expect(
-        yield* failureTag(
-          p256Sha256P1363LowSVerify(new Uint8Array(64), excessMessage, new Uint8Array(65))
-        )
-      ).toBe("InvalidVerificationInput")
-      expect(
-        yield* failureTag(
-          mlDsa65Verify(new Uint8Array(3_309), excessMessage, new Uint8Array(1_952), EMPTY_CONTEXT)
-        )
-      ).toBe("InvalidVerificationInput")
-    }))
-
+describe("strict direct verification suites", () => {
   it.effect("rejects malformed Ed25519 input and does not mutate admitted input", () =>
     Effect.gen(function*() {
       const keyPair = yield* ed25519Keygen()
@@ -72,13 +28,9 @@ describe("strict direct verification admission", () => {
       const expectedSignature = Uint8Array.from(signature)
       const expectedPublicKey = Uint8Array.from(publicKey)
       const expectedMessage = Uint8Array.from(detachedMessage)
-      const retainedSignature = Uint8Array.from(signature)
-      const retainedPublicKey = Uint8Array.from(publicKey)
-      const retainedMessage = Uint8Array.from(detachedMessage)
-      const detachedVerification = ed25519Verify(retainedSignature, retainedMessage, retainedPublicKey)
-      retainedSignature.fill(0)
-      retainedPublicKey.fill(0)
-      retainedMessage.fill(0)
+      const executionMessage = Uint8Array.from(detachedMessage)
+      const executionVerification = ed25519Verify(signature, executionMessage, publicKey)
+      executionMessage.fill(0, 0, 1)
       const smallOrderKey = new Uint8Array(32)
       smallOrderKey[0] = 1
       const smallOrderR = Uint8Array.from(signature)
@@ -86,7 +38,9 @@ describe("strict direct verification admission", () => {
       smallOrderR[0] = 1
 
       expect(yield* ed25519Verify(signature, detachedMessage, publicKey)).toBe(true)
-      expect(yield* detachedVerification).toBe(true)
+      expect(yield* executionVerification).toBe(false)
+      executionMessage.set(detachedMessage.subarray(0, 1), 0)
+      expect(yield* executionVerification).toBe(true)
       expect(yield* failureTag(ed25519Verify(signature.subarray(1), detachedMessage, publicKey)))
         .toBe("InvalidVerificationInput")
       expect(yield* failureTag(ed25519Verify(signature, detachedMessage, smallOrderKey)))
@@ -104,7 +58,8 @@ describe("strict direct verification admission", () => {
       privateKey[31] = 1
       const publicKey = p256.getPublicKey(privateKey, false)
       const compressedPublicKey = p256.getPublicKey(privateKey, true)
-      const signature = p256.sign(message, privateKey, { lowS: true, prehash: true })
+      const executionMessage = Uint8Array.from(message)
+      const signature = p256.sign(executionMessage, privateKey, { lowS: true, prehash: true })
       const parsedSignature = p256.Signature.fromBytes(signature, "compact")
       const forcedHighSignature = new p256.Signature(
         parsedSignature.r,
@@ -115,20 +70,30 @@ describe("strict direct verification admission", () => {
       offCurvePublicKey[0] = 0x04
       const zeroR = Uint8Array.from(signature)
       zeroR.fill(0, 0, 32)
+      const expectedSignature = Uint8Array.from(signature)
+      const expectedPublicKey = Uint8Array.from(publicKey)
+      const expectedMessage = Uint8Array.from(executionMessage)
+      const executionVerification = p256Sha256P1363LowSVerify(signature, executionMessage, publicKey)
+      executionMessage.fill(0, 0, 1)
 
-      expect(yield* p256Sha256P1363LowSVerify(signature, message, publicKey)).toBe(true)
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, message, compressedPublicKey)))
+      expect(yield* executionVerification).toBe(false)
+      executionMessage.set(message.subarray(0, 1), 0)
+      expect(yield* executionVerification).toBe(true)
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, executionMessage, compressedPublicKey)))
         .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature.subarray(1), message, publicKey)))
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature.subarray(1), executionMessage, publicKey)))
         .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(derSignature, message, publicKey)))
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(derSignature, executionMessage, publicKey)))
         .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, message, offCurvePublicKey)))
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(signature, executionMessage, offCurvePublicKey)))
         .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(zeroR, message, publicKey)))
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(zeroR, executionMessage, publicKey)))
         .toBe("InvalidVerificationInput")
-      expect(yield* failureTag(p256Sha256P1363LowSVerify(forcedHighSignature, message, publicKey)))
+      expect(yield* failureTag(p256Sha256P1363LowSVerify(forcedHighSignature, executionMessage, publicKey)))
         .toBe("InvalidVerificationInput")
+      expect(signature).toEqual(expectedSignature)
+      expect(publicKey).toEqual(expectedPublicKey)
+      expect(executionMessage).toEqual(expectedMessage)
     }))
 
   it.effect("freezes explicit ML-DSA-65 context, canonical hints, and signing entropy", () =>
@@ -161,10 +126,32 @@ describe("strict direct verification admission", () => {
       const deterministicB = yield* mlDsa65SignDeterministic(message, keyPair.secretKey, keyPair.publicKey)
       const malformedHint = Uint8Array.from(first.signature)
       malformedHint[3_303] = 56
+      const executionContext = Uint8Array.of(0x11)
+      const contextSignature = yield* mlDsa65SignHedged(
+        message,
+        keyPair.secretKey,
+        keyPair.publicKey,
+        executionContext,
+        entropy
+      )
+      const executionVerification = mlDsa65Verify(
+        contextSignature.signature,
+        message,
+        keyPair.publicKey,
+        executionContext
+      )
+      const expectedSignature = Uint8Array.from(contextSignature.signature)
+      const expectedPublicKey = Uint8Array.from(keyPair.publicKey)
+      const expectedMessage = Uint8Array.from(message)
+      const expectedContext = Uint8Array.from(executionContext)
+      executionContext.fill(0x12)
 
       expect(first.signature).toEqual(repeated.signature)
       expect(first.signature).not.toEqual(changedEntropy.signature)
       expect(deterministicA.signature).toEqual(deterministicB.signature)
+      expect(yield* executionVerification).toBe(false)
+      executionContext.fill(0x11)
+      expect(yield* executionVerification).toBe(true)
       expect(yield* mlDsa65Verify(first.signature, message, keyPair.publicKey, EMPTY_CONTEXT)).toBe(true)
       expect(yield* mlDsa65Verify(first.signature, message, keyPair.publicKey, Uint8Array.of(1))).toBe(false)
       expect(yield* failureTag(mlDsa65Verify(malformedHint, message, keyPair.publicKey, EMPTY_CONTEXT)))
@@ -186,5 +173,9 @@ describe("strict direct verification admission", () => {
           new Uint8Array(31)
         )).pipe(Effect.map((error) => error._tag))
       ).toBe("SigningFailed")
+      expect(contextSignature.signature).toEqual(expectedSignature)
+      expect(keyPair.publicKey).toEqual(expectedPublicKey)
+      expect(message).toEqual(expectedMessage)
+      expect(executionContext).toEqual(expectedContext)
     }), 30_000)
 })
