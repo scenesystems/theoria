@@ -6,6 +6,7 @@ import process from "node:process"
 const PACKAGES_DIRECTORY = "packages"
 const MANIFEST_FILE = "package.json"
 const RELEASE_SNAPSHOT_STAMP_SCRIPT = "release-snapshots:stamp"
+const RELEASE_SNAPSHOTS_DIRECTORY = join("test", "package", "release-snapshots")
 
 const packageManifests = () =>
   readdirSync(PACKAGES_DIRECTORY, { withFileTypes: true })
@@ -55,4 +56,9 @@ for (const manifest of changedGovernedPackages) {
     cwd: manifest.packageRoot,
     stdio: "inherit"
   })
+  execFileSync("bunx", [
+    "prettier",
+    "--write",
+    join(manifest.packageRoot, RELEASE_SNAPSHOTS_DIRECTORY, `${manifest.version}.json`)
+  ], { stdio: "inherit" })
 }

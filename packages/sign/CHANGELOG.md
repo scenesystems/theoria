@@ -1,5 +1,13 @@
 # @scenesystems/sign
 
+## 0.1.1
+
+### Patch Changes
+
+- [#40](https://github.com/scenesystems/theoria/pull/40) [`64acbc8`](https://github.com/scenesystems/theoria/commit/64acbc8b6f1780fcd426afced3daa4a07d8d4188) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Make direct verification admission and input detachment lazy, and classify detached or uncopyable typed-array input as `InvalidVerificationInput`.
+
+- [#38](https://github.com/scenesystems/theoria/pull/38) [`ac6ec9a`](https://github.com/scenesystems/theoria/commit/ac6ec9a03cda0fffb220f7f4b2347c2806094f74) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add strict detached Ed25519, P-256 SHA-256 P1363 low-S, and ML-DSA-65 verification profiles with material-free typed errors and explicit ML-DSA context and hedged entropy.
+
 ## 0.1.0
 
 ### Minor Changes
