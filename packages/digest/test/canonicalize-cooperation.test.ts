@@ -1,9 +1,10 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Exit, Fiber, MutableRef, Record as Rec, Scheduler } from "effect"
+import { Array as Arr, Chunk, Effect, Exit, Fiber, MutableList, MutableRef, Record as Rec, Scheduler } from "effect"
 
+import { canonicalize } from "../src/canonicalize.js"
 import { canonicalJsonBytes } from "../src/convenience.js"
-import { canonicalizeSegments, encodeCanonicalSegments } from "../src/internal/jcs.js"
-import type { CanonicalizationError } from "../src/schemas/errors.js"
+import { canonicalizeSegments, canonicalizeWithByteLimit, encodeCanonicalSegments } from "../src/internal/jcs.js"
+import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../src/schemas/errors.js"
 
 const WIDTH = 65_536
 const INTERRUPT_WIDTH = 262_144
@@ -64,6 +65,69 @@ it.effect("multi-batch canonical byte assembly remains interruptible", () =>
     const fiber = yield* Effect.fork(encodeCanonicalSegments(segments))
     yield* Effect.yieldNow()
     const exit = yield* Fiber.interrupt(fiber)
+    expect(Exit.isInterrupted(exit)).toBe(true)
+  }))
+
+it.effect("bounded sink segments preserve canonical text, UTF-8 bytes, and the exact final byte count", () =>
+  Effect.gen(function*() {
+    const value = { z: LONG_TEXT, a: ["é", "😀", "\n"] }
+    const delivered = MutableList.empty<string>()
+    const canonicalByteLength = yield* canonicalizeWithByteLimit(
+      value,
+      Number.MAX_SAFE_INTEGER,
+      (segment) => void MutableList.append(delivered, segment)
+    )
+    const segments = Chunk.fromIterable(delivered)
+    const text = yield* canonicalize(value)
+    const bytes = yield* canonicalJsonBytes(value)
+    const deliveredBytes = yield* encodeCanonicalSegments(segments)
+
+    expect(Chunk.size(segments)).toBeGreaterThan(1)
+    expect(Chunk.join(segments, "")).toBe(text)
+    expect(deliveredBytes).toStrictEqual(bytes)
+    expect(canonicalByteLength).toBe(bytes.byteLength)
+  }))
+
+it.effect("bounded sink flushes the final pending segment only on traversal success", () =>
+  Effect.gen(function*() {
+    const successful = MutableList.empty<string>()
+    const failed = MutableList.empty<string>()
+    const canonicalByteLength = yield* canonicalizeWithByteLimit(
+      "value",
+      7,
+      (segment) => void MutableList.append(successful, segment)
+    )
+    const failure = yield* Effect.exit(
+      canonicalizeWithByteLimit(
+        "a".repeat(32 * 1024 + 1),
+        32 * 1024,
+        (segment) => void MutableList.append(failed, segment)
+      )
+    )
+
+    expect(Chunk.fromIterable(successful)).toStrictEqual(Chunk.make("\"value\""))
+    expect(canonicalByteLength).toBe(7)
+    expect(failure).toStrictEqual(Exit.fail(new CanonicalByteLimitExceeded({})))
+    expect(MutableList.length(failed)).toBe(0)
+  }))
+
+it.effect("bounded sink remains interruptible after incremental segment delivery", () =>
+  Effect.gen(function*() {
+    const delivered = MutableRef.make(0)
+    const fiber = yield* Effect.fork(
+      canonicalizeWithByteLimit(
+        LONG_TEXT,
+        Number.MAX_SAFE_INTEGER,
+        () => void MutableRef.increment(delivered)
+      )
+    )
+    yield* Effect.iterate(0, {
+      while: (attempt) => attempt < 256 && MutableRef.get(delivered) === 0,
+      body: (attempt) => Effect.as(Effect.yieldNow(), attempt + 1)
+    })
+    const exit = yield* Fiber.interrupt(fiber)
+
+    expect(MutableRef.get(delivered)).toBeGreaterThan(0)
     expect(Exit.isInterrupted(exit)).toBe(true)
   }))
 

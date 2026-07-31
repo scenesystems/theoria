@@ -27,10 +27,15 @@
  * @category digest
  */
 
-import { Effect, Number as Num, type ParseResult, Schema } from "effect"
+import { Effect, type ParseResult, Schema } from "effect"
 import { digest } from "./digest.js"
-import { digestBytesTagged } from "./internal/digest-bytes.js"
-import { canonicalizeSegmentsWithByteLimit, encodeCanonicalSegments } from "./internal/jcs.js"
+import {
+  finalizeIncrementalHasherTagged,
+  makeIncrementalHasher,
+  updateIncrementalHasher
+} from "./internal/digest-bytes.js"
+import { canonicalizeWithByteLimit } from "./internal/jcs.js"
+import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import {
   type CanonicalByteLimitError,
@@ -40,7 +45,6 @@ import {
 } from "./schemas/errors.js"
 
 const isByteLimit = Schema.is(Schema.NonNegativeInt)
-const BYTE_LENGTH_MISMATCH_MESSAGE = "bounded canonical byte length did not match encoded bytes"
 
 /**
  * A tagged Schema-value digest together with its exact canonical UTF-8 length.
@@ -59,15 +63,20 @@ const digestEncodedBounded = (
   algorithm: DigestAlgorithm
 ): Effect.Effect<SchemaValueDigest, CanonicalByteLimitExceeded | CanonicalizationError> =>
   Effect.flatMap(
-    canonicalizeSegmentsWithByteLimit(encoded, maximumBytes),
-    ({ canonicalByteLength, segments }) =>
-      Effect.flatMap(encodeCanonicalSegments(segments), (bytes) =>
-        Num.Equivalence(bytes.byteLength, canonicalByteLength)
-          ? Effect.map(
-            digestBytesTagged(algorithm, bytes),
-            (tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength: bytes.byteLength })
+    makeIncrementalHasher(algorithm),
+    (hasher) =>
+      Effect.flatMap(
+        canonicalizeWithByteLimit(
+          encoded,
+          maximumBytes,
+          (segment) => updateIncrementalHasher(hasher, encodeUtf8Unchecked(segment))
+        ),
+        (canonicalByteLength) =>
+          Effect.map(
+            finalizeIncrementalHasherTagged(algorithm, hasher),
+            (tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength })
           )
-          : Effect.dieMessage(BYTE_LENGTH_MISMATCH_MESSAGE))
+      )
   )
 
 /**
@@ -99,9 +108,9 @@ export const digestSchemaValue = <A, I, R>(
  *
  * Schema encoding and canonical traversal each occur once. Traversal stops at
  * the first canonical fragment containing byte `maximumBytes + 1`, before the
- * complete oversized preimage is materialized and before hash dispatch. On
- * success, `canonicalByteLength` is read from the exact byte array passed to
- * the sole tagged-byte digest authority.
+ * complete oversized preimage is materialized and before digest finalization
+ * or publication. On success, `canonicalByteLength` is the exact byte count
+ * emitted to the private incremental digest sink.
  *
  * `maximumBytes` is inclusive and must be a non-negative safe integer.
  *

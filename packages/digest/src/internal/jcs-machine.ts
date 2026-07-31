@@ -1,6 +1,6 @@
 /** Cooperative JCS Effect execution orchestrator. @internal */
 
-import { Array as Arr, Chunk, Data, Effect, MutableHashSet, MutableList, MutableRef, Option } from "effect"
+import { Array as Arr, Chunk, Effect, MutableHashSet, MutableList, MutableRef, Option } from "effect"
 
 import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../schemas/errors.js"
 import {
@@ -10,8 +10,8 @@ import {
   processSort,
   processSymbols
 } from "./jcs-admission-machine.js"
-import type { Frame } from "./jcs-model.js"
-import { ByteBudget, exceeded, ref, State } from "./jcs-model.js"
+import type { CanonicalSegmentSink, Frame } from "./jcs-model.js"
+import { ByteBudget, exceeded, flushPending, ref, State } from "./jcs-model.js"
 import { processClose, processCursor, processKeys, processString, processVisit } from "./jcs-serialization-machine.js"
 
 const BATCH = 512
@@ -20,11 +20,6 @@ const BATCH = 512
 // delay gate, so fibers yield every batch while host timers run every 32 batches.
 const HOST_YIELD_BATCHES = 32
 const CONTROL_TOKENS: ReadonlyArray<number> = Arr.makeBy(BATCH, (index) => index)
-
-export class BoundedCanonicalSegments extends Data.Class<{
-  readonly segments: Chunk.Chunk<string>
-  readonly canonicalByteLength: number
-}> {}
 
 const process = (state: State, frame: Frame): void => {
   if (frame._tag === "Visit") return processVisit(state, frame)
@@ -44,7 +39,8 @@ const stopped = (state: State): boolean =>
 
 const execute = (
   value: unknown,
-  maximumBytes: Option.Option<number>
+  maximumBytes: Option.Option<number>,
+  sink: Option.Option<CanonicalSegmentSink>
 ): Effect.Effect<State, CanonicalizationError> =>
   Effect.suspend(() => {
     const batches = ref(0)
@@ -52,6 +48,7 @@ const execute = (
       stack: MutableList.make({ _tag: "Visit", value }),
       active: MutableHashSet.empty(),
       segments: MutableList.empty(),
+      sink,
       pending: ref(""),
       budget: Option.map(maximumBytes, (maximum) =>
         new ByteBudget({ maximumBytes: maximum, byteLength: ref(0), exceeded: ref(false) })),
@@ -98,29 +95,27 @@ const execute = (
   })
 
 const segments = (state: State): Chunk.Chunk<string> => {
-  const pending = MutableRef.get(state.pending)
-  if (pending.length > 0) MutableList.append(state.segments, pending)
+  flushPending(state)
   return Chunk.fromIterable(state.segments)
 }
 
 export const canonicalizeSegments = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
-  Effect.map(execute(value, Option.none()), segments)
-export const canonicalizeSegmentsWithByteLimit = (
+  Effect.map(execute(value, Option.none(), Option.none()), segments)
+export const canonicalizeWithByteLimit = (
   value: unknown,
-  maximumBytes: number
-): Effect.Effect<BoundedCanonicalSegments, CanonicalizationError | CanonicalByteLimitExceeded> =>
-  Effect.flatMap(execute(value, Option.some(maximumBytes)), (state) =>
+  maximumBytes: number,
+  sink: CanonicalSegmentSink
+): Effect.Effect<number, CanonicalizationError | CanonicalByteLimitExceeded> =>
+  Effect.flatMap(execute(value, Option.some(maximumBytes), Option.some(sink)), (state) =>
     Option.match(state.budget, {
       onNone: () => Effect.dieMessage("bounded canonicalization requires a byte budget"),
       onSome: (budget) =>
         MutableRef.get(budget.exceeded)
           ? new CanonicalByteLimitExceeded({})
-          : Effect.succeed(
-            new BoundedCanonicalSegments({
-              segments: segments(state),
-              canonicalByteLength: MutableRef.get(budget.byteLength)
-            })
-          )
+          : Effect.sync(() => {
+            flushPending(state)
+            return MutableRef.get(budget.byteLength)
+          })
     }))
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>
   Effect.map(canonicalizeSegments(value), (output) => Chunk.join(output, ""))

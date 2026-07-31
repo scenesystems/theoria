@@ -178,7 +178,7 @@ describe("governance", () => {
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
     }).pipe(Effect.provide(BunContext.layer)))
 
-  it.effect("keeps bounded canonical emission before the sole tagged-byte digest call", () =>
+  it.effect("keeps bounded canonical emission incremental without full-preimage assembly or one-shot dispatch", () =>
     Effect.gen(function*() {
       const boundedInitializer = yield* initializerText(
         "src/digestSchemaValue.ts",
@@ -228,49 +228,78 @@ describe("governance", () => {
         `const value = ${digestEncodedBoundedInitializer}`
       )
       const boundedInvocations = callInvocations(digestEncodedBounded)
-      expect(Arr.filter(boundedInvocations, ({ target }) => target === "canonicalizeSegmentsWithByteLimit")).toEqual([
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "makeIncrementalHasher")).toEqual([
         new ExpressionInvocation({
           kind: "call",
-          target: "canonicalizeSegmentsWithByteLimit",
-          arguments: ["encoded", "maximumBytes"]
+          target: "makeIncrementalHasher",
+          arguments: ["algorithm"]
         })
       ])
-      expect(Arr.filter(boundedInvocations, ({ target }) => target === "encodeCanonicalSegments")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "encodeCanonicalSegments", arguments: ["segments"] })
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "canonicalizeWithByteLimit")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "canonicalizeWithByteLimit",
+          arguments: [
+            "encoded",
+            "maximumBytes",
+            "(segment) => updateIncrementalHasher(hasher, encodeUtf8Unchecked(segment))"
+          ]
+        })
       ])
-      expect(Arr.filter(boundedInvocations, ({ target }) => target === "digestBytesTagged")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "digestBytesTagged", arguments: ["algorithm", "bytes"] })
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "updateIncrementalHasher")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "updateIncrementalHasher",
+          arguments: ["hasher", "encodeUtf8Unchecked(segment)"]
+        })
       ])
-      expect(conditionalInvocations(digestEncodedBounded)).toContainEqual(
-        new ConditionalInvocation({
-          condition: new ExpressionInvocation({
-            kind: "call",
-            target: "Num.Equivalence",
-            arguments: ["bytes.byteLength", "canonicalByteLength"]
-          }),
-          whenTrue: new ExpressionInvocation({
-            kind: "call",
-            target: "Effect.map",
-            arguments: [
-              "digestBytesTagged(algorithm, bytes)",
-              "(tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength: bytes.byteLength })"
-            ]
-          }),
-          whenFalse: new ExpressionInvocation({
-            kind: "call",
-            target: "Effect.dieMessage",
-            arguments: ["BYTE_LENGTH_MISMATCH_MESSAGE"]
-          })
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "finalizeIncrementalHasherTagged")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "finalizeIncrementalHasherTagged",
+          arguments: ["algorithm", "hasher"]
+        })
+      ])
+      expect(Arr.filter(boundedInvocations, ({ target }) => target === "Effect.flatMap")).toContainEqual(
+        new ExpressionInvocation({
+          kind: "call",
+          target: "Effect.flatMap",
+          arguments: [
+            "canonicalizeWithByteLimit(\n          encoded,\n          maximumBytes,\n          (segment) => updateIncrementalHasher(hasher, encodeUtf8Unchecked(segment))\n        )",
+            "(canonicalByteLength) =>\n          Effect.map(\n            finalizeIncrementalHasherTagged(algorithm, hasher),\n            (tagged) => new SchemaValueDigest({ digest: tagged, canonicalByteLength })\n          )"
+          ]
         })
       )
+      expect(
+        Arr.filter(
+          boundedInvocations,
+          ({ target }) =>
+            target === "encodeCanonicalSegments" ||
+            target === "digestBytesTagged" ||
+            target === "hashBytes" ||
+            target === "blake3Hash" ||
+            target === "sha256"
+        )
+      ).toEqual([])
 
-      const taggedInitializer = yield* initializerText("src/internal/digest-bytes.ts", "digestBytesTagged")
-      const tagged = parseTypeScript(
-        "digestBytesTagged.initializer.ts",
-        `const value = ${taggedInitializer}`
-      )
-      expect(Arr.filter(callInvocations(tagged), ({ target }) => target === "hashBytes")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "hashBytes", arguments: ["algorithm", "bytes"] })
+      const streamingSource = yield* readProjectFile(packageRootUrl, "src/streaming.ts")
+      expect(
+        Arr.filter(
+          moduleSpecifiers(parseTypeScript("src/streaming.ts", streamingSource)),
+          (specifier) => specifier.startsWith("@noble/hashes")
+        )
+      ).toEqual([])
+
+      const hasherInitializer = yield* initializerText("src/internal/digest-bytes.ts", "makeIncrementalHasher")
+      const hasher = parseTypeScript("makeIncrementalHasher.initializer.ts", `const value = ${hasherInitializer}`)
+      expect(
+        Arr.filter(
+          callInvocations(hasher),
+          ({ target }) => target === "blake3.create" || target === "nobleSha256.create"
+        )
+      ).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "blake3.create", arguments: [] }),
+        new ExpressionInvocation({ kind: "call", target: "nobleSha256.create", arguments: [] })
       ])
     }).pipe(Effect.provide(BunContext.layer)))
 })
