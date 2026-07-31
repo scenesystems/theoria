@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.3.6
+
+### Patch Changes
+
+- [#47](https://github.com/scenesystems/theoria/pull/47) [`07d08e2`](https://github.com/scenesystems/theoria/commit/07d08e285a4b8a18bbb27bcbfd3dfea10c7d0ce9) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Allow dense arrays carrying own non-enumerable symbol-keyed data metadata to retain the exact RFC 8785 canonical text and bytes of undecorated arrays. Symbol accessors, enumerable array symbols, record symbols, and string-keyed array extras remain rejected.
+
 ## 0.3.5
 
 ### Patch Changes
