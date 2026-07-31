@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Fiber, MutableRef, Schema } from "effect"
+import { Array as Arr, Effect, Exit, Fiber, MutableRef, Scheduler, Schema } from "effect"
 import {
   CanonicalByteLimitExceeded,
   canonicalJsonBytes,
@@ -58,17 +58,36 @@ const jcsSensitiveValue = {
 }
 
 const algorithms: ReadonlyArray<DigestAlgorithm> = ["blake3-256", "sha256"]
+const MANY_SEGMENT_TEXT = "A😀\n".repeat(65_536)
 
-const canonicalScalarCases: ReadonlyArray<readonly [unknown, number]> = [
+const canonicalByteCountCases: ReadonlyArray<readonly [unknown, number]> = [
   ["A", 3],
   ["é", 4],
   ["€", 5],
   ["😀", 6],
   ["\n", 4],
+  ["\u0000", 8],
+  ["\\\"", 6],
+  ["é😀\n", 10],
+  [[0, -1, true, null], 16],
+  [{ b: "😀", a: "é" }, 21],
   [{}, 2]
 ]
 
 const requireNoEnvironment = <A, E>(effect: Effect.Effect<A, E, never>): Effect.Effect<A, E, never> => effect
+
+const scheduledTasksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<number, E> =>
+  Effect.suspend(() => {
+    const scheduled = MutableRef.make(0)
+    const scheduler = Scheduler.make(
+      (task, priority, fiber) => {
+        MutableRef.update(scheduled, (count) => count + 1)
+        Scheduler.defaultScheduler.scheduleTask(task, priority, fiber)
+      },
+      () => false
+    )
+    return Effect.map(Effect.withScheduler(effect, scheduler), () => MutableRef.get(scheduled))
+  })
 
 describe("digestSchemaValue — Schema.encode → JCS → hash pipeline", () => {
   it.effect("produces algorithm-tagged string with default BLAKE3-256", () =>
@@ -137,6 +156,26 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
             algorithm
           )
           expect(bounded.digest).toBe(existing)
+        }), { discard: true })
+    }))
+
+  it.effect("matches one-shot output across many canonical segments for both algorithms", () =>
+    Effect.gen(function*() {
+      const canonicalBytes = yield* canonicalJsonBytes(MANY_SEGMENT_TEXT)
+
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const oneShot = yield* digestSchemaValue(Schema.String, MANY_SEGMENT_TEXT, algorithm)
+          const bounded = yield* digestSchemaValueWithByteLimit(
+            Schema.String,
+            MANY_SEGMENT_TEXT,
+            canonicalBytes.byteLength,
+            algorithm
+          )
+
+          expect(bounded).toStrictEqual(
+            new SchemaValueDigest({ digest: oneShot, canonicalByteLength: canonicalBytes.byteLength })
+          )
         }), { discard: true })
     }))
 
@@ -230,6 +269,55 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       expect(error._tag).toBe("ParseError")
     }))
 
+  it.effect("preserves a typed late canonicalization failure after incremental segment updates", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        digestSchemaValueWithByteLimit(
+          Schema.Unknown,
+          [MANY_SEGMENT_TEXT, "\uD800"],
+          Number.MAX_SAFE_INTEGER,
+          "sha256"
+        )
+      )
+
+      expect(error).toMatchObject({
+        _tag: "InvalidUnicode",
+        kind: "lone-high-surrogate",
+        codeUnitIndex: 0
+      })
+    }))
+
+  it.effect("is fresh when the same bounded Effect is executed more than once", () => {
+    const operation = digestSchemaValueWithByteLimit(
+      Schema.String,
+      MANY_SEGMENT_TEXT,
+      Number.MAX_SAFE_INTEGER,
+      "sha256"
+    )
+
+    return Effect.gen(function*() {
+      const first = yield* operation
+      yield* Effect.yieldNow()
+      const second = yield* operation
+
+      expect(second).toStrictEqual(first)
+    })
+  })
+
+  it.effect("admits scheduler progress through a valid successful many-segment digest", () =>
+    Effect.gen(function*() {
+      const scheduled = yield* scheduledTasksDuring(
+        digestSchemaValueWithByteLimit(
+          Schema.String,
+          MANY_SEGMENT_TEXT,
+          Number.MAX_SAFE_INTEGER,
+          "blake3-256"
+        )
+      )
+
+      expect(scheduled).toBeGreaterThan(0)
+    }))
+
   it.live(
     "remains interruptible during a wide canonical traversal without publishing a digest",
     () =>
@@ -273,7 +361,7 @@ describe("digestSchemaValueWithByteLimit — early bounded canonical identity", 
         }), { discard: true })
     }))
 
-  it.effect.each(canonicalScalarCases)(
+  it.effect.each(canonicalByteCountCases)(
     "enforces the exact inclusive boundary across canonical UTF-8 forms %#",
     ([value, canonicalByteLength]) =>
       Effect.gen(function*() {

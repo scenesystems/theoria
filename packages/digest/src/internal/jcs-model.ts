@@ -9,6 +9,7 @@ import { utf8ByteLengthUnchecked } from "./unicode.js"
 
 export const SEGMENT = 32 * 1024
 export type Ref<A> = MutableRef.MutableRef<A>
+export type CanonicalSegmentSink = (segment: string) => void
 
 export type Frame =
   | { readonly _tag: "Visit"; readonly value: unknown }
@@ -90,6 +91,7 @@ export class State extends Data.Class<{
   readonly stack: MutableList.MutableList<Frame>
   readonly active: MutableHashSet.MutableHashSet<object>
   readonly segments: MutableList.MutableList<string>
+  readonly sink: Option.Option<CanonicalSegmentSink>
   readonly pending: Ref<string>
   readonly budget: Option.Option<ByteBudget>
   readonly failure: Ref<Option.Option<CanonicalizationError>>
@@ -104,6 +106,17 @@ export const exceeded = (state: State): boolean =>
     onNone: () => false,
     onSome: (budget) => MutableRef.get(budget.exceeded)
   })
+const flush = (state: State, segment: string): void =>
+  Option.match(state.sink, {
+    onNone: () => void MutableList.append(state.segments, segment),
+    onSome: (sink) => sink(segment)
+  })
+export const flushPending = (state: State): void => {
+  const pending = MutableRef.get(state.pending)
+  if (pending.length === 0) return
+  flush(state, pending)
+  MutableRef.set(state.pending, "")
+}
 export const emit = (state: State, text: string): boolean => {
   const admitted = Option.match(state.budget, {
     onNone: () => true,
@@ -121,7 +134,7 @@ export const emit = (state: State, text: string): boolean => {
   if (!admitted) return false
   const pending = MutableRef.get(state.pending)
   if (pending.length > 0 && pending.length + text.length > SEGMENT) {
-    MutableList.append(state.segments, pending)
+    flush(state, pending)
     MutableRef.set(state.pending, text)
   } else MutableRef.set(state.pending, pending + text)
   return true

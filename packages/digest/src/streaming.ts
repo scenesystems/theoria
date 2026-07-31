@@ -14,27 +14,20 @@
  * @category digest
  */
 
-import { blake3 } from "@noble/hashes/blake3.js"
-import type { _BLAKE3 } from "@noble/hashes/blake3.js"
-import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
-import type { _SHA256 } from "@noble/hashes/sha2.js"
-import { Data, Effect, Match, Option, Stream } from "effect"
+import { Data, Effect, Option, Stream } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
+import {
+  finalizeIncrementalHasher,
+  type IncrementalHasher,
+  makeIncrementalHasher,
+  updateIncrementalHasher
+} from "./internal/digest-bytes.js"
 import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import { InvalidUnicode } from "./schemas/errors.js"
 
 const HIGH_SURROGATE_START = 0xd800
 const HIGH_SURROGATE_END = 0xdbff
-
-type StreamingHasher = _BLAKE3 | _SHA256
-
-const makeHasher = (algorithm: DigestAlgorithm): StreamingHasher =>
-  Match.value(algorithm).pipe(
-    Match.when("blake3-256", () => blake3.create()),
-    Match.when("sha256", () => nobleSha256.create()),
-    Match.exhaustive
-  )
 
 const isTrailingHighSurrogate = (text: string): boolean =>
   text.length > 0 &&
@@ -50,7 +43,7 @@ class CarriedHighSurrogate extends Data.Class<{
 }> {}
 
 class TextDigestState extends Data.Class<{
-  readonly hasher: StreamingHasher
+  readonly hasher: IncrementalHasher
   readonly carriedHighSurrogate: Option.Option<CarriedHighSurrogate>
   readonly consumedCodeUnits: number
 }> {}
@@ -72,7 +65,7 @@ const foldTextChunk = (
   return Option.match(unicodeFault(emit), {
     onNone: () =>
       Effect.sync(() => {
-        if (emit.length > 0) state.hasher.update(encodeUtf8Unchecked(emit))
+        if (emit.length > 0) updateIncrementalHasher(state.hasher, encodeUtf8Unchecked(emit))
 
         return new TextDigestState({
           hasher: state.hasher,
@@ -99,7 +92,7 @@ const foldTextChunk = (
 
 const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, InvalidUnicode> =>
   Option.match(state.carriedHighSurrogate, {
-    onNone: () => Effect.sync(() => state.hasher.digest()),
+    onNone: () => finalizeIncrementalHasher(state.hasher),
     onSome: (carry) =>
       Effect.fail(
         new InvalidUnicode({
@@ -134,13 +127,13 @@ export const digestByteStream = <E, R>(
   algorithm: DigestAlgorithm,
   chunks: Stream.Stream<Uint8Array, E, R>
 ): Effect.Effect<Uint8Array, E, R> =>
-  Effect.flatMap(Effect.sync(() => makeHasher(algorithm)), (hasher) =>
+  Effect.flatMap(makeIncrementalHasher(algorithm), (hasher) =>
     chunks.pipe(
       Stream.runFold(hasher, (state, chunk) => {
-        state.update(chunk)
+        updateIncrementalHasher(state, chunk)
         return state
       }),
-      Effect.map((state) => state.digest())
+      Effect.flatMap(finalizeIncrementalHasher)
     ))
 
 /**
@@ -156,7 +149,7 @@ export const digestUtf8Stream = <E, R>(
   algorithm: DigestAlgorithm,
   chunks: Stream.Stream<string, E, R>
 ): Effect.Effect<Uint8Array, E | InvalidUnicode, R> =>
-  Effect.flatMap(Effect.sync(() => makeHasher(algorithm)), (hasher) =>
+  Effect.flatMap(makeIncrementalHasher(algorithm), (hasher) =>
     chunks.pipe(
       Stream.runFoldEffect(
         new TextDigestState({
