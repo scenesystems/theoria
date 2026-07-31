@@ -17,12 +17,13 @@ export type Frame =
     readonly _tag: "Symbols"
     readonly container: Container
     readonly keys: ReadonlyArray<PropertyKey>
+    readonly stringKeys: Array<string>
     readonly at: Ref<number>
   }
   | {
     readonly _tag: "Descriptors"
     readonly container: Container
-    readonly keys: ReadonlyArray<PropertyKey>
+    readonly keys: ReadonlyArray<string>
     readonly entries: Array<Snapshot>
     readonly at: Ref<number>
     readonly accessor: Ref<boolean>

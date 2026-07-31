@@ -42,6 +42,13 @@ import type { CanonicalizationError } from "./schemas/errors.js"
  * interruption publishes no partial output. Values outside that domain fail with
  * the closed, bounded `CanonicalizationError` union.
  *
+ * Package-owned references to input arrays, symbol descriptor values, descriptor
+ * snapshots, and traversal arrays are scoped to one invocation. They are not
+ * cached, interned, registered, published, included in returned errors, text, or
+ * bytes, or retained after completion or interruption. Symbol-keyed data values
+ * are neither read nor traversed. This ownership guarantee makes no claim about
+ * when the host garbage collector reclaims otherwise unreachable values.
+ *
  * @since 0.1.0
  * @category canonicalization
  */

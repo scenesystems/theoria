@@ -54,6 +54,8 @@ Do not create a second canonicalization law, text encoder, public subpath, mutab
 ## Canonicalization law
 
 - Admit only `null`, booleans, finite numbers, well-formed Unicode strings, dense arrays, and plain records with `Object.prototype` or `null` prototype and own enumerable string-keyed data properties.
+- Treat an array's own non-enumerable symbol-keyed data descriptors as provider metadata: validate their shape without reading their values, then omit them from canonicalization. Reject array symbol accessors, enumerable array symbols, every record symbol, and every string-keyed array extra.
+- Keep every package-owned reference to input arrays, symbol descriptor values, descriptor snapshots, and traversal arrays invocation-local. Never cache, intern, register, publish, return, or retain those references after normal completion or interruption; returned errors, text, and bytes contain none of them. Symbol data values are neither read nor traversed. This is a non-retention ownership law, not an immediate-garbage-collection guarantee.
 - Validate strings and keys before encoding. Preserve valid text exactly; never normalize or replace malformed text.
 - Reject unsupported values, hostile descriptors/reflection, and cycles through the closed `CanonicalizationError` union.
 - Keep errors bounded and deterministic: no rejected text, keys, paths, or preimages.

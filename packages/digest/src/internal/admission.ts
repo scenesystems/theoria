@@ -70,20 +70,28 @@ export const classifyContainer = (value: object): Either.Either<Container, Unsup
 export const ownKeys = (identity: object): Either.Either<ReadonlyArray<PropertyKey>, Unsupported> =>
   reflect(() => Reflect.ownKeys(identity))
 
-export const snapshot = (identity: object, key: string): Either.Either<Snapshot, Unsupported> =>
+const ownDescriptor = (identity: object, key: PropertyKey): Either.Either<PropertyDescriptor, Unsupported> =>
   Either.flatMap(
     reflect(() => Reflect.getOwnPropertyDescriptor(identity, key)),
     (descriptor) =>
       Option.match(Option.fromNullable(descriptor), {
         onNone: () => Either.left(unsupported("reflection-failure")),
-        onSome: (present) =>
-          Either.right({
-            key,
-            accessor: !("value" in present),
-            enumerable: present.enumerable === true,
-            value: "value" in present ? present.value : undefined
-          })
+        onSome: Either.right
       })
   )
+
+export const descriptorShape = (identity: object, key: PropertyKey) =>
+  Either.map(ownDescriptor(identity, key), (descriptor) => ({
+    accessor: !("value" in descriptor),
+    enumerable: descriptor.enumerable === true
+  }))
+
+export const snapshot = (identity: object, key: string): Either.Either<Snapshot, Unsupported> =>
+  Either.map(ownDescriptor(identity, key), (descriptor) => ({
+    key,
+    accessor: !("value" in descriptor),
+    enumerable: descriptor.enumerable === true,
+    value: "value" in descriptor ? descriptor.value : undefined
+  }))
 
 export const rejection = unsupported
