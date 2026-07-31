@@ -1,5 +1,13 @@
 # @scenesystems/digest
 
+## 0.3.5
+
+### Patch Changes
+
+- [#45](https://github.com/scenesystems/theoria/pull/45) [`785b817`](https://github.com/scenesystems/theoria/commit/785b817c00f5216434ddbbdfb5a85b42cf6b2cd2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Incrementally hash bounded Schema canonical UTF-8 segments without retaining or assembling the complete digest preimage. The public operation, result and error algebra, canonical byte count, and BLAKE3/SHA-256 digest bytes remain unchanged.
+
+- [#44](https://github.com/scenesystems/theoria/pull/44) [`baeae5c`](https://github.com/scenesystems/theoria/commit/baeae5c7e46395dba3f8f27903944cd9aa9ac89f) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Improve host timer responsiveness during large canonical JSON traversals.
+
 ## 0.3.4
 
 ### Patch Changes
