@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Equal, Exit, Hash, HashSet } from "effect"
+import { Data, Effect, Equal, Exit, Hash, HashSet } from "effect"
 
 import { canonicalize } from "../src/canonicalize.js"
+import { canonicalJsonBytes } from "../src/convenience.js"
 import { CyclicValue, InvalidUnicode, UnsupportedValue } from "../src/schemas/errors.js"
 
 const expectUnsupported = (value: unknown, reason: UnsupportedValue["reason"]): Effect.Effect<void> =>
@@ -47,6 +48,112 @@ const unsupportedValueCases: ReadonlyArray<readonly [string, unknown, Unsupporte
 
 describe("canonicalize — exact strict admission", () => {
   it.effect.each(unsupportedValueCases)("rejects %s with %s", ([, value, reason]) => expectUnsupported(value, reason))
+
+  it.effect("neither reads nor traverses hidden array symbol data and preserves exact bytes", () => {
+    const plain = [1, "scene", { b: 2, a: true }]
+    const symbol = Symbol("metadata")
+    const metadata = Proxy.revocable({}, {})
+    metadata.revoke()
+    const target = [1, "scene", { b: 2, a: true }]
+    Object.defineProperty(target, symbol, {
+      value: metadata.proxy,
+      enumerable: false
+    })
+    const probe = { reads: 0 }
+    const decorated = new Proxy(target, {
+      get: (owner, key, receiver) => {
+        if (key === symbol) probe.reads += 1
+        return Reflect.get(owner, key, receiver)
+      }
+    })
+    return Effect.gen(function*() {
+      const plainText = yield* canonicalize(plain)
+      const decoratedText = yield* canonicalize(decorated)
+      const plainBytes = yield* canonicalJsonBytes(plain)
+      const decoratedBytes = yield* canonicalJsonBytes(decorated)
+
+      expect(plainText).toBe("[1,\"scene\",{\"a\":true,\"b\":2}]")
+      expect(decoratedText).toBe(plainText)
+      expect(decoratedBytes).toStrictEqual(plainBytes)
+      expect(probe.reads).toBe(0)
+    })
+  })
+
+  it.effect("admits an immutable Effect array after its structural hash is cached", () => {
+    const value = Data.array([1, "scene", true])
+    Hash.hash(value)
+    Object.freeze(value)
+
+    return Effect.gen(function*() {
+      expect(yield* canonicalize(value)).toBe("[1,\"scene\",true]")
+    })
+  })
+
+  it.effect("rejects enumerable array symbol data", () =>
+    expectUnsupported(
+      Object.defineProperty([1], Symbol("metadata"), { value: true, enumerable: true }),
+      "symbol-property"
+    ))
+
+  it.effect("rejects a hidden array symbol accessor without invoking it", () => {
+    const probe = { calls: 0 }
+    const value = Object.defineProperty([1], Symbol("metadata"), {
+      enumerable: false,
+      get: () => {
+        probe.calls += 1
+        return "secret"
+      }
+    })
+    return Effect.gen(function*() {
+      yield* expectUnsupported(value, "accessor-property")
+      expect(probe.calls).toBe(0)
+    })
+  })
+
+  it.effect("rejects an enumerable array symbol accessor without invoking it", () => {
+    const probe = { calls: 0 }
+    const value = Object.defineProperty([1], Symbol("metadata"), {
+      enumerable: true,
+      get: () => {
+        probe.calls += 1
+        return "secret"
+      }
+    })
+    return Effect.gen(function*() {
+      yield* expectUnsupported(value, "accessor-property")
+      expect(probe.calls).toBe(0)
+    })
+  })
+
+  it.effect("rejects hidden record symbol data", () =>
+    expectUnsupported(
+      Object.defineProperty({}, Symbol("metadata"), { value: true, enumerable: false }),
+      "symbol-property"
+    ))
+
+  it.effect("maps an absent array symbol descriptor to reflection-failure", () => {
+    const symbol = Symbol("metadata")
+    const value = new Proxy([1], {
+      ownKeys: (target) => [...Reflect.ownKeys(target), symbol],
+      getOwnPropertyDescriptor: (target, key) =>
+        key === symbol ? undefined : Reflect.getOwnPropertyDescriptor(target, key)
+    })
+    return expectUnsupported(value, "reflection-failure")
+  })
+
+  it.effect("maps a throwing array symbol descriptor to reflection-failure", () => {
+    const symbol = Symbol("metadata")
+    const revoked = Proxy.revocable({}, {})
+    revoked.revoke()
+    const value = new Proxy([1], {
+      ownKeys: (target) => [...Reflect.ownKeys(target), symbol],
+      getOwnPropertyDescriptor: (target, key) =>
+        key === symbol
+          ? Reflect.getOwnPropertyDescriptor(revoked.proxy, key)
+          : Reflect.getOwnPropertyDescriptor(target, key)
+    })
+    return expectUnsupported(value, "reflection-failure")
+  })
 
   it.effect("rejects a symbol own key before other property defects", () => {
     const value = Object.defineProperties({}, {

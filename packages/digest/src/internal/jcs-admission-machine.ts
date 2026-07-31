@@ -3,7 +3,7 @@
 import { Either, MutableHashSet, MutableRef, Option } from "effect"
 
 import { CyclicValue } from "../schemas/errors.js"
-import { classifyContainer, ownKeys, reflect, rejection, snapshot } from "./admission.js"
+import { classifyContainer, descriptorShape, ownKeys, reflect, rejection, snapshot } from "./admission.js"
 import type { Frame, State } from "./jcs-model.js"
 import { emit, fail, indexBelow, push, ref } from "./jcs-model.js"
 
@@ -12,7 +12,7 @@ export const startObject = (state: State, value: object): void => {
   if (Either.isLeft(result)) return fail(state, result.left)
   const keys = ownKeys(result.right.identity)
   if (Either.isLeft(keys)) return fail(state, keys.left)
-  push(state, { _tag: "Symbols", container: result.right, keys: keys.right, at: ref(0) })
+  push(state, { _tag: "Symbols", container: result.right, keys: keys.right, stringKeys: [], at: ref(0) })
 }
 
 export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symbols" }>): void => {
@@ -26,7 +26,7 @@ export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symb
     return push(state, {
       _tag: "Descriptors",
       container: frame.container,
-      keys: frame.keys,
+      keys: frame.stringKeys,
       entries: [],
       at: ref(0),
       accessor: ref(false),
@@ -34,7 +34,15 @@ export const processSymbols = (state: State, frame: Extract<Frame, { _tag: "Symb
       length: ref(Option.none())
     })
   }
-  if (typeof frame.keys[at] === "symbol") return fail(state, rejection("symbol-property"))
+  const key = frame.keys[at]!
+  if (typeof key === "string") frame.stringKeys[frame.stringKeys.length] = key
+  else {
+    if (frame.container._tag === "Record") return fail(state, rejection("symbol-property"))
+    const result = descriptorShape(frame.container.identity, key)
+    if (Either.isLeft(result)) return fail(state, result.left)
+    if (result.right.accessor) return fail(state, rejection("accessor-property"))
+    if (result.right.enumerable) return fail(state, rejection("symbol-property"))
+  }
   MutableRef.set(frame.at, at + 1)
   push(state, frame)
 }
@@ -74,8 +82,7 @@ const finishDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descript
 export const processDescriptors = (state: State, frame: Extract<Frame, { _tag: "Descriptors" }>): void => {
   const at = MutableRef.get(frame.at)
   if (at === frame.keys.length) return finishDescriptors(state, frame)
-  const key = frame.keys[at]
-  if (typeof key !== "string") return fail(state, rejection("reflection-failure"))
+  const key = frame.keys[at]!
   const result = snapshot(frame.container.identity, key)
   if (Either.isLeft(result)) return fail(state, result.left)
   frame.entries[at] = result.right
