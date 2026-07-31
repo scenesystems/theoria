@@ -67,6 +67,13 @@ it.effect("multi-batch canonical byte assembly remains interruptible", () =>
     expect(Exit.isInterrupted(exit)).toBe(true)
   }))
 
+it.live("canonicalJsonBytes yields to the host timer during a moderately wide traversal", () =>
+  Effect.gen(function*() {
+    const value = Arr.makeBy(512, (index) => [index, index + 0.5])
+    const ticks = yield* hostTimerTicksDuring(canonicalJsonBytes(value))
+    expect(ticks).toBeGreaterThan(0)
+  }), 30_000)
+
 it.live.each<readonly [string, () => Effect.Effect<Uint8Array, CanonicalizationError>]>(
   [
     ["array", () => canonicalJsonBytes(wideArray())],
