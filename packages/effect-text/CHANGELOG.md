@@ -1,5 +1,17 @@
 # effect-text
 
+## 0.3.0
+
+### Minor Changes
+
+- [#49](https://github.com/scenesystems/theoria/pull/49) [`873731c`](https://github.com/scenesystems/theoria/commit/873731ca75aad31ca46fd93d482eabbc0e8239af) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Raise the public Effect peer and provider dependency contracts to the latest stable Effect 3.22-compatible release train.
+
+### Patch Changes
+
+- Updated dependencies [[`873731c`](https://github.com/scenesystems/theoria/commit/873731ca75aad31ca46fd93d482eabbc0e8239af)]:
+  - @scenesystems/effect-math@0.3.0
+  - @scenesystems/effect-search@0.4.0
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-text",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "description": "Effect-native text preparation, measurement, and greedy multiline layout",
   "license": "MIT",
