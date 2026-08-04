@@ -117,7 +117,7 @@ const assertPackedManifest = (manifest: Schema.Schema.Type<typeof PackedManifest
       !exactKeys(manifest.dependencies, ["@noble/hashes"]) ||
       manifest.dependencies["@noble/hashes"] !== NOBLE_VERSION ||
       !exactKeys(manifest.peerDependencies, ["effect"]) ||
-      manifest.peerDependencies.effect !== "^3.20.0"
+      manifest.peerDependencies.effect !== "^3.22.1"
     ) {
       return yield* fail("packed-dependencies")
     }

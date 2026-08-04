@@ -15,7 +15,7 @@ pnpm add @scenesystems/seal
 bun add @scenesystems/seal
 ```
 
-Requires `effect` ≥ 3.20.0 as a peer dependency.
+Requires `effect` ≥ 3.22.1 as a peer dependency.
 
 ## Why this package?
 

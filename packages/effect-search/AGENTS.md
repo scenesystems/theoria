@@ -6,7 +6,7 @@ alwaysApply: true
 
 # @scenesystems/effect-search
 
-Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.20.0)`, `@effect/platform`, `@effect/experimental`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
+Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. Peer dependencies: `effect (^3.22.1)`, `@effect/platform (^0.97.1)`, `@effect/experimental (^0.61.1)`, and optional `@effect/sql (>=0.52.1)`. Runtime dependencies: `@scenesystems/digest`, `@scenesystems/effect-math`. This is the optimization engine consumed by `@scenesystems/effect-dsp` for Bayesian search across optimizers (MIPROv2, GEPA, bootstrap, RLM, etc.).
 
 ## Commands
 
