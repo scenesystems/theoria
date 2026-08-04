@@ -2,108 +2,33 @@
   "packageName": "@scenesystems/effect-inference",
   "releasedVersion": "0.2.0",
   "exports": [
-    {
-      "subpath": ".",
-      "exportName": "Contracts",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "Errors",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "Experimental",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "HuggingFace",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "OpenAiCompatible",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "Runtime",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": ".",
-      "exportName": "Testing",
-      "kind": "namespace",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "AuthMethod",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "AuthMethodSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "CapabilityRequirements",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": ".", "exportName": "Contracts", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "Errors", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "Experimental", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "HuggingFace", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "OpenAiCompatible", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "Runtime", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": ".", "exportName": "Testing", "kind": "namespace", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "AuthMethod", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "AuthMethodSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "CapabilityRequirements", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "CapabilityRequirementsSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "defaultRouteFamily",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "defaultRuntimeFlavor",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "DesiredRuntimeDescriptor",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "defaultRouteFamily", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "defaultRuntimeFlavor", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "DesiredRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "DesiredRuntimeDescriptorSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ExecutionRoute",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ExecutionRouteSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "ExecutionRoute", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ExecutionRouteSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "explicitProviderFromSelectionPolicy",
@@ -122,78 +47,23 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "FinishReasonSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ModelArtifact",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ModelArtifactSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "NativeRouteFamily",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "NativeRouteFamilySchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "NormalizedUsage",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "NormalizedUsageSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ProviderMetadata",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ProviderMetadataSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ProviderMetadataValue",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "FinishReasonSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ModelArtifact", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ModelArtifactSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "NativeRouteFamily", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "NativeRouteFamilySchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "NormalizedUsage", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "NormalizedUsageSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ProviderMetadata", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ProviderMetadataSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ProviderMetadataValue", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "ProviderMetadataValueSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ResolvedRouteDescriptor",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "ResolvedRouteDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "ResolvedRouteDescriptorSchema",
@@ -212,156 +82,56 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ResolvedRuntimeDescriptor",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "ResolvedRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "ResolvedRuntimeDescriptorSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RouteFamily",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RouteFamilySchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RouteSelectionPolicy",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "RouteFamily", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RouteFamilySchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RouteSelectionPolicy", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "RouteSelectionPolicySchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeCapabilities",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "RuntimeCapabilities", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "RuntimeCapabilitiesSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeEvidence",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeEvidenceSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeFlavor",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeFlavorSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "RuntimeRoleSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ServeMode",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "ServeModeSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "StableRouteFamily",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Contracts",
-      "exportName": "StableRouteFamilySchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Contracts", "exportName": "RuntimeEvidence", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RuntimeEvidenceSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RuntimeFlavor", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RuntimeFlavorSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "RuntimeRoleSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ServeMode", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "ServeModeSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "StableRouteFamily", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Contracts", "exportName": "StableRouteFamilySchema", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Contracts",
       "exportName": "StructuredOutputModeSchema",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Errors",
-      "exportName": "CapabilityMismatch",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Errors",
-      "exportName": "InferenceError",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Errors",
-      "exportName": "InferenceErrorSchema",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Errors",
-      "exportName": "InvalidRuntimeConfig",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Errors", "exportName": "CapabilityMismatch", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Errors", "exportName": "InferenceError", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Errors", "exportName": "InferenceErrorSchema", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Errors", "exportName": "InvalidRuntimeConfig", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Errors",
       "exportName": "RuntimeResolverNotImplemented",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Errors",
-      "exportName": "UnsupportedRoute",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./experimental",
-      "exportName": "NativeRouteFamily",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Errors", "exportName": "UnsupportedRoute", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./experimental", "exportName": "NativeRouteFamily", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./experimental",
       "exportName": "NativeRouteFamilySchema",
@@ -374,12 +144,7 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "embeddingModelLayer",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./HuggingFace", "exportName": "embeddingModelLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
       "exportName": "EndpointLiveRuntimeOptions",
@@ -404,36 +169,16 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "HuggingFaceRoutedLive",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "languageModelLayer",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./HuggingFace", "exportName": "HuggingFaceRoutedLive", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./HuggingFace", "exportName": "languageModelLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
       "exportName": "LiveRuntimeConfigOptions",
       "kind": "type",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "LiveRuntimeDescriptor",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "LiveRuntimeOptions",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./HuggingFace", "exportName": "LiveRuntimeDescriptor", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./HuggingFace", "exportName": "LiveRuntimeOptions", "kind": "type", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
       "exportName": "makeHuggingFaceEndpointResolution",
@@ -464,12 +209,7 @@
       "kind": "type",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./HuggingFace",
-      "exportName": "resolveLiveRuntime",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./HuggingFace", "exportName": "resolveLiveRuntime", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./HuggingFace",
       "exportName": "resolveLiveRuntimeConfig",
@@ -554,48 +294,18 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "decodeRuntimeEvidence",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Runtime", "exportName": "decodeRuntimeEvidence", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Runtime",
       "exportName": "descriptorForLiveTextProvider",
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "emptyResolvedModelLayers",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "emptyTestingLayers",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "layer",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "LiveTextProvider",
-      "kind": "type",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "liveTextProviderLayer",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Runtime", "exportName": "emptyResolvedModelLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "emptyTestingLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "layer", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "LiveTextProvider", "kind": "type", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "liveTextProviderLayer", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Runtime",
       "exportName": "LiveTextProviderRuntimeOptions",
@@ -620,24 +330,9 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeRuntimeEvidence",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeRuntimeEvidenceFixture",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "makeRuntimeResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Runtime", "exportName": "makeRuntimeEvidence", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "makeRuntimeEvidenceFixture", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "makeRuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Runtime",
       "exportName": "ResolvedLiveTextProviderConfig",
@@ -650,12 +345,7 @@
       "kind": "type",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "ResolvedModelLayers",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Runtime", "exportName": "ResolvedModelLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Runtime",
       "exportName": "resolveLiveTextProviderConfig",
@@ -668,60 +358,15 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Runtime",
-      "exportName": "RuntimeResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "RuntimeResolver",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "RuntimeResolverApi",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "RuntimeResolverLive",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "staticEmbeddingModel",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "staticLanguageModel",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "staticRuntimeResolver",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Runtime",
-      "exportName": "withLiveTextProvider",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "emptyTestingLayers",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
+    { "subpath": "./Runtime", "exportName": "RuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "RuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "RuntimeResolverApi", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "RuntimeResolverLive", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "staticEmbeddingModel", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "staticLanguageModel", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "staticRuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Runtime", "exportName": "withLiveTextProvider", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "emptyTestingLayers", "kind": "value", "firstReleasedIn": "0.1.0" },
     {
       "subpath": "./Testing",
       "exportName": "makeDesiredRuntimeDescriptor",
@@ -740,35 +385,10 @@
       "kind": "value",
       "firstReleasedIn": "0.1.0"
     },
-    {
-      "subpath": "./Testing",
-      "exportName": "makeRuntimeEvidenceFixture",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "makeRuntimeResolution",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "staticEmbeddingModel",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "staticLanguageModel",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    },
-    {
-      "subpath": "./Testing",
-      "exportName": "staticRuntimeResolver",
-      "kind": "value",
-      "firstReleasedIn": "0.1.0"
-    }
+    { "subpath": "./Testing", "exportName": "makeRuntimeEvidenceFixture", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "makeRuntimeResolution", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "staticEmbeddingModel", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "staticLanguageModel", "kind": "value", "firstReleasedIn": "0.1.0" },
+    { "subpath": "./Testing", "exportName": "staticRuntimeResolver", "kind": "value", "firstReleasedIn": "0.1.0" }
   ]
 }
