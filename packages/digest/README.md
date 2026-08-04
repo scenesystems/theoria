@@ -11,7 +11,7 @@ Strict canonicalization and cryptographic digest primitives for [Effect](https:/
 bun add @scenesystems/digest effect
 ```
 
-`effect` is a required peer dependency (`^3.20.0`). The package has one public entrypoint: `@scenesystems/digest`.
+`effect` is a required peer dependency (`^3.22.1`). The package has one public entrypoint: `@scenesystems/digest`.
 
 ## Content identity
 

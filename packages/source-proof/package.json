@@ -18,13 +18,13 @@
     "docgen": "echo 'docgen skipped for @theoria/source-proof'"
   },
   "dependencies": {
-    "@effect/platform": "0.96.0",
-    "effect": "3.21.0",
+    "@effect/platform": "0.97.1",
+    "effect": "3.22.1",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@effect/platform-bun": "0.89.0",
-    "@effect/vitest": "^0.29.0",
+    "@effect/platform-bun": "0.91.2",
+    "@effect/vitest": "0.30.0",
     "@types/node": "^25.5.0"
   }
 }

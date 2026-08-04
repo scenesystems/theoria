@@ -79,10 +79,10 @@
     "@theoria/source-proof": "workspace:*"
   },
   "peerDependencies": {
-    "@effect/experimental": "^0.60.0",
-    "@effect/platform": "^0.96.0",
-    "@effect/sql": ">=0.51.0",
-    "effect": "^3.20.0"
+    "@effect/experimental": "^0.61.1",
+    "@effect/platform": "^0.97.1",
+    "@effect/sql": ">=0.52.1",
+    "effect": "^3.22.1"
   },
   "peerDependenciesMeta": {
     "@effect/sql": {

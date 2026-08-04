@@ -428,7 +428,7 @@ const qualify = (workspace: string) =>
       type: "module",
       dependencies: {
         [PACKAGE_NAME]: `file:${tarball}`,
-        effect: "3.21.0",
+        effect: "3.22.1",
         "@noble/curves": "2.0.1",
         "@noble/post-quantum": "0.5.4"
       }

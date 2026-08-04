@@ -28,7 +28,7 @@ npm install @scenesystems/effect-math
 bun add @scenesystems/effect-math
 ```
 
-Peer dependency: `effect >= 3.20.0`
+Peer dependency: `effect >= 3.22.1`
 
 ## Quick start
 
