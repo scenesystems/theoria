@@ -59,6 +59,30 @@ const jcsSensitiveValue = {
 
 const algorithms: ReadonlyArray<DigestAlgorithm> = ["blake3-256", "sha256"]
 const MANY_SEGMENT_TEXT = "A😀\n".repeat(65_536)
+const BROAD_ENCODING_VALUE = Arr.makeBy(131_072, (index) => index)
+
+const encodingProbe = <A, I>(
+  schema: Schema.Schema<A, I, never>,
+  completed: MutableRef.MutableRef<boolean>
+): Schema.Schema<A, unknown, never> =>
+  Schema.transform(Schema.Unknown, schema, {
+    strict: false,
+    decode: (value) => value,
+    encode: (value) => {
+      MutableRef.set(completed, true)
+      return value
+    }
+  })
+
+const deepEncodingFixture = (depth: number): readonly [Schema.Schema.AnyNoContext, unknown] => {
+  const schema = MutableRef.make<Schema.Schema.AnyNoContext>(Schema.Number)
+  const value = MutableRef.make<unknown>(1)
+  Arr.forEach(Arr.range(1, depth), () => {
+    MutableRef.set(schema, Schema.Array(MutableRef.get(schema)))
+    MutableRef.set(value, [MutableRef.get(value)])
+  })
+  return [MutableRef.get(schema), MutableRef.get(value)]
+}
 
 const canonicalByteCountCases: ReadonlyArray<readonly [unknown, number]> = [
   ["A", 3],
@@ -317,6 +341,105 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
 
       expect(scheduled).toBeGreaterThan(0)
     }))
+
+  it.live(
+    "admits host scheduler progress during valid broad Schema encoding",
+    () =>
+      Effect.gen(function*() {
+        const encodingCompleted = MutableRef.make(false)
+        const progressedDuringEncoding = MutableRef.make(false)
+        const schema = encodingProbe(Schema.Array(Schema.Number), encodingCompleted)
+        const observer = yield* Effect.fork(
+          Effect.zipRight(
+            Effect.sleep(0),
+            Effect.sync(() => {
+              if (!MutableRef.get(encodingCompleted)) MutableRef.set(progressedDuringEncoding, true)
+            })
+          )
+        )
+        yield* Effect.yieldNow()
+
+        const result = yield* Effect.suspend(() =>
+          digestSchemaValueWithByteLimit(schema, BROAD_ENCODING_VALUE, 2 * 1024 * 1024)
+        )
+        yield* Fiber.join(observer)
+
+        expect(result.canonicalByteLength).toBeGreaterThan(0)
+        expect(MutableRef.get(encodingCompleted)).toBe(true)
+        expect(MutableRef.get(progressedDuringEncoding)).toBe(true)
+      }),
+    30_000
+  )
+
+  it.live(
+    "interrupts valid broad Schema encoding before canonical traversal",
+    () =>
+      Effect.gen(function*() {
+        const encodingCompleted = MutableRef.make(false)
+        const schema = encodingProbe(Schema.Array(Schema.Number), encodingCompleted)
+        const fiber = yield* Effect.fork(
+          Effect.suspend(() => digestSchemaValueWithByteLimit(schema, BROAD_ENCODING_VALUE, 2 * 1024 * 1024))
+        )
+        yield* Effect.sleep(0)
+        const exit = yield* Fiber.interrupt(fiber)
+
+        expect(exit).toSatisfy(Exit.isInterrupted)
+        expect(MutableRef.get(encodingCompleted)).toBe(false)
+      }),
+    30_000
+  )
+
+  it.live(
+    "admits host scheduler progress and interruption during valid deep Schema encoding",
+    () =>
+      Effect.gen(function*() {
+        const encodingCompleted = MutableRef.make(false)
+        const progressedDuringEncoding = MutableRef.make(false)
+        const [deepSchema, value] = deepEncodingFixture(16_384)
+        const schema = encodingProbe(deepSchema, encodingCompleted)
+        const observer = yield* Effect.fork(
+          Effect.zipRight(
+            Effect.sleep(0),
+            Effect.sync(() => {
+              if (!MutableRef.get(encodingCompleted)) MutableRef.set(progressedDuringEncoding, true)
+            })
+          )
+        )
+        yield* Effect.yieldNow()
+        const fiber = yield* Effect.fork(
+          Effect.suspend(() => digestSchemaValueWithByteLimit(schema, value, 256 * 1024))
+        )
+        yield* Fiber.join(observer)
+        const exit = yield* Fiber.interrupt(fiber)
+
+        expect(exit).toSatisfy(Exit.isInterrupted)
+        expect(MutableRef.get(encodingCompleted)).toBe(false)
+        expect(MutableRef.get(progressedDuringEncoding)).toBe(true)
+      }),
+    30_000
+  )
+
+  it.live(
+    "remains interruptible after Schema encoding and before digest publication",
+    () =>
+      Effect.gen(function*() {
+        const encodingCompleted = MutableRef.make(false)
+        const schema = encodingProbe(Schema.Unknown, encodingCompleted)
+        const value = Arr.makeBy(262_144, (index) => [index, index + 0.5])
+        const fiber = yield* Effect.fork(
+          digestSchemaValueWithByteLimit(schema, value, 32 * 1024 * 1024)
+        )
+        yield* Effect.iterate(0, {
+          while: (turns) => !MutableRef.get(encodingCompleted) && turns < 1_024,
+          body: (turns) => Effect.as(Effect.yieldNow(), turns + 1)
+        })
+        const exit = yield* Fiber.interrupt(fiber)
+
+        expect(MutableRef.get(encodingCompleted)).toBe(true)
+        expect(exit).toSatisfy(Exit.isInterrupted)
+      }),
+    30_000
+  )
 
   it.live(
     "remains interruptible during a wide canonical traversal without publishing a digest",
