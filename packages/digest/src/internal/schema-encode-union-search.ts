@@ -4,6 +4,19 @@ import { Array as Arr, MutableList, Option, SchemaAST } from "effect"
 
 type Literal = readonly [PropertyKey, SchemaAST.Literal]
 
+const getOwn = <K extends PropertyKey, V>(record: Record<K, V>, key: K): Option.Option<V> =>
+  Object.prototype.hasOwnProperty.call(record, key) ? Option.fromNullable(record[key]) : Option.none()
+
+const setOwn = <K extends PropertyKey, V>(record: Record<K, V>, key: K, value: V): V => {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true
+  })
+  return value
+}
+
 export class UnionBucket {
   readonly buckets: Record<string, MutableList.MutableList<SchemaAST.AST>> = {}
   readonly literals = MutableList.empty<SchemaAST.Literal>()
@@ -52,20 +65,17 @@ export const makeUnionSearchTree = (
     }
     MutableList.append(tree.candidates, member)
     tags.some(([key, literal], index) => {
-      const bucket = Option.getOrElse(Option.fromNullable(tree.keys[key]), () => {
+      const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
         const created = new UnionBucket()
-        tree.keys[key] = created
-        return created
+        return setOwn(tree.keys, key, created)
       })
       const hash = String(literal.literal)
-      const existing = Object.prototype.hasOwnProperty.call(bucket.buckets, hash)
-        ? Option.fromNullable(bucket.buckets[hash])
-        : Option.none()
+      const existing = getOwn(bucket.buckets, hash)
       if (Option.isSome(existing)) {
         if (index < tags.length - 1) return false
         MutableList.append(existing.value, member)
       } else {
-        bucket.buckets[hash] = MutableList.make(member)
+        setOwn(bucket.buckets, hash, MutableList.make(member))
       }
       MutableList.append(bucket.literals, literal)
       MutableList.append(bucket.candidates, member)
@@ -79,8 +89,7 @@ export const expectedUnionDiscriminator = (bucket: UnionBucket): SchemaAST.AST =
   SchemaAST.Union.make(Arr.fromIterable(bucket.literals))
 
 export const getUnionBucket = (tree: UnionSearchTree, key: PropertyKey): UnionBucket =>
-  Option.getOrElse(Option.fromNullable(tree.keys[key]), () => {
+  Option.getOrElse(getOwn(tree.keys, key), () => {
     const created = new UnionBucket()
-    tree.keys[key] = created
-    return created
+    return setOwn(tree.keys, key, created)
   })

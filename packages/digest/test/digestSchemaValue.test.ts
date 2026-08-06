@@ -514,6 +514,42 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
         { kind: "constructor" }
       )
 
+      const prototypeKeyed = Schema.Union(
+        Schema.Struct({ constructor: Schema.Literal("first"), value: Schema.Int }),
+        Schema.Struct({ constructor: Schema.Literal("second"), value: Schema.Int })
+      )
+      const prototypeKeyedValue: Schema.Schema.Type<typeof prototypeKeyed> = {
+        constructor: "first",
+        value: 1
+      }
+      const prototypeHash = Schema.Union(
+        Schema.Struct({ kind: Schema.Literal("__proto__"), value: Schema.Int }),
+        Schema.Struct({ kind: Schema.Literal("ordinary"), value: Schema.Int })
+      )
+      const prototypeHashValue: Schema.Schema.Type<typeof prototypeHash> = { kind: "__proto__", value: 1 }
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const expected = yield* digestSchemaValue(Schema.Unknown, prototypeKeyedValue, algorithm)
+          const cooperative = yield* digestSchemaValueWithByteLimit(
+            prototypeKeyed,
+            prototypeKeyedValue,
+            Number.MAX_SAFE_INTEGER,
+            algorithm
+          )
+          expect(cooperative.digest).toBe(expected)
+        }), { discard: true })
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const expected = yield* digestSchemaValue(Schema.Unknown, prototypeHashValue, algorithm)
+          const cooperative = yield* digestSchemaValueWithByteLimit(
+            prototypeHash,
+            prototypeHashValue,
+            Number.MAX_SAFE_INTEGER,
+            algorithm
+          )
+          expect(cooperative.digest).toBe(expected)
+        }), { discard: true })
+
       const orderedRecord = Schema.Record({
         key: Schema.String.pipe(Schema.minLength(1)),
         value: Schema.Number
