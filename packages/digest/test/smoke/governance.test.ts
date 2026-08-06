@@ -190,12 +190,15 @@ describe("governance", () => {
       )
       const invocations = callInvocations(bounded)
 
-      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "Schema.encode", arguments: ["schema"] })
+      expect(Arr.filter(invocations, ({ target }) => target === "encodeSchemaCooperatively")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "encodeSchemaCooperatively",
+          arguments: ["schema", "value"]
+        })
       ])
-      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "Schema.encode()", arguments: ["value"] })
-      ])
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode")).toEqual([])
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([])
       expect(conditionalInvocations(bounded)).toContainEqual(
         new ConditionalInvocation({
           condition: new ExpressionInvocation({
@@ -207,7 +210,7 @@ describe("governance", () => {
             kind: "call",
             target: "Effect.flatMap",
             arguments: [
-              "Schema.encode(schema)(value)",
+              "encodeSchemaCooperatively(schema, value)",
               "(encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)"
             ]
           }),
