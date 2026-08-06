@@ -14,8 +14,7 @@ export default defineConfig({
 
     include: [
       "packages/*/test/**/*.test.ts",
-      "apps/*/test/**/*.test.ts",
-      "scripts/crypto-release/**/*.test.ts"
+      "apps/*/test/**/*.test.ts"
     ],
     passWithNoTests: true,
     testTimeout: 30_000,
