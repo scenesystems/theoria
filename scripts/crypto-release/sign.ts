@@ -14,6 +14,7 @@ import { Array as Arr, Console, Effect, Option, Order, Record, Schema } from "ef
 
 import * as Digest from "../../packages/digest/src/index.js"
 import { CryptoReleaseCheckError, readSha256Hex, runCommand, runCommandExit } from "./shared.js"
+import { runSignRuntimeReport, type SignRuntimeModuleMode } from "./sign-runtime-report.js"
 
 const rootUrl = new URL("../../", import.meta.url)
 const PACKAGE_NAME = "@scenesystems/sign"
@@ -54,6 +55,11 @@ const CONFIG_FILES = [
   "scripts/tsconfig.json",
   ".prettierrc",
   "eslint.config.mjs"
+]
+const HOST_RUNTIMES: ReadonlyArray<{ readonly runtime: string; readonly mode: SignRuntimeModuleMode }> = [
+  { runtime: "node", mode: "esm" },
+  { runtime: "node", mode: "cjs" },
+  { runtime: "bun", mode: "esm" }
 ]
 
 const Sha256 = Schema.String.pipe(Schema.pattern(/^[0-9a-f]{64}$/))
@@ -103,30 +109,6 @@ const ClassificationCounts = Schema.Struct({
   nonmatch: Schema.NonNegativeInt,
   invalidInput: Schema.NonNegativeInt
 })
-const RuntimeReportJson = Schema.parseJson(Schema.Struct({
-  runtime: Schema.NonEmptyString,
-  moduleMode: Schema.Literal("esm", "cjs"),
-  corpusCases: Schema.Positive,
-  classifications: ClassificationCounts,
-  timing: Schema.Record({
-    key: Schema.String,
-    value: Schema.Struct({ p50: Schema.Number, p95: Schema.Number, p99: Schema.Number, max: Schema.Number })
-  }),
-  peakProcessTreeRssBytes: Schema.Positive,
-  hardware: Schema.Struct({
-    platform: Schema.NonEmptyString,
-    architecture: Schema.NonEmptyString,
-    cpuModel: Schema.NonEmptyString,
-    logicalCpus: Schema.Positive,
-    totalMemoryBytes: Schema.Positive
-  }),
-  interruption: Schema.Literal("none"),
-  boundPlusOne: Schema.Struct({
-    ed25519: Schema.Literal("InvalidVerificationInput"),
-    p256: Schema.Literal("InvalidVerificationInput"),
-    mlDsa65: Schema.Literal("InvalidVerificationInput")
-  })
-}))
 const BrowserRuntimeReport = Schema.Struct({
   format: Schema.Literal("@scenesystems/sign-browser-runtime-v1"),
   corpusCases: Schema.Positive,
@@ -272,6 +254,7 @@ const buildDescriptorBody = (workspace: string) =>
       ".github/workflows/check.yml",
       "scripts/crypto-release/sign.ts",
       "scripts/crypto-release/sign-browser-runtime.ts",
+      "scripts/crypto-release/sign-runtime-report.ts",
       "scripts/crypto-release/sign-runtime.mjs"
     ])
     const sourcePaths = Arr.filter(listedSource.split("\n"), (entry) =>
@@ -441,11 +424,14 @@ const qualify = (workspace: string) =>
     )
     const fixtureRoot = path.join(packageRoot, "test/fixtures/conformance")
     const reports = yield* Effect.forEach(
-      [{ runtime: "node", mode: "esm" }, { runtime: "node", mode: "cjs" }, { runtime: "bun", mode: "esm" }],
+      HOST_RUNTIMES,
       ({ runtime, mode }) =>
-        runCommand(`sign-packed-${runtime}-${mode}`, consumer, runtime, ["sign-runtime.mjs", fixtureRoot, mode]).pipe(
-          Effect.flatMap(Schema.decodeUnknown(RuntimeReportJson)),
-          Effect.mapError(() => failure(`sign-packed-${runtime}-${mode}`, "invalid runtime report"))
+        runSignRuntimeReport(
+          `sign-packed-${runtime}-${mode}`,
+          consumer,
+          runtime,
+          ["sign-runtime.mjs", fixtureRoot, mode],
+          mode
         )
     )
     if (Arr.some(reports, (report) => report.corpusCases !== descriptor.body.corpus.totalCases)) {
