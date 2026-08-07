@@ -660,7 +660,7 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       const suspendedUnionMember = Schema.Union(
         Schema.suspend(() => Schema.Struct({ kind: Schema.Literal("suspended"), value: Schema.Number })),
         Schema.Struct({ kind: Schema.Literal("direct"), value: Schema.Number })
-      )
+      ).pipe(Schema.filter(() => true))
       const suspendedUnionValue: Schema.Schema.Type<typeof suspendedUnionMember> = {
         kind: "suspended",
         value: 1
