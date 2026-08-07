@@ -1,22 +1,13 @@
 /** Cooperative Effect Schema union interpreter. @internal */
 
-import {
-  Array as Arr,
-  Effect,
-  Either,
-  MutableList,
-  MutableRef,
-  Option,
-  ParseResult,
-  Predicate,
-  SchemaAST
-} from "effect"
+import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Predicate, SchemaAST } from "effect"
 
 import {
+  appendMutable,
   type EncodeState,
   failResult,
   holdSemanticResult,
-  indexed,
+  indexedEffect,
   type Parse,
   runAnnotatedTasks,
   scan as scanBatches,
@@ -28,26 +19,23 @@ import {
   makeUnionSearchTree,
   type UnionSearchTree
 } from "./schema-encode-union-search.js"
-
 type Entry = readonly [number, ParseResult.ParseIssue]
 class UnionResultState {
-  readonly errors: MutableList.MutableList<Entry>
+  readonly errors: Array<Entry>
   readonly final: MutableRef.MutableRef<Option.Option<unknown>>
-
   constructor(
-    errors = MutableList.empty<Entry>(),
+    errors: Array<Entry> = [],
     final = MutableRef.make(Option.none<unknown>())
   ) {
     this.errors = errors
     this.final = final
   }
 }
-
 type Task = (state: UnionResultState) => Effect.Effect<void>
 
 class UnionState extends UnionResultState {
-  readonly candidates = MutableList.empty<SchemaAST.AST>()
-  readonly tasks = MutableList.empty<Task>()
+  readonly candidates: Array<SchemaAST.AST> = []
+  readonly tasks: Array<Task> = []
   readonly queueStarted = MutableRef.make(false)
   readonly stepKey = MutableRef.make(0)
 }
@@ -59,13 +47,13 @@ const nextKey = (state: UnionState): number => {
 }
 
 const appendError = (state: UnionResultState, issue: ParseResult.ParseIssue, key: number): void => {
-  void MutableList.append(state.errors, [key, issue])
+  appendMutable(state.errors, [key, issue])
 }
 
 const addTask = (state: UnionState, parsed: SemanticResult): void => {
   const key = nextKey(state)
   MutableRef.set(state.queueStarted, true)
-  MutableList.append(state.tasks, (runtime) =>
+  appendMutable(state.tasks, (runtime) =>
     Effect.suspend(() => {
       if (Option.isSome(MutableRef.get(runtime.final))) return Effect.void
       return Effect.map(Effect.either(parsed), (result) => {
@@ -92,18 +80,18 @@ const selectCandidates = (
   state: UnionState,
   cooperation: EncodeState
 ): Effect.Effect<void> => {
-  const keys = Reflect.ownKeys(tree.keys)
-  const treeCandidates = Arr.fromIterable(tree.candidates)
+  const keys = tree.keyOrder
+  const treeCandidates = tree.candidates
   if (keys.length > 0 && !Predicate.isRecord(input) && !Arr.isArray(input)) {
     const expected = treeCandidates.length === ast.types.length ? ast : SchemaAST.Union.make(treeCandidates)
     appendError(state, new ParseResult.Type(expected, input), nextKey(state))
   }
   const scanKeys = Predicate.isRecord(input) || Arr.isArray(input)
     ? scan(keys.length, cooperation, (index) =>
-      Effect.sync(() => {
+      Effect.suspend(() => {
         const name = Arr.unsafeGet(keys, index)
         const bucket = getUnionBucket(tree, name)
-        const bucketCandidates = Arr.fromIterable(bucket.candidates)
+        const bucketCandidates = bucket.candidates
         if (!Object.prototype.hasOwnProperty.call(input, name)) {
           const property = new SchemaAST.PropertySignature(name, expectedUnionDiscriminator(bucket), false, true)
           const expected = bucketCandidates.length === ast.types.length
@@ -118,7 +106,7 @@ const selectCandidates = (
             ),
             nextKey(state)
           )
-          return
+          return Effect.void
         }
         const literal = String(propertyValue(input, name))
         const candidates = Object.prototype.hasOwnProperty.call(bucket.buckets, literal)
@@ -145,40 +133,43 @@ const selectCandidates = (
               nextKey(state)
             )
           },
+          onSome: () => {}
+        })
+        return Option.match(candidates, {
+          onNone: () => Effect.void,
           onSome: (candidates) =>
-            Arr.forEach(
-              Arr.fromIterable(candidates),
-              (candidate) => void MutableList.append(state.candidates, candidate)
-            )
+            scan(candidates.length, cooperation, (candidateIndex) =>
+              Effect.sync(() => {
+                appendMutable(state.candidates, Arr.unsafeGet(candidates, candidateIndex))
+              }))
         })
       }))
     : Effect.void
 
   return Effect.zipRight(
     scanKeys,
-    Effect.sync(() =>
-      Arr.forEach(
-        Arr.fromIterable(tree.otherwise),
-        (candidate) => void MutableList.append(state.candidates, candidate)
-      )
-    )
+    scan(tree.otherwise.length, cooperation, (index) =>
+      Effect.sync(() => {
+        appendMutable(state.candidates, Arr.unsafeGet(tree.otherwise, index))
+      }))
   )
 }
 
 const computeFailure = (
   ast: SchemaAST.Union,
   input: unknown,
-  errors: Iterable<Entry>
-): SemanticResult => {
-  const issues = indexed(Arr.fromIterable(errors))
-  if (!Arr.isNonEmptyReadonlyArray(issues)) return failResult(new ParseResult.Type(ast, input))
-  const first = Arr.headNonEmpty(issues)
-  return failResult(
-    issues.length === 1 && first._tag === "Type"
-      ? first
-      : new ParseResult.Composite(ast, input, issues)
-  )
-}
+  errors: ReadonlyArray<Entry>,
+  cooperation: EncodeState
+): SemanticResult =>
+  Effect.flatMap(indexedEffect(errors, cooperation), (issues) => {
+    if (!Arr.isNonEmptyReadonlyArray(issues)) return failResult(new ParseResult.Type(ast, input))
+    const first = Arr.headNonEmpty(issues)
+    return failResult(
+      issues.length === 1 && first._tag === "Type"
+        ? first
+        : new ParseResult.Composite(ast, input, issues)
+    )
+  })
 
 export const parseUnion = (
   ast: SchemaAST.Union,
@@ -192,8 +183,9 @@ export const parseUnion = (
     const state = new UnionState()
     return Effect.map(
       Effect.gen(function*() {
-        yield* selectCandidates(ast, input, makeUnionSearchTree(ast, direction), state, cooperation)
-        const candidates = Arr.fromIterable(state.candidates)
+        const tree = yield* makeUnionSearchTree(ast, direction, cooperation)
+        yield* selectCandidates(ast, input, tree, state, cooperation)
+        const candidates = state.candidates
         yield* scan(candidates.length, cooperation, (index) =>
           Effect.map(parse(Arr.unsafeGet(candidates, index), input, direction, options), (parsed) =>
             Option.match(Option.fromNullable(ParseResult.eitherOrUndefined(parsed)), {
@@ -214,21 +206,20 @@ export const parseUnion = (
         if (Option.isSome(immediate)) {
           return holdSemanticResult(Either.right(immediate.value))
         }
-        if (MutableList.isEmpty(state.tasks)) {
-          return holdSemanticResult(computeFailure(ast, input, state.errors))
+        if (state.tasks.length === 0) {
+          return holdSemanticResult(computeFailure(ast, input, state.errors, cooperation))
         }
 
-        const tasks = Arr.fromIterable(state.tasks)
-        const initialErrors = Arr.fromIterable(state.errors)
+        const tasks = state.tasks
         return holdSemanticResult(Effect.suspend(() => {
-          const runtime = new UnionResultState(MutableList.fromIterable(initialErrors))
+          const runtime = new UnionResultState(state.errors)
           return Effect.flatMap(
             runAnnotatedTasks(ast, tasks, (run) =>
               run(runtime), true),
             () =>
               Option.match(MutableRef.get(runtime.final), {
                 onNone: () =>
-                  computeFailure(ast, input, runtime.errors),
+                  computeFailure(ast, input, runtime.errors, cooperation),
                 onSome: Effect.succeed
               })
           )

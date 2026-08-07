@@ -1,9 +1,16 @@
 /** Mutable invocation state for cooperative Schema record parsing. @internal */
 
 import type { SchemaAST } from "effect"
-import { Array as Arr, Effect, Either, MutableList, MutableRef, Option, ParseResult } from "effect"
+import { Effect, Either, MutableRef, Option, ParseResult } from "effect"
 
-import { type EncodeState, indexed, type Parse, scan, type SemanticResult } from "./schema-encode-model.js"
+import {
+  appendMutable,
+  type EncodeState,
+  indexedEffect,
+  type Parse,
+  scan,
+  type SemanticResult
+} from "./schema-encode-model.js"
 
 type Entry<A> = readonly [number, A]
 
@@ -23,8 +30,8 @@ export class RecordResultState {
 type Task = (state: RecordResultState) => Effect.Effect<void, ParseResult.ParseIssue>
 
 export class RecordState {
-  readonly errors = MutableList.empty<Entry<ParseResult.ParseIssue>>()
-  readonly tasks = MutableList.empty<Task>()
+  readonly errors: Array<Entry<ParseResult.ParseIssue>> = []
+  readonly tasks: Array<Task> = []
   readonly output: Record<PropertyKey, unknown> = {}
   readonly failure = MutableRef.make(Option.none<ParseResult.ParseIssue>())
   readonly stepKey = MutableRef.make(0)
@@ -43,7 +50,7 @@ export const recordFailure = (
   issue: ParseResult.ParseIssue,
   allErrors: boolean
 ): void => {
-  if (allErrors) void MutableList.append(state.errors, [nextKey(state), issue])
+  if (allErrors) appendMutable(state.errors, [nextKey(state), issue])
   else MutableRef.set(state.failure, Option.some(new ParseResult.Composite(ast, input, issue, state.output)))
 }
 
@@ -58,7 +65,7 @@ const recordTask = (
   missing: Option.Option<SchemaAST.PropertySignature>,
   write: boolean
 ): void =>
-  void MutableList.append(state.tasks, (runtime) =>
+  appendMutable(state.tasks, (runtime) =>
     Effect.flatMap(Effect.either(parsed), (result) => {
       if (Either.isRight(result)) {
         if (write) runtime.output[key] = result.right
@@ -73,7 +80,7 @@ const recordTask = (
         })
       )
       if (allErrors) {
-        runtime.errors = Arr.append(runtime.errors, [order, issue])
+        appendMutable(runtime.errors, [order, issue])
         return Effect.void
       }
       return Effect.fail(new ParseResult.Composite(ast, input, issue, runtime.output))
@@ -129,15 +136,34 @@ export const scanRecord = (
 export const orderedRecordOutput = (
   output: Record<PropertyKey, unknown>,
   inputKeys: ReadonlyArray<PropertyKey>,
-  expectedKeys: ReadonlyArray<PropertyKey>
-): Record<PropertyKey, unknown> => {
-  const ordered: Record<PropertyKey, unknown> = {}
-  const keys = Arr.appendAll(inputKeys, Arr.filter(expectedKeys, (key) => !Arr.contains(inputKeys, key)))
-  Arr.forEach(keys, (key) => {
-    if (Object.prototype.hasOwnProperty.call(output, key)) ordered[key] = output[key]
+  expectedKeys: ReadonlyArray<PropertyKey>,
+  cooperation: EncodeState
+): Effect.Effect<Record<PropertyKey, unknown>> =>
+  Effect.suspend(() => {
+    const ordered: Record<PropertyKey, unknown> = {}
+    const present: Record<PropertyKey, null> = {}
+    return Effect.as(
+      Effect.zipRight(
+        scan(cooperation, 0, (index) => index < inputKeys.length, (index) =>
+          Effect.sync(() => {
+            const key = inputKeys[index]!
+            Object.defineProperty(present, key, { configurable: true, value: null })
+            if (Object.prototype.hasOwnProperty.call(output, key)) ordered[key] = output[key]
+          })),
+        scan(cooperation, 0, (index) => index < expectedKeys.length, (index) =>
+          Effect.sync(() => {
+            const key = expectedKeys[index]!
+            if (
+              !Object.prototype.hasOwnProperty.call(present, key) &&
+              Object.prototype.hasOwnProperty.call(output, key)
+            ) ordered[key] = output[key]
+          }))
+      ),
+      ordered
+    )
   })
-  return ordered
-}
 
-export const recordErrors = (errors: Iterable<Entry<ParseResult.ParseIssue>>): Array<ParseResult.ParseIssue> =>
-  indexed(Arr.fromIterable(errors))
+export const recordErrors = (
+  errors: ReadonlyArray<Entry<ParseResult.ParseIssue>>,
+  cooperation: EncodeState
+): Effect.Effect<Array<ParseResult.ParseIssue>> => indexedEffect(errors, cooperation)

@@ -122,8 +122,35 @@ export const mergeOptions = (
   override: SchemaAST.ParseOptions
 ): SchemaAST.ParseOptions => ({ ...options, ...override })
 
+export const appendMutable = <A>(items: Array<A>, value: A): void => {
+  items[items.length] = value
+}
+
 export const indexed = <A>(entries: ReadonlyArray<readonly [number, A]>): Array<A> =>
   Arr.map(Arr.sortWith(entries, ([key]) => key, Order.number), ([, value]) => value)
+
+export const indexedEffect = <A>(
+  entries: ReadonlyArray<readonly [number, A]>,
+  state: EncodeState
+): Effect.Effect<Array<A>> =>
+  Effect.suspend(() => {
+    const sparse: Array<A> = []
+    const output: Array<A> = []
+    return Effect.as(
+      Effect.zipRight(
+        scan(state, 0, (index) => index < entries.length, (index) =>
+          Effect.sync(() => {
+            const [key, value] = entries[index]!
+            sparse[key] = value
+          })),
+        scan(state, 0, (index) => index < sparse.length, (index) =>
+          Effect.sync(() => {
+            if (Object.prototype.hasOwnProperty.call(sparse, index)) appendMutable(output, sparse[index]!)
+          }))
+      ),
+      output
+    )
+  })
 
 export const getKeysForIndexSignature = (
   input: { readonly [key: PropertyKey]: unknown },
@@ -133,9 +160,6 @@ export const getKeysForIndexSignature = (
   if (SchemaAST.isSymbolKeyword(parameter)) return Arr.filter(Reflect.ownKeys(input), (key) => typeof key === "symbol")
   return getKeysForIndexSignature(input, parameter.from)
 }
-
-export const dropRightRefinement = (ast: SchemaAST.AST): SchemaAST.AST =>
-  SchemaAST.isRefinement(ast) ? dropRightRefinement(ast.from) : ast
 
 export const parseOptions = (
   ast: SchemaAST.AST,

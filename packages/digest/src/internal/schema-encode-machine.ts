@@ -3,7 +3,7 @@
 import { Effect, Either, MutableHashMap, Option, ParseResult, Schema, SchemaAST } from "effect"
 
 import {
-  dropRightRefinement,
+  cooperate,
   EncodeState,
   flatMapResult,
   mapResultError,
@@ -15,6 +15,7 @@ import {
 import { parseRecord } from "./schema-encode-records.js"
 import { transform } from "./schema-encode-transform.js"
 import { parseTuple } from "./schema-encode-tuples.js"
+import { dropRightRefinement, TypeAstProjector } from "./schema-encode-type-ast.js"
 import { parseUnion } from "./schema-encode-unions.js"
 
 type LeafParser = (
@@ -62,32 +63,55 @@ const refinement = (
   input: unknown,
   direction: "Decode" | "Encode",
   options: SchemaAST.ParseOptions,
-  parse: Parse
+  parse: Parse,
+  cooperation: EncodeState,
+  typeAst: TypeAstProjector
 ): Effect.Effect<SemanticResult> => {
   if (direction === "Encode") {
-    return flatMapResult(
-      parse(SchemaAST.typeAST(ast), input, "Decode", options),
-      (value) => parse(dropRightRefinement(ast.from), value, "Encode", options)
+    return Effect.flatMap(
+      typeAst.project(ast),
+      (projected) =>
+        flatMapResult(
+          Effect.zipRight(
+            cooperate(cooperation),
+            Effect.suspend(() => parse(projected, input, "Decode", options))
+          ),
+          (value) =>
+            Effect.flatMap(
+              dropRightRefinement(ast.from, cooperation),
+              (encoded) =>
+                Effect.zipRight(
+                  cooperate(cooperation),
+                  Effect.suspend(() => parse(encoded, value, "Encode", options))
+                )
+            )
+        )
     )
   }
 
   const allErrors = options?.errors === "all"
-  const from = orElseResult(parse(ast.from, input, "Decode", options), (issue) => {
-    const wrapped = new ParseResult.Refinement(ast, input, "From", issue)
-    if (allErrors && hasStableFilter(ast) && ParseResult.isComposite(issue)) {
-      return Option.match(ast.filter(input, options, ast), {
-        onNone: () => Either.left(wrapped),
-        onSome: (predicate) =>
-          Either.left(
-            new ParseResult.Composite(ast, input, [
-              wrapped,
-              new ParseResult.Refinement(ast, input, "Predicate", predicate)
-            ])
-          )
-      })
+  const from = orElseResult(
+    Effect.zipRight(
+      cooperate(cooperation),
+      Effect.suspend(() => parse(ast.from, input, "Decode", options))
+    ),
+    (issue) => {
+      const wrapped = new ParseResult.Refinement(ast, input, "From", issue)
+      if (allErrors && hasStableFilter(ast) && ParseResult.isComposite(issue)) {
+        return Option.match(ast.filter(input, options, ast), {
+          onNone: () => Either.left(wrapped),
+          onSome: (predicate) =>
+            Either.left(
+              new ParseResult.Composite(ast, input, [
+                wrapped,
+                new ParseResult.Refinement(ast, input, "Predicate", predicate)
+              ])
+            )
+        })
+      }
+      return Either.left(wrapped)
     }
-    return Either.left(wrapped)
-  })
+  )
   return flatMapResult(from, (value) =>
     Effect.sync(() =>
       Option.match(ast.filter(value, options, ast), {
@@ -109,7 +133,10 @@ const transformation = (
   const to = direction === "Decode" ? ast.to : ast.from
   return flatMapResult(
     mapResultError(
-      parse(from, input, direction, options),
+      Effect.zipRight(
+        cooperate(cooperation),
+        Effect.suspend(() => parse(from, input, direction, options))
+      ),
       (issue) => new ParseResult.Transformation(ast, input, direction === "Decode" ? "Encoded" : "Type", issue)
     ),
     (value) =>
@@ -120,7 +147,10 @@ const transformation = (
         ),
         (transformed) =>
           mapResultError(
-            parse(to, transformed, direction, options),
+            Effect.zipRight(
+              cooperate(cooperation),
+              Effect.suspend(() => parse(to, transformed, direction, options))
+            ),
             (issue) =>
               new ParseResult.Transformation(
                 ast,
@@ -136,6 +166,7 @@ const transformation = (
 const makeParse = (cooperation: EncodeState): Parse => {
   const cache = MutableHashMap.empty<SchemaAST.AST, LeafParsers>()
   const suspended = MutableHashMap.empty<SchemaAST.Suspend, SchemaAST.AST>()
+  const typeAst = new TypeAstProjector(cooperation)
 
   const parse: Parse = (ast, input, direction, inherited) => {
     const options = parseOptions(ast, inherited)
@@ -156,18 +187,20 @@ const makeParse = (cooperation: EncodeState): Parse => {
     if (SchemaAST.isUnion(ast)) {
       return complete(parseUnion(ast, input, parse, direction, options, cooperation))
     }
-    if (SchemaAST.isRefinement(ast)) return complete(refinement(ast, input, direction, options, parse))
+    if (SchemaAST.isRefinement(ast)) {
+      return complete(refinement(ast, input, direction, options, parse, cooperation, typeAst))
+    }
     if (SchemaAST.isTransformation(ast)) {
       return complete(transformation(ast, input, direction, options, parse, cooperation))
     }
     if (SchemaAST.isSuspend(ast)) {
       return complete(Effect.suspend(() => {
-        const resolved = Option.getOrElse(MutableHashMap.get(suspended, ast), () => {
-          const created = ast.f()
-          MutableHashMap.set(suspended, ast, created)
-          return created
+        const cached = MutableHashMap.get(suspended, ast)
+        if (Option.isSome(cached)) return parse(cached.value, input, direction, options)
+        return Effect.flatMap(typeAst.resolve(ast), (resolved) => {
+          MutableHashMap.set(suspended, ast, resolved)
+          return parse(resolved, input, direction, options)
         })
-        return parse(resolved, input, direction, options)
       }))
     }
     return delegate(ast, input, direction, inherited, cache)

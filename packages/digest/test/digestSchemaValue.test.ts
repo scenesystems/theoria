@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Fiber, MutableRef, ParseResult, Scheduler, Schema } from "effect"
+import { Array as Arr, Effect, Exit, Fiber, MutableRef, ParseResult, Record, Scheduler, Schema } from "effect"
 import {
   CanonicalByteLimitExceeded,
   canonicalJsonBytes,
@@ -84,6 +84,42 @@ const deepEncodingFixture = (depth: number): readonly [Schema.Schema.AnyNoContex
   return [MutableRef.get(schema), MutableRef.get(value)]
 }
 
+const broadUnionFixture = (width: number): readonly [Schema.Schema.AnyNoContext, unknown] => {
+  const members = Arr.makeBy(
+    width,
+    (index) => Schema.Struct({ kind: Schema.Literal(`member-${index}`), value: Schema.Number })
+  )
+  return [Schema.Union(...members), { kind: `member-${width - 1}`, value: 1 }]
+}
+
+const broadTupleFixture = (width: number): readonly [Schema.Schema.AnyNoContext, unknown] => [
+  Schema.Tuple(...Arr.makeBy(width, () => Schema.Number)),
+  Arr.makeBy(width, (index) => index)
+]
+
+const broadRecordFixture = (width: number): readonly [Schema.Schema.AnyNoContext, unknown] => {
+  const keys = Arr.makeBy(width, (index) => `field-${index}`)
+  return [
+    Schema.Struct(Record.fromEntries(Arr.map(keys, (key) => [key, Schema.Number]))),
+    Record.fromEntries(Arr.map(keys, (key, index) => [key, index]))
+  ]
+}
+
+const deepTransformationRefinementFixture = (depth: number): Schema.Schema.AnyNoContext => {
+  const schema = MutableRef.make<Schema.Schema.AnyNoContext>(Schema.Number)
+  Arr.forEach(Arr.range(1, depth), () => {
+    MutableRef.set(
+      schema,
+      Schema.transform(Schema.Number, MutableRef.get(schema), {
+        strict: true,
+        decode: (value) => value,
+        encode: (value) => value
+      })
+    )
+  })
+  return MutableRef.get(schema).pipe(Schema.filter(() => true))
+}
+
 const canonicalByteCountCases: ReadonlyArray<readonly [unknown, number]> = [
   ["A", 3],
   ["é", 4],
@@ -123,6 +159,40 @@ const scheduledTasksDuring = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<
       () => false
     )
     return Effect.map(Effect.withScheduler(effect, scheduler), () => MutableRef.get(scheduled))
+  })
+
+const expectEncodingCooperation = (
+  schema: Schema.Schema.AnyNoContext,
+  value: unknown,
+  maximumBytes: number
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function*() {
+    const encodingCompleted = MutableRef.make(false)
+    const progressedDuringEncoding = MutableRef.make(false)
+    const observed = encodingProbe(schema, encodingCompleted)
+    const observer = yield* Effect.fork(
+      Effect.zipRight(
+        Effect.sleep(0),
+        Effect.sync(() => {
+          if (!MutableRef.get(encodingCompleted)) MutableRef.set(progressedDuringEncoding, true)
+        })
+      )
+    )
+    yield* Effect.yieldNow()
+
+    const result = yield* digestSchemaValueWithByteLimit(observed, value, maximumBytes)
+    yield* Fiber.join(observer)
+    expect(result.canonicalByteLength).toBeGreaterThan(0)
+    expect(MutableRef.get(encodingCompleted)).toBe(true)
+    expect(MutableRef.get(progressedDuringEncoding)).toBe(true)
+
+    const interruptedCompleted = MutableRef.make(false)
+    const interrupted = encodingProbe(schema, interruptedCompleted)
+    const fiber = yield* Effect.fork(digestSchemaValueWithByteLimit(interrupted, value, maximumBytes))
+    yield* Effect.sleep(0)
+    const exit = yield* Fiber.interrupt(fiber)
+    expect(exit).toSatisfy(Exit.isInterrupted)
+    expect(MutableRef.get(interruptedCompleted)).toBe(false)
   })
 
 describe("digestSchemaValue — Schema.encode → JCS → hash pipeline", () => {
@@ -632,6 +702,39 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
         expect(exit).toSatisfy(Exit.isInterrupted)
         expect(MutableRef.get(encodingCompleted)).toBe(false)
       }),
+    30_000
+  )
+
+  it.live(
+    "cooperates through broad tagged-union search and remains interruptible",
+    () => {
+      const [schema, value] = broadUnionFixture(4_096)
+      return expectEncodingCooperation(schema, value, 2 * 1024 * 1024)
+    },
+    30_000
+  )
+
+  it.live(
+    "cooperates through broad fixed-tuple preparation and output assembly",
+    () => {
+      const [schema, value] = broadTupleFixture(8_192)
+      return expectEncodingCooperation(schema, value, 2 * 1024 * 1024)
+    },
+    30_000
+  )
+
+  it.live(
+    "cooperates through broad type-literal metadata and output assembly",
+    () => {
+      const [schema, value] = broadRecordFixture(8_192)
+      return expectEncodingCooperation(schema, value, 2 * 1024 * 1024)
+    },
+    30_000
+  )
+
+  it.live(
+    "completes and interrupts 16K deep transformation/refinement transitions",
+    () => expectEncodingCooperation(deepTransformationRefinementFixture(16_384), 1, 1_024),
     30_000
   )
 

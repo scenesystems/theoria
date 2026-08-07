@@ -1,19 +1,9 @@
 /** Cooperative Effect Schema type-literal interpreter. @internal */
 
-import {
-  Array as Arr,
-  Effect,
-  Either,
-  MutableList,
-  MutableRef,
-  Option,
-  ParseResult,
-  Predicate,
-  Schema,
-  SchemaAST
-} from "effect"
+import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Predicate, Schema, SchemaAST } from "effect"
 
 import {
+  appendMutable,
   type EncodeState,
   failResult,
   getKeysForIndexSignature,
@@ -38,22 +28,21 @@ const computeResult = (
   state: RecordResultState,
   options: SchemaAST.ParseOptions,
   inputKeys: Option.Option<ReadonlyArray<PropertyKey>>,
-  expectedKeys: ReadonlyArray<PropertyKey>
-): SemanticResult => {
-  const errors = recordErrors(state.errors)
-  if (Arr.isNonEmptyReadonlyArray(errors)) {
-    return failResult(new ParseResult.Composite(ast, input, errors, state.output))
-  }
-  return Either.right(
-    options.propertyOrder === "original"
-      ? orderedRecordOutput(
-        state.output,
-        Option.getOrElse(inputKeys, () => Reflect.ownKeys(input)),
-        expectedKeys
-      )
-      : state.output
-  )
-}
+  expectedKeys: ReadonlyArray<PropertyKey>,
+  cooperation: EncodeState
+): SemanticResult =>
+  Effect.flatMap(recordErrors(state.errors, cooperation), (errors) => {
+    if (Arr.isNonEmptyReadonlyArray(errors)) {
+      return failResult(new ParseResult.Composite(ast, input, errors, state.output))
+    }
+    if (options.propertyOrder !== "original") return Effect.succeed(state.output)
+    return orderedRecordOutput(
+      state.output,
+      Option.getOrElse(inputKeys, () => Reflect.ownKeys(input)),
+      expectedKeys,
+      cooperation
+    )
+  })
 
 export const parseRecord = (
   ast: SchemaAST.TypeLiteral,
@@ -73,28 +62,34 @@ export const parseRecord = (
   return Effect.suspend(() => {
     const state = new RecordState()
     const allErrors = options?.errors === "all"
-    const expectedKeys = Arr.map(ast.propertySignatures, (property) => property.name)
+    const expectedKeys: Array<PropertyKey> = []
     const expectedKeysMap: Record<PropertyKey, null> = {}
-    Arr.forEach(expectedKeys, (key) => {
-      expectedKeysMap[key] = null
-    })
+    const expectedTypes: Array<SchemaAST.AST> = []
     const expectedKey = (key: PropertyKey) => Object.prototype.hasOwnProperty.call(expectedKeysMap, key)
     const excessMode = Option.fromNullable(options.onExcessProperty)
     const inputKeys = Option.flatMap(
       excessMode,
       (mode) => mode === "ignore" ? Option.none() : Option.some(Reflect.ownKeys(input))
     )
-    const expectedAst = SchemaAST.Union.make(Arr.appendAll(
-      Arr.map(ast.indexSignatures, (signature) => signature.parameter),
-      Arr.map(
-        expectedKeys,
-        (key) => typeof key === "symbol" ? new SchemaAST.UniqueSymbol(key) : new SchemaAST.Literal(key)
-      )
-    ))
-    const expectedSchema = Schema.make<unknown, unknown, never>(expectedAst)
-
     return Effect.map(
       Effect.gen(function*() {
+        yield* scanRecord(ast.indexSignatures.length, state, cooperation, (index) =>
+          Effect.sync(() => {
+            appendMutable(expectedTypes, Arr.unsafeGet(ast.indexSignatures, index).parameter)
+          }))
+        yield* scanRecord(ast.propertySignatures.length, state, cooperation, (index) =>
+          Effect.sync(() => {
+            const key = Arr.unsafeGet(ast.propertySignatures, index).name
+            appendMutable(expectedKeys, key)
+            Object.defineProperty(expectedKeysMap, key, { configurable: true, value: null })
+            appendMutable(
+              expectedTypes,
+              typeof key === "symbol" ? new SchemaAST.UniqueSymbol(key) : new SchemaAST.Literal(key)
+            )
+          }))
+        const expectedAst = SchemaAST.Union.make(expectedTypes)
+        const expectedSchema = Schema.make<unknown, unknown, never>(expectedAst)
+
         yield* Option.match(inputKeys, {
           onNone: () => Effect.void,
           onSome: (keys) =>
@@ -159,9 +154,10 @@ export const parseRecord = (
           )
         })
 
-        yield* Effect.forEach(ast.indexSignatures, (signature) =>
+        yield* scanRecord(ast.indexSignatures.length, state, cooperation, (signatureIndex) =>
           Effect.suspend(() => {
             if (Option.isSome(MutableRef.get(state.failure))) return Effect.void
+            const signature = Arr.unsafeGet(ast.indexSignatures, signatureIndex)
             const keys = getKeysForIndexSignature(input, signature.parameter)
             return scanRecord(keys.length, state, cooperation, (index) => {
               const key = Arr.unsafeGet(keys, index)
@@ -187,29 +183,32 @@ export const parseRecord = (
                       : Effect.void
                 }))
             })
-          }), { discard: true })
+          }))
 
         const failure = MutableRef.get(state.failure)
         if (Option.isSome(failure)) return holdSemanticResult(failResult(failure.value))
-        if (MutableList.isEmpty(state.tasks)) {
-          return holdSemanticResult(computeResult(
-            ast,
-            input,
-            new RecordResultState(Arr.fromIterable(state.errors), state.output),
-            options,
-            inputKeys,
-            expectedKeys
-          ))
+        if (state.tasks.length === 0) {
+          return holdSemanticResult(
+            computeResult(
+              ast,
+              input,
+              new RecordResultState(state.errors, state.output),
+              options,
+              inputKeys,
+              expectedKeys,
+              cooperation
+            )
+          )
         }
 
-        const tasks = Arr.fromIterable(state.tasks)
-        const initialErrors = Arr.fromIterable(state.errors)
-        const initialOutput = { ...state.output }
+        const tasks = state.tasks
+        const initialErrors = state.errors
+        const initialOutput = state.output
         return holdSemanticResult(Effect.suspend(() => {
-          const runtime = new RecordResultState(Arr.copy(initialErrors), { ...initialOutput })
+          const runtime = new RecordResultState(initialErrors, initialOutput)
           return Effect.flatMap(
             runAnnotatedTasks(ast, tasks, (run) => run(runtime)),
-            () => computeResult(ast, input, runtime, options, inputKeys, expectedKeys)
+            () => computeResult(ast, input, runtime, options, inputKeys, expectedKeys, cooperation)
           )
         }))
       }),

@@ -1,6 +1,9 @@
 /** Effect Schema union discriminator search for cooperative encoding. @internal */
 
-import { Array as Arr, MutableList, Option, SchemaAST } from "effect"
+import { Effect, MutableRef, Option, SchemaAST } from "effect"
+
+import { appendMutable, cooperate, type EncodeState, scan } from "./schema-encode-model.js"
+import { projectLiteral } from "./schema-encode-type-ast.js"
 
 type Literal = readonly [PropertyKey, SchemaAST.Literal]
 
@@ -18,75 +21,123 @@ const setOwn = <K extends PropertyKey, V>(record: Record<K, V>, key: K, value: V
 }
 
 export class UnionBucket {
-  readonly buckets: Record<string, MutableList.MutableList<SchemaAST.AST>> = {}
-  readonly literals = MutableList.empty<SchemaAST.Literal>()
-  readonly candidates = MutableList.empty<SchemaAST.AST>()
+  readonly buckets: Record<string, Array<SchemaAST.AST>> = {}
+  readonly literals: Array<SchemaAST.Literal> = []
+  readonly candidates: Array<SchemaAST.AST> = []
 }
 
 export class UnionSearchTree {
   readonly keys: Record<PropertyKey, UnionBucket> = {}
-  readonly otherwise = MutableList.empty<SchemaAST.AST>()
-  readonly candidates = MutableList.empty<SchemaAST.AST>()
+  readonly keyOrder: Array<PropertyKey> = []
+  readonly otherwise: Array<SchemaAST.AST> = []
+  readonly candidates: Array<SchemaAST.AST> = []
 }
 
-const literals = (ast: SchemaAST.AST, direction: "Decode" | "Encode"): ReadonlyArray<Literal> => {
-  if (SchemaAST.isDeclaration(ast)) {
-    const surrogate = SchemaAST.getSurrogateAnnotation(ast)
-    if (Option.isSome(surrogate)) return literals(surrogate.value, direction)
-  }
-  if (SchemaAST.isTypeLiteral(ast)) {
-    return Arr.flatMap(ast.propertySignatures, (property) => {
-      const type = direction === "Decode" ? SchemaAST.encodedAST(property.type) : SchemaAST.typeAST(property.type)
-      return SchemaAST.isLiteral(type) && !property.isOptional ? [[property.name, type]] : []
-    })
-  }
-  if (SchemaAST.isTupleType(ast)) {
-    return Arr.flatMap(ast.elements, (element, index) => {
-      const type = direction === "Decode" ? SchemaAST.encodedAST(element.type) : SchemaAST.typeAST(element.type)
-      return SchemaAST.isLiteral(type) && !element.isOptional ? [[index, type]] : []
-    })
-  }
-  if (SchemaAST.isRefinement(ast)) return literals(ast.from, direction)
-  if (SchemaAST.isSuspend(ast)) return literals(ast.f(), direction)
-  if (SchemaAST.isTransformation(ast)) return literals(direction === "Decode" ? ast.from : ast.to, direction)
-  return []
-}
+const unwrap = (
+  ast: SchemaAST.AST,
+  direction: "Decode" | "Encode",
+  cooperation: EncodeState
+): Effect.Effect<SchemaAST.AST> =>
+  Effect.iterate(ast, {
+    while: (current) => {
+      if (SchemaAST.isDeclaration(current)) return Option.isSome(SchemaAST.getSurrogateAnnotation(current))
+      return SchemaAST.isRefinement(current) || SchemaAST.isSuspend(current) || SchemaAST.isTransformation(current)
+    },
+    body: (current) =>
+      Effect.zipRight(
+        cooperate(cooperation),
+        SchemaAST.isSuspend(current)
+          ? Effect.sync(current.f)
+          : Effect.succeed(
+            SchemaAST.isDeclaration(current)
+              ? Option.getOrThrow(SchemaAST.getSurrogateAnnotation(current))
+              : SchemaAST.isRefinement(current)
+              ? current.from
+              : SchemaAST.isTransformation(current)
+              ? direction === "Decode" ? current.from : current.to
+              : current
+          )
+      )
+  })
+
+const literals = (
+  ast: SchemaAST.AST,
+  direction: "Decode" | "Encode",
+  cooperation: EncodeState
+): Effect.Effect<ReadonlyArray<Literal>> =>
+  Effect.flatMap(unwrap(ast, direction, cooperation), (unwrapped) => {
+    const output: Array<Literal> = []
+    if (SchemaAST.isTypeLiteral(unwrapped)) {
+      return Effect.as(
+        scan(cooperation, 0, (index) => index < unwrapped.propertySignatures.length, (index) => {
+          const property = unwrapped.propertySignatures[index]!
+          if (property.isOptional) return Effect.void
+          return Effect.map(projectLiteral(property.type, direction, cooperation), (literal) => {
+            if (Option.isSome(literal)) appendMutable(output, [property.name, literal.value])
+          })
+        }),
+        output
+      )
+    }
+    if (SchemaAST.isTupleType(unwrapped)) {
+      return Effect.as(
+        scan(cooperation, 0, (index) => index < unwrapped.elements.length, (index) => {
+          const element = unwrapped.elements[index]!
+          if (element.isOptional) return Effect.void
+          return Effect.map(projectLiteral(element.type, direction, cooperation), (literal) => {
+            if (Option.isSome(literal)) appendMutable(output, [index, literal.value])
+          })
+        }),
+        output
+      )
+    }
+    return Effect.succeed(output)
+  })
 
 export const makeUnionSearchTree = (
   ast: SchemaAST.Union,
-  direction: "Decode" | "Encode"
-): UnionSearchTree => {
+  direction: "Decode" | "Encode",
+  cooperation: EncodeState
+): Effect.Effect<UnionSearchTree> => {
   const tree = new UnionSearchTree()
-  Arr.forEach(ast.types, (member) => {
-    const tags = literals(member, direction)
-    if (tags.length === 0) {
-      MutableList.append(tree.otherwise, member)
-      return
-    }
-    MutableList.append(tree.candidates, member)
-    tags.some(([key, literal], index) => {
-      const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
-        const created = new UnionBucket()
-        return setOwn(tree.keys, key, created)
+  return Effect.as(
+    scan(cooperation, 0, (index) => index < ast.types.length, (index) => {
+      const member = ast.types[index]!
+      return Effect.flatMap(literals(member, direction, cooperation), (tags) => {
+        if (tags.length === 0) {
+          appendMutable(tree.otherwise, member)
+          return Effect.void
+        }
+        appendMutable(tree.candidates, member)
+        const selected = MutableRef.make(false)
+        return scan(
+          cooperation,
+          0,
+          (tagIndex) => tagIndex < tags.length && !MutableRef.get(selected),
+          (tagIndex) =>
+            Effect.sync(() => {
+              const [key, literal] = tags[tagIndex]!
+              const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
+                appendMutable(tree.keyOrder, key)
+                return setOwn(tree.keys, key, new UnionBucket())
+              })
+              const hash = String(literal.literal)
+              const existing = getOwn(bucket.buckets, hash)
+              if (Option.isSome(existing) && tagIndex < tags.length - 1) return
+              if (Option.isSome(existing)) appendMutable(existing.value, member)
+              else setOwn(bucket.buckets, hash, [member])
+              appendMutable(bucket.literals, literal)
+              appendMutable(bucket.candidates, member)
+              MutableRef.set(selected, Option.isNone(existing))
+            })
+        )
       })
-      const hash = String(literal.literal)
-      const existing = getOwn(bucket.buckets, hash)
-      if (Option.isSome(existing)) {
-        if (index < tags.length - 1) return false
-        MutableList.append(existing.value, member)
-      } else {
-        setOwn(bucket.buckets, hash, MutableList.make(member))
-      }
-      MutableList.append(bucket.literals, literal)
-      MutableList.append(bucket.candidates, member)
-      return Option.isNone(existing)
-    })
-  })
-  return tree
+    }),
+    tree
+  )
 }
 
-export const expectedUnionDiscriminator = (bucket: UnionBucket): SchemaAST.AST =>
-  SchemaAST.Union.make(Arr.fromIterable(bucket.literals))
+export const expectedUnionDiscriminator = (bucket: UnionBucket): SchemaAST.AST => SchemaAST.Union.make(bucket.literals)
 
 export const getUnionBucket = (tree: UnionSearchTree, key: PropertyKey): UnionBucket =>
   Option.getOrElse(getOwn(tree.keys, key), () => {
