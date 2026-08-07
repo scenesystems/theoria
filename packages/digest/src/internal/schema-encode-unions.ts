@@ -13,13 +13,13 @@ import {
   scan as scanBatches,
   type SemanticResult
 } from "./schema-encode-model.js"
+import type { TypeAstProjector } from "./schema-encode-type-ast.js"
 import {
   expectedUnionDiscriminator,
   getUnionBucket,
   makeUnionSearchTree,
   type UnionSearchTree
 } from "./schema-encode-union-search.js"
-import type { TypeAstProjector } from "./schema-encode-type-ast.js"
 type Entry = readonly [number, ParseResult.ParseIssue]
 class UnionResultState {
   readonly errors: Array<Entry>
