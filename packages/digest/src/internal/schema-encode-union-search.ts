@@ -3,7 +3,7 @@
 import { Effect, MutableRef, Option, SchemaAST } from "effect"
 
 import { appendMutable, cooperate, type EncodeState, scan } from "./schema-encode-model.js"
-import { projectLiteral } from "./schema-encode-type-ast.js"
+import { projectLiteral, type TypeAstProjector } from "./schema-encode-type-ast.js"
 
 type Literal = readonly [PropertyKey, SchemaAST.Literal]
 
@@ -36,7 +36,8 @@ export class UnionSearchTree {
 const unwrap = (
   ast: SchemaAST.AST,
   direction: "Decode" | "Encode",
-  cooperation: EncodeState
+  cooperation: EncodeState,
+  typeAst: TypeAstProjector
 ): Effect.Effect<SchemaAST.AST> =>
   Effect.iterate(ast, {
     while: (current) => {
@@ -47,7 +48,7 @@ const unwrap = (
       Effect.zipRight(
         cooperate(cooperation),
         SchemaAST.isSuspend(current)
-          ? Effect.sync(current.f)
+          ? typeAst.resolve(current)
           : Effect.succeed(
             SchemaAST.isDeclaration(current)
               ? Option.getOrThrow(SchemaAST.getSurrogateAnnotation(current))
@@ -63,9 +64,10 @@ const unwrap = (
 const literals = (
   ast: SchemaAST.AST,
   direction: "Decode" | "Encode",
-  cooperation: EncodeState
+  cooperation: EncodeState,
+  typeAst: TypeAstProjector
 ): Effect.Effect<ReadonlyArray<Literal>> =>
-  Effect.flatMap(unwrap(ast, direction, cooperation), (unwrapped) => {
+  Effect.flatMap(unwrap(ast, direction, cooperation, typeAst), (unwrapped) => {
     const output: Array<Literal> = []
     if (SchemaAST.isTypeLiteral(unwrapped)) {
       return Effect.as(
@@ -97,13 +99,14 @@ const literals = (
 export const makeUnionSearchTree = (
   ast: SchemaAST.Union,
   direction: "Decode" | "Encode",
-  cooperation: EncodeState
+  cooperation: EncodeState,
+  typeAst: TypeAstProjector
 ): Effect.Effect<UnionSearchTree> => {
   const tree = new UnionSearchTree()
   return Effect.as(
     scan(cooperation, 0, (index) => index < ast.types.length, (index) => {
       const member = ast.types[index]!
-      return Effect.flatMap(literals(member, direction, cooperation), (tags) => {
+      return Effect.flatMap(literals(member, direction, cooperation, typeAst), (tags) => {
         if (tags.length === 0) {
           appendMutable(tree.otherwise, member)
           return Effect.void

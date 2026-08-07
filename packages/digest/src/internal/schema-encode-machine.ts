@@ -185,7 +185,7 @@ const makeParse = (cooperation: EncodeState): Parse => {
       return complete(parseRecord(ast, input, parse, direction, options, cooperation))
     }
     if (SchemaAST.isUnion(ast)) {
-      return complete(parseUnion(ast, input, parse, direction, options, cooperation))
+      return complete(parseUnion(ast, input, parse, direction, options, cooperation, typeAst))
     }
     if (SchemaAST.isRefinement(ast)) {
       return complete(refinement(ast, input, direction, options, parse, cooperation, typeAst))

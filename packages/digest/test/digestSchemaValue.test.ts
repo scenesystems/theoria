@@ -656,6 +656,26 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
         Number.MAX_SAFE_INTEGER
       )
       expect(cooperative.digest).toBe(existing)
+
+      const suspendedUnionMember = Schema.Union(
+        Schema.suspend(() => Schema.Struct({ kind: Schema.Literal("suspended"), value: Schema.Number })),
+        Schema.Struct({ kind: Schema.Literal("direct"), value: Schema.Number })
+      )
+      const suspendedUnionValue: Schema.Schema.Type<typeof suspendedUnionMember> = {
+        kind: "suspended",
+        value: 1
+      }
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const expected = yield* digestSchemaValue(suspendedUnionMember, suspendedUnionValue, algorithm)
+          const actual = yield* digestSchemaValueWithByteLimit(
+            suspendedUnionMember,
+            suspendedUnionValue,
+            Number.MAX_SAFE_INTEGER,
+            algorithm
+          )
+          expect(actual.digest).toBe(expected)
+        }), { discard: true })
     }))
 
   it.live(

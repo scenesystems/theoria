@@ -19,6 +19,7 @@ import {
   makeUnionSearchTree,
   type UnionSearchTree
 } from "./schema-encode-union-search.js"
+import type { TypeAstProjector } from "./schema-encode-type-ast.js"
 type Entry = readonly [number, ParseResult.ParseIssue]
 class UnionResultState {
   readonly errors: Array<Entry>
@@ -177,13 +178,14 @@ export const parseUnion = (
   parse: Parse,
   direction: "Decode" | "Encode",
   options: SchemaAST.ParseOptions,
-  cooperation: EncodeState
+  cooperation: EncodeState,
+  typeAst: TypeAstProjector
 ): Effect.Effect<SemanticResult> =>
   Effect.suspend(() => {
     const state = new UnionState()
     return Effect.map(
       Effect.gen(function*() {
-        const tree = yield* makeUnionSearchTree(ast, direction, cooperation)
+        const tree = yield* makeUnionSearchTree(ast, direction, cooperation, typeAst)
         yield* selectCandidates(ast, input, tree, state, cooperation)
         const candidates = state.candidates
         yield* scan(candidates.length, cooperation, (index) =>
