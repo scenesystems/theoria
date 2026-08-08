@@ -13,6 +13,7 @@ import {
   type SemanticResult
 } from "./schema-encode-model.js"
 import {
+  computeTupleFailure,
   computeTupleResult,
   failTuple,
   parseTupleElement,
@@ -86,7 +87,18 @@ export const parseTuple = (
         yield* scanTuple(0, ast.elements.length, state, cooperation, (index) => {
           const element = Arr.unsafeGet(ast.elements, index)
           return index < length
-            ? parseTupleElement(ast, input, state, parse, element.type, index, options, direction, allErrors)
+            ? parseTupleElement(
+              ast,
+              input,
+              state,
+              parse,
+              element.type,
+              index,
+              options,
+              direction,
+              allErrors,
+              cooperation
+            )
             : Effect.void
         })
 
@@ -100,7 +112,18 @@ export const parseTuple = (
             state,
             cooperation,
             (index) =>
-              parseTupleElement(ast, input, state, parse, rest.value.type, index, options, direction, allErrors)
+              parseTupleElement(
+                ast,
+                input,
+                state,
+                parse,
+                rest.value.type,
+                index,
+                options,
+                direction,
+                allErrors,
+                cooperation
+              )
           )
 
           const tailStart = Math.max(ast.elements.length, restEnd)
@@ -116,14 +139,19 @@ export const parseTuple = (
                 index,
                 options,
                 direction,
-                allErrors
+                allErrors,
+                cooperation
               )
               : Effect.void
           })
         }
 
         const failure = MutableRef.get(state.failure)
-        if (Option.isSome(failure)) return holdSemanticResult(failResult(failure.value))
+        if (Option.isSome(failure)) {
+          return holdSemanticResult(
+            computeTupleFailure(ast, input, failure.value, state.output, cooperation)
+          )
+        }
         if (state.tasks.length === 0) {
           return holdSemanticResult(
             computeTupleResult(

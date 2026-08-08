@@ -4,10 +4,10 @@ import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Predicat
 
 import {
   appendMutable,
+  compactEffect,
   type EncodeState,
   failResult,
   holdSemanticResult,
-  indexedEffect,
   type Parse,
   runAnnotatedTasks,
   scan as scanBatches,
@@ -20,12 +20,11 @@ import {
   makeUnionSearchTree,
   type UnionSearchTree
 } from "./schema-encode-union-search.js"
-type Entry = readonly [number, ParseResult.ParseIssue]
 class UnionResultState {
-  readonly errors: Array<Entry>
+  readonly errors: Array<ParseResult.ParseIssue>
   readonly final: MutableRef.MutableRef<Option.Option<unknown>>
   constructor(
-    errors: Array<Entry> = [],
+    errors: Array<ParseResult.ParseIssue> = [],
     final = MutableRef.make(Option.none<unknown>())
   ) {
     this.errors = errors
@@ -48,7 +47,7 @@ const nextKey = (state: UnionState): number => {
 }
 
 const appendError = (state: UnionResultState, issue: ParseResult.ParseIssue, key: number): void => {
-  appendMutable(state.errors, [key, issue])
+  state.errors[key] = issue
 }
 
 const addTask = (state: UnionState, parsed: SemanticResult): void => {
@@ -159,10 +158,10 @@ const selectCandidates = (
 const computeFailure = (
   ast: SchemaAST.Union,
   input: unknown,
-  errors: ReadonlyArray<Entry>,
+  errors: ReadonlyArray<ParseResult.ParseIssue>,
   cooperation: EncodeState
 ): SemanticResult =>
-  Effect.flatMap(indexedEffect(errors, cooperation), (issues) => {
+  Effect.flatMap(compactEffect(errors, cooperation), (issues) => {
     if (!Arr.isNonEmptyReadonlyArray(issues)) return failResult(new ParseResult.Type(ast, input))
     const first = Arr.headNonEmpty(issues)
     return failResult(

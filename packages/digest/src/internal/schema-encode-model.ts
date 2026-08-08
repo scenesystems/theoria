@@ -1,6 +1,6 @@
 /** Shared state and helpers for cooperative Schema encoding. @internal */
 
-import { Array as Arr, Effect, Either, MutableRef, Option, Order, ParseResult, Record, SchemaAST } from "effect"
+import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Record, SchemaAST } from "effect"
 
 export const ENCODE_BATCH = 512
 export const ENCODE_HOST_YIELD_BATCHES = 16
@@ -126,28 +126,17 @@ export const appendMutable = <A>(items: Array<A>, value: A): void => {
   items[items.length] = value
 }
 
-export const indexed = <A>(entries: ReadonlyArray<readonly [number, A]>): Array<A> =>
-  Arr.map(Arr.sortWith(entries, ([key]) => key, Order.number), ([, value]) => value)
-
-export const indexedEffect = <A>(
-  entries: ReadonlyArray<readonly [number, A]>,
+export const compactEffect = <A>(
+  sparse: ReadonlyArray<A>,
   state: EncodeState
 ): Effect.Effect<Array<A>> =>
   Effect.suspend(() => {
-    const sparse: Array<A> = []
     const output: Array<A> = []
     return Effect.as(
-      Effect.zipRight(
-        scan(state, 0, (index) => index < entries.length, (index) =>
-          Effect.sync(() => {
-            const [key, value] = entries[index]!
-            sparse[key] = value
-          })),
-        scan(state, 0, (index) => index < sparse.length, (index) =>
-          Effect.sync(() => {
-            if (Object.prototype.hasOwnProperty.call(sparse, index)) appendMutable(output, sparse[index]!)
-          }))
-      ),
+      scan(state, 0, (index) => index < sparse.length, (index) =>
+        Effect.sync(() => {
+          if (Object.prototype.hasOwnProperty.call(sparse, index)) appendMutable(output, sparse[index]!)
+        })),
       output
     )
   })

@@ -5,21 +5,19 @@ import { Effect, Either, MutableRef, Option, ParseResult } from "effect"
 
 import {
   appendMutable,
+  compactEffect,
   type EncodeState,
-  indexedEffect,
   type Parse,
   scan,
   type SemanticResult
 } from "./schema-encode-model.js"
 
-type Entry<A> = readonly [number, A]
-
 export class RecordResultState {
-  errors: Array<Entry<ParseResult.ParseIssue>>
+  errors: Array<ParseResult.ParseIssue>
   output: Record<PropertyKey, unknown>
 
   constructor(
-    errors: Array<Entry<ParseResult.ParseIssue>>,
+    errors: Array<ParseResult.ParseIssue>,
     output: Record<PropertyKey, unknown>
   ) {
     this.errors = errors
@@ -30,7 +28,7 @@ export class RecordResultState {
 type Task = (state: RecordResultState) => Effect.Effect<void, ParseResult.ParseIssue>
 
 export class RecordState {
-  readonly errors: Array<Entry<ParseResult.ParseIssue>> = []
+  readonly errors: Array<ParseResult.ParseIssue> = []
   readonly tasks: Array<Task> = []
   readonly output: Record<PropertyKey, unknown> = {}
   readonly failure = MutableRef.make(Option.none<ParseResult.ParseIssue>())
@@ -50,7 +48,7 @@ export const recordFailure = (
   issue: ParseResult.ParseIssue,
   allErrors: boolean
 ): void => {
-  if (allErrors) appendMutable(state.errors, [nextKey(state), issue])
+  if (allErrors) state.errors[nextKey(state)] = issue
   else MutableRef.set(state.failure, Option.some(new ParseResult.Composite(ast, input, issue, state.output)))
 }
 
@@ -80,7 +78,7 @@ const recordTask = (
         })
       )
       if (allErrors) {
-        appendMutable(runtime.errors, [order, issue])
+        runtime.errors[order] = issue
         return Effect.void
       }
       return Effect.fail(new ParseResult.Composite(ast, input, issue, runtime.output))
@@ -164,6 +162,6 @@ export const orderedRecordOutput = (
   })
 
 export const recordErrors = (
-  errors: ReadonlyArray<Entry<ParseResult.ParseIssue>>,
+  errors: ReadonlyArray<ParseResult.ParseIssue>,
   cooperation: EncodeState
-): Effect.Effect<Array<ParseResult.ParseIssue>> => indexedEffect(errors, cooperation)
+): Effect.Effect<Array<ParseResult.ParseIssue>> => compactEffect(errors, cooperation)

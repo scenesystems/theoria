@@ -4,31 +4,35 @@ import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, type Sch
 
 import {
   appendMutable,
+  compactEffect,
   type EncodeState,
   failResult,
-  indexed,
-  indexedEffect,
   type Parse,
   scan,
   type SemanticResult
 } from "./schema-encode-model.js"
 
-type Entry<A> = readonly [number, A]
 type Task = (state: TupleResultState) => Effect.Effect<void, ParseResult.ParseIssue>
 
 export class TupleResultState {
-  readonly errors: Array<Entry<ParseResult.ParseIssue>>
-  readonly output: Array<Entry<unknown>>
+  readonly errors: Array<ParseResult.ParseIssue>
+  readonly output: Array<unknown>
+  readonly closed: MutableRef.MutableRef<boolean>
 
-  constructor(errors: Array<Entry<ParseResult.ParseIssue>>, output: Array<Entry<unknown>>) {
+  constructor(
+    errors: Array<ParseResult.ParseIssue>,
+    output: Array<unknown>,
+    closed = MutableRef.make(false)
+  ) {
     this.errors = errors
     this.output = output
+    this.closed = closed
   }
 }
 
 export class TupleState {
-  readonly errors: Array<Entry<ParseResult.ParseIssue>> = []
-  readonly output: Array<Entry<unknown>> = []
+  readonly errors: Array<ParseResult.ParseIssue> = []
+  readonly output: Array<unknown> = []
   readonly tasks: Array<Task> = []
   readonly failure = MutableRef.make(Option.none<ParseResult.ParseIssue>())
   readonly stepKey = MutableRef.make(0)
@@ -40,8 +44,6 @@ const nextKey = (state: TupleState): number => {
   return key
 }
 
-const output = (state: { readonly output: ReadonlyArray<Entry<unknown>> }): Array<unknown> => indexed(state.output)
-
 export const failTuple = (
   ast: SchemaAST.TupleType,
   input: ReadonlyArray<unknown>,
@@ -49,12 +51,12 @@ export const failTuple = (
   issue: ParseResult.ParseIssue,
   allErrors: boolean
 ): void => {
-  if (allErrors) appendMutable(state.errors, [nextKey(state), issue])
-  else MutableRef.set(state.failure, Option.some(new ParseResult.Composite(ast, input, issue, output(state))))
+  if (allErrors) state.errors[nextKey(state)] = issue
+  else MutableRef.set(state.failure, Option.some(issue))
 }
 
 const succeed = (state: TupleState, value: unknown): void => {
-  appendMutable(state.output, [nextKey(state), value])
+  state.output[nextKey(state)] = value
 }
 
 const addTask = (
@@ -63,21 +65,29 @@ const addTask = (
   state: TupleState,
   parsed: SemanticResult,
   index: number,
-  allErrors: boolean
+  allErrors: boolean,
+  cooperation: EncodeState
 ): void => {
   const key = nextKey(state)
   appendMutable(state.tasks, (runtime) =>
-    Effect.flatMap(Effect.either(parsed), (result) => {
-      if (Either.isRight(result)) {
-        appendMutable(runtime.output, [key, result.right])
-        return Effect.void
-      }
-      const issue = new ParseResult.Pointer(index, input, result.left)
-      if (allErrors) {
-        appendMutable(runtime.errors, [key, issue])
-        return Effect.void
-      }
-      return Effect.fail(new ParseResult.Composite(ast, input, issue, output(runtime)))
+    Effect.suspend(() => {
+      if (MutableRef.get(runtime.closed)) return Effect.void
+      return Effect.flatMap(Effect.either(parsed), (result) => {
+        if (Either.isRight(result)) {
+          runtime.output[key] = result.right
+          return Effect.void
+        }
+        const issue = new ParseResult.Pointer(index, input, result.left)
+        if (allErrors) {
+          runtime.errors[key] = issue
+          return Effect.void
+        }
+        MutableRef.set(runtime.closed, true)
+        return Effect.flatMap(
+          compactEffect(runtime.output, cooperation),
+          (output) => Effect.fail(new ParseResult.Composite(ast, input, issue, output))
+        )
+      })
     }))
 }
 
@@ -90,11 +100,12 @@ export const parseTupleElement = (
   index: number,
   options: SchemaAST.ParseOptions,
   direction: "Decode" | "Encode",
-  allErrors: boolean
+  allErrors: boolean,
+  cooperation: EncodeState
 ): Effect.Effect<void> =>
   Effect.map(parse(child, input[index], direction, options), (parsed) => {
     Option.match(Option.fromNullable(ParseResult.eitherOrUndefined(parsed)), {
-      onNone: () => addTask(ast, input, state, parsed, index, allErrors),
+      onNone: () => addTask(ast, input, state, parsed, index, allErrors, cooperation),
       onSome: (synchronous) => {
         if (Either.isRight(synchronous)) return succeed(state, synchronous.right)
         failTuple(ast, input, state, new ParseResult.Pointer(index, input, synchronous.left), allErrors)
@@ -118,10 +129,22 @@ export const computeTupleResult = (
   cooperation: EncodeState
 ): SemanticResult =>
   Effect.flatMap(
-    indexedEffect(state.errors, cooperation),
+    compactEffect(state.errors, cooperation),
     (errors) =>
-      Effect.flatMap(indexedEffect(state.output, cooperation), (values) =>
+      Effect.flatMap(compactEffect(state.output, cooperation), (values) =>
         Arr.isNonEmptyReadonlyArray(errors)
           ? failResult(new ParseResult.Composite(ast, input, errors, values))
           : Effect.succeed(values))
+  )
+
+export const computeTupleFailure = (
+  ast: SchemaAST.TupleType,
+  input: ReadonlyArray<unknown>,
+  issue: ParseResult.ParseIssue,
+  output: ReadonlyArray<unknown>,
+  cooperation: EncodeState
+): SemanticResult =>
+  Effect.flatMap(
+    compactEffect(output, cooperation),
+    (values) => failResult(new ParseResult.Composite(ast, input, issue, values))
   )
