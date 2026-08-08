@@ -6,8 +6,9 @@ import {
   appendMutable,
   type EncodeState,
   failResult,
-  getKeysForIndexSignature,
   holdSemanticResult,
+  indexSignatureKeysSnapshot,
+  ownKeysSnapshot,
   type Parse,
   runAnnotatedTasks,
   type SemanticResult
@@ -36,11 +37,12 @@ const computeResult = (
       return failResult(new ParseResult.Composite(ast, input, errors, state.output))
     }
     if (options.propertyOrder !== "original") return Effect.succeed(state.output)
-    return orderedRecordOutput(
-      state.output,
-      Option.getOrElse(inputKeys, () => Reflect.ownKeys(input)),
-      expectedKeys,
-      cooperation
+    return Effect.flatMap(
+      Option.match(inputKeys, {
+        onNone: () => ownKeysSnapshot(input),
+        onSome: Effect.succeed
+      }),
+      (keys) => orderedRecordOutput(state.output, keys, expectedKeys, cooperation)
     )
   })
 
@@ -67,10 +69,6 @@ export const parseRecord = (
     const expectedTypes: Array<SchemaAST.AST> = []
     const expectedKey = (key: PropertyKey) => Object.prototype.hasOwnProperty.call(expectedKeysMap, key)
     const excessMode = Option.fromNullable(options.onExcessProperty)
-    const inputKeys = Option.flatMap(
-      excessMode,
-      (mode) => mode === "ignore" ? Option.none() : Option.some(Reflect.ownKeys(input))
-    )
     return Effect.map(
       Effect.gen(function*() {
         yield* scanRecord(ast.indexSignatures.length, state, cooperation, (index) =>
@@ -89,6 +87,14 @@ export const parseRecord = (
           }))
         const expectedAst = SchemaAST.Union.make(expectedTypes)
         const expectedSchema = Schema.make<unknown, unknown, never>(expectedAst)
+
+        const inputKeys = yield* Option.match(excessMode, {
+          onNone: () => Effect.succeed(Option.none<ReadonlyArray<PropertyKey>>()),
+          onSome: (mode) =>
+            mode === "ignore"
+              ? Effect.succeed(Option.none<ReadonlyArray<PropertyKey>>())
+              : Effect.map(ownKeysSnapshot(input), Option.some)
+        })
 
         yield* Option.match(inputKeys, {
           onNone: () => Effect.void,
@@ -158,31 +164,33 @@ export const parseRecord = (
           Effect.suspend(() => {
             if (Option.isSome(MutableRef.get(state.failure))) return Effect.void
             const signature = Arr.unsafeGet(ast.indexSignatures, signatureIndex)
-            const keys = getKeysForIndexSignature(input, signature.parameter)
-            return scanRecord(keys.length, state, cooperation, (index) => {
-              const key = Arr.unsafeGet(keys, index)
-              return Effect.flatMap(parse(signature.parameter, key, direction, options), (parsedKey) =>
-                Option.match(Option.fromNullable(ParseResult.eitherOrUndefined(parsedKey)), {
-                  onNone: () =>
-                    Effect.void,
-                  onSome: (synchronous) =>
-                    Either.isRight(synchronous)
-                      ? parseRecordValue(
-                        ast,
-                        input,
-                        state,
-                        parse,
-                        signature.type,
-                        key,
-                        options,
-                        direction,
-                        allErrors,
-                        Option.none(),
-                        !expectedKey(key)
-                      )
-                      : Effect.void
-                }))
-            })
+            return Effect.flatMap(
+              indexSignatureKeysSnapshot(input, signature.parameter),
+              (keys) =>
+                scanRecord(keys.length, state, cooperation, (index) => {
+                  const key = Arr.unsafeGet(keys, index)
+                  return Effect.flatMap(parse(signature.parameter, key, direction, options), (parsedKey) =>
+                    Option.match(Option.fromNullable(ParseResult.eitherOrUndefined(parsedKey)), {
+                      onNone: () => Effect.void,
+                      onSome: (synchronous) =>
+                        Either.isRight(synchronous)
+                          ? parseRecordValue(
+                            ast,
+                            input,
+                            state,
+                            parse,
+                            signature.type,
+                            key,
+                            options,
+                            direction,
+                            allErrors,
+                            Option.none(),
+                            !expectedKey(key)
+                          )
+                          : Effect.void
+                    }))
+                })
+            )
           }))
 
         const failure = MutableRef.get(state.failure)

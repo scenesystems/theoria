@@ -737,6 +737,32 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
       )
     }))
 
+  it.effect("preserves Effect record snapshot timing at the explicit native owner boundary", () =>
+    Effect.gen(function*() {
+      const schema = Schema.Struct({ kept: Schema.Number }).annotations({
+        parseOptions: { onExcessProperty: "preserve", propertyOrder: "original" }
+      })
+      const makeValue = (snapshots: MutableRef.MutableRef<number>) =>
+        new Proxy({ kept: 1, extra: 2 }, {
+          ownKeys: (target) => {
+            MutableRef.increment(snapshots)
+            return Reflect.ownKeys(target)
+          }
+        })
+      const directSnapshots = MutableRef.make(0)
+      const boundedSnapshots = MutableRef.make(0)
+      const expected = yield* digestSchemaValue(schema, makeValue(directSnapshots))
+      const actual = yield* digestSchemaValueWithByteLimit(
+        schema,
+        makeValue(boundedSnapshots),
+        Number.MAX_SAFE_INTEGER
+      )
+
+      expect(actual.digest).toBe(expected)
+      expect(MutableRef.get(directSnapshots)).toBe(1)
+      expect(MutableRef.get(boundedSnapshots)).toBe(1)
+    }))
+
   it.live(
     "admits host scheduler progress during valid broad Schema encoding",
     () =>

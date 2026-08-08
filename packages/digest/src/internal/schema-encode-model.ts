@@ -1,6 +1,6 @@
 /** Shared state and helpers for cooperative Schema encoding. @internal */
 
-import { Array as Arr, Effect, Either, MutableRef, Option, ParseResult, Record, SchemaAST } from "effect"
+import { Effect, Either, MutableRef, Option, ParseResult, Record, SchemaAST } from "effect"
 
 export const ENCODE_BATCH = 512
 export const ENCODE_HOST_YIELD_BATCHES = 16
@@ -141,13 +141,30 @@ export const compactEffect = <A>(
     )
   })
 
-export const getKeysForIndexSignature = (
+/** Native own-key enumeration is an indivisible host boundary; all width-dependent follow-up work is batched. */
+const nativeKeySnapshot = <A>(capture: () => ReadonlyArray<A>): Effect.Effect<ReadonlyArray<A>> =>
+  Effect.suspend(() =>
+    Effect.zipRight(
+      Effect.yieldNow(),
+      Effect.zipLeft(Effect.sync(capture), Effect.yieldNow())
+    )
+  )
+
+export const ownKeysSnapshot = (
+  input: { readonly [key: PropertyKey]: unknown }
+): Effect.Effect<ReadonlyArray<PropertyKey>> => nativeKeySnapshot(() => Reflect.ownKeys(input))
+
+export const indexSignatureKeysSnapshot = (
   input: { readonly [key: PropertyKey]: unknown },
   parameter: SchemaAST.Parameter
-): ReadonlyArray<PropertyKey> => {
-  if (SchemaAST.isStringKeyword(parameter) || SchemaAST.isTemplateLiteral(parameter)) return Record.keys(input)
-  if (SchemaAST.isSymbolKeyword(parameter)) return Arr.filter(Reflect.ownKeys(input), (key) => typeof key === "symbol")
-  return getKeysForIndexSignature(input, parameter.from)
+): Effect.Effect<ReadonlyArray<PropertyKey>> => {
+  if (SchemaAST.isStringKeyword(parameter) || SchemaAST.isTemplateLiteral(parameter)) {
+    return nativeKeySnapshot(() => Record.keys(input))
+  }
+  if (SchemaAST.isSymbolKeyword(parameter)) {
+    return nativeKeySnapshot(() => Object.getOwnPropertySymbols(input))
+  }
+  return indexSignatureKeysSnapshot(input, parameter.from)
 }
 
 export const parseOptions = (

@@ -109,9 +109,12 @@ export const digestSchemaValue = <A, I, R>(
  *
  * Schema encoding and canonical traversal each occur once. Structural Schema
  * encoding and canonical traversal both run cooperatively in fixed-size Effect
- * batches. Traversal stops at the first canonical fragment containing byte
- * `maximumBytes + 1`, before the complete oversized preimage is materialized
- * and before digest finalization or publication. On success,
+ * batches. Native own-key snapshots required by Effect Schema semantics are
+ * indivisible host operations bracketed by interruption checkpoints; all
+ * package-owned work over each snapshot is batched. Traversal stops at the
+ * first canonical fragment containing byte `maximumBytes + 1`, before the
+ * complete oversized preimage is materialized and before digest finalization
+ * or publication. On success,
  * `canonicalByteLength` is the exact byte count emitted to the private
  * incremental digest sink.
  *
