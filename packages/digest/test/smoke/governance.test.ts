@@ -178,6 +178,16 @@ describe("governance", () => {
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
     }).pipe(Effect.provide(BunContext.layer)))
 
+  it.effect("centralizes indivisible native key snapshots at the Schema encoding owner boundary", () =>
+    Effect.gen(function*() {
+      const model = yield* readProjectFile(packageRootUrl, "src/internal/schema-encode-model.ts")
+      const records = yield* readProjectFile(packageRootUrl, "src/internal/schema-encode-records.ts")
+
+      expect(records).not.toMatch(/Reflect\.ownKeys|Object\.keys|Object\.getOwnPropertySymbols/)
+      expect(model).toContain("export const ownKeysSnapshot")
+      expect(model).toContain("export const indexSignatureKeysSnapshot")
+    }).pipe(Effect.provide(BunContext.layer)))
+
   it.effect("keeps bounded canonical emission incremental without full-preimage assembly or one-shot dispatch", () =>
     Effect.gen(function*() {
       const boundedInitializer = yield* initializerText(
