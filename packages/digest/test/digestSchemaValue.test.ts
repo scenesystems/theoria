@@ -105,6 +105,15 @@ const broadRecordFixture = (width: number): readonly [Schema.Schema.AnyNoContext
   ]
 }
 
+const terminalTupleFixture = (
+  width: number,
+  terminal: Schema.Schema.AnyNoContext,
+  value: unknown
+): readonly [Schema.Schema.AnyNoContext, unknown] => [
+  Schema.Tuple(...Arr.append(Arr.makeBy(width - 1, () => Schema.Number), terminal)),
+  Arr.append(Arr.makeBy(width - 1, (index) => index), value)
+]
+
 const deepTransformationRefinementFixture = (depth: number): Schema.Schema.AnyNoContext => {
   const schema = MutableRef.make<Schema.Schema.AnyNoContext>(Schema.Number)
   Arr.forEach(Arr.range(1, depth), () => {
@@ -193,6 +202,20 @@ const expectEncodingCooperation = (
     const exit = yield* Fiber.interrupt(fiber)
     expect(exit).toSatisfy(Exit.isInterrupted)
     expect(MutableRef.get(interruptedCompleted)).toBe(false)
+  })
+
+const interruptAfter = <A, E>(
+  effect: Effect.Effect<A, E>,
+  started: MutableRef.MutableRef<boolean>
+): Effect.Effect<Exit.Exit<A, E>, never> =>
+  Effect.gen(function*() {
+    const fiber = yield* Effect.fork(effect)
+    yield* Effect.iterate(0, {
+      while: (turns) => !MutableRef.get(started) && turns < 1_024,
+      body: (turns) => Effect.as(Effect.sleep(0), turns + 1)
+    })
+    expect(MutableRef.get(started)).toBe(true)
+    return yield* Fiber.interrupt(fiber)
   })
 
 describe("digestSchemaValue — Schema.encode → JCS → hash pipeline", () => {
@@ -678,6 +701,42 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
         }), { discard: true })
     }))
 
+  it.effect("preserves node-local ParseOptionsAnnotation precedence over inherited options", () =>
+    Effect.gen(function*() {
+      const child = Schema.Struct({ kept: Schema.String }).annotations({
+        parseOptions: { onExcessProperty: "ignore" }
+      })
+      const schema = Schema.Struct({ child }).annotations({
+        parseOptions: { onExcessProperty: "preserve" }
+      })
+      const value = { child: { kept: "value", extra: "remove-me" } }
+      const encoded = yield* Schema.encode(schema)(value)
+
+      expect(encoded).toStrictEqual({ child: { kept: "value" } })
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const expected = yield* digestSchemaValue(schema, value, algorithm)
+          const actual = yield* digestSchemaValueWithByteLimit(
+            schema,
+            value,
+            Number.MAX_SAFE_INTEGER,
+            algorithm
+          )
+          expect(actual.digest).toBe(expected)
+        }), { discard: true })
+
+      const allChildErrors = Schema.Struct({ first: Schema.Int, second: Schema.Int }).annotations({
+        parseOptions: { errors: "all" }
+      })
+      const firstParentError = Schema.Struct({ child: allChildErrors }).annotations({
+        parseOptions: { errors: "first" }
+      })
+      yield* expectEncodingFailureParity(
+        firstParentError,
+        { child: { first: 1.5, second: 2.5 } }
+      )
+    }))
+
   it.live(
     "admits host scheduler progress during valid broad Schema encoding",
     () =>
@@ -739,6 +798,73 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
     () => {
       const [schema, value] = broadTupleFixture(8_192)
       return expectEncodingCooperation(schema, value, 2 * 1024 * 1024)
+    },
+    30_000
+  )
+
+  it.live(
+    "remains interruptible during broad successful terminal output assembly",
+    () => {
+      const terminalStarted = MutableRef.make(false)
+      const terminal = Schema.transform(Schema.Number, Schema.Number, {
+        strict: true,
+        decode: (value) => value,
+        encode: (value) => {
+          MutableRef.set(terminalStarted, true)
+          return value
+        }
+      })
+      const [schema, value] = terminalTupleFixture(16_384, terminal, 16_383)
+      return Effect.map(
+        interruptAfter(
+          digestSchemaValueWithByteLimit(schema, value, 2 * 1024 * 1024),
+          terminalStarted
+        ),
+        (exit) => expect(exit).toSatisfy(Exit.isInterrupted)
+      )
+    },
+    30_000
+  )
+
+  it.live(
+    "remains interruptible while assembling broad errors-all terminal output",
+    () => {
+      const terminalStarted = MutableRef.make(false)
+      const invalid = Schema.Number.pipe(Schema.filter((value) => {
+        if (value === -1) MutableRef.set(terminalStarted, true)
+        return false
+      }))
+      const schema: Schema.Schema.AnyNoContext = Schema.Tuple(...Arr.makeBy(16_384, () => invalid)).annotations({
+        parseOptions: { errors: "all" }
+      })
+      const value = Arr.append(Arr.makeBy(16_383, (index) => index + 0.5), -1)
+      return Effect.map(
+        interruptAfter(
+          digestSchemaValueWithByteLimit(schema, value, 2 * 1024 * 1024),
+          terminalStarted
+        ),
+        (exit) => expect(exit).toSatisfy(Exit.isInterrupted)
+      )
+    },
+    30_000
+  )
+
+  it.live(
+    "remains interruptible after a late tuple failure enters terminal output assembly",
+    () => {
+      const terminalStarted = MutableRef.make(false)
+      const terminal = Schema.Number.pipe(Schema.filter((value) => {
+        MutableRef.set(terminalStarted, true)
+        return Number.isInteger(value)
+      }))
+      const [schema, value] = terminalTupleFixture(16_384, terminal, 16_383.5)
+      return Effect.map(
+        interruptAfter(
+          digestSchemaValueWithByteLimit(schema, value, 2 * 1024 * 1024),
+          terminalStarted
+        ),
+        (exit) => expect(exit).toSatisfy(Exit.isInterrupted)
+      )
     },
     30_000
   )
