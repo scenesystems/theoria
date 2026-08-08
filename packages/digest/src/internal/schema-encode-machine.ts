@@ -203,6 +203,9 @@ const makeParse = (cooperation: EncodeState): Parse => {
         })
       }))
     }
+    if (SchemaAST.isDeclaration(ast)) {
+      return Effect.zipRight(typeAst.seal(ast), delegate(ast, input, direction, inherited, cache))
+    }
     return delegate(ast, input, direction, inherited, cache)
   }
   return parse

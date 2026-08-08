@@ -791,7 +791,12 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
           expect(actual.digest).toBe(expected)
         }), { discard: true })
 
-      yield* expectEncodingFailureParity(schema, Option.some("not-a-number"))
+      const invalid = Option.some("not-a-number")
+      const existing = yield* Effect.flip(Schema.encode(schema)(invalid))
+      const cooperative = yield* Effect.flip(
+        digestSchemaValueWithByteLimit(schema, invalid, Number.MAX_SAFE_INTEGER)
+      )
+      expect(cooperative.message).toBe(existing.message)
     }))
 
   it.effect("preserves node-local ParseOptionsAnnotation precedence over inherited options", () =>

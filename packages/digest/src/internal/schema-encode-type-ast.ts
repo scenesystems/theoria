@@ -1,8 +1,8 @@
 /** Stack-safe cooperative projection of an Effect Schema type AST. @internal */
 
-import { Array as Arr, Effect, MutableHashMap, MutableRef, Option, SchemaAST } from "effect"
+import { Array as Arr, Effect, MutableHashMap, MutableHashSet, MutableRef, Option, SchemaAST } from "effect"
 
-import { cooperate, type EncodeState } from "./schema-encode-model.js"
+import { appendMutable, cooperate, type EncodeState, scan } from "./schema-encode-model.js"
 import { projectDeclaration, projectRecord, projectTuple, projectUnion } from "./schema-encode-type-ast-structure.js"
 
 const preservedTransformationAnnotations = [
@@ -75,6 +75,75 @@ export class TypeAstProjector {
     )
   }
 
+  seal(ast: SchemaAST.AST): Effect.Effect<void> {
+    return Effect.suspend(() => {
+      const pending: Array<SchemaAST.AST> = [ast]
+      const visited = MutableHashSet.empty<SchemaAST.AST>()
+      const append = (child: SchemaAST.AST): void => appendMutable(pending, child)
+      return scan(this.#cooperation, 0, (index) => index < pending.length, (index) =>
+        Effect.suspend(() => {
+          const current = pending[index]!
+          if (MutableHashSet.has(visited, current)) return Effect.void
+          MutableHashSet.add(visited, current)
+          if (SchemaAST.isSuspend(current)) {
+            return Option.match(MutableHashMap.get(this.#suspensions, current), {
+              onNone: () => Effect.void,
+              onSome: () => Effect.map(this.resolve(current), append)
+            })
+          }
+          if (SchemaAST.isDeclaration(current)) {
+            return scan(this.#cooperation, 0, (child) =>
+              child < current.typeParameters.length, (child) =>
+              Effect.sync(() =>
+                append(current.typeParameters[child]!)
+              ))
+          }
+          if (SchemaAST.isUnion(current)) {
+            return scan(this.#cooperation, 0, (child) =>
+              child < current.types.length, (child) =>
+              Effect.sync(() =>
+                append(current.types[child]!)
+              ))
+          }
+          if (SchemaAST.isTupleType(current)) {
+            return Effect.zipRight(
+              scan(this.#cooperation, 0, (child) =>
+                child < current.elements.length, (child) =>
+                Effect.sync(() =>
+                  append(current.elements[child]!.type)
+                )),
+              scan(this.#cooperation, 0, (child) =>
+                child < current.rest.length, (child) =>
+                Effect.sync(() =>
+                  append(current.rest[child]!.type)
+                ))
+            )
+          }
+          if (SchemaAST.isTypeLiteral(current)) {
+            return Effect.zipRight(
+              scan(this.#cooperation, 0, (child) =>
+                child < current.propertySignatures.length, (child) =>
+                Effect.sync(() =>
+                  append(current.propertySignatures[child]!.type)
+                )),
+              scan(this.#cooperation, 0, (child) =>
+                child < current.indexSignatures.length, (child) =>
+                Effect.sync(() =>
+                  append(current.indexSignatures[child]!.type)
+                ))
+            )
+          }
+          if (SchemaAST.isRefinement(current)) {
+            append(current.from)
+          } else if (SchemaAST.isTransformation(current)) {
+            append(current.from)
+            append(current.to)
+          }
+          return Effect.void
+        }))
+    })
+  }
+
   #remember(source: SchemaAST.AST, projected: SchemaAST.AST): SchemaAST.AST {
     MutableHashMap.set(this.#cache, source, projected)
     return projected
@@ -84,7 +153,7 @@ export class TypeAstProjector {
     if (SchemaAST.isSuspend(ast)) {
       const body = MutableRef.make(Option.none<SchemaAST.AST>())
       const projected = new SchemaAST.Suspend(
-        () => Option.getOrElse(MutableRef.get(body), ast.f),
+        () => Option.getOrThrow(MutableRef.get(body)),
         ast.annotations
       )
       this.#remember(ast, projected)

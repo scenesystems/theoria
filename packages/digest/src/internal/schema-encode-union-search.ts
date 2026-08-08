@@ -28,7 +28,6 @@ export class UnionBucket {
 
 export class UnionSearchTree {
   readonly keys: Record<PropertyKey, UnionBucket> = {}
-  readonly keyOrder: Array<PropertyKey> = []
   readonly otherwise: Array<SchemaAST.AST> = []
   readonly candidates: Array<SchemaAST.AST> = []
 }
@@ -121,7 +120,6 @@ export const makeUnionSearchTree = (
             Effect.sync(() => {
               const [key, literal] = tags[tagIndex]!
               const bucket = Option.getOrElse(getOwn(tree.keys, key), () => {
-                appendMutable(tree.keyOrder, key)
                 return setOwn(tree.keys, key, new UnionBucket())
               })
               const hash = String(literal.literal)

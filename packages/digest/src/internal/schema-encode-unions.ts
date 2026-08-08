@@ -8,6 +8,7 @@ import {
   type EncodeState,
   failResult,
   holdSemanticResult,
+  ownKeysSnapshot,
   type Parse,
   runAnnotatedTasks,
   scan as scanBatches,
@@ -79,81 +80,79 @@ const selectCandidates = (
   tree: UnionSearchTree,
   state: UnionState,
   cooperation: EncodeState
-): Effect.Effect<void> => {
-  const keys = tree.keyOrder
-  const treeCandidates = tree.candidates
-  if (keys.length > 0 && !Predicate.isRecord(input) && !Arr.isArray(input)) {
-    const expected = treeCandidates.length === ast.types.length ? ast : SchemaAST.Union.make(treeCandidates)
-    appendError(state, new ParseResult.Type(expected, input), nextKey(state))
-  }
-  const scanKeys = Predicate.isRecord(input) || Arr.isArray(input)
-    ? scan(keys.length, cooperation, (index) =>
-      Effect.suspend(() => {
-        const name = Arr.unsafeGet(keys, index)
-        const bucket = getUnionBucket(tree, name)
-        const bucketCandidates = bucket.candidates
-        if (!Object.prototype.hasOwnProperty.call(input, name)) {
-          const property = new SchemaAST.PropertySignature(name, expectedUnionDiscriminator(bucket), false, true)
-          const expected = bucketCandidates.length === ast.types.length
-            ? new SchemaAST.TypeLiteral([property], [])
-            : SchemaAST.Union.make(bucketCandidates)
-          appendError(
-            state,
-            new ParseResult.Composite(
-              expected,
-              input,
-              new ParseResult.Pointer(name, input, new ParseResult.Missing(property))
-            ),
-            nextKey(state)
-          )
-          return Effect.void
-        }
-        const literal = String(propertyValue(input, name))
-        const candidates = Object.prototype.hasOwnProperty.call(bucket.buckets, literal)
-          ? Option.fromNullable(bucket.buckets[literal])
-          : Option.none()
-        Option.match(candidates, {
-          onNone: () => {
+): Effect.Effect<void> =>
+  Effect.gen(function*() {
+    const keys = yield* ownKeysSnapshot(tree.keys)
+    const treeCandidates = tree.candidates
+    if (keys.length > 0 && !Predicate.isRecord(input) && !Arr.isArray(input)) {
+      const expected = treeCandidates.length === ast.types.length ? ast : SchemaAST.Union.make(treeCandidates)
+      appendError(state, new ParseResult.Type(expected, input), nextKey(state))
+    }
+    if (Predicate.isRecord(input) || Arr.isArray(input)) {
+      yield* scan(keys.length, cooperation, (index) =>
+        Effect.suspend(() => {
+          const name = Arr.unsafeGet(keys, index)
+          const bucket = getUnionBucket(tree, name)
+          const bucketCandidates = bucket.candidates
+          if (!Object.prototype.hasOwnProperty.call(input, name)) {
+            const property = new SchemaAST.PropertySignature(name, expectedUnionDiscriminator(bucket), false, true)
             const expected = bucketCandidates.length === ast.types.length
-              ? new SchemaAST.TypeLiteral([
-                new SchemaAST.PropertySignature(name, expectedUnionDiscriminator(bucket), false, true)
-              ], [])
+              ? new SchemaAST.TypeLiteral([property], [])
               : SchemaAST.Union.make(bucketCandidates)
             appendError(
               state,
               new ParseResult.Composite(
                 expected,
                 input,
-                new ParseResult.Pointer(
-                  name,
-                  input,
-                  new ParseResult.Type(expectedUnionDiscriminator(bucket), propertyValue(input, name))
-                )
+                new ParseResult.Pointer(name, input, new ParseResult.Missing(property))
               ),
               nextKey(state)
             )
-          },
-          onSome: () => {}
-        })
-        return Option.match(candidates, {
-          onNone: () => Effect.void,
-          onSome: (candidates) =>
-            scan(candidates.length, cooperation, (candidateIndex) =>
-              Effect.sync(() => {
-                appendMutable(state.candidates, Arr.unsafeGet(candidates, candidateIndex))
-              }))
-        })
-      }))
-    : Effect.void
+            return Effect.void
+          }
+          const literal = String(propertyValue(input, name))
+          const candidates = Object.prototype.hasOwnProperty.call(bucket.buckets, literal)
+            ? Option.fromNullable(bucket.buckets[literal])
+            : Option.none()
+          Option.match(candidates, {
+            onNone: () => {
+              const expected = bucketCandidates.length === ast.types.length
+                ? new SchemaAST.TypeLiteral([
+                  new SchemaAST.PropertySignature(name, expectedUnionDiscriminator(bucket), false, true)
+                ], [])
+                : SchemaAST.Union.make(bucketCandidates)
+              appendError(
+                state,
+                new ParseResult.Composite(
+                  expected,
+                  input,
+                  new ParseResult.Pointer(
+                    name,
+                    input,
+                    new ParseResult.Type(expectedUnionDiscriminator(bucket), propertyValue(input, name))
+                  )
+                ),
+                nextKey(state)
+              )
+            },
+            onSome: () => {}
+          })
+          return Option.match(candidates, {
+            onNone: () => Effect.void,
+            onSome: (candidates) =>
+              scan(candidates.length, cooperation, (candidateIndex) =>
+                Effect.sync(() => {
+                  appendMutable(state.candidates, Arr.unsafeGet(candidates, candidateIndex))
+                }))
+          })
+        }))
+    }
 
-  return Effect.zipRight(
-    scanKeys,
-    scan(tree.otherwise.length, cooperation, (index) =>
+    yield* scan(tree.otherwise.length, cooperation, (index) =>
       Effect.sync(() => {
         appendMutable(state.candidates, Arr.unsafeGet(tree.otherwise, index))
       }))
-  )
-}
+  })
 
 const computeFailure = (
   ast: SchemaAST.Union,
