@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Fiber, MutableRef, ParseResult, Record, Scheduler, Schema } from "effect"
+import { Array as Arr, Effect, Exit, Fiber, MutableRef, Option, ParseResult, Record, Scheduler, Schema } from "effect"
 import {
   CanonicalByteLimitExceeded,
   canonicalJsonBytes,
@@ -699,6 +699,99 @@ describe("digestSchemaValueWithByteLimit — exact canonical preimage bound", ()
           )
           expect(actual.digest).toBe(expected)
         }), { discard: true })
+    }))
+
+  it.effect("matches Effect union discriminator key ordering", () =>
+    Effect.gen(function*() {
+      const integerMember = Schema.transform(
+        Schema.Literal("integer-key"),
+        Schema.Struct({ 1: Schema.Literal("one") }),
+        {
+          strict: true,
+          decode: (): { readonly 1: "one" } => ({ 1: "one" }),
+          encode: (): "integer-key" => "integer-key"
+        }
+      )
+      const stringMember = Schema.transform(
+        Schema.Literal("string-key"),
+        Schema.Struct({ z: Schema.Literal("z") }),
+        {
+          strict: true,
+          decode: (): { readonly z: "z" } => ({ z: "z" }),
+          encode: (): "string-key" => "string-key"
+        }
+      )
+      const numericSchema: Schema.Schema.AnyNoContext = Schema.Union(stringMember, integerMember)
+      const numericValue = { 1: "one", z: "z" }
+
+      const symbol = Symbol.for("@scenesystems/digest/test/discriminator")
+      const symbolMember = Schema.transform(
+        Schema.Literal("symbol-key"),
+        Schema.Struct({ [symbol]: Schema.Literal("symbol") }),
+        {
+          strict: true,
+          decode: (): { readonly [symbol]: "symbol" } => ({ [symbol]: "symbol" }),
+          encode: (): "symbol-key" => "symbol-key"
+        }
+      )
+      const symbolSchema: Schema.Schema.AnyNoContext = Schema.Union(symbolMember, stringMember)
+      const symbolValue = { [symbol]: "symbol", z: "z" }
+
+      const expectDigestParity = (schema: Schema.Schema.AnyNoContext, value: unknown) =>
+        Effect.forEach(algorithms, (algorithm) =>
+          Effect.gen(function*() {
+            const expected = yield* digestSchemaValue(schema, value, algorithm)
+            const actual = yield* digestSchemaValueWithByteLimit(
+              schema,
+              value,
+              Number.MAX_SAFE_INTEGER,
+              algorithm
+            )
+            expect(actual.digest).toBe(expected)
+          }), { discard: true })
+      yield* expectDigestParity(numericSchema, numericValue)
+      yield* expectDigestParity(symbolSchema, symbolValue)
+
+      const failing = Schema.Union(
+        Schema.Struct({ z: Schema.Literal("z"), value: Schema.Int }),
+        Schema.Struct({ 1: Schema.Literal("one"), value: Schema.Int })
+      )
+      yield* expectEncodingFailureParity(failing, { 1: "one", z: "z", value: 1.5 })
+    }))
+
+  it.effect("seals projected suspended declaration parameters before native delegation", () =>
+    Effect.gen(function*() {
+      const parameter = Schema.suspend(() => Schema.NumberFromString)
+      const declaration = Schema.OptionFromSelf(parameter).pipe(Schema.filter(() => true))
+      const schema: Schema.Schema.AnyNoContext = Schema.transform(
+        Schema.Struct({ _tag: Schema.Literal("Some"), value: Schema.String }),
+        declaration,
+        {
+          strict: true,
+          decode: (value) => Option.some(value.value),
+          encode: (value): { readonly _tag: "Some"; readonly value: string } => ({
+            _tag: "Some",
+            value: Option.getOrThrow(value)
+          })
+        }
+      )
+      const value = Option.some(123)
+      const encoded = yield* Schema.encode(schema)(value)
+      expect(encoded).toStrictEqual({ _tag: "Some", value: "123" })
+
+      yield* Effect.forEach(algorithms, (algorithm) =>
+        Effect.gen(function*() {
+          const expected = yield* digestSchemaValue(schema, value, algorithm)
+          const actual = yield* digestSchemaValueWithByteLimit(
+            schema,
+            value,
+            Number.MAX_SAFE_INTEGER,
+            algorithm
+          )
+          expect(actual.digest).toBe(expected)
+        }), { discard: true })
+
+      yield* expectEncodingFailureParity(schema, Option.some("not-a-number"))
     }))
 
   it.effect("preserves node-local ParseOptionsAnnotation precedence over inherited options", () =>
