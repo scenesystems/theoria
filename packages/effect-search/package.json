@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-search",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Effect-native black-box optimization for TypeScript",
   "license": "MIT",
