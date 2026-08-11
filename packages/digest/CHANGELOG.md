@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.5.0
+
+### Minor Changes
+
+- [`e403ba2`](https://github.com/scenesystems/theoria/commit/e403ba20186d4d58be5e619a5e7f253b511c9164) Thanks [@ampagent](https://github.com/ampagent)! - Add `digestSchemaValueWithByteLimitSync`, a bounded synchronous `Either` API that shares the existing Schema encoding, strict JCS traversal, UTF-8, incremental digest, tagged-output, and closed error laws without requiring an Effect runtime.
+
 ## 0.4.0
 
 ### Minor Changes
