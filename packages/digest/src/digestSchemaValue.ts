@@ -27,14 +27,16 @@
  * @category digest
  */
 
-import { Effect, type ParseResult, Schema } from "effect"
+import { Effect, Either, type ParseResult, Schema } from "effect"
 import { digest } from "./digest.js"
 import {
   finalizeIncrementalHasherTagged,
+  finalizeIncrementalHasherTaggedSync,
   makeIncrementalHasher,
+  makeIncrementalHasherSync,
   updateIncrementalHasher
 } from "./internal/digest-bytes.js"
-import { canonicalizeWithByteLimit } from "./internal/jcs.js"
+import { canonicalizeWithByteLimit, canonicalizeWithByteLimitEither } from "./internal/jcs.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import {
@@ -78,6 +80,26 @@ const digestEncodedBounded = (
           )
       )
   )
+
+const digestEncodedBoundedSync = (
+  encoded: unknown,
+  maximumBytes: number,
+  algorithm: DigestAlgorithm
+): Either.Either<SchemaValueDigest, CanonicalByteLimitExceeded | CanonicalizationError> => {
+  const hasher = makeIncrementalHasherSync(algorithm)
+  return Either.map(
+    canonicalizeWithByteLimitEither(
+      encoded,
+      maximumBytes,
+      (segment) => updateIncrementalHasher(hasher, encodeUtf8Unchecked(segment))
+    ),
+    (canonicalByteLength) =>
+      new SchemaValueDigest({
+        digest: finalizeIncrementalHasherTaggedSync(algorithm, hasher),
+        canonicalByteLength
+      })
+  )
+}
 
 /**
  * Digest a Schema-typed value through the full pipeline.
@@ -132,3 +154,35 @@ export const digestSchemaValueWithByteLimit = <A, I>(
   isByteLimit(maximumBytes)
     ? Effect.flatMap(Schema.encode(schema)(value), (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm))
     : new InvalidCanonicalByteLimit({})
+
+/**
+ * Synchronously digest a Schema value only when its exact canonical UTF-8
+ * preimage is within an inclusive byte limit.
+ *
+ * This is the bounded, non-cooperative counterpart to
+ * `digestSchemaValueWithByteLimit`. It uses `Schema.encodeEither` and the same
+ * strict JCS state machine, UTF-8 law, and incremental digest kernels without
+ * executing an Effect runtime. Expected failures are returned as `Either.Left`.
+ * Callers must choose a small owner-controlled limit because admitted work
+ * blocks the current JavaScript turn until completion.
+ *
+ * Default algorithm is `"blake3-256"`.
+ *
+ * @since 0.5.0
+ * @category digest
+ */
+export const digestSchemaValueWithByteLimitSync = <A, I>(
+  schema: Schema.Schema<A, I, never>,
+  value: A,
+  maximumBytes: number,
+  algorithm: DigestAlgorithm = "blake3-256"
+): Either.Either<
+  SchemaValueDigest,
+  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError
+> =>
+  isByteLimit(maximumBytes)
+    ? Either.flatMap(
+      Schema.encodeEither(schema)(value),
+      (encoded) => digestEncodedBoundedSync(encoded, maximumBytes, algorithm)
+    )
+    : Either.left(new InvalidCanonicalByteLimit({}))

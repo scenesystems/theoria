@@ -22,8 +22,14 @@ admitted value → RFC 8785 JCS → strict UTF-8 → BLAKE3-256 or SHA-256 → b
 ```
 
 ```ts typecheck
-import { canonicalJsonBytes, digest, digestSchemaValue, digestSchemaValueWithByteLimit } from "@scenesystems/digest"
-import { Effect, Schema } from "effect"
+import {
+  canonicalJsonBytes,
+  digest,
+  digestSchemaValue,
+  digestSchemaValueWithByteLimit,
+  digestSchemaValueWithByteLimitSync
+} from "@scenesystems/digest"
+import { Effect, Either, Schema } from "effect"
 
 const Event = Schema.Struct({
   name: Schema.String,
@@ -48,9 +54,22 @@ const program = Effect.gen(function* () {
 
   return { boundedSchemaDigest, canonicalBytes, tagged, schemaTagged }
 })
+
+const synchronous = digestSchemaValueWithByteLimitSync(
+  Event,
+  {
+    name: "startup",
+    occurredAt: new Date("2026-07-22T00:00:00.000Z")
+  },
+  1_024
+)
+
+if (Either.isLeft(synchronous)) {
+  // Handle ParseError, CanonicalizationError, or CanonicalByteLimitError.
+}
 ```
 
-`digest` and `digestSchemaValue` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters. `digestSchemaValueWithByteLimit` returns that tagged text as `digest` together with its exact `canonicalByteLength`.
+`digest` and `digestSchemaValue` return `"<algorithm>:<base64url>"`. A 256-bit digest uses 43 unpadded base64url characters. Both byte-limited Schema APIs return that tagged text as `digest` together with its exact `canonicalByteLength`.
 
 Digest identifies exact bytes. It does not define application domains, versions, normalization policy, ownership, or authenticity.
 
@@ -111,6 +130,15 @@ digestSchemaValueWithByteLimit<A, I>(
   CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,
   never
 >
+digestSchemaValueWithByteLimitSync<A, I>(
+  schema: Schema.Schema<A, I, never>,
+  value: A,
+  maximumBytes: number,
+  algorithm?: DigestAlgorithm
+): Either.Either<
+  SchemaValueDigest,
+  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError
+>
 ```
 
 `digestSchemaValue` first applies `Schema.encode`, then admits and canonicalizes the encoded value. Schema requirements remain in `R`, and `ParseResult.ParseError` remains distinguishable from canonicalization failures.
@@ -118,6 +146,8 @@ digestSchemaValueWithByteLimit<A, I>(
 `digestSchemaValueWithByteLimit` is the resource-qualified form for schemas with no environment requirements. It encodes once and traverses the encoded value once through the same strict JCS authority as the unbounded operation. The JCS machine counts canonical UTF-8 emission and flushes bounded private text segments to a fresh incremental hasher as traversal proceeds, discarding every delivered segment. Emission stops at the first fragment containing byte `maximumBytes + 1`; an oversized preimage is not fully materialized and its partial hasher is never finalized or published. The limit is inclusive, so the exact bound succeeds. Success returns `SchemaValueDigest({ digest, canonicalByteLength })`; `digest` is byte-identical to `digestSchemaValue`, and `canonicalByteLength` is the exact canonical UTF-8 count delivered to the private incremental digest sink.
 
 `maximumBytes` must be a non-negative safe integer. Invalid maxima fail with fieldless, redacted `InvalidCanonicalByteLimit`; excess fails with fieldless, redacted `CanonicalByteLimitExceeded`. `CanonicalByteLimitError` is the closed union of those classifications. RFC 8785 record key ordering and strict descriptor admission require bounded snapshot and sort state for the current container, so this is bounded early canonical UTF-8 emission rather than a second serializer or an independently streamed object-ordering law.
+
+`digestSchemaValueWithByteLimitSync` applies the same law through `Schema.encodeEither` and returns every expected failure as `Either.Left`. It does not run the cooperative Effect driver, Clock, or scheduler and never finalizes or publishes an over-limit digest. It blocks the current JavaScript turn, so use it only for small owner-controlled values at boundaries that cannot acquire an Effect runtime; use `digestSchemaValueWithByteLimit` everywhere else. The byte limit bounds canonical UTF-8 emission, not descriptor admission or key-sort work before emission. Callers admitting untrusted or structurally unbounded inputs need a separate owner-side container/traversal bound before either digest API.
 
 ## Text and byte hashing
 

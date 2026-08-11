@@ -282,6 +282,48 @@ describe("governance", () => {
         )
       ).toEqual([])
 
+      const synchronousInitializer = yield* initializerText(
+        "src/digestSchemaValue.ts",
+        "digestSchemaValueWithByteLimitSync"
+      )
+      const synchronous = parseTypeScript(
+        "digestSchemaValueWithByteLimitSync.initializer.ts",
+        `const value = ${synchronousInitializer}`
+      )
+      expect(
+        Arr.filter(callInvocations(synchronous), ({ target }) => target === "Schema.encodeEither")
+      ).toEqual([
+        new ExpressionInvocation({ kind: "call", target: "Schema.encodeEither", arguments: ["schema"] })
+      ])
+
+      const synchronousInitializers: ReadonlyArray<readonly [string, string]> = [
+        ["src/digestSchemaValue.ts", "digestSchemaValueWithByteLimitSync"],
+        ["src/digestSchemaValue.ts", "digestEncodedBoundedSync"],
+        ["src/internal/jcs-machine.ts", "canonicalizeWithByteLimitEither"],
+        ["src/internal/jcs-machine.ts", "executeSynchronously"],
+        ["src/internal/digest-bytes.ts", "makeIncrementalHasherSync"],
+        ["src/internal/digest-bytes.ts", "finalizeIncrementalHasherTaggedSync"]
+      ]
+      const synchronousInvocations = yield* Effect.forEach(
+        synchronousInitializers,
+        ([relativePath, variableName]) =>
+          initializerText(relativePath, variableName).pipe(
+            Effect.map((initializer) =>
+              callInvocations(parseTypeScript(`${variableName}.initializer.ts`, `const value = ${initializer}`))
+            )
+          )
+      )
+      expect(
+        Arr.filter(
+          Arr.flatten(synchronousInvocations),
+          ({ target }) =>
+            target.startsWith("Effect.") ||
+            target.startsWith("Runtime.") ||
+            target.startsWith("Clock.") ||
+            target.startsWith("Scheduler.")
+        )
+      ).toEqual([])
+
       const streamingSource = yield* readProjectFile(packageRootUrl, "src/streaming.ts")
       expect(
         Arr.filter(
@@ -290,8 +332,8 @@ describe("governance", () => {
         )
       ).toEqual([])
 
-      const hasherInitializer = yield* initializerText("src/internal/digest-bytes.ts", "makeIncrementalHasher")
-      const hasher = parseTypeScript("makeIncrementalHasher.initializer.ts", `const value = ${hasherInitializer}`)
+      const hasherInitializer = yield* initializerText("src/internal/digest-bytes.ts", "makeIncrementalHasherSync")
+      const hasher = parseTypeScript("makeIncrementalHasherSync.initializer.ts", `const value = ${hasherInitializer}`)
       expect(
         Arr.filter(
           callInvocations(hasher),

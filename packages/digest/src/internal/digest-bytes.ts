@@ -15,19 +15,27 @@ export type IncrementalHasher = _BLAKE3 | _SHA256
 
 const tagDigest = (algorithm: DigestAlgorithm, digest: Uint8Array): string => `${algorithm}:${toBase64Url(digest)}`
 
-export const makeIncrementalHasher = (algorithm: DigestAlgorithm): Effect.Effect<IncrementalHasher> =>
-  Effect.sync(() =>
-    Match.value(algorithm).pipe(
-      Match.when("blake3-256", () => blake3.create()),
-      Match.when("sha256", () => nobleSha256.create()),
-      Match.exhaustive
-    )
+export const makeIncrementalHasherSync = (algorithm: DigestAlgorithm): IncrementalHasher =>
+  Match.value(algorithm).pipe(
+    Match.when("blake3-256", () => blake3.create()),
+    Match.when("sha256", () => nobleSha256.create()),
+    Match.exhaustive
   )
+
+export const makeIncrementalHasher = (algorithm: DigestAlgorithm): Effect.Effect<IncrementalHasher> =>
+  Effect.sync(() => makeIncrementalHasherSync(algorithm))
 
 export const updateIncrementalHasher = (hasher: IncrementalHasher, bytes: Uint8Array): void => void hasher.update(bytes)
 
+export const finalizeIncrementalHasherSync = (hasher: IncrementalHasher): Uint8Array => hasher.digest()
+
 export const finalizeIncrementalHasher = (hasher: IncrementalHasher): Effect.Effect<Uint8Array> =>
-  Effect.sync(() => hasher.digest())
+  Effect.sync(() => finalizeIncrementalHasherSync(hasher))
+
+export const finalizeIncrementalHasherTaggedSync = (
+  algorithm: DigestAlgorithm,
+  hasher: IncrementalHasher
+): string => tagDigest(algorithm, finalizeIncrementalHasherSync(hasher))
 
 export const finalizeIncrementalHasherTagged = (
   algorithm: DigestAlgorithm,

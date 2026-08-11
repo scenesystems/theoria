@@ -209,6 +209,49 @@ const assertPackedCjsCapability = (directory: string) =>
     return report
   })
 
+const assertPackedSyncCapability = (directory: string, moduleKind: "esm" | "cjs") =>
+  Effect.gen(function*() {
+    const imports = moduleKind === "esm"
+      ? [
+        `import * as Digest from ${encodeJsString(PACKAGE_NAME)}`,
+        "import { Either, Schema } from \"effect\""
+      ]
+      : [
+        `const Digest = require(${encodeJsString(PACKAGE_NAME)})`,
+        "const { Either, Schema } = require(\"effect\")"
+      ]
+    const source = [
+      ...imports,
+      "const exact = Digest.digestSchemaValueWithByteLimitSync(Schema.String, \"😀\", 6)",
+      "const excess = Digest.digestSchemaValueWithByteLimitSync(Schema.String, \"😀\", 5)",
+      "const invalid = Digest.digestSchemaValueWithByteLimitSync(Schema.String, \"😀\", -1)",
+      "const report = {",
+      "  tagged: Either.isRight(exact) && /^blake3-256:[A-Za-z0-9_-]{43}$/.test(exact.right.digest),",
+      "  canonicalByteLength: Either.isRight(exact) ? exact.right.canonicalByteLength : -1,",
+      "  excess: Either.isLeft(excess) ? excess.left._tag : \"success\",",
+      "  invalid: Either.isLeft(invalid) ? invalid.left._tag : \"success\"",
+      "}",
+      "process.stdout.write(JSON.stringify(report))"
+    ].join("\n")
+    const stage = `packed-${moduleKind}-sync-byte-limit`
+    const output = yield* runCommand(
+      stage,
+      directory,
+      "node",
+      [moduleKind === "esm" ? "--input-type=module" : "--input-type=commonjs", "--eval", source]
+    )
+    return yield* decodeJson(
+      stage,
+      Schema.parseJson(Schema.Struct({
+        tagged: Schema.Literal(true),
+        canonicalByteLength: Schema.Literal(6),
+        excess: Schema.Literal("CanonicalByteLimitExceeded"),
+        invalid: Schema.Literal("InvalidCanonicalByteLimit")
+      })),
+      output
+    )
+  })
+
 const assertPackedNodeNextDeclarations = (root: string, directory: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -222,18 +265,24 @@ const assertPackedNodeNextDeclarations = (root: string, directory: string) =>
         "  type CanonicalByteLimitError,",
         "  type CanonicalizationError,",
         "  digestSchemaValueWithByteLimit,",
+        "  digestSchemaValueWithByteLimitSync,",
         "  InvalidCanonicalByteLimit,",
         "  SchemaValueDigest",
         "} from \"@scenesystems/digest\"",
-        "import { Effect, type ParseResult, Schema } from \"effect\"",
+        "import { Effect, Either, type ParseResult, Schema } from \"effect\"",
         "const program: Effect.Effect<",
         "  SchemaValueDigest,",
         "  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError,",
         "  never",
         "> = digestSchemaValueWithByteLimit(Schema.String, \"value\", 7)",
+        "const synchronous: Either.Either<",
+        "  SchemaValueDigest,",
+        "  CanonicalByteLimitError | CanonicalizationError | ParseResult.ParseError",
+        "> = digestSchemaValueWithByteLimitSync(Schema.String, \"value\", 7)",
         "const excess = new CanonicalByteLimitExceeded({})",
         "const invalid = new InvalidCanonicalByteLimit({})",
         "void program",
+        "void synchronous",
         "void excess",
         "void invalid",
         ""
@@ -392,6 +441,8 @@ const program = Effect.gen(function*() {
   yield* installConsumer(cjsDirectory)
   yield* assertPublicRoot(esmDirectory, "esm", profile.expectedExports)
   yield* assertPublicRoot(cjsDirectory, "cjs", profile.expectedExports)
+  yield* assertPackedSyncCapability(esmDirectory, "esm")
+  yield* assertPackedSyncCapability(cjsDirectory, "cjs")
   yield* assertPackedCjsCapability(cjsDirectory)
   yield* assertPackedNodeNextDeclarations(root, esmDirectory)
   yield* materializeRuntimeProfile(root, esmDirectory, profile.kats)
