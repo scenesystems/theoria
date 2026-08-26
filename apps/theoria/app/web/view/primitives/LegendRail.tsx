@@ -25,11 +25,12 @@ export const LegendRail = ({
 }) => (
   <Layer className="overflow-hidden border-y border-stage-200/72 bg-transparent">
     <Layer
-      as="dl"
+      as="ul"
       className={`-mb-px -mr-px grid auto-rows-fr ${railColumnsClassName(items.length)}`}
     >
       {Arr.map(items, (item) => (
         <Layer
+          as="li"
           className="flex min-w-0 items-center border-r border-b border-stage-200/72 px-3 py-2 sm:px-4"
           key={item.label}
         >

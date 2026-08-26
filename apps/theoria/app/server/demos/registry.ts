@@ -13,7 +13,7 @@ import type { StreamManifest } from "../../contracts/stream-manifest.js"
 type ProgramSourceEnv = FileSystem.FileSystem | Path.Path
 
 import { preloadProgram as preloadDigestProgram, run as runDigest } from "./digest/run.js"
-import type { DspProviderRuntime } from "./effect-dsp/provider.js"
+import type { DspProviderRuntime, DspProviderRuntimeApi } from "./effect-dsp/provider.js"
 import {
   preloadProgram as preloadEffectDspProgram,
   run as runEffectDsp,
@@ -45,7 +45,10 @@ type Definition = {
   readonly lane: Lane
   readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>
   readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>
-  readonly streamElements: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
+  readonly streamElements: (
+    manifest: StreamManifest | null,
+    runtime?: DspProviderRuntimeApi
+  ) => Stream.Stream<StreamElement, unknown, never> | null
 }
 
 const preloadFrom = (
@@ -66,7 +69,10 @@ const makeDefinition = (
   lane: Lane,
   execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>,
   preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>,
-  streamElements: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null = () => null
+  streamElements: (
+    manifest: StreamManifest | null,
+    runtime?: DspProviderRuntimeApi
+  ) => Stream.Stream<StreamElement, unknown, never> | null = () => null
 ): Definition => ({
   id: card.id,
   card,
@@ -111,7 +117,11 @@ const definitionForCard = (card: Card): Definition =>
         "provider",
         runEffectDsp,
         preloadFrom(card, preloadEffectDspProgram),
-        streamEffectDspElements
+        (manifest, runtime) =>
+          Option.match(Option.fromNullable(runtime), {
+            onNone: () => null,
+            onSome: (providerRuntime) => streamEffectDspElements(manifest, providerRuntime)
+          })
       )),
     Match.orElse(() => makeDefinition(card, "local", runEffectDsp, preloadFrom(card, preloadEffectDspProgram)))
   )

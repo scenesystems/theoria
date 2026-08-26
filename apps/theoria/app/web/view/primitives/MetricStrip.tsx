@@ -111,9 +111,9 @@ export const MetricStrip = ({
   readonly variant?: MetricStripVariant
 }) => (
   <Layer className={shellClassName({ emphasis, surface })}>
-    <Layer as="dl" className={`-mb-px -mr-px ${columnsClassName({ emphasis, metricCount: metrics.length, variant })}`}>
+    <Layer as="ul" className={`-mb-px -mr-px ${columnsClassName({ emphasis, metricCount: metrics.length, variant })}`}>
       {Arr.map(metrics, (metric) => (
-        <Layer className={cellClassName({ density, emphasis })} key={metric.label}>
+        <Layer as="li" className={cellClassName({ density, emphasis })} key={metric.label}>
           {metricNode({ density, emphasis, metric, variant })}
         </Layer>
       ))}

@@ -163,7 +163,7 @@ export const EvidenceToolbar = ({
         <AdjustmentsHorizontalIcon aria-hidden className="h-4 w-4" />
         <SemanticText as="span" role="button-label" text="Adjust" variant="expanded" />
       </Popover.Trigger>
-      <Popover.Portal keepMounted>
+      <Popover.Portal>
         <Popover.Positioner
           align="end"
           className="z-[80]"

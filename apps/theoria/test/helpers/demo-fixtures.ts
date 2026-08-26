@@ -1,3 +1,4 @@
+import type { Capabilities } from "../../app/contracts/capabilities.js"
 import type { Card } from "../../app/contracts/card.js"
 import { DemoExecutionError } from "../../app/contracts/demo-error.js"
 import type { ProgramPreview } from "../../app/contracts/program-preview.js"
@@ -19,6 +20,15 @@ export const effectTextCardFixture: Card = {
   npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
   repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
   license: "MIT"
+}
+
+export const capabilitiesFixture: Capabilities = {
+  demos: [{ id: "effect-dsp", enabled: true }],
+  dsp: {
+    status: "configured",
+    provider: "openai",
+    model: "test-model"
+  }
 }
 
 export const errorFixture = new DemoExecutionError({

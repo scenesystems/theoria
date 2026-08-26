@@ -141,6 +141,11 @@ describe("live run controls", () => {
           yield* Effect.ensuring(
             Effect.gen(function*() {
               const runButton = yield* waitForButtonWithin("Run", "initial-run-button")
+              expect(container.querySelectorAll("main")).toHaveLength(1)
+              Arr.fromIterable(container.querySelectorAll('[aria-hidden="true"]')).forEach((hiddenElement) => {
+                expect(hiddenElement.querySelector("a, button, input, select, textarea, [tabindex]"),
+                  "aria-hidden presentation decoration must not contain focusable content").toBeNull()
+              })
               yield* Effect.sync(() => {
                 runButton.click()
               })

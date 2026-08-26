@@ -123,27 +123,25 @@ export const Sparkline = ({
                 summaryItems,
                 (item, index) => (
                   <Layer
-                    className={`${
+                    className={`flex flex-col gap-0.5 ${
                       index === 0 ? "" : "border-t border-stage-200/60 pt-3 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0"
                     }`}
                     key={item.label}
                   >
-                    <Stack className="gap-0.5">
-                      <SemanticText
-                        as="dt"
-                        className="text-ink-700"
-                        role="row-label"
-                        text={item.label}
-                        variant="expanded"
-                      />
-                      <SemanticText
-                        as="dd"
-                        className="tabular-nums text-ink-800"
-                        role="code-meta"
-                        text={`${item.value}${unit !== undefined ? ` ${unit}` : ""}`}
-                        variant="expanded"
-                      />
-                    </Stack>
+                    <SemanticText
+                      as="dt"
+                      className="text-ink-700"
+                      role="row-label"
+                      text={item.label}
+                      variant="expanded"
+                    />
+                    <SemanticText
+                      as="dd"
+                      className="tabular-nums text-ink-800"
+                      role="code-meta"
+                      text={`${item.value}${unit !== undefined ? ` ${unit}` : ""}`}
+                      variant="expanded"
+                    />
                   </Layer>
                 )
               )}

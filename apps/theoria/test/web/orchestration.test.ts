@@ -16,7 +16,7 @@ import { customTextAtom, reflowControlsAtom, reflowSliderMaxWidth } from "../../
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import { capabilitiesFixture, errorFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import { failedRunState, runningRunState, succeededRunState } from "../helpers/run-state.js"
 
 const readSurface = (registry: Registry.Registry, id: string): SurfaceState => registry.get(surfaceAtom(id))
@@ -161,6 +161,7 @@ describe("Theoria Orchestration", () => {
               run: (id) => runWithMeta(id).pipe(Effect.map(({ data }) => data)),
               runWithMeta,
               preload: () => Effect.succeed(programPreviewFixture),
+              capabilities: () => Effect.succeed(capabilitiesFixture),
               versions: () => Effect.succeed({}),
               streamUrl: (id) => `/api/demos/${id}/stream`
             })
@@ -213,6 +214,7 @@ describe("Theoria Orchestration", () => {
                 Effect.onInterrupt(() => Deferred.succeed(runInterrupted, undefined))
               ),
             preload: () => Effect.succeed(programPreviewFixture),
+            capabilities: () => Effect.succeed(capabilitiesFixture),
             versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null
@@ -259,6 +261,7 @@ describe("Theoria Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            capabilities: () => Effect.succeed(capabilitiesFixture),
             versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null

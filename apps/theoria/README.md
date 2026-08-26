@@ -52,6 +52,30 @@ Runtime knobs:
 1. `THEORIA_LOCAL_TIMEOUT_MS` / `THEORIA_PROVIDER_TIMEOUT_MS` for per-lane timeout policy.
 1. `DSP_PROVIDER`, `DSP_PROVIDER_MODEL`, and provider API keys for live `effect-dsp` execution.
 
+## Production Environment
+
+Configure the deployed app in **Railway → Theoria service → Variables → production**. For the current OpenAI deployment, set:
+
+| Name                          | Value                          | Treatment              |
+| ----------------------------- | ------------------------------ | ---------------------- |
+| `DSP_PROVIDER`                | `openai`                       | Plain runtime variable |
+| `DSP_PROVIDER_MODEL`          | `gpt-4o-mini`                  | Plain runtime variable |
+| `OPENAI_API_KEY`              | A fresh project-scoped API key | Sealed secret          |
+| `THEORIA_PROVIDER_TIMEOUT_MS` | `120000`                       | Plain runtime variable |
+
+The provider defaults are two concurrent requests and four requests per client per minute. Override them only when the provider account has matching limits:
+
+```text
+THEORIA_PROVIDER_CONCURRENCY=2
+THEORIA_PROVIDER_REQUESTS_PER_MINUTE=4
+```
+
+Railway supplies `PORT`, `RAILWAY_ENVIRONMENT_NAME`, and `RAILWAY_GIT_COMMIT_SHA`; do not duplicate them. If the Railway environment is not literally named `production`, set `NODE_ENV=production`.
+
+Use exactly one provider-key path. For OpenAI, leave `DSP_PROVIDER_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY` unset. Remove stale values rather than setting a second key. Provider-specific keys take precedence, while blank provider-specific values fall back safely.
+
+Do not put runtime provider keys in GitHub Actions secrets, repository variables, `VITE_*` variables, or committed files. For local testing, copy the repository-root `.env.example` to the ignored `.env` file and set the selected provider key there.
+
 ## Architecture
 
 1. `server.ts` is a thin entrypoint that launches `app/server/app.ts`.

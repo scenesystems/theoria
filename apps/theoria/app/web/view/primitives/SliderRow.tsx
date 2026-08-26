@@ -12,10 +12,12 @@ import { SemanticText } from "./SemanticText.js"
 type SliderRowLayout = "inline" | "stacked"
 
 const sliderControl = ({
+  label,
   tone,
   thumbClassName,
   trackClassName
 }: {
+  readonly label: string
   readonly tone: ToneClasses
   readonly thumbClassName: string
   readonly trackClassName: string
@@ -24,7 +26,7 @@ const sliderControl = ({
     <Slider.Track className={trackClassName}>
       <Slider.Indicator className={`rounded-full ${tone.indicator}`} />
     </Slider.Track>
-    <Slider.Thumb className={thumbClassName} />
+    <Slider.Thumb aria-label={label} className={thumbClassName} />
   </Slider.Control>
 )
 
@@ -60,7 +62,7 @@ export const SliderRow = ({
       <Stack className="gap-3">
         <Cluster className="items-end justify-between gap-3">
           <Stack className="min-w-0 gap-1">
-            <SemanticText as="dt" className="text-ink-700" role="row-label" text={label} variant="expanded" />
+            <SemanticText as="span" className="text-ink-700" role="row-label" text={label} variant="expanded" />
             {hint === undefined
               ? null
               : (
@@ -86,7 +88,7 @@ export const SliderRow = ({
               )}
           </Stack>
           <SemanticText
-            as="dd"
+            as="span"
             className="tabular-nums text-ink-900"
             role="row-value"
             text={display}
@@ -103,6 +105,7 @@ export const SliderRow = ({
           value={value}
         >
           {sliderControl({
+            label,
             tone,
             thumbClassName:
               `block size-4 rounded-full border-[3px] ${tone.border} bg-stage-0 shadow-chip focus-visible:ring-2 ${tone.focusRing} focus-visible:ring-offset-1`,
@@ -114,7 +117,7 @@ export const SliderRow = ({
     : (
       <Cluster className="w-full flex-nowrap items-center gap-2">
         <SemanticText
-          as="dt"
+          as="span"
           className="w-12 shrink-0 text-right text-ink-700"
           role="row-label"
           text={label}
@@ -130,6 +133,7 @@ export const SliderRow = ({
           value={value}
         >
           {sliderControl({
+            label,
             tone,
             thumbClassName:
               `block size-3 rounded-full border-2 ${tone.border} bg-stage-0 shadow-chip focus-visible:ring-2 ${tone.focusRing} focus-visible:ring-offset-1`,
@@ -137,7 +141,7 @@ export const SliderRow = ({
           })}
         </Slider.Root>
         <SemanticText
-          as="dd"
+          as="span"
           className="w-12 shrink-0 tabular-nums text-ink-900"
           role="row-value"
           text={display}

@@ -4,6 +4,7 @@ import * as Arr from "effect/Array"
 
 import { Capabilities } from "../../contracts/capabilities.js"
 import { type Card, cardsForReleaseStage } from "../../contracts/card.js"
+import type { DspRuntimeProjection } from "../../contracts/dsp-runtime-projection.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
@@ -20,17 +21,10 @@ const jsonResponse = (body: unknown) =>
 const nonDspCapabilities = (stage: ReleaseStage) =>
   Arr.filter(cardsForReleaseStage(stage), (card) => card.id !== "effect-dsp")
 
-const dspDemoCapability = (
-  runtime: {
-    readonly capability: {
-      readonly enabled: boolean
-      readonly reason: Option.Option<string>
-    }
-  }
-) => ({
+const dspDemoCapability = (projection: DspRuntimeProjection) => ({
   id: "effect-dsp",
-  enabled: runtime.capability.enabled,
-  ...Option.match(runtime.capability.reason, {
+  enabled: projection.status === "configured" || projection.status === "operational",
+  ...Option.match(Option.fromNullable(projection.reason), {
     onNone: () => ({}),
     onSome: (reason) => ({ reason })
   })
@@ -61,7 +55,7 @@ export const capabilitiesRoute = (requestId: string) =>
     const data = yield* Schema.decodeUnknown(Capabilities)({
       demos: [
         ...Arr.map(nonDspCapabilities(releaseStage), (card) => capabilityEntry(card.id)),
-        dspDemoCapability(dspRuntime)
+        dspDemoCapability(dsp)
       ],
       dsp
     })

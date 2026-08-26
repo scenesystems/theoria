@@ -67,8 +67,15 @@ const contentType = (
     ? "image/svg+xml"
     : "text/plain; charset=utf-8"
 
+export const cacheControlForPath = (pathname: string): string =>
+  pathname === "/index.html"
+    ? "no-cache"
+    : pathname.startsWith("/assets/")
+    ? "public, max-age=31536000, immutable"
+    : "public, max-age=3600"
+
 const responseHeaders = (pathname: string) => ({
-  "cache-control": "no-store",
+  "cache-control": cacheControlForPath(pathname),
   "content-type": contentType(pathname)
 })
 

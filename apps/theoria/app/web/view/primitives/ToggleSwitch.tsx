@@ -22,7 +22,7 @@ export const ToggleSwitch = ({
   <Cluster className="w-full flex-nowrap items-center justify-between gap-3">
     <Cluster className="min-w-0 flex-1 flex-nowrap items-center gap-2">
       <SemanticText
-        as="dt"
+        as="span"
         className="shrink-0 text-ink-700"
         role="row-label"
         text={label}
@@ -42,6 +42,7 @@ export const ToggleSwitch = ({
     </Cluster>
     <Button
       aria-checked={checked}
+      aria-label={label}
       className={toggleTrackClassName({ checked, tone })}
       disabled={disabled}
       onClick={onToggle}

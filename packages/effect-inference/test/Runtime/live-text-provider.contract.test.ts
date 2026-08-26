@@ -58,4 +58,22 @@ describe("Runtime/live-text-provider", () => {
       expect(Redacted.value(config.apiKey)).toBe("provider-key")
       expect(config.apiUrl).toEqual(Option.some("https://provider.example.com/v1"))
     }))
+
+  it.effect("treats blank provider settings as absent instead of configured credentials", () =>
+    Effect.gen(function*() {
+      const config = yield* Runtime.resolveLiveTextProviderConfig({
+        provider: "openai",
+        configProvider: ConfigProvider.fromJson({
+          DSP_PROVIDER_API_KEY: "fallback-key",
+          DSP_PROVIDER_MODEL: "fallback-model",
+          OPENAI_API_KEY: "   ",
+          OPENAI_MODEL: "   ",
+          OPENAI_API_URL: "   "
+        }).pipe(ConfigProvider.constantCase)
+      })
+
+      expect(Redacted.value(config.apiKey)).toBe("fallback-key")
+      expect(config.model).toBe("fallback-model")
+      expect(config.apiUrl).toEqual(Option.none())
+    }))
 })

@@ -150,7 +150,12 @@ export const DataTable = ({
         )
         : null}
 
-      <Layer className="overflow-x-auto border-t border-b border-stage-200/72 bg-stage-0/36">
+      <Layer
+        aria-label={`${label} table`}
+        className="overflow-x-auto border-t border-b border-stage-200/72 bg-stage-0/36"
+        role="region"
+        tabIndex={0}
+      >
         <table
           className={`${tableMinWidthClassName({ kinds: columnKinds, layout: resolvedLayout })} w-full border-collapse`}
         >

@@ -9,7 +9,7 @@ import type { StreamManifest } from "../../../contracts/stream-manifest.js"
 import { multiFileProgram } from "../presentation.js"
 import { executableProgramFile, type ProgramSourceReadError } from "../program-source.js"
 import type { StreamElement } from "../stream-element.js"
-import { type DspProviderRuntime, DspProviderRuntimeLive } from "./provider.js"
+import { DspProviderRuntime, type DspProviderRuntimeApi } from "./provider.js"
 import { defaultDspRunRequest, requestFromManifest } from "./runtime.js"
 import { streamElementsForRequest, streamSections } from "./stream.js"
 
@@ -34,7 +34,10 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
   function*() {
     const startedAt = yield* Clock.currentTimeMillis
     const runnableProgram = yield* preloadProgram
+    const runtime = yield* DspProviderRuntime
     const sections = yield* Stream.runCollect(streamSections(defaultDspRunRequest)).pipe(
+      Effect.tapError(() => runtime.markDegraded),
+      Effect.tap(() => runtime.markOperational),
       Effect.map(Arr.fromIterable)
     )
     const endedAt = yield* Clock.currentTimeMillis
@@ -51,7 +54,10 @@ export const run: Effect.Effect<RunData, unknown, DspProviderRuntime | FileSyste
   }
 )
 
-export const streamElements = (manifest: StreamManifest | null): Stream.Stream<StreamElement, unknown, never> =>
+export const streamElements = (
+  manifest: StreamManifest | null,
+  runtime: DspProviderRuntimeApi
+): Stream.Stream<StreamElement, unknown, never> =>
   streamElementsForRequest(requestFromManifest(manifest)).pipe(
-    Stream.provideLayer(DspProviderRuntimeLive)
+    Stream.provideService(DspProviderRuntime, runtime)
   )

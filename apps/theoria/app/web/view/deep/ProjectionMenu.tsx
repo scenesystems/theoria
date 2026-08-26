@@ -44,7 +44,7 @@ export const ProjectionMenu = ({
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen)
       }}
-      triggerId={projectionMenuId}
+      triggerId={open ? projectionMenuId : null}
     >
       <Popover.Trigger
         aria-label={triggerAriaLabel({
@@ -67,7 +67,7 @@ export const ProjectionMenu = ({
           variant="compact"
         />
       </Popover.Trigger>
-      <Popover.Portal keepMounted>
+      <Popover.Portal>
         <Popover.Positioner
           align="end"
           className="z-[80]"

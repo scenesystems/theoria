@@ -44,7 +44,7 @@ const metricNode = ({
   presentation === "inline"
     ? (
       <Rail as="div" className="justify-between gap-2">
-        <Layer as="dt" className="min-w-0">
+        <Layer className="min-w-0">
           <SemanticText
             as="span"
             className="block max-w-none whitespace-normal text-ink-600"
@@ -53,7 +53,7 @@ const metricNode = ({
             variant="expanded"
           />
         </Layer>
-        <Layer as="dd" className="min-w-0">
+        <Layer className="min-w-0">
           <SemanticText
             as="span"
             className="block max-w-none whitespace-normal text-ink-900"
@@ -66,7 +66,7 @@ const metricNode = ({
     )
     : (
       <Stack className="gap-0.5">
-        <Layer as="dt" className="min-w-0">
+        <Layer className="min-w-0">
           <SemanticText
             as="span"
             className="block max-w-none whitespace-normal text-ink-600"
@@ -75,7 +75,7 @@ const metricNode = ({
             variant="expanded"
           />
         </Layer>
-        <Layer as="dd" className="min-w-0">
+        <Layer className="min-w-0">
           <SemanticText
             as="span"
             className="block max-w-none whitespace-normal text-ink-900"
@@ -149,9 +149,13 @@ export const PlaneMetaRail = ({
       ? null
       : (
         <Layer className="border-t border-stage-200/68 pt-3">
-          <Layer as="dl" className={metricGridClassName(metrics.length)}>
+          <Layer as="ul" className={metricGridClassName(metrics.length)}>
             {metrics.map((metric, index) => (
-              <Layer className={metricCellClassName({ index, presentation: metricPresentation })} key={metric.label}>
+              <Layer
+                as="li"
+                className={metricCellClassName({ index, presentation: metricPresentation })}
+                key={metric.label}
+              >
                 {metricNode({ metric, presentation: metricPresentation })}
               </Layer>
             ))}
