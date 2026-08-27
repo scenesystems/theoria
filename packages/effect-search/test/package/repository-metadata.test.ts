@@ -43,8 +43,7 @@ describe("package/repository-metadata", () => {
       const root = yield* resolvePackageRoot
       const fixtureRoot = `${root}/test/package/fixtures`
       const result = yield* runPublishCheck(root, [
-        `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--root-manifest=${fixtureRoot}/package.base.json`
       ])
 
       expect(result.exitCode).toBe(0)
@@ -57,7 +56,6 @@ describe("package/repository-metadata", () => {
       const fixtureRoot = `${root}/test/package/fixtures`
       const result = yield* runPublishCheck(root, [
         `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--readme=${fixtureRoot}/README.valid.md`,
         "--enforce-monorepo-topology"
       ])
 

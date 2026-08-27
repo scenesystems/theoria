@@ -41,8 +41,7 @@ describe("package/keyword-coverage", () => {
       const root = yield* resolvePackageRoot
       const fixtureRoot = `${root}/test/package/fixtures`
       const result = yield* runPublishCheck(root, [
-        `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--root-manifest=${fixtureRoot}/package.base.json`
       ])
 
       expect(result.exitCode).toBe(0)
@@ -54,8 +53,7 @@ describe("package/keyword-coverage", () => {
       const root = yield* resolvePackageRoot
       const fixtureRoot = `${root}/test/package/fixtures`
       const result = yield* runPublishCheck(root, [
-        `--root-manifest=${fixtureRoot}/package.keyword-drift.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--root-manifest=${fixtureRoot}/package.keyword-drift.json`
       ])
 
       expect(result.exitCode).toBe(1)

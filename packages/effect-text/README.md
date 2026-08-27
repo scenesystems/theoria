@@ -1,160 +1,80 @@
-# `effect-text`
+# `@scenesystems/effect-text`
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
+`@scenesystems/effect-text` separates text preparation from repeated layout. Preparation is effectful because segmentation, measurement, caching, engine profiles, and optional hyphenation can require services. It compiles those results into a prepared handle. Width-dependent layout is then pure, so the same handle can be projected repeatedly for resizing, animation, or variable-width lines.
 
-Effect-native text preparation and greedy multiline layout.
-`Text.prepare` owns segmentation, measurement, and caching. `Text.layout*`
-stays pure, so prepared text can be reprojected on resize, animation, or
-obstacle changes without re-entering services.
+`Text.prepare` produces an opaque handle for summaries and natural width. `Text.prepareWithSegments` retains the logical surface needed for materialized lines, cursors, streams, and obstacle-aware widths.
 
-[Install](#install) · [Quick Start](#quick-start) · [Surface](#surface) ·
-[Support Envelope](#support-envelope) · [Examples](#examples) ·
-[Proof](#proof)
+The experimental calibration surface turns measured layouts into seeded [`effect-search`](../effect-search/README.md) studies. Its scoring operations use [`effect-math`](../effect-math/README.md), while the released preparation and layout path remains independent of calibration.
 
-## Install
+## Installation
 
 ```sh
 npm install @scenesystems/effect-text effect
 ```
 
-Use the equivalent `pnpm add` or `bun add` command if that is your package
-manager. `effect` is a required peer dependency.
+The required peer range is `effect ^3.22.1`.
 
-## Quick Start
+## Minimal example
 
 ```ts typecheck
 import { Effect } from "effect"
 import { Text } from "@scenesystems/effect-text"
 
-const program = Effect.gen(function* () {
+export const program = Effect.gen(function* () {
   const prepared = yield* Text.prepareWithSegments({
-    text: "Prepare once, layout many times.",
+    text: "Prepare once, then lay out at several widths.",
     font: { family: "Mono", size: 16 },
     whiteSpace: "normal"
   })
 
   return {
-    summary: Text.layout(prepared, { maxWidth: 120, lineHeight: 20 }),
-    lines: Text.layoutLines(prepared, { maxWidth: 120, lineHeight: 20 })
+    compact: Text.layout(prepared, { maxWidth: 120, lineHeight: 20 }),
+    wide: Text.layoutLines(prepared, { maxWidth: 240, lineHeight: 20 })
   }
 }).pipe(Effect.provide(Text.TextLayoutLive))
-
-Effect.runPromise(program)
 ```
 
-Use `Text.prepare` when you only need summary projections such as `layout` or
-`measureNaturalWidth`. Use `Text.prepareWithSegments` when you need materialized
-lines, cursor stepping, streaming projection, or variable-width layout.
+The default `Text.TextLayoutLive` uses deterministic measurement. Browser applications can compose `Browser.CanvasTextMeasurerLive` and `Browser.BrowserMeasurementCacheLive` with the same preparation contracts. Font-readiness revisions and support-profile identity belong in cache identity when browser fonts change.
 
-## Surface
+The `React` boundary contains prepare-identity and pure projection helpers. Components and hooks remain application concerns. Framework code is responsible for running preparation effects, caching prepared handles, and invoking pure layout during render or resize work.
 
-| Surface                    | What it owns                                                                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`                     | Effectful preparation and pure layout: `prepare`, `prepareWithSegments`, `layout`, `layoutLines`, `layoutLinesWith`, `layoutNextLine`, `streamLines` |
-| `Contracts`                | Explicit runtime seams: `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, `HyphenationDictionary`                                |
-| `Browser`                  | Browser measurer layers, cache freshness, support data, parity harness helpers                                                                       |
-| `React`                    | Prepare-identity helpers and pure prepared-layout projection helpers                                                                                 |
-| `Errors`                   | `MeasurementFailed`, `TextLayoutDecodeError`, `PrepareError`                                                                                         |
-| `Experimental.Calibration` | Additive `@scenesystems/effect-search` studies with internal `@scenesystems/effect-math` scoring adapters                                            |
+## Public surface
 
-Ownership boundaries are deliberate:
+| Namespace                  | Responsibility                                                                                    | Stability   |
+| -------------------------- | ------------------------------------------------------------------------------------------------- | ----------- |
+| `Text`                     | Preparation, prepared handles, summaries, lines, cursors, streams, and layers                     | Provisional |
+| `Contracts`                | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, and `HyphenationDictionary` | Stable      |
+| `Browser`                  | Canvas measurement, cache freshness, support data, and parity helpers                             | Provisional |
+| `React`                    | Cache identity and pure prepared-layout projections                                               | Provisional |
+| `Errors`                   | `MeasurementFailed`, `TextLayoutDecodeError`, and `PrepareError`                                  | Stable      |
+| `Experimental.Calibration` | Search-backed engine-profile evaluation and calibration                                           | Unstable    |
 
-- `@scenesystems/effect-text/browser` owns support data, browser measurement, font-readiness
-  revision helpers, and parity artifacts.
-- `@scenesystems/effect-text/react` stays framework-thin: prepare identity plus pure
-  prepared-layout projection only.
-- `Experimental.Calibration` is additive and does not make layout effectful.
+Uppercase and lowercase companion subpaths are exported for compatibility, including `/Text`, `/Browser`, `/browser`, `/React`, `/react`, `/Contracts`, `/contracts`, `/Errors`, `/Experimental`, and `/experimental`. Experimental APIs may change outside semver guarantees.
 
-## Support Envelope
+## Support and errors
 
-Shipped behavior is explicit and bounded.
+The shipped browser profiles are `canvas-monospace` and `canvas-system-ui`. Dictionary hyphenation covers `en-us`, `en-gb`, `de`, `fr`, and `es`, with exact-locale then base-language fallback. Tabs use four-column CSS-style stops. Overflow checks hard breaks, soft hyphens, dictionary hyphens, explicit breaks, then grapheme fallback.
 
-- Browser profiles: `canvas-monospace` and `canvas-system-ui`
-- Hyphenation locales: `en-us`, `en-gb`, `de`, `fr`, `es`
-- Locale fallback: exact match, then shipped base language, then deterministic
-  non-dictionary fallback
-- Overflow precedence: `hard-break -> soft-hyphen -> dictionary-hyphen -> explicit-break -> grapheme-fallback`
-- Tab policy: `tabWidth: 4`, CSS-style column stops
-- Browser freshness: support-profile identity + full font identity +
-  font-readiness revision
+This is a bounded manual layout engine. Full CSS layout and arbitrary shaping-engine parity are outside its support envelope. Explicit unsupported Unicode bidi controls are detected during preparation. Browser claims are limited to the checked-in [`support manifest`](./src/contracts/supportManifest.ts) and parity artifacts.
 
-Stability lanes are also explicit:
+`Text.prepare` and `Text.prepareWithSegments` can fail with `MeasurementFailed`. `Text.prepareUnknown` also reports `TextLayoutDecodeError` for invalid input. Pure layout functions have no Effect error channel once preparation succeeds.
 
-| Module         | Stability   |
-| -------------- | ----------- |
-| `Contracts`    | Stable      |
-| `Errors`       | Stable      |
-| `Text`         | Provisional |
-| `Browser`      | Provisional |
-| `React`        | Provisional |
-| `Experimental` | Unstable    |
+## Examples and reference
 
-Current non-goals:
+[`examples/`](./examples) covers the basic prepare/layout flow, cursor and stream projection, explicit services and caching, canvas measurement, dictionary hyphenation, browser parity, and experimental calibration. Generated API documentation is in [`docs/`](./docs).
 
-- No claim of full CSS layout parity.
-- No claim of full shaping-engine parity across arbitrary font stacks.
-- Browser claims are limited to the shipped support manifest and checked-in
-  parity artifacts.
-- Explicit Unicode bidi control handling remains outside the released surface.
+## Status
 
-The checked-in support authority lives at
-[`src/contracts/supportManifest.ts`](./src/contracts/supportManifest.ts).
+This package is pre-1.0. `Contracts` and `Errors` are stable lanes within that release line; `Text`, `Browser`, and `React` remain provisional. Experimental calibration is unstable.
 
-## Examples
+## Contributing and support
 
-Runnable examples live in [`examples/`](./examples):
+Read the repository [contributing guide](../../CONTRIBUTING.md). Report defects and request support through [GitHub issues](https://github.com/scenesystems/theoria/issues).
 
-| Example                                                                                  | What it proves                                               |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [`01-quick-start`](./examples/01-quick-start.ts)                                         | Deterministic prepare/layout flow                            |
-| [`02-cursor-and-stream`](./examples/02-cursor-and-stream.ts)                             | Cursor stepping and `Stream` projection                      |
-| [`03-explicit-services-and-caching`](./examples/03-explicit-services-and-caching.ts)     | Custom service wiring and shared caching                     |
-| [`04-canvas-measurement`](./examples/04-canvas-measurement.ts)                           | Official browser-layer composition                           |
-| [`05-experimental-calibration-search`](./examples/05-experimental-calibration-search.ts) | Seeded `effect-search` optimization over calibration corpora |
-| [`06-live-browser-parity`](./examples/06-live-browser-parity.ts)                         | Shipped browser support envelope and parity artifacts        |
-| [`07-dictionary-hyphenation`](./examples/07-dictionary-hyphenation.ts)                   | Dictionary hyphenation and deterministic fallback            |
+## Attribution
 
-Run one directly with Bun:
-
-```sh
-bun run packages/effect-text/examples/01-quick-start.ts
-```
-
-## Proof
-
-Run the package proof surface from `packages/effect-text/`:
-
-```sh
-bun run check
-bun run check:tests
-bun run lint
-bun run test
-bun run bench
-bun run verify:browser-parity
-bun run verify:calibration
-bun run verify:support-manifest
-bun run build
-bun run docgen
-```
-
-Refresh checked-in artifacts only when intentional runtime changes land:
-
-```sh
-bun run verify:browser-parity --write
-bun run verify:calibration --write
-bun run bench
-bun run verify:support-manifest
-```
-
-## Acknowledgments
-
-The prepare/layout split is inspired by
-[pretext](https://github.com/chenglou/pretext). `Experimental.Calibration`
-builds on the local [`@scenesystems/effect-search`](../effect-search/README.md) package for
-seeded studies and uses [`@scenesystems/effect-math`](../effect-math/README.md) behind
-internal adapters for loss aggregation and summary statistics.
+The effectful preparation and pure layout split is inspired by [pretext](https://github.com/chenglou/pretext).
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE), Copyright 2026 Scene Systems.
