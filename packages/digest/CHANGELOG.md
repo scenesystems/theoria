@@ -1,5 +1,11 @@
 # @scenesystems/digest
 
+## 0.5.1
+
+### Patch Changes
+
+- [#51](https://github.com/scenesystems/theoria/pull/51) [`58fbcc0`](https://github.com/scenesystems/theoria/commit/58fbcc02378bddc0f4bfd7da84574f76c273996a) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Make bounded Schema digest encoding structurally cooperative, stack-safe, and interruptible before canonical traversal while preserving encoded values, canonical byte counts, digest identities, and the public result and error algebra.
+
 ## 0.5.0
 
 ### Minor Changes

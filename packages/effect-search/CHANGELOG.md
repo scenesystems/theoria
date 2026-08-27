@@ -1,5 +1,15 @@
 # effect-search
 
+## 0.4.2
+
+### Patch Changes
+
+- [#68](https://github.com/scenesystems/theoria/pull/68) [`91f48e4`](https://github.com/scenesystems/theoria/commit/91f48e4b571442f9370c3dc15cb46095465a52a1) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Publish the rewritten package README with a clearer account of the package's purpose, use, and place in Theoria.
+
+- Updated dependencies [[`58fbcc0`](https://github.com/scenesystems/theoria/commit/58fbcc02378bddc0f4bfd7da84574f76c273996a), [`91f48e4`](https://github.com/scenesystems/theoria/commit/91f48e4b571442f9370c3dc15cb46095465a52a1)]:
+  - @scenesystems/digest@0.5.1
+  - @scenesystems/effect-math@0.3.1
+
 ## 0.4.1
 
 ### Patch Changes
