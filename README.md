@@ -4,23 +4,23 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Theoria is the open-source TypeScript library collection developed by Scene
-Systems. It brings scientific calculation and model programming to
-[Effect](https://effect.website) with explicit evaluation and reproducible
-execution. Its text and cryptographic libraries carry the resulting work into
-interfaces and persistent records.
+Theoria is a collection of open-source TypeScript libraries developed by Scene
+Systems for [Effect](https://effect.website). The libraries support scientific
+calculation and model programming, then preserve enough evidence to reproduce
+their results. The collection also includes text layout and cryptographic
+operations for applications that retain those results.
 
 _Theoria_ (θεωρία) is Greek for observation that produces knowledge. [The live
 site](https://theoria.scenesystems.io/) shows the libraries running against
 concrete inputs.
 
-## Why Theoria exists
+## Purpose
 
 [Scene Systems](https://scenesystems.io/) is building Scene to turn imagination
 into shared reality. A creation in Scene is a World. It can begin as a story and
 grow into something people intend to make real. People and machines can extend
-a World without erasing where it came from. Branches preserve alternatives.
-Merges preserve the lineages they combine.
+a World without erasing where it came from. Branching preserves alternatives,
+and merging preserves the lineages they combine.
 
 A World may outlive the model or provider that helped create it. Its history
 must still explain how an artifact was produced and why one version was chosen
@@ -28,17 +28,16 @@ over another. Contributions need durable attribution, and private work must
 remain private until its authors choose to share it.
 
 Theoria develops reusable libraries for this computational work. Effect
-supplies the runtime for service dependencies and resource lifetimes, while
-calculations that need no runtime remain plain TypeScript functions.
+supplies the runtime for service dependencies and resource lifetimes. Pure
+calculations remain plain TypeScript functions.
 
-## From observation to durable work
+## Package relationships
 
-Work begins with something that can be measured.
+Computational work begins with something that can be measured.
 [`@scenesystems/effect-math`](./packages/effect-math/README.md) provides the
-numerical operations needed to express that measurement, from basic numerics
-through statistics and optimization. Its pure kernels can be called directly.
-Policy-aware variants add an Effect error channel and read precision or
-diagnostic policy from the runtime.
+numerical operations needed to express that measurement. Its pure kernels can
+be called directly. Policy-aware variants add an Effect error channel and read
+runtime policy when the calculation requires it.
 
 Once an outcome can be measured, it can guide a search.
 [`@scenesystems/effect-search`](./packages/effect-search/README.md) turns an
@@ -58,8 +57,8 @@ behavior can be tested and revised.
 [`@scenesystems/effect-inference`](./packages/effect-inference/README.md) records
 the execution behind each model result. It follows a requested runtime through
 provider resolution and records the response metadata. Both model libraries use
-`@effect/ai`, so a DSP program does not depend on one provider even though every
-execution can retain its provenance.
+`@effect/ai`. A DSP program can use different providers while retaining
+provenance for each execution.
 
 Text enters an interface through
 [`@scenesystems/effect-text`](./packages/effect-text/README.md), which resolves
@@ -80,12 +79,10 @@ ciphertext in a self-describing envelope.
 ## The relationship to Scene
 
 Scene currently relies on `digest` for content identity and uses `sign` in its
-cryptographic evidence. Its visual system also uses `effect-math`. The remaining
-libraries are not assembled into a single Scene runtime today.
+cryptographic evidence. Its visual system also uses `effect-math`. Current Scene
+integration is limited to those packages.
 
 The World model and the Scene application live outside this repository.
-Theoria's packages remain useful on their own. Their use in Scene will expand
-as the World runtime adopts reproducible evaluation and model programs.
 
 ## Try a package
 
@@ -141,13 +138,13 @@ each package.
 ## Contributing and support
 
 Read the [contribution guide](./CONTRIBUTING.md) before opening a pull request.
-Use the [issue tracker](https://github.com/scenesystems/theoria/issues) for bugs,
-questions, and focused improvements. Report vulnerabilities through the
-[security policy](./SECURITY.md).
+Use the [issue tracker](https://github.com/scenesystems/theoria/issues) for
+support and proposed changes. Report vulnerabilities through the [security
+policy](./SECURITY.md).
 
 Participation in the project is governed by the
 [Contributor Covenant](./CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE). Copyright © 2026 Scene Systems
