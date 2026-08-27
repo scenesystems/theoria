@@ -20,8 +20,19 @@ If the Railway environment is not literally named `production`, set
 
 ## Production variables and secrets
 
-Open **Railway → Theoria service → Variables → production** and configure the
-current OpenAI deployment as follows:
+The current production site exposes only the package catalog. Demo pages and
+demo API routes are disabled, so production does not need a provider key or
+provider configuration.
+
+In **Railway → Theoria service → Variables → production**, remove
+`DSP_PROVIDER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and
+`OPENROUTER_API_KEY`. Railway supplies the variables needed to run the catalog.
+
+## Preview provider configuration
+
+Provider credentials are needed only for a preview deployment that exercises
+the `effect-dsp` demo. Configure them in **Railway → Theoria service → Variables
+→ preview**, not in production:
 
 | Name                          | Value                          | Treatment              |
 | ----------------------------- | ------------------------------ | ---------------------- |
@@ -31,13 +42,8 @@ current OpenAI deployment as follows:
 | `THEORIA_PROVIDER_TIMEOUT_MS` | `120000`                       | Plain runtime variable |
 
 The defaults allow two concurrent provider requests and four requests per
-client per minute. Set these explicitly only when the provider account has
-matching limits:
-
-```text
-THEORIA_PROVIDER_CONCURRENCY=2
-THEORIA_PROVIDER_REQUESTS_PER_MINUTE=4
-```
+client per minute. Change them only when the provider account requires
+different limits.
 
 For Anthropic or OpenRouter, change `DSP_PROVIDER`, choose an appropriate
 `DSP_PROVIDER_MODEL`, and seal the matching `ANTHROPIC_API_KEY` or
@@ -55,8 +61,8 @@ Provider-specific keys take precedence over the generic
 available for custom deployments, but a provider-specific key is easier to
 audit.
 
-Runtime provider keys belong only in Railway's sealed production variables.
-Do not put them in:
+Deployed provider keys belong only in Railway's sealed preview variables. A
+local key belongs in the ignored `.env` file. Do not put provider keys in:
 
 - GitHub Actions secrets or repository variables;
 - committed `.env` files;
@@ -74,9 +80,10 @@ Verify the resulting deployment in this order:
 
 1. `GET /api/health/live` returns `200`.
 2. The app reports a non-placeholder build revision.
-3. The `effect-dsp` card reports that its provider is ready.
-4. One provider-backed demo completes successfully.
+3. `GET /api/capabilities` returns an empty `demos` array in production.
+4. A production demo page and demo API request both return `404`.
 
-If the provider remains unavailable, check the selected provider, model, and
-credential in Railway before changing application code. Do not print or copy
-the credential while debugging.
+For a preview deployment with an OpenAI key, confirm that `effect-dsp` reports
+an enabled capability and complete one provider-backed run. If it remains
+unavailable, check the selected provider, model, and credential in Railway. Do
+not print or copy the credential while debugging.
