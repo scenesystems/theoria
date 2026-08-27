@@ -72,6 +72,7 @@
     "@effect/workflow": "0.19.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
+    "@scenesystems/effect-search": "workspace:*",
     "@theoria/source-proof": "workspace:*",
     "@types/node": "^25.9.5",
     "@typescript-eslint/eslint-plugin": "^8.68.0",

@@ -1,35 +1,44 @@
-# Theoria App
+# Theoria app
 
-`apps/theoria` is a single live surface for running real package APIs directly.
+The [Theoria website](https://theoria.scenesystems.io/) is a small, working
+tour of the packages in this repository. Each demo calls a real package API
+and renders the same typed result or failure that an application would receive.
 
-It is intentionally minimal:
+## What it demonstrates
 
-1. No showcase/lab/catalog route taxonomy.
-1. No command-documentation cards.
-1. Four executable demo cards (`effect-text`, `effect-search`, `effect-math`, `effect-dsp`).
-1. Typed request/response contracts and Effect-native runtime state.
+| Demo            | What it shows                                                                |
+| --------------- | ---------------------------------------------------------------------------- |
+| `effect-text`   | Effectful text preparation followed by reusable, pure layout projections.    |
+| `effect-search` | A seeded optimization study with progress and reproducible results.          |
+| `effect-math`   | Mathematical operations with explicit inputs and typed domain failures.      |
+| `effect-dsp`    | A language-model program running through a configured `@effect/ai` provider. |
 
-## Start
+The first three demos run without an external service. The `effect-dsp` demo
+is enabled only when the server has a valid provider configuration.
 
-From repository root:
+## Run it locally
+
+From the repository root:
 
 ```sh
 bun run app:theoria
 ```
 
-Default URL: `http://127.0.0.1:3876`.
+The app listens on `http://127.0.0.1:3876` by default. Set `PORT` to use a
+different port.
 
-Frontend dev server URL: `http://localhost:5175`.
+To exercise the provider-backed demo, copy [`.env.example`](../../.env.example)
+to the ignored `.env` file, choose `DSP_PROVIDER`, and fill in only the matching
+provider key. Never place a provider key in a `VITE_*` variable; those values
+are included in browser code.
 
-Override port:
+Production configuration and secret placement are documented separately in
+the [deployment guide](./DEPLOYMENT.md).
 
-```sh
-PORT=3888 bun run app:theoria
-```
+## Development workflow
 
-## tmux Runbook
-
-From repository root:
+The repository includes a tmux runbook for working on the server and Vite
+frontend together:
 
 ```sh
 bun run app:theoria:tmux
@@ -38,55 +47,22 @@ bun run app:theoria:tmux:logs:full
 bun run app:theoria:tmux:stop
 ```
 
-The tmux runbook always starts Vite on `http://localhost:5175`.
+`THEORIA_PORT` changes the app port and `THEORIA_TMUX_SESSION` selects the tmux
+session. The frontend development server uses port `5175`.
 
-Environment knobs:
+## How it is organized
 
-1. `THEORIA_PORT` for app port.
-1. `THEORIA_TMUX_SESSION` for tmux session selection.
+- `server.ts` launches the application server.
+- `app/contracts` defines the request, response, health, version, capability,
+  and demo schemas shared by the server and browser.
+- `app/server` serves static assets and the typed API. Its demo modules own
+  execution limits and provider composition.
+- `app/web` contains the React views and `@effect-atom/atom` state used by the
+  demo cards and detail pages.
 
-Runtime knobs:
+## Verify changes
 
-1. `BUILD_SHA` for version/envelope metadata.
-1. `THEORIA_LOCAL_CONCURRENCY` / `THEORIA_PROVIDER_CONCURRENCY` for bounded execution lanes.
-1. `THEORIA_LOCAL_TIMEOUT_MS` / `THEORIA_PROVIDER_TIMEOUT_MS` for per-lane timeout policy.
-1. `DSP_PROVIDER`, `DSP_PROVIDER_MODEL`, and provider API keys for live `effect-dsp` execution.
-
-## Production Environment
-
-Configure the deployed app in **Railway → Theoria service → Variables → production**. For the current OpenAI deployment, set:
-
-| Name                          | Value                          | Treatment              |
-| ----------------------------- | ------------------------------ | ---------------------- |
-| `DSP_PROVIDER`                | `openai`                       | Plain runtime variable |
-| `DSP_PROVIDER_MODEL`          | `gpt-4o-mini`                  | Plain runtime variable |
-| `OPENAI_API_KEY`              | A fresh project-scoped API key | Sealed secret          |
-| `THEORIA_PROVIDER_TIMEOUT_MS` | `120000`                       | Plain runtime variable |
-
-The provider defaults are two concurrent requests and four requests per client per minute. Override them only when the provider account has matching limits:
-
-```text
-THEORIA_PROVIDER_CONCURRENCY=2
-THEORIA_PROVIDER_REQUESTS_PER_MINUTE=4
-```
-
-Railway supplies `PORT`, `RAILWAY_ENVIRONMENT_NAME`, and `RAILWAY_GIT_COMMIT_SHA`; do not duplicate them. If the Railway environment is not literally named `production`, set `NODE_ENV=production`.
-
-Use exactly one provider-key path. For OpenAI, leave `DSP_PROVIDER_API_KEY`, `ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY` unset. Remove stale values rather than setting a second key. Provider-specific keys take precedence, while blank provider-specific values fall back safely.
-
-Do not put runtime provider keys in GitHub Actions secrets, repository variables, `VITE_*` variables, or committed files. For local testing, copy the repository-root `.env.example` to the ignored `.env` file and set the selected provider key there.
-
-## Architecture
-
-1. `server.ts` is a thin entrypoint that launches `app/server/app.ts`.
-1. `app/contracts/*` is the schema authority for IDs, envelopes, demo payloads, health/version, and capabilities.
-1. `app/server/router.ts` owns route composition for static shell/modules and typed API endpoints.
-1. `app/server/demos/*` implements registry-driven vertical slices, bounded execution policy, and live DSP provider composition.
-1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole state authority. `Atom.fn` atoms handle orchestration (preload-before-run, sequence guards). `DemoClient` is an `Effect.Service` wired through `Atom.runtime`.
-1. `app/web/view/*` projects contracts + run state to the single live card surface.
-1. `app/web/main.tsx` routes `/demos/:id` into deep dive pages, rendered from the same typed contracts as the home cards.
-
-## Verification
+From the repository root:
 
 ```sh
 bun run --filter '@theoria/theoria-app' check:all

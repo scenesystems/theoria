@@ -1,83 +1,138 @@
 # Theoria
 
+[![CI](https://github.com/scenesystems/theoria/actions/workflows/check.yml/badge.svg)](https://github.com/scenesystems/theoria/actions/workflows/check.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-Effect-native libraries for applied math, optimization, language model
-programming, text layout, and cryptography.
+Scientific computing, model programming, text layout, and cryptography for
+[Effect](https://effect.website).
 
-_Theoria_ (θεωρία) — observation that produces knowledge.
+Theoria is a family of TypeScript libraries for work that begins with data and
+ends in a decision: calculate a distribution, search for a better
+configuration, define and improve a language-model program, lay out text, or
+protect the result cryptographically.
 
-[Package Map](#package-map) · [Theoria App](#theoria-app) ·
-[Development](#development) · [Contributing](./CONTRIBUTING.md) ·
-[Security](./SECURITY.md)
+These jobs often end up in separate libraries with different rules for
+failures, dependencies, concurrency, and reproducibility. Theoria gives them a
+common home in Effect. Computation that can stay pure does; work involving
+policies, resources, or external services becomes a typed Effect workflow.
 
-## Package Map
+_Theoria_ (θεωρία) means observation that produces knowledge.
 
-| Package                                                         | Focus                                                                                      | Docs                                            |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| [`@scenesystems/effect-math`](./packages/effect-math)           | Numerics, linear algebra, statistics, probability, special functions, optimization kernels | [README](./packages/effect-math/README.md)      |
-| [`@scenesystems/effect-search`](./packages/effect-search)       | Typed search spaces, Bayesian optimization, studies, snapshots, replay                     | [README](./packages/effect-search/README.md)    |
-| [`@scenesystems/effect-dsp`](./packages/effect-dsp)             | Effect-native DSPy-style language model programming                                        | [README](./packages/effect-dsp/README.md)       |
-| [`@scenesystems/effect-text`](./packages/effect-text)           | Effectful text preparation and pure multiline layout                                       | [README](./packages/effect-text/README.md)      |
-| [`@scenesystems/effect-inference`](./packages/effect-inference) | Provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence     | [README](./packages/effect-inference/README.md) |
-| [`@scenesystems/digest`](./packages/digest)                     | Hashing, HMAC, HKDF, JCS canonicalization                                                  | [README](./packages/digest/README.md)           |
-| [`@scenesystems/seal`](./packages/seal)                         | Authenticated encryption and self-describing envelopes                                     | [README](./packages/seal/README.md)             |
-| [`@scenesystems/sign`](./packages/sign)                         | Signatures, key exchange, and KEMs                                                         | [README](./packages/sign/README.md)             |
+[Explore the live examples](https://theoria.scenesystems.io/) or start with one
+of the packages below.
 
-Workspace relationships stay explicit:
+## Get started
 
-- `@scenesystems/effect-search` depends on `@scenesystems/effect-math` and `@scenesystems/digest`.
-- `@scenesystems/effect-dsp` depends on `@scenesystems/effect-search`, `@scenesystems/effect-math`, and `@scenesystems/digest`.
-- `@scenesystems/effect-text` depends on `@scenesystems/effect-search` and `@scenesystems/effect-math`, while still owning a separate prepare/layout runtime lane.
-- `@scenesystems/effect-inference` owns provider-blind runtime descriptors and route resolution, while `@scenesystems/effect-dsp`, `@scenesystems/effect-search`, and `apps/theoria` consume that substrate without re-hosting provider clients.
-- `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` are standalone single-entrypoint crypto packages.
-
-## Theoria App
-
-[`apps/theoria/`](./apps/theoria/) is the proving consumer for the published
-packages. It exposes live, typed demos for `effect-text`, `effect-search`,
-`effect-math`, and `effect-dsp`.
+Each package is published independently under the `@scenesystems` scope, so
+you can install only the part you need. For example, this small
+`effect-search` program looks for the minimum of a function without requiring
+a gradient:
 
 ```sh
-bun run app:theoria
+npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
 ```
 
-Open `http://127.0.0.1:3876`.
+```ts typecheck
+import { Effect } from "effect"
+import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-For the tmux workflow and route-level app guidance, see
-[`apps/theoria/README.md`](./apps/theoria/README.md).
+const program = Effect.gen(function* () {
+  const space = yield* SearchSpace.make({
+    x: SearchSpace.float(-5, 5),
+    y: SearchSpace.float(-5, 5)
+  })
 
-## Development
+  return yield* Study.minimize({
+    space,
+    sampler: Sampler.tpe({ seed: 42 }),
+    objective: ({ x, y }) => Effect.succeed((x - 2) ** 2 + (y + 1) ** 2),
+    trials: 50
+  })
+})
 
-Requires [bun](https://bun.sh) `>= 1.3`.
-
-```sh
-bun install
-bun run check
-bun run check:tests
-bun run check:readmes
-bun run lint
-bun run test
-bun run build
+Effect.runPromise(program)
 ```
 
-Run one package at a time with Bun filters:
+The objective can be any Effect: a local calculation, a benchmark, a model
+call, or a request to another service. The seed makes the search reproducible.
 
-```sh
-bun run --filter @scenesystems/effect-text test
-bun run --filter @scenesystems/effect-search build
-bun run --filter @scenesystems/digest test
-```
+## Choose a package
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow and repository rules.
+The packages share conventions, but they are not one large framework. Start
+with the package that owns your problem and add another only when the work
+crosses that boundary.
 
-## Notes
+### Compute and optimize
 
-The monorepo is built on [Effect](https://effect.website). The crypto packages
-build on the [Noble](https://paulmillr.com/noble/) ecosystem. Package-specific
-algorithm references, prior art, and third-party notices live in the
-individual package READMEs and notice files rather than being duplicated here.
+| Package                                               | Use it for                                                                                                                             |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| [`effect-math`](./packages/effect-math/README.md)     | Numerics, linear algebra, calculus, probability, statistics, distributions, and optimization kernels, with pure and policy-aware APIs. |
+| [`effect-search`](./packages/effect-search/README.md) | Reproducible black-box optimization over continuous, integer, categorical, conditional, or multi-objective search spaces.              |
+
+`effect-search` builds on `effect-math` for computation and `digest` for stable
+content identity. Use `effect-math` directly when you know the calculation;
+use `effect-search` when you can measure an outcome but cannot derive the best
+configuration analytically.
+
+### Work with models and text
+
+| Package                                                     | Use it for                                                                                                                                          |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`effect-inference`](./packages/effect-inference/README.md) | Connecting `@effect/ai` text and embedding workloads to provider runtimes while keeping route selection and execution evidence explicit.            |
+| [`effect-dsp`](./packages/effect-dsp/README.md)             | Defining language-model programs with typed signatures, reusable modules, evaluation, tracing, and prompt optimizers inspired by DSPy.              |
+| [`effect-text`](./packages/effect-text/README.md)           | Preparing, measuring, and laying out multiline text so the expensive preparation step can be reused when width, obstacles, or presentation changes. |
+
+`effect-inference` deals with where a model runs; `effect-dsp` deals with what
+the model program does and how it improves. They meet at `@effect/ai`, which
+keeps a DSP program independent of a particular provider. `effect-dsp` uses
+`effect-search`, `effect-math`, and `digest` for optimization and reproducible
+artifacts.
+
+The main `effect-text` prepare-and-layout path is separate from model
+programming. Its experimental calibration tools use `effect-search` and
+`effect-math` to tune layout behavior against measured data.
+
+### Protect and identify data
+
+| Package                                 | Use it for                                                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`digest`](./packages/digest/README.md) | Strict JSON canonicalization, content hashing, HMAC, and key derivation. It also supplies stable identities to `effect-search` and `effect-dsp`. |
+| [`seal`](./packages/seal/README.md)     | Authenticated encryption with self-describing XChaCha20-Poly1305 and AES envelopes.                                                              |
+| [`sign`](./packages/sign/README.md)     | Classical and post-quantum signatures, X25519 key agreement, and hybrid key encapsulation.                                                       |
+
+These cryptographic packages can be used on their own. They expose
+Effect-native errors and schemas while keeping the underlying Noble
+implementations behind package-owned APIs.
+
+## Theoria app
+
+[theoria.scenesystems.io](https://theoria.scenesystems.io/) is a working tour
+of the libraries rather than a separate product API. Its demos execute the
+same package surfaces available to consumers and show their typed inputs,
+results, failures, and runtime evidence.
+
+The app source and local setup live in
+[`apps/theoria`](./apps/theoria/README.md).
+
+## Status
+
+Theoria is in active development. The packages are versioned independently and
+are currently pre-1.0, so public APIs may change between minor releases. The
+current releases target Effect 3.22.1 and compatible Effect 3 releases; see
+each package README and changelog for its exact peer dependencies and stability
+notes.
+
+## Contributing and support
+
+Bug reports, focused improvements, documentation fixes, and new use cases are
+welcome. Read the [contribution guide](./CONTRIBUTING.md) before opening a pull
+request. Please use the [issue tracker](https://github.com/scenesystems/theoria/issues)
+for questions and bugs, and follow the [security policy](./SECURITY.md) when a
+report may involve a vulnerability.
+
+Participation in the project is governed by the
+[Contributor Covenant](./CODE_OF_CONDUCT.md).
 
 ## License
 
