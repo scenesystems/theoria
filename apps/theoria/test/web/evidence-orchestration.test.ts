@@ -31,7 +31,7 @@ import {
 } from "../../app/web/atoms/surface.js"
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 import type { SurfaceState } from "../../app/web/state/types.js"
-import { errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
+import { capabilitiesFixture, errorFixture, programPreviewFixture } from "../helpers/demo-fixtures.js"
 
 const appRootUrl = new URL("../../", import.meta.url)
 
@@ -197,6 +197,7 @@ const makeRuntime = () =>
         run: () => Effect.fail(errorFixture),
         runWithMeta: () => Effect.fail(errorFixture),
         preload: () => Effect.succeed(programPreviewFixture),
+        capabilities: () => Effect.succeed(capabilitiesFixture),
         versions: () => Effect.succeed({}),
         streamUrl: (id) => `/api/demos/${id}/stream`
       })
@@ -1132,6 +1133,7 @@ describe("Theoria Evidence Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            capabilities: () => Effect.succeed(capabilitiesFixture),
             versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })
@@ -1213,6 +1215,7 @@ describe("Theoria Evidence Orchestration", () => {
             run: () => Effect.fail(errorFixture),
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
+            capabilities: () => Effect.succeed(capabilitiesFixture),
             versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })

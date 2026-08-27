@@ -1,35 +1,33 @@
-# Theoria App
+# Theoria app
 
-`apps/theoria` is a single live surface for running real package APIs directly.
+The [Theoria website](https://theoria.scenesystems.io/) introduces the packages
+in this repository and links to their published modules and source. Interactive
+demos remain available only in local and preview builds while they are under
+development. Production serves the package catalog as the only page.
 
-It is intentionally minimal:
+## Run it locally
 
-1. No showcase/lab/catalog route taxonomy.
-1. No command-documentation cards.
-1. Four executable demo cards (`effect-text`, `effect-search`, `effect-math`, `effect-dsp`).
-1. Typed request/response contracts and Effect-native runtime state.
-
-## Start
-
-From repository root:
+From the repository root:
 
 ```sh
 bun run app:theoria
 ```
 
-Default URL: `http://127.0.0.1:3876`.
+The app listens on `http://127.0.0.1:3876` by default. Set `PORT` to use a
+different port.
 
-Frontend dev server URL: `http://localhost:5175`.
+To exercise the provider-backed demo, copy [`.env.example`](../../.env.example)
+to the ignored `.env` file, choose `DSP_PROVIDER`, and fill in only the matching
+provider key. Never place a provider key in a `VITE_*` variable; those values
+are included in browser code.
 
-Override port:
+Production configuration and secret placement are documented separately in
+the [deployment guide](./DEPLOYMENT.md).
 
-```sh
-PORT=3888 bun run app:theoria
-```
+## Development workflow
 
-## tmux Runbook
-
-From repository root:
+The repository includes a tmux runbook for working on the server and Vite
+frontend together:
 
 ```sh
 bun run app:theoria:tmux
@@ -38,31 +36,22 @@ bun run app:theoria:tmux:logs:full
 bun run app:theoria:tmux:stop
 ```
 
-The tmux runbook always starts Vite on `http://localhost:5175`.
+`THEORIA_PORT` changes the app port and `THEORIA_TMUX_SESSION` selects the tmux
+session. The frontend development server uses port `5175`.
 
-Environment knobs:
+## How it is organized
 
-1. `THEORIA_PORT` for app port.
-1. `THEORIA_TMUX_SESSION` for tmux session selection.
+- `server.ts` launches the application server.
+- `app/contracts` defines the request, response, health, version, capability,
+  and demo schemas shared by the server and browser.
+- `app/server` serves static assets and the typed API. Its demo modules own
+  execution limits and provider composition.
+- `app/web` contains the React views and `@effect-atom/atom` state used by the
+  demo cards and detail pages.
 
-Runtime knobs:
+## Verify changes
 
-1. `BUILD_SHA` for version/envelope metadata.
-1. `THEORIA_LOCAL_CONCURRENCY` / `THEORIA_PROVIDER_CONCURRENCY` for bounded execution lanes.
-1. `THEORIA_LOCAL_TIMEOUT_MS` / `THEORIA_PROVIDER_TIMEOUT_MS` for per-lane timeout policy.
-1. `DSP_PROVIDER`, `DSP_PROVIDER_MODEL`, and provider API keys for live `effect-dsp` execution.
-
-## Architecture
-
-1. `server.ts` is a thin entrypoint that launches `app/server/app.ts`.
-1. `app/contracts/*` is the schema authority for IDs, envelopes, demo payloads, health/version, and capabilities.
-1. `app/server/router.ts` owns route composition for static shell/modules and typed API endpoints.
-1. `app/server/demos/*` implements registry-driven vertical slices, bounded execution policy, and live DSP provider composition.
-1. `app/web/atoms/*` keeps `@effect-atom/atom` as the sole state authority. `Atom.fn` atoms handle orchestration (preload-before-run, sequence guards). `DemoClient` is an `Effect.Service` wired through `Atom.runtime`.
-1. `app/web/view/*` projects contracts + run state to the single live card surface.
-1. `app/web/main.tsx` routes `/demos/:id` into deep dive pages, rendered from the same typed contracts as the home cards.
-
-## Verification
+From the repository root:
 
 ```sh
 bun run --filter '@theoria/theoria-app' check:all

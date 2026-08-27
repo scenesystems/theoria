@@ -1,11 +1,11 @@
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { ConfigProvider, Context, Effect, Either, Layer, Option, Schema } from "effect"
+import { ConfigProvider, Context, Effect, Either, Layer, Option, Ref, Schema } from "effect"
 
 import type * as InferenceContracts from "../../../../../../packages/effect-inference/src/contracts/index.js"
 import * as InferenceRuntime from "../../../../../../packages/effect-inference/src/Runtime/index.js"
 
 import type { DspProvider } from "../../../contracts/capabilities.js"
-import type { DspRuntimeProjection } from "../../../contracts/dsp-runtime-projection.js"
+import type { DspRuntimeProjection, DspRuntimeStatus } from "../../../contracts/dsp-runtime-projection.js"
 
 export class DspProviderUnavailable extends Schema.TaggedError<DspProviderUnavailable>()(
   "DspProviderUnavailable",
@@ -36,8 +36,13 @@ export class DspProviderRuntime extends Context.Tag("@theoria/app/server/demos/e
     readonly layer: Option.Option<
       Layer.Layer<LanguageModel.LanguageModel, never, never>
     >
+    readonly status: Ref.Ref<DspRuntimeStatus>
+    readonly markOperational: Effect.Effect<void>
+    readonly markDegraded: Effect.Effect<void>
   }
 >() {}
+
+export type DspProviderRuntimeApi = Context.Tag.Service<typeof DspProviderRuntime>
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
@@ -67,26 +72,39 @@ const makeProviderRuntime = (options: {
   readonly capability: ProviderCapability
   readonly resolution: ProviderResolution
   readonly layer: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
+  readonly status: Ref.Ref<DspRuntimeStatus>
 }) =>
   DspProviderRuntime.of({
     capability: options.capability,
     resolution: options.resolution,
-    layer: options.layer
+    layer: options.layer,
+    status: options.status,
+    markOperational: options.capability.enabled
+      ? Ref.set(options.status, "operational")
+      : Effect.void,
+    markDegraded: options.capability.enabled
+      ? Ref.set(options.status, "degraded")
+      : Effect.void
   })
 
 const disabledRuntime = (reason: string) =>
-  makeProviderRuntime({
-    capability: {
-      enabled: false,
-      provider: Option.none(),
-      model: Option.none(),
-      routeFamily: Option.none(),
-      baseUrl: Option.none(),
-      reason: Option.some(reason)
-    },
-    resolution: emptyResolution,
-    layer: Option.none()
-  })
+  Ref.make<DspRuntimeStatus>("unavailable").pipe(
+    Effect.map((status) =>
+      makeProviderRuntime({
+        capability: {
+          enabled: false,
+          provider: Option.none(),
+          model: Option.none(),
+          routeFamily: Option.none(),
+          baseUrl: Option.none(),
+          reason: Option.some(reason)
+        },
+        resolution: emptyResolution,
+        layer: Option.none(),
+        status
+      })
+    )
+  )
 
 const resolvedProviderRuntime = Effect.gen(function*() {
   const runtime = yield* InferenceRuntime.resolveLiveTextProviderRuntime({
@@ -96,6 +114,7 @@ const resolvedProviderRuntime = Effect.gen(function*() {
     Effect.provide(InferenceRuntime.RuntimeResolverLive)
   )
   const resolution = yield* resolver.resolve(runtime.desired)
+  const status = yield* Ref.make<DspRuntimeStatus>("configured")
 
   return makeProviderRuntime({
     capability: {
@@ -110,34 +129,38 @@ const resolvedProviderRuntime = Effect.gen(function*() {
       desired: Option.some(runtime.desired),
       resolvedRoute: Option.some(resolution.resolvedRoute)
     },
-    layer: Option.some(runtime.languageModelLayer)
+    layer: Option.some(runtime.languageModelLayer),
+    status
   })
 })
 
 export const dspRuntimeProjection = (runtime: {
   readonly capability: ProviderCapability
-  readonly resolution: ProviderResolution
+  readonly status: Ref.Ref<DspRuntimeStatus>
 }): Effect.Effect<DspRuntimeProjection> =>
-  Effect.succeed({
-    enabled: runtime.capability.enabled,
-    ...Option.match(runtime.capability.reason, {
-      onNone: () => ({}),
-      onSome: (reason) => ({ reason })
-    }),
-    ...Option.match(runtime.resolution.desired, {
-      onNone: () => ({}),
-      onSome: (requestedRuntime) => ({ requestedRuntime })
-    }),
-    ...Option.match(runtime.resolution.resolvedRoute, {
-      onNone: () => ({}),
-      onSome: (resolvedRoute) => ({ resolvedRoute })
-    })
-  })
+  Ref.get(runtime.status).pipe(
+    Effect.map((status): DspRuntimeProjection => ({
+      status,
+      ...Option.match(runtime.capability.provider, {
+        onNone: () => ({}),
+        onSome: (provider) => ({ provider })
+      }),
+      ...Option.match(runtime.capability.model, {
+        onNone: () => ({}),
+        onSome: (model) => ({ model })
+      }),
+      ...(status === "unavailable"
+        ? { reason: "provider-configuration-invalid" }
+        : status === "degraded"
+        ? { reason: "provider-request-failed" }
+        : {})
+    }))
+  )
 
 const makeRuntime = Effect.either(resolvedProviderRuntime).pipe(
   Effect.flatMap(
     Either.match({
-      onLeft: (error) => Effect.succeed(disabledRuntime(reasonFromError(error))),
+      onLeft: (error) => disabledRuntime(reasonFromError(error)),
       onRight: Effect.succeed
     })
   )

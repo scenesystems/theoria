@@ -1,120 +1,91 @@
 # `@scenesystems/effect-inference`
 
-Effect-native provider-blind runtime descriptors, route resolution, and replay-safe runtime evidence for text and embeddings workloads.
+`@scenesystems/effect-inference` keeps model-runtime intent, route selection, and observed execution metadata as separate typed records. Applications can resolve provider layers for `@effect/ai`, execute text or embedding workloads, and retain serializable evidence about the route and runtime that served each call.
 
-## Core Model
+## Core model
 
-`@scenesystems/effect-inference` separates each part of runtime truth into its own authority:
+A `DesiredRuntimeDescriptor` records the requested artifact, route hints, and capability requirements. Resolution produces a `ResolvedRouteDescriptor` with the chosen route, provider model, endpoint, or deployment information that is known before execution. The resulting `RuntimeResolution` also carries conservative capabilities and the relevant provider layer.
 
-- `DesiredRuntimeDescriptor` records what you want to run.
-- `ResolvedRouteDescriptor` records how that request mapped onto a provider route, base URL, endpoint, deployment, and provider model where known.
-- `ResolvedRuntimeDescriptor` records what actually happened after a call completes, including response model identity, usage, finish metadata, and provider metadata.
-- `RuntimeEvidence` joins the pre-execution resolution record with post-execution runtime truth so downstream packages can store one replay-safe artifact.
+After execution, a `ResolvedRuntimeDescriptor` records actual evidence such as response model identity, normalized usage, finish metadata, and provider metadata. `Runtime.makeRuntimeEvidence` combines this evidence with the original resolution. Callers are responsible for populating post-execution fields from the provider response rather than treating route resolution as proof of what ran.
 
-This is the main value of the package: callers work against `@effect/ai` `LanguageModel` and `EmbeddingModel`, while `@scenesystems/effect-inference` keeps the runtime metadata around those calls explicit and serializable.
-
-## Quick Start
-
-```ts typecheck
-import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import { Effect, Redacted } from "effect"
-import { HuggingFace, Runtime } from "@scenesystems/effect-inference"
-
-const program = Effect.gen(function* () {
-  const resolution = yield* HuggingFace.resolveLiveRuntime({
-    serveMode: "routed-marketplace",
-    model: "meta-llama/Llama-3.3-70B-Instruct",
-    accessToken: Redacted.make("hf_xxxxxxxxxxxxxx"),
-    selectionPolicy: "fastest"
-  })
-  const languageModelLayer = yield* HuggingFace.languageModelLayer(resolution)
-  const embeddingModelLayer = yield* HuggingFace.embeddingModelLayer(resolution)
-  const summary = yield* LanguageModel.generateText({
-    prompt: "Explain runtime provenance in one sentence.",
-    toolChoice: "none"
-  }).pipe(Effect.provide(languageModelLayer))
-  const embeddings = yield* EmbeddingModel.EmbeddingModel.pipe(
-    Effect.flatMap((model) => model.embedMany([summary.text])),
-    Effect.provide(embeddingModelLayer)
-  )
-  const evidence = Runtime.makeRuntimeEvidence({
-    resolution,
-    resolvedRuntime: {
-      responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef
-    }
-  })
-
-  return yield* Effect.log({
-    requested: evidence.desired.artifact.modelRef,
-    routeFamily: evidence.resolvedRoute.route.family,
-    responseModel: evidence.resolvedRuntime.responseModel,
-    finishReason: summary.finishReason,
-    embeddingDimensions: embeddings[0]?.length
-  })
-})
-```
-
-## Using Hugging Face Live Runtimes
-
-`HuggingFace.resolveLiveRuntime(...)` returns the canonical `RuntimeResolution` record for routed-provider and dedicated-endpoint usage, with requested descriptor truth, resolved route provenance, capability metadata, and authenticated live layers kept together. `HuggingFace.resolveLiveRuntimeConfig(...)` decodes the same routed or endpoint shape from env-backed config, and `HuggingFace.resolveLiveRuntimeFromConfig(...)` composes that config step with live runtime resolution in one call. From the resulting resolution, `HuggingFace.languageModelLayer(...)` and `HuggingFace.embeddingModelLayer(...)` give you the exact layer to provide to `LanguageModel.generateText(...)` or `EmbeddingModel.EmbeddingModel`, and `Runtime.makeRuntimeEvidence(...)` turns the result into replay-safe runtime evidence after the call completes.
-
-`RuntimeResolver` remains the provider-blind, secret-free resolver surface. The Hugging Face helpers are the auth-bound companion for real routed and endpoint execution.
-
-## Other Entry Paths
-
-If you want a config-driven helper for hosted and brokered text providers, `Runtime.resolveLiveTextProviderRuntime(...)` builds descriptors and `LanguageModel` layers for OpenAI, Anthropic, and OpenRouter without pulling those provider names into the rest of your program.
-
-## Live Example Verification
-
-`bun run --filter '@scenesystems/effect-inference' examples:verify` executes the live examples behind an explicit opt-in gate. Set `EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true` to enable the harness and optionally pass `EFFECT_INFERENCE_LIVE_EXAMPLES` as a comma-separated list of `runtime-config-decoding`, `hugging-face-routed-runtime`, and `hugging-face-endpoint-runtime`.
-
-The Hugging Face config helper reads env-backed keys such as `HUGGINGFACE_ACCESS_TOKEN`, `HUGGINGFACE_SELECTION_POLICY`, `HUGGINGFACE_ENDPOINT_BASE_URL`, `HUGGINGFACE_ENDPOINT_ID`, `HUGGINGFACE_DEPLOYMENT_ID`, and `HUGGINGFACE_RUNTIME_FLAVOR`. The routed example only needs a token unless you want to override the router URL or selection policy. The endpoint example needs a token plus real endpoint coordinates.
-
-## Route Families
-
-- `OpenAiCompatible` — the stable transport family for brokered, dedicated, and self-hosted OpenAI-compatible text and embeddings runtimes
-- `OpenAiResponses` — direct OpenAI Responses support on an explicit companion lane
-- `AnthropicMessages` — direct Anthropic Messages support on an explicit companion lane
-- `HuggingFace` — Hugging Face routed-provider and dedicated-endpoint authorities with typed selection policy and deployment identity
-
-## Example Stories
-
-- `examples/01-openai-compatible-static-runtime.ts` — self-hosted OpenAI-compatible descriptor and evidence assembly
-- `examples/02-hugging-face-routed-runtime.ts` — Hugging Face routed-provider live runtime resolution plus `LanguageModel.generateText`
-- `examples/03-runtime-config-decoding.ts` — config-driven direct provider runtime construction through `Runtime.resolveLiveTextProviderRuntime`
-- `examples/04-hugging-face-endpoint-runtime.ts` — Hugging Face dedicated endpoint live runtime resolution plus embeddings execution
-
-## Entry Points
-
-- `@scenesystems/effect-inference`
-- `@scenesystems/effect-inference/Contracts`
-- `@scenesystems/effect-inference/Errors`
-- `@scenesystems/effect-inference/Runtime`
-- `@scenesystems/effect-inference/OpenAiCompatible`
-- `@scenesystems/effect-inference/HuggingFace`
-- `@scenesystems/effect-inference/Testing`
-- `@scenesystems/effect-inference/experimental`
-
-## Testing
-
-`@scenesystems/effect-inference/Testing` exports deterministic fixtures and static layers so downstream packages can prove runtime boundaries without importing live provider adapters:
-
-- `Testing.makeDesiredRuntimeDescriptor`
-- `Testing.makeResolvedRouteDescriptor`
-- `Testing.makeResolvedRuntimeDescriptor`
-- `Testing.makeRuntimeEvidenceFixture`
-- `Testing.staticRuntimeResolver`
-- `Testing.staticLanguageModel`
-- `Testing.staticEmbeddingModel`
-
-## Development
+## Installation
 
 ```sh
-bun run check
-bun run check:tests
-bun run lint
-bun run test
-bun run build
-bun run docgen
+npm install @scenesystems/effect-inference effect @effect/ai
 ```
+
+The required peer ranges are `effect ^3.22.1` and `@effect/ai >=0.37.0`. Provider adapter and platform dependencies are installed transitively.
+
+## Minimal example
+
+This example creates a static OpenAI-compatible resolution and records runtime evidence.
+
+```ts typecheck
+import { OpenAiCompatible, Runtime } from "@scenesystems/effect-inference"
+
+const resolution = OpenAiCompatible.makeOpenAiCompatibleResolution(
+  { artifact: { modelRef: "local/example-model" } },
+  "http://127.0.0.1:11434/v1"
+)
+
+const evidence = Runtime.makeRuntimeEvidence({
+  resolution,
+  resolvedRuntime: { responseModel: "local/example-model" }
+})
+
+export const routeFamily = evidence.resolvedRoute.route.family
+```
+
+For live Hugging Face routes, `HuggingFace.resolveLiveRuntimeConfig` decodes configuration and `HuggingFace.resolveLiveRuntimeFromConfig` resolves it. `HuggingFace.resolveLiveRuntime` accepts an explicit redacted token. A successful resolution can be passed to `HuggingFace.languageModelLayer` for `LanguageModel.generateText` or to `HuggingFace.embeddingModelLayer` for `EmbeddingModel.EmbeddingModel`.
+
+Hosted text configuration is available through `Runtime.resolveLiveTextProviderRuntime` for OpenAI, Anthropic, and OpenRouter. It returns the desired descriptor together with a `LanguageModel` layer. Route families in the descriptor model are `OpenAiCompatible`, `OpenAiResponses`, `AnthropicMessages`, and `HuggingFace`.
+
+## Public surface
+
+| Entry point                              | Responsibility                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------- |
+| `Contracts`                              | Desired, resolved-route, resolved-runtime, capability, and evidence schemas  |
+| `Runtime`                                | Resolver services, config decoding, provider layers, and evidence assembly   |
+| `OpenAiCompatible`                       | Static descriptors and OpenAI-compatible transport layers                    |
+| `HuggingFace`                            | Routed-marketplace and dedicated-endpoint resolution for text and embeddings |
+| `Errors`                                 | Configuration, capability, unsupported-route, and resolver errors            |
+| `@scenesystems/effect-inference/Testing` | Static model layers and deterministic descriptor fixtures                    |
+
+The lowercase `/experimental` entrypoint is explicitly unstable and may change outside semver guarantees.
+
+## Secrets and operational boundaries
+
+API keys must remain server-side or in environment-backed Effect `Config`. Keep them as `Redacted` values through configuration and layer construction. Do not serialize credentials into desired descriptors, route evidence, logs, browser bundles, or fixtures.
+
+Resolution validates known route shapes and declared capabilities. It cannot establish the response model or usage before a provider call. `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeResolverNotImplemented` form the package error union. Network and provider errors are exposed by the underlying adapter layers.
+
+## Testing and live verification
+
+`@scenesystems/effect-inference/Testing` exports `makeDesiredRuntimeDescriptor`, `makeResolvedRouteDescriptor`, `makeResolvedRuntimeDescriptor`, `makeRuntimeEvidenceFixture`, `staticRuntimeResolver`, `staticLanguageModel`, and `staticEmbeddingModel`. These surfaces support unit tests without provider access.
+
+Run opt-in live verification with `bun run --filter '@scenesystems/effect-inference' examples:verify` and enable it with `EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true`. It performs real provider calls and may incur cost.
+
+## Examples and reference
+
+- [`examples/01-openai-compatible-static-runtime.ts`](./examples/01-openai-compatible-static-runtime.ts) assembles static evidence.
+- [`examples/02-hugging-face-routed-runtime.ts`](./examples/02-hugging-face-routed-runtime.ts) executes routed text inference.
+- [`examples/03-runtime-config-decoding.ts`](./examples/03-runtime-config-decoding.ts) resolves a configured text provider.
+- [`examples/04-hugging-face-endpoint-runtime.ts`](./examples/04-hugging-face-endpoint-runtime.ts) executes dedicated-endpoint embeddings.
+
+Generated API documentation is in [`docs/`](./docs).
+
+## Status
+
+This package is pre-1.0. Public APIs may change between minor versions, and experimental APIs have weaker stability guarantees.
+
+## Contributing and support
+
+Read the repository [contributing guide](../../CONTRIBUTING.md). Report defects and request support through [GitHub issues](https://github.com/scenesystems/theoria/issues).
+
+## Attribution
+
+Provider integrations build on [`@effect/ai`](https://effect.website/docs/ai/introduction/) and the corresponding provider SDKs.
+
+## License
+
+[MIT](./LICENSE), Copyright 2026 Scene Systems.

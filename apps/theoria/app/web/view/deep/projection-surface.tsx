@@ -109,7 +109,7 @@ const StageProjectionFallback = () => (
       as="p"
       className="text-ink-700"
       role="status"
-      text="This package projects directly into the evidence and source planes. Run the demo to materialize the reproducible outputs side by side."
+      text="Run the demo to populate the evidence and source projections."
       variant="expanded"
     />
   </Stack>

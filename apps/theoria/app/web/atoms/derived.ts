@@ -1,7 +1,9 @@
-import { Atom } from "@effect-atom/atom"
+import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Option, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
+import * as Arr from "effect/Array"
 
+import type { Capabilities } from "../../contracts/capabilities.js"
 import { cardById } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
 import type { Id as IdType } from "../../contracts/id.js"
@@ -19,6 +21,7 @@ import {
   demoStageViewModel
 } from "../view/deep/stageModel.js"
 import { type PresentedRun, presentRun } from "../view/presenter.js"
+import type { RunAvailability } from "../view/runControlsModel.js"
 import {
   type DeepDiveSurfaceFrameViewModel,
   deepDiveSurfaceFrameViewModel,
@@ -26,6 +29,7 @@ import {
   surfaceViewModel
 } from "../view/surfaceModel.js"
 
+import { capabilitiesAtom } from "./capabilities.js"
 import { surfaceEvidencePlaneAtom } from "./evidence-plane.js"
 import {
   surfaceAtom,
@@ -46,6 +50,27 @@ type ViewModelKey = `${IdType}:${SurfaceVariant}`
 export const viewModelKey = (id: IdType, variant: SurfaceVariant): ViewModelKey => `${id}:${variant}`
 
 const isId = Schema.is(Id)
+
+const dspRunAvailability = (
+  result: Result.Result<Capabilities, unknown>
+): RunAvailability =>
+  Result.match(result, {
+    onInitial: () => "checking",
+    onFailure: () => "unavailable",
+    onSuccess: ({ value }) =>
+      Arr.findFirst(value.demos, ({ id }) => id === "effect-dsp").pipe(
+        Option.match({
+          onNone: (): RunAvailability => "unavailable",
+          onSome: ({ enabled }): RunAvailability => enabled ? "available" : "unavailable"
+        })
+      )
+  })
+
+const runAvailability = (id: IdType, get: AtomType.Context): RunAvailability =>
+  Match.value(id).pipe(
+    Match.when("effect-dsp", () => dspRunAvailability(get(capabilitiesAtom))),
+    Match.orElse((): RunAvailability => "available")
+  )
 
 export const surfaceViewModelAtom: (key: ViewModelKey) => AtomType.Atom<SurfaceViewModel | null> = Atom.family(
   (key: ViewModelKey) => {
@@ -78,7 +103,12 @@ export const deepDiveSurfaceFrameAtom: (id: IdType) => AtomType.Atom<DeepDiveSur
       Atom.make((get: AtomType.Context) =>
         Option.match(cardById(id), {
           onNone: () => null,
-          onSome: (card) => deepDiveSurfaceFrameViewModel({ card, state: get(surfaceAtom(id)) })
+          onSome: (card) =>
+            deepDiveSurfaceFrameViewModel({
+              availability: runAvailability(id, get),
+              card,
+              state: get(surfaceAtom(id))
+            })
         })
       )
   )

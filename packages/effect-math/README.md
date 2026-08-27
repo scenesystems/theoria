@@ -1,350 +1,98 @@
-# `@scenesystems/effect-math`
+# @scenesystems/effect-math
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
+`@scenesystems/effect-math` provides mathematical operations designed to compose with [Effect](https://effect.website) programs. It covers scalar numerics, structured mathematical domains, schema-checked boundaries, typed failures, and runtime-controlled numerical behavior.
 
-Mathematics for the [Effect](https://effect.website) ecosystem. Numerics, linear algebra, geometry, probability, statistics, distributions, and special functions — with typed errors, immutable carriers, and configurable runtime policies.
-
-[Quick start](#quick-start) · [Domains](#domains) · [Runtime policies](#runtime-policies) · [Error handling](#error-handling) · [API at a glance](#api-at-a-glance)
-
----
-
-## Why effect-math?
-
-Most math libraries give you raw functions that throw on bad input, mutate buffers in place, and offer no way to control precision behavior or trace what happened. `effect-math` is different:
-
-- **Immutable `Chunk<number>` carriers** — no hidden mutation, structurally shareable, persistent
-- **Typed errors** — every failure has a `_tag` you can match on. No `NaN` surprises, no silent infinities
-- **Runtime policies via `Layer`** — inject precision enforcement, backend selection, and diagnostics tracing without changing call sites
-- **Schema-validated boundaries** — `onExcessProperty: "error"` at every public decode edge
-- **Pure kernels** — hot-path functions are synchronous with no Effect overhead. Wrap them in Effect only when you need policies or typed error channels
-- **No native deps** — pure TypeScript. Just `effect` as a peer dependency
+The public operations have three forms. Pure kernels are synchronous functions for trusted values and hot numerical paths. Validated variants return `Effect` values with schema decoding and domain-specific errors. Policy-aware variants also read services from the Effect context, allowing precision, backend, diagnostics, and random-number policies to be supplied with Layers. Domain subpaths keep imports focused while the package root exposes the same domains as namespaces and re-exports shared contracts.
 
 ## Installation
 
+Install the package with its required peer dependency:
+
 ```sh
-npm install @scenesystems/effect-math
-# or
-bun add @scenesystems/effect-math
+npm install @scenesystems/effect-math effect
 ```
 
-Peer dependency: `effect >= 3.22.1`
+The package is compatible with Effect `^3.22.1`.
 
-## Quick start
+## Minimal example
 
-Pure kernels work directly — no Effect runtime needed:
+This example uses a pure kernel for an internal calculation and a validated Effect variant at an input boundary.
 
 ```ts typecheck
-import { Chunk } from "effect"
-import { dot, normL2, vectorAdd } from "@scenesystems/effect-math/LinearAlgebra"
-import { euclideanDistance } from "@scenesystems/effect-math/Geometry"
-import { mean, variance } from "@scenesystems/effect-math/Statistics"
-import { normalPdf, standardNormalCdf } from "@scenesystems/effect-math/Probability"
-import { gamma, erf, beta } from "@scenesystems/effect-math/Special"
-import { normalCdf as distNormalCdf, betaMean, poissonPmf } from "@scenesystems/effect-math/Distribution"
-import { of, add, abs, sin, complexDerivative } from "@scenesystems/effect-math/Complex"
+import { Chunk, Effect } from "effect"
+import { dot, dotValidated } from "@scenesystems/effect-math/LinearAlgebra"
 
 const a = Chunk.fromIterable([1, 2, 3])
 const b = Chunk.fromIterable([4, 5, 6])
 
-dot(a, b) // 32
-normL2(a) // √14
-vectorAdd(a, b) // Chunk(5, 7, 9)
-
-euclideanDistance(Chunk.fromIterable([0, 0]), Chunk.fromIterable([3, 4])) // 5
-
-mean(Chunk.fromIterable([2, 4, 6])) // 4
-variance(Chunk.fromIterable([2, 4, 6])) // 4
-
-normalPdf(0, 0, 1) // ≈ 0.3989
-standardNormalCdf(0) // 0.5
-
-gamma(5) // 24 (= 4!)
-gamma(0.5) // √π ≈ 1.7725
-erf(1) // ≈ 0.8427
-beta(0.5, 0.5) // π
-
-distNormalCdf(1.96, 0, 1) // ≈ 0.975
-betaMean(2, 5) // ≈ 0.2857
-poissonPmf(3, 5) // ≈ 0.1404
-
-const z = add(of(1, 2), of(3, 4)) // 4 + 6i
-abs(of(3, 4)) // 5
-sin(of(1, 1)) // sin(1)cosh(1) + i·cos(1)sinh(1)
-complexDerivative(sin, 0) // cos(0) = 1 (machine-precision)
-```
-
-When you need precision enforcement or diagnostics, use policy-aware operations — they read runtime services from the Effect context:
-
-```ts
-import { Chunk, Effect, Layer } from "effect"
-import { dotWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
-import {
-  BackendPolicyService,
-  DiagnosticsPolicyService,
-  PrecisionPolicyService
-} from "@scenesystems/effect-math/contracts"
-
-const program = Effect.gen(function* () {
-  const a = Chunk.fromIterable([1, 2, 3])
-  const b = Chunk.fromIterable([4, 5, 6])
-  return yield* dotWithPolicies(a, b) // 32
+const direct: number = dot(a, b)
+const checked = dotValidated({
+  a: [1, 2, 3],
+  b: [4, 5, 6]
 })
 
-const policies = Layer.mergeAll(
-  Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
-  Layer.succeed(BackendPolicyService, { policy: "scalar" }),
-  Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
-)
-
-Effect.runSync(program.pipe(Effect.provide(policies)))
+export { checked, direct }
 ```
 
-Under `"strict"` precision, non-finite results fail with a typed error instead of silently returning `NaN` or `Infinity`.
+Pure kernels assume their documented preconditions. Validated variants decode unknown input and represent validation or mathematical failures in the error channel. Policy-aware variants add service requirements to the Effect environment.
 
-## Domains
+## Domain navigation
 
-Each domain is a self-contained subpath export with its own schemas, typed errors, and operations.
+Each shipped domain is available at `@scenesystems/effect-math/<Domain>`.
 
-| Domain            | Import                                    | What it does                                                                                                                                                                                                            |
-| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Numeric**       | `@scenesystems/effect-math/Numeric`       | Scalar transforms — safe division, `log1p`, `expm1`, `clamp`                                                                                                                                                            |
-| **LinearAlgebra** | `@scenesystems/effect-math/LinearAlgebra` | Dense vector/matrix — dot, norms, matvec, transpose                                                                                                                                                                     |
-| **Geometry**      | `@scenesystems/effect-math/Geometry`      | Distances (Euclidean, Manhattan, Chebyshev), midpoint, centroid                                                                                                                                                         |
-| **Probability**   | `@scenesystems/effect-math/Probability`   | Normal and uniform PDF/CDF, Shannon entropy                                                                                                                                                                             |
-| **Statistics**    | `@scenesystems/effect-math/Statistics`    | Mean, variance, standard deviation, covariance, min/max                                                                                                                                                                 |
-| **Special**       | `@scenesystems/effect-math/Special`       | Gamma, beta, erf/erfc, digamma (Lanczos, A&S 7.1.26)                                                                                                                                                                    |
-| **Algebra**       | `@scenesystems/effect-math/Algebra`       | Polynomial eval/derivative, GCD, LCM, factorial                                                                                                                                                                         |
-| **Calculus**      | `@scenesystems/effect-math/Calculus`      | Derivative limits (`derivativeLimit`, `secondDerivativeLimit`), scalar derivatives, multivariate operators (gradient/Jacobian/Hessian/directional/divergence/laplacian), trapezoid/Simpson/adaptive-Simpson integration |
-| **Optimization**  | `@scenesystems/effect-math/Optimization`  | Bisection root-finding, golden section minimization                                                                                                                                                                     |
-| **Distribution**  | `@scenesystems/effect-math/Distribution`  | 10-family algebra — Normal, LogNormal, Exponential, Uniform, Beta, Gamma, Student-t, Categorical, Binomial, Poisson with PDF/CDF, quantile, mean, variance, entropy                                                     |
-| **Complex**       | `@scenesystems/effect-math/Complex`       | Complex arithmetic, trig, polar, Chunk carriers, complex-step derivative                                                                                                                                                |
+| Domain          | Scope                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Numeric`       | Scalar transforms, stable logarithmic and exponential operations, safe division, selection, and summation                      |
+| `Algebra`       | Polynomial evaluation and differentiation, greatest common divisors, least common multiples, and factorials                    |
+| `LinearAlgebra` | Dense vectors and row-major matrices over immutable `Chunk` carriers, including norms, products, decomposition, and solving    |
+| `Calculus`      | Scalar and multivariate numerical differentiation, error-estimating derivative limits, and numerical integration               |
+| `Special`       | Gamma and beta functions, error functions, incomplete functions, digamma, and polygamma                                        |
+| `Probability`   | Normal and uniform density and cumulative functions, plus Shannon entropy                                                      |
+| `Statistics`    | Descriptive statistics, variance, covariance, extrema, and summary statistics                                                  |
+| `Optimization`  | Bisection root finding and golden-section minimization                                                                         |
+| `Geometry`      | Euclidean, Manhattan, and Chebyshev distances, midpoints, and centroids                                                        |
+| `Complex`       | Complex arithmetic, transcendental functions, polar conversion, vector operations, and complex-step differentiation            |
+| `Distribution`  | Normal, log-normal, exponential, uniform, beta, gamma, Student's t, categorical, binomial, and Poisson distribution operations |
 
-Internal modules are blocked from import via the package `exports` map.
+Shared schemas, policy services, Layers, branded scalars, and cross-domain errors are exported from [`@scenesystems/effect-math/contracts`](./src/contracts/index.ts). The [`experimental`](./src/experimental/index.ts) subpath contains explicitly experimental seams. Experimental APIs can change or be removed independently of the provisional domain APIs.
 
 ## Runtime policies
 
-Policy-aware operations read configuration from Effect services. Compose the policies you need using `Layer`:
+Policy-aware operations describe their configuration needs through `Context.Tag` services. An Effect that uses one of these operations retains the required service types in its environment. A `Layer` constructs and supplies service implementations; providing the Layer removes those requirements from the resulting Effect.
 
-| Service                    | Values                                   | What it controls                                    |
-| -------------------------- | ---------------------------------------- | --------------------------------------------------- |
-| `PrecisionPolicyService`   | `"strict"` / `"relaxed"`                 | Strict rejects non-finite results as typed errors   |
-| `BackendPolicyService`     | `"typed-array"` / `"scalar"`             | Execution strategy for dense operations             |
-| `DiagnosticsPolicyService` | `"enabled"` / `"disabled"`               | `Effect.logDebug` with timing and metadata          |
-| `RngPolicyService`         | `"deterministic"` / `"nondeterministic"` | Deterministic requires a `Seed` for reproducibility |
+| Service                    | Configuration                                    | Behavior                                                                                                                |
+| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `PrecisionPolicyService`   | `strict` or `relaxed`                            | Strict mode turns non-finite policy-checked results into typed domain violations; relaxed mode permits IEEE-754 results |
+| `BackendPolicyService`     | `scalar` or `typed-array`                        | Selects the supported execution strategy for operations that consult a backend                                          |
+| `DiagnosticsPolicyService` | `enabled` or `disabled`                          | Controls diagnostic logging from policy-aware operations                                                                |
+| `RngPolicyService`         | deterministic with a `Seed`, or nondeterministic | Describes reproducibility for operations that require randomness                                                        |
 
-`makeDeterministicRuntimePoliciesLayer` builds all four from a single config object — useful for reproducible test fixtures.
+`makeDeterministicRuntimePoliciesLayer` and `makeNondeterministicRuntimePoliciesLayer` create Layers containing all four services. Individual services can also be supplied with `Layer.succeed` when an operation requires only part of the policy set. A policy changes only operations documented as policy-aware; pure and validated operations do not read these services.
 
-## Error handling
+## Typed errors
 
-Every domain defines typed errors using `Schema.TaggedError`. Match on `_tag` to handle specific failures:
+Validated and policy-aware operations expose errors in the Effect error channel. Errors are `Schema.TaggedError` values with a stable `_tag`, so callers can use `Effect.catchTag`, `Effect.catchTags`, or ordinary Effect error combinators. Boundary decode and encode failures carry contract context. Domain errors distinguish invalid parameters, incompatible shapes, convergence failures, singular systems, and non-finite results where applicable.
 
-```ts
-import { Chunk, Effect, Layer } from "effect"
-import { normWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
-import { DiagnosticsPolicyService, PrecisionPolicyService } from "@scenesystems/effect-math/contracts"
+Representative tags include `ShapeMismatchError`, `SingularMatrixError`, `OptimizationConvergenceError`, `StatisticsShapeError`, `ComplexDivisionByZeroError`, and each domain's `*DomainViolationError`. The generated reference gives the exact error union for each operation.
 
-const program = normWithPolicies(Chunk.fromIterable([Infinity, 1]), "L2").pipe(
-  Effect.catchTag("LinearAlgebraDomainViolationError", (e) => Effect.succeed(`caught: ${e.message}`)),
-  Effect.provide(
-    Layer.mergeAll(
-      Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
-      Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
-    )
-  )
-)
-```
+## Examples and reference
 
-| Domain        | Error                        | Raised when                                |
-| ------------- | ---------------------------- | ------------------------------------------ |
-| LinearAlgebra | `ShapeMismatchError`         | Dimension incompatibility between operands |
-|               | `SingularMatrixError`        | Matrix is rank-deficient                   |
-|               | `DecompositionError`         | Factorization cannot complete              |
-| Geometry      | `GeometryShapeMismatchError` | Point dimensions don't match               |
-|               | `GeometryDegenerateError`    | Degenerate geometric configuration         |
-| Probability   | `ProbabilityParameterError`  | Invalid distribution parameters            |
-| Statistics    | `StatisticsShapeError`       | Too few observations for the estimator     |
-| Special       | `SpecialParameterError`      | Invalid parameters (e.g., gamma at poles)  |
-| Distribution  | `DistributionDecodeError`    | Schema decode failure for operation input  |
-|               | `DistributionParameterError` | Invalid parameters (e.g., σ ≤ 0)           |
-| Complex       | `ComplexDivisionByZeroError` | Division by zero complex number            |
-|               | `ComplexDomainError`         | Invalid domain (e.g., log of zero)         |
+Runnable examples are organized by domain in the [`examples`](./examples/) directory. They show pure, validated, and policy-aware calls for numerics, linear algebra, geometry, probability, statistics, special functions, algebra, calculus, optimization, and distributions.
 
-Each domain also defines a `DomainViolationError` raised under `"strict"` precision when an operation produces a non-finite result.
-
-## API at a glance
-
-```ts
-// Pure kernels — no Effect wrapper
-import {
-  dot,
-  normL2,
-  vectorAdd,
-  vectorScale,
-  matvec,
-  transpose,
-  frobeniusNorm
-} from "@scenesystems/effect-math/LinearAlgebra"
-import { euclideanDistance, manhattanDistance, chebyshevDistance, midpoint } from "@scenesystems/effect-math/Geometry"
-import { mean, variance, standardDeviation, covariance, minimum, maximum } from "@scenesystems/effect-math/Statistics"
-import { normalPdf, normalCdf, uniformPdf, uniformCdf, shannonEntropy } from "@scenesystems/effect-math/Probability"
-import { safeDivide, log1p, expm1, sum, clamp, between } from "@scenesystems/effect-math/Numeric"
-import { gamma, lnGamma, beta, erf, erfc, digamma } from "@scenesystems/effect-math/Special"
-import { polyEval, polyDerivative, gcd, lcm, factorial } from "@scenesystems/effect-math/Algebra"
-import {
-  derivativeLimit,
-  secondDerivativeLimit,
-  derivative,
-  secondDerivative,
-  gradient,
-  jacobian,
-  hessian,
-  directionalDerivative,
-  divergence,
-  laplacian,
-  trapezoid,
-  simpson,
-  adaptiveSimpson
-} from "@scenesystems/effect-math/Calculus"
-import { bisect, goldenSection } from "@scenesystems/effect-math/Optimization"
-import {
-  normalPdf as dNormalPdf,
-  normalCdf as dNormalCdf,
-  normalQuantile,
-  betaPdf,
-  betaCdf,
-  betaQuantile,
-  gammaPdf,
-  gammaCdf,
-  exponentialPdf,
-  uniformPdf,
-  studentTPdf,
-  categoricalPmf,
-  binomialPmf,
-  poissonPmf as dPoissonPmf,
-  normalMean,
-  normalVariance,
-  normalEntropy as dNormalEntropy,
-  betaMean as dBetaMean,
-  gammaMean
-} from "@scenesystems/effect-math/Distribution"
-import {
-  of,
-  add,
-  multiply,
-  divide,
-  conjugate,
-  abs,
-  arg,
-  exp,
-  log,
-  pow,
-  sqrt,
-  sin,
-  cos,
-  tan,
-  sinh,
-  cosh,
-  tanh,
-  toPolar,
-  fromPolar,
-  complexDerivative,
-  complexDot,
-  complexNorm,
-  complexScale,
-  fromRealChunk,
-  toRealChunk
-} from "@scenesystems/effect-math/Complex"
-
-// Policy-aware — read runtime services from Effect context
-import { dotWithPolicies, normWithPolicies } from "@scenesystems/effect-math/LinearAlgebra"
-import { distanceWithPolicies } from "@scenesystems/effect-math/Geometry"
-import {
-  summaryStatisticsWithPolicies,
-  meanWithPolicies,
-  varianceWithPolicies,
-  covarianceWithPolicies
-} from "@scenesystems/effect-math/Statistics"
-import {
-  normalPdfWithPolicies,
-  normalCdfWithPolicies,
-  uniformPdfWithPolicies,
-  uniformCdfWithPolicies,
-  entropyWithPolicies
-} from "@scenesystems/effect-math/Probability"
-import { sumWithPolicies } from "@scenesystems/effect-math/Numeric"
-import {
-  gammaWithPolicies,
-  erfWithPolicies,
-  lnGammaWithPolicies,
-  betaWithPolicies,
-  erfcWithPolicies,
-  digammaWithPolicies
-} from "@scenesystems/effect-math/Special"
-import {
-  polyEvalWithPolicies,
-  factorialWithPolicies,
-  polyDerivativeWithPolicies,
-  gcdWithPolicies,
-  lcmWithPolicies
-} from "@scenesystems/effect-math/Algebra"
-import {
-  derivativeLimitWithPolicies,
-  secondDerivativeLimitWithPolicies,
-  derivativeWithPolicies,
-  secondDerivativeWithPolicies,
-  gradientWithPolicies,
-  jacobianWithPolicies,
-  hessianWithPolicies,
-  directionalDerivativeWithPolicies,
-  divergenceWithPolicies,
-  laplacianWithPolicies,
-  trapezoidWithPolicies,
-  simpsonWithPolicies,
-  adaptiveSimpsonWithPolicies
-} from "@scenesystems/effect-math/Calculus"
-import { bisectWithPolicies, goldenSectionWithPolicies } from "@scenesystems/effect-math/Optimization"
-import {
-  normalPdfWithPolicies,
-  normalCdfWithPolicies,
-  betaCdfWithPolicies
-} from "@scenesystems/effect-math/Distribution"
-
-// Runtime policy services and layer constructors
-import {
-  PrecisionPolicyService,
-  BackendPolicyService,
-  DiagnosticsPolicyService,
-  RngPolicyService,
-  makeDeterministicRuntimePoliciesLayer
-} from "@scenesystems/effect-math/contracts"
-```
+Generated API documentation is available in [`docs`](./docs/index.md). The [package root module](./docs/modules/index.ts.md) documents namespace exports, while each public domain subpath is the preferred location for focused imports.
 
 ## Status
 
-| Tier            | Domains                                                                                                                    | Meaning                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| **Provisional** | Numeric, LinearAlgebra, Geometry, Probability, Statistics, Special, Algebra, Calculus, Optimization, Distribution, Complex | Functional and tested, may evolve |
+This package is pre-1.0. All eleven domain APIs are currently marked `provisional`, so signatures and behavior may change between versions. The `experimental` subpath has a lower stability expectation and is clearly separated from the domain surfaces. Review the [changelog](./CHANGELOG.md) when upgrading.
 
-## Calculus Fixture Provenance
+## Contribution and support
 
-Calculus parity fixtures are mixed-source by operation. `trapezoid`, `simpson`, and `adaptiveSimpson` expectations are generated from SciPy/NumPy reference calls (`numpy.trapz`, `scipy.integrate.simpson`, `scipy.integrate.quad`) in `packages/effect-math/scripts/fixtures/calculus.py`. `derivative`, `secondDerivative`, and multivariate operators (`gradient`, `jacobian`, `hessian`, `directionalDerivative`, `divergence`, `laplacian`) use analytic/reference formulations in the same generator because there is no one-to-one SciPy operator call for those exact contracts.
+Contributions are welcome through the repository's [contribution guide](../../CONTRIBUTING.md). Use [GitHub issues](https://github.com/scenesystems/theoria/issues) for reproducible bug reports, API questions, and focused feature proposals. Security concerns should follow the repository's [security policy](../../SECURITY.md).
 
-## Acknowledgments
+## Attribution
 
-Gamma and log-gamma use the [Lanczos approximation](https://doi.org/10.1137/0701008) (g = 7, 9 coefficients from [Godfrey, 2001](http://www.numericana.com/answer/info/godfrey.htm)). Error function uses multi-region rational polynomial coefficients from the [Cephes Mathematical Library](https://www.netlib.org/cephes/) (Moshier, 1984–2000; BSD license — see `THIRD_PARTY_NOTICES`). Inverse error function uses rational Chebyshev approximations from [Blair, Edwards & Johnson (1976)](https://doi.org/10.1090/S0025-5718-1976-0421040-7) via [Boost.Math](https://www.boost.org/doc/libs/release/libs/math/) (Maddock, 2006; Boost Software License 1.0 applies to coefficient tables). Regularized incomplete gamma and beta use series expansion and modified Lentz continued fractions ([Lentz, 1976](https://doi.org/10.1364/AO.15.000668); [Thompson & Barnett, 1986](<https://doi.org/10.1016/0021-9991(86)90001-8>)). Polygamma uses recurrence shifting and asymptotic expansion with Bernoulli numbers per A&S §6.4. Digamma uses asymptotic expansion per A&S §6.3.18. Compensated summation follows [Kahan (1965)](https://doi.org/10.1145/363707.363723). Golden section search follows [Kiefer (1953)](https://doi.org/10.2307/2032161). Complex-step differentiation follows [Squire & Trapp (1998)](https://doi.org/10.1137/S003614459631241X). Complex division uses the [Smith (1962)](https://doi.org/10.1145/368637.368661) method for overflow safety. Beta, Gamma, and Student's t quantiles use Newton–Raphson iteration on the CDF inverse. Numerical kernels are verified against SciPy/NumPy fixtures where those APIs are authoritative and analytic/reference fixtures where direct SciPy parity is not applicable.
-
-## Contributing
-
-See the [repository](https://github.com/scenesystems/theoria) for contribution guidelines.
-
-```sh
-bun run check    # Type check
-bun run test     # Run tests
-bun run lint     # ESLint with Effect rules
-bun run build    # ESM + CJS + annotate-pure-calls
-```
+Numerical behavior is compared with committed SciPy and NumPy reference fixtures where those libraries provide corresponding operations. Calculus operators without one-to-one SciPy APIs use analytic reference formulations. Implementations also draw on established methods including Lanczos gamma approximation, Cephes error-function coefficients, Kahan compensated summation, golden-section search, and complex-step differentiation. Licensing and source details for incorporated coefficient tables appear in [`THIRD_PARTY_NOTICES`](./THIRD_PARTY_NOTICES).
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE), copyright 2026 Scene Systems.

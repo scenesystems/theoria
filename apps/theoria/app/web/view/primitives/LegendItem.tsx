@@ -45,7 +45,7 @@ export const LegendItem = ({
             value === undefined ? "row-span-1" : "row-span-2"
           } mt-0.5`}
         />
-        <Layer as="dt" className="min-w-0">
+        <Layer className="min-w-0">
           <SemanticText
             as="span"
             className={`${theme.label} block max-w-none whitespace-nowrap`}
@@ -57,7 +57,7 @@ export const LegendItem = ({
         {value === undefined
           ? null
           : (
-            <Layer as="dd" className="min-w-0">
+            <Layer className="min-w-0">
               <SemanticText
                 as="span"
                 className="block max-w-none whitespace-nowrap text-ink-600"

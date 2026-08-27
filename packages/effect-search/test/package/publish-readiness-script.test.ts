@@ -53,8 +53,7 @@ describe("package/publish-readiness-script", () => {
       const result = yield* runPublishCheck(root, [
         "--require-packed-manifest",
         `--root-manifest=${fixtureRoot}/package.drift-all.json`,
-        `--packed-manifest=${fixtureRoot}/dist.package.valid.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--packed-manifest=${fixtureRoot}/dist.package.valid.json`
       ])
 
       expect(result.exitCode).toBe(1)

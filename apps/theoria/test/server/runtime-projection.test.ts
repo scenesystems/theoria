@@ -1,69 +1,60 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, Ref } from "effect"
 
-import * as InferenceTesting from "../../../../packages/effect-inference/src/Runtime/testing.js"
+import type { DspRuntimeStatus } from "../../app/contracts/dsp-runtime-projection.js"
 import { dspRuntimeProjection } from "../../app/server/demos/effect-dsp/provider.js"
 
+const capability = (enabled: boolean) => ({
+  enabled,
+  provider: enabled ? Option.some<"openai">("openai") : Option.none<"openai">(),
+  model: enabled ? Option.some("gpt-4o-mini") : Option.none<string>(),
+  routeFamily: Option.none<never>(),
+  baseUrl: Option.none<string>(),
+  reason: enabled ? Option.none<string>() : Option.some("private configuration detail")
+})
+
 describe("server/runtime-projection", () => {
-  it.effect("projects requested and resolved-route truth from the effect-inference substrate", () =>
+  it.effect("publishes only stable provider availability fields", () =>
     Effect.gen(function*() {
-      const desired = InferenceTesting.makeDesiredRuntimeDescriptor({
-        modelRef: "meta-llama/Llama-3.3-70B-Instruct"
-      })
-      const resolvedRoute = InferenceTesting.makeResolvedRouteDescriptor({
-        desired,
-        route: {
-          family: "HuggingFace",
-          serveMode: "dedicated-endpoint",
-          authMethod: "api-key",
-          baseUrl: "https://endpoint.huggingface.co/v1",
-          endpointId: "llama-prod",
-          deploymentId: "deployment-1",
-          runtimeFlavorHint: "tgi"
-        },
-        selectedDeployment: "deployment-1",
-        providerModel: "meta-llama/Llama-3.3-70B-Instruct"
-      })
+      const status = yield* Ref.make<DspRuntimeStatus>("configured")
       const projection = yield* dspRuntimeProjection({
-        capability: {
-          enabled: true,
-          provider: Option.none(),
-          model: Option.none(),
-          routeFamily: Option.none(),
-          baseUrl: Option.none(),
-          reason: Option.none()
-        },
-        resolution: {
-          desired: Option.some(desired),
-          resolvedRoute: Option.some(resolvedRoute)
-        }
+        capability: capability(true),
+        status
       })
 
-      expect(projection.requestedRuntime?.artifact.modelRef).toBe("meta-llama/Llama-3.3-70B-Instruct")
-      expect(projection.resolvedRoute?.route.endpointId).toBe("llama-prod")
-      expect(projection.resolvedRoute?.selectedDeployment).toBe("deployment-1")
+      expect(projection).toEqual({
+        status: "configured",
+        provider: "openai",
+        model: "gpt-4o-mini"
+      })
+      expect("requestedRuntime" in projection).toBe(false)
+      expect("resolvedRoute" in projection).toBe(false)
     }))
 
-  it.effect("keeps disabled provider state honest when no runtime descriptor resolved", () =>
+  it.effect("uses stable reason codes instead of raw configuration failures", () =>
     Effect.gen(function*() {
+      const status = yield* Ref.make<DspRuntimeStatus>("unavailable")
       const projection = yield* dspRuntimeProjection({
-        capability: {
-          enabled: false,
-          provider: Option.none(),
-          model: Option.none(),
-          routeFamily: Option.none(),
-          baseUrl: Option.none(),
-          reason: Option.some("DSP runtime resolution failed.")
-        },
-        resolution: {
-          desired: Option.none(),
-          resolvedRoute: Option.none()
-        }
+        capability: capability(false),
+        status
       })
 
-      expect(projection.enabled).toBe(false)
-      expect(projection.reason).toBe("DSP runtime resolution failed.")
-      expect(projection.requestedRuntime).toBeUndefined()
-      expect(projection.resolvedRoute).toBeUndefined()
+      expect(projection).toEqual({
+        status: "unavailable",
+        reason: "provider-configuration-invalid"
+      })
+    }))
+
+  it.effect("reports provider execution degradation without exposing its cause", () =>
+    Effect.gen(function*() {
+      const status = yield* Ref.make<DspRuntimeStatus>("configured")
+      yield* Ref.set(status, "degraded")
+      const projection = yield* dspRuntimeProjection({
+        capability: capability(true),
+        status
+      })
+
+      expect(projection.status).toBe("degraded")
+      expect(projection.reason).toBe("provider-request-failed")
     }))
 })

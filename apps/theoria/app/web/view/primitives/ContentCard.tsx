@@ -9,7 +9,7 @@ import { Layer } from "./Layout.js"
 const gapClassName = (density: ContentCardDensity): string =>
   Match.value(density).pipe(
     Match.when("compact", () => "flex flex-col gap-2 p-4 shadow-chip"),
-    Match.when("standard", () => "flex flex-col gap-3 p-5 shadow-chip"),
+    Match.when("standard", () => "flex flex-col gap-3 p-4 shadow-chip sm:p-5"),
     Match.exhaustive
   )
 

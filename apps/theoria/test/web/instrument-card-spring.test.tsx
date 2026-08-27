@@ -16,7 +16,7 @@ const versionsEnvelope = {
     durationMs: 1
   },
   data: {
-    "effect-search": "0.2.0"
+    "@scenesystems/effect-search": "0.2.0"
   }
 }
 

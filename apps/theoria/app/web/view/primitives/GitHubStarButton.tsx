@@ -8,7 +8,7 @@ const theoriaRepoUrl = "https://github.com/scenesystems/theoria"
 
 const gitHubStarButtonClassName = headerChromeButtonClassName({
   active: false,
-  className: "w-auto whitespace-nowrap px-4"
+  className: "w-auto whitespace-nowrap px-3 sm:px-4"
 })
 
 export const GitHubStarButton = () => (
@@ -20,7 +20,7 @@ export const GitHubStarButton = () => (
     <GitHubMark className={chromeHeaderGlyphClassName} />
     <SemanticText
       as="span"
-      className="whitespace-nowrap"
+      className="hidden whitespace-nowrap sm:inline"
       role="button-label"
       text="Star on GitHub"
       variant="expanded"

@@ -125,11 +125,15 @@ export const TheoriaLogo = ({
   const combined = className === undefined ? base : `${base} ${className}`
 
   return (
-    <span aria-label="Theoria" className={combined}>
+    <span className={combined}>
       <CubeMark className="h-[0.85em] shrink-0" />
       {animation === "none"
-        ? <span className="text-ink-900" aria-hidden>Theoria</span>
-        : <WordmarkMorph />}
+        ? <span className="text-ink-900">Theoria</span>
+        : (
+          <span aria-label="Theoria" role="img">
+            <WordmarkMorph />
+          </span>
+        )}
     </span>
   )
 }

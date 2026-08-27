@@ -48,7 +48,7 @@ export const app = Effect.gen(function*() {
   const pathname = requestPathname(request.url)
   const requestId = crypto.randomUUID()
   const routeEffect = Match.value(pathname).pipe(
-    Match.when((value) => value.startsWith("/api/demos/"), () => demoRoute(pathname, requestId, request.url)),
+    Match.when((value) => value.startsWith("/api/demos/"), () => demoRoute(request, requestId)),
     Match.when("/api/health/live", () => liveRoute(requestId)),
     Match.when("/api/health/ready", () => readyRoute(requestId)),
     Match.when("/api/version", () => versionRoute(requestId)),

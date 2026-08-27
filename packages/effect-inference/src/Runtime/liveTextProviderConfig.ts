@@ -3,8 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Config, ConfigError, ConfigProvider, Effect, Match, Option } from "effect"
-import type * as Redacted from "effect/Redacted"
+import { Config, ConfigError, ConfigProvider, Effect, Match, Option, Redacted } from "effect"
 
 import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
 import { InvalidRuntimeConfig } from "../Errors/Config.js"
@@ -80,10 +79,18 @@ const defaultModel = (provider: LiveTextProvider): string =>
     Match.exhaustive
   )
 
-const optionalString = (name: string): Config.Config<Option.Option<string>> => Config.option(Config.string(name))
+const nonEmptyString = (value: string): boolean => value.trim().length > 0
+
+const optionalString = (name: string): Config.Config<Option.Option<string>> =>
+  Config.option(Config.string(name)).pipe(
+    Config.map(Option.filter(nonEmptyString)),
+    Config.map(Option.map((value) => value.trim()))
+  )
 
 const optionalRedacted = (name: string): Config.Config<Option.Option<Redacted.Redacted>> =>
-  Config.option(Config.redacted(name))
+  Config.option(Config.redacted(name)).pipe(
+    Config.map(Option.filter((value) => nonEmptyString(Redacted.value(value))))
+  )
 
 const providerModelKey = (provider: LiveTextProvider): string =>
   Match.value(provider).pipe(

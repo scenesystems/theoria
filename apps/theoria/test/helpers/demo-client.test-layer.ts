@@ -7,7 +7,7 @@ import type { ProgramPreview } from "../../app/contracts/program-preview.js"
 import type { RunData } from "../../app/contracts/run.js"
 import { DemoClient } from "../../app/web/services/DemoClient.js"
 
-import { programPreviewFixture, runDataFixture } from "./demo-fixtures.js"
+import { capabilitiesFixture, programPreviewFixture, runDataFixture } from "./demo-fixtures.js"
 
 export type DemoClientFixtures = {
   readonly run: (id: Id) => Effect.Effect<RunData, DemoError>
@@ -33,6 +33,7 @@ export const makeDemoClientTestLayer = (fixtures: DemoClientFixtures): Layer.Lay
           }))
         )),
       preload: fixtures.preload,
+      capabilities: () => Effect.succeed(capabilitiesFixture),
       versions: () => Effect.succeed({}),
       streamUrl: fixtures.streamUrl ?? ((id) => `/api/demos/${id}/stream`)
     })

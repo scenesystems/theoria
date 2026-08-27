@@ -27,6 +27,7 @@ import {
   evidenceStreamFromStore,
   reduceRunState
 } from "../../app/web/state/types.js"
+import { capabilitiesFixture } from "../helpers/demo-fixtures.js"
 
 const streamMeta = {
   requestId: "req-stream",
@@ -89,6 +90,7 @@ const serverEvidenceLayer = Layer.succeed(
     run: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     runWithMeta: () => Effect.fail(new DemoRequestError({ message: "unused" })),
     preload: () => Effect.fail(new DemoRequestError({ message: "unused" })),
+    capabilities: () => Effect.succeed(capabilitiesFixture),
     versions: () => Effect.succeed({}),
     streamUrl: (id) => `/api/demos/${id}/stream`
   })

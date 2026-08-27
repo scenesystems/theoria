@@ -1,9 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Option from "effect/Option"
+import { useEffect } from "react"
 
 import { cardById } from "../../../contracts/card.js"
 import type { Id } from "../../../contracts/id.js"
-import { metadataForHome, metadataForId } from "../../../contracts/metadata.js"
+import { DeepDiveSurfacePlaneValue } from "../../../contracts/layout.js"
 import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/actions.js"
 import {
   deepDiveFocusedSurfaceAtom,
@@ -23,7 +24,6 @@ import {
 } from "../../atoms/deep-dive-layout.js"
 import { deepDiveSurfaceFrameAtom } from "../../atoms/derived.js"
 import type { RunControlActionKind } from "../../state/types.js"
-import { DocumentHead } from "../primitives/DocumentHead.js"
 import { Layer } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { PresentationSurface } from "../surfaces/PresentationSurface.js"
@@ -50,8 +50,17 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
   const dispatchWorkspaceWidth = useAtomSet(setDeepDiveWorkspaceWidthAtom)
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
   const card = Option.getOrUndefined(cardById(id))
-  const pageMetadata = metadataForId(id)
   const visibleProjectedSurfaceCount = Math.min(projectedSurfaceCount, maxProjectedSurfaceCount)
+
+  useEffect(() => {
+    if (
+      card?.interactiveLabel === undefined
+      && frameViewModel?.runControls.phase === "success"
+      && focusedSurface !== DeepDiveSurfacePlaneValue.Evidence
+    ) {
+      dispatchProjectSurface({ surface: DeepDiveSurfacePlaneValue.Evidence })
+    }
+  }, [card?.interactiveLabel, dispatchProjectSurface, focusedSurface, frameViewModel?.runControls.phase])
 
   const onRunControlAction = (action: RunControlActionKind): void => {
     dispatchRunControl({ action, id })
@@ -59,19 +68,15 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
 
   if (card === undefined || frameViewModel === null) {
     return (
-      <>
-        <DocumentHead metadata={metadataForHome()} />
-
-        <Layer className="flex min-h-dvh items-center justify-center bg-stage-50 text-ink-900">
-          <SemanticText
-            as="p"
-            className="text-ink-700"
-            role="status"
-            text={`Demo not found: ${id}`}
-            variant="expanded"
-          />
-        </Layer>
-      </>
+      <Layer as="main" className="flex min-h-dvh items-center justify-center bg-stage-50 text-ink-900">
+        <SemanticText
+          as="p"
+          className="text-ink-700"
+          role="status"
+          text={`Demo not found: ${id}`}
+          variant="expanded"
+        />
+      </Layer>
     )
   }
 
@@ -102,39 +107,35 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
   })
 
   return (
-    <>
-      <DocumentHead metadata={pageMetadata} />
-
-      <PresentationSurface
-        backHref="/"
-        card={card}
-        chromeContent={frameViewModel.chrome}
-        onFocusSurface={(surface) => {
-          dispatchFocusSurface(surface)
-        }}
-        onHideSurface={(surface) => {
-          dispatchHideSurface(surface)
-        }}
-        onPanePercentChange={(nextPercent) => {
-          dispatchPanePercent(nextPercent)
-        }}
-        onRunControlAction={onRunControlAction}
-        onSecondaryPanePercentChange={(nextPercent) => {
-          dispatchSecondaryPanePercent(nextPercent)
-        }}
-        onProjectSurface={(surface, index) => {
-          dispatchProjectSurface(index === undefined ? { surface } : { index, surface })
-        }}
-        onWorkspaceWidthChange={dispatchWorkspaceWidth}
-        projection={{
-          focusedSurface,
-          maxProjectedCount: maxProjectedSurfaceCount,
-          panePercent,
-          secondaryPanePercent,
-          surfaces
-        }}
-        runControls={frameViewModel.runControls}
-      />
-    </>
+    <PresentationSurface
+      backHref="/"
+      card={card}
+      chromeContent={frameViewModel.chrome}
+      onFocusSurface={(surface) => {
+        dispatchFocusSurface(surface)
+      }}
+      onHideSurface={(surface) => {
+        dispatchHideSurface(surface)
+      }}
+      onPanePercentChange={(nextPercent) => {
+        dispatchPanePercent(nextPercent)
+      }}
+      onRunControlAction={onRunControlAction}
+      onSecondaryPanePercentChange={(nextPercent) => {
+        dispatchSecondaryPanePercent(nextPercent)
+      }}
+      onProjectSurface={(surface, index) => {
+        dispatchProjectSurface(index === undefined ? { surface } : { index, surface })
+      }}
+      onWorkspaceWidthChange={dispatchWorkspaceWidth}
+      projection={{
+        focusedSurface,
+        maxProjectedCount: maxProjectedSurfaceCount,
+        panePercent,
+        secondaryPanePercent,
+        surfaces
+      }}
+      runControls={frameViewModel.runControls}
+    />
   )
 }

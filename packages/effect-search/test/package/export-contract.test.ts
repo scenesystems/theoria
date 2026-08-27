@@ -43,8 +43,7 @@ describe("package/export-contract", () => {
       const result = yield* runPublishCheck(root, [
         "--require-packed-manifest",
         `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--packed-manifest=${fixtureRoot}/dist.package.valid.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--packed-manifest=${fixtureRoot}/dist.package.valid.json`
       ])
 
       expect(result.exitCode).toBe(0)
@@ -57,8 +56,7 @@ describe("package/export-contract", () => {
       const result = yield* runPublishCheck(root, [
         "--require-packed-manifest",
         `--root-manifest=${fixtureRoot}/package.base.json`,
-        `--packed-manifest=${fixtureRoot}/dist.package.missing-internal.json`,
-        `--readme=${fixtureRoot}/README.valid.md`
+        `--packed-manifest=${fixtureRoot}/dist.package.missing-internal.json`
       ])
 
       expect(result.exitCode).toBe(1)

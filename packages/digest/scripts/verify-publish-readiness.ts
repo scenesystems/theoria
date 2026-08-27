@@ -30,7 +30,7 @@ const SourceManifest = Schema.parseJson(
     bugs: Bugs,
     publishConfig: Schema.Struct({
       access: Schema.Literal("public"),
-      provenance: Schema.Literal(false),
+      provenance: Schema.Literal(true),
       directory: Schema.Literal("dist")
     }),
     exports: Schema.Record({ key: Schema.String, value: Schema.Unknown }),

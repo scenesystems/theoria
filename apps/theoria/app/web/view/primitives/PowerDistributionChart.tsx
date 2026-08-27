@@ -18,7 +18,7 @@ export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewMod
       <Cluster className="justify-between px-1">
         <SemanticText
           as="span"
-          className="text-danger-600/80"
+          className="text-danger-600"
           role="code-meta"
           text={model.critLeftText}
           variant="expanded"
@@ -26,7 +26,7 @@ export const PowerDistributionChart = ({ vm }: { readonly vm: PowerWidgetViewMod
         <SemanticText as="span" className="text-ink-700" role="code-meta" text="z-statistic" variant="expanded" />
         <SemanticText
           as="span"
-          className="text-danger-600/80"
+          className="text-danger-600"
           role="code-meta"
           text={model.critRightText}
           variant="expanded"

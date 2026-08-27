@@ -17,6 +17,7 @@ import {
 } from "../state/types.js"
 
 import { setAnimationPlayback, syncAnimationFrameToControls } from "./animation.js"
+import { capabilitiesAtom } from "./capabilities.js"
 import { dispatchRunMessage, modifySurface, preloadSurface, resetSurfaceEvidenceStore } from "./internal.js"
 import { setOptimizationAnimationPlayback } from "./optimization-animation.js"
 import { setPowerAnimationPlayback, syncPowerFrameToControls } from "./power-animation.js"
@@ -237,7 +238,15 @@ const runDemoExecution = (
             sequence: active.sequence,
             finalizedAtMs,
             error
-          })),
+          })).pipe(
+            Effect.zipRight(
+              error._tag === "DemoExecutionError" && error.code === "provider-unavailable"
+                ? Effect.sync(() => {
+                  registry.refresh(capabilitiesAtom)
+                })
+                : Effect.void
+            )
+          ),
         onSuccess: () => Effect.void
       })
     )

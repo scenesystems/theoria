@@ -55,11 +55,9 @@ bun run changeset
 
 Maintainers handle version bumps and publishing.
 
-### Public npm packages from a private repository
+### npm Trusted Publishing
 
-Published workspace packages use public npm access even when the GitHub repository is private. Public consumers do not need GitHub access or an npm read token, but everything included in an npm tarball is publicly downloadable.
-
-Provenance is disabled because npm cannot generate provenance attestations from a private source repository. Keep Trusted Publishing configured separately on every npm package with these values:
+Published workspace packages use public npm access and provenance attestations from this public repository. Keep Trusted Publishing configured separately on every npm package with these values:
 
 | Field                | Value          |
 | -------------------- | -------------- |
@@ -70,14 +68,6 @@ Provenance is disabled because npm cannot generate provenance attestations from 
 | Environment          | `npm`          |
 | Allowed action       | `npm publish`  |
 
-The first releases under the new scoped identities must exist on npm before their Trusted Publishers can be configured. After `bun run release:check`, bootstrap them with maintainer authentication and provenance disabled:
+The publish workflow uses npm's OpenID Connect flow and does not require a long-lived npm token. It runs on a GitHub-hosted runner with `id-token: write`, and every public package keeps `publishConfig.provenance` enabled so npm can link the published tarball to this repository and workflow.
 
-```sh
-npm publish packages/effect-search/dist --access public --provenance=false
-npm publish packages/effect-dsp/dist --access public --provenance=false
-npm publish packages/effect-text/dist --access public --provenance=false
-```
-
-`@scenesystems/digest` retains its existing public identity and does not require a visibility migration. Deprecate the old unscoped `effect-search`, `effect-dsp`, and `effect-text` packages only after the replacement packages are published and consumers have migrated.
-
-If the GitHub repository becomes public again, provenance can be re-enabled for subsequent releases by restoring `publishConfig.provenance` to `true`. Provenance cannot be added retroactively to existing npm versions.
+Configure the Trusted Publisher before attempting the first automated release of a new package. Existing versions published without provenance cannot be changed retroactively; subsequent versions receive their own attestations.
