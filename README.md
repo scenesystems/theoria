@@ -4,125 +4,93 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
 
-**Scientific computing, model programming, text layout, and cryptography for
-[Effect](https://effect.website).**
+Theoria is the open-source TypeScript library collection developed by Scene
+Systems. It brings scientific calculation and model programming to
+[Effect](https://effect.website) with explicit evaluation and reproducible
+execution. Its text and cryptographic libraries carry the resulting work into
+interfaces and persistent records.
 
-Theoria is Scene Systems' open-source TypeScript package set. Its libraries
-measure outcomes, search alternatives, define and evaluate model programs,
-record which runtime produced a result, prepare text, and identify, sign, or
-encrypt artifacts.
-
-_Theoria_ (θεωρία) is Greek for observation that produces knowledge.
-
-[Explore the live examples](https://theoria.scenesystems.io/) or [read how the
-packages compose](#how-the-pieces-fit).
+_Theoria_ (θεωρία) is Greek for observation that produces knowledge. [The live
+site](https://theoria.scenesystems.io/) shows the libraries running against
+concrete inputs.
 
 ## Why Theoria exists
 
-[Scene Systems](https://scenesystems.io/) turns imagination into shared
-reality. Scene is organized around Worlds: persistent places, stories, tools,
-communities, theories, or possible futures. People and machines can create,
-enter, extend, branch, and merge them. Each World retains its founding intent,
-participants, history, alternatives, authorship, decisions, and open
-possibilities.
+[Scene Systems](https://scenesystems.io/) is building Scene to turn imagination
+into shared reality. A creation in Scene is a World. It can begin as a story and
+grow into something people intend to make real. People and machines can extend
+a World without erasing where it came from. Branches preserve alternatives.
+Merges preserve the lineages they combine.
 
-Persistent Worlds must remain understandable as contributors, models, and
-runtimes change. This requires explicit uncertainty in measurements,
-reproducible experiment histories, program and runtime records for model
-outputs, stable artifact identity, authorship records, and encryption for
-private material. Theoria provides these capabilities as general-purpose
-libraries.
+A World may outlive the model or provider that helped create it. Its history
+must still explain how an artifact was produced and why one version was chosen
+over another. Contributions need durable attribution, and private work must
+remain private until its authors choose to share it.
 
-The packages use [Effect](https://effect.website) to represent expected
-failures, required services, concurrency, interruption, and resource lifetimes.
-Pure calculations remain ordinary functions; runtime policies and external
-services use typed Effect programs.
+Theoria develops reusable libraries for this computational work. Effect
+supplies the runtime for service dependencies and resource lifetimes, while
+calculations that need no runtime remain plain TypeScript functions.
 
-## How the pieces fit
+## From observation to durable work
 
-The packages compose across five parts of computational work: measurement,
-search, model programming, text presentation, and artifact protection. Each can
-also be used independently.
+Work begins with something that can be measured.
+[`@scenesystems/effect-math`](./packages/effect-math/README.md) provides the
+numerical operations needed to express that measurement, from basic numerics
+through statistics and optimization. Its pure kernels can be called directly.
+Policy-aware variants add an Effect error channel and read precision or
+diagnostic policy from the runtime.
 
-### Measure outcomes
+Once an outcome can be measured, it can guide a search.
+[`@scenesystems/effect-search`](./packages/effect-search/README.md) turns an
+Effect objective into a reproducible study. A study can explore parameters that
+change conditionally and preserve a Pareto frontier when objectives compete.
+Its state can be saved and resumed. It uses `effect-math` for its numerical work
+and [`@scenesystems/digest`](./packages/digest/README.md) to identify cached
+inputs and study artifacts.
 
-[`@scenesystems/effect-math`](./packages/effect-math/README.md) supplies the
-numerical foundation: linear algebra, calculus, geometry, probability,
-statistics, distributions, special functions, and optimization. It includes
-pure kernels and policy-aware operations with typed domain failures, runtime
-precision policies, and diagnostics.
+The same evaluation loop applies to language model programs.
+[`@scenesystems/effect-dsp`](./packages/effect-dsp/README.md) replaces loose
+prompt strings with typed signatures and executable modules. Traces from those
+modules feed evaluation, and the resulting scores drive optimizers built on
+`effect-search`. Instructions and examples become parameters of a program whose
+behavior can be tested and revised.
 
-### Explore alternatives
+[`@scenesystems/effect-inference`](./packages/effect-inference/README.md) records
+the execution behind each model result. It follows a requested runtime through
+provider resolution and records the response metadata. Both model libraries use
+`@effect/ai`, so a DSP program does not depend on one provider even though every
+execution can retain its provenance.
 
-[`@scenesystems/effect-search`](./packages/effect-search/README.md) performs
-black-box optimization when configurations can be evaluated but no direct
-solution is available. It supports continuous, integer, categorical,
-conditional, and multi-objective spaces with reproducible samplers, budgets,
-constraints, persistence, and resume.
+Text enters an interface through
+[`@scenesystems/effect-text`](./packages/effect-text/README.md), which resolves
+the external work of segmenting and measuring text once. It returns a prepared
+value that can be laid out repeatedly as the available space changes. Its
+experimental calibration tools use `effect-math` and `effect-search` to compare
+layout profiles against measured examples.
 
-A multi-objective study can preserve fast, inexpensive, and high-quality model
-programs on one Pareto frontier. `effect-search` uses `effect-math` for
-numerical operations and [`digest`](./packages/digest/README.md) for stable
-cache and artifact identities.
-
-### Program and account for models
-
-[`@scenesystems/effect-dsp`](./packages/effect-dsp/README.md) defines language
-model programs with typed signatures, composable modules, evaluation, tracing,
-and optimizers for instructions and examples. Its optimization layer composes
-`effect-search`, `effect-math`, and `digest`.
-
-[`@scenesystems/effect-inference`](./packages/effect-inference/README.md)
-describes where model work runs. It records the requested runtime, the resolved
-provider route, and the execution evidence returned after a text or embedding
-call.
-
-Both packages use `@effect/ai`. A DSP program remains provider-independent,
-while inference evidence records the runtime that produced each result.
-
-### Prepare language for changing interfaces
-
-[`@scenesystems/effect-text`](./packages/effect-text/README.md) prepares,
-measures, and lays out multiline text. It performs segmentation, measurement,
-and caching before layout, then reuses the prepared text for pure projections
-across changes in width, obstacles, or presentation.
-
-Preparation and layout do not invoke search. Experimental calibration tools use
-`effect-search` and `effect-math` to tune layout behavior against measured
-examples.
-
-### Preserve identity, authorship, and privacy
-
-The cryptographic packages provide separate mechanisms for content identity,
-authenticity, and confidentiality:
-
-- [`@scenesystems/digest`](./packages/digest/README.md) provides strict JSON
-  canonicalization, BLAKE3 and SHA-256 content identities, HMAC, and HKDF. A
-  digest identifies exact content without assigning application semantics.
-- [`@scenesystems/sign`](./packages/sign/README.md) provides classical and
-  post-quantum signatures, direct verification, key agreement, and hybrid key
-  encapsulation. These primitives support attribution and authenticity;
-  applications retain responsibility for identity and authorization.
-- [`@scenesystems/seal`](./packages/seal/README.md) protects private material
-  with authenticated encryption and self-describing XChaCha20-Poly1305 or AES
-  envelopes.
+When a result is retained, [`@scenesystems/digest`](./packages/digest/README.md)
+gives its exact content a stable name by canonicalizing structured data and
+hashing the resulting bytes. [`@scenesystems/sign`](./packages/sign/README.md)
+can authenticate that content against an independently supplied key; the
+calling application remains responsible for identity and authorization.
+Private material can be encrypted with
+[`@scenesystems/seal`](./packages/seal/README.md), which stores authenticated
+ciphertext in a self-describing envelope.
 
 ## The relationship to Scene
 
-Scene is the product; Theoria publishes general-purpose computational libraries
-developed alongside it. Scene currently uses `digest` for content identity,
-`sign` for cryptographic evidence, and `effect-math` in its visual system. The
-package set is not currently an integrated Scene runtime.
+Scene currently relies on `digest` for content identity and uses `sign` in its
+cryptographic evidence. Its visual system also uses `effect-math`. The remaining
+libraries are not assembled into a single Scene runtime today.
 
-The scientific and model-programming packages develop foundations for
-measurement, comparison, reproducibility, provenance, and improvement in
-persistent Worlds. The World model and Scene application live outside this
-repository.
+The World model and the Scene application live outside this repository.
+Theoria's packages remain useful on their own. Their use in Scene will expand
+as the World runtime adopts reproducible evaluation and model programs.
 
 ## Try a package
 
-Every library is published independently under the `@scenesystems` scope. This
-`effect-search` program minimizes a function without a gradient:
+Each library is published independently under the `@scenesystems` scope. This
+example uses `effect-search` to minimize a function without a gradient:
 
 ```sh
 npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
@@ -149,27 +117,26 @@ const program = Effect.gen(function* () {
 Effect.runPromise(program)
 ```
 
-The objective accepts any Effect, including a calculation, benchmark, model
-call, or service request. A fixed seed makes the search reproducible. Each
-package README contains installation instructions, runnable examples, an API
-guide, and stability notes.
+The objective can perform any Effect. Here it is a local calculation; it could
+also run a benchmark or call a model. The fixed seed makes the study
+reproducible. Each package README explains how to install and use the library
+and states the API's current stability.
 
 ## Theoria app
 
-[theoria.scenesystems.io](https://theoria.scenesystems.io/) runs the public
-package APIs and displays their typed inputs, results, failures, and runtime
-evidence. The math, search, and text examples require no external provider. The
-model programming example requires a configured provider.
+[theoria.scenesystems.io](https://theoria.scenesystems.io/) runs the public APIs
+from this repository and displays the resulting evidence. Only the model
+program requires an external provider.
 
 The app source and local setup live in
 [`apps/theoria`](./apps/theoria/README.md).
 
 ## Status
 
-Theoria is in active development. All packages are independently versioned and
-pre-1.0; public APIs may change between minor releases. They require Effect
-`^3.22.1`. Package READMEs and changelogs document other peer dependencies and
-stability notes.
+Theoria is in active development. Its packages are independently versioned and
+remain pre-1.0, so public APIs may change between minor releases. They require
+Effect `^3.22.1`; other peer dependencies and stability notes are documented by
+each package.
 
 ## Contributing and support
 
