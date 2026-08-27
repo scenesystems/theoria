@@ -3,23 +3,40 @@ import * as Option from "effect/Option"
 
 import {
   cardByIdForReleaseStage,
+  cards,
   cardsForReleaseStage,
   effectCards,
+  liveDemoCards,
   scenesystemsCards
 } from "../../app/contracts/card.js"
 
-const comingSoonIds: ReadonlyArray<"digest" | "sign" | "seal"> = ["digest", "sign", "seal"]
+const liveDemoIds = [
+  "effect-math",
+  "effect-search",
+  "effect-dsp",
+  "effect-text",
+  "digest",
+  "sign",
+  "seal"
+]
 
 describe("Theoria Card Publication Contracts", () => {
-  it("keeps coming-soon cards available in preview builds", () => {
-    expect(comingSoonIds.every((id) => Option.isSome(cardByIdForReleaseStage(id, "preview")))).toBe(true)
+  it("uses exact scoped npm names as every package title", () => {
+    expect(cards.every((card) => card.title === card.packageName)).toBe(true)
+    expect(cards.every((card) => card.packageName.startsWith("@scenesystems/"))).toBe(true)
   })
 
-  it("hides coming-soon cards from production catalogs", () => {
+  it("keeps the inference package visible while its demo is in development", () => {
     const productionIds = cardsForReleaseStage("production").map((card) => card.id)
 
-    expect(comingSoonIds.every((id) => !productionIds.includes(id))).toBe(true)
-    expect(comingSoonIds.every((id) => Option.isNone(cardByIdForReleaseStage(id, "production")))).toBe(true)
+    expect(Option.isSome(cardByIdForReleaseStage("effect-inference", "preview"))).toBe(true)
+    expect(Option.isNone(cardByIdForReleaseStage("effect-inference", "production"))).toBe(true)
+    expect(productionIds).not.toContain("effect-inference")
+    expect(cards.find((card) => card.id === "effect-inference")?.demoState).toBe("in-development")
+  })
+
+  it("publishes each implemented demo", () => {
+    expect(liveDemoCards.map((card) => card.id)).toEqual(liveDemoIds)
   })
 
   it("keeps landing-page card order aligned with the README package map", () => {
@@ -27,10 +44,10 @@ describe("Theoria Card Publication Contracts", () => {
       "effect-math",
       "effect-search",
       "effect-dsp",
-      "effect-text",
-      "effect-inference"
+      "effect-inference",
+      "effect-text"
     ])
-    expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "seal", "sign"])
+    expect(scenesystemsCards.map((card) => card.id)).toEqual(["digest", "sign", "seal"])
   })
 
   it("publishes scoped numerical and inference npm identities without changing card IDs", () => {

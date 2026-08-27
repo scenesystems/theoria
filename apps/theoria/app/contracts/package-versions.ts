@@ -5,7 +5,7 @@ import { Envelope } from "./envelope.js"
 /**
  * Package version map served by the `/api/versions/packages` endpoint.
  *
- * Keys are npm package names (e.g. `"effect-text"`, `"@scenesystems/digest"`).
+ * Keys are npm package names (e.g. `"@scenesystems/effect-text"`, `"@scenesystems/digest"`).
  * Values are semver version strings read from the workspace `package.json` files.
  *
  * @since 0.1.0

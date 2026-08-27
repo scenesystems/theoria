@@ -27,7 +27,6 @@ const RelativeAssetPath = Schema.String.pipe(
 const isRelativeAssetPath = Schema.is(RelativeAssetPath)
 const isKnownDemoId = Schema.is(Id)
 const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
-const htmlTagPattern = /<html\b([^>]*)>/u
 
 const deepDiveId = (pathname: string): Option.Option<string> =>
   Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
@@ -100,9 +99,6 @@ const staticAssetPath = (pathname: string, stage: ReleaseStage): Option.Option<s
 const headerPath = (pathname: string, stage: ReleaseStage): string =>
   isHtmlPath(pathname, stage) ? "/index.html" : pathname
 
-const injectReleaseStage = (html: string, stage: ReleaseStage): string =>
-  html.replace(htmlTagPattern, `<html$1 data-theoria-release-stage="${stage}">`)
-
 const titlePattern = /<title>[^<]*<\/title>/u
 const metaPattern = (nameOrProperty: string): RegExp =>
   new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
@@ -153,9 +149,7 @@ export const staticResponse = (pathname: string) =>
               Match.when(true, () =>
                 isHtmlPath(pathname, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) =>
-                      injectMetadata(injectReleaseStage(html, releaseStage), pathname, releaseStage)
-                    ),
+                    Effect.map((html) => injectMetadata(html, pathname, releaseStage)),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {
                         status: 200,

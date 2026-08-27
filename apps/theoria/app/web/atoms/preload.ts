@@ -3,10 +3,9 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Effect, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { cardsForReleaseStage } from "../../contracts/card.js"
+import { liveDemoCards } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
 import type { Id as IdType } from "../../contracts/id.js"
-import { runtimeReleaseStage } from "../runtime/release-stage.js"
 import type { DemoClient } from "../services/DemoClient.js"
 import type { PageRoute } from "../services/path.js"
 
@@ -21,7 +20,7 @@ type PreloadRouteKey = "home" | `deep:${IdType}`
 
 const visibleIdsForRoute = (route: PageRoute): ReadonlyArray<IdType> =>
   route._tag === "HomeRoute"
-    ? Arr.map(cardsForReleaseStage(runtimeReleaseStage()), (card) => card.id)
+    ? Arr.map(liveDemoCards, (card) => card.id)
     : [route.id]
 
 const deepRoute = (id: IdType): PageRoute => ({ _tag: "DeepRoute", id })

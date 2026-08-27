@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run server.ts",
-    "dev:web": "vite --port 5175 --strictPort",
+    "dev:web": "vite --host 127.0.0.1 --port 5175 --strictPort",
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
     "check:all": "bun run check && bun run check:tests",

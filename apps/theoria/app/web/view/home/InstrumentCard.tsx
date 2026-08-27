@@ -4,11 +4,10 @@ import { useAtomValue } from "@effect-atom/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
 import { Match } from "effect"
 
-import { type Card, cardVisibleInReleaseStage } from "../../../contracts/card.js"
+import type { Card } from "../../../contracts/card.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
 import { packageVersionsAtom } from "../../atoms/package-versions.js"
 import { useSpringLift } from "../../atoms/spring.js"
-import { runtimeReleaseStage } from "../../runtime/release-stage.js"
 import type { MetaItem } from "../primitives/CardMetaRow.js"
 import { CardMetaRow } from "../primitives/CardMetaRow.js"
 import { ContentCard } from "../primitives/ContentCard.js"
@@ -49,19 +48,18 @@ export const InstrumentCard = ({
     onSuccess: (success) => success.value[card.packageName] ?? card.version,
     onFailure: () => card.version
   })
-  const releaseStage = runtimeReleaseStage()
-  const titleIsLinked = cardVisibleInReleaseStage(card, releaseStage)
-  const badge = Match.value(card.releaseState).pipe(
-    Match.when("coming-soon", () => ({
+  const titleIsLinked = card.demoState === "live"
+  const badge = Match.value(card.demoState).pipe(
+    Match.when("in-development", () => ({
       className: `${neutralBadgeClassName} text-ink-500`,
       icon: false,
-      text: "Coming Soon"
+      text: "Demo in development"
     })),
     Match.orElse(() => ({
       className:
         `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
       icon: true,
-      text: "Live Demo"
+      text: "Live demo"
     }))
   )
   const badgeSlot = (

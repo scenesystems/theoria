@@ -10,8 +10,8 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 /**
  * Package grouping for the home page catalog.
  *
- * - `effect`: Effect ecosystem packages (`effect-*`)
- * - `scenesystems`: Scene Systems org-scoped packages (`@scenesystems/*`)
+ * - `effect`: scientific computing and model-program packages
+ * - `scenesystems`: content and cryptography packages
  *
  * @since 0.1.0
  */
@@ -31,9 +31,9 @@ export const PackageGroupMeta = Schema.Struct({
 
 export type PackageGroupMeta = typeof PackageGroupMeta.Type
 
-export const CardReleaseState = Schema.Literal("published", "coming-soon")
+export const CardDemoState = Schema.Literal("live", "in-development")
 
-export type CardReleaseState = typeof CardReleaseState.Type
+export type CardDemoState = typeof CardDemoState.Type
 
 /**
  * Resolved display metadata for each package group.
@@ -43,14 +43,14 @@ export type CardReleaseState = typeof CardReleaseState.Type
 export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
   Match.value(group).pipe(
     Match.when("effect", () => ({
-      label: "Effect Ecosystem",
+      label: "Computation and model programs",
       description:
-        "Typed, composable libraries extending the Effect ecosystem with scientific computing, optimization, and language model programming."
+        "Numerical work feeds reproducible studies and typed model programs. Inference and text layout use the same Effect service model."
     })),
     Match.when("scenesystems", () => ({
-      label: "Scene Systems",
+      label: "Content and cryptography",
       description:
-        "Cryptographic primitives built with Effect for content addressing, digital signatures, and authenticated encryption."
+        "Stable digests identify retained content. Encryption and signatures protect it as it moves between systems."
     })),
     Match.exhaustive
   )
@@ -74,7 +74,7 @@ export const Card = Schema.Struct({
   runLabel: NonEmptyString,
   deepDivePath: NonEmptyString,
   group: PackageGroup,
-  releaseState: CardReleaseState,
+  demoState: CardDemoState,
   version: NonEmptyString,
   npmUrl: NonEmptyString,
   repoUrl: NonEmptyString,
@@ -87,7 +87,7 @@ export type Card = typeof Card.Type
 export const cards: ReadonlyArray<Card> = [
   {
     id: "effect-math",
-    title: "effect-math",
+    title: "@scenesystems/effect-math",
     packageName: "@scenesystems/effect-math",
     description: "Combines numerical and statistical computing with typed errors and policy-aware operations.",
     useCase: "Numerical analysis and statistical modeling inside application code.",
@@ -95,7 +95,7 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Power Analysis",
     deepDivePath: "/demos/effect-math",
     group: "effect",
-    releaseState: "published",
+    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-math",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-math",
@@ -104,7 +104,7 @@ export const cards: ReadonlyArray<Card> = [
   },
   {
     id: "effect-search",
-    title: "effect-search",
+    title: "@scenesystems/effect-search",
     packageName: "@scenesystems/effect-search",
     description:
       "Runs optimization studies with adaptive samplers when each evaluation is too expensive for trial and error.",
@@ -113,7 +113,7 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Optimizer Comparison",
     deepDivePath: "/demos/effect-search",
     group: "effect",
-    releaseState: "published",
+    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-search",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-search",
@@ -122,15 +122,15 @@ export const cards: ReadonlyArray<Card> = [
   },
   {
     id: "effect-dsp",
-    title: "effect-dsp",
+    title: "@scenesystems/effect-dsp",
     packageName: "@scenesystems/effect-dsp",
     description: "Turns language-model workflows into typed programs you can trace, evaluate, and optimize.",
-    useCase: "Build, evaluate, and optimize LLM workflows without hand-managing prompts.",
+    useCase: "Build, evaluate, and optimize LLM workflows as typed programs.",
     summary: "Run a typed classifier and compare it with a heuristic baseline.",
     runLabel: "Run Model Evaluation",
     deepDivePath: "/demos/effect-dsp",
     group: "effect",
-    releaseState: "published",
+    demoState: "live",
     version: "0.1.4",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-dsp",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-dsp",
@@ -138,25 +138,8 @@ export const cards: ReadonlyArray<Card> = [
     interactiveLabel: "Typed Evaluation"
   },
   {
-    id: "effect-text",
-    title: "effect-text",
-    packageName: "@scenesystems/effect-text",
-    description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
-    useCase: "Prepare text once, then reflow it across widths and obstacles.",
-    summary: "Measure in the browser and reflow the same text as the container changes.",
-    runLabel: "Run Benchmark",
-    deepDivePath: "/demos/effect-text",
-    group: "effect",
-    releaseState: "published",
-    version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
-    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
-    license: "MIT",
-    interactiveLabel: "Live Reflow"
-  },
-  {
     id: "effect-inference",
-    title: "effect-inference",
+    title: "@scenesystems/effect-inference",
     packageName: "@scenesystems/effect-inference",
     description:
       "Resolves model requests for text and embeddings across providers while keeping request intent, routing, and execution evidence separate.",
@@ -165,11 +148,28 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Runtime Resolution",
     deepDivePath: "/demos/effect-inference",
     group: "effect",
-    releaseState: "coming-soon",
+    demoState: "in-development",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-inference",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-inference",
     license: "MIT"
+  },
+  {
+    id: "effect-text",
+    title: "@scenesystems/effect-text",
+    packageName: "@scenesystems/effect-text",
+    description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
+    useCase: "Prepare text once, then reflow it across widths and obstacles.",
+    summary: "Measure in the browser and reflow the same text as the container changes.",
+    runLabel: "Run Benchmark",
+    deepDivePath: "/demos/effect-text",
+    group: "effect",
+    demoState: "live",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
+    license: "MIT",
+    interactiveLabel: "Live Reflow"
   },
   {
     id: "digest",
@@ -181,26 +181,10 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Digest Demo",
     deepDivePath: "/demos/digest",
     group: "scenesystems",
-    releaseState: "coming-soon",
+    demoState: "live",
     version: "0.2.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/digest",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/digest",
-    license: "MIT"
-  },
-  {
-    id: "seal",
-    title: "@scenesystems/seal",
-    packageName: "@scenesystems/seal",
-    description: "Encrypts data into self-describing envelopes that carry what is needed to decrypt it.",
-    useCase: "Encrypt data without tracking algorithm and nonce separately.",
-    summary: "Seal and unseal data with XChaCha20-Poly1305.",
-    runLabel: "Run Encryption Demo",
-    deepDivePath: "/demos/seal",
-    group: "scenesystems",
-    releaseState: "coming-soon",
-    version: "0.1.0",
-    npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
-    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
     license: "MIT"
   },
   {
@@ -214,10 +198,26 @@ export const cards: ReadonlyArray<Card> = [
     runLabel: "Run Signature Demo",
     deepDivePath: "/demos/sign",
     group: "scenesystems",
-    releaseState: "coming-soon",
+    demoState: "live",
     version: "0.1.0",
     npmUrl: "https://www.npmjs.com/package/@scenesystems/sign",
     repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/sign",
+    license: "MIT"
+  },
+  {
+    id: "seal",
+    title: "@scenesystems/seal",
+    packageName: "@scenesystems/seal",
+    description: "Encrypts data into self-describing envelopes that carry what is needed to decrypt it.",
+    useCase: "Encrypt data without tracking algorithm and nonce separately.",
+    summary: "Seal and unseal data with XChaCha20-Poly1305.",
+    runLabel: "Run Encryption Demo",
+    deepDivePath: "/demos/seal",
+    group: "scenesystems",
+    demoState: "live",
+    version: "0.1.0",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/seal",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/seal",
     license: "MIT"
   }
 ]
@@ -226,12 +226,14 @@ export const effectCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group
 
 export const scenesystemsCards: ReadonlyArray<Card> = Arr.filter(cards, (c) => c.group === "scenesystems")
 
+export const liveDemoCards: ReadonlyArray<Card> = Arr.filter(cards, (card) => card.demoState === "live")
+
 export const cardById = (id: Card["id"]): Option.Option<Card> => Arr.findFirst(cards, (card) => card.id === id)
 
 export const cardVisibleInReleaseStage = (card: Card, stage: ReleaseStage): boolean =>
   Match.value(stage).pipe(
     Match.when("preview", () => true),
-    Match.when("production", () => card.releaseState === "published"),
+    Match.when("production", () => card.demoState === "live"),
     Match.exhaustive
   )
 

@@ -9,17 +9,28 @@ const envelopeMeta = {
   durationMs: 1
 }
 
-const demoIds = ["effect-text", "effect-search", "effect-math", "effect-dsp"] as const
+const demoIds = [
+  "effect-text",
+  "effect-search",
+  "effect-math",
+  "effect-dsp",
+  "digest",
+  "sign",
+  "seal"
+] as const
 type DemoId = (typeof demoIds)[number]
 
 const packageVersionsEnvelope = {
   ok: true,
   meta: envelopeMeta,
   data: {
-    "effect-text": "0.1.0",
-    "effect-search": "0.2.0",
-    "effect-math": "0.2.0",
-    "effect-dsp": "0.1.4"
+    "@scenesystems/effect-text": "0.1.0",
+    "@scenesystems/effect-search": "0.2.0",
+    "@scenesystems/effect-math": "0.2.0",
+    "@scenesystems/effect-dsp": "0.1.4",
+    "@scenesystems/digest": "0.2.0",
+    "@scenesystems/sign": "0.1.0",
+    "@scenesystems/seal": "0.1.0"
   }
 }
 
@@ -58,6 +69,26 @@ const previewEnvelopeFor = (id: DemoId) => {
     }
   }
 }
+
+const runEnvelopeFor = (id: DemoId) => ({
+  ok: true,
+  meta: envelopeMeta,
+  data: {
+    id,
+    packageName: previewEnvelopeFor(id).data.card.packageName,
+    summary: "Browser smoke complete.",
+    durationMs: 1,
+    program: previewEnvelopeFor(id).data.program,
+    sections: [{
+      title: "Browser result",
+      items: [{
+        _tag: "Text",
+        label: "Result",
+        value: "Verified"
+      }]
+    }]
+  }
+})
 
 const installMockEventSource = async (page: Page): Promise<void> => {
   await page.addInitScript(() => {
@@ -145,6 +176,23 @@ const routeApi = async (page: Page): Promise<void> => {
       status: 200
     })
   })
+
+  await page.route("**/api/demos/*/run", async (route) => {
+    const url = new URL(route.request().url())
+    const match = /^\/api\/demos\/([^/]+)\/run$/u.exec(url.pathname)
+    const id = match !== null ? match[1] : undefined
+
+    if (id === undefined || !isDemoId(id)) {
+      await route.fulfill({ status: 404 })
+      return
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      json: runEnvelopeFor(id),
+      status: 200
+    })
+  })
 }
 
 const attachBrowserFailureCapture = (page: Page) => {
@@ -229,7 +277,7 @@ test("home InstrumentCard hover survives reversal and navigation in a real brows
   await routeApi(page)
   await page.goto("/")
 
-  const effectSearchLink = page.getByRole("link", { name: "effect-search" }).first()
+  const effectSearchLink = page.getByRole("link", { name: "@scenesystems/effect-search" }).first()
   await expect(effectSearchLink).toBeVisible()
 
   await effectSearchLink.hover()
@@ -243,6 +291,21 @@ test("home InstrumentCard hover survives reversal and navigation in a real brows
 
   await effectSearchLink.click()
   await expect(page.getByRole("button", { name: /Run/i })).toBeVisible()
+  expect(failures.consoleErrors).toEqual([])
+  expect(failures.pageErrors).toEqual([])
+})
+
+test("server-only demos project completed evidence into view", async ({ page }) => {
+  const failures = attachBrowserFailureCapture(page)
+
+  await page.setViewportSize({ width: 900, height: 800 })
+  await routeApi(page)
+  await page.goto("/demos/digest")
+
+  await page.getByRole("button", { name: "Run Digest Demo" }).click()
+
+  await expect(page.getByRole("button", { name: /Projection field: 1 of .*Evidence/u })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Browser result" })).toBeVisible()
   expect(failures.consoleErrors).toEqual([])
   expect(failures.pageErrors).toEqual([])
 })

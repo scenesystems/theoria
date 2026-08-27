@@ -1,8 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import * as Option from "effect/Option"
+import { useEffect } from "react"
 
 import { cardById } from "../../../contracts/card.js"
 import type { Id } from "../../../contracts/id.js"
+import { DeepDiveSurfacePlaneValue } from "../../../contracts/layout.js"
 import { controlRunAtom, selectProgramFileAtom, selectProgramSourceScopeAtom } from "../../atoms/actions.js"
 import {
   deepDiveFocusedSurfaceAtom,
@@ -49,6 +51,16 @@ export const DeepDivePage = ({ id }: { readonly id: Id }) => {
   const toggleSourceExplorerVisibility = useAtomSet(toggleDeepDiveSourceExplorerVisibleAtom)
   const card = Option.getOrUndefined(cardById(id))
   const visibleProjectedSurfaceCount = Math.min(projectedSurfaceCount, maxProjectedSurfaceCount)
+
+  useEffect(() => {
+    if (
+      card?.interactiveLabel === undefined
+      && frameViewModel?.runControls.phase === "success"
+      && focusedSurface !== DeepDiveSurfacePlaneValue.Evidence
+    ) {
+      dispatchProjectSurface({ surface: DeepDiveSurfacePlaneValue.Evidence })
+    }
+  }, [card?.interactiveLabel, dispatchProjectSurface, focusedSurface, frameViewModel?.runControls.phase])
 
   const onRunControlAction = (action: RunControlActionKind): void => {
     dispatchRunControl({ action, id })

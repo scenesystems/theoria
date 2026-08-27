@@ -6,7 +6,7 @@ import type { RunData } from "../../app/contracts/run.js"
 
 export const effectTextCardFixture: Card = {
   id: "effect-text",
-  title: "effect-text",
+  title: "@scenesystems/effect-text",
   packageName: "@scenesystems/effect-text",
   description: "Effect-native text preparation, measurement, and greedy multiline layout",
   useCase: "Deterministic semantic text layout projection for renderer authority.",
@@ -15,7 +15,7 @@ export const effectTextCardFixture: Card = {
   interactiveLabel: "Live Reflow",
   deepDivePath: "/demos/effect-text",
   group: "effect",
-  releaseState: "published",
+  demoState: "live",
   version: "0.0.0",
   npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
   repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",

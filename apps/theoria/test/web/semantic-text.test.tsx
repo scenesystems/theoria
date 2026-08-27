@@ -137,7 +137,7 @@ describe("SemanticText", () => {
       })
     ))
 
-  it.live("keeps package titles on a single line even when projected wrapping is requested", () =>
+  it.live("wraps scoped package titles when the available width requires it", () =>
     withMockClientWidth(
       220,
       Effect.gen(function*() {
@@ -152,7 +152,7 @@ describe("SemanticText", () => {
                 as="h3"
                 className="text-ink-900"
                 role="catalog-title"
-                text="@scenesystems/digest"
+                text="@scenesystems/effect-inference"
                 variant="compact"
                 wrapAuthority="effect-text-projected"
               />
@@ -171,9 +171,11 @@ describe("SemanticText", () => {
               )
             ).pipe(Effect.orDie)
 
-            expect(heading.className.includes("whitespace-nowrap")).toBe(true)
-            expect(heading.textContent).toBe("@scenesystems/digest")
-            expect(renderedLineSpans(container)).toHaveLength(0)
+            const spans = yield* waitForProjectedLinesAtLeast(container, 2)
+
+            expect(heading.className.includes("whitespace-nowrap")).toBe(false)
+            expect(heading.textContent).toBe("@scenesystems/effect-inference")
+            expect(spans.length).toBeGreaterThan(1)
           }),
           Effect.sync(() => {
             root.unmount()

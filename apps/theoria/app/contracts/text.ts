@@ -140,7 +140,7 @@ const textSemanticsByRole: Record<TextRole, TextSemantics> = {
     weight: "semibold",
     tracking: -0.01,
     wrapAuthority: "native-browser",
-    lineBreaks: "nowrap",
+    lineBreaks: "wrap",
     whiteSpace: "normal",
     lineHeight: 30,
     maxWidth: { compact: 520, expanded: 1120 }

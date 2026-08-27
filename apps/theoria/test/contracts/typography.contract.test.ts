@@ -36,10 +36,10 @@ describe("Typography contract", () => {
     })
   })
 
-  it("package titles stay on one line while broader surface titles may wrap", () => {
+  it("scoped package titles and broader surface titles may wrap", () => {
     expect(semanticsFor("selection-title").lineBreaks).toBe("nowrap")
     expect(semanticsFor("section-title").lineBreaks).toBe("wrap")
-    expect(semanticsFor("catalog-title").lineBreaks).toBe("nowrap")
+    expect(semanticsFor("catalog-title").lineBreaks).toBe("wrap")
     expect(semanticsFor("card-title").lineBreaks).toBe("wrap")
     expect(semanticsFor("hero-title").lineBreaks).toBe("wrap")
   })
