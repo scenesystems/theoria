@@ -45,11 +45,12 @@ export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
     Match.when("effect", () => ({
       label: "Computation and model programs",
       description:
-        "Numerical work supports reproducible studies and typed model programs. Inference and text layout use the same Effect service model."
+        "Calculations become reproducible studies and model programs that show how they ran. Text can be measured once and laid out as the available space changes."
     })),
     Match.when("scenesystems", () => ({
       label: "Content and cryptography",
-      description: "Stable digests identify content. Encryption and signatures protect it between systems."
+      description:
+        "Digests give content a stable identity. Signatures authenticate it against a key, while encryption protects what should remain private."
     })),
     Match.exhaustive
   )
