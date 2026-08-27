@@ -1,5 +1,11 @@
 # @scenesystems/effect-inference
 
+## 0.2.1
+
+### Patch Changes
+
+- [#54](https://github.com/scenesystems/theoria/pull/54) [`2c83ef8`](https://github.com/scenesystems/theoria/commit/2c83ef8a50fb3aab7919d5325b75c973e0a9d0f0) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Treat blank provider-specific settings as absent so deployments can safely fall back to generic provider configuration.
+
 ## 0.2.0
 
 ### Minor Changes
