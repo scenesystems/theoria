@@ -54,9 +54,9 @@ export const PresentationSurface = ({
   })
 
   return (
-    <Layer className="relative flex h-dvh flex-col overflow-hidden bg-stage-50 text-ink-900 antialiased">
-      <Layer className={appTheme.atmosphericGlowA} />
-      <Layer className={appTheme.atmosphericGlowB} />
+    <Layer as="main" className="relative flex h-dvh flex-col overflow-hidden bg-stage-50 text-ink-900 antialiased">
+      <Layer aria-hidden className={appTheme.atmosphericGlowA} />
+      <Layer aria-hidden className={appTheme.atmosphericGlowB} />
       <CompactNav
         cardId={card.id}
         chrome={chrome}

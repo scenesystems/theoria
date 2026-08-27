@@ -1,5 +1,13 @@
 # effect-search
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`e403ba2`](https://github.com/scenesystems/theoria/commit/e403ba20186d4d58be5e619a5e7f253b511c9164)]:
+  - @scenesystems/digest@0.5.0
+  - @scenesystems/effect-math@0.3.0
+
 ## 0.4.0
 
 ### Minor Changes

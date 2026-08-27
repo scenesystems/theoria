@@ -18,7 +18,7 @@ import {
   demoStageViewModel
 } from "./deep/stageModel.js"
 import { type PresentedRun, presentSections } from "./presenter.js"
-import type { RunControlsViewModel } from "./runControlsModel.js"
+import type { RunAvailability, RunControlsViewModel } from "./runControlsModel.js"
 import { runControlsViewModel } from "./runControlsModel.js"
 import type { SurfaceChromeContentModel } from "./surfaceChromeModel.js"
 import { surfaceChromeContentModel } from "./surfaceChromeModel.js"
@@ -130,13 +130,15 @@ export const surfaceViewModel = ({
 }
 
 export const deepDiveSurfaceFrameViewModel = ({
+  availability = "available",
   card,
   state
 }: {
+  readonly availability?: RunAvailability
   readonly card: Card
   readonly state: SurfaceState
 }): DeepDiveSurfaceFrameViewModel => ({
-  runControls: runControlsViewModel({ run: state.run, runLabel: card.runLabel }),
+  runControls: runControlsViewModel({ availability, run: state.run, runLabel: card.runLabel }),
   chrome: surfaceChromeContentModel(card),
   code: surfaceCodeModel(state, "expanded"),
   stageFrame: demoStageFrameViewModel({

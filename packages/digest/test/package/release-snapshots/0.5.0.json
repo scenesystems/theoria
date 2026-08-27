@@ -1,6 +1,6 @@
 {
   "packageName": "@scenesystems/digest",
-  "releasedVersion": "0.4.1",
+  "releasedVersion": "0.5.0",
   "exports": [
     { "subpath": ".", "exportName": "blake3DeriveKey", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "blake3Hash", "kind": "value", "firstReleasedIn": "0.1.0" },
@@ -26,6 +26,7 @@
     { "subpath": ".", "exportName": "digestCanonicalJsonHex", "kind": "value", "firstReleasedIn": "0.2.0" },
     { "subpath": ".", "exportName": "digestSchemaValue", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "digestSchemaValueWithByteLimit", "kind": "value", "firstReleasedIn": "0.3.3" },
+    { "subpath": ".", "exportName": "digestSchemaValueWithByteLimitSync", "kind": "value", "firstReleasedIn": "0.5.0" },
     { "subpath": ".", "exportName": "digestUtf8", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "digestUtf8Base64Url", "kind": "value", "firstReleasedIn": "0.1.0" },
     { "subpath": ".", "exportName": "digestUtf8Stream", "kind": "value", "firstReleasedIn": "0.2.0" },

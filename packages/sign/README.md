@@ -1,312 +1,91 @@
 # @scenesystems/sign
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
+`@scenesystems/sign` provides digital signatures, X25519 key agreement, and XWing hybrid key encapsulation for [Effect](https://effect.website). These families have separate operations and output schemas because their security roles are distinct. Signatures authenticate possession of a signing key under a caller-defined identity policy. Agreement and encapsulation produce shared secret material that should be passed through an appropriate KDF before use.
 
-Digital signatures, key agreement, and key encapsulation for [Effect](https://effect.website). Classical and post-quantum algorithms, built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem.
+The package does not provide identity, authorization, certificates, trust roots, key storage, rotation, transcript construction, or protocol policy. A KEM is unauthenticated on its own, so protocols must bind recipient keys and transcripts through an authenticated mechanism.
 
 ## Installation
 
 ```sh
-npm install @scenesystems/sign
-# or
-pnpm add @scenesystems/sign
-# or
-bun add @scenesystems/sign
+npm install @scenesystems/sign effect
 ```
 
-Requires `effect` ≥ 3.22.1 as a peer dependency.
+Effect `^3.22.1` is supported and required as a peer dependency. The package has one public entrypoint, `@scenesystems/sign`.
 
-## Why this package?
-
-Digital signatures prove who sent a message. Key agreement lets two parties derive a shared secret. Key encapsulation does the same thing but with quantum resistance. `@scenesystems/sign` provides all three families through a single Effect-native API with typed errors, self-describing output types, and exhaustive algorithm dispatch — from Ed25519 to post-quantum ML-DSA and the XWing hybrid KEM.
-
-For identity and protocol owners, the package also exposes suite-specific direct verification functions. Those functions take a detached signature and an explicit public key, never dispatch from an algorithm field, and never accept or return the package's self-describing `Signature` carrier.
-
-- **Ed25519 + secp256k1** — classical signatures for general use and blockchain compatibility
-- **ML-DSA + SLH-DSA** — NIST post-quantum signatures (FIPS 204/205) at multiple security levels
-- **X25519** — elliptic-curve Diffie–Hellman key agreement
-- **XWing** — hybrid KEM combining X25519 + ML-KEM-768 for quantum-resistant key transport
-
-## Algorithms
-
-### Signatures
-
-| Algorithm           | Family          | Security | Signature size | Use case                       |
-| ------------------- | --------------- | -------- | -------------- | ------------------------------ |
-| `ed25519`           | EdDSA           | 128-bit  | 64 B           | General purpose, fast          |
-| P-256/SHA-256       | ECDSA           | 128-bit  | 64 B           | Strict direct verification     |
-| `secp256k1-ecdsa`   | ECDSA           | 128-bit  | 64 B           | Bitcoin/Ethereum compatibility |
-| `secp256k1-schnorr` | Schnorr         | 128-bit  | 64 B           | Taproot/batch verification     |
-| `ml-dsa-44`         | Lattice (PQ)    | NIST 2   | 2,420 B        | Post-quantum, smallest         |
-| `ml-dsa-65`         | Lattice (PQ)    | NIST 3   | 3,309 B        | Post-quantum, recommended      |
-| `ml-dsa-87`         | Lattice (PQ)    | NIST 5   | 4,627 B        | Post-quantum, highest security |
-| `slh-dsa-sha2-128f` | Hash-based (PQ) | NIST 1   | ~7,856 B       | Post-quantum, fast signing     |
-| `slh-dsa-sha2-128s` | Hash-based (PQ) | NIST 1   | ~7,856 B       | Post-quantum, small signatures |
-| `slh-dsa-sha2-192f` | Hash-based (PQ) | NIST 3   | ~16,224 B      | Post-quantum, higher security  |
-| `slh-dsa-sha2-256f` | Hash-based (PQ) | NIST 5   | ~29,792 B      | Post-quantum, maximum security |
-
-### Key agreement
-
-| Algorithm | Family | Security | Shared secret |
-| --------- | ------ | -------- | ------------- |
-| `x25519`  | ECDH   | 128-bit  | 32 B          |
-
-### Key encapsulation (KEM)
-
-| Algorithm | Family          | Security  | Ciphertext |
-| --------- | --------------- | --------- | ---------- |
-| `xwing`   | X25519 + ML-KEM | Hybrid PQ | ~1,121 B   |
-
-### Choosing an algorithm
-
-Use **Ed25519** for general-purpose signing — it's fast, widely supported, and deterministic.
-
-Use **secp256k1** when interacting with Bitcoin, Ethereum, or other blockchain systems.
-
-Use **ML-DSA-65** if you need post-quantum signatures today. It's the NIST-recommended parameter set (FIPS 204) with a good balance of security and size.
-
-Use **SLH-DSA** when you want conservative post-quantum security that doesn't rely on lattice hardness — it's based purely on hash functions. Signing is slow (1–5 seconds), so it's best suited for infrequent operations like certificate issuance.
-
-Use **XWing** KEM for quantum-resistant key establishment. It combines X25519 and ML-KEM-768 — an attacker must break both to recover the shared secret.
-
-## Quick start
+## Basic use
 
 ```ts typecheck
-import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
+import { ed25519Verify, generateKeyPair, sign, utf8ToBytes } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function* () {
   const keys = yield* generateKeyPair("ed25519")
-  const message = utf8ToBytes("hello, signatures!")
-
-  const sig = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
-  const valid = yield* verify(sig, message)
-  // true
+  const message = utf8ToBytes("signed content")
+  const signed = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
+  const valid = yield* ed25519Verify(signed.signature, message, keys.publicKey)
+  return { signed, valid }
 })
 ```
+
+Protocols that own suite selection should use a direct verifier with a public key supplied independently from the signature. The generic `verify` operation instead dispatches from the algorithm and public key carried by `Signature` and is suitable only when that self-describing model is explicitly part of the protocol.
+
+## Supported families
+
+| Family     | Algorithms                                                                    | Main operations                                 |
+| ---------- | ----------------------------------------------------------------------------- | ----------------------------------------------- |
+| Signatures | Ed25519, secp256k1 ECDSA and Schnorr, ML-DSA-44/65/87, four SLH-DSA SHA2 sets | `sign`, `verify`, algorithm-specific operations |
+| Agreement  | X25519                                                                        | `deriveSharedSecret`                            |
+| KEM        | XWing using X25519 and ML-KEM-768                                             | `encapsulate`, `decapsulate`                    |
+
+`generateKeyPair` accepts every algorithm in these families. Schema classes `KeyPair`, `Signature`, `SharedSecret`, and `KemCiphertext` carry algorithm tags with their byte fields. Encoding helpers include `utf8ToBytes`, `toHex`, and `equalBytes`.
+
+Production ML-DSA-65 signing requires `mlDsa65SignHedged` with exactly 32 bytes of fresh caller-supplied cryptographic entropy and an explicit FIPS 204 context. `mlDsa65SignDeterministic` exists for conformance use. The legacy `mlDsa65Sign` and generic `sign("ml-dsa-65", ...)` fail closed because those signatures cannot accept explicit hedging entropy.
+
+The complete export reference is in the [generated API documentation](./docs/modules/index.ts.md). Runnable programs cover [Ed25519 signing](./examples/01-sign-verify.ts), [X25519 agreement](./examples/02-key-agreement.ts), and [ML-DSA-65 with XWing](./examples/03-post-quantum.ts).
 
 ## Strict direct verification
 
-Use the direct functions when the calling protocol owns suite selection and supplies the verification key independently:
+`ed25519Verify`, `p256Sha256P1363LowSVerify`, and `mlDsa65Verify` take detached signature bytes, protected message bytes, and an explicit public key. They never dispatch from an algorithm field and never accept or return the self-describing `Signature` carrier.
 
-```ts typecheck
-import { ed25519Verify, mlDsa65Verify, p256Sha256P1363LowSVerify } from "@scenesystems/sign"
+Their result contract is strict:
 
-declare const signature64: Uint8Array
-declare const signature3309: Uint8Array
-declare const protectedMessage: Uint8Array
-declare const ed25519PublicKey32: Uint8Array
-declare const uncompressedP256PublicKey65: Uint8Array
-declare const mlDsa65PublicKey1952: Uint8Array
-
-const ed25519 = ed25519Verify(signature64, protectedMessage, ed25519PublicKey32)
-const p256 = p256Sha256P1363LowSVerify(signature64, protectedMessage, uncompressedP256PublicKey65)
-const mlDsa65 = mlDsa65Verify(signature3309, protectedMessage, mlDsa65PublicKey1952, new Uint8Array(0))
-```
-
-The direct boundary has one result law:
-
-| Outcome                                                               | Effect result              |
+| Input or verification result                                          | Effect result              |
 | --------------------------------------------------------------------- | -------------------------- |
-| Canonical, well-formed signature verifies                             | `true`                     |
-| Canonical, well-formed signature does not verify                      | `false`                    |
+| Canonical, admitted signature verifies                                | `true`                     |
+| Canonical, admitted signature does not verify                         | `false`                    |
 | Malformed, noncanonical, wrong-length, or unsupported primitive input | `InvalidVerificationInput` |
-| Admitted input reaches a backend that cannot execute                  | `VerificationUnavailable`  |
+| Admitted input reaches an unavailable backend                         | `VerificationUnavailable`  |
 
-Both errors are material-free tagged errors. They contain no algorithm, key, signature, message, context, backend reason, or underlying exception. Admission and input detachment occur lazily on every execution of the returned Effect. Expected type, bound, detached-buffer, or typed-array copy failures produce `InvalidVerificationInput`; they do not throw during Effect construction or escape as defects. The execution snapshot is not mutated or retained after primitive execution.
+Both errors are material-free. They contain no algorithm, key, signature, message, context, provider reason, or underlying exception. Inputs are admitted and copied lazily on every execution of the returned Effect. Expected type, bound, detached-buffer, and typed-array copy failures are reported as typed failures during execution. Primitive calls execute synchronously and cannot be cooperatively interrupted.
 
-The exact profiles are:
+The direct profiles are fixed:
 
-- **Ed25519:** pure RFC 8032, 32-byte canonical non-small-order public key, 64-byte signature, canonical non-small-order `R`, `S < L`, and Noble verification explicitly invoked with `{ zip215: false }`.
-- **P-256:** NIST P-256, SHA-256 applied exactly once by the verifier, exactly 65-byte uncompressed SEC1 keys, exactly 64-byte IEEE P1363 `r || s`, in-range scalars, and low-S only. DER, compressed keys, high-S, malformed points, and alternate encodings are rejected.
-- **ML-DSA-65:** pure FIPS 204, exactly 1,952-byte public keys and 3,309-byte signatures, canonical hint encoding, and a required explicit context. Identity v1 callers use `new Uint8Array(0)`; a nonempty context is a distinct profile.
+- Ed25519 follows pure RFC 8032. Public keys and signature `R` points must use canonical, non-small-order encodings; `S` must be below the subgroup order; ZIP-215 behavior is disabled. Public keys are 32 bytes and signatures are 64 bytes.
+- P-256 applies SHA-256 exactly once. Public keys must be 65-byte uncompressed SEC1 encodings and signatures must be 64-byte IEEE P1363 `r || s` with in-range scalars and low S. DER, compressed keys, high-S signatures, malformed points, and alternate encodings are rejected.
+- ML-DSA-65 follows pure FIPS 204. Public keys are 1,952 bytes, signatures are 3,309 bytes, hint encoding must be canonical, and context is explicit. Empty and nonempty contexts define distinct profiles.
 
-These Noble primitives execute synchronously and indivisibly. Wrapping the result in Effect does not claim cooperative interruption. The provider admits protected messages through 8,192 bytes; bound-plus-one fails before copying or primitive execution. This provider execution bound is not an Identity wire-format limit. The release profile requires p95 ≤ 10 ms and an observed maximum ≤ 100 ms per call on the qualified Bun 1.3.x and Node 22.x x64 runtime class.
+Direct verification admits protected messages through 8,192 bytes, with larger messages rejected before primitive execution. This provider execution bound does not define a wire-format limit. Callers must enforce their own transcript and message-size policy.
 
-## API
+## Errors and security boundaries
 
-### Signing
+The general operations expose typed `SigningFailed`, `VerificationFailed`, `InvalidSignature`, `KeyGenerationFailed`, `AgreementFailed`, and `KemFailed` errors. Most carry an algorithm and diagnostic reason, so do not expose them across an untrusted boundary without deciding what information the protocol may reveal. Direct verifier errors use the narrower redacted contract described above.
 
-| Function                                         | Description                                            |
-| ------------------------------------------------ | ------------------------------------------------------ |
-| `sign(algorithm, message, secretKey, publicKey)` | Sign a message → `Effect<Signature>`                   |
-| `verify(signature, message)`                     | Verify a self-describing signature → `Effect<boolean>` |
+A successful signature verifies bytes under a key. Identity depends on how the key was authenticated and how the message domain, context, encoding, and algorithm were bound. Shared secrets from X25519 and XWing require KDF processing and transcript binding. Secret keys and generated shared secrets require application-owned secure storage and destruction policy.
 
-ML-DSA-65 does not select an implicit signing mode. `mlDsa65SignHedged(message, secretKey, publicKey, context, entropy32)` requires exactly 32 bytes of caller-supplied cryptographic entropy and does not read ambient randomness. `mlDsa65SignDeterministic(...)` is separately named for conformance use. The legacy `mlDsa65Sign(...)` and generic `sign("ml-dsa-65", ...)` entrypoints fail closed because they cannot receive explicit hedging entropy.
+## Standards and conformance
 
-### Key agreement
+The implemented profiles draw from [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032), [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748), [SEC 2](https://www.secg.org/sec2-v2.pdf), [BIP 340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki), [FIPS 203](https://doi.org/10.6028/NIST.FIPS.203), [FIPS 204](https://doi.org/10.6028/NIST.FIPS.204), [FIPS 205](https://doi.org/10.6028/NIST.FIPS.205), and the [X-Wing specification](https://doi.org/10.62056/a3qj89n4e). Tests include independent standards vectors and strict admission cases.
 
-| Function                                              | Description                          |
-| ----------------------------------------------------- | ------------------------------------ |
-| `deriveSharedSecret(algorithm, secretKey, publicKey)` | X25519 ECDH → `Effect<SharedSecret>` |
+Primitive implementations come from the Noble Curves, Hashes, and Post-Quantum projects. Their audit coverage does not replace review of suite selection, key provenance, error handling, or protocol composition.
 
-### Key encapsulation
+## Status
 
-| Function                                        | Description                           |
-| ----------------------------------------------- | ------------------------------------- |
-| `encapsulate(algorithm, publicKey)`             | Encapsulate → `Effect<KemCiphertext>` |
-| `decapsulate(algorithm, ciphertext, secretKey)` | Decapsulate → `Effect<Uint8Array>`    |
+This package is pre-1.0. Minor releases may change public APIs while contracts are refined. Review the [changelog](./CHANGELOG.md) before upgrading.
 
-### Key generation
+## Contribution and support
 
-| Function                     | Description                                         |
-| ---------------------------- | --------------------------------------------------- |
-| `generateKeyPair(algorithm)` | Generate keys for any algorithm → `Effect<KeyPair>` |
-
-### Encoding utilities
-
-| Function           | Description                            |
-| ------------------ | -------------------------------------- |
-| `utf8ToBytes(str)` | Convert a UTF-8 string to `Uint8Array` |
-| `toHex(bytes)`     | Encode bytes to lowercase hex string   |
-| `equalBytes(a, b)` | Constant-time byte array comparison    |
-
-### Schema types
-
-| Type                 | Description                                              |
-| -------------------- | -------------------------------------------------------- |
-| `SignatureAlgorithm` | 10 signature algorithm literals                          |
-| `AgreementAlgorithm` | `"x25519"`                                               |
-| `KemAlgorithm`       | `"xwing"`                                                |
-| `Signature`          | Schema.Class — `algorithm`, `signature`, `publicKey`     |
-| `SharedSecret`       | Schema.Class — `algorithm`, `sharedSecret`               |
-| `KemCiphertext`      | Schema.Class — `algorithm`, `ciphertext`, `sharedSecret` |
-| `KeyPair`            | Schema.Class — `algorithm`, `publicKey`, `secretKey`     |
-
-### Errors
-
-| Error                      | Raised by           | Description                                      |
-| -------------------------- | ------------------- | ------------------------------------------------ |
-| `InvalidVerificationInput` | direct verification | Input is outside the frozen primitive profile    |
-| `VerificationUnavailable`  | direct verification | Admitted input could not be executed             |
-| `SigningFailed`            | `sign`              | Signing operation failed                         |
-| `VerificationFailed`       | legacy `verify`     | Legacy verification backend rejected the request |
-| `InvalidSignature`         | legacy `verify`     | Signature data is malformed                      |
-| `KeyGenerationFailed`      | `generateKeyPair`   | Key generation failed                            |
-
-## Examples
-
-### Sign and verify
-
-```ts
-import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  const keys = yield* generateKeyPair("ed25519")
-  const message = utf8ToBytes("transfer 100 tokens")
-
-  const sig = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
-  const valid = yield* verify(sig, message)
-
-  // Tampered message fails verification
-  const tampered = utf8ToBytes("transfer 999 tokens")
-  const invalid = yield* verify(sig, tampered)
-  // false
-})
-```
-
-### Key agreement with X25519
-
-```ts
-import { deriveSharedSecret, generateKeyPair } from "@scenesystems/sign"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  const alice = yield* generateKeyPair("x25519")
-  const bob = yield* generateKeyPair("x25519")
-
-  // Both sides derive the same shared secret
-  const secretA = yield* deriveSharedSecret("x25519", alice.secretKey, bob.publicKey)
-  const secretB = yield* deriveSharedSecret("x25519", bob.secretKey, alice.publicKey)
-  // secretA.sharedSecret deep-equals secretB.sharedSecret
-})
-```
-
-### Post-quantum KEM with XWing
-
-```ts
-import { decapsulate, encapsulate, generateKeyPair } from "@scenesystems/sign"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  // Recipient generates a hybrid key pair
-  const recipient = yield* generateKeyPair("xwing")
-
-  // Sender encapsulates a shared secret for the recipient
-  const { ciphertext, sharedSecret: senderSecret } = yield* encapsulate("xwing", recipient.publicKey)
-
-  // Recipient decapsulates to recover the same shared secret
-  const recipientSecret = yield* decapsulate("xwing", ciphertext, recipient.secretKey)
-  // senderSecret deep-equals recipientSecret
-})
-```
-
-### Post-quantum signatures
-
-```ts
-import { generateKeyPair, mlDsa65SignHedged, mlDsa65Verify, utf8ToBytes } from "@scenesystems/sign"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  // ML-DSA-65 — NIST FIPS 204, recommended parameter set
-  const keys = yield* generateKeyPair("ml-dsa-65")
-  const message = utf8ToBytes("quantum-resistant document")
-  const context = new Uint8Array(0)
-  const entropy32 = crypto.getRandomValues(new Uint8Array(32))
-
-  const sig = yield* mlDsa65SignHedged(message, keys.secretKey, keys.publicKey, context, entropy32)
-  const valid = yield* mlDsa65Verify(sig.signature, message, keys.publicKey, context)
-  // true — verified with post-quantum security
-})
-```
-
-### Error handling
-
-```ts
-import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  const keys = yield* generateKeyPair("ed25519").pipe(
-    Effect.catchTag("KeyGenerationFailed", (e) => Effect.die(`keygen failed: ${e.reason}`))
-  )
-
-  const message = utf8ToBytes("hello")
-  const sig = yield* sign("ed25519", message, keys.secretKey, keys.publicKey).pipe(
-    Effect.catchTag("SigningFailed", (e) => Effect.die(`signing failed: ${e.reason}`))
-  )
-
-  const valid = yield* verify(sig, message).pipe(Effect.catchTag("VerificationFailed", (e) => Effect.succeed(false)))
-})
-```
-
-See the [`examples/`](./examples) directory for complete runnable programs.
-
-## Cryptographic foundations
-
-All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
-
-| Dependency            | Audits   | Purpose                                               |
-| --------------------- | -------- | ----------------------------------------------------- |
-| `@noble/curves`       | 6 audits | Ed25519, secp256k1, X25519                            |
-| `@noble/hashes`       | 6 audits | SHA-256/512 for key encoding                          |
-| `@noble/post-quantum` | 1 audit  | ML-DSA (FIPS 204), SLH-DSA (FIPS 205), ML-KEM (XWing) |
-
-### Standards
-
-| Algorithm           | Specification                                                             |
-| ------------------- | ------------------------------------------------------------------------- |
-| Ed25519             | [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032)                        |
-| X25519              | [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748)                        |
-| secp256k1           | [SEC 2 §2.4.1](https://www.secg.org/sec2-v2.pdf)                          |
-| Schnorr (secp256k1) | [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki) |
-| ML-DSA              | [NIST FIPS 204](https://doi.org/10.6028/NIST.FIPS.204)                    |
-| SLH-DSA             | [NIST FIPS 205](https://doi.org/10.6028/NIST.FIPS.205)                    |
-| ML-KEM (via XWing)  | [NIST FIPS 203](https://doi.org/10.6028/NIST.FIPS.203)                    |
-| XWing               | [Barbosa et al. (2024)](https://doi.org/10.62056/a3qj89n4e)               |
+See the repository [contribution guide](../../CONTRIBUTING.md) for development and review requirements. Use [GitHub issues](https://github.com/scenesystems/theoria/issues) for questions and bug reports. Report security-sensitive concerns through the [security policy](../../SECURITY.md).
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE) - Copyright 2026 Scene Systems

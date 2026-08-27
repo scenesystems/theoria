@@ -22,9 +22,15 @@ export const MetricCard = ({
 }) => (
   <Layer className={metricCardClassName(surface)}>
     <Stack className="gap-1">
-      <SemanticText as="dt" className="text-ink-700" role="row-label" text={label} variant="expanded" />
+      <SemanticText as="span" className="text-ink-700" role="row-label" text={label} variant="expanded" />
       <Cluster className="items-baseline gap-1.5">
-        <SemanticText as="dd" className="tabular-nums text-ink-900" role="row-value" text={value} variant="expanded" />
+        <SemanticText
+          as="span"
+          className="tabular-nums text-ink-900"
+          role="row-value"
+          text={value}
+          variant="expanded"
+        />
         {unit !== undefined && unit.length > 0
           ? <SemanticText as="span" className="text-ink-700" role="code-meta" text={unit} variant="expanded" />
           : null}

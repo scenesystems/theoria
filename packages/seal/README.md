@@ -1,185 +1,77 @@
 # @scenesystems/seal
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Effect](https://img.shields.io/badge/built_with-Effect-black)](https://effect.website)
+`@scenesystems/seal` provides authenticated encryption for [Effect](https://effect.website). It encrypts bytes with a selected AEAD algorithm and returns a `SealedEnvelope` containing the algorithm identifier, base64url nonce, and base64url ciphertext with its authentication tag. `unseal` reads the algorithm from that envelope and authenticates before returning plaintext.
 
-Authenticated encryption for [Effect](https://effect.website). Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem.
+The package generates nonces for each encryption operation and uses 32-byte keys for every supported algorithm. It does not provide identity, authorization, key storage, key rotation, envelope versioning, or protocol policy.
 
 ## Installation
 
 ```sh
-npm install @scenesystems/seal
-# or
-pnpm add @scenesystems/seal
-# or
-bun add @scenesystems/seal
+npm install @scenesystems/seal effect
 ```
 
-Requires `effect` ≥ 3.22.1 as a peer dependency.
+Effect `^3.22.1` is supported and required as a peer dependency. The package has one public entrypoint, `@scenesystems/seal`.
 
-## Why this package?
-
-Symmetric encryption is easy to get wrong. Nonce reuse destroys AES-GCM security. Forgetting to authenticate ciphertext enables padding oracles. Rolling your own envelope format invites truncation attacks. `@scenesystems/seal` eliminates these pitfalls with a single `seal`/`unseal` API that handles nonce generation, authentication, and self-describing envelopes — all with typed errors in Effect.
-
-- **XChaCha20-Poly1305** — recommended default. 192-bit random nonce eliminates nonce-reuse risk even at high volume
-- **AES-256-GCM-SIV** — nonce-misuse resistant. Safe even if nonces repeat (leaks only equality, not plaintext)
-- **AES-256-GCM** — widely deployed AEAD for systems that require AES compatibility
-
-### Choosing an algorithm
-
-Use **XChaCha20-Poly1305** unless you have a specific reason not to. Its 192-bit nonce can be generated randomly without collision risk — you never need a nonce counter or database sequence. This makes it the safest default for application-level encryption.
-
-Use **AES-256-GCM-SIV** when you need defense against nonce reuse (e.g., encrypting in stateless or distributed systems where nonce coordination is difficult). It's slightly slower than GCM but survives nonce collisions without catastrophic plaintext leakage.
-
-Use **AES-256-GCM** when interoperating with systems that mandate AES (hardware security modules, FIPS environments, TLS record layers). Be aware that nonce reuse with GCM is catastrophic — the package handles nonce generation for you, but key rotation discipline matters.
-
-## Quick start
+## Basic use
 
 ```ts typecheck
-import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
-import { Effect } from "effect"
-
-const program = Effect.gen(function* () {
-  const key = yield* generateKey(32)
-  const message = utf8ToBytes("sensitive data")
-
-  // Encrypt — returns a self-describing SealedEnvelope
-  const envelope = yield* seal("xchacha20-poly1305", key, message)
-
-  // Decrypt — reads the algorithm from the envelope
-  const recovered = yield* unseal(key, envelope)
-})
-```
-
-## API
-
-### Core pipeline
-
-| Function                          | Description                                         |
-| --------------------------------- | --------------------------------------------------- |
-| `seal(algorithm, key, plaintext)` | Encrypt and wrap in a `SealedEnvelope`              |
-| `unseal(key, envelope)`           | Decrypt a `SealedEnvelope` (algorithm read from it) |
-
-### Direct algorithm access
-
-| Function                            | Description                              |
-| ----------------------------------- | ---------------------------------------- |
-| `xchacha20Encrypt(key, plaintext)`  | XChaCha20-Poly1305 — recommended         |
-| `xchacha20Decrypt(key, ciphertext)` | Decrypt XChaCha20-Poly1305               |
-| `aesgcmsivEncrypt(key, plaintext)`  | AES-256-GCM-SIV — nonce-misuse resistant |
-| `aesgcmsivDecrypt(key, ciphertext)` | Decrypt AES-256-GCM-SIV                  |
-| `aesgcmEncrypt(key, plaintext)`     | AES-256-GCM — compatibility              |
-| `aesgcmDecrypt(key, ciphertext)`    | Decrypt AES-256-GCM                      |
-
-### Encoding and key generation
-
-| Function               | Description                                  |
-| ---------------------- | -------------------------------------------- |
-| `generateKey(length?)` | CSPRNG key generation → `Effect<Uint8Array>` |
-| `utf8ToBytes(str)`     | Convert a UTF-8 string to `Uint8Array`       |
-| `utf8FromBytes(bytes)` | Convert `Uint8Array` to a UTF-8 string       |
-| `equalBytes(a, b)`     | Constant-time byte array comparison          |
-
-### Schema types
-
-| Type             | Description                                                      |
-| ---------------- | ---------------------------------------------------------------- |
-| `SealAlgorithm`  | `"xchacha20-poly1305" \| "aes-256-gcm-siv" \| "aes-256-gcm"`     |
-| `SealedEnvelope` | Schema.Class with `algorithm`, `nonce` (base64url), `ciphertext` |
-
-### Errors
-
-| Error              | Raised by        | Description                                        |
-| ------------------ | ---------------- | -------------------------------------------------- |
-| `InvalidKey`       | `seal`, `unseal` | Key is wrong length (expected 32 bytes)            |
-| `DecryptionFailed` | `unseal`         | Authentication failed — wrong key or tampered data |
-
-## Examples
-
-### Encrypt and decrypt
-
-```ts
 import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
 import { Effect } from "effect"
 
 const program = Effect.gen(function* () {
-  const key = yield* generateKey(32)
-  const plaintext = utf8ToBytes("hello, encryption!")
-
-  const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
-  const recovered = yield* unseal(key, envelope)
-
-  const text = utf8FromBytes(recovered)
-  // "hello, encryption!"
+  const key = yield* generateKey()
+  const envelope = yield* seal("xchacha20-poly1305", key, utf8ToBytes("private data"))
+  const plaintext = yield* unseal(key, envelope)
+  return utf8FromBytes(plaintext)
 })
 ```
 
-### Algorithm comparison
+Store and transport the complete envelope. The algorithm field is part of decryption dispatch and must be protected by the surrounding storage or protocol against unintended substitution.
 
-```ts
-import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
-import { Effect } from "effect"
+## Algorithm selection
 
-const program = Effect.gen(function* () {
-  const key = yield* generateKey(32)
-  const data = utf8ToBytes("test payload")
+| Algorithm            |    Nonce | Selection boundary                                                                              |
+| -------------------- | -------: | ----------------------------------------------------------------------------------------------- |
+| `xchacha20-poly1305` | 24 bytes | Default for randomly generated nonces and application-level encryption                          |
+| `aes-256-gcm-siv`    | 12 bytes | Limits the damage from accidental nonce reuse; repeated nonce and plaintext can reveal equality |
+| `aes-256-gcm`        | 12 bytes | Compatibility with AES-GCM systems; nonce reuse under one key is catastrophic                   |
 
-  // All three algorithms produce interchangeable envelopes
-  const xchacha = yield* seal("xchacha20-poly1305", key, data)
-  const gcmsiv = yield* seal("aes-256-gcm-siv", key, data)
-  const gcm = yield* seal("aes-256-gcm", key, data)
+AES-256-GCM has a documented limit of 2^32 invocations per key in this package's profile. Key lifecycle enforcement belongs to the caller. AES-256-GCM-SIV remains subject to usage bounds even though its misuse resistance avoids GCM's catastrophic nonce-reuse failure.
 
-  // unseal reads the algorithm from the envelope — no dispatch needed
-  const r1 = yield* unseal(key, xchacha)
-  const r2 = yield* unseal(key, gcmsiv)
-  const r3 = yield* unseal(key, gcm)
-})
-```
+## Public surface
 
-### Error handling
+| Area                   | Exports                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Envelope pipeline      | `seal`, `unseal`                                                                      |
+| Direct AEAD operations | `xchacha20Encrypt`/`Decrypt`, `aesgcmsivEncrypt`/`Decrypt`, `aesgcmEncrypt`/`Decrypt` |
+| Envelope encoding      | `packEnvelope`, `unpackEnvelope`                                                      |
+| Keys and bytes         | `generateKey`, `utf8ToBytes`, `utf8FromBytes`, `equalBytes`                           |
+| Schemas                | `SealAlgorithm`, `SealedEnvelope`, `InvalidKey`, `DecryptionFailed`                   |
 
-```ts
-import { generateKey, seal, unseal, utf8ToBytes } from "@scenesystems/seal"
-import { Effect } from "effect"
+Direct encryptors return nonce-prefixed ciphertext bytes. `packEnvelope` separates that representation into base64url fields, while `unpackEnvelope` reconstructs it. `SealedEnvelope` is a Schema class suitable for validation and serialization.
 
-const program = Effect.gen(function* () {
-  const key = yield* generateKey(32)
-  const wrongKey = yield* generateKey(32)
-  const data = utf8ToBytes("secret")
+The complete export reference is in the [generated API documentation](./docs/modules/index.ts.md). Runnable programs demonstrate [encryption and decryption](./examples/01-encrypt-decrypt.ts) and [algorithm selection with typed errors](./examples/02-algorithm-comparison.ts).
 
-  const envelope = yield* seal("xchacha20-poly1305", key, data)
+## Errors and security boundaries
 
-  // Wrong key → DecryptionFailed
-  const result = yield* unseal(wrongKey, envelope).pipe(
-    Effect.catchTag("DecryptionFailed", (e) => Effect.succeed(`decryption failed: ${e.reason}`))
-  )
+`InvalidKey` reports the expected and received key lengths before cryptographic processing. `DecryptionFailed` covers a wrong key, modified or truncated ciphertext, corrupted nonce, invalid envelope encoding, and authentication failure. Applications should treat these causes uniformly to avoid creating a decryption oracle.
 
-  // Wrong key length → InvalidKey
-  const bad = yield* seal("xchacha20-poly1305", new Uint8Array(16), data).pipe(
-    Effect.catchTag("InvalidKey", (e) => Effect.succeed(`expected ${e.expected} bytes, got ${e.received}`))
-  )
-})
-```
+Authenticated encryption protects confidentiality and integrity under the supplied key. It does not authenticate a person or assign meaning to an envelope. Keys must come from secure storage, remain separate from ciphertext, and be rotated according to an application-owned policy. Never reuse a key across protocols without explicit domain and lifecycle analysis.
 
-See the [`examples/`](./examples) directory for complete runnable programs.
+`generateKey` obtains bytes from the platform CSPRNG. Availability and security therefore depend on a correctly configured runtime. `equalBytes` is intended for byte comparisons, though protocol-level timing behavior also includes surrounding control flow and I/O.
 
-## Cryptographic foundations
+## Standards and implementation basis
 
-All primitives wrap the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem — independently audited by Cure53 and Trail of Bits, zero-dependency, high-performance pure JavaScript implementations.
+The algorithms follow [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439) and the [XChaCha20 draft](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03), [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452), and [NIST SP 800-38D](https://doi.org/10.6028/NIST.SP.800-38D). Primitive implementations come from [Noble Ciphers](https://paulmillr.com/noble/), whose audit coverage does not replace review of key handling, envelope semantics, and protocol integration.
 
-| Dependency       | Audits   | Purpose                               |
-| ---------------- | -------- | ------------------------------------- |
-| `@noble/ciphers` | 2 audits | XChaCha20-Poly1305, AES-256-GCM(-SIV) |
+## Status
 
-### Standards
+This package is pre-1.0. Minor releases may change public APIs while contracts are refined. Review the [changelog](./CHANGELOG.md) before upgrading.
 
-| Algorithm         | Specification                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------- |
-| ChaCha20-Poly1305 | [RFC 8439](https://www.rfc-editor.org/rfc/rfc8439)                                             |
-| XChaCha20         | [draft-irtf-cfrg-xchacha-03](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-xchacha-03) |
-| AES-GCM-SIV       | [RFC 8452](https://www.rfc-editor.org/rfc/rfc8452)                                             |
-| AES-GCM           | [NIST SP 800-38D](https://doi.org/10.6028/NIST.SP.800-38D)                                     |
+## Contribution and support
+
+See the repository [contribution guide](../../CONTRIBUTING.md) for development and review requirements. Use [GitHub issues](https://github.com/scenesystems/theoria/issues) for questions and bug reports. Report security-sensitive concerns through the [security policy](../../SECURITY.md).
 
 ## License
 
-[MIT](./LICENSE) — Copyright © 2026 Scene Systems
+[MIT](./LICENSE) - Copyright 2026 Scene Systems

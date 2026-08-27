@@ -10,6 +10,7 @@ import {
   type SurfaceState
 } from "../../app/web/state/types.js"
 import { presentRun } from "../../app/web/view/presenter.js"
+import { runControlsViewModel } from "../../app/web/view/runControlsModel.js"
 import { surfaceViewModel } from "../../app/web/view/surfaceModel.js"
 import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
 import {
@@ -81,6 +82,41 @@ const runPausedState: SurfaceState = {
 }
 
 describe("Theoria Surface Model", () => {
+  it.effect("fails provider controls closed while capability state is unresolved or unavailable", () =>
+    Effect.gen(function*() {
+      const checking = runControlsViewModel({
+        availability: "checking",
+        run: idleState.run,
+        runLabel: "Run Model Evaluation"
+      })
+      const unavailable = runControlsViewModel({
+        availability: "unavailable",
+        run: idleState.run,
+        runLabel: "Run Model Evaluation"
+      })
+      const failedProvider = runControlsViewModel({
+        availability: "available",
+        run: makeFailedRunState({
+          error: new DemoExecutionError({
+            code: "provider-unavailable",
+            message: "Provider unavailable.",
+            retryable: true
+          }),
+          program: programPreviewFixture.program
+        }),
+        runLabel: "Run Model Evaluation"
+      })
+
+      expect(checking.phase).toBe("checking")
+      expect(checking.primary.disabled).toBe(true)
+      expect(checking.primary.label).toBe("Checking Provider…")
+      expect(unavailable.phase).toBe("unavailable")
+      expect(unavailable.primary.disabled).toBe(true)
+      expect(unavailable.primary.label).toBe("Provider Unavailable")
+      expect(failedProvider.primary.disabled).toBe(true)
+      expect(failedProvider.primary.label).toBe("Provider Unavailable")
+    }))
+
   it.effect("uses compact mode for summary cards while keeping the deep-stage projection available", () =>
     Effect.gen(function*() {
       const model = surfaceViewModel({

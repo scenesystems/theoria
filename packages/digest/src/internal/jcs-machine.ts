@@ -1,6 +1,7 @@
-/** Cooperative JCS Effect execution orchestrator. @internal */
+/** Cooperative and synchronous JCS execution drivers. @internal */
 
-import { Array as Arr, Chunk, Effect, MutableHashSet, MutableList, MutableRef, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Iterable, MutableHashSet, MutableList, MutableRef, Option } from "effect"
+import * as Tuple from "effect/Tuple"
 
 import { CanonicalByteLimitExceeded, type CanonicalizationError } from "../schemas/errors.js"
 import {
@@ -37,6 +38,30 @@ const process = (state: State, frame: Frame): void => {
 const stopped = (state: State): boolean =>
   MutableList.isEmpty(state.stack) || Option.isSome(MutableRef.get(state.failure)) || exceeded(state)
 
+const makeState = (
+  value: unknown,
+  budget: Option.Option<ByteBudget>,
+  sink: Option.Option<CanonicalSegmentSink>
+): State =>
+  new State({
+    stack: MutableList.make({ _tag: "Visit", value }),
+    active: MutableHashSet.empty(),
+    segments: MutableList.empty(),
+    sink,
+    pending: ref(""),
+    budget,
+    failure: ref(Option.none())
+  })
+
+const processBatch = (state: State): State => {
+  CONTROL_TOKENS.some(() => {
+    if (stopped(state)) return true
+    process(state, MutableList.shift(state.stack)!)
+    return false
+  })
+  return state
+}
+
 const execute = (
   value: unknown,
   maximumBytes: Option.Option<number>,
@@ -44,30 +69,19 @@ const execute = (
 ): Effect.Effect<State, CanonicalizationError> =>
   Effect.suspend(() => {
     const batches = ref(0)
-    const state = new State({
-      stack: MutableList.make({ _tag: "Visit", value }),
-      active: MutableHashSet.empty(),
-      segments: MutableList.empty(),
-      sink,
-      pending: ref(""),
-      budget: Option.map(maximumBytes, (maximum) =>
+    const state = makeState(
+      value,
+      Option.map(maximumBytes, (maximum) =>
         new ByteBudget({ maximumBytes: maximum, byteLength: ref(0), exceeded: ref(false) })),
-      failure: ref(Option.none())
-    })
+      sink
+    )
     return Effect.flatMap(
       Effect.iterate(state, {
         while: (current) =>
           !stopped(current),
         body: (current) =>
           Effect.flatMap(
-            Effect.sync(() => {
-              CONTROL_TOKENS.some(() => {
-                if (stopped(current)) return true
-                process(current, MutableList.shift(current.stack)!)
-                return false
-              })
-              return current
-            }),
+            Effect.sync(() => processBatch(current)),
             (nextState) =>
               stopped(nextState)
                 ? Effect.succeed(nextState)
@@ -94,6 +108,22 @@ const execute = (
     )
   })
 
+const executeSynchronously = (state: State): Either.Either<State, CanonicalizationError> => {
+  const completed = Iterable.reduce(
+    Iterable.unfold(state, (current) =>
+      stopped(current)
+        ? Option.none()
+        : Option.some(Tuple.make(processBatch(current), current))),
+    state,
+    (_, current) => current
+  )
+  const failure = MutableRef.get(completed.failure)
+  return Option.match(failure, {
+    onNone: () => Either.right(completed),
+    onSome: Either.left
+  })
+}
+
 const segments = (state: State): Chunk.Chunk<string> => {
   flushPending(state)
   return Chunk.fromIterable(state.segments)
@@ -117,5 +147,20 @@ export const canonicalizeWithByteLimit = (
             return MutableRef.get(budget.byteLength)
           })
     }))
+export const canonicalizeWithByteLimitEither = (
+  value: unknown,
+  maximumBytes: number,
+  sink: CanonicalSegmentSink
+): Either.Either<number, CanonicalizationError | CanonicalByteLimitExceeded> => {
+  const budget = new ByteBudget({ maximumBytes, byteLength: ref(0), exceeded: ref(false) })
+  return Either.flatMap(
+    executeSynchronously(makeState(value, Option.some(budget), Option.some(sink))),
+    (state) => {
+      if (MutableRef.get(budget.exceeded)) return Either.left(new CanonicalByteLimitExceeded({}))
+      flushPending(state)
+      return Either.right(MutableRef.get(budget.byteLength))
+    }
+  )
+}
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>
   Effect.map(canonicalizeSegments(value), (output) => Chunk.join(output, ""))

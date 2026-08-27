@@ -24,7 +24,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "provenance": false,
+    "provenance": true,
     "directory": "dist"
   },
   "exports": {

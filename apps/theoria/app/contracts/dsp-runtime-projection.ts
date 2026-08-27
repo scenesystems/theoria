@@ -1,11 +1,30 @@
 import { Schema } from "effect"
-import * as InferenceContracts from "../../../../packages/effect-inference/src/contracts/index.js"
+
+export const DspProvider = Schema.Literal("openai", "anthropic", "openrouter")
+
+export type DspProvider = typeof DspProvider.Type
+
+export const DspRuntimeStatus = Schema.Literal(
+  "unavailable",
+  "configured",
+  "operational",
+  "degraded"
+)
+
+export type DspRuntimeStatus = typeof DspRuntimeStatus.Type
+
+export const DspRuntimeReason = Schema.Literal(
+  "provider-configuration-invalid",
+  "provider-request-failed"
+)
+
+export type DspRuntimeReason = typeof DspRuntimeReason.Type
 
 export const DspRuntimeProjection = Schema.Struct({
-  enabled: Schema.Boolean,
-  reason: Schema.optional(Schema.String),
-  requestedRuntime: Schema.optional(InferenceContracts.DesiredRuntimeDescriptorSchema),
-  resolvedRoute: Schema.optional(InferenceContracts.ResolvedRouteDescriptorSchema)
+  status: DspRuntimeStatus,
+  provider: Schema.optional(DspProvider),
+  model: Schema.optional(Schema.String),
+  reason: Schema.optional(DspRuntimeReason)
 })
 
 export type DspRuntimeProjection = typeof DspRuntimeProjection.Type

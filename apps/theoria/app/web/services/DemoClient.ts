@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
+import { type Capabilities, CapabilitiesEnvelope } from "../../contracts/capabilities.js"
 import { DemoDecodeError, type DemoError, DemoExecutionError, DemoRequestError } from "../../contracts/demo-error.js"
 import type { Metadata } from "../../contracts/envelope.js"
 import type { ErrorModel } from "../../contracts/error.js"
@@ -20,11 +21,11 @@ type DecodedEnvelope<A> =
   | { readonly ok: true; readonly meta: Metadata; readonly data: A }
   | { readonly ok: false; readonly meta: Metadata; readonly error: ErrorModel }
 
-const fetchJson = (path: string) =>
+const fetchJson = (path: string, method: "GET" | "POST") =>
   Effect.tryPromise({
     try: () =>
       fetch(path, {
-        method: "GET",
+        method,
         headers: {
           accept: "application/json"
         }
@@ -41,9 +42,10 @@ const fetchJson = (path: string) =>
 
 const requestDecodedEnvelope = <A, I>(
   path: string,
-  schema: Schema.Schema<DecodedEnvelope<A>, I>
+  schema: Schema.Schema<DecodedEnvelope<A>, I>,
+  method: "GET" | "POST" = "GET"
 ) =>
-  fetchJson(path).pipe(
+  fetchJson(path, method).pipe(
     Effect.flatMap((json) =>
       Schema.decodeUnknown(schema)(json).pipe(
         Effect.mapError((error) => new DemoDecodeError({ message: formatParseError(error) }))
@@ -53,9 +55,10 @@ const requestDecodedEnvelope = <A, I>(
 
 const requestEnvelope = <A, I>(
   path: string,
-  schema: Schema.Schema<DecodedEnvelope<A>, I>
+  schema: Schema.Schema<DecodedEnvelope<A>, I>,
+  method: "GET" | "POST" = "GET"
 ): Effect.Effect<SuccessEnvelopeData<A>, DemoError> =>
-  requestDecodedEnvelope(path, schema).pipe(
+  requestDecodedEnvelope(path, schema, method).pipe(
     Effect.flatMap((envelope) =>
       envelope.ok
         ? Effect.succeed({
@@ -79,11 +82,13 @@ const streamPath = (id: Id): string => `/api/demos/${id}/stream`
 export class DemoClient extends Effect.Service<DemoClient>()("theoria/DemoClient", {
   succeed: {
     run: (id: Id): Effect.Effect<RunData, DemoError> =>
-      requestEnvelope(runPath(id), RunEnvelope).pipe(Effect.map(({ data }) => data)),
+      requestEnvelope(runPath(id), RunEnvelope, "POST").pipe(Effect.map(({ data }) => data)),
     runWithMeta: (id: Id): Effect.Effect<SuccessEnvelopeData<RunData>, DemoError> =>
-      requestEnvelope(runPath(id), RunEnvelope),
+      requestEnvelope(runPath(id), RunEnvelope, "POST"),
     preload: (id: Id): Effect.Effect<ProgramPreview, DemoError> =>
       requestEnvelope(preloadPath(id), ProgramPreviewEnvelope).pipe(Effect.map(({ data }) => data)),
+    capabilities: (): Effect.Effect<Capabilities, DemoError> =>
+      requestEnvelope("/api/capabilities", CapabilitiesEnvelope).pipe(Effect.map(({ data }) => data)),
     versions: (): Effect.Effect<PackageVersions, DemoError> =>
       requestEnvelope("/api/versions/packages", PackageVersionsEnvelope).pipe(Effect.map(({ data }) => data)),
     streamUrl: (id: Id, manifest: string | null = null): string => {

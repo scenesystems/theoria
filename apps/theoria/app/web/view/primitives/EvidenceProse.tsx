@@ -2,7 +2,7 @@ import * as Arr from "effect/Array"
 
 import type { EvidenceSectionGroup } from "../data/evidence-layout.js"
 
-import { Layer, Stack } from "./Layout.js"
+import { Layer } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 type ProseItem = Extract<EvidenceSectionGroup, { readonly _tag: "Prose" }>["items"][number]
@@ -14,7 +14,7 @@ const proseValueNode = (item: ProseItem) =>
   denseValue(item.value)
     ? (
       <SemanticText
-        as="p"
+        as="dd"
         className="text-ink-800"
         role="code-block"
         text={item.value}
@@ -35,7 +35,7 @@ export const EvidenceProse = (
         } grid gap-2 py-3 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] sm:gap-5`}
       >
         <SemanticText as="dt" className="text-ink-600" role="row-label" text={item.label} variant="expanded" />
-        <Stack className="gap-1.5">{proseValueNode(item)}</Stack>
+        {proseValueNode(item)}
       </Layer>
     ))}
   </Layer>

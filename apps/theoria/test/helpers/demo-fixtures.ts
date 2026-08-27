@@ -1,3 +1,4 @@
+import type { Capabilities } from "../../app/contracts/capabilities.js"
 import type { Card } from "../../app/contracts/card.js"
 import { DemoExecutionError } from "../../app/contracts/demo-error.js"
 import type { ProgramPreview } from "../../app/contracts/program-preview.js"
@@ -5,7 +6,7 @@ import type { RunData } from "../../app/contracts/run.js"
 
 export const effectTextCardFixture: Card = {
   id: "effect-text",
-  title: "effect-text",
+  title: "@scenesystems/effect-text",
   packageName: "@scenesystems/effect-text",
   description: "Effect-native text preparation, measurement, and greedy multiline layout",
   useCase: "Deterministic semantic text layout projection for renderer authority.",
@@ -14,11 +15,20 @@ export const effectTextCardFixture: Card = {
   interactiveLabel: "Live Reflow",
   deepDivePath: "/demos/effect-text",
   group: "effect",
-  releaseState: "published",
+  demoState: "live",
   version: "0.0.0",
   npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-text",
   repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-text",
   license: "MIT"
+}
+
+export const capabilitiesFixture: Capabilities = {
+  demos: [{ id: "effect-dsp", enabled: true }],
+  dsp: {
+    status: "configured",
+    provider: "openai",
+    model: "test-model"
+  }
 }
 
 export const errorFixture = new DemoExecutionError({

@@ -41,7 +41,7 @@ const DigestProviderLockEntry = Schema.Tuple(
 const ReleaseSnapshot = Schema.parseJson(
   Schema.Struct({
     packageName: Schema.Literal(PACKAGE_NAME),
-    releasedVersion: Schema.Literal("0.3.4"),
+    releasedVersion: Schema.Literal("0.5.0"),
     exports: Schema.NonEmptyArray(
       Schema.Struct({
         subpath: Schema.Literal("."),
@@ -341,7 +341,7 @@ export const loadDigestReleaseProfile = (root: string) =>
     const kats = yield* loadRuntimeKats(fixtureRoot, manifest)
     const provider = yield* loadLockProvider(root)
     const snapshot = yield* decodeFile(
-      path.join(root, "packages/digest/test/package/release-snapshots/0.3.4.json"),
+      path.join(root, "packages/digest/test/package/release-snapshots/0.5.0.json"),
       ReleaseSnapshot
     )
 

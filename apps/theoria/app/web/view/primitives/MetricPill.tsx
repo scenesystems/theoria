@@ -55,9 +55,9 @@ export const MetricPill = ({
 
   return (
     <Stack
-      className={`${variantClassName(variant)} min-w-0 transition-opacity duration-150 ${enabled ? "" : "opacity-45"}`}
+      className={`${variantClassName(variant)} min-w-0 transition-opacity duration-150 ${enabled ? "" : "opacity-80"}`}
     >
-      <Layer as="dt" className="min-w-0">
+      <Layer className="min-w-0">
         <SemanticText
           as="span"
           className={`${classes.label} block max-w-none whitespace-normal`}
@@ -66,7 +66,7 @@ export const MetricPill = ({
           variant="expanded"
         />
       </Layer>
-      <Layer as="dd" className="min-w-0">
+      <Layer className="min-w-0">
         <Stack className="gap-0.5">
           <SemanticText
             as="span"

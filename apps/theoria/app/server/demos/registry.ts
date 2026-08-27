@@ -13,7 +13,7 @@ import type { StreamManifest } from "../../contracts/stream-manifest.js"
 type ProgramSourceEnv = FileSystem.FileSystem | Path.Path
 
 import { preloadProgram as preloadDigestProgram, run as runDigest } from "./digest/run.js"
-import type { DspProviderRuntime } from "./effect-dsp/provider.js"
+import type { DspProviderRuntime, DspProviderRuntimeApi } from "./effect-dsp/provider.js"
 import {
   preloadProgram as preloadEffectDspProgram,
   run as runEffectDsp,
@@ -45,7 +45,10 @@ type Definition = {
   readonly lane: Lane
   readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>
   readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>
-  readonly streamElements: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null
+  readonly streamElements: (
+    manifest: StreamManifest | null,
+    runtime?: DspProviderRuntimeApi
+  ) => Stream.Stream<StreamElement, unknown, never> | null
 }
 
 const preloadFrom = (
@@ -66,7 +69,10 @@ const makeDefinition = (
   lane: Lane,
   execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>,
   preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>,
-  streamElements: (manifest: StreamManifest | null) => Stream.Stream<StreamElement, unknown, never> | null = () => null
+  streamElements: (
+    manifest: StreamManifest | null,
+    runtime?: DspProviderRuntimeApi
+  ) => Stream.Stream<StreamElement, unknown, never> | null = () => null
 ): Definition => ({
   id: card.id,
   card,
@@ -76,47 +82,56 @@ const makeDefinition = (
   streamElements
 })
 
-const definitionForCard = (card: Card): Definition =>
+const definitionForCard = (card: Card): Option.Option<Definition> =>
   Match.value(card.id).pipe(
     Match.when("effect-text", () =>
-      makeDefinition(
+      Option.some(makeDefinition(
         card,
         "local",
         runEffectText,
         preloadFrom(card, preloadEffectTextProgram),
         streamEffectTextElements
-      )),
+      ))),
     Match.when("effect-search", () =>
-      makeDefinition(
+      Option.some(makeDefinition(
         card,
         "local",
         runEffectSearch,
         preloadFrom(card, preloadEffectSearchProgram),
         streamEffectSearchElements
-      )),
+      ))),
     Match.when("effect-math", () =>
-      makeDefinition(
+      Option.some(makeDefinition(
         card,
         "local",
         runEffectMath,
         preloadFrom(card, preloadEffectMathProgram),
         streamEffectMathElements
-      )),
-    Match.when("digest", () => makeDefinition(card, "local", runDigest, preloadFrom(card, preloadDigestProgram))),
-    Match.when("sign", () => makeDefinition(card, "local", runSign, preloadFrom(card, preloadSignProgram))),
-    Match.when("seal", () => makeDefinition(card, "local", runSeal, preloadFrom(card, preloadSealProgram))),
+      ))),
+    Match.when("digest", () =>
+      Option.some(makeDefinition(card, "local", runDigest, preloadFrom(card, preloadDigestProgram)))),
+    Match.when("sign", () =>
+      Option.some(makeDefinition(card, "local", runSign, preloadFrom(card, preloadSignProgram)))),
+    Match.when(
+      "seal",
+      () => Option.some(makeDefinition(card, "local", runSeal, preloadFrom(card, preloadSealProgram)))
+    ),
     Match.when("effect-dsp", () =>
-      makeDefinition(
+      Option.some(makeDefinition(
         card,
         "provider",
         runEffectDsp,
         preloadFrom(card, preloadEffectDspProgram),
-        streamEffectDspElements
-      )),
-    Match.orElse(() => makeDefinition(card, "local", runEffectDsp, preloadFrom(card, preloadEffectDspProgram)))
+        (manifest, runtime) =>
+          Option.match(Option.fromNullable(runtime), {
+            onNone: () => null,
+            onSome: (providerRuntime) => streamEffectDspElements(manifest, providerRuntime)
+          })
+      ))),
+    Match.orElse(() => Option.none())
   )
 
-const definitions: ReadonlyArray<Definition> = Arr.map(cards, definitionForCard)
+const definitions: ReadonlyArray<Definition> = Arr.filterMap(cards, definitionForCard)
 
 export const lookup = (id: Id): Option.Option<Definition> =>
   Arr.findFirst(definitions, (definition) => definition.id === id)

@@ -46,6 +46,19 @@ const dspStoryFixture: DspExecutionStory = {
 }
 
 describe("Theoria Demo Stream Registry", () => {
+  it("registers every live demo without substituting a different package for effect-inference", () => {
+    expect([
+      "effect-math",
+      "effect-search",
+      "effect-dsp",
+      "effect-text",
+      "digest",
+      "sign",
+      "seal"
+    ].every((id) => Option.isSome(lookup(id)))).toBe(true)
+    expect(Option.isNone(lookup("effect-inference"))).toBe(true)
+  })
+
   it.effect("collects the effect-text stream definition without circular initialization", () =>
     Effect.gen(function*() {
       const definition = lookup("effect-text")

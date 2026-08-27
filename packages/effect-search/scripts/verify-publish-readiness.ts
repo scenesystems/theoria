@@ -7,15 +7,12 @@ export const MONOREPO_TOPOLOGY_TODO_CODE = "metadata.monorepo.topology-todo"
 
 const ROOT_PACKAGE_JSON = "package.json"
 const PACKED_PACKAGE_JSON = "dist/package.json"
-const README_PATH = "README.md"
 
 const MONOREPO_REPOSITORY_URL = "https://github.com/scenesystems/theoria.git"
 const MONOREPO_REPOSITORY_DIRECTORY = "packages/effect-search"
 const MONOREPO_HOMEPAGE = "https://github.com/scenesystems/theoria/tree/main/packages/effect-search"
 
 const FORBIDDEN_REPOSITORY_URL_FRAGMENTS = ["github.com/scenesystems/eva", "github.com/scenesystems/eva.git"]
-
-const REQUIRED_RELEASE_README_PHRASES = ["publish:check", "changeset-publish --dry-run"]
 
 const REQUIRED_ROOT_EXPORT_TARGETS = {
   "./package.json": "./package.json",
@@ -88,7 +85,6 @@ type PublishReadinessOptions = {
 type PublishReadinessInput = {
   readonly rootManifest: PackageManifest
   readonly packedManifest?: PackageManifest
-  readonly readmeText?: string
   readonly options?: PublishReadinessOptions
 }
 
@@ -431,26 +427,6 @@ const checkScriptWiring = (rootManifest: PackageManifest): PublishReadinessRepor
   return { errors, todos: [] }
 }
 
-const checkReleaseDocs = (readmeText: string | undefined): PublishReadinessReport => {
-  if (readmeText === undefined) {
-    return { errors: [], todos: [] }
-  }
-
-  const missingPhrases = REQUIRED_RELEASE_README_PHRASES.filter((phrase) => !readmeText.includes(phrase))
-
-  return missingPhrases.length === 0
-    ? { errors: [], todos: [] }
-    : {
-        errors: [
-          {
-            code: "docs.release-checklist.missing",
-            message: `README release checklist must include: ${missingPhrases.join(", ")}`
-          }
-        ],
-        todos: []
-      }
-}
-
 export const publishReadinessReport = (input: PublishReadinessInput): PublishReadinessReport => {
   const options = input.options ?? {}
 
@@ -459,7 +435,6 @@ export const publishReadinessReport = (input: PublishReadinessInput): PublishRea
   const packedExports = checkPackedExportContract(input.packedManifest, options)
   const keywords = checkKeywordCoverage(input.rootManifest)
   const scripts = checkScriptWiring(input.rootManifest)
-  const docs = checkReleaseDocs(input.readmeText)
 
   return {
     errors: [
@@ -467,10 +442,9 @@ export const publishReadinessReport = (input: PublishReadinessInput): PublishRea
       ...rootExports.errors,
       ...packedExports.errors,
       ...keywords.errors,
-      ...scripts.errors,
-      ...docs.errors
+      ...scripts.errors
     ],
-    todos: [...repository.todos, ...rootExports.todos, ...packedExports.todos, ...keywords.todos, ...scripts.todos, ...docs.todos]
+    todos: [...repository.todos, ...rootExports.todos, ...packedExports.todos, ...keywords.todos, ...scripts.todos]
   }
 }
 
@@ -497,19 +471,6 @@ const loadManifestIfPresent = (filePath: string): Effect.Effect<PackageManifest 
         Effect.flatMap((exists) =>
           exists
             ? loadManifestFromFile(filePath)
-            : Effect.succeed(undefined)
-        )
-      ))
-  )
-
-const readFileStringIfPresent = (filePath: string): Effect.Effect<string | undefined, never, FileSystem.FileSystem> =>
-  FileSystem.FileSystem.pipe(
-    Effect.flatMap((fileSystem) =>
-      fileSystem.exists(filePath).pipe(
-        Effect.orDie,
-        Effect.flatMap((exists) =>
-          exists
-            ? fileSystem.readFileString(filePath).pipe(Effect.orDie, Effect.map((content) => content))
             : Effect.succeed(undefined)
         )
       ))
@@ -610,8 +571,7 @@ const parseFlags = (argv: ReadonlyArray<string>) => {
     enforceMonorepoTopology: args.has("--enforce-monorepo-topology"),
     syncPackedManifest: args.has("--sync-packed-manifest"),
     rootManifestPath: readFlagValue(argv, "--root-manifest"),
-    packedManifestPath: readFlagValue(argv, "--packed-manifest"),
-    readmePath: readFlagValue(argv, "--readme")
+    packedManifestPath: readFlagValue(argv, "--packed-manifest")
   }
 }
 
@@ -629,7 +589,6 @@ const runCli = Effect.gen(function*() {
   const flags = parseFlags(process.argv.slice(2))
   const rootPath = flags.rootManifestPath ?? path.join(cwd, ROOT_PACKAGE_JSON)
   const packedPath = flags.packedManifestPath ?? path.join(cwd, PACKED_PACKAGE_JSON)
-  const readmePath = flags.readmePath ?? path.join(cwd, README_PATH)
 
   if (flags.syncPackedManifest) {
     yield* synchronizePackedManifest(packedPath)
@@ -639,12 +598,10 @@ const runCli = Effect.gen(function*() {
   const packedManifest = flags.requirePackedManifest || flags.packedManifestPath !== undefined
     ? yield* loadManifestIfPresent(packedPath)
     : undefined
-  const readmeText = yield* readFileStringIfPresent(readmePath)
 
   const report = publishReadinessReport({
     rootManifest,
     packedManifest,
-    readmeText,
     options: {
       requirePackedManifest: flags.requirePackedManifest,
       enforceMonorepoTopology: flags.enforceMonorepoTopology

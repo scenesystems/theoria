@@ -5,7 +5,12 @@ import { Effect, Layer, Ref } from "effect"
 import { makeRoutePreloadMountAtom, preloadRouteKey } from "../../app/web/atoms/preload.js"
 import { surfaceAtom } from "../../app/web/atoms/surface.js"
 import { DemoClient } from "../../app/web/services/DemoClient.js"
-import { effectTextCardFixture, programPreviewFixture, runDataFixture } from "../helpers/demo-fixtures.js"
+import {
+  capabilitiesFixture,
+  effectTextCardFixture,
+  programPreviewFixture,
+  runDataFixture
+} from "../helpers/demo-fixtures.js"
 
 const makeTestRegistry = (): Registry.Registry =>
   Registry.make({
@@ -34,6 +39,7 @@ describe("Route preload mounting", () => {
                   data: runDataFixture("unused"),
                   meta: { requestId: "req", buildSha: "build", durationMs: 1 }
                 }),
+              capabilities: () => Effect.succeed(capabilitiesFixture),
               streamUrl: (id) => `/api/demos/${id}/stream`,
               versions: () => Effect.succeed({})
             })

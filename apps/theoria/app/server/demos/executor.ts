@@ -1,4 +1,4 @@
-import { Cause, Clock, Effect, Option, Schema } from "effect"
+import { Clock, Effect, Option, Schema } from "effect"
 
 import type { ErrorCode } from "../../contracts/error.js"
 import type { Id as DemoId } from "../../contracts/id.js"
@@ -6,10 +6,16 @@ import type { RunData as DemoData, RunEnvelope as DemoResponseEnvelope } from ".
 import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
 import { DspProviderUnavailable } from "./effect-dsp/provider.js"
-import { ExecutionPolicy } from "./policy.js"
+import { ExecutionPolicy, LaneAtCapacity } from "./policy.js"
 import { lookupForReleaseStage } from "./registry.js"
 
 const isProviderUnavailable = Schema.is(DspProviderUnavailable)
+const isLaneAtCapacity = Schema.is(LaneAtCapacity)
+
+const failureTag = (error: unknown): string =>
+  typeof error === "object" && error !== null && "_tag" in error && typeof error._tag === "string"
+    ? error._tag
+    : "UnknownFailure"
 
 const successEnvelope = (
   requestId: string,
@@ -123,13 +129,22 @@ export const execute = (id: DemoId, requestId: string) =>
                 runtimeInfo.buildSha,
                 startedAtMs,
                 "provider-unavailable",
-                error.message,
+                "DSP provider is not configured.",
                 false
+              )
+              : isLaneAtCapacity(error)
+              ? failed(
+                requestId,
+                runtimeInfo.buildSha,
+                startedAtMs,
+                "rate-limited",
+                "Demo execution capacity is currently full.",
+                true
               )
               : Effect.logError("theoria demo execution failed").pipe(
                 Effect.annotateLogs("demoId", id),
                 Effect.annotateLogs("requestId", requestId),
-                Effect.annotateLogs("cause", Cause.pretty(Cause.fail(error))),
+                Effect.annotateLogs("failureTag", failureTag(error)),
                 Effect.zipRight(
                   failed(
                     requestId,

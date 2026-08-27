@@ -120,6 +120,8 @@ const statusHaloClassName = (phase: RunControlsViewModel["phase"]): string | nul
 
 const statusLabel = (phase: RunControlsViewModel["phase"]): string =>
   Match.value(phase).pipe(
+    Match.when("checking", () => "Checking"),
+    Match.when("unavailable", () => "Unavailable"),
     Match.when("running", () => "Running"),
     Match.when("paused", () => "Paused"),
     Match.when("stopping", () => "Stopping"),

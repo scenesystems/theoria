@@ -3,7 +3,8 @@ import { Clock, Effect, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { Capabilities } from "../../contracts/capabilities.js"
-import { type Card, cardsForReleaseStage } from "../../contracts/card.js"
+import { type Card, cardVisibleInReleaseStage, liveDemoCards } from "../../contracts/card.js"
+import type { DspRuntimeProjection } from "../../contracts/dsp-runtime-projection.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 import { RuntimeInfo } from "../config/runtime.js"
@@ -17,20 +18,10 @@ const jsonResponse = (body: unknown) =>
     }
   })
 
-const nonDspCapabilities = (stage: ReleaseStage) =>
-  Arr.filter(cardsForReleaseStage(stage), (card) => card.id !== "effect-dsp")
-
-const dspDemoCapability = (
-  runtime: {
-    readonly capability: {
-      readonly enabled: boolean
-      readonly reason: Option.Option<string>
-    }
-  }
-) => ({
+const dspDemoCapability = (projection: DspRuntimeProjection) => ({
   id: "effect-dsp",
-  enabled: runtime.capability.enabled,
-  ...Option.match(runtime.capability.reason, {
+  enabled: projection.status === "configured" || projection.status === "operational",
+  ...Option.match(Option.fromNullable(projection.reason), {
     onNone: () => ({}),
     onSome: (reason) => ({ reason })
   })
@@ -49,20 +40,23 @@ const capabilityEntry = (id: Card["id"]) =>
     }))
   )
 
+const demoCapabilities = (stage: ReleaseStage, dsp: DspRuntimeProjection) =>
+  Arr.map(
+    Arr.filter(liveDemoCards, (card) => cardVisibleInReleaseStage(card, stage)),
+    (card) => card.id === "effect-dsp" ? dspDemoCapability(dsp) : capabilityEntry(card.id)
+  )
+
 export const capabilitiesRoute = (requestId: string) =>
   Effect.gen(function*() {
     const startedAtMs = yield* Clock.currentTimeMillis
-    const releaseStage = yield* serverReleaseStage
     const runtimeInfo = yield* RuntimeInfo
+    const releaseStage = yield* serverReleaseStage
     const dspRuntime = yield* DspProviderRuntime
     const dsp = yield* dspRuntimeProjection(dspRuntime)
     const endedAtMs = yield* Clock.currentTimeMillis
 
     const data = yield* Schema.decodeUnknown(Capabilities)({
-      demos: [
-        ...Arr.map(nonDspCapabilities(releaseStage), (card) => capabilityEntry(card.id)),
-        dspDemoCapability(dspRuntime)
-      ],
+      demos: demoCapabilities(releaseStage, dsp),
       dsp
     })
 
