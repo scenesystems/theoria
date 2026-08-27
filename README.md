@@ -76,14 +76,6 @@ Private material can be encrypted with
 [`@scenesystems/seal`](./packages/seal/README.md), which stores authenticated
 ciphertext in a self-describing envelope.
 
-## The relationship to Scene
-
-Scene currently relies on `digest` for content identity and uses `sign` in its
-cryptographic evidence. Its visual system also uses `effect-math`. Current Scene
-integration is limited to those packages.
-
-The World model and the Scene application live outside this repository.
-
 ## Try a package
 
 Each library is published independently under the `@scenesystems` scope. This
