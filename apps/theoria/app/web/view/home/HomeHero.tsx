@@ -16,7 +16,7 @@ export const HomeHero = () => (
         as="p"
         className="max-w-3xl text-ink-700"
         role="hero-body"
-        text="Theoria is a collection of open-source TypeScript libraries. Each live demo runs a published package against concrete inputs and shows the source and evidence produced by the run."
+        text="Theoria is an open-source collection of TypeScript libraries for reproducible computational work in Effect applications."
         variant="expanded"
         wrapAuthority="native-browser"
       />

@@ -1,24 +1,9 @@
 # Theoria app
 
-The [Theoria website](https://theoria.scenesystems.io/) is a small, working
-tour of the packages in this repository. Each demo calls a real package API
-and renders the same typed result or failure that an application would receive.
-
-## Demos
-
-| Package                          | Demo                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `@scenesystems/effect-math`      | Statistical power calculations with explicit inputs and typed failures.      |
-| `@scenesystems/effect-search`    | A seeded optimization study with progress and reproducible results.          |
-| `@scenesystems/effect-dsp`       | A language-model program running through a configured `@effect/ai` provider. |
-| `@scenesystems/effect-inference` | In development.                                                              |
-| `@scenesystems/effect-text`      | Text preparation followed by reusable layout projections.                    |
-| `@scenesystems/digest`           | Canonical structured-data hashing with BLAKE3-256, SHA-256, and HMAC.        |
-| `@scenesystems/sign`             | Key generation, signing, and verification with Ed25519 and secp256k1.        |
-| `@scenesystems/seal`             | Authenticated-encryption round trips across the package's supported ciphers. |
-
-The `effect-dsp` demo is enabled only when the server has a valid provider
-configuration. Every other live demo runs without an external service.
+The [Theoria website](https://theoria.scenesystems.io/) introduces the packages
+in this repository and links to their published modules and source. Interactive
+demos remain available only in local and preview builds while they are under
+development. Production serves the package catalog as the only page.
 
 ## Run it locally
 

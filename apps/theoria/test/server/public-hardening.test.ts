@@ -63,7 +63,7 @@ describe("server/public-hardening", () => {
       Effect.withConfigProvider(config({ THEORIA_LOCAL_TIMEOUT_MS: 10 }))
     ))
 
-  it.effect("enforces methods, cross-site blocking, and per-client provider limits", () =>
+  it.effect("enforces methods, cross-site blocking, and per-client preview provider limits", () =>
     Effect.gen(function*() {
       const wrongMethod = yield* authorizeDemoRequest(streamRoute, request("POST"))
       const crossSite = yield* authorizeDemoRequest(
@@ -81,7 +81,7 @@ describe("server/public-hardening", () => {
     }).pipe(
       Effect.provide(DemoRateLimiterLive),
       Effect.withConfigProvider(config({
-        NODE_ENV: "production",
+        NODE_ENV: "development",
         THEORIA_PROVIDER_REQUESTS_PER_MINUTE: 1,
         THEORIA_RATE_LIMIT_WINDOW_MS: 60_000
       }))

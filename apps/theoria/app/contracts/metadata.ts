@@ -38,8 +38,7 @@ export const siteMetadata: SiteMetadata = {
   siteName: "Theoria",
   siteUrl: "https://theoria.scenesystems.io",
   defaultTitle: "Theoria — Scene Systems",
-  defaultDescription:
-    "Open-source TypeScript libraries for scientific computing and model programming with Effect, with live package demos and reproducible results.",
+  defaultDescription: "Open-source TypeScript libraries for scientific computing and model programming with Effect.",
   twitterHandle: "@scenesystems",
   locale: "en_US"
 }

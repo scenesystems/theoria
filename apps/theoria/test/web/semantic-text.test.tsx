@@ -137,7 +137,7 @@ describe("SemanticText", () => {
       })
     ))
 
-  it.live("wraps scoped package titles when the available width requires it", () =>
+  it.live("keeps scoped package titles on one native browser line", () =>
     withMockClientWidth(
       220,
       Effect.gen(function*() {
@@ -154,7 +154,6 @@ describe("SemanticText", () => {
                 role="catalog-title"
                 text="@scenesystems/effect-inference"
                 variant="compact"
-                wrapAuthority="effect-text-projected"
               />
             </RegistryProvider>
           )
@@ -171,11 +170,10 @@ describe("SemanticText", () => {
               )
             ).pipe(Effect.orDie)
 
-            const spans = yield* waitForProjectedLinesAtLeast(container, 2)
-
-            expect(heading.className.includes("whitespace-nowrap")).toBe(false)
+            expect(heading.className.includes("whitespace-nowrap")).toBe(true)
             expect(heading.textContent).toBe("@scenesystems/effect-inference")
-            expect(spans.length).toBeGreaterThan(1)
+            expect(heading.dataset.lines).toBeUndefined()
+            expect(heading.querySelectorAll("span")).toHaveLength(0)
           }),
           Effect.sync(() => {
             root.unmount()

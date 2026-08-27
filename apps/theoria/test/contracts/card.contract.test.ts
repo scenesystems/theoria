@@ -26,16 +26,19 @@ describe("Theoria Card Publication Contracts", () => {
     expect(cards.every((card) => card.packageName.startsWith("@scenesystems/"))).toBe(true)
   })
 
-  it("keeps the inference package visible while its demo is in development", () => {
+  it("keeps demo routes preview-only while the home catalog retains every package", () => {
     const productionIds = cardsForReleaseStage("production").map((card) => card.id)
+    const previewIds = cardsForReleaseStage("preview").map((card) => card.id)
 
     expect(Option.isSome(cardByIdForReleaseStage("effect-inference", "preview"))).toBe(true)
     expect(Option.isNone(cardByIdForReleaseStage("effect-inference", "production"))).toBe(true)
-    expect(productionIds).not.toContain("effect-inference")
+    expect(Option.isNone(cardByIdForReleaseStage("effect-search", "production"))).toBe(true)
+    expect(productionIds).toEqual([])
+    expect(previewIds).toEqual(cards.map((card) => card.id))
     expect(cards.find((card) => card.id === "effect-inference")?.demoState).toBe("in-development")
   })
 
-  it("publishes each implemented demo", () => {
+  it("retains each implemented demo for preview builds", () => {
     expect(liveDemoCards.map((card) => card.id)).toEqual(liveDemoIds)
   })
 

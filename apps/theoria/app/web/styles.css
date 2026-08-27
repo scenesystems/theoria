@@ -383,6 +383,21 @@
     --th-shadow-chip: 0 16px 32px -26px rgb(0 0 0 / 40%);
   }
 
+  @media (max-width: 639px) {
+    :root {
+      --st-fs-hero-title: 32px;
+      --st-lh-hero-title: 38px;
+      --st-fs-hero-body: 16px;
+      --st-lh-hero-body: 24px;
+      --st-fs-catalog-title: clamp(14px, 4.6vw, 18px);
+      --st-lh-catalog-title: 24px;
+      --st-fs-card-summary: 15px;
+      --st-lh-card-summary: 22px;
+      --st-fs-section-title: 21px;
+      --st-lh-section-title: 28px;
+    }
+  }
+
   * {
     box-sizing: border-box;
   }

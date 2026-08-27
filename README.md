@@ -10,9 +10,9 @@ calculation and model programming, then preserve enough evidence to reproduce
 their results. The collection also includes text layout and cryptographic
 operations for applications that retain those results.
 
-_Theoria_ (θεωρία) is Greek for observation that produces knowledge. [The live
-site](https://theoria.scenesystems.io/) shows the libraries running against
-concrete inputs.
+_Theoria_ (θεωρία) is Greek for observation that produces knowledge. [The
+site](https://theoria.scenesystems.io/) introduces the packages and links to
+their published modules and source.
 
 ## Purpose
 
@@ -111,11 +111,10 @@ also run a benchmark or call a model. The fixed seed makes the study
 reproducible. Each package README explains how to install and use the library
 and states the API's current stability.
 
-## Theoria app
+## Theoria site
 
-[theoria.scenesystems.io](https://theoria.scenesystems.io/) runs the public APIs
-from this repository and displays the resulting evidence. Only the model
-program requires an external provider.
+[theoria.scenesystems.io](https://theoria.scenesystems.io/) presents the package
+collection and its relationship to reproducible computational work.
 
 The app source and local setup live in
 [`apps/theoria`](./apps/theoria/README.md).

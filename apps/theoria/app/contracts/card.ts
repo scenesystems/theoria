@@ -45,12 +45,11 @@ export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
     Match.when("effect", () => ({
       label: "Computation and model programs",
       description:
-        "Numerical work feeds reproducible studies and typed model programs. Inference and text layout use the same Effect service model."
+        "Numerical work supports reproducible studies and typed model programs. Inference and text layout use the same Effect service model."
     })),
     Match.when("scenesystems", () => ({
       label: "Content and cryptography",
-      description:
-        "Stable digests identify retained content. Encryption and signatures protect it as it moves between systems."
+      description: "Stable digests identify content. Encryption and signatures protect it between systems."
     })),
     Match.exhaustive
   )
@@ -89,7 +88,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "effect-math",
     title: "@scenesystems/effect-math",
     packageName: "@scenesystems/effect-math",
-    description: "Combines numerical and statistical computing with typed errors and policy-aware operations.",
+    description: "Numerical and statistical computing with typed errors and runtime policy.",
     useCase: "Numerical analysis and statistical modeling inside application code.",
     summary: "Explore how sample size, effect size, and target power trade off.",
     runLabel: "Run Power Analysis",
@@ -106,8 +105,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "effect-search",
     title: "@scenesystems/effect-search",
     packageName: "@scenesystems/effect-search",
-    description:
-      "Runs optimization studies with adaptive samplers when each evaluation is too expensive for trial and error.",
+    description: "Runs reproducible optimization studies with adaptive and seeded samplers.",
     useCase: "Hyperparameter tuning, experiment design, and other expensive search problems.",
     summary: "Compare TPE against seeded random search on the same trial budget.",
     runLabel: "Run Optimizer Comparison",
@@ -124,7 +122,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "effect-dsp",
     title: "@scenesystems/effect-dsp",
     packageName: "@scenesystems/effect-dsp",
-    description: "Turns language-model workflows into typed programs you can trace, evaluate, and optimize.",
+    description: "Builds typed language-model programs for evaluation and optimization.",
     useCase: "Build, evaluate, and optimize LLM workflows as typed programs.",
     summary: "Run a typed classifier and compare it with a heuristic baseline.",
     runLabel: "Run Model Evaluation",
@@ -141,8 +139,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "effect-inference",
     title: "@scenesystems/effect-inference",
     packageName: "@scenesystems/effect-inference",
-    description:
-      "Resolves model requests for text and embeddings across providers while keeping request intent, routing, and execution evidence separate.",
+    description: "Resolves model requests across providers and records execution evidence.",
     useCase: "Keep requested model intent, resolved route, and execution evidence separate.",
     summary: "Resolve a descriptor, inspect the route, and collect runtime evidence.",
     runLabel: "Run Runtime Resolution",
@@ -158,7 +155,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "effect-text",
     title: "@scenesystems/effect-text",
     packageName: "@scenesystems/effect-text",
-    description: "Prepares text once, then measures and reflows it as width and obstacle constraints change.",
+    description: "Measures text once and reflows it as width or obstacle constraints change.",
     useCase: "Prepare text once, then reflow it across widths and obstacles.",
     summary: "Measure in the browser and reflow the same text as the container changes.",
     runLabel: "Run Benchmark",
@@ -175,7 +172,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "digest",
     title: "@scenesystems/digest",
     packageName: "@scenesystems/digest",
-    description: "Turns structured data into stable cryptographic digests you can use as identifiers.",
+    description: "Creates stable cryptographic identifiers for structured data.",
     useCase: "Stable fingerprints, integrity checks, and content addressing.",
     summary: "Hash a structured value with BLAKE3-256 and SHA-256.",
     runLabel: "Run Digest Demo",
@@ -191,8 +188,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "sign",
     title: "@scenesystems/sign",
     packageName: "@scenesystems/sign",
-    description:
-      "Signs messages, derives shared secrets, and encapsulates keys with classical and post-quantum algorithms.",
+    description: "Signs messages and derives shared secrets with classical or post-quantum algorithms.",
     useCase: "Switch between classical and post-quantum algorithms without changing the workflow.",
     summary: "Generate Ed25519 keys, sign a message, and verify it.",
     runLabel: "Run Signature Demo",
@@ -208,7 +204,7 @@ export const cards: ReadonlyArray<Card> = [
     id: "seal",
     title: "@scenesystems/seal",
     packageName: "@scenesystems/seal",
-    description: "Encrypts data into self-describing envelopes that carry what is needed to decrypt it.",
+    description: "Encrypts data in envelopes that carry their decryption parameters.",
     useCase: "Encrypt data without tracking algorithm and nonce separately.",
     summary: "Seal and unseal data with XChaCha20-Poly1305.",
     runLabel: "Run Encryption Demo",
@@ -230,10 +226,10 @@ export const liveDemoCards: ReadonlyArray<Card> = Arr.filter(cards, (card) => ca
 
 export const cardById = (id: Card["id"]): Option.Option<Card> => Arr.findFirst(cards, (card) => card.id === id)
 
-export const cardVisibleInReleaseStage = (card: Card, stage: ReleaseStage): boolean =>
+export const cardVisibleInReleaseStage = (_card: Card, stage: ReleaseStage): boolean =>
   Match.value(stage).pipe(
     Match.when("preview", () => true),
-    Match.when("production", () => card.demoState === "live"),
+    Match.when("production", () => false),
     Match.exhaustive
   )
 

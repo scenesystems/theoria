@@ -271,26 +271,48 @@ test("deep dive run controls survive pause-resume in a real browser", async ({ p
   expect(failures.pageErrors).toEqual([])
 })
 
-test("home InstrumentCard hover survives reversal and navigation in a real browser", async ({ page }) => {
+test("home package catalog is demo-free and responsive at mobile width", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
+  await page.setViewportSize({ width: 320, height: 800 })
   await routeApi(page)
   await page.goto("/")
 
-  const effectSearchLink = page.getByRole("link", { name: "@scenesystems/effect-search" }).first()
-  await expect(effectSearchLink).toBeVisible()
+  const packageTitles = page.getByRole("heading", { level: 3 })
+  const effectSearchTitle = page.getByRole("heading", {
+    level: 3,
+    name: "@scenesystems/effect-search"
+  })
 
-  await effectSearchLink.hover()
-  await expect.poll(async () => effectSearchLink.evaluate(transformedAncestor)).not.toBe("none")
+  await expect(packageTitles).toHaveCount(cards.length)
+  await expect(effectSearchTitle).toBeVisible()
+  await expect(page.locator('a[href^="/demos/"]')).toHaveCount(0)
+  await expect(page.getByText("Live demo", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("Demo in development", { exact: true })).toHaveCount(0)
+
+  await effectSearchTitle.hover()
+  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).not.toBe("none")
 
   await page.mouse.move(1, 1)
-  await expect.poll(async () => effectSearchLink.evaluate(transformedAncestor)).toBe("none")
+  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).toBe("none")
 
-  await effectSearchLink.hover()
-  await expect.poll(async () => effectSearchLink.evaluate(transformedAncestor)).not.toBe("none")
+  const titleLayout = await packageTitles.evaluateAll((elements) =>
+    elements.map((element) => {
+      const range = document.createRange()
+      range.selectNodeContents(element)
 
-  await effectSearchLink.click()
-  await expect(page.getByRole("button", { name: /Run/i })).toBeVisible()
+      return {
+        lineCount: range.getClientRects().length,
+        overflows: element.scrollWidth > element.clientWidth,
+        whiteSpace: getComputedStyle(element).whiteSpace
+      }
+    })
+  )
+
+  expect(titleLayout.every((title) => title.lineCount === 1)).toBe(true)
+  expect(titleLayout.every((title) => title.overflows === false)).toBe(true)
+  expect(titleLayout.every((title) => title.whiteSpace === "nowrap")).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   expect(failures.consoleErrors).toEqual([])
   expect(failures.pageErrors).toEqual([])
 })

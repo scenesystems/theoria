@@ -1,8 +1,6 @@
 import { Separator } from "@base-ui-components/react/separator"
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
-import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
-import { Match } from "effect"
 
 import type { Card } from "../../../contracts/card.js"
 import { cardLiftSpring } from "../../atoms/card-lift.js"
@@ -12,9 +10,7 @@ import type { MetaItem } from "../primitives/CardMetaRow.js"
 import { CardMetaRow } from "../primitives/CardMetaRow.js"
 import { ContentCard } from "../primitives/ContentCard.js"
 import type { ToneClasses } from "../primitives/designSystem.js"
-import { Layer, Stack } from "../primitives/Layout.js"
-import { CardLink } from "../primitives/Link.js"
-import { SelectionRail } from "../primitives/SelectionLayout.js"
+import { Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
@@ -31,9 +27,6 @@ const liftTransform = (progress: number): string | undefined =>
     ? undefined
     : `translateY(${(-progress * liftPx).toFixed(2)}px) scale(${(1 + progress * liftScale).toFixed(4)})`
 
-const neutralBadgeClassName =
-  "inline-flex shrink-0 items-center gap-1 rounded-full border border-stage-200/90 px-2 py-1"
-
 export const InstrumentCard = ({
   card,
   tone
@@ -48,28 +41,6 @@ export const InstrumentCard = ({
     onSuccess: (success) => success.value[card.packageName] ?? card.version,
     onFailure: () => card.version
   })
-  const titleIsLinked = card.demoState === "live"
-  const badge = Match.value(card.demoState).pipe(
-    Match.when("in-development", () => ({
-      className: `${neutralBadgeClassName} text-ink-500`,
-      icon: false,
-      text: "Demo in development"
-    })),
-    Match.orElse(() => ({
-      className:
-        `inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 transition-colors duration-150 ${tone.bgSubtle} ${tone.textStrong}`,
-      icon: true,
-      text: "Live demo"
-    }))
-  )
-  const badgeSlot = (
-    <Layer as="span" className={badge.className}>
-      <SemanticText as="span" role="tab-label" text={badge.text} variant="compact" />
-      {badge.icon
-        ? <ArrowTopRightOnSquareIcon aria-hidden className="h-3 w-3 shrink-0" />
-        : null}
-    </Layer>
-  )
 
   return (
     <ContentCard
@@ -81,29 +52,13 @@ export const InstrumentCard = ({
       style={{ transform: liftTransform(progress) }}
     >
       <Stack className="min-w-0 gap-3">
-        <SelectionRail action={badgeSlot} className="gap-y-2">
-          {titleIsLinked
-            ? (
-              <CardLink className="block min-w-0" href={card.deepDivePath}>
-                <SemanticText
-                  as="h3"
-                  className="min-w-0 text-ink-900"
-                  role="catalog-title"
-                  text={card.title}
-                  variant="compact"
-                />
-              </CardLink>
-            )
-            : (
-              <SemanticText
-                as="h3"
-                className="min-w-0 text-ink-900"
-                role="catalog-title"
-                text={card.title}
-                variant="compact"
-              />
-            )}
-        </SelectionRail>
+        <SemanticText
+          as="h3"
+          className="min-w-0 text-ink-900"
+          role="catalog-title"
+          text={card.title}
+          variant="compact"
+        />
 
         <SemanticText
           as="p"
@@ -113,7 +68,7 @@ export const InstrumentCard = ({
           reserveLines={2}
           text={card.description}
           variant="compact"
-          wrapAuthority="effect-text-projected"
+          wrapAuthority="native-browser"
         />
       </Stack>
 
