@@ -51,7 +51,7 @@ RFC 8785 key ordering uses UTF-16 code units. String values and keys must contai
 
 `digestSchemaValue` applies `Schema.encode` before canonicalization and preserves schema environment requirements. Its failures distinguish `ParseResult.ParseError` from `CanonicalizationError`.
 
-For untrusted sizes, `digestSchemaValueWithByteLimit` limits canonical UTF-8 emission and returns the tagged digest with the exact `canonicalByteLength`. The inclusive limit must be a non-negative safe integer. This limit does not bound descriptor admission, traversal, or key sorting, so callers still need owner-side structural bounds. `digestSchemaValueWithByteLimitSync` has the same data contract and returns `Either`; it blocks the JavaScript turn and is intended only for small owner-controlled values when an Effect runtime cannot be acquired.
+For untrusted sizes, `digestSchemaValueWithByteLimit` limits canonical UTF-8 emission and returns the tagged digest with the exact `canonicalByteLength`. Structural schema encoding and canonical traversal are stack-safe and cooperative, while native key enumeration and user-defined transformations remain indivisible host operations. The inclusive limit must be a non-negative safe integer. This limit does not bound descriptor admission, traversal, or key sorting, so callers still need owner-side structural bounds. `digestSchemaValueWithByteLimitSync` has the same data contract and returns `Either`; it blocks the JavaScript turn and is intended only for small owner-controlled values when an Effect runtime cannot be acquired.
 
 ## Public surface
 

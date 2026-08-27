@@ -178,6 +178,16 @@ describe("governance", () => {
       expect(exportKeys).toEqual(Arr.sort(EXPECTED_EXPORT_KEYS, Order.string))
     }).pipe(Effect.provide(BunContext.layer)))
 
+  it.effect("centralizes indivisible native key snapshots at the Schema encoding owner boundary", () =>
+    Effect.gen(function*() {
+      const model = yield* readProjectFile(packageRootUrl, "src/internal/schema-encode-model.ts")
+      const records = yield* readProjectFile(packageRootUrl, "src/internal/schema-encode-records.ts")
+
+      expect(records).not.toMatch(/Reflect\.ownKeys|Object\.keys|Object\.getOwnPropertySymbols/)
+      expect(model).toContain("export const ownKeysSnapshot")
+      expect(model).toContain("export const indexSignatureKeysSnapshot")
+    }).pipe(Effect.provide(BunContext.layer)))
+
   it.effect("keeps bounded canonical emission incremental without full-preimage assembly or one-shot dispatch", () =>
     Effect.gen(function*() {
       const boundedInitializer = yield* initializerText(
@@ -190,12 +200,15 @@ describe("governance", () => {
       )
       const invocations = callInvocations(bounded)
 
-      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "Schema.encode", arguments: ["schema"] })
+      expect(Arr.filter(invocations, ({ target }) => target === "encodeSchemaCooperatively")).toEqual([
+        new ExpressionInvocation({
+          kind: "call",
+          target: "encodeSchemaCooperatively",
+          arguments: ["schema", "value"]
+        })
       ])
-      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([
-        new ExpressionInvocation({ kind: "call", target: "Schema.encode()", arguments: ["value"] })
-      ])
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode")).toEqual([])
+      expect(Arr.filter(invocations, ({ target }) => target === "Schema.encode()")).toEqual([])
       expect(conditionalInvocations(bounded)).toContainEqual(
         new ConditionalInvocation({
           condition: new ExpressionInvocation({
@@ -207,7 +220,7 @@ describe("governance", () => {
             kind: "call",
             target: "Effect.flatMap",
             arguments: [
-              "Schema.encode(schema)(value)",
+              "encodeSchemaCooperatively(schema, value)",
               "(encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)"
             ]
           }),

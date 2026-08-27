@@ -37,6 +37,7 @@ import {
   updateIncrementalHasher
 } from "./internal/digest-bytes.js"
 import { canonicalizeWithByteLimit, canonicalizeWithByteLimitEither } from "./internal/jcs.js"
+import { encodeSchemaCooperatively } from "./internal/schema-encode-machine.js"
 import { encodeUtf8Unchecked } from "./internal/unicode.js"
 import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import {
@@ -128,11 +129,16 @@ export const digestSchemaValue = <A, I, R>(
  * Digest a Schema value only when its exact canonical UTF-8 preimage is within
  * an inclusive byte limit.
  *
- * Schema encoding and canonical traversal each occur once. Traversal stops at
- * the first canonical fragment containing byte `maximumBytes + 1`, before the
+ * Schema encoding and canonical traversal each occur once. Structural Schema
+ * encoding and canonical traversal both run cooperatively in fixed-size Effect
+ * batches. Native own-key snapshots required by Effect Schema semantics are
+ * indivisible host operations bracketed by interruption checkpoints; all
+ * package-owned work over each snapshot is batched. Traversal stops at the
+ * first canonical fragment containing byte `maximumBytes + 1`, before the
  * complete oversized preimage is materialized and before digest finalization
- * or publication. On success, `canonicalByteLength` is the exact byte count
- * emitted to the private incremental digest sink.
+ * or publication. On success,
+ * `canonicalByteLength` is the exact byte count emitted to the private
+ * incremental digest sink.
  *
  * `maximumBytes` is inclusive and must be a non-negative safe integer.
  *
@@ -152,7 +158,10 @@ export const digestSchemaValueWithByteLimit = <A, I>(
   never
 > =>
   isByteLimit(maximumBytes)
-    ? Effect.flatMap(Schema.encode(schema)(value), (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm))
+    ? Effect.flatMap(
+      encodeSchemaCooperatively(schema, value),
+      (encoded) => digestEncodedBounded(encoded, maximumBytes, algorithm)
+    )
     : new InvalidCanonicalByteLimit({})
 
 /**
