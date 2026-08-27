@@ -63,7 +63,6 @@ export const InstrumentCard = ({
         <SemanticText
           as="p"
           className="min-w-0 text-ink-700"
-          lineLimit={2}
           role="card-summary"
           reserveLines={2}
           text={card.description}

@@ -271,7 +271,7 @@ test("deep dive run controls survive pause-resume in a real browser", async ({ p
   expect(failures.pageErrors).toEqual([])
 })
 
-test("home package catalog is demo-free and responsive at mobile width", async ({ page }) => {
+test("home package catalog remains complete across responsive widths", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
   await page.setViewportSize({ width: 320, height: 800 })
@@ -296,23 +296,34 @@ test("home package catalog is demo-free and responsive at mobile width", async (
   await page.mouse.move(1, 1)
   await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).toBe("none")
 
-  const titleLayout = await packageTitles.evaluateAll((elements) =>
-    elements.map((element) => {
-      const range = document.createRange()
-      range.selectNodeContents(element)
+  for (const width of [320, 768, 1280]) {
+    await page.setViewportSize({ width, height: 800 })
 
-      return {
-        lineCount: range.getClientRects().length,
-        overflows: element.scrollWidth > element.clientWidth,
-        whiteSpace: getComputedStyle(element).whiteSpace
-      }
-    })
-  )
+    const layout = await page.locator("h3 + p").evaluateAll((descriptions) => ({
+      descriptions: descriptions.map((description) => ({
+        clientHeight: description.clientHeight,
+        scrollHeight: description.scrollHeight
+      })),
+      titles: [...document.querySelectorAll("h3")].map((title) => {
+        const range = document.createRange()
+        range.selectNodeContents(title)
 
-  expect(titleLayout.every((title) => title.lineCount === 1)).toBe(true)
-  expect(titleLayout.every((title) => title.overflows === false)).toBe(true)
-  expect(titleLayout.every((title) => title.whiteSpace === "nowrap")).toBe(true)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        return {
+          lineCount: range.getClientRects().length,
+          overflows: title.scrollWidth > title.clientWidth,
+          whiteSpace: getComputedStyle(title).whiteSpace
+        }
+      })
+    }))
+
+    expect(layout.descriptions).toHaveLength(cards.length)
+    expect(layout.descriptions.every((description) => description.scrollHeight <= description.clientHeight)).toBe(true)
+    expect(layout.titles.every((title) => title.lineCount === 1)).toBe(true)
+    expect(layout.titles.every((title) => title.overflows === false)).toBe(true)
+    expect(layout.titles.every((title) => title.whiteSpace === "nowrap")).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
+
   expect(failures.consoleErrors).toEqual([])
   expect(failures.pageErrors).toEqual([])
 })
