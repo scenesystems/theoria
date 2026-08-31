@@ -47,6 +47,7 @@ export default defineConfig({
   server: {
     port: vitePort,
     strictPort: true,
+    allowedHosts: [".onamp.dev"],
     proxy: {
       "/api": {
         target: `http://localhost:${apiPort}`,

@@ -6,11 +6,11 @@ import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
 import { useTextProjection } from "../../atoms/text.js"
 
-type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code"
+type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code" | "kbd"
 
 type BlockElement = "p" | "h1" | "h2" | "h3" | "dt" | "dd"
 
-const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code"
+const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code" && el !== "kbd"
 
 const fontSizeVar = (role: TextRole): string => `--st-fs-${role}`
 const fontWeightVar = (role: TextRole): string => `--st-fw-${role}`

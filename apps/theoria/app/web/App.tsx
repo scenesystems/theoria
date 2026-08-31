@@ -1,11 +1,13 @@
 import { Tooltip } from "@base-ui-components/react/tooltip"
-import { RegistryProvider, useAtomValue } from "@effect-atom/atom-react"
-import { useEffect } from "react"
+import { RegistryProvider, useAtomSubscribe, useAtomValue } from "@effect-atom/atom-react"
+import { Match } from "effect"
 
+import { cards } from "../contracts/card.js"
 import { preloadRouteKey, routePreloadMountAtom } from "./atoms/preload.js"
-import { colorModeAtom } from "./atoms/theme.js"
+import { type ColorMode, colorModeAtom } from "./atoms/theme.js"
 import type { PageRoute } from "./services/path.js"
 import { DeepDivePage } from "./view/deep/DeepDivePage.js"
+import { DocsPage } from "./view/docs/DocsPage.js"
 import { HomePage } from "./view/home/HomePage.js"
 
 import "./styles.css"
@@ -15,12 +17,12 @@ const RoutePreloader = ({ route }: { readonly route: PageRoute }) => {
   return null
 }
 
-const ThemeApplicator = () => {
-  const mode = useAtomValue(colorModeAtom)
+const applyColorMode = (mode: ColorMode) => {
+  document.documentElement.classList.toggle("dark", mode === "dark")
+}
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", mode === "dark")
-  }, [mode])
+const ThemeApplicator = () => {
+  useAtomSubscribe(colorModeAtom, applyColorMode, { immediate: true })
 
   return null
 }
@@ -29,9 +31,14 @@ const AppShell = ({ route }: { readonly route: PageRoute }) => (
   <>
     <ThemeApplicator />
     <RoutePreloader route={route} />
-    {route._tag === "DeepRoute"
-      ? <DeepDivePage id={route.id} />
-      : <HomePage />}
+    {Match.value(route).pipe(
+      Match.tag("HomeRoute", () => <HomePage />),
+      Match.tag("DeepRoute", ({ id }) => <DeepDivePage id={id} />),
+      Match.tag("DocsOverviewRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
+      Match.tag("DocsGettingStartedRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
+      Match.tag("DocsApiRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
+      Match.exhaustive
+    )}
   </>
 )
 

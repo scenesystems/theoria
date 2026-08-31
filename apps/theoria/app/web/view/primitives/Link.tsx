@@ -1,4 +1,8 @@
-import type { ReactNode } from "react"
+import type { AnchorHTMLAttributes, ReactNode } from "react"
+
+type InternalLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
+  readonly href: string
+}
 
 /**
  * Internal (same-origin) navigation link.
@@ -8,14 +12,10 @@ import type { ReactNode } from "react"
  */
 export const InternalLink = ({
   children,
-  className,
-  href
-}: {
-  readonly children: ReactNode
-  readonly className?: string
-  readonly href: string
-}) => (
-  <a className={className} href={href}>
+  href,
+  ...props
+}: InternalLinkProps) => (
+  <a {...props} href={href}>
     {children}
   </a>
 )
@@ -28,14 +28,20 @@ export const InternalLink = ({
  */
 export const ExternalLink = ({
   children,
-  className,
-  href
-}: {
-  readonly children: ReactNode
-  readonly className?: string
+  href,
+  ...props
+}: InternalLinkProps) => (
+  <a {...props} href={href} rel="noopener noreferrer" target="_blank">
+    {children}
+  </a>
+)
+
+type AnchorLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   readonly href: string
-}) => (
-  <a className={className} href={href} rel="noopener noreferrer" target="_blank">
+}
+
+export const AnchorLink = ({ children, href, ...props }: AnchorLinkProps) => (
+  <a {...props} href={href}>
     {children}
   </a>
 )

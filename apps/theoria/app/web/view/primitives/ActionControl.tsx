@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 
-import { InternalLink } from "./Link.js"
+import { ExternalLink, InternalLink } from "./Link.js"
 import { SemanticText } from "./SemanticText.js"
 
 const actionControlClassName = (variant: SurfaceVariant): string =>
@@ -55,15 +55,18 @@ export const ActionButton = ({
 export const ActionLink = ({
   className,
   href,
+  icon,
   label,
   variant
 }: {
   readonly className: string
   readonly href: string
+  readonly icon?: ReactNode
   readonly label: string
   readonly variant: SurfaceVariant
 }) => (
-  <InternalLink className={`${actionControlClassName(variant)} ${className}`} href={href}>
+  <InternalLink className={`${actionControlClassName(variant)} gap-1.5 ${className}`} href={href}>
+    {icon !== undefined ? icon : null}
     <SemanticText
       as="span"
       className="max-w-full whitespace-nowrap"
@@ -72,4 +75,29 @@ export const ActionLink = ({
       variant={variant}
     />
   </InternalLink>
+)
+
+export const ExternalActionLink = ({
+  className,
+  href,
+  icon,
+  label,
+  variant
+}: {
+  readonly className: string
+  readonly href: string
+  readonly icon?: ReactNode
+  readonly label: string
+  readonly variant: SurfaceVariant
+}) => (
+  <ExternalLink className={`${actionControlClassName(variant)} gap-1.5 ${className}`} href={href}>
+    {icon !== undefined ? icon : null}
+    <SemanticText
+      as="span"
+      className="max-w-full whitespace-nowrap"
+      role="button-label"
+      text={label}
+      variant={variant}
+    />
+  </ExternalLink>
 )

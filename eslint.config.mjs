@@ -218,7 +218,6 @@ export default [
     ignores: [
       "**/dist/**",
       "**/build/**",
-      "**/docs/**",
       "**/node_modules/**",
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",

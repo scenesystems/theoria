@@ -17,9 +17,9 @@ const isId = Schema.is(Id)
 type PreloadRouteKey = "home" | `deep:${IdType}`
 
 const visibleIdsForRoute = (route: PageRoute): ReadonlyArray<IdType> =>
-  route._tag === "HomeRoute"
-    ? []
-    : [route.id]
+  route._tag === "DeepRoute"
+    ? [route.id]
+    : []
 
 const deepRoute = (id: IdType): PageRoute => ({ _tag: "DeepRoute", id })
 
