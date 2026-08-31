@@ -21,6 +21,8 @@ export const ApiReferenceRouteSchema = Schema.Struct({
   subpath: Schema.String,
   slug: Schema.String,
   canonical: Schema.Boolean,
+  path: Schema.String,
+  page: Schema.String,
   imports: Schema.Array(ApiReferenceImportSchema)
 })
 
@@ -42,7 +44,7 @@ export const ApiReferencePackageSchema = Schema.Struct({
 })
 
 export const ApiReferenceManifestSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
   typedocVersion: Schema.String,
   revision: Schema.String,
   packages: Schema.Array(ApiReferencePackageSchema)

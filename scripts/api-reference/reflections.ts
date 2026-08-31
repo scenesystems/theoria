@@ -14,6 +14,12 @@ import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
 
 export const routeSlug = (subpath: string): string => subpath === "." ? "" : subpath.replace(/^\.\//u, "")
 
+export const apiPagePath = (packageSlug: string, slug: string): string =>
+  `/docs/${packageSlug}/api${slug.length === 0 ? "" : `/${slug}`}`
+
+export const pageOutputPath = (packageSlug: string, slug: string): string =>
+  `packages/${packageSlug}/pages/${slug.length === 0 ? "index" : slug}.json`
+
 export const moduleOutputPath = (path: Path.Path, packageSlug: string, subpath: string): string => {
   const segments = routeSlug(subpath).split("/").filter((segment) => segment.length > 0)
   return path.join("packages", packageSlug, "modules", ...(segments.length === 0 ? ["index.json"] : [
@@ -105,10 +111,16 @@ export const makeRoutes = (
   Effect.forEach(module.routes, ({ entrypoint }) =>
     Effect.map(
       makeImports(sourcePackage.manifest.name, module, reflection, entrypoint.subpath),
-      (imports): ApiReferenceRoute => ({
-        subpath: entrypoint.subpath,
-        slug: routeSlug(entrypoint.subpath),
-        canonical: entrypoint.subpath === module.canonicalSubpath,
-        imports
-      })
+      (imports): ApiReferenceRoute => {
+        const slug = routeSlug(entrypoint.subpath)
+
+        return {
+          subpath: entrypoint.subpath,
+          slug,
+          canonical: entrypoint.subpath === module.canonicalSubpath,
+          path: apiPagePath(sourcePackage.directoryName, slug),
+          page: pageOutputPath(sourcePackage.directoryName, slug),
+          imports
+        }
+      }
     ))

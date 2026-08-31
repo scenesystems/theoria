@@ -15,6 +15,7 @@ export default defineConfig({
     include: [
       "packages/*/test/**/*.test.ts",
       "apps/*/test/**/*.test.ts",
+      "scripts/api-reference/**/*.test.ts",
       "scripts/crypto-release/**/*.test.ts"
     ],
     passWithNoTests: true,

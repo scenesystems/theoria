@@ -1,9 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Console, Effect, Option, Schema } from "effect"
-import {
-  Application,
-  EntryPointStrategy
-} from "typedoc"
+import { Array as Arr, Console, Effect, Option } from "effect"
+import { Application } from "typedoc"
 
 import {
   attachLeadingModuleComment,
@@ -11,58 +8,29 @@ import {
   hasCommentTag,
   moduleReflection
 } from "./comments.js"
+import { makeApiDocLinks, type ApiDocLink } from "./links.js"
 import {
   ApiReferenceGenerationError,
   type ApiReferenceManifest,
-  ApiReferenceManifestJson,
   type ApiReferenceModule,
   type ApiReferencePackage
 } from "./model.js"
+import {
+  sha256File,
+  writeApiManifest,
+  writeApiPage,
+  writeApiSearchIndex
+} from "./output.js"
+import { type ApiSearchIndex } from "./presentation-model.js"
 import { makeRoutes, moduleDisplayName, moduleOutputPath } from "./reflections.js"
 import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
+import { bootstrapTypeDoc } from "./typedoc-application.js"
+import { makeApiPresentation } from "./typedoc-presentation.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
 const typeDocFailure = (packageName: string, detail: string): ApiReferenceGenerationError =>
   new ApiReferenceGenerationError({ packageName, detail })
-
-const sha256File = (filePath: string) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const bytes = yield* fileSystem.readFile(filePath).pipe(Effect.orDie)
-
-    return yield* Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
-  })
-
-const bootstrapTypeDoc = (
-  repositoryRoot: string,
-  revision: string,
-  sourcePackage: ApiSourcePackage
-) =>
-  Effect.tryPromise({
-    try: () => Application.bootstrap({
-      name: sourcePackage.manifest.name,
-      entryPoints: Arr.map(sourcePackage.modules, (module) => module.absolute),
-      entryPointStrategy: EntryPointStrategy.Resolve,
-      tsconfig: `${sourcePackage.root}/tsconfig.src.json`,
-      basePath: repositoryRoot,
-      displayBasePath: repositoryRoot,
-      gitRevision: revision,
-      alwaysCreateEntryPointModule: true,
-      excludeInternal: true,
-      excludePrivate: true,
-      excludeProtected: true,
-      pretty: false,
-      readme: "none",
-      validation: {
-        invalidLink: false,
-        notDocumented: false,
-        notExported: false
-      },
-      treatWarningsAsErrors: true
-    }),
-    catch: () => typeDocFailure(sourcePackage.manifest.name, "TypeDoc initialization failed")
-  })
 
 const generateModule = (input: {
   readonly app: Application
@@ -70,6 +38,7 @@ const generateModule = (input: {
   readonly outputRoot: string
   readonly packageSlug: string
   readonly revision: string
+  readonly links: ReadonlyArray<ApiDocLink>
   readonly sourcePackage: ApiSourcePackage
   readonly module: ApiSourceModule
 }) =>
@@ -153,6 +122,20 @@ const generateModule = (input: {
     const reflectionSha256 = yield* sha256File(absoluteOutput)
     const sourceUrl = `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.module.relative}`
     const routes = yield* makeRoutes(input.sourcePackage, input.module, reflection.value)
+    const presentation = yield* makeApiPresentation({
+      packageName: input.sourcePackage.manifest.name,
+      packageVersion: input.sourcePackage.manifest.version,
+      packageSlug: input.packageSlug,
+      packageDescription: input.sourcePackage.description,
+      moduleReflection: reflection.value,
+      moduleSourceUrl: sourceUrl,
+      routes,
+      links: input.links
+    })
+    yield* Effect.forEach(
+      Arr.zip(routes, presentation.pages),
+      ([route, page]) => writeApiPage(input.outputRoot, route.page, page)
+    )
 
     const generatedModule: ApiReferenceModule = {
       source: input.module.relative,
@@ -163,13 +146,14 @@ const generateModule = (input: {
       routes
     }
 
-    return generatedModule
+    return { module: generatedModule, searchEntries: presentation.searchEntries }
   })
 
 const generatePackage = (input: {
   readonly repositoryRoot: string
   readonly outputRoot: string
   readonly revision: string
+  readonly links: ReadonlyArray<ApiDocLink>
   readonly sourcePackage: ApiSourcePackage
 }) =>
   Effect.gen(function*() {
@@ -195,11 +179,12 @@ const generatePackage = (input: {
     })
 
     const packageSlug = input.sourcePackage.directoryName
-    const modules = yield* Effect.forEach(
+    const generatedModules = yield* Effect.forEach(
       input.sourcePackage.modules,
       (module) => generateModule({ ...input, app, entrypoints, packageSlug, module }),
       { concurrency: 1 }
     )
+    const modules = Arr.map(generatedModules, (generated) => generated.module)
 
     yield* Console.log(
       `✓ ${input.sourcePackage.manifest.name}: ${String(modules.length)} semantic modules, ${String(modules.reduce((count, module) => count + module.routes.length, 0))} public routes`
@@ -213,7 +198,10 @@ const generatePackage = (input: {
       modules
     }
 
-    return generatedPackage
+    return {
+      package: generatedPackage,
+      searchEntries: Arr.flatMap(generatedModules, (generated) => generated.searchEntries)
+    }
   })
 
 export const generateApiReference = (input: {
@@ -224,23 +212,28 @@ export const generateApiReference = (input: {
 }) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
+    const links = makeApiDocLinks(input.sourcePackages)
     yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
     yield* fileSystem.makeDirectory(input.outputRoot, { recursive: true }).pipe(Effect.orDie)
 
-    const packages = yield* Effect.forEach(
+    const generatedPackages = yield* Effect.forEach(
       input.sourcePackages,
-      (sourcePackage) => generatePackage({ ...input, sourcePackage }),
+      (sourcePackage) => generatePackage({ ...input, links, sourcePackage }),
       { concurrency: 1 }
     )
+    const packages = Arr.map(generatedPackages, (generated) => generated.package)
     const manifest: ApiReferenceManifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       typedocVersion: Application.VERSION,
       revision: input.revision,
       packages
     }
-    const manifestJson = yield* Schema.encode(ApiReferenceManifestJson)(manifest).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(path.join(input.outputRoot, "manifest.json"), `${manifestJson}\n`).pipe(Effect.orDie)
+    const searchIndex: ApiSearchIndex = {
+      schemaVersion: 1,
+      entries: Arr.flatMap(generatedPackages, (generated) => generated.searchEntries)
+    }
+    yield* writeApiManifest(input.outputRoot, manifest)
+    yield* writeApiSearchIndex(input.outputRoot, searchIndex)
 
     return manifest
   })
