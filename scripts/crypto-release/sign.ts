@@ -260,7 +260,15 @@ const buildDescriptorBody = (workspace: string) =>
     const sourcePaths = Arr.filter(listedSource.split("\n"), (entry) =>
       entry.length > 0 &&
       !entry.includes("/build/") && !entry.includes("/dist/") && !entry.includes(".tsbuildinfo"))
-    const sourceFiles = yield* identities(workspace, sourcePaths)
+    const existingSourcePaths = yield* Effect.filter(
+      sourcePaths,
+      (sourcePath) =>
+        fileSystem.exists(path.join(workspace, sourcePath)).pipe(
+          Effect.mapError(() => failure("sign-source-files", sourcePath))
+        ),
+      { concurrency: "unbounded" }
+    )
+    const sourceFiles = yield* identities(workspace, existingSourcePaths)
     const status = yield* runCommand("sign-source-state", workspace, "git", [
       "status",
       "--porcelain",
