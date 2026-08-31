@@ -72,8 +72,6 @@ Run opt-in live verification with `bun run --filter '@scenesystems/effect-infere
 - [`examples/03-runtime-config-decoding.ts`](./examples/03-runtime-config-decoding.ts) resolves a configured text provider.
 - [`examples/04-hugging-face-endpoint-runtime.ts`](./examples/04-hugging-face-endpoint-runtime.ts) executes dedicated-endpoint embeddings.
 
-Generated API documentation is in [`docs/`](./docs).
-
 ## Status
 
 This package is pre-1.0. Public APIs may change between minor versions, and experimental APIs have weaker stability guarantees.

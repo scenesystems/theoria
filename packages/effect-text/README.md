@@ -61,7 +61,7 @@ This is a bounded manual layout engine. Full CSS layout and arbitrary shaping-en
 
 ## Examples and reference
 
-[`examples/`](./examples) covers the basic prepare/layout flow, cursor and stream projection, explicit services and caching, canvas measurement, dictionary hyphenation, browser parity, and experimental calibration. Generated API documentation is in [`docs/`](./docs).
+[`examples/`](./examples) covers the basic prepare/layout flow, cursor and stream projection, explicit services and caching, canvas measurement, dictionary hyphenation, browser parity, and experimental calibration.
 
 ## Status
 

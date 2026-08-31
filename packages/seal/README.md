@@ -48,9 +48,7 @@ AES-256-GCM has a documented limit of 2^32 invocations per key in this package's
 | Keys and bytes         | `generateKey`, `utf8ToBytes`, `utf8FromBytes`, `equalBytes`                           |
 | Schemas                | `SealAlgorithm`, `SealedEnvelope`, `InvalidKey`, `DecryptionFailed`                   |
 
-Direct encryptors return nonce-prefixed ciphertext bytes. `packEnvelope` separates that representation into base64url fields, while `unpackEnvelope` reconstructs it. `SealedEnvelope` is a Schema class suitable for validation and serialization.
-
-The complete export reference is in the [generated API documentation](./docs/modules/index.ts.md). Runnable programs demonstrate [encryption and decryption](./examples/01-encrypt-decrypt.ts) and [algorithm selection with typed errors](./examples/02-algorithm-comparison.ts).
+Direct encryptors return nonce-prefixed ciphertext bytes. `packEnvelope` separates that representation into base64url fields, while `unpackEnvelope` reconstructs it. `SealedEnvelope` is a Schema class suitable for validation and serialization. Runnable programs demonstrate [encryption and decryption](./examples/01-encrypt-decrypt.ts) and [algorithm selection with typed errors](./examples/02-algorithm-comparison.ts).
 
 ## Errors and security boundaries
 

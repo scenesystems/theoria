@@ -56,7 +56,7 @@ Signature validation, output parsing, composition, metrics, tracing, persistence
 
 ## Examples and reference
 
-See [`examples/`](./examples) for deterministic model tests, composition, evaluation, provider layers, MIPROv2, GEPA, and `effect-search` interop. Generated API documentation is in [`docs/`](./docs). The package test entrypoint exports a deterministic `MockLanguageModel` for consumer tests.
+See [`examples/`](./examples) for deterministic model tests, composition, evaluation, provider layers, MIPROv2, GEPA, and `effect-search` interop. The package test entrypoint exports a deterministic `MockLanguageModel` for consumer tests.
 
 ## Status
 

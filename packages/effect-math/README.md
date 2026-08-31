@@ -77,9 +77,7 @@ Representative tags include `ShapeMismatchError`, `SingularMatrixError`, `Optimi
 
 ## Examples and reference
 
-Runnable examples are organized by domain in the [`examples`](./examples/) directory. They show pure, validated, and policy-aware calls for numerics, linear algebra, geometry, probability, statistics, special functions, algebra, calculus, optimization, and distributions.
-
-Generated API documentation is available in [`docs`](./docs/index.md). The [package root module](./docs/modules/index.ts.md) documents namespace exports, while each public domain subpath is the preferred location for focused imports.
+Runnable examples are organized by domain in the [`examples`](./examples/) directory. They show pure, validated, and policy-aware calls for numerics, linear algebra, geometry, probability, statistics, special functions, algebra, calculus, optimization, and distributions. Each public domain subpath is the preferred location for focused imports.
 
 ## Status
 

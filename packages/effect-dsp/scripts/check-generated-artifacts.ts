@@ -54,7 +54,6 @@ const ensureCodegenIsCommitted = (): Effect.Effect<void, GeneratedArtifactsError
 const program = Effect.gen(function*() {
   yield* runCommand("codegen", ["bun", "run", "codegen"])
   yield* ensureCodegenIsCommitted()
-  yield* runCommand("docgen", ["bun", "run", "docgen"])
   yield* runCommand("exports contract", ["bun", "run", "check:exports"])
 })
 

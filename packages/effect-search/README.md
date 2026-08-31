@@ -119,7 +119,7 @@ Imports are available from the package root as namespaces and from the documente
 | `Contracts`, `Errors` | Shared schemas, identities, objective contracts, and typed errors                           |
 | `Experimental`        | Unstable APIs described below                                                               |
 
-The export map also provides case-sensitive subpaths such as `@scenesystems/effect-search/Study`. Lowercase `contracts` and `experimental` aliases are retained. Paths under `internal` are blocked from consumers. Consult the [generated API documentation](https://scenesystems.github.io/theoria/effect/effect-search/) for individual symbols and signatures.
+The export map also provides case-sensitive subpaths such as `@scenesystems/effect-search/Study`. Lowercase `contracts` and `experimental` aliases are retained. Paths under `internal` are blocked from consumers.
 
 ## Examples and reference
 
@@ -130,7 +130,7 @@ The export map also provides case-sensitive subpaths such as `@scenesystems/effe
 - [Multi-objective optimization](./examples/04-multi-objective.ts), [HyperBand and BOHB](./examples/14-hyperband-bohb.ts), and [constrained optimization](./examples/15-constrained-optimization.ts)
 - [Sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts)
 
-See the complete [example index](./examples/) and [API documentation](https://scenesystems.github.io/theoria/effect/effect-search/). Repository source and issue tracking are on [GitHub](https://github.com/scenesystems/theoria).
+See the complete [example index](./examples/). Repository source and issue tracking are on [GitHub](https://github.com/scenesystems/theoria).
 
 ## Status and stability
 

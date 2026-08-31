@@ -68,9 +68,7 @@ For untrusted sizes, `digestSchemaValueWithByteLimit` limits canonical UTF-8 emi
 
 Supported digest algorithms are `blake3-256` and `sha256`. Text APIs use strict Unicode validation. Byte APIs accept arbitrary bytes. Text streams preserve valid surrogate pairs split across chunks and report malformed text at a partition-independent absolute UTF-16 index. Stream operations preserve upstream error and environment types.
 
-Secret text requires explicit UTF-8 or wire decoding before MAC and KDF use. HMAC-SHA1 is present for protocols that require it. Protocol-specific comparison, domain separation, salt selection, and output-length policy remain caller responsibilities.
-
-The complete export reference is in the [generated API documentation](./docs/modules/index.ts.md). Runnable programs cover [content hashing](./examples/01-content-hashing.ts), [HMAC verification](./examples/02-webhook-verification.ts), [content addressing](./examples/03-content-addressing.ts), and [streaming digests](./examples/04-streaming-digest.ts).
+Secret text requires explicit UTF-8 or wire decoding before MAC and KDF use. HMAC-SHA1 is present for protocols that require it. Protocol-specific comparison, domain separation, salt selection, and output-length policy remain caller responsibilities. Runnable programs cover [content hashing](./examples/01-content-hashing.ts), [HMAC verification](./examples/02-webhook-verification.ts), [content addressing](./examples/03-content-addressing.ts), and [streaming digests](./examples/04-streaming-digest.ts).
 
 ## Errors and security boundaries
 

@@ -39,9 +39,7 @@ Protocols that own suite selection should use a direct verifier with a public ke
 
 `generateKeyPair` accepts every algorithm in these families. Schema classes `KeyPair`, `Signature`, `SharedSecret`, and `KemCiphertext` carry algorithm tags with their byte fields. Encoding helpers include `utf8ToBytes`, `toHex`, and `equalBytes`.
 
-Production ML-DSA-65 signing requires `mlDsa65SignHedged` with exactly 32 bytes of fresh caller-supplied cryptographic entropy and an explicit FIPS 204 context. `mlDsa65SignDeterministic` exists for conformance use. The legacy `mlDsa65Sign` and generic `sign("ml-dsa-65", ...)` fail closed because those signatures cannot accept explicit hedging entropy.
-
-The complete export reference is in the [generated API documentation](./docs/modules/index.ts.md). Runnable programs cover [Ed25519 signing](./examples/01-sign-verify.ts), [X25519 agreement](./examples/02-key-agreement.ts), and [ML-DSA-65 with XWing](./examples/03-post-quantum.ts).
+Production ML-DSA-65 signing requires `mlDsa65SignHedged` with exactly 32 bytes of fresh caller-supplied cryptographic entropy and an explicit FIPS 204 context. `mlDsa65SignDeterministic` exists for conformance use. The legacy `mlDsa65Sign` and generic `sign("ml-dsa-65", ...)` fail closed because those signatures cannot accept explicit hedging entropy. Runnable programs cover [Ed25519 signing](./examples/01-sign-verify.ts), [X25519 agreement](./examples/02-key-agreement.ts), and [ML-DSA-65 with XWing](./examples/03-post-quantum.ts).
 
 ## Strict direct verification
 

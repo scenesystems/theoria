@@ -14,8 +14,7 @@
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/source-proof/test",
     "build": "tsc -b tsconfig.build.json",
-    "clean": "rm -rf build .tsbuildinfo",
-    "docgen": "echo 'docgen skipped for @theoria/source-proof'"
+    "clean": "rm -rf build .tsbuildinfo"
   },
   "dependencies": {
     "@effect/platform": "0.97.1",
