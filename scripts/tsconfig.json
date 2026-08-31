@@ -10,6 +10,16 @@
       "@scenesystems/sign": ["../packages/sign/src/index.ts"]
     }
   },
-  "include": ["crypto-release-check.ts", "crypto-release/**/*.ts", "../packages/digest/scripts/fixture-schemas.ts"],
-  "references": [{ "path": "../packages/digest/tsconfig.src.json" }, { "path": "../packages/sign/tsconfig.src.json" }]
+  "include": [
+    "api-reference.ts",
+    "api-reference/**/*.ts",
+    "crypto-release-check.ts",
+    "crypto-release/**/*.ts",
+    "../packages/digest/scripts/fixture-schemas.ts"
+  ],
+  "references": [
+    { "path": "../packages/digest/tsconfig.src.json" },
+    { "path": "../packages/sign/tsconfig.src.json" },
+    { "path": "../packages/source-proof/tsconfig.src.json" }
+  ]
 }

@@ -103,7 +103,7 @@ All code in `src/`, `test/`, and `examples/` must be idiomatic Effect. Enforced 
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **240 LOC limit**: Files over 240 LOC require decomposition rationale and split plan.
 - **Tests assert contracts**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests.
-- **Docgen**: Every public export carries `@since`, `@category`, examples where non-obvious.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious.
 
 ---
 
