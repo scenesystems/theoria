@@ -37,6 +37,8 @@ export const defaultExecuteSeed = <Config>(): ExecuteSeed<Config> =>
   })
 
 /**
+ * The completed study state, results, and termination metadata produced by execution.
+ *
  * @since 0.1.0
  * @category type-level
  */

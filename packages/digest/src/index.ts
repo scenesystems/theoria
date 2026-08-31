@@ -1,5 +1,5 @@
 /**
- * @scenesystems/digest — cryptographic content hashing and
+ * `@scenesystems/digest` — cryptographic content hashing and
  * canonicalization for Effect.
  *
  * Two algorithms, one canonicalization strategy, one encoding. BLAKE3

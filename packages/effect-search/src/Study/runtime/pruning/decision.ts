@@ -19,6 +19,8 @@ export class IntermediateReport extends Schema.Class<IntermediateReport>("effect
 }) {}
 
 /**
+ * Runtime schema for decoding and validating prune decision.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -32,12 +34,16 @@ export const PruneDecisionSchema = Schema.Union(
 )
 
 /**
+ * A decision to continue or prune a trial, including pruning provenance.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type PruneDecision = Schema.Schema.Type<typeof PruneDecisionSchema>
 
 /**
+ * The pruning variant of a prune decision.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -53,21 +59,29 @@ const PruneDecisions = Data.taggedEnum<PruneDecision>()
  */
 export const {
   /**
+   * Constructs a decision that allows the current trial to continue.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Continue: ContinuePruneDecision,
   /**
+   * Constructs a decision that prunes the current trial.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Prune: PruneTrialDecision,
   /**
+   * Tests whether a value is a prune decision with an optional tag refinement.
+   *
    * @since 0.1.0
    * @category guards
    */
   $is: isPruneDecision,
   /**
+   * Pattern matches exhaustively over prune decisions.
+   *
    * @since 0.1.0
    * @category pattern-matching
    */
@@ -75,6 +89,8 @@ export const {
 } = PruneDecisions
 
 /**
+ * The current trial reports supplied to a pruning policy.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -85,6 +101,8 @@ export class PruningPolicyContext extends Schema.Class<PruningPolicyContext>("ef
 }) {}
 
 /**
+ * A named policy that decides whether a trial should be pruned from its intermediate reports.
+ *
  * @since 0.1.0
  * @category models
  */

@@ -8,6 +8,8 @@ import { Data } from "effect"
 import type { PrimitiveChoice } from "../../contracts/Distribution.js"
 
 /**
+ * A trial number and primitive parameters used to analyze conditional activation.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -17,6 +19,8 @@ export class ConditionalTraceTrial extends Data.Class<{
 }> {}
 
 /**
+ * Trial indices partitioned by whether a conditional branch was active.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -26,6 +30,8 @@ export class ConditionalTracePartition extends Data.Class<{
 }> {}
 
 /**
+ * Search-space dimensions sharing the same conditional activation trace.
+ *
  * @since 0.1.0
  * @category models
  */

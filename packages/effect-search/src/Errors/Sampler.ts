@@ -8,6 +8,8 @@ import { Schema } from "effect"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
+ * An error indicating that sampler configuration is invalid.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -23,6 +25,8 @@ export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfi
 }
 
 /**
+ * An error indicating that a sampler cannot produce another suggestion.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -39,6 +43,8 @@ export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
 }
 
 /**
+ * An error indicating that a search space cannot be represented by the configured grid sampler.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -54,6 +60,8 @@ export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
 }
 
 /**
+ * An error indicating that a sampler does not support the supplied search space.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -71,6 +79,8 @@ export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSea
 }
 
 /**
+ * An error indicating that a sampler does not support the requested objective shape.
+ *
  * @since 0.1.0
  * @category errors
  */

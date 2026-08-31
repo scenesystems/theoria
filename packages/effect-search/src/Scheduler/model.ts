@@ -8,18 +8,24 @@ import { Data, Schema } from "effect"
 import type * as Sampler from "../Sampler/index.js"
 
 /**
+ * Runtime schema for decoding and validating scheduler mode.
+ *
  * @since 0.1.0
  * @category schemas
  */
 export const SchedulerModeSchema = Schema.Literal("hyperband", "bohb")
 
 /**
+ * The Hyperband or BOHB algorithm represented by a scheduler.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type SchedulerMode = Schema.Schema.Type<typeof SchedulerModeSchema>
 
 /**
+ * A successive-halving round specifying its configuration count and resource budget.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -29,6 +35,8 @@ export class Round extends Data.Class<{
 }> {}
 
 /**
+ * A Hyperband bracket containing its initial allocation and successive-halving rounds.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -40,6 +48,8 @@ export class Bracket extends Data.Class<{
 }> {}
 
 /**
+ * A multi-fidelity scheduling topology and sampler used by Hyperband or BOHB.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -55,6 +65,8 @@ export class Scheduler extends Data.Class<{
 }> {}
 
 /**
+ * Observed completion and best-value statistics for a scheduler round.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -68,6 +80,8 @@ export class RoundSummary extends Data.Class<{
 }> {}
 
 /**
+ * Observed round summaries for one scheduler bracket.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -77,6 +91,8 @@ export class BracketSummary extends Data.Class<{
 }> {}
 
 /**
+ * Execution summary for all brackets in a multi-fidelity scheduler.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -86,6 +102,8 @@ export class SchedulerSummary extends Data.Class<{
 }> {}
 
 /**
+ * Counts the configurations allocated across every round of a scheduler.
+ *
  * @since 0.1.0
  * @category utils
  */

@@ -93,6 +93,8 @@ export type DirectionlessScheduledOptions<
 }
 
 /**
+ * Optimization options shared by the minimize and maximize convenience APIs.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -102,6 +104,8 @@ export type DirectionalOptimizeOptions<
 > = DirectionlessFlatOptions<Config, Space> | DirectionlessScheduledOptions<Config, Space>
 
 /**
+ * Type-safe minimization options whose configuration is inferred from a search space.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -111,6 +115,8 @@ export type MinimizeOptionsFromSpace<Space extends SearchSpace.SearchSpace> = Di
 >
 
 /**
+ * Type-safe maximization options whose configuration is inferred from a search space.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -154,6 +160,8 @@ const optimizePlanFromDirectionalOptions = <Space extends SearchSpace.SearchSpac
   )
 
 /**
+ * Validates minimization options and constructs an optimization plan.
+ *
  * @since 0.1.0
  * @category utils
  */
@@ -163,6 +171,8 @@ export const minimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   optimizePlanFromDirectionalOptions(options, "minimize")
 
 /**
+ * Validates maximization options and constructs an optimization plan.
+ *
  * @since 0.1.0
  * @category utils
  */

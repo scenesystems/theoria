@@ -31,6 +31,8 @@ const isScheduledOptimizeOptions = <Config, Space extends SearchSpace.SearchSpac
 ): options is ScheduledOptimizeOptions<Config, Space> => Predicate.hasProperty(options, "scheduler")
 
 /**
+ * Validates general optimization options and constructs an optimization plan.
+ *
  * @since 0.1.0
  * @category utils
  */

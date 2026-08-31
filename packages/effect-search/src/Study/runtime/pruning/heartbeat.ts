@@ -12,6 +12,8 @@ import type { StopMode } from "./stopMode.js"
 import { StopModeSchema } from "./stopMode.js"
 
 /**
+ * Runtime schema for decoding and validating heartbeat decision.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -24,6 +26,8 @@ export const HeartbeatDecisionSchema = Schema.Union(
 )
 
 /**
+ * A decision to continue execution or request a particular stop mode.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -39,16 +43,22 @@ const HeartbeatDecisions = Data.taggedEnum<HeartbeatDecision>()
  */
 export const {
   /**
+   * Constructs a heartbeat decision that allows study execution to continue.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Continue: ContinueHeartbeat,
   /**
+   * Constructs a heartbeat decision that requests study termination.
+   *
    * @since 0.1.0
    * @category constructors
    */
   Stop: StopHeartbeat,
   /**
+   * Pattern matches exhaustively over heartbeat decisions.
+   *
    * @since 0.1.0
    * @category pattern-matching
    */
@@ -56,6 +66,8 @@ export const {
 } = HeartbeatDecisions
 
 /**
+ * A trial-attributed request to drain or interrupt a running study.
+ *
  * @since 0.1.0
  * @category models
  */

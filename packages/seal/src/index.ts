@@ -1,5 +1,5 @@
 /**
- * @scenesystems/seal — authenticated encryption for Effect.
+ * `@scenesystems/seal` — authenticated encryption for Effect.
  *
  * Three AEAD algorithms are supported — see each algorithm module
  * for security properties, nonce sizes, and trade-offs.

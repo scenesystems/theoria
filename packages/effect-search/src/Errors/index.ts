@@ -63,18 +63,24 @@ import {
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
+ * Runtime schema for decoding and validating space error.
+ *
  * @since 0.1.0
  * @category schemas
  */
 export const SpaceErrorSchema = Schema.Union(InvalidSearchSpace)
 
 /**
+ * Errors produced while validating or traversing search spaces.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type SpaceError = Schema.Schema.Type<typeof SpaceErrorSchema>
 
 /**
+ * Runtime schema for decoding and validating sampler error.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -87,12 +93,16 @@ export const SamplerErrorSchema = Schema.Union(
 )
 
 /**
+ * Errors produced while configuring or requesting suggestions from samplers.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type SamplerError = Schema.Schema.Type<typeof SamplerErrorSchema>
 
 /**
+ * Runtime schema for decoding and validating study error.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -107,6 +117,8 @@ export const StudyErrorSchema = Schema.Union(
 )
 
 /**
+ * Errors produced while configuring, executing, or restoring studies.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -135,6 +147,8 @@ export const SearchErrorSchema = Schema.Union(
 )
 
 /**
+ * Complete typed error union for search-space, sampler, and study operations.
+ *
  * @since 0.1.0
  * @category type-level
  */

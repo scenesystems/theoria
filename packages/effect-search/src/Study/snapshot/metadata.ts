@@ -10,6 +10,8 @@ import { SamplerCheckpointSchema, SamplerKindSchema } from "../../Sampler/index.
 import { StopModeSchema } from "../runtime/pruning.js"
 
 /**
+ * Runtime schema for decoding and validating snapshot metadata.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -22,6 +24,8 @@ export const SnapshotMetadataSchema = Schema.Struct({
 })
 
 /**
+ * Search-space, objective, stop-mode, and sampler identity stored with a snapshot.
+ *
  * @since 0.1.0
  * @category type-level
  */

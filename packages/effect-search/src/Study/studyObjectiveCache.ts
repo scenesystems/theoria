@@ -15,6 +15,8 @@ import { type ObjectiveValue, ObjectiveValueSchema } from "../contracts/Objectiv
 const DEFAULT_SCOPE = "study"
 
 /**
+ * Namespace options used to isolate cached study objective values.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -55,6 +57,8 @@ const StudyObjectiveCacheKeySchema: Schema.Schema<StudyObjectiveCacheKey> = Sche
 const DEFAULT_OPTIONS = new StudyObjectiveCacheOptions({ scope: DEFAULT_SCOPE })
 
 /**
+ * Creates objective-cache options for the supplied namespace scope.
+ *
  * @since 0.1.0
  * @category constructors
  */
@@ -95,6 +99,8 @@ const prepareKey = (
   )
 
 /**
+ * Service that caches objective values by deterministic configuration identity.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -116,12 +122,16 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
 export type StudyObjectiveCacheError = Cache.CacheError
 
 /**
+ * Service interface for resolving and invalidating cached objective values.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type StudyObjectiveCacheApi = Context.Tag.Service<typeof StudyObjectiveCache>
 
 /**
+ * Constructs a study objective cache over the configured schema-cache backend.
+ *
  * @since 0.1.0
  * @category constructors
  */
@@ -170,6 +180,8 @@ export const makeStudyObjectiveCache = (
   })
 
 /**
+ * Live Effect layer providing study objective cache.
+ *
  * @since 0.1.0
  * @category layers
  */
@@ -177,6 +189,8 @@ export const StudyObjectiveCacheLive = (options: StudyObjectiveCacheOptions = DE
   Layer.effect(StudyObjectiveCache, makeStudyObjectiveCache(options))
 
 /**
+ * Effect layer providing study objective cache with in-memory storage.
+ *
  * @since 0.1.0
  * @category layers
  */
@@ -184,6 +198,8 @@ export const StudyObjectiveCacheMemory = (options: StudyObjectiveCacheOptions = 
   StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheMemory))
 
 /**
+ * Effect layer providing study objective cache with filesystem storage.
+ *
  * @since 0.1.0
  * @category layers
  */

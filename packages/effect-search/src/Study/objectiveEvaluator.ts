@@ -69,6 +69,8 @@ export const ObjectiveFunctionSchema = Schema.declare(
 )
 
 /**
+ * Service that evaluates objective functions against trial configurations and runtimes.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -84,6 +86,8 @@ export class ObjectiveEvaluator extends Effect.Tag("effect-search/Study/Objectiv
 >() {}
 
 /**
+ * Live Effect layer providing objective evaluator.
+ *
  * @since 0.1.0
  * @category layers
  */

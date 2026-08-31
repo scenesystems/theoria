@@ -87,6 +87,8 @@ const failWithBackendError = (operation: string) => (cause: unknown): CacheBacke
   })
 
 /**
+ * Effect service for resolving, writing, and invalidating schema-encoded cache entries.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -115,6 +117,8 @@ export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
 >() {}
 
 /**
+ * Service interface for schema-aware cache resolution and invalidation.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -243,6 +247,8 @@ const resolveCached = <Value>(
 ): Option.Option<readonly [Value, CacheResolution]> => Option.map(cachedOption, (cached) => Tuple.make(cached, "hit"))
 
 /**
+ * Constructs a schema-aware cache from the configured backend and optional observer.
+ *
  * @since 0.1.0
  * @category constructors
  */
@@ -340,18 +346,24 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
   })
 
 /**
+ * Live Effect layer providing schema cache.
+ *
  * @since 0.1.0
  * @category layers
  */
 export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
 
 /**
+ * Effect layer providing schema cache with in-memory storage.
+ *
  * @since 0.1.0
  * @category layers
  */
 export const SchemaCacheMemory = Layer.provide(SchemaCacheLive, KeyValueStore.layerMemory)
 
 /**
+ * Effect layer providing schema cache with filesystem storage.
+ *
  * @since 0.1.0
  * @category layers
  */

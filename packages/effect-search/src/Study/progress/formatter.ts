@@ -15,6 +15,8 @@ const ANSI_YELLOW = "\u001b[33m"
 const ANSI_RED = "\u001b[31m"
 
 /**
+ * Runtime schema for decoding and validating terminal render mode.
+ *
  * @since 0.1.0
  * @category schemas
  * @example
@@ -28,6 +30,8 @@ const ANSI_RED = "\u001b[31m"
 export const TerminalRenderModeSchema = Schema.Literal("plain", "tty")
 
 /**
+ * The plain or interactive terminal rendering mode for study progress.
+ *
  * @since 0.1.0
  * @category type-level
  */

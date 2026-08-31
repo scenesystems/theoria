@@ -48,6 +48,8 @@ export type FlatOptimizeOptions<
 } & {}
 
 /**
+ * Optimization options that derive sampling and resource allocation from a scheduler.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -76,6 +78,8 @@ export type ScheduledOptimizeOptions<
 } & {}
 
 /**
+ * Flat or scheduled options accepted when starting an optimization study.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -85,6 +89,8 @@ export type OptimizeOptions<
 > = FlatOptimizeOptions<Config, Space> | ScheduledOptimizeOptions<Config, Space>
 
 /**
+ * Optimization options whose configuration is inferred from a search space.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -150,6 +156,8 @@ export type ResumeFromStorageOptions<
 > = ResumeOptionFields<Config, Space>
 
 /**
+ * Snapshot resume options whose configuration is inferred from a search space.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -159,6 +167,8 @@ export type ResumeOptionsFromSpace<Space extends SearchSpace.SearchSpace> = Resu
 >
 
 /**
+ * Storage-based resume options whose configuration is inferred from a search space.
+ *
  * @since 0.1.0
  * @category type-level
  */

@@ -8,6 +8,8 @@ import { Schema } from "effect"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
+ * An error indicating that a search-space definition violates its invariants.
+ *
  * @since 0.1.0
  * @category errors
  */

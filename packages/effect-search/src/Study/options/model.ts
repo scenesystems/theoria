@@ -50,6 +50,8 @@ export class PriorTrial<Config = unknown> extends Data.Class<{
 }> {}
 
 /**
+ * Validated execution limits, stopping rules, and objective settings for a study.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -70,6 +72,8 @@ export class OptimizeSettings extends Schema.Class<OptimizeSettings>("effect-sea
 }) {}
 
 /**
+ * A fully normalized optimization plan ready for study execution.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -100,6 +104,8 @@ export class OptimizePlan<
 }> {}
 
 /**
+ * A fully normalized plan for continuing a study from a snapshot.
+ *
  * @since 0.1.0
  * @category models
  */

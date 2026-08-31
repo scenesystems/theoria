@@ -29,6 +29,8 @@ import { restoreSnapshot } from "./snapshot/restore.js"
 import { snapshotFromTrials, type StudySnapshot } from "./snapshot/versioning.js"
 
 /**
+ * Service that suggests configurations and manages sampler checkpoints.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -49,6 +51,8 @@ export class SamplerEngine extends Effect.Tag("effect-search/Study/SamplerEngine
 >() {}
 
 /**
+ * Live Effect layer providing sampler engine.
+ *
  * @since 0.1.0
  * @category layers
  */
@@ -59,6 +63,8 @@ export const SamplerEngineLive = Layer.succeed(SamplerEngine, {
 })
 
 /**
+ * Service that materializes and restores versioned study snapshots.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -80,6 +86,8 @@ export class SnapshotCodec extends Effect.Tag("effect-search/Study/SnapshotCodec
 >() {}
 
 /**
+ * Live Effect layer providing snapshot codec.
+ *
  * @since 0.1.0
  * @category layers
  */
@@ -89,6 +97,8 @@ export const SnapshotCodecLive = Layer.succeed(SnapshotCodec, {
 })
 
 /**
+ * The validated plan and runtime hooks needed to execute a study.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -103,6 +113,8 @@ export class ExecuteRequest<
 }> {}
 
 /**
+ * Service that executes validated optimization plans.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -116,6 +128,8 @@ export class StudyKernel extends Effect.Tag("effect-search/Study/StudyKernel")<
 >() {}
 
 /**
+ * Live Effect layer providing study kernel.
+ *
  * @since 0.1.0
  * @category layers
  */

@@ -11,6 +11,8 @@ import { type TpeOptions } from "../Sampler/index.js"
 import { Bracket, Round, Scheduler } from "./model.js"
 
 /**
+ * Resource bounds, reduction factor, and sampler used to construct Hyperband.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -21,6 +23,8 @@ export class HyperbandOptions extends Data.Class<{
 }> {}
 
 /**
+ * Resource bounds and TPE exploration settings used to construct BOHB.
+ *
  * @since 0.1.0
  * @category type-level
  */

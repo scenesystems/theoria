@@ -41,12 +41,16 @@ export const TrialStateSnapshotSchema = Schema.Union(
 )
 
 /**
+ * The serializable lifecycle state of a trial in a study snapshot.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type TrialStateSnapshot = Schema.Schema.Type<typeof TrialStateSnapshotSchema>
 
 /**
+ * Runtime schema for decoding and validating snapshot trial.
+ *
  * @since 0.1.0
  * @category schemas
  */
@@ -59,6 +63,8 @@ export const SnapshotTrialSchema = Schema.Struct({
 })
 
 /**
+ * A serializable trial record stored in snapshots and append-only trial logs.
+ *
  * @since 0.1.0
  * @category type-level
  */

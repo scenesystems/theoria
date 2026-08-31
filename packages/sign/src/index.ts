@@ -1,5 +1,5 @@
 /**
- * @scenesystems/sign — digital signatures, key agreement, and key
+ * `@scenesystems/sign` — digital signatures, key agreement, and key
  * encapsulation for Effect.
  *
  * Three cryptographic families — signatures, key agreement, and key

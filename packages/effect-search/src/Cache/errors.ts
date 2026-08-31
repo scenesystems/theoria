@@ -54,6 +54,8 @@ export type CacheError = Schema.Schema.Type<typeof CacheErrorSchema>
 export const CacheResolutionSchema = Schema.Literal("hit", "miss")
 
 /**
+ * The outcome metadata returned when resolving a cache entry.
+ *
  * @since 0.1.0
  * @category type-level
  */

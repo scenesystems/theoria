@@ -6,24 +6,32 @@
 import { Option, Schema } from "effect"
 
 /**
+ * Runtime schema for decoding and validating stop mode.
+ *
  * @since 0.1.0
  * @category schemas
  */
 export const StopModeSchema = Schema.Literal("Drain", "Interrupt")
 
 /**
+ * The draining or immediate interruption behavior used to stop a study.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type StopMode = Schema.Schema.Type<typeof StopModeSchema>
 
 /**
+ * Returns the default draining stop mode.
+ *
  * @since 0.1.0
  * @category utils
  */
 export const defaultStopMode = (): StopMode => "Drain"
 
 /**
+ * Returns an optional stop mode or the default draining mode.
+ *
  * @since 0.1.0
  * @category utils
  */

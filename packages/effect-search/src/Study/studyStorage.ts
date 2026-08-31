@@ -18,6 +18,8 @@ import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnv
 const DEFAULT_ENVELOPE_FILE_NAME = "envelopes.jsonl"
 
 /**
+ * Filesystem location and envelope-log naming options for study persistence.
+ *
  * @since 0.1.0
  * @category models
  */
@@ -33,12 +35,16 @@ const defaultStudyStorageOptions = (directory: string): StudyStorageOptions =>
   })
 
 /**
+ * Creates study-storage options using the default envelope log name.
+ *
  * @since 0.1.0
  * @category constructors
  */
 export const studyStorageOptions = (directory: string): StudyStorageOptions => defaultStudyStorageOptions(directory)
 
 /**
+ * Service for persisting snapshots and replayable trial logs.
+ *
  * @since 0.1.0
  * @category services
  */
@@ -54,12 +60,16 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
 >() {}
 
 /**
+ * Service interface for snapshot persistence and trial-log replay.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
 
 /**
+ * Constructs filesystem-backed study storage with artifact envelope metadata.
+ *
  * @since 0.1.0
  * @category constructors
  */
@@ -135,6 +145,8 @@ export const makeStudyStorage = (
   })
 
 /**
+ * Live Effect layer providing study storage.
+ *
  * @since 0.1.0
  * @category layers
  */

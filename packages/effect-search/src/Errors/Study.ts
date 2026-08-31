@@ -9,6 +9,8 @@ import { ObjectiveValueSchema } from "../contracts/ObjectiveValue.js"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
+ * An error indicating that study configuration is invalid.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -23,6 +25,8 @@ export class InvalidStudyConfig extends Schema.TaggedError<InvalidStudyConfig>()
 }
 
 /**
+ * An error indicating that a trial produced an invalid objective value.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -38,6 +42,8 @@ export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveVa
 }
 
 /**
+ * An error indicating that a trial submitted an invalid intermediate objective report.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -56,6 +62,8 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 }
 
 /**
+ * An error wrapping an unexpected failure from a particular trial.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -72,6 +80,8 @@ export class TrialError extends Schema.TaggedError<TrialError>()(
 }
 
 /**
+ * An error indicating that a study completed without any successful trials.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -86,6 +96,8 @@ export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>()
 }
 
 /**
+ * An error indicating that an internal numerical operation received invalid input.
+ *
  * @since 0.1.0
  * @category errors
  */
@@ -101,6 +113,8 @@ export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
 }
 
 /**
+ * An error indicating that a requested search feature is not implemented.
+ *
  * @since 0.1.0
  * @category errors
  */
