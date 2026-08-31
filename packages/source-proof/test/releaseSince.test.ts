@@ -65,6 +65,7 @@ describe("release since governance", () => {
           subpath: ".",
           exportName: "existing",
           kind: "value",
+          summary: null,
           since: "0.1.0",
           category: "operations"
         }),
@@ -72,6 +73,7 @@ describe("release since governance", () => {
           subpath: ".",
           exportName: "newFeature",
           kind: "value",
+          summary: null,
           since: "0.3.0",
           category: "operations"
         })
@@ -117,6 +119,7 @@ describe("release since governance", () => {
               subpath: ".",
               exportName: "existing",
               kind: "value",
+              summary: null,
               since: "0.2.0",
               category: "operations"
             }),
@@ -124,6 +127,7 @@ describe("release since governance", () => {
               subpath: ".",
               exportName: "newFeature",
               kind: "value",
+              summary: null,
               since: null,
               category: null
             })

@@ -32,6 +32,7 @@ export type PublicExportKind = "default" | "namespace" | "type" | "value"
 export class PublicExportDoc extends Data.Class<{
   readonly exportName: string
   readonly kind: PublicExportKind
+  readonly summary: string | null
   readonly since: string | null
   readonly category: string | null
 }> {}
@@ -62,6 +63,7 @@ export class PackagePublicExport extends Data.Class<{
   readonly subpath: string
   readonly exportName: string
   readonly kind: PublicExportKind
+  readonly summary: string | null
   readonly since: string | null
   readonly category: string | null
 }> {}

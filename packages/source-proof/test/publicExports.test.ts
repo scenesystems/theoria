@@ -10,12 +10,16 @@ describe("public export docs", () => {
         "fixture.ts",
         `
         /**
+         * Creates a value.
+         *
          * @since 0.3.0
          * @category constructors
          */
         export const make = () => 1
 
         /**
+         * Fixture model.
+         *
          * @since 0.2.0
          * @category models
          */
@@ -24,6 +28,8 @@ describe("public export docs", () => {
         }
 
         /**
+         * Creates the default value.
+         *
          * @since 0.1.0
          * @category constructors
          */
@@ -37,18 +43,21 @@ describe("public export docs", () => {
         {
           exportName: "make",
           kind: "value",
+          summary: "Creates a value.",
           since: "0.3.0",
           category: "constructors"
         },
         {
           exportName: "Model",
           kind: "type",
+          summary: "Fixture model.",
           since: "0.2.0",
           category: "models"
         },
         {
           exportName: "default",
           kind: "default",
+          summary: "Creates the default value.",
           since: "0.1.0",
           category: "constructors"
         }
@@ -61,18 +70,24 @@ describe("public export docs", () => {
         "barrel.ts",
         `
         /**
+         * Text namespace.
+         *
          * @since 0.2.0
          * @category domains
          */
         export * as Text from "./Text/index.js"
 
         /**
+         * Lays out text.
+         *
          * @since 0.3.0
          * @category layout
          */
         export { layoutLinesWith } from "./Text/layout.js"
 
         /**
+         * Layout cursor state.
+         *
          * @since 0.3.0
          * @category models
          */
@@ -84,18 +99,21 @@ describe("public export docs", () => {
         {
           exportName: "Text",
           kind: "namespace",
+          summary: "Text namespace.",
           since: "0.2.0",
           category: "domains"
         },
         {
           exportName: "layoutLinesWith",
           kind: "value",
+          summary: "Lays out text.",
           since: "0.3.0",
           category: "layout"
         },
         {
           exportName: "LayoutCursor",
           kind: "type",
+          summary: "Layout cursor state.",
           since: "0.3.0",
           category: "models"
         }
@@ -108,14 +126,20 @@ describe("public export docs", () => {
         "specifier-barrel.ts",
         `
         /**
+         * Shared surface.
+         *
          * @category re-exports
          */
         export {
           /**
+           * Creates a value.
+           *
            * @since 0.1.0
            */
           make,
           /**
+           * Fixture model.
+           *
            * @since 0.2.0
            * @category models
            */
@@ -128,12 +152,14 @@ describe("public export docs", () => {
         {
           exportName: "make",
           kind: "value",
+          summary: "Creates a value.",
           since: "0.1.0",
           category: "re-exports"
         },
         {
           exportName: "Model",
           kind: "type",
+          summary: "Fixture model.",
           since: "0.2.0",
           category: "models"
         }
@@ -146,14 +172,20 @@ describe("public export docs", () => {
         "destructured.ts",
         `
         /**
+         * Decision constructors.
+         *
          * @category constructors
          */
         export const {
           /**
+           * Continue decision.
+           *
            * @since 0.1.0
            */
           Continue: ContinueValue,
           /**
+           * Matches a decision.
+           *
            * @since 0.1.0
            * @category pattern-matching
            */
@@ -166,12 +198,14 @@ describe("public export docs", () => {
         {
           exportName: "ContinueValue",
           kind: "value",
+          summary: "Continue decision.",
           since: "0.1.0",
           category: "constructors"
         },
         {
           exportName: "matchValue",
           kind: "value",
+          summary: "Matches a decision.",
           since: "0.1.0",
           category: "pattern-matching"
         }

@@ -7,7 +7,8 @@ import {
   type PublicExportDoc,
   type PublicExportKind
 } from "./model.js"
-import { docTagValues, publicExportDocs } from "./publicExports.js"
+import { docSummaryFromNodes, docTagValues } from "./publicDoc.js"
+import { publicExportDocs } from "./publicExports.js"
 
 const localDocFor = (
   docs: ReadonlyArray<PublicExportDoc>,
@@ -38,6 +39,21 @@ const firstPreferredDocTagValue = (input: {
       doc[input.field] ??
         firstDocTagValueFromDeclarations(input.exportDeclarations, input.field) ??
         firstDocTagValueFromDeclarations(input.resolvedDeclarations, input.field)
+  })
+
+const firstPreferredSummary = (input: {
+  readonly localDoc: Option.Option<PublicExportDoc>
+  readonly exportDeclarations: ReadonlyArray<ts.Declaration>
+  readonly resolvedDeclarations: ReadonlyArray<ts.Declaration>
+}): string | null =>
+  Option.match(input.localDoc, {
+    onNone: () =>
+      docSummaryFromNodes(input.exportDeclarations) ??
+        docSummaryFromNodes(input.resolvedDeclarations),
+    onSome: (doc) =>
+      doc.summary ??
+        docSummaryFromNodes(input.exportDeclarations) ??
+        docSummaryFromNodes(input.resolvedDeclarations)
   })
 
 const aliasedSymbol = (checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol =>
@@ -95,6 +111,11 @@ const publicExportsFromEntrypoint = (
           subpath: entrypoint.subpath,
           exportName,
           kind,
+          summary: firstPreferredSummary({
+            localDoc,
+            exportDeclarations,
+            resolvedDeclarations
+          }),
           since: firstPreferredDocTagValue({
             localDoc,
             exportDeclarations,

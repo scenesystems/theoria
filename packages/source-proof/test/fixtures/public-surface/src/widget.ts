@@ -1,4 +1,6 @@
 /**
+ * Creates a widget.
+ *
  * @since 0.2.0
  * @category constructors
  */

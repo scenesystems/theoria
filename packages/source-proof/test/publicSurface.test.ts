@@ -45,6 +45,7 @@ describe("public surface", () => {
           subpath: ".",
           exportName: "doThing",
           kind: "value",
+          summary: "Public operation.",
           since: "0.3.0",
           category: "operations"
         },
@@ -52,6 +53,7 @@ describe("public surface", () => {
           subpath: ".",
           exportName: "SharedModel",
           kind: "type",
+          summary: "Shared model.",
           since: "0.1.0",
           category: "models"
         },
@@ -59,6 +61,7 @@ describe("public surface", () => {
           subpath: ".",
           exportName: "sharedValue",
           kind: "value",
+          summary: "Shared value.",
           since: "0.1.0",
           category: "operations"
         },
@@ -66,6 +69,7 @@ describe("public surface", () => {
           subpath: ".",
           exportName: "Widget",
           kind: "namespace",
+          summary: "Widget namespace.",
           since: "0.2.0",
           category: "namespaces"
         },
@@ -73,6 +77,7 @@ describe("public surface", () => {
           subpath: ".",
           exportName: "WidgetModel",
           kind: "type",
+          summary: "Root widget model.",
           since: "0.2.0",
           category: "models"
         },
@@ -80,6 +85,7 @@ describe("public surface", () => {
           subpath: "./Types",
           exportName: "WidgetModel",
           kind: "type",
+          summary: "Widget model.",
           since: "0.2.0",
           category: "models"
         },
@@ -87,6 +93,7 @@ describe("public surface", () => {
           subpath: "./Widget",
           exportName: "default",
           kind: "default",
+          summary: "Creates a widget.",
           since: "0.2.0",
           category: "constructors"
         }
