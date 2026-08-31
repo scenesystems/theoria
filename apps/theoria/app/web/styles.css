@@ -37,6 +37,7 @@
   --color-code-string: var(--th-code-string);
   --color-code-number: var(--th-code-number);
   --color-code-type: var(--th-code-type);
+  --color-code-function: var(--th-code-function);
   --color-code-operator: var(--th-code-operator);
 
   --shadow-surface: var(--th-shadow-surface);
@@ -265,6 +266,7 @@
     --th-code-string: #2e7d57;
     --th-code-number: #b07d2e;
     --th-code-type: #7b5ea7;
+    --th-code-function: #275f8f;
     --th-code-operator: #44546b;
 
     --th-shadow-surface: 0 28px 72px -54px rgb(11 19 38 / 30%);
@@ -376,6 +378,7 @@
     --th-code-string: #9cd7bb;
     --th-code-number: #e9c98b;
     --th-code-type: #d0bee8;
+    --th-code-function: #8fc8f4;
     --th-code-operator: #bed1ea;
 
     --th-shadow-surface: 0 28px 72px -54px rgb(0 0 0 / 50%);

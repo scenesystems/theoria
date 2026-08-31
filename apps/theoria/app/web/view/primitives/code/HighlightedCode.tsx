@@ -1,8 +1,11 @@
+import { Result } from "@effect-atom/atom"
+import { useAtomValue } from "@effect-atom/atom-react"
 import * as Arr from "effect/Array"
 
 import type { SurfaceVariant } from "../../../../contracts/presentation.js"
+import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
 
-import { highlightCode, tokenClassName } from "./highlighter.js"
+import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
 
 export const HighlightedCode = ({
   source,
@@ -11,7 +14,12 @@ export const HighlightedCode = ({
   readonly source: string
   readonly variant: SurfaceVariant
 }) => {
-  const lines = highlightCode(source)
+  const highlighter = useAtomValue(syntaxHighlighterAtom)
+  const lines = Result.match(highlighter, {
+    onInitial: () => plainCode(source),
+    onFailure: () => plainCode(source),
+    onSuccess: ({ value }) => highlightCode(value, source)
+  })
   const showLineNumbers = variant === "expanded"
 
   return (
