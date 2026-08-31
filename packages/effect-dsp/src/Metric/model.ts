@@ -22,8 +22,8 @@ export const Result = MetricResult
  *
  * @since 0.1.0
  * @category models
- * @see {@link MetricFn}
  * @see {@link MetricResult}
+ * @see {@link fromEffect}
  * @see {@link import("./compose.js").compose}
  */
 export class Metric<E = never, R = never> extends Data.TaggedClass("Metric")<{

@@ -4,9 +4,9 @@
  * Three AEAD algorithms are supported — see each algorithm module
  * for security properties, nonce sizes, and trade-offs.
  *
- * @see {@link xchacha20} — recommended default
- * @see {@link aesgcmsiv} — nonce-misuse resistant alternative
- * @see {@link aesgcm} — compatibility alternative
+ * @see {@link xchacha20Encrypt} — recommended default
+ * @see {@link aesgcmsivEncrypt} — nonce-misuse resistant alternative
+ * @see {@link aesgcmEncrypt} — compatibility alternative
  * @see {@link seal} — encrypt pipeline
  * @see {@link unseal} — decrypt pipeline
  * @see {@link SealedEnvelope} — encrypted payload schema

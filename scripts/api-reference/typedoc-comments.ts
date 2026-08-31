@@ -17,7 +17,7 @@ import {
 } from "./presentation-model.js"
 import { apiExportAnchor } from "./presentation.js"
 
-export interface ApiDocContext {
+export type ApiDocContext = {
   readonly packageName: string
   readonly route: ApiReferenceRoute
   readonly links: ReadonlyArray<ApiDocLink>
@@ -46,9 +46,9 @@ const textNames = (text: string): ReadonlyArray<string> => {
 }
 
 const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): string | null => {
-  const matches = new Set(Arr.filterMap(context.links, ([, name, href]) =>
+  const matches = Arr.dedupe(Arr.filterMap(context.links, ([, name, href]) =>
     Arr.contains(names, name) ? Option.some(href) : Option.none()))
-  return matches.size === 1 ? Arr.fromIterable(matches)[0] ?? null : null
+  return matches.length === 1 ? matches[0] ?? null : null
 }
 
 const resolvedHref = (

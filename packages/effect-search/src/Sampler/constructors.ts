@@ -50,7 +50,7 @@ export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(opt
  * random sampling during the startup phase (`nStartupTrials`).
  *
  * @see {@link Sampler}
- * @see {@link TpeRuntimeOptions}
+ * @see {@link TpeOptions}
  * @see {@link SearchSpace}
  *
  * @since 0.1.0

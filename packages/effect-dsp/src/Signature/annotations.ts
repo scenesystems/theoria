@@ -10,8 +10,7 @@ import { dual } from "effect/Function"
 
 /**
  * Symbol key stored in Schema annotations to carry a field-level
- * description string. Read by {@link fieldsToInfoArray} during
- * Signature construction.
+ * description string. Read while constructing Signature field metadata.
  *
  * @see {@link describe} — annotates a Schema with this symbol
  * @see {@link FieldInfo} — consumes the annotation at construction time

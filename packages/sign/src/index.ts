@@ -19,8 +19,8 @@
  * ```
  *
  * @see {@link sign} — digital signature pipeline
- * @see {@link agreement} — key agreement pipeline
- * @see {@link kem} — key encapsulation pipeline
+ * @see {@link deriveSharedSecret} — key agreement pipeline
+ * @see {@link encapsulate} — key encapsulation pipeline
  *
  * @since 0.1.0
  * @module

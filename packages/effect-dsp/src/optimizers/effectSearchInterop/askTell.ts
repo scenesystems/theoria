@@ -37,8 +37,8 @@ const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): Ef
 
 /**
  * Build a Tree-structured Parzen Estimator (TPE) sampler with optional seed,
- * multivariate flag, and acquisition strategy. Unspecified options fall back to
- * {@link import("./model.js").defaultEffectSearchTpeSamplerOptions}.
+ * multivariate flag, and acquisition strategy. Unspecified options use the
+ * package defaults.
  *
  * @since 0.1.0
  * @category constructors
@@ -158,8 +158,8 @@ export const result = <Space extends SearchSpace.SearchSpace>(
 ): Effect.Effect<Study.StudyResult<SearchSpace.Type<Space>>, SearchError> => Study.result(handle)
 
 /**
- * Project a `StudyResult` into a portable {@link EffectSearchResultSummary}
- * that is insulated from upstream result-shape changes.
+ * Project a `StudyResult` into a portable result summary that is insulated
+ * from upstream result-shape changes.
  *
  * @see {@link result} for obtaining the full study result
  * @since 0.1.0

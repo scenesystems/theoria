@@ -55,7 +55,6 @@ export const TrialStateSchema = Schema.Union(
  * state — `Completed`, `Failed`, `Pruned`, or `Cancelled`. Transitions are
  * performed by the lifecycle functions in `Trial/lifecycle.ts`.
  *
- * @see {@link TrialStateSchema} for the underlying schema definition
  * @see {@link matchState} for exhaustive pattern matching over all variants
  *
  * @since 0.1.0

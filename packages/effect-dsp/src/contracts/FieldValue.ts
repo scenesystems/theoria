@@ -54,7 +54,6 @@ export const FieldValue = FieldValueSchema
  * data. Every public module API accepts and returns this shape.
  *
  * @see {@link FieldValue} — the recursive value schema
- * @see {@link MetricPayload} — domain alias used by metric scorers
  *
  * @since 0.1.0
  * @category schemas

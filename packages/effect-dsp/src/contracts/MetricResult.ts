@@ -12,9 +12,6 @@ import { Schema } from "effect"
  * `feedback`, when present, provides human-readable rationale consumed
  * by GEPA's reflective mutation loop to generate improved instructions.
  *
- * @see {@link MetricFn} — effectful scorer that produces MetricResult
- * @see {@link PureMetricFn} — synchronous scorer variant
- *
  * @since 0.1.0
  * @category models
  */
