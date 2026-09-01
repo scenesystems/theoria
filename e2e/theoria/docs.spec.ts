@@ -65,6 +65,15 @@ test("docs navigation, package selection, and focused API caching stay coherent"
 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto("/docs/effect-search")
+  const apiToggle = page.getByRole("button", { name: "Toggle api navigation" })
+  await expect(page.getByRole("link", { exact: true, name: "Study" })).toBeHidden()
+  await apiToggle.click()
+  await expect(page.getByRole("link", { exact: true, name: "Study" })).toBeVisible()
+  await apiToggle.click()
+  await expect(page.getByRole("link", { exact: true, name: "Study" })).toBeHidden()
+  await apiToggle.click()
+  await expect(page.getByRole("link", { exact: true, name: "Study" })).toBeVisible()
+
   await page.getByRole("link", { exact: true, name: "Getting started" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
   await expect(page.getByRole("link", { exact: true, name: "Getting started" })).toHaveAttribute(
@@ -93,6 +102,46 @@ test("docs navigation, package selection, and focused API caching stay coherent"
   await expect(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-math" })).toBeVisible()
   await page.getByRole("link", { name: "Documentation home" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible()
+  expectNoBrowserFailures(failures)
+})
+
+test("guide navigation preserves a useful loading shell", async ({ page }) => {
+  const failures = captureBrowserFailures(page)
+  let releaseGuide: () => void = () => undefined
+  const guideGate = new Promise<void>((resolve) => {
+    releaseGuide = resolve
+  })
+  await page.route("**/packages/effect-search/guides/getting-started.json", async (route) => {
+    await guideGate
+    await route.continue()
+  })
+
+  await page.goto("/docs/effect-search")
+  await page.getByRole("link", { exact: true, name: "Getting started" }).click()
+  await expect(page.locator('[data-docs-skeleton="guide"]')).toBeVisible()
+  releaseGuide()
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(page.locator('[data-docs-skeleton="guide"]')).toHaveCount(0)
+  expectNoBrowserFailures(failures)
+})
+
+test("package guides keep runnable examples and public API links in the documentation", async ({ page }) => {
+  const failures = captureBrowserFailures(page)
+
+  await page.goto("/docs/effect-search/examples-and-reference")
+  await expect(page.getByRole("heading", { level: 1, name: "Examples and reference" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Quick start" })).toBeVisible()
+  const guideCode = page.getByRole("region", { name: "ts code example" })
+  await expect(guideCode.locator("pre code > span:first-child > span:last-child")).toContainText(/^import/u)
+  await expect(guideCode).toContainText("SearchSpace")
+  await expect(guideCode.locator('[class~="text-code-keyword"], [class~="text-code-type"]')).not.toHaveCount(0)
+  await expect(guideCode.getByRole("button", { name: "Copy ts" })).toBeVisible()
+
+  await page.goto("/docs/effect-math/domain-navigation")
+  const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })
+  await expect(contractsLink).toHaveAttribute("href", "/docs/effect-math/api/contracts")
+  await contractsLink.click()
+  await expect(page.getByRole("heading", { level: 1, name: "contracts" })).toBeVisible()
   expectNoBrowserFailures(failures)
 })
 
@@ -133,6 +182,7 @@ test("focused signatures highlight and copy their real source", async ({ browser
   await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
   const signature = page.getByRole("region", { name: "Signature code example" })
   await expect(signature.locator('[class~="text-code-keyword"], [class~="text-code-type"]')).not.toHaveCount(0)
+  await expect(page.locator("dt code").first().locator('[class^="text-code-"], [class*=" text-code-"]')).not.toHaveCount(0)
   await signature.getByRole("button", { name: "Copy Signature" }).click()
   await expect(signature.getByRole("button", { name: "Copied Signature" })).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("ask")

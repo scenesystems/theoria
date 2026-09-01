@@ -21,10 +21,16 @@ test("every generated package, guide, and API navigation route resolves", async 
       ...docsPackage.apiModules.map((module) => module.path)
     ]
     const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
-    await expect(sidebar.locator("a")).toHaveCount(expectedPaths.length)
+    await expect(sidebar.locator(`a[href="${docsPackage.overview.path}"]`)).toBeVisible()
+    await expect(sidebar.locator(`a[href="${docsPackage.apiModules[0]?.path}"]`)).toBeVisible()
 
     for (const path of expectedPaths) {
-      await sidebar.locator(`a[href="${path}"]`).click()
+      const link = sidebar.locator(`a[href="${path}"]`)
+      if (!await link.isVisible()) {
+        const toggleName = path.includes("/api") ? "Toggle api navigation" : "Toggle guides navigation"
+        await sidebar.getByRole("button", { name: toggleName }).click()
+      }
+      await link.click()
       await expect(page).toHaveURL(new RegExp(`${path.replaceAll("/", "\\/")}$`, "u"))
       await expect(page.locator("main h1")).toBeVisible()
       await expect(page.getByText("Documentation unavailable", { exact: true })).toHaveCount(0)
