@@ -1,6 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import { Effect } from "effect"
 
+import { prepareDocsSearchIndex } from "@theoria/docs-model"
 import { DocsClient } from "../services/DocsClient.js"
 
 export const docsRuntime = Atom.runtime(DocsClient.Default)
@@ -43,7 +44,8 @@ export const docsSearchIndexAtom = Atom.family((asset: string) =>
   docsRuntime.atom(
     Effect.gen(function*() {
       const client = yield* DocsClient
-      return yield* client.searchIndex(asset)
+      const searchIndex = yield* client.searchIndex(asset)
+      return prepareDocsSearchIndex(searchIndex.entries)
     })
   ).pipe(Atom.keepAlive)
 )

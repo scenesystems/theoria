@@ -110,6 +110,7 @@
       "name": "@theoria/docs-model",
       "version": "0.0.0",
       "dependencies": {
+        "@scenesystems/effect-math": "workspace:^",
         "effect": "3.22.1",
       },
     },

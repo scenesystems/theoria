@@ -15,6 +15,7 @@
     "clean": "rm -rf build .tsbuildinfo"
   },
   "dependencies": {
+    "@scenesystems/effect-math": "workspace:^",
     "effect": "3.22.1"
   }
 }

@@ -6,7 +6,7 @@ import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-reac
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/20/solid"
 import * as Arr from "effect/Array"
 
-import type { DocsManifest, DocsSearchEntry } from "@theoria/docs-model"
+import { type DocsManifest, type DocsSearchEntry, searchDocs } from "@theoria/docs-model"
 import { docsSearchIndexAtom } from "../../atoms/docs-data.js"
 import { docsSearchOpenAtom, docsSearchQueryAtom, setDocsSearchOpenAtom } from "../../atoms/docs.js"
 import { navigateAtom } from "../../atoms/navigation.js"
@@ -15,7 +15,6 @@ import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { docsSearchResults } from "./docsModel.js"
 
 export const DocsSearchTrigger = () => {
   const setOpen = useAtomSet(setDocsSearchOpenAtom)
@@ -58,7 +57,7 @@ const SearchCombobox = ({
   const results: ReadonlyArray<DocsSearchEntry> = Result.match(searchIndex, {
     onInitial: () => Arr.empty<DocsSearchEntry>(),
     onFailure: () => Arr.empty<DocsSearchEntry>(),
-    onSuccess: ({ value }) => docsSearchResults(value.entries, query, activePackageSlug)
+    onSuccess: ({ value }) => searchDocs(value, query, { limit: 20, packageSlug: activePackageSlug })
   })
   const searchState: "loading" | "failure" | "ready" = Result.match(searchIndex, {
     onInitial: () => "loading",

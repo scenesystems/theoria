@@ -1,10 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Option } from "effect"
 
+import { prepareDocsSearchIndex, searchDocs } from "@theoria/docs-model"
 import { docsApiRoute } from "../../app/contracts/docs.js"
-import { apiExportForHash, docsApiModuleFor, docsSearchResults } from "../../app/web/view/docs/docsModel.js"
+import { apiExportForHash, docsApiModuleFor } from "../../app/web/view/docs/docsModel.js"
 import { docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 import { docsManifestFixture, docsSearchIndexFixture } from "../helpers/docs-fixtures.js"
+
+const searchIndex = prepareDocsSearchIndex(docsSearchIndexFixture.entries)
+const search = (query: string, packageSlug: string | null) =>
+  searchDocs(searchIndex, query, {
+    limit: 20,
+    packageSlug
+  })
 
 describe("documentation view model", () => {
   it("resolves aliases to their canonical API asset", () => {
@@ -15,8 +23,16 @@ describe("documentation view model", () => {
   })
 
   it("ranks exact symbol matches ahead of package summaries", () => {
-    const results = docsSearchResults(docsSearchIndexFixture.entries, "runStudy", "effect-search")
+    const results = search("runStudy", "effect-search")
     expect(results[0]?.id).toBe("effect-search/Study#runStudy")
+  })
+
+  it("finds relevant documentation through spacing and typing errors", () => {
+    const symbolResults = search("run stduy", "effect-search")
+    const packageResults = search("effect native optimiztion", null)
+
+    expect(symbolResults[0]?.id).toBe("effect-search/Study#runStudy")
+    expect(packageResults[0]?.id).toBe("effect-search")
   })
 
   it("resolves a selected export from the URL fragment", () => {

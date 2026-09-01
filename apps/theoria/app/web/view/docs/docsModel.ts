@@ -1,4 +1,4 @@
-import { Match, Option, Order, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type {
@@ -7,8 +7,7 @@ import type {
   DocsApiModuleSummary,
   DocsGuideSummary,
   DocsManifest,
-  DocsPackageSummary,
-  DocsSearchEntry
+  DocsPackageSummary
 } from "@theoria/docs-model"
 import { docsPathFor, type DocsRoute } from "../../../contracts/docs.js"
 
@@ -87,56 +86,3 @@ export const destinationIsActive = (destination: DocsDestination, route: DocsRou
   const path = docsPathFor(route)
   return destination.href === path || Arr.contains(destination.aliases, path)
 }
-
-const normalized = (value: string): string => value.trim().toLocaleLowerCase("en-US")
-
-const matchScore = (entry: DocsSearchEntry, query: string, packageSlug: string | null): number => {
-  const term = normalized(query)
-  const name = normalized(entry.name)
-  const qualifiedName = normalized(entry.qualifiedName)
-  const summary = normalized(entry.summary)
-  const packageBoost = entry.packageSlug === packageSlug ? 8 : 0
-
-  if (term.length === 0) {
-    return Match.value(entry.kind).pipe(
-      Match.when("package", () => 100),
-      Match.when("guide", () => 70),
-      Match.when("module", () => 50),
-      Match.when("symbol", () => -1),
-      Match.exhaustive
-    ) + packageBoost
-  }
-
-  if (name === term) return 120 + packageBoost
-  if (name.startsWith(term)) return 100 + packageBoost
-  if (qualifiedName.includes(term)) return 80 + packageBoost
-  if (summary.includes(term)) return 50 + packageBoost
-
-  const tokens = term.split(/\s+/u)
-  const haystack = `${qualifiedName} ${summary}`
-  return Arr.every(tokens, (token) => haystack.includes(token)) ? 35 + packageBoost : -1
-}
-
-const scoreOrder = Order.reverse(Order.mapInput(
-  Order.number,
-  (entry: { readonly score: number; readonly result: DocsSearchEntry }) => entry.score
-))
-
-export const docsSearchResults = (
-  entries: ReadonlyArray<DocsSearchEntry>,
-  query: string,
-  packageSlug: string | null
-): ReadonlyArray<DocsSearchEntry> =>
-  Arr.take(
-    Arr.map(
-      Arr.sort(
-        Arr.filterMap(entries, (result) => {
-          const score = matchScore(result, query, packageSlug)
-          return score < 0 ? Option.none() : Option.some({ result, score })
-        }),
-        scoreOrder
-      ),
-      ({ result }) => result
-    ),
-    20
-  )
