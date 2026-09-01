@@ -1,5 +1,12 @@
 /**
- * Framework-thin React companion boundary for effect-text.
+ * Creates deterministic preparation cache identities and pure layout
+ * projections for React consumers.
+ *
+ * @remarks
+ * This module owns no React state or rendering. Include the browser support
+ * profile and font-readiness revision in an identity, cache the prepared
+ * handle in the application, and project lines without re-entering text
+ * measurement.
  *
  * @since 0.2.0
  */
@@ -24,7 +31,7 @@ import {
 import { FontDescriptor, HyphenationLocale, WhiteSpaceMode } from "../Text/schema.js"
 
 /**
- * Stability lane for React companion helpers.
+ * Declares the React integration surface provisional for compatibility guarantees.
  *
  * @since 0.2.0
  * @category stability
@@ -48,7 +55,7 @@ export const PrepareIdentity = Schema.Struct({
 })
 
 /**
- * Prepare-time identity type.
+ * Inputs whose equality permits reuse of one measured prepared handle.
  *
  * @since 0.2.0
  * @category models
@@ -56,7 +63,7 @@ export const PrepareIdentity = Schema.Struct({
 export type PrepareIdentityType = typeof PrepareIdentity.Type
 
 /**
- * Stable cache key for a prepare-time identity.
+ * URI-component-safe string encoding every input that can change prepared widths.
  *
  * @since 0.2.0
  * @category schemas
@@ -64,7 +71,7 @@ export type PrepareIdentityType = typeof PrepareIdentity.Type
 export const PrepareIdentityKey = Schema.String
 
 /**
- * Stable cache key type for a prepare-time identity.
+ * Deterministic key for caching a prepared handle across React renders.
  *
  * @since 0.2.0
  * @category models
@@ -72,7 +79,7 @@ export const PrepareIdentityKey = Schema.String
 export type PrepareIdentityKeyType = typeof PrepareIdentityKey.Type
 
 /**
- * Pure summary-plus-lines projection over an already prepared handle.
+ * Layout geometry and visual lines projected without repeating measurement.
  *
  * @since 0.2.0
  * @category schemas
@@ -83,7 +90,7 @@ export const PreparedLayoutProjection = Schema.Struct({
 })
 
 /**
- * Pure summary-plus-lines projection type.
+ * Decoded geometry and visual lines produced from one prepared handle.
  *
  * @since 0.2.0
  * @category models
@@ -98,7 +105,8 @@ const supportProfileIdFrom = (value: string): BrowserSupportProfileIdType =>
   value === "canvas-system-ui" ? "canvas-system-ui" : "canvas-monospace"
 
 /**
- * Encodes one runtime engine profile into a stable identity string.
+ * Encodes every engine-profile field in declaration order using
+ * URI-component-safe separators.
  *
  * @since 0.2.0
  * @category identities
@@ -134,7 +142,8 @@ export const prepareIdentityFor = (options: {
 })
 
 /**
- * Encodes a prepare-time identity into a stable cache key.
+ * Encodes text, font, whitespace, optional locale, engine profile, support
+ * profile, and font-readiness revision into one deterministic cache key.
  *
  * @since 0.2.0
  * @category identities
@@ -153,7 +162,8 @@ export const prepareIdentityKey = (identity: PrepareIdentityType): PrepareIdenti
   ].join("|")
 
 /**
- * Decodes a stable cache key back into the prepare-time identity payload.
+ * Recovers identity data from keys produced by `prepareIdentityKey`.
+ * Arbitrary strings are not accepted or validated as identities.
  *
  * @since 0.2.0
  * @category identities
@@ -178,7 +188,8 @@ export const prepareIdentityFromKey = (key: PrepareIdentityKeyType): PrepareIden
 }
 
 /**
- * Summarizes already materialized lines without reopening preparation.
+ * Derives line count, total height, and maximum width from materialized lines.
+ * Empty input produces zero for all three summary fields.
  *
  * @since 0.2.0
  * @category projection

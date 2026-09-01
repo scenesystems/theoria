@@ -1,5 +1,5 @@
 /**
- * Internal pure layout helpers.
+ * Pure prepared-table walker for line fitting, visual materialization, and cursor ranges.
  *
  * @since 0.1.0
  */

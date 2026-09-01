@@ -1,5 +1,5 @@
 /**
- * Browser support data for the canvas-backed measurement layer.
+ * Re-exports the canvas profile catalog used by browser caches and parity runs.
  *
  * @since 0.2.0
  */
@@ -16,7 +16,7 @@ import {
 } from "../contracts/browserSupport.js"
 
 /**
- * Browser support data published by the package.
+ * Shipped canvas profiles, font policies, and parity-case coverage.
  *
  * @since 0.2.0
  * @category manifests
@@ -24,7 +24,7 @@ import {
 export const BrowserSupportManifest = BrowserSupportManifestInternal
 
 /**
- * Browser support schema published by the package.
+ * Decoder for the non-empty browser profile catalog.
  *
  * @since 0.2.0
  * @category schemas
@@ -32,7 +32,7 @@ export const BrowserSupportManifest = BrowserSupportManifestInternal
 export const BrowserSupportManifestSchema = BrowserSupportManifestSchemaInternal
 
 /**
- * Browser support profile resolver.
+ * Resolves a shipped profile, using the catalog default when omitted.
  *
  * @since 0.2.0
  * @category manifests
@@ -40,7 +40,7 @@ export const BrowserSupportManifestSchema = BrowserSupportManifestSchemaInternal
 export const browserSupportProfile = browserSupportProfileInternal
 
 /**
- * Browser support profile identifier schema.
+ * Decoder for `canvas-monospace` and `canvas-system-ui` profile IDs.
  *
  * @since 0.2.0
  * @category schemas
@@ -48,7 +48,7 @@ export const browserSupportProfile = browserSupportProfileInternal
 export const BrowserSupportProfileIdSchema = BrowserSupportProfileIdSchemaInternal
 
 /**
- * Browser support profile schema.
+ * Decoder for one profile's font policy, engine settings, and parity envelope.
  *
  * @since 0.2.0
  * @category schemas
@@ -56,7 +56,7 @@ export const BrowserSupportProfileIdSchema = BrowserSupportProfileIdSchemaIntern
 export const BrowserSupportProfileSchema = BrowserSupportProfileSchemaInternal
 
 /**
- * Default browser support profile.
+ * Shipped `canvas-monospace` profile.
  *
  * @since 0.2.0
  * @category manifests
@@ -64,7 +64,7 @@ export const BrowserSupportProfileSchema = BrowserSupportProfileSchemaInternal
 export const DefaultBrowserSupportProfile = DefaultBrowserSupportProfileInternal
 
 /**
- * Browser support data type.
+ * Decoded browser profile catalog.
  *
  * @since 0.2.0
  * @category models
@@ -72,7 +72,7 @@ export const DefaultBrowserSupportProfile = DefaultBrowserSupportProfileInternal
 export type BrowserSupportManifestType = BrowserSupportManifestTypeInternal
 
 /**
- * Browser support profile identifier type.
+ * Browser cache and parity profile identifier.
  *
  * @since 0.2.0
  * @category models
@@ -80,7 +80,7 @@ export type BrowserSupportManifestType = BrowserSupportManifestTypeInternal
 export type BrowserSupportProfileIdType = BrowserSupportProfileIdTypeInternal
 
 /**
- * Browser support profile type.
+ * Decoded configuration for one browser profile.
  *
  * @since 0.2.0
  * @category models

@@ -1,5 +1,5 @@
 /**
- * Browser support-data authority shared by the public browser companion and the package release manifest.
+ * Declares the canvas profiles and parity cases exercised by the browser companion.
  *
  * @since 0.2.0
  */
@@ -36,7 +36,7 @@ const BrowserTabPolicySchema = Schema.Struct({
 })
 
 /**
- * Supported browser profile identifier.
+ * Decodes the two shipped canvas measurement profile identifiers.
  *
  * @since 0.2.0
  * @category schemas
@@ -44,7 +44,7 @@ const BrowserTabPolicySchema = Schema.Struct({
 export const BrowserSupportProfileIdSchema = BrowserSupportProfileId
 
 /**
- * Supported browser profile identifier type.
+ * Identifier accepted by browser measurement caches and parity helpers.
  *
  * @since 0.2.0
  * @category models
@@ -52,7 +52,8 @@ export const BrowserSupportProfileIdSchema = BrowserSupportProfileId
 export type BrowserSupportProfileIdType = typeof BrowserSupportProfileIdSchema.Type
 
 /**
- * Supported browser configuration.
+ * Decodes a canvas profile's font policy, preparation profile, parity cases,
+ * tolerance in CSS pixels, and documented limitations.
  *
  * @since 0.2.0
  * @category schemas
@@ -75,7 +76,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
 })
 
 /**
- * Supported browser configuration type.
+ * Decoded configuration for one canvas measurement profile.
  *
  * @since 0.2.0
  * @category models
@@ -83,7 +84,7 @@ export const BrowserSupportProfileSchema = Schema.Struct({
 export type BrowserSupportProfileType = typeof BrowserSupportProfileSchema.Type
 
 /**
- * Browser support data exported by `@scenesystems/effect-text/browser`.
+ * Decodes a non-empty profile catalog whose default names one catalog entry.
  *
  * @since 0.2.0
  * @category schemas
@@ -94,7 +95,7 @@ export const BrowserSupportManifestSchema = Schema.Struct({
 })
 
 /**
- * Browser support data type.
+ * Decoded browser profile catalog.
  *
  * @since 0.2.0
  * @category models
@@ -169,7 +170,7 @@ const systemUiBrowserSupportProfile: BrowserSupportProfileType = {
 }
 
 /**
- * Browser support data published by the package.
+ * Shipped canvas profiles and the exact parity-case envelope attached to them.
  *
  * @since 0.2.0
  * @category manifests
@@ -180,7 +181,7 @@ export const BrowserSupportManifest: BrowserSupportManifestType = {
 }
 
 /**
- * Resolves one browser support profile from the shipped support envelope.
+ * Resolves a shipped profile, defaulting to `canvas-monospace` when omitted.
  *
  * @since 0.2.0
  * @category manifests
@@ -193,7 +194,7 @@ export const browserSupportProfile = (
   )
 
 /**
- * Default browser profile currently covered by the package support data.
+ * The shipped `canvas-monospace` profile used when callers omit a profile ID.
  *
  * @since 0.2.0
  * @category manifests

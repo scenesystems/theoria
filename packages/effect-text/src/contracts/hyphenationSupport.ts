@@ -1,11 +1,11 @@
 /**
- * Shared hyphenation support data used by the runtime layer and release support manifest.
+ * Declares the dictionaries bundled by the default hyphenation layer.
  *
  * @since 0.2.0
  */
 
 /**
- * Support-data authority for the shipped hyphenation locale set and fallback policy.
+ * Bundled locale keys and exact-tag-to-base-language fallback policy.
  *
  * @since 0.2.0
  * @category support

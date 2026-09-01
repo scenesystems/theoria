@@ -1,5 +1,5 @@
 /**
- * Browser parity artifact schemas.
+ * Codecs for reproducible prepare inputs and layout outputs from parity runs.
  *
  * @since 0.2.0
  */
@@ -25,7 +25,7 @@ export const BrowserParityCaseIdSchema = Schema.Literal(
 )
 
 /**
- * Stable parity-case identifier type.
+ * Identifier for a checked-in browser parity scenario.
  *
  * @since 0.2.0
  * @category models
@@ -33,7 +33,7 @@ export const BrowserParityCaseIdSchema = Schema.Literal(
 export type BrowserParityCaseIdType = typeof BrowserParityCaseIdSchema.Type
 
 /**
- * One resolved parity artifact case.
+ * Decodes one scenario's preparation input, layout request, summary, and lines.
  *
  * @since 0.2.0
  * @category schemas
@@ -47,7 +47,7 @@ export const BrowserParityArtifactCaseSchema = Schema.Struct({
 })
 
 /**
- * One resolved parity artifact case type.
+ * Decoded result for one browser parity scenario.
  *
  * @since 0.2.0
  * @category models
@@ -55,7 +55,7 @@ export const BrowserParityArtifactCaseSchema = Schema.Struct({
 export type BrowserParityArtifactCaseType = typeof BrowserParityArtifactCaseSchema.Type
 
 /**
- * Machine-readable parity artifact schema.
+ * Decodes a profile-specific artifact including resolved font selection and cases.
  *
  * @since 0.2.0
  * @category schemas
@@ -70,7 +70,7 @@ export const BrowserParityArtifactSchema = Schema.Struct({
 })
 
 /**
- * Machine-readable parity artifact type.
+ * Decoded profile-specific browser parity artifact.
  *
  * @since 0.2.0
  * @category models

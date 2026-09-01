@@ -205,6 +205,7 @@ export const WordSegmenterLive = Layer.succeed(WordSegmenter, {
 /**
  * Deterministic no-op hyphenation layer.
  *
+ * @remarks
  * This is the default fallback when callers do not provide dictionaries for a
  * requested locale.
  *
@@ -216,6 +217,7 @@ export const NoHyphenationDictionaryLive = Layer.succeed(HyphenationDictionary, 
 /**
  * Layer-owned dictionary hyphenation with per-locale and per-word caches.
  *
+ * @remarks
  * Rebuilding the layer with a new `revision` invalidates the loaded locale
  * dictionaries and cached word break opportunities without relying on global
  * singletons. When called without overrides, the layer ships checked-in
@@ -295,7 +297,7 @@ export const TextLayoutLive = Layer.mergeAll(
 )
 
 /**
- * Shipped hyphenation support data used by the built-in dictionary layer.
+ * Bundled locale keys and exact-tag-to-base-language fallback used by dictionary preparation.
  *
  * @since 0.2.0
  * @category layers

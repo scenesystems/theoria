@@ -135,7 +135,13 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
   })
 
 /**
- * Browser canvas-backed measurer using `CanvasRenderingContext2D.measureText`.
+ * Serializes access to a canvas-like context and measures text after applying
+ * the requested font, direction, and baseline.
+ *
+ * @remarks
+ * Optional emoji correction replaces under-reported emoji-cluster advances
+ * using a per-font probe cache; non-emoji text keeps its raw canvas width. The
+ * context is mutated during measurement and must outlive the layer.
  *
  * @since 0.2.0
  * @category layers
@@ -146,6 +152,7 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
 /**
  * Browser measurement cache keyed by support profile, font signature, text, and font-readiness revision.
  *
+ * @remarks
  * Use this instead of `Text.MeasurementCacheLive` when named-font readiness can
  * change measured widths or when browser support configuration differs by
  * profile. Rebuilding the layer with a new

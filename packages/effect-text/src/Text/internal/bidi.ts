@@ -1,5 +1,5 @@
 /**
- * Internal bidi visual-order helpers.
+ * Line-local bidi level reordering, punctuation mirroring, and visual text materialization.
  *
  * @since 0.1.0
  */

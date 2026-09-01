@@ -1,5 +1,5 @@
 /**
- * Private calibration-report helpers.
+ * Comparison of expected line geometry with actual prepared-layout output.
  *
  * @internal
  * @since 0.1.0

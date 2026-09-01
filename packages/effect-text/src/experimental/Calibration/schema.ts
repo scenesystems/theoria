@@ -35,7 +35,7 @@ export const CalibrationTargetLine = Schema.Struct({
 })
 
 /**
- * Typed expected line projection.
+ * Expected visual text and width for one materialized line.
  *
  * @since 0.1.0
  * @category models
@@ -45,6 +45,7 @@ export type CalibrationTargetLineType = typeof CalibrationTargetLine.Type
 /**
  * Expected layout summary for a calibration sample.
  *
+ * @remarks
  * Line projections are optional so corpora can start with coarse summary checks
  * and progressively tighten into exact line-text and width expectations.
  *
@@ -58,7 +59,7 @@ export const CalibrationTarget = Schema.Struct({
 })
 
 /**
- * Typed calibration target.
+ * Expected aggregate geometry with optional exact line projections.
  *
  * @since 0.1.0
  * @category models
@@ -79,7 +80,7 @@ export const CalibrationCase = Schema.Struct({
 })
 
 /**
- * Typed calibration sample.
+ * Named prepare/layout input paired with its expected projection.
  *
  * @since 0.1.0
  * @category models
@@ -87,7 +88,7 @@ export const CalibrationCase = Schema.Struct({
 export type CalibrationCaseType = typeof CalibrationCase.Type
 
 /**
- * Candidate profile evaluated by the calibration helpers.
+ * Engine settings named for comparison against an expected-layout corpus.
  *
  * @since 0.1.0
  * @category schemas
@@ -98,7 +99,7 @@ export const CalibrationProfile = Schema.Struct({
 })
 
 /**
- * Typed calibration profile.
+ * Named engine-profile candidate evaluated against a corpus.
  *
  * @since 0.1.0
  * @category models
@@ -123,7 +124,7 @@ export const CalibrationCaseResult = Schema.Struct({
 })
 
 /**
- * Typed per-case calibration result.
+ * Expected and actual projections plus signed width/count deltas and match state.
  *
  * @since 0.1.0
  * @category models
@@ -147,7 +148,7 @@ export const CalibrationReport = Schema.Struct({
 })
 
 /**
- * Typed calibration report.
+ * Candidate profile, aggregate absolute errors, and per-case results.
  *
  * @since 0.1.0
  * @category models
@@ -168,7 +169,7 @@ export const CalibrationScoreWeights = Schema.Struct({
 })
 
 /**
- * Typed score-weight model.
+ * Positive multipliers for the three calibration penalties.
  *
  * @since 0.2.0
  * @category models
@@ -192,7 +193,7 @@ export const CalibrationObjectiveMetadata = Schema.Struct({
 })
 
 /**
- * Typed optimization-policy model.
+ * Weighted minimization policy recorded with optimization artifacts.
  *
  * @since 0.2.0
  * @category models
@@ -219,6 +220,7 @@ const NonEmptyCalibrationLossSummary = Statistics.SummaryStatistics.pipe(
 /**
  * Summary statistics for per-case experimental calibration losses.
  *
+ * @remarks
  * Empty corpora report one explicit zero summary, while non-empty corpora
  * derive their shape from `@scenesystems/effect-math/Statistics.SummaryStatistics` and only
  * rename `min`/`max` into the calibration surface's `minimum`/`maximum` keys.
@@ -229,7 +231,8 @@ const NonEmptyCalibrationLossSummary = Statistics.SummaryStatistics.pipe(
 export const CalibrationLossSummary = Schema.Union(EmptyCalibrationLossSummary, NonEmptyCalibrationLossSummary)
 
 /**
- * Typed loss-summary model.
+ * Descriptive statistics for weighted per-case losses, including the explicit
+ * all-zero representation for an empty corpus.
  *
  * @since 0.2.0
  * @category models
@@ -249,7 +252,7 @@ export const CalibrationFloatDimension = Schema.Struct({
 })
 
 /**
- * Typed float dimension bounds.
+ * Non-negative inclusive float bounds and optional positive quantization step.
  *
  * @since 0.1.0
  * @category models
@@ -269,7 +272,7 @@ export const CalibrationIntDimension = Schema.Struct({
 })
 
 /**
- * Typed integer dimension bounds.
+ * Positive inclusive integer bounds and optional positive step.
  *
  * @since 0.1.0
  * @category models
@@ -287,7 +290,7 @@ export const CalibrationDirectionDimension = Schema.Struct({
 })
 
 /**
- * Typed direction-dimension model.
+ * Non-empty candidate set for `EngineProfile.defaultDirection`.
  *
  * @since 0.2.0
  * @category models
@@ -305,7 +308,7 @@ export const CalibrationBooleanDimension = Schema.Struct({
 })
 
 /**
- * Typed boolean-dimension model.
+ * Non-empty candidate set for an engine-profile toggle.
  *
  * @since 0.2.0
  * @category models
@@ -313,11 +316,12 @@ export const CalibrationBooleanDimension = Schema.Struct({
 export type CalibrationBooleanDimensionType = typeof CalibrationBooleanDimension.Type
 
 /**
- * Single source of truth for the experimental engine-profile search space.
+ * Defines the tunable dimensions for experimental engine-profile searches.
  *
+ * @remarks
  * `Experimental.Calibration.makeProfileSearchSpace` compiles this descriptor
- * directly into `effect-search` dimensions so the released optimization knobs
- * never drift away from the runtime profile surface.
+ * into `effect-search` dimensions that correspond to the runtime profile
+ * fields.
  *
  * @since 0.2.0
  * @category schemas
@@ -331,7 +335,7 @@ export const CalibrationSearchDescriptor = Schema.Struct({
 })
 
 /**
- * Typed search-descriptor model.
+ * Search dimensions corresponding one-for-one with engine-profile fields.
  *
  * @since 0.2.0
  * @category models
@@ -339,7 +343,7 @@ export const CalibrationSearchDescriptor = Schema.Struct({
 export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor.Type
 
 /**
- * Compatibility alias for the calibration search descriptor schema.
+ * Compatibility name decoding the same engine-profile search dimensions as `CalibrationSearchDescriptor`.
  *
  * @since 0.2.0
  * @category schemas
@@ -347,7 +351,7 @@ export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor
 export const CalibrationSearchSpaceSpec = CalibrationSearchDescriptor
 
 /**
- * Compatibility alias type for the calibration search descriptor.
+ * Legacy name for `CalibrationSearchDescriptorType`.
  *
  * @since 0.2.0
  * @category models
@@ -366,7 +370,7 @@ export const CalibrationStudyArtifacts = Schema.Struct({
 })
 
 /**
- * Typed study-artifact model.
+ * Resumable study snapshot and ordered event log from one optimization run.
  *
  * @since 0.2.0
  * @category models
@@ -389,7 +393,7 @@ export const CalibrationOptimizationReport = Schema.Struct({
 })
 
 /**
- * Typed optimization-report model.
+ * Objective, search descriptor, completion reason, best loss, and resumable artifacts.
  *
  * @since 0.2.0
  * @category models

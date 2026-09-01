@@ -1,5 +1,5 @@
 /**
- * Browser parity artifact schemas and package-owned harness helpers.
+ * Reproducible browser prepare/layout cases and profile-specific artifact rendering.
  *
  * @since 0.2.0
  */
@@ -22,7 +22,7 @@ import {
 import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from "./supportManifest.js"
 
 /**
- * Browser parity artifact case schema.
+ * Decoder for one parity case's prepare input and projected layout.
  *
  * @since 0.2.0
  * @category schemas
@@ -30,7 +30,7 @@ import { type BrowserSupportProfileIdType, type BrowserSupportProfileType } from
 export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaInternal
 
 /**
- * Browser parity artifact JSON schema.
+ * JSON-string codec for complete parity artifacts.
  *
  * @since 0.2.0
  * @category schemas
@@ -38,7 +38,7 @@ export const BrowserParityArtifactCaseSchema = BrowserParityArtifactCaseSchemaIn
 export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaInternal
 
 /**
- * Browser parity artifact schema.
+ * Decoder for a profile-specific collection of parity results.
  *
  * @since 0.2.0
  * @category schemas
@@ -46,7 +46,7 @@ export const BrowserParityArtifactJsonSchema = BrowserParityArtifactJsonSchemaIn
 export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
 
 /**
- * Browser parity case identifier schema.
+ * Decoder for the package's checked-in parity scenario IDs.
  *
  * @since 0.2.0
  * @category schemas
@@ -54,7 +54,7 @@ export const BrowserParityArtifactSchema = BrowserParityArtifactSchemaInternal
 export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
 
 /**
- * Browser parity artifact case type.
+ * Decoded prepare input and layout result for one parity scenario.
  *
  * @since 0.2.0
  * @category models
@@ -62,7 +62,7 @@ export const BrowserParityCaseIdSchema = BrowserParityCaseIdSchemaInternal
 export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInternal
 
 /**
- * Browser parity artifact type.
+ * Decoded profile-specific parity artifact.
  *
  * @since 0.2.0
  * @category models
@@ -70,7 +70,7 @@ export type BrowserParityArtifactCaseType = BrowserParityArtifactCaseTypeInterna
 export type BrowserParityArtifactType = BrowserParityArtifactTypeInternal
 
 /**
- * Browser parity case identifier type.
+ * Identifier for one package-owned browser parity scenario.
  *
  * @since 0.2.0
  * @category models

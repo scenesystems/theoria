@@ -1,5 +1,5 @@
 /**
- * Internal hyphenation helpers.
+ * Locale fallback, Liang-pattern compilation, and dictionary break-point lookup.
  *
  * @since 0.2.0
  */

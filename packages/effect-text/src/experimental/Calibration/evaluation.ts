@@ -14,11 +14,11 @@ import { makeCaseResult, summarizeReport } from "./internal/evaluation.js"
 import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
 
 /**
- * Evaluates a candidate engine profile against a typed calibration corpus.
+ * Scores a candidate engine profile against a typed calibration corpus.
  *
- * The helper preserves the current architecture: each sample is prepared effectfully
- * with the candidate profile in context, then scored with the pure `Text.layout`
- * projection.
+ * @remarks
+ * Each sample is prepared with the candidate profile in context, projected
+ * through `Text.layout`, and included in the aggregate calibration report.
  *
  * @since 0.1.0
  * @category evaluation

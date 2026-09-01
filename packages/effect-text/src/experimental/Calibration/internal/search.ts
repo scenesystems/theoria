@@ -1,5 +1,5 @@
 /**
- * Private calibration-search helpers.
+ * Compilation of engine-profile dimensions into Effect Search parameter spaces.
  *
  * @internal
  * @since 0.2.0

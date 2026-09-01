@@ -109,7 +109,13 @@ const prepareCore = (
   })
 
 /**
- * Compiles text into a prepared handle that retains segment-level manual layout metadata.
+ * Segments and measures text once, retaining the logical surface required for
+ * visually ordered lines, ranges, cursors, and streams.
+ *
+ * @remarks
+ * Requires `WordSegmenter`, `MeasurementCache`, and `EngineProfile`. An
+ * available `HyphenationDictionary` is used only with `hyphenationLocale`;
+ * otherwise preparation uses the non-dictionary break path.
  *
  * @since 0.1.0
  * @category constructors
@@ -129,7 +135,11 @@ export const prepareWithSegments = (
   )
 
 /**
- * Compiles text into an opaque prepared handle.
+ * Segments and measures text into an opaque summary-only handle.
+ *
+ * @remarks
+ * The result supports `layout` and `measureNaturalWidth`; use
+ * `prepareWithSegments` when line text or cursor bounds are needed.
  *
  * @since 0.1.0
  * @category constructors
@@ -140,7 +150,12 @@ export const prepare = (
   prepareCore(input).pipe(Effect.map((compilation) => preparedTextFromCore(compilation.core)))
 
 /**
- * Decodes unknown input, then compiles it into a prepared handle.
+ * Strictly decodes unknown input, then performs the same compilation as
+ * `prepare`.
+ *
+ * @remarks
+ * Invalid or excess fields fail with `TextLayoutDecodeError`; successful
+ * decoding can still fail with `MeasurementFailed`.
  *
  * @since 0.1.0
  * @category constructors

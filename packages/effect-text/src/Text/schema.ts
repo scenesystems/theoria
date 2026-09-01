@@ -18,7 +18,8 @@ const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
 export const WhiteSpaceMode = Schema.Literal("normal", "pre-wrap")
 
 /**
- * Whitespace handling strategy type.
+ * Preparation policy: collapse whitespace (`normal`) or preserve spaces, tabs,
+ * and hard breaks (`pre-wrap`).
  *
  * @since 0.1.0
  * @category models
@@ -26,7 +27,7 @@ export const WhiteSpaceMode = Schema.Literal("normal", "pre-wrap")
 export type WhiteSpaceModeType = typeof WhiteSpaceMode.Type
 
 /**
- * Font descriptor used during measurement.
+ * Measurement font in CSS pixels; omitted weight is normalized to `400`.
  *
  * @since 0.1.0
  * @category schemas
@@ -38,7 +39,7 @@ export const FontDescriptor = Schema.Struct({
 })
 
 /**
- * Font descriptor type.
+ * Font family, positive size in CSS pixels, and optional positive integer weight.
  *
  * @since 0.1.0
  * @category models
@@ -48,6 +49,7 @@ export type FontDescriptorType = typeof FontDescriptor.Type
 /**
  * Locale identifier used to request dictionary hyphenation during preparation.
  *
+ * @remarks
  * The package treats this as an opaque, non-empty locale key, then lets the
  * hyphenation seam canonicalize case and separator spellings. The shipped
  * dictionary layer also falls back from tagged variants to a shipped base
@@ -59,7 +61,7 @@ export type FontDescriptorType = typeof FontDescriptor.Type
 export const HyphenationLocale = Schema.String.pipe(Schema.minLength(1))
 
 /**
- * Locale identifier type used by dictionary hyphenation.
+ * Non-empty locale key resolved by the hyphenation service at preparation time.
  *
  * @since 0.2.0
  * @category models
@@ -75,7 +77,7 @@ export type HyphenationLocaleType = typeof HyphenationLocale.Type
 export const BaseTextDirection = Schema.Literal("ltr", "rtl")
 
 /**
- * Resolved base direction type.
+ * Paragraph direction retained by prepared handles and projected lines.
  *
  * @since 0.1.0
  * @category models
@@ -91,7 +93,7 @@ export type BaseTextDirectionType = typeof BaseTextDirection.Type
 export const TextSegmentKind = Schema.Literal("text", "space", "hard-break")
 
 /**
- * Text segment schema.
+ * Decodes a logical text, collapsible-space, or hard-break segment.
  *
  * @since 0.1.0
  * @category schemas
@@ -102,7 +104,7 @@ export const TextSegment = Schema.Struct({
 })
 
 /**
- * Text segment type.
+ * Logical segment emitted by `Contracts.WordSegmenter`.
  *
  * @since 0.1.0
  * @category models
@@ -110,7 +112,8 @@ export const TextSegment = Schema.Struct({
 export type TextSegmentType = typeof TextSegment.Type
 
 /**
- * Input accepted by `Text.prepare`.
+ * Input compiled by preparation; all measurement uses `font`, while an optional
+ * locale activates a provided hyphenation dictionary.
  *
  * @since 0.1.0
  * @category schemas
@@ -123,7 +126,7 @@ export const PrepareInput = Schema.Struct({
 })
 
 /**
- * Typed prepare input.
+ * Raw text and preparation policies accepted by typed constructors.
  *
  * @since 0.1.0
  * @category models
@@ -131,7 +134,8 @@ export const PrepareInput = Schema.Struct({
 export type PrepareInputType = typeof PrepareInput.Type
 
 /**
- * Request passed to pure layout APIs.
+ * Positive available width and per-line height, both in caller-defined units
+ * consistent with the measurement service.
  *
  * @since 0.1.0
  * @category schemas
@@ -142,7 +146,7 @@ export const LayoutRequest = Schema.Struct({
 })
 
 /**
- * Typed layout request.
+ * Geometry supplied to pure layout projections.
  *
  * @since 0.1.0
  * @category models
@@ -150,7 +154,7 @@ export const LayoutRequest = Schema.Struct({
 export type LayoutRequestType = typeof LayoutRequest.Type
 
 /**
- * Cursor for incremental line walking.
+ * Logical segment/grapheme position used to resume incremental line walking.
  *
  * @since 0.1.0
  * @category schemas
@@ -161,7 +165,7 @@ export const LayoutCursor = Schema.Struct({
 })
 
 /**
- * Typed layout cursor.
+ * Logical source position between projected lines.
  *
  * @since 0.1.0
  * @category models
@@ -176,6 +180,7 @@ const LayoutVisualMetadataFields = {
 /**
  * A laid out line of visually ordered text.
  *
+ * @remarks
  * `text` is emitted in visual order while `baseDirection` keeps the prepared
  * paragraph direction available to consumers without leaking unstable
  * permutation internals.
@@ -191,7 +196,7 @@ export const LayoutLine = Schema.Struct({
 })
 
 /**
- * Typed layout line.
+ * Materialized visual-order line; `width` uses the measurer's units.
  *
  * @since 0.1.0
  * @category models
@@ -201,6 +206,7 @@ export type LayoutLineType = typeof LayoutLine.Type
 /**
  * Non-materialized line geometry and logical cursor bounds for visually ordered output.
  *
+ * @remarks
  * `start` and `end` stay in logical source order even when the materialized
  * line text is visually reordered.
  *
@@ -215,7 +221,7 @@ export const LayoutLineRange = Schema.Struct({
 })
 
 /**
- * Typed layout line range.
+ * Non-materialized line width and half-open logical cursor bounds.
  *
  * @since 0.1.0
  * @category models
@@ -223,7 +229,7 @@ export const LayoutLineRange = Schema.Struct({
 export type LayoutLineRangeType = typeof LayoutLineRange.Type
 
 /**
- * Summary returned by `Text.layout`.
+ * Aggregate geometry: painted maximum width and `lineCount * lineHeight`.
  *
  * @since 0.1.0
  * @category schemas
@@ -235,7 +241,7 @@ export const LayoutSummary = Schema.Struct({
 })
 
 /**
- * Typed layout summary.
+ * Pure aggregate projection over a prepared handle.
  *
  * @since 0.1.0
  * @category models
@@ -243,7 +249,8 @@ export const LayoutSummary = Schema.Struct({
 export type LayoutSummaryType = typeof LayoutSummary.Type
 
 /**
- * Runtime engine profile used during preparation and optional calibration.
+ * Preparation-time fit tolerance, tab columns, bidi fallback, and discretionary
+ * break-measurement preferences.
  *
  * @since 0.2.0
  * @category schemas
@@ -257,7 +264,7 @@ export const EngineProfile = Schema.Struct({
 })
 
 /**
- * Backward-compatible schema alias for the released engine-profile surface.
+ * Compatibility name decoding the same preparation-time settings as `EngineProfile`.
  *
  * @since 0.1.0
  * @category schemas
@@ -265,7 +272,7 @@ export const EngineProfile = Schema.Struct({
 export const EngineProfileSchema = EngineProfile
 
 /**
- * Typed engine profile.
+ * Engine settings captured when a prepared handle is compiled.
  *
  * @since 0.1.0
  * @category models

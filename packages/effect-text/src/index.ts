@@ -1,14 +1,17 @@
 /**
- * effect-text root entrypoint.
+ * Prepares text for layout across pure, browser-backed, and React consumers.
  *
- * Provisional text preparation and pure layout substrate for Effect.
+ * @remarks
+ * Runtime service contracts isolate segmentation and measurement from the pure
+ * layout projection. Experimental calibration APIs remain on their own
+ * unstable subpath.
  *
  * @since 0.1.0
  * @module
  */
 
 /**
- * Provisional text preparation, prepared handles, layout, and live layers.
+ * Effectful text preparation and pure projections over the resulting handles.
  *
  * @since 0.1.0
  * @category domains
@@ -16,7 +19,7 @@
 export * as Text from "./Text/index.js"
 
 /**
- * Provisional browser-backed measurement helpers.
+ * Canvas measurement, readiness-aware caching, and browser parity fixtures.
  *
  * @since 0.2.0
  * @category domains
@@ -24,7 +27,7 @@ export * as Text from "./Text/index.js"
 export * as Browser from "./Browser/index.js"
 
 /**
- * Provisional framework-thin React helpers.
+ * Cache identities and layout projections for React integrations.
  *
  * @since 0.2.0
  * @category domains
@@ -32,7 +35,7 @@ export * as Browser from "./Browser/index.js"
 export * as React from "./React/index.js"
 
 /**
- * Stable runtime service contracts.
+ * Segmentation, measurement, caching, hyphenation, and engine-profile services.
  *
  * @since 0.1.0
  * @category contracts
@@ -40,7 +43,7 @@ export * as React from "./React/index.js"
 export * as Contracts from "./contracts/index.js"
 
 /**
- * Stable typed errors.
+ * Strict-input decoding and preparation-time measurement failures.
  *
  * @since 0.1.0
  * @category domains
@@ -48,7 +51,7 @@ export * as Contracts from "./contracts/index.js"
 export * as Errors from "./Errors/index.js"
 
 /**
- * Unstable experimental seams.
+ * Unstable profile evaluation, weighted calibration scoring, and resumable search studies.
  *
  * @since 0.1.0
  * @category domains

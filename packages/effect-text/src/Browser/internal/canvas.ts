@@ -1,5 +1,5 @@
 /**
- * Internal canvas measurement helpers.
+ * Canvas font serialization, state-safe measurement, and optional emoji width correction.
  *
  * @since 0.1.0
  */

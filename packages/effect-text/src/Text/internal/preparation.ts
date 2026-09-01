@@ -1,5 +1,5 @@
 /**
- * Internal preparation helpers.
+ * Compilation of measured logical segments into immutable walker tables.
  *
  * @since 0.1.0
  */

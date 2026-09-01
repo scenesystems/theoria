@@ -1,5 +1,5 @@
 /**
- * Prepared text model and provisional surface metadata.
+ * Opaque prepared handles containing measured walker tables and optional logical segments.
  *
  * @since 0.1.0
  */
@@ -97,7 +97,7 @@ const _PreparedTextWithSegmentsCoreSchema = Schema.Struct({
 })
 
 /**
- * Stability lane for the Text namespace.
+ * Declares prepared handles and layout projections provisional for compatibility guarantees.
  *
  * @since 0.1.0
  * @category stability
@@ -194,14 +194,22 @@ const preparedTextCursorHints = (): PreparedTextCursorHints =>
   MutableRef.make(HashMap.empty<PreparedTextCursorHintKey, number>())
 
 /**
- * Prepared text handle returned by `Text.prepare`.
+ * Opaque summary-only result of `Text.prepare` and `Text.prepareUnknown`.
+ *
+ * @remarks
+ * The handle exposes no measured tables or text segments to callers. It can be
+ * reused by the pure `Text.layout` and `Text.measureNaturalWidth` projections,
+ * which need only the compiled summary kernel. It cannot materialize line
+ * text, ranges, cursors, or streams; request `PreparedTextWithSegments` via
+ * `Text.prepareWithSegments` for those projections. That richer handle extends
+ * this type, so it also supports both summary projections.
  *
  * @since 0.1.0
  * @category models
  */
 export class PreparedText {
   /**
-   * Opaque prepared representation used by pure layout projection.
+   * Non-enumerable compiled state reserved for package layout projections.
    *
    * @since 0.1.0
    * @category models

@@ -1,6 +1,7 @@
 /**
- * Experimental extension points.
+ * Exposes unstable calibration APIs for evaluating text engine profiles.
  *
+ * @remarks
  * These APIs are public but unstable and may change outside semver guarantees.
  *
  * @since 0.1.0
@@ -8,7 +9,7 @@
 import * as Arr from "effect/Array"
 
 /**
- * Stability lane for the Experimental namespace.
+ * Declares calibration APIs outside semver compatibility guarantees.
  *
  * @since 0.1.0
  * @category stability
@@ -16,7 +17,8 @@ import * as Arr from "effect/Array"
 export const ExperimentalStability = "unstable"
 
 /**
- * Experimental module catalog reserved for unstable integration work.
+ * Lists experimental namespaces for tooling that discovers optional
+ * calibration capabilities without importing them.
  *
  * @since 0.1.0
  * @category experimental
@@ -24,7 +26,7 @@ export const ExperimentalStability = "unstable"
 export const ExperimentalSeams = Arr.make("Calibration")
 
 /**
- * Experimental calibration corpora and engine-profile evaluation helpers.
+ * Unstable expected-layout corpora, profile evaluation, and parameter search.
  *
  * @since 0.1.0
  * @category experimental

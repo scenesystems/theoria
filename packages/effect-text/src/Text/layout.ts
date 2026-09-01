@@ -25,7 +25,8 @@ import type {
 } from "./schema.js"
 
 /**
- * Resolves the maximum width available for a projected line index.
+ * Supplies available width for each zero-based projected line in traversal order.
+ * Returned widths are used directly without schema decoding.
  *
  * @since 0.1.0
  * @category models
@@ -41,8 +42,9 @@ export type LineWidthResolver = (lineIndex: number) => number
 export const initialCursor = (): LayoutCursorType => makeInitialCursor({ segmentIndex: 0, graphemeIndex: 0 })
 
 /**
- * Materializes all lines for the supplied width.
+ * Materializes every line at `request.maxWidth` in visual text order.
  *
+ * @remarks
  * Requires `PreparedTextWithSegments` because visual text materialization needs
  * retained logical-surface data in addition to the compiled summary kernel.
  *
@@ -55,8 +57,9 @@ export const layoutLines = (
 ): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request)
 
 /**
- * Materializes lines while allowing the caller to vary max width per line.
+ * Materializes lines in order using the width returned for each line index.
  *
+ * @remarks
  * This keeps `prepare` effectful and `layout` pure while letting downstream
  * projections reuse the prepared handle for staged or obstacle-aware layout.
  *
@@ -73,8 +76,10 @@ export const layoutLinesWith = (
 ): ReadonlyArray<LayoutLineType> => materializeLines(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
- * Walks laid out line ranges without materializing line text.
+ * Walks line geometry and logical cursor bounds without constructing visual
+ * line strings.
  *
+ * @remarks
  * Requires `PreparedTextWithSegments` because logical cursor bounds are walked
  * against retained logical-surface data.
  *
@@ -89,7 +94,8 @@ export const walkLineRanges = (
   walkLineRangesFromCore(preparedTextWithSegmentsCore(prepared), request, resolveMaxWidth)
 
 /**
- * Measures the widest forced line produced by hard breaks in the prepared handle.
+ * Returns the widest natural hard-break-delimited line measured during
+ * preparation, without applying a layout width.
  *
  * @since 0.2.0
  * @category layout
@@ -110,7 +116,8 @@ export const layoutLinesWithSummary = (
   materializeLinesWithSummary(preparedTextWithSegmentsCore(prepared), request)
 
 /**
- * Computes line count and height without exposing line text.
+ * Computes line count, `lineCount * lineHeight`, and maximum painted width
+ * without materializing line strings.
  *
  * @since 0.1.0
  * @category layout
@@ -119,7 +126,8 @@ export const layout = (prepared: PreparedText, request: LayoutRequestType): Layo
   summarizeLines(preparedTextCore(prepared), request)
 
 /**
- * Returns the next line for a cursor, if one exists.
+ * Materializes the line beginning at `cursor` and returns its successor cursor,
+ * or `Option.none` after the final line.
  *
  * @since 0.1.0
  * @category layout
@@ -134,7 +142,8 @@ export const layoutNextLine = (
   )
 
 /**
- * Streams laid out lines as a pure `Stream` projection.
+ * Lazily unfolds visually ordered lines from the initial cursor. The stream has
+ * no failure or service channel because preparation is complete.
  *
  * @since 0.1.0
  * @category layout

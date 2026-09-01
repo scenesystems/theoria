@@ -1,5 +1,5 @@
 /**
- * Governed bidi support data.
+ * Shipped punctuation mirror pairs and explicitly unsupported bidi-control ranges.
  *
  * @since 0.2.0
  */

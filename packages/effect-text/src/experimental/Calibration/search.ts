@@ -1,5 +1,5 @@
 /**
- * effect-search-backed calibration helpers for experimental engine-profile tuning.
+ * Effect Search studies that tune engine profiles against weighted layout error.
  *
  * @since 0.2.0
  */
@@ -29,7 +29,8 @@ import type {
 } from "./schema.js"
 
 /**
- * Default experimental score policy for profile optimization.
+ * Weighted minimization policy prioritizing line mismatches, then line-count
+ * error, then absolute width error.
  *
  * @since 0.2.0
  * @category search
@@ -37,7 +38,7 @@ import type {
 export const DefaultCalibrationObjective = defaultObjectiveMetadata
 
 /**
- * Default search-descriptor authority for engine-profile tuning.
+ * Default bounds and choices for every engine-profile field.
  *
  * @since 0.2.0
  * @category search
@@ -73,11 +74,15 @@ export const makeProfileSearchSpace = (
   })
 
 /**
- * Runs an experimental `effect-search` study over candidate engine profiles.
+ * Searches candidate engine profiles with an experimental `effect-search`
+ * study.
  *
- * The runtime hot path stays unchanged: candidate profiles are evaluated by
- * reusing `evaluateProfile`, which itself composes on top of `Text.prepare`
- * plus the pure layout plane.
+ * @remarks
+ * Candidate profiles are scored by `evaluateProfile`. Passing a snapshot
+ * resumes its trials; otherwise the study starts with the supplied sampler or
+ * a seed-zero TPE sampler. `services` must provide segmentation and measurement
+ * caching for every trial; the returned snapshot and event log can be persisted
+ * for later resumption.
  *
  * @since 0.2.0
  * @category search
