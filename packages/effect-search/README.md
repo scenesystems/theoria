@@ -12,7 +12,7 @@ A typed `SearchSpace` describes valid configurations. A `Study` asks a `Sampler`
 npm install @scenesystems/effect-search effect @effect/platform @effect/experimental
 ```
 
-The exact peer ranges for version 0.4.1 are:
+The exact peer ranges for version 0.4.2 are:
 
 - `effect`: `^3.22.1`
 - `@effect/platform`: `^0.97.1`

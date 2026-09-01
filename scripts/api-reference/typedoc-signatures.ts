@@ -8,7 +8,7 @@ import {
 import {
   type ApiParameter,
   type ApiSignature
-} from "./presentation-model.js"
+} from "@theoria/docs-model"
 import {
   type ApiDocContext,
   docParts,

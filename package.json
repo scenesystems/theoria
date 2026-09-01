@@ -71,7 +71,9 @@
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.62.1",
     "@scenesystems/effect-search": "workspace:*",
+    "@theoria/docs-model": "workspace:*",
     "@theoria/source-proof": "workspace:*",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^25.9.5",
     "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.68.0",
@@ -84,9 +86,12 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "3.8.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
     "tsx": "^4.23.12",
     "typedoc": "0.28.20",
     "typescript": "^5.9.3",
+    "unified": "^11.0.5",
     "vitest": "^3.2.7"
   },
   "overrides": {

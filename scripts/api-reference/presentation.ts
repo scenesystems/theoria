@@ -6,8 +6,8 @@ import {
   type ApiDocumentation,
   type ApiExport,
   type ApiPage,
-  type ApiSearchEntry
-} from "./presentation-model.js"
+  type DocsSearchEntry
+} from "@theoria/docs-model"
 
 export const apiExportAnchor = (name: string): string => `api-${encodeURIComponent(name)}`
 
@@ -40,7 +40,7 @@ const moduleSearchEntry = (input: {
   readonly packageSlug: string
   readonly route: ApiReferenceRoute
   readonly moduleSummary: string
-}): ApiSearchEntry => ({
+}): DocsSearchEntry => ({
   id: apiModuleId(input.packageSlug, input.route.slug),
   kind: "module",
   package: input.packageName,
@@ -57,7 +57,7 @@ const symbolSearchEntries = (input: {
   readonly packageName: string
   readonly packageSlug: string
   readonly route: ApiReferenceRoute
-}): ReadonlyArray<ApiSearchEntry> =>
+}): ReadonlyArray<DocsSearchEntry> =>
   Arr.map(input.route.imports, (entry) => ({
     id: apiExportId(input.packageSlug, input.route.slug, entry.name),
     kind: "symbol",
@@ -114,7 +114,7 @@ export const buildApiPresentation = (input: {
   }))
   const searchEntries = Arr.flatMap(
     input.routes,
-    (route): ReadonlyArray<ApiSearchEntry> => route.canonical ? [
+    (route): ReadonlyArray<DocsSearchEntry> => route.canonical ? [
       moduleSearchEntry({
         packageName: input.packageName,
         packageSlug: input.packageSlug,

@@ -36,6 +36,7 @@
     "@shikijs/engine-oniguruma": "^3.23.0",
     "@shikijs/langs": "^3.23.0",
     "@shikijs/types": "^3.23.0",
+    "@theoria/docs-model": "workspace:*",
     "effect": "3.22.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

@@ -20,6 +20,7 @@ const program = Effect.gen(function*() {
   const manifest = yield* generateApiReference({
     repositoryRoot,
     outputRoot: path.join(repositoryRoot, "api-reference"),
+    browserOutputRoot: path.join(repositoryRoot, "apps", "theoria", "public", "docs-data"),
     revision,
     sourcePackages
   })

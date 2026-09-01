@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import * as Schema from "effect/Schema"
 
 export const ApiDocPartSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String }),
@@ -122,26 +122,7 @@ export const ApiPageSchema = Schema.Struct({
   exports: Schema.Array(ApiExportSchema)
 })
 
-export const ApiSearchEntrySchema = Schema.Struct({
-  id: Schema.String,
-  kind: Schema.Literal("module", "symbol"),
-  package: Schema.String,
-  packageSlug: Schema.String,
-  name: Schema.String,
-  qualifiedName: Schema.String,
-  category: Schema.NullOr(Schema.String),
-  summary: Schema.String,
-  path: Schema.String,
-  anchor: Schema.NullOr(Schema.String)
-})
-
-export const ApiSearchIndexSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
-  entries: Schema.Array(ApiSearchEntrySchema)
-})
-
 export const ApiPageJson = Schema.parseJson(ApiPageSchema)
-export const ApiSearchIndexJson = Schema.parseJson(ApiSearchIndexSchema)
 
 export type ApiDocPart = typeof ApiDocPartSchema.Type
 export type ApiDocumentation = typeof ApiDocumentationSchema.Type
@@ -154,5 +135,3 @@ export type ApiFacet = typeof ApiFacetSchema.Type
 export type ApiExport = typeof ApiExportSchema.Type
 export type ApiCategory = typeof ApiCategorySchema.Type
 export type ApiPage = typeof ApiPageSchema.Type
-export type ApiSearchEntry = typeof ApiSearchEntrySchema.Type
-export type ApiSearchIndex = typeof ApiSearchIndexSchema.Type

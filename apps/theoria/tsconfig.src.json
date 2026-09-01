@@ -13,5 +13,6 @@
     "app/**/*.tsx",
     "vite.config.ts",
     "../../packages/effect-inference/src/**/*.ts"
-  ]
+  ],
+  "references": [{ "path": "../../packages/docs-model/tsconfig.src.json" }]
 }

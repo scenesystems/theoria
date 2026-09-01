@@ -17,6 +17,7 @@ packages/*/test/**/*.js
 
 # Generated semantic API-reference dataset
 /api-reference/
+/apps/theoria/public/docs-data/
 
 # Code coverage
 coverage/

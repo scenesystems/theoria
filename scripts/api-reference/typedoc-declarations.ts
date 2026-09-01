@@ -15,7 +15,7 @@ import {
   type ApiFacet,
   type ApiMember,
   type ApiSignature
-} from "./presentation-model.js"
+} from "@theoria/docs-model"
 import { apiExportAnchor, apiExportId } from "./presentation.js"
 import {
   type ApiDocContext,

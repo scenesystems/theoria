@@ -14,7 +14,7 @@ import {
   type ApiDocPart,
   type ApiDocumentation,
   type ApiTypeParameter
-} from "./presentation-model.js"
+} from "@theoria/docs-model"
 import { apiExportAnchor } from "./presentation.js"
 
 export type ApiDocContext = {

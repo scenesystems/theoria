@@ -19,6 +19,7 @@
   ],
   "references": [
     { "path": "../packages/digest/tsconfig.src.json" },
+    { "path": "../packages/docs-model/tsconfig.src.json" },
     { "path": "../packages/sign/tsconfig.src.json" },
     { "path": "../packages/source-proof/tsconfig.src.json" }
   ]
