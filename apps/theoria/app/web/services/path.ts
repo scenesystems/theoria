@@ -10,6 +10,7 @@ import {
   docsNotFoundRoute,
   docsOverviewRoute,
   DocsPackageSlug,
+  docsPathFor,
   type DocsRoute
 } from "../../contracts/docs.js"
 import { Id } from "../../contracts/id.js"
@@ -84,6 +85,25 @@ const deepDiveRoute = (pathname: string): Option.Option<PageRoute> =>
         ? Option.some<PageRoute>({ _tag: "DeepRoute", id })
         : Option.none<PageRoute>()
     )
+  )
+
+export const isPagePath = (pathname: string): boolean =>
+  pathname === "/"
+  || pathname === "/index.html"
+  || pathname === "/docs"
+  || pathname.startsWith("/docs/")
+  || Option.isSome(deepDiveRoute(pathname))
+
+export const pagePathFor = (route: PageRoute): string =>
+  Match.value(route).pipe(
+    Match.tag("HomeRoute", () => "/"),
+    Match.tag("DeepRoute", ({ id }) => `/demos/${id}`),
+    Match.tag("DocsIndexRoute", docsPathFor),
+    Match.tag("DocsOverviewRoute", docsPathFor),
+    Match.tag("DocsGuideRoute", docsPathFor),
+    Match.tag("DocsApiRoute", docsPathFor),
+    Match.tag("DocsNotFoundRoute", docsPathFor),
+    Match.exhaustive
   )
 
 export const parsePathname = (pathname: string): PageRoute =>

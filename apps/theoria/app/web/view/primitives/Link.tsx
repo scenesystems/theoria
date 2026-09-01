@@ -1,4 +1,7 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react"
+import { useAtomSet } from "@effect-atom/atom-react"
+import type { AnchorHTMLAttributes, MouseEvent, ReactNode } from "react"
+
+import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
 
 type InternalLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   readonly href: string
@@ -7,18 +10,43 @@ type InternalLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> &
 /**
  * Internal (same-origin) navigation link.
  *
- * Renders a plain anchor for client-side navigation. Use for all internal
- * hrefs (e.g. `/demos/effect-text`).
+ * Preserves native anchor behavior while handling known application routes
+ * through the browser navigation atom.
  */
 export const InternalLink = ({
   children,
   href,
+  onClick,
   ...props
-}: InternalLinkProps) => (
-  <a {...props} href={href}>
-    {children}
-  </a>
-)
+}: InternalLinkProps) => {
+  const navigate = useAtomSet(navigateAtom)
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(event)
+
+    if (
+      shouldNavigateInBrowser({
+        altKey: event.altKey,
+        button: event.button,
+        ctrlKey: event.ctrlKey,
+        defaultPrevented: event.defaultPrevented,
+        href,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        target: props.target ?? null
+      })
+    ) {
+      event.preventDefault()
+      navigate(href)
+    }
+  }
+
+  return (
+    <a {...props} href={href} onClick={handleClick}>
+      {children}
+    </a>
+  )
+}
 
 /**
  * External (cross-origin) navigation link.
@@ -62,7 +90,7 @@ export const CardLink = ({
   readonly className?: string
   readonly href: string
 }) => (
-  <a className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
+  <InternalLink className={`after:absolute after:inset-0 after:content-[''] ${className ?? ""}`} href={href}>
     {children}
-  </a>
+  </InternalLink>
 )

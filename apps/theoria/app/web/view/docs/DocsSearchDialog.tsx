@@ -9,6 +9,7 @@ import * as Arr from "effect/Array"
 import type { DocsManifest, DocsSearchEntry } from "@theoria/docs-model"
 import { docsSearchIndexAtom } from "../../atoms/docs-data.js"
 import { docsSearchOpenAtom, docsSearchQueryAtom, setDocsSearchOpenAtom } from "../../atoms/docs.js"
+import { navigateAtom } from "../../atoms/navigation.js"
 import { ActionButton } from "../primitives/ActionControl.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -48,6 +49,7 @@ const SearchCombobox = ({
   readonly manifest: DocsManifest
 }) => {
   const query = useAtomValue(docsSearchQueryAtom)
+  const navigate = useAtomSet(navigateAtom)
   const setOpen = useAtomSet(setDocsSearchOpenAtom)
   const setQuery = useAtomSet(docsSearchQueryAtom)
   const searchAtom = docsSearchIndexAtom(manifest.searchIndexAsset)
@@ -73,7 +75,7 @@ const SearchCombobox = ({
       onInputValueChange={setQuery}
       onValueChange={(entry) => {
         if (entry !== null) {
-          globalThis.location.assign(resultHref(entry))
+          navigate(resultHref(entry))
           setOpen(false)
         }
       }}
