@@ -6,7 +6,7 @@ import { RuntimeInfo, RuntimeInfoLive } from "../../app/server/config/runtime.js
 import { ExecutionPolicy, ExecutionPolicyLive } from "../../app/server/demos/policy.js"
 import { DemoRateLimiterLive } from "../../app/server/demos/rate-limiter.js"
 import { authorizeDemoRequest, type DemoRouteAccess } from "../../app/server/routes/demo-access.js"
-import { cacheControlForPath } from "../../app/server/routes/static.js"
+import { cacheControlForPath, isHtmlPath } from "../../app/server/routes/static.js"
 import { securityHeaders } from "../../app/server/security-headers.js"
 
 const config = (values: unknown) => ConfigProvider.fromJson(values).pipe(ConfigProvider.constantCase)
@@ -101,8 +101,18 @@ describe("server/public-hardening", () => {
 
   it("caches only fingerprinted assets immutably", () => {
     expect(cacheControlForPath("/index.html")).toBe("no-cache")
+    expect(cacheControlForPath("/docs-data/manifest.json")).toBe("no-cache")
     expect(cacheControlForPath("/assets/index-ABC123.js")).toBe("public, max-age=31536000, immutable")
+    expect(cacheControlForPath("/docs-data/0123456789abcdef/packages/digest/pages/index.json"))
+      .toBe("public, max-age=31536000, immutable")
     expect(cacheControlForPath("/robots.txt")).toBe("public, max-age=3600")
+  })
+
+  it("serves documentation deep links through the application shell", () => {
+    expect(isHtmlPath("/docs", "production")).toBe(true)
+    expect(isHtmlPath("/docs/effect-search/getting-started", "production")).toBe(true)
+    expect(isHtmlPath("/docs/effect-search/api/Study", "production")).toBe(true)
+    expect(isHtmlPath("/docs-data/manifest.json", "production")).toBe(false)
   })
 
   it.effect("prefers Railway deployment identity over a local build label", () =>

@@ -3,7 +3,7 @@
   "build": {
     "builder": "RAILPACK",
     "buildCommand": "bun run --filter @theoria/theoria-app build:web",
-    "watchPatterns": ["/apps/theoria/**", "/packages/**"]
+    "watchPatterns": ["/apps/theoria/**", "/packages/**", "/scripts/api-reference.ts", "/scripts/api-reference/**"]
   },
   "deploy": {
     "startCommand": "cd apps/theoria && bun run server.ts",

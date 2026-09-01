@@ -2,10 +2,18 @@ import { FileSystem, HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
+import type { DocsManifest } from "@theoria/docs-model"
 import { cardByIdForReleaseStage } from "../../contracts/card.js"
 import { Id } from "../../contracts/id.js"
-import { fullCanonicalUrl, metadataForHome, metadataForId } from "../../contracts/metadata.js"
+import {
+  docsPathExists,
+  fullCanonicalUrl,
+  metadataForDocs,
+  metadataForHome,
+  metadataForId
+} from "../../contracts/metadata.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
+import { DocsCatalog } from "../config/docs-catalog.js"
 import { serverReleaseStage } from "../config/release-stage.js"
 
 const fromFileUrl = (url: URL): string => decodeURIComponent(url.pathname)
@@ -33,11 +41,14 @@ const deepDiveId = (pathname: string): Option.Option<string> =>
     Option.flatMap((matches) => Arr.get(matches, 1))
   )
 
-const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
+const isDocsPath = (pathname: string): boolean => pathname === "/docs" || pathname.startsWith("/docs/")
+
+export const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
   Match.value(pathname).pipe(
     Match.when("/", () => true),
     Match.when("/index.html", () => true),
     Match.orElse((value) =>
+      isDocsPath(value) ||
       Option.match(deepDiveId(value), {
         onNone: () => false,
         onSome: (id) => isKnownDemoId(id) && Option.isSome(cardByIdForReleaseStage(id, stage))
@@ -67,9 +78,9 @@ const contentType = (
     : "text/plain; charset=utf-8"
 
 export const cacheControlForPath = (pathname: string): string =>
-  pathname === "/index.html"
+  pathname === "/index.html" || pathname === "/docs-data/manifest.json"
     ? "no-cache"
-    : pathname.startsWith("/assets/")
+    : pathname.startsWith("/assets/") || /^\/docs-data\/[A-Za-z0-9._-]+\//u.test(pathname)
     ? "public, max-age=31536000, immutable"
     : "public, max-age=3600"
 
@@ -104,39 +115,70 @@ const metaPattern = (nameOrProperty: string): RegExp =>
   new RegExp(`<meta\\s+(name|property)="${nameOrProperty}"\\s+content="[^"]*"\\s*/?>`, "u")
 const canonicalPattern = /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/u
 
-const injectMetadata = (html: string, pathname: string, _stage: ReleaseStage): string => {
+const escaped = (value: string): string =>
+  value.replace(/[&<>"']/gu, (character) =>
+    Match.value(character).pipe(
+      Match.when("&", () => "&amp;"),
+      Match.when("<", () => "&lt;"),
+      Match.when(">", () => "&gt;"),
+      Match.when("\"", () => "&quot;"),
+      Match.orElse(() => "&#39;")
+    ))
+
+const injectMetadata = (
+  html: string,
+  pathname: string,
+  docsManifest: Option.Option<DocsManifest>
+): string => {
   const metadata = Match.value(pathname).pipe(
     Match.when("/", () => metadataForHome()),
     Match.when("/index.html", () => metadataForHome()),
     Match.orElse((value) =>
-      Option.match(deepDiveId(value), {
-        onNone: () => metadataForHome(),
-        onSome: (id) => metadataForId(id)
-      })
+      isDocsPath(value)
+        ? Option.match(docsManifest, {
+          onNone: metadataForHome,
+          onSome: (manifest) => metadataForDocs(manifest, value)
+        })
+        : Option.match(deepDiveId(value), {
+          onNone: () => metadataForHome(),
+          onSome: (id) => metadataForId(id)
+        })
     )
   )
 
-  const canonicalUrl = fullCanonicalUrl(metadata.canonicalPath)
+  const canonicalUrl = escaped(fullCanonicalUrl(metadata.canonicalPath))
+  const title = escaped(metadata.title)
+  const description = escaped(metadata.description)
 
   return html
-    .replace(titlePattern, `<title>${metadata.title}</title>`)
-    .replace(metaPattern("description"), `<meta name="description" content="${metadata.description}" />`)
-    .replace(metaPattern("og:title"), `<meta property="og:title" content="${metadata.title}" />`)
-    .replace(metaPattern("og:description"), `<meta property="og:description" content="${metadata.description}" />`)
+    .replace(titlePattern, `<title>${title}</title>`)
+    .replace(metaPattern("description"), `<meta name="description" content="${description}" />`)
+    .replace(metaPattern("og:title"), `<meta property="og:title" content="${title}" />`)
+    .replace(metaPattern("og:description"), `<meta property="og:description" content="${description}" />`)
     .replace(metaPattern("og:url"), `<meta property="og:url" content="${canonicalUrl}" />`)
     .replace(metaPattern("og:type"), `<meta property="og:type" content="${metadata.ogType}" />`)
-    .replace(metaPattern("twitter:title"), `<meta name="twitter:title" content="${metadata.title}" />`)
+    .replace(metaPattern("twitter:title"), `<meta name="twitter:title" content="${title}" />`)
     .replace(
       metaPattern("twitter:description"),
-      `<meta name="twitter:description" content="${metadata.description}" />`
+      `<meta name="twitter:description" content="${description}" />`
     )
     .replace(canonicalPattern, `<link rel="canonical" href="${canonicalUrl}" />`)
 }
+
+const htmlStatus = (pathname: string, manifest: Option.Option<DocsManifest>): 200 | 404 =>
+  isDocsPath(pathname)
+    && Option.exists(manifest, (docsManifest) => !docsPathExists(docsManifest, pathname))
+    ? 404
+    : 200
 
 export const staticResponse = (pathname: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const releaseStage = yield* serverReleaseStage
+    const docsCatalog = yield* DocsCatalog
+    const docsManifest = isDocsPath(pathname)
+      ? yield* Effect.option(docsCatalog.manifest)
+      : Option.none()
     const resolvedPath = staticAssetPath(pathname, releaseStage)
 
     return yield* Option.match(resolvedPath, {
@@ -149,10 +191,10 @@ export const staticResponse = (pathname: string) =>
               Match.when(true, () =>
                 isHtmlPath(pathname, releaseStage)
                   ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) => injectMetadata(html, pathname, releaseStage)),
+                    Effect.map((html) => injectMetadata(html, pathname, docsManifest)),
                     Effect.flatMap((html) =>
                       HttpServerResponse.text(html, {
-                        status: 200,
+                        status: htmlStatus(pathname, docsManifest),
                         headers: responseHeaders(headerPath(pathname, releaseStage))
                       })
                     ),
