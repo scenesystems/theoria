@@ -12,13 +12,20 @@ import type {
 import { docsPathFor, type DocsRoute } from "../../../contracts/docs.js"
 
 export const DocsDestination = Schema.Struct({
-  group: Schema.Literal("Guides", "API"),
   label: Schema.String,
   href: Schema.String,
   aliases: Schema.Array(Schema.String)
 })
 
 export type DocsDestination = typeof DocsDestination.Type
+
+export const DocsNavigationBranch = Schema.Struct({
+  label: Schema.Literal("Guides", "API"),
+  root: DocsDestination,
+  children: Schema.Array(DocsDestination)
+})
+
+export type DocsNavigationBranch = typeof DocsNavigationBranch.Type
 
 export const apiExportForHash = (page: DocsApiModuleIndex, hash: string): Option.Option<DocsApiExportSummary> =>
   Arr.findFirst(page.exports, (apiExport) => `#${apiExport.anchor}` === hash)
@@ -61,26 +68,46 @@ export const docsApiModuleFor = (
     )
   )
 
-export const docsDestinationsFor = (docsPackage: DocsPackageSummary): ReadonlyArray<DocsDestination> => [
-  {
-    group: "Guides",
-    label: "Overview",
-    href: docsPackage.overview.path,
-    aliases: []
-  },
-  ...Arr.map(docsPackage.guides, (guide): DocsDestination => ({
-    group: "Guides",
-    label: guide.title,
-    href: guide.path,
-    aliases: []
-  })),
-  ...Arr.map(docsPackage.apiModules, (module): DocsDestination => ({
-    group: "API",
-    label: module.slug.length === 0 ? "API reference" : module.name,
-    href: module.path,
-    aliases: module.aliases
-  }))
-]
+const apiDestination = (module: DocsApiModuleSummary): DocsDestination => ({
+  label: module.slug.length === 0 ? "API reference" : module.name,
+  href: module.path,
+  aliases: module.aliases
+})
+
+export const docsNavigationBranchesFor = (
+  docsPackage: DocsPackageSummary
+): ReadonlyArray<DocsNavigationBranch> => {
+  const rootApiModule = Arr.findFirst(docsPackage.apiModules, (module) => module.slug.length === 0)
+  const apiRoot = Option.match(rootApiModule, {
+    onNone: (): DocsDestination => ({
+      label: "API reference",
+      href: `/docs/${docsPackage.slug}/api`,
+      aliases: []
+    }),
+    onSome: apiDestination
+  })
+
+  return [{
+    label: "Guides",
+    root: {
+      label: "Overview",
+      href: docsPackage.overview.path,
+      aliases: []
+    },
+    children: Arr.map(docsPackage.guides, (guide): DocsDestination => ({
+      label: guide.title,
+      href: guide.path,
+      aliases: []
+    }))
+  }, {
+    label: "API",
+    root: apiRoot,
+    children: Arr.map(
+      Arr.filter(docsPackage.apiModules, (module) => module.slug.length > 0),
+      apiDestination
+    )
+  }]
+}
 
 export const destinationIsActive = (destination: DocsDestination, route: DocsRoute): boolean => {
   const path = docsPathFor(route)

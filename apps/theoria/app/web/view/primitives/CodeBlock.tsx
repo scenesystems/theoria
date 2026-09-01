@@ -90,7 +90,7 @@ export const CodeBlock = ({
           className="flex h-2.5 touch-none select-none bg-stage-100/70 p-0.5"
           orientation="horizontal"
         >
-          <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/30" />
+          <ScrollArea.Thumb className="h-full min-w-8 rounded-full bg-ink-700/35" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </Section>

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
+import { Array as Arr, Option } from "effect"
 
 import { prepareDocsSearchIndex, searchDocs } from "@theoria/docs-model"
 import { docsApiRoute } from "../../app/contracts/docs.js"
-import { apiExportForHash, docsApiModuleFor } from "../../app/web/view/docs/docsModel.js"
+import { apiExportForHash, docsApiModuleFor, docsNavigationBranchesFor } from "../../app/web/view/docs/docsModel.js"
 import { docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 import { docsManifestFixture, docsSearchIndexFixture } from "../helpers/docs-fixtures.js"
 
@@ -20,6 +20,17 @@ describe("documentation view model", () => {
 
     const module = docsApiModuleFor(docsPackage, docsApiRoute("effect-search", "study"))
     expect(Option.getOrThrow(module).path).toBe("/docs/effect-search/api/Study")
+  })
+
+  it("projects guides and API modules as parent-child navigation branches", () => {
+    const docsPackage = Option.getOrThrow(Option.fromNullable(docsManifestFixture.packages[0]))
+    const branches = docsNavigationBranchesFor(docsPackage)
+
+    expect(branches).toHaveLength(2)
+    expect(branches[0]?.root.label).toBe("Overview")
+    expect(Arr.map(branches[0]?.children ?? [], (destination) => destination.label)).toEqual(["Getting started"])
+    expect(branches[1]?.root.label).toBe("API reference")
+    expect(Arr.map(branches[1]?.children ?? [], (destination) => destination.label)).toEqual(["Study"])
   })
 
   it("ranks exact symbol matches ahead of package summaries", () => {

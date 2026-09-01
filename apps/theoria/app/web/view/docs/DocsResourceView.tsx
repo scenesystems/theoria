@@ -41,7 +41,7 @@ const FocusedApiExportResource = ({
   return Result.match(result, {
     onInitial: () => (
       <DocsResourceFrame anchors={anchors} route={route}>
-        <DocsStatus state="loading" />
+        <DocsStatus kind="api" state="loading" />
       </DocsResourceFrame>
     ),
     onFailure: () => (
@@ -89,7 +89,7 @@ export const GuideResource = ({
   return Result.match(result, {
     onInitial: () => (
       <DocsResourceFrame anchors={[]} route={route}>
-        <DocsStatus state="loading" />
+        <DocsStatus kind="guide" state="loading" />
       </DocsResourceFrame>
     ),
     onFailure: () => (
@@ -121,7 +121,7 @@ export const ApiResource = ({
   return Result.match(result, {
     onInitial: () => (
       <DocsResourceFrame anchors={[]} route={route}>
-        <DocsStatus state="loading" />
+        <DocsStatus kind="api" state="loading" />
       </DocsResourceFrame>
     ),
     onFailure: () => (

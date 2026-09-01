@@ -1,11 +1,11 @@
 import * as Arr from "effect/Array"
 
 import type { ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
+import { InlineHighlightedCode } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
-import { SemanticText } from "../primitives/SemanticText.js"
 import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { DocsRichText } from "./DocsRichText.js"
 
@@ -42,12 +42,9 @@ export const ApiTypeParametersView = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <SemanticText
-                    as="dt"
-                    className="text-ink-900"
-                    role="code-meta"
-                    text={typeParameterValue(parameter)}
-                  />
+                  <Layer as="dt" className="text-ink-900">
+                    <InlineHighlightedCode source={typeParameterValue(parameter)} />
+                  </Layer>
                   {documented
                     ? (
                       <SemanticContent as="dd" className="text-ink-600" role="row-value">
@@ -96,12 +93,9 @@ const Parameters = ({
                     : "py-3"}
                   key={parameter.name}
                 >
-                  <SemanticText
-                    as="dt"
-                    className="break-words text-ink-900"
-                    role="code-meta"
-                    text={parameterValue(parameter)}
-                  />
+                  <Layer as="dt" className="break-words text-ink-900">
+                    <InlineHighlightedCode source={parameterValue(parameter)} />
+                  </Layer>
                   {documented
                     ? (
                       <SemanticContent as="dd" className="text-ink-600" role="row-value">
@@ -136,9 +130,7 @@ export const ApiSignatureView = ({
     <Stack className="gap-2">
       <SemanticContent as={headingAs} className="text-ink-500" role="row-label">Returns</SemanticContent>
       <Cluster className="items-start gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
-        <SemanticContent as="code" className="min-w-0 max-w-full break-words text-ink-900" role="code-meta">
-          {signature.returns.type}
-        </SemanticContent>
+        <InlineHighlightedCode className="min-w-0 max-w-full text-ink-900" source={signature.returns.type} />
         {signature.returns.description.length > 0
           ? (
             <SemanticContent as="span" className="text-ink-600" role="row-value">

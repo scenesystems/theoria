@@ -6,7 +6,61 @@ import type { SurfaceVariant } from "../../../../contracts/presentation.js"
 import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
 
 import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
-import type { CodeLanguage } from "./highlighter.js"
+import type { CodeLanguage, HighlightToken } from "./highlighter.js"
+
+const useHighlightedLines = (language: CodeLanguage, source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> => {
+  const highlighter = useAtomValue(syntaxHighlighterAtom)
+
+  return Result.match(highlighter, {
+    onInitial: () => plainCode(source),
+    onFailure: () => plainCode(source),
+    onSuccess: ({ value }) => language === "text" ? plainCode(source) : highlightCode(value, source, language)
+  })
+}
+
+const HighlightTokens = ({
+  line,
+  lineIndex
+}: {
+  readonly line: ReadonlyArray<HighlightToken>
+  readonly lineIndex: number
+}) => (
+  <>
+    {Arr.map(
+      line,
+      (token, tokenIndex) => (
+        <span className={tokenClassName(token.kind)} key={`${lineIndex}:${tokenIndex}:${token.value.length}`}>
+          {token.value.length === 0 ? " " : token.value}
+        </span>
+      )
+    )}
+  </>
+)
+
+export const InlineHighlightedCode = ({
+  className = "",
+  language = "typescript",
+  source
+}: {
+  readonly className?: string
+  readonly language?: CodeLanguage
+  readonly source: string
+}) => {
+  const lines = useHighlightedLines(language, source)
+
+  return (
+    <code
+      className={`whitespace-pre-wrap break-words text-(length:--st-fs-code-meta) font-weight-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-family-(--st-ff-code-block) leading-(--st-lh-code-meta) ${className}`}
+    >
+      {Arr.map(lines, (line, lineIndex) => (
+        <span key={`${lineIndex}:${line.length}`}>
+          {lineIndex === 0 ? null : "\n"}
+          <HighlightTokens line={line} lineIndex={lineIndex} />
+        </span>
+      ))}
+    </code>
+  )
+}
 
 export const HighlightedCode = ({
   language = "typescript",
@@ -17,12 +71,7 @@ export const HighlightedCode = ({
   readonly source: string
   readonly variant: SurfaceVariant
 }) => {
-  const highlighter = useAtomValue(syntaxHighlighterAtom)
-  const lines = Result.match(highlighter, {
-    onInitial: () => plainCode(source),
-    onFailure: () => plainCode(source),
-    onSuccess: ({ value }) => language === "text" ? plainCode(source) : highlightCode(value, source, language)
-  })
+  const lines = useHighlightedLines(language, source)
   const showLineNumbers = variant === "expanded"
 
   return (
@@ -40,14 +89,7 @@ export const HighlightedCode = ({
             {lineIndex + 1}
           </span>
           <span className="whitespace-pre">
-            {Arr.map(
-              line,
-              (token, tokenIndex) => (
-                <span className={tokenClassName(token.kind)} key={`${lineIndex}:${tokenIndex}:${token.value.length}`}>
-                  {token.value.length === 0 ? " " : token.value}
-                </span>
-              )
-            )}
+            <HighlightTokens line={line} lineIndex={lineIndex} />
           </span>
         </span>
       ))}

@@ -6,7 +6,8 @@ export const docsTheme = {
     "mx-auto flex min-h-[4.5rem] w-full max-w-[96rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8",
   workbench:
     "relative mx-auto grid w-full max-w-[96rem] grid-cols-1 lg:grid-cols-[17.5rem_minmax(0,1fr)] xl:grid-cols-[17.5rem_minmax(0,1fr)_13rem]",
-  sidebar: "hidden min-w-0 border-r border-stage-200/80 px-5 py-7 lg:block lg:min-h-[calc(100dvh-4.5rem)]",
+  sidebar:
+    "hidden min-w-0 border-r border-stage-200/80 bg-stage-50/72 px-5 py-7 lg:block lg:min-h-[calc(100dvh-4.5rem)]",
   sidebarSticky: "sticky top-[6.25rem] max-h-[calc(100dvh-7.75rem)] overflow-y-auto pr-1",
   main: "min-w-0 px-4 py-8 sm:px-7 sm:py-10 lg:px-10 xl:px-12",
   article: "mx-auto w-full max-w-[54rem]",
@@ -16,6 +17,10 @@ export const docsTheme = {
     "group relative flex min-w-0 items-start gap-3 rounded-xl border border-transparent px-3 py-2.5 text-ink-700 transition-[border-color,background-color,color] duration-150 hover:border-stage-200/90 hover:bg-stage-0/72 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20",
   navLinkActive:
     "border-stage-300/85 bg-stage-0/92 text-ink-950 shadow-chip before:absolute before:bottom-2.5 before:left-0 before:top-2.5 before:w-0.5 before:rounded-full before:bg-ink-700",
+  navChildLink:
+    "group relative flex min-w-0 items-start rounded-lg px-3 py-2 text-ink-600 outline-none transition-[background-color,color] hover:bg-stage-0/72 hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20",
+  navChildLinkActive:
+    "bg-stage-0/86 text-ink-950 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-0.5 before:rounded-full before:bg-ink-700",
   searchTrigger:
     "flex h-11 min-w-0 items-center gap-2.5 rounded-xl border border-stage-200/90 bg-stage-0/78 px-3 text-ink-600 shadow-chip transition-[border-color,background-color,color] hover:border-stage-300 hover:bg-stage-0/95 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20",
   iconButton:
@@ -32,5 +37,5 @@ export const docsTheme = {
     "h-full w-[min(22rem,88vw)] overflow-y-auto border-r border-stage-300/90 bg-stage-0/98 shadow-hero transition-transform duration-150 data-[starting-style]:translate-x-[-100%] data-[ending-style]:translate-x-[-100%]",
   code: "overflow-hidden rounded-[1.35rem] border border-stage-200/90 bg-stage-0/92 shadow-chip",
   codeAction:
-    "inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-stage-200/90 bg-stage-0/78 px-2.5 text-ink-600 transition-colors hover:border-stage-300 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+    "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-stage-200/90 bg-stage-0/78 px-3 text-ink-600 transition-colors hover:border-stage-300 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 }

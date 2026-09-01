@@ -1,6 +1,7 @@
 import * as Arr from "effect/Array"
 
 import type { ApiExport, ApiFacet } from "@theoria/docs-model"
+import { InlineHighlightedCode } from "../primitives/code/HighlightedCode.js"
 import { CodeBlock } from "../primitives/CodeBlock.js"
 import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
@@ -21,13 +22,12 @@ const RelationList = ({ facet }: { readonly facet: ApiFacet }) => {
     : (
       <Cluster className="gap-2">
         {Arr.map(relations, (relation) => (
-          <SemanticText
-            as="code"
+          <Layer
             className="rounded-lg border border-stage-200/90 bg-stage-100/60 px-2.5 py-1 text-ink-600"
             key={relation}
-            role="code-meta"
-            text={relation}
-          />
+          >
+            <InlineHighlightedCode source={relation} />
+          </Layer>
         ))}
       </Cluster>
     )

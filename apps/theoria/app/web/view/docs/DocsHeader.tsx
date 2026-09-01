@@ -8,6 +8,7 @@ import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+import { ShimmerLine } from "../primitives/Skeleton.js"
 import { ThemeToggle } from "../primitives/ThemeToggle.js"
 import { TheoriaLogo } from "../primitives/TheoriaLogo.js"
 import { DocsPackagePicker } from "./DocsPackagePicker.js"
@@ -15,9 +16,11 @@ import { DocsSearchTrigger } from "./DocsSearchDialog.js"
 
 export const DocsHeader = ({
   activePackage,
+  loading = false,
   packages
 }: {
   readonly activePackage: DocsPackageSummary | null
+  readonly loading?: boolean
   readonly packages: ReadonlyArray<DocsPackageSummary>
 }) => {
   const setNavigationOpen = useAtomSet(setDocsNavigationOpenAtom)
@@ -55,10 +58,12 @@ export const DocsHeader = ({
           </InternalLink>
         </Cluster>
         <Layer className="hidden min-w-0 flex-1 justify-center lg:flex">
-          <DocsPackagePicker activePackage={activePackage} packages={packages} />
+          {loading ?
+            <ShimmerLine className="h-11 rounded-xl" width="w-72" /> :
+            <DocsPackagePicker activePackage={activePackage} packages={packages} />}
         </Layer>
         <Cluster className="min-w-0 shrink-0 justify-end gap-2">
-          <DocsSearchTrigger />
+          {loading ? <ShimmerLine className="hidden h-11 rounded-xl sm:block" width="w-40" /> : <DocsSearchTrigger />}
           <ThemeToggle />
         </Cluster>
       </Cluster>

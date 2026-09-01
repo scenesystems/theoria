@@ -31,8 +31,14 @@ export const DocsPackagePicker = ({
       <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-500" />
     </Menu.Trigger>
     <Menu.Portal>
-      <Menu.Positioner align="start" className="z-[100]" sideOffset={8}>
-        <Menu.Popup className="w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] rounded-2xl border border-stage-300/90 bg-stage-0/98 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
+      <Menu.Positioner
+        align="start"
+        className="z-[100]"
+        collisionPadding={16}
+        positionMethod="fixed"
+        sideOffset={8}
+      >
+        <Menu.Popup className="max-h-[min(32rem,calc(100dvh-6rem))] w-[min(24rem,calc(100vw-2rem))] origin-[var(--transform-origin)] overflow-y-auto overscroll-contain rounded-2xl border border-stage-300/90 bg-stage-0 p-2 shadow-hero ring-1 ring-stage-0/70 transition-[opacity,transform] data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           {Arr.map(packages, (docsPackage) => {
             const active = docsPackage.slug === activePackage?.slug
 

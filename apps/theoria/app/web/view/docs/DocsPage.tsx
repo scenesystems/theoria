@@ -149,8 +149,9 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
   return Result.match(manifest, {
     onInitial: () => (
       <Layer className={docsTheme.root}>
-        <Main className="mx-auto max-w-3xl px-5 py-20">
-          <DocsStatus state="loading" />
+        <DocsHeader activePackage={null} loading packages={[]} />
+        <Main className="mx-auto w-full max-w-[82rem] px-5 py-10 sm:px-8 sm:py-14">
+          <DocsStatus kind="index" state="loading" />
         </Main>
       </Layer>
     ),
