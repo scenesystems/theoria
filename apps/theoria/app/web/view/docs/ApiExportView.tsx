@@ -35,7 +35,6 @@ const RelationList = ({ facet }: { readonly facet: ApiFacet }) => {
 
 const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
   <Stack className="gap-6">
-    <SemanticText as="span" className="text-ink-400" role="row-label" text={facet.kind} />
     {facet.signatures.length === 0
       ? (
         <Stack className="gap-5">
@@ -81,10 +80,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
   <Section className="scroll-mt-28 border-t border-stage-200/90 pt-9 first:border-t-0 first:pt-0" id={apiExport.anchor}>
     <Stack className="gap-7">
       <Stack className="gap-3">
-        <Cluster className="gap-2.5">
-          <SemanticText as="h3" className="break-words text-ink-950" role="section-title" text={apiExport.name} />
-          <SemanticText as="span" className="text-ink-400" role="row-label" text={apiExport.importKind} />
-        </Cluster>
+        <SemanticText as="h2" className="break-words text-ink-950" role="section-title" text={apiExport.name} />
         <Cluster className="gap-2">
           <SemanticText
             as="span"
@@ -92,7 +88,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
             role="row-label"
             text={apiExport.category}
           />
-          <SemanticText as="span" className="text-ink-400" role="code-meta" text={`since ${apiExport.since}`} />
+          <SemanticText as="span" className="text-ink-500" role="code-meta" text={`since ${apiExport.since}`} />
         </Cluster>
       </Stack>
       <Stack className="gap-9">

@@ -38,6 +38,7 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
               member.signatures,
               (signature, index) => (
                 <ApiSignatureView
+                  headingAs="h5"
                   index={index}
                   key={`${signature.kind}:${String(index)}`}
                   signature={signature}

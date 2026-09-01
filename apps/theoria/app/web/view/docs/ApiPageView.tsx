@@ -68,7 +68,7 @@ const ApiModuleHeader = ({ page }: { readonly page: ApiPage }) => (
         <SemanticText as="span" className="text-ink-500" role="status" text={`v${page.package.version}`} />
         <SemanticText
           as="span"
-          className="text-ink-400"
+          className="text-ink-500"
           role="code-meta"
           text={`${String(page.exports.length)} exports`}
         />

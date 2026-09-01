@@ -1,10 +1,44 @@
 import { Atom } from "@effect-atom/atom"
+import { Effect, Option } from "effect"
 
 export const docsSearchOpenAtom = Atom.make(false)
 export const docsSearchQueryAtom = Atom.make("")
 export const docsNavigationOpenAtom = Atom.make(false)
 export const docsPackageMenuOpenAtom = Atom.make(false)
 export const docsLocationHashAtom = Atom.make("")
+export const docsCopiedCodeAtom = Atom.make(Option.none<string>())
+export const docsCopyFailedCodeAtom = Atom.make(Option.none<string>())
+
+export const copyDocsCodeAtom = Atom.fn<string>()((source, ctx) =>
+  Effect.tryPromise({
+    try: () => globalThis.navigator.clipboard.writeText(source),
+    catch: (cause) => cause
+  }).pipe(
+    Effect.matchEffect({
+      onFailure: () =>
+        Effect.sync(() => {
+          ctx.set(docsCopiedCodeAtom, Option.none())
+          ctx.set(docsCopyFailedCodeAtom, Option.some(source))
+        }),
+      onSuccess: () =>
+        Effect.sync(() => {
+          ctx.set(docsCopiedCodeAtom, Option.some(source))
+          ctx.set(docsCopyFailedCodeAtom, Option.none())
+        })
+    }),
+    Effect.zipRight(Effect.sleep("2 seconds")),
+    Effect.tap(() =>
+      Effect.sync(() => {
+        if (Option.contains(ctx(docsCopiedCodeAtom), source)) {
+          ctx.set(docsCopiedCodeAtom, Option.none())
+        }
+        if (Option.contains(ctx(docsCopyFailedCodeAtom), source)) {
+          ctx.set(docsCopyFailedCodeAtom, Option.none())
+        }
+      })
+    )
+  )
+)
 
 export const docsLocationHashMountAtom = Atom.make((ctx) => {
   const update = () => {
