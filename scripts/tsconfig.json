@@ -12,9 +12,12 @@
   },
   "include": [
     "api-reference.ts",
+    "api-reference-program.ts",
     "api-reference/**/*.ts",
+    "compress-static-assets.ts",
     "crypto-release-check.ts",
     "crypto-release/**/*.ts",
+    "ensure-docs-assets.ts",
     "../packages/digest/scripts/fixture-schemas.ts"
   ],
   "references": [

@@ -1,5 +1,5 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
-import { Clock, Effect, Match } from "effect"
+import { Clock, Effect, Match, Option } from "effect"
 
 import { RuntimeInfo } from "./config/runtime.js"
 import { capabilitiesRoute } from "./routes/capabilities.js"
@@ -56,7 +56,7 @@ export const app = Effect.gen(function*() {
     Match.when("/api/capabilities", () => capabilitiesRoute(requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),
     Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
-    Match.orElse(() => staticResponse(pathname))
+    Match.orElse(() => staticResponse(pathname, Option.fromNullable(request.headers["accept-encoding"])))
   )
 
   return yield* Effect.flatten(routeEffect)

@@ -15,6 +15,7 @@ import {
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { DocsCatalog } from "../config/docs-catalog.js"
 import { serverReleaseStage } from "../config/release-stage.js"
+import { acceptsGzip } from "./static-encoding.js"
 
 const fromFileUrl = (url: URL): string => decodeURIComponent(url.pathname)
 
@@ -84,9 +85,11 @@ export const cacheControlForPath = (pathname: string): string =>
     ? "public, max-age=31536000, immutable"
     : "public, max-age=3600"
 
-const responseHeaders = (pathname: string) => ({
+const responseHeaders = (pathname: string, compressed = false) => ({
   "cache-control": cacheControlForPath(pathname),
-  "content-type": contentType(pathname)
+  "content-type": contentType(pathname),
+  vary: "accept-encoding",
+  ...(compressed ? { "content-encoding": "gzip" } : {})
 })
 
 export const notFoundResponse = () =>
@@ -171,7 +174,7 @@ const htmlStatus = (pathname: string, manifest: Option.Option<DocsManifest>): 20
     ? 404
     : 200
 
-export const staticResponse = (pathname: string) =>
+export const staticResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const releaseStage = yield* serverReleaseStage
@@ -200,8 +203,16 @@ export const staticResponse = (pathname: string) =>
                     ),
                     Effect.catchAll(() => Effect.succeed(notFoundResponse()))
                   )
-                  : HttpServerResponse.file(path, {
-                    headers: responseHeaders(headerPath(pathname, releaseStage))
+                  : Effect.gen(function*() {
+                    const compressedPath = `${path}.gz`
+                    const compressed = acceptsGzip(acceptEncoding)
+                      ? yield* fileSystem.exists(compressedPath).pipe(Effect.catchAll(() => Effect.succeed(false)))
+                      : false
+
+                    return yield* HttpServerResponse.file(compressed ? compressedPath : path, {
+                      contentType: contentType(pathname),
+                      headers: responseHeaders(headerPath(pathname, releaseStage), compressed)
+                    })
                   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
               Match.orElse(() => Effect.succeed(notFoundResponse()))
             )

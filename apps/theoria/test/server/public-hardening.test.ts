@@ -6,6 +6,7 @@ import { RuntimeInfo, RuntimeInfoLive } from "../../app/server/config/runtime.js
 import { ExecutionPolicy, ExecutionPolicyLive } from "../../app/server/demos/policy.js"
 import { DemoRateLimiterLive } from "../../app/server/demos/rate-limiter.js"
 import { authorizeDemoRequest, type DemoRouteAccess } from "../../app/server/routes/demo-access.js"
+import { acceptsGzip } from "../../app/server/routes/static-encoding.js"
 import { cacheControlForPath, isHtmlPath } from "../../app/server/routes/static.js"
 import { securityHeaders } from "../../app/server/security-headers.js"
 
@@ -113,6 +114,14 @@ describe("server/public-hardening", () => {
     expect(isHtmlPath("/docs/effect-search/getting-started", "production")).toBe(true)
     expect(isHtmlPath("/docs/effect-search/api/Study", "production")).toBe(true)
     expect(isHtmlPath("/docs-data/manifest.json", "production")).toBe(false)
+  })
+
+  it("negotiates precompressed static assets without accepting disabled encodings", () => {
+    expect(acceptsGzip(Option.some("br, gzip, deflate"))).toBe(true)
+    expect(acceptsGzip(Option.some("gzip; q=0"))).toBe(false)
+    expect(acceptsGzip(Option.some("br, *;q=0.5"))).toBe(true)
+    expect(acceptsGzip(Option.some("gzip;q=0, *;q=0.5"))).toBe(false)
+    expect(acceptsGzip(Option.none())).toBe(false)
   })
 
   it.effect("prefers Railway deployment identity over a local build label", () =>
