@@ -2,14 +2,7 @@ import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { Card } from "../../../contracts/card.js"
-import {
-  docsApiRoute,
-  docsGettingStartedRoute,
-  docsOverviewRoute,
-  docsPathFor,
-  type DocsRoute,
-  type DocsSection
-} from "../../../contracts/docs.js"
+import { docsGettingStartedRoute, docsOverviewRoute, docsPathFor, type DocsRoute } from "../../../contracts/docs.js"
 
 export const DocsDestination = Schema.Struct({
   section: Schema.Literal("overview", "getting-started", "api"),
@@ -22,9 +15,9 @@ export const DocsDestination = Schema.Struct({
 export type DocsDestination = typeof DocsDestination.Type
 
 export const DocsPageCopy = Schema.Struct({
-  eyebrow: Schema.String,
+  context: Schema.NullOr(Schema.String),
   title: Schema.String,
-  description: Schema.String
+  description: Schema.NullOr(Schema.String)
 })
 
 export type DocsPageCopy = typeof DocsPageCopy.Type
@@ -43,13 +36,6 @@ export const docsDestinationsFor = (route: DocsRoute): ReadonlyArray<DocsDestina
     description: "Install the package and run the first Effect program.",
     href: docsPathFor(docsGettingStartedRoute(route.packageSlug)),
     keywords: ["install", "setup", "quick start", "guide"]
-  },
-  {
-    section: "api",
-    label: "API reference",
-    description: "Browse the canonical public modules and symbols.",
-    href: docsPathFor(docsApiRoute(route.packageSlug)),
-    keywords: ["api", "modules", "functions", "types", "reference"]
   }
 ]
 
@@ -74,29 +60,19 @@ export const filterDocsDestinations = (
 export const docsPageCopyFor = (route: DocsRoute, card: Card): DocsPageCopy =>
   Match.value(route).pipe(
     Match.tag("DocsOverviewRoute", () => ({
-      eyebrow: card.group === "effect" ? "Effect libraries" : "Content and cryptography",
+      context: null,
       title: card.title,
       description: card.description
     })),
     Match.tag("DocsGettingStartedRoute", () => ({
-      eyebrow: card.title,
+      context: card.title,
       title: "Getting started",
-      description: `Build a small, typed program with ${card.packageName} and Effect.`
+      description: null
     })),
     Match.tag("DocsApiRoute", ({ moduleSlug }) => ({
-      eyebrow: `${card.title} API`,
+      context: card.title,
       title: moduleSlug ?? "API reference",
-      description: moduleSlug === null
-        ? `Public modules and exports for ${card.packageName}.`
-        : `Public declarations, signatures, and documentation for the ${moduleSlug} module.`
+      description: null
     })),
-    Match.exhaustive
-  )
-
-export const docsSectionLabel = (section: DocsSection): string =>
-  Match.value(section).pipe(
-    Match.when("overview", () => "Learn"),
-    Match.when("getting-started", () => "Learn"),
-    Match.when("api", () => "Reference"),
     Match.exhaustive
   )

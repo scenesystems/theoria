@@ -8,7 +8,7 @@ import type { Card } from "../../../contracts/card.js"
 import { docsOverviewRoute, DocsPackageSlug, docsPathFor } from "../../../contracts/docs.js"
 import { docsPackageMenuOpenAtom, setDocsPackageMenuOpenAtom } from "../../atoms/docs.js"
 import { docsTheme } from "../primitives/docsSystem.js"
-import { Layer, Stack } from "../primitives/Layout.js"
+import { Layer } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
@@ -33,22 +33,13 @@ export const DocsPackagePicker = ({
         aria-label="Choose documentation package"
         className={`${docsTheme.searchTrigger} w-full justify-between lg:w-[15rem]`}
       >
-        <Stack className="min-w-0 gap-0 text-left">
-          <SemanticText
-            as="span"
-            className="text-ink-500"
-            role="row-label"
-            text="Package"
-            variant="compact"
-          />
-          <SemanticText
-            as="span"
-            className="truncate text-ink-900"
-            role="button-label"
-            text={activeCard.title}
-            variant="compact"
-          />
-        </Stack>
+        <SemanticText
+          as="span"
+          className="min-w-0 truncate text-ink-900"
+          role="button-label"
+          text="Packages"
+          variant="compact"
+        />
         <ChevronDownIcon aria-hidden className="h-4 w-4 shrink-0 text-ink-500" />
       </Menu.Trigger>
       <Menu.Portal>

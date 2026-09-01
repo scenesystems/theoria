@@ -12,9 +12,6 @@ export const docsTheme = {
   article: "mx-auto w-full max-w-[54rem]",
   toc: "hidden min-w-0 px-5 py-8 xl:block",
   tocSticky: "sticky top-[6.25rem]",
-  raisedSurface:
-    "rounded-[1.75rem] border border-stage-200/90 bg-stage-0/88 shadow-surface ring-1 ring-stage-0/70 backdrop-blur-sm",
-  softSurface: "rounded-[1.35rem] border border-stage-200/82 bg-stage-0/66 shadow-chip",
   navLink:
     "group flex min-w-0 items-start gap-3 rounded-xl border border-transparent px-3 py-2.5 text-ink-700 transition-[border-color,background-color,color] duration-150 hover:border-stage-200/90 hover:bg-stage-0/72 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20",
   navLinkActive: "border-stage-300/85 bg-stage-0/92 text-ink-950 shadow-chip",

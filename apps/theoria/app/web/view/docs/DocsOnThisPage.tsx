@@ -11,13 +11,16 @@ const anchorsFor = (route: DocsRoute, card: Card) =>
   Match.value(route).pipe(
     Match.tag("DocsOverviewRoute", () => [
       { href: "#overview", label: "Overview" },
-      { href: "#at-a-glance", label: "At a glance" },
-      { href: "#use-with-effect", label: "Use with Effect" },
-      ...(card.id === "effect-search" ? [{ href: "#code-example", label: "Example" }] : [])
+      ...(card.id === "effect-search"
+        ? [{ href: "#code-example", label: "Optimize an objective" }]
+        : [])
     ]),
     Match.tag("DocsGettingStartedRoute", () => [
       { href: "#overview", label: "Getting started" },
-      ...(card.id === "effect-search" ? [{ href: "#code-example", label: "Example" }] : [])
+      { href: "#install", label: "Install" },
+      ...(card.id === "effect-search"
+        ? [{ href: "#code-example", label: "Optimize an objective" }]
+        : [])
     ]),
     Match.tag("DocsApiRoute", () => [{ href: "#overview", label: "API reference" }]),
     Match.exhaustive

@@ -35,15 +35,21 @@ export const DocsHeader = ({
             <Bars3Icon aria-hidden className="h-5 w-5" />
           </Button>
           <InternalLink
-            aria-label="Theoria documentation home"
-            className="inline-flex min-w-0 items-baseline gap-3 text-ink-900 outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
-            href="/docs"
+            aria-label="Theoria home"
+            className="inline-flex min-w-0 items-baseline text-ink-900 outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
+            href="/"
           >
             <TheoriaLogo className="text-[1.55rem] sm:text-[1.7rem]" />
-            <Layer className="hidden h-5 w-px bg-stage-300 sm:block" />
+          </InternalLink>
+          <Layer className="hidden h-5 w-px bg-stage-300 sm:block" />
+          <InternalLink
+            aria-label="Documentation home"
+            className="hidden text-ink-600 outline-none hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex"
+            href="/docs"
+          >
             <SemanticText
               as="span"
-              className="hidden text-ink-600 sm:block"
+              className="text-inherit"
               role="status"
               text="Docs"
               variant="compact"

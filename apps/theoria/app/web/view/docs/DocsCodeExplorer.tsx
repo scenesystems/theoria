@@ -85,17 +85,10 @@ export const DocsCodeExplorer = () => {
       <Stack className="gap-5">
         <Stack className="gap-2">
           <SemanticText
-            as="p"
-            className="text-ink-500"
-            role="row-label"
-            text="Minimal study"
-            variant="expanded"
-          />
-          <SemanticText
             as="h2"
             className="text-ink-950"
             role="section-title"
-            text="Optimize an Effectful objective"
+            text="Optimize an objective"
             variant="expanded"
           />
           <SemanticText

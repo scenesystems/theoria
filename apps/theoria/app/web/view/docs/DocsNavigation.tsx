@@ -6,7 +6,7 @@ import { docsTheme } from "../primitives/docsSystem.js"
 import { Nav, Stack } from "../primitives/Layout.js"
 import { InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { type DocsDestination, docsSectionLabel } from "./docsModel.js"
+import type { DocsDestination } from "./docsModel.js"
 
 const NavigationLink = ({
   active,
@@ -49,28 +49,14 @@ export const DocsNavigation = ({
   readonly onNavigate?: () => void
 }) => (
   <Nav aria-label={label}>
-    <Stack className="gap-5">
-      {Arr.map(Arr.make("Learn", "Reference"), (group) => (
-        <Stack className="gap-1" key={group}>
-          <SemanticText
-            as="h2"
-            className="px-3 text-ink-500"
-            role="row-label"
-            text={group}
-            variant="expanded"
-          />
-          {Arr.map(
-            Arr.filter(destinations, (destination) => docsSectionLabel(destination.section) === group),
-            (destination) => (
-              <NavigationLink
-                active={destination.section === activeSection}
-                destination={destination}
-                key={destination.href}
-                {...(onNavigate === undefined ? {} : { onNavigate })}
-              />
-            )
-          )}
-        </Stack>
+    <Stack className="gap-1">
+      {Arr.map(destinations, (destination) => (
+        <NavigationLink
+          active={destination.section === activeSection}
+          destination={destination}
+          key={destination.href}
+          {...(onNavigate === undefined ? {} : { onNavigate })}
+        />
       ))}
     </Stack>
   </Nav>

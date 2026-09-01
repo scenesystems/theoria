@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client"
 import { cards } from "../../app/contracts/card.js"
 import { docsOverviewRoute } from "../../app/contracts/docs.js"
 import { DocsPage } from "../../app/web/view/docs/DocsPage.js"
+import { SiteHeader } from "../../app/web/view/primitives/SiteHeader.js"
 
 const render = (node: ReactNode) => {
   const container = document.createElement("div")
@@ -47,10 +48,33 @@ describe("documentation shell", () => {
           expect(container.querySelector('[role="tabpanel"]')).not.toBeNull()
           expect(container.textContent).not.toContain("Documentation foundations")
           expect(container.textContent).not.toContain("semantic page models")
+          expect(container.textContent).not.toContain("At a glance")
+          expect(container.textContent).not.toContain("What it does")
+          expect(container.textContent).not.toContain("Use with Effect")
+          expect(container.textContent).not.toContain("API reference")
+          expect(container.querySelector('a[aria-label="Theoria home"]')?.getAttribute("href")).toBe("/")
+          expect(container.querySelector('a[aria-label="Documentation home"]')?.getAttribute("href")).toBe("/docs")
 
           document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))
           yield* waitFor(() => document.querySelector('input[type="search"]') !== null)
           expect(document.querySelector('input[type="search"]')).toBe(document.activeElement)
+        }),
+        Effect.sync(() => {
+          root.unmount()
+          container.remove()
+        })
+      )
+    }))
+
+  it.effect("links the landing page to the separate documentation surface", () =>
+    Effect.gen(function*() {
+      const { container, root } = render(<SiteHeader />)
+
+      yield* Effect.ensuring(
+        Effect.gen(function*() {
+          yield* waitFor(() => container.querySelector('a[href="/docs"]') !== null)
+          expect(container.querySelector('a[href="/docs"]')?.textContent).toBe("Docs")
+          expect(container.querySelector('a[href="/"]')).not.toBeNull()
         }),
         Effect.sync(() => {
           root.unmount()

@@ -65,7 +65,7 @@ export const DocsSearchDialog = ({
                     autoFocus
                     label="Search Theoria documentation"
                     onChange={(event) => setQuery(event.currentTarget.value)}
-                    placeholder="Search guides and API reference"
+                    placeholder="Search packages and guides"
                     value={query}
                   />
                 </Layer>
@@ -75,7 +75,7 @@ export const DocsSearchDialog = ({
               </Cluster>
               <Dialog.Title className="sr-only">Theoria documentation search</Dialog.Title>
               <Dialog.Description className="sr-only">
-                Search package guides and the public API reference.
+                Search package guides.
               </Dialog.Description>
               <Stack className="max-h-[26rem] gap-1 overflow-y-auto p-2 sm:p-3">
                 {Arr.isNonEmptyReadonlyArray(results)
@@ -93,14 +93,6 @@ export const DocsSearchDialog = ({
                           role="button-label"
                           text={destination.label}
                           variant="compact"
-                        />
-                        <SemanticText
-                          as="span"
-                          className="text-ink-500"
-                          role="status"
-                          text={destination.description}
-                          variant="compact"
-                          wrapAuthority="native-browser"
                         />
                       </Stack>
                       <ArrowRightIcon
@@ -129,15 +121,6 @@ export const DocsSearchDialog = ({
                     </Stack>
                   )}
               </Stack>
-              <Cluster className="justify-end border-t border-stage-200/90 bg-stage-50/65 px-4 py-2.5">
-                <SemanticText
-                  as="kbd"
-                  className="text-ink-500"
-                  role="code-meta"
-                  text="ESC"
-                  variant="compact"
-                />
-              </Cluster>
             </Stack>
           </Dialog.Popup>
         </Dialog.Viewport>

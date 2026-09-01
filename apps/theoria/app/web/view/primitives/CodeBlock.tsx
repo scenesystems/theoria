@@ -7,9 +7,11 @@ import { SemanticText } from "./SemanticText.js"
 
 export const CodeBlock = ({
   label,
+  language = "TypeScript",
   source
 }: {
   readonly label: string
+  readonly language?: "Shell" | "TypeScript"
   readonly source: string
 }) => (
   <Section aria-label={`${label} code example`} className={docsTheme.code}>
@@ -25,7 +27,7 @@ export const CodeBlock = ({
         as="span"
         className="text-ink-500"
         role="row-label"
-        text="TypeScript"
+        text={language}
         variant="expanded"
       />
     </Cluster>
@@ -33,7 +35,17 @@ export const CodeBlock = ({
       <ScrollArea.Viewport className="max-h-[32rem] w-full">
         <ScrollArea.Content>
           <Layer as="pre" className="m-0 min-w-max px-4 py-5 sm:px-5">
-            <HighlightedCode source={source} variant="expanded" />
+            {language === "TypeScript"
+              ? <HighlightedCode source={source} variant="expanded" />
+              : (
+                <SemanticText
+                  as="code"
+                  className="block text-ink-900"
+                  role="code-block"
+                  text={source}
+                  variant="expanded"
+                />
+              )}
           </Layer>
         </ScrollArea.Content>
       </ScrollArea.Viewport>

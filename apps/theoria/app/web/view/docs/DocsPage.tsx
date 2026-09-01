@@ -56,16 +56,7 @@ const DocsShell = ({
       <DocsHeader activeCard={activeCard} cards={cards} />
       <Layer className={docsTheme.workbench}>
         <Section as="aside" className={docsTheme.sidebar}>
-          <Stack className={`${docsTheme.sidebarSticky} gap-7`}>
-            <Stack className="gap-1 px-3">
-              <SemanticText
-                as="p"
-                className="text-ink-900"
-                role="status"
-                text={activeCard.title}
-                variant="compact"
-              />
-            </Stack>
+          <Stack className={docsTheme.sidebarSticky}>
             <DocsNavigation
               activeSection={activeSection}
               destinations={destinations}
