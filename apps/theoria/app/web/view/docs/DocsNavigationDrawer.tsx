@@ -48,7 +48,11 @@ export const DocsNavigationDrawer = ({
                   />
                 }
               />
-              <DocsPackagePicker activePackage={docsPackage} packages={manifest.packages} />
+              <DocsPackagePicker
+                activePackage={docsPackage}
+                onNavigate={() => setOpen(false)}
+                packages={manifest.packages}
+              />
               <DocsNavigation
                 docsPackage={docsPackage}
                 onNavigate={() => setOpen(false)}

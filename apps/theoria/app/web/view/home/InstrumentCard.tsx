@@ -14,8 +14,9 @@ import { Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
 const metaItems = (card: Card, version: string): ReadonlyArray<MetaItem> => [
-  { _tag: "link", label: `npm@${version}`, href: card.npmUrl },
-  { _tag: "link", label: "Source", href: card.repoUrl },
+  { _tag: "internal-link", label: "Docs", href: `/docs/${card.id}` },
+  { _tag: "external-link", label: `npm@${version}`, href: card.npmUrl },
+  { _tag: "external-link", label: "Source", href: card.repoUrl },
   { _tag: "text", label: card.license }
 ]
 

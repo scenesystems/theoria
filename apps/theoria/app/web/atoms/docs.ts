@@ -4,7 +4,6 @@ import { Effect, Option } from "effect"
 export const docsSearchOpenAtom = Atom.make(false)
 export const docsSearchQueryAtom = Atom.make("")
 export const docsNavigationOpenAtom = Atom.make(false)
-export const docsPackageMenuOpenAtom = Atom.make(false)
 export const docsLocationHashAtom = Atom.make("")
 export const docsCopiedCodeAtom = Atom.make(Option.none<string>())
 export const docsCopyFailedCodeAtom = Atom.make(Option.none<string>())
@@ -85,8 +84,4 @@ export const setDocsSearchOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
 
 export const setDocsNavigationOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
   ctx.set(docsNavigationOpenAtom, open)
-})
-
-export const setDocsPackageMenuOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
-  ctx.set(docsPackageMenuOpenAtom, open)
 })
