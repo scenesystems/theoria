@@ -1,12 +1,12 @@
 /**
- * Streaming digest pipelines.
+ * Incremental hashing for byte and logical-text streams.
  *
  * These helpers hash chunked streams without requiring callers to pre-concatenate
  * all bytes in memory. Text streams preserve chunk-boundary independence while
  * rejecting malformed UTF-16 with an absolute code-unit index.
  *
- * @see {@link digestBytes} one-shot byte hashing for non-streaming inputs
- * @see {@link digestUtf8} one-shot UTF-8 hashing for non-streaming inputs
+ * @see {@link digestBytes}
+ * @see {@link digestUtf8}
  * @see https://effect.website/docs/stream/ Stream APIs
  * @see https://effect.website/docs/stream/operations/#runfoldeffect Stream.runFoldEffect
  *
@@ -103,12 +103,11 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
   })
 
 /**
- * Produces the same digest as hashing the chunks' byte concatenation.
+ * Hashes byte chunks in order without first concatenating them.
  *
  * @remarks
- * The resulting digest is invariant to chunk boundaries and depends only on
- * chunk order and byte content.
- * Upstream failure and service types remain in the returned Effect.
+ * Chunk boundaries do not affect the digest. Upstream failures and service
+ * requirements remain in the returned Effect.
  *
  * @typeParam E - Upstream stream error type.
  * @typeParam R - Services required by the stream.
@@ -121,11 +120,19 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
  * import { digestByteStream, encodeUtf8 } from "@scenesystems/digest"
  * import { Effect, Stream } from "effect"
  *
- * const program = Effect.gen(function*() {
+ * const sameDigest = Effect.gen(function*() {
  *   const first = yield* encodeUtf8("scene-")
  *   const second = yield* encodeUtf8("systems")
- *   return yield* digestByteStream("blake3-256", Stream.fromIterable([first, second]))
+ *   const split = yield* digestByteStream("blake3-256", Stream.fromIterable([first, second]))
+ *   const joined = yield* digestByteStream(
+ *     "blake3-256",
+ *     Stream.make(new Uint8Array([...first, ...second]))
+ *   )
+ *   return split.every((byte, index) => byte === joined[index])
  * })
+ *
+ * const result = await Effect.runPromise(sameDigest)
+ * if (!result) throw new Error("chunk boundaries changed the digest")
  * ```
  *
  * @since 0.2.0
@@ -145,7 +152,7 @@ export const digestByteStream = <E, R>(
     ))
 
 /**
- * Strictly encodes logical text across chunk boundaries before hashing it.
+ * Hashes strict UTF-8 text while allowing surrogate pairs to span adjacent chunks.
  *
  * @remarks
  * Malformed UTF-16 fails with an absolute code-unit index in the logical
@@ -180,9 +187,16 @@ export const digestUtf8Stream = <E, R>(
     ))
 
 /**
- * Returns the unpadded base64url digest of strict logical streamed text.
- * Returns a 43-character output for 256-bit digests.
- * Surrogate pairs may span chunks; upstream errors and requirements are preserved.
+ * Encodes the streamed-text digest as 43 unpadded base64url characters.
+ *
+ * @remarks
+ * Surrogate pairs may span chunks. Upstream failures and requirements are preserved.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered UTF-16 text chunks forming one logical input.
+ * @returns The encoded digest, or the upstream error or `InvalidUnicode`.
  *
  * @since 0.2.0
  * @category digest
@@ -193,9 +207,16 @@ export const digestUtf8StreamBase64Url = <E, R>(
 ): Effect.Effect<string, E | InvalidUnicode, R> => Effect.map(digestUtf8Stream(algorithm, chunks), toBase64Url)
 
 /**
- * Returns the lowercase hexadecimal digest of strict logical streamed text.
- * Returns a 64-character output for 256-bit digests.
- * Surrogate pairs may span chunks; upstream errors and requirements are preserved.
+ * Encodes the streamed-text digest as 64 lowercase hexadecimal characters.
+ *
+ * @remarks
+ * Surrogate pairs may span chunks. Upstream failures and requirements are preserved.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered UTF-16 text chunks forming one logical input.
+ * @returns The encoded digest, or the upstream error or `InvalidUnicode`.
  *
  * @since 0.2.0
  * @category digest
@@ -206,11 +227,16 @@ export const digestUtf8StreamHex = <E, R>(
 ): Effect.Effect<string, E | InvalidUnicode, R> => Effect.map(digestUtf8Stream(algorithm, chunks), toHex)
 
 /**
- * Returns the unpadded base64url digest of the chunks' byte concatenation.
+ * Encodes the streamed-byte digest as 43 unpadded base64url characters.
  *
  * @remarks
- * Returns a 43-character output for 256-bit digests.
- * Upstream errors and requirements are preserved.
+ * Upstream failures and requirements are preserved.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered byte chunks; boundaries do not affect the result.
+ * @returns The encoded digest after successful stream completion.
  *
  * @since 0.2.0
  * @category digest
@@ -221,11 +247,16 @@ export const digestByteStreamBase64Url = <E, R>(
 ): Effect.Effect<string, E, R> => Effect.map(digestByteStream(algorithm, chunks), toBase64Url)
 
 /**
- * Returns the lowercase hexadecimal digest of the chunks' byte concatenation.
+ * Encodes the streamed-byte digest as 64 lowercase hexadecimal characters.
  *
  * @remarks
- * Returns a 64-character output for 256-bit digests.
- * Upstream errors and requirements are preserved.
+ * Upstream failures and requirements are preserved.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered byte chunks; boundaries do not affect the result.
+ * @returns The encoded digest after successful stream completion.
  *
  * @since 0.2.0
  * @category digest

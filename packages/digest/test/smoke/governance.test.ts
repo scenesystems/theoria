@@ -28,7 +28,12 @@ import {
 
 const MAX_SOURCE_FILE_LINES = 240
 
-const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = []
+const OVERSIZE_SOURCE_FILE_NOTES: ReadonlyArray<readonly [string, string]> = [
+  [
+    "src/streaming.ts",
+    "The public byte and text stream variants share one incremental state machine and chunk-boundary contract."
+  ]
+]
 
 const OVERSIZE_SOURCE_FILE_NOTES_MAP = HashMap.fromIterable(OVERSIZE_SOURCE_FILE_NOTES)
 

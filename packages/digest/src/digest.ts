@@ -1,22 +1,14 @@
 /**
- * Unified digest pipeline.
+ * Algorithm-tagged digests for canonical structured data.
  *
- * Composes the full content-addressing pipeline in a single call:
+ * The canonical JSON bytes form the hash preimage. The result records the
+ * selected digest algorithm beside its unpadded base64url value.
  *
- * ```
- * Structured Value
- *   → canonicalize (RFC 8785 JCS)
- *   → UTF-8 encode
- *   → hash (BLAKE3-256 or SHA-256)
- *   → base64url encode
- *   → algorithm-tagged string
- * ```
- *
- * @see {@link canonicalize} — first stage: deterministic JSON serialization
- * @see {@link blake3Hash} — primary hash function
- * @see {@link sha256} — secondary hash function
- * @see {@link toBase64Url} — final stage: byte-to-string encoding
- * @see {@link DigestAlgorithm} — supported algorithm literals
+ * @see {@link canonicalize}
+ * @see {@link blake3Hash}
+ * @see {@link sha256}
+ * @see {@link toBase64Url}
+ * @see {@link DigestAlgorithm}
  *
  * @since 0.1.0
  * @category digest
@@ -30,12 +22,11 @@ import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError } from "./schemas/errors.js"
 
 /**
- * Produces a self-describing digest for a canonical structured value.
+ * Hashes a value's RFC 8785 encoding and prefixes the digest with its algorithm identifier.
  *
  * @remarks
- * Returns an algorithm-tagged string: `"<algorithm>:<base64url>"`. The
- * canonicalization stage is strict and stack-safe, preserves admitted Unicode
- * exactly, and rejects malformed or unsupported values with bounded errors.
+ * Admitted Unicode is preserved without normalization. Unsupported values,
+ * malformed Unicode, and cycles fail before a digest is returned.
  *
  * @param algorithm - Algorithm recorded in and used to produce the result.
  * @param value - Value in the strict canonical plain-data domain.

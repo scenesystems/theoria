@@ -1,38 +1,11 @@
 /**
- * HKDF key derivation functions (RFC 5869).
+ * RFC 5869 extract-and-expand key derivation with SHA-256 or SHA-512.
  *
- * Extract-then-expand key derivation using `@noble/hashes/hkdf.js`.
- * Converts input keying material into output bytes using SHA-256 or SHA-512.
+ * `info` supplies application context for domain separation. An absent salt
+ * uses the RFC-defined all-zero value whose length matches the selected hash.
  *
- * Parameters follow RFC 5869 naming:
- * - `ikm` — input keying material (raw secret bytes)
- * - `salt` — optional non-secret random value (improves
- *   extraction; defaults to hash-length zero bytes per RFC)
- * - `info` — context/application-specific info string for domain
- *   separation (e.g., `"effect-search/trial-key"`)
- * - `dkLen` — desired output length in bytes (e.g., 32 for
- *   AES-256)
- *
- * Pure `Uint8Array` in/out. The `info` parameter provides domain
- * separation analogous to BLAKE3's context mode but using the
- * standard HMAC-based construction.
- *
- * @example
- * ```ts
- * import { encodeUtf8, hkdfSha256 } from "@scenesystems/digest"
- * import { Effect, Option } from "effect"
- *
- * // Derive an AES-256 key from raw key material (e.g., X25519 shared secret)
- * const program = Effect.gen(function*() {
- *   const sharedSecret = new Uint8Array(32) // from key agreement
- *   const salt = Option.some(new Uint8Array(32)) // random salt
- *   const info = yield* encodeUtf8("aes-256-key")
- *   const aesKey = yield* hkdfSha256(sharedSecret, salt, info, 32)
- * })
- * ```
- *
- * @see {@link hmacSha256} — HMAC primitive used internally by HKDF
- * @see {@link blake3DeriveKey} — BLAKE3 native KDF alternative
+ * @see {@link hmacSha256}
+ * @see {@link blake3DeriveKey}
  *
  * @since 0.1.0
  * @category key-derivation
@@ -44,7 +17,7 @@ import { sha512 } from "@noble/hashes/sha2.js"
 import { Effect, Option } from "effect"
 
 /**
- * Uses HKDF-SHA256 as defined by RFC 5869.
+ * Derives bytes with HKDF-SHA256 as defined by RFC 5869.
  *
  * @remarks
  * `Option.none()` supplies a hash-length all-zero salt. Invalid output lengths
@@ -68,7 +41,7 @@ export const hkdfSha256 = (
   Effect.sync(() => hkdf(sha256, ikm, Option.getOrElse(salt, () => new Uint8Array(sha256.outputLen)), info, dkLen))
 
 /**
- * Uses HKDF-SHA512 with RFC 5869 extract-then-expand semantics.
+ * Derives bytes with HKDF-SHA512 as defined by RFC 5869.
  *
  * @remarks
  * `Option.none()` supplies a hash-length all-zero salt. Invalid output lengths

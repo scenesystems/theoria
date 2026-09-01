@@ -1,11 +1,10 @@
 /**
- * Typed errors for digest operations.
+ * Closed error schemas for strict text encoding, canonicalization, and bounded hashing.
  *
- * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
- * catchable via `Effect.catchTag`, serializable via Schema.
+ * Each variant omits rejected input text and preimage data from its fields.
  *
- * @see {@link durableFingerprint} — canonical fingerprinting with closed errors
- * @see {@link blake3Mac} — the operation that produces InvalidKeyLength
+ * @see {@link durableFingerprint}
+ * @see {@link blake3Mac}
  *
  * @since 0.1.0
  * @category errors
@@ -13,11 +12,11 @@
 import { Schema } from "effect"
 
 /**
- * Reports BLAKE3 keyed-mode rejection before message authentication begins.
+ * Reports a BLAKE3 keyed-mode key whose length is not 32 bytes.
  *
  * @remarks
- * BLAKE3 keyed mode requires exactly 32 bytes. This error captures
- * the expected and actual lengths for diagnostics.
+ * Authentication does not begin when this error is returned. `expected` is 32,
+ * and `actual` is the supplied key length.
  *
  * @since 0.1.0
  * @category errors
@@ -150,7 +149,7 @@ export const CanonicalByteLimitError = Schema.Union(
 )
 
 /**
- * Error channel shared by bounded digest operations before canonicalization errors.
+ * Distinguishes an invalid limit from a canonical preimage that exceeds a valid limit.
  *
  * @since 0.3.4
  * @category errors
@@ -170,7 +169,7 @@ export const CanonicalizationError = Schema.Union(
 )
 
 /**
- * Error channel emitted by strict canonical structured-value operations.
+ * Distinguishes malformed Unicode, unsupported structures, and cyclic input.
  *
  * @since 0.3.0
  * @category errors

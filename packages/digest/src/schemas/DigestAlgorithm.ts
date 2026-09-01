@@ -1,12 +1,12 @@
 /**
- * Supported durable digest algorithms as a Schema literal union.
+ * Schema for the stable digest algorithm identifiers used on the wire.
  *
  * Values are stable wire identifiers used in algorithm-tagged digest strings.
  *
- * @see {@link blake3Hash} — BLAKE3 byte hashing
- * @see {@link sha256} — SHA-256 byte hashing
- * @see {@link Digest256} — the base64url value this tags
- * @see {@link ContentDigest} — algorithm-tagged digest pair
+ * @see {@link blake3Hash}
+ * @see {@link sha256}
+ * @see {@link Digest256}
+ * @see {@link ContentDigest}
  *
  * @since 0.1.0
  * @category schemas
@@ -22,7 +22,7 @@ import { Schema } from "effect"
 export const DigestAlgorithm = Schema.Literal("blake3-256", "sha256")
 
 /**
- * Union of the wire identifiers accepted by hashing pipelines.
+ * The `"blake3-256" | "sha256"` wire identifier accepted by digest operations.
  *
  * @since 0.1.0
  * @category schemas

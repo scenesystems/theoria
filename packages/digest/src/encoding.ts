@@ -1,18 +1,16 @@
 /**
- * Base64url and hex encoding (RFC 4648 §5).
+ * Strict UTF-8, base64url, and hexadecimal encoding.
  *
  * All 256-bit digests encode to 43 base64url characters without padding or 64
  * hexadecimal characters.
  *
- * URL-safe alphabet: `A-Z a-z 0-9 - _` (no `+` `/` `=`).
+ * Base64url uses the RFC 4648 section 5 alphabet without padding. Raw-byte
+ * encoders are pure. Strict text encoding rejects malformed UTF-16, and byte
+ * decoders report malformed wire input through `Either.Left`.
  *
- * Raw-byte encode operations are pure. Strict text encoding returns an Effect
- * that rejects malformed UTF-16, while decode operations return `Either` —
- * left for malformed input, right for bytes.
- *
- * @see {@link blake3Hash} — produces `Uint8Array` that this module encodes
- * @see {@link sha256} — produces `Uint8Array` that this module encodes
- * @see {@link Digest256} — schema enforcing the encoded output shape
+ * @see {@link blake3Hash}
+ * @see {@link sha256}
+ * @see {@link Digest256}
  *
  * @since 0.1.0
  * @category encoding
@@ -24,7 +22,7 @@ import { encodeUtf8Unchecked, unicodeFault } from "./internal/unicode.js"
 import type { InvalidUnicode } from "./schemas/errors.js"
 
 /**
- * Strictly encode well-formed Unicode text as UTF-8 bytes.
+ * Encodes well-formed Unicode text as UTF-8 without normalization or replacement.
  *
  * @remarks
  * Malformed UTF-16 fails with the offending code-unit index relative to the
@@ -32,16 +30,6 @@ import type { InvalidUnicode } from "./schemas/errors.js"
  *
  * @param text - Text to encode without normalization or replacement.
  * @returns UTF-8 bytes, or `InvalidUnicode` at the first unpaired surrogate.
- *
- * @example
- * ```ts
- * import { encodeUtf8 } from "@scenesystems/digest"
- * import { Effect } from "effect"
- *
- * const program = Effect.gen(function*() {
- *   return yield* encodeUtf8("hello 😀")
- * })
- * ```
  *
  * @since 0.3.0
  * @category encoding
@@ -55,7 +43,7 @@ export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnico
   )
 
 /**
- * Uses the RFC 4648 §5 alphabet and omits padding.
+ * Encodes bytes with the RFC 4648 section 5 alphabet and omits padding.
  *
  * @param bytes - Bytes to encode.
  * @returns The unpadded base64url representation.
@@ -66,7 +54,7 @@ export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnico
 export const toBase64Url = (bytes: Uint8Array): string => Encoding.encodeBase64Url(bytes)
 
 /**
- * Decodes an unpadded RFC 4648 §5 representation.
+ * Decodes an unpadded RFC 4648 section 5 representation.
  *
  * @param str - Encoded input.
  * @returns Decoded bytes, or `DecodeException` for malformed input.
@@ -78,7 +66,7 @@ export const fromBase64Url = (str: string): Either.Either<Uint8Array, Encoding.D
   Encoding.decodeBase64Url(str)
 
 /**
- * Emits two lowercase hexadecimal characters per byte.
+ * Encodes each byte as two lowercase hexadecimal characters.
  *
  * @param bytes - Bytes to encode.
  * @returns The lowercase hexadecimal representation.

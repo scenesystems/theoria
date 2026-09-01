@@ -1,37 +1,13 @@
 /**
- * HMAC message authentication codes.
+ * RFC 2104 HMAC-SHA256 and HMAC-SHA1 message authentication.
  *
- * Keyed-hash message authentication using `@noble/hashes/hmac.js`
- * per RFC 2104. Two variants match the ecosystem's needs:
+ * The operations accept raw key and message bytes and return tags only. A
+ * verifier must compare the received and computed tags with a constant-time
+ * byte comparison. HMAC-SHA1 is retained for protocols that require it.
  *
- * - **HMAC-SHA256** — protocols requiring a SHA-256 HMAC.
- * - **HMAC-SHA1** — protocols that explicitly specify SHA-1.
- *
- * Pure `Uint8Array` in/out — key and message are both byte arrays.
- * Callers use {@link encodeUtf8} for strict text encoding or the raw-byte
- * decoding APIs appropriate to their wire format.
- *
- * Output length matches the underlying hash: 32 bytes for SHA-256,
- * 20 bytes for SHA-1. Encode with {@link toBase64Url} or
- * {@link toHex} as the consumer requires. These functions compute tags only;
- * callers performing verification must use a constant-time byte comparison.
- *
- * @example
- * ```ts
- * import { encodeUtf8, hmacSha256, toBase64Url } from "@scenesystems/digest"
- * import { Effect } from "effect"
- *
- * const program = Effect.gen(function*() {
- *   const key = yield* encodeUtf8("webhook-secret")
- *   const message = yield* encodeUtf8('{"event":"charge.succeeded"}')
- *   const mac = yield* hmacSha256(key, message)
- *   const encoded = toBase64Url(mac)
- * })
- * ```
- *
- * @see {@link sha256} — underlying hash for HMAC-SHA256
- * @see {@link blake3Mac} — BLAKE3 keyed mode for non-legacy MACs
- * @see {@link toBase64Url} — encode output for transport
+ * @see {@link sha256}
+ * @see {@link blake3Mac}
+ * @see {@link toBase64Url}
  *
  * @since 0.1.0
  * @category authentication
@@ -44,11 +20,11 @@ import { Effect } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
 
 /**
- * Produces the 32-byte HMAC-SHA256 tag.
+ * Computes the 32-byte HMAC-SHA256 tag defined by RFC 2104.
  *
  * @remarks
- * Key length is flexible per RFC 2104 — short keys are zero-padded
- * to block size, long keys are hashed to block size internally.
+ * RFC 2104 hashes keys longer than the SHA-256 block size and pads shorter
+ * keys during HMAC processing.
  *
  * @param key - Secret key bytes.
  * @param message - Message bytes.
@@ -63,10 +39,7 @@ export const hmacSha256 = (
 ): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(nobleSha256, key, message))
 
 /**
- * Produces the 20-byte HMAC-SHA1 tag.
- *
- * @remarks
- * Use when an external protocol explicitly specifies HMAC-SHA1.
+ * Computes a 20-byte HMAC-SHA1 tag for protocols that still require it.
  *
  * @param key - Secret key bytes.
  * @param message - Message bytes.
@@ -81,7 +54,7 @@ export const hmacSha1 = (
 ): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(sha1, key, message))
 
 /**
- * Compute HMAC-SHA256 and encode as base64url (no padding).
+ * Computes HMAC-SHA256 and returns its unpadded base64url encoding.
  *
  * @remarks
  * The output is 43 unpadded base64url characters. Signature comparison remains
@@ -100,7 +73,7 @@ export const hmacSha256Base64Url = (
 ): Effect.Effect<string> => Effect.map(hmacSha256(key, message), toBase64Url)
 
 /**
- * Compute HMAC-SHA1 and encode as lowercase hex.
+ * Computes HMAC-SHA1 and returns its lowercase hexadecimal encoding.
  *
  * @remarks
  * Use when an external protocol specifies HMAC-SHA1 as lowercase hex.

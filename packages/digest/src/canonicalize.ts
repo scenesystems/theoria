@@ -1,25 +1,14 @@
 /**
- * RFC 8785 JSON Canonicalization Scheme (JCS).
+ * RFC 8785 JSON canonicalization for strict plain data.
  *
- * Deterministic JSON serialization for structured data before hashing.
- *
- * **RFC 8785 rules applied:**
- * - Object keys sorted lexicographically by UTF-16 code units
- * - Numbers use ES2015 canonical representation (no trailing zeros,
- *   no positive sign, shortest representation)
- * - No whitespace between tokens
- * - No BOM
- * - `null` is preserved; `undefined` is rejected
- * - Nested objects and arrays are serialized by an explicit stack-safe machine
- *
- * Strings and object keys must be well-formed Unicode and are preserved without
- * normalization. Property accessors and unsupported reflection are rejected;
- * getters are never evaluated. Callers compose the canonical JSON string with
- * {@link blake3Hash} or {@link sha256} for the full digest pipeline.
+ * Object keys use UTF-16 lexical order and numbers use the ECMAScript shortest
+ * representation. The encoder emits no whitespace or byte-order mark. Strings
+ * and keys must contain well-formed Unicode and are not normalized. Accessor
+ * properties are rejected without invoking their getters.
  *
  * @see https://www.rfc-editor.org/rfc/rfc8785
- * @see {@link digest} — unified pipeline: canonicalize → encode → hash → base64url
- * @see {@link durableFingerprint} — Effect-wrapped canonical fingerprinting
+ * @see {@link digest}
+ * @see {@link durableFingerprint}
  *
  * @since 0.1.0
  * @category canonicalization
@@ -30,21 +19,18 @@ import { canonicalizeValue } from "./internal/jcs.js"
 import type { CanonicalizationError } from "./schemas/errors.js"
 
 /**
- * Canonicalize a value to RFC 8785 JCS canonical JSON.
+ * Serializes admitted plain data as RFC 8785 canonical JSON.
  *
  * @remarks
  * The admitted domain is finite JSON primitives, dense arrays, and plain data
- * records. Traversal is stack-safe, deterministic, and cooperative in fixed-size
- * Effect batches. The input graph must remain quiescent throughout execution;
- * interruption publishes no partial output. Values outside that domain fail with
- * the closed, bounded `CanonicalizationError` union.
+ * records. Traversal is stack-safe and yields between bounded batches. The input
+ * graph must not change before the Effect completes. Interruption publishes no
+ * partial output. Values outside the domain fail through the closed
+ * `CanonicalizationError` union.
  *
- * Package-owned references to input arrays, symbol descriptor values, descriptor
- * snapshots, and traversal arrays are scoped to one invocation. They are not
- * cached, interned, registered, published, included in returned errors, text, or
- * bytes, or retained after completion or interruption. Symbol-keyed data values
- * are neither read nor traversed. This ownership guarantee makes no claim about
- * when the host garbage collector reclaims otherwise unreachable values.
+ * The operation does not retain input references after completion or
+ * interruption, and returned errors do not contain rejected values.
+ * Symbol-keyed properties are not read or traversed.
  *
  * @param value - Value to admit and serialize; it must remain unchanged until the Effect completes.
  * @returns Canonical JSON, or a closed structural, Unicode, or cycle error.

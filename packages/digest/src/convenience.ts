@@ -1,20 +1,12 @@
 /**
- * Convenience digest functions.
+ * One-shot hashing for bytes, strict text, and canonical structured data.
  *
- * Algorithm-parameterized pipelines for common hashing workflows:
- * raw bytes → hash, string → hash, with optional encoding
- * (base64url or hex).
+ * Callers select BLAKE3-256 or SHA-256 and may receive raw digest bytes,
+ * unpadded base64url, or lowercase hexadecimal output.
  *
- * These compose the low-level primitives ({@link blake3Hash},
- * {@link sha256}, {@link toBase64Url}, {@link toHex}) into
- * single-call operations parameterized by {@link DigestAlgorithm}.
- *
- * @see {@link digestBytes} — raw byte hashing
- * @see {@link digestUtf8} — string hashing
- * @see {@link digestBytesBase64Url} — hash + base64url
- * @see {@link digestUtf8Base64Url} — hash string + base64url
- * @see {@link digestBytesHex} — hash + hex
- * @see {@link canonicalJsonBytes} — canonicalize to UTF-8 bytes
+ * @see {@link digestBytes}
+ * @see {@link digestUtf8}
+ * @see {@link canonicalJsonBytes}
  *
  * @since 0.1.0
  * @category digest
@@ -28,7 +20,7 @@ import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError, InvalidUnicode } from "./schemas/errors.js"
 
 /**
- * Produces a 32-byte digest without text encoding or canonicalization.
+ * Hashes an exact byte preimage without text encoding or canonicalization.
  *
  * @remarks
  * Use this when the caller already owns the exact preimage bytes.
@@ -46,11 +38,10 @@ export const digestBytes = (
 ): Effect.Effect<Uint8Array> => hashBytes(algorithm, bytes)
 
 /**
- * Produces a digest from the strict UTF-8 encoding of text.
+ * Hashes the strict UTF-8 encoding of text without Unicode normalization.
  *
  * @remarks
- * Strictly encodes well-formed Unicode without normalization, then hashes.
- * Malformed UTF-16 fails with its offending code-unit index.
+ * An unpaired UTF-16 surrogate fails with its code-unit index.
  *
  * @param algorithm - Digest algorithm applied to the encoded text.
  * @param text - Text to encode without normalization or replacement.
@@ -65,7 +56,7 @@ export const digestUtf8 = (
 ): Effect.Effect<Uint8Array, InvalidUnicode> => Effect.flatMap(encodeUtf8(text), (bytes) => hashBytes(algorithm, bytes))
 
 /**
- * Produces the transport-safe unpadded base64url form of a byte digest.
+ * Hashes bytes and encodes the 32-byte digest as unpadded base64url.
  *
  * @remarks
  * Returns a 43-character string for 256-bit digests.
@@ -83,11 +74,11 @@ export const digestBytesBase64Url = (
 ): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toBase64Url)
 
 /**
- * Produces an unpadded base64url digest from strictly encoded text.
+ * Hashes strict UTF-8 text and encodes the digest as unpadded base64url.
  *
  * @remarks
- * Strictly encodes well-formed Unicode without normalization, then hashes and
- * encodes the digest. Malformed UTF-16 fails with its offending code-unit index.
+ * Text is not normalized. An unpaired UTF-16 surrogate fails with its
+ * code-unit index.
  *
  * @param algorithm - Digest algorithm applied to the encoded text.
  * @param text - Text to encode without normalization or replacement.
@@ -102,7 +93,7 @@ export const digestUtf8Base64Url = (
 ): Effect.Effect<string, InvalidUnicode> => Effect.map(digestUtf8(algorithm, text), toBase64Url)
 
 /**
- * Produces the lowercase hexadecimal form of a byte digest.
+ * Hashes bytes and encodes the 32-byte digest as lowercase hexadecimal.
  *
  * @remarks
  * Returns a 64-character string for 256-bit digests.
@@ -120,13 +111,11 @@ export const digestBytesHex = (
 ): Effect.Effect<string> => Effect.map(hashBytes(algorithm, bytes), toHex)
 
 /**
- * Canonicalize a structured value to UTF-8 bytes via RFC 8785 JCS.
+ * Encodes admitted structured data as its exact RFC 8785 UTF-8 byte sequence.
  *
  * @remarks
- * Composes strict, stack-safe {@link canonicalize} with UTF-8 encoding to
- * produce the exact canonical bytes ready for hashing. Malformed Unicode in
- * values or keys fails through `CanonicalizationError`; replacement text is
- * never emitted.
+ * Malformed Unicode in values or keys fails through `CanonicalizationError`;
+ * replacement text is never emitted.
  *
  * @param value - Value in the strict canonical plain-data domain.
  * @returns Exact canonical UTF-8 bytes, or a canonicalization failure.
@@ -140,10 +129,11 @@ export const canonicalJsonBytes = (
   Effect.flatMap(canonicalizeSegments(value), encodeCanonicalSegments)
 
 /**
- * Produces a raw digest whose identity is independent of object insertion order.
+ * Hashes canonical JSON bytes so object insertion order does not affect the digest.
  *
  * @remarks
- * Equivalent to `canonicalJsonBytes(value)` followed by `digestBytes(algorithm, bytes)`.
+ * This is equivalent to passing the output of `canonicalJsonBytes` to
+ * `digestBytes`.
  *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
  * @param value - Value in the strict canonical plain-data domain.
@@ -159,7 +149,7 @@ export const digestCanonicalJsonBytes = (
   Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytes(algorithm, bytes))
 
 /**
- * Produces an unpadded base64url digest with canonical structured-data identity.
+ * Hashes canonical JSON bytes and returns an unpadded base64url digest.
  *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
  * @param value - Value in the strict canonical plain-data domain.
@@ -175,7 +165,7 @@ export const digestCanonicalJsonBase64Url = (
   Effect.flatMap(canonicalJsonBytes(value), (bytes) => digestBytesBase64Url(algorithm, bytes))
 
 /**
- * Produces a lowercase hexadecimal digest with canonical structured-data identity.
+ * Hashes canonical JSON bytes and returns a lowercase hexadecimal digest.
  *
  * @param algorithm - Digest algorithm applied to the canonical bytes.
  * @param value - Value in the strict canonical plain-data domain.

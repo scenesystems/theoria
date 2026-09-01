@@ -7,13 +7,13 @@
  * the package's documented plain-data domain and report closed errors through
  * the Effect error channel.
  *
- * @see {@link blake3Hash} — primary hash algorithm
- * @see {@link sha256} — secondary hash algorithm
- * @see {@link canonicalize} — RFC 8785 JCS canonicalization
- * @see {@link toBase64Url} — base64url encoding
- * @see {@link durableFingerprint} — canonical fingerprinting function
- * @see {@link Digest256} — branded digest value schema
- * @see {@link ContentDigest} — algorithm-tagged digest pair
+ * @see {@link blake3Hash}
+ * @see {@link sha256}
+ * @see {@link canonicalize}
+ * @see {@link toBase64Url}
+ * @see {@link durableFingerprint}
+ * @see {@link Digest256}
+ * @see {@link ContentDigest}
  *
  * @since 0.1.0
  * @module
