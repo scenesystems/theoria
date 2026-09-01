@@ -24,8 +24,8 @@ import { makeReactForward } from "./runtime.js"
 export const DEFAULT_REACT_MAX_ITERATIONS = 5
 
 /**
- * Configuration for a ReAct module: signature, toolkit of available tools,
- * and optional iteration cap.
+ * Binds a signature to a handled toolkit and a normalized thought/action
+ * iteration budget for a ReAct loop.
  *
  * @since 0.1.0
  * @category models
@@ -55,11 +55,23 @@ const makeInitialParams = <
 ): ModuleParams => makeDefaultModuleParams(signature.instructions)
 
 /**
- * Create a ReAct module that interleaves language model reasoning with
- * tool calls across multiple iterations. Each iteration either calls
- * tools (whose observations become feedback) or attempts to parse a
- * final answer. Fails with `ParseOutputError` after exhausting
- * `maxIterations`.
+ * Creates a tool-using text-output loop.
+ *
+ * @remarks
+ * On a turn with tool calls, all returned tool
+ * results are rendered into the accumulated feedback; the immediately
+ * following model call omits the toolkit. On a turn without tool calls, the
+ * response is parsed against the output schema. Parse diagnostics are traced
+ * and fed into the next turn. Every turn appends a trace and usage sample.
+ * `maxIterations` defaults to {@link DEFAULT_REACT_MAX_ITERATIONS} and values
+ * below one normalize to one. Exhaustion fails with `ParseOutputError`; model
+ * call failures are mapped to `TraceError` by this runtime.
+ *
+ * @typeParam I - Signature input fields.
+ * @typeParam O - Signature output fields.
+ * @typeParam Tools - Toolkit's named tool record.
+ * @param options - Identity, signature, handled toolkit, and optional iteration cap.
+ * @returns An Effect allocating the module; tools and the model run only on `forward`.
  *
  * @see {@link predict}
  * @see {@link chainOfThought}

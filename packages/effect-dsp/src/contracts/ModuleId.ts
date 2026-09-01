@@ -23,7 +23,9 @@ export const ModuleId = Schema.String.pipe(
 )
 
 /**
- * Inferred runtime type of {@link ModuleId}.
+ * Validated identity used to join module registrations, composition edges,
+ * optimizer state, and cache keys. Values are lowercase kebab-case, preventing
+ * those stores from assigning different identities to spelling variants.
  *
  * @see {@link ModuleId}
  * @since 0.1.0

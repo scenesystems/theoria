@@ -27,16 +27,20 @@ class SamplingState extends Data.Class<{
 const scoredDemoOrder: Order.Order<ScoredDemo> = Order.mapInput(Order.number, (entry) => entry.score)
 
 /**
- * Configuration for LabeledFewShot — module, training set, number of demos
- * (`k`), and optional deterministic seed.
+ * Selects labeled outputs reproducibly and replaces demonstrations throughout
+ * a module graph without model or metric calls.
  *
  * @since 0.1.0
  * @category models
  */
 export type LabeledFewShotOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+  /** Module whose root and discovered submodule parameter refs are updated. */
   readonly module: Module<I, O>
+  /** Source examples; entries without `output` are ignored. */
   readonly trainset: ReadonlyArray<Example>
+  /** Maximum selected demonstrations; negative values select none. */
   readonly k: number
+  /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
 }>
 
@@ -75,9 +79,14 @@ const selectRandomDemos = (demos: ReadonlyArray<Demo>, k: number, seed: number):
 }
 
 /**
- * Select `k` random labeled demonstrations from the training set and attach
- * them to all predictor refs in the module graph. Uses deterministic
- * pseudo-random scoring for reproducible selection.
+ * Configures a module graph with at most `k` labeled demonstrations.
+ *
+ * @remarks
+ * The selected demonstrations replace those on every predictor ref in the
+ * module graph. Selection assigns one deterministic pseudo-random score per
+ * labeled example, sorts ascending, and takes a prefix; equal inputs and seed
+ * therefore produce equal ordering. The supplied module is mutated and
+ * returned. Selection performs no model or metric calls.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0

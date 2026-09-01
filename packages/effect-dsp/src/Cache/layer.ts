@@ -26,10 +26,10 @@ const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 const DSP_CACHE_VERSION = "v1"
 
 /**
- * Live implementation of {@link DspCache} backed by a {@link SchemaCache}
- * service from `@scenesystems/effect-search/Cache`. Constructs a `CacheDescriptor`
- * per-resolve call using the caller's `outputSchema` as the value codec
- * and {@link DspCacheKey} as the key codec.
+ * Adapter from a provided {@link SchemaCache} to {@link DspCache}. Every
+ * resolution uses namespace `effect-dsp/lm-cache`, descriptor version `v1`,
+ * {@link DspCacheKey} as the key codec, and the request's output schema as
+ * the value codec. Storage lifetime follows the supplied `SchemaCache`.
  *
  * @see {@link DspCacheMemory} — pre-wired in-memory layer for tests
  * @see {@link DspCacheFileSystem} — file-system persistence
@@ -77,9 +77,8 @@ export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.eff
 )
 
 /**
- * In-memory {@link DspCache} — suitable for tests and short-lived
- * processes. No persistence between runs. Fully self-contained with
- * no platform requirements.
+ * In-memory {@link DspCache}. Entries live only as long as the layer's
+ * in-memory service instance and require no platform services.
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
@@ -92,9 +91,9 @@ export const DspCacheMemory: Layer.Layer<DspCache> = Layer.provide(
 )
 
 /**
- * File-system-backed {@link DspCache} — entries persist as files in the
- * given directory. Requires platform `FileSystem` and `Path` services
- * to be provided.
+ * File-system-backed {@link DspCache} rooted at `directory`. Entries can
+ * outlive the process; the layer requires `FileSystem` and `Path`, and its
+ * construction may fail with `PlatformError`.
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *
@@ -107,10 +106,10 @@ export const DspCacheFileSystem = (
   Layer.provide(DspCacheLive, SchemaCacheFileSystem(directory))
 
 /**
- * SQLite-compatible SQL-backed {@link DspCache} — entries persist in a SQL
- * database exposed through a caller-provided `SqlClient` layer, while the
- * shared cache statements remain aligned to the SQLite-compatible dialect
- * expected by `SchemaCacheSql`.
+ * SQL-backed {@link DspCache} using the supplied `SqlClient` layer and the
+ * SQLite-compatible statements expected by `SchemaCacheSql`. Backend setup
+ * failures remain `CacheBackendError`; persistence lifetime belongs to the
+ * supplied database.
  *
  * @see {@link DspCacheLive} — base layer for custom backend wiring
  *

@@ -85,7 +85,8 @@ export {
    */
   type ArtifactRelation,
   /**
-   * API contract for artifact sink implementations.
+   * Receives validated artifact envelopes for durable or external publication;
+   * sink failures remain visible in the emitting Effect.
    *
    * @since 0.1.0
    * @category type-level
@@ -94,7 +95,8 @@ export {
 } from "./ArtifactEnvelope.js"
 
 /**
- * Recursive JSON-like value type and universal payload record schema.
+ * Validates the recursive JSON-compatible payloads exchanged by metrics,
+ * traces, optimizer events, and persistence boundaries.
  *
  * @since 0.1.0
  */
@@ -122,7 +124,8 @@ export * from "./ModuleNode.js"
 export * from "./ModuleGraph.js"
 
 /**
- * Typed-to-FieldRecord projection helpers for trace and event emission.
+ * Converts schema-typed values to validated field records before trace or
+ * event emission, with caller-selected domain error mapping.
  *
  * @since 0.1.0
  */

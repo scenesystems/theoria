@@ -109,9 +109,10 @@ const objectiveTelemetry = (report: Report): ObjectiveTelemetry =>
 const validateProjection = (payload: unknown) => Schema.decodeUnknown(ObjectiveProjection)(payload)
 
 /**
- * Project a single scalar objective from an evaluation report. Selects
- * the named metric (or the first metric alphabetically if omitted) and
- * bundles it with {@link ObjectiveTelemetry}.
+ * Project a scalar objective from an evaluation report. Selects the named
+ * metric, or the first metric alphabetically when omitted. A missing selected
+ * metric yields `0`; an empty score record therefore also yields `0`.
+ * Schema decoding can fail with `ParseResult.ParseError`.
  *
  * @see {@link ObjectiveProjection} — the returned projection
  * @see {@link projectMultiObjective} — vector variant
@@ -133,9 +134,10 @@ export const projectSingleObjective = (report: Report, metricName?: string) =>
   })
 
 /**
- * Project a multi-objective vector from an evaluation report. Each named
- * metric becomes one element in the objective array, ordered by the
- * supplied names (or alphabetically if omitted).
+ * Project a multi-objective vector from an evaluation report. Values follow
+ * the supplied name order, or alphabetical report-key order when omitted.
+ * Missing named metrics yield `0`. Schema decoding can fail with
+ * `ParseResult.ParseError`.
  *
  * @see {@link ObjectiveProjection} — the returned projection
  * @see {@link projectSingleObjective} — scalar variant

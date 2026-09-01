@@ -15,7 +15,7 @@ import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/
 import { normalizeCount, normalizeSeed } from "./runtime/random.js"
 
 /**
- * Phase-1 demo candidate kind.
+ * Validates the supported Phase-1 demo candidate strategies.
  *
  * @since 0.1.0
  * @category models
@@ -28,7 +28,8 @@ export const DemoCandidateKindSchema = Schema.Literal(
 )
 
 /**
- * Phase-1 demo candidate kind.
+ * Selects which demonstration population Phase 1 contributes: no demos,
+ * labeled examples, or bootstrapped traces in stable or seeded-shuffled order.
  *
  * @since 0.1.0
  * @category type-level

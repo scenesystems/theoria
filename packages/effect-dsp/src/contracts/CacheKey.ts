@@ -7,10 +7,9 @@ import { Schema } from "effect"
 import { ModuleId } from "./ModuleId.js"
 
 /**
- * Composite memoization key combining module identity, input content hash,
- * parameter state hash, and optional rollout index. Two forward calls with
- * identical cache keys are guaranteed to produce the same LM response,
- * enabling deterministic replay during optimization.
+ * Legacy schema for partitioning cached calls by module, hashed input,
+ * hashed parameter state, and optional rollout index. This schema does not
+ * compute hashes or assert that the underlying model is deterministic.
  *
  * @see {@link ModuleId} — the module identity component
  * @see {@link ModuleParams} — parameter state that feeds the `paramsHash`

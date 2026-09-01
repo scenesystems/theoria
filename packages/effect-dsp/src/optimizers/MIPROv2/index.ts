@@ -24,8 +24,8 @@ import { streamMIPROv2Events } from "./runtime/stream.js"
 import { runPhase3Search } from "./search.js"
 
 /**
- * Configuration for MIPROv2 optimization — module, training/validation sets,
- * metric, candidate counts, and Phase 3 search budget.
+ * Controls demonstration generation, grounded instruction proposal, and
+ * Bayesian selection across the three MIPROv2 phases.
  *
  * @since 0.1.0
  * @category models
@@ -36,19 +36,29 @@ export type MIPROv2Options<
   ME = never,
   MR = never
 > = Readonly<{
+  /** Module mutated during search and left with the selected Phase 3 configuration. */
   readonly module: DspModule<I, O>
+  /** Labeled examples used for demo candidates and proposal grounding. */
   readonly trainset: ReadonlyArray<Example>
+  /** Phase 3 evaluation set. Defaults to `trainset`; no automatic split is performed. */
   readonly valset?: ReadonlyArray<Example>
+  /** Objective metric used by Phase 3. */
   readonly metric: Metric<ME, MR>
+  /** Requested Phase 1 candidate count, normalized to a positive count. */
   readonly numCandidates: number
+  /** Number of generated alternatives per predictor, excluding the retained baseline. */
   readonly numInstructions: number
+  /** Deterministic proposal, candidate, minibatch, and TPE seed. Defaults to `1`. */
   readonly seed?: number
   readonly maxLabeledDemos?: number
   readonly maxBootstrappedDemos?: number
   readonly diversityTemperature?: number
   readonly tipVocabulary?: ReadonlyArray<string>
+  /** Phase 3 study trials; when omitted a deterministic space-size formula is used. */
   readonly trialBudget?: number
+  /** Prefix size of `valset` used for minibatch evaluations. */
   readonly minibatchSize?: number
+  /** Positive cadence for full validation evaluations. */
   readonly fullEvalEvery?: number
 }>
 
@@ -111,9 +121,16 @@ const totalInstructionCandidates = (
 ): number => Arr.reduce(instructionCandidates, 0, (count, candidateSet) => count + candidateSet.candidates.length)
 
 /**
- * Run MIPROv2 with an explicit event sink. Executes Phase 1 (demo candidate
- * generation), Phase 2 (grounded instruction proposal), and Phase 3
- * (Bayesian search) sequentially.
+ * Optimizes a module with MIPROv2 while reporting progress to an event sink.
+ *
+ * @remarks
+ * The event sink is sequentially awaited. Phase 1 deterministically assembles
+ * labeled/demo anchors, Phase 2 proposes instructions one at a time, and Phase
+ * 3 runs a single-concurrency effect-search TPE study seeded with a baseline
+ * prior trial. The winning configuration is applied to and returns
+ * `options.module`. Proposal failures use `InstructionProposalFailed`; search
+ * setup or completion failures use `AllTrialsFailed`; module, metric, schema,
+ * and language-model requirements remain visible in the Effect type.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
  * @since 0.1.0
@@ -190,7 +207,8 @@ export const miprov2 = <
 ) => miprov2WithEvents(options, noMIPROv2Events)
 
 /**
- * Run MIPROv2 and project all lifecycle events as an Effect Stream.
+ * Lazily run MIPROv2 and emit lifecycle events in phase/trial order. Consuming
+ * the stream drives optimization; the optimized module is not emitted.
  *
  * @since 0.1.0
  * @category constructors

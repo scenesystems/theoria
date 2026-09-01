@@ -53,9 +53,12 @@ const scoreMap = (scores: ReadonlyArray<readonly [string, MetricResult]>): Reado
   )
 
 /**
- * Compose multiple named metrics into a single averaged metric. Scores are
- * computed deterministically in alphabetical order. Feedback strings from
- * individual metrics are concatenated.
+ * Combines named metrics with an equal-weight arithmetic mean.
+ *
+ * @remarks
+ * Child metrics execute sequentially in name-sorted order. Their failures and
+ * requirements are preserved. Non-empty feedback is joined in that same order
+ * as `[name] feedback` lines. An empty metric record scores `0`.
  *
  * @since 0.1.0
  * @category combinators
@@ -81,10 +84,9 @@ export const compose = <E = never, R = never>(
     }))
 
 /**
- * Project per-metric scores from a composed metric run into a name→score
- * record.
+ * Converts named metric results to a name-to-score record.
  *
  * @since 0.1.0
- * @category helpers
+ * @category combinators
  */
 export const composedScoreMap = scoreMap

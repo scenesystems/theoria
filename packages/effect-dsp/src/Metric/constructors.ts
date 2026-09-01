@@ -8,8 +8,7 @@ import type { MetricFn, PureMetricFn } from "../contracts/MetricFn.js"
 import { Metric } from "./model.js"
 
 /**
- * Create a metric from a synchronous scoring function. Wraps the result in
- * `Effect.succeed` internally.
+ * Creates a metric whose synchronous scorer cannot fail or require services.
  *
  * @example
  * ```ts
@@ -35,8 +34,21 @@ export const make = (name: string, score: PureMetricFn): Metric =>
   })
 
 /**
- * Create a metric from an effectful scoring function — use when scoring
- * requires LLM calls, network access, or other side effects.
+ * Creates a metric while preserving the scorer's failure and requirement
+ * types.
+ *
+ * @example
+ * ```ts
+ * import * as Metric from "@scenesystems/effect-dsp/Metric"
+ * import { Effect } from "effect"
+ *
+ * const graded = Metric.fromEffect("graded", (prediction, expected) =>
+ *   Effect.succeed(new Metric.Result({
+ *     score: prediction["answer"] === expected["answer"] ? 1 : 0,
+ *     feedback: "Compared answer fields"
+ *   }))
+ * )
+ * ```
  *
  * @since 0.1.0
  * @category constructors

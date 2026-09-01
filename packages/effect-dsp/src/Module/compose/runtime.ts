@@ -19,7 +19,9 @@ import { RegisteredSignature, registerRuntime } from "../discovery/index.js"
 import type { Module } from "../model.js"
 
 /**
- * Compose-runtime callback context.
+ * Inputs and validated composition graph made available to a composite's
+ * forward callback. `subModuleNodes` contains the callable descendants keyed
+ * by the same identifiers used in `graph`.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +35,9 @@ export type ComposeForwardContext<
 }>
 
 /**
- * Compose-runtime callback contract.
+ * Computes a composite module's decoded output from decoded input and its
+ * discovered descendants. Provider, schema-context, and effect-dsp failures
+ * remain in the returned Effect rather than being hidden by composition.
  *
  * @since 0.1.0
  * @category models

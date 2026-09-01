@@ -222,7 +222,8 @@ export {
    */
   ProtocolRef,
   /**
-   * Branded identifier for an optimizer or evaluation run.
+   * Correlation identity shared by every artifact emitted during one optimizer
+   * or evaluation lifecycle, allowing consumers to separate concurrent runs.
    *
    * @since 0.1.4
    */

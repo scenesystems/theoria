@@ -6,8 +6,10 @@
 import { Match, Schema } from "effect"
 
 /**
- * Tri-state schema governing module output rendering:
+ * Describes the output-rendering modes available to modules.
  *
+ * @remarks
+ * The tri-state modes govern module output rendering:
  * - **`"auto"`** (default) — text format with `[[ ## field ## ]]` delimiters
  *   when demonstrations are present (optimization context), provider-native
  *   `generateObject` otherwise (direct inference).
@@ -23,7 +25,9 @@ import { Match, Schema } from "effect"
 export const OutputStrategySchema = Schema.Literal("text", "structured", "auto")
 
 /**
- * Inferred runtime type of {@link OutputStrategySchema}.
+ * Caller selection between delimiter-based text output, provider-native
+ * structured output, and demo-sensitive automatic selection. `auto` remains
+ * unresolved until execution knows the active demonstration count.
  *
  * @see {@link OutputStrategySchema}
  * @since 0.1.0
@@ -48,7 +52,7 @@ const resolveAutoStrategy = (demoCount: number): "text" | "structured" =>
  * @see {@link OutputStrategySchema} — the source schema
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): "text" | "structured" =>
   Match.value(strategy).pipe(

@@ -23,9 +23,17 @@ export type { GEPAEventSink, GEPAOptions }
 export { noGEPAEvents }
 
 /**
- * Run GEPA with an explicit event sink for real-time progress streaming.
- * Maintains a population of candidate programs and evolves them via
- * merge/crossover and reflective mutation across `maxIterations` generations.
+ * Optimizes a module with GEPA while reporting progress to an event sink.
+ *
+ * @remarks
+ * The event sink is sequentially awaited. The initial program is evaluated
+ * before iteration events. Each iteration attempts a budgeted merge, performs
+ * one reflective mutation, updates the Pareto frontier, and emits completion
+ * events in that order. Selection is deterministic for equal input and seed,
+ * assuming deterministic module, metric, and model services. The selected
+ * frontier candidate's instruction is written to `options.module`, which is
+ * then returned. Underlying module, metric, schema, and language-model failures
+ * remain typed in the Effect error channel.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
  * @since 0.1.0
@@ -136,8 +144,8 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
   })
 
 /**
- * Run GEPA and return the module with optimized instructions. The best
- * candidate is selected from the Pareto frontier after all iterations complete.
+ * Run GEPA without observing events. The first index in the final Pareto
+ * frontier is selected; this is not a scalar best-score ranking.
  *
  * @since 0.1.0
  * @category constructors
@@ -147,7 +155,8 @@ export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 ) => gepaWithEvents(options, noGEPAEvents)
 
 /**
- * Run GEPA and project all lifecycle events as an Effect Stream.
+ * Lazily run GEPA and emit lifecycle events in execution order. Stream
+ * consumption drives optimization; the returned module is not emitted.
  *
  * @since 0.1.0
  * @category constructors

@@ -5,7 +5,8 @@
  */
 
 /**
- * {@link FieldDescriptionId} symbol and {@link describe} annotation helper.
+ * Attaches field descriptions without changing a schema's decoded, encoded,
+ * or context types, allowing prompt rendering to recover caller metadata.
  *
  * @since 0.1.0
  */

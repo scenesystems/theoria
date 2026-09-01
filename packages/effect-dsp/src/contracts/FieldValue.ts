@@ -49,9 +49,9 @@ const FieldValueSchema: Schema.Schema<FieldValue, FieldValue, never> = Schema.su
 export const FieldValue = FieldValueSchema
 
 /**
- * Schema-validated `Record<string, FieldValue>` — the universal payload
- * shape for module inputs, outputs, demonstrations, and optimizer event
- * data. Every public module API accepts and returns this shape.
+ * Schema for records whose values are JSON-compatible {@link FieldValue}
+ * trees. Projection contracts use this narrower representation at
+ * serialization boundaries; not every public module API uses it.
  *
  * @see {@link FieldValue} — the recursive value schema
  *
@@ -64,7 +64,8 @@ export const FieldRecord = Schema.Record({
 }).annotations({ identifier: "effect-dsp/FieldRecord" })
 
 /**
- * Inferred decoded type of {@link FieldRecord}.
+ * Validated recursive payload consumed by metrics, traces, and optimizer
+ * events. Decoding guarantees every nested value is JSON-compatible.
  *
  * @see {@link FieldRecord}
  * @since 0.1.0
@@ -73,7 +74,9 @@ export const FieldRecord = Schema.Record({
 export type FieldRecord = typeof FieldRecord.Type
 
 /**
- * Inferred encoded (wire-format) type of {@link FieldRecord}.
+ * Serialized counterpart of {@link FieldRecord} at persistence and event
+ * boundaries. Because `FieldValue` applies no transformations, encoding a
+ * decoded record preserves the same recursive JSON-compatible shape.
  *
  * @see {@link FieldRecord}
  * @since 0.1.0

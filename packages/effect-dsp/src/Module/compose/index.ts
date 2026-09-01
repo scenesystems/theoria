@@ -24,10 +24,22 @@ const makeInitialParams = <
   })
 
 /**
- * Construct a composed module from a set of named sub-modules and a
- * user-supplied forward function. Validates the composition graph at
- * construction time — cycles, duplicate ids, and root collisions fail
- * immediately.
+ * Constructs a validated composite module from a root node and its declared submodules.
+ *
+ * @remarks
+ * Validation covers the complete reachable graph before allocating the module. Module names, rather than
+ * declaration aliases, become graph identities. Invalid ids, cycles, identity
+ * collisions, and inconsistent declared child ids fail with
+ * `CompositionError`.
+ * On `forward`, the root registers itself and invokes the callback exactly
+ * once with validated input, the direct child-node map, and the full graph.
+ * Callback orchestration and call order are entirely caller-owned; composition
+ * does not automatically execute children.
+ *
+ * @typeParam I - Root signature input fields.
+ * @typeParam O - Root signature output fields and callback result.
+ * @param options - Root identity/signature, child declarations, and orchestration callback.
+ * @returns The composed module, or `CompositionError` for an invalid declared graph.
  *
  * @see {@link ComposeSubModules}
  * @see {@link ComposeForward}

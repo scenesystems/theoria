@@ -21,10 +21,15 @@ import { dual } from "effect/Function"
 export const FieldDescriptionId: unique symbol = Symbol.for("effect-dsp/FieldDescription")
 
 /**
- * Attach a human-readable description to a Schema field. The description
- * is embedded as an annotation under {@link FieldDescriptionId} and
- * appears in the derived module instructions and {@link FieldInfo} metadata.
- * Supports both pipeable and direct call styles.
+ * Attaches field text read by {@link make} when it constructs field metadata
+ * and default instructions. Supports `describe(schema, text)` and
+ * `schema.pipe(describe(text))`; both preserve the schema's decoded, encoded,
+ * and context types.
+ *
+ * @typeParam S - Annotatable schema whose type facets are preserved.
+ * @param schema - Schema to annotate in direct-call form.
+ * @param description - Text associated with the field.
+ * @returns The annotated schema.
  *
  * @see {@link FieldDescriptionId} — the annotation symbol
  * @see {@link Signature} — where descriptions surface in instructions

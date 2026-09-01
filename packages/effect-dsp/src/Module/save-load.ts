@@ -46,7 +46,13 @@ const refsRecord = (
 
 /**
  * Snapshot module and sub-module parameters into a `SavedState` envelope.
- * Walks the full sub-module tree and reads each parameter ref.
+ * Walks the parameter ownership tree in its canonical order and reads each
+ * Ref. The resulting version-1 envelope omits metadata.
+ *
+ * @typeParam I - Root module input fields.
+ * @typeParam O - Root module output fields.
+ * @param module - Root of the parameter tree to snapshot.
+ * @returns A version-1 snapshot in canonical parameter-tree order.
  *
  * @see {@link load}
  * @see {@link SavedState}
@@ -72,9 +78,21 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
   })
 
 /**
- * Restore module and sub-module parameters from a `SavedState` envelope.
- * Validates the envelope schema, checks for duplicate and unknown module
- * entries, and sets each parameter ref atomically.
+ * Restores a module parameter tree from saved state.
+ *
+ * @remarks
+ * Accepts a version-1 {@link SavedState} or an unknown value that decodes as one. Before writing, it validates the envelope
+ * and rejects duplicate names, unknown names, and missing target names. Refs
+ * are then updated sequentially in canonical target order.
+ * Compatibility is by module name and envelope schema, not object identity or
+ * composition alias. Fails with `SaveLoadError` when validation or name-set
+ * matching fails.
+ *
+ * @typeParam I - Root module input fields.
+ * @typeParam O - Root module output fields.
+ * @param module - Target parameter tree.
+ * @param state - Candidate serialized envelope.
+ * @returns An Effect that completes after all target Refs are updated.
  *
  * @see {@link save}
  * @see {@link SavedState}

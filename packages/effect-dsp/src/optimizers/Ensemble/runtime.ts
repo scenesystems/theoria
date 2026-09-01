@@ -35,6 +35,7 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
  * their outputs, and reduces them with the configured strategy (defaults to
  * majority vote).
  *
+ * @remarks
  * Fails with `AllTrialsFailed` when `programs` is empty.
  *
  * @see {@link import("./model.js").EnsembleOptions} for configuration

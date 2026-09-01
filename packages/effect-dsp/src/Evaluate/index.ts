@@ -1,6 +1,5 @@
 /**
- * Dataset evaluation runtime — run a module against labeled examples with
- * composable metrics.
+ * Evaluate modules against labeled examples.
  *
  * @since 0.1.0
  */
@@ -10,14 +9,14 @@ import type { EvaluationEventType } from "./events.js"
 import { evaluateKernel, type EvaluateOptions, noEvents } from "./runtime/kernel.js"
 
 /**
- * Report types — `Report`, `ExampleResult`, and `ExampleFailure`.
+ * Evaluation report models.
  *
  * @since 0.1.0
  */
 export * from "./report.js"
 
 /**
- * Lifecycle events — `EvaluationEvent` schema, constructors, and type.
+ * Evaluation lifecycle events.
  *
  * @since 0.1.0
  */
@@ -25,8 +24,7 @@ export * from "./events.js"
 
 export {
   /**
-   * Configuration for an evaluation run: module, examples, metrics, and
-   * optional concurrency.
+   * Inputs for evaluating labeled examples against a module.
    *
    * @since 0.1.0
    * @category models
@@ -41,10 +39,14 @@ const appendEvent =
     Ref.update(eventsRef, (events) => Arr.append(events, event))
 
 /**
- * Evaluate a module against a labeled dataset and return an aggregate report.
+ * Evaluates a module against labeled examples and returns their report.
  *
- * Each example is scored by all provided metrics. Failures are caught and
- * collected — they do not abort the run.
+ * @remarks
+ * Examples run with the requested concurrency, while returned results retain
+ * input order. Metrics run sequentially in name-sorted order. A module,
+ * decoding, or metric failure is stored on that example and does not fail the
+ * returned Effect. Overall metric scores average successful examples only;
+ * an empty successful set scores `0`.
  *
  * @since 0.1.0
  * @category constructors
@@ -62,10 +64,12 @@ export const run = <
 ) => evaluateKernel(options, noEvents)
 
 /**
- * Evaluate a dataset and project lifecycle events (started, completed, failed)
- * as an Effect Stream.
+ * Evaluates labeled examples and returns the buffered lifecycle events.
  *
- * Shares the same runtime kernel as {@link run}.
+ * @remarks
+ * Evaluation completes before the Stream emits. With concurrent examples,
+ * start and terminal events follow execution timing; `EvaluationCompleted` is
+ * last. The report itself is not emitted.
  *
  * @since 0.1.0
  * @category constructors

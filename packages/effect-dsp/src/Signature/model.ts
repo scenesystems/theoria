@@ -26,12 +26,18 @@ export class FieldInfo extends Schema.Class<FieldInfo>("FieldInfo")({
 }) {}
 
 /**
- * Immutable, branded specification of a module's typed I/O contract.
+ * Fixes the fields and instructions a module accepts and returns; module
+ * execution decodes against these schemas, while optimizers may replace the
+ * instructions without changing the I/O boundary.
+ *
+ * @remarks
  * A Signature pairs a `Schema.Struct` for inputs with a `Schema.Struct`
  * for outputs, a human-readable `description`, and auto-derived
  * `instructions` text. Modules receive their Signature at construction
- * time and never mutate it — optimizers change the module's `ModuleParams`,
- * not its Signature.
+ * time. Optimizers update a module's `ModuleParams`, not this value.
+ *
+ * @typeParam I - Input field record used to derive `inputSchema` and module input.
+ * @typeParam O - Output field record used to derive `outputSchema` and module output.
  *
  * @see {@link make} — canonical constructor that validates and derives fields
  * @see {@link Input} — extracts the decoded input type
@@ -57,6 +63,8 @@ export class Signature<
 /**
  * Extracts the decoded input type from a {@link Signature}.
  *
+ * @typeParam S - Signature whose input type is selected.
+ *
  * @see {@link Signature}
  * @see {@link Output} — the output counterpart
  * @since 0.1.0
@@ -66,6 +74,8 @@ export type Input<S extends Signature> = Schema.Schema.Type<S["inputSchema"]>
 
 /**
  * Extracts the decoded output type from a {@link Signature}.
+ *
+ * @typeParam S - Signature whose output type is selected.
  *
  * @see {@link Signature}
  * @see {@link Input} — the input counterpart

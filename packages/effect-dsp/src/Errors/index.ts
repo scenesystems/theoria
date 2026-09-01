@@ -1,7 +1,11 @@
 /**
- * Typed error classes for effect-dsp — all errors are `Schema.TaggedError`,
- * yieldable in `Effect.gen`, catchable via `Effect.catchTag`, and
- * Schema-serializable.
+ * Classifies failures from signature validation, model parsing and
+ * composition, evaluation, optimization, tracing, and parameter persistence.
+ *
+ * @remarks
+ * Recover from a known tagged variant with `Effect.catchTag`. Use
+ * {@link DspError} when a serialization boundary needs the complete
+ * package-owned error union.
  *
  * @since 0.1.0
  */

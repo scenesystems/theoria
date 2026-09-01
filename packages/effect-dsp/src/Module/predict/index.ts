@@ -42,9 +42,25 @@ const makeInitialParams = <
   })
 
 /**
- * Create a leaf predictor module that sends schema-validated input to a
- * language model and parses the response into schema-validated output.
- * Parse failures are retried according to the module's policy.
+ * Creates a leaf prediction module from a signature.
+ *
+ * @remarks
+ * Parameters start with the signature's instructions and no demonstrations. Each `forward` call reads the current
+ * parameters, registers the module for fiber-local discovery, invokes the
+ * configured `LanguageModel`, validates the output, and appends trace and
+ * usage records after success.
+ * Output strategy is resolved from the current parameters. Structured calls
+ * use the model's schema response directly. Text calls parse field markers and
+ * retry only parse failures according to `options.policy`; feedback from the
+ * preceding parse error is included in the next prompt. Provider failures are
+ * not parse retries.
+ *
+ * @typeParam I - Signature input fields inferred from `signature`.
+ * @typeParam O - Signature output fields inferred from `signature`.
+ * @param name - Module identity used by discovery, tracing, and persistence.
+ * @param signature - Input/output contract and initial instructions.
+ * @param options - Per-module text-parse policy overrides.
+ * @returns An Effect allocating the module's parameter Ref; model execution begins only on `forward`.
  *
  * @see {@link Module}
  * @see {@link PredictOptions}

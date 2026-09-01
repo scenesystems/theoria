@@ -10,10 +10,10 @@ import { Schema } from "effect"
 // ---------------------------------------------------------------------------
 
 /**
- * A training example — an input/output pair for optimization datasets.
- *
- * `output` is optional: unlabeled examples (input-only) are used in MIPROv2
- * Phase 2 for instruction proposal.
+ * Dataset row with an input record and optional expected output. The records
+ * accept unknown values and do not establish that labels are correct or
+ * trusted; dataset owners remain responsible for validation. Input-only rows
+ * can be passed where an optimizer supports unlabeled examples.
  *
  * @since 0.1.0
  * @category models
@@ -25,9 +25,9 @@ export class Example extends Schema.Class<Example>("Example")({
 }) {}
 
 /**
- * A demonstration — a complete input/output pair used as a few-shot example.
- *
- * Unlike `Example`, both input and output are required.
+ * Complete input/output record intended for few-shot prompting. Both records
+ * are required, but their values are otherwise unknown: construction proves
+ * shape, not correctness, provenance, or permission to use the content.
  *
  * @since 0.1.0
  * @category models

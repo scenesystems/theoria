@@ -8,12 +8,14 @@ import { Schema } from "effect"
 import { OptimizerKind } from "./OptimizerKind.js"
 
 /**
- * Uniform envelope that wraps optimizer-specific progress events for
- * transport through a shared `Stream`. The `optimizer` field identifies
- * which algorithm emitted the event, `eventTag` carries the per-optimizer
- * event discriminant (e.g. `"TrialComplete"`, `"CandidateSelected"`), and
- * `payload` holds the algorithm-specific data. Consumers pattern-match on
- * `optimizer` + `eventTag` to dispatch to typed handlers.
+ * Wraps optimizer-specific progress events for transport through a shared `Stream`.
+ *
+ * @remarks
+ * The `optimizer` field identifies which algorithm emitted the event,
+ * `eventTag` carries the per-optimizer event discriminant (e.g.
+ * `"TrialComplete"`, `"CandidateSelected"`), and `payload` holds the
+ * algorithm-specific data. Consumers pattern-match on `optimizer` + `eventTag`
+ * to dispatch to typed handlers.
  *
  * @see {@link OptimizerKind} — discriminant identifying the emitting optimizer
  *

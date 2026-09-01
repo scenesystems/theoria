@@ -26,7 +26,9 @@ export const OptimizerKind = Schema.Literal(
 )
 
 /**
- * Inferred runtime type of {@link OptimizerKind}.
+ * Identifies which shipped optimization lifecycle produced an event or
+ * ensemble member, enabling exhaustive dispatch without accepting arbitrary
+ * optimizer labels.
  *
  * @see {@link OptimizerKind}
  * @since 0.1.0

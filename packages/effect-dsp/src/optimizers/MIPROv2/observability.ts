@@ -9,6 +9,7 @@ import type { MIPROv2EventSummary } from "./progress.js"
 /**
  * Semantic decomposition of MIPROv2 search quality versus retained gain.
  *
+ * @remarks
  * `searchGain` captures best trial quality above baseline. `retainedGain`
  * captures end-state quality above baseline after optimization is applied.
  *

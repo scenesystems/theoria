@@ -14,10 +14,21 @@ import type { ChainOfThoughtOutputFields } from "./schema.js"
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 
 /**
- * Create a predictor module that prepends a required `reasoning` field to
- * the output schema, forcing the language model to show its work before
- * producing the final answer. Reuses the canonical `predict` runtime —
- * only the signature and instructions are transformed.
+ * Creates a predictor that emits explicit reasoning before its original outputs.
+ *
+ * @remarks
+ * The constructor prepends a required string `reasoning` field to the output
+ * fields and appends the corresponding instruction. It uses the same
+ * execution, parsing, retry, discovery, and tracing behavior as {@link predict}.
+ * Construction fails with `SignatureError` when the supplied signature already
+ * owns an output named `reasoning`.
+ *
+ * @typeParam I - Input fields inferred from `signature`.
+ * @typeParam O - Original output fields, retained after `reasoning`.
+ * @param name - Module identity passed to {@link predict}.
+ * @param signature - Signature to transform; it is not mutated.
+ * @param options - Predict parse-policy overrides.
+ * @returns The allocated predictor, or `SignatureError` for a `reasoning` collision.
  *
  * @see {@link predict}
  * @see {@link ChainOfThoughtOutputFields}

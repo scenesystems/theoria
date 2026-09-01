@@ -208,9 +208,8 @@ export const maxCandidateCount = (
 /**
  * Extracts a scalar score from an objective value.
  *
- * MIPROv2 Phase 3 operates in single-objective mode. This function
- * succeeds when the value is already a number and fails with
- * `AllTrialsFailed` when it receives a multi-objective array.
+ * MIPROv2 Phase 3 operates in single-objective mode. Scalar values succeed;
+ * multi-objective arrays fail with `AllTrialsFailed`.
  *
  * @since 0.1.0
  * @category helpers

@@ -24,6 +24,11 @@ const renderFieldSection = (
  * `Task: {description}\nInput fields: ...\nOutput fields: ...`
  * Used as the initial `instructions` value in {@link ModuleParams}.
  *
+ * @param description - Text rendered after `Task:`.
+ * @param inputFields - Input metadata rendered in array order.
+ * @param outputFields - Output metadata rendered in array order.
+ * @returns Three newline-separated task, input, and output lines.
+ *
  * @see {@link Signature} — the source of description and field metadata
  * @see {@link ModuleParams} — where the derived instructions are stored
  *

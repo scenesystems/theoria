@@ -56,23 +56,14 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
   )
 
 /**
- * Run a program with trace collection enabled and return the result paired
- * with all collected entries. Nested scopes return only entries added during
- * the inner run.
+ * Collects entries appended while a program runs.
  *
- * @example
- * ```ts
- * import { Trace } from "@scenesystems/effect-dsp"
- * import { Effect } from "effect"
- *
- * const program = Effect.gen(function*() {
- *   // ... build and call a module ...
- *   return "done"
- * })
- *
- * // [result, traces] — traces contains all Entry records
- * const traced = Trace.withTracing(program)
- * ```
+ * @remarks
+ * A top-level scope starts with an empty fiber-local collection. A nested
+ * scope shares its parent's collection but returns only entries appended
+ * during the nested program; those entries remain visible to the parent.
+ * Concurrent top-level scopes keep separate collections. If the program
+ * fails, its failure and requirements are preserved and no tuple is returned.
  *
  * @since 0.1.0
  * @category combinators
@@ -90,8 +81,12 @@ export const withTracing = <A, E, R>(
   })
 
 /**
- * Run a program with usage accounting enabled and return the result paired
- * with cumulative token usage. Nested scopes return usage deltas.
+ * Accumulates usage samples while a program runs.
+ *
+ * @remarks
+ * A top-level scope starts from zero. A nested scope returns the difference
+ * between usage before and after its program, while the parent retains the
+ * same additions. Program failures and requirements are preserved.
  *
  * @since 0.1.0
  * @category combinators
@@ -109,8 +104,8 @@ export const withUsageTracking = <A, E, R>(
   })
 
 /**
- * Read traces collected in the current scope. Returns an empty array when
- * tracing is not enabled.
+ * Reads all entries currently visible in this fiber's tracing scope.
+ * Returns an empty array outside a scope.
  *
  * @since 0.1.0
  * @category combinators

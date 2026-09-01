@@ -58,7 +58,8 @@ export const MIPROv2EventSchema = Schema.Union(
 export type MIPROv2Event = typeof MIPROv2EventSchema.Type
 
 /**
- * Constructors and match helpers for MIPROv2 events.
+ * Builds and exhaustively matches MIPROv2 lifecycle events by `_tag`, keeping
+ * phase transitions and trial progress aligned with the closed event schema.
  *
  * @since 0.1.0
  * @category events

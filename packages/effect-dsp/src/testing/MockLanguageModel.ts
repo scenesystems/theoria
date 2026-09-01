@@ -1,6 +1,5 @@
 /**
- * Deterministic `LanguageModel` test harness — fixed, mapped, sequenced, and
- * failing response strategies for unit tests.
+ * Deterministic, in-memory `LanguageModel` test doubles.
  *
  * @since 0.1.0
  */
@@ -38,8 +37,11 @@ const mockError = (method: string, description: string, cause?: unknown): AiErro
   })
 
 /**
- * A recorded method call against the mock language model — captures the method
- * (`generateText` or `generateObject`) and the rendered prompt text.
+ * A completed generation call recorded by the mock.
+ *
+ * @remarks
+ * `prompt` is the normalized text extracted from the provider prompt. Calls
+ * whose strategy or response encoding fails are not recorded.
  *
  * @since 0.1.0
  * @category models
@@ -50,7 +52,7 @@ export class MockCall extends Schema.Class<MockCall>("MockCall")({
 }) {}
 
 /**
- * Strategy variants that determine how the mock model responds.
+ * Always returns the configured response.
  *
  * @since 0.1.0
  * @category models
@@ -59,25 +61,33 @@ class FixedResponseStrategy extends Data.TaggedClass("Fixed")<{
   readonly response: unknown
 }> {}
 
+/** Computes a response synchronously from normalized prompt text. */
 class MappedResponseStrategy extends Data.TaggedClass("Map")<{
   readonly resolve: (prompt: string) => unknown
 }> {}
 
+/** Returns responses in order, then repeats the final response. */
 class SequenceResponseStrategy extends Data.TaggedClass("Sequence")<{
   readonly responses: ReadonlyArray<unknown>
 }> {}
 
+/** Computes a response effectfully from normalized prompt text. */
 class FunctionResponseStrategy extends Data.TaggedClass("Function")<{
   readonly resolve: (prompt: string) => Effect.Effect<unknown, unknown, never>
 }> {}
 
+/** Fails every generation with an `AiError.UnknownError`. */
 class FailingResponseStrategy extends Data.TaggedClass("Failing")<{
   readonly error: unknown
 }> {}
 
 /**
- * Discriminated union of response strategies that determine mock behavior. Each
- * variant controls how the mock resolves a prompt to a response.
+ * Response behavior selected when constructing a mock service.
+ *
+ * @remarks
+ * Strategy outputs become text for text generation and deterministic JSON for
+ * object generation. Provider response-part arrays pass through unchanged,
+ * apart from insertion of a missing finish part.
  *
  * @since 0.1.0
  * @category models
@@ -90,7 +100,7 @@ export type ResponseStrategy =
   | FailingResponseStrategy
 
 /**
- * Tagged-enum constructors for response strategy variants.
+ * Tagged-enum constructors and matchers for inspecting response strategies.
  *
  * @since 0.1.0
  * @category constructors
@@ -98,8 +108,11 @@ export type ResponseStrategy =
 export const ResponseStrategy = Data.taggedEnum<ResponseStrategy>()
 
 /**
- * Runtime handle returned by `MockLanguageModel.make` — provides the mock
- * service and a ref of recorded calls for assertions.
+ * A mock service and its mutable, in-memory call log.
+ *
+ * @remarks
+ * Read `calls` with `Ref.get`. Each runtime owns an independent log and
+ * sequence cursor.
  *
  * @since 0.1.0
  * @category models
@@ -408,11 +421,17 @@ const makeService = (
   })
 
 /**
- * Public API for creating deterministic `LanguageModel` test services.
+ * Creates non-streaming `LanguageModel` test services.
+ *
+ * @remarks
+ * Generation is deterministic for deterministic strategy callbacks. The mock
+ * does not simulate streaming: `streamText` is empty. Strategy failures,
+ * exceptions from `map`, and values that cannot be encoded for object
+ * generation fail as `AiError.UnknownError`.
  *
  * @example
  * ```ts
- * import { MockLanguageModel } from "@scenesystems/effect-dsp/testing"
+ * import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
  * import * as LanguageModel from "@effect/ai/LanguageModel"
  * import { Effect, Layer } from "effect"
  *
@@ -426,13 +445,25 @@ const makeService = (
  * @category constructors
  */
 export const MockLanguageModel = {
+  /** Returns the same response for every generation call. */
   fixed: (response: unknown): ResponseStrategy => ResponseStrategy.Fixed({ response }),
+  /** Computes each response synchronously from normalized prompt text. */
   map: (resolve: (prompt: string) => unknown): ResponseStrategy => ResponseStrategy.Map({ resolve }),
+  /**
+   * Returns responses in order and repeats the final item after exhaustion.
+   * An empty sequence fails each generation call with `AiError.UnknownError`.
+   */
   sequence: (responses: ReadonlyArray<unknown>): ResponseStrategy => ResponseStrategy.Sequence({ responses }),
+  /**
+   * Computes each response with an Effect. Any failure is wrapped in
+   * `AiError.UnknownError`.
+   */
   fromFunction: (
     resolve: (prompt: string) => Effect.Effect<unknown, unknown, never>
   ): ResponseStrategy => ResponseStrategy.Function({ resolve }),
+  /** Fails every generation call with an `AiError.UnknownError` carrying `error` as its cause. */
   failing: (error: unknown): ResponseStrategy => ResponseStrategy.Failing({ error }),
+  /** Allocates an independent mock service, call log, and sequence cursor. */
   make: (strategy: ResponseStrategy): Effect.Effect<MockLanguageModelRuntime> =>
     Effect.gen(function*() {
       const calls = yield* Ref.make<ReadonlyArray<MockCall>>([])
@@ -444,6 +475,7 @@ export const MockLanguageModel = {
         calls
       })
     }),
+  /** Provides a newly allocated mock as the `LanguageModel` service. */
   layer: (
     tag: typeof LanguageModel.LanguageModel,
     strategy: ResponseStrategy

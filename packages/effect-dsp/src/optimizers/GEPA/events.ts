@@ -70,7 +70,8 @@ export const GEPAEventSchema = Schema.Union(
 export type GEPAEvent = typeof GEPAEventSchema.Type
 
 /**
- * Constructors and match helpers for GEPA events.
+ * Builds and exhaustively matches GEPA lifecycle events by `_tag`, covering
+ * iteration, candidate, merge, and frontier progress from the closed schema.
  *
  * @since 0.1.0
  * @category events

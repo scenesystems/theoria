@@ -7,10 +7,9 @@
 import { Schema } from "effect"
 
 /**
- * Result of scoring one prediction against its expected output. `score`
- * is a numeric value (typically 0–1 but unbounded for custom metrics).
- * `feedback`, when present, provides human-readable rationale consumed
- * by GEPA's reflective mutation loop to generate improved instructions.
+ * Result of scoring one prediction against its expected output. The schema
+ * accepts any JavaScript number; metric-specific ranges are enforced by the
+ * metric, not by this contract. `feedback` is optional scorer-provided text.
  *
  * @since 0.1.0
  * @category models

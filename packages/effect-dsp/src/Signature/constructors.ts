@@ -40,11 +40,23 @@ const validateFieldCollections = (
   })
 
 /**
- * Build a validated {@link Signature} from a description string, input
- * fields, and output fields. Validates that both field sets are
- * non-empty and that no field name appears in both inputs and outputs.
- * Automatically derives the `instructions` text and extracts
- * {@link FieldInfo} metadata from each Schema property.
+ * Builds a typed signature from input and output `Schema.Struct` field records.
+ *
+ * @remarks
+ * Decoded input and output types are inferred from the supplied records. Both records must be non-empty,
+ * and a field name may not occur in both records. Field descriptions and
+ * optionality are copied into {@link FieldInfo}; {@link deriveInstruction}
+ * produces the initial instruction text.
+ * The returned Effect fails with `SignatureError` for an empty field record or
+ * an overlapping field name. Schema decoding is performed later by a module,
+ * not by this constructor.
+ *
+ * @typeParam I - Input `Schema.Struct` fields; preserve the inferred record instead of widening it.
+ * @typeParam O - Output `Schema.Struct` fields; preserve the inferred record instead of widening it.
+ * @param description - Task description used verbatim in the derived instructions.
+ * @param inputFields - Non-empty input field definitions.
+ * @param outputFields - Non-empty output field definitions with names distinct from `inputFields`.
+ * @returns A signature whose instructions are derived from the supplied description and fields.
  *
  * @see {@link Signature} — the returned model
  * @see {@link describe} — annotate fields with human-readable descriptions

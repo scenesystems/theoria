@@ -15,10 +15,9 @@ import { Effect, FiberRef, Schema } from "effect"
 import { RolloutRef } from "./refs.js"
 
 /**
- * Composite memoization key for module-level LM call replay. Combines
- * module identity, runtime identity, content hashes for input and params,
- * and an optional rollout index for cache key diversity during `bestOfN`
- * evaluation.
+ * Cache key for one LM-call partition. Caller-supplied module and runtime
+ * fingerprints partition entries; durable hashes identify input and parameter
+ * content; the fiber-local rollout id optionally creates a separate partition.
  *
  * @see {@link RolloutRef} — fiber-local rollout identity source
  * @see {@link DspCache} — the service that builds and resolves these keys
@@ -37,10 +36,10 @@ export class DspCacheKey extends Schema.Class<DspCacheKey>("DspCacheKey")({
 const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 
 /**
- * Thin adapter projecting DSP-specific module/input/params/rollout
- * semantics onto the `@scenesystems/effect-search/Cache` shared authority. No hashing
- * logic lives here — `durableFingerprint` from `effect-search` handles
- * all content hashing.
+ * DSP cache service backed by `@scenesystems/effect-search/Cache`. `resolve`
+ * returns the decoded value and its `CacheResolution`; computation failures
+ * remain `E`, while cache read, write, or decode failures are `CacheError`.
+ * Entry lifetime is determined by the provided cache backend.
  *
  * @see {@link DspCacheKey} — the composite key built by `resolve`
  * @see {@link DspCacheMemory} — in-memory layer for tests
@@ -80,10 +79,10 @@ const fingerprintOrCorrupt = (
   )
 
 /**
- * Build a {@link DspCacheKey} from request fields and the current
- * {@link RolloutRef}. Hashes `input` and `params` via
- * `durableFingerprint` from `@scenesystems/effect-search/Cache` — no hashing logic
- * lives in `effect-dsp`.
+ * Build a {@link DspCacheKey} from caller fingerprints, durable hashes of
+ * `input` and `params`, and the current {@link RolloutRef}. Values that cannot
+ * be fingerprinted fail with `CacheCorrupt`; its reason identifies the input
+ * or parameter projection.
  *
  * @see {@link DspCacheKey} — the composite key returned
  * @see {@link RolloutRef} — fiber-local rollout identity read during construction

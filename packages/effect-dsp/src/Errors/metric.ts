@@ -6,8 +6,10 @@
 import { Schema } from "effect"
 
 /**
- * Raised when a metric scoring function fails during evaluation. Carries the
- * metric name for targeted error handling.
+ * Identifies a failure produced by a named metric. Metric effects may fail
+ * with their own error type; `MetricError` is the package-level diagnostic
+ * used when that failure must be represented independently of the metric's
+ * generic error channel.
  *
  * @since 0.1.0
  * @category errors
@@ -21,8 +23,10 @@ export class MetricError extends Schema.TaggedError<MetricError>()(
 ) {}
 
 /**
- * Raised when a single example evaluation fails. Caught and collected by the
- * evaluation runtime — does not abort the full run.
+ * Records an example that could not be evaluated. The zero-based `index`
+ * refers to the input dataset, so callers can correlate a failure after
+ * concurrent evaluation has reordered completion. Evaluation reports collect
+ * these values rather than failing the entire run.
  *
  * @since 0.1.0
  * @category errors

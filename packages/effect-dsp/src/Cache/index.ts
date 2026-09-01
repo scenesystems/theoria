@@ -1,5 +1,11 @@
 /**
- * Shared cache authority surface — thin DSP adapter over `@scenesystems/effect-search/Cache`.
+ * Memoizes language-model calls by module identity, content hashes, and an
+ * optional fiber-local rollout index.
+ *
+ * @remarks
+ * `DspCache` is the capability consumed by model programs. `DspCacheLive`
+ * resolves entries through `SchemaCache`; the file-system, memory, and SQLite
+ * Layers select the backing store.
  *
  * @since 0.1.0
  */
@@ -43,25 +49,29 @@ export {
 
 export {
   /**
-   * File-system-backed DspCache layer.
+   * Persists LM-call cache entries in a directory so they survive process
+   * restarts and can be reused by later runs.
    *
    * @since 0.1.0
    */
   DspCacheFileSystem,
   /**
-   * Live DspCache layer requiring a `SchemaCache` service.
+   * Adapts the currently provided `SchemaCache` into module-level LM-call
+   * memoization; callers choose the storage backend through that dependency.
    *
    * @since 0.1.0
    */
   DspCacheLive,
   /**
-   * In-memory DspCache layer for tests.
+   * Isolates cache entries to the lifetime of the provided layer, avoiding
+   * filesystem or database state in tests and short-lived runs.
    *
    * @since 0.1.0
    */
   DspCacheMemory,
   /**
-   * SQLite-backed DspCache layer.
+   * Persists LM-call cache entries in SQLite for reuse across process restarts
+   * while retaining the same rollout-partitioned lookup behavior.
    *
    * @since 0.1.4
    */

@@ -1,6 +1,6 @@
 /**
- * Ensemble optimizer — run multiple optimization strategies and select the
- * parameter set with the highest evaluation score.
+ * Ensemble module construction — select a deterministic subset of programs,
+ * run it concurrently for each input, then reduce the outputs.
  *
  * @since 0.1.0
  */

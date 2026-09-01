@@ -19,7 +19,7 @@ import { buildCandidateStates, normalizeNonNegative, resolveSeeds } from "./runt
 import { scoreCandidates, selectBestCandidate } from "./runtime/search.js"
 
 /**
- * BootstrapRS constructor options.
+ * Options for seeded BootstrapFewShot restarts and validation selection.
  *
  * @since 0.1.0
  * @category models
@@ -30,11 +30,17 @@ export type BootstrapRSOptions<
   ME = never,
   MR = never
 > = Readonly<{
+  /** Module restored between candidates, then loaded with the winning state. */
   readonly module: DspModule<I, O>
+  /** Bootstrap input; each seed deterministically rotates this sequence. */
   readonly trainset: ReadonlyArray<Example>
+  /** Candidate-scoring examples. Defaults to `trainset`. */
   readonly valset?: ReadonlyArray<Example>
+  /** Metric used by both bootstrapping and candidate evaluation. */
   readonly metric: Metric<ME, MR>
+  /** Number of candidate restarts; non-positive values fail with `AllTrialsFailed`. */
   readonly numCandidates: number
+  /** Candidate seeds; missing entries are deterministically generated. */
   readonly seeds?: ReadonlyArray<number>
   readonly maxRounds?: number
   readonly maxBootstrappedDemos?: number
@@ -52,7 +58,15 @@ const noCandidateError = () =>
   })
 
 /**
- * Run BootstrapFewShot across candidate seeds and keep the best validation performer.
+ * Selects a BootstrapFewShot module state by evaluating candidates across seeds.
+ *
+ * @remarks
+ * BootstrapFewShot runs across candidate seeds sequentially, each saved
+ * candidate is scored on `valset`, and the highest-scoring state is loaded into
+ * `module`. Ties preserve candidate order. Failed bootstrap candidates are
+ * excluded; absence of any buildable or scoreable candidate fails with
+ * `AllTrialsFailed`. The seed changes deterministic training-set rotation, not
+ * Effect's random service.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0

@@ -6,7 +6,9 @@
 import { Schema } from "effect"
 
 /**
- * Trace collection encountered an unexpected failure.
+ * Failure while collecting or projecting execution traces. `moduleName` is
+ * optional because scope-level failures can occur before a module invocation
+ * is associated with the trace.
  *
  * @since 0.1.0
  * @category errors

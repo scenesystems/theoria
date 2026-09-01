@@ -12,8 +12,9 @@ import { SignatureError } from "./signature.js"
 import { TraceError } from "./trace.js"
 
 /**
- * Union schema covering all effect-dsp error types. Useful for top-level error
- * handling when you want to catch any library error.
+ * Union schema covering the error classes exported from this module. It does
+ * not include dependency, platform, provider, parse, or user callback errors
+ * that other APIs may expose in their Effect error channels.
  *
  * @since 0.1.0
  * @category errors
@@ -33,8 +34,9 @@ export const DspError = Schema.Union(
 )
 
 /**
- * Discriminated union type of all effect-dsp errors, extracted from
- * {@link DspError} schema.
+ * Errors that callers can handle uniformly by `_tag` across signatures,
+ * modules, optimizers, metrics, evaluation, tracing, and persistence. Like the
+ * schema, this excludes provider, platform, dependency, and callback failures.
  *
  * @since 0.1.0
  * @category errors

@@ -8,7 +8,12 @@ import type { MetricFn } from "../contracts/MetricFn.js"
 import { MetricResult } from "../contracts/MetricResult.js"
 
 /**
- * Re-export of `MetricResult` — a score with optional feedback text.
+ * Schema and constructor for a numeric score with optional feedback.
+ *
+ * @remarks
+ * Scores are not normalized or range-checked. Weighting, when needed, belongs
+ * in the scoring function; {@link import("./compose.js").compose} gives every
+ * child score equal weight.
  *
  * @since 0.1.0
  * @category models
@@ -16,9 +21,8 @@ import { MetricResult } from "../contracts/MetricResult.js"
 export const Result = MetricResult
 
 /**
- * A named scoring function that compares a prediction to an expected output
- * and returns a `MetricResult`. Metrics can be pure or effectful, and compose
- * via `Metric.compose`.
+ * Named scoring function from prediction and expected payloads to a
+ * {@link MetricResult} Effect.
  *
  * @since 0.1.0
  * @category models
@@ -27,6 +31,8 @@ export const Result = MetricResult
  * @see {@link import("./compose.js").compose}
  */
 export class Metric<E = never, R = never> extends Data.TaggedClass("Metric")<{
+  /** Descriptive metric name. Evaluation report keys come from the containing metrics record instead. */
   readonly name: string
+  /** Scoring function whose failure `E` and requirements `R` remain in callers' Effect types. */
   readonly score: MetricFn<E, R>
 }> {}

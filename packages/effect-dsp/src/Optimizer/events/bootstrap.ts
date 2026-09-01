@@ -61,7 +61,8 @@ export const BootstrapEventSchema = Schema.Union(
 export type BootstrapEvent = typeof BootstrapEventSchema.Type
 
 /**
- * Constructors and match helpers for BootstrapFewShot events.
+ * Builds and exhaustively matches BootstrapFewShot lifecycle events by `_tag`,
+ * including round progress and terminal fallback information.
  *
  * @since 0.1.0
  * @category events

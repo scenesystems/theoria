@@ -37,10 +37,10 @@ export class TraceObjectiveProjection extends Schema.Class<TraceObjectiveProject
 }) {}
 
 /**
- * Convert a runtime `Trace.Entry` into a {@link TraceObjectiveProjection},
- * normalizing field names and wrapping token counts into a
- * {@link UsageSample}. Schema-validates the result to catch any
- * structural drift between the trace model and the projection contract.
+ * Decode a runtime `Trace.Entry` as a {@link TraceObjectiveProjection}.
+ * Token counts are wrapped in {@link UsageSample}; `cached` is always
+ * `false` because trace entries do not carry cache-resolution metadata.
+ * Invalid projected fields fail with `ParseResult.ParseError`.
  *
  * @see {@link TraceObjectiveProjection}
  *

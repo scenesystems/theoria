@@ -1,6 +1,12 @@
 /**
- * Prompt optimizer façade — entry points for all optimization algorithms and
- * their event/progress contracts.
+ * Derives module parameters from examples and metrics through few-shot
+ * selection, random search, Bayesian instruction search, ensembles, or
+ * evolutionary prompt search.
+ *
+ * @remarks
+ * Optimizers retain their algorithm-specific failure and event contracts. Use
+ * `effectSearchInterop` when module parameters should be evaluated as
+ * black-box search trials rather than through a built-in prompt optimizer.
  *
  * @since 0.1.0
  */

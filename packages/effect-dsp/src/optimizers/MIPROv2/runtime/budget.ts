@@ -23,6 +23,7 @@ export const normalizePositive = (value: number, fallback: number): number =>
 /**
  * Computes the recommended number of Bayesian search trials for Phase 3.
  *
+ * @remarks
  * The budget is the larger of a logarithmic estimate
  * (`2 × predictors × ln(candidates)`) and an exploration floor
  * (`1.5 × candidates`), then ceiled and clamped to the provided minimum.

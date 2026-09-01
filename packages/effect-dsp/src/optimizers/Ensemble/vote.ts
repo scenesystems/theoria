@@ -64,6 +64,7 @@ const winningVote = <O extends Schema.Struct.Fields>(
  * Reduce multiple sub-module outputs to the most common value for each field.
  * Ties are broken by first occurrence.
  *
+ * @remarks
  * Uses structural equality via `Data.struct` so outputs with identical field
  * values are always grouped together regardless of reference identity.
  *

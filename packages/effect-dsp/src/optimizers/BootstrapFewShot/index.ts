@@ -45,8 +45,10 @@ const bootstrapFailure = (options: {
   })
 
 /**
- * Configuration for BootstrapFewShot — module, training set, metric, round
- * count, demo limits, score threshold, and optional teacher layer.
+ * Controls teacher-trace collection. Examples are visited in train-set order
+ * once per round; labeled outputs are used only by the optional fallback.
+ * Counts are truncated to non-negative integers. Existing demonstrations are
+ * retained up to `maxBootstrappedDemos` before collection starts.
  *
  * @since 0.1.0
  * @category models
@@ -57,15 +59,25 @@ export type BootstrapFewShotOptions<
   ME = never,
   MR = never
 > = Readonly<{
+  /** Module mutated in place and returned by the optimizer. */
   readonly module: Module<I, O>
+  /** Training examples used for teacher runs and labeled fallback. */
   readonly trainset: ReadonlyArray<Example>
+  /** Scores each module output; values greater than or equal to `threshold` are accepted. */
   readonly metric: Metric<ME, MR>
+  /** Maximum passes over `trainset`; non-positive values perform no rounds. */
   readonly maxRounds: number
+  /** Maximum total demonstrations, including demonstrations already on the module. */
   readonly maxBootstrappedDemos: number
+  /** Optional prefix limit applied to `trainset` before all processing. */
   readonly maxLabeledDemos?: number
+  /** Minimum accepted score. Defaults to `1`. */
   readonly threshold?: number
+  /** Whether zero accepted traces trigger labeled fallback. Defaults to `true`. */
   readonly fallbackToLabeledFewShot?: boolean
+  /** Number of labeled demonstrations requested by fallback. Defaults to `3`. */
   readonly fallbackLabeledDemoCount?: number
+  /** Layer used only while running teacher traces; otherwise the ambient language model is used. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
@@ -92,10 +104,15 @@ const streamBootstrapFewShotEvents = <A, E, R>(
 ): Stream.Stream<BootstrapEventType, E, R> => streamFromEmitter(runWithEvents)
 
 /**
- * Run BootstrapFewShot with an explicit event sink. Iterates through training
- * examples, runs the module (optionally via a teacher layer), scores traces,
- * and collects demos above the threshold. Falls back to `labeledFewShot` when
- * no demos pass the threshold.
+ * Optimizes a module with BootstrapFewShot while reporting progress to an event sink.
+ *
+ * @remarks
+ * The event sink is explicit and sequentially awaited. The optimizer mutates
+ * `options.module.params` as rounds complete and returns that same module. If
+ * no trace is accepted, labeled fallback runs by default; disabling it,
+ * requesting zero fallback demos, or providing no labeled outputs fails with
+ * `BootstrapFailed`. Module, metric, schema, and language-model failures remain
+ * in the returned Effect error channel.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0
@@ -239,7 +256,9 @@ export const bootstrapFewShotWithEvents = <
   })
 
 /**
- * Run BootstrapFewShot and return the module with collected demonstrations.
+ * Run BootstrapFewShot without observing events. See
+ * {@link bootstrapFewShotWithEvents} for mutation, fallback, and failure
+ * semantics.
  *
  * @since 0.1.0
  * @category constructors
@@ -252,7 +271,9 @@ export const bootstrapFewShot = <
 >(options: BootstrapFewShotOptions<I, O, ME, MR>) => bootstrapFewShotWithEvents(options, noBootstrapEvents)
 
 /**
- * Run BootstrapFewShot and project all lifecycle events as an Effect Stream.
+ * Lazily run BootstrapFewShot and emit lifecycle events in execution order.
+ * Consuming the stream drives optimization; stream failure is the optimizer's
+ * typed failure channel and the optimized module is not a stream element.
  *
  * @since 0.1.0
  * @category constructors

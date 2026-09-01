@@ -1,5 +1,20 @@
 /**
- * I/O signatures — Schema-based type contracts defining module input and output.
+ * Defines schema-first language-model programs that can be evaluated and
+ * optimized inside Effect workflows.
+ *
+ * @remarks
+ * Define input and output contracts with `Signature`, construct executable
+ * programs with `Module`, score them against `Example` values through
+ * `Metric` and `Evaluate`, and use `Optimizer` when their parameters should be
+ * learned. `Cache` and `Trace` supply runtime integrations for those
+ * executions.
+ *
+ * @since 0.1.0
+ * @module
+ */
+
+/**
+ * Schema-backed input and output contracts for model programs.
  *
  * @since 0.1.0
  * @category signatures
@@ -7,8 +22,7 @@
 export * as Signature from "./Signature/index.js"
 
 /**
- * Learnable LLM program modules — predict, chainOfThought, compose, and
- * persistence.
+ * Executable model programs and their learnable parameters.
  *
  * @since 0.1.0
  * @category modules
@@ -16,8 +30,7 @@ export * as Signature from "./Signature/index.js"
 export * as Module from "./Module/index.js"
 
 /**
- * Prompt optimizers — BootstrapFewShot, BootstrapRS, LabeledFewShot, MIPROv2,
- * GEPA, Ensemble, and progress reporting.
+ * Optimizers that derive program parameters from examples and metrics.
  *
  * @since 0.1.0
  * @category optimizers
@@ -25,8 +38,7 @@ export * as Module from "./Module/index.js"
 export * as Optimizer from "./Optimizer/index.js"
 
 /**
- * Scoring metrics — exactMatch, f1, contains, custom metrics, and metric
- * composition.
+ * Scoring contracts and constructors used by evaluation and optimization.
  *
  * @since 0.1.0
  * @category metrics
@@ -34,7 +46,7 @@ export * as Optimizer from "./Optimizer/index.js"
 export * as Metric from "./Metric/index.js"
 
 /**
- * Dataset evaluation — batch run or streaming stream against labeled examples.
+ * Batch and streaming evaluation of programs against labeled examples.
  *
  * @since 0.1.0
  * @category evaluation
@@ -42,15 +54,15 @@ export * as Metric from "./Metric/index.js"
 export * as Evaluate from "./Evaluate/index.js"
 
 /**
- * Training data — Example and Demo types for optimization datasets.
+ * Labeled examples and demonstrations for evaluation and optimization.
  *
  * @since 0.1.0
- * @category examples
+ * @category models
  */
 export * as Example from "./Example/index.js"
 
 /**
- * Execution tracing — fiber-scoped trace collection and token usage accounting.
+ * Fiber-scoped execution traces and token-usage accounting.
  *
  * @since 0.1.0
  * @category tracing
@@ -58,7 +70,7 @@ export * as Example from "./Example/index.js"
 export * as Trace from "./Trace/index.js"
 
 /**
- * Typed errors — Schema.TaggedError classes for every failure domain.
+ * Package-owned typed failures.
  *
  * @since 0.1.0
  * @category errors
@@ -66,8 +78,7 @@ export * as Trace from "./Trace/index.js"
 export * as Errors from "./Errors/index.js"
 
 /**
- * Shared cache authority — module-level LM call memoization with rollout
- * partitioning.
+ * Shared language-model call caching and rollout partitioning.
  *
  * @since 0.1.0
  * @category cache

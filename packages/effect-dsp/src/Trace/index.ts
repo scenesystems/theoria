@@ -1,32 +1,33 @@
 /**
- * Execution trace collection via FiberRef — zero contention, fiber-scoped.
+ * Fiber-local execution trace and usage collection.
  *
  * @since 0.1.0
  */
 
 /**
- * Core `Entry` model and `noScore` constant.
+ * Captures one module call's validated input and output, rendered prompt,
+ * response, score, and token usage for evaluation and optimization.
  *
  * @since 0.1.0
  */
 export * from "./model.js"
 
 /**
- * FiberRef storage — `TraceRef`, `UsageRef`, and their opt-in markers.
+ * Fiber-local storage and collection flags.
  *
  * @since 0.1.0
  */
 export * from "./refs.js"
 
 /**
- * Append combinators — `append`, `appendUsage`, and `appendExecution`.
+ * Trace and usage append operations.
  *
  * @since 0.1.0
  */
 export * from "./append.js"
 
 /**
- * Scoping combinators — `withTracing`, `withUsageTracking`, and `get`.
+ * Collection scopes.
  *
  * @since 0.1.0
  */

@@ -6,7 +6,10 @@
 import { Schema } from "effect"
 
 /**
- * BootstrapFewShot produced zero high-scoring demos after all rounds.
+ * BootstrapFewShot exhausted its rounds without enough acceptable traces.
+ * The counters describe the completed run and the optional-defaulted score
+ * fields keep older serialized failures decodable; inspect `bestScoreSeen`
+ * before treating `bestScore` as an observed value.
  *
  * @since 0.1.0
  * @category errors
@@ -43,7 +46,9 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>()(
 ) {}
 
 /**
- * MIPROv2 Phase 2 meta-LLM failed to produce a valid instruction.
+ * MIPROv2's proposal phase could not decode a valid instruction for the
+ * zero-based `predictorIndex`. This is distinct from a candidate trial whose
+ * metric evaluation failed.
  *
  * @since 0.1.0
  * @category errors
@@ -58,7 +63,9 @@ export class InstructionProposalFailed extends Schema.TaggedError<InstructionPro
 ) {}
 
 /**
- * Every trial evaluation in an optimizer run errored.
+ * No optimizer trial produced a score, so there is no candidate that can be
+ * selected as the result. `trialCount` is the number of attempted trials, not
+ * the configured budget when a run stopped early.
  *
  * @since 0.1.0
  * @category errors
@@ -72,7 +79,10 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>()(
 ) {}
 
 /**
- * GEPA merge/crossover was rejected by the acceptance gate.
+ * GEPA produced a crossover candidate but its acceptance gate rejected the
+ * merge. `parentA` and `parentB` are stable candidate identities that callers
+ * can correlate with optimizer events; rejection is an expected search
+ * outcome rather than a language-model transport failure.
  *
  * @since 0.1.0
  * @category errors

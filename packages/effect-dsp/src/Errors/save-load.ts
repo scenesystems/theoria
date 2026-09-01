@@ -6,8 +6,9 @@
 import { Schema } from "effect"
 
 /**
- * Raised when module parameter persistence fails. The `operation` field
- * discriminates between save and load failures.
+ * Failure at the module-state persistence boundary. `operation` lets recovery
+ * distinguish an unpersisted update from an unavailable saved state; `path`
+ * is absent when the failure cannot be attributed to a specific location.
  *
  * @since 0.1.0
  * @category errors

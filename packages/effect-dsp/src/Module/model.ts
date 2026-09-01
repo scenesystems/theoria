@@ -14,9 +14,10 @@ import type { DspError } from "../Errors/union.js"
 import type { Signature } from "../Signature/model.js"
 
 /**
- * Serialized program state capturing version, per-module parameters, and
- * optional metadata. Use with `Module.save` and `Module.load` to persist
- * and restore learned parameters across runs.
+ * Schema for the version-1 parameter envelope accepted by {@link load} and
+ * produced by {@link save}. Compatibility is structural: loading requires
+ * exactly one entry for every module name in the target module tree, rejects
+ * unknown or duplicate names, and currently accepts only `version: 1`.
  *
  * @see {@link Module}
  *
@@ -33,11 +34,20 @@ export class SavedState extends Schema.Class<SavedState>("ProgramParams")({
 }) {}
 
 /**
- * The core runtime contract for a learnable LLM program. Each module owns
- * a typed `forward` function that transforms schema-validated input into
- * schema-validated output via a language model. Module parameters
- * (instructions and demonstrations) are mutable via `Ref` and can be
- * tuned by optimizers.
+ * Runtime contract for a named program node.
+ *
+ * @remarks
+ * `forward` accepts the decoded
+ * input type and returns the decoded output type. Its environment contains
+ * `LanguageModel` plus any input/output Schema context, and its typed failure
+ * channel is `AiError | DspError`.
+ * `params` is this node's mutable instruction/demonstration state.
+ * `subModules` describes owned child nodes for composition, discovery, and
+ * persistence; wrappers with an operational inner module do not necessarily
+ * expose that inner module in this map.
+ *
+ * @typeParam I - Input fields controlling the accepted decoded input and Schema context.
+ * @typeParam O - Output fields controlling the decoded result and Schema context.
  *
  * @see {@link Signature}
  * @see {@link ModuleParams}

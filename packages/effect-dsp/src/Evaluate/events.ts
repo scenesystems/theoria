@@ -7,9 +7,8 @@ import { Data, Schema } from "effect"
 import { ExampleFailure } from "./report.js"
 
 /**
- * Schema union describing lifecycle events emitted during evaluation:
- * `ExampleStarted`, `ExampleCompleted`, `ExampleFailed`, and
- * `EvaluationCompleted`.
+ * Schema for per-example start and terminal events plus the final aggregate
+ * completion event.
  *
  * @since 0.1.0
  * @category events
@@ -33,8 +32,9 @@ export const EvaluationEventSchema = Schema.Union(
 )
 
 /**
- * Discriminated union of evaluation lifecycle events, extracted from
- * {@link EvaluationEventSchema}.
+ * Progress values emitted while evaluating examples: each start is followed
+ * by either completion or failure, and the run ends with one aggregate
+ * `EvaluationCompleted` value.
  *
  * @since 0.1.0
  * @category events
@@ -42,7 +42,8 @@ export const EvaluationEventSchema = Schema.Union(
 export type EvaluationEventType = typeof EvaluationEventSchema.Type
 
 /**
- * Tagged-enum constructors and `$match` helpers for evaluation events.
+ * Builds, narrows, and exhaustively matches evaluation progress values by
+ * their `_tag`, so consumers share the schema's closed event set.
  *
  * @since 0.1.0
  * @category events

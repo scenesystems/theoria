@@ -6,9 +6,10 @@
 import { Schema } from "effect"
 
 /**
- * Per-field diagnostic emitted when text output parsing fails — identifies the
- * field name, issue type (missing, unexpected, duplicate, or decode error), and
- * a human-readable message.
+ * Machine-readable reason that one response field could not be accepted.
+ * `issue` distinguishes response shape errors from schema decoding errors;
+ * parsers retain all diagnostics so retry prompts can address more than the
+ * first malformed field.
  *
  * @since 0.1.0
  * @category models
@@ -20,9 +21,11 @@ export class ParseFieldDiagnostic extends Schema.Class<ParseFieldDiagnostic>("Pa
 }) {}
 
 /**
- * Raised when an LLM response cannot be decoded into the expected output
- * schema. Carries the raw output, retry count, and per-field diagnostics for
- * prompt feedback.
+ * Failure to decode a language-model response against a module's output
+ * schema after the configured parsing attempts. `rawOutput` is absent when no
+ * textual response was available, and `retryCount` is absent when the caller
+ * cannot report an attempt number. The diagnostics are safe to inspect in
+ * typed recovery without parsing `message`.
  *
  * @since 0.1.0
  * @category errors
@@ -41,8 +44,10 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
 ) {}
 
 /**
- * Raised during module composition when the graph is invalid — duplicate
- * module ids, name collisions, or cycles.
+ * Rejects a module graph before it can run. Composition uses this error for
+ * duplicate module identities, name collisions, cycles, and incompatible
+ * pipeline boundaries; `moduleName` is present when the fault can be assigned
+ * to one node.
  *
  * @since 0.1.0
  * @category errors

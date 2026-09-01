@@ -28,6 +28,7 @@ export type ProgramOutput<O extends Schema.Struct.Fields> = Schema.Schema.Type<S
 /**
  * Function that combines multiple sub-module outputs into a single winner.
  *
+ * @remarks
  * Receives the original input and all collected outputs; returns one merged
  * output or fails with a `DspError`.
  *
@@ -41,21 +42,31 @@ export type EnsembleReduceFn<I extends Schema.Struct.Fields, O extends Schema.St
 }) => Effect.Effect<ProgramOutput<O>, DspError>
 
 /**
- * Configuration for the ensemble optimizer.
+ * Controls fixed-subset execution and output reduction for an ensemble.
  *
- * `programs` — the sub-modules to run in parallel.
- * `reduceFn` — strategy for merging outputs (defaults to majority vote).
- * `size` — optional cap on how many programs are sampled per forward pass.
- * `seed` — deterministic seed for program sampling.
+ * @remarks
+ * Construction fails with `AllTrialsFailed` when `programs` is empty. A
+ * deterministic subset is chosen once during construction; every forward call
+ * runs that same subset concurrently and supplies outputs to the reducer in
+ * selection order. Any selected program failure fails the forward call before
+ * reduction.
  *
  * @see {@link EnsembleReduceFn} for the reduce contract
  * @since 0.1.0
  * @category models
  */
 export type EnsembleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> = Readonly<{
+  /** Candidate modules. The first supplies the ensemble signature; all are retained as sub-modules. */
   readonly programs: ReadonlyArray<DspModule<I, O>>
+  /**
+   * Combines selected outputs with the original input. Defaults to structural
+   * majority vote over whole outputs, with first-observed output winning ties.
+   */
   readonly reduceFn?: EnsembleReduceFn<I, O>
+  /** Programs selected to run, clamped to `[1, programs.length]`; omission selects all. */
   readonly size?: number
+  /** Seed for reproducible subset choice. Defaults to `1` and does not advance between calls. */
   readonly seed?: number
+  /** Identity of the composed module and its forward span. Defaults to `"ensemble"`. */
   readonly name?: string
 }>
