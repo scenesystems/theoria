@@ -20,6 +20,8 @@ import { AgreementAlgorithm } from "./AgreementAlgorithm.js"
  * @category schemas
  */
 export class SharedSecret extends Schema.Class<SharedSecret>("SharedSecret")({
+  /** Agreement suite that produced the secret. */
   algorithm: AgreementAlgorithm,
+  /** Caller-owned raw X25519 output; no KDF has been applied. */
   sharedSecret: Schema.Uint8ArrayFromSelf
 }) {}

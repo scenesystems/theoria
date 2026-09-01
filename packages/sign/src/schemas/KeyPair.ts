@@ -35,7 +35,10 @@ export const CryptoAlgorithm = Schema.Union(SignatureAlgorithm, AgreementAlgorit
  * @category schemas
  */
 export class KeyPair extends Schema.Class<KeyPair>("KeyPair")({
+  /** Selects the primitive and valid operations for these bytes. */
   algorithm: CryptoAlgorithm,
+  /** Public verification, agreement, or encapsulation key. */
   publicKey: Schema.Uint8ArrayFromSelf,
+  /** Caller-owned secret key; the class does not redact or destroy it. */
   secretKey: Schema.Uint8ArrayFromSelf
 }) {}

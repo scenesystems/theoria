@@ -1,7 +1,8 @@
 /**
- * `@scenesystems/sign` — digital signatures, key agreement, and key
- * encapsulation for Effect.
+ * Applies digital signatures, key agreement, and key encapsulation in Effect
+ * programs.
  *
+ * @remarks
  * Three cryptographic families — signatures, key agreement, and key
  * encapsulation — each with separate pipelines and algorithm types.
  *

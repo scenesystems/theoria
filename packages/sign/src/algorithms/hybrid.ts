@@ -37,7 +37,10 @@ import { KemCiphertext } from "../schemas/KemCiphertext.js"
 import { KeyPair } from "../schemas/KeyPair.js"
 
 /**
- * Encapsulate a shared secret for a recipient's XWing public key.
+ * Run X-Wing encapsulation for a 1,216-byte recipient public key, drawing
+ * ephemeral X25519 and ML-KEM-768 randomness from Noble's ambient CSPRNG. The
+ * result contains a 1,120-byte ciphertext and 32-byte sender shared secret;
+ * only the ciphertext is sent to the recipient.
  *
  * @since 0.1.0
  * @category algorithms
@@ -58,7 +61,9 @@ export const xwingEncapsulate = (
   })
 
 /**
- * Decapsulate a ciphertext with the recipient's XWing secret key.
+ * Recover the 32-byte X-Wing shared secret from a 1,120-byte ciphertext and
+ * the recipient's 32-byte secret seed. Rejected lengths or backend failures
+ * are reported as `KemFailed`; the operation does not authenticate the sender.
  *
  * @since 0.1.0
  * @category algorithms
@@ -73,7 +78,8 @@ export const xwingDecapsulate = (
   })
 
 /**
- * Generate an XWing key pair.
+ * Draw an X-Wing key pair from Noble's ambient CSPRNG, returning a 1,216-byte
+ * serialized X25519 + ML-KEM-768 public key and a 32-byte secret seed.
  *
  * @since 0.1.0
  * @category algorithms

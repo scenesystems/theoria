@@ -17,6 +17,12 @@ import { SharedSecret } from "../schemas/SharedSecret.js"
 /**
  * Derive a shared secret via X25519 ECDH.
  *
+ * @param secretKey - The local party's 32-byte secret key.
+ * @param publicKey - The peer's 32-byte public key; this function does not authenticate it.
+ * @returns The tagged raw 32-byte X25519 output, or
+ * `AgreementFailed`. Apply protocol-appropriate KDF and transcript binding.
+ * @see https://www.rfc-editor.org/rfc/rfc7748
+ *
  * @since 0.1.0
  * @category algorithms
  */
@@ -34,7 +40,8 @@ export const x25519SharedSecret = (
   })
 
 /**
- * Generate an X25519 key pair.
+ * Draw an X25519 key pair from Noble's ambient CSPRNG, returning a 32-byte
+ * secret scalar and 32-byte Montgomery-u public key.
  *
  * @since 0.1.0
  * @category algorithms

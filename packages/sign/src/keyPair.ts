@@ -45,6 +45,16 @@ type CryptoAlgorithmType = typeof CryptoAlgorithm.Type
 /**
  * Generate a key pair for any supported algorithm.
  *
+ * @remarks
+ * Randomness is obtained by the selected Noble primitive. The returned byte
+ * arrays are owned by the caller; this package does not store, wrap, redact, or
+ * destroy secret keys.
+ *
+ * @param algorithm - The exact signature, agreement, or KEM suite to generate.
+ * @returns A caller-owned, algorithm-tagged key pair. Backend failures
+ * are normalized to `KeyGenerationFailed` with an algorithm and diagnostic
+ * reason.
+ *
  * @since 0.1.0
  * @category keys
  */

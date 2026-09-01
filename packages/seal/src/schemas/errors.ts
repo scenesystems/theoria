@@ -1,22 +1,5 @@
 /**
- * Typed errors for seal operations.
- *
- * All errors are `Schema.TaggedError` — yieldable in `Effect.gen`,
- * catchable via `Effect.catchTag`, serializable via Schema.
- *
- * **`DecryptionFailed`** — raised when authenticated decryption
- * fails. Covers tampered ciphertext, wrong key, corrupted nonce,
- * or truncated envelope. Intentionally vague to avoid oracle
- * attacks — does not distinguish between wrong key and tampered
- * ciphertext.
- *
- * **`InvalidKey`** — raised when key validation fails before
- * encryption or decryption is attempted. Carries expected and
- * received key lengths for diagnostics.
- *
- * @see {@link seal} — encrypt operation that produces these errors
- * @see {@link unseal} — decrypt operation that produces these errors
- * @see {@link SealAlgorithm} — algorithm field on DecryptionFailed
+ * Schema-tagged failures emitted by encryption and decryption operations.
  *
  * @since 0.1.0
  * @category errors
@@ -25,11 +8,12 @@ import { Schema } from "effect"
 import { SealAlgorithm } from "./SealAlgorithm.js"
 
 /**
- * Authenticated decryption failed.
+ * Reports that envelope decoding or authenticated decryption failed.
  *
- * Carries `algorithm` (which AEAD was attempted) and `reason`
- * (human-readable explanation). Intentionally vague — does not
- * distinguish between wrong key and tampered ciphertext.
+ * @remarks
+ * `unseal` uses `invalid envelope encoding` for invalid base64url and `authentication failed`
+ * for wrong keys, malformed lengths, and modified ciphertext. Preserve that coarse distinction
+ * when exposing failures across a security boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -37,17 +21,15 @@ import { SealAlgorithm } from "./SealAlgorithm.js"
 export class DecryptionFailed extends Schema.TaggedError<DecryptionFailed>()(
   "DecryptionFailed",
   {
+    /** Algorithm selected for the failed operation. */
     algorithm: SealAlgorithm,
+    /** Stable diagnostic reason supplied by the operation. */
     reason: Schema.String
   }
 ) {}
 
 /**
- * Key validation failed before encryption or decryption.
- *
- * Carries `expected` (required key length in bytes),
- * `received` (actual key length in bytes), and `reason`
- * (human-readable explanation of the failure).
+ * Reports a key whose length is not 32 bytes or whose bytes are all zero.
  *
  * @since 0.1.0
  * @category errors
@@ -55,8 +37,11 @@ export class DecryptionFailed extends Schema.TaggedError<DecryptionFailed>()(
 export class InvalidKey extends Schema.TaggedError<InvalidKey>()(
   "InvalidKey",
   {
+    /** Required key length in bytes; currently always 32. */
     expected: Schema.Number,
+    /** Supplied key length in bytes. */
     received: Schema.Number,
+    /** Diagnostic describing the failed key check; never includes key bytes. */
     reason: Schema.String
   }
 ) {}

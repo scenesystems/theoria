@@ -22,7 +22,10 @@ import { KemAlgorithm } from "./KemAlgorithm.js"
  * @category schemas
  */
 export class KemCiphertext extends Schema.Class<KemCiphertext>("KemCiphertext")({
+  /** KEM suite that produced this result. */
   algorithm: KemAlgorithm,
+  /** Encapsulation bytes to transmit to the recipient. */
   ciphertext: Schema.Uint8ArrayFromSelf,
+  /** Sender's caller-owned raw shared secret; do not transmit it. */
   sharedSecret: Schema.Uint8ArrayFromSelf
 }) {}

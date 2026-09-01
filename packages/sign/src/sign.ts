@@ -52,6 +52,18 @@ type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
 /**
  * Sign a message with the specified algorithm.
  *
+ * @remarks
+ * `publicKey` is stored in the returned carrier; signing uses `secretKey`.
+ * The function does not establish that those keys form a pair. The
+ * `"ml-dsa-65"` branch always fails closed: use `mlDsa65SignHedged` or
+ * `mlDsa65SignDeterministic` explicitly.
+ *
+ * @param algorithm - The signing suite and output algorithm tag.
+ * @param message - The exact bytes to sign; no framing or domain separation is added.
+ * @param secretKey - Secret key accepted by the selected primitive.
+ * @param publicKey - Public key attached to the returned `Signature`.
+ * @returns The algorithm-tagged signature carrier, or `SigningFailed`.
+ *
  * @since 0.1.0
  * @category signing
  */
@@ -78,8 +90,19 @@ export const sign = (
 /**
  * Verify a self-describing signature against a message.
  *
+ * @remarks
  * Dispatches to the correct verifier based on the signature's
  * `algorithm` field.
+ * The verification key also comes from `sig`; callers that authenticate or
+ * select a key independently should use an algorithm-specific verifier.
+ * A well-formed nonmatching signature returns `false`; primitive exceptions are
+ * represented by `VerificationFailed` (strict direct verifiers use their own
+ * redacted failure types).
+ *
+ * @param sig - Signature bytes, algorithm selection, and verification key.
+ * @param message - The exact bytes expected to have been signed.
+ * @returns `true` for a match, `false` for an admitted nonmatch, or
+ * `VerificationFailed` when the selected verifier cannot process its input.
  *
  * @since 0.1.0
  * @category signing

@@ -15,7 +15,8 @@
 import { Schema } from "effect"
 
 /**
- * Supported key agreement algorithms.
+ * Runtime schema and type authority for the sole agreement tag, `"x25519"`;
+ * signature and KEM tags are deliberately not admitted.
  *
  * @since 0.1.0
  * @category schemas

@@ -1,28 +1,5 @@
 /**
- * AES-256-GCM-SIV authenticated encryption.
- *
- * Nonce-misuse resistant AEAD — if a nonce is accidentally reused,
- * only the ability to detect repeated messages is lost; ciphertext
- * integrity and confidentiality are preserved. Preferred when nonce
- * management cannot be guaranteed (e.g. distributed systems).
- *
- * Wraps `@noble/ciphers/aes` — audited, zero-dependency. Uses
- * `managedNonce(gcmsiv)` for automatic 12-byte nonce prepending
- * on encrypt and extraction on decrypt.
- *
- * Security properties:
- * - **Nonce-misuse resistance**: SIV construction derives the tag
- *   from both nonce and plaintext, so repeated (nonce, plaintext)
- *   only reveals equality — no catastrophic failure
- * - **96-bit nonce**: 12 bytes, randomly generated
- * - **Key wear-out**: ~2^48 messages per key (SIV mitigates but
- *   does not eliminate birthday bound concerns)
- *
- * @see {@link keyValidation} — key size constraints
- * @see {@link encoding} — wire format (nonce ‖ ciphertext ‖ tag)
- * @see {@link xchacha20} — recommended default with larger nonce
- * @see {@link aesgcm} — non-SIV variant for compatibility
- * @see {@link seal} — unified pipeline with algorithm selection
+ * Direct AES-256-GCM-SIV operations with generated 12-byte nonces.
  *
  * @since 0.1.0
  * @category algorithms
@@ -35,10 +12,17 @@ import { validateKey } from "../internal/keyValidation.js"
 import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
 
 /**
- * Encrypt `plaintext` using AES-256-GCM-SIV.
+ * Encrypts with nonce-misuse-resistant AES-256-GCM-SIV using a fresh generated nonce and
+ * returns `12-byte nonce ‖ ciphertext ‖ 16-byte tag`.
  *
- * Returns `nonce ‖ ciphertext ‖ tag` via `managedNonce` — the
- * 12-byte nonce is prepended automatically.
+ * @remarks
+ * Nonces come from the runtime cryptographic random source. This operation has no AAD parameter,
+ * so it authenticates only the ciphertext. It does not mutate `key` or `plaintext` and returns a
+ * newly allocated array. Unlike AES-GCM, GCM-SIV is designed to resist accidental nonce reuse.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param plaintext - Bytes to encrypt.
+ * @returns An Effect with nonce-prefixed ciphertext, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category algorithms
@@ -53,11 +37,16 @@ export const aesgcmsivEncrypt = (
   })
 
 /**
- * Decrypt `ciphertext` using AES-256-GCM-SIV.
+ * Authenticates and decrypts bytes produced by {@link aesgcmsivEncrypt}.
  *
- * Expects `nonce ‖ ciphertext ‖ tag` as produced by
- * {@link aesgcmsivEncrypt}. The 12-byte nonce is extracted
- * automatically by `managedNonce`.
+ * @remarks
+ * This operation has no AAD parameter. It does not mutate either input and returns newly
+ * allocated plaintext.
+ *
+ * @param key - Caller-owned 32-byte, non-zero key.
+ * @param ciphertext - `12-byte nonce ‖ ciphertext ‖ 16-byte tag`.
+ * @returns An Effect with plaintext, or {@link InvalidKey}; wrong keys and malformed or modified
+ * input fail with {@link DecryptionFailed} reason `authentication failed`.
  *
  * @since 0.1.0
  * @category algorithms

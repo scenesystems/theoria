@@ -22,7 +22,10 @@ import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
  * @category schemas
  */
 export class Signature extends Schema.Class<Signature>("Signature")({
+  /** Selects the verifier used by `verify`. */
   algorithm: SignatureAlgorithm,
+  /** Detached signature bytes in the selected algorithm's encoding. */
   signature: Schema.Uint8ArrayFromSelf,
+  /** Caller-supplied verification key carried with the signature. */
   publicKey: Schema.Uint8ArrayFromSelf
 }) {}

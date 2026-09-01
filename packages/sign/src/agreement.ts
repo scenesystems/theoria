@@ -30,7 +30,15 @@ import type { SharedSecret } from "./schemas/SharedSecret.js"
 type AgreementAlgorithmType = typeof AgreementAlgorithm.Type
 
 /**
- * Derive a shared secret via key agreement.
+ * Derive an X25519 shared secret from the caller's secret key and its peer's
+ * public key. This operation neither authenticates the peer key nor applies a
+ * KDF or transcript binding.
+ *
+ * @param algorithm - The agreement suite; currently only `"x25519"`.
+ * @param secretKey - The local party's 32-byte X25519 secret key.
+ * @param publicKey - The peer's 32-byte X25519 public key.
+ * @returns The algorithm-tagged 32-byte raw shared secret,
+ * or `AgreementFailed` when key material is rejected by the primitive.
  *
  * @since 0.1.0
  * @category agreement

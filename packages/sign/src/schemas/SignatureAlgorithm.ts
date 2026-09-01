@@ -19,7 +19,8 @@
 import { Schema } from "effect"
 
 /**
- * Supported digital signature algorithms.
+ * Runtime schema and type authority for the ten accepted signature-suite tags;
+ * X25519 agreement and X-Wing KEM tags are deliberately not admitted.
  *
  * @since 0.1.0
  * @category schemas

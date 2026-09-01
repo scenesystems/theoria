@@ -19,6 +19,7 @@ import { SignatureAlgorithm } from "./SignatureAlgorithm.js"
 /**
  * A direct verifier received input outside its frozen suite profile.
  *
+ * @remarks
  * The error is deliberately material-free: it does not retain the algorithm,
  * verification key, signature, message, context, or a backend diagnostic.
  *
@@ -33,6 +34,7 @@ export class InvalidVerificationInput extends Schema.TaggedError<InvalidVerifica
 /**
  * A direct verifier could not execute its backend after input admission.
  *
+ * @remarks
  * The error is deliberately material-free and does not expose provider text
  * or an underlying exception.
  *
@@ -45,10 +47,12 @@ export class VerificationUnavailable extends Schema.TaggedError<VerificationUnav
 ) {}
 
 /**
- * Signing operation failed.
+ * A signer rejected key/message/entropy input or its backend threw.
  *
+ * @remarks
  * Carries `algorithm` (which signer was attempted) and `reason`
- * (human-readable explanation).
+ * (human-readable explanation). `reason` may contain backend diagnostics and
+ * is not redacted for an untrusted boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -62,10 +66,11 @@ export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
 ) {}
 
 /**
- * Signature verification did not pass.
+ * A general signature verifier could not process its input.
  *
- * The signature is well-formed but does not match the message
- * and public key. Carries `algorithm` and `reason`.
+ * @remarks
+ * A normal cryptographic nonmatch is returned as `false`, not this error.
+ * Carries `algorithm` and a potentially backend-derived, non-redacted `reason`.
  *
  * @since 0.1.0
  * @category errors
@@ -79,10 +84,13 @@ export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()
 ) {}
 
 /**
- * Signature data is malformed.
+ * Records malformed signature data detected by an application-defined
+ * validation boundary.
  *
- * Wrong length, invalid encoding, or corrupted bytes — the
- * signature cannot be parsed. Carries `algorithm` and `reason`.
+ * @remarks
+ * Carries `algorithm` and a non-redacted `reason`. Package verification
+ * operations use `InvalidVerificationInput`, `VerificationUnavailable`, or
+ * `VerificationFailed` instead; they do not emit this variant.
  *
  * @since 0.1.0
  * @category errors
@@ -96,10 +104,11 @@ export class InvalidSignature extends Schema.TaggedError<InvalidSignature>()(
 ) {}
 
 /**
- * Key pair generation failed.
+ * Unified key-generation dispatch could not obtain a key pair from its selected
+ * Noble primitive.
  *
- * Insufficient entropy, invalid parameters, or unsupported
- * algorithm. Carries `algorithm` and `reason`.
+ * @remarks
+ * Carries the selected `algorithm` and a non-redacted diagnostic `reason`.
  *
  * @since 0.1.0
  * @category errors
@@ -113,11 +122,13 @@ export class KeyGenerationFailed extends Schema.TaggedError<KeyGenerationFailed>
 ) {}
 
 /**
- * Key agreement operation failed.
+ * X25519 rejected local or peer key material or could not compute its raw
+ * shared secret.
  *
+ * @remarks
  * Carries `algorithm` (which agreement was attempted) and `reason`
  * (human-readable explanation). Raised when ECDH fails due to
- * invalid key material.
+ * invalid key material. The reason may expose backend diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -131,11 +142,13 @@ export class AgreementFailed extends Schema.TaggedError<AgreementFailed>()(
 ) {}
 
 /**
- * Key encapsulation operation failed.
+ * X-Wing rejected serialized key/ciphertext input or could not complete
+ * encapsulation or decapsulation.
  *
+ * @remarks
  * Carries `algorithm` (which KEM was attempted) and `reason`
  * (human-readable explanation). Raised when encapsulation or
- * decapsulation fails.
+ * decapsulation fails. The reason may expose backend diagnostics.
  *
  * @since 0.1.0
  * @category errors

@@ -40,6 +40,15 @@ type KemAlgorithmType = typeof KemAlgorithm.Type
 /**
  * Encapsulate a shared secret for a recipient's public key.
  *
+ * @remarks
+ * The returned `sharedSecret` belongs to the sender; transmit only the returned
+ * `ciphertext`. XWing does not authenticate the recipient key.
+ *
+ * @param algorithm - The KEM suite; currently only `"xwing"`.
+ * @param publicKey - The recipient's XWing public key.
+ * @returns The ciphertext and sender-owned raw shared secret, or
+ * `KemFailed` if the key is rejected or encapsulation cannot execute.
+ *
  * @since 0.1.0
  * @category kem
  */
@@ -54,6 +63,12 @@ export const encapsulate = (
 
 /**
  * Decapsulate a ciphertext with the recipient's secret key.
+ *
+ * @param algorithm - The KEM suite; currently only `"xwing"`.
+ * @param cipherText - The complete XWing ciphertext received from the sender.
+ * @param secretKey - The recipient's XWing secret key.
+ * @returns The raw shared-secret bytes, or `KemFailed` if
+ * the ciphertext or key is rejected or decapsulation cannot execute.
  *
  * @since 0.1.0
  * @category kem

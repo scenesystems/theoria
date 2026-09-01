@@ -56,7 +56,7 @@ const sha2256f = makePqOps("slh-dsa-sha2-256f", slh_dsa_sha2_256f)
 export const slhDsaSha2128fSign = sha2128f.sign
 
 /**
- * Verify an SLH-DSA-SHA2-128f signature against a message and public key.
+ * Verify a Level 1 fast SLH-DSA-SHA2-128f signature (17,088 bytes).
  *
  * @since 0.1.0
  * @category algorithms
@@ -80,7 +80,7 @@ export const slhDsaSha2128fKeygen = sha2128f.keygen
 export const slhDsaSha2128sSign = sha2128s.sign
 
 /**
- * Verify an SLH-DSA-SHA2-128s signature against a message and public key.
+ * Verify a Level 1 small SLH-DSA-SHA2-128s signature (7,856 bytes).
  *
  * @since 0.1.0
  * @category algorithms
@@ -104,7 +104,7 @@ export const slhDsaSha2128sKeygen = sha2128s.keygen
 export const slhDsaSha2192fSign = sha2192f.sign
 
 /**
- * Verify an SLH-DSA-SHA2-192f signature against a message and public key.
+ * Verify a Level 3 fast SLH-DSA-SHA2-192f signature (35,664 bytes).
  *
  * @since 0.1.0
  * @category algorithms
@@ -128,7 +128,7 @@ export const slhDsaSha2192fKeygen = sha2192f.keygen
 export const slhDsaSha2256fSign = sha2256f.sign
 
 /**
- * Verify an SLH-DSA-SHA2-256f signature against a message and public key.
+ * Verify a Level 5 fast SLH-DSA-SHA2-256f signature (49,856 bytes).
  *
  * @since 0.1.0
  * @category algorithms

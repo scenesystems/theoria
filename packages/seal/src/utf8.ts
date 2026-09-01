@@ -1,10 +1,5 @@
 /**
- * UTF-8 encoding, CSPRNG key generation, and constant-time byte comparison.
- *
- * Thin wrappers over `@noble/ciphers` utilities so callers never need to
- * reach into Noble directly. All functions are pure (no Effect overhead)
- * except `generateKey`, which returns an `Effect` to keep key material
- * creation explicit in the program trace.
+ * UTF-8 conversion, byte comparison, and random-byte generation.
  *
  * @since 0.1.0
  * @category encoding
@@ -19,7 +14,10 @@ import {
 import { Effect } from "effect"
 
 /**
- * Convert a UTF-8 string to bytes.
+ * Encodes a string as UTF-8 bytes.
+ *
+ * @param str - String to encode.
+ * @returns Newly allocated UTF-8 bytes.
  *
  * @since 0.1.0
  * @category encoding
@@ -27,7 +25,10 @@ import { Effect } from "effect"
 export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
 
 /**
- * Convert bytes to a UTF-8 string.
+ * Decodes UTF-8 bytes into a string, replacing malformed sequences.
+ *
+ * @param bytes - UTF-8 bytes to decode.
+ * @returns The decoded string.
  *
  * @since 0.1.0
  * @category encoding
@@ -35,10 +36,15 @@ export const utf8ToBytes = (str: string): Uint8Array => _utf8ToBytes(str)
 export const utf8FromBytes = (bytes: Uint8Array): string => _bytesToUtf8(bytes)
 
 /**
- * Constant-time byte array equality comparison.
+ * Compares equal-length byte arrays without data-dependent early exit.
  *
- * Prevents timing side-channel attacks when comparing
- * secrets, keys, or authentication tags.
+ * @remarks
+ * Arrays of different lengths return `false` before byte comparison. Length and timing from
+ * surrounding caller logic therefore remain observable.
+ *
+ * @param a - First byte array.
+ * @param b - Second byte array.
+ * @returns Whether both arrays have the same length and contents.
  *
  * @since 0.1.0
  * @category comparison
@@ -46,11 +52,15 @@ export const utf8FromBytes = (bytes: Uint8Array): string => _bytesToUtf8(bytes)
 export const equalBytes = (a: Uint8Array, b: Uint8Array): boolean => _equalBytes(a, b)
 
 /**
- * Generate a cryptographic random key of the specified length.
+ * Obtains random bytes from the runtime cryptographic random source.
  *
- * Uses the platform CSPRNG (`crypto.getRandomValues`) via
- * `@noble/ciphers`. All AEAD algorithms in this package
- * require 32-byte keys.
+ * @remarks
+ * The default produces a key accepted by this package's algorithms. Other lengths are allowed
+ * by this utility but rejected when passed to encryption or decryption. The runtime must provide
+ * `crypto.getRandomValues`; this operation does not use Effect's seedable `Random` service.
+ *
+ * @param length - Number of bytes to generate; defaults to 32.
+ * @returns An Effect that synchronously produces newly allocated random bytes.
  *
  * @since 0.1.0
  * @category keys

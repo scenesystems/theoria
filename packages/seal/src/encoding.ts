@@ -1,18 +1,5 @@
 /**
- * Sealed envelope serialization and deserialization.
- *
- * Splits `managedNonce` output (nonce ‖ ciphertext ‖ tag) into
- * structured {@link SealedEnvelope} with base64url-encoded
- * components, and reassembles for decryption.
- *
- * Uses Effect `Encoding.encodeBase64Url` / `Encoding.decodeBase64Url`
- * for RFC 4648 base64url encoding — native Effect, returns `Either`.
- *
- * Uses `concatBytes` from `@noble/ciphers` for byte concatenation
- * — audited, safe against overlapping buffers.
- *
- * @see {@link SealedEnvelope} — the structured envelope type
- * @see {@link seal} — produces envelopes via the unified pipeline
+ * Conversion between nonce-prefixed ciphertext bytes and {@link SealedEnvelope} values.
  *
  * @since 0.1.0
  * @category encoding
@@ -36,10 +23,16 @@ const splitAt = (raw: Uint8Array, offset: number): readonly [Uint8Array, Uint8Ar
   Tuple.make(raw.subarray(0, offset), raw.subarray(offset))
 
 /**
- * Split raw `managedNonce` output into a structured envelope.
+ * Splits nonce-prefixed ciphertext into unpadded base64url envelope fields.
  *
- * Extracts the prepended nonce (algorithm-dependent length),
- * encodes both nonce and ciphertext as base64url.
+ * @remarks
+ * This operation only partitions and encodes bytes; it does not validate ciphertext or
+ * authenticate the envelope. It takes the first 24 bytes for XChaCha20-Poly1305 and the first
+ * 12 bytes for either AES algorithm, even when `raw` is shorter than that length.
+ *
+ * @param algorithm - Algorithm that determines the nonce length and envelope discriminator.
+ * @param raw - Nonce followed by ciphertext and its authentication tag.
+ * @returns An Effect that succeeds with a newly allocated {@link SealedEnvelope}.
  *
  * @since 0.1.0
  * @category encoding
@@ -58,10 +51,14 @@ export const packEnvelope = (
   })
 
 /**
- * Reassemble a structured envelope into raw bytes for decryption.
+ * Decodes and concatenates an envelope's nonce and ciphertext fields.
  *
- * Decodes base64url nonce and ciphertext, concatenates as
- * nonce ‖ ciphertext for `managedNonce` decrypt.
+ * @remarks
+ * This operation does not check that the nonce length matches `algorithm` and does not
+ * authenticate the bytes. Either invalid base64url field fails with `Encoding.DecodeException`.
+ *
+ * @param envelope - Envelope containing unpadded base64url nonce and ciphertext strings.
+ * @returns Newly allocated `nonce ‖ ciphertext` bytes, or an `Encoding.DecodeException`.
  *
  * @since 0.1.0
  * @category encoding

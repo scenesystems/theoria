@@ -16,7 +16,10 @@ import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
 /**
- * Sign a message with secp256k1 ECDSA (RFC 6979 deterministic k).
+ * Produce a 64-byte compact secp256k1 ECDSA signature over
+ * `SHA-256(message)` with deterministic RFC 6979 nonce generation and low `s`.
+ * `publicKey` is copied into the result rather than validated against the
+ * 32-byte secret scalar.
  *
  * @since 0.1.0
  * @category algorithms
@@ -37,7 +40,9 @@ export const secp256k1EcdsaSign = (
   })
 
 /**
- * Verify a secp256k1 ECDSA signature.
+ * Check a compact secp256k1 ECDSA signature over `SHA-256(message)`.
+ * A validly encoded nonmatch returns `false`; rejected encodings or primitive
+ * exceptions fail with `VerificationFailed` and a backend-derived reason.
  *
  * @since 0.1.0
  * @category algorithms
@@ -53,7 +58,8 @@ export const secp256k1EcdsaVerify = (
   })
 
 /**
- * Generate a secp256k1 ECDSA key pair.
+ * Draw a secp256k1 ECDSA key pair from Noble's ambient CSPRNG, returning a
+ * 32-byte secret scalar and 33-byte compressed SEC1 public key.
  *
  * @since 0.1.0
  * @category algorithms
@@ -65,7 +71,9 @@ export const secp256k1EcdsaKeygen = (): Effect.Effect<KeyPair> =>
   })
 
 /**
- * Sign a message with secp256k1 Schnorr (BIP-340).
+ * Produce a 64-byte BIP-340 Schnorr signature over the supplied 32-byte
+ * message. Noble obtains fresh auxiliary randomness from its ambient CSPRNG;
+ * `publicKey` is only copied into the returned carrier.
  *
  * @since 0.1.0
  * @category algorithms
@@ -86,7 +94,9 @@ export const secp256k1SchnorrSign = (
   })
 
 /**
- * Verify a secp256k1 Schnorr (BIP-340) signature.
+ * Check a 64-byte BIP-340 Schnorr signature for a 32-byte message and 32-byte
+ * x-only public key. An admitted nonmatch returns `false`; malformed input or
+ * backend exceptions fail with `VerificationFailed`.
  *
  * @since 0.1.0
  * @category algorithms
@@ -102,7 +112,8 @@ export const secp256k1SchnorrVerify = (
   })
 
 /**
- * Generate a secp256k1 Schnorr key pair.
+ * Draw a BIP-340 key pair from Noble's ambient CSPRNG, returning a 32-byte
+ * secret scalar and 32-byte x-only public key.
  *
  * @since 0.1.0
  * @category algorithms

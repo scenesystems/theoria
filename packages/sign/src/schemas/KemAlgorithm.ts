@@ -15,7 +15,8 @@
 import { Schema } from "effect"
 
 /**
- * Supported key encapsulation mechanism algorithms.
+ * Runtime schema and type authority for the sole KEM tag, `"xwing"`;
+ * signature and raw agreement tags are deliberately not admitted.
  *
  * @since 0.1.0
  * @category schemas
