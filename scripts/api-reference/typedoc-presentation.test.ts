@@ -37,7 +37,11 @@ const snapshot = new DeclarationReflection("snapshot", ReflectionKind.Function, 
 snapshot.comment = summary("Create a serializable study snapshot.")
 const resultSignature = new SignatureReflection("snapshot", ReflectionKind.CallSignature, snapshot)
 resultSignature.comment = new Comment(
-  [{ kind: "text", text: "Snapshot a completed study result." }],
+  [
+    { kind: "text", text: "Snapshot a " },
+    { kind: "code", text: "`completed`" },
+    { kind: "text", text: " study result." }
+  ],
   [
     new CommentTag("@example", [{
       kind: "code",
@@ -200,9 +204,16 @@ describe("TypeDoc presentation adapter", () => {
         returns: { type: "Effect<StudySnapshot>" },
         sourceUrl: `${sourceUrl}#L20`
       })
-      expect(snapshotExport?.facets[0]?.signatures[0]?.docs.examples[0]).toEqual([
-        { kind: "code", text: "```ts\nconst encoded = snapshot(result)\n```" }
+      expect(snapshotExport?.facets[0]?.signatures[0]?.docs.summary).toEqual([
+        { kind: "text", text: "Snapshot a " },
+        { kind: "code", text: "completed" },
+        { kind: "text", text: " study result." }
       ])
+      expect(snapshotExport?.facets[0]?.signatures[0]?.docs.examples[0]).toEqual({
+        language: "ts",
+        code: "const encoded = snapshot(result)",
+        parts: []
+      })
       expect(snapshotExport?.facets[0]?.signatures[0]?.docs.see).toEqual([
         [{ kind: "link", text: "snapshot", href: "/docs/example/api/Study#api-snapshot" }],
         [{ kind: "link", text: "Scheduler", href: "/docs/example/api/Scheduler" }],

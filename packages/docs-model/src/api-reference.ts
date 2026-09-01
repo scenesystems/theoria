@@ -10,10 +10,16 @@ export const ApiDocPartSchema = Schema.Union(
   })
 )
 
+export const ApiExampleSchema = Schema.Struct({
+  language: Schema.NullOr(Schema.String),
+  code: Schema.NullOr(Schema.String),
+  parts: Schema.Array(ApiDocPartSchema)
+})
+
 export const ApiDocumentationSchema = Schema.Struct({
   summary: Schema.Array(ApiDocPartSchema),
   remarks: Schema.Array(ApiDocPartSchema),
-  examples: Schema.Array(Schema.Array(ApiDocPartSchema)),
+  examples: Schema.Array(ApiExampleSchema),
   deprecated: Schema.NullOr(Schema.Array(ApiDocPartSchema)),
   see: Schema.Array(Schema.Array(ApiDocPartSchema))
 })
@@ -125,6 +131,7 @@ export const ApiPageSchema = Schema.Struct({
 export const ApiPageJson = Schema.parseJson(ApiPageSchema)
 
 export type ApiDocPart = typeof ApiDocPartSchema.Type
+export type ApiExample = typeof ApiExampleSchema.Type
 export type ApiDocumentation = typeof ApiDocumentationSchema.Type
 export type ApiTypeParameter = typeof ApiTypeParameterSchema.Type
 export type ApiParameter = typeof ApiParameterSchema.Type

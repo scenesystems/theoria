@@ -13,6 +13,7 @@ import { type ApiReferenceRoute } from "./model.js"
 import {
   type ApiDocPart,
   type ApiDocumentation,
+  type ApiExample,
   type ApiTypeParameter
 } from "@theoria/docs-model"
 import { apiExportAnchor } from "./presentation.js"
@@ -88,12 +89,18 @@ const symbolHref = (context: ApiDocContext, target: ReflectionSymbolId, text: st
   )
 }
 
+const inlineCodeText = (text: string): string => {
+  const match = /^`([^`\n]+)`$/u.exec(text)
+  return match?.[1] ?? text
+}
+
 export const docParts = (
   parts: ReadonlyArray<CommentDisplayPart> | undefined,
   context: ApiDocContext
 ): ReadonlyArray<ApiDocPart> =>
   Arr.map(parts ?? [], (part): ApiDocPart => {
-    if (part.kind === "text" || part.kind === "code") return { kind: part.kind, text: part.text }
+    if (part.kind === "text") return { kind: "text", text: part.text }
+    if (part.kind === "code") return { kind: "code", text: inlineCodeText(part.text) }
     if (part.kind === "relative-link") return { kind: "text", text: part.text }
 
     return {
@@ -112,13 +119,29 @@ export const docParts = (
 export const tagParts = (comment: Comment | undefined, tag: `@${string}`, context: ApiDocContext) =>
   docParts(comment?.getTag(tag)?.content, context)
 
+const fencedCode = /^```([^\n]*)\n([\s\S]*?)\n?```$/u
+
+const exampleModel = (parts: ReadonlyArray<ApiDocPart>): ApiExample => {
+  const onlyPart = parts.length === 1 ? parts[0] : undefined
+  const code = onlyPart?.kind === "code" ? fencedCode.exec(onlyPart.text.trim()) : null
+
+  return code?.[2] === undefined
+    ? { language: null, code: null, parts }
+    : {
+      language: code[1]?.trim() || null,
+      code: code[2],
+      parts: []
+    }
+}
+
 export const documentation = (
   comment: Comment | undefined,
   context: ApiDocContext
 ): ApiDocumentation => ({
   summary: docParts(comment?.summary, context),
   remarks: tagParts(comment, "@remarks", context),
-  examples: Arr.map(comment?.getTags("@example") ?? [], (tag) => docParts(tag.content, context)),
+  examples: Arr.map(comment?.getTags("@example") ?? [], (tag) =>
+    exampleModel(docParts(tag.content, context))),
   deprecated: Option.match(Option.fromNullable(comment?.getTag("@deprecated")), {
     onNone: () => null,
     onSome: (tag) => docParts(tag.content, context)
