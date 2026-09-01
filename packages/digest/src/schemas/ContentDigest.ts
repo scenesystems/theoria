@@ -24,6 +24,8 @@ import { DigestAlgorithm } from "./DigestAlgorithm.js"
  * @category schemas
  */
 export class ContentDigest extends Schema.Class<ContentDigest>("ContentDigest")({
+  /** Algorithm needed to interpret and verify `digest`. */
   algorithm: DigestAlgorithm,
+  /** Unpadded base64url encoding of the 32 digest bytes. */
   digest: Digest256
 }) {}

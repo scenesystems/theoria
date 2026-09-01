@@ -37,10 +37,14 @@ import { digest } from "../digest.js"
 import type { CanonicalizationError } from "./errors.js"
 
 /**
- * Compute a durable, deterministic fingerprint of a structured value.
+ * Fixes BLAKE3-256 as the canonical identity algorithm for structured values.
  *
+ * @remarks
  * Uses BLAKE3-256 as the digest algorithm. Returns an algorithm-tagged
  * string: `"blake3-256:<base64url>"`.
+ *
+ * @param value - Schema-encoded value in the strict canonical plain-data domain.
+ * @returns The tagged fingerprint, or a canonicalization failure.
  *
  * @since 0.1.0
  * @category fingerprint

@@ -2,17 +2,7 @@
  * HKDF key derivation functions (RFC 5869).
  *
  * Extract-then-expand key derivation using `@noble/hashes/hkdf.js`.
- * Converts raw key material (e.g., X25519 shared secret) into
- * cryptographically strong symmetric keys of any length.
- *
- * Two variants matching the signing package's needs:
- *
- * - **HKDF-SHA256** — standard key derivation for symmetric keys.
- *   Used after X25519 key agreement in `@scenesystems/sign` to
- *   produce AES-256 keys from raw Diffie-Hellman output.
- * - **HKDF-SHA512** — extended output for deriving multiple keys
- *   from a single shared secret, or when 512-bit intermediate
- *   strength is required.
+ * Converts input keying material into output bytes using SHA-256 or SHA-512.
  *
  * Parameters follow RFC 5869 naming:
  * - `ikm` — input keying material (raw secret bytes)
@@ -54,7 +44,17 @@ import { sha512 } from "@noble/hashes/sha2.js"
 import { Effect, Option } from "effect"
 
 /**
- * Derive key material using HKDF-SHA256 (RFC 5869).
+ * Uses HKDF-SHA256 as defined by RFC 5869.
+ *
+ * @remarks
+ * `Option.none()` supplies a hash-length all-zero salt. Invalid output lengths
+ * are defects from the underlying kernel rather than typed failures.
+ *
+ * @param ikm - Input keying material.
+ * @param salt - Salt bytes, or `None` for 32 zero bytes.
+ * @param info - Application context bytes.
+ * @param dkLen - Requested output length in bytes; RFC 5869 permits at most 8160.
+ * @returns Derived key bytes.
  *
  * @since 0.1.0
  * @category key-derivation
@@ -68,7 +68,17 @@ export const hkdfSha256 = (
   Effect.sync(() => hkdf(sha256, ikm, Option.getOrElse(salt, () => new Uint8Array(sha256.outputLen)), info, dkLen))
 
 /**
- * Derive key material using HKDF-SHA512 (RFC 5869).
+ * Uses HKDF-SHA512 with RFC 5869 extract-then-expand semantics.
+ *
+ * @remarks
+ * `Option.none()` supplies a hash-length all-zero salt. Invalid output lengths
+ * are defects from the underlying kernel rather than typed failures.
+ *
+ * @param ikm - Input keying material.
+ * @param salt - Salt bytes, or `None` for 64 zero bytes.
+ * @param info - Application context bytes.
+ * @param dkLen - Requested output length in bytes; RFC 5869 permits at most 16320.
+ * @returns Derived key bytes.
  *
  * @since 0.1.0
  * @category key-derivation

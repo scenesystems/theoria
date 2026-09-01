@@ -1,11 +1,7 @@
 /**
  * RFC 8785 JSON Canonicalization Scheme (JCS).
  *
- * Deterministic JSON serialization guaranteeing cross-language byte
- * identity for structured data before hashing. This is the sole
- * canonicalization strategy across the Theoria ecosystem —
- * `effect-search` cache keys, `effect-dsp` signature fingerprints,
- * and content-addressing all pass through this function.
+ * Deterministic JSON serialization for structured data before hashing.
  *
  * **RFC 8785 rules applied:**
  * - Object keys sorted lexicographically by UTF-16 code units
@@ -36,6 +32,7 @@ import type { CanonicalizationError } from "./schemas/errors.js"
 /**
  * Canonicalize a value to RFC 8785 JCS canonical JSON.
  *
+ * @remarks
  * The admitted domain is finite JSON primitives, dense arrays, and plain data
  * records. Traversal is stack-safe, deterministic, and cooperative in fixed-size
  * Effect batches. The input graph must remain quiescent throughout execution;
@@ -48,6 +45,9 @@ import type { CanonicalizationError } from "./schemas/errors.js"
  * bytes, or retained after completion or interruption. Symbol-keyed data values
  * are neither read nor traversed. This ownership guarantee makes no claim about
  * when the host garbage collector reclaims otherwise unreachable values.
+ *
+ * @param value - Value to admit and serialize; it must remain unchanged until the Effect completes.
+ * @returns Canonical JSON, or a closed structural, Unicode, or cycle error.
  *
  * @since 0.1.0
  * @category canonicalization

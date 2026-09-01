@@ -1,14 +1,8 @@
 /**
  * BLAKE3 multi-mode cryptographic hashing.
  *
- * Primary digest algorithm for all content-addressing, artifact
- * integrity, and persisted cache identity across the Theoria ecosystem.
- * Wraps `@noble/hashes/blake3.js` — audited, zero-dependency, 879K
- * ops/sec for 32B inputs.
- *
- * Every operation returns `Effect<Uint8Array>` — errors are typed in
- * the channel where validation is required (e.g. `InvalidKeyLength`
- * for keyed MAC mode).
+ * Exposes default hashing, keyed mode, and context-separated key derivation.
+ * Outputs are raw bytes so callers can choose their wire encoding.
  *
  * @example
  * ```ts
@@ -37,9 +31,10 @@ import { InvalidKeyLength } from "../schemas/errors.js"
 import type { InvalidUnicode } from "../schemas/errors.js"
 
 /**
- * Hash `input` bytes using BLAKE3 default mode.
+ * Produces the 32-byte BLAKE3 digest in default mode.
  *
- * Pure deterministic operation — no error channel.
+ * @param input - Bytes to hash; the array is not modified.
+ * @returns An Effect that succeeds with a newly allocated digest.
  *
  * @since 0.1.0
  * @category algorithms
@@ -47,9 +42,11 @@ import type { InvalidUnicode } from "../schemas/errors.js"
 export const blake3Hash = (input: Uint8Array): Effect.Effect<Uint8Array> => Effect.sync(() => blake3(input))
 
 /**
- * Compute BLAKE3 keyed MAC of `message` using `key`.
+ * Authenticates a message with BLAKE3 keyed mode.
  *
- * Fails with `InvalidKeyLength` when key is not exactly 32 bytes.
+ * @param key - Exactly 32 key bytes.
+ * @param message - Message bytes to authenticate.
+ * @returns A 32-byte authenticator, or `InvalidKeyLength` before hashing.
  *
  * @since 0.1.0
  * @category algorithms
@@ -63,13 +60,18 @@ export const blake3Mac = (
     : Effect.sync(() => blake3(message, { key }))
 
 /**
- * Derive a key from `input` using BLAKE3 KDF mode with `context`
- * domain separation.
+ * Derives context-separated key material with BLAKE3 derive-key mode.
  *
+ * @remarks
  * Context must be well-formed Unicode. It is UTF-8 encoded without
  * normalization before passing to Noble; malformed UTF-16 fails with its
  * offending code-unit index. When `dkLen` is `Option.some`, the output length
  * is set to that value; otherwise Noble defaults to 32 bytes.
+ *
+ * @param context - Application-specific domain string, encoded strictly as UTF-8.
+ * @param input - Source key material.
+ * @param dkLen - Requested byte length, or `None` for 32 bytes.
+ * @returns Derived bytes, or `InvalidUnicode` for an unpaired context surrogate.
  *
  * @since 0.1.0
  * @category algorithms

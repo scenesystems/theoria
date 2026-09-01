@@ -1,11 +1,8 @@
 /**
  * Base64url and hex encoding (RFC 4648 §5).
  *
- * Universal digest encoding across the ecosystem. All 256-bit
- * digests encode to base64url strings with no padding.
- *
- * Uses Effect `Encoding` module for base64url and hex — native
- * Effect, no external dependencies for encoding.
+ * All 256-bit digests encode to 43 base64url characters without padding or 64
+ * hexadecimal characters.
  *
  * URL-safe alphabet: `A-Z a-z 0-9 - _` (no `+` `/` `=`).
  *
@@ -29,8 +26,12 @@ import type { InvalidUnicode } from "./schemas/errors.js"
 /**
  * Strictly encode well-formed Unicode text as UTF-8 bytes.
  *
+ * @remarks
  * Malformed UTF-16 fails with the offending code-unit index relative to the
  * input text. Valid text is preserved exactly without Unicode normalization.
+ *
+ * @param text - Text to encode without normalization or replacement.
+ * @returns UTF-8 bytes, or `InvalidUnicode` at the first unpaired surrogate.
  *
  * @example
  * ```ts
@@ -54,9 +55,10 @@ export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnico
   )
 
 /**
- * Encode bytes to base64url string (no padding).
+ * Uses the RFC 4648 §5 alphabet and omits padding.
  *
- * Pure operation — encoding cannot fail.
+ * @param bytes - Bytes to encode.
+ * @returns The unpadded base64url representation.
  *
  * @since 0.1.0
  * @category encoding
@@ -64,9 +66,10 @@ export const encodeUtf8 = (text: string): Effect.Effect<Uint8Array, InvalidUnico
 export const toBase64Url = (bytes: Uint8Array): string => Encoding.encodeBase64Url(bytes)
 
 /**
- * Decode base64url string (no padding) to bytes.
+ * Decodes an unpadded RFC 4648 §5 representation.
  *
- * Returns `Either` — left for malformed input.
+ * @param str - Encoded input.
+ * @returns Decoded bytes, or `DecodeException` for malformed input.
  *
  * @since 0.1.0
  * @category encoding
@@ -75,9 +78,10 @@ export const fromBase64Url = (str: string): Either.Either<Uint8Array, Encoding.D
   Encoding.decodeBase64Url(str)
 
 /**
- * Encode bytes to lowercase hex string (2 chars per byte).
+ * Emits two lowercase hexadecimal characters per byte.
  *
- * Pure operation — encoding cannot fail.
+ * @param bytes - Bytes to encode.
+ * @returns The lowercase hexadecimal representation.
  *
  * @since 0.1.0
  * @category encoding
@@ -85,9 +89,10 @@ export const fromBase64Url = (str: string): Either.Either<Uint8Array, Encoding.D
 export const toHex = (bytes: Uint8Array): string => Encoding.encodeHex(bytes)
 
 /**
- * Decode a lowercase hex string back to raw bytes.
+ * Decodes hexadecimal text accepted by Effect's strict hex decoder.
  *
- * Returns `Either` — left for malformed input.
+ * @param hex - Encoded input.
+ * @returns Decoded bytes, or `DecodeException` for malformed input.
  *
  * @since 0.1.0
  * @category encoding

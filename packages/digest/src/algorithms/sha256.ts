@@ -1,13 +1,7 @@
 /**
  * SHA-256 content hashing.
  *
- * Secondary digest algorithm for secrets (API key hashing),
- * external protocol compatibility (webhooks), and regulatory
- * contexts where FIPS familiarity matters.
- *
- * Wraps `@noble/hashes/sha2.js` — audited, zero-dependency, 2M
- * ops/sec for 32B inputs. Input must be `Uint8Array`. Output is
- * 32 bytes (`Uint8Array`).
+ * Produces SHA-256 output for formats and protocols that specify SHA-256.
  *
  * For HMAC-SHA256, use {@link hmacSha256} which composes
  * `@noble/hashes/hmac.js` with `@noble/hashes/sha2.js` per
@@ -25,9 +19,10 @@ import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
 import { Effect } from "effect"
 
 /**
- * Hash `input` bytes using SHA-256 (FIPS 180-4).
+ * Produces the 32-byte SHA-256 digest defined by FIPS 180-4.
  *
- * Pure deterministic operation — no error channel.
+ * @param input - Bytes to hash; the array is not modified.
+ * @returns An Effect that succeeds with a newly allocated digest.
  *
  * @since 0.1.0
  * @category algorithms

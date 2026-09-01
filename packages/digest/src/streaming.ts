@@ -103,10 +103,18 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
   })
 
 /**
- * Hash a stream of byte chunks using the specified algorithm.
+ * Produces the same digest as hashing the chunks' byte concatenation.
  *
+ * @remarks
  * The resulting digest is invariant to chunk boundaries and depends only on
  * chunk order and byte content.
+ * Upstream failure and service types remain in the returned Effect.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered byte chunks; boundaries do not affect the result.
+ * @returns The 32-byte digest after successful stream completion.
  *
  * @example
  * ```ts
@@ -137,10 +145,19 @@ export const digestByteStream = <E, R>(
     ))
 
 /**
- * Hash a stream of UTF-8 text chunks using the specified algorithm.
+ * Strictly encodes logical text across chunk boundaries before hashing it.
  *
+ * @remarks
  * Malformed UTF-16 fails with an absolute code-unit index in the logical
  * concatenation of all chunks. Valid text is preserved without normalization.
+ * A surrogate pair may span adjacent chunks. Upstream failures and service
+ * requirements are preserved.
+ *
+ * @typeParam E - Upstream stream error type.
+ * @typeParam R - Services required by the stream.
+ * @param algorithm - Digest algorithm applied incrementally.
+ * @param chunks - Ordered UTF-16 text chunks forming one logical input.
+ * @returns A 32-byte digest, or the upstream error or `InvalidUnicode`.
  *
  * @since 0.2.0
  * @category digest
@@ -163,9 +180,9 @@ export const digestUtf8Stream = <E, R>(
     ))
 
 /**
- * Hash a stream of UTF-8 text chunks and encode the digest as base64url.
- *
+ * Returns the unpadded base64url digest of strict logical streamed text.
  * Returns a 43-character output for 256-bit digests.
+ * Surrogate pairs may span chunks; upstream errors and requirements are preserved.
  *
  * @since 0.2.0
  * @category digest
@@ -176,9 +193,9 @@ export const digestUtf8StreamBase64Url = <E, R>(
 ): Effect.Effect<string, E | InvalidUnicode, R> => Effect.map(digestUtf8Stream(algorithm, chunks), toBase64Url)
 
 /**
- * Hash a stream of UTF-8 text chunks and encode the digest as lowercase hex.
- *
+ * Returns the lowercase hexadecimal digest of strict logical streamed text.
  * Returns a 64-character output for 256-bit digests.
+ * Surrogate pairs may span chunks; upstream errors and requirements are preserved.
  *
  * @since 0.2.0
  * @category digest
@@ -189,9 +206,11 @@ export const digestUtf8StreamHex = <E, R>(
 ): Effect.Effect<string, E | InvalidUnicode, R> => Effect.map(digestUtf8Stream(algorithm, chunks), toHex)
 
 /**
- * Hash a stream of byte chunks and encode the digest as base64url.
+ * Returns the unpadded base64url digest of the chunks' byte concatenation.
  *
+ * @remarks
  * Returns a 43-character output for 256-bit digests.
+ * Upstream errors and requirements are preserved.
  *
  * @since 0.2.0
  * @category digest
@@ -202,9 +221,11 @@ export const digestByteStreamBase64Url = <E, R>(
 ): Effect.Effect<string, E, R> => Effect.map(digestByteStream(algorithm, chunks), toBase64Url)
 
 /**
- * Hash a stream of byte chunks and encode the digest as lowercase hex.
+ * Returns the lowercase hexadecimal digest of the chunks' byte concatenation.
  *
+ * @remarks
  * Returns a 64-character output for 256-bit digests.
+ * Upstream errors and requirements are preserved.
  *
  * @since 0.2.0
  * @category digest

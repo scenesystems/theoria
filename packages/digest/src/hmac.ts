@@ -4,9 +4,7 @@
  * Keyed-hash message authentication using `@noble/hashes/hmac.js`
  * per RFC 2104. Two variants match the ecosystem's needs:
  *
- * - **HMAC-SHA256** — webhook signature verification (Stripe,
- *   GitHub), API key derivation, and any context requiring a
- *   PRF keyed by a shared secret.
+ * - **HMAC-SHA256** — protocols requiring a SHA-256 HMAC.
  * - **HMAC-SHA1** — protocols that explicitly specify SHA-1.
  *
  * Pure `Uint8Array` in/out — key and message are both byte arrays.
@@ -15,7 +13,8 @@
  *
  * Output length matches the underlying hash: 32 bytes for SHA-256,
  * 20 bytes for SHA-1. Encode with {@link toBase64Url} or
- * `bytesToHex` as the consumer requires.
+ * {@link toHex} as the consumer requires. These functions compute tags only;
+ * callers performing verification must use a constant-time byte comparison.
  *
  * @example
  * ```ts
@@ -45,10 +44,15 @@ import { Effect } from "effect"
 import { toBase64Url, toHex } from "./encoding.js"
 
 /**
- * Compute HMAC-SHA256 of `message` using `key`.
+ * Produces the 32-byte HMAC-SHA256 tag.
  *
+ * @remarks
  * Key length is flexible per RFC 2104 — short keys are zero-padded
  * to block size, long keys are hashed to block size internally.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns A newly allocated authentication tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -59,9 +63,14 @@ export const hmacSha256 = (
 ): Effect.Effect<Uint8Array> => Effect.sync(() => hmac(nobleSha256, key, message))
 
 /**
- * Compute HMAC-SHA1 of `message` using `key`.
+ * Produces the 20-byte HMAC-SHA1 tag.
  *
+ * @remarks
  * Use when an external protocol explicitly specifies HMAC-SHA1.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns A newly allocated authentication tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -74,9 +83,13 @@ export const hmacSha1 = (
 /**
  * Compute HMAC-SHA256 and encode as base64url (no padding).
  *
- * Convenience pipeline for webhook signature verification:
- * `hmacSha256(key, message)` → base64url encode. Returns
- * a 43-character string.
+ * @remarks
+ * The output is 43 unpadded base64url characters. Signature comparison remains
+ * the caller's responsibility.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns The encoded HMAC-SHA256 tag.
  *
  * @since 0.1.0
  * @category authentication
@@ -89,8 +102,13 @@ export const hmacSha256Base64Url = (
 /**
  * Compute HMAC-SHA1 and encode as lowercase hex.
  *
+ * @remarks
  * Use when an external protocol specifies HMAC-SHA1 as lowercase hex.
  * Returns a 40-character string.
+ *
+ * @param key - Secret key bytes.
+ * @param message - Message bytes.
+ * @returns The lowercase hexadecimal HMAC-SHA1 tag.
  *
  * @since 0.1.0
  * @category authentication

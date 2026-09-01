@@ -30,11 +30,16 @@ import type { DigestAlgorithm } from "./schemas/DigestAlgorithm.js"
 import type { CanonicalizationError } from "./schemas/errors.js"
 
 /**
- * Digest a structured value through the full pipeline.
+ * Produces a self-describing digest for a canonical structured value.
  *
+ * @remarks
  * Returns an algorithm-tagged string: `"<algorithm>:<base64url>"`. The
  * canonicalization stage is strict and stack-safe, preserves admitted Unicode
  * exactly, and rejects malformed or unsupported values with bounded errors.
+ *
+ * @param algorithm - Algorithm recorded in and used to produce the result.
+ * @param value - Value in the strict canonical plain-data domain.
+ * @returns `<algorithm>:<base64url>`, or a canonicalization failure.
  *
  * @since 0.1.0
  * @category digest

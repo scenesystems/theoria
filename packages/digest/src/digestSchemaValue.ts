@@ -56,7 +56,9 @@ const isByteLimit = Schema.is(Schema.NonNegativeInt)
  * @category schemas
  */
 export class SchemaValueDigest extends Schema.Class<SchemaValueDigest>("SchemaValueDigest")({
+  /** Algorithm-tagged digest of the canonical encoded value. */
   digest: Schema.String,
+  /** Exact UTF-8 byte count of the canonical preimage. */
   canonicalByteLength: Schema.NonNegativeInt
 }) {}
 
@@ -105,6 +107,7 @@ const digestEncodedBoundedSync = (
 /**
  * Digest a Schema-typed value through the full pipeline.
  *
+ * @remarks
  * First encodes the value via `Schema.encode` to produce the
  * portable wire form, then runs the standard
  * canonicalize → hash → base64url pipeline.
@@ -114,6 +117,14 @@ const digestEncodedBoundedSync = (
  * is deterministic, stack-safe, and cooperative in fixed-size Effect batches.
  *
  * Default algorithm is `"blake3-256"`.
+ *
+ * @typeParam A - Decoded value type accepted by the schema encoder.
+ * @typeParam I - Encoded representation passed to canonicalization.
+ * @typeParam R - Services required by schema encoding.
+ * @param schema - Schema whose encoder defines the hashed wire representation.
+ * @param value - Decoded value to encode and digest.
+ * @param algorithm - Hash algorithm; defaults to BLAKE3-256.
+ * @returns A tagged digest while preserving encoding failures and requirements.
  *
  * @since 0.1.0
  * @category digest
@@ -126,9 +137,10 @@ export const digestSchemaValue = <A, I, R>(
   Effect.flatMap(Schema.encode(schema)(value), (encoded) => digest(algorithm, encoded))
 
 /**
- * Digest a Schema value only when its exact canonical UTF-8 preimage is within
- * an inclusive byte limit.
+ * Cooperatively encodes and digests a Schema value while enforcing an exact
+ * canonical UTF-8 byte limit.
  *
+ * @remarks
  * Schema encoding and canonical traversal each occur once. Structural Schema
  * encoding and canonical traversal both run cooperatively in fixed-size Effect
  * batches. Native own-key snapshots required by Effect Schema semantics are
@@ -143,6 +155,14 @@ export const digestSchemaValue = <A, I, R>(
  * `maximumBytes` is inclusive and must be a non-negative safe integer.
  *
  * Default algorithm is `"blake3-256"`.
+ *
+ * @typeParam A - Decoded value type accepted by the schema encoder.
+ * @typeParam I - Encoded representation passed to canonicalization.
+ * @param schema - Context-free schema whose encoder defines the preimage.
+ * @param value - Decoded value to encode and digest.
+ * @param maximumBytes - Inclusive non-negative safe-integer limit.
+ * @param algorithm - Hash algorithm; defaults to BLAKE3-256.
+ * @returns The digest and exact admitted byte length, or an encoding, admission, or limit error.
  *
  * @since 0.3.3
  * @category digest
@@ -165,9 +185,10 @@ export const digestSchemaValueWithByteLimit = <A, I>(
     : new InvalidCanonicalByteLimit({})
 
 /**
- * Synchronously digest a Schema value only when its exact canonical UTF-8
- * preimage is within an inclusive byte limit.
+ * Encodes and digests a Schema value synchronously, returning expected
+ * encoding, canonicalization, and byte-limit failures as `Either.Left`.
  *
+ * @remarks
  * This is the bounded, non-cooperative counterpart to
  * `digestSchemaValueWithByteLimit`. It uses `Schema.encodeEither` and the same
  * strict JCS state machine, UTF-8 law, and incremental digest kernels without
@@ -176,6 +197,14 @@ export const digestSchemaValueWithByteLimit = <A, I>(
  * blocks the current JavaScript turn until completion.
  *
  * Default algorithm is `"blake3-256"`.
+ *
+ * @typeParam A - Decoded value type accepted by the schema encoder.
+ * @typeParam I - Encoded representation passed to canonicalization.
+ * @param schema - Context-free schema whose synchronous encoder defines the preimage.
+ * @param value - Decoded value to encode and digest.
+ * @param maximumBytes - Inclusive non-negative safe-integer limit.
+ * @param algorithm - Hash algorithm; defaults to BLAKE3-256.
+ * @returns `Right` with digest metadata or `Left` with an expected failure.
  *
  * @since 0.5.0
  * @category digest
