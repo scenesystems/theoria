@@ -4,7 +4,7 @@ import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import type { TextRole } from "../../../contracts/text.js"
 import { semanticClassName } from "./semanticTextClasses.js"
 
-type SemanticContentElement = "span" | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "dt" | "dd"
+type SemanticContentElement = "span" | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "dt" | "dd" | "code"
 
 export const SemanticContent = ({
   as,

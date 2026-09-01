@@ -34,7 +34,7 @@ moduleReflection.comment = new Comment(
 )
 
 const snapshot = new DeclarationReflection("snapshot", ReflectionKind.Function, moduleReflection)
-snapshot.comment = summary("Create a serializable study snapshot.")
+snapshot.comment = summary("Run and inspect optimization studies.")
 const resultSignature = new SignatureReflection("snapshot", ReflectionKind.CallSignature, snapshot)
 resultSignature.comment = new Comment(
   [
@@ -116,7 +116,7 @@ const routes: ReadonlyArray<ApiReferenceRoute> = [
       {
         name: "snapshot",
         importKind: "value",
-        summary: "Create a serializable study snapshot.",
+        summary: "Barrel module summary.",
         since: "1.0.0",
         category: "persistence",
         reflections: [{
@@ -196,6 +196,7 @@ describe("TypeDoc presentation adapter", () => {
         ]
       })
       expect(snapshotExport?.facets[0]?.declaration).not.toContain("export declare")
+      expect(snapshotExport?.summary).toBe("Snapshot a completed study result.")
       expect(snapshotExport?.facets[0]?.signatures).toHaveLength(2)
       expect(snapshotExport?.facets[0]?.signatures[0]).toMatchObject({
         code: "snapshot<Config = unknown>(result: StudyResult<Config>): Effect<StudySnapshot>",
@@ -245,7 +246,7 @@ describe("TypeDoc presentation adapter", () => {
         package: "@scenesystems/example",
         qualifiedName: "@scenesystems/example/Study.snapshot",
         category: "persistence",
-        summary: "Create a serializable study snapshot."
+        summary: "Snapshot a completed study result."
       })
     }))
 })

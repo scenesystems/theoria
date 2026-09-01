@@ -1,15 +1,18 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
 
 import type { ApiPage, DocsManifest, DocsPackageSummary, GuidePage } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
 import { docsApiPageAtom, docsGuidePageAtom } from "../../atoms/docs-data.js"
+import { docsLocationHashAtom, docsLocationHashMountAtom } from "../../atoms/docs.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Layer, Main, Section, Stack } from "../primitives/Layout.js"
 import { apiCategoryAnchor, ApiPageView } from "./ApiPageView.js"
 import { DocsHeader } from "./DocsHeader.js"
+import { apiExportForHash } from "./docsModel.js"
 import { DocsNavigation } from "./DocsNavigation.js"
 import { DocsNavigationDrawer } from "./DocsNavigationDrawer.js"
 import { DocsOnThisPage, type DocsPageAnchor } from "./DocsOnThisPage.js"
@@ -55,8 +58,12 @@ const DocsWorkbench = ({
 const guideAnchors = (page: GuidePage): ReadonlyArray<DocsPageAnchor> =>
   Arr.map(page.anchors, (anchor): DocsPageAnchor => [anchor.id, anchor.label])
 
-const apiAnchors = (page: ApiPage): ReadonlyArray<DocsPageAnchor> =>
-  Arr.map(page.categories, (category): DocsPageAnchor => [apiCategoryAnchor(category.name), category.name])
+const apiAnchors = (page: ApiPage, hash: string): ReadonlyArray<DocsPageAnchor> =>
+  Option.match(apiExportForHash(page, hash), {
+    onNone: () =>
+      Arr.map(page.categories, (category): DocsPageAnchor => [apiCategoryAnchor(category.name), category.name]),
+    onSome: (apiExport) => [[apiExport.anchor, apiExport.name]]
+  })
 
 export const GuideResource = ({
   asset,
@@ -103,6 +110,8 @@ export const ApiResource = ({
   readonly manifest: DocsManifest
   readonly route: DocsRoute
 }) => {
+  useAtomValue(docsLocationHashMountAtom)
+  const hash = useAtomValue(docsLocationHashAtom)
   const atom = docsApiPageAtom(asset)
   const result = useAtomValue(atom)
   const refresh = useAtomRefresh(atom)
@@ -118,10 +127,14 @@ export const ApiResource = ({
         <DocsStatus retry={refresh} state="failure" />
       </DocsWorkbench>
     ),
-    onSuccess: ({ value }) => (
-      <DocsWorkbench anchors={apiAnchors(value)} docsPackage={docsPackage} manifest={manifest} route={route}>
-        <ApiPageView page={value} />
-      </DocsWorkbench>
-    )
+    onSuccess: ({ value }) => {
+      const selectedExport = apiExportForHash(value, hash)
+
+      return (
+        <DocsWorkbench anchors={apiAnchors(value, hash)} docsPackage={docsPackage} manifest={manifest} route={route}>
+          <ApiPageView page={value} selectedExport={selectedExport} />
+        </DocsWorkbench>
+      )
+    }
   })
 }

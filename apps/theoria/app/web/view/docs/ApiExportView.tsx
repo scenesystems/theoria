@@ -39,8 +39,8 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
     {facet.signatures.length === 0
       ? (
         <Stack className="gap-5">
-          <CodeBlock label="Declaration" source={facet.declaration} />
           <ApiDocumentationView docs={facet.docs} />
+          <CodeBlock label="Type" source={facet.declaration} />
           <ApiTypeParametersView parameters={facet.typeParameters} />
           <RelationList facet={facet} />
           <ExternalLink

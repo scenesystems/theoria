@@ -2,6 +2,8 @@ import { Match, Option, Order, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type {
+  ApiExport,
+  ApiPage,
   DocsApiModuleSummary,
   DocsGuideSummary,
   DocsManifest,
@@ -18,6 +20,9 @@ export const DocsDestination = Schema.Struct({
 })
 
 export type DocsDestination = typeof DocsDestination.Type
+
+export const apiExportForHash = (page: ApiPage, hash: string): Option.Option<ApiExport> =>
+  Arr.findFirst(page.exports, (apiExport) => `#${apiExport.anchor}` === hash)
 
 export const docsPackageFor = (
   manifest: DocsManifest,

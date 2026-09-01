@@ -57,18 +57,19 @@ const symbolSearchEntries = (input: {
   readonly packageName: string
   readonly packageSlug: string
   readonly route: ApiReferenceRoute
+  readonly exports: ReadonlyArray<ApiExport>
 }): ReadonlyArray<DocsSearchEntry> =>
-  Arr.map(input.route.imports, (entry) => ({
-    id: apiExportId(input.packageSlug, input.route.slug, entry.name),
+  Arr.map(input.exports, (apiExport) => ({
+    id: apiExport.id,
     kind: "symbol",
     package: input.packageName,
     packageSlug: input.packageSlug,
-    name: entry.name,
-    qualifiedName: `${qualifiedModuleName(input.packageName, input.route.slug)}.${entry.name}`,
-    category: entry.category,
-    summary: entry.summary,
+    name: apiExport.name,
+    qualifiedName: `${qualifiedModuleName(input.packageName, input.route.slug)}.${apiExport.name}`,
+    category: apiExport.category,
+    summary: apiExport.summary,
     path: input.route.path,
-    anchor: apiExportAnchor(entry.name)
+    anchor: apiExport.anchor
   }))
 
 export const buildApiPresentation = (input: {
@@ -88,7 +89,7 @@ export const buildApiPresentation = (input: {
     Arr.filter(input.routes, (route) => !route.canonical),
     (route) => route.path
   )
-  const pages: ReadonlyArray<ApiPage> = Arr.map(input.routes, (route, index) => ({
+  const pages: ReadonlyArray<ApiPage> = Arr.map(Arr.zip(input.routes, input.exportsByRoute), ([route, exports]) => ({
     schemaVersion: 1,
     kind: "api-module",
     path: route.path,
@@ -110,11 +111,11 @@ export const buildApiPresentation = (input: {
       sourceUrl: input.moduleSourceUrl
     },
     categories: categoriesFor(input.packageSlug, route),
-    exports: input.exportsByRoute[index] ?? []
+    exports
   }))
   const searchEntries = Arr.flatMap(
-    input.routes,
-    (route): ReadonlyArray<DocsSearchEntry> => route.canonical ? [
+    Arr.zip(input.routes, input.exportsByRoute),
+    ([route, exports]): ReadonlyArray<DocsSearchEntry> => route.canonical ? [
       moduleSearchEntry({
         packageName: input.packageName,
         packageSlug: input.packageSlug,
@@ -124,7 +125,8 @@ export const buildApiPresentation = (input: {
       ...symbolSearchEntries({
         packageName: input.packageName,
         packageSlug: input.packageSlug,
-        route
+        route,
+        exports
       })
     ] : []
   )

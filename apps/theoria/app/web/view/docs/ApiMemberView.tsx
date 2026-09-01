@@ -22,8 +22,8 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
       {member.signatures.length === 0
         ? (
           <Stack className="gap-4">
-            <CodeBlock label="Declaration" source={member.declaration} />
             <ApiDocumentationView docs={member.docs} />
+            <CodeBlock label="Type" source={member.declaration} />
             <ExternalLink
               className="w-fit font-body text-sm font-medium text-ink-600 underline decoration-stage-400 underline-offset-4 hover:text-ink-950"
               href={member.sourceUrl}

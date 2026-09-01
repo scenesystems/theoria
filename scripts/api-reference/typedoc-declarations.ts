@@ -11,6 +11,7 @@ import {
   type ApiReferenceRoute
 } from "./model.js"
 import {
+  type ApiDocPart,
   type ApiExport,
   type ApiFacet,
   type ApiMember,
@@ -112,12 +113,39 @@ const facetModel = (
   }
 }
 
+const summaryText = (parts: ReadonlyArray<ApiDocPart>): string =>
+  Arr.map(parts, (part) => part.text).join("").trim()
+
+const exportSummary = (
+  facets: ReadonlyArray<ApiFacet>,
+  fallback: string,
+  moduleSummary: string
+): string => {
+  const facetSummaries = Arr.map(facets, (facet) => summaryText(facet.docs.summary))
+  const signatureSummaries = Arr.flatMap(facets, (facet) =>
+    Arr.map(facet.signatures, (signature) => summaryText(signature.docs.summary)))
+
+  return Option.getOrElse(
+    Arr.findFirst(
+      [
+        ...Arr.filter(facetSummaries, (summary) => summary !== moduleSummary),
+        ...signatureSummaries,
+        fallback,
+        ...facetSummaries
+      ],
+      (candidate) => candidate.length > 0
+    ),
+    () => fallback
+  )
+}
+
 const exportModel = (
   packageName: string,
   packageSlug: string,
   moduleReflection: DeclarationReflection,
   route: ApiReferenceRoute,
   context: ApiDocContext,
+  moduleSummary: string,
   entry: ApiReferenceImport
 ) =>
   Effect.map(
@@ -139,7 +167,7 @@ const exportModel = (
       importKind: entry.importKind,
       category: entry.category,
       since: entry.since,
-      summary: entry.summary,
+      summary: exportSummary(facets, entry.summary, moduleSummary),
       facets
     })
   )
@@ -150,12 +178,16 @@ export const apiExports = (
   moduleReflection: DeclarationReflection,
   route: ApiReferenceRoute,
   context: ApiDocContext
-) =>
-  Effect.forEach(route.imports, (entry) => exportModel(
+) => {
+  const moduleSummary = summaryText(documentation(moduleReflection.comment, context).summary)
+
+  return Effect.forEach(route.imports, (entry) => exportModel(
     packageName,
     packageSlug,
     moduleReflection,
     route,
     context,
+    moduleSummary,
     entry
   ))
+}

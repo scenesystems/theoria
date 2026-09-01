@@ -90,14 +90,16 @@ export const ApiSignatureView = ({
   readonly total: number
 }) => (
   <Stack className="gap-5">
-    <CodeBlock label={total === 1 ? "Signature" : `Overload ${String(index + 1)}`} source={signature.code} />
     <ApiDocumentationView docs={signature.docs} />
+    <CodeBlock label={total === 1 ? "Signature" : `Overload ${String(index + 1)}`} source={signature.code} />
     <ApiTypeParametersView parameters={signature.typeParameters} />
     <Parameters parameters={signature.parameters} />
     <Stack className="gap-2">
       <SemanticContent as="h4" className="text-ink-500" role="row-label">Returns</SemanticContent>
       <Cluster className="items-start gap-x-4 gap-y-2 rounded-xl border border-stage-200/90 bg-stage-50/45 px-4 py-3">
-        <SemanticText as="code" className="break-words text-ink-900" role="code-meta" text={signature.returns.type} />
+        <SemanticContent as="code" className="min-w-0 max-w-full break-words text-ink-900" role="code-meta">
+          {signature.returns.type}
+        </SemanticContent>
         <SemanticContent as="span" className="text-ink-600" role="row-value">
           <DocsRichText parts={signature.returns.description} />
         </SemanticContent>
