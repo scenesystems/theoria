@@ -28,6 +28,7 @@ logs
 # Generated files
 *.min.js
 *.min.css
+.amp/portals
 
 # Vendored source
 .vendor

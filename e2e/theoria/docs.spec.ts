@@ -1,0 +1,140 @@
+import { expect, test, type Page } from "@playwright/test"
+
+import { cards } from "../../apps/theoria/app/contracts/card.js"
+
+const packageVersions = {
+  ok: true,
+  meta: { requestId: "docs-browser", buildSha: "docs-browser", durationMs: 1 },
+  data: Object.fromEntries(cards.map((card) => [card.packageName, card.version]))
+}
+
+const captureBrowserFailures = (page: Page) => {
+  const consoleErrors: Array<string> = []
+  const pageErrors: Array<string> = []
+
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text())
+  })
+  page.on("pageerror", (error) => pageErrors.push(error.message))
+
+  return { consoleErrors, pageErrors }
+}
+
+const expectNoBrowserFailures = (failures: ReturnType<typeof captureBrowserFailures>) => {
+  expect(failures.consoleErrors).toEqual([])
+  expect(failures.pageErrors).toEqual([])
+}
+
+test("landing links enter the package documentation without a reload", async ({ page }) => {
+  const failures = captureBrowserFailures(page)
+  let documentRequests = 0
+  page.on("request", (request) => {
+    if (request.resourceType() === "document") documentRequests += 1
+  })
+  await page.route("**/api/versions/packages", (route) => route.fulfill({ json: packageVersions }))
+
+  await page.goto("/")
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Scientific computing and model programming with Effect" })
+  ).toBeVisible()
+  for (const card of cards) {
+    await expect(page.locator(`a[href="/docs/${card.id}"]`, { hasText: "Docs" })).toHaveCount(1)
+  }
+
+  const headerNavigationStarted = performance.now()
+  await page.locator("header").getByRole("link", { exact: true, name: "Docs" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible()
+  expect(performance.now() - headerNavigationStarted).toBeLessThan(1_500)
+  expect(documentRequests).toBe(1)
+
+  await page.goto("/")
+  const cardNavigationStarted = performance.now()
+  await page.locator('a[href="/docs/effect-search"]', { hasText: "Docs" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" })).toBeVisible()
+  expect(performance.now() - cardNavigationStarted).toBeLessThan(1_500)
+  expect(documentRequests).toBe(2)
+  expectNoBrowserFailures(failures)
+})
+
+test("docs navigation, package selection, and focused API caching stay coherent", async ({ page }) => {
+  const failures = captureBrowserFailures(page)
+  const docsRequests: Array<string> = []
+  page.on("request", (request) => {
+    if (request.url().includes("/docs-data/")) docsRequests.push(request.url())
+  })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto("/docs/effect-search")
+  await page.getByRole("link", { exact: true, name: "Getting started" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Getting started" })).toBeVisible()
+  await expect(page.getByRole("link", { exact: true, name: "Getting started" })).toHaveAttribute(
+    "aria-current",
+    "page"
+  )
+
+  await page.getByRole("link", { exact: true, name: "Study" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Study" })).toBeVisible()
+  await expect(page.getByText("Study orchestration — run optimization, stream events, snapshot/resume.")).toBeVisible()
+
+  await page.locator('a[href="#api-ask"]').click()
+  await expect(page).toHaveURL(/\/docs\/effect-search\/api\/Study#api-ask$/u)
+  await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
+  await expect(page.getByText("Reserve the next trial configuration from a manual ask/tell handle.")).toBeVisible()
+  expect(docsRequests.filter((url) => url.endsWith("/Study/api-ask.json"))).toHaveLength(1)
+
+  await page.getByRole("link", { exact: true, name: "← Study" }).click()
+  await page.locator('a[href="#api-ask"]').click()
+  await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
+  expect(docsRequests.filter((url) => url.endsWith("/Study/api-ask.json"))).toHaveLength(1)
+
+  await page.getByRole("button", { name: "Choose package" }).click()
+  await page.getByRole("menuitem").filter({ hasText: "@scenesystems/effect-math" }).click()
+  await expect(page).toHaveURL(/\/docs\/effect-math$/u)
+  await expect(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-math" })).toBeVisible()
+  await page.getByRole("link", { name: "Documentation home" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible()
+  expectNoBrowserFailures(failures)
+})
+
+test("search is typo-tolerant, fast, cached, and routable", async ({ page }) => {
+  const failures = captureBrowserFailures(page)
+  let searchIndexRequests = 0
+  page.on("request", (request) => {
+    if (request.url().endsWith("/search-index.json")) searchIndexRequests += 1
+  })
+
+  await page.goto("/docs/effect-search")
+  await page.getByRole("button", { name: "Search documentation" }).click()
+  const input = page.getByRole("combobox", { name: "Search" })
+  await expect(input).toBeVisible()
+  const searchStarted = performance.now()
+  await input.fill("resreve trial")
+  const askResult = page.getByRole("option", { name: /Study\.ask/u })
+  await expect(askResult).toBeVisible()
+  expect(performance.now() - searchStarted).toBeLessThan(750)
+  expect(searchIndexRequests).toBe(1)
+  await askResult.click()
+  await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
+
+  await page.getByRole("button", { name: "Search documentation" }).click()
+  await expect(input).toBeVisible()
+  await input.fill("zzzz-no-such-symbol")
+  await expect(page.getByText("No results", { exact: true })).toBeVisible()
+  expect(searchIndexRequests).toBe(1)
+  expectNoBrowserFailures(failures)
+})
+
+test("focused signatures highlight and copy their real source", async ({ browserName, context, page }) => {
+  test.skip(browserName !== "chromium", "Clipboard permissions are qualified in Chromium")
+  const failures = captureBrowserFailures(page)
+  await context.grantPermissions(["clipboard-read", "clipboard-write"])
+
+  await page.goto("/docs/effect-search/api/Study#api-ask")
+  await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
+  const signature = page.getByRole("region", { name: "Signature code example" })
+  await expect(signature.locator('[class~="text-code-keyword"], [class~="text-code-type"]')).not.toHaveCount(0)
+  await signature.getByRole("button", { name: "Copy Signature" }).click()
+  await expect(signature.getByRole("button", { name: "Copied Signature" })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("ask")
+  expectNoBrowserFailures(failures)
+})

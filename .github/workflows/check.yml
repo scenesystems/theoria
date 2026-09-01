@@ -71,6 +71,16 @@ jobs:
       - uses: ./.github/actions/setup
       - run: bun run build
 
+  browser:
+    name: Theoria browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - run: bunx playwright install --with-deps chromium webkit
+      - run: bun run test:e2e:theoria
+
   sign-release:
     name: Sign packed browser qualification
     runs-on: ubuntu-latest

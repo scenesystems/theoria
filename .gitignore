@@ -44,6 +44,7 @@ __pycache__/
 
 # Scratch files
 .tmp/
+.amp/portals/
 
 # PR-scoped specs (ephemeral tracking — not committed)
 .specs/*
