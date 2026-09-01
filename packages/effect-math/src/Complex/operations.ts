@@ -36,18 +36,8 @@ export const loadComplexDomain = Effect.succeed(ComplexDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Constructs a `Complex` from explicit real and imaginary parts.
- * Prefer this over `new Complex(...)` in application code for
- * consistency across the operation surface.
- *
- * @example
- * ```ts
- * import { of } from "@scenesystems/effect-math/Complex"
- *
- * const z = of(3, 4)
- * z.re  // 3
- * z.im  // 4
- * ```
+ * Preserves caller-supplied real and imaginary components without finiteness
+ * checks or normalization.
  *
  * @see {@link fromReal} — shorthand when im = 0
  * @see {@link fromImaginary} — shorthand when re = 0
@@ -113,14 +103,6 @@ export const i: Complex = new Complex({ re: 0, im: 1 })
 
 /**
  * Complex addition: (a + bi) + (c + di).
- *
- * @example
- * ```ts
- * import { add, of } from "@scenesystems/effect-math/Complex"
- *
- * const z = add(of(1, 2), of(3, 4))
- * // z = 4 + 6i
- * ```
  *
  * @see {@link subtract} — inverse operation
  * @see {@link addValidated} — boundary-validated variant
@@ -312,8 +294,8 @@ export const fromPolar = (r: number, theta: number): Complex => {
 // ---------------------------------------------------------------------------
 
 /**
- * Complex sine via Euler's formula:
- * sin(a + bi) = sin(a)cosh(b) + i·cos(a)sinh(b).
+ * Extends sine to complex inputs, with an imaginary component that is odd in
+ * `b`: sin(a + bi) = sin(a)cosh(b) + i·cos(a)sinh(b).
  *
  * @see {@link cos} — cosine companion
  * @see {@link sinh} — hyperbolic counterpart
@@ -327,7 +309,7 @@ export const sin = (z: Complex): Complex => {
 }
 
 /**
- * Complex cosine via Euler's formula:
+ * Extends cosine to complex inputs, negating the imaginary cross term:
  * cos(a + bi) = cos(a)cosh(b) − i·sin(a)sinh(b).
  *
  * @see {@link sin} — sine companion
@@ -537,6 +519,7 @@ export const toPhaseChunk = (xs: Chunk.Chunk<Complex>): Chunk.Chunk<number> =>
  * Complex-step derivative (Squire & Trapp, 1998):
  *   f'(x) ≈ Im(f(x + ih)) / h
  *
+ * @remarks
  * Achieves machine-precision accuracy for analytic functions without
  * the cancellation error of finite differences. The default step size
  * h = 1e-20 is optimal for IEEE 754 float64.

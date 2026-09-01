@@ -13,8 +13,7 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation.
+ * Reports failure to validate the Special-functions descriptor at an orchestration boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -39,9 +38,7 @@ export class SpecialDecodeError extends Schema.TaggedError<SpecialDecodeError>()
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces
- * a non-finite result (NaN or ±Infinity). Under `"relaxed"` precision
- * this error is never emitted.
+ * Reports a non-finite special-function approximation rejected by strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -67,7 +64,8 @@ export class SpecialParameterError extends Schema.TaggedError<SpecialParameterEr
 }) {}
 
 /**
- * Union of all boundary-level errors.
+ * Descriptor-level failures to recover before special-function capability
+ * registration, separate from a failed function evaluation.
  *
  * @since 0.1.0
  * @category errors
@@ -75,7 +73,8 @@ export class SpecialParameterError extends Schema.TaggedError<SpecialParameterEr
 export type SpecialBoundaryError = SpecialDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors.
+ * Evaluation failures recoverable by correcting decoded input or mathematical
+ * parameters, or by relaxing strict finite-result policy.
  *
  * @since 0.1.0
  * @category errors

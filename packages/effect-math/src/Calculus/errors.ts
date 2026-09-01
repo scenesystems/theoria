@@ -14,8 +14,7 @@ import type { KernelExecutionError } from "../contracts/shared/AdvancedComputati
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation.
+ * Reports failure to validate the Calculus domain descriptor at an orchestration boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -40,9 +39,7 @@ export class CalculusDecodeError extends Schema.TaggedError<CalculusDecodeError>
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation
- * produces a non-finite result (NaN or ±Infinity). Under `"relaxed"`
- * precision this error is never emitted.
+ * Reports a non-finite derivative or integral estimate rejected by strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -68,7 +65,8 @@ export class CalculusParameterError extends Schema.TaggedError<CalculusParameter
 }) {}
 
 /**
- * Union of all boundary-level errors.
+ * Descriptor-level failures to recover before capability registration, rather
+ * than failures from evaluating a calculus operation.
  *
  * @since 0.1.0
  * @category errors
@@ -76,7 +74,8 @@ export class CalculusParameterError extends Schema.TaggedError<CalculusParameter
 export type CalculusBoundaryError = CalculusDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors.
+ * Evaluation failures recoverable by correcting operation input or dimensions,
+ * changing precision policy, or handling a callback/kernel exception.
  *
  * @since 0.1.0
  * @category errors

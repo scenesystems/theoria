@@ -7,7 +7,8 @@
 import { Schema } from "effect"
 
 /**
- * Domain ownership matrix authority.
+ * Requires every governed domain to name its non-empty owned concept set,
+ * sharing relationships, and the rationale for that boundary.
  *
  * @since 0.1.0
  * @category contracts
@@ -121,7 +122,7 @@ export const InitialDomainOwnershipMatrix = {
 }
 
 /**
- * Domain ownership matrix type.
+ * The decoded ownership, sharing, and boundary notes for all governed domains.
  *
  * @since 0.1.0
  * @category models

@@ -1,5 +1,5 @@
 /**
- * Algebra domain model instance.
+ * Publishes the Algebra discovery descriptor with provisional stability.
  *
  * @since 0.1.0
  * @category models

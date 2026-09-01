@@ -1,9 +1,7 @@
 /**
  * Typed error taxonomy for complex number operations.
  *
- * Every error is a `Schema.TaggedError` enabling `catchTag` pattern
- * matching in Effect pipelines and lossless serialization across
- * boundaries.
+ * Each class has a stable `_tag` for Effect error-channel matching.
  *
  * @since 0.1.0
  * @category errors
@@ -13,9 +11,7 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation — typically from `decodeComplexDomain`
- * or `encodeComplexDomain` at the package boundary.
+ * Reports a failed complex-domain boundary check.
  *
  * @see {@link ComplexDecodeError} — per-operation decode failure
  *
@@ -29,9 +25,8 @@ export class ComplexDomainBoundaryError
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input
- * contract. The `operation` field names the failed function so
- * callers can provide targeted error messages.
+ * Reports malformed input to a validated complex operation. `operation`
+ * identifies the operation whose schema rejected the input.
  *
  * @see {@link ComplexDomainBoundaryError} — boundary-level failure
  *
@@ -44,8 +39,8 @@ export class ComplexDecodeError extends Schema.TaggedError<ComplexDecodeError>()
 }) {}
 
 /**
- * Raised on division by zero in complex arithmetic — when the divisor
- * has both real and imaginary parts equal to zero.
+ * Represents a rejected divisor whose real and imaginary components are
+ * both zero.
  *
  * @see {@link ComplexDomainError} — general domain violations
  *
@@ -59,9 +54,9 @@ export class ComplexDivisionByZeroError
 {}
 
 /**
- * Raised when a complex operation receives input outside its
- * mathematical domain — for example, `log(0)` or branch-cut
- * ambiguities in multi-valued functions.
+ * Reports an input outside a validated complex operation's mathematical
+ * domain. The pure operations instead follow their documented IEEE 754 and
+ * principal-branch conventions.
  *
  * @see {@link ComplexDivisionByZeroError} — specific zero-divisor case
  * @see {@link ComplexDomainViolationError} — policy-driven rejection
@@ -75,9 +70,8 @@ export class ComplexDomainError extends Schema.TaggedError<ComplexDomainError>()
 }) {}
 
 /**
- * Raised under `"strict"` precision policy when an operation produces
- * a non-finite result (NaN or ±Infinity). Never emitted under
- * `"relaxed"` precision.
+ * Reports a non-finite result rejected by the `"strict"` precision policy.
+ * The `"relaxed"` policy permits that result.
  *
  * @see {@link ComplexDomainError} — mathematical domain violations
  *
@@ -92,8 +86,8 @@ export class ComplexDomainViolationError
 {}
 
 /**
- * Union of all boundary-level errors that can occur during domain
- * schema decode/encode at the package boundary.
+ * Descriptor-level failures to recover before registering Complex capability
+ * metadata; these do not describe a failed arithmetic operation.
  *
  * @since 0.1.0
  * @category errors
@@ -101,8 +95,8 @@ export class ComplexDomainViolationError
 export type ComplexBoundaryError = ComplexDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors that can occur during complex
- * arithmetic, trigonometric, or analysis computations.
+ * Arithmetic-level failures distinguishing malformed input, a zero divisor,
+ * mathematical-domain rejection, and strict-policy rejection.
  *
  * @since 0.1.0
  * @category errors

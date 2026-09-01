@@ -1,5 +1,5 @@
 /**
- * Numeric schema authority — domain model and operation input contracts.
+ * Runtime schemas for Numeric metadata and validated operation inputs.
  *
  * @since 0.1.0
  * @category schemas
@@ -14,7 +14,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Numeric domain model schema.
+ * Accepts only the `"Numeric"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +25,8 @@ export const NumericDomainSchema = Schema.Struct({
 })
 
 /**
- * Numeric schema-derived type.
+ * Discovery metadata identifying scalar and vector numeric primitives in a
+ * recognized stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +34,9 @@ export const NumericDomainSchema = Schema.Struct({
 export type NumericDomain = typeof NumericDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical numeric domain model.
+ * Establishes the `"Numeric"` discriminator and stability lane at an untrusted
+ * discovery boundary. Malformed or additional fields fail with
+ * {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -73,7 +76,7 @@ export const encodeNumericDomain = (domain: NumericDomain) =>
   )
 
 /**
- * Numeric boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Numeric descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -127,7 +130,7 @@ export const PositiveFiniteVector = Schema.NonEmptyArray(
 })
 
 /**
- * Division input contract.
+ * Two finite operands; zero-divisor handling remains the selected operation's boundary.
  *
  * @since 0.1.0
  * @category schemas

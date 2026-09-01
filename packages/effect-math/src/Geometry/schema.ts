@@ -17,9 +17,8 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for Geometry. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Descriptor schema used to advertise metric and point-set Geometry support
+ * in domain-discovery results.
  *
  * @since 0.1.0
  * @category schemas
@@ -30,8 +29,7 @@ export const GeometryDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `GeometryDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Validated descriptor for metric and point-set Geometry support.
  *
  * @since 0.1.0
  * @category models
@@ -39,10 +37,7 @@ export const GeometryDomainSchema = Schema.Struct({
 export type GeometryDomain = typeof GeometryDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical geometry domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a Geometry discovery descriptor and rejects unknown fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -63,9 +58,7 @@ export const decodeGeometryDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `GeometryDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated Geometry discovery descriptor, failing for forged values.
  *
  * @since 0.1.0
  * @category schemas
@@ -84,10 +77,7 @@ export const encodeGeometryDomain = (domain: GeometryDomain) =>
   )
 
 /**
- * Union of all errors that can arise from boundary encode/decode operations
- * on the Geometry domain schema. Useful as a catch-all error channel type
- * in Effect pipelines that call `decodeGeometryDomain` or
- * `encodeGeometryDomain`.
+ * Error channel shared by Geometry descriptor ingestion and serialization.
  *
  * @since 0.1.0
  * @category errors

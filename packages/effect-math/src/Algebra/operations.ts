@@ -1,7 +1,6 @@
 /**
- * Algebra domain operation surface — pure kernel re-exports,
- * Schema-validated boundary variants, and policy-aware operations
- * reading `PrecisionPolicyService` and `DiagnosticsPolicyService`.
+ * Polynomial and integer operations, with validated and policy-aware
+ * variants for untrusted inputs and runtime numerical policy enforcement.
  *
  * @since 0.1.0
  * @category operations
@@ -16,8 +15,9 @@ import { AlgebraDomainModel } from "./model.js"
 import { FactorialInput, GcdInput, LcmInput, PolyDerivativeInput, PolyEvalInput } from "./schema.js"
 
 /**
- * Lifts the static `AlgebraDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional Algebra descriptor for registration or
+ * capability discovery. Each execution reuses the immutable descriptor and
+ * cannot fail or require services.
  *
  * @since 0.1.0
  * @category operations
@@ -32,14 +32,6 @@ export const loadAlgebraDomain = Effect.succeed(AlgebraDomainModel)
  * Evaluates a polynomial at `x` via Horner's method. Coefficients are
  * lowest-degree-first: `[a0, a1, a2]` = a0 + a1·x + a2·x².
  *
- * @example
- * ```ts
- * import { Algebra } from "@scenesystems/effect-math"
- * import { Chunk } from "effect"
- *
- * Algebra.polyEval(Chunk.fromIterable([1, -2, 1]), 3) // 4 (= 1 − 6 + 9)
- * ```
- *
  * @see {@link polyEvalValidated} — boundary-validated variant
  * @see {@link polyEvalWithPolicies} — policy-aware variant
  * @since 0.1.0
@@ -51,15 +43,6 @@ export const polyEval: (coefficients: Chunk.Chunk<number>, x: number) => number 
  * Computes the formal derivative of polynomial coefficients.
  * `[a0, a1, a2, a3]` → `[a1, 2·a2, 3·a3]`. Constant polynomial → `[0]`.
  *
- * @example
- * ```ts
- * import { Algebra } from "@scenesystems/effect-math"
- * import { Chunk } from "effect"
- *
- * Algebra.polyDerivative(Chunk.fromIterable([2, 0, -3, 1]))
- * // Chunk(0, -6, 3)
- * ```
- *
  * @see {@link polyDerivativeValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
@@ -67,15 +50,9 @@ export const polyEval: (coefficients: Chunk.Chunk<number>, x: number) => number 
 export const polyDerivative: (coefficients: Chunk.Chunk<number>) => Chunk.Chunk<number> = Polynomial.polyDerivative
 
 /**
- * Greatest common divisor via Euclidean algorithm.
- * `gcd(0, b) = b`, `gcd(a, 0) = a`.
- *
- * @example
- * ```ts
- * import { Algebra } from "@scenesystems/effect-math"
- *
- * Algebra.gcd(12, 8) // 4
- * ```
+ * Greatest non-negative common divisor of integer-valued inputs.
+ * `gcd(0, b) = |b|` and `gcd(a, 0) = |a|`. The pure function does not
+ * validate integrality or finiteness.
  *
  * @see {@link gcdValidated} — boundary-validated variant
  * @since 0.1.0
@@ -84,15 +61,9 @@ export const polyDerivative: (coefficients: Chunk.Chunk<number>) => Chunk.Chunk<
 export const gcd: (a: number, b: number) => number = Integer.gcd
 
 /**
- * Least common multiple via GCD.
- * `lcm(a, b) = |a · b| / gcd(a, b)`. `lcm(0, x) = 0`.
- *
- * @example
- * ```ts
- * import { Algebra } from "@scenesystems/effect-math"
- *
- * Algebra.lcm(12, 8) // 24
- * ```
+ * Non-negative least common multiple of integer-valued inputs.
+ * `lcm(0, x) = 0`. The pure function does not validate integrality,
+ * finiteness, or safe-integer overflow.
  *
  * @see {@link lcmValidated} — boundary-validated variant
  * @since 0.1.0
@@ -101,14 +72,9 @@ export const gcd: (a: number, b: number) => number = Integer.gcd
 export const lcm: (a: number, b: number) => number = Integer.lcm
 
 /**
- * Factorial n! via tail recursion. `0! = 1`.
- *
- * @example
- * ```ts
- * import { Algebra } from "@scenesystems/effect-math"
- *
- * Algebra.factorial(5) // 120
- * ```
+ * Returns `n!` for a non-negative integer, with `0! = 1`. The pure function
+ * does not validate its input and returns `1` for every `n <= 0`; use
+ * {@link factorialValidated} at an untrusted boundary.
  *
  * @see {@link factorialValidated} — boundary-validated variant
  * @see {@link factorialWithPolicies} — policy-aware variant
@@ -242,8 +208,10 @@ export const factorialValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware polyEval reading two services from context:
+ * Evaluates lowest-degree-first coefficients with Horner's method under the
+ * configured runtime policies.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -287,6 +255,7 @@ export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: numbe
 /**
  * Policy-aware polyDerivative reading two services from context:
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects results containing
  *   non-finite coefficients with `AlgebraDomainViolationError`; `"relaxed"`
  *   passes them through.
@@ -311,8 +280,10 @@ export const polyDerivativeWithPolicies = (coefficients: Chunk.Chunk<number>) =>
   })
 
 /**
- * Policy-aware factorial reading two services from context:
+ * Computes `n!` while allowing strict precision to surface numeric overflow
+ * as `AlgebraDomainViolationError`.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -332,8 +303,10 @@ export const factorialWithPolicies = (n: number) =>
   })
 
 /**
- * Policy-aware gcd reading two services from context:
+ * Computes the non-negative greatest common divisor under the configured
+ * precision and diagnostics policies.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -353,8 +326,10 @@ export const gcdWithPolicies = (a: number, b: number) =>
   })
 
 /**
- * Policy-aware lcm reading two services from context:
+ * Computes the least common multiple while allowing strict precision to
+ * surface a non-finite product as `AlgebraDomainViolationError`.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`

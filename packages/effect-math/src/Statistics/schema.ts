@@ -1,8 +1,6 @@
 /**
- * Schema authority for the Statistics domain — defines the canonical domain
- * discriminator, sample input contracts, and the `SummaryStatistics` tagged
- * class carrier. All schemas enforce finite-number validation at decode time,
- * so kernels can assume well-formed numeric input.
+ * Runtime schemas for Statistics metadata, finite samples, and summary
+ * results.
  *
  * @since 0.1.0
  * @category schemas
@@ -14,7 +12,8 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Statistics schema authority scaffold.
+ * Accepts Statistics metadata with the canonical discriminator and a known
+ * stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +24,9 @@ export const StatisticsDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical statistics domain model.
+ * Admits estimator discovery metadata with the canonical `"Statistics"`
+ * discriminator. Unsupported stability values and excess properties fail with
+ * {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -65,7 +66,7 @@ export const encodeStatisticsDomain = (domain: StatisticsDomain) =>
   )
 
 /**
- * Statistics boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Statistics descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -73,7 +74,8 @@ export const encodeStatisticsDomain = (domain: StatisticsDomain) =>
 export type StatisticsSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Statistics schema-derived type.
+ * Discovery metadata identifying sample estimators and descriptive statistics
+ * in a recognized stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -115,8 +117,9 @@ export const TwoSampleInput = Schema.Struct({
 }).annotations({ identifier: "TwoSampleInput" })
 
 /**
- * Summary statistics result carrier — a `Schema.TaggedClass` holding
- * mean, variance, standard deviation, min, max, and count.
+ * Summary statistics result. Numeric fields must be finite and `count` must
+ * be an integer of at least one. Variance and standard deviation use the
+ * sample convention in `summaryStatistics` (zero for a singleton).
  *
  * @since 0.1.0
  * @category schemas

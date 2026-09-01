@@ -17,8 +17,9 @@ import { StatisticsDomainModel } from "./model.js"
 import { SampleInput, SummaryStatistics, TwoSampleInput } from "./schema.js"
 
 /**
- * Lifts the static `StatisticsDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional descriptive-statistics descriptor for
+ * registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -65,6 +66,7 @@ export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estima
 /**
  * Descriptive statistics for a non-empty chunk using one pass over the data.
  *
+ * @remarks
  * Singleton chunks produce zero variance and standard deviation.
  *
  * @see {@link summaryStatisticsValidated} for boundary-validated input
@@ -399,6 +401,7 @@ export const maximumValidated = (input: unknown) =>
  * Policy-aware summary statistics that reads two runtime services from
  * context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite mean, variance, or stddev with `StatisticsDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with precision policy and sample size
  *
@@ -491,6 +494,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
 /**
  * Policy-aware mean that reads two runtime services from context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
  *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
@@ -533,6 +537,7 @@ export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
 /**
  * Policy-aware variance that reads two runtime services from context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
  *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
@@ -591,6 +596,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
 /**
  * Policy-aware covariance that reads two runtime services from context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
  *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`

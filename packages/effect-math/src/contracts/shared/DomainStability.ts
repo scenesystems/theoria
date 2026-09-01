@@ -7,7 +7,8 @@
 import { Schema } from "effect"
 
 /**
- * Shared domain stability schema authority.
+ * Accepts the three publication guarantees used by domain descriptors:
+ * stable, provisional, or experimental.
  *
  * @since 0.1.0
  * @category contracts
@@ -15,7 +16,7 @@ import { Schema } from "effect"
 export const DomainStability = Schema.Literal("stable", "provisional", "experimental")
 
 /**
- * Shared domain stability type.
+ * A domain's declared API maturity and compatibility expectation.
  *
  * @since 0.1.0
  * @category models

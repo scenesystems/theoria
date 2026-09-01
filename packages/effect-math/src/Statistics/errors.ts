@@ -12,9 +12,7 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation. Use this as a catch-all for validation
- * pipelines that span multiple operations within the domain.
+ * Reports failure to validate the Statistics descriptor before estimator orchestration.
  *
  * @since 0.1.0
  * @category errors
@@ -26,9 +24,11 @@ export class StatisticsDomainBoundaryError
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract
- * (e.g. `SampleInput`, `TwoSampleInput`). The `operation` field names the
- * failed operation so callers can branch on it in error-recovery logic.
+ * Reports rejected boundary input for a sample estimator.
+ *
+ * @remarks
+ * `operation` identifies the attempted estimator and `message` preserves the
+ * rendered Schema issue for diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -39,9 +39,9 @@ export class StatisticsDecodeError extends Schema.TaggedError<StatisticsDecodeEr
 }) {}
 
 /**
- * Raised when operand shape is incompatible — for example, an empty sample
- * or insufficient data for the requested estimator. The `expected` and
- * `actual` fields carry human-readable descriptions for diagnostic messages.
+ * Raised by validated and policy-aware sample estimators for unequal sample
+ * lengths or fewer than two observations where Bessel correction is used.
+ * `expected` and `actual` are diagnostic shape descriptions.
  *
  * @since 0.1.0
  * @category errors
@@ -55,8 +55,8 @@ export class StatisticsShapeError extends Schema.TaggedError<StatisticsShapeErro
 
 /**
  * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity) due to numerical issues such as
- * negative variance from catastrophic cancellation.
+ * non-finite result (NaN or ±Infinity). Relaxed policy-aware operations pass
+ * the computed IEEE 754 value through.
  *
  * @since 0.1.0
  * @category errors
@@ -69,8 +69,8 @@ export class StatisticsDomainViolationError
 {}
 
 /**
- * Union of all boundary-level errors that can arise from domain validation,
- * Schema decode, or Schema encode at the package edge.
+ * Descriptor-level failures to recover before estimator discovery or
+ * registration, separate from sample validation and calculation.
  *
  * @since 0.1.0
  * @category errors
@@ -78,8 +78,8 @@ export class StatisticsDomainViolationError
 export type StatisticsBoundaryError = StatisticsDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all errors that can arise from within a statistics operation
- * (after boundary decode succeeds).
+ * Estimator failures distinguishing malformed samples, insufficient or
+ * incompatible sample shapes, and strict-policy rejection of non-finite output.
  *
  * @since 0.1.0
  * @category errors

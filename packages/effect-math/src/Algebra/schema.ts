@@ -10,7 +10,7 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Algebra domain model schema.
+ * Accepts only the `"Algebra"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +21,9 @@ export const AlgebraDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical algebra domain model.
+ * Admits algebra capability metadata only when its discriminator is
+ * `"Algebra"` and its stability lane is known. Excess properties and malformed
+ * fields fail with {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -61,7 +63,7 @@ export const encodeAlgebraDomain = (domain: AlgebraDomain) =>
   )
 
 /**
- * Algebra boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Algebra descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -69,7 +71,8 @@ export const encodeAlgebraDomain = (domain: AlgebraDomain) =>
 export type AlgebraSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Algebra schema-derived type.
+ * Discovery metadata identifying polynomial, integer, and combinatorial
+ * capabilities in a recognized stability lane.
  *
  * @since 0.1.0
  * @category models

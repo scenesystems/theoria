@@ -1,12 +1,11 @@
 /**
- * Statistical estimators and summary statistics over immutable `Chunk`
- * carriers. Provides Bessel-corrected sample variance, arithmetic mean,
- * standard deviation, covariance, and a `SummaryStatistics` tagged class
- * for structured multi-field results.
+ * Computes sample estimators and summary statistics over immutable numeric
+ * collections.
  *
- * Statistics owns estimators and inference outputs. Distribution definitions
- * remain in Probability — Statistics imports, never redeclares, distribution
- * or measure-space contracts.
+ * @remarks
+ * Variance and covariance use Bessel's correction. Distribution definitions
+ * and probability measures remain in the probability domains; this module
+ * owns estimators and their structured outputs.
  *
  * @since 0.1.0
  * @module

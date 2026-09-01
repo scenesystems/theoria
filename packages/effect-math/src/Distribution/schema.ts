@@ -20,9 +20,8 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for Distribution. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Descriptor schema used to register the Distribution family catalog and its
+ * stability in domain-discovery results.
  *
  * @since 0.1.0
  * @category schemas
@@ -33,8 +32,7 @@ export const DistributionDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `DistributionDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Validated descriptor for the Distribution family catalog.
  *
  * @since 0.1.0
  * @category models
@@ -42,10 +40,7 @@ export const DistributionDomainSchema = Schema.Struct({
 export type DistributionDomain = typeof DistributionDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical distribution domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a Distribution discovery descriptor and rejects unknown fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -66,9 +61,7 @@ export const decodeDistributionDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `DistributionDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated Distribution discovery descriptor, failing for forged values.
  *
  * @since 0.1.0
  * @category schemas
@@ -87,7 +80,7 @@ export const encodeDistributionDomain = (domain: DistributionDomain) =>
   )
 
 /**
- * Distribution boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Distribution descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -142,8 +135,8 @@ export const UnitIntervalNumber = Schema.Number.pipe(
 // ---------------------------------------------------------------------------
 
 /**
- * Normal distribution parameters: mean (mu) and standard deviation (sigma).
- * Sigma must be strictly positive and finite.
+ * Validates parameters shared by the Distribution domain's Normal density,
+ * cumulative distribution, and quantile operations.
  *
  * @since 0.1.0
  * @category schemas
@@ -177,9 +170,12 @@ export const ExponentialDistParams = Schema.Struct({
 }).annotations({ identifier: "ExponentialDistParams" })
 
 /**
- * Uniform distribution parameters: lower and upper bounds.
- * Both must be finite. The `high > low` invariant is enforced at the
- * operation level, not at the schema level, to produce domain-specific errors.
+ * Validates finite bounds shared by the Distribution domain's Uniform
+ * operations.
+ *
+ * @remarks
+ * The `high > low` invariant remains operation-specific so callers receive a
+ * domain error rather than a Schema parse issue.
  *
  * @since 0.1.0
  * @category schemas
@@ -299,7 +295,8 @@ export const ExponentialDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "ExponentialDistEvalInput" })
 
 /**
- * Point evaluation input for uniform distribution PDF/CDF/logPDF.
+ * Evaluates PDF/CDF/log-PDF at a finite point under finite uniform bounds.
+ * Bound ordering is checked by validated operations, not by this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -350,7 +347,9 @@ export const StudentTDistEvalInput = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
- * Point evaluation input for categorical distribution PMF.
+ * Evaluates categorical mass at a non-negative integer category. Probabilities
+ * must be non-empty, finite, and non-negative; normalization and category range
+ * remain operation-level invariants.
  *
  * @since 0.1.0
  * @category schemas
@@ -361,7 +360,9 @@ export const CategoricalDistEvalInput = Schema.Struct({
 }).annotations({ identifier: "CategoricalDistEvalInput" })
 
 /**
- * Point evaluation input for binomial distribution PMF/CDF.
+ * Evaluates binomial mass or cumulative probability for non-negative integer
+ * `k` and trial count `n`, with success probability in `[0, 1]`. The schema
+ * permits `k > n`, whose distribution result follows the operation semantics.
  *
  * @since 0.1.0
  * @category schemas

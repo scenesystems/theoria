@@ -7,7 +7,8 @@
 import { Schema } from "effect"
 
 /**
- * Shared boundary decode failure for public contract edges.
+ * Reports a failure to decode an external representation into a domain value.
+ * `domain` and `contract` identify the boundary that rejected `message`.
  *
  * @since 0.1.0
  * @category errors
@@ -19,7 +20,8 @@ export class BoundaryDecodeError extends Schema.TaggedError<BoundaryDecodeError>
 }) {}
 
 /**
- * Shared boundary encode failure for public contract edges.
+ * Reports a failure to encode a domain value for an external representation.
+ * `domain` and `contract` identify the boundary that rejected `message`.
  *
  * @since 0.1.0
  * @category errors

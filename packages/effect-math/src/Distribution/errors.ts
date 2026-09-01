@@ -12,9 +12,8 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation. Use this as a catch-all for validation
- * pipelines that span multiple operations within the domain.
+ * Reports failure to validate the Distribution catalog descriptor before
+ * selecting a distribution family.
  *
  * @since 0.1.0
  * @category errors
@@ -39,10 +38,7 @@ export class DistributionDecodeError extends Schema.TaggedError<DistributionDeco
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity), or when a domain invariant is
- * violated (e.g. negative variance, probabilities outside [0,1]). Under
- * `"relaxed"` precision this error is never emitted for non-finite results.
+ * Reports a non-finite density, mass, CDF, or quantile rejected by strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -69,9 +65,8 @@ export class DistributionParameterError
 {}
 
 /**
- * Union of all boundary-level errors that can arise from domain validation,
- * Schema decode, or Schema encode at the package edge. Use as the error
- * channel type for boundary-crossing pipelines.
+ * Catalog-descriptor failures to recover before distribution-family discovery
+ * or registration, rather than failures evaluating a distribution.
  *
  * @since 0.1.0
  * @category errors
@@ -79,9 +74,8 @@ export class DistributionParameterError
 export type DistributionBoundaryError = DistributionDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all errors that can arise from within a distribution operation
- * (after boundary decode succeeds). Useful as a unified error channel type
- * for combinators that orchestrate multiple operations.
+ * Evaluation failures callers can recover from by correcting input shape or
+ * family parameters, or by relaxing strict finite-result policy.
  *
  * @since 0.1.0
  * @category errors

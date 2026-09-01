@@ -30,7 +30,7 @@ export const ComplexDomainSchema = Schema.Struct({
 })
 
 /**
- * Decoded type of the Complex domain model schema.
+ * A validated `"Complex"` discovery descriptor and its declared stability.
  *
  * @since 0.1.0
  * @category models

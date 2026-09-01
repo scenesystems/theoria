@@ -17,7 +17,7 @@ import { ScalarLaneUnsupportedError } from "./AdvancedComputationErrors.js"
 export const ScalarKind = Schema.Literal("float64", "bigdecimal")
 
 /**
- * Scalar lane type.
+ * The native Float64 or arbitrary-precision BigDecimal computation lane.
  *
  * @since 0.1.0
  * @category models
@@ -33,7 +33,7 @@ export type ScalarKindType = typeof ScalarKind.Type
 export const ScalarOperationCategory = Schema.Literal("numeric", "linear-algebra", "calculus", "optimization")
 
 /**
- * Scalar operation category type.
+ * The operation family used to test a lane's declared support.
  *
  * @since 0.1.0
  * @category models
@@ -54,7 +54,7 @@ export const ScalarCapability = Schema.Struct({
 })
 
 /**
- * Scalar capability type.
+ * A lane's supported operation families and deterministic/exact-arithmetic guarantees.
  *
  * @since 0.1.0
  * @category models
@@ -73,7 +73,7 @@ export const ScalarAuthorityPolicy = Schema.Struct({
 })
 
 /**
- * Scalar dispatch policy type.
+ * The primary scalar lane and ordered fallback candidates.
  *
  * @since 0.1.0
  * @category models
@@ -81,7 +81,7 @@ export const ScalarAuthorityPolicy = Schema.Struct({
 export type ScalarAuthorityPolicyType = typeof ScalarAuthorityPolicy.Type
 
 /**
- * Source for scalar lane resolution decisions.
+ * Validates the authority branch recorded for a scalar-lane resolution.
  *
  * @since 0.1.0
  * @category contracts
@@ -89,7 +89,7 @@ export type ScalarAuthorityPolicyType = typeof ScalarAuthorityPolicy.Type
 export const ScalarResolutionSource = Schema.Literal("requested", "policy-primary", "policy-fallback")
 
 /**
- * Source for scalar lane resolution decisions.
+ * Decoded authority branch recorded for a scalar-lane resolution.
  *
  * @since 0.1.0
  * @category models
@@ -97,7 +97,8 @@ export const ScalarResolutionSource = Schema.Literal("requested", "policy-primar
 export type ScalarResolutionSourceType = typeof ScalarResolutionSource.Type
 
 /**
- * Scalar resolution result contract.
+ * Records the selected lane and whether it came from the caller, policy primary,
+ * or policy fallback branch.
  *
  * @since 0.1.0
  * @category contracts
@@ -108,7 +109,7 @@ export const ScalarResolution = Schema.Struct({
 })
 
 /**
- * Scalar resolution result type.
+ * The selected scalar lane with authority provenance.
  *
  * @since 0.1.0
  * @category models
@@ -127,7 +128,7 @@ export const ScalarAuthorityState = Schema.Struct({
 })
 
 /**
- * Scalar authority state type.
+ * The policy and non-empty capability table consulted for scalar dispatch.
  *
  * @since 0.1.0
  * @category models
@@ -146,7 +147,7 @@ export class ScalarAuthorityService extends Context.Tag("effect-math/contracts/s
 >() {}
 
 /**
- * Current baseline scalar authority used during RED-first execution.
+ * Default state: Float64 first, then BigDecimal, for every declared category.
  *
  * @since 0.1.0
  * @category contracts
@@ -170,7 +171,7 @@ export const DefaultScalarAuthority: ScalarAuthorityStateType = {
 }
 
 /**
- * Live scalar authority layer.
+ * Ready-to-use layer that selects Float64 first and BigDecimal as fallback.
  *
  * @since 0.1.0
  * @category contracts
@@ -207,6 +208,7 @@ const supportsOperationCategory = (
 /**
  * Resolves scalar lane for an operation category.
  *
+ * @remarks
  * **Details**
  * Explicit `requestedKind` is attempted first. When
  * `enforceRequestedKind` is `true`, policy fallback is disabled and failures

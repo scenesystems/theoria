@@ -16,8 +16,9 @@ import { OptimizationDomainModel } from "./model.js"
 import { BisectInput, GoldenSectionInput } from "./schema.js"
 
 /**
- * Lifts the static `OptimizationDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional root-finding and minimization descriptor
+ * for registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -29,9 +30,11 @@ export const loadOptimizationDomain = Effect.succeed(OptimizationDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Bisection method root-finding. Finds x where f(x) ≈ 0 in [a, b],
- * assuming f(a) and f(b) have opposite signs. Uses recursive tail-call
- * style with configurable tolerance and iteration budget.
+ * Approximates a root by repeatedly halving `[a, b]`. The bracket must have
+ * endpoint values with opposite signs; endpoint signs are not checked.
+ * The current midpoint is returned when the bracket
+ * width is less than `tolerance` or the iteration budget is exhausted.
+ * Defaults are `1e-12` and 100 iterations.
  *
  * @example
  * ```ts
@@ -42,6 +45,12 @@ export const loadOptimizationDomain = Effect.succeed(OptimizationDomainModel)
  *
  * @see {@link bisectValidated} — boundary-validated variant
  * @see {@link bisectWithPolicies} — policy-aware variant
+ * @param f - Scalar function whose root is bracketed.
+ * @param a - First bracket endpoint; ordering is not validated.
+ * @param b - Second bracket endpoint; ordering is not validated.
+ * @param tolerance - Positive target bracket width. The pure function does not validate it.
+ * @param maxIterations - Maximum halvings. The pure function does not validate it.
+ * @returns The final bracket midpoint; exhaustion is not reported separately.
  * @since 0.1.0
  * @category operations
  */
@@ -54,9 +63,13 @@ export const bisect: (
 ) => number = Bisect.bisectKernel
 
 /**
- * Golden section search for 1D minimization. Uses the golden ratio
- * φ = (√5 − 1) / 2 to progressively narrow the bracket containing
- * the minimum.
+ * Approximates a scalar-function minimizer by golden-section reduction.
+ *
+ * @remarks
+ * The caller must provide an interval containing the desired minimum;
+ * unimodality and endpoint ordering are not checked. The current midpoint is
+ * returned once the interval width is below `tolerance` or the iteration
+ * budget is exhausted. Defaults are `1e-12` and 100 iterations.
  *
  * @example
  * ```ts
@@ -67,6 +80,12 @@ export const bisect: (
  *
  * @see {@link goldenSectionValidated} — boundary-validated variant
  * @see {@link goldenSectionWithPolicies} — policy-aware variant
+ * @param f - Objective function to minimize.
+ * @param a - First search endpoint; ordering is not validated.
+ * @param b - Second search endpoint; ordering is not validated.
+ * @param tolerance - Positive target interval width. The pure function does not validate it.
+ * @param maxIterations - Maximum reductions. The pure function does not validate it.
+ * @returns The final search-interval midpoint, not the objective value.
  * @since 0.1.0
  * @category operations
  */
@@ -83,11 +102,19 @@ export const goldenSection: (
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated bisect. Accepts a function and `unknown` input,
- * decodes through `BisectInput` with `onExcessProperty: "error"`, and
- * returns the root.
+ * Finds a bracketed root from boundary-validated bisection input.
+ *
+ * @remarks
+ * Decodes finite endpoints, a positive finite tolerance, and a positive
+ * integer iteration budget through `BisectInput`, rejecting excess fields.
+ * Bracketing and endpoint ordering remain caller preconditions. Schema failure
+ * is mapped to `OptimizationDecodeError`; reaching the iteration budget still
+ * succeeds with the final midpoint.
  *
  * @see {@link bisect} — pure kernel for pre-validated input
+ * @param f - Scalar function whose root is bracketed.
+ * @param input - Unknown value expected to satisfy `BisectInput`.
+ * @returns An Effect that succeeds with the final midpoint or fails on decoding.
  * @since 0.1.0
  * @category validated operations
  */
@@ -107,11 +134,19 @@ export const bisectValidated = (f: (x: number) => number, input: unknown) =>
   })
 
 /**
- * Boundary-validated golden section search. Accepts a function and
- * `unknown` input, decodes through `GoldenSectionInput` with
- * `onExcessProperty: "error"`, and returns the minimizer.
+ * Minimizes a scalar function from boundary-validated golden-section input.
+ *
+ * @remarks
+ * Decodes finite endpoints, a positive finite tolerance, and a positive
+ * integer iteration budget through `GoldenSectionInput`, rejecting excess
+ * fields. Endpoint ordering and unimodality remain caller preconditions.
+ * Schema failure is mapped to `OptimizationDecodeError`; budget exhaustion
+ * succeeds with the final midpoint.
  *
  * @see {@link goldenSection} — pure kernel for pre-validated input
+ * @param f - Objective function to minimize.
+ * @param input - Unknown value expected to satisfy `GoldenSectionInput`.
+ * @returns An Effect that succeeds with the final midpoint or fails on decoding.
  * @since 0.1.0
  * @category validated operations
  */
@@ -135,8 +170,10 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware bisect reading two services from context:
+ * Approximates a bracketed root with the default tolerance and iteration
+ * budget. Precision policy governs acceptance of the final midpoint.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `OptimizationDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -164,6 +201,10 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  *
  * @see {@link bisect} — pure kernel without policy seams
  * @see {@link bisectValidated} — boundary-validated variant
+ * @param f - Scalar function whose root is bracketed.
+ * @param a - First bracket endpoint.
+ * @param b - Second bracket endpoint.
+ * @returns An Effect requiring both policy services and failing only when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */
@@ -176,8 +217,11 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
   })
 
 /**
- * Policy-aware golden section search reading two services from context:
+ * Approximates a scalar minimizer with golden-section reduction and the
+ * default stopping settings. Precision policy governs acceptance of the final
+ * interval midpoint.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `OptimizationDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -185,6 +229,10 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
  *
  * @see {@link goldenSection} — pure kernel without policy seams
  * @see {@link goldenSectionValidated} — boundary-validated variant
+ * @param f - Objective function to minimize.
+ * @param a - First search endpoint.
+ * @param b - Second search endpoint.
+ * @returns An Effect requiring both policy services and failing only when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */

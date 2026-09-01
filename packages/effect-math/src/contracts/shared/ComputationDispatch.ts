@@ -50,8 +50,11 @@ const NO_AUTODIFF_RESOLUTION: {
 }
 
 /**
- * Advanced dispatch request contract.
+ * Inputs that let a caller identify an operation, request scalar/backend/
+ * autodiff preferences, report an escalation attempt and convergence errors,
+ * and require differentiation or uncertainty metadata.
  *
+ * @remarks
  * `preferredBackend` and `preferredAutodiff` express caller intent while
  * runtime policy services stay authoritative for final lane selection.
  *
@@ -71,7 +74,7 @@ export const ComputationDispatchRequest = Schema.Struct({
 })
 
 /**
- * Advanced dispatch request type.
+ * The strictly decoded caller-selection boundary consumed by dispatch planning.
  *
  * @since 0.1.0
  * @category models
@@ -79,8 +82,10 @@ export const ComputationDispatchRequest = Schema.Struct({
 export type ComputationDispatchRequestType = typeof ComputationDispatchRequest.Type
 
 /**
- * Advanced dispatch plan contract.
+ * Records the scalar, backend, and differentiation lanes selected after any
+ * convergence-driven precision escalation, together with decision provenance.
  *
+ * @remarks
  * Includes both resolved execution lanes and provenance fields so tests can
  * assert which authority produced each decision.
  *
@@ -101,7 +106,8 @@ export const ComputationDispatchPlan = Schema.Struct({
 })
 
 /**
- * Advanced dispatch plan type.
+ * The resolved execution lanes, escalation outcome, convergence status, and
+ * uncertainty-envelope requirement returned to callers.
  *
  * @since 0.1.0
  * @category models
@@ -109,7 +115,8 @@ export const ComputationDispatchPlan = Schema.Struct({
 export type ComputationDispatchPlanType = typeof ComputationDispatchPlan.Type
 
 /**
- * Advanced dispatch error union.
+ * Failures for malformed requests or when scalar, precision, backend, or
+ * differentiation authorities cannot satisfy the request.
  *
  * @since 0.1.0
  * @category errors
@@ -164,6 +171,7 @@ const decodeComputationDispatchRequest = (input: unknown) =>
 /**
  * Contract-level plan builder wired directly to authority services.
  *
+ * @remarks
  * **Details**
  * Scalar, precision, backend, and autodiff decisions are all resolved through
  * runtime policy services so there is a single observable dispatch authority.
@@ -268,7 +276,9 @@ export const ComputationDispatchAuthoritiesLive = Layer.mergeAll(
 )
 
 /**
- * Default dispatcher layer for RED-first target-state tests.
+ * Dispatcher layer whose `plan` effect retains the four requirements in
+ * {@link ComputationDispatchRequirements}; use {@link ComputationDispatchLive}
+ * when those defaults should be supplied too.
  *
  * @since 0.1.0
  * @category contracts
@@ -286,7 +296,8 @@ export const ComputationDispatcherLive = Layer.succeed(ComputationDispatcher, {
 export const ComputationDispatchLive = Layer.mergeAll(ComputationDispatcherLive, ComputationDispatchAuthoritiesLive)
 
 /**
- * Boundary-decoded advanced dispatch entrypoint.
+ * Rejects unknown or excess request fields before asking the configured
+ * dispatcher to resolve escalation and execution lanes.
  *
  * @since 0.1.0
  * @category contracts

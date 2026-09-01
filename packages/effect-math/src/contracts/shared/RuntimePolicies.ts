@@ -13,10 +13,11 @@ const BackendPolicy = Schema.Literal("typed-array", "scalar")
 const DiagnosticsPolicy = Schema.Literal("enabled", "disabled")
 
 /**
- * Shared runtime policy declarations for cross-domain effectful orchestration.
+ * Decoded aggregate shape returned by {@link collectRuntimePolicies}.
  *
- * Runtime services (RNG, backend, precision, diagnostics) derive from this
- * contract so deterministic layers can be composed in tests and integrations.
+ * @remarks
+ * The deterministic RNG branch records a validated {@link Seed}; this contract
+ * does not itself construct or advance a random-number generator.
  *
  * @since 0.1.0
  * @category contracts
@@ -43,7 +44,7 @@ export const RuntimePolicies = Schema.Struct({
 })
 
 /**
- * RNG runtime policy contract.
+ * Selects nondeterministic generation or deterministic generation carrying a validated seed.
  *
  * @since 0.1.0
  * @category contracts
@@ -59,7 +60,7 @@ export const RngPolicySchema = Schema.Union(
 )
 
 /**
- * Precision runtime policy contract.
+ * Selects strict non-finite-result rejection or relaxed IEEE 754 pass-through.
  *
  * @since 0.1.0
  * @category contracts
@@ -69,7 +70,7 @@ export const PrecisionPolicySchema = Schema.Struct({
 })
 
 /**
- * Backend runtime policy contract.
+ * Selects scalar-first or typed-array-first backend ordering.
  *
  * @since 0.1.0
  * @category contracts
@@ -79,7 +80,7 @@ export const BackendPolicySchema = Schema.Struct({
 })
 
 /**
- * Diagnostics runtime policy contract.
+ * Enables or disables policy-guard logging and timing.
  *
  * @since 0.1.0
  * @category contracts
@@ -89,7 +90,7 @@ export const DiagnosticsPolicySchema = Schema.Struct({
 })
 
 /**
- * RNG runtime policy service seam.
+ * Context tag for one RNG policy value supplied for an Effect's execution.
  *
  * @since 0.1.0
  * @category contracts
@@ -100,7 +101,7 @@ export class RngPolicyService extends Context.Tag("effect-math/contracts/shared/
 >() {}
 
 /**
- * Precision runtime policy service seam.
+ * Context tag for the strict or relaxed result-validation policy.
  *
  * @since 0.1.0
  * @category contracts
@@ -111,7 +112,7 @@ export class PrecisionPolicyService extends Context.Tag("effect-math/contracts/s
 >() {}
 
 /**
- * Backend runtime policy service seam.
+ * Context tag for backend ordering; it does not allocate a backend.
  *
  * @since 0.1.0
  * @category contracts
@@ -122,7 +123,7 @@ export class BackendPolicyService extends Context.Tag("effect-math/contracts/sha
 >() {}
 
 /**
- * Diagnostics runtime policy service seam.
+ * Context tag controlling policy-guard debug logging and timing.
  *
  * @since 0.1.0
  * @category contracts
@@ -133,7 +134,7 @@ export class DiagnosticsPolicyService extends Context.Tag("effect-math/contracts
 >() {}
 
 /**
- * Deterministic runtime policy input schema.
+ * Requires a seed plus precision, backend, and diagnostics selections for a deterministic layer.
  *
  * @since 0.1.0
  * @category contracts
@@ -148,7 +149,7 @@ export const DeterministicRuntimePoliciesInputSchema = Schema.Struct({
 type DeterministicRuntimePoliciesInputType = typeof DeterministicRuntimePoliciesInputSchema.Type
 
 /**
- * Nondeterministic runtime policy input schema.
+ * Requires precision, backend, and diagnostics selections while recording no RNG seed.
  *
  * @since 0.1.0
  * @category contracts
@@ -162,7 +163,30 @@ export const NondeterministicRuntimePoliciesInputSchema = Schema.Struct({
 type NondeterministicRuntimePoliciesInputType = typeof NondeterministicRuntimePoliciesInputSchema.Type
 
 /**
- * Deterministic runtime policy layer constructor for tests and reproducible execution.
+ * Provides all four policy services with a deterministic seed.
+ *
+ * @remarks
+ * Each call captures the supplied immutable configuration in a fresh Layer;
+ * merging the providers is deterministic and performs no acquisition.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Schema } from "effect"
+ * import {
+ *   collectRuntimePolicies,
+ *   makeDeterministicRuntimePoliciesLayer,
+ *   Seed
+ * } from "@scenesystems/effect-math/contracts"
+ *
+ * const policies = collectRuntimePolicies.pipe(
+ *   Effect.provide(makeDeterministicRuntimePoliciesLayer({
+ *     seed: Schema.decodeUnknownSync(Seed)(42),
+ *     precision: "strict",
+ *     backend: "scalar",
+ *     diagnostics: "disabled"
+ *   }))
+ * )
+ * ```
  *
  * @since 0.1.0
  * @category contracts
@@ -188,7 +212,11 @@ export const makeDeterministicRuntimePoliciesLayer = (
 }
 
 /**
- * Nondeterministic runtime policy layer constructor.
+ * Provides all four policy services with the nondeterministic RNG branch.
+ *
+ * @remarks
+ * This records policy selection only; random generation is owned by consumers
+ * of {@link RngPolicyService}.
  *
  * @since 0.1.0
  * @category contracts
@@ -213,7 +241,12 @@ export const makeNondeterministicRuntimePoliciesLayer = (
 }
 
 /**
- * Resolves all runtime policy services into a single typed object.
+ * Reads all four policy services from the current Effect context.
+ *
+ * @remarks
+ * The returned Effect requires {@link RngPolicyService},
+ * {@link PrecisionPolicyService}, {@link BackendPolicyService}, and
+ * {@link DiagnosticsPolicyService}; it neither caches nor acquires them.
  *
  * @since 0.1.0
  * @category contracts
@@ -258,7 +291,7 @@ export type BackendPolicyType = typeof BackendPolicySchema.Type
 export type DiagnosticsPolicyType = typeof DiagnosticsPolicySchema.Type
 
 /**
- * Shared runtime policy type.
+ * The four policy values collected from the current Effect context.
  *
  * @since 0.1.0
  * @category models

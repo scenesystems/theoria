@@ -1,8 +1,7 @@
 /**
  * Schema authority for the LinearAlgebra domain — defines the canonical
  * carrier types (`DenseVector`, `DenseMatrix`), operation input contracts,
- * and boundary codec functions. All schemas enforce finite-number validation
- * at decode time, so kernels can assume well-formed numeric input.
+ * and boundary codec functions.
  *
  * @since 0.1.0
  * @category schemas
@@ -18,9 +17,8 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for LinearAlgebra. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Descriptor schema used to advertise dense LinearAlgebra support in
+ * domain-discovery results.
  *
  * @since 0.1.0
  * @category schemas
@@ -31,8 +29,7 @@ export const LinearAlgebraDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `LinearAlgebraDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Validated descriptor for dense LinearAlgebra support.
  *
  * @since 0.1.0
  * @category models
@@ -40,10 +37,7 @@ export const LinearAlgebraDomainSchema = Schema.Struct({
 export type LinearAlgebraDomain = typeof LinearAlgebraDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical linear-algebra domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a LinearAlgebra discovery descriptor and rejects unknown fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -64,9 +58,7 @@ export const decodeLinearAlgebraDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `LinearAlgebraDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated LinearAlgebra discovery descriptor, failing for forged values.
  *
  * @since 0.1.0
  * @category schemas
@@ -85,10 +77,7 @@ export const encodeLinearAlgebraDomain = (domain: LinearAlgebraDomain) =>
   )
 
 /**
- * Union of all errors that can arise from boundary encode/decode operations
- * on the LinearAlgebra domain schema. Useful as a catch-all error channel
- * type in Effect pipelines that call `decodeLinearAlgebraDomain` or
- * `encodeLinearAlgebraDomain`.
+ * Error channel shared by LinearAlgebra descriptor ingestion and serialization.
  *
  * @since 0.1.0
  * @category errors
@@ -106,10 +95,9 @@ const FiniteNumber = Schema.Number.pipe(Schema.finite())
 // ---------------------------------------------------------------------------
 
 /**
- * Memory layout discriminator for dense matrices. `"row-major"` (the default
- * throughout this package) stores consecutive row elements contiguously.
- * `"column-major"` is provided for interop with BLAS/LAPACK-style libraries
- * that expect Fortran-order storage.
+ * Declares whether consecutive elements belong to rows or columns. The
+ * current matrix kernels accept flat row-major chunks directly; this field is
+ * metadata on `DenseMatrix`, not a kernel dispatch setting.
  *
  * @since 0.1.0
  * @category schemas
@@ -119,18 +107,9 @@ export const StorageOrder = Schema.Literal("row-major", "column-major").annotati
 })
 
 /**
- * Immutable dense vector carrier backed by a flat array of finite scalars.
- * The `data` array holds the vector elements, and `length` is a branded
- * `Dimension` that must equal `data.length` — this invariant is enforced
- * at Schema decode time, not by a runtime assertion.
- *
- * @example
- * ```ts
- * import { Schema } from "effect"
- * import { DenseVector } from "./schema.js"
- *
- * const v = new DenseVector({ data: [1, 2, 3], length: 3 as any })
- * ```
+ * Dense vector descriptor with finite `data` elements and a non-negative
+ * integral `length`. This schema does not require `length === data.length`;
+ * callers that rely on that shape invariant must check it separately.
  *
  * @since 0.1.0
  * @category schemas
@@ -141,26 +120,10 @@ export class DenseVector extends Schema.TaggedClass<DenseVector>()("DenseVector"
 }) {}
 
 /**
- * Immutable dense matrix carrier stored as a flat array of finite scalars in
- * row-major order. Element `(i, j)` is located at `data[offset + i * stride + j]`.
- *
- * For a contiguous M×N matrix, set `stride = N` and `offset = 0`. Non-zero
- * offsets and strides wider than `cols` support sub-matrix views without copying.
- *
- * @example
- * ```ts
- * import { DenseMatrix } from "./schema.js"
- *
- * // A contiguous 2×3 matrix [[1,2,3],[4,5,6]]
- * const m = new DenseMatrix({
- *   data: [1, 2, 3, 4, 5, 6],
- *   rows: 2 as any,
- *   cols: 3 as any,
- *   stride: 3 as any,
- *   offset: 0,
- *   order: "row-major"
- * })
- * ```
+ * Dense matrix descriptor with finite flat storage, dimensions, stride,
+ * offset, and declared storage order. The schema validates each field but
+ * does not prove that the storage covers the declared shape. For row-major
+ * data, element `(i, j)` is at `offset + i * stride + j`.
  *
  * @since 0.1.0
  * @category schemas
@@ -225,9 +188,9 @@ export const NormInput = Schema.Struct({
 
 /**
  * Boundary input contract for matrix transposition. The `data` array is a
- * row-major matrix of shape `rows × cols` whose length must equal
- * `rows * cols`. All numeric values must be finite. Excess properties are
- * rejected at decode time.
+ * row-major matrix of declared shape `rows × cols`. Numeric values must be
+ * finite; `transposeValidated` performs the data-length and excess-property
+ * checks.
  *
  * @since 0.1.0
  * @category schemas

@@ -1,6 +1,5 @@
 /**
- * Special-functions schema authority — domain model and operation input
- * contracts.
+ * Runtime schemas for Special metadata and validated operation inputs.
  *
  * @since 0.1.0
  * @category schemas
@@ -15,7 +14,7 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Special-functions domain model schema.
+ * Accepts only the `"Special"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -26,7 +25,8 @@ export const SpecialDomainSchema = Schema.Struct({
 })
 
 /**
- * Special schema-derived type.
+ * Discovery metadata identifying special-function capabilities in a recognized
+ * stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -34,8 +34,8 @@ export const SpecialDomainSchema = Schema.Struct({
 export type SpecialDomain = typeof SpecialDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical special-functions
- * domain model.
+ * Decodes a Special-functions discovery descriptor, rejecting unknown fields
+ * and mapping parse failures to {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -76,7 +76,7 @@ export const encodeSpecialDomain = (domain: SpecialDomain) =>
   )
 
 /**
- * Special-functions boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Special descriptors.
  *
  * @since 0.1.0
  * @category errors

@@ -41,9 +41,12 @@ import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogSumExpInput, Red
  * import { Numeric } from "@scenesystems/effect-math"
  * import { Option, pipe } from "effect"
  *
- * assert.deepStrictEqual(Numeric.safeDivide(10, 2), Option.some(5))
- * assert.deepStrictEqual(Numeric.safeDivide(10, 0), Option.none())
- * assert.deepStrictEqual(pipe(10, Numeric.safeDivide(5)), Option.some(2))
+ * const quotient = Numeric.safeDivide(10, 2)
+ * const zeroFallback = pipe(
+ *   Numeric.safeDivide(10, 0),
+ *   Option.getOrElse(() => 0)
+ * )
+ * const curried = pipe(10, Numeric.safeDivide(5))
  * ```
  *
  * @see {@link unsafeDivide} — throws on zero divisor instead of returning `None`
@@ -372,6 +375,7 @@ export const argmaxValidated = (input: unknown) =>
 /**
  * Policy-aware sum reading three services from context:
  *
+ * @remarks
  * - **`BackendPolicyService`** — `"typed-array"` uses Kahan-compensated
  *   `Float64Array` accumulation; `"scalar"` delegates to `Number.sumAll`.
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
@@ -459,8 +463,10 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
   })
 
 /**
- * Policy-aware `ln(1 + x)` reading two services from context:
+ * Selects compensated `ln(1 + x)` in strict mode and the native kernel in
+ * relaxed mode, preserving accuracy near zero when requested.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` selects the Taylor-compensated
  *   kernel with higher accuracy near zero; `"relaxed"` delegates to native
  *   `Math.log1p`.
@@ -519,8 +525,10 @@ export const log1pWithPolicies = (value: number) =>
   })
 
 /**
- * Policy-aware `exp(x) - 1` reading two services from context:
+ * Selects compensated `exp(x) - 1` in strict mode and the native kernel in
+ * relaxed mode, preserving small increments near zero when requested.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` selects the Taylor-compensated
  *   kernel with higher accuracy near zero; `"relaxed"` delegates to native
  *   `Math.expm1`.
@@ -560,12 +568,16 @@ export const expm1WithPolicies = (value: number) =>
   })
 
 /**
- * Full boundary validation orchestrator. Accepts `unknown` input, collects
- * all four runtime policy services (`RngPolicyService`, `PrecisionPolicyService`,
- * `BackendPolicyService`, `DiagnosticsPolicyService`), validates their shape,
- * then decodes the input through `NumericBoundaryValidationInput` (requiring
- * finite values, tolerance, and iteration budget). Returns a
- * `NumericBoundaryValidationResult` or fails with `NumericDomainBoundaryError`.
+ * Validates the Numeric domain boundary and its runtime policies.
+ *
+ * @remarks
+ * Accepts `unknown` input, collects all four runtime policy services
+ * (`RngPolicyService`, `PrecisionPolicyService`, `BackendPolicyService`, and
+ * `DiagnosticsPolicyService`), and validates their shape. It then decodes the
+ * input through `NumericBoundaryValidationInput`, requiring finite values,
+ * tolerance, and an iteration budget. Returns a
+ * `NumericBoundaryValidationResult` or fails with
+ * `NumericDomainBoundaryError`.
  *
  * @see {@link loadNumericDomain} — loads the static domain model this validation depends on
  * @since 0.1.0

@@ -1,5 +1,5 @@
 /**
- * Typed error taxonomy for advanced computation contract authority.
+ * Typed failures emitted while planning an advanced computation.
  *
  * @since 0.1.0
  * @category errors
@@ -78,7 +78,7 @@ export class ComputationDispatchDecodeError
 {}
 
 /**
- * Raised by placeholder dispatch implementations during RED-first execution.
+ * Indicates that a dispatcher recognized an operation but has no implementation.
  *
  * @since 0.1.0
  * @category errors

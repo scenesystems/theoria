@@ -19,7 +19,7 @@ import { ScalarKind, type ScalarKindType } from "./ScalarAuthority.js"
 export const BackendKind = Schema.Literal("scalar", "typed-array", "accelerated")
 
 /**
- * Backend kind type.
+ * A scalar-loop, typed-array, or accelerated execution lane.
  *
  * @since 0.1.0
  * @category models
@@ -27,7 +27,8 @@ export const BackendKind = Schema.Literal("scalar", "typed-array", "accelerated"
 export type BackendKindType = typeof BackendKind.Type
 
 /**
- * Backend capability contract.
+ * Declares whether a backend is usable and which Float64 or BigDecimal lanes
+ * it can execute.
  *
  * @since 0.1.0
  * @category contracts
@@ -39,7 +40,7 @@ export const BackendCapability = Schema.Struct({
 })
 
 /**
- * Backend capability type.
+ * A backend's availability and supported scalar-lane set.
  *
  * @since 0.1.0
  * @category models
@@ -81,6 +82,7 @@ const backendSupportsScalarKind = (kind: BackendKindType, scalarKind: ScalarKind
 /**
  * Resolves backend kind from runtime policy authority and backend capabilities.
  *
+ * @remarks
  * **Details**
  * Runtime backend policy is authoritative for ordering. `preferredBackend`
  * is carried for diagnostics only and never bypasses runtime policy ordering.

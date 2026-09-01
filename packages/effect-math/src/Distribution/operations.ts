@@ -34,8 +34,9 @@ import {
 } from "./schema.js"
 
 /**
- * Lifts the static `DistributionDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional distribution-family descriptor for
+ * registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations

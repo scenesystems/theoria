@@ -1,8 +1,6 @@
 /**
- * Geometry operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Schema-validated variants with boundary input checking,
- * and policy-aware operations that respect `PrecisionPolicyService`
- * and `DiagnosticsPolicyService`.
+ * Distances and point aggregates over `Chunk` coordinates, with validated
+ * and policy-aware variants for untrusted inputs.
  *
  * @since 0.1.0
  * @category operations
@@ -16,8 +14,8 @@ import { GeometryDomainModel } from "./model.js"
 import { CentroidInput, DistanceInput, MidpointInput } from "./schema.js"
 
 /**
- * Lifts the static `GeometryDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional Geometry descriptor for registration or
+ * capability discovery, without service requirements or a failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -30,7 +28,8 @@ export const loadGeometryDomain = Effect.succeed(GeometryDomainModel)
 
 /**
  * Euclidean (L2) distance — `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have the
- * same length; no runtime guard is applied.
+ * same length. Because `Chunk.zipWith` truncates, unequal pure inputs use
+ * only their shared prefix; use {@link distanceValidated} to reject that case.
  *
  * @example
  * ```ts
@@ -53,7 +52,8 @@ export const euclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
 /**
  * Squared Euclidean distance — `Σ (aᵢ − bᵢ)²` without the square root.
  * Useful for optimization kernels where only relative distances matter.
- * Both chunks must have the same length; no runtime guard is applied.
+ * Unequal pure inputs use only their shared prefix; use
+ * {@link distanceValidated} to reject that case.
  *
  * @example
  * ```ts
@@ -76,7 +76,7 @@ export const squaredEuclideanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<n
 
 /**
  * Manhattan (L1 / taxicab) distance — `Σ |aᵢ − bᵢ|`. Both chunks must have
- * the same length; no runtime guard is applied.
+ * the same length. Unequal pure inputs use only their shared prefix.
  *
  * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
  * @see {@link distanceWithPolicies} for policy-aware variant
@@ -87,7 +87,7 @@ export const manhattanDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
 
 /**
  * Chebyshev (L∞) distance — `max |aᵢ − bᵢ|`. Both chunks must have the
- * same length; no runtime guard is applied.
+ * same length. Unequal pure inputs use only their shared prefix.
  *
  * @see {@link distanceValidated} for Schema-validated boundary input with metric dispatch
  * @see {@link distanceWithPolicies} for policy-aware variant
@@ -98,7 +98,8 @@ export const chebyshevDistance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>)
 
 /**
  * Elementwise midpoint — `mᵢ = (aᵢ + bᵢ) / 2`. Returns a new `Chunk`; the
- * inputs are not mutated. Both chunks must have the same length.
+ * inputs are not mutated. Unequal pure inputs use only their shared prefix;
+ * {@link midpointValidated} rejects unequal dimensions.
  *
  * @example
  * ```ts
@@ -127,11 +128,14 @@ export const midpoint: (
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated distance — decodes `input` through `DistanceInput`,
- * validates equal-length points, and dispatches to the correct metric kernel
- * (euclidean, manhattan, chebyshev) via `Match.exhaustive`. Fails with
- * `GeometryDecodeError` for malformed input or `GeometryShapeMismatchError`
- * for mismatched point dimensions.
+ * Computes a boundary-validated distance between two points.
+ *
+ * @remarks
+ * Decodes `input` through `DistanceInput`, validates equal-length points, and
+ * dispatches to the correct metric kernel (euclidean, manhattan, or
+ * chebyshev) via `Match.exhaustive`. Fails with `GeometryDecodeError` for
+ * malformed input or `GeometryShapeMismatchError` for mismatched point
+ * dimensions.
  *
  * @example
  * ```ts
@@ -299,6 +303,7 @@ export const centroidValidated = (input: unknown) =>
  * Policy-aware distance computation that reads two runtime services from
  * context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `GeometryDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with metric, precision, dimensionality, and elapsed time
  *

@@ -10,7 +10,7 @@ import { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/Bo
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Optimization domain model schema.
+ * Accepts only the `"Optimization"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +21,9 @@ export const OptimizationDomainSchema = Schema.Struct({
 })
 
 /**
- * Decodes unknown boundary input into the canonical optimization domain model.
+ * Validates optimizer discovery metadata before root-finding or minimization
+ * registration. Unknown stability values, wrong discriminators, and excess
+ * properties fail with {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -61,7 +63,7 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
   )
 
 /**
- * Optimization boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Optimization descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -69,7 +71,8 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
 export type OptimizationSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Optimization schema-derived type.
+ * Discovery metadata identifying root-finding and minimization capabilities in
+ * a recognized stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -81,8 +84,10 @@ export type OptimizationDomain = typeof OptimizationDomainSchema.Type
 // ---------------------------------------------------------------------------
 
 /**
- * Bisection method input — two finite bracket endpoints with optional
- * tolerance and iteration budget.
+ * Options for validated bisection. Endpoints must be finite; when present,
+ * `tolerance` must be positive and finite and `maxIterations` must be a
+ * positive integer. The schema does not require `a < b` or prove that the
+ * endpoint function values have opposite signs.
  *
  * @since 0.1.0
  * @category schemas
@@ -95,8 +100,10 @@ export const BisectInput = Schema.Struct({
 }).annotations({ identifier: "BisectInput" })
 
 /**
- * Golden section search input — two finite bracket endpoints with
- * optional tolerance and iteration budget.
+ * Options for validated golden-section search. Endpoints must be finite; when
+ * present, `tolerance` must be positive and finite and `maxIterations` must be
+ * a positive integer. The schema does not require `a < b` and cannot establish
+ * that an objective is unimodal on the interval.
  *
  * @since 0.1.0
  * @category schemas

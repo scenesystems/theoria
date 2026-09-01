@@ -13,8 +13,7 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation.
+ * Reports failure to validate the Optimization domain descriptor at an orchestration boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -42,9 +41,7 @@ export class OptimizationDecodeError extends Schema.TaggedError<OptimizationDeco
 ) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces
- * a non-finite result (NaN or ±Infinity). Under `"relaxed"` precision
- * this error is never emitted.
+ * Reports a non-finite root or minimizer estimate rejected by strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -57,8 +54,9 @@ export class OptimizationDomainViolationError
 {}
 
 /**
- * Raised when mathematical parameters are invalid for the requested
- * operation — for example, bisect with f(a) and f(b) having the same sign.
+ * Reserved invalid-parameter channel for optimization algorithms. Validated
+ * bisection and golden-section inputs instead fail with
+ * {@link OptimizationDecodeError}; neither operation emits this error.
  *
  * @since 0.1.0
  * @category errors
@@ -71,8 +69,8 @@ export class OptimizationParameterError
 {}
 
 /**
- * Raised when an iterative solver fails to converge within the
- * allowed iteration budget.
+ * Reserved non-convergence channel. Bisection and golden-section return their
+ * latest midpoint when the iteration budget is exhausted and do not emit it.
  *
  * @since 0.1.0
  * @category errors
@@ -86,7 +84,8 @@ export class OptimizationConvergenceError
 {}
 
 /**
- * Union of all boundary-level errors.
+ * Descriptor-level failures to recover before optimizer discovery or
+ * registration, rather than failures from running an optimizer.
  *
  * @since 0.1.0
  * @category errors
@@ -94,7 +93,9 @@ export class OptimizationConvergenceError
 export type OptimizationBoundaryError = OptimizationDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors.
+ * Workflow-level recovery channel for malformed input or strict-policy
+ * rejection, plus reserved parameter and convergence failures for algorithms
+ * that report those conditions.
  *
  * @since 0.1.0
  * @category errors

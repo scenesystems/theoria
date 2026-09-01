@@ -17,9 +17,8 @@ import { DomainStability } from "../contracts/shared/DomainStability.js"
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical domain discriminator for Probability. Consumers use this to
- * identify which domain produced a result when multiple domains coexist in
- * the same pipeline. The `stability` field tracks the domain's maturity level.
+ * Descriptor schema used to advertise Probability density, CDF, and entropy
+ * support in domain-discovery results.
  *
  * @since 0.1.0
  * @category schemas
@@ -30,8 +29,7 @@ export const ProbabilityDomainSchema = Schema.Struct({
 })
 
 /**
- * Extracted type of a decoded `ProbabilityDomainSchema` — use this in
- * function signatures that accept an already-validated domain descriptor.
+ * Validated descriptor for the Probability operation domain.
  *
  * @since 0.1.0
  * @category models
@@ -39,10 +37,7 @@ export const ProbabilityDomainSchema = Schema.Struct({
 export type ProbabilityDomain = typeof ProbabilityDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical probability domain model.
- * Uses strict excess-property checking — any properties beyond `domain` and
- * `stability` cause a `BoundaryDecodeError`. Use at package edges where
- * untrusted input enters the domain.
+ * Decodes a Probability discovery descriptor and rejects unknown fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -63,9 +58,7 @@ export const decodeProbabilityDomain = (input: unknown) =>
   )
 
 /**
- * Encodes a validated `ProbabilityDomain` back to its serializable form at
- * the package boundary. Failures surface as `BoundaryEncodeError` — this
- * should only happen if the domain value was constructed outside of Schema.
+ * Encodes a validated Probability discovery descriptor, failing for forged values.
  *
  * @since 0.1.0
  * @category schemas
@@ -84,7 +77,7 @@ export const encodeProbabilityDomain = (domain: ProbabilityDomain) =>
   )
 
 /**
- * Probability boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Probability descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -103,8 +96,8 @@ const PositiveFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterT
 // ---------------------------------------------------------------------------
 
 /**
- * Normal distribution parameters: mean (mu) and standard deviation (sigma).
- * Sigma must be strictly positive and finite.
+ * Validates parameters accepted by the Probability domain's Normal PDF and CDF
+ * operations.
  *
  * @since 0.1.0
  * @category schemas
@@ -115,9 +108,12 @@ export const NormalParams = Schema.Struct({
 }).annotations({ identifier: "NormalParams" })
 
 /**
- * Uniform distribution parameters: lower and upper bounds.
- * Both must be finite. The `high > low` invariant is enforced at the
- * operation level, not at the schema level, to produce domain-specific errors.
+ * Validates finite bounds accepted by the Probability domain's Uniform PDF and
+ * CDF operations.
+ *
+ * @remarks
+ * The `high > low` invariant remains operation-specific so callers receive a
+ * probability error rather than a Schema parse issue.
  *
  * @since 0.1.0
  * @category schemas
@@ -132,7 +128,8 @@ export const UniformParams = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
- * Point evaluation input for normal distribution PDF/CDF.
+ * Evaluates a finite point under a normal distribution with finite location and
+ * strictly positive finite scale.
  *
  * @since 0.1.0
  * @category schemas
@@ -144,7 +141,8 @@ export const NormalEvalInput = Schema.Struct({
 }).annotations({ identifier: "NormalEvalInput" })
 
 /**
- * Point evaluation input for uniform distribution PDF/CDF.
+ * Evaluates a finite point under finite uniform bounds. Decoding does not prove
+ * `low < high`; validated operations report that as `ProbabilityParameterError`.
  *
  * @since 0.1.0
  * @category schemas
@@ -156,7 +154,10 @@ export const UniformEvalInput = Schema.Struct({
 }).annotations({ identifier: "UniformEvalInput" })
 
 /**
- * Discriminated union input for PDF/CDF evaluation across distribution families.
+ * Selects normal or uniform PDF/CDF evaluation at a finite point. Parameter
+ * values are finite and normal scale is positive, but this schema does not
+ * correlate the `distribution` literal with a parameter variant or require
+ * ordered uniform bounds.
  *
  * @since 0.1.0
  * @category schemas

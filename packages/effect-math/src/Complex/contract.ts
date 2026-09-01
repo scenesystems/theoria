@@ -1,6 +1,7 @@
 /**
  * Canonical domain identifier for the Complex number domain.
  *
+ * @remarks
  * Used by `ComplexDomainSchema` and `ComplexDomainModel` to bind
  * schemas, operations, and errors to a single domain namespace.
  *

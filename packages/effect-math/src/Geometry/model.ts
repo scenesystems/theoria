@@ -1,5 +1,5 @@
 /**
- * Geometry domain model instance.
+ * Publishes the Geometry discovery descriptor with provisional stability.
  *
  * @since 0.1.0
  * @category models
@@ -8,7 +8,7 @@ import { GeometryDomainContract } from "./contract.js"
 import type { GeometryDomain } from "./schema.js"
 
 /**
- * Geometry domain model scaffold.
+ * Metadata identifying the Geometry API as provisional.
  *
  * @since 0.1.0
  * @category models

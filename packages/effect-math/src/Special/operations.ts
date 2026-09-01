@@ -32,8 +32,9 @@ import {
 } from "./schema.js"
 
 /**
- * Lifts the static `SpecialDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional special-functions descriptor for
+ * registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -302,8 +303,10 @@ export const digammaValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware gamma reading two services from context:
+ * Evaluates the Lanczos gamma approximation with strict non-finite-result
+ * rejection and optional diagnostics.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -340,8 +343,10 @@ export const gammaWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware erf reading two services from context:
+ * Evaluates the Abramowitz-Stegun error-function approximation with strict
+ * non-finite-result rejection and optional diagnostics.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -361,8 +366,10 @@ export const erfWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware lnGamma reading two services from context:
+ * Evaluates log-gamma directly in log space with strict non-finite-result
+ * rejection and optional diagnostics; use it to avoid gamma overflow.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -382,8 +389,10 @@ export const lnGammaWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware beta reading two services from context:
+ * Evaluates beta from gamma ratios for two shape arguments, with strict
+ * non-finite-result rejection and optional diagnostics.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -403,8 +412,10 @@ export const betaWithPolicies = (a: number, b: number) =>
   })
 
 /**
- * Policy-aware erfc reading two services from context:
+ * Evaluates the complementary error function without caller-side subtraction,
+ * with strict non-finite-result rejection and optional diagnostics.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
@@ -424,8 +435,10 @@ export const erfcWithPolicies = (x: number) =>
   })
 
 /**
- * Policy-aware digamma reading two services from context:
+ * Evaluates the logarithmic derivative of gamma, with strict non-finite-result
+ * rejection at poles and optional diagnostics.
  *
+ * @remarks
  * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
  *   with `SpecialDomainViolationError`; `"relaxed"` passes them through.
  * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`

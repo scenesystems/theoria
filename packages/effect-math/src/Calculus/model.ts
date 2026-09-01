@@ -1,5 +1,5 @@
 /**
- * Calculus domain model instance.
+ * Publishes the Calculus discovery descriptor with provisional stability.
  *
  * @since 0.1.0
  * @category models

@@ -2,6 +2,7 @@
  * Complex number arithmetic, trigonometry, polar conversion, and
  * complex-step differentiation.
  *
+ * @remarks
  * Provides three tiers for every operation: a pure kernel operating
  * on `Complex` values, a Schema-validated boundary variant accepting
  * `unknown` input, and a policy-aware variant reading

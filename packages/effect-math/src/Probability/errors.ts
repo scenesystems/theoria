@@ -12,9 +12,8 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation. Use this as a catch-all for validation
- * pipelines that span multiple operations within the domain.
+ * Reports failure to validate the Probability descriptor before density, CDF,
+ * or entropy orchestration begins.
  *
  * @since 0.1.0
  * @category errors
@@ -26,9 +25,11 @@ export class ProbabilityDomainBoundaryError
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract
- * (e.g. `NormalEvalInput`, `EntropyInput`). The `operation` field names the
- * failed operation so callers can branch on it in error-recovery logic.
+ * Reports rejected boundary input for a probability or entropy operation.
+ *
+ * @remarks
+ * `operation` identifies the attempted calculation and `message` preserves the
+ * rendered Schema issue for diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -39,10 +40,7 @@ export class ProbabilityDecodeError extends Schema.TaggedError<ProbabilityDecode
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity), or when a domain invariant is
- * violated (e.g. negative variance, probabilities outside [0,1]). Under
- * `"relaxed"` precision this error is never emitted for non-finite results.
+ * Reports a non-finite probability or entropy result rejected by strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -55,8 +53,8 @@ export class ProbabilityDomainViolationError
 {}
 
 /**
- * Raised when distribution parameters are invalid — for example, sigma ≤ 0
- * for a normal distribution, or low ≥ high for a uniform distribution.
+ * Reports invalid parameters for the lightweight normal or uniform helpers,
+ * such as non-positive sigma or an unordered interval.
  *
  * @since 0.1.0
  * @category errors
@@ -69,9 +67,8 @@ export class ProbabilityParameterError
 {}
 
 /**
- * Union of all boundary-level errors that can arise from domain validation,
- * Schema decode, or Schema encode at the package edge. Use as the error
- * channel type for boundary-crossing pipelines.
+ * Descriptor-level failures to recover before Probability capability
+ * registration; they do not represent a failed density, CDF, or entropy call.
  *
  * @since 0.1.0
  * @category errors
@@ -79,9 +76,8 @@ export class ProbabilityParameterError
 export type ProbabilityBoundaryError = ProbabilityDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all errors that can arise from within a probability operation
- * (after boundary decode succeeds). Useful as a unified error channel type
- * for combinators that orchestrate multiple operations.
+ * Evaluation failures recoverable by correcting boundary input or distribution
+ * parameters, or by relaxing strict finite-result policy.
  *
  * @since 0.1.0
  * @category errors

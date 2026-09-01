@@ -11,7 +11,7 @@ import { AbsoluteTolerance, IterationBudget, RelativeTolerance, StepSize } from 
 import { DomainStability } from "../contracts/shared/DomainStability.js"
 
 /**
- * Calculus domain model schema.
+ * Accepts only the `"Calculus"` discovery discriminator and a known stability value.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,7 +22,8 @@ export const CalculusDomainSchema = Schema.Struct({
 })
 
 /**
- * Calculus schema-derived type.
+ * Discovery metadata identifying numerical differentiation and integration
+ * capabilities in a recognized stability lane.
  *
  * @since 0.1.0
  * @category models
@@ -30,7 +31,9 @@ export const CalculusDomainSchema = Schema.Struct({
 export type CalculusDomain = typeof CalculusDomainSchema.Type
 
 /**
- * Decodes unknown boundary input into the canonical calculus domain model.
+ * Validates the capability descriptor used to register numerical
+ * differentiation and integration. Unknown stability values or additional
+ * fields fail with {@link BoundaryDecodeError}.
  *
  * @since 0.1.0
  * @category schemas
@@ -70,7 +73,7 @@ export const encodeCalculusDomain = (domain: CalculusDomain) =>
   )
 
 /**
- * Calculus boundary encode/decode errors.
+ * Decode failures for unknown input or encode failures for forged Calculus descriptors.
  *
  * @since 0.1.0
  * @category errors
@@ -106,7 +109,8 @@ export const RidderMethodInput = Schema.Struct({
 }).annotations({ identifier: "RidderMethodInput" })
 
 /**
- * Ridder-method tuning envelope type.
+ * Optional initial step, error tolerances, iteration budget, and contraction
+ * factor used to refine Ridder derivative estimates.
  *
  * @since 0.2.0
  * @category models
@@ -127,7 +131,8 @@ export const DerivativeLimitEstimateSchema = Schema.Struct({
 }).annotations({ identifier: "DerivativeLimitEstimate" })
 
 /**
- * First/second derivative limit estimate type.
+ * A derivative estimate paired with its non-negative absolute error, iteration
+ * count, and convergence flag.
  *
  * @since 0.2.0
  * @category models

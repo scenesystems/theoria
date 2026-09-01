@@ -27,9 +27,11 @@ export class LinearAlgebraDomainBoundaryError
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract
- * (e.g. `DotProductInput`, `MatvecInput`). The `operation` field names the
- * failed operation so callers can branch on it in error-recovery logic.
+ * Reports rejected boundary input for a linear-algebra operation.
+ *
+ * @remarks
+ * `operation` identifies the attempted calculation and `message` preserves the
+ * rendered Schema issue for diagnostics.
  *
  * @since 0.1.0
  * @category errors
@@ -42,11 +44,13 @@ export class LinearAlgebraDecodeError
 {}
 
 /**
- * Raised when operand dimensions are incompatible — for example, a dot product
- * of vectors with different lengths, or a matvec where the vector length does
- * not equal the column count. The `expected` and `actual` fields carry
- * human-readable dimension strings (e.g. `"length 3"` vs `"length 5"`) for
- * diagnostic messages.
+ * Reports incompatible linear-algebra operand dimensions.
+ *
+ * @remarks
+ * Raised, for example, for a dot product of vectors with different lengths or
+ * a matvec where the vector length does not equal the column count. The
+ * `expected` and `actual` fields carry human-readable dimension strings (for
+ * example, `"length 3"` versus `"length 5"`) for diagnostic messages.
  *
  * @since 0.1.0
  * @category errors
@@ -59,9 +63,8 @@ export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()
 }) {}
 
 /**
- * Raised when an operation requires an invertible matrix but the input is
- * rank-deficient (determinant ≈ 0). Typical triggers include matrix inversion
- * and LU decomposition with a zero pivot.
+ * Reserved singular-matrix failure channel. Public solve kernels represent a
+ * failed solve with `Option.none()` and do not emit this error.
  *
  * @since 0.1.0
  * @category errors
@@ -72,10 +75,9 @@ export class SingularMatrixError extends Schema.TaggedError<SingularMatrixError>
 }) {}
 
 /**
- * Catch-all for matrix factorization failures beyond singularity — covers
- * LU, QR, SVD, and Cholesky decompositions. Raised when a factorization
- * cannot complete due to numerical issues such as loss of orthogonality
- * (QR) or a non-positive-definite input (Cholesky).
+ * Reserved decomposition failure channel. Public Cholesky and SPD solve kernels
+ * represent invalid shape, asymmetry, or failed pivots with `Option.none()` and
+ * do not emit this error.
  *
  * @since 0.1.0
  * @category errors
@@ -87,9 +89,8 @@ export class DecompositionError extends Schema.TaggedError<DecompositionError>()
 
 /**
  * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity). Under `"relaxed"` precision this
- * error is never emitted. Use it to enforce IEEE 754 finite-value guarantees
- * in safety-critical pipelines.
+ * non-finite result (NaN or ±Infinity). Policy-aware scalar operations pass
+ * non-finite results through under `"relaxed"` precision.
  *
  * @since 0.1.0
  * @category errors

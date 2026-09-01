@@ -14,18 +14,9 @@ import { ComplexDomainContract } from "./contract.js"
 import type { ComplexDomain } from "./schema.js"
 
 /**
- * Complex number with real and imaginary parts. Serves as the carrier
- * type for all operations in the Complex domain and supports
- * Schema decode/encode round-tripping for boundary serialization.
- *
- * @example
- * ```ts
- * import { Complex } from "@scenesystems/effect-math/Complex"
- *
- * const z = new Complex({ re: 3, im: 4 })
- * z.re  // 3
- * z.im  // 4
- * ```
+ * Schema-backed Cartesian complex value. Components are unrestricted IEEE
+ * 754 numbers; use validated operation inputs when finite components are
+ * required.
  *
  * @see {@link ComplexDomainModel} — domain registration for discovery
  *
@@ -38,8 +29,7 @@ export class Complex extends Schema.TaggedClass<Complex>()("Complex", {
 }) {}
 
 /**
- * Runtime domain model for the Complex domain. Carries the canonical
- * domain identifier and stability level for domain discovery pipelines.
+ * Runtime descriptor identifying the Complex domain as provisional.
  *
  * @see {@link Complex} — the carrier type for complex values
  * @see {@link ComplexDomainContract} — the domain identifier string

@@ -1,13 +1,12 @@
 /**
- * Full algebra of statistical distributions — 10 distribution families
- * (Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT,
- * Categorical, Binomial, Poisson) with PDF, CDF, logPDF, quantile, and
- * summary-statistic kernels. All kernels operate on scalar arguments
- * using Effect primitives with Schema-validated inputs.
+ * Models and evaluates discrete and continuous statistical distributions.
  *
- * Distribution owns parameter contracts, eval input schemas, and quantile
- * input schemas — downstream domains consume these but must not redeclare
- * them.
+ * @remarks
+ * Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT,
+ * Categorical, Binomial, and Poisson families expose PDF, CDF, log-PDF,
+ * quantile, and summary-statistic operations. This domain owns their parameter
+ * and evaluation schemas; downstream domains consume those contracts rather
+ * than redeclaring them.
  *
  * @since 0.1.0
  * @module

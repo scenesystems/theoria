@@ -9,7 +9,7 @@ import { Context, Effect, Layer, Match, Option, Schema } from "effect"
 import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 
 /**
- * Autodiff mode authority.
+ * Restricts differentiation routing to forward or reverse accumulation.
  *
  * @since 0.1.0
  * @category contracts
@@ -17,7 +17,7 @@ import { AutodiffUnavailableError } from "./AdvancedComputationErrors.js"
 export const AutodiffMode = Schema.Literal("forward", "reverse")
 
 /**
- * Autodiff mode type.
+ * A caller-selectable forward- or reverse-mode differentiation lane.
  *
  * @since 0.1.0
  * @category models
@@ -25,7 +25,7 @@ export const AutodiffMode = Schema.Literal("forward", "reverse")
 export type AutodiffModeType = typeof AutodiffMode.Type
 
 /**
- * Autodiff capability contract.
+ * Associates one differentiation mode with its runtime availability.
  *
  * @since 0.1.0
  * @category contracts
@@ -37,7 +37,7 @@ export const AutodiffCapability = Schema.Struct({
 })
 
 /**
- * Autodiff capability type.
+ * A mode and the availability flag consulted during differentiation routing.
  *
  * @since 0.1.0
  * @category models
@@ -53,7 +53,7 @@ export type AutodiffCapabilityType = typeof AutodiffCapability.Type
 export const AutodiffResolutionMethod = Schema.Literal("autodiff", "finite-difference")
 
 /**
- * Resolved differentiation method type.
+ * Whether routing selected native autodiff or finite differences.
  *
  * @since 0.1.0
  * @category models
@@ -67,7 +67,8 @@ const dedupeModes = (modes: ReadonlyArray<AutodiffModeType>): ReadonlyArray<Auto
   modes.filter((mode, index, all) => all.findIndex((candidate) => candidate === mode) === index)
 
 /**
- * Resolved autodiff authority decision.
+ * Records the selected method, its mode when native autodiff won, and whether
+ * finite differences were used as the configured fallback.
  *
  * @since 0.1.0
  * @category contracts
@@ -79,7 +80,7 @@ export const AutodiffResolution = Schema.Struct({
 })
 
 /**
- * Resolved autodiff authority decision type.
+ * The selected differentiation method and fallback provenance returned to dispatch.
  *
  * @since 0.1.0
  * @category models
@@ -87,7 +88,8 @@ export const AutodiffResolution = Schema.Struct({
 export type AutodiffResolutionType = typeof AutodiffResolution.Type
 
 /**
- * Autodiff selection policy contract.
+ * Orders candidate modes and controls whether their joint unavailability may
+ * degrade to finite differences.
  *
  * @since 0.1.0
  * @category contracts
@@ -98,7 +100,7 @@ export const AutodiffSelectionPolicy = Schema.Struct({
 })
 
 /**
- * Autodiff selection policy type.
+ * Preferred mode order plus the finite-difference fallback boundary.
  *
  * @since 0.1.0
  * @category models
@@ -106,7 +108,8 @@ export const AutodiffSelectionPolicy = Schema.Struct({
 export type AutodiffSelectionPolicyType = typeof AutodiffSelectionPolicy.Type
 
 /**
- * Autodiff authority state contract.
+ * Combines routing policy with the non-empty mode availability table consulted
+ * by {@link resolveAutodiffMode}.
  *
  * @since 0.1.0
  * @category contracts
@@ -117,7 +120,7 @@ export const AutodiffAuthorityState = Schema.Struct({
 })
 
 /**
- * Autodiff authority state type.
+ * The policy and capability snapshot supplied through {@link AutodiffAuthorityService}.
  *
  * @since 0.1.0
  * @category models
@@ -136,7 +139,7 @@ export class AutodiffAuthorityService extends Context.Tag("effect-math/contracts
 >() {}
 
 /**
- * Baseline autodiff authority used for RED-first contract execution.
+ * Default state preferring reverse mode, with finite-difference fallback.
  *
  * @since 0.1.0
  * @category contracts
@@ -156,7 +159,7 @@ export const DefaultAutodiffAuthority: AutodiffAuthorityStateType = {
 }
 
 /**
- * Live autodiff authority layer.
+ * Ready-to-use layer for the exported default autodiff capabilities and order.
  *
  * @since 0.1.0
  * @category contracts
@@ -166,6 +169,7 @@ export const AutodiffAuthorityLive = Layer.succeed(AutodiffAuthorityService, Def
 /**
  * Resolves autodiff mode from authority capabilities and policy.
  *
+ * @remarks
  * **Details**
  * Caller preference is evaluated first, then policy order.
  * When no lane is available, `allowFiniteDifferenceFallback` decides whether

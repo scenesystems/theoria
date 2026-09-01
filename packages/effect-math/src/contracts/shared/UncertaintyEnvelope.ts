@@ -16,7 +16,7 @@ const NonNegativeBigDecimal = Schema.BigDecimalFromSelf.pipe(
 )
 
 /**
- * Float64 interval contract.
+ * Finite Float64 bounds ordered so `lower <= upper`.
  *
  * @since 0.1.0
  * @category contracts
@@ -27,7 +27,7 @@ export const Float64Interval = Schema.Struct({
 }).pipe(Schema.filter((interval) => N.lessThanOrEqualTo(interval.lower, interval.upper) || "Expected lower <= upper"))
 
 /**
- * BigDecimal interval contract.
+ * BigDecimal bounds ordered so `lower <= upper`.
  *
  * @since 0.1.0
  * @category contracts
@@ -42,7 +42,8 @@ export const BigDecimalInterval = Schema.Struct({
 )
 
 /**
- * Float64 uncertainty envelope contract.
+ * A finite Float64 estimate with non-negative absolute/relative errors and an
+ * optional ordered interval in the same scalar units.
  *
  * @since 0.1.0
  * @category contracts
@@ -56,7 +57,8 @@ export const Float64UncertaintyEnvelope = Schema.Struct({
 })
 
 /**
- * BigDecimal uncertainty envelope contract.
+ * A BigDecimal estimate with non-negative absolute/relative errors and an
+ * optional ordered BigDecimal interval.
  *
  * @since 0.1.0
  * @category contracts
@@ -70,7 +72,8 @@ export const BigDecimalUncertaintyEnvelope = Schema.Struct({
 })
 
 /**
- * Unified uncertainty envelope authority.
+ * Selects the envelope branch by `scalarKind`, preventing Float64 and
+ * BigDecimal values, errors, or intervals from being mixed.
  *
  * @since 0.1.0
  * @category contracts
@@ -78,7 +81,7 @@ export const BigDecimalUncertaintyEnvelope = Schema.Struct({
 export const UncertaintyEnvelope = Schema.Union(Float64UncertaintyEnvelope, BigDecimalUncertaintyEnvelope)
 
 /**
- * Unified uncertainty envelope type.
+ * A scalar-discriminated estimate whose value, errors, and interval stay in one lane.
  *
  * @since 0.1.0
  * @category models
@@ -97,7 +100,7 @@ export const UncertaintyRequirement = Schema.Struct({
 })
 
 /**
- * Uncertainty requirement type.
+ * The scalar lane for an operation and whether its result must propagate an envelope.
  *
  * @since 0.1.0
  * @category models

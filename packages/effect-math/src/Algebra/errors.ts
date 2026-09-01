@@ -13,8 +13,7 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Raised when an orchestration-level boundary validation fails before
- * reaching the specific operation.
+ * Reports failure to validate the Algebra domain descriptor at an orchestration boundary.
  *
  * @since 0.1.0
  * @category errors
@@ -39,9 +38,8 @@ export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces
- * a non-finite result (NaN or ±Infinity). Under `"relaxed"` precision
- * this error is never emitted.
+ * Reports a non-finite polynomial or integer-operation result rejected by
+ * strict precision.
  *
  * @since 0.1.0
  * @category errors
@@ -66,7 +64,8 @@ export class AlgebraParameterError extends Schema.TaggedError<AlgebraParameterEr
 }) {}
 
 /**
- * Union of all boundary-level errors.
+ * Descriptor-level failures to recover before capability registration: a
+ * rejected domain contract or failed wire decode/encode.
  *
  * @since 0.1.0
  * @category errors
@@ -74,7 +73,8 @@ export class AlgebraParameterError extends Schema.TaggedError<AlgebraParameterEr
 export type AlgebraBoundaryError = AlgebraDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Union of all operation-level errors.
+ * Calculation-level failures callers can recover from by correcting operation
+ * input or parameters, or by choosing a less restrictive precision policy.
  *
  * @since 0.1.0
  * @category errors

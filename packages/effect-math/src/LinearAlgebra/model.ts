@@ -1,5 +1,5 @@
 /**
- * Linear algebra domain model instance.
+ * Publishes the LinearAlgebra discovery descriptor with provisional stability.
  *
  * @since 0.1.0
  * @category models
@@ -8,7 +8,7 @@ import { LinearAlgebraDomainContract } from "./contract.js"
 import type { LinearAlgebraDomain } from "./schema.js"
 
 /**
- * LinearAlgebra domain model scaffold.
+ * Metadata identifying the LinearAlgebra API as provisional.
  *
  * @since 0.1.0
  * @category models

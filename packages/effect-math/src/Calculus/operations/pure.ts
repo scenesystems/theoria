@@ -23,7 +23,9 @@ import type { DerivativeLimitEstimate, RidderMethodInputType } from "../schema.j
 export const loadCalculusDomain = Effect.succeed(CalculusDomainModel)
 
 /**
- * Ridder-method first-derivative estimate with convergence metadata.
+ * Estimates `f′(x)` by central differences and Ridder extrapolation. The
+ * result reports the selected value, absolute error estimate, iteration
+ * count, and whether the configured absolute/relative tolerance was met.
  *
  * @since 0.2.0
  * @category operations
@@ -76,7 +78,9 @@ export const secondDerivative = (
 export const trapezoid = IntegrationKernel.trapezoidalRule
 
 /**
- * Composite Simpson integration over evenly-spaced samples.
+ * Composite Simpson integration over evenly spaced samples. When the sample
+ * count implies an odd number of intervals, Simpson's rule covers the largest
+ * even prefix and a final trapezoid covers the remaining interval.
  *
  * @since 0.1.0
  * @category operations
@@ -84,7 +88,9 @@ export const trapezoid = IntegrationKernel.trapezoidalRule
 export const simpson = IntegrationKernel.simpsonsRule
 
 /**
- * Adaptive Simpson integration with configurable tolerance and recursion bounds.
+ * Adaptive Simpson integration on `[a, b]`. Refinement stops when the local
+ * absolute/relative error target is met or `maxDepth` is exhausted; this pure
+ * kernel returns the resulting estimate rather than a convergence flag.
  *
  * @since 0.2.0
  * @category operations
@@ -119,7 +125,8 @@ export const gradient = (
 ): Chunk.Chunk<number> => MultivariateKernel.gradientLimit(f, point, config)
 
 /**
- * Multivariate Jacobian evaluated via Ridder-limit directional probes.
+ * Jacobian with one row per vector-field output and one column per input
+ * coordinate. The output dimension is taken from the field evaluation.
  *
  * @since 0.2.0
  * @category operations
@@ -131,7 +138,8 @@ export const jacobian = (
 ): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.jacobianLimit(f, point, config)
 
 /**
- * Multivariate Hessian evaluated via Ridder-limit directional probes.
+ * Square Hessian in input-coordinate order. Diagonal and mixed partials are
+ * estimated numerically; the returned chunks are newly allocated.
  *
  * @since 0.2.0
  * @category operations
@@ -143,7 +151,9 @@ export const hessian = (
 ): Chunk.Chunk<Chunk.Chunk<number>> => MultivariateKernel.hessianLimit(f, point, config)
 
 /**
- * Directional derivative along a supplied direction vector.
+ * Directional derivative `∇f(point) · direction`. The direction is not
+ * normalized, so scaling it scales the result. This pure kernel does not
+ * validate matching dimensions.
  *
  * @since 0.2.0
  * @category operations
@@ -156,7 +166,9 @@ export const directionalDerivative = (
 ): number => MultivariateKernel.directionalDerivativeLimit(f, point, direction, config)
 
 /**
- * Vector-field divergence from component-wise directional derivatives.
+ * Vector-field divergence, summing derivative `i` of output component `i`.
+ * The pure kernel assumes the field output has at least the point dimension;
+ * use `divergenceValidated` to require equal dimensions.
  *
  * @since 0.2.0
  * @category operations

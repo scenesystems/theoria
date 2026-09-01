@@ -35,7 +35,10 @@ import {
 import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly, ridderConfigFrom } from "./shared.js"
 
 /**
- * Schema-decoded boundary for `derivativeLimit`.
+ * Estimates `f′(x)` by Ridder extrapolation and reports value, error, and
+ * convergence metadata. Boundary decoding accepts a finite point plus optional
+ * controls; malformed input fails with `CalculusDecodeError`, while callback
+ * or kernel exceptions become `KernelExecutionError`.
  *
  * @since 0.2.0
  * @category operations
@@ -47,7 +50,10 @@ export const derivativeLimitValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Schema-decoded boundary for `secondDerivativeLimit`.
+ * Approximates `f″(x)` with second-order Ridder extrapolation, preserving the
+ * selected estimate's uncertainty and convergence status. It rejects invalid
+ * points or controls as `CalculusDecodeError` and captures failures raised while
+ * evaluating the supplied function as `KernelExecutionError`.
  *
  * @since 0.2.0
  * @category operations
@@ -60,7 +66,9 @@ export const secondDerivativeLimitValidated = (f: (x: number) => number, input: 
   })
 
 /**
- * Schema-decoded boundary for first derivative values.
+ * Returns only the first-derivative value from the validated Ridder estimate.
+ * It retains the same strict decoding and typed decode/kernel failure boundary
+ * as {@link derivativeLimitValidated}, but discards error and convergence metadata.
  *
  * @since 0.1.0
  * @category operations
@@ -69,7 +77,9 @@ export const derivativeValidated = (f: (x: number) => number, input: unknown) =>
   Effect.map(derivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Schema-decoded boundary for second derivative values.
+ * Returns only the second-derivative value from the validated Ridder estimate.
+ * It retains the same strict decoding and typed decode/kernel failure boundary
+ * as {@link secondDerivativeLimitValidated}, but discards estimate metadata.
  *
  * @since 0.2.0
  * @category operations
@@ -78,7 +88,10 @@ export const secondDerivativeValidated = (f: (x: number) => number, input: unkno
   Effect.map(secondDerivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Schema-decoded boundary for trapezoidal integration.
+ * Decodes at least two finite, equally spaced samples and a positive finite
+ * spacing, then applies the composite trapezoidal rule. Malformed or excess
+ * input fails with `CalculusDecodeError`; kernel exceptions are typed as
+ * `KernelExecutionError`.
  *
  * @since 0.1.0
  * @category operations
@@ -90,7 +103,10 @@ export const trapezoidValidated = (input: unknown) =>
   })
 
 /**
- * Schema-decoded boundary for Simpson integration.
+ * Decodes at least two finite, equally spaced samples and a positive finite
+ * spacing, then applies composite Simpson integration. An odd final interval
+ * is integrated by trapezoid. Malformed input fails with `CalculusDecodeError`;
+ * kernel exceptions fail with `KernelExecutionError`.
  *
  * @since 0.1.0
  * @category operations
@@ -102,7 +118,10 @@ export const simpsonValidated = (input: unknown) =>
   })
 
 /**
- * Schema-decoded boundary for adaptive Simpson integration.
+ * Decodes finite interval endpoints, non-negative tolerances, and a positive
+ * recursion budget, then returns the adaptive integral estimate. Exhausting
+ * the depth budget returns the current estimate rather than a convergence
+ * failure; decode and callback/kernel exceptions remain distinct typed failures.
  *
  * @since 0.2.0
  * @category operations
@@ -122,7 +141,10 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Schema-decoded boundary for gradient evaluation.
+ * Decodes a non-empty finite point and optional Ridder controls, then returns
+ * one partial derivative per coordinate. Schema rejection fails with
+ * `CalculusDecodeError`; exceptions from `f` or differentiation fail with
+ * `KernelExecutionError`.
  *
  * @since 0.2.0
  * @category operations
@@ -135,7 +157,9 @@ export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, inp
   })
 
 /**
- * Schema-decoded boundary for Jacobian evaluation.
+ * Decodes a non-empty finite point and optional Ridder controls, then returns
+ * the vector-valued function's Jacobian as rows by output component. Invalid
+ * boundary input and callback/kernel exceptions use distinct typed failures.
  *
  * @since 0.2.0
  * @category operations
@@ -151,7 +175,10 @@ export const jacobianValidated = (
   })
 
 /**
- * Schema-decoded boundary for Hessian evaluation.
+ * Decodes a non-empty finite point and optional Ridder controls, then returns
+ * the scalar function's square Hessian. Invalid boundary input fails with
+ * `CalculusDecodeError`; callback or kernel exceptions fail with
+ * `KernelExecutionError`.
  *
  * @since 0.2.0
  * @category operations
@@ -164,7 +191,10 @@ export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, inpu
   })
 
 /**
- * Schema-decoded boundary for directional derivative evaluation.
+ * Decodes finite point and direction vectors plus optional Ridder controls,
+ * requires equal dimensions, and evaluates the derivative along the supplied
+ * direction. Decode, dimension, and callback/kernel failures remain
+ * distinguishable as typed errors.
  *
  * @since 0.2.0
  * @category operations
@@ -193,7 +223,10 @@ export const directionalDerivativeValidated = (
   })
 
 /**
- * Schema-decoded boundary for divergence evaluation.
+ * Decodes a non-empty finite point and optional Ridder controls, verifies that
+ * the vector field returns one component per coordinate, then sums its diagonal
+ * partial derivatives. Decode, dimension, and callback/kernel failures remain
+ * distinguishable as typed errors.
  *
  * @since 0.2.0
  * @category operations
@@ -217,7 +250,10 @@ export const divergenceValidated = (
   })
 
 /**
- * Schema-decoded boundary for Laplacian evaluation.
+ * Decodes a non-empty finite point and optional Ridder controls, then sums the
+ * scalar function's second partial derivatives. Schema rejection fails with
+ * `CalculusDecodeError`; callback or kernel exceptions fail with
+ * `KernelExecutionError`.
  *
  * @since 0.2.0
  * @category operations

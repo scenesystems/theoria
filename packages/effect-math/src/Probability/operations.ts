@@ -16,8 +16,9 @@ import { ProbabilityDomainModel } from "./model.js"
 import { EntropyInput, NormalEvalInput, UniformEvalInput } from "./schema.js"
 
 /**
- * Lifts the static `ProbabilityDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional probability descriptor for registering or
+ * discovering density, CDF, and entropy capabilities. It requires no services
+ * and cannot fail.
  *
  * @since 0.1.0
  * @category operations
@@ -327,6 +328,7 @@ export const entropyValidated = (input: unknown) =>
 /**
  * Policy-aware normal PDF that reads two runtime services from context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with `x`, `mu`, `sigma`, and precision metadata
  *
@@ -362,8 +364,11 @@ export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Policy-aware normal CDF that reads two runtime services from context:
+ * Computes Gaussian cumulative probability with caller-supplied location and
+ * scale. Strict precision rejects a non-finite CDF; diagnostics can log the
+ * distribution parameters and result.
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
  *
@@ -381,8 +386,11 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Policy-aware uniform PDF that reads two runtime services from context:
+ * Computes constant density inside the supplied uniform interval and zero
+ * outside it. Strict precision rejects a non-finite density; this variant does
+ * not validate `low < high`.
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
  *
@@ -400,8 +408,11 @@ export const uniformPdfWithPolicies = (x: number, low: number, high: number) =>
   })
 
 /**
- * Policy-aware uniform CDF that reads two runtime services from context:
+ * Computes cumulative mass across the supplied uniform interval, clamped at
+ * its endpoints. Strict precision rejects a non-finite result; this variant
+ * does not validate `low < high`.
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
  *
@@ -419,8 +430,11 @@ export const uniformCdfWithPolicies = (x: number, low: number, high: number) =>
   })
 
 /**
- * Policy-aware Shannon entropy that reads two runtime services from context:
+ * Computes discrete Shannon entropy in nats while applying precision and
+ * diagnostics policies. Strict mode rejects a non-finite aggregate, including
+ * one caused by malformed probabilities passed directly to this variant.
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
  *

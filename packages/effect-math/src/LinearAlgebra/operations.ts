@@ -19,8 +19,9 @@ import { LinearAlgebraDomainModel } from "./model.js"
 import { DotProductInput, MatvecInput, NormInput, TransposeInput } from "./schema.js"
 
 /**
- * Lifts the static `LinearAlgebraDomainModel` into an Effect so it can be
- * composed in pipelines that discover available domains at startup.
+ * Returns the canonical provisional dense-linear-algebra descriptor for
+ * registration or startup discovery, without service requirements or a
+ * failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -533,6 +534,7 @@ export const transposeValidated = (input: unknown) =>
 /**
  * Policy-aware dot product that reads three runtime services from context:
  *
+ * @remarks
  * - **BackendPolicyService** — selects the execution strategy (`"typed-array"` or `"scalar"`)
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with timing, backend, and vector-length metadata
@@ -583,6 +585,7 @@ export const dotWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) 
 /**
  * Policy-aware vector norm that reads two runtime services from context:
  *
+ * @remarks
  * - **PrecisionPolicyService** — `"strict"` rejects non-finite results (e.g. from overflow) with `LinearAlgebraDomainViolationError`; `"relaxed"` passes through
  * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with norm kind, precision policy, and vector length
  *

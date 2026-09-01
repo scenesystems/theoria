@@ -1,5 +1,5 @@
 /**
- * Distribution domain model instance.
+ * Publishes the Distribution discovery descriptor with provisional stability.
  *
  * @since 0.1.0
  * @category models
@@ -8,8 +8,7 @@ import { DistributionDomainContract } from "./contract.js"
 import type { DistributionDomain } from "./schema.js"
 
 /**
- * Static domain descriptor for the Distribution domain. Carries the
- * canonical domain discriminator and current stability tier.
+ * Identifies distribution evaluation as a provisional API in domain discovery.
  *
  * @since 0.1.0
  * @category models

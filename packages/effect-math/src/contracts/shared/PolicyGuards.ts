@@ -1,15 +1,5 @@
 /**
- * Shared policy guard combinators that eliminate boilerplate in policy-aware
- * operations across all domains.
- *
- * Every policy-aware operation follows the same three-phase pattern:
- * 1. Optionally start a timer (diagnostics enabled)
- * 2. Validate the result (precision strict → reject non-finite)
- * 3. Optionally log diagnostics (diagnostics enabled)
- *
- * This module extracts that pattern into composable combinators so each
- * domain operation only specifies *what* it computes and *how* to describe
- * the result — not the policy wiring.
+ * Policy-aware wrappers for synchronous computations.
  *
  * @since 0.1.0
  * @category contracts
@@ -19,17 +9,11 @@ import { Clock, Effect, Match, Number as N } from "effect"
 import { DiagnosticsPolicyService, PrecisionPolicyService } from "./RuntimePolicies.js"
 
 /**
- * Wraps a pure scalar computation with precision and diagnostics policy
- * guards. The caller provides:
- *
- * - `operation` — the operation name for error messages and log labels
- * - `compute` — a thunk that produces the scalar result
- * - `makeError` — a factory that creates the domain-specific violation error
- * - `annotations` — a thunk that returns log annotation key-value pairs
- *
- * The combinator reads `PrecisionPolicyService` and `DiagnosticsPolicyService`
- * from context, applies the three-phase pattern using `Match.exhaustive`,
- * and returns the result.
+ * Runs `compute`, rejects a non-finite result under strict precision using
+ * `makeError`, and emits one annotated debug log when diagnostics are enabled.
+ * The returned Effect requires {@link PrecisionPolicyService} and
+ * {@link DiagnosticsPolicyService}; exceptions from either callback are not
+ * converted to typed failures.
  *
  * @since 0.1.0
  * @category combinators
@@ -83,9 +67,10 @@ export const withScalarPolicyGuards = <E>(options: {
   })
 
 /**
- * Like {@link withScalarPolicyGuards} but accepts a custom predicate for
- * the strict-precision check. Use when the result is not a scalar (e.g.,
- * `Chunk<number>`) or when the finiteness check needs custom logic.
+ * Applies the same policy behavior as {@link withScalarPolicyGuards}, using
+ * `isValid` for strict-precision validation of an arbitrary result type.
+ * A `false` predicate result fails with `makeError`; relaxed precision skips
+ * the predicate.
  *
  * @since 0.1.0
  * @category combinators

@@ -1,5 +1,9 @@
 /**
- * Cross-domain shared contracts.
+ * Cross-domain schemas, errors, policy services, and provider Layers.
+ *
+ * @remarks
+ * Schemas expose their decoded types through `.Type`; callers decoding
+ * untrusted objects should choose excess-property handling explicitly.
  *
  * @since 0.1.0
  * @module
