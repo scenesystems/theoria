@@ -40,7 +40,14 @@ const runtimeResolverLiveApi = new RuntimeResolverApi({
 })
 
 /**
- * Live resolver layer for stable route-family resolution.
+ * Provides a scoped live resolver for stable route families.
+ *
+ * @remarks
+ * Resolution requires an explicit route, checks requested capabilities against
+ * conservative package defaults,
+ * and returns fully provided model layers. It fails with `UnsupportedRoute`
+ * when `descriptor.route` is absent and `CapabilityMismatch` when a declared
+ * requirement is not met; no provider request is made during resolution.
  *
  * @since 0.1.0
  * @category layers

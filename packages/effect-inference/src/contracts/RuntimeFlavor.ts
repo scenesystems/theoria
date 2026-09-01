@@ -20,7 +20,9 @@ export const RuntimeFlavorSchema = Schema.Literal(
 )
 
 /**
- * Extracted runtime-flavor union.
+ * Identifies the compatible serving engine used for capability policy and
+ * provenance. `unknown` is the conservative value when resolution cannot
+ * establish an engine; it is not evidence that no engine exists.
  *
  * @since 0.1.0
  * @category type-level

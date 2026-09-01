@@ -2,6 +2,7 @@
  * Runtime resolver services, config decoding, runtime-evidence assembly, and
  * deterministic testing helpers.
  *
+ * @remarks
  * Resolver output stays pre-execution: route provenance, conservative
  * capability truth, and live model layers. Post-execution response metadata is
  * assembled separately through `makeRuntimeEvidence(...)`.

@@ -1,5 +1,6 @@
 /**
- * Hugging Face family helpers and future live adapter entrypoints.
+ * Hugging Face routed-marketplace and dedicated-endpoint resolution, config,
+ * metadata, and live Effect AI model layers.
  *
  * @since 0.1.0
  */

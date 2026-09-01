@@ -22,8 +22,8 @@ export class CompatibleTransport extends Data.Class<{
 }> {}
 
 /**
- * Future-proof transport planning record that preserves the original route
- * identity above the shared HTTP seam.
+ * Pairs an execution route with the base URL and authentication method needed
+ * by an OpenAI-compatible client.
  *
  * @since 0.1.0
  * @category models
@@ -34,8 +34,8 @@ export class CompatibleTransportPlan extends Data.Class<{
 }> {}
 
 /**
- * Adds a normalized OpenAI-compatible route hint to a desired runtime
- * descriptor.
+ * Returns a copy of `descriptor` whose route is replaced with an
+ * `OpenAiCompatible` route built from `options`.
  *
  * @since 0.1.0
  * @category constructors
@@ -55,8 +55,8 @@ export const withOpenAiCompatibleRoute = (descriptor: DesiredRuntimeDescriptor, 
 })
 
 /**
- * Projects a stable execution route onto the shared compatible transport seam
- * without collapsing route-family or deployment identity.
+ * Retains the complete route while extracting its base URL and authentication
+ * method as transport settings. No validation or I/O is performed.
  *
  * @since 0.1.0
  * @category constructors

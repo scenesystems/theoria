@@ -11,8 +11,9 @@ import { ResolvedRuntimeDescriptorSchema } from "./ResolvedRuntimeDescriptor.js"
 import { RuntimeCapabilitiesSchema } from "./RuntimeCapabilities.js"
 
 /**
- * Schema bundling requested runtime intent, route resolution, and post-execution
- * runtime truth into one replay-safe record.
+ * Serializable envelope preserving requested intent, pre-execution route and
+ * capability decisions, and caller-recorded post-execution observations as
+ * separate fields. Decoding proves shape only, not provider authenticity.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +26,9 @@ export const RuntimeEvidenceSchema = Schema.Struct({
 })
 
 /**
- * Extracted runtime-evidence type.
+ * Replay-oriented envelope that keeps caller intent, resolver decisions,
+ * capability policy, and response observations in distinct channels. Its
+ * decoded shape does not authenticate the provider or attest the contents.
  *
  * @since 0.1.0
  * @category type-level

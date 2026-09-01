@@ -25,7 +25,9 @@ export const CapabilityRequirementsSchema = Schema.Struct({
 })
 
 /**
- * Extracted capability-requirements record.
+ * Caller constraints checked before model layers are exposed. Omitted fields
+ * impose no requirement; a present boolean requires that exact support value,
+ * while `minimumContextTokens` sets a lower bound.
  *
  * @since 0.1.0
  * @category type-level

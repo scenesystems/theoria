@@ -1,5 +1,6 @@
 /**
- * Explicitly unstable inference experiments.
+ * Native TGI, TEI, and Ollama route-family discriminators. This module only
+ * exports the union and its Schema; it does not provide adapters for them.
  *
  * @since 0.1.0
  */
@@ -10,7 +11,7 @@ import {
 } from "../contracts/RouteFamily.js"
 
 /**
- * Native route-family discriminator reserved for explicit experimental lanes.
+ * Union of `TgiNative`, `TeiNative`, and `OllamaNative` route-family values.
  *
  * @since 0.1.0
  * @category type-level
@@ -18,7 +19,7 @@ import {
 export type NativeRouteFamily = NativeRouteFamilyContract
 
 /**
- * Native route-family schema reserved for explicit experimental lanes.
+ * Decodes the three native route-family literals.
  *
  * @since 0.1.0
  * @category schemas

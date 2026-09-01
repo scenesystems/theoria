@@ -24,8 +24,9 @@ import {
 } from "./liveTextProviderConfig.js"
 
 /**
- * Resolved runtime configuration plus the package-owned requested descriptor and
- * live `LanguageModel` layer.
+ * Provider/model identity, requested-route evidence, and a fully provided live
+ * `LanguageModel` layer. Building this record performs config acquisition only;
+ * provider network failures occur when the layer is used.
  *
  * @since 0.1.0
  * @category models
@@ -91,8 +92,10 @@ const providerLayer = (
   )
 
 /**
- * Resolves the requested runtime descriptor and live `LanguageModel` layer from
- * a Config-driven provider surface.
+ * Acquires and validates provider configuration, then returns the requested
+ * descriptor and a fully provided `LanguageModel` layer for OpenAI, Anthropic,
+ * or OpenRouter. Missing or malformed config fails as `InvalidRuntimeConfig`;
+ * this effect makes no provider request.
  *
  * @since 0.1.0
  * @category constructors
@@ -110,7 +113,9 @@ export const resolveLiveTextProviderRuntime = (
   )
 
 /**
- * Constructs a live `LanguageModel` layer from the configured provider runtime.
+ * Acquires configuration when the layer is built and provides a live
+ * `LanguageModel` with its fetch client. Configuration failure is exposed in
+ * the layer error channel; provider failures occur in model operations.
  *
  * @since 0.1.0
  * @category layers
@@ -121,7 +126,9 @@ export const liveTextProviderLayer = (
   Layer.unwrapEffect(resolveLiveTextProviderRuntime(options).pipe(Effect.map((runtime) => runtime.languageModelLayer)))
 
 /**
- * Provides the configured live `LanguageModel` to an Effect program.
+ * Provides a configured live `LanguageModel` for the lifetime of `effect`,
+ * removing that service from its requirements. Configuration errors are added
+ * to the effect's error channel; model-operation failures are unchanged.
  *
  * @since 0.1.0
  * @category constructors

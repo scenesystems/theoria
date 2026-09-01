@@ -251,8 +251,14 @@ export const descriptorForLiveTextProvider = (
   )
 
 /**
- * Resolves config-backed provider settings into one package-owned live runtime
- * config record.
+ * Resolves configuration for a live text provider.
+ *
+ * @remarks
+ * Resolves explicit overrides over environment-backed settings. Provider
+ * defaults to `openai`; model defaults are provider-specific. An API key is
+ * mandatory after merging (`DSP_PROVIDER_API_KEY` or the provider-specific
+ * key), and every Effect Config failure is wrapped as `InvalidRuntimeConfig`.
+ * Secrets remain `Redacted` in the result.
  *
  * @since 0.1.0
  * @category constructors

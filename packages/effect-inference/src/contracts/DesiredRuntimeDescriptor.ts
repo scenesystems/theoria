@@ -26,7 +26,8 @@ export const RuntimeRoleSchema = Schema.Literal(
 )
 
 /**
- * Schema describing the caller's desired runtime intent.
+ * Decodes caller intent before resolution; optional route, capability, role,
+ * and tag fields remain absent rather than receiving inferred defaults.
  *
  * @since 0.1.0
  * @category schemas
@@ -40,7 +41,9 @@ export const DesiredRuntimeDescriptorSchema = Schema.Struct({
 })
 
 /**
- * Extracted desired-runtime descriptor type.
+ * Caller-owned inference intent supplied to resolution. A missing route asks
+ * an outer policy to choose one (and is rejected by the live resolver), while
+ * missing capabilities, role, or tags add no constraints or policy hints.
  *
  * @since 0.1.0
  * @category type-level

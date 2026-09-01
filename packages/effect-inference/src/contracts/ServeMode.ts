@@ -21,7 +21,9 @@ export const ServeModeSchema = Schema.Literal(
 )
 
 /**
- * Extracted serve-mode union.
+ * Classifies the deployment boundary behind a route, distinguishing direct
+ * hosted APIs, broker-selected providers, dedicated endpoints, and runtimes
+ * operated locally or by the caller.
  *
  * @since 0.1.0
  * @category type-level

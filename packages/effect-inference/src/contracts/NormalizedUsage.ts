@@ -6,7 +6,8 @@
 import { Schema } from "effect"
 
 /**
- * Schema for package-owned usage normalization.
+ * Decodes required input, output, and total token counts while preserving
+ * unavailable cache, reasoning, and cost observations as absent.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,7 +23,9 @@ export const NormalizedUsageSchema = Schema.Struct({
 })
 
 /**
- * Extracted normalized usage record.
+ * Provider-independent token and optional cost observations copied into
+ * post-execution evidence. Missing cache, reasoning, or cost fields mean that
+ * accounting detail was unavailable, not zero.
  *
  * @since 0.1.0
  * @category type-level

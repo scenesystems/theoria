@@ -14,7 +14,9 @@ import { Schema } from "effect"
 export const StructuredOutputModeSchema = Schema.Literal("none", "best-effort", "strict")
 
 /**
- * Stable capability record exposed after route resolution.
+ * Conservative capability claims emitted by route resolution. These values
+ * govern which model layers may be exposed; they are package policy, not
+ * observations of a provider deployment or completed request.
  *
  * @since 0.1.0
  * @category schemas
@@ -31,7 +33,9 @@ export const RuntimeCapabilitiesSchema = Schema.Struct({
 })
 
 /**
- * Extracted resolved capability record.
+ * Conservative package-policy result produced during route resolution and
+ * used to gate language and embedding layers. It is not a provider attestation
+ * or an observation from a completed request.
  *
  * @since 0.1.0
  * @category type-level

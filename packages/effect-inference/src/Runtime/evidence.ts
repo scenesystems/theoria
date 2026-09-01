@@ -8,8 +8,9 @@ import type { RuntimeEvidence } from "../contracts/RuntimeEvidence.js"
 import type { RuntimeResolution } from "./services.js"
 
 /**
- * Combines pre-execution resolution output with post-execution runtime truth
- * into one replay-safe runtime-evidence record.
+ * Combines a pre-execution resolution with caller-supplied post-execution
+ * evidence. The function copies data without decoding or verifying it; callers
+ * must derive `resolvedRuntime` from the actual provider response.
  *
  * @since 0.1.0
  * @category constructors

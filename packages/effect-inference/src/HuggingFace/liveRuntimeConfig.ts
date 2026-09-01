@@ -361,6 +361,7 @@ const endpointConfig = (
  * Resolves Hugging Face routed-provider or dedicated-endpoint runtime config
  * from environment-backed configuration plus explicit overrides.
  *
+ * @remarks
  * Supported env keys include `HUGGINGFACE_ACCESS_TOKEN`,
  * `HUGGINGFACE_SERVE_MODE`, `HUGGINGFACE_MODEL`, route-specific model/base-url
  * keys, `HUGGINGFACE_SELECTION_POLICY`, `HUGGINGFACE_ENDPOINT_ID`,

@@ -33,9 +33,9 @@ const missingCapability = (capability: string, reason: string): CapabilityMismat
   new CapabilityMismatch({ capability, reason })
 
 /**
- * Resolves explicit Hugging Face live runtime options into the canonical
- * package-owned `RuntimeResolution`, including authenticated live layers and
- * stable route provenance.
+ * Builds route provenance and authenticated model layers from explicit
+ * Hugging Face options, then checks requested capabilities against the route's
+ * conservative capability matrix. This effect performs no provider request.
  *
  * @since 0.1.0
  * @category constructors
@@ -52,8 +52,8 @@ export const resolveLiveRuntime = (
   })
 
 /**
- * Resolves Hugging Face live runtime configuration from env-backed config plus
- * explicit overrides, then constructs the canonical runtime resolution.
+ * Decodes Hugging Face config with explicit options taking precedence over the
+ * selected `ConfigProvider`, then delegates to {@link resolveLiveRuntime}.
  *
  * @since 0.1.0
  * @category constructors

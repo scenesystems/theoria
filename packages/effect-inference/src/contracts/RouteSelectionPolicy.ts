@@ -28,7 +28,9 @@ export const RouteSelectionPolicySchema = Schema.Union(
 )
 
 /**
- * Extracted route-selection policy type.
+ * Expresses caller preference at a brokered routing boundary: delegate the
+ * choice to a named strategy or require one explicit provider. Absence leaves
+ * selection to the route adapter's default policy.
  *
  * @since 0.1.0
  * @category type-level

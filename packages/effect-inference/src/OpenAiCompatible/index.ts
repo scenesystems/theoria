@@ -1,5 +1,6 @@
 /**
- * OpenAI-compatible family helpers and future live adapter entrypoints.
+ * OpenAI-compatible route metadata, transport planning, and live Effect AI
+ * language and embedding model layers.
  *
  * @since 0.1.0
  */

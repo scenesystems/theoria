@@ -36,8 +36,8 @@ const defaultTestingUsage = () =>
   })
 
 /**
- * Constructs a deterministic requested-runtime fixture with one package-owned
- * source of truth for tests and examples.
+ * Constructs a desired descriptor, defaulting only `modelRef` to
+ * `testing/model`; omitted route and capability fields stay absent.
  *
  * @since 0.1.0
  * @category constructors
@@ -143,8 +143,8 @@ export const makeRuntimeResolution = (options: {
 }
 
 /**
- * Constructs deterministic post-execution runtime truth for tests that need
- * replay-safe evidence without a live provider call.
+ * Constructs caller-supplied post-execution fixture data without contacting or
+ * impersonating a provider. Only `responseModel` receives a default.
  *
  * @since 0.1.0
  * @category constructors
@@ -215,8 +215,8 @@ export const makeResolvedRuntimeDescriptor = (options?: {
 }
 
 /**
- * Constructs deterministic runtime evidence from package-owned requested,
- * resolved-route, and resolved-runtime fixtures.
+ * Combines the fixture resolution and response descriptor into a runtime
+ * evidence record; no Schema decoding or provenance verification is performed.
  *
  * @since 0.1.0
  * @category constructors

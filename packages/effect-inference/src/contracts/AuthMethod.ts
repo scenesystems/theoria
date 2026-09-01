@@ -22,7 +22,8 @@ export const AuthMethodSchema = Schema.Literal(
 )
 
 /**
- * Extracted authentication-method union.
+ * Identifies the credential transport a route expects; it describes how a
+ * client authenticates and never contains the credential itself.
  *
  * @since 0.1.0
  * @category type-level

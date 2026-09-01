@@ -24,7 +24,9 @@ export const FinishReasonSchema = Schema.Literal(
 )
 
 /**
- * Schema describing runtime truth discovered after execution.
+ * Post-execution observations copied from a provider response. Optional fields
+ * distinguish unavailable evidence from inferred defaults; callers should not
+ * populate them from pre-execution route resolution.
  *
  * @since 0.1.0
  * @category schemas
@@ -41,7 +43,9 @@ export const ResolvedRuntimeDescriptorSchema = Schema.Struct({
 })
 
 /**
- * Extracted resolved-runtime descriptor type.
+ * Holds observations copied from a completed provider response, on the
+ * post-execution side of the provenance boundary. Missing optional fields mean
+ * the provider or caller supplied no evidence and must not be defaulted.
  *
  * @since 0.1.0
  * @category type-level

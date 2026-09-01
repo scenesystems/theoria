@@ -6,8 +6,8 @@
 import { Schema } from "effect"
 
 /**
- * Schema describing the model the caller wants, independent of where it is
- * executed.
+ * Decodes caller-owned model identity without accepting provider, endpoint, or
+ * other execution-route claims.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,7 +21,9 @@ export const ModelArtifactSchema = Schema.Struct({
 })
 
 /**
- * Extracted requested model-identity record.
+ * Captures caller-owned model identity independently from provider routing.
+ * Optional revision, alias, adapter, and family fields refine intent; their
+ * absence makes no claim about values selected by the runtime.
  *
  * @since 0.1.0
  * @category type-level

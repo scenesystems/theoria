@@ -12,8 +12,8 @@ import { RuntimeFlavorSchema } from "./RuntimeFlavor.js"
 import { ServeModeSchema } from "./ServeMode.js"
 
 /**
- * Schema describing how a runtime can be reached without encoding the model
- * requested by the caller.
+ * Decodes transport and deployment identity without admitting the requested
+ * model or any observations from a provider response.
  *
  * @since 0.1.0
  * @category schemas
@@ -31,7 +31,9 @@ export const ExecutionRouteSchema = Schema.Struct({
 })
 
 /**
- * Extracted execution-route record.
+ * Describes the transport, deployment boundary, and authentication method used
+ * to reach inference. It deliberately excludes requested and response model
+ * identity so route provenance cannot be mistaken for execution evidence.
  *
  * @since 0.1.0
  * @category type-level

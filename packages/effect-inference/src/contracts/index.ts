@@ -1,5 +1,11 @@
 /**
- * Schema-owned contracts for inference descriptors, routing, and evidence.
+ * Defines the schemas that keep requested model intent, resolved route
+ * provenance, provider metadata, and post-execution evidence separate.
+ *
+ * @remarks
+ * Decode these contracts at configuration and persistence boundaries. Use the
+ * `Runtime` module to construct and resolve descriptors and to assemble
+ * runtime evidence after execution.
  *
  * @since 0.1.0
  */

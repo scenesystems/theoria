@@ -17,7 +17,8 @@ import { RuntimeFlavorSchema } from "./RuntimeFlavor.js"
 export const ResolvedRouteProvenanceVersion = "resolved-route/v1"
 
 /**
- * Schema for the stable resolved-route provenance version literal.
+ * Accepts only the current `resolved-route/v1` interpretation when decoding
+ * persisted provenance; no version is supplied by default.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +26,8 @@ export const ResolvedRouteProvenanceVersion = "resolved-route/v1"
 export const ResolvedRouteProvenanceVersionSchema = Schema.Literal(ResolvedRouteProvenanceVersion)
 
 /**
- * Extracted resolved-route provenance version type.
+ * Version marker that selects the interpretation of persisted route
+ * provenance; `resolved-route/v1` is required rather than inferred on decode.
  *
  * @since 0.1.0
  * @category type-level
@@ -33,8 +35,9 @@ export const ResolvedRouteProvenanceVersionSchema = Schema.Literal(ResolvedRoute
 export type ResolvedRouteProvenanceVersion = Schema.Schema.Type<typeof ResolvedRouteProvenanceVersionSchema>
 
 /**
- * Schema describing how requested runtime intent resolved onto an execution
- * route.
+ * Pre-execution route provenance. Provider, deployment, and model fields are
+ * resolution decisions or hints and must not be treated as response evidence;
+ * `selectionReason` records why the resolver made that choice.
  *
  * @since 0.1.0
  * @category schemas
@@ -50,7 +53,9 @@ export const ResolvedRouteDescriptorSchema = Schema.Struct({
 })
 
 /**
- * Extracted resolved-route descriptor type.
+ * Records the resolver's pre-execution route decision and rationale. Optional
+ * provider, deployment, model, and flavor values mean the resolver did not
+ * establish that detail when absent; none are response observations.
  *
  * @since 0.1.0
  * @category type-level

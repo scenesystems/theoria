@@ -35,7 +35,8 @@ const providerMetadataValueSchema: Schema.Schema<
 )
 
 /**
- * Recursive schema for provider-specific metadata payloads.
+ * Restricts provider extensions to recursively JSON-safe values so runtime
+ * evidence remains serializable without assigning normalized semantics.
  *
  * @since 0.1.0
  * @category schemas
@@ -43,7 +44,8 @@ const providerMetadataValueSchema: Schema.Schema<
 export const ProviderMetadataValueSchema = providerMetadataValueSchema
 
 /**
- * Provider-namespaced metadata record.
+ * Keeps JSON-safe response details under provider keys so extensions cannot
+ * collide with package-owned normalized evidence fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -54,7 +56,9 @@ export const ProviderMetadataSchema = Schema.Record({
 })
 
 /**
- * Extracted provider-metadata record.
+ * Provider-owned response details retained for replay without promoting them
+ * to normalized evidence. Decoding establishes JSON shape, not authenticity
+ * or cross-provider semantics.
  *
  * @since 0.1.0
  * @category type-level
