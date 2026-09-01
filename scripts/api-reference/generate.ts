@@ -28,13 +28,9 @@ export const generateApiReference = (input: {
     const path = yield* Path.Path
     const links = makeApiDocLinks(input.sourcePackages)
     const browserVersionRoot = path.join(input.browserOutputRoot, input.revision)
+    yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
     yield* Effect.forEach(
-      [input.outputRoot, input.browserOutputRoot],
-      (directory) => fileSystem.remove(directory, { recursive: true, force: true }).pipe(Effect.orDie),
-      { discard: true }
-    )
-    yield* Effect.forEach(
-      [input.outputRoot, browserVersionRoot],
+      [input.outputRoot, input.browserOutputRoot, browserVersionRoot],
       (directory) => fileSystem.makeDirectory(directory, { recursive: true }).pipe(Effect.orDie),
       { discard: true }
     )
@@ -42,7 +38,7 @@ export const generateApiReference = (input: {
     const generatedPackages = yield* Effect.forEach(
       input.sourcePackages,
       (sourcePackage) => generateApiPackage({ ...input, browserVersionRoot, links, sourcePackage }),
-      { concurrency: 1 }
+      { concurrency: 4 }
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)
     const manifest: ApiReferenceManifest = {
@@ -56,7 +52,7 @@ export const generateApiReference = (input: {
       entries: Arr.flatMap(generatedPackages, (generated) => generated.searchEntries)
     }
     const docsManifest: DocsManifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       revision: input.revision,
       searchIndexAsset: `/docs-data/${input.revision}/search-index.json`,
       packages: Arr.map(generatedPackages, (generated) => generated.docsPackage)

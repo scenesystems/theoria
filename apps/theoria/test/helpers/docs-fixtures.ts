@@ -5,7 +5,7 @@ const packageRoot = `/docs-data/${revision}/packages/effect-search`
 const sourceUrl = `https://github.com/scenesystems/theoria/blob/${revision}/packages/effect-search/src/index.ts`
 
 export const docsManifestFixture: DocsManifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   revision,
   searchIndexAsset: `/docs-data/${revision}/search-index.json`,
   packages: [{

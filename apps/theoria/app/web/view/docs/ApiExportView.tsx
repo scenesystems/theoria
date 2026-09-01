@@ -80,7 +80,7 @@ export const ApiExportView = ({ apiExport }: { readonly apiExport: ApiExport }) 
   <Section className="scroll-mt-28 border-t border-stage-200/90 pt-9 first:border-t-0 first:pt-0" id={apiExport.anchor}>
     <Stack className="gap-7">
       <Stack className="gap-3">
-        <SemanticText as="h2" className="break-words text-ink-950" role="section-title" text={apiExport.name} />
+        <SemanticText as="h1" className="break-words text-ink-950" role="section-title" text={apiExport.name} />
         <Cluster className="gap-2">
           <SemanticText
             as="span"

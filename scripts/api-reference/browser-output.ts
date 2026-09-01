@@ -7,7 +7,16 @@ import {
   type GuidePage
 } from "@theoria/docs-model"
 import { type ApiReferenceRoute } from "./model.js"
-import { writeApiPage, writeGuidePage } from "./output.js"
+import {
+  browserApiExportPath,
+  makeBrowserApiExportPage,
+  makeBrowserApiModuleIndex
+} from "./browser-model.js"
+import {
+  writeDocsApiExportPage,
+  writeDocsApiModuleIndex,
+  writeGuidePage
+} from "./output.js"
 
 const docText = (page: ApiPage): string =>
   Arr.map(page.module.docs.summary, (part) => part.text).join("").trim()
@@ -30,7 +39,17 @@ export const writeBrowserApiModule = (input: {
     }
 
     const [route, page] = canonical.value
-    yield* writeApiPage(input.browserVersionRoot, route.page, page)
+    const moduleIndex = makeBrowserApiModuleIndex(page, input.revision, route.page)
+    yield* Effect.forEach(
+      page.exports,
+      (apiExport) => writeDocsApiExportPage(
+        input.browserVersionRoot,
+        browserApiExportPath(route.page, apiExport.anchor),
+        makeBrowserApiExportPage(apiExport)
+      ),
+      { concurrency: 16, discard: true }
+    )
+    yield* writeDocsApiModuleIndex(input.browserVersionRoot, route.page, moduleIndex)
 
     const moduleSummary: DocsApiModuleSummary = {
       name: page.module.name,

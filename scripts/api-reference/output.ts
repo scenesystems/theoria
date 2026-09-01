@@ -4,6 +4,10 @@ import { Effect, Schema } from "effect"
 import {
   type ApiPage,
   ApiPageJson,
+  type DocsApiExportPage,
+  DocsApiExportPageJson,
+  type DocsApiModuleIndex,
+  DocsApiModuleIndexJson,
   type DocsManifest,
   DocsManifestJson,
   type DocsSearchIndex,
@@ -24,46 +28,48 @@ export const sha256File = (filePath: string) =>
     return yield* Effect.sync(() => new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
   })
 
-export const writeApiPage = (outputRoot: string, relativeOutput: string, page: ApiPage) =>
+const writeJson = <A>(
+  outputRoot: string,
+  relativeOutput: string,
+  schema: Schema.Schema<A, string>,
+  value: A
+) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const absoluteOutput = path.join(outputRoot, relativeOutput)
-    const pageJson = yield* Schema.encode(ApiPageJson)(page).pipe(Effect.orDie)
+    const temporaryOutput = `${absoluteOutput}.${crypto.randomUUID()}.tmp`
+    const json = yield* Schema.encode(schema)(value).pipe(Effect.orDie)
     yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true }).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(absoluteOutput, `${pageJson}\n`).pipe(Effect.orDie)
+    yield* fileSystem.writeFileString(temporaryOutput, `${json}\n`).pipe(Effect.orDie)
+    yield* fileSystem.rename(temporaryOutput, absoluteOutput).pipe(Effect.orDie)
   })
+
+export const writeApiPage = (outputRoot: string, relativeOutput: string, page: ApiPage) =>
+  writeJson(outputRoot, relativeOutput, ApiPageJson, page)
+
+export const writeDocsApiModuleIndex = (
+  outputRoot: string,
+  relativeOutput: string,
+  page: DocsApiModuleIndex
+) =>
+  writeJson(outputRoot, relativeOutput, DocsApiModuleIndexJson, page)
+
+export const writeDocsApiExportPage = (
+  outputRoot: string,
+  relativeOutput: string,
+  page: DocsApiExportPage
+) =>
+  writeJson(outputRoot, relativeOutput, DocsApiExportPageJson, page)
 
 export const writeApiManifest = (outputRoot: string, manifest: ApiReferenceManifest) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const manifestJson = yield* Schema.encode(ApiReferenceManifestJson)(manifest).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(path.join(outputRoot, "manifest.json"), `${manifestJson}\n`).pipe(Effect.orDie)
-  })
+  writeJson(outputRoot, "manifest.json", ApiReferenceManifestJson, manifest)
 
 export const writeApiSearchIndex = (outputRoot: string, index: DocsSearchIndex) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const indexJson = yield* Schema.encode(DocsSearchIndexJson)(index).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(path.join(outputRoot, "search-index.json"), `${indexJson}\n`).pipe(Effect.orDie)
-  })
+  writeJson(outputRoot, "search-index.json", DocsSearchIndexJson, index)
 
 export const writeGuidePage = (outputRoot: string, relativeOutput: string, page: GuidePage) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const absoluteOutput = path.join(outputRoot, relativeOutput)
-    const pageJson = yield* Schema.encode(GuidePageJson)(page).pipe(Effect.orDie)
-    yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true }).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(absoluteOutput, `${pageJson}\n`).pipe(Effect.orDie)
-  })
+  writeJson(outputRoot, relativeOutput, GuidePageJson, page)
 
 export const writeDocsManifest = (outputRoot: string, manifest: DocsManifest) =>
-  Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    const manifestJson = yield* Schema.encode(DocsManifestJson)(manifest).pipe(Effect.orDie)
-    yield* fileSystem.writeFileString(path.join(outputRoot, "manifest.json"), `${manifestJson}\n`).pipe(Effect.orDie)
-  })
+  writeJson(outputRoot, "manifest.json", DocsManifestJson, manifest)

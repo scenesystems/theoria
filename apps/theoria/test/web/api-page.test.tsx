@@ -5,7 +5,7 @@ import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 
 import { ApiPageView } from "../../app/web/view/docs/ApiPageView.js"
-import { apiPageFixture } from "../helpers/docs-fixtures.js"
+import { docsApiExportPageFixture, docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 
 const waitFor = (predicate: () => boolean): Effect.Effect<void> =>
   Effect.eventually(
@@ -25,7 +25,7 @@ const render = (node: ReactNode) => {
 describe("API page presentation", () => {
   it.effect("indexes exports by category and summary without rendering a declaration dump", () =>
     Effect.gen(function*() {
-      const { container, root } = render(<ApiPageView page={apiPageFixture} />)
+      const { container, root } = render(<ApiPageView page={docsApiModuleIndexFixture} />)
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
@@ -44,8 +44,10 @@ describe("API page presentation", () => {
 
   it.effect("leads a selected function with documentation before its reference details", () =>
     Effect.gen(function*() {
-      const selected = Option.getOrThrow(Option.fromNullable(apiPageFixture.exports[0]))
-      const { container, root } = render(<ApiPageView page={apiPageFixture} selectedExport={Option.some(selected)} />)
+      const selected = docsApiExportPageFixture(0).export
+      const { container, root } = render(
+        <ApiPageView page={docsApiModuleIndexFixture} selectedExport={Option.some(selected)} />
+      )
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
@@ -71,8 +73,10 @@ describe("API page presentation", () => {
 
   it.effect("renders documented members only when their export is selected", () =>
     Effect.gen(function*() {
-      const selected = Option.getOrThrow(Option.fromNullable(apiPageFixture.exports[1]))
-      const { container, root } = render(<ApiPageView page={apiPageFixture} selectedExport={Option.some(selected)} />)
+      const selected = docsApiExportPageFixture(1).export
+      const { container, root } = render(
+        <ApiPageView page={docsApiModuleIndexFixture} selectedExport={Option.some(selected)} />
+      )
 
       yield* Effect.ensuring(
         Effect.gen(function*() {

@@ -3,9 +3,9 @@ import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
-import type { ApiPage, GuidePage } from "@theoria/docs-model"
+import type { DocsApiExportSummary, DocsApiModuleIndex, GuidePage } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
-import { docsApiPageAtom, docsGuidePageAtom } from "../../atoms/docs-data.js"
+import { docsApiExportAtom, docsApiModuleIndexAtom, docsGuidePageAtom } from "../../atoms/docs-data.js"
 import { docsLocationHashAtom, docsLocationHashMountAtom } from "../../atoms/docs.js"
 import { apiCategoryAnchor, ApiPageView } from "./ApiPageView.js"
 import { apiExportForHash } from "./docsModel.js"
@@ -17,11 +17,62 @@ import { GuidePageView } from "./GuidePageView.js"
 const guideAnchors = (page: GuidePage): ReadonlyArray<DocsPageAnchor> =>
   Arr.map(page.anchors, (anchor): DocsPageAnchor => [anchor.id, anchor.label])
 
-const apiAnchors = (page: ApiPage, hash: string): ReadonlyArray<DocsPageAnchor> =>
+const apiAnchors = (page: DocsApiModuleIndex, hash: string): ReadonlyArray<DocsPageAnchor> =>
   Option.match(apiExportForHash(page, hash), {
     onNone: () =>
       Arr.map(page.categories, (category): DocsPageAnchor => [apiCategoryAnchor(category.name), category.name]),
     onSome: (apiExport) => [[apiExport.anchor, apiExport.name]]
+  })
+
+const FocusedApiExportResource = ({
+  page,
+  route,
+  summary
+}: {
+  readonly page: DocsApiModuleIndex
+  readonly route: DocsRoute
+  readonly summary: DocsApiExportSummary
+}) => {
+  const atom = docsApiExportAtom(summary.asset)
+  const result = useAtomValue(atom)
+  const refresh = useAtomRefresh(atom)
+  const anchors: ReadonlyArray<DocsPageAnchor> = [[summary.anchor, summary.name]]
+
+  return Result.match(result, {
+    onInitial: () => (
+      <DocsResourceFrame anchors={anchors} route={route}>
+        <DocsStatus state="loading" />
+      </DocsResourceFrame>
+    ),
+    onFailure: () => (
+      <DocsResourceFrame anchors={anchors} route={route}>
+        <DocsStatus retry={refresh} state="failure" />
+      </DocsResourceFrame>
+    ),
+    onSuccess: ({ value }) => (
+      <DocsResourceFrame anchors={anchors} route={route}>
+        <ApiPageView page={page} selectedExport={Option.some(value.export)} />
+      </DocsResourceFrame>
+    )
+  })
+}
+
+const ApiModuleIndexResource = ({
+  hash,
+  page,
+  route
+}: {
+  readonly hash: string
+  readonly page: DocsApiModuleIndex
+  readonly route: DocsRoute
+}) =>
+  Option.match(apiExportForHash(page, hash), {
+    onNone: () => (
+      <DocsResourceFrame anchors={apiAnchors(page, hash)} route={route}>
+        <ApiPageView page={page} />
+      </DocsResourceFrame>
+    ),
+    onSome: (summary) => <FocusedApiExportResource page={page} route={route} summary={summary} />
   })
 
 export const GuideResource = ({
@@ -63,7 +114,7 @@ export const ApiResource = ({
 }) => {
   useAtomValue(docsLocationHashMountAtom)
   const hash = useAtomValue(docsLocationHashAtom)
-  const atom = docsApiPageAtom(asset)
+  const atom = docsApiModuleIndexAtom(asset)
   const result = useAtomValue(atom)
   const refresh = useAtomRefresh(atom)
 
@@ -78,14 +129,6 @@ export const ApiResource = ({
         <DocsStatus retry={refresh} state="failure" />
       </DocsResourceFrame>
     ),
-    onSuccess: ({ value }) => {
-      const selectedExport = apiExportForHash(value, hash)
-
-      return (
-        <DocsResourceFrame anchors={apiAnchors(value, hash)} route={route}>
-          <ApiPageView page={value} selectedExport={selectedExport} />
-        </DocsResourceFrame>
-      )
-    }
+    onSuccess: ({ value }) => <ApiModuleIndexResource hash={hash} page={value} route={route} />
   })
 }

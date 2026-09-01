@@ -1,7 +1,7 @@
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
-import type { ApiCategory, ApiExport, ApiPage } from "@theoria/docs-model"
+import type { ApiCategory, ApiExport, DocsApiExportSummary, DocsApiModuleIndex } from "@theoria/docs-model"
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { AnchorLink, ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -11,10 +11,10 @@ import { ApiExportView } from "./ApiExportView.js"
 export const apiCategoryAnchor = (name: string): string =>
   `category-${name.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "-").replace(/(^-|-$)/gu, "")}`
 
-const exportFor = (page: ApiPage, id: string): Option.Option<ApiExport> =>
+const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiExportSummary> =>
   Arr.findFirst(page.exports, (apiExport) => apiExport.id === id)
 
-const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: ApiExport }) => (
+const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: DocsApiExportSummary }) => (
   <li>
     <AnchorLink
       className="group block rounded-xl px-3 py-4 outline-none transition-colors hover:bg-stage-0/72 focus-visible:bg-stage-0/72 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:px-4"
@@ -36,7 +36,13 @@ const ApiExportIndexItem = ({ apiExport }: { readonly apiExport: ApiExport }) =>
   </li>
 )
 
-const ApiCategoryIndex = ({ category, page }: { readonly category: ApiCategory; readonly page: ApiPage }) => (
+const ApiCategoryIndex = ({
+  category,
+  page
+}: {
+  readonly category: ApiCategory
+  readonly page: DocsApiModuleIndex
+}) => (
   <Section className="scroll-mt-28" id={apiCategoryAnchor(category.name)}>
     <Stack className="gap-4">
       <SemanticText as="h2" className="capitalize text-ink-950" role="section-title" text={category.name} />
@@ -51,7 +57,7 @@ const ApiCategoryIndex = ({ category, page }: { readonly category: ApiCategory; 
   </Section>
 )
 
-const ApiModuleHeader = ({ page }: { readonly page: ApiPage }) => (
+const ApiModuleHeader = ({ page }: { readonly page: DocsApiModuleIndex }) => (
   <Section className="scroll-mt-28 border-b border-stage-200/90 pb-8" id="module">
     <Stack className="gap-5">
       <Stack className="gap-3">
@@ -83,14 +89,23 @@ const ApiModuleHeader = ({ page }: { readonly page: ApiPage }) => (
   </Section>
 )
 
-const SelectedApiExport = ({ apiExport }: { readonly apiExport: ApiExport }) => (
-  <Stack className="gap-8">
-    <AnchorLink
-      className="w-fit font-body text-sm font-medium text-ink-600 outline-none hover:text-ink-950 focus-visible:ring-2 focus-visible:ring-ink-900/20"
-      href="#module"
-    >
-      ← All exports
-    </AnchorLink>
+const SelectedApiExport = ({
+  apiExport,
+  page
+}: {
+  readonly apiExport: ApiExport
+  readonly page: DocsApiModuleIndex
+}) => (
+  <Stack className="gap-6">
+    <Stack className="gap-2">
+      <SemanticText as="code" className="text-ink-500" role="code-meta" text={page.package.name} />
+      <AnchorLink
+        className="w-fit font-body text-sm font-medium text-ink-600 outline-none hover:text-ink-950 focus-visible:ring-2 focus-visible:ring-ink-900/20"
+        href="#module"
+      >
+        ← {page.module.name}
+      </AnchorLink>
+    </Stack>
     <ApiExportView apiExport={apiExport} />
   </Stack>
 )
@@ -99,18 +114,19 @@ export const ApiPageView = ({
   page,
   selectedExport = Option.none()
 }: {
-  readonly page: ApiPage
+  readonly page: DocsApiModuleIndex
   readonly selectedExport?: Option.Option<ApiExport>
 }) => (
-  <Stack className="gap-12 sm:gap-14">
-    <ApiModuleHeader page={page} />
-    {Option.match(selectedExport, {
-      onNone: () =>
-        Arr.map(
+  Option.match(selectedExport, {
+    onNone: () => (
+      <Stack className="gap-12 sm:gap-14">
+        <ApiModuleHeader page={page} />
+        {Arr.map(
           page.categories,
           (category) => <ApiCategoryIndex category={category} key={category.name} page={page} />
-        ),
-      onSome: (apiExport) => <SelectedApiExport apiExport={apiExport} />
-    })}
-  </Stack>
+        )}
+      </Stack>
+    ),
+    onSome: (apiExport) => <SelectedApiExport apiExport={apiExport} page={page} />
+  })
 )

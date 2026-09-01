@@ -5,10 +5,17 @@ import * as Schema from "effect/Schema"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { docsIndexRoute, docsOverviewRoute } from "../../app/contracts/docs.js"
-import { DocsManifestJson, DocsSearchIndexJson, GuidePageJson } from "@theoria/docs-model"
+import { docsApiRoute, docsIndexRoute, docsOverviewRoute } from "../../app/contracts/docs.js"
+import {
+  DocsApiExportPageJson,
+  DocsApiModuleIndexJson,
+  DocsManifestJson,
+  DocsSearchIndexJson,
+  GuidePageJson
+} from "@theoria/docs-model"
 import { DocsPage } from "../../app/web/view/docs/DocsPage.js"
 import { SiteHeader } from "../../app/web/view/primitives/SiteHeader.js"
+import { docsApiExportPageFixture, docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
 import {
   docsManifestFixture,
   docsSearchIndexFixture,
@@ -35,6 +42,8 @@ const waitFor = (predicate: () => boolean): Effect.Effect<void> =>
 const manifestJson = Schema.encodeSync(DocsManifestJson)(docsManifestFixture)
 const searchIndexJson = Schema.encodeSync(DocsSearchIndexJson)(docsSearchIndexFixture)
 const guidePageJson = Schema.encodeSync(GuidePageJson)(guidePageFixture)
+const apiModuleIndexJson = Schema.encodeSync(DocsApiModuleIndexJson)(docsApiModuleIndexFixture)
+const apiExportJson = Schema.encodeSync(DocsApiExportPageJson)(docsApiExportPageFixture(0))
 
 const response = (content: string) => ({
   ok: true,
@@ -48,6 +57,10 @@ const docsResponse = (input: string | URL | Request) => {
     ? response(manifestJson)
     : path.endsWith("search-index.json")
     ? response(searchIndexJson)
+    : path.endsWith("pages/Study.json")
+    ? response(apiModuleIndexJson)
+    : path.endsWith("api-runStudy.json")
+    ? response(apiExportJson)
     : response(guidePageJson)
 }
 
@@ -114,6 +127,27 @@ describe("documentation shell", () => {
         Effect.sync(() => {
           root.unmount()
           container.remove()
+        })
+      )
+    })))
+
+  it.effect("loads focused API detail after the module index", () =>
+    withDocsFetch(Effect.gen(function*() {
+      globalThis.history.replaceState(null, "", "/docs/effect-search/api/Study#api-runStudy")
+      const { container, root } = render(<DocsPage route={docsApiRoute("effect-search", "Study")} />)
+
+      yield* Effect.ensuring(
+        Effect.gen(function*() {
+          yield* waitFor(() => container.textContent?.includes("runStudy<A>") === true)
+          expect(container.textContent).toContain("Run a study.")
+          expect(container.textContent).toContain("const result = yield* runStudy(input)")
+          expect(container.textContent).not.toContain("Build and run optimization studies.")
+          expect(container.querySelector('a[href="#module"]')?.textContent?.trim()).toBe("← Study")
+        }),
+        Effect.sync(() => {
+          root.unmount()
+          container.remove()
+          globalThis.history.replaceState(null, "", "/")
         })
       )
     })))

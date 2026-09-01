@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { ApiPagePackageSchema } from "./api-reference.js"
+import { ApiCategorySchema, ApiExportSchema, ApiPageModuleSchema, ApiPagePackageSchema } from "./api-reference.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -73,6 +73,36 @@ export const DocsApiModuleSummarySchema = Schema.Struct({
   categories: Schema.Array(NonEmptyString)
 })
 
+export const DocsApiExportSummarySchema = Schema.Struct({
+  id: NonEmptyString,
+  name: NonEmptyString,
+  anchor: NonEmptyString,
+  importKind: Schema.Literal("default", "namespace", "type", "value"),
+  category: Schema.String,
+  since: Schema.String,
+  summary: Schema.String,
+  asset: DocsAssetPath
+})
+
+export const DocsApiModuleIndexSchema = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  kind: Schema.Literal("api-module-index"),
+  path: NonEmptyString,
+  canonical: Schema.Boolean,
+  canonicalPath: NonEmptyString,
+  aliases: Schema.Array(NonEmptyString),
+  package: ApiPagePackageSchema,
+  module: ApiPageModuleSchema,
+  categories: Schema.Array(ApiCategorySchema),
+  exports: Schema.Array(DocsApiExportSummarySchema)
+})
+
+export const DocsApiExportPageSchema = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  kind: Schema.Literal("api-export"),
+  export: ApiExportSchema
+})
+
 export const DocsPackageSummarySchema = Schema.Struct({
   name: NonEmptyString,
   version: NonEmptyString,
@@ -86,7 +116,7 @@ export const DocsPackageSummarySchema = Schema.Struct({
 })
 
 export const DocsManifestSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
   revision: NonEmptyString,
   searchIndexAsset: DocsAssetPath,
   packages: Schema.Array(DocsPackageSummarySchema)
@@ -111,6 +141,8 @@ export const DocsSearchIndexSchema = Schema.Struct({
 })
 
 export const GuidePageJson = Schema.parseJson(GuidePageSchema)
+export const DocsApiModuleIndexJson = Schema.parseJson(DocsApiModuleIndexSchema)
+export const DocsApiExportPageJson = Schema.parseJson(DocsApiExportPageSchema)
 export const DocsManifestJson = Schema.parseJson(DocsManifestSchema)
 export const DocsSearchIndexJson = Schema.parseJson(DocsSearchIndexSchema)
 
@@ -125,6 +157,9 @@ export type GuideAnchor = typeof GuideAnchorSchema.Type
 export type GuidePage = typeof GuidePageSchema.Type
 export type DocsGuideSummary = typeof DocsGuideSummarySchema.Type
 export type DocsApiModuleSummary = typeof DocsApiModuleSummarySchema.Type
+export type DocsApiExportSummary = typeof DocsApiExportSummarySchema.Type
+export type DocsApiModuleIndex = typeof DocsApiModuleIndexSchema.Type
+export type DocsApiExportPage = typeof DocsApiExportPageSchema.Type
 export type DocsPackageSummary = typeof DocsPackageSummarySchema.Type
 export type DocsManifest = typeof DocsManifestSchema.Type
 export type DocsSearchEntry = typeof DocsSearchEntrySchema.Type

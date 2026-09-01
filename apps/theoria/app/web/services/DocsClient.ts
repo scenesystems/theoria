@@ -2,8 +2,10 @@ import { Effect, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import {
-  type ApiPage,
-  ApiPageJson,
+  type DocsApiExportPage,
+  DocsApiExportPageJson,
+  type DocsApiModuleIndex,
+  DocsApiModuleIndexJson,
   DocsDataError,
   type DocsManifest,
   DocsManifestJson,
@@ -48,7 +50,10 @@ const request = <A>(path: string, schema: Schema.Schema<A, string>) =>
 export class DocsClient extends Effect.Service<DocsClient>()("theoria/DocsClient", {
   succeed: {
     manifest: (): Effect.Effect<DocsManifest, DocsDataError> => request("/docs-data/manifest.json", DocsManifestJson),
-    apiPage: (asset: string): Effect.Effect<ApiPage, DocsDataError> => request(asset, ApiPageJson),
+    apiModuleIndex: (asset: string): Effect.Effect<DocsApiModuleIndex, DocsDataError> =>
+      request(asset, DocsApiModuleIndexJson),
+    apiExport: (asset: string): Effect.Effect<DocsApiExportPage, DocsDataError> =>
+      request(asset, DocsApiExportPageJson),
     guidePage: (asset: string): Effect.Effect<GuidePage, DocsDataError> => request(asset, GuidePageJson),
     searchIndex: (asset: string): Effect.Effect<DocsSearchIndex, DocsDataError> => request(asset, DocsSearchIndexJson)
   }
