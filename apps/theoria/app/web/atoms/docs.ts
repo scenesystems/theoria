@@ -1,12 +1,9 @@
 import { Atom } from "@effect-atom/atom"
 
-import type { DocsCodeExample } from "../../contracts/docs.js"
-
 export const docsSearchOpenAtom = Atom.make(false)
 export const docsSearchQueryAtom = Atom.make("")
 export const docsNavigationOpenAtom = Atom.make(false)
 export const docsPackageMenuOpenAtom = Atom.make(false)
-export const docsCodeExampleAtom = Atom.make<DocsCodeExample>("study")
 
 export const docsKeyboardShortcutsAtom = Atom.make((ctx) => {
   const onKeyDown = (event: KeyboardEvent) => {

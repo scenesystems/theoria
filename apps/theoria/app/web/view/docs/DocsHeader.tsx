@@ -2,7 +2,7 @@ import { Button } from "@base-ui-components/react/button"
 import { useAtomSet } from "@effect-atom/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
 
-import type { Card } from "../../../contracts/card.js"
+import type { DocsPackageSummary } from "@theoria/docs-model"
 import { setDocsNavigationOpenAtom } from "../../atoms/docs.js"
 import { docsTheme } from "../primitives/docsSystem.js"
 import { Cluster, Header, Layer } from "../primitives/Layout.js"
@@ -14,11 +14,11 @@ import { DocsPackagePicker } from "./DocsPackagePicker.js"
 import { DocsSearchTrigger } from "./DocsSearchDialog.js"
 
 export const DocsHeader = ({
-  activeCard,
-  cards
+  activePackage,
+  packages
 }: {
-  readonly activeCard: Card
-  readonly cards: ReadonlyArray<Card>
+  readonly activePackage: DocsPackageSummary | null
+  readonly packages: ReadonlyArray<DocsPackageSummary>
 }) => {
   const setNavigationOpen = useAtomSet(setDocsNavigationOpenAtom)
 
@@ -26,14 +26,18 @@ export const DocsHeader = ({
     <Header className={docsTheme.header}>
       <Cluster className={docsTheme.headerContent}>
         <Cluster className="min-w-0 shrink-0 gap-3">
-          <Button
-            aria-label="Open documentation navigation"
-            className={`${docsTheme.iconButton} lg:hidden`}
-            onClick={() => setNavigationOpen(true)}
-            type="button"
-          >
-            <Bars3Icon aria-hidden className="h-5 w-5" />
-          </Button>
+          {activePackage === null
+            ? null
+            : (
+              <Button
+                aria-label="Open navigation"
+                className={`${docsTheme.iconButton} lg:hidden`}
+                onClick={() => setNavigationOpen(true)}
+                type="button"
+              >
+                <Bars3Icon aria-hidden className="h-5 w-5" />
+              </Button>
+            )}
           <InternalLink
             aria-label="Theoria home"
             className="inline-flex min-w-0 items-baseline text-ink-900 outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
@@ -47,20 +51,12 @@ export const DocsHeader = ({
             className="hidden text-ink-600 outline-none hover:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/20 sm:inline-flex"
             href="/docs"
           >
-            <SemanticText
-              as="span"
-              className="text-inherit"
-              role="status"
-              text="Docs"
-              variant="compact"
-            />
+            <SemanticText as="span" className="text-inherit" role="status" text="Docs" variant="compact" />
           </InternalLink>
         </Cluster>
-
         <Layer className="hidden min-w-0 flex-1 justify-center lg:flex">
-          <DocsPackagePicker activeCard={activeCard} cards={cards} />
+          <DocsPackagePicker activePackage={activePackage} packages={packages} />
         </Layer>
-
         <Cluster className="min-w-0 shrink-0 justify-end gap-2">
           <DocsSearchTrigger />
           <ThemeToggle />

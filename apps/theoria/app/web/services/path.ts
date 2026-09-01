@@ -3,7 +3,11 @@ import * as Arr from "effect/Array"
 
 import {
   docsApiRoute,
-  docsGettingStartedRoute,
+  docsGuideRoute,
+  DocsGuideSlug,
+  docsIndexRoute,
+  DocsModuleSlug,
+  docsNotFoundRoute,
   docsOverviewRoute,
   DocsPackageSlug,
   type DocsRoute
@@ -20,9 +24,11 @@ const homeRoute: PageRoute = { _tag: "HomeRoute" }
 
 const isKnownDemoId = Schema.is(Id)
 const isDocsPackageSlug = Schema.is(DocsPackageSlug)
+const isDocsGuideSlug = Schema.is(DocsGuideSlug)
+const isDocsModuleSlug = Schema.is(DocsModuleSlug)
 const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
-const docsApiPattern = /^\/docs\/([^/]+)\/api(?:\/([^/]+))?\/?$/u
-const docsGettingStartedPattern = /^\/docs\/([^/]+)\/getting-started\/?$/u
+const docsApiPattern = /^\/docs\/([^/]+)\/api(?:\/([^/]+(?:\/[^/]+)*))?\/?$/u
+const docsGuidePattern = /^\/docs\/([^/]+)\/([^/]+)\/?$/u
 const docsOverviewPattern = /^\/docs\/([^/]+)\/?$/u
 
 const packageCapture = (matches: RegExpExecArray): Option.Option<DocsPackageSlug> =>
@@ -30,17 +36,24 @@ const packageCapture = (matches: RegExpExecArray): Option.Option<DocsPackageSlug
 
 const docsApiPageRoute = (pathname: string): Option.Option<PageRoute> =>
   Option.fromNullable(docsApiPattern.exec(pathname)).pipe(
-    Option.flatMap((matches) =>
-      packageCapture(matches).pipe(
-        Option.map((packageSlug) => docsApiRoute(packageSlug, matches[2] ?? null))
+    Option.flatMap((matches) => {
+      const moduleSlug = matches[2] ?? null
+      return packageCapture(matches).pipe(
+        Option.filter(() => moduleSlug === null || isDocsModuleSlug(moduleSlug)),
+        Option.map((packageSlug) => docsApiRoute(packageSlug, moduleSlug))
       )
-    )
+    })
   )
 
-const docsGettingStartedPageRoute = (pathname: string): Option.Option<PageRoute> =>
-  Option.fromNullable(docsGettingStartedPattern.exec(pathname)).pipe(
-    Option.flatMap((matches) => packageCapture(matches)),
-    Option.map(docsGettingStartedRoute)
+const docsGuidePageRoute = (pathname: string): Option.Option<PageRoute> =>
+  Option.fromNullable(docsGuidePattern.exec(pathname)).pipe(
+    Option.flatMap((matches) =>
+      Option.all({
+        guideSlug: Arr.get(matches, 2).pipe(Option.filter(isDocsGuideSlug)),
+        packageSlug: packageCapture(matches)
+      })
+    ),
+    Option.map(({ guideSlug, packageSlug }) => docsGuideRoute(packageSlug, guideSlug))
   )
 
 const docsOverviewPageRoute = (pathname: string): Option.Option<PageRoute> =>
@@ -51,11 +64,16 @@ const docsOverviewPageRoute = (pathname: string): Option.Option<PageRoute> =>
 
 const docsPageRoute = (pathname: string): Option.Option<PageRoute> =>
   (pathname === "/docs" || pathname === "/docs/"
-    ? Option.some<PageRoute>(docsOverviewRoute("effect-search"))
+    ? Option.some<PageRoute>(docsIndexRoute())
     : Option.none<PageRoute>()).pipe(
       Option.orElse(() => docsApiPageRoute(pathname)),
-      Option.orElse(() => docsGettingStartedPageRoute(pathname)),
-      Option.orElse(() => docsOverviewPageRoute(pathname))
+      Option.orElse(() => docsGuidePageRoute(pathname)),
+      Option.orElse(() => docsOverviewPageRoute(pathname)),
+      Option.orElse(() =>
+        pathname.startsWith("/docs/")
+          ? Option.some<PageRoute>(docsNotFoundRoute())
+          : Option.none<PageRoute>()
+      )
     )
 
 const deepDiveRoute = (pathname: string): Option.Option<PageRoute> =>
@@ -63,10 +81,7 @@ const deepDiveRoute = (pathname: string): Option.Option<PageRoute> =>
     Option.flatMap((matches) => Arr.get(matches, 1)),
     Option.flatMap((id) =>
       isKnownDemoId(id)
-        ? Option.some<PageRoute>({
-          _tag: "DeepRoute",
-          id
-        })
+        ? Option.some<PageRoute>({ _tag: "DeepRoute", id })
         : Option.none<PageRoute>()
     )
   )

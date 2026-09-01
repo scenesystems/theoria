@@ -5,37 +5,13 @@ import type { CSSProperties } from "react"
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
 import { semanticsFor, type TextProjection, type TextRole, type TextWrapAuthority } from "../../../contracts/text.js"
 import { useTextProjection } from "../../atoms/text.js"
+import { glyphClassName, lineHeightVar, maxWidthClassName } from "./semanticTextClasses.js"
 
 type SemanticTextElement = "span" | "p" | "h1" | "h2" | "h3" | "dt" | "dd" | "code" | "kbd"
 
 type BlockElement = "p" | "h1" | "h2" | "h3" | "dt" | "dd"
 
 const isBlockElement = (el: SemanticTextElement): el is BlockElement => el !== "span" && el !== "code" && el !== "kbd"
-
-const fontSizeVar = (role: TextRole): string => `--st-fs-${role}`
-const fontWeightVar = (role: TextRole): string => `--st-fw-${role}`
-const trackingVar = (role: TextRole): string => `--st-tr-${role}`
-const fontFamilyVar = (role: TextRole): string => `--st-ff-${role}`
-const lineHeightVar = (role: TextRole): string => `--st-lh-${role}`
-const maxWidthCssVar = (role: TextRole, variant: SurfaceVariant): string => `--st-mw-${role}-${variant}`
-
-const textTransformFor = (role: TextRole): string => role === "row-label" ? "uppercase" : ""
-
-const glyphClassName = (role: TextRole): string =>
-  [
-    `text-(length:${fontSizeVar(role)})`,
-    `font-weight-(${fontWeightVar(role)})`,
-    `tracking-(${trackingVar(role)})`,
-    `font-family-(${fontFamilyVar(role)})`,
-    textTransformFor(role)
-  ].filter((c) => c.length > 0).join(" ")
-
-const shouldConstrainWidth = (role: TextRole): boolean =>
-  Match.value(role).pipe(
-    Match.when("button-label", () => false),
-    Match.when("tab-label", () => false),
-    Match.orElse(() => true)
-  )
 
 const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
   preserveWhitespace ? "whitespace-pre" : "whitespace-nowrap"
@@ -167,7 +143,7 @@ const BrowserWrappedBlockText = ({
   const Component = as
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
-  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
+  const maxWidthClass = maxWidthClassName(role, variant)
   const whiteSpace = Match.value(semantics.whiteSpace).pipe(
     Match.when("pre-wrap", () => "whitespace-pre-wrap"),
     Match.orElse(() => "whitespace-normal")
@@ -206,7 +182,7 @@ const ProjectedWrappedBlockText = ({
   const Component = as
   const glyph = glyphClassName(role)
   const leading = `leading-(${lineHeightVar(role)})`
-  const maxWidthClass = shouldConstrainWidth(role) ? `max-w-(${maxWidthCssVar(role, variant)})` : ""
+  const maxWidthClass = maxWidthClassName(role, variant)
 
   if (projection !== null) {
     const projected = `${glyph} ${leading} ${maxWidthClass}`

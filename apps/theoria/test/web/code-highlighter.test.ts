@@ -9,7 +9,11 @@ describe("Theoria Code Highlighter", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const highlighter = yield* makeSyntaxHighlighter
-        const lines = highlightCode(highlighter, "const value: NumberBox = 42; const label = \"answer\" // note")
+        const lines = highlightCode(
+          highlighter,
+          "const value: NumberBox = 42; const label = \"answer\" // note",
+          "typescript"
+        )
         const firstLine = lines[0] ?? []
 
         expect(Arr.some(firstLine, (token) => token.kind === "keyword" && token.value === "const")).toBe(true)
@@ -25,7 +29,7 @@ describe("Theoria Code Highlighter", () => {
       Effect.gen(function*() {
         const highlighter = yield* makeSyntaxHighlighter
         const source = "const a = 1\n\nconst b = \"two\""
-        const lines = highlightCode(highlighter, source)
+        const lines = highlightCode(highlighter, source, "typescript")
 
         expect(lines.length).toBe(3)
         expect(lines[1]?.length).toBeGreaterThan(0)

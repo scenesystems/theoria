@@ -6,11 +6,14 @@ import type { SurfaceVariant } from "../../../../contracts/presentation.js"
 import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
 
 import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
+import type { CodeLanguage } from "./highlighter.js"
 
 export const HighlightedCode = ({
+  language = "typescript",
   source,
   variant
 }: {
+  readonly language?: CodeLanguage
   readonly source: string
   readonly variant: SurfaceVariant
 }) => {
@@ -18,7 +21,7 @@ export const HighlightedCode = ({
   const lines = Result.match(highlighter, {
     onInitial: () => plainCode(source),
     onFailure: () => plainCode(source),
-    onSuccess: ({ value }) => highlightCode(value, source)
+    onSuccess: ({ value }) => language === "text" ? plainCode(source) : highlightCode(value, source, language)
   })
   const showLineNumbers = variant === "expanded"
 

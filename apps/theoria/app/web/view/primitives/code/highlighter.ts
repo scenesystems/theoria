@@ -23,6 +23,9 @@ export const HighlightToken = Schema.Struct({
 
 export type HighlightToken = typeof HighlightToken.Type
 
+export const CodeLanguage = Schema.Literal("shellscript", "text", "typescript")
+export type CodeLanguage = typeof CodeLanguage.Type
+
 export class SyntaxHighlightingError extends Schema.TaggedError<SyntaxHighlightingError>()(
   "SyntaxHighlightingError",
   { detail: Schema.String }
@@ -81,13 +84,14 @@ const createHighlighter = Effect.all({
   core: loadHighlighterModule(() => import("@shikijs/core")),
   engine: loadHighlighterModule(() => import("@shikijs/engine-oniguruma")),
   wasm: loadHighlighterModule(() => import("@shikijs/engine-oniguruma/wasm-inlined")),
-  language: loadHighlighterModule(() => import("@shikijs/langs/typescript"))
-}).pipe(Effect.flatMap(({ core, engine, language, wasm }) =>
+  shellLanguage: loadHighlighterModule(() => import("@shikijs/langs/shellscript")),
+  typeScriptLanguage: loadHighlighterModule(() => import("@shikijs/langs/typescript"))
+}).pipe(Effect.flatMap(({ core, engine, shellLanguage, typeScriptLanguage, wasm }) =>
   Effect.tryPromise({
     try: () =>
       core.createHighlighterCore({
         engine: engine.createOnigurumaEngine(wasm.default),
-        langs: [language.default],
+        langs: [typeScriptLanguage.default, shellLanguage.default],
         themes: [theoriaTheme()],
         warnings: false
       }),
@@ -131,10 +135,11 @@ const projectLine = (line: ReadonlyArray<ThemedToken>): ReadonlyArray<HighlightT
 
 export const highlightCode = (
   highlighter: HighlighterCore,
-  source: string
+  source: string,
+  language: Exclude<CodeLanguage, "text">
 ): ReadonlyArray<ReadonlyArray<HighlightToken>> =>
   Arr.map(
-    highlighter.codeToTokens(source, { lang: "typescript", theme: "theoria" }).tokens,
+    highlighter.codeToTokens(source, { lang: language, theme: "theoria" }).tokens,
     projectLine
   )
 

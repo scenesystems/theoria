@@ -2,7 +2,6 @@ import { Tooltip } from "@base-ui-components/react/tooltip"
 import { RegistryProvider, useAtomSubscribe, useAtomValue } from "@effect-atom/atom-react"
 import { Match } from "effect"
 
-import { cards } from "../contracts/card.js"
 import { preloadRouteKey, routePreloadMountAtom } from "./atoms/preload.js"
 import { type ColorMode, colorModeAtom } from "./atoms/theme.js"
 import type { PageRoute } from "./services/path.js"
@@ -34,9 +33,11 @@ const AppShell = ({ route }: { readonly route: PageRoute }) => (
     {Match.value(route).pipe(
       Match.tag("HomeRoute", () => <HomePage />),
       Match.tag("DeepRoute", ({ id }) => <DeepDivePage id={id} />),
-      Match.tag("DocsOverviewRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
-      Match.tag("DocsGettingStartedRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
-      Match.tag("DocsApiRoute", (docsRoute) => <DocsPage cards={cards} route={docsRoute} />),
+      Match.tag("DocsIndexRoute", (docsRoute) => <DocsPage route={docsRoute} />),
+      Match.tag("DocsOverviewRoute", (docsRoute) => <DocsPage route={docsRoute} />),
+      Match.tag("DocsGuideRoute", (docsRoute) => <DocsPage route={docsRoute} />),
+      Match.tag("DocsApiRoute", (docsRoute) => <DocsPage route={docsRoute} />),
+      Match.tag("DocsNotFoundRoute", (docsRoute) => <DocsPage route={docsRoute} />),
       Match.exhaustive
     )}
   </>

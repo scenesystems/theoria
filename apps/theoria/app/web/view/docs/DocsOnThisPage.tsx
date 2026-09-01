@@ -1,64 +1,29 @@
-import { Match } from "effect"
 import * as Arr from "effect/Array"
 
-import type { Card } from "../../../contracts/card.js"
-import type { DocsRoute } from "../../../contracts/docs.js"
 import { Nav, Stack } from "../primitives/Layout.js"
 import { AnchorLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
-const anchorsFor = (route: DocsRoute, card: Card) =>
-  Match.value(route).pipe(
-    Match.tag("DocsOverviewRoute", () => [
-      { href: "#overview", label: "Overview" },
-      ...(card.id === "effect-search"
-        ? [{ href: "#code-example", label: "Optimize an objective" }]
-        : [])
-    ]),
-    Match.tag("DocsGettingStartedRoute", () => [
-      { href: "#overview", label: "Getting started" },
-      { href: "#install", label: "Install" },
-      ...(card.id === "effect-search"
-        ? [{ href: "#code-example", label: "Optimize an objective" }]
-        : [])
-    ]),
-    Match.tag("DocsApiRoute", () => [{ href: "#overview", label: "API reference" }]),
-    Match.exhaustive
-  )
+export type DocsPageAnchor = readonly [id: string, label: string]
 
-export const DocsOnThisPage = ({
-  card,
-  route
-}: {
-  readonly card: Card
-  readonly route: DocsRoute
-}) => (
-  <Nav aria-label="On this page">
-    <Stack className="gap-3 border-l border-stage-300/80 pl-4">
-      <SemanticText
-        as="h2"
-        className="text-ink-900"
-        role="row-label"
-        text="On this page"
-        variant="expanded"
-      />
-      <Stack className="gap-2">
-        {Arr.map(anchorsFor(route, card), (anchor) => (
-          <AnchorLink
-            className="text-ink-500 outline-none transition-colors hover:text-ink-900 focus-visible:text-ink-900"
-            href={anchor.href}
-            key={anchor.href}
-          >
-            <SemanticText
-              as="span"
-              className="text-inherit"
-              role="status"
-              text={anchor.label}
-              variant="compact"
-            />
-          </AnchorLink>
-        ))}
-      </Stack>
-    </Stack>
-  </Nav>
-)
+export const DocsOnThisPage = ({ anchors }: { readonly anchors: ReadonlyArray<DocsPageAnchor> }) =>
+  anchors.length === 0
+    ? null
+    : (
+      <Nav aria-label="On this page">
+        <Stack className="gap-3 border-l border-stage-300/80 pl-4">
+          <SemanticText as="h2" className="text-ink-900" role="row-label" text="On this page" />
+          <Stack className="gap-2">
+            {Arr.map(anchors, ([id, label]) => (
+              <AnchorLink
+                className="text-ink-500 outline-none transition-colors hover:text-ink-900 focus-visible:text-ink-900"
+                href={`#${id}`}
+                key={id}
+              >
+                <SemanticText as="span" className="text-inherit" role="status" text={label} variant="compact" />
+              </AnchorLink>
+            ))}
+          </Stack>
+        </Stack>
+      </Nav>
+    )
