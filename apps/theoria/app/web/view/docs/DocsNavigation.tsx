@@ -26,7 +26,7 @@ const NavigationLink = ({
     <SemanticText
       as="span"
       className="min-w-0 text-inherit"
-      role="button-label"
+      role="status"
       text={destination.label}
       variant="compact"
     />

@@ -2,58 +2,17 @@ import { Result } from "@effect-atom/atom"
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
-import type { ReactNode } from "react"
 
-import type { ApiPage, DocsManifest, DocsPackageSummary, GuidePage } from "@theoria/docs-model"
+import type { ApiPage, GuidePage } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"
 import { docsApiPageAtom, docsGuidePageAtom } from "../../atoms/docs-data.js"
 import { docsLocationHashAtom, docsLocationHashMountAtom } from "../../atoms/docs.js"
-import { docsTheme } from "../primitives/docsSystem.js"
-import { Layer, Main, Section, Stack } from "../primitives/Layout.js"
 import { apiCategoryAnchor, ApiPageView } from "./ApiPageView.js"
-import { DocsHeader } from "./DocsHeader.js"
 import { apiExportForHash } from "./docsModel.js"
-import { DocsNavigation } from "./DocsNavigation.js"
-import { DocsNavigationDrawer } from "./DocsNavigationDrawer.js"
-import { DocsOnThisPage, type DocsPageAnchor } from "./DocsOnThisPage.js"
-import { DocsSearchDialog } from "./DocsSearchDialog.js"
+import type { DocsPageAnchor } from "./DocsOnThisPage.js"
 import { DocsStatus } from "./DocsStatus.js"
+import { DocsResourceFrame } from "./DocsWorkbench.js"
 import { GuidePageView } from "./GuidePageView.js"
-
-const DocsWorkbench = ({
-  anchors,
-  children,
-  docsPackage,
-  manifest,
-  route
-}: {
-  readonly anchors: ReadonlyArray<DocsPageAnchor>
-  readonly children: ReactNode
-  readonly docsPackage: DocsPackageSummary
-  readonly manifest: DocsManifest
-  readonly route: DocsRoute
-}) => (
-  <Layer className={docsTheme.root}>
-    <DocsHeader activePackage={docsPackage} packages={manifest.packages} />
-    <Layer className={docsTheme.workbench}>
-      <Section as="aside" className={docsTheme.sidebar}>
-        <Stack className={docsTheme.sidebarSticky}>
-          <DocsNavigation docsPackage={docsPackage} route={route} />
-        </Stack>
-      </Section>
-      <Main className={docsTheme.main}>
-        <Layer className={docsTheme.article}>{children}</Layer>
-      </Main>
-      <Section as="aside" className={docsTheme.toc}>
-        <Layer className={docsTheme.tocSticky}>
-          <DocsOnThisPage anchors={anchors} />
-        </Layer>
-      </Section>
-    </Layer>
-    <DocsNavigationDrawer docsPackage={docsPackage} manifest={manifest} route={route} />
-    <DocsSearchDialog activePackageSlug={docsPackage.slug} manifest={manifest} />
-  </Layer>
-)
 
 const guideAnchors = (page: GuidePage): ReadonlyArray<DocsPageAnchor> =>
   Arr.map(page.anchors, (anchor): DocsPageAnchor => [anchor.id, anchor.label])
@@ -67,13 +26,9 @@ const apiAnchors = (page: ApiPage, hash: string): ReadonlyArray<DocsPageAnchor> 
 
 export const GuideResource = ({
   asset,
-  docsPackage,
-  manifest,
   route
 }: {
   readonly asset: string
-  readonly docsPackage: DocsPackageSummary
-  readonly manifest: DocsManifest
   readonly route: DocsRoute
 }) => {
   const atom = docsGuidePageAtom(asset)
@@ -82,32 +37,28 @@ export const GuideResource = ({
 
   return Result.match(result, {
     onInitial: () => (
-      <DocsWorkbench anchors={[]} docsPackage={docsPackage} manifest={manifest} route={route}>
-        <DocsStatus retry={refresh} state="loading" />
-      </DocsWorkbench>
+      <DocsResourceFrame anchors={[]} route={route}>
+        <DocsStatus state="loading" />
+      </DocsResourceFrame>
     ),
     onFailure: () => (
-      <DocsWorkbench anchors={[]} docsPackage={docsPackage} manifest={manifest} route={route}>
+      <DocsResourceFrame anchors={[]} route={route}>
         <DocsStatus retry={refresh} state="failure" />
-      </DocsWorkbench>
+      </DocsResourceFrame>
     ),
     onSuccess: ({ value }) => (
-      <DocsWorkbench anchors={guideAnchors(value)} docsPackage={docsPackage} manifest={manifest} route={route}>
+      <DocsResourceFrame anchors={guideAnchors(value)} route={route}>
         <GuidePageView page={value} />
-      </DocsWorkbench>
+      </DocsResourceFrame>
     )
   })
 }
 
 export const ApiResource = ({
   asset,
-  docsPackage,
-  manifest,
   route
 }: {
   readonly asset: string
-  readonly docsPackage: DocsPackageSummary
-  readonly manifest: DocsManifest
   readonly route: DocsRoute
 }) => {
   useAtomValue(docsLocationHashMountAtom)
@@ -118,22 +69,22 @@ export const ApiResource = ({
 
   return Result.match(result, {
     onInitial: () => (
-      <DocsWorkbench anchors={[]} docsPackage={docsPackage} manifest={manifest} route={route}>
-        <DocsStatus retry={refresh} state="loading" />
-      </DocsWorkbench>
+      <DocsResourceFrame anchors={[]} route={route}>
+        <DocsStatus state="loading" />
+      </DocsResourceFrame>
     ),
     onFailure: () => (
-      <DocsWorkbench anchors={[]} docsPackage={docsPackage} manifest={manifest} route={route}>
+      <DocsResourceFrame anchors={[]} route={route}>
         <DocsStatus retry={refresh} state="failure" />
-      </DocsWorkbench>
+      </DocsResourceFrame>
     ),
     onSuccess: ({ value }) => {
       const selectedExport = apiExportForHash(value, hash)
 
       return (
-        <DocsWorkbench anchors={apiAnchors(value, hash)} docsPackage={docsPackage} manifest={manifest} route={route}>
+        <DocsResourceFrame anchors={apiAnchors(value, hash)} route={route}>
           <ApiPageView page={value} selectedExport={selectedExport} />
-        </DocsWorkbench>
+        </DocsResourceFrame>
       )
     }
   })

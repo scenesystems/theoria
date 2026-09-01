@@ -439,4 +439,16 @@
   .evidence-section-enter {
     animation: fade-in-up 300ms ease-out both;
   }
+
+  .docs-route-enter {
+    animation: fade-in-up 180ms ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in-up,
+    .docs-route-enter,
+    .evidence-section-enter {
+      animation: none;
+    }
+  }
 }
