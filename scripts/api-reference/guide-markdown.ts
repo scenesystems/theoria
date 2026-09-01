@@ -21,6 +21,8 @@ export const guideSlug = (value: string): string =>
     .replace(/^-|-$/gu, "")
 
 const crossPackageReadme = /^\.\.\/([^/]+)\/README\.md(?:#.*)?$/u
+const packageApiRoot = /^\.\/src\/index\.ts(?:#.*)?$/u
+const packageApiModule = /^\.\/src\/(.+)\/index\.ts(?:#.*)?$/u
 
 const guideHref = (input: {
   readonly href: string
@@ -35,6 +37,16 @@ const guideHref = (input: {
 
   if (crossPackage?.[1] !== undefined) {
     return `/docs/${crossPackage[1]}`
+  }
+
+  if (packageApiRoot.test(input.href)) {
+    return `/docs/${input.packageSlug}/api`
+  }
+
+  const apiModule = packageApiModule.exec(input.href)
+
+  if (apiModule?.[1] !== undefined) {
+    return `/docs/${input.packageSlug}/api/${apiModule[1]}`
   }
 
   return `${repositoryUrl}/blob/${input.revision}/packages/${input.packageSlug}/${input.href.replace(/^\.\//u, "")}`

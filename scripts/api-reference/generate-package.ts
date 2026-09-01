@@ -1,10 +1,10 @@
 import { FileSystem } from "@effect/platform"
-import { Array as Arr, Console, Effect } from "effect"
+import { Array as Arr, Console, Effect, Option, Order } from "effect"
 
 import { type DocsPackageSummary } from "@theoria/docs-model"
 import { writeBrowserGuides } from "./browser-output.js"
 import { generateApiModule } from "./generate-module.js"
-import { buildPackageGuides } from "./guides.js"
+import { buildPackageGuides, type PackageGuideExample } from "./guides.js"
 import { type ApiDocLink } from "./links.js"
 import {
   ApiReferenceGenerationError,
@@ -17,6 +17,18 @@ const repositoryUrl = "https://github.com/scenesystems/theoria"
 
 const typeDocFailure = (packageName: string, detail: string): ApiReferenceGenerationError =>
   new ApiReferenceGenerationError({ packageName, detail })
+
+const exampleTitle = (fileName: string): string => {
+  const title = fileName
+    .replace(/\.ts$/u, "")
+    .replace(/^\d+-/u, "")
+    .replace(/-/gu, " ")
+
+  return title.length === 0 ? "Example" : `${title[0]?.toLocaleUpperCase("en-US") ?? ""}${title.slice(1)}`
+}
+
+const exampleSource = (source: string): string =>
+  source.replace(/^\/\*\*[\s\S]*?\*\/\s*/u, "")
 
 export const generateApiPackage = (input: {
   readonly browserVersionRoot: string
@@ -57,7 +69,22 @@ export const generateApiPackage = (input: {
     )
     const modules = Arr.map(generatedModules, (generated) => generated.module)
     const markdown = yield* fileSystem.readFileString(`${input.sourcePackage.root}/README.md`).pipe(Effect.orDie)
-    const guideData = buildPackageGuides({ ...input, markdown })
+    const exampleFiles = yield* fileSystem.readDirectory(`${input.sourcePackage.root}/examples`).pipe(
+      Effect.orDie,
+      Effect.map((entries) => Arr.sort(Arr.filter(entries, (entry) => entry.endsWith(".ts")), Order.string))
+    )
+    const exampleFile = yield* Option.match(Arr.head(exampleFiles), {
+      onNone: () => Effect.fail(typeDocFailure(
+        input.sourcePackage.manifest.name,
+        "public package has no TypeScript example"
+      )),
+      onSome: Effect.succeed
+    })
+    const source = yield* fileSystem.readFileString(`${input.sourcePackage.root}/examples/${exampleFile}`).pipe(
+      Effect.orDie
+    )
+    const example: PackageGuideExample = { source: exampleSource(source), title: exampleTitle(exampleFile) }
+    const guideData = buildPackageGuides({ ...input, example: Option.some(example), markdown })
     yield* writeBrowserGuides({ ...input, ...guideData })
 
     yield* Console.log(

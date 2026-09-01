@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Option, Schema } from "effect"
 import type { Heading, RootContent } from "mdast"
 import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
@@ -22,6 +22,13 @@ type SectionAccumulator = {
   readonly intro: ReadonlyArray<RootContent>
   readonly sections: ReadonlyArray<MarkdownSection>
 }
+
+export const PackageGuideExample = Schema.Struct({
+  source: Schema.String,
+  title: Schema.String
+})
+
+export type PackageGuideExample = typeof PackageGuideExample.Type
 
 const headingText = (heading: Heading, packageSlug: string, revision: string): string =>
   inlineText(inlineParts(heading.children, packageSlug, revision))
@@ -86,6 +93,28 @@ const excludedGuide = (title: string): boolean =>
 const gettingStartedSection = (title: string): boolean =>
   /^(?:installation|basic use|minimal (?:example|study))$/iu.test(title.trim())
 
+const examplesSection = (title: string): boolean =>
+  /^examples(?: and reference)?$/iu.test(title.trim())
+
+const includesCode = (blocks: ReadonlyArray<GuideBlock>): boolean =>
+  Arr.some(blocks, (block) => block.kind === "code")
+
+export const enrichGuideBlocks = (
+  title: string,
+  blocks: ReadonlyArray<GuideBlock>,
+  example: Option.Option<PackageGuideExample>
+): ReadonlyArray<GuideBlock> =>
+  examplesSection(title) && !includesCode(blocks)
+    ? Option.match(example, {
+      onNone: () => blocks,
+      onSome: (value): ReadonlyArray<GuideBlock> => [
+        { kind: "heading", depth: 3, id: guideSlug(value.title), text: value.title },
+        { kind: "code", language: "ts", source: value.source },
+        ...blocks
+      ]
+    })
+    : blocks
+
 const guideAsset = (revision: string, packageSlug: string, slug: string): string =>
   `/docs-data/${revision}/packages/${packageSlug}/guides/${slug.length === 0 ? "overview" : slug}.json`
 
@@ -140,6 +169,7 @@ const searchEntry = (page: GuidePage, slug: string): DocsSearchEntry => ({
 })
 
 export const buildPackageGuides = (input: {
+  readonly example: Option.Option<PackageGuideExample>
   readonly markdown: string
   readonly revision: string
   readonly sourcePackage: ApiSourcePackage
@@ -170,7 +200,11 @@ export const buildPackageGuides = (input: {
       ...input,
       title: section.title,
       slug: guideSlug(section.title),
-      blocks: blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision)
+      blocks: enrichGuideBlocks(
+        section.title,
+        blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision),
+        input.example
+      )
     })
   )
   const pages = [overview, gettingStarted, ...guidePages]
