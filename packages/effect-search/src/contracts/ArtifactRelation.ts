@@ -10,6 +10,7 @@ import { RunId } from "./identity.js"
 /**
  * Identifies an optimization protocol by name within effect-search.
  *
+ * @remarks
  * Used as the `ref` field in {@link ProtocolRelation} to link an artifact
  * back to the protocol definition that produced it.
  *
@@ -32,6 +33,7 @@ export type ProtocolRef = Schema.Schema.Type<typeof ProtocolRef>
 /**
  * Identifies a named participation slot within a protocol.
  *
+ * @remarks
  * Slots represent the roles an artifact can fill in a protocol — e.g.
  * "objective", "constraint", or "input". The brand prevents accidental
  * interchange with other string-based refs.
@@ -55,6 +57,7 @@ export type SlotRef = Schema.Schema.Type<typeof SlotRef>
 /**
  * Identifies a directed connection between two slots in a protocol graph.
  *
+ * @remarks
  * Slot edges encode data-flow or dependency relationships between slots,
  * enabling lineage tracking across protocol steps.
  *
@@ -137,6 +140,7 @@ export type ObservationRef = Schema.Schema.Type<typeof ObservationRef>
 /**
  * Codec for serializing and deserializing {@link ArtifactRelation} values.
  *
+ * @remarks
  * Encodes the eight-variant tagged union to JSON and back, validating branded
  * refs at decode boundaries. Use with `Schema.decodeUnknown` / `Schema.encode`.
  *
@@ -158,9 +162,13 @@ export const ArtifactRelationSchema = Schema.Union(
 )
 
 /**
- * Tagged union of ontology-compatible relation references.
+ * Optional cross-system links that let artifact consumers correlate protocol
+ * topology, execution runs, parameter bindings, and measurements.
  *
- * Each variant carries a branded ref preventing cross-kind assignment.
+ * @remarks
+ * Built-in variants carry branded, non-empty refs to prevent cross-kind
+ * assignment. `External` instead requires a non-empty namespace and ref so
+ * effect-dsp or third-party ontologies can project links without extending the union.
  *
  * @see {@link ArtifactRelationSchema} — codec for serialization
  * @see {@link matchRelation} — exhaustive pattern match
@@ -176,6 +184,7 @@ const ArtifactRelations = Data.taggedEnum<ArtifactRelation>()
 /**
  * Links an artifact to the optimization protocol that produced it.
  *
+ * @remarks
  * Use when recording which protocol definition an artifact belongs to,
  * enabling queries like "all artifacts from protocol X".
  *
@@ -190,6 +199,7 @@ export const ProtocolRelation = ArtifactRelations.Protocol
 /**
  * Links an artifact to a named participation slot within a protocol.
  *
+ * @remarks
  * Captures the role an artifact fills — e.g. "objective", "constraint",
  * or "input" — enabling structural queries over protocol topology.
  *
@@ -204,6 +214,7 @@ export const SlotRelation = ArtifactRelations.Slot
 /**
  * Links an artifact to a directed connection between protocol slots.
  *
+ * @remarks
  * Slot edges represent data-flow or dependency relationships, enabling
  * lineage tracking across steps in a protocol graph.
  *
@@ -230,6 +241,7 @@ export const InstrumentRelation = ArtifactRelations.Instrument
 /**
  * Links an artifact to a specific execution run.
  *
+ * @remarks
  * Every artifact is produced within a run — this relation enables grouping
  * all outputs from the same execution and correlating with run metadata.
  *
@@ -245,6 +257,7 @@ export const RunRelation = ArtifactRelations.Run
  * Links an artifact to a parameter binding within a run — a specific
  * hyperparameter or configuration value assignment.
  *
+ * @remarks
  * Enables answering "which parameter settings produced this artifact?"
  *
  * @see {@link BindingRef} — branded ref this relation carries
@@ -259,6 +272,7 @@ export const BindingRelation = ArtifactRelations.Binding
  * Links an artifact to an observed measurement — a single data point
  * recorded by an instrument during a run.
  *
+ * @remarks
  * Use to trace which metric observations influenced artifact selection
  * or ranking in multi-objective optimization.
  *
@@ -273,6 +287,7 @@ export const ObservationRelation = ArtifactRelations.Observation
 /**
  * Links an artifact to a non-effect-search entity via a namespaced reference.
  *
+ * @remarks
  * The `namespace` field scopes the `ref` to an external system (e.g.
  * "mlflow", "wandb"), preventing collisions across integrations.
  *
@@ -287,6 +302,7 @@ export const ExternalRelation = ArtifactRelations.External
 /**
  * Exhaustive pattern match on relation variants.
  *
+ * @remarks
  * Provide a handler for each of the eight relation kinds. Adding a new
  * variant to {@link ArtifactRelation} causes a compile error at every
  * uncovered match site.
@@ -300,11 +316,11 @@ export const ExternalRelation = ArtifactRelations.External
 export const matchRelation = ArtifactRelations.$match
 
 /**
- * Type guard for narrowing a single relation variant by tag.
+ * Builds a type guard that narrows an artifact relation by its relation tag.
  *
- * Returns a predicate that narrows {@link ArtifactRelation} to the
- * specified variant — useful in `Array.filter` and conditional branches
- * where exhaustive matching is unnecessary.
+ * @remarks
+ * The returned predicate selects one ontology relation kind and preserves
+ * the corresponding branded reference type for downstream access.
  *
  * @see {@link ArtifactRelation} — the union being narrowed
  * @see {@link matchRelation} — exhaustive alternative

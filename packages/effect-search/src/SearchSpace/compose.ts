@@ -10,7 +10,9 @@ import { resolveOmitProjectionNames, resolvePickProjectionNames } from "./compos
 import type { SearchSpace as SearchSpaceType } from "./model.js"
 
 /**
- * Merge two search spaces and fail when parameter names conflict.
+ * Extends the left schema with the right schema and concatenates their metadata.
+ * Fails with `InvalidSearchSpace` when a parameter name occurs in both spaces or
+ * the schemas cannot be extended.
  *
  * @since 0.1.0
  * @category constructors
@@ -21,7 +23,9 @@ export const extend = Effect.fn("effect-search/SearchSpace.extend")(
 )
 
 /**
- * Project a space to selected dimensions and their activation dependencies.
+ * Keeps requested parameters and recursively includes their conditional
+ * discriminants. Unknown names and an empty selection fail with
+ * `InvalidSearchSpace`; the resulting schema and metadata are rebuilt.
  *
  * @since 0.1.0
  * @category constructors
@@ -34,7 +38,9 @@ export const pick = Effect.fn("effect-search/SearchSpace.pick")(
 )
 
 /**
- * Project a space by removing selected dimensions and their dependent branches.
+ * Removes requested parameters and every conditional descendant of a removed
+ * discriminant. Unknown names fail with `InvalidSearchSpace`; the resulting
+ * schema and metadata retain source parameter order.
  *
  * @since 0.1.0
  * @category constructors

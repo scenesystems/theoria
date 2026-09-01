@@ -1,6 +1,7 @@
 /**
  * Canonical artifact envelope — tagged union of provenance-bearing output records.
  *
+ * @remarks
  * The envelope is the shared contract between effect-search, effect-dsp, and
  * downstream adapters. Each variant carries typed payload specific to its kind,
  * with branded identity fields, structured lineage, and ontology-compatible relations.
@@ -19,6 +20,7 @@ import { ArtifactRelationSchema } from "./ArtifactRelation.js"
 /**
  * Schema version literal for the canonical artifact envelope.
  *
+ * @remarks
  * All envelopes carry this version in their `schemaVersion` field. When the
  * envelope shape changes in a breaking way, a new literal is introduced —
  * consumers can branch on version to support migration.
@@ -71,6 +73,7 @@ const ArtifactPayloadSchema: Schema.Schema<ArtifactPayload, ArtifactPayload, nev
 /**
  * Recursive schema for custom artifact payload values.
  *
+ * @remarks
  * Accepts any JSON-safe tree (strings, numbers, booleans, null, arrays,
  * and records) via `Schema.suspend` to handle arbitrary nesting depth.
  *
@@ -92,6 +95,7 @@ const envelopeBaseFields = {
 /**
  * Codec for serializing and deserializing {@link ArtifactEnvelope} values.
  *
+ * @remarks
  * Encodes the four-variant tagged union to JSON and back. Every variant
  * shares base fields (`schemaVersion`, `producer`, `lineage`, `relations`)
  * and adds a variant-specific payload. Use with `Schema.decodeUnknown` /
@@ -124,11 +128,12 @@ export const ArtifactEnvelopeSchema = Schema.Union(
 )
 
 /**
- * Tagged union of artifact envelope variants.
+ * Transport contract projected into effect-dsp, combining producer/lineage
+ * metadata with a trial, snapshot, event, or custom payload.
  *
- * Each variant carries typed payload specific to its kind. Consumers use
- * `matchEnvelope` for exhaustive processing — adding a new variant is a
- * compile error at every uncovered match site.
+ * @remarks
+ * `relations` is optional; `schemaVersion` is `artifact-envelope/v1`.
+ * Use `matchEnvelope` exhaustively; decode with {@link ArtifactEnvelopeSchema} first.
  *
  * @see {@link ArtifactEnvelopeSchema} — codec for serialization
  * @see {@link matchEnvelope} — exhaustive pattern match
@@ -144,6 +149,7 @@ const ArtifactEnvelopes = Data.taggedEnum<ArtifactEnvelope>()
 /**
  * Wraps a single trial result from an optimization run.
  *
+ * @remarks
  * Contains the full {@link SnapshotTrialSchema} payload — parameter values,
  * objective measurements, and trial status — alongside provenance metadata.
  *
@@ -158,6 +164,7 @@ export const TrialLog = ArtifactEnvelopes.TrialLog
 /**
  * Wraps a point-in-time snapshot of an entire study.
  *
+ * @remarks
  * Captures the full {@link StudySnapshot} — all trials, search space state,
  * and study metadata — enabling study replay and comparison across runs.
  *
@@ -172,6 +179,7 @@ export const StudySnapshotEnvelope = ArtifactEnvelopes.StudySnapshot
 /**
  * Wraps a discrete study lifecycle event (started, paused, completed, failed).
  *
+ * @remarks
  * Carries a {@link StudyEventSchema} payload for event-sourced study history,
  * enabling reconstruction of study state from an ordered event stream.
  *
@@ -186,6 +194,7 @@ export const StudyEventEnvelope = ArtifactEnvelopes.StudyEvent
 /**
  * Wraps an arbitrary JSON-safe payload for extension points.
  *
+ * @remarks
  * Use when none of the typed variants (TrialLog, StudySnapshot, StudyEvent)
  * apply — e.g. third-party adapter outputs or experimental artifact kinds.
  * The payload is validated by {@link ArtifactPayload}.
@@ -201,6 +210,7 @@ export const Custom = ArtifactEnvelopes.Custom
 /**
  * Exhaustive pattern match on envelope variants.
  *
+ * @remarks
  * Provide a handler for each of the four envelope kinds. Adding a new
  * variant to {@link ArtifactEnvelope} causes a compile error at every
  * uncovered match site.
@@ -214,11 +224,11 @@ export const Custom = ArtifactEnvelopes.Custom
 export const matchEnvelope = ArtifactEnvelopes.$match
 
 /**
- * Type guard for narrowing a single envelope variant by tag.
+ * Builds a type guard that narrows an artifact envelope by its envelope tag.
  *
- * Returns a predicate that narrows {@link ArtifactEnvelope} to the
- * specified variant — useful in `Array.filter` and conditional branches
- * where exhaustive matching is unnecessary.
+ * @remarks
+ * The returned predicate selects one of `TrialLog`, `StudySnapshot`,
+ * `StudyEvent`, or `Custom` while preserving that variant's payload type.
  *
  * @see {@link ArtifactEnvelope} — the union being narrowed
  * @see {@link matchEnvelope} — exhaustive alternative

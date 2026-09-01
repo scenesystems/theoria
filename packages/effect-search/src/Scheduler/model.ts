@@ -8,7 +8,7 @@ import { Data, Schema } from "effect"
 import type * as Sampler from "../Sampler/index.js"
 
 /**
- * Runtime schema for decoding and validating scheduler mode.
+ * Decodes the two scheduler mode literals, `"hyperband"` and `"bohb"`.
  *
  * @since 0.1.0
  * @category schemas
@@ -16,7 +16,7 @@ import type * as Sampler from "../Sampler/index.js"
 export const SchedulerModeSchema = Schema.Literal("hyperband", "bohb")
 
 /**
- * The Hyperband or BOHB algorithm represented by a scheduler.
+ * A value decoded by {@link SchedulerModeSchema}.
  *
  * @since 0.1.0
  * @category type-level
@@ -24,7 +24,7 @@ export const SchedulerModeSchema = Schema.Literal("hyperband", "bohb")
 export type SchedulerMode = Schema.Schema.Type<typeof SchedulerModeSchema>
 
 /**
- * A successive-halving round specifying its configuration count and resource budget.
+ * One successive-halving allocation: number of configurations and per-trial resource.
  *
  * @since 0.1.0
  * @category models
@@ -35,7 +35,8 @@ export class Round extends Data.Class<{
 }> {}
 
 /**
- * A Hyperband bracket containing its initial allocation and successive-halving rounds.
+ * A bracket's index, initial allocation, minimum resource, and rounds in
+ * execution order.
  *
  * @since 0.1.0
  * @category models
@@ -48,7 +49,9 @@ export class Bracket extends Data.Class<{
 }> {}
 
 /**
- * A multi-fidelity scheduling topology and sampler used by Hyperband or BOHB.
+ * A finite bracket/round topology and the sampler used to propose configurations.
+ * BOHB additionally records its exploration fraction, observation threshold,
+ * and optional seed.
  *
  * @since 0.1.0
  * @category models
@@ -65,7 +68,8 @@ export class Scheduler extends Data.Class<{
 }> {}
 
 /**
- * Observed completion and best-value statistics for a scheduler round.
+ * Observations for one identified round. `bestValue` is absent when no best
+ * completed objective value was recorded.
  *
  * @since 0.1.0
  * @category models
@@ -102,10 +106,11 @@ export class SchedulerSummary extends Data.Class<{
 }> {}
 
 /**
- * Counts the configurations allocated across every round of a scheduler.
+ * Sums `nConfigs` over every round in every bracket. This is the finite trial
+ * budget consumed when a study executes the complete scheduler topology.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const totalTrials = (scheduler: Scheduler): number =>
   scheduler.brackets.reduce(

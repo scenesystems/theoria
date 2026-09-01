@@ -8,7 +8,8 @@ import { Schema } from "effect"
 import { DirectionSchema } from "../../contracts/Direction.js"
 
 /**
- * Runtime schema for decoding and validating percentile pruner report.
+ * Decodes a step/value observation used for percentile comparisons; scheduling
+ * code separately requires non-negative monotonic steps and finite values.
  *
  * @since 0.1.0
  * @category schemas
@@ -27,7 +28,9 @@ export const PercentilePrunerReportSchema = Schema.Struct({
 export type PercentilePrunerReport = Schema.Schema.Type<typeof PercentilePrunerReportSchema>
 
 /**
- * Runtime schema for decoding and validating percentile pruner settings.
+ * Decodes percentile threshold, completed-trial startup count, step warmup and
+ * interval, and minimum peer count. Algorithm constructors are responsible for
+ * enforcing their numeric ranges before these settings drive pruning.
  *
  * @since 0.1.0
  * @category schemas
@@ -49,7 +52,9 @@ export const PercentilePrunerSettingsSchema = Schema.Struct({
 export type PercentilePrunerSettings = Schema.Schema.Type<typeof PercentilePrunerSettingsSchema>
 
 /**
- * Runtime schema for decoding and validating percentile pruner trial state.
+ * Accepts only `complete`, `pruned`, or `running`; only `complete` contributes
+ * to the startup-trial count, while available reports from history may supply
+ * peer values at the current step.
  *
  * @since 0.1.0
  * @category schemas
@@ -65,7 +70,8 @@ export const PercentilePrunerTrialStateSchema = Schema.Literal("complete", "prun
 export type PercentilePrunerTrialState = Schema.Schema.Type<typeof PercentilePrunerTrialStateSchema>
 
 /**
- * Runtime schema for decoding and validating percentile pruner history trial.
+ * Decodes a numbered historical trial with its lifecycle classification and
+ * intermediate reports, the record used to find peer values at a matching step.
  *
  * @since 0.1.0
  * @category schemas
@@ -85,7 +91,9 @@ export const PercentilePrunerHistoryTrialSchema = Schema.Struct({
 export type PercentilePrunerHistoryTrial = Schema.Schema.Type<typeof PercentilePrunerHistoryTrialSchema>
 
 /**
- * Runtime schema for decoding and validating percentile pruner context.
+ * Decodes all inputs to one percentile decision: optimization direction,
+ * schedule settings, current trial/step and reports, plus historical peers.
+ * Insufficient startup, warmup, interval, or peer data produces no pruning.
  *
  * @since 0.1.0
  * @category schemas

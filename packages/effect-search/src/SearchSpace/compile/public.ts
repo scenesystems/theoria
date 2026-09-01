@@ -28,15 +28,27 @@ type ConditionalEncoded<
 > = Schema.Schema.Encoded<Schema.Struct<Dimensions>> & Schema.Schema.Encoded<BranchSchema>
 
 /**
- * Compute a deterministic fingerprint from a search space's parameter metadata.
+ * Encodes the ordered parameter metadata as deterministic JSON. The result
+ * includes distributions and activation conditions, but not the schema itself.
  *
  * @since 0.1.0
- * @category utils
+ * @category fingerprint
  */
 export const fingerprint = (space: SearchSpace): string => Schema.encodeSync(FingerprintSchema)(space.params)
 
 /**
- * Compile a flat search space from dimension declarations.
+ * Compiles annotated dimensions into a decoding schema and ordered parameter
+ * metadata. Validation failures are reported as `InvalidSearchSpace`.
+ *
+ * @example
+ * ```ts
+ * import { SearchSpace } from "@scenesystems/effect-search"
+ *
+ * const space = SearchSpace.make({
+ *   optimizer: SearchSpace.categorical(["adam", "sgd"]),
+ *   learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
+ * })
+ * ```
  *
  * @since 0.1.0
  * @category constructors
@@ -65,7 +77,8 @@ export const make = <
   })
 
 /**
- * Compile a flat search space from dimension declarations and throw defects on validation failure.
+ * Synchronously compiles the same result as {@link make}, converting an
+ * `InvalidSearchSpace` validation failure into a defect.
  *
  * @since 0.1.0
  * @category constructors
@@ -80,7 +93,10 @@ export const unsafeMake = <
   )
 
 /**
- * Compile a conditional search space with a switch branch.
+ * Compiles base dimensions and a switch into a branch-sensitive union schema.
+ * Branch parameters receive activation conditions, while parameter metadata
+ * preserves base order followed by case order. Fails with `InvalidSearchSpace`
+ * for invalid distributions, discriminants, case values, or duplicate names.
  *
  * @since 0.1.0
  * @category constructors
@@ -113,7 +129,8 @@ export const makeConditional = <
   })
 
 /**
- * Compile a conditional search space with a switch branch and throw defects on validation failure.
+ * Synchronously compiles branch-sensitive dimensions, converting an
+ * `InvalidSearchSpace` validation failure into a defect.
  *
  * @since 0.1.0
  * @category constructors

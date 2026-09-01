@@ -81,6 +81,7 @@ export const makeTerminalReporter = (options?: {
 /**
  * Render and emit a single study event to a terminal sink.
  *
+ * @remarks
  * Useful for one-shot reporting in manual ask/tell orchestration or adapter
  * boundaries that already hold a concrete `StudyEvent` value.
  *

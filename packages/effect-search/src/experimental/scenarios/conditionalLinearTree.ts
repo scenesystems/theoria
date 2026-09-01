@@ -7,40 +7,73 @@ import { Schema } from "effect"
 
 import * as SearchSpace from "../../SearchSpace/index.js"
 
-/** @since 0.1.0 @category models */
+/**
+ * Model discriminator values accepted by the conditional scenario.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export const LinearTreeModelChoices: ["linear", "tree"] = ["linear", "tree"]
 
-/** @since 0.1.0 @category schemas */
+/**
+ * Schema for the linear branch and its learning-rate and regularization parameters.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
 export const LinearConfigSchema = Schema.Struct({
   model: Schema.Literal("linear"),
   learningRate: Schema.Number,
   regularization: Schema.Number
 })
 
-/** @since 0.1.0 @category schemas */
+/**
+ * Schema for the tree branch and its depth and leaf-size parameters.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
 export const TreeConfigSchema = Schema.Struct({
   model: Schema.Literal("tree"),
   maxDepth: Schema.Number,
   minSamplesLeaf: Schema.Number
 })
 
-/** @since 0.1.0 @category schemas */
+/**
+ * Discriminated union schema for valid linear and tree configurations.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
 export const LinearTreeConditionalConfigSchema = Schema.Union(LinearConfigSchema, TreeConfigSchema)
 
 /**
+ * Decoded configuration for {@link LinearTreeConditionalConfigSchema}.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type LinearTreeConditionalConfig = Schema.Schema.Type<typeof LinearTreeConditionalConfigSchema>
 
-/** @since 0.1.0 @category utils */
+/**
+ * Decodes an unknown configuration or throws a parse error.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
 export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownSync(LinearTreeConditionalConfigSchema)
 
-/** @since 0.1.0 @category utils */
+/**
+ * Decodes an unknown configuration, returning schema violations in the Effect error channel.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
 export const decodeLinearTreeConditionalConfigEffect = Schema.decodeUnknown(LinearTreeConditionalConfigSchema)
 
 /**
- * Constructs a conditional search space that branches on model type — linear parameters vs tree parameters.
+ * Constructs a conditional space where `model` activates only the parameters
+ * belonging to the selected linear or tree branch.
  *
  * @since 0.1.0
  * @category constructors

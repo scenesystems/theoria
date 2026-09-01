@@ -7,7 +7,7 @@
 export {
   /**
    * @since 0.1.0
-   * @category utils
+   * @category combinators
    */
   activeParameters,
   /**
@@ -20,7 +20,7 @@ export {
 export {
   /**
    * @since 0.1.0
-   * @category utils
+   * @category fingerprint
    */
   fingerprint,
   /**
@@ -81,12 +81,12 @@ export {
   ConditionalTraceTrial,
   /**
    * @since 0.1.0
-   * @category utils
+   * @category combinators
    */
   decomposeConditionalGroups,
   /**
    * @since 0.1.0
-   * @category utils
+   * @category combinators
    */
   partitionTrialNumbersByRequiredParameters
 } from "./conditionalTrace.js"
@@ -126,6 +126,8 @@ export {
    */
   switchOn,
   /**
+   * Alias for {@link switchOn} using the domain operation name.
+   *
    * @since 0.1.0
    * @category constructors
    */
@@ -164,6 +166,9 @@ export {
    */
   SearchSpace,
   /**
+   * Aliases {@link SearchSpace} for imports that need to distinguish the model
+   * from the `SearchSpace` namespace.
+   *
    * @since 0.1.0
    * @category models
    */
@@ -174,6 +179,8 @@ export {
    */
   Switch,
   /**
+   * Aliases {@link Switch} for imports that use definition-oriented naming.
+   *
    * @since 0.1.0
    * @category models
    */
@@ -184,6 +191,8 @@ export {
    */
   SwitchCase,
   /**
+   * Aliases {@link SwitchCase} for imports that use definition-oriented naming.
+   *
    * @since 0.1.0
    * @category models
    */

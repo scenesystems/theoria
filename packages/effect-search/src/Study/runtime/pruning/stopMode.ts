@@ -6,7 +6,9 @@
 import { Option, Schema } from "effect"
 
 /**
- * Runtime schema for decoding and validating stop mode.
+ * Accepts `Drain`, which stops admitting work while allowing active trials to
+ * finish, or `Interrupt`, which requests immediate interruption. Omitted modes
+ * are resolved to `Drain` by {@link stopModeOrDefault}.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,7 +27,7 @@ export type StopMode = Schema.Schema.Type<typeof StopModeSchema>
  * Returns the default draining stop mode.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const defaultStopMode = (): StopMode => "Drain"
 
@@ -33,6 +35,6 @@ export const defaultStopMode = (): StopMode => "Drain"
  * Returns an optional stop mode or the default draining mode.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const stopModeOrDefault = (mode: Option.Option<StopMode>): StopMode => Option.getOrElse(mode, defaultStopMode)

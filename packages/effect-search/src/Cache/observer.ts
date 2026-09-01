@@ -6,7 +6,8 @@
 import { Data, Effect, Schema } from "effect"
 
 /**
- * Runtime schema for decoding and validating cache observability event.
+ * Event vocabulary integrations may publish without making observation a
+ * requirement of the underlying cache service.
  *
  * @since 0.1.0
  * @category schemas
@@ -37,7 +38,7 @@ export type CacheObservabilityEvent = Schema.Schema.Type<typeof CacheObservabili
 const CacheObservabilityEvents = Data.taggedEnum<CacheObservabilityEvent>()
 
 /**
- * Constructs an observability event for a cache hit.
+ * Records that an integration reused a value without recomputing it.
  *
  * @since 0.1.0
  * @category constructors
@@ -45,7 +46,7 @@ const CacheObservabilityEvents = Data.taggedEnum<CacheObservabilityEvent>()
 export const CacheHit = CacheObservabilityEvents.Hit
 
 /**
- * Constructs an observability event for a cache miss.
+ * Records that an integration had to compute a value.
  *
  * @since 0.1.0
  * @category constructors
@@ -53,7 +54,7 @@ export const CacheHit = CacheObservabilityEvents.Hit
 export const CacheMiss = CacheObservabilityEvents.Miss
 
 /**
- * Constructs an observability event for a cache invalidation.
+ * Records that an integration discarded the entry identified by the fingerprint.
  *
  * @since 0.1.0
  * @category constructors
@@ -61,11 +62,11 @@ export const CacheMiss = CacheObservabilityEvents.Miss
 export const CacheInvalidation = CacheObservabilityEvents.Invalidation
 
 /**
- * Optional observer service for cache operations.
+ * Observer service consumed by study objective-cache integrations.
  *
- * When provided, the study objective cache emits hit/miss/invalidation events.
- * When absent, `Effect.serviceOption` returns `Option.none()` and no overhead
- * is incurred.
+ * @remarks
+ * `SchemaCache` itself does not emit these events. Integrations record them
+ * with the descriptor scope and the fingerprint used for that integration.
  *
  * @since 0.1.0
  * @category services

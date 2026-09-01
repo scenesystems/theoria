@@ -49,7 +49,9 @@ export const TrialStateSnapshotSchema = Schema.Union(
 export type TrialStateSnapshot = Schema.Schema.Type<typeof TrialStateSnapshotSchema>
 
 /**
- * Runtime schema for decoding and validating snapshot trial.
+ * Decodes one persisted trial with opaque configuration, a tagged lifecycle
+ * state, and optional cost/prior provenance. Missing legacy completion counters
+ * are restored as zero retries and one evaluation by `snapshotToState`.
  *
  * @since 0.1.0
  * @category schemas

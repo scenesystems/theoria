@@ -6,7 +6,11 @@
 import { Schema } from "effect"
 
 /**
- * Branded ULID for execution session identity. Sortable, unique, temporal.
+ * ULID-shaped execution-run identifier.
+ *
+ * @remarks
+ * The schema validates and brands the string; it does not generate identifiers
+ * or establish their uniqueness or trustworthiness.
  *
  * @see {@link ArtifactId} — composite key that includes a RunId
  * @see {@link SourceRef} — locator for the producing package within a run
@@ -17,9 +21,8 @@ import { Schema } from "effect"
 export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
 
 /**
- * Branded string type extracted from the {@link RunId} schema — never
- * construct manually, always decode through the schema to guarantee
- * ULID validity.
+ * Provenance scope for artifacts produced during one declared execution. The
+ * brand proves ULID syntax only, not uniqueness or authenticity.
  *
  * @see {@link RunId} — the schema used for validation
  * @see {@link ArtifactId} — pairs a RunId with a monotonic sequence
@@ -80,10 +83,11 @@ export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
 export type ComponentPath = Schema.Schema.Type<typeof ComponentPath>
 
 /**
- * Structured locator for the source of an artifact. Combines a
- * system-of-origin discriminator, a domain namespace, and a
- * hierarchical path so that any artifact can be traced back to
- * the exact module that produced it.
+ * Declared source locator containing an origin, domain, and non-empty path.
+ *
+ * @remarks
+ * This is provenance metadata supplied by the producer, not authenticated
+ * evidence of where an artifact was created.
  *
  * @see {@link ArtifactLineage} — lineage record that carries a SourceRef
  * @see {@link ArtifactProducerSchema} — tagged union of known producer systems
@@ -98,9 +102,10 @@ export class SourceRef extends Schema.Class<SourceRef>("SourceRef")({
 }) {}
 
 /**
- * Unique artifact record identity — composite of run + monotonic sequence.
- * The `runId` scopes identity to an execution session while `sequence`
- * provides a total ordering within that session.
+ * Composite artifact identifier containing a run ID and non-negative sequence.
+ *
+ * @remarks
+ * The schema does not enforce uniqueness or monotonicity across values.
  *
  * @see {@link RunId} — the branded ULID that scopes this identity
  * @see {@link ArtifactLineage} — carries an ArtifactId alongside provenance

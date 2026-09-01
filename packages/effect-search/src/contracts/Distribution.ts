@@ -13,7 +13,6 @@ import { Schema, SchemaAST } from "effect"
  * arrays are intentionally excluded.
  *
  * @see {@link CategoricalDistributionSchema} — the distribution that carries an array of these
- * @see {@link PrimitiveChoice} — the extracted type alias
  *
  * @since 0.1.0
  * @category schemas
@@ -26,7 +25,8 @@ export const PrimitiveChoiceSchema = Schema.Union(
 )
 
 /**
- * Extracted type of {@link PrimitiveChoiceSchema} — `string | number | boolean | null`.
+ * Portable categorical value; object identity and structural choices are
+ * deliberately unavailable to samplers.
  *
  * @see {@link PrimitiveChoiceSchema} — the runtime schema
  * @see {@link CategoricalDistributionSchema} — uses arrays of this type
@@ -41,6 +41,7 @@ export type PrimitiveChoice = Schema.Schema.Type<typeof PrimitiveChoiceSchema>
  * learning rate, dropout, or temperature where any float in `[low, high]`
  * is valid.
  *
+ * @remarks
  * Set `scale: "log"` when the parameter spans multiple orders of magnitude
  * (e.g. learning rate 1e-5 to 1e-1). Set `step` to discretize the range
  * into evenly spaced grid points — the sampler snaps suggestions to the
@@ -86,6 +87,7 @@ export const IntDistributionSchema = Schema.Struct({
  * low-fidelity evaluations early and promote promising configs to full
  * fidelity.
  *
+ * @remarks
  * Unlike float/int distributions, fidelity has no `step` or `scale` —
  * the scheduler controls progression.
  *
@@ -124,7 +126,6 @@ export const CategoricalDistributionSchema = Schema.Struct({
  * `SearchSpace.make` compiles schemas annotated with these distributions
  * into a structured search space that samplers traverse.
  *
- * @see {@link Distribution} — the extracted type alias
  * @see {@link annotateDistribution} — attaches a distribution to a schema field
  *
  * @since 0.1.0
@@ -138,8 +139,8 @@ export const DistributionSchema = Schema.Union(
 )
 
 /**
- * Extracted type of {@link DistributionSchema} — the union of all
- * distribution shapes a search-space parameter can take.
+ * Sampling contract attached to one tunable field and consumed by space
+ * compilation and sampler compatibility checks.
  *
  * @see {@link DistributionSchema} — the runtime schema
  * @see {@link annotateDistribution} — attaches this to a schema field
@@ -154,6 +155,7 @@ export type Distribution = Schema.Schema.Type<typeof DistributionSchema>
  * struct fields. The search-space compiler reads this symbol from each
  * field's AST to discover how that parameter should be sampled.
  *
+ * @remarks
  * Not used directly — prefer {@link annotateDistribution} to attach and
  * {@link readDistribution} to retrieve.
  *
@@ -161,7 +163,7 @@ export type Distribution = Schema.Schema.Type<typeof DistributionSchema>
  * @see {@link readDistribution} — reads this annotation
  *
  * @since 0.1.0
- * @category utils
+ * @category annotations
  */
 export const DistributionKey: unique symbol = Symbol.for("effect-search/Distribution")
 
@@ -175,7 +177,7 @@ export const DistributionKey: unique symbol = Symbol.for("effect-search/Distribu
  * @see {@link DistributionKey} — the underlying annotation symbol
  *
  * @since 0.1.0
- * @category utils
+ * @category annotations
  */
 export const annotateDistribution = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
@@ -192,7 +194,7 @@ export const annotateDistribution = <A, I, R>(
  * @see {@link DistributionKey} — the underlying annotation symbol
  *
  * @since 0.1.0
- * @category utils
+ * @category annotations
  */
 export const readDistribution = (ast: SchemaAST.AST): Option.Option<Distribution> =>
   SchemaAST.getAnnotation<Distribution>(DistributionKey)(ast)

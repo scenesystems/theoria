@@ -31,10 +31,13 @@ export class HandleRuntime<Space extends SearchSpace.SearchSpace> extends Data.C
 }> {}
 
 /**
- * Opaque handle for manual study orchestration with `ask` / `tell` style workflows.
+ * Opaque, in-process handle owning one manual study's runtime and event lifecycle.
  *
+ * @remarks
  * Consumers should treat this as an identity token and use Study combinators
- * (`ask`, `tell`, `fail`, `cancel`, `result`, `snapshot`, `events`) to interact with it.
+ * (`ask`, `tell`, `fail`, `cancel`, `result`, `snapshot`, `events`) to interact
+ * with it. It is not a serialized study snapshot and cannot be reconstructed by
+ * shape alone across processes.
  *
  * @since 0.1.0
  * @category models
@@ -77,7 +80,9 @@ export const stateOf = <Space extends SearchSpace.SearchSpace>(handle: StudyHand
   handle[StudyHandleTypeId]
 
 /**
- * Type guard for manual study handles.
+ * Checks for the package-global private handle symbol used by manual studies.
+ * This is a nominal/shallow guard: it recognizes handles created by compatible
+ * package copies but does not validate the enclosed runtime's operational state.
  *
  * @since 0.1.0
  * @category guards

@@ -17,13 +17,14 @@ import type { Sampler } from "./model.js"
 import { pendingAsZeroImputationPolicy } from "./PendingImputationPolicy.js"
 
 /**
- * Uniform random configuration sampling with optional seed for deterministic
- * replay. Best for initial exploration, baselines, and small search spaces.
+ * Creates a sampler that draws every dimension independently from its declared
+ * distribution. A fixed seed and trial number produce the same suggestion.
  *
  * @see {@link Sampler}
  * @see {@link RandomOptions}
  * @see {@link SearchSpace}
  *
+ * @param options - Seed used by the per-trial random generator.
  * @since 0.1.0
  * @category constructors
  */
@@ -31,28 +32,36 @@ export const random = (options: RandomOptions = {}): Sampler =>
   RandomSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Exhaustive grid search over the Cartesian product of dimension values.
- * Optionally shuffled for randomized traversal order, which can improve
- * early-stopping quality by avoiding correlated sweeps.
+ * Creates an exhaustive sampler for finite search spaces.
+ *
+ * @remarks
+ * Creates a sampler that enumerates the Cartesian product of finite dimension
+ * values. Continuous distributions are rejected with
+ * `SamplerSearchSpaceUnsupported`; requesting a trial after the grid is
+ * exhausted fails with `SamplerExhausted`. Shuffling changes the deterministic
+ * traversal order but not the configurations in the grid.
  *
  * @see {@link Sampler}
  * @see {@link GridOptions}
  * @see {@link SearchSpace}
  *
+ * @param options - Traversal order and seed.
  * @since 0.1.0
  * @category constructors
  */
 export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Tree-structured Parzen Estimator — Bayesian optimization that models the
- * density ratio of promising vs unpromising configurations. Falls back to
- * random sampling during the startup phase (`nStartupTrials`).
+ * Creates a Tree-structured Parzen Estimator sampler. It uses random sampling
+ * until `nStartupTrials` completed observations are available, then scores
+ * `nEiCandidates` model candidates. It supports float, integer, categorical,
+ * and conditional dimensions and single- or multi-objective studies.
  *
  * @see {@link Sampler}
  * @see {@link TpeOptions}
  * @see {@link SearchSpace}
  *
+ * @param options - TPE model, acquisition, constraint, and seed settings.
  * @since 0.1.0
  * @category constructors
  */
@@ -60,9 +69,11 @@ export const tpe = (options: TpeRuntimeOptions = {}): Sampler =>
   TpeSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Covariance Matrix Adaptation Evolution Strategy for continuous
- * single-objective optimization.
+ * Creates a CMA-ES sampler for unconditional float dimensions and a
+ * single-objective study. Other dimension kinds, conditional spaces, and
+ * multi-objective contexts fail through the sampler's typed error channel.
  *
+ * @param options - Seed, initial step size, and generation population size.
  * @since 0.1.0
  * @category constructors
  */
@@ -70,9 +81,16 @@ export const cmaEs = (options: CmaEsRuntimeOptions = {}): Sampler =>
   CmaEsSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Gaussian-process-inspired Bayesian optimization for continuous
- * single-objective optimization with TPE-compatible acquisition labels.
+ * Creates a Gaussian-process Bayesian optimization sampler.
  *
+ * @remarks
+ * Creates Gaussian-process Bayesian optimization for unconditional float
+ * dimensions and a single-objective study. Suggestions are random during
+ * `nStartupTrials`; later suggestions maximize the configured acquisition over
+ * `nCandidates` seeded candidates. Unsupported spaces and objectives fail
+ * through the sampler's typed error channel.
+ *
+ * @param options - GP, acquisition, startup, candidate, and seed settings.
  * @since 0.1.0
  * @category constructors
  */

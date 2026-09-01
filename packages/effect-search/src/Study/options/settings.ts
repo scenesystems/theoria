@@ -146,7 +146,7 @@ export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>
  * Selects the configured pruning policy or the policy that never prunes.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const pruningPolicyFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizeSettingsSource<Config, Space>
@@ -162,7 +162,7 @@ export const pruningPolicyFromOptions = <Config, Space extends SearchSpace.Searc
  * Validates optimization settings before study execution.
  *
  * @since 0.1.0
- * @category utils
+ * @category guards
  */
 export const validateSettings = (
   settings: OptimizeSettings

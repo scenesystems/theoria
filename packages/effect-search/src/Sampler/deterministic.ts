@@ -79,7 +79,7 @@ const normalizeNonNegativeCount = (value: number): number => {
  * empty array when `count` is zero or negative. Used to generate candidate
  * indices that are subsequently shuffled or sliced by seeded sampling.
  *
- * @see {@link shuffleBySeed} often applied to the output of this function
+ * @see {@link shuffleBySeed} for deterministically permuting the resulting indices
  * @since 0.1.0
  * @category combinators
  */

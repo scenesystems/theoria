@@ -166,13 +166,14 @@ const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, Invali
 /**
  * Deterministic runtime fingerprint string for unknown values.
  *
+ * @remarks
  * Runtime fingerprints are stable for in-memory identity checks but are not
  * the durable cache-key authority. Malformed text exposes digest's
  * `InvalidUnicode`; its code-unit index is relative to the internal canonical
  * token payload rather than the original runtime value.
  *
  * @since 0.1.0
- * @category utils
+ * @category fingerprint
  */
 export const runtimeFingerprint = (
   value: unknown

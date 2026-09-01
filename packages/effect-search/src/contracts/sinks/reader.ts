@@ -11,12 +11,12 @@ import { type ArtifactEnvelope, ArtifactEnvelopeSchema } from "../ArtifactEnvelo
 const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 
 /**
- * Read an envelope JSONL file and return a stream of decoded artifact envelopes.
+ * Reads an envelope JSONL file as a stream of decoded artifact envelopes.
  *
- * Lines that fail to decode are silently skipped — this matches the existing
- * `loadEnvelopes` behavior that treats malformed lines as `Option.none()`.
- *
- * Returns an empty stream when the file does not exist or cannot be read.
+ * @remarks
+ * Blank and schema-invalid lines are skipped. A missing file, an existence-check
+ * failure, or a read/stream failure yields an empty stream. Decoding validates
+ * structure only; it does not authenticate producers or verify lineage digests.
  *
  * @since 0.1.0
  * @category readers

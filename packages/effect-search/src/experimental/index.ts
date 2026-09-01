@@ -1,7 +1,12 @@
 /**
- * Experimental extension points.
+ * Consumer entry point for inspecting TPE trial partitioning and importing
+ * deterministic scenario search spaces used to test or prototype integrations.
  *
- * These APIs are public but unstable and may change outside semver guarantees.
+ * @remarks
+ * These APIs expose implementation/parity seams rather than the supported
+ * optimization workflow. They are public but unstable and may change outside
+ * semver guarantees; production studies should use the stable Sampler, Study,
+ * and SearchSpace entry points instead.
  *
  * @since 0.1.0
  */
@@ -9,7 +14,13 @@
 import { splitByObjectiveSpec as _splitTpeTrialsByObjectiveSpec } from "../samplers/Tpe/split/index.js"
 
 /**
- * Split completed TPE trials into above/below groups based on objective spec direction.
+ * Partitions completed trials into TPE's better (`below`) and remaining
+ * (`above`) observations for a single- or multi-objective specification.
+ *
+ * @remarks
+ * The function is exposed for parity testing and may change without a
+ * major-version release. It is the same implementation used internally by
+ * the TPE sampler.
  *
  * @since 0.1.0
  * @category experimental
@@ -17,9 +28,8 @@ import { splitByObjectiveSpec as _splitTpeTrialsByObjectiveSpec } from "../sampl
 export const splitTpeTrialsByObjectiveSpec = _splitTpeTrialsByObjectiveSpec
 
 /**
- * Experimental scenario contracts reused by deterministic parity and integration suites.
- *
- * These exports are intentionally unstable and may change outside semver guarantees.
+ * Search-space fixtures whose schemas and bounds define deterministic test scenarios.
+ * These declarations may change without a major-version release.
  *
  * @since 0.1.0
  * @category experimental

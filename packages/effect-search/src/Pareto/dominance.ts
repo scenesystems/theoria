@@ -34,6 +34,7 @@ const normalizeCoordinate = (value: number, direction: Direction): number =>
 /**
  * Normalize a single objective vector into minimization space.
  *
+ * @remarks
  * Each coordinate is sanitized through {@link finiteOrInfinity} and then
  * negated when its corresponding direction is `"maximize"`.
  *
@@ -50,6 +51,7 @@ export const normalizePoint = (point: ObjectiveVector, directions: ReadonlyArray
 /**
  * Normalize an entire matrix of objective vectors into minimization space.
  *
+ * @remarks
  * Applies {@link normalizePoint} to every row so that downstream hot-path
  * functions (e.g. {@link dominatesNormalized}) can skip per-call normalization.
  *
@@ -64,6 +66,7 @@ export const normalizeMatrix = (
 /**
  * Validate that all vectors in a matrix share the same length.
  *
+ * @remarks
  * Returns `true` when the array is empty or every vector has the same
  * dimensionality as the first vector.
  *
@@ -111,6 +114,7 @@ const dominatesWithEpsilon = (
 /**
  * Hot-path dominance check on pre-normalized vectors.
  *
+ * @remarks
  * Assumes both vectors are already in minimization space (via {@link normalizePoint}
  * or {@link normalizeMatrix}). Skips normalization entirely so that callers who
  * pre-normalize a matrix once can amortize the cost across O(n²) comparisons.
@@ -139,6 +143,7 @@ export const dominatesNormalized = (
 /**
  * Tests whether `left` Pareto-dominates `right` after objective direction normalization.
  *
+ * @remarks
  * Dominance requires `left` to be no worse on every objective and strictly better on
  * at least one. When `epsilon` is positive, strict margin mode is used instead: `left`
  * must exceed `right` by at least `epsilon` in every coordinate (no partial improvement

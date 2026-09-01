@@ -47,6 +47,7 @@ const dominatedIndicesFromFrontier = (
 /**
  * Build a uniform `'maximize'` direction vector of length `objectiveCount`.
  *
+ * @remarks
  * Convenience helper for callers where every objective should be maximized.
  * Pass the result directly as the `directions` argument to any Pareto operator.
  *
@@ -62,6 +63,7 @@ export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direct
 /**
  * Returns indices of candidates dominated by at least one member of the non-dominated front.
  *
+ * @remarks
  * This is the complement of {@link nonDominatedIndices}: every index in `[0, points.length)`
  * appears in exactly one of the two sets.
  *
@@ -84,6 +86,7 @@ export const dominatedIndices = (
 /**
  * Compute per-candidate weights by counting how many per-objective frontiers include each candidate.
  *
+ * @remarks
  * A candidate on all `k` objective frontiers receives weight `k`; one on none receives `0`.
  * Higher weight indicates broader competitiveness across objectives and is used by
  * Pareto-parent selection strategies.
@@ -121,11 +124,11 @@ export const objectiveHoldingWeights = (
 ): ReadonlyArray<ObjectiveFrontierWeight> => objectiveFrontierWeights(points, directions, epsilon)
 
 /**
- * Build a complete {@link FrontierSnapshot} atomically from a single objective matrix.
+ * Builds a {@link FrontierSnapshot} from one objective matrix and direction vector.
  *
- * Computes the non-dominated front, dominated complement, per-objective holdings,
- * and per-candidate weights in one pass so all fields are guaranteed consistent
- * with respect to the same input and directions.
+ * @remarks
+ * Ragged input produces an empty frontier and holdings; `dominatedIndices` is then
+ * every input index. Empty input produces empty arrays for every field.
  *
  * @see {@link FrontierSnapshot} from `./model` — return type with field documentation
  * @see {@link nonDominatedIndices} from `./frontier` — frontier extraction

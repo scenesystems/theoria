@@ -87,7 +87,18 @@ const failWithBackendError = (operation: string) => (cause: unknown): CacheBacke
   })
 
 /**
- * Effect service for resolving, writing, and invalidating schema-encoded cache entries.
+ * Service for schema-encoded cache entries.
+ *
+ * @remarks
+ * `get` decodes stored JSON, `set` encodes before writing, and `remove`
+ * invalidates both the backing store and the process-local lookup. `resolve`
+ * returns `[value, "hit"]` for an existing entry. On a miss it runs `compute`,
+ * persists the result, and returns `[value, "miss"]`; concurrent resolves for
+ * the same resolved key are serialized within this service instance.
+ *
+ * Schema/fingerprint failures are `CacheCorrupt`; backing-store failures are
+ * `CacheBackendError`. A failure from `compute` remains in its original error
+ * channel and is not cached.
  *
  * @since 0.1.0
  * @category services
@@ -117,7 +128,9 @@ export class SchemaCache extends Effect.Tag("effect-search/Cache/SchemaCache")<
 >() {}
 
 /**
- * Service interface for schema-aware cache resolution and invalidation.
+ * Structural service type for schema-validated cache lookup, mutation, and
+ * single-key resolution. It preserves computation errors, reports codec/key
+ * failures as `CacheCorrupt`, and reports storage failures as `CacheBackendError`.
  *
  * @since 0.1.0
  * @category type-level
@@ -247,7 +260,12 @@ const resolveCached = <Value>(
 ): Option.Option<readonly [Value, CacheResolution]> => Option.map(cachedOption, (cached) => Tuple.make(cached, "hit"))
 
 /**
- * Constructs a schema-aware cache from the configured backend and optional observer.
+ * Allocates a cache service whose local lookup and per-key locks are private to
+ * this service instance while persisted entries remain owned by `KeyValueStore`.
+ *
+ * @remarks
+ * The process-local lookup has a capacity of 1,024 entries and a 24-hour TTL.
+ * Construction does not require or notify a `CacheObserver`.
  *
  * @since 0.1.0
  * @category constructors
@@ -346,7 +364,8 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
   })
 
 /**
- * Live Effect layer providing schema cache.
+ * Builds one shared `SchemaCache` from the required `KeyValueStore` service.
+ * Cache state is retained by that Layer instance.
  *
  * @since 0.1.0
  * @category layers
@@ -354,7 +373,7 @@ export const makeSchemaCache = (): Effect.Effect<SchemaCacheApi, never, KeyValue
 export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
 
 /**
- * Effect layer providing schema cache with in-memory storage.
+ * Provides `SchemaCache` with process-local, non-persistent storage.
  *
  * @since 0.1.0
  * @category layers
@@ -362,7 +381,7 @@ export const SchemaCacheLive = Layer.effect(SchemaCache, makeSchemaCache())
 export const SchemaCacheMemory = Layer.provide(SchemaCacheLive, KeyValueStore.layerMemory)
 
 /**
- * Effect layer providing schema cache with filesystem storage.
+ * Provides `SchemaCache` with the platform filesystem key-value store rooted at `directory`.
  *
  * @since 0.1.0
  * @category layers

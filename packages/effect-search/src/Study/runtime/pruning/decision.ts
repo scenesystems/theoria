@@ -19,7 +19,9 @@ export class IntermediateReport extends Schema.Class<IntermediateReport>("effect
 }) {}
 
 /**
- * Runtime schema for decoding and validating prune decision.
+ * Decodes a policy result: `Continue` leaves the trial eligible to report
+ * again, while `Prune` records the triggering step plus human-readable reason
+ * and policy provenance for trial state and emitted events.
  *
  * @since 0.1.0
  * @category schemas

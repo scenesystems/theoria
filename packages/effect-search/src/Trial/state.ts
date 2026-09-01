@@ -11,13 +11,13 @@ import { TrialError } from "../Errors/index.js"
 /**
  * Schema for the five-variant tagged union that models a trial's lifecycle.
  *
- * - **Running** — the trial is actively evaluating an objective function.
+ * @remarks
+ * - **Running** — the trial has been reserved and records its start time.
  * - **Completed** — evaluation finished and produced an {@link ObjectiveValueSchema} result.
- * - **Failed** — evaluation threw a {@link TrialError} before producing a value.
- * - **Pruned** — an early-stopping policy terminated the trial mid-evaluation.
- * - **Cancelled** — external interruption (user abort, timeout) stopped the trial.
+ * - **Failed** — evaluation ended with a {@link TrialError}.
+ * - **Pruned** — pruning stopped evaluation at an intermediate step.
+ * - **Cancelled** — evaluation was cancelled without an attached error.
  *
- * @see {@link TrialState} for the inferred type
  * @see {@link Trial} for the immutable record that carries this state
  *
  * @since 0.1.0
@@ -50,10 +50,9 @@ export const TrialStateSchema = Schema.Union(
 )
 
 /**
- * Discriminated union representing the lifecycle state machine of a trial.
- * A trial begins as `Running` and transitions exactly once to a terminal
- * state — `Completed`, `Failed`, `Pruned`, or `Cancelled`. Transitions are
- * performed by the lifecycle functions in `Trial/lifecycle.ts`.
+ * Discriminated union of running and terminal trial states. The lifecycle
+ * combinators return copies with a new state; callers are responsible for
+ * applying them to running trials.
  *
  * @see {@link matchState} for exhaustive pattern matching over all variants
  *
@@ -72,9 +71,8 @@ const TrialStateConstructors = Data.taggedEnum<TrialState>()
  */
 export const {
   /**
-   * Constructs the initial lifecycle state, indicating the trial's objective
-   * function is currently being evaluated. Records `startedAt` to compute
-   * elapsed duration on transition to a terminal state.
+   * Constructs a running state. `startedAt` is used to compute terminal
+   * durations.
    *
    * @see {@link makeRunning} for the primary trial creation entry point
    *
@@ -95,9 +93,7 @@ export const {
    */
   Completed,
   /**
-   * Constructs the terminal state reached when the objective function throws
-   * or returns an unrecoverable error. Captures the {@link TrialError} and
-   * elapsed duration for post-hoc diagnostics.
+   * Constructs a failed state with its typed {@link TrialError} and duration.
    *
    * @see {@link fail} for the lifecycle transition function
    *
@@ -106,10 +102,8 @@ export const {
    */
   Failed,
   /**
-   * Constructs the terminal state reached when an early-stopping policy
-   * (e.g. median pruner) decides the trial is unlikely to improve. Records
-   * the step at which pruning occurred, a human-readable reason, and the
-   * policy name for auditability.
+   * Constructs a pruned state with the reported step, reason, policy name,
+   * and duration.
    *
    * @see {@link prune} for the lifecycle transition function
    *
@@ -118,9 +112,7 @@ export const {
    */
   Pruned,
   /**
-   * Constructs the terminal state reached when a trial is stopped by
-   * external interruption — user abort, timeout, or study-level cancellation.
-   * Unlike Failed, no error is recorded because the interruption is intentional.
+   * Constructs a cancelled state. This variant carries no error or duration.
    *
    * @see {@link cancel} for the lifecycle transition function
    *

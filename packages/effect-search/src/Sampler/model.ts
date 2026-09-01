@@ -13,15 +13,10 @@ import type { PendingImputationPolicy } from "./PendingImputationPolicy.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * The core abstraction for optimization algorithms in effect-search.
- *
- * Each algorithm (Random, Grid, TPE) implements this interface to suggest
- * configurations from a search space given trial history. The `checkpoint`
- * and `restore` fields enable snapshot persistence so a study can be paused
- * and resumed without losing algorithm-internal state.
- *
- * **Lifecycle** — `acquire`/`release` bracket algorithm-internal resources
- * (e.g. the TPE density estimator). When absent, acquisition is a no-op.
+ * Runtime contract implemented by sampling algorithms. `suggest` receives the
+ * complete observation and reservation context; `checkpoint` and `restore`
+ * define the algorithm-specific resume contract. Optional lifecycle effects
+ * are run by {@link acquireLifecycle} and {@link releaseLifecycle}.
  *
  * @see {@link SearchSpace} for the dimension definitions passed to `suggest`
  * @see {@link SuggestContext} for the trial history and pending-trial context
@@ -33,15 +28,22 @@ import type { SuggestContext } from "./SuggestContext.js"
  * @category models
  */
 export class Sampler extends Data.Class<{
+  /** Algorithm tag and serializable options. */
   readonly kind: SamplerKind
+  /** Policy used to turn pending trials into model observations. */
   readonly pendingImputationPolicy: PendingImputationPolicy
+  /** Optional lifecycle acquisition effect. */
   readonly acquire?: Effect.Effect<void, SearchError>
+  /** Optional infallible lifecycle release effect. */
   readonly release?: Effect.Effect<void>
+  /** Suggests a configuration or fails with an algorithm/search-space error. */
   readonly suggest: (
     space: SearchSpace.SearchSpace,
     context: SuggestContext
   ) => Effect.Effect<unknown, SearchError>
+  /** Produces the algorithm-specific checkpoint. */
   readonly checkpoint: Effect.Effect<SamplerCheckpoint, SearchError>
+  /** Validates and restores an algorithm-specific checkpoint. */
   readonly restore: (
     checkpoint: SamplerCheckpoint
   ) => Effect.Effect<void, InvalidStudyConfig>

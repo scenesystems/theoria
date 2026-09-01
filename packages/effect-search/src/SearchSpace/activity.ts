@@ -18,7 +18,9 @@ const conditionSatisfied = (config: unknown, condition: ActivationCondition): bo
   )
 
 /**
- * Check whether a parameter's activation conditions are satisfied.
+ * Returns `true` when every activation condition finds an equal discriminant
+ * value in `config`. A missing discriminant or non-record config is inactive;
+ * parameters with no conditions are active.
  *
  * @since 0.1.0
  * @category guards
@@ -27,16 +29,16 @@ export const isParameterActive = (parameter: ParameterMetadata, config: unknown)
   Arr.every(parameter.activeWhen, (condition) => conditionSatisfied(config, condition))
 
 /**
- * Filter to only active parameters given a configuration.
+ * Returns active metadata in the same order as `space.params`.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const activeParameters = (space: SearchSpace, config: unknown): Array<ParameterMetadata> =>
   Arr.filter(space.params, (parameter) => isParameterActive(parameter, config))
 
 /**
- * Create an activation condition for a branch.
+ * Requires a branch discriminant to equal `choice` before the parameter is active.
  *
  * @since 0.1.0
  * @category constructors

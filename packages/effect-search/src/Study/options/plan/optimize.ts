@@ -34,7 +34,7 @@ const isScheduledOptimizeOptions = <Config, Space extends SearchSpace.SearchSpac
  * Validates general optimization options and constructs an optimization plan.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const optimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   options: OptimizeOptionsFromSpace<Space>

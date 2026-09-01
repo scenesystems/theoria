@@ -7,10 +7,20 @@ import { Schema } from "effect"
 
 import * as SearchSpace from "../../SearchSpace/index.js"
 
-/** @since 0.1.0 @category models */
+/**
+ * Optimizer values accepted by the mixed scenario.
+ *
+ * @since 0.1.0
+ * @category models
+ */
 export const MixedOptimizerChoices: ["adam", "sgd", "adamw"] = ["adam", "sgd", "adamw"]
 
-/** @since 0.1.0 @category schemas */
+/**
+ * Schema for learning rate, depth, and optimizer configurations.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
 export const MixedOptimizerConfigSchema = Schema.Struct({
   lr: Schema.Number,
   depth: Schema.Number,
@@ -18,19 +28,32 @@ export const MixedOptimizerConfigSchema = Schema.Struct({
 })
 
 /**
+ * Decoded configuration for {@link MixedOptimizerConfigSchema}.
+ *
  * @since 0.1.0
  * @category type-level
  */
 export type MixedOptimizerConfig = Schema.Schema.Type<typeof MixedOptimizerConfigSchema>
 
-/** @since 0.1.0 @category utils */
+/**
+ * Decodes an unknown configuration or throws a parse error.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
 export const decodeMixedOptimizerConfig = Schema.decodeUnknownSync(MixedOptimizerConfigSchema)
 
-/** @since 0.1.0 @category utils */
+/**
+ * Decodes an unknown configuration, returning schema violations in the Effect error channel.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
 export const decodeMixedOptimizerConfigEffect = Schema.decodeUnknown(MixedOptimizerConfigSchema)
 
 /**
- * Constructs a mixed search space with log-scaled learning rate, integer depth, and categorical optimizer.
+ * Constructs a space with learning rate in `[0.0005, 0.2]` on a log scale,
+ * integer depth in `[1, 8]`, and the declared optimizer choices.
  *
  * @since 0.1.0
  * @category constructors

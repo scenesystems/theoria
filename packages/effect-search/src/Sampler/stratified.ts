@@ -121,6 +121,7 @@ const selectRoundRobin = <Bucket extends string, A>(
 /**
  * Sample a deterministic stratified round-robin subset.
  *
+ * @remarks
  * Buckets are independently seeded (in `bucketOrder`) and then sampled round-robin
  * while skipping empty buckets until `targetSize` items are selected.
  *

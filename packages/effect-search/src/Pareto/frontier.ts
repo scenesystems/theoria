@@ -47,6 +47,7 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
 /**
  * Returns the index set of candidates that belong to the first non-dominated frontier.
  *
+ * @remarks
  * A candidate is non-dominated when no other candidate in `points` Pareto-dominates it.
  * The returned indices are a subset of `[0, points.length)` and are stable (preserve
  * input order). Pass `epsilon > 0` to require a strict margin for dominance.
@@ -78,6 +79,7 @@ export const nonDominatedIndices = (
 /**
  * Performs iterative front peeling (NSGA-II style) and returns front index groups in rank order.
  *
+ * @remarks
  * Each successive front is the non-dominated set of the remaining candidates after
  * removing all previously assigned fronts. `result[0]` is the Pareto-optimal front,
  * `result[1]` is the second front, and so on until all candidates are assigned.
@@ -154,6 +156,7 @@ export const nonDominatedSort = (
 /**
  * Maps each candidate index to its non-dominated front rank (0-based).
  *
+ * @remarks
  * Rank `0` means the candidate is on the Pareto-optimal front, rank `1` is the
  * second front, etc. Returns `Infinity` for any index not found in the sort result,
  * which should not happen with well-formed input.
@@ -184,6 +187,7 @@ export const nonDominatedRanks = (
 /**
  * Compute non-dominated holder sets independently per objective coordinate.
  *
+ * @remarks
  * Projects the full objective matrix onto each coordinate in turn, runs single-objective
  * non-dominated extraction, and records which candidates are holders plus the best value.
  * This is the building block for Pareto-parent weighting strategies that count how often

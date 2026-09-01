@@ -16,6 +16,7 @@ export type EmitterSink<Event> = (event: Event) => Effect.Effect<void, never, ne
 /**
  * Turn an effectful run function with event emission into a typed stream.
  *
+ * @remarks
  * On success, the stream terminates after all emitted events are consumed.
  * On failure, the stream fails with the same error.
  *

@@ -13,7 +13,6 @@ import { defaultDirection, type Direction, directionOrDefault, DirectionSchema }
  * directions array), letting decoders choose the right variant automatically.
  *
  * @see {@link Direction} — the `"minimize" | "maximize"` literal each variant wraps
- * @see {@link ObjectiveSpec} — the inferred TypeScript type
  *
  * @since 0.1.0
  * @category schemas
@@ -45,7 +44,7 @@ const ObjectiveSpecs = Data.taggedEnum<ObjectiveSpec>()
 const { Single: _Single, Multi: _Multi, $is: _$is, $match: _$match } = ObjectiveSpecs
 
 /**
- * Construct a single-objective spec with one optimization direction.
+ * Selects scalar comparison semantics for the supplied direction.
  * Use when the search has exactly one scalar objective to optimize.
  *
  * @see {@link Multi} — use instead when optimizing multiple objectives independently
@@ -57,7 +56,7 @@ const { Single: _Single, Multi: _Multi, $is: _$is, $match: _$match } = Objective
 export const Single = _Single
 
 /**
- * Construct a multi-objective spec with independent directions per dimension.
+ * Fixes objective-vector ordering to the supplied direction order.
  * Use when the search optimizes several objectives that may have different
  * directions (e.g. minimize latency while maximizing throughput).
  *
@@ -127,7 +126,7 @@ export const multiObjectiveSpec = (directions: ReadonlyArray<Direction>): Object
  * @see {@link ObjectiveValue} — the value whose dimensionality this validates
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const objectiveSpecDimensions = (spec: ObjectiveSpec): number =>
   matchObjectiveSpec({
@@ -145,7 +144,7 @@ export const objectiveSpecDimensions = (spec: ObjectiveSpec): number =>
  * @see {@link Direction} — the `"minimize" | "maximize"` value returned
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const objectiveDirectionAt = (spec: ObjectiveSpec, index: number): Option.Option<Direction> =>
   matchObjectiveSpec({

@@ -1,5 +1,19 @@
 /**
- * Domain contracts shared across modules.
+ * Builds typed search spaces and samplers, then executes resumable single- or
+ * multi-objective studies as Effect programs.
+ *
+ * @remarks
+ * Define parameter domains with `SearchSpace`, choose a `Sampler`, and run the
+ * resulting plan through `Study`. `Trial` and `StudyEvent` expose lifecycle
+ * state, while `Cache`, `Scheduler`, and `Pareto` add persistence,
+ * multi-fidelity scheduling, and multi-objective analysis when needed.
+ *
+ * @since 0.1.0
+ * @module
+ */
+
+/**
+ * Shared objective, metric, storage, and study contracts.
  *
  * @since 0.1.0
  * @category contracts
@@ -7,7 +21,7 @@
 export * as Contracts from "./contracts/index.js"
 
 /**
- * Shared cache authority and descriptor/layer primitives.
+ * Cache descriptors, services, and layers for evaluated objectives.
  *
  * @since 0.1.0
  * @category domains
@@ -15,7 +29,7 @@ export * as Contracts from "./contracts/index.js"
 export * as Cache from "./Cache/index.js"
 
 /**
- * Typed error hierarchy.
+ * Errors returned by search-space, sampler, scheduler, and study operations.
  *
  * @since 0.1.0
  * @category errors
@@ -23,7 +37,7 @@ export * as Cache from "./Cache/index.js"
 export * as Errors from "./Errors/index.js"
 
 /**
- * Unstable features with fixture-backed tests.
+ * APIs that may change without a major-version release.
  *
  * @since 0.1.0
  * @category experimental
@@ -39,7 +53,7 @@ export * as Experimental from "./experimental/index.js"
 export * as Pareto from "./Pareto/index.js"
 
 /**
- * Algorithm strategies for suggesting configurations.
+ * Random, TPE, MOTPE, and grid strategies for suggesting configurations.
  *
  * @since 0.1.0
  * @category domains
@@ -63,7 +77,7 @@ export * as Scheduler from "./Scheduler/index.js"
 export * as SearchSpace from "./SearchSpace/index.js"
 
 /**
- * Optimization orchestration, streaming, and persistence.
+ * Optimization orchestration, event streaming, snapshots, and persistence.
  *
  * @since 0.1.0
  * @category domains

@@ -26,6 +26,8 @@ import type {
 } from "./schemas.js"
 
 /**
+ * Builds an exhaustive matcher for every study event variant.
+ *
  * @since 0.1.0
  * @category pattern-matching
  */

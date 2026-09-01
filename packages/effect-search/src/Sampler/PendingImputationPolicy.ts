@@ -77,9 +77,7 @@ export const PendingImputationPolicySpiLayer = (
   })
 
 /**
- * A no-op imputation policy that ignores pending trials entirely. The sampler
- * sees only truly completed observations, which is appropriate when parallel
- * evaluations are unlikely or when duplicate suggestions are acceptable.
+ * A policy that produces no synthetic observations for pending trials.
  *
  * @see {@link PendingImputationPolicy} the strategy interface
  * @see {@link pendingAsZeroImputationPolicy} alternative that imputes zeros
@@ -98,10 +96,9 @@ const zeroObjectiveValue = (context: SuggestContext): number | ReadonlyArray<num
   })(context.objectiveSpec)
 
 /**
- * Conservative imputation policy that assigns zero objective values to every
- * pending trial. For multi-objective specs the zero vector matches the
- * dimension count. This biases the sampler away from regions already being
- * explored, reducing redundant suggestions under heavy parallelism.
+ * Assigns objective value `0` to every pending trial, or a zero vector matching
+ * the number of objectives. The meaning of zero depends on each objective's
+ * direction and scale; this policy does not guarantee duplicate avoidance.
  *
  * @see {@link PendingImputationPolicy} the strategy interface
  * @see {@link noPendingImputationPolicy} alternative that skips imputation

@@ -49,7 +49,8 @@ const branchSchema = <
 }
 
 /**
- * Create a switch case binding a value to a sub-space.
+ * Associates a discriminant value with a compiled branch space. The branch's
+ * schema and ordered parameter metadata are retained for conditional compilation.
  *
  * @since 0.1.0
  * @category constructors
@@ -69,7 +70,9 @@ export const when = <
 }
 
 /**
- * Create a conditional switch over a discriminant dimension.
+ * Builds a union schema whose members contain the discriminant literal and the
+ * corresponding case schema. {@link makeConditional} later verifies that the
+ * named discriminant is categorical and every case value is reachable and unique.
  *
  * @since 0.1.0
  * @category constructors

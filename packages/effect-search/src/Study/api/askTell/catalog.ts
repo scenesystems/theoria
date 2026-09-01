@@ -10,6 +10,7 @@ import { snapshot } from "./snapshot.js"
 /**
  * Procedure catalog for manual ask/tell orchestration.
  *
+ * @remarks
  * This stable grouping is intentionally decoupled from runtime internals so
  * adapters can depend on one protocol boundary.
  *

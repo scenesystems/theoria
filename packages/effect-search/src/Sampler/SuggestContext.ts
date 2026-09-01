@@ -35,9 +35,8 @@ export class SuggestCompletedTrial extends Schema.Class<SuggestCompletedTrial>("
 }) {}
 
 /**
- * An in-flight trial that has been suggested but not yet evaluated. Samplers
- * should account for pending trials to avoid re-suggesting duplicate or
- * nearby configurations while evaluations are still running.
+ * An in-flight trial that has been suggested but has no completed observation.
+ * Its treatment is determined by the sampler's pending-imputation policy.
  *
  * @see {@link makeSuggestPendingTrial} factory constructor
  * @see {@link SuggestContext} where pending trials are surfaced to samplers
@@ -50,11 +49,9 @@ export class SuggestPendingTrial extends Schema.Class<SuggestPendingTrial>("effe
 }) {}
 
 /**
- * Full observation context provided to a sampler when requesting the next
- * configuration to evaluate. Contains the history of completed trials, any
- * pending (in-flight) trials the sampler should be aware of, the objective
- * specification defining optimization direction(s), the next trial number to
- * assign, and the exploration epsilon controlling random-vs-model balance.
+ * Observation and reservation context supplied for one suggestion. The trial
+ * number drives deterministic per-trial sampling. `epsilon` is a non-negative,
+ * finite dominance tolerance; it is not a random-exploration probability.
  *
  * @see {@link SuggestCompletedTrial} shape of each completed observation
  * @see {@link SuggestPendingTrial} shape of each pending observation
@@ -70,9 +67,8 @@ export class SuggestContext extends Schema.Class<SuggestContext>("effect-search/
 }) {}
 
 /**
- * Pairs a newly assigned trial number with the configuration a sampler has
- * suggested. Returned from a sampler's `suggest` call so the caller can
- * register the trial and begin evaluation.
+ * Associates an assigned trial number with its suggested configuration for
+ * registration as a pending trial.
  *
  * @see {@link SuggestContext} the input context that produced this reservation
  * @since 0.1.0

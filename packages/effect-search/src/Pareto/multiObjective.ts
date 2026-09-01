@@ -10,10 +10,7 @@ import { hypervolumeContribution2d } from "./hypervolume.js"
 import type { ObjectiveVector } from "./model.js"
 
 /**
- * Schema for a per-candidate weight vector produced by hypervolume-based ranking.
- *
- * Each element is a normalized weight in `(0, 1]` indicating the candidate's relative
- * hypervolume contribution. Used as importance weights in MOTPE-style samplers.
+ * Schema for a numeric per-candidate weight vector.
  *
  * @see {@link ObjectiveWeights} Extracted type alias
  * @see {@link computeMultiObjectiveWeights} Produces values conforming to this schema
@@ -26,6 +23,7 @@ export const ObjectiveWeightsSchema = Schema.Array(Schema.Number)
 /**
  * Per-candidate weight vector from hypervolume-based ranking.
  *
+ * @remarks
  * Values are normalized to `(0, 1]` with a floor of `EPS` (1e-12) to avoid
  * zero-weight candidates being entirely excluded from sampling.
  *
@@ -113,9 +111,11 @@ const normalizeContributions = (contributions: ReadonlyArray<number>): Objective
 /**
  * Compute a direction-aware reference point for hypervolume calculation.
  *
- * Projects all points into loss space (minimization), takes the worst value per
- * coordinate with a 10% margin, then projects back. The margin ensures the reference
- * strictly dominates all observed points. Returns an empty array when `points` is empty.
+ * @remarks
+ * Projects points into minimization space, takes the largest value per coordinate,
+ * and applies `max(1.1 * worst, 0.9 * worst)`, using `1e-12` when that result is zero.
+ * Directions omitted by the caller default to `"minimize"`. Returns an empty array
+ * when `points` is empty; the first point determines the output dimension count.
  *
  * @see {@link computeMultiObjectiveWeights} Uses this as the default reference when none is supplied
  * @see {@link hypervolume2d} from `./hypervolume` — consumes the reference point
@@ -139,6 +139,7 @@ export const computeReferencePoint = (
 /**
  * Compute normalized MOTPE-style objective weights from hypervolume contributions.
  *
+ * @remarks
  * Normalizes leave-one-out hypervolume contributions to `(0, 1]` so the highest
  * contributor receives weight `1` and all others are proportionally scaled. A floor
  * of `EPS` (1e-12) prevents any candidate from receiving zero weight.

@@ -23,10 +23,8 @@ const durationFromState = (state: TrialState, now: number): number =>
   )
 
 /**
- * The sole entry point for trial creation. Produces a {@link Trial} in the
- * `Running` state with the given sampler-suggested configuration and start
- * timestamp. All subsequent state transitions flow through the other
- * lifecycle functions in this module.
+ * Constructs a {@link Trial} in the `Running` state with the supplied trial
+ * number, configuration, and start timestamp.
  *
  * @see {@link Trial} for the returned record type
  * @see {@link Running} for the initial state constructor
@@ -66,9 +64,9 @@ const completeWithMetadata = <Config>(
   })
 
 /**
- * Transitions a running trial to the `Completed` terminal state, recording
- * the objective value and computing elapsed duration from the `Running`
- * start time. Supports both data-first `complete(trial, value, now)` and
+ * Returns a copy in the `Completed` state. Duration is `now - startedAt`
+ * when the input is running, and zero for an already-terminal input. Supports
+ * both data-first `complete(trial, value, now)` and
  * pipeable `pipe(trial, complete(value, now))` calling conventions.
  *
  * @see {@link Trial} for the trial record
@@ -88,9 +86,7 @@ export const complete: {
 )
 
 /**
- * Like {@link complete} but additionally records how many retries the
- * objective function required before succeeding. Useful for diagnosing
- * flaky evaluations or computing retry-adjusted cost.
+ * Like {@link complete}, with an explicit retry count in the completed state.
  *
  * @see {@link complete} for the zero-retry convenience variant
  * @see {@link completeWithRetryCountAndCost} to also attach an evaluation cost
@@ -108,10 +104,8 @@ export const completeWithRetryCount: {
 )
 
 /**
- * The most complete form of the completion transition — records the objective
- * value, retry count, and an optional monetary/compute cost for the
- * evaluation. When cost is `Option.none()`, no cost field is set on the
- * resulting trial.
+ * Like {@link complete}, with retry count and optional caller-defined cost.
+ * `Option.none()` omits the resulting trial's `cost` field.
  *
  * @see {@link complete} for the minimal convenience variant
  * @see {@link completeWithRetryCount} for completion without cost tracking
@@ -143,9 +137,8 @@ export const completeWithRetryCountAndCost: {
 )
 
 /**
- * Transitions a running trial to the `Failed` terminal state, capturing
- * the {@link TrialError} and elapsed duration. The error is preserved for
- * post-hoc diagnostics without affecting the study's other trials.
+ * Returns a copy in the `Failed` state with the supplied {@link TrialError}.
+ * Duration follows the same running-versus-terminal rule as {@link complete}.
  *
  * @see {@link Trial} for the trial record
  * @see {@link Failed} for the target state constructor
@@ -169,11 +162,8 @@ export const fail: {
 )
 
 /**
- * Transitions a running trial to the `Pruned` terminal state when an
- * early-stopping policy (e.g. median pruner, percentile pruner) determines
- * the trial is unlikely to improve beyond the current best. Records the
- * intermediate step, a human-readable reason, and the policy name so
- * pruning decisions can be audited after the study completes.
+ * Returns a copy in the `Pruned` state with caller-supplied step, reason, and
+ * policy metadata. Duration follows the same rule as {@link complete}.
  *
  * @see {@link Trial} for the trial record
  * @see {@link Pruned} for the target state constructor
@@ -205,10 +195,8 @@ export const prune: {
 )
 
 /**
- * Transitions a running trial to the `Cancelled` terminal state. This
- * occurs on external interruption — user abort, timeout, or study-level
- * cancellation. Unlike {@link fail}, no error is captured because the
- * interruption is intentional and does not indicate a defect.
+ * Returns a copy in the `Cancelled` state. The cancelled state does not retain
+ * an error, timestamp, or duration.
  *
  * @see {@link Trial} for the trial record
  * @see {@link Cancelled} for the target state constructor

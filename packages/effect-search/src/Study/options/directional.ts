@@ -163,7 +163,7 @@ const optimizePlanFromDirectionalOptions = <Space extends SearchSpace.SearchSpac
  * Validates minimization options and constructs an optimization plan.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const minimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   options: MinimizeOptionsFromSpace<Space>
@@ -174,7 +174,7 @@ export const minimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
  * Validates maximization options and constructs an optimization plan.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const maximizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   options: MaximizeOptionsFromSpace<Space>

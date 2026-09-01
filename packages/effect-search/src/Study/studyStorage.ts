@@ -60,7 +60,10 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
 >() {}
 
 /**
- * Service interface for snapshot persistence and trial-log replay.
+ * Structural storage service used by study orchestration. Writes are
+ * best-effort envelope emissions, while loads decode the log and can fail with
+ * `InvalidStudyConfig`; replay returns only log trials at or after the latest
+ * snapshot's `nextTrialNumber`, or the full log when no snapshot exists.
  *
  * @since 0.1.0
  * @category type-level

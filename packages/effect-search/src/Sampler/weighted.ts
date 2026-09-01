@@ -1,6 +1,7 @@
 /**
  * Deterministic weighted-index sampling helpers.
  *
+ * @remarks
  * Decomposition rationale: weighted single-draw selection, deterministic replay sampling,
  * and pair sampling share one seed-stepping kernel and fallback policy contract, so they
  * remain co-located for auditability.
@@ -20,7 +21,6 @@ import { buildIndices, nextDeterministicSeed, normalizeDeterministicSeed } from 
  * Weights do not need to sum to 1 — they are treated as relative magnitudes
  * during cumulative-distribution selection.
  *
- * @see {@link WeightedIndex} for the inferred type
  * @see {@link selectWeightedIndex} consumes arrays of this shape
  * @since 0.1.0
  * @category schemas
@@ -31,7 +31,8 @@ export const WeightedIndexSchema = Schema.Struct({
 })
 
 /**
- * Inferred type of a decoded {@link WeightedIndexSchema} value.
+ * One candidate's stable identity and relative selection mass. Selection sorts
+ * by `index`, so caller array order does not determine seeded results.
  *
  * @see {@link WeightedIndexSchema} for the runtime schema
  * @since 0.1.0
@@ -45,7 +46,6 @@ export type WeightedIndex = typeof WeightedIndexSchema.Type
  * `"seed-modulo"` hashes the current seed into the candidate array, providing
  * deterministic but distributed fallback selection across candidates.
  *
- * @see {@link WeightedZeroWeightFallback} for the inferred type
  * @see {@link selectWeightedIndexWithPolicy} applies this fallback
  * @since 0.1.0
  * @category schemas
@@ -53,7 +53,7 @@ export type WeightedIndex = typeof WeightedIndexSchema.Type
 export const WeightedZeroWeightFallbackSchema = Schema.Literal("lowest-index", "seed-modulo")
 
 /**
- * Inferred type of a decoded {@link WeightedZeroWeightFallbackSchema} value.
+ * Deterministic policy used only when no candidate has positive weight.
  *
  * @see {@link WeightedZeroWeightFallbackSchema} for the runtime schema
  * @see {@link SelectWeightedIndexOptions} where this type is consumed

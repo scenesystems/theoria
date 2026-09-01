@@ -97,7 +97,8 @@ export const maximize = <Space extends SearchSpace.SearchSpace>(
   )(options)
 
 /**
- * Create a serializable snapshot from a study result.
+ * Captures the completed result as replay state, including sampler checkpoint
+ * and accumulated events.
  *
  * @since 0.1.0
  * @category combinators

@@ -9,6 +9,7 @@ import { Schema } from "effect"
 /**
  * Schema for a fixed-length numeric vector representing one candidate's objective values.
  *
+ * @remarks
  * All Pareto operators expect coordinates in the same positional order across candidates.
  * Direction interpretation (minimize/maximize) is handled by the consuming function, not
  * by this schema.
@@ -24,6 +25,7 @@ export const ObjectiveVectorSchema = Schema.Array(Schema.Number)
 /**
  * A single candidate's objective values as a positional numeric array.
  *
+ * @remarks
  * Index `i` corresponds to the `i`-th objective. All vectors in a comparison
  * must share the same length; mismatched lengths cause `dominates` to return `false`.
  *
@@ -38,6 +40,7 @@ export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
 /**
  * Non-dominated point indices for a single objective coordinate.
  *
+ * @remarks
  * `holders` contains the indices of candidates that are non-dominated when
  * the objective matrix is projected onto the single coordinate at `objectiveIndex`.
  * `bestValue` is the best (direction-aware) value found among those holders.
@@ -62,6 +65,7 @@ export class ObjectiveFrontierHolding extends Schema.Class<ObjectiveFrontierHold
 /**
  * Candidate-level weight derived from objective frontier holdings.
  *
+ * @remarks
  * Weight equals the number of per-objective frontiers where a candidate appears
  * as a holder. A candidate on all `k` objective frontiers receives weight `k`;
  * one on none receives `0`. Higher weight indicates broader Pareto competitiveness.
@@ -82,6 +86,7 @@ export class ObjectiveFrontierWeight extends Schema.Class<ObjectiveFrontierWeigh
 /**
  * Complete deterministic snapshot of a Pareto frontier analysis.
  *
+ * @remarks
  * **Fields**
  * - `frontierIndices` — indices of non-dominated candidates (first front)
  * - `dominatedIndices` — complement set: indices dominated by at least one frontier member

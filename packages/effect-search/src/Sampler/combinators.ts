@@ -13,10 +13,9 @@ import type { Sampler } from "./model.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * Delegates to the sampler's `suggest` implementation to draw a candidate
- * configuration from the search space, informed by prior trial history in
- * the context. Supports both data-first `suggest(sampler, space, ctx)` and
- * data-last `pipe(sampler, suggest(space, ctx))` calling conventions.
+ * Runs a sampler against a search space and trial context. Supports data-first
+ * and data-last invocation. Algorithm validation, unsupported-space failures,
+ * and exhaustion are reported as `SearchError` values.
  *
  * @see {@link Sampler}
  * @see {@link SearchSpace}
@@ -47,9 +46,10 @@ export const suggest: {
 )
 
 /**
- * Extracts the sampler's current checkpoint — the minimal algorithm-specific
- * state sufficient to resume the sampler from this point. Persist the
- * returned value to enable study pause/resume without re-running trials.
+ * Evaluates the sampler's checkpoint effect. Current built-in checkpoints
+ * record the configuration that must match on restore; suggestion progression
+ * is derived from the resumed study's trial context rather than a mutable RNG
+ * cursor.
  *
  * @see {@link SamplerCheckpoint}
  * @see {@link restoreCheckpoint}
@@ -60,9 +60,8 @@ export const suggest: {
 export const checkpoint = (self: Sampler): Effect.Effect<SamplerCheckpoint, SearchError> => self.checkpoint
 
 /**
- * Acquires algorithm-internal resources (e.g. density estimators, caches).
- * Returns `Effect.void` when the sampler has no `acquire` hook, so callers
- * can invoke this unconditionally without checking for its presence.
+ * Runs the sampler's optional acquisition effect, or succeeds with `void` when
+ * no acquisition effect is defined.
  *
  * @see {@link Sampler}
  * @see {@link releaseLifecycle}
@@ -76,9 +75,8 @@ export const acquireLifecycle = (self: Sampler): Effect.Effect<void, SearchError
   )
 
 /**
- * Releases algorithm-internal resources previously acquired via
- * {@link acquireLifecycle}. Returns `Effect.void` when the sampler has no
- * `release` hook, so callers can invoke this unconditionally.
+ * Runs the sampler's optional finalizer, or succeeds with `void` when no
+ * finalizer is defined. Unlike acquisition, release has no typed error channel.
  *
  * @see {@link Sampler}
  * @see {@link acquireLifecycle}
@@ -92,10 +90,9 @@ export const releaseLifecycle = (self: Sampler): Effect.Effect<void> =>
   )
 
 /**
- * Restores sampler-internal state from a previously persisted checkpoint,
- * enabling study resume without re-running completed trials. Fails with
- * `InvalidStudyConfig` if the checkpoint tag does not match the sampler's
- * algorithm. Supports both data-first and data-last calling conventions.
+ * Validates a checkpoint against a sampler's algorithm and configuration.
+ * Built-in samplers reject a different algorithm tag or incompatible persisted
+ * settings with `InvalidStudyConfig`. Supports data-first and data-last calls.
  *
  * @see {@link SamplerCheckpoint}
  * @see {@link checkpoint}

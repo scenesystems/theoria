@@ -12,7 +12,9 @@ import type { StopMode } from "./stopMode.js"
 import { StopModeSchema } from "./stopMode.js"
 
 /**
- * Runtime schema for decoding and validating heartbeat decision.
+ * Decodes the heartbeat result consumed during objective execution: `Continue`
+ * leaves work running, while `Stop` carries a reason and requests either
+ * draining active work or interrupting it according to {@link StopModeSchema}.
  *
  * @since 0.1.0
  * @category schemas
@@ -88,7 +90,7 @@ const modeRank = (mode: StopMode): number =>
  * Select the preferred stop request between two candidates.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const preferredStopRequest = (existing: StopRequest, candidate: StopRequest): StopRequest =>
   candidate.requestedByTrialNumber < existing.requestedByTrialNumber

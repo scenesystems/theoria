@@ -10,7 +10,6 @@ import { Array as Arr, Match, Number as Num, Schema } from "effect"
  * Each element corresponds to one objective dimension, and the element order
  * must match the direction order in the study's objective spec.
  *
- * @see {@link ObjectiveVector} extracted type
  * @see {@link ObjectiveValueSchema} union that accepts both scalar and vector forms
  *
  * @since 0.1.0
@@ -19,8 +18,8 @@ import { Array as Arr, Match, Number as Num, Schema } from "effect"
 export const ObjectiveVectorSchema = Schema.Array(Schema.Number)
 
 /**
- * Extracted type of {@link ObjectiveVectorSchema} — a `ReadonlyArray<number>`
- * where each element is one objective dimension's value.
+ * Ordered multi-objective result whose positions must align with the study's
+ * direction vector.
  *
  * @see {@link ObjectiveVectorSchema} source schema
  * @see {@link isObjectiveVector} type guard to narrow from `ObjectiveValue`
@@ -36,7 +35,6 @@ export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
  * multi-objective studies produce an ordered vector. Most pipeline functions
  * accept this union and branch internally via {@link isObjectiveVector}.
  *
- * @see {@link ObjectiveValue} extracted type
  * @see {@link normalizeObjectiveVector} promotes scalars to singleton vectors
  *
  * @since 0.1.0
@@ -45,9 +43,8 @@ export type ObjectiveVector = Schema.Schema.Type<typeof ObjectiveVectorSchema>
 export const ObjectiveValueSchema = Schema.Union(Schema.Number, ObjectiveVectorSchema)
 
 /**
- * Extracted type of {@link ObjectiveValueSchema} — either a scalar `number`
- * or an {@link ObjectiveVector}. This is the primary value type flowing
- * through trial results, comparators, and ranking logic.
+ * Trial result accepted by both single-objective and multi-objective pipelines;
+ * consumers must preserve scalar versus ordered-vector semantics.
  *
  * @see {@link ObjectiveValueSchema} source schema
  * @see {@link isObjectiveVector} narrow to the vector branch
@@ -81,7 +78,7 @@ export const isObjectiveVector = (value: ObjectiveValue): value is ObjectiveVect
  * @see {@link isObjectiveVector} type-narrowing guard
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const objectiveDimensionCount = (value: ObjectiveValue): number =>
   Match.value(value).pipe(
@@ -132,7 +129,7 @@ export const isFiniteObjectiveValue = (value: ObjectiveValue): boolean =>
  * @see {@link ObjectiveValueSchema} the union this normalizes
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const normalizeObjectiveVector = (value: ObjectiveValue): ReadonlyArray<number> =>
   Match.value(value).pipe(

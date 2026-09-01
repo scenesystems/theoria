@@ -8,7 +8,9 @@ import { Schema } from "effect"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
- * An error indicating that a search-space definition violates its invariants.
+ * Rejects search-space declaration or compilation when structural or
+ * distribution invariants fail. `reason` describes the correction and optional
+ * `dimension` identifies the parameter responsible for the failure.
  *
  * @since 0.1.0
  * @category errors

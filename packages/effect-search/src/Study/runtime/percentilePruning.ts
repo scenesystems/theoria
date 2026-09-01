@@ -63,7 +63,7 @@ const shouldPruneFromThreshold = (
  * Determine whether a trial should be pruned by percentile ranking.
  *
  * @since 0.1.0
- * @category utils
+ * @category guards
  */
 export const shouldPruneByPercentile = ({
   direction,

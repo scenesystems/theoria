@@ -27,7 +27,7 @@ import type {
   TrialStartedSchema
 } from "./schemas.js"
 
-/** @since 0.1.0 @category constructors */
+/** Marks the point after reservation and before objective evaluation. @since 0.1.0 @category constructors */
 export const TrialStarted = (fields: {
   readonly trialNumber: number
   readonly config: unknown
@@ -36,7 +36,7 @@ export const TrialStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Captures the pruning decision made for one ordered intermediate report. @since 0.1.0 @category constructors */
 export const TrialReported = (fields: {
   readonly trialNumber: number
   readonly step: number
@@ -47,7 +47,7 @@ export const TrialReported = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks successful objective evaluation as the trial's terminal outcome. @since 0.1.0 @category constructors */
 export const TrialCompleted = (fields: {
   readonly trialNumber: number
   readonly value: ObjectiveValue
@@ -56,7 +56,7 @@ export const TrialCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Accounts for one trial cost against the study's cumulative budget. @since 0.1.0 @category constructors */
 export const TrialCosted = (fields: {
   readonly trialNumber: number
   readonly cost: number
@@ -66,7 +66,7 @@ export const TrialCosted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks a policy-pruned trial as terminal at its last reported step. @since 0.1.0 @category constructors */
 export const TrialPruned = (fields: {
   readonly trialNumber: number
   readonly step: number
@@ -77,7 +77,7 @@ export const TrialPruned = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Records a failed attempt while leaving the trial eligible for its next attempt. @since 0.1.0 @category constructors */
 export const TrialRetried = (fields: {
   readonly trialNumber: number
   readonly attempt: number
@@ -87,7 +87,7 @@ export const TrialRetried = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks timeout cancellation as the trial's terminal outcome. @since 0.1.0 @category constructors */
 export const TrialCancelled = (fields: {
   readonly trialNumber: number
   readonly reason: "timeout"
@@ -96,7 +96,7 @@ export const TrialCancelled = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks exhausted or non-retryable evaluation failure as terminal. @since 0.1.0 @category constructors */
 export const TrialFailed = (fields: {
   readonly trialNumber: number
   readonly error: TrialError
@@ -105,7 +105,7 @@ export const TrialFailed = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Records replacement of the current scalar incumbent; Pareto studies do not use it. @since 0.1.0 @category constructors */
 export const BestUpdated = (fields: {
   readonly trialNumber: number
   readonly value: number
@@ -114,7 +114,7 @@ export const BestUpdated = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Records the first trial-owned stop request and whether in-flight work may continue. @since 0.1.0 @category constructors */
 export const StudyStopRequested = (fields: {
   readonly mode: StopMode
   readonly reason: string
@@ -124,7 +124,7 @@ export const StudyStopRequested = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks allocation of a bracket's initial population and resource floor. @since 0.1.0 @category constructors */
 export const BracketStarted = (fields: {
   readonly bracketIndex: number
   readonly configs: number
@@ -134,7 +134,7 @@ export const BracketStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Marks assignment of a resource level to the round's surviving configs. @since 0.1.0 @category constructors */
 export const RoundStarted = (fields: {
   readonly bracketIndex: number
   readonly roundIndex: number
@@ -145,7 +145,7 @@ export const RoundStarted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Closes a round with the number that reached its assigned resource. @since 0.1.0 @category constructors */
 export const RoundCompleted = (fields: {
   readonly bracketIndex: number
   readonly roundIndex: number
@@ -157,7 +157,7 @@ export const RoundCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Closes a bracket after all promotion rounds, retaining its scalar best when available. @since 0.1.0 @category constructors */
 export const BracketCompleted = (fields: {
   readonly bracketIndex: number
   readonly rounds: number
@@ -167,7 +167,7 @@ export const BracketCompleted = (fields: {
   ...fields
 })
 
-/** @since 0.1.0 @category constructors */
+/** Seals the event stream with the reason no further study work will be scheduled. @since 0.1.0 @category constructors */
 export const StudyCompleted = (fields: {
   readonly completionReason: CompletionReason
 }): Schema.Schema.Type<typeof StudyCompletedSchema> => ({

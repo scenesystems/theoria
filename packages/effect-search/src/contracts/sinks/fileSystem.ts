@@ -14,7 +14,13 @@ const ENVELOPE_FILE_NAME = "envelopes.jsonl"
 const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 
 /**
- * File-system sink layer — writes each envelope as a JSON line.
+ * Provides a sink that appends envelopes to `envelopes.jsonl` in `directory`.
+ *
+ * @remarks
+ * Directory creation, schema encoding, and write failures are intentionally
+ * suppressed because `ArtifactSink.emit` has no typed error channel. The file
+ * contains the envelope as supplied: this sink performs no signing, encryption,
+ * redaction, or integrity verification.
  *
  * @since 0.1.0
  * @category layers

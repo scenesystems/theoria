@@ -11,7 +11,6 @@ import { Option, Schema } from "effect"
  * higher as better. Every comparator and ranking operation in the search
  * pipeline reads this to decide value comparison polarity.
  *
- * @see {@link Direction} extracted type
  * @see {@link defaultDirection} fallback when no direction is specified
  *
  * @since 0.1.0
@@ -20,7 +19,7 @@ import { Option, Schema } from "effect"
 export const DirectionSchema = Schema.Literal("minimize", "maximize")
 
 /**
- * Extracted type of {@link DirectionSchema} — either `"minimize"` or `"maximize"`.
+ * Comparison polarity shared by ranking, incumbent selection, and Pareto logic.
  *
  * @see {@link DirectionSchema} source schema
  *
@@ -37,7 +36,7 @@ export type Direction = Schema.Schema.Type<typeof DirectionSchema>
  * @see {@link directionOrDefault} convenience wrapper that unwraps an `Option`
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const defaultDirection = (): Direction => "minimize"
 
@@ -51,7 +50,7 @@ export const defaultDirection = (): Direction => "minimize"
  * @see {@link DirectionSchema} valid direction values
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const directionOrDefault = (direction: Option.Option<Direction>): Direction =>
   Option.getOrElse(direction, defaultDirection)

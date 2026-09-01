@@ -13,7 +13,8 @@ import { samplerMetricsFromTrials, SamplerMetricsSchema, studyDurationFromTrials
 import { type SnapshotTrial, SnapshotTrialSchema, trialToSnapshot } from "./stateCodec.js"
 
 /**
- * Runtime schema for decoding and validating snapshot format version.
+ * Accepts only on-disk format version `1`; snapshots with any other version
+ * fail decoding rather than being interpreted with incompatible fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -98,7 +99,7 @@ export const makeStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot
  * Returns one greater than the largest existing trial number, or zero for no trials.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const nextTrialNumberFromTrials = <Config>(trials: ReadonlyArray<Trial.Trial<Config>>): number =>
   Num.increment(

@@ -1,5 +1,12 @@
 /**
- * Barrel module that re-exports all search error variants and provides union schemas for error taxonomy.
+ * Classifies invalid search spaces and studies, sampler incompatibility or
+ * exhaustion, invalid objective data, absent successful trials, unsupported
+ * operations, and trial failures.
+ *
+ * @remarks
+ * Recover from individual tagged variants in the Effect failure channel. Use
+ * `SpaceErrorSchema`, `SamplerErrorSchema`, or `StudyErrorSchema` at a narrow
+ * boundary; `SearchErrorSchema` decodes the complete package-owned union.
  *
  * @since 0.1.0
  */
@@ -63,7 +70,7 @@ import {
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
- * Runtime schema for decoding and validating space error.
+ * Decodes failures at the search-space declaration and traversal boundary.
  *
  * @since 0.1.0
  * @category schemas
@@ -79,7 +86,7 @@ export const SpaceErrorSchema = Schema.Union(InvalidSearchSpace)
 export type SpaceError = Schema.Schema.Type<typeof SpaceErrorSchema>
 
 /**
- * Runtime schema for decoding and validating sampler error.
+ * Decodes sampler configuration, compatibility, and exhaustion failures.
  *
  * @since 0.1.0
  * @category schemas
@@ -101,7 +108,8 @@ export const SamplerErrorSchema = Schema.Union(
 export type SamplerError = Schema.Schema.Type<typeof SamplerErrorSchema>
 
 /**
- * Runtime schema for decoding and validating study error.
+ * Decodes failures owned by study orchestration, objective reporting, and
+ * trial execution; search-space and sampler failures remain outside this union.
  *
  * @since 0.1.0
  * @category schemas

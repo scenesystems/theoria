@@ -35,7 +35,7 @@ const decodeResumePlanShape = <Config, Space extends SearchSpace.SearchSpace>(
  * Validates resume options and constructs a resume plan.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const resumePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   options: ResumeOptionsFromSpace<Space>
@@ -57,7 +57,7 @@ export const resumePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
  * Converts a validated resume plan into the optimization plan used for execution.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const optimizePlanFromResume = <Space extends SearchSpace.SearchSpace>(
   options: ResumePlan<SearchSpace.Type<Space>, Space>
@@ -74,7 +74,7 @@ export const optimizePlanFromResume = <Space extends SearchSpace.SearchSpace>(
  * Adds a loaded snapshot to storage-based resume options.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const resumeOptionsWithSnapshot = <Space extends SearchSpace.SearchSpace>(
   options: ResumeFromStorageOptionsFromSpace<Space>,
@@ -88,7 +88,7 @@ export const resumeOptionsWithSnapshot = <Space extends SearchSpace.SearchSpace>
  * Converts resume options into options for continuing optimization.
  *
  * @since 0.1.0
- * @category utils
+ * @category constructors
  */
 export const optimizeOptionsFromResume = <Space extends SearchSpace.SearchSpace>(
   options: ResumeOptionsFromSpace<Space>

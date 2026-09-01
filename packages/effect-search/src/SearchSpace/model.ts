@@ -9,10 +9,9 @@ import type { PrimitiveChoice } from "../contracts/Distribution.js"
 import { DistributionSchema, PrimitiveChoiceSchema } from "../contracts/Distribution.js"
 
 /**
- * Options for float-valued dimensions. `scale: "log"` enables log-uniform
- * sampling — essential for parameters spanning orders of magnitude (e.g.
- * learning rate 1e-5 to 1e-1). `step` discretizes the continuous range
- * into evenly spaced increments.
+ * Schema for optional float distribution metadata. `scale` records linear or
+ * logarithmic sampling and `step` records discretization; {@link make} validates
+ * positive steps and positive lower bounds for logarithmic dimensions.
  *
  * @see {@link IntOptionsSchema} for integer-valued dimensions
  * @see {@link ParameterMetadata} where these options feed into compiled metadata
@@ -25,7 +24,7 @@ export const FloatOptionsSchema = Schema.Struct({
 })
 
 /**
- * Inferred runtime type of {@link FloatOptionsSchema}.
+ * Decoded options accepted by {@link float}.
  *
  * @see {@link FloatOptionsSchema}
  * @since 0.1.0
@@ -34,9 +33,8 @@ export const FloatOptionsSchema = Schema.Struct({
 export type FloatOptions = Schema.Schema.Type<typeof FloatOptionsSchema>
 
 /**
- * Options for integer-valued dimensions. `step` constrains sampling to
- * multiples of the given value (e.g. `step: 8` for attention head counts
- * that must be powers-of-two-friendly).
+ * Schema for an optional integer distribution step. {@link make} requires a
+ * supplied step to be positive.
  *
  * @see {@link FloatOptionsSchema} for float-valued dimensions
  * @see {@link ParameterMetadata} where these options feed into compiled metadata
@@ -48,7 +46,7 @@ export const IntOptionsSchema = Schema.Struct({
 })
 
 /**
- * Inferred runtime type of {@link IntOptionsSchema}.
+ * Decoded options accepted by {@link int}.
  *
  * @see {@link IntOptionsSchema}
  * @since 0.1.0
@@ -57,11 +55,8 @@ export const IntOptionsSchema = Schema.Struct({
 export type IntOptions = Schema.Schema.Type<typeof IntOptionsSchema>
 
 /**
- * Predicate that gates a dimension's participation in the search space.
- * A dimension with an activation condition is only sampled when the
- * named discriminant dimension currently equals the specified value.
- * This enables conditional search spaces where entire parameter groups
- * appear or disappear based on a categorical choice.
+ * An equality requirement on a named discriminant. All conditions attached to
+ * a parameter must hold for that parameter to be active.
  *
  * @see {@link Switch} which uses activation conditions to branch sub-schemas
  * @see {@link ParameterMetadata} which carries the `activeWhen` array
@@ -74,10 +69,9 @@ export class ActivationCondition extends Schema.Class<ActivationCondition>("effe
 }) {}
 
 /**
- * Compiled representation of a single searchable dimension, extracted from
- * an annotated Schema field during `SearchSpace.make()`. Pairs the
- * dimension's sampling distribution with any activation conditions that
- * gate its participation in conditional spaces.
+ * Sampling metadata extracted from one annotated dimension. `activeWhen` is
+ * empty for root parameters and records the outer-to-inner activation path for
+ * branch parameters.
  *
  * @see {@link ActivationCondition} for conditional dimension gating
  * @see {@link SearchSpace} which aggregates all parameter metadata
@@ -91,10 +85,7 @@ export class ParameterMetadata extends Schema.Class<ParameterMetadata>("effect-s
 }) {}
 
 /**
- * Binds a discriminant value to a sub-schema and its extracted parameters.
- * `CaseSchema` is the schema active when the discriminant matches `Choice`,
- * and `params` holds the pre-compiled metadata for that branch so samplers
- * can iterate without re-extracting at runtime.
+ * A discriminant value together with the branch schema and its ordered metadata.
  *
  * @see {@link Switch} which collects cases into a branching structure
  * @see {@link ActivationCondition} which mirrors this binding at the dimension level
@@ -111,11 +102,8 @@ export class SwitchCase<
 }> {}
 
 /**
- * Categorical branching point in a search space where different values
- * of a discriminant dimension activate entirely different parameter sets.
- * The `discriminant` names the categorical dimension, and each `SwitchCase`
- * maps one of its values to a sub-schema with its own dimensions. Samplers
- * first sample the discriminant, then recurse into the matching case.
+ * A named discriminant, non-empty case list, and union schema assembled by
+ * {@link switchOn}. Reachability and uniqueness are validated during compilation.
  *
  * @see {@link SwitchCase} for individual branch bindings
  * @see {@link SearchSpace} which may contain switches as part of its structure
@@ -133,11 +121,8 @@ export class Switch<
 }> {}
 
 /**
- * Immutable, compiled output of `SearchSpace.make()` — the central type
- * consumed by all Sampler algorithms. `dimensions` is a `HashMap` for O(1)
- * lookup by name, `params` holds the pre-extracted metadata for every
- * searchable dimension, and `schema` provides decode/encode for sampled
- * configurations. Construct once, sample many times.
+ * A compiled configuration schema, source-dimension lookup, and ordered
+ * parameter metadata. The schema determines decoded and encoded config types.
  *
  * @see {@link ParameterMetadata} for individual dimension metadata
  * @see {@link Type} to extract the decoded config type
@@ -154,8 +139,8 @@ export class SearchSpace<SpaceSchema extends Schema.Schema.AnyNoContext = Schema
 {}
 
 /**
- * Extracts the decoded runtime config type from a SearchSpace. Use this
- * to type variables that hold sampled configurations.
+ * Configuration delivered to objectives after the compiled schema decodes a
+ * sampler suggestion.
  *
  * @see {@link SearchSpace}
  * @see {@link Encoded} for the serialized counterpart
@@ -165,8 +150,7 @@ export class SearchSpace<SpaceSchema extends Schema.Schema.AnyNoContext = Schema
 export type Type<Space extends SearchSpace = SearchSpace> = Schema.Schema.Type<Space["schema"]>
 
 /**
- * Extracts the wire-format (encoded) config type from a SearchSpace. Use
- * this to type serialized trial configurations stored in databases or logs.
+ * Portable representation crossing the compiled space's serialization boundary.
  *
  * @see {@link SearchSpace}
  * @see {@link Type} for the decoded counterpart

@@ -1,8 +1,5 @@
 /**
- * Pluggable output boundary for artifact envelopes.
- *
- * ArtifactSink is the primary persistence path — developers provide a sink
- * Layer. The `fileSystem` convenience creates an envelope-JSONL writer.
+ * Output service for artifact envelopes.
  *
  * @since 0.1.0
  */
@@ -12,11 +9,7 @@ import type * as Context from "effect/Context"
 import type { ArtifactEnvelope } from "./ArtifactEnvelope.js"
 
 /**
- * Tagged service for receiving artifact envelopes.
- *
- * Required — consumers must provide an `ArtifactSink` layer. For
- * file-based JSONL persistence, use the `fileSystemSink` convenience
- * layer instead of implementing the emit callback manually.
+ * Tagged service required by the {@link emit} effect.
  *
  * @see {@link ArtifactEnvelope} — the envelope type this sink receives
  * @see {@link layer} — construct a layer from a custom implementation
@@ -45,8 +38,11 @@ export class ArtifactSink extends Effect.Tag("effect-search/ArtifactSink")<
 export type ArtifactSinkApi = Context.Tag.Service<typeof ArtifactSink>
 
 /**
- * Combine two sinks — both receive every envelope.
- * The left sink runs first, then the right; failures in either propagate.
+ * Combines two sinks so the left sink runs before the right for each envelope.
+ *
+ * @remarks
+ * Because `ArtifactSinkApi.emit` has no typed error channel, defects interrupt
+ * the sequence and prevent the right sink from running.
  *
  * @see {@link ArtifactSinkApi} — the interface both sinks must satisfy
  * @see {@link layer} — wrap the combined sink into a Layer

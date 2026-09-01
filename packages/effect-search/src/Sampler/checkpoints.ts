@@ -8,7 +8,7 @@ import { Schema } from "effect"
 import { BuiltInAcquisitionNameSchema } from "./options.js"
 
 /**
- * Minimal state needed to resume a random sampler.
+ * Random checkpoint containing the seed that a resumed sampler must match.
  *
  * @since 0.1.0
  * @category schemas
@@ -18,7 +18,9 @@ export const RandomSamplerCheckpointSchema = Schema.TaggedStruct("Random", {
 })
 
 /**
- * Minimal state needed to resume a grid sampler.
+ * Grid checkpoint containing the seed and shuffle setting that a resumed
+ * sampler must match. The next trial number in {@link SuggestContext} is the
+ * grid cursor.
  *
  * @since 0.1.0
  * @category schemas
@@ -29,7 +31,9 @@ export const GridSamplerCheckpointSchema = Schema.TaggedStruct("Grid", {
 })
 
 /**
- * Minimal state needed to resume a TPE sampler.
+ * TPE checkpoint containing startup, candidate-count, and seed settings that a
+ * resumed sampler must match. Completed and pending observations remain study
+ * snapshot data rather than checkpoint fields.
  *
  * @since 0.1.0
  * @category schemas
@@ -41,7 +45,8 @@ export const TpeSamplerCheckpointSchema = Schema.TaggedStruct("Tpe", {
 })
 
 /**
- * Minimal state needed to resume a CMA-ES sampler.
+ * CMA-ES checkpoint containing the seed, sigma, and population size that a
+ * resumed sampler must match. Generation state is derived from trial history.
  *
  * @since 0.1.0
  * @category schemas
@@ -53,7 +58,8 @@ export const CmaEsSamplerCheckpointSchema = Schema.TaggedStruct("CmaEs", {
 })
 
 /**
- * Minimal state needed to resume a GP-BO sampler.
+ * GP-BO checkpoint containing all persisted model and acquisition settings
+ * that a resumed sampler must match.
  *
  * @since 0.1.0
  * @category schemas

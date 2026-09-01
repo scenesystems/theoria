@@ -6,7 +6,11 @@
 import { Schema } from "effect"
 
 /**
- * Persisted bytes exist but cannot be decoded by the descriptor schema.
+ * A cache key or value could not be encoded, fingerprinted, or decoded.
+ *
+ * @remarks
+ * `key` is the resolved persistence key when available; key-encoding and
+ * fingerprint failures report the descriptor's `namespace:version:` prefix.
  *
  * @since 0.1.0
  * @category errors
@@ -17,7 +21,12 @@ export class CacheCorrupt extends Schema.TaggedError<CacheCorrupt>()("effect-sea
 }) {}
 
 /**
- * Backing persistence operation failed.
+ * Reports a rejected read, write, removal, or initialization request from the
+ * configured key-value backend.
+ *
+ * @remarks
+ * `operation` identifies the attempted backend step. `reason` may include a
+ * platform or database diagnostic and is not redacted for untrusted output.
  *
  * @since 0.1.0
  * @category errors
@@ -28,8 +37,8 @@ export class CacheBackendError extends Schema.TaggedError<CacheBackendError>()("
 }) {}
 
 /**
- * Discriminated union of all recoverable cache failures. Consumers can
- * pattern-match on `_tag` to distinguish corruption from backend errors.
+ * Defines the cache boundary between malformed identity/content and rejected
+ * persistence operations.
  *
  * @since 0.1.0
  * @category schemas
@@ -37,8 +46,8 @@ export class CacheBackendError extends Schema.TaggedError<CacheBackendError>()("
 export const CacheErrorSchema = Schema.Union(CacheCorrupt, CacheBackendError)
 
 /**
- * Type-level extraction of {@link CacheErrorSchema} for use in Effect
- * error channels.
+ * Failure channel shared by `SchemaCache` operations: invalid encoded content
+ * or fingerprints, or a rejected backing-store operation.
  *
  * @since 0.1.0
  * @category type-level
@@ -46,7 +55,7 @@ export const CacheErrorSchema = Schema.Union(CacheCorrupt, CacheBackendError)
 export type CacheError = Schema.Schema.Type<typeof CacheErrorSchema>
 
 /**
- * Cache hit/miss resolution marker returned by resolve semantics.
+ * Indicates whether `SchemaCache.resolve` returned a stored value or computed one.
  *
  * @since 0.1.0
  * @category models
@@ -54,7 +63,8 @@ export type CacheError = Schema.Schema.Type<typeof CacheErrorSchema>
 export const CacheResolutionSchema = Schema.Literal("hit", "miss")
 
 /**
- * The outcome metadata returned when resolving a cache entry.
+ * Distinguishes a decoded stored value from one computed and persisted during
+ * `SchemaCache.resolve`.
  *
  * @since 0.1.0
  * @category type-level

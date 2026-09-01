@@ -122,7 +122,9 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
 export type StudyObjectiveCacheError = Cache.CacheError
 
 /**
- * Service interface for resolving and invalidating cached objective values.
+ * Structural cache service keyed by deterministic JSON-safe configuration
+ * identity. `resolve` reports hit/miss and computes only on a miss; computation
+ * failures are not cached, while key/schema/backend failures remain typed cache errors.
  *
  * @since 0.1.0
  * @category type-level
@@ -211,6 +213,7 @@ export const StudyObjectiveCacheFileSystem = (
 /**
  * SQLite-compatible SQL-backed study objective cache.
  *
+ * @remarks
  * Accepts a `SqlClient` layer from the consumer, while the underlying cache
  * statements remain aligned to the SQLite-compatible dialect used by
  * `SchemaCacheSql`.

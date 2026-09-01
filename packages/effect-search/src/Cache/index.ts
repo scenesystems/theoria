@@ -1,5 +1,12 @@
 /**
- * Shared cache authority surface.
+ * Stores schema-encoded values under durable fingerprints and exposes
+ * memory, file-system, and SQLite Layers for the cache service.
+ *
+ * @remarks
+ * Define key and value codecs with `CacheDescriptor`, then resolve entries
+ * through `SchemaCache`. Concurrent resolutions for the same key share a
+ * per-service critical section; compute failures remain uncached in their
+ * original Effect error channel.
  *
  * @since 0.1.0
  */

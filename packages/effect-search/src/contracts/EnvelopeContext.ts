@@ -12,6 +12,7 @@ import { ArtifactId, type PackageVersion, type RunId } from "./identity.js"
  * Carries the provenance fields (package version, run, study) and exposes
  * a monotonic {@link nextArtifactId} that mints unique identifiers.
  *
+ * @remarks
  * Provide via {@link EnvelopeContextLive} — the `Ref` for sequencing is
  * internal to the layer and never exposed to consumers.
  *

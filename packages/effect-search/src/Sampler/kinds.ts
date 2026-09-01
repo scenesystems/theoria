@@ -54,19 +54,19 @@ export type SamplerKind = Schema.Schema.Type<typeof SamplerKindSchema>
 
 const SamplerKinds = Data.taggedEnum<SamplerKind>()
 
-/**
- * Destructured constructors, guards, and pattern matcher for the
- * {@link SamplerKind} tagged union.
- *
- * @since 0.1.0
- * @category constructors
- */
 export const {
+  /** Constructs a random-sampler kind with random-sampler options. @since 0.1.0 @category constructors */
   Random,
+  /** Constructs a grid-sampler kind with grid enumeration options. @since 0.1.0 @category constructors */
   Grid,
+  /** Constructs a tree-structured Parzen estimator kind with TPE options. @since 0.1.0 @category constructors */
   Tpe,
+  /** Constructs a covariance matrix adaptation kind with CMA-ES options. @since 0.1.0 @category constructors */
   CmaEs,
+  /** Constructs a Gaussian-process Bayesian optimization kind with GP-BO options. @since 0.1.0 @category constructors */
   GpBo,
+  /** Creates a predicate that narrows a sampler kind by algorithm tag. @since 0.1.0 @category guards */
   $is: isSamplerKind,
+  /** Creates an exhaustive matcher over sampler algorithm kinds. @since 0.1.0 @category pattern-matching */
   $match: matchSamplerKind
 } = SamplerKinds

@@ -8,15 +8,14 @@ import { Data, Match } from "effect"
 import type { CompletedState, TrialState } from "./state.js"
 
 /**
- * Immutable record pairing a sampler-suggested configuration with its
- * lifecycle state and sequential trial number. A trial progresses through
- * the {@link TrialState} state machine — beginning as `Running` and
- * transitioning exactly once to a terminal state via the lifecycle
- * functions in `Trial/lifecycle.ts`. Because `Trial` extends `Data.Class`,
- * instances use structural equality and are safe to store in `HashMap`.
+ * Immutable record pairing a configuration with its trial number and
+ * {@link TrialState}. Study execution creates running trials and replaces
+ * them with terminal copies; the class itself does not enforce transitions.
+ * `prior` identifies warm-start history, while `cost` is populated only when
+ * completion supplies one.
  *
  * @see {@link TrialState} for the five lifecycle variants
- * @see {@link makeRunning} for the sole entry point that creates a running trial
+ * @see {@link makeRunning} for constructing a running trial
  *
  * @since 0.1.0
  * @category models
@@ -30,10 +29,7 @@ export class Trial<Config> extends Data.Class<{
 }> {}
 
 /**
- * Narrowed intersection of {@link Trial} whose state is guaranteed to be
- * `Completed`. Use this type to constrain function parameters to trials
- * that have finished evaluation, providing direct access to the objective
- * value and duration without a runtime guard.
+ * A {@link Trial} statically narrowed to the `Completed` state.
  *
  * @see {@link CompletedState} for the underlying state type
  * @see {@link isNumericCompletedTrial} to further narrow to single-objective results
@@ -46,10 +42,7 @@ export type CompletedTrial<Config> = Trial<Config> & {
 }
 
 /**
- * Further narrowing of {@link CompletedTrial} where the objective value is a
- * single `number` rather than an {@link ObjectiveVector}. This distinction
- * matters for single-objective analysis paths (e.g. best-value tracking,
- * surrogate model fitting) that require a scalar, not a vector.
+ * A {@link CompletedTrial} whose objective value is a scalar number.
  *
  * @see {@link CompletedTrial} for the broader completed-trial type
  * @see {@link isNumericCompletedTrial} for the runtime guard
@@ -70,10 +63,7 @@ export type NumericCompletedTrial<Config> = CompletedTrial<Config> & {
 }
 
 /**
- * Reports whether a completed trial's objective value is a single `number`
- * (as opposed to an {@link ObjectiveVector}). Use this guard to safely
- * narrow into {@link NumericCompletedTrial} before performing scalar
- * operations like comparison or surrogate model fitting.
+ * Narrows a completed trial when its objective value is a scalar number.
  *
  * @see {@link NumericCompletedTrial} for the narrowed type
  * @see {@link CompletedTrial} for the input type

@@ -9,7 +9,6 @@ import { Data, Schema, Tuple } from "effect"
  * Schema for a `[kernelRoll, valueRoll]` pair used to deterministically
  * sample from a Parzen estimator.
  *
- * @see {@link CandidateRollPair} for the inferred TypeScript type
  * @see {@link makeCandidateRollPair} for the constructor
  * @since 0.1.0
  * @category schemas

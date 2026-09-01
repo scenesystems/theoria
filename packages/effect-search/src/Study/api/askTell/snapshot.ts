@@ -28,8 +28,9 @@ const snapshotFromHandle = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Create a serializable study snapshot.
+ * Encodes runtime state and sampler checkpoint at one replay boundary.
  *
+ * @remarks
  * Accepts either a completed `StudyResult` or an active ask/tell `StudyHandle`.
  *
  * @since 0.1.0
@@ -37,7 +38,8 @@ const snapshotFromHandle = <Space extends SearchSpace.SearchSpace>(
  */
 export function snapshot<Config>(value: StudyResult<Config>): Effect.Effect<StudySnapshot>
 /**
- * Create a serializable snapshot from an active ask/tell handle.
+ * Captures the sampler checkpoint followed by current trial state. The handle
+ * remains open and continues to own subsequent mutations.
  *
  * @since 0.1.0
  * @category combinators

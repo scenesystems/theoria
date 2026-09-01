@@ -141,10 +141,12 @@ const canonicalConditionalGroups = (
     )
 
 /**
- * Decompose a conditional search space into canonical independent groups.
+ * Partitions dimensions by overlap between root and branch activation sets.
+ * Dimensions within each group and the returned groups are lexicographically
+ * ordered; each key is the group's names joined with `|`.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const decomposeConditionalGroups = (space: SearchSpace): Array<ConditionalGroup> =>
   canonicalConditionalGroups(decomposedGroups(conditionalAdditions(space)))

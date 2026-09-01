@@ -8,11 +8,12 @@ import { Schema } from "effect"
 import { ArtifactId, ContentDigest, SourceRef } from "./identity.js"
 
 /**
- * Full provenance record attached to every persisted artifact.
- * `sourceRef` identifies the producing module, `artifactId` provides
- * globally-unique run-scoped identity, `derivedFrom` links parent
- * artifacts to form a DAG, and `integrity` enables content-addressable
- * verification after storage or transport.
+ * Lineage metadata carried by an artifact envelope.
+ *
+ * @remarks
+ * `derivedFrom` is an optional list of parent IDs and `integrity` is an
+ * optional algorithm-tagged digest. This schema neither verifies the digest
+ * nor enforces uniqueness, graph acyclicity, or producer authenticity.
  *
  * @see {@link SourceRef} — structured locator for the producing module
  * @see {@link ArtifactId} — composite run + sequence identity

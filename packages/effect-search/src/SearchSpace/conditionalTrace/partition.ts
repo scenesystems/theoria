@@ -71,10 +71,12 @@ const partitionByParameters = (
   )
 
 /**
- * Partition trial numbers by whether they satisfy the required parameters.
+ * Preserves trial order while separating trials that contain every requested
+ * parameter and satisfy each parameter's activation path. If any requested
+ * name is absent from the space, every trial is excluded.
  *
  * @since 0.1.0
- * @category utils
+ * @category combinators
  */
 export const partitionTrialNumbersByRequiredParameters = (
   space: SearchSpace,

@@ -15,17 +15,11 @@ const ANSI_YELLOW = "\u001b[33m"
 const ANSI_RED = "\u001b[31m"
 
 /**
- * Runtime schema for decoding and validating terminal render mode.
+ * Accepts `plain` for uncolored, log-safe lines or `tty` for ANSI-colored
+ * interactive output. Formatter calls default an omitted mode to `plain`.
  *
  * @since 0.1.0
  * @category schemas
- * @example
- * ```ts
- * import { Schema } from "effect"
- * import { TerminalRenderModeSchema } from "@scenesystems/effect-search/Study"
- *
- * const mode = Schema.decodeSync(TerminalRenderModeSchema)("plain")
- * ```
  */
 export const TerminalRenderModeSchema = Schema.Literal("plain", "tty")
 
@@ -39,13 +33,6 @@ export type TerminalRenderMode = Schema.Schema.Type<typeof TerminalRenderModeSch
 
 /**
  * Single rendered terminal line produced by the progress formatter.
- *
- * @example
- * ```ts
- * import { ProgressLine } from "@scenesystems/effect-search/Study"
- *
- * const line = new ProgressLine({ channel: "stdout", text: "trial#1 started" })
- * ```
  *
  * @since 0.1.0
  * @category models
@@ -207,7 +194,8 @@ const formatEvent = (event: StudyEvent.StudyEvent, renderMode: TerminalRenderMod
 /**
  * Deterministically render a `StudyEvent` into terminal lines.
  *
- * This function is intentionally pure; it performs no IO and can be reused by
+ * @remarks
+ * Rendering is pure and performs no IO, so the formatter can be reused by
  * alternate sinks (JSON logger, dashboard bridge, structured telemetry).
  *
  * @example

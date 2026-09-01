@@ -7,7 +7,12 @@ import type { Schema } from "effect"
 import { Data } from "effect"
 
 /**
- * Typed cache descriptor carrying key/value schemas and namespace/version routing metadata.
+ * Describes how a cache key and value are encoded and how entries are partitioned.
+ *
+ * @remarks
+ * Entry keys have the form `namespace:version:<fingerprint>`. Changing either
+ * string therefore selects a separate set of persisted entries; neither field
+ * is interpreted as a migration instruction.
  *
  * @since 0.1.0
  * @category models
@@ -20,7 +25,11 @@ export class CacheDescriptor<Key, Value, EncodedKey = Key, EncodedValue = Value>
 }> {}
 
 /**
- * Construct a cache descriptor from namespace/version metadata and key/value schemas.
+ * Defines one independently versioned cache keyspace.
+ *
+ * @remarks
+ * `keySchema` is encoded before durable fingerprinting. `valueSchema` is used
+ * to encode values as JSON on writes and decode them on reads.
  *
  * @since 0.1.0
  * @category constructors

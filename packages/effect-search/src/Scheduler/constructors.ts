@@ -11,7 +11,8 @@ import { type TpeOptions } from "../Sampler/index.js"
 import { Bracket, Round, Scheduler } from "./model.js"
 
 /**
- * Resource bounds, reduction factor, and sampler used to construct Hyperband.
+ * Inputs for {@link hyperband}. `maxResource` must be at least 1 and
+ * `reductionFactor` at least 2.
  *
  * @since 0.1.0
  * @category type-level
@@ -23,7 +24,8 @@ export class HyperbandOptions extends Data.Class<{
 }> {}
 
 /**
- * Resource bounds and TPE exploration settings used to construct BOHB.
+ * Inputs for {@link bohb}. `explorationRatio` defaults to `0.33` and must be in
+ * the inclusive range 0–1; `seed` is used unless `tpeOptions.seed` is supplied.
  *
  * @since 0.1.0
  * @category type-level
@@ -124,7 +126,8 @@ const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<n
   })
 
 /**
- * Construct a HyperBand scheduler with precomputed bracket/round topology.
+ * Precomputes Hyperband brackets from integer-floor resource escalation and
+ * configuration reduction. Invalid numeric bounds fail with `InvalidStudyConfig`.
  *
  * @since 0.1.0
  * @category constructors
@@ -146,9 +149,9 @@ export const hyperband = (
   )
 
 /**
- * Bayesian Optimization HyperBand scheduler — combines Successive Halving
- * brackets with TPE-guided sampling for resource-efficient hyperparameter
- * search.
+ * Precomputes the same bracket topology as {@link hyperband} and installs a TPE
+ * sampler. The resulting scheduler records the resolved random exploration
+ * fraction and one minimum observation.
  *
  * @since 0.1.0
  * @category constructors

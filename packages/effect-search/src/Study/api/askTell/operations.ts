@@ -35,6 +35,7 @@ import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js
 /**
  * Open a manual ask/tell study handle.
  *
+ * @remarks
  * Use this when trial evaluation happens outside `Study.optimize`, such as
  * distributed workers, human-in-the-loop review, or integration with external executors.
  *

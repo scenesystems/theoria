@@ -59,6 +59,7 @@ export const result = <Space extends SearchSpace.SearchSpace>(
 /**
  * Stream ask/tell lifecycle events for a manual orchestration handle.
  *
+ * @remarks
  * The stream completes automatically once the handle is cancelled or completed.
  *
  * @since 0.1.0

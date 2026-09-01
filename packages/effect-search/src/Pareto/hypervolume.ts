@@ -59,6 +59,7 @@ const computeHypervolume2d = (
  * Computes the 2D hypervolume indicator (area dominated by the non-dominated front)
  * relative to a reference point, after direction normalization.
  *
+ * @remarks
  * Internally extracts the non-dominated front, normalizes all coordinates to
  * minimization space, clips points outside the reference bounds, then sweeps
  * left-to-right accumulating staircase area. Returns `0` when the reference
@@ -100,6 +101,7 @@ export const hypervolume2d = (
 /**
  * Computes leave-one-out 2D hypervolume contributions for each candidate.
  *
+ * @remarks
  * For each non-dominated point, the contribution is the decrease in total hypervolume
  * when that point is removed. Dominated points contribute `0` by definition since
  * removing them does not change the frontier area. Useful for crowding-distance-style

@@ -91,7 +91,8 @@ export class TerminalSink extends Data.Class<{
 }> {}
 
 /**
- * Construct a terminal sink from effectful writers.
+ * Binds progress output to caller-owned writers; writer failures remain in each
+ * writer's Effect rather than being captured by the sink.
  *
  * @example
  * ```ts
