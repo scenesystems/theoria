@@ -25,6 +25,8 @@
     "build": "tsc -b tsconfig.build.json && bun run --filter '*' build && bun run scripts/resolve-workspace-deps.ts",
     "clean": "rm -rf packages/*/build packages/*/dist packages/*/.tsbuildinfo apps/*/.tsbuildinfo *.tsbuildinfo",
     "docs:api": "bun scripts/api-reference.ts",
+    "docs:api:review": "bun scripts/api-reference-review.ts",
+    "docs:api:review:accept": "bun scripts/api-reference-review.ts --accept",
     "docs": "bun run check:readmes && bun run docs:api",
     "changeset": "changeset",
     "changeset:version": "node scripts/changeset-version-with-release-snapshots.mjs",

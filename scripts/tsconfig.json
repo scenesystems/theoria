@@ -12,6 +12,7 @@
   },
   "include": [
     "api-reference.ts",
+    "api-reference-review.ts",
     "api-reference-program.ts",
     "api-reference/**/*.ts",
     "compress-static-assets.ts",
