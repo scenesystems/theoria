@@ -1,0 +1,55 @@
+name: Check Theoria build output
+description: >
+  Verify that a Theoria build directory contains exactly the files the Cloudflare
+  deployment expects: the Vite bundle in `dist/` and the pre-bundled Worker in
+  `.wrangler-out/`. Used on the build output before it is uploaded and again on
+  a downloaded artifact before it is deployed.
+
+inputs:
+  path:
+    description: Directory that contains `dist/` and `.wrangler-out/` (normally `apps/theoria`)
+    default: apps/theoria
+
+runs:
+  using: composite
+  steps:
+    - name: Check build output
+      shell: bash
+      env:
+        BUILD_ROOT: ${{ inputs.path }}
+      run: |
+        set -euo pipefail
+
+        for required in \
+          dist/index.html \
+          dist/_headers \
+          dist/robots.txt \
+          dist/docs-data/manifest.json \
+          dist/runtime-data/package-versions.json \
+          .wrangler-out/worker.js
+        do
+          if [ ! -f "$BUILD_ROOT/$required" ]; then
+            echo "Build output is missing $required" >&2
+            exit 1
+          fi
+        done
+
+        if find "$BUILD_ROOT/dist" "$BUILD_ROOT/.wrangler-out" ! -type f ! -type d -print -quit | grep -q .; then
+          echo "Build output contains an entry that is neither a file nor a directory" >&2
+          exit 1
+        fi
+
+        while IFS= read -r -d '' file; do
+          case "${file#"$BUILD_ROOT/"}" in
+            dist/_headers) ;;
+            dist/*.html|dist/*.css|dist/*.js|dist/*.json|dist/*.svg|dist/*.txt|dist/*.xml) ;;
+            dist/*.ico|dist/*.png|dist/*.webp|dist/*.woff|dist/*.woff2|dist/*.wasm) ;;
+            .wrangler-out/worker.js|.wrangler-out/worker.js.map|.wrangler-out/*.wasm|.wrangler-out/README.md) ;;
+            *)
+              printf 'Unexpected build file: %q\n' "$file" >&2
+              exit 1
+              ;;
+          esac
+        done < <(find "$BUILD_ROOT/dist" "$BUILD_ROOT/.wrangler-out" -type f -print0)
+
+        echo "Build output in $BUILD_ROOT is complete: $(find "$BUILD_ROOT/dist" -type f | wc -l) assets, Worker $(du -h "$BUILD_ROOT/.wrangler-out/worker.js" | cut -f1)"

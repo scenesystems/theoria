@@ -87,3 +87,56 @@ For a preview deployment with an OpenAI key, confirm that `effect-dsp` reports
 an enabled capability and complete one provider-backed run. If it remains
 unavailable, check the selected provider, model, and credential in Railway. Do
 not print or copy the credential while debugging.
+
+## Cloudflare pull request previews
+
+The [Theoria Preview workflow](../../.github/workflows/theoria-preview.yml)
+deploys a pull request's build to a per-PR Cloudflare Worker at
+`https://theoria-pr-<N>.staging.scenesystems.io` and deletes that Worker, its
+DNS record, and its certificate when the pull request closes. It runs on
+`workflow_run` after a workflow named `Theoria` completes for the pull request,
+so it executes on `main` with the `staging` environment's credentials: the pull
+request's code is never run with them. Only the artifact `theoria-<head sha>`
+(containing `dist/` and `.wrangler-out/worker.js`) is downloaded, checked by
+[`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
+deployed with the [`wrangler.jsonc`](./wrangler.jsonc) `preview` environment
+from `main`, and verified live by
+[`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml).
+Pull requests from forks are not previewed.
+
+GitHub only honors `workflow_run` for workflow files on the default branch,
+which is why this workflow, the two actions, `wrangler.jsonc`, and the
+`wrangler` devDependency live on `main` ahead of the `Theoria` build workflow
+and the Worker itself. The full Cloudflare deployment (staging and production
+from `main`) arrives with the Cloudflare migration; until then Railway remains
+the production host.
+
+### Cloudflare account and token
+
+1. `scenesystems.io` must be an active zone in the Cloudflare account, and the
+   account needs the Workers Paid plan (`limits.cpu_ms` above the Free plan
+   default).
+2. Create an API token from the **Edit Cloudflare Workers** template, restrict
+   it to this account and the `scenesystems.io` zone, and add two zone
+   permissions: **Zone → Read** and **SSL and Certificates → Edit**. The template
+   covers deploying Workers and attaching Custom Domains (with their DNS
+   records); the additions let the cleanup job look up the zone and delete a
+   closed pull request's certificate.
+3. Record the account ID from the dashboard.
+
+The token is used by GitHub Actions only. Local `wrangler` commands
+authenticate with `wrangler login`, or with a separate personal token, so a CI
+credential never sits on a workstation.
+
+### GitHub environment
+
+In **Settings → Environments**, create `staging` with `CLOUDFLARE_ACCOUNT_ID`
+and `CLOUDFLARE_API_TOKEN` as environment secrets. Restrict it to the `main`
+deployment branch so a workflow edited on a pull request cannot request its
+secrets, and leave it without required reviewers so previews deploy
+automatically. (The `production` environment, with required reviewers, is
+created with the Cloudflare migration.)
+
+The first deployment of a pull request creates a new Custom Domain, and its
+certificate can take several minutes to issue; the verification step waits up
+to ten minutes before failing.
