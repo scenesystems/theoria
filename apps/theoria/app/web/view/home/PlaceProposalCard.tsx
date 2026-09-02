@@ -10,7 +10,7 @@ import { StatusPill } from "../primitives/StatusPill.js"
 import { TagBadge } from "../primitives/TagBadge.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
-import { participantLabel, participantTone, shortId, signatureLabel } from "./placeViewModel.js"
+import { offeredByText, participantLabel, participantTone, shortId, signatureLabel } from "./placeViewModel.js"
 
 const signaturePillClassName = (valid: boolean): string =>
   valid
@@ -41,9 +41,10 @@ const OpenedNote = ({ note }: { readonly note: SealedNote }) => {
 }
 
 /**
- * One proposal offered to the author. The card carries its own content ID and
- * its proposer's signature whether or not it is merged: a declined proposal
- * stays credited to whoever offered it. `accepted` is the visitor's current
+ * One proposal offered to the author: who offered it and how they came to,
+ * what it is, why they think the place needs it. The card carries its own
+ * content ID and its proposer's signature whether or not it is merged: a
+ * declined proposal stays credited to whoever offered it. `accepted` is the visitor's current
  * choice, which may be ahead of the build in flight.
  */
 export const PlaceProposalCard = ({
@@ -71,9 +72,16 @@ export const PlaceProposalCard = ({
     >
       <Layer className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <Stack className="min-w-0 gap-1.5">
-          <Layer>
+          <Cluster className="items-center gap-x-2 gap-y-1">
             <TagBadge name={participantLabel(role)} tone={tone} />
-          </Layer>
+            <SemanticText
+              as="span"
+              className="text-ink-500"
+              role="code-meta"
+              text={offeredByText(record)}
+              wrapAuthority="native-browser"
+            />
+          </Cluster>
           <SemanticText
             as="h3"
             className="text-ink-900"

@@ -96,9 +96,10 @@ export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }
     <TraceChart losses={frame.losses} />
     <SemanticText
       as="span"
-      className="min-w-0 truncate tabular-nums text-ink-500"
+      className="min-w-0 whitespace-nowrap tabular-nums text-ink-500"
       role="code-meta"
       text={renderProgressText(frame)}
+      wrapAuthority="native-browser"
     />
   </Layer>
 )

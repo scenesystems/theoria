@@ -80,6 +80,14 @@ export const ImaginedPlaceDemo = () => {
             text="An imagined place"
             variant="expanded"
           />
+          <SemanticText
+            as="p"
+            className="max-w-[60ch] text-ink-600"
+            role="card-summary"
+            text="You brief it, a program composes it, a neighbor and a program propose, you decide what to merge, and the page draws the version you signed."
+            variant="compact"
+            wrapAuthority="native-browser"
+          />
           {Result.isFailure(result) ? <BuildFailed /> : null}
         </Stack>
 

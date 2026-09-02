@@ -1,7 +1,10 @@
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild, Version } from "../../../contracts/imagined-place-result.js"
+import { placeVersionChangeAtom } from "../../atoms/imagined-place.js"
+import { ChangedValue } from "../primitives/ChangedValue.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -37,6 +40,7 @@ const VersionNode = ({ build, last, version }: {
   readonly version: Version
 }) => {
   const current = isCurrentVersion(build.evidence, version)
+  const change = useAtomValue(placeVersionChangeAtom)
   return (
     <Layer className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3" data-place-version={String(version.version)}>
       <Layer aria-hidden className="flex flex-col items-center pt-1">
@@ -69,12 +73,14 @@ const VersionNode = ({ build, last, version }: {
             wrapAuthority="native-browser"
           />
         ))}
-        <SemanticText
-          as="code"
-          className={`block truncate ${digestTone.textStrong}`}
-          role="code-meta"
-          text={version.contentId}
-        />
+        <ChangedValue changes={current ? change.changes : 0} className="min-w-0">
+          <SemanticText
+            as="code"
+            className={`block truncate ${digestTone.textStrong}`}
+            role="code-meta"
+            text={version.contentId}
+          />
+        </ChangedValue>
         {Option.match(signatureFor(build.evidence.signatures, version.contentId), {
           onNone: () => null,
           onSome: (signature) => (

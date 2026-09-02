@@ -1,6 +1,8 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Effect, Option } from "effect"
+import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import type { DemoError } from "../../contracts/demo-error.js"
 import { stageFor, stageMaxWidth, stageMinWidth } from "../../contracts/demo/imagined-place-flow.js"
@@ -71,6 +73,52 @@ export const placeArtifactAtom: AtomType.Atom<Option.Option<PlaceArtifact>> = At
 
 export const placeBuildingAtom: AtomType.Atom<boolean> = Atom.make(
   (get: AtomType.Context) => get(placeBuildAtom).waiting
+)
+
+/**
+ * The current version's content ID and how many times it has changed since
+ * this place was first built. The count keys a one-shot highlight on the ID
+ * wherever it is shown: it moves when a merge or an edited brief changes the
+ * record, and stays still when the stage is only redrawn. Zero means "first
+ * arrival": no highlight, because nothing changed. Picking another pattern is
+ * a different place, not a change to this one, so the count starts over.
+ */
+export type PlaceVersionChange = {
+  readonly current: Option.Option<{ readonly scenario: PlaceScenario; readonly contentId: string }>
+  readonly changes: number
+}
+
+const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
+  (a, b) => a.scenario === b.scenario && Str.Equivalence(a.contentId, b.contentId)
+)
+
+export const placeVersionChangeAtom: AtomType.Atom<PlaceVersionChange> = Atom.make(
+  (get: AtomType.Context): PlaceVersionChange => {
+    const current = Option.flatMap(
+      Result.value(get(placeBuildAtom)),
+      (build) =>
+        Option.map(Arr.last(build.evidence.lineage), (version) => ({
+          scenario: build.artifact.scenario,
+          contentId: version.contentId
+        }))
+    )
+    return Option.match(get.self<PlaceVersionChange>(), {
+      onNone: () => ({ current, changes: 0 }),
+      onSome: (previous) =>
+        Option.isNone(current) || sameVersion(previous.current, current)
+          ? previous
+          : {
+            current,
+            changes: Option.match(previous.current, {
+              onNone: () => 0,
+              onSome: (before) =>
+                Option.exists(current, (now) => now.scenario === before.scenario)
+                  ? previous.changes + 1
+                  : 0
+            })
+          }
+    })
+  }
 )
 
 export const placeStageMinWidth = stageMinWidth

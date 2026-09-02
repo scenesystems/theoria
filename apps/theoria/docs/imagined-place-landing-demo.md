@@ -421,6 +421,56 @@ v1`, what changed (`4 features from your brief`, `+ Open seat · Neighbor`),
   horizontal overflow, step ↔ tab sync, merge toggles change the content ID
   and the lineage, presets change the drawing and not the ID.
 
+### Fourth pass: the place reads as a place, and changes are visible where they land
+
+Two research passes (cause → effect patterns on library demo sites: Effect,
+Liveblocks, Stripe Elements, Observable, tldraw, Motion, Radix; stage
+presentation: shape-outside, cartographic marks, Base UI Popover) fed a pass on
+legibility and narrative rather than on parts.
+
+- The description reads as prose. `description()` no longer prefixes each
+  feature with its name; the summary, atmosphere and feature descriptions flow
+  as one paragraph and the names live on the discs. At 780 px the stage got
+  shorter and the best loss fell (1.49 for the garden).
+- Every disc is a Base UI `Popover.Trigger` with `openOnHover`, so hover,
+  focus and tap all open the same card: name, contributor badge, description.
+  Nothing on the stage is hover-only and `role="img"` is gone from anything
+  interactive. Numbered discs (drawn under 56 px) carry an invisible 4 px ring
+  so the touch target stays at or above 44 px on a phone without changing the
+  drawing.
+- The stage is quiet paper (a token radial wash, no invented geography).
+  Discs are lit spheres: `--th-place-disc-{sign,seal,dsp}` gradients defined
+  per theme in `styles.css`, because the dark tone scales run the other way
+  (100 nearest the background) and the light-mode `from-stage-0` highlight
+  became a hole in dark mode.
+- A dotted walk (`PlaceWalk`) passes through the disc centres in real feature
+  order and draws itself once (`pathLength="1"`, mask-based, 900 ms, off under
+  `prefers-reduced-motion`). It says only what is true: the order the place
+  lists its features in.
+- Changes show where they land. `placeVersionChangeAtom` (`get.self`) counts
+  how many times the current version's content ID has changed since the place
+  was first built; `ChangedValue` remounts on that count and plays a 1200 ms
+  digest-tone wash. Zero on first arrival, +1 on a merge or an edited brief,
+  unchanged on a redraw, reset to zero when another pattern is chosen (a
+  different place, not a change to this one). Used on the title-row version ID
+  and the current lineage entry.
+- Provenance captions. `ProposalRecord.offeredBy` (not digested) gives each
+  proposal a line under its badge: `visited on the first night`, `shown the
+composition, asked for one feature it lacks`. `PlaceMarker.description` puts
+  the feature text in the popover. When the brief is edited, Compose says once:
+  `The recording answers the original brief; your edited brief is what version
+1 signs.`
+- Caption wording follows measure · value · scope: `Searching arrangements ·
+n of 36` / `36 arrangements searched · best loss x.xxx`; the row with the
+  presets wraps instead of truncating on a tablet.
+- One lead sentence under "An imagined place" names the four moves in order;
+  `ChoicePills` buttons expose `aria-pressed`.
+- Verified in the browser at 1440 × 900, 820 × 1180 and 390 × 844, light and
+  dark: popover opens by click with a resolvable `aria-labelledby`; merging
+  the program's proposal moves `data-changes` 0 → 1 and adds the sixth disc;
+  a preset change leaves it at 1; an edited brief moves it to 2; switching to
+  Tidal workshop resets it to 0; no horizontal overflow at any width.
+
 ## Files
 
 - `app/contracts/imagined-place.ts`: scenario, roles, features, composition,
@@ -442,8 +492,10 @@ v1`, what changed (`4 features from your brief`, `+ Open seat · Neighbor`),
   build, stage width, and the browser-side step-by-step search.
 - `app/web/view/home/`: `ImaginedPlaceDemo`, `PlaceStepCard`, `placeSteps`,
   `PlaceControls`, `PlaceProposals`, `PlaceProposalCard`, `PlaceLineage`,
-  `PlaceArrangement`, `PlaceStage`, `PlaceSearchTrace`, `PlaceHowItsBuilt`,
-  `placeViewModel`.
+  `PlaceArrangement`, `PlaceStage`, `PlaceMarker`, `PlaceWalk`,
+  `PlaceSearchTrace`, `PlaceHowItsBuilt`, `placeViewModel`.
+- `app/web/view/primitives/ChangedValue.tsx`: the one-shot wash on a value
+  that just changed.
 - `run.ts`: `buildPlace`.
 - `test/server/imagined-place.test.ts`: composition for every pattern;
   lineage; declined proposals keep identity and signature; every signature

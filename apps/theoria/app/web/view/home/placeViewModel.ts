@@ -53,6 +53,31 @@ export const markerContributor = (marker: PlaceMarker): ParticipantRole =>
 export const markerTone = (marker: PlaceMarker): ToneClasses =>
   toneClassesFor(participantTone(markerContributor(marker)))
 
+/**
+ * The disc itself: a soft radial fill lit from the upper left, an inset ring
+ * and a low shadow, in the contributor's tone. Full literals per participant
+ * because Tailwind purges anything assembled at run time.
+ */
+export const discClassName = (role: ParticipantRole): string =>
+  Match.value(role).pipe(
+    Match.when(
+      "author",
+      () => "bg-place-disc-sign ring-1 ring-inset ring-tone-sign-300/60 shadow-chip"
+    ),
+    Match.when(
+      "neighbor",
+      () => "bg-place-disc-seal ring-1 ring-inset ring-tone-seal-300/60 shadow-chip"
+    ),
+    Match.when(
+      "program",
+      () => "bg-place-disc-dsp ring-1 ring-inset ring-tone-dsp-300/60 shadow-chip"
+    ),
+    Match.exhaustive
+  )
+
+/** "Neighbor · visited on the first night": the badge says who, the account says how they came to propose. */
+export const offeredByText = (record: ProposalRecord): string => record.offeredBy
+
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {
     onNone: () => marker.name,
@@ -110,10 +135,17 @@ export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArr
 export const parentText = (version: Version): Option.Option<string> =>
   Option.map(Option.fromNullable(version.parent), () => `Built from v${String(version.version - 1)}`)
 
+/**
+ * The search, captioned as measure · value · scope: how many arrangements were
+ * tried and the objective the best one scored. "Loss" is the word the code
+ * panel uses for the same number.
+ */
 export const renderProgressText = (frame: PlaceRenderFrame): string =>
   frame.phase === "running"
-    ? `Trial ${String(frame.trial)} of ${String(renderTrials)}`
-    : `${String(frame.rendering.evidence.trials)} trials · best loss ${frame.rendering.evidence.bestLoss.toFixed(3)}`
+    ? `Searching arrangements · ${String(frame.trial)} of ${String(renderTrials)}`
+    : `${String(frame.rendering.evidence.trials)} arrangements searched · best loss ${
+      frame.rendering.evidence.bestLoss.toFixed(3)
+    }`
 
 export const stagePresetLabel = (width: number): string => `${String(width)} px`
 

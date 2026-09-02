@@ -117,7 +117,7 @@ export const placeMarkers = (
       radius,
       Math.max(stage.padding + radius, w * (meander.top + index * meander.step))
     )
-    const marker: PlaceMarker = { name: feature.name, x, y, radius }
+    const marker: PlaceMarker = { name: feature.name, description: feature.description, x, y, radius }
     return Arr.append(
       placed,
       Option.match(Arr.get(contributors, index).pipe(Option.flatten), {

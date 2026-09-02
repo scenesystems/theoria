@@ -1,8 +1,10 @@
+import { useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceFeature } from "../../../contracts/imagined-place.js"
+import { briefIsEdited, placeControlsAtom } from "../../atoms/imagined-place.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
@@ -33,12 +35,13 @@ const Pending = () => (
 )
 
 /**
- * What the composer returned for the brief: a title and the features it
- * named. The pill is the honest part: the runtime is recorded, so the answer
- * is the one recorded for this scenario, checked against the output schema
- * each time.
+ * What the composer returned for the brief: the features it named, in the
+ * author's accent because the author signs them. The pill is the honest part:
+ * the runtime is recorded, so the answer is the one recorded for this
+ * scenario, checked against the output schema each time. When the brief has
+ * been edited, one line says what that does and does not change.
  */
-const Composed = ({ build }: { readonly build: PlaceBuild }) => (
+const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edited: boolean }) => (
   <Stack className="gap-2" data-place-composition>
     <Cluster>
       <StatusPill
@@ -49,16 +52,31 @@ const Composed = ({ build }: { readonly build: PlaceBuild }) => (
     <Cluster className="gap-1.5">
       {Arr.map(build.artifact.composition.features, (feature) => <FeatureChip feature={feature} key={feature.name} />)}
     </Cluster>
+    {edited
+      ? (
+        <SemanticText
+          as="p"
+          className="text-ink-500"
+          role="status"
+          text="The recording answers the original brief; your edited brief is what version 1 signs."
+          variant="compact"
+          wrapAuthority="native-browser"
+        />
+      )
+      : null}
   </Stack>
 )
 
 /** The Compose step: the brief goes in, a typed composition comes out. */
-export const PlaceComposition = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
-  <Stack className="gap-4">
-    <PlaceControls disabled={false} />
-    {Option.match(build, {
-      onNone: () => <Pending />,
-      onSome: (value) => <Composed build={value} />
-    })}
-  </Stack>
-)
+export const PlaceComposition = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
+  const edited = briefIsEdited(useAtomValue(placeControlsAtom))
+  return (
+    <Stack className="gap-4">
+      <PlaceControls disabled={false} />
+      {Option.match(build, {
+        onNone: () => <Pending />,
+        onSome: (value) => <Composed build={value} edited={edited} />
+      })}
+    </Stack>
+  )
+}

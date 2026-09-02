@@ -34,14 +34,16 @@ export const renderSampler = () => Sampler.tpe({ seed: renderSeed })
 
 /**
  * The text that flows around the markers: what the place is, how it feels,
- * and every feature in it, including accepted proposals.
+ * and every feature in it, including accepted proposals. Feature names are not
+ * repeated in the prose; the markers carry them, so the paragraph reads as a
+ * description rather than a list.
  *
  * @since 0.3.0
  */
 export const description = (artifact: PlaceArtifact): string =>
   Arr.join(
     Arr.prependAll(
-      Arr.map(placeFeatures(artifact), (feature) => `${feature.name}: ${feature.description}`),
+      Arr.map(placeFeatures(artifact), (feature) => feature.description),
       [artifact.composition.summary, artifact.composition.atmosphere]
     ),
     " "

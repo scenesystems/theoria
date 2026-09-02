@@ -9,8 +9,10 @@ import {
   placeStageMaxWidth,
   placeStagePresets,
   placeStageRequestAtom,
-  placeStageWidthAtom
+  placeStageWidthAtom,
+  placeVersionChangeAtom
 } from "../../atoms/imagined-place.js"
+import { ChangedValue } from "../primitives/ChangedValue.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { legendThemeFor, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -77,29 +79,34 @@ const ParticipantLegend = () => (
 /**
  * The title of the composition is projected text; it sits in its own grid
  * cell with a definite width so measuring it never depends on its siblings.
- * The version beside it does not change when the stage is redrawn: that is
- * the point of the presets.
+ * The version beside it lights up when the record changes and stays still
+ * when the stage is only redrawn: that is the point of the presets.
  */
-const TitleRow = ({ build }: { readonly build: PlaceBuild }) => (
-  <Layer className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
-    <SemanticText
-      as="h3"
-      className="min-w-0 text-ink-900"
-      role="hero-body"
-      text={build.artifact.composition.title}
-      variant="compact"
-      wrapAuthority="native-browser"
-    />
-    <Layer data-place-current-version>
+const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
+  const change = useAtomValue(placeVersionChangeAtom)
+  return (
+    <Layer className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
       <SemanticText
-        as="span"
-        className="tabular-nums text-ink-500"
-        role="code-meta"
-        text={currentVersionText(build.evidence)}
+        as="h3"
+        className="min-w-0 text-ink-900"
+        role="hero-body"
+        text={build.artifact.composition.title}
+        variant="compact"
+        wrapAuthority="native-browser"
       />
+      <Layer data-place-current-version>
+        <ChangedValue changes={change.changes} className="inline-flex">
+          <SemanticText
+            as="span"
+            className="tabular-nums text-ink-500"
+            role="code-meta"
+            text={currentVersionText(build.evidence)}
+          />
+        </ChangedValue>
+      </Layer>
     </Layer>
-  </Layer>
-)
+  )
+}
 
 /** The Arrange step: the place drawn for this screen, and the search that arranged it. */
 export const PlaceArrangement = ({
@@ -115,13 +122,13 @@ export const PlaceArrangement = ({
       onSome: (value) => <TitleRow build={value} />
     })}
     <PlaceStage />
-    <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <Cluster className="items-center justify-between gap-x-6 gap-y-3">
       {Option.match(frame, {
         onNone: () => <Layer />,
         onSome: (value) => <PlaceSearchTrace frame={value} />
       })}
       <StagePresets />
-    </Layer>
+    </Cluster>
     <ParticipantLegend />
   </Stack>
 )

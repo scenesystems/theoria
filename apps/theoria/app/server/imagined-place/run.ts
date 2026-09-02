@@ -26,6 +26,9 @@ import { sendSealedNote } from "./note.js"
  * surface's own font metrics (`render.ts` on the server, an atom in the
  * browser), and a rendering never changes a content ID.
  */
+/** How the proposer program came to its proposal; the same for every scenario. */
+const programAccount = "shown the composition, asked for one feature it lacks"
+
 export const buildPlace = (
   request: PlaceBuildRequest
 ): Effect.Effect<PlaceBuild, PlaceBuildError, Participants> =>
@@ -52,17 +55,17 @@ export const buildPlace = (
       ],
       { concurrency: "unbounded" }
     )
-    const offered: ReadonlyArray<readonly [Proposal, boolean]> = [
-      [{ proposer: "neighbor", feature: scenario.neighbor.proposal }, request.acceptNeighbor],
-      [{ proposer: "program", feature: proposed.feature }, request.acceptProgram]
+    const offered: ReadonlyArray<readonly [Proposal, string, boolean]> = [
+      [{ proposer: "neighbor", feature: scenario.neighbor.proposal }, scenario.neighbor.name, request.acceptNeighbor],
+      [{ proposer: "program", feature: proposed.feature }, programAccount, request.acceptProgram]
     ]
     const proposals = yield* Effect.forEach(
       offered,
-      ([proposal, accepted]) =>
+      ([proposal, offeredBy, accepted]) =>
         Effect.gen(function*() {
           const contentId = yield* proposalId(proposal)
           const signature = yield* signAs(proposal.proposer, contentId)
-          const record: ProposalRecord = { proposal, contentId, accepted, signature }
+          const record: ProposalRecord = { proposal, offeredBy, contentId, accepted, signature }
           return record
         }),
       { concurrency: "unbounded" }

@@ -14,6 +14,7 @@ const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
  */
 export const PlaceMarker = Schema.Struct({
   name: NonEmptyString,
+  description: NonEmptyString,
   x: Schema.Number,
   y: Schema.Number,
   radius: Schema.Number.pipe(Schema.positive()),
@@ -92,8 +93,16 @@ export const SignatureRecord = Schema.Struct({
 })
 export type SignatureRecord = typeof SignatureRecord.Type
 
+/**
+ * A proposal as the author received it. `offeredBy` is a short account of the
+ * proposer for the card ("visited on the first night"); it is not part of the
+ * signed proposal, so it never enters the content ID.
+ *
+ * @since 0.3.0
+ */
 export const ProposalRecord = Schema.Struct({
   proposal: Proposal,
+  offeredBy: NonEmptyString,
   contentId: NonEmptyString,
   accepted: Schema.Boolean,
   signature: SignatureRecord

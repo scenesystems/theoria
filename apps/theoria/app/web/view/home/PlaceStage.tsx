@@ -13,26 +13,11 @@ import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
+import { namedMarkerMinDiameter, PlaceMarkerDisc } from "./PlaceMarker.js"
 import { markerLabel, markerTone } from "./placeViewModel.js"
+import { PlaceWalk } from "./PlaceWalk.js"
 
 const stageFrameBorderPx = 1
-
-/** Below this diameter a marker shows its number; the legend carries the name. */
-const namedMarkerMinDiameter = 56
-
-/** Position with `translate`, which the compositor animates without re-laying out the text. */
-const markerStyle = (marker: PlaceMarker): CSSProperties => ({
-  translate: `${(marker.x - marker.radius).toFixed(1)}px ${(marker.y - marker.radius).toFixed(1)}px`,
-  width: `${(marker.radius * 2).toFixed(1)}px`,
-  height: `${(marker.radius * 2).toFixed(1)}px`
-})
-
-/**
- * Every trial the search accepts moves a marker a little; a merged proposal's
- * marker grows in from nothing. Both stop under `prefers-reduced-motion`.
- */
-const markerMotionClassName =
-  "transition-[translate,width,height,opacity,scale] duration-200 ease-out starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
@@ -41,31 +26,7 @@ const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSPro
   height: `${lineHeight}px`
 })
 
-const Marker = ({ index, marker }: { readonly index: number; readonly marker: PlaceMarker }) => {
-  const tone = markerTone(marker)
-  const named = marker.radius * 2 >= namedMarkerMinDiameter
-  return (
-    <Layer
-      aria-label={markerLabel(marker)}
-      className={`absolute left-0 top-0 flex items-center justify-center overflow-hidden rounded-full border px-1 text-center ${markerMotionClassName} ${tone.borderSubtle} ${tone.bgSubtle}`}
-      role="img"
-      style={markerStyle(marker)}
-    >
-      {named
-        ? (
-          <SemanticText
-            as="p"
-            className={`w-full ${tone.textStrong}`}
-            role="marker-label"
-            text={marker.name}
-            variant="compact"
-          />
-        )
-        : <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />}
-    </Layer>
-  )
-}
-
+/** The prose, one measured line at a time, above the walk and beside the discs. */
 const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
   <>
     {Arr.map(projection.lines, (line, index) => (
@@ -88,17 +49,28 @@ const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
   </>
 )
 
+/**
+ * The stage is paper: a faint radial wash in the stage tone, no invented
+ * geography. The walk draws once when the search settles, the discs are
+ * buttons, and the text sits above both.
+ */
 const Drawing = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   const projection = frame.rendering.projection
   return (
     <Layer
       aria-busy={frame.phase === "running"}
-      className="relative transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
+      className="relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
     >
-      {Arr.map(projection.markers, (marker, index) => <Marker index={index} key={marker.name} marker={marker} />)}
+      {frame.phase === "complete"
+        ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
+        : null}
+      {Arr.map(
+        projection.markers,
+        (marker, index) => <PlaceMarkerDisc index={index} key={marker.name} marker={marker} />
+      )}
       <Lines projection={projection} />
     </Layer>
   )

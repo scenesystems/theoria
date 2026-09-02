@@ -20,7 +20,7 @@ import {
  * but no provider is contacted. The UI labels this "Recorded inference".
  *
  * `neighbor` is a second person's proposal and the note they sealed to the
- * author. Neither is model output.
+ * author. Neither is model output. `name` completes "Neighbor · …" on the card.
  */
 export type PlaceScenarioDefinition = {
   readonly id: PlaceScenario
@@ -62,7 +62,7 @@ const listeningGarden: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "a neighbor who visited on the first night",
+    name: "visited on the first night",
     proposal: {
       name: "Open seat",
       description: "One place at the canopy left deliberately empty for whoever arrives next.",
@@ -75,7 +75,7 @@ const listeningGarden: PlaceScenarioDefinition = {
     name: "Lantern keeper's stool",
     description: "A low stool by the first lantern where the evening's host trims the wicks.",
     weight: 0.35,
-    rationale: "The composition names lanterns and hosts but gives neither a place to begin the night."
+    rationale: "The atmosphere names the lanterns, but nothing says who lights them or where the evening begins."
   }
 }
 
@@ -102,7 +102,7 @@ const tidalWorkshop: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "the crew that used the workshop last season",
+    name: "the crew from last season",
     proposal: {
       name: "Repair bench",
       description: "A bench stocked with materials the previous crew left behind.",
@@ -142,7 +142,7 @@ const storyCommons: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "a first-time visitor",
+    name: "visiting for the first time",
     proposal: {
       name: "Listening alcove",
       description: "A small recess for hearing one account all the way through.",
