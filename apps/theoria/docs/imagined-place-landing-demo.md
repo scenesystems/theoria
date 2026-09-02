@@ -83,7 +83,8 @@ One column, four step cards on a spine (`Compose`, `Propose`, `Record`,
 points the `How it's built` code panel at that step's source.
 
 - Compose: scenario pills, the brief (editable, 280 characters, debounced
-  400 ms), the composition with feature chips, the `Recorded inference` pill.
+  400 ms), the composition's title with the `Recorded inference` pill, then the
+  feature chips.
 - Propose: two proposal cards with a `Merge` switch each. Header: proposer
   badge. Title: the feature's name, which becomes its disc. Then a labelled
   list — `Adds` (the sentence that merges into the place), `Why` (the
@@ -93,8 +94,17 @@ points the `How it's built` code panel at that step's source.
   contributed it, the BLAKE3 ID, the author's signature.
 - Arrange: the stage with named or numbered discs (Base UI popovers with the
   feature's description and contributor), the dotted walk path, the description
-  flowing around the discs, the search trace with stage presets, and the current
-  version's ID with a one-shot wash when it changes.
+  flowing around the discs, the search trace, stage presets, and the current
+  version's ID with a one-shot wash when it changes. The trace is a Base UI
+  slider over every trial: each dot is one arrangement's loss (log scale), the
+  step line is the running best, and dragging or arrowing the thumb draws that
+  trial on the stage so a rejected arrangement can be seen, not just counted.
+  The caption reads the shown trial (`36 arrangements tried · kept trial 33 ·
+loss 1.520` or `Trial 1 of 36 · loss 16.999 · not kept`).
+
+Every content ID on the page (`ContentId`) is a tooltip trigger: hover or focus
+shows the whole BLAKE3-256 ID, a click copies it and the tooltip stays to say
+`Copied`. The hero links to `#how-its-built` beside `Browse the packages`.
 
 Below the steps, `How it's built` is always open. It shows the current step's
 code with every package symbol linked to its reference page

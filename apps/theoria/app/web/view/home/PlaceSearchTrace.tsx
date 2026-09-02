@@ -1,16 +1,15 @@
+import { Slider } from "@base-ui-components/react/slider"
+import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
+import type { CSSProperties } from "react"
 
 import { renderTrials } from "../../../contracts/demo/imagined-place-arrangement.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import { frameLosses, type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
 import { toneClassesFor } from "../primitives/designSystem.js"
 import { Layer } from "../primitives/Layout.js"
-import { SemanticText } from "../primitives/SemanticText.js"
 
-import { renderProgressText } from "./placeViewModel.js"
-
-const width = 176
-const height = 36
-const inset = 3
+import { shownTrialIndex, trialValueText } from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("search")
 
@@ -19,87 +18,124 @@ type Point = {
   readonly y: number
 }
 
-type Trace = {
-  readonly trials: ReadonlyArray<Point>
-  readonly best: string
-}
-
 /** A running minimum: the loss the search would report after each trial. */
 const runningBest = (losses: ReadonlyArray<number>): ReadonlyArray<number> =>
   Arr.scan(losses, Number.POSITIVE_INFINITY, (best, loss) => Math.min(best, loss)).slice(1)
 
 /**
- * Every trial at its loss, and the best-so-far as a step line beneath them.
- * The x axis is the whole trial budget, so the trace fills in left to right
- * while the search runs and stays put when it stops.
+ * Every trial at its loss, in percent of the chart: x over the whole trial
+ * budget so the trace fills in left to right and stays put when the search
+ * stops, y on a log scale because early trials can be ten times worse than
+ * the best and a linear axis would flatten the part worth seeing.
  */
-const traceFor = (losses: ReadonlyArray<number>): Trace => {
-  // Log scale: early trials can be ten times worse than the best, and a linear
-  // axis would flatten the part of the search worth seeing.
+const pointsFor = (losses: ReadonlyArray<number>): ReadonlyArray<Point> => {
   const scaled = Arr.map(losses, (loss) => Math.log(Math.max(loss, Number.EPSILON)))
   const max = Math.max(...scaled, 0)
   const min = Math.min(...scaled, max)
   const range = max - min || 1
-  const step = renderTrials <= 1 ? 0 : (width - inset * 2) / (renderTrials - 1)
-  const x = (index: number): number => inset + index * step
-  const y = (loss: number): number =>
-    height - inset - ((Math.log(Math.max(loss, Number.EPSILON)) - min) / range) * (height - inset * 2)
-  const trials = Arr.map(losses, (loss, index) => ({ x: x(index), y: y(loss) }))
-  const best = Arr.join(
-    Arr.map(
-      runningBest(losses),
-      (loss, index) =>
-        `${index === 0 ? "M" : "H"}${x(index).toFixed(1)}${
-          index === 0 ? ` ${y(loss).toFixed(1)}` : ` V${y(loss).toFixed(1)}`
-        }`
-    ),
+  const step = renderTrials <= 1 ? 0 : 100 / (renderTrials - 1)
+  return Arr.map(scaled, (value, index) => ({ x: index * step, y: 100 - ((value - min) / range) * 100 }))
+}
+
+/** The best-so-far as a step line: horizontal until a better trial, then straight down to it. */
+const bestPath = (losses: ReadonlyArray<number>): string =>
+  Arr.join(
+    Arr.map(pointsFor(runningBest(losses)), (point, index) =>
+      index === 0
+        ? `M${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+        : `H${point.x.toFixed(2)} V${point.y.toFixed(2)}`),
     " "
   )
-  return { trials, best }
-}
 
-const TraceChart = ({ losses }: { readonly losses: ReadonlyArray<number> }) => {
-  const trace = traceFor(losses)
+const dotStyle = (point: Point): CSSProperties => ({ left: `${point.x.toFixed(2)}%`, top: `${point.y.toFixed(2)}%` })
+
+const dotClassName = (kind: "tried" | "best" | "shown"): string =>
+  kind === "best"
+    ? `absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-stage-0 ${searchTone.bg}`
+    : kind === "shown"
+    ? "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink-900 ring-2 ring-stage-0"
+    : `absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70 ${searchTone.dot}`
+
+/** Dots for every trial and the step line beneath them; the chosen and the kept trial stand out. */
+const TraceChart = ({ best, losses, shown }: {
+  readonly best: number
+  readonly losses: ReadonlyArray<number>
+  readonly shown: number
+}) => {
+  const points = pointsFor(losses)
   return (
-    <svg
-      aria-hidden
-      className="h-9 w-44 shrink-0 overflow-visible"
-      preserveAspectRatio="none"
-      viewBox={`0 0 ${String(width)} ${String(height)}`}
-    >
-      <path
-        className={`fill-none ${searchTone.stroke} motion-reduce:transition-none`}
-        d={trace.best}
-        strokeLinejoin="miter"
-        strokeWidth={2}
-      />
-      {Arr.map(trace.trials, (point, index) => (
-        <circle
-          className={searchTone.fillMuted}
-          cx={point.x.toFixed(1)}
-          cy={point.y.toFixed(1)}
+    <Layer aria-hidden className="absolute inset-x-0 inset-y-2.5">
+      <svg className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+        <path
+          className={`fill-none ${searchTone.stroke} opacity-80`}
+          d={bestPath(losses)}
+          strokeLinejoin="miter"
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      {Arr.map(points, (point, index) => (
+        <Layer
+          as="span"
+          className={dotClassName(index === shown ? "shown" : index === best ? "best" : "tried")}
+          data-place-trial={String(index)}
           key={index}
-          opacity={0.85}
-          r={2}
+          style={dotStyle(point)}
         />
       ))}
-    </svg>
+    </Layer>
   )
 }
 
-/** The search as it happened: every trial's loss, the running best, and where it stands now. */
-export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }) => (
-  <Layer
-    className="grid grid-cols-1 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:gap-x-3"
-    data-place-render-phase={frame.phase}
-  >
-    <TraceChart losses={frame.losses} />
-    <SemanticText
-      as="span"
-      className="min-w-0 whitespace-nowrap tabular-nums text-ink-500"
-      role="code-meta"
-      text={renderProgressText(frame)}
-      wrapAuthority="native-browser"
-    />
-  </Layer>
-)
+const thumbClassName =
+  "group flex h-full w-5 cursor-ew-resize items-center justify-center outline-none data-[disabled]:cursor-default"
+
+const thumbLineClassName =
+  "pointer-events-none block h-full w-0.5 rounded-full bg-ink-900/55 transition-[background-color,box-shadow] duration-150 group-hover:bg-ink-900 group-has-[:focus-visible]:bg-ink-900 group-has-[:focus-visible]:ring-2 group-has-[:focus-visible]:ring-ink-900/25 group-data-[disabled]:bg-ink-900/25"
+
+/**
+ * The search as it happened, and a way to look at any of it. Each dot is an
+ * arrangement the search tried; the step line is the best so far; the thumb
+ * is the trial drawn on the stage. Drag or use the arrow keys to see the
+ * arrangements the search rejected, drawn exactly as it scored them. While
+ * the search runs the thumb follows the best so far.
+ */
+export const PlaceSearchTrace = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+  const preview = useAtomValue(placeTrialPreviewAtom)
+  const setPreview = useAtomSet(placeTrialPreviewAtom)
+  const losses = frameLosses(frame)
+  const shown = shownTrialIndex(frame, preview)
+  const running = frame.phase === "running"
+
+  return (
+    <Slider.Root
+      className="w-full"
+      data-place-render-phase={frame.phase}
+      data-place-trace
+      disabled={running}
+      max={renderTrials - 1}
+      min={0}
+      // On the root, not the thumb: Base UI 1.0.0-rc.0 drops the thumb's own onKeyDown.
+      onKeyDown={(event) => {
+        // Escape leaves the excursion: back to the trial the search kept.
+        if (event.key === "Escape") setPreview(Option.none())
+      }}
+      onValueChange={(value) => {
+        setPreview(value === frame.bestIndex ? Option.none() : Option.some(value))
+      }}
+      step={1}
+      value={shown}
+    >
+      <Slider.Control className="relative h-16 w-full cursor-pointer touch-none select-none data-[disabled]:cursor-default">
+        <TraceChart best={frame.bestIndex} losses={losses} shown={shown} />
+        <Slider.Thumb
+          className={thumbClassName}
+          getAriaLabel={() => "Trial drawn on the stage"}
+          getAriaValueText={(_, value) => trialValueText(frame, value)}
+        >
+          <Layer as="span" className={thumbLineClassName} />
+        </Slider.Thumb>
+      </Slider.Control>
+    </Slider.Root>
+  )
+}

@@ -142,7 +142,12 @@ export const PlaceHowItsBuilt = () => {
   const sha = Option.getOrElse(useAtomValue(placeBuildShaAtom), () => "dev-local")
 
   return (
-    <Section aria-label="How it's built" className="border-t border-stage-200/85 pt-6 lg:pt-8" data-place-how-its-built>
+    <Section
+      aria-label="How it's built"
+      className="scroll-mt-6 border-t border-stage-200/85 pt-6 lg:pt-8"
+      data-place-how-its-built
+      id="how-its-built"
+    >
       <Stack className="gap-5">
         <Cluster className="items-start justify-between gap-x-6 gap-y-3">
           <Stack className="gap-1.5">

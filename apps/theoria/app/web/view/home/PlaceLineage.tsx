@@ -10,6 +10,7 @@ import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { StatusPill } from "../primitives/StatusPill.js"
 
+import { ContentId } from "./ContentId.js"
 import {
   isCurrentVersion,
   parentText,
@@ -73,13 +74,8 @@ const VersionNode = ({ build, last, version }: {
             wrapAuthority="native-browser"
           />
         ))}
-        <ChangedValue changes={current ? change.changes : 0} className="min-w-0">
-          <SemanticText
-            as="code"
-            className={`block truncate ${digestTone.textStrong}`}
-            role="code-meta"
-            text={version.contentId}
-          />
+        <ChangedValue changes={current ? change.changes : 0} className="flex min-w-0">
+          <ContentId form="full" id={version.contentId} />
         </ChangedValue>
         {Option.match(signatureFor(build.evidence.signatures, version.contentId), {
           onNone: () => null,

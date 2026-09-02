@@ -105,7 +105,7 @@ export const currentVersion = (evidence: PlaceEvidence): Option.Option<Version> 
 export const currentVersionText = (evidence: PlaceEvidence): string =>
   Option.match(currentVersion(evidence), {
     onNone: () => "No version yet",
-    onSome: (version) => `Version ${String(version.version)} · ${shortId(version.contentId)}`
+    onSome: (version) => `Version ${String(version.version)} ·`
   })
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
@@ -132,17 +132,46 @@ export const versionChanges = (build: PlaceBuild, version: Version): ReadonlyArr
 export const parentText = (version: Version): Option.Option<string> =>
   Option.map(Option.fromNullable(version.parent), () => `Built from v${String(version.version - 1)}`)
 
+/** The trial the stage draws: the one chosen from the trace if it exists, else the best. */
+export const shownTrialIndex = (frame: PlaceRenderFrame, preview: Option.Option<number>): number =>
+  Option.getOrElse(
+    Option.filter(preview, (index) => index >= 0 && index < frame.tried.length),
+    () => frame.bestIndex
+  )
+
+const lossOf = (frame: PlaceRenderFrame, index: number): Option.Option<number> =>
+  Option.map(Arr.get(frame.tried, index), (arrangement) => arrangement.quality.loss)
+
 /**
- * The search, captioned as measure · value · scope: how many arrangements were
- * tried and the objective the best one scored. "Loss" is the word the code
- * panel uses for the same number.
+ * The search, captioned as measure · value · scope. While it runs, how far it
+ * is; when it stops, which trial the stage draws and what it scored. "Loss"
+ * is the word the code panel uses for the same number.
  */
-export const renderProgressText = (frame: PlaceRenderFrame): string =>
+export const renderProgressText = (frame: PlaceRenderFrame, shown: number): string =>
   frame.phase === "running"
     ? `Searching arrangements · ${String(frame.trial)} of ${String(renderTrials)}`
-    : `${String(frame.rendering.evidence.trials)} arrangements searched · best loss ${
-      frame.rendering.evidence.bestLoss.toFixed(3)
-    }`
+    : Option.match(lossOf(frame, shown), {
+      onNone: () => `${String(frame.tried.length)} arrangements tried`,
+      onSome: (loss) =>
+        shown === frame.bestIndex
+          ? `${String(frame.tried.length)} arrangements tried · kept trial ${String(shown + 1)} · loss ${
+            loss.toFixed(3)
+          }`
+          : `Trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)} · not kept`
+    })
+
+/** The way back from a rejected trial: the kept one, by number. */
+export const keptTrialLabel = (frame: PlaceRenderFrame): string => `Kept trial ${String(frame.bestIndex + 1)}`
+
+/** What a screen reader hears for the trace thumb. */
+export const trialValueText = (frame: PlaceRenderFrame, index: number): string =>
+  Option.match(lossOf(frame, index), {
+    onNone: () => `Trial ${String(index + 1)}, not tried yet`,
+    onSome: (loss) =>
+      `Trial ${String(index + 1)} of ${String(frame.tried.length)}, loss ${loss.toFixed(3)}${
+        index === frame.bestIndex ? ", kept" : ""
+      }`
+  })
 
 export const stagePresetLabel = (width: number): string => `${String(width)} px`
 

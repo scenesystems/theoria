@@ -1,6 +1,11 @@
+import { ArrowDownIcon } from "@heroicons/react/20/solid"
+
 import { Cluster, Section, Stack } from "../primitives/Layout.js"
-import { InternalLink } from "../primitives/Link.js"
+import { AnchorLink, InternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
+
+const anchorLinkClassName =
+  "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-ink-700 transition-colors hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
 
 const docsLinkClassName =
   "inline-flex items-center rounded-lg border border-stage-300/90 bg-stage-0/88 px-3.5 py-2 text-ink-900 shadow-chip transition-colors hover:border-ink-400 hover:bg-stage-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900/20"
@@ -26,10 +31,14 @@ export const HomeHero = () => (
           wrapAuthority="native-browser"
         />
       </Stack>
-      <Cluster className="gap-3">
+      <Cluster className="items-center gap-3">
         <InternalLink className={docsLinkClassName} href="/docs">
           <SemanticText as="span" role="button-label" text="Browse the packages" />
         </InternalLink>
+        <AnchorLink className={anchorLinkClassName} href="#how-its-built">
+          <SemanticText as="span" className="text-inherit" role="button-label" text="How it's built" />
+          <ArrowDownIcon aria-hidden className="size-4" />
+        </AnchorLink>
       </Cluster>
     </Stack>
   </Section>

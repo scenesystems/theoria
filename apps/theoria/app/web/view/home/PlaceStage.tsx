@@ -6,7 +6,7 @@ import type { CSSProperties } from "react"
 
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
-import { type PlaceRenderFrame, placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
+import { type PlaceRenderFrame, placeShownFrameAtom, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
 import { placeStageContainerWidthAtom } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -54,12 +54,13 @@ const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
  * geography. The walk draws once when the search settles, the discs are
  * buttons, and the text sits above both.
  */
-const Drawing = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+const Drawing = ({ frame, scrubbing }: { readonly frame: PlaceRenderFrame; readonly scrubbing: boolean }) => {
   const projection = frame.rendering.projection
   return (
     <Layer
       aria-busy={frame.phase === "running"}
-      className="relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
+      className="group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none data-[place-scrubbing]:transition-none"
+      data-place-scrubbing={scrubbing ? "" : undefined}
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
@@ -114,7 +115,9 @@ const anyNumbered = (markers: ReadonlyArray<PlaceMarker>): boolean =>
  * width changes what you see and nothing else.
  */
 export const PlaceStage = () => {
-  const frame = useAtomValue(placeRenderFrameAtom)
+  const frame = useAtomValue(placeShownFrameAtom)
+  // Scrubbing the trace swaps whole arrangements: the text jumps, so the discs jump with it.
+  const scrubbing = Option.isSome(useAtomValue(placeTrialPreviewAtom))
   const reportContainerWidth = useElementWidthReporter(useAtomSet(placeStageContainerWidthAtom))
   const latest = Result.value(frame)
   const frameWidth = Option.match(latest, {
@@ -132,7 +135,7 @@ export const PlaceStage = () => {
         >
           {Option.match(latest, {
             onNone: () => <Placeholder />,
-            onSome: (value) => <Drawing frame={value} />
+            onSome: (value) => <Drawing frame={value} scrubbing={scrubbing} />
           })}
         </ArtifactStage>
       </Layer>

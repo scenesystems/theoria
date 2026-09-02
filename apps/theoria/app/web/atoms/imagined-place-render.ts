@@ -1,5 +1,5 @@
-import { Atom } from "@effect-atom/atom"
-import type { Atom as AtomType, Result } from "@effect-atom/atom"
+import { Atom, Result } from "@effect-atom/atom"
+import type { Atom as AtomType } from "@effect-atom/atom"
 import { Study } from "@scenesystems/effect-search"
 import { Duration, Effect, Layer, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
@@ -32,10 +32,32 @@ import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
 export type PlaceRenderFrame = {
   readonly phase: "running" | "complete"
   readonly trial: number
-  /** The loss of every trial so far, in order: what the search actually tried. */
-  readonly losses: ReadonlyArray<number>
+  readonly stage: Stage
+  /** Every arrangement so far, in the order the search tried them. */
+  readonly tried: ReadonlyArray<Arrangement>
+  /** Index into `tried` of the best so far: the one `rendering` draws. */
+  readonly bestIndex: number
   readonly rendering: PlaceRendering
 }
+
+/** The loss of every trial so far: the trace of the search. */
+export const frameLosses = (frame: PlaceRenderFrame): ReadonlyArray<number> =>
+  Arr.map(frame.tried, (arrangement) => arrangement.quality.loss)
+
+/** The same frame drawn with the trial at `index` instead of the best; out of range draws the best. */
+export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<number>): PlaceRenderFrame =>
+  Option.match(Option.flatMap(index, (value) => Arr.get(frame.tried, value)), {
+    onNone: () => frame,
+    onSome: (arrangement) => ({
+      ...frame,
+      rendering: renderingFor({
+        arrangement,
+        bestLoss: frame.rendering.evidence.bestLoss,
+        stage: frame.stage,
+        trials: frame.trial
+      })
+    })
+  })
 
 const renderRuntime = Atom.runtime(Layer.empty)
 
@@ -43,10 +65,11 @@ const renderRuntime = Atom.runtime(Layer.empty)
 const frameDelay = Duration.millis(28)
 
 type Progress = {
-  readonly arrangement: Arrangement
-  readonly loss: number
-  readonly losses: ReadonlyArray<number>
+  readonly tried: Arr.NonEmptyReadonlyArray<Arrangement>
+  readonly bestIndex: number
 }
+
+const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried, progress.bestIndex)
 
 const frame = (
   progress: Progress,
@@ -56,17 +79,23 @@ const frame = (
 ): PlaceRenderFrame => ({
   phase,
   trial,
-  losses: progress.losses,
-  rendering: renderingFor({ arrangement: progress.arrangement, bestLoss: progress.loss, stage, trials: trial })
+  stage,
+  tried: progress.tried,
+  bestIndex: progress.bestIndex,
+  rendering: renderingFor({
+    arrangement: bestOf(progress),
+    bestLoss: bestOf(progress).quality.loss,
+    stage,
+    trials: trial
+  })
 })
 
-const advance = (current: Option.Option<Progress>, arrangement: Arrangement, loss: number): Progress =>
+const advance = (current: Option.Option<Progress>, arrangement: Arrangement): Progress =>
   Option.match(current, {
-    onNone: () => ({ arrangement, loss, losses: [loss] }),
+    onNone: () => ({ tried: Arr.of(arrangement), bestIndex: 0 }),
     onSome: (progress) => ({
-      arrangement: loss < progress.loss ? arrangement : progress.arrangement,
-      loss: Math.min(loss, progress.loss),
-      losses: Arr.append(progress.losses, loss)
+      tried: Arr.append(progress.tried, arrangement),
+      bestIndex: arrangement.quality.loss < bestOf(progress).quality.loss ? progress.tried.length : progress.bestIndex
     })
   })
 
@@ -103,7 +132,7 @@ const renderStream = (
 
               const progress = yield* Ref.updateAndGet(
                 progressRef,
-                (current) => Option.some(advance(current, arrangement, loss))
+                (current) => Option.some(advance(current, arrangement))
               )
               yield* Option.match(progress, {
                 onNone: () => Effect.void,
@@ -118,6 +147,13 @@ const renderStream = (
   )
 
 /**
+ * The trial the visitor chose to look at from the search trace, if any. The
+ * stage draws it in place of the best, so a rejected arrangement can be seen
+ * as the search saw it.
+ */
+export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
+
+/**
  * The latest frame for the current artifact at the current stage width. A new
  * artifact or a new width starts a new search; the previous frame is kept
  * while it runs so the stage never blanks.
@@ -126,8 +162,18 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
   .atom((get: AtomType.Context) => {
     const artifact = get(placeArtifactAtom)
     const stageWidth = get(placeStageWidthAtom)
+    // A new search means new trials; a trial chosen from the old one no longer exists.
+    get.set(placeTrialPreviewAtom, Option.none())
     return Option.match(artifact, {
       onNone: () => Stream.empty,
       onSome: (value) => renderStream(value, stageWidth)
     })
   })
+
+/** The frame the stage draws: the best arrangement, or the trial the visitor chose. */
+export const placeShownFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame, DemoExecutionError>> = Atom.make(
+  (get: AtomType.Context) => {
+    const preview = get(placeTrialPreviewAtom)
+    return Result.map(get(placeRenderFrameAtom), (found) => frameShowing(found, preview))
+  }
+)

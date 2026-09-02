@@ -35,15 +35,23 @@ const Pending = () => (
 )
 
 /**
- * What the composer returned for the brief: the features it named, in the
- * author's accent because the author signs them. The pill is the honest part:
+ * What the composer returned for the brief: the title it gave the place and
+ * the features it named, in the author's accent because the author signs them. The pill is the honest part:
  * the runtime is recorded, so the answer is the one recorded for this
  * scenario, checked against the output schema each time. When the brief has
  * been edited, one line says what that does and does not change.
  */
 const Composed = ({ build, edited }: { readonly build: PlaceBuild; readonly edited: boolean }) => (
   <Stack className="gap-2" data-place-composition>
-    <Cluster>
+    <Cluster className="items-center justify-between gap-x-3 gap-y-1">
+      <SemanticText
+        as="p"
+        className="min-w-0 text-ink-900"
+        role="card-title"
+        text={build.artifact.composition.title}
+        variant="compact"
+        wrapAuthority="native-browser"
+      />
       <StatusPill
         className={`border ${inferenceTone.borderSubtle} ${inferenceTone.bgTinted} ${inferenceTone.text}`}
         label="Recorded inference"

@@ -1,9 +1,10 @@
+import { Button } from "@base-ui-components/react/button"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
-import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
+import { type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
 import {
   placeStageMaxDrawableAtom,
   placeStageMaxWidth,
@@ -14,23 +15,29 @@ import {
 } from "../../atoms/imagined-place.js"
 import { ChangedValue } from "../primitives/ChangedValue.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
-import { legendThemeFor, toneClassesFor } from "../primitives/designSystem.js"
+import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
+import { ContentId } from "./ContentId.js"
 import { PlaceSearchTrace } from "./PlaceSearchTrace.js"
 import { PlaceStage } from "./PlaceStage.js"
 import {
+  currentVersion,
   currentVersionText,
   drawablePresets,
+  keptTrialLabel,
   participantLabel,
   participants,
   participantTone,
+  renderProgressText,
+  shownTrialIndex,
   stagePresetLabel
 } from "./placeViewModel.js"
 
 const presetTone = toneClassesFor("text")
+const searchTone = toneClassesFor("search")
 
 /**
  * The same version drawn for another screen. Only presets the column can show
@@ -94,21 +101,67 @@ const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
         variant="compact"
         wrapAuthority="native-browser"
       />
-      <Layer data-place-current-version>
-        <ChangedValue changes={change.changes} className="inline-flex">
+      <Layer className="min-w-0" data-place-current-version>
+        <ChangedValue changes={change.changes} className="flex min-w-0 items-center gap-1.5">
           <SemanticText
             as="span"
             className="tabular-nums text-ink-500"
             role="code-meta"
             text={currentVersionText(build.evidence)}
           />
+          {Option.match(currentVersion(build.evidence), {
+            onNone: () => null,
+            onSome: (version) => <ContentId form="short" id={version.contentId} />
+          })}
         </ChangedValue>
       </Layer>
     </Layer>
   )
 }
 
-/** The Arrange step: the place drawn for this screen, and the search that arranged it. */
+/**
+ * Where the search stands, or which of its trials the stage is drawing. While
+ * a rejected trial is drawn, the kept one is a click away.
+ */
+const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
+  const shown = shownTrialIndex(frame, useAtomValue(placeTrialPreviewAtom))
+  const setPreview = useAtomSet(placeTrialPreviewAtom)
+  return (
+    <Cluster className="min-w-0 items-center gap-2.5">
+      <Layer className="min-w-0" data-place-search-caption>
+        <SemanticText
+          as="span"
+          className="block truncate tabular-nums text-ink-500"
+          role="code-meta"
+          text={renderProgressText(frame, shown)}
+        />
+      </Layer>
+      {shown === frame.bestIndex ? null : (
+        <Button
+          className={pillButtonClassName({ active: false, tone: searchTone })}
+          data-place-show-kept
+          onClick={() => {
+            setPreview(Option.none())
+          }}
+          type="button"
+        >
+          <SemanticText
+            as="span"
+            className="text-ink-700"
+            role="tab-label"
+            text={keptTrialLabel(frame)}
+            variant="expanded"
+          />
+        </Button>
+      )}
+    </Cluster>
+  )
+}
+
+/**
+ * The Arrange step: the place drawn for this screen, the search that arranged
+ * it (every trial, any of which can be drawn), and who made what.
+ */
 export const PlaceArrangement = ({
   build,
   frame
@@ -122,13 +175,18 @@ export const PlaceArrangement = ({
       onSome: (value) => <TitleRow build={value} />
     })}
     <PlaceStage />
-    <Cluster className="items-center justify-between gap-x-6 gap-y-3">
-      {Option.match(frame, {
-        onNone: () => <Layer />,
-        onSome: (value) => <PlaceSearchTrace frame={value} />
-      })}
-      <StagePresets />
-    </Cluster>
+    {Option.match(frame, {
+      onNone: () => null,
+      onSome: (value) => (
+        <Stack className="gap-2">
+          <PlaceSearchTrace frame={value} />
+          <Cluster className="items-center justify-between gap-x-6 gap-y-3">
+            <SearchCaption frame={value} />
+            <StagePresets />
+          </Cluster>
+        </Stack>
+      )
+    })}
     <ParticipantLegend />
   </Stack>
 )

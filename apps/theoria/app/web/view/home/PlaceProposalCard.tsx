@@ -11,9 +11,9 @@ import { StatusPill } from "../primitives/StatusPill.js"
 import { TagBadge } from "../primitives/TagBadge.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
-import { participantLabel, participantTone, shortId, signatureLabel } from "./placeViewModel.js"
+import { ContentId } from "./ContentId.js"
+import { participantLabel, participantTone, signatureLabel } from "./placeViewModel.js"
 
-const digestTone = toneClassesFor("digest")
 const sealTone = toneClassesFor("seal")
 
 const signaturePillClassName = (valid: boolean): string =>
@@ -152,7 +152,7 @@ export const PlaceProposalCard = ({
           className={signaturePillClassName(record.signature.valid)}
           label={signatureLabel(record.signature)}
         />
-        <SemanticText as="code" className={digestTone.text} role="code-meta" text={shortId(record.contentId)} />
+        <ContentId form="short" id={record.contentId} />
       </Cluster>
     </ContentCard>
   )
