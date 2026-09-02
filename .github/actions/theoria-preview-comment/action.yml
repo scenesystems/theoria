@@ -1,0 +1,51 @@
+name: Theoria preview comment
+description: >-
+  Creates or updates the single pull request comment that reports the state of
+  the pull request's Theoria preview. The comment is identified by a hidden
+  marker, so repeated deploys edit one comment instead of adding more.
+
+inputs:
+  pr-number:
+    description: Pull request number
+    required: true
+  body:
+    description: Markdown body of the comment; the marker is prepended
+    required: true
+  token:
+    description: GitHub token with write access to pull requests
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create or update preview comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        BODY: ${{ inputs.body }}
+        MARKER: <!-- theoria-preview -->
+      run: |
+        set -euo pipefail
+
+        # `--paginate` emits one JSON array per page; `--slurp` on jq joins them.
+        comment_id=$(
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" |
+            jq -r --slurp --arg marker "$MARKER" '
+              [ .[][]
+                | select(.user.type == "Bot")
+                | select(.body | startswith($marker))
+                | .id
+              ] | first // empty
+            '
+        )
+
+        body="$MARKER"$'\n'"$BODY"
+
+        if [ -n "$comment_id" ]; then
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" \
+            --field body="$body" --jq '.html_url'
+        else
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --field body="$body" --jq '.html_url'
+        fi

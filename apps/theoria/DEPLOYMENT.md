@@ -129,6 +129,13 @@ waits for that cleanup rather than cancelling it, then skips. The first
 deployment of a pull request waits up to ten minutes for the certificate to be
 issued before the verification checks run.
 
+Because the deploy job runs on `main`, GitHub records its `staging` deployment
+against `main` rather than the pull request, so the pull request page does not
+show the deployment URL. After verification passes, the job posts a single
+"Theoria preview" comment on the pull request (created once, then edited on each
+redeploy, and edited again to say the preview was removed when the pull request
+closes) with the hostname, the deployed commit, and the run that deployed it.
+
 Both workflows only take effect once they exist on `main`: a pull request that
 adds or edits them is built, but not previewed, until it merges.
 
