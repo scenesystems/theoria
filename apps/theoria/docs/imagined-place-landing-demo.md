@@ -73,7 +73,9 @@ tests and the CLI walkthrough, the browser runs the same search step by step in
 best arrangement so far every frame. Stage width is presentation only, is
 never sent to the server, and never changes a content ID. `placeMarkers` keeps
 every disc on the stage and clear of the ones before it by construction, so the
-loss only scores overflow, squeezed lines, raggedness, and sprawl.
+loss only scores overflow, squeezed lines, raggedness, and sprawl. The stage
+ranges from 240 px (the Arrange column at a 320 px viewport is 254 px) to
+900 px.
 
 ## What the page shows
 
@@ -90,7 +92,9 @@ points the `How it's built` code panel at that step's source.
   The switch is the visitor's intent and never locks; the pill is the record.
   Between the two — the debounce, the server build — the card carries
   `data-place-pending`, and `data-place-recorded` always says what the build
-  returned. A click during a build is kept, not dropped. Title: the feature's
+  returned. A click during a build is kept, not dropped, and every write to
+  `placeControlsAtom` is a functional update from the registry's current value,
+  so two decisions in one tick both land. Title: the feature's
   name, which becomes its disc. Then a labelled list — `Adds` (the sentence
   that merges into the place), `Why` (the proposer's reason), `Note` (the
   neighbor's sealed note, opened with the author's key). Footer: the proposal's

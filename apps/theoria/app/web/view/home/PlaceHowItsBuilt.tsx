@@ -77,23 +77,25 @@ const CommitLink = ({ sha }: { readonly sha: string }) => (
   </ExternalLink>
 )
 
+/** Package names keep their hyphens when the label wraps: a non-breaking hyphen (U+2011) instead of a break opportunity. */
+const codeLabel = (name: string, packages: ReadonlyArray<string>): string =>
+  `${name} · ${Arr.join(Arr.map(packages, (id) => id.replaceAll("-", "\u2011")), ", ")}`
+
 const StepTabs = ({ step }: { readonly step: PlaceStep }) => {
   const setStep = useAtomSet(placeStepAtom)
   return (
-    <Layer className="overflow-x-auto">
-      <TabBar className="w-max">
-        {Arr.map(placeStepDefinitions, (candidate, index) => (
-          <TabButton
-            active={candidate.id === step}
-            key={candidate.id}
-            label={candidate.name}
-            onClick={() => {
-              setStep(placeStepAt(index))
-            }}
-          />
-        ))}
-      </TabBar>
-    </Layer>
+    <TabBar className="w-fit max-w-full flex-wrap">
+      {Arr.map(placeStepDefinitions, (candidate, index) => (
+        <TabButton
+          active={candidate.id === step}
+          key={candidate.id}
+          label={candidate.name}
+          onClick={() => {
+            setStep(placeStepAt(index))
+          }}
+        />
+      ))}
+    </TabBar>
   )
 }
 
@@ -111,7 +113,7 @@ const StepCode = ({ step }: { readonly step: PlaceStep }) => {
     <Layer data-place-code-step={step} key={placeStepIndex(step)}>
       <CodeBlock
         annotations={placeLiveValues(step, build, frame)}
-        label={`${definition.name} · ${Arr.join(definition.packages, ", ")}`}
+        label={codeLabel(definition.name, definition.packages)}
         links={referenceLinks(step)}
         source={definition.code}
       />

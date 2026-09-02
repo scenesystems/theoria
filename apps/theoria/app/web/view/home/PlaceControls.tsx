@@ -51,7 +51,7 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
         disabled={disabled}
         onSelect={(index) => {
           Option.map(Arr.get(placeScenarios, index), (scenario) => {
-            setControls(controlsForScenario(controls, scenario))
+            setControls((current) => controlsForScenario(current, scenario))
           })
         }}
         options={scenarioOptions}
@@ -61,7 +61,8 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
         active={briefIsEdited(controls)}
         disabled={disabled}
         onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-          setControls({ ...controls, brief: event.target.value.slice(0, briefMaxLength) })
+          const brief = event.target.value.slice(0, briefMaxLength)
+          setControls((current) => ({ ...current, brief }))
         }}
         placeholder="Describe the place you want to share…"
         rows={5}

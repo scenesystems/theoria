@@ -57,7 +57,8 @@ export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceB
               ? Option.some(value.evidence.sealedNote)
               : Option.none()}
             onToggle={() => {
-              setControls(toggled(controls, record.proposal.proposer))
+              // From the registry's current value, so two decisions in one tick both land.
+              setControls((current) => toggled(current, record.proposal.proposer))
             }}
             record={record}
           />

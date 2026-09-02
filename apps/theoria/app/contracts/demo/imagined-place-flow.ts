@@ -25,7 +25,8 @@ export type Stage = {
 /** The text role the description is set in; its line height shapes the stage. */
 export const placeTextRole: TextRole = "card-summary"
 
-export const stageMinWidth = 280
+/** The Arrange column at a 320 px viewport is 254 px wide; the stage must fit inside it. */
+export const stageMinWidth = 240
 export const stageMaxWidth = 900
 export const stagePadding = 16
 
@@ -46,7 +47,7 @@ export const stageFor = (requestedWidth: number): Stage => {
 const markerGap = 10
 const minimumLineWidth = 60
 
-/** Between 4.5% and 8% of the stage width: big enough for a name at 640 px, a number at 280 px. */
+/** Between 4.5% and 8% of the stage width: big enough for a name at 640 px, a number at 240 px. */
 export const markerRadius = (stage: Stage, weight: number): number => stage.stageWidth * (0.045 + 0.035 * weight)
 
 /**

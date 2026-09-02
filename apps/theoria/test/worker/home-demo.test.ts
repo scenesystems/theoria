@@ -90,7 +90,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(paper, "data-overflow-y-end", "")
 
         yield* press(page, "End")
-        yield* containsText(caption, `Trial ${String(renderTrials)} of ${String(renderTrials)}`)
+        // The last trial may itself be the kept one, so only the position is asserted here.
+        yield* containsText(caption, new RegExp(`[Tt]rial ${String(renderTrials)} of ${String(renderTrials)}`, "u"))
         expect(yield* act(layout)).toBe(atRest)
         yield* press(page, "Escape")
         yield* eventually(() => paper.evaluate((element) => element.hasAttribute("data-has-overflow-y")), false)

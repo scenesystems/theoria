@@ -27,7 +27,7 @@ const corners: ReadonlyArray<Meander> = [corner(0), corner(1)]
 
 describe("Imagined place geometry contract", () => {
   it("markers never overlap and never leave the padded stage, whatever the meander", () => {
-    Arr.forEach([280, 640, 900], (width) => {
+    Arr.forEach([240, 640, 900], (width) => {
       const stage = stageFor(width)
       Arr.forEach(corners, (meander) => {
         const markers = placeMarkers(features, noContributors, stage, meander)
