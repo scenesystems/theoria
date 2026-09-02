@@ -1,15 +1,17 @@
 /**
- * Metric and evaluation-domain errors.
+ * Serializable metric and per-example evaluation failures.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Identifies a failure produced by a named metric. Metric effects may fail
- * with their own error type; `MetricError` is the package-level diagnostic
- * used when that failure must be represented independently of the metric's
- * generic error channel.
+ * Associates a scoring failure with a metric name.
+ *
+ * @remarks
+ * Metric scorers retain their own generic error types, and built-in evaluation
+ * captures those failures as {@link ExampleFailure}. Use `MetricError` when an
+ * integration needs a serializable package-level metric diagnostic.
  *
  * @since 0.1.0
  * @category errors
@@ -17,16 +19,20 @@ import { Schema } from "effect"
 export class MetricError extends Schema.TaggedError<MetricError>()(
   "MetricError",
   {
+    /** Diagnostic text supplied by the scoring integration. */
     message: Schema.String,
+    /** Name of the metric that failed. */
     metricName: Schema.String
   }
 ) {}
 
 /**
- * Records an example that could not be evaluated. The zero-based `index`
- * refers to the input dataset, so callers can correlate a failure after
- * concurrent evaluation has reordered completion. Evaluation reports collect
- * these values rather than failing the entire run.
+ * Identifies an example that cannot be decoded, executed, or scored.
+ *
+ * @remarks
+ * The zero-based index refers to input order, even when concurrent evaluation
+ * changes completion order. {@link Evaluate.run} captures this error in its
+ * report instead of failing the whole evaluation.
  *
  * @since 0.1.0
  * @category errors
@@ -34,7 +40,9 @@ export class MetricError extends Schema.TaggedError<MetricError>()(
 export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>()(
   "EvaluationFailed",
   {
+    /** Diagnostic text describing the failed evaluation step. */
     message: Schema.String,
+    /** Zero-based position in the input dataset. */
     index: Schema.Number
   }
 ) {}

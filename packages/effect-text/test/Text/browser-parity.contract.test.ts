@@ -15,19 +15,19 @@ import { Text } from "../../src/index.js"
 
 const packageRootUrl = new URL("../../", import.meta.url)
 
-const readBrowserAccuracyArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
+const readSyntheticRegressionArtifact = (profileId: Browser.BrowserSupportProfileIdType) =>
   readProjectFile(packageRootUrl, browserParityArtifactRelativePath(profileId)).pipe(
     Effect.flatMap((content) => Schema.decode(BrowserParityArtifactJsonSchema)(content).pipe(Effect.orDie)),
     Effect.provide(BunContext.layer)
   )
 
-describe("Text browser parity contracts", () => {
-  it.effect("matches the checked-in browser accuracy artifacts for every shipped browser profile", () =>
+describe("Text synthetic browser regression contracts", () => {
+  it.effect("matches the checked-in synthetic artifacts for every shipped browser profile", () =>
     Effect.forEach(
       Browser.BrowserSupportManifest.profiles,
       (profile) =>
         Effect.gen(function*() {
-          const artifact = yield* readBrowserAccuracyArtifact(profile.id)
+          const artifact = yield* readSyntheticRegressionArtifact(profile.id)
           const layer = browserParityLayer(profile)
           const actualCases = yield* Effect.forEach(browserParityCasesForProfile(profile), (entry) =>
             Text.prepareWithSegments(entry.prepare).pipe(

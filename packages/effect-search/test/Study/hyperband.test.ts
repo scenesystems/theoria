@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Match, Option, Stream } from "effect"
+import { Chunk, Effect, Either, Match, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as Scheduler from "../../src/Scheduler/index.js"
@@ -30,6 +30,27 @@ const bestValue = <Config>(result: Study.StudyResult<Config>): number =>
   )
 
 describe("hyperband scheduler", () => {
+  it.effect("rejects non-finite topology values", () =>
+    Effect.gen(function*() {
+      const invalidResource = yield* Effect.either(
+        Scheduler.hyperband({
+          maxResource: Number.NaN,
+          reductionFactor: 3,
+          sampler: Sampler.random()
+        })
+      )
+      const invalidReduction = yield* Effect.either(
+        Scheduler.hyperband({
+          maxResource: 9,
+          reductionFactor: Number.POSITIVE_INFINITY,
+          sampler: Sampler.random()
+        })
+      )
+
+      expect(Either.isLeft(invalidResource)).toBe(true)
+      expect(Either.isLeft(invalidReduction)).toBe(true)
+    }))
+
   it.effect("builds deterministic bracket topology", () =>
     Effect.gen(function*() {
       const scheduler = yield* Scheduler.hyperband({

@@ -1,10 +1,12 @@
 /**
- * Distribution operation surface — pure kernel re-exports, Schema-validated
- * variants with boundary input checking, and policy-aware operations
- * that respect `PrecisionPolicyService` and `DiagnosticsPolicyService`.
+ * Evaluates continuous and discrete probability distributions.
  *
- * Covers 10 distribution families: Normal, LogNormal, Exponential, Uniform,
- * Beta, Gamma, StudentT, Categorical, Binomial, Poisson.
+ * @remarks
+ * Pure operations accept trusted numeric inputs and do not check distribution
+ * parameters. Validated operations decode unknown input, reject excess fields,
+ * and report parse failures as {@link DistributionDecodeError}. Policy-aware
+ * operations use the configured precision policy to reject non-finite results
+ * and the diagnostics policy to emit an annotated debug log.
  *
  * @since 0.1.0
  * @category operations
@@ -44,11 +46,11 @@ import {
 export const loadDistributionDomain = Effect.succeed(DistributionDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Normal
+// Pure kernel re-exports: Normal
 // ---------------------------------------------------------------------------
 
 /**
- * Normal PDF: f(x | μ, σ) = (1/(σ√(2π))) exp(−(x−μ)²/(2σ²)).
+ * Evaluates the density of a normal distribution with trusted parameters.
  *
  * @since 0.1.0
  * @category operations
@@ -56,7 +58,7 @@ export const loadDistributionDomain = Effect.succeed(DistributionDomainModel)
 export const normalPdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalPdf
 
 /**
- * Normal log-PDF: ln f(x | μ, σ).
+ * Evaluates the natural logarithm of a normal density.
  *
  * @since 0.1.0
  * @category operations
@@ -64,7 +66,7 @@ export const normalPdf: (x: number, mu: number, sigma: number) => number = Norma
 export const normalLogpdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalLogpdf
 
 /**
- * Normal CDF: P(X ≤ x) for X ~ N(μ, σ²). Delegates to erf.
+ * Evaluates the probability of a normal variate being at or below `x`.
  *
  * @since 0.1.0
  * @category operations
@@ -72,7 +74,11 @@ export const normalLogpdf: (x: number, mu: number, sigma: number) => number = No
 export const normalCdf: (x: number, mu: number, sigma: number) => number = NormalKernel.normalCdf
 
 /**
- * Normal quantile (inverse CDF): x such that P(X ≤ x) = p. Delegates to erfinv.
+ * Finds the normal variate whose cumulative probability is `p`.
+ *
+ * @remarks
+ * Probabilities `0` and `1` return negative and positive infinity,
+ * respectively. Values outside the unit interval produce `NaN`.
  *
  * @since 0.1.0
  * @category operations
@@ -80,7 +86,7 @@ export const normalCdf: (x: number, mu: number, sigma: number) => number = Norma
 export const normalQuantile: (p: number, mu: number, sigma: number) => number = NormalKernel.normalQuantile
 
 /**
- * Normal mean: μ.
+ * Returns the location parameter of a normal distribution.
  *
  * @since 0.1.0
  * @category operations
@@ -88,7 +94,7 @@ export const normalQuantile: (p: number, mu: number, sigma: number) => number = 
 export const normalMean: (mu: number, sigma: number) => number = NormalKernel.normalMean
 
 /**
- * Normal variance: σ².
+ * Returns the square of the normal distribution's scale parameter.
  *
  * @since 0.1.0
  * @category operations
@@ -96,7 +102,7 @@ export const normalMean: (mu: number, sigma: number) => number = NormalKernel.no
 export const normalVariance: (mu: number, sigma: number) => number = NormalKernel.normalVariance
 
 /**
- * Normal differential entropy: ½ ln(2πeσ²).
+ * Computes normal differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -104,11 +110,11 @@ export const normalVariance: (mu: number, sigma: number) => number = NormalKerne
 export const normalEntropy: (mu: number, sigma: number) => number = NormalKernel.normalEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — LogNormal
+// Pure kernel re-exports: LogNormal
 // ---------------------------------------------------------------------------
 
 /**
- * Log-normal PDF for x > 0 with log-space parameters μ and σ.
+ * Evaluates a log-normal density, returning `0` when `x` is not positive.
  *
  * @since 0.1.0
  * @category operations
@@ -116,8 +122,9 @@ export const normalEntropy: (mu: number, sigma: number) => number = NormalKernel
 export const logNormalPdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalPdf
 
 /**
- * Log-normal log-PDF: ln f(x; μ, σ) = −ln(x) − ln(σ) − ½ln(2π) − ½((ln x − μ)/σ)².
- * Returns −∞ for x ≤ 0.
+ * Evaluates the natural logarithm of a log-normal density.
+ *
+ * @returns Negative infinity when `x` is zero or negative.
  *
  * @since 0.1.0
  * @category operations
@@ -125,7 +132,9 @@ export const logNormalPdf: (x: number, mu: number, sigma: number) => number = Lo
 export const logNormalLogpdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalLogpdf
 
 /**
- * Log-normal CDF: F(x; μ, σ) = ½(1 + erf((ln x − μ)/(σ√2))). Returns 0 for x ≤ 0.
+ * Evaluates the cumulative probability of a log-normal variate.
+ *
+ * @returns `0` when `x` is zero or negative.
  *
  * @since 0.1.0
  * @category operations
@@ -133,7 +142,11 @@ export const logNormalLogpdf: (x: number, mu: number, sigma: number) => number =
 export const logNormalCdf: (x: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalCdf
 
 /**
- * Log-normal quantile (inverse CDF): Q(p) = exp(μ + σ√2 · erfinv(2p − 1)).
+ * Finds the log-normal variate whose cumulative probability is `p`.
+ *
+ * @remarks
+ * Probabilities `0` and `1` return `0` and positive infinity, respectively.
+ * Values outside the unit interval produce `NaN`.
  *
  * @since 0.1.0
  * @category operations
@@ -141,7 +154,7 @@ export const logNormalCdf: (x: number, mu: number, sigma: number) => number = Lo
 export const logNormalQuantile: (p: number, mu: number, sigma: number) => number = LogNormalKernel.logNormalQuantile
 
 /**
- * Log-normal mean: exp(μ + σ²/2).
+ * Computes the arithmetic mean from log-space location and scale.
  *
  * @since 0.1.0
  * @category operations
@@ -149,7 +162,7 @@ export const logNormalQuantile: (p: number, mu: number, sigma: number) => number
 export const logNormalMean: (mu: number, sigma: number) => number = LogNormalKernel.logNormalMean
 
 /**
- * Log-normal variance: (exp(σ²) − 1) · exp(2μ + σ²).
+ * Computes variance from log-space location and scale.
  *
  * @since 0.1.0
  * @category operations
@@ -157,7 +170,7 @@ export const logNormalMean: (mu: number, sigma: number) => number = LogNormalKer
 export const logNormalVariance: (mu: number, sigma: number) => number = LogNormalKernel.logNormalVariance
 
 /**
- * Log-normal differential entropy: μ + ½ + ½ln(2π) + ln(σ).
+ * Computes log-normal differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -165,11 +178,11 @@ export const logNormalVariance: (mu: number, sigma: number) => number = LogNorma
 export const logNormalEntropy: (mu: number, sigma: number) => number = LogNormalKernel.logNormalEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Exponential
+// Pure kernel re-exports: Exponential
 // ---------------------------------------------------------------------------
 
 /**
- * Exponential PDF: λ exp(−λx) for x ≥ 0.
+ * Evaluates an exponential density, returning `0` when `x` is negative.
  *
  * @since 0.1.0
  * @category operations
@@ -177,7 +190,9 @@ export const logNormalEntropy: (mu: number, sigma: number) => number = LogNormal
 export const exponentialPdf: (x: number, rate: number) => number = ExponentialKernel.exponentialPdf
 
 /**
- * Exponential log-PDF: ln(λ) − λx for x ≥ 0, −∞ otherwise.
+ * Evaluates the natural logarithm of an exponential density.
+ *
+ * @returns Negative infinity when `x` is negative.
  *
  * @since 0.1.0
  * @category operations
@@ -185,7 +200,7 @@ export const exponentialPdf: (x: number, rate: number) => number = ExponentialKe
 export const exponentialLogpdf: (x: number, rate: number) => number = ExponentialKernel.exponentialLogpdf
 
 /**
- * Exponential CDF: 1 − exp(−λx) for x ≥ 0.
+ * Evaluates cumulative exponential probability, returning `0` when `x` is negative.
  *
  * @since 0.1.0
  * @category operations
@@ -193,7 +208,9 @@ export const exponentialLogpdf: (x: number, rate: number) => number = Exponentia
 export const exponentialCdf: (x: number, rate: number) => number = ExponentialKernel.exponentialCdf
 
 /**
- * Exponential quantile: −ln(1−p)/λ.
+ * Finds the exponential variate whose cumulative probability is `p`.
+ *
+ * @returns Positive infinity when `p` is `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -201,7 +218,7 @@ export const exponentialCdf: (x: number, rate: number) => number = ExponentialKe
 export const exponentialQuantile: (p: number, rate: number) => number = ExponentialKernel.exponentialQuantile
 
 /**
- * Exponential mean: 1/λ.
+ * Returns the reciprocal of the exponential rate.
  *
  * @since 0.1.0
  * @category operations
@@ -209,7 +226,7 @@ export const exponentialQuantile: (p: number, rate: number) => number = Exponent
 export const exponentialMean: (rate: number) => number = ExponentialKernel.exponentialMean
 
 /**
- * Exponential variance: 1/λ².
+ * Returns the reciprocal of the squared exponential rate.
  *
  * @since 0.1.0
  * @category operations
@@ -217,7 +234,7 @@ export const exponentialMean: (rate: number) => number = ExponentialKernel.expon
 export const exponentialVariance: (rate: number) => number = ExponentialKernel.exponentialVariance
 
 /**
- * Exponential differential entropy: 1 − ln(λ).
+ * Computes exponential differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -225,11 +242,14 @@ export const exponentialVariance: (rate: number) => number = ExponentialKernel.e
 export const exponentialEntropy: (rate: number) => number = ExponentialKernel.exponentialEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Uniform
+// Pure kernel re-exports: Uniform
 // ---------------------------------------------------------------------------
 
 /**
- * Uniform PDF: 1/(high−low) when low ≤ x ≤ high.
+ * Evaluates uniform density on the closed interval from `low` through `high`.
+ *
+ * @remarks
+ * Returns `0` outside the interval. The bounds are assumed to be ordered.
  *
  * @since 0.1.0
  * @category operations
@@ -237,7 +257,9 @@ export const exponentialEntropy: (rate: number) => number = ExponentialKernel.ex
 export const uniformPdf: (x: number, low: number, high: number) => number = UniformKernel.uniformPdf
 
 /**
- * Uniform log-PDF: −ln(high − low) when low ≤ x ≤ high, −∞ otherwise.
+ * Evaluates the natural logarithm of uniform density on the closed interval.
+ *
+ * @returns Negative infinity outside the interval.
  *
  * @since 0.1.0
  * @category operations
@@ -245,7 +267,7 @@ export const uniformPdf: (x: number, low: number, high: number) => number = Unif
 export const uniformLogpdf: (x: number, low: number, high: number) => number = UniformKernel.uniformLogpdf
 
 /**
- * Uniform CDF: (x − low)/(high − low) clamped to [0, 1].
+ * Evaluates cumulative uniform probability, clamped to the unit interval.
  *
  * @since 0.1.0
  * @category operations
@@ -253,7 +275,7 @@ export const uniformLogpdf: (x: number, low: number, high: number) => number = U
 export const uniformCdf: (x: number, low: number, high: number) => number = UniformKernel.uniformCdf
 
 /**
- * Uniform quantile: low + p·(high−low).
+ * Interpolates linearly between the uniform bounds at probability `p`.
  *
  * @since 0.1.0
  * @category operations
@@ -261,7 +283,7 @@ export const uniformCdf: (x: number, low: number, high: number) => number = Unif
 export const uniformQuantile: (p: number, low: number, high: number) => number = UniformKernel.uniformQuantile
 
 /**
- * Uniform mean: (low+high)/2.
+ * Returns the midpoint of the uniform bounds.
  *
  * @since 0.1.0
  * @category operations
@@ -269,7 +291,7 @@ export const uniformQuantile: (p: number, low: number, high: number) => number =
 export const uniformMean: (low: number, high: number) => number = UniformKernel.uniformMean
 
 /**
- * Uniform variance: (high−low)²/12.
+ * Computes variance from the width between the uniform bounds.
  *
  * @since 0.1.0
  * @category operations
@@ -277,7 +299,7 @@ export const uniformMean: (low: number, high: number) => number = UniformKernel.
 export const uniformVariance: (low: number, high: number) => number = UniformKernel.uniformVariance
 
 /**
- * Uniform differential entropy: ln(high−low).
+ * Computes uniform differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -285,11 +307,16 @@ export const uniformVariance: (low: number, high: number) => number = UniformKer
 export const uniformEntropy: (low: number, high: number) => number = UniformKernel.uniformEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Beta
+// Pure kernel re-exports: Beta
 // ---------------------------------------------------------------------------
 
 /**
- * Beta PDF for x ∈ (0,1) with shape parameters α and β.
+ * Evaluates a beta density for trusted positive shape parameters.
+ *
+ * @remarks
+ * Values outside the open unit interval return `0`. At either endpoint the
+ * implementation returns the finite boundary density only when the
+ * corresponding shape parameter equals `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -297,7 +324,9 @@ export const uniformEntropy: (low: number, high: number) => number = UniformKern
 export const betaPdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaPdf
 
 /**
- * Beta log-PDF: (α−1)ln(x) + (β−1)ln(1−x) − ln B(α,β). Returns −∞ outside (0,1).
+ * Evaluates the natural logarithm of a beta density.
+ *
+ * @returns Negative infinity outside the open unit interval, including both endpoints.
  *
  * @since 0.1.0
  * @category operations
@@ -305,7 +334,9 @@ export const betaPdf: (x: number, alpha: number, beta: number) => number = BetaK
 export const betaLogpdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaLogpdf
 
 /**
- * Beta CDF via regularized incomplete beta function.
+ * Evaluates cumulative beta probability through the regularized incomplete beta function.
+ *
+ * @returns `0` at or below `0` and `1` at or above `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -313,7 +344,12 @@ export const betaLogpdf: (x: number, alpha: number, beta: number) => number = Be
 export const betaCdf: (x: number, alpha: number, beta: number) => number = BetaKernel.betaCdf
 
 /**
- * Beta quantile via Newton iteration on CDF inverse.
+ * Approximates a beta quantile with at most 20 Newton iterations.
+ *
+ * @remarks
+ * Iteration starts at `0.5` and clamps each estimate to
+ * `[1e-15, 1 - 1e-15]`. It stops when the CDF error is below `1e-12` or
+ * the density is below `1e-30`, and returns the last estimate.
  *
  * @since 0.1.0
  * @category operations
@@ -321,7 +357,7 @@ export const betaCdf: (x: number, alpha: number, beta: number) => number = BetaK
 export const betaQuantile: (p: number, alpha: number, beta: number) => number = BetaKernel.betaQuantile
 
 /**
- * Beta mean: α/(α+β).
+ * Computes the mean of a beta distribution.
  *
  * @since 0.1.0
  * @category operations
@@ -329,7 +365,7 @@ export const betaQuantile: (p: number, alpha: number, beta: number) => number = 
 export const betaMean: (alpha: number, beta: number) => number = BetaKernel.betaMean
 
 /**
- * Beta variance: αβ/((α+β)²(α+β+1)).
+ * Computes the variance of a beta distribution.
  *
  * @since 0.1.0
  * @category operations
@@ -337,7 +373,7 @@ export const betaMean: (alpha: number, beta: number) => number = BetaKernel.beta
 export const betaVariance: (alpha: number, beta: number) => number = BetaKernel.betaVariance
 
 /**
- * Beta differential entropy: ln B(α,β) − (α−1)ψ(α) − (β−1)ψ(β) + (α+β−2)ψ(α+β).
+ * Computes beta differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -345,11 +381,15 @@ export const betaVariance: (alpha: number, beta: number) => number = BetaKernel.
 export const betaEntropy: (alpha: number, beta: number) => number = BetaKernel.betaEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Gamma
+// Pure kernel re-exports: Gamma
 // ---------------------------------------------------------------------------
 
 /**
- * Gamma PDF for x > 0 with shape k and scale θ.
+ * Evaluates a gamma density for trusted positive shape and scale parameters.
+ *
+ * @remarks
+ * Negative `x` values return `0`. At `x = 0`, the implementation returns
+ * `1 / scale` when `shape` is `1` and `0` for every other shape.
  *
  * @since 0.1.0
  * @category operations
@@ -357,7 +397,9 @@ export const betaEntropy: (alpha: number, beta: number) => number = BetaKernel.b
 export const gammaPdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaPdf
 
 /**
- * Gamma log-PDF: (k−1)ln(x) − x/θ − k·ln(θ) − ln Γ(k). Returns −∞ for x ≤ 0.
+ * Evaluates the natural logarithm of a gamma density.
+ *
+ * @returns Negative infinity when `x` is zero or negative.
  *
  * @since 0.1.0
  * @category operations
@@ -365,7 +407,9 @@ export const gammaPdf: (x: number, shape: number, scale: number) => number = Gam
 export const gammaLogpdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaLogpdf
 
 /**
- * Gamma CDF via regularized incomplete gamma function.
+ * Evaluates cumulative gamma probability through the regularized incomplete gamma function.
+ *
+ * @returns `0` when `x` is zero or negative.
  *
  * @since 0.1.0
  * @category operations
@@ -373,7 +417,12 @@ export const gammaLogpdf: (x: number, shape: number, scale: number) => number = 
 export const gammaCdf: (x: number, shape: number, scale: number) => number = GammaKernel.gammaCdf
 
 /**
- * Gamma quantile via Newton iteration on CDF inverse.
+ * Approximates a gamma quantile with at most 50 Newton iterations.
+ *
+ * @remarks
+ * The estimate is lower-bounded by `1e-15`. Iteration stops when the CDF
+ * error is below `1e-12` or the density is below `1e-30`, and returns the
+ * last estimate.
  *
  * @since 0.1.0
  * @category operations
@@ -381,7 +430,7 @@ export const gammaCdf: (x: number, shape: number, scale: number) => number = Gam
 export const gammaQuantile: (p: number, shape: number, scale: number) => number = GammaKernel.gammaQuantile
 
 /**
- * Gamma mean: kθ.
+ * Computes the mean of a shape-scale gamma distribution.
  *
  * @since 0.1.0
  * @category operations
@@ -389,7 +438,7 @@ export const gammaQuantile: (p: number, shape: number, scale: number) => number 
 export const gammaMean: (shape: number, scale: number) => number = GammaKernel.gammaMean
 
 /**
- * Gamma variance: kθ².
+ * Computes the variance of a shape-scale gamma distribution.
  *
  * @since 0.1.0
  * @category operations
@@ -397,7 +446,7 @@ export const gammaMean: (shape: number, scale: number) => number = GammaKernel.g
 export const gammaVariance: (shape: number, scale: number) => number = GammaKernel.gammaVariance
 
 /**
- * Gamma differential entropy: k + ln(θ) + ln Γ(k) + (1−k)ψ(k).
+ * Computes gamma differential entropy in nats.
  *
  * @since 0.1.0
  * @category operations
@@ -405,11 +454,11 @@ export const gammaVariance: (shape: number, scale: number) => number = GammaKern
 export const gammaEntropy: (shape: number, scale: number) => number = GammaKernel.gammaEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — StudentT
+// Pure kernel re-exports: StudentT
 // ---------------------------------------------------------------------------
 
 /**
- * Student's t-distribution PDF with ν degrees of freedom.
+ * Evaluates a Student's t density for trusted positive degrees of freedom.
  *
  * @since 0.1.0
  * @category operations
@@ -417,7 +466,7 @@ export const gammaEntropy: (shape: number, scale: number) => number = GammaKerne
 export const studentTPdf: (x: number, df: number) => number = StudentTKernel.studentTPdf
 
 /**
- * Student's t log-PDF: ln Γ((ν+1)/2) − ln Γ(ν/2) − ½ln(νπ) − ((ν+1)/2)ln(1+x²/ν).
+ * Evaluates the natural logarithm of a Student's t density.
  *
  * @since 0.1.0
  * @category operations
@@ -425,7 +474,7 @@ export const studentTPdf: (x: number, df: number) => number = StudentTKernel.stu
 export const studentTLogpdf: (x: number, df: number) => number = StudentTKernel.studentTLogpdf
 
 /**
- * Student's t CDF via regularized incomplete beta function.
+ * Evaluates cumulative Student's t probability through the regularized incomplete beta function.
  *
  * @since 0.1.0
  * @category operations
@@ -433,7 +482,12 @@ export const studentTLogpdf: (x: number, df: number) => number = StudentTKernel.
 export const studentTCdf: (x: number, df: number) => number = StudentTKernel.studentTCdf
 
 /**
- * Student's t quantile via Newton iteration.
+ * Approximates a Student's t quantile with at most 50 Newton iterations.
+ *
+ * @remarks
+ * Iteration starts from a standard-normal quantile and stops when the CDF
+ * error is below `1e-12` or the density is below `1e-30`. Endpoint
+ * probabilities begin with an infinite estimate and may produce `NaN`.
  *
  * @since 0.1.0
  * @category operations
@@ -441,7 +495,7 @@ export const studentTCdf: (x: number, df: number) => number = StudentTKernel.stu
 export const studentTQuantile: (p: number, df: number) => number = StudentTKernel.studentTQuantile
 
 /**
- * Student's t mean: 0 for ν > 1, NaN otherwise.
+ * Returns `0` when the Student's t mean exists and `NaN` when `df <= 1`.
  *
  * @since 0.1.0
  * @category operations
@@ -449,7 +503,10 @@ export const studentTQuantile: (p: number, df: number) => number = StudentTKerne
 export const studentTMean: (df: number) => number = StudentTKernel.studentTMean
 
 /**
- * Student's t variance: ν/(ν−2) for ν > 2.
+ * Computes Student's t variance when it exists.
+ *
+ * @returns `df / (df - 2)` when `df > 2`, positive infinity when
+ * `1 < df <= 2`, and `NaN` when `df <= 1`.
  *
  * @since 0.1.0
  * @category operations
@@ -457,11 +514,13 @@ export const studentTMean: (df: number) => number = StudentTKernel.studentTMean
 export const studentTVariance: (df: number) => number = StudentTKernel.studentTVariance
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Categorical
+// Pure kernel re-exports: Categorical
 // ---------------------------------------------------------------------------
 
 /**
- * Categorical PMF: P(X = k) = probs[k].
+ * Reads the mass assigned to category index `k`.
+ *
+ * @returns `0` when `k` is outside the `Chunk`.
  *
  * @since 0.1.0
  * @category operations
@@ -469,7 +528,9 @@ export const studentTVariance: (df: number) => number = StudentTKernel.studentTV
 export const categoricalPmf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalPmf
 
 /**
- * Categorical log-PMF: ln(probs[k]). Returns −∞ when k is out of range.
+ * Returns the natural logarithm of the mass at category index `k`.
+ *
+ * @returns Negative infinity when `k` is outside the `Chunk` or its mass is zero.
  *
  * @since 0.1.0
  * @category operations
@@ -477,7 +538,12 @@ export const categoricalPmf: (k: number, probs: Chunk.Chunk<number>) => number =
 export const categoricalLogpmf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalLogpmf
 
 /**
- * Categorical CDF: P(X ≤ k).
+ * Sums categorical masses through index `k`.
+ *
+ * @remarks
+ * Returns `0` for negative indices and `1` at or beyond the final index.
+ * The latter result does not depend on the actual sum of `probs`; callers
+ * must supply normalized probabilities when they need distribution semantics.
  *
  * @since 0.1.0
  * @category operations
@@ -485,7 +551,10 @@ export const categoricalLogpmf: (k: number, probs: Chunk.Chunk<number>) => numbe
 export const categoricalCdf: (k: number, probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalCdf
 
 /**
- * Categorical mean: Σ i·pᵢ.
+ * Computes the probability-weighted category index.
+ *
+ * @remarks
+ * The input is used as given and is not normalized.
  *
  * @since 0.1.0
  * @category operations
@@ -493,7 +562,10 @@ export const categoricalCdf: (k: number, probs: Chunk.Chunk<number>) => number =
 export const categoricalMean: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalMean
 
 /**
- * Categorical variance: Σ i²·pᵢ − μ².
+ * Computes variance of category indices using the supplied masses.
+ *
+ * @remarks
+ * The input is used as given and is not normalized.
  *
  * @since 0.1.0
  * @category operations
@@ -501,7 +573,11 @@ export const categoricalMean: (probs: Chunk.Chunk<number>) => number = Categoric
 export const categoricalVariance: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalVariance
 
 /**
- * Categorical entropy: −Σ pᵢ ln(pᵢ).
+ * Computes categorical entropy in nats using the supplied masses.
+ *
+ * @remarks
+ * Zero masses contribute `0`. The input is not normalized or checked for
+ * negative values.
  *
  * @since 0.1.0
  * @category operations
@@ -509,11 +585,13 @@ export const categoricalVariance: (probs: Chunk.Chunk<number>) => number = Categ
 export const categoricalEntropy: (probs: Chunk.Chunk<number>) => number = CategoricalKernel.categoricalEntropy
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Binomial
+// Pure kernel re-exports: Binomial
 // ---------------------------------------------------------------------------
 
 /**
- * Binomial PMF: P(X = k) for X ~ Binom(n, p).
+ * Evaluates binomial mass at an integer success count.
+ *
+ * @returns `0` when `k` is non-integral, negative, or greater than `n`.
  *
  * @since 0.1.0
  * @category operations
@@ -521,7 +599,9 @@ export const categoricalEntropy: (probs: Chunk.Chunk<number>) => number = Catego
 export const binomialPmf: (k: number, n: number, p: number) => number = BinomialKernel.binomialPmf
 
 /**
- * Binomial log-PMF: ln C(n,k) + k·ln(p) + (n−k)·ln(1−p).
+ * Evaluates the natural logarithm of binomial mass.
+ *
+ * @returns Negative infinity when `k` is non-integral or outside `[0, n]`.
  *
  * @since 0.1.0
  * @category operations
@@ -529,7 +609,9 @@ export const binomialPmf: (k: number, n: number, p: number) => number = Binomial
 export const binomialLogpmf: (k: number, n: number, p: number) => number = BinomialKernel.binomialLogPmf
 
 /**
- * Binomial CDF via regularized incomplete beta function.
+ * Evaluates cumulative binomial probability through the regularized incomplete beta function.
+ *
+ * @returns `0` below the support and `1` at or above `n`.
  *
  * @since 0.1.0
  * @category operations
@@ -537,7 +619,7 @@ export const binomialLogpmf: (k: number, n: number, p: number) => number = Binom
 export const binomialCdf: (k: number, n: number, p: number) => number = BinomialKernel.binomialCdf
 
 /**
- * Binomial mean: n·p.
+ * Computes the expected success count for `n` trials.
  *
  * @since 0.1.0
  * @category operations
@@ -545,7 +627,7 @@ export const binomialCdf: (k: number, n: number, p: number) => number = Binomial
 export const binomialMean: (n: number, p: number) => number = BinomialKernel.binomialMean
 
 /**
- * Binomial variance: n·p·(1−p).
+ * Computes success-count variance for `n` trials.
  *
  * @since 0.1.0
  * @category operations
@@ -553,11 +635,15 @@ export const binomialMean: (n: number, p: number) => number = BinomialKernel.bin
 export const binomialVariance: (n: number, p: number) => number = BinomialKernel.binomialVariance
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — Poisson
+// Pure kernel re-exports: Poisson
 // ---------------------------------------------------------------------------
 
 /**
- * Poisson PMF: P(X = k) for X ~ Poisson(μ).
+ * Evaluates Poisson mass at a non-negative integer count.
+ *
+ * @remarks
+ * Returns `0` for negative or non-integral `k`. A zero rate assigns all mass
+ * to `k = 0`, although validated rate schemas require a positive value.
  *
  * @since 0.1.0
  * @category operations
@@ -565,7 +651,10 @@ export const binomialVariance: (n: number, p: number) => number = BinomialKernel
 export const poissonPmf: (k: number, mu: number) => number = PoissonKernel.poissonPmf
 
 /**
- * Poisson log-PMF: k·ln(μ) − μ − ln(k!).
+ * Evaluates the natural logarithm of Poisson mass.
+ *
+ * @returns Negative infinity for negative or non-integral `k`, or for a
+ * positive count under a zero rate.
  *
  * @since 0.1.0
  * @category operations
@@ -573,7 +662,10 @@ export const poissonPmf: (k: number, mu: number) => number = PoissonKernel.poiss
 export const poissonLogpmf: (k: number, mu: number) => number = PoissonKernel.poissonLogPmf
 
 /**
- * Poisson CDF via upper incomplete gamma function.
+ * Evaluates cumulative Poisson probability through the upper incomplete gamma function.
+ *
+ * @returns `0` for negative `k`. A zero rate returns `1` for every
+ * non-negative `k`.
  *
  * @since 0.1.0
  * @category operations
@@ -581,7 +673,7 @@ export const poissonLogpmf: (k: number, mu: number) => number = PoissonKernel.po
 export const poissonCdf: (k: number, mu: number) => number = PoissonKernel.poissonCdf
 
 /**
- * Poisson mean: μ.
+ * Returns the Poisson rate as the expected count.
  *
  * @since 0.1.0
  * @category operations
@@ -589,7 +681,7 @@ export const poissonCdf: (k: number, mu: number) => number = PoissonKernel.poiss
 export const poissonMean: (mu: number) => number = PoissonKernel.poissonMean
 
 /**
- * Poisson variance: μ.
+ * Returns the Poisson rate as the count variance.
  *
  * @since 0.1.0
  * @category operations
@@ -601,7 +693,11 @@ export const poissonVariance: (mu: number) => number = PoissonKernel.poissonVari
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated normal PDF — decodes `input` through `NormalDistEvalInput`.
+ * Decodes finite normal parameters and evaluates density.
+ *
+ * @returns The density for a finite `x` and `mu` with positive finite `sigma`.
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -623,7 +719,10 @@ export const normalPdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated normal CDF.
+ * Decodes finite normal parameters and evaluates cumulative probability.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -645,7 +744,13 @@ export const normalCdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated normal quantile.
+ * Decodes a unit-interval probability and finite normal parameters before evaluating a quantile.
+ *
+ * @remarks
+ * Endpoint probabilities return infinities after successful decoding.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -667,7 +772,12 @@ export const normalQuantileValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated uniform PDF with parameter checking.
+ * Decodes finite uniform inputs and evaluates density after checking bound order.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, non-finite, or excess fields.
+ * @throws {@link DistributionParameterError} in the Effect error channel when
+ * `low` is greater than or equal to `high`.
  *
  * @since 0.1.0
  * @category operations
@@ -699,7 +809,10 @@ export const uniformPdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated beta CDF.
+ * Decodes positive beta shapes and a unit-interval point before evaluating cumulative probability.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -721,7 +834,13 @@ export const betaCdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated beta quantile.
+ * Decodes positive beta shapes and a unit-interval probability before approximating a quantile.
+ *
+ * @remarks
+ * The result uses the same clamped, finite-iteration procedure as {@link betaQuantile}.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -743,7 +862,14 @@ export const betaQuantileValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated categorical PMF.
+ * Decodes a non-negative category index and a non-empty array of non-negative masses.
+ *
+ * @remarks
+ * The masses are not normalized and are not required to sum to `1`. An index
+ * beyond the final category decodes successfully and returns `0`.
+ *
+ * @throws {@link DistributionDecodeError} in the Effect error channel when
+ * the input has missing, invalid, or excess fields.
  *
  * @since 0.1.0
  * @category operations
@@ -769,8 +895,15 @@ export const categoricalPmfValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware normal PDF — reads `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
+ * Evaluates normal density under the configured precision and diagnostics policies.
+ *
+ * @remarks
+ * Strict precision fails on a non-finite result but does not validate the
+ * inputs independently. Enabled diagnostics emit one debug log containing
+ * the inputs, result, precision mode, and elapsed milliseconds.
+ *
+ * @throws {@link DistributionDomainViolationError} in the Effect error
+ * channel when strict precision rejects the result.
  *
  * @since 0.1.0
  * @category operations
@@ -784,7 +917,14 @@ export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Policy-aware normal CDF.
+ * Evaluates cumulative normal probability under the configured runtime policies.
+ *
+ * @remarks
+ * Input parameters are not validated. Strict precision rejects a non-finite
+ * result; enabled diagnostics emit one annotated debug log.
+ *
+ * @throws {@link DistributionDomainViolationError} in the Effect error
+ * channel when strict precision rejects the result.
  *
  * @since 0.1.0
  * @category operations
@@ -798,7 +938,14 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Policy-aware beta CDF.
+ * Evaluates cumulative beta probability under the configured runtime policies.
+ *
+ * @remarks
+ * Input parameters are not validated. Strict precision rejects a non-finite
+ * result; enabled diagnostics emit one annotated debug log.
+ *
+ * @throws {@link DistributionDomainViolationError} in the Effect error
+ * channel when strict precision rejects the result.
  *
  * @since 0.1.0
  * @category operations

@@ -1,9 +1,6 @@
 /**
- * Encrypt and Decrypt — core seal/unseal workflow.
- *
- * What this shows: the simplest end-to-end encryption round-trip. Generate a key,
- * seal plaintext with XChaCha20-Poly1305, then unseal to recover the original bytes.
- * The envelope carries the algorithm tag, so `unseal` needs only the key.
+ * Generates an XChaCha20-Poly1305 key, seals plaintext, and recovers the original
+ * bytes by dispatching from the envelope's algorithm tag.
  *
  * Run: bun run examples/01-encrypt-decrypt.ts
  */

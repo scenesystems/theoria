@@ -9,8 +9,7 @@
     "test",
     "benchmark",
     "scripts/fixture-contract.ts",
-    "scripts/fixture-schemas.ts",
-    "scripts/verify-publish-readiness.ts"
+    "scripts/fixture-schemas.ts"
   ],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

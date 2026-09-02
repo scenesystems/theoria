@@ -1,5 +1,5 @@
 /**
- * Config-driven live text-runtime helpers for examples and consumers.
+ * Config-driven language-model layers for OpenAI, Anthropic, and OpenRouter.
  *
  * @since 0.1.0
  */
@@ -32,9 +32,13 @@ import {
  * @category models
  */
 export type ResolvedLiveTextProviderRuntime = Readonly<{
+  /** Provider adapter selected after configuration merging. */
   readonly provider: LiveTextProvider
+  /** Model identifier passed to the provider client. */
   readonly model: string
+  /** Caller intent and route recorded before any model request. */
   readonly desired: DesiredRuntimeDescriptor
+  /** Fully provided model layer; provider calls occur only when used. */
   readonly languageModelLayer: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
@@ -113,9 +117,9 @@ export const resolveLiveTextProviderRuntime = (
   )
 
 /**
- * Acquires configuration when the layer is built and provides a live
- * `LanguageModel` with its fetch client. Configuration failure is exposed in
- * the layer error channel; provider failures occur in model operations.
+ * Acquires configuration when the layer is built, then installs a live
+ * `LanguageModel` and its fetch client. Configuration failure is exposed in the
+ * layer error channel; provider failures occur in model operations.
  *
  * @since 0.1.0
  * @category layers
@@ -126,9 +130,13 @@ export const liveTextProviderLayer = (
   Layer.unwrapEffect(resolveLiveTextProviderRuntime(options).pipe(Effect.map((runtime) => runtime.languageModelLayer)))
 
 /**
- * Provides a configured live `LanguageModel` for the lifetime of `effect`,
- * removing that service from its requirements. Configuration errors are added
- * to the effect's error channel; model-operation failures are unchanged.
+ * Supplies a configured live `LanguageModel` for the lifetime of `effect` and
+ * removes that service from its requirements. Configuration errors are added to
+ * the effect's error channel; model-operation failures are unchanged.
+ *
+ * @typeParam A - Success value returned by the supplied effect.
+ * @typeParam E - Expected failure already declared by the supplied effect.
+ * @typeParam R - Services required before the language model is supplied.
  *
  * @since 0.1.0
  * @category constructors

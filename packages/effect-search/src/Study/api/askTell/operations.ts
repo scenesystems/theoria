@@ -1,5 +1,5 @@
 /**
- * Core ask/tell operations: ask for trial suggestions, tell results, cancel, and fail.
+ * Scoped manual-study operations for externally evaluated configurations.
  *
  * @since 0.1.0
  */
@@ -33,32 +33,54 @@ import { AskedTrial, HandleRuntime, makeStudyHandle, stateOf, type StudyHandle }
 import { finalizeTrial, pendingTrial, validateObjectiveValue } from "./shared.js"
 
 /**
- * Open a manual ask/tell study handle.
+ * Opens a scoped study whose configurations are evaluated by caller-owned
+ * workers. The supplied objective callback is retained in the normalized plan
+ * but is not invoked by ask/tell operations. Invalid options, prior trials, or
+ * sampler setup fail through `SearchError`.
  *
  * @remarks
- * Use this when trial evaluation happens outside `Study.optimize`, such as
- * distributed workers, human-in-the-loop review, or integration with external executors.
+ * Closing the scope shuts down the handle's event queue. Callers must finish all
+ * use of the handle within that scope.
+ *
+ * @typeParam Space - Compiled search space that determines asked configuration values.
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
+ * import { Effect, Match } from "effect"
+ * import * as Numeric from "@scenesystems/effect-math/Numeric"
  * import * as Study from "@scenesystems/effect-search/Study"
  * import * as Sampler from "@scenesystems/effect-search/Sampler"
  * import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
  *
- * const space = SearchSpace.unsafeMake({ lr: SearchSpace.float(0, 1) })
+ * export const program = Effect.scoped(
+ *   Effect.gen(function*() {
+ *     const space = yield* SearchSpace.make({ x: SearchSpace.float(-1, 1) })
+ *     const handle = yield* Study.open({
+ *       space,
+ *       sampler: Sampler.random({ seed: 42 }),
+ *       direction: "minimize",
+ *       trials: 1,
+ *       objective: () => Effect.succeed(0)
+ *     })
  *
- * Effect.gen(function*() {
- *   const handle = yield* Study.open({
- *     space,
- *     sampler: Sampler.random({ seed: 42 }),
- *     direction: "minimize",
- *     trials: 5,
- *     objective: () => Effect.succeed(0)
+ *     const asked = yield* Study.ask(handle)
+ *     yield* Study.tell(handle, asked.trialNumber, Numeric.pow(asked.config.x, 2))
+ *     const result = yield* Study.result(handle)
+ *
+ *     return yield* Match.value(result).pipe(
+ *       Match.tag("SingleObjective", (single) =>
+ *         Effect.succeed(single).pipe(
+ *           Effect.filterOrFail(
+ *             ({ trials }) => trials.length === 1,
+ *             () => "UnexpectedTrialCount"
+ *           )
+ *         )
+ *       ),
+ *       Match.tag("MultiObjective", () => Effect.fail("UnexpectedResultKind")),
+ *       Match.exhaustive
+ *     )
  *   })
- *   const asked = yield* Study.ask(handle)
- *   yield* Study.tell(handle, asked.trialNumber, 0.12)
- * })
+ * )
  * ```
  *
  * @since 0.1.0
@@ -104,7 +126,15 @@ export const open = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Reserve the next trial configuration from a manual ask/tell handle.
+ * Reserves the next sampled configuration and emits `TrialStarted`. The trial
+ * remains pending until reported with {@link tell} or {@link fail}.
+ *
+ * @remarks
+ * Fails through `SearchError` when the handle is closed, its trial budget is
+ * exhausted, the search space has no remaining configuration, or suggestion
+ * fails. Space exhaustion closes the handle before returning the error.
+ *
+ * @typeParam Space - Search space retained by the handle and used to infer the asked configuration.
  *
  * @since 0.1.0
  * @category combinators
@@ -148,7 +178,16 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Record a completed objective value for a reserved trial.
+ * Completes a reserved trial with an externally computed objective value. The
+ * value must be finite and must match the study's single- or multi-objective
+ * arity. Completion updates incumbent events and closes the handle after the
+ * configured number of trials has finished.
+ *
+ * @remarks
+ * Fails through `SearchError` for a closed handle, an unknown or already
+ * finalized trial number, or an invalid objective value.
+ *
+ * @typeParam Space - Search space retained by the handle receiving the objective value.
  *
  * @since 0.1.0
  * @category combinators
@@ -170,7 +209,15 @@ export const tell = <Space extends SearchSpace.SearchSpace>(
   }).pipe(Effect.provide(StudyClockLayer))
 
 /**
- * Mark a reserved trial as failed with a typed trial error.
+ * Finalizes a reserved trial with a {@link TrialError} whose `cause` retains the
+ * supplied value. A string `message` property is copied when present; other
+ * causes receive `"manual ask-tell failure"`.
+ *
+ * @remarks
+ * Fails through `SearchError` for a closed handle or a trial number that is not
+ * currently pending.
+ *
+ * @typeParam Space - Search space retained by the handle receiving the failure.
  *
  * @since 0.1.0
  * @category combinators
@@ -193,7 +240,11 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
   }).pipe(Effect.provide(StudyClockLayer))
 
 /**
- * Cancel a manual ask/tell handle and complete its event stream.
+ * Closes a manual handle and its event stream with completion reason
+ * `interrupted`. Pending trials remain in the running state in subsequent
+ * snapshots or results. Repeated calls do not publish another completion event.
+ *
+ * @typeParam Space - Search space retained by the handle being closed.
  *
  * @since 0.1.0
  * @category combinators

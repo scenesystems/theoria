@@ -1,6 +1,5 @@
 /**
- * Requested runtime descriptor combining model, route hints, and capability
- * requirements.
+ * Caller-owned model intent supplied to runtime resolution.
  *
  * @since 0.1.0
  */
@@ -11,8 +10,8 @@ import { ExecutionRouteSchema } from "./ExecutionRoute.js"
 import { ModelArtifactSchema } from "./ModelArtifact.js"
 
 /**
- * Role hints used by downstream policy layers without becoming route-family
- * truth.
+ * Accepts role hints used by downstream selection policy. A role does not
+ * determine a route family.
  *
  * @since 0.1.0
  * @category schemas
@@ -33,10 +32,15 @@ export const RuntimeRoleSchema = Schema.Literal(
  * @category schemas
  */
 export const DesiredRuntimeDescriptorSchema = Schema.Struct({
+  /** Model identity requested by the caller. */
   artifact: ModelArtifactSchema,
+  /** Explicit execution route; the live resolver rejects its absence. */
   route: Schema.optional(ExecutionRouteSchema),
+  /** Constraints checked against the selected route's capability policy. */
   capabilities: Schema.optional(CapabilityRequirementsSchema),
+  /** Workload hint available to downstream selection policy. */
   role: Schema.optional(RuntimeRoleSchema),
+  /** Uninterpreted caller labels retained with the request. */
   tags: Schema.optional(Schema.Array(Schema.String))
 })
 

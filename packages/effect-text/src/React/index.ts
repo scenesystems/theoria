@@ -10,6 +10,7 @@
  *
  * @since 0.2.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -31,7 +32,7 @@ import {
 import { FontDescriptor, HyphenationLocale, WhiteSpaceMode } from "../Text/schema.js"
 
 /**
- * Declares the React integration surface provisional for compatibility guarantees.
+ * Marks cache-key serialization and React projection helpers as provisional.
  *
  * @since 0.2.0
  * @category stability
@@ -45,12 +46,19 @@ export const ReactStability = "provisional"
  * @category schemas
  */
 export const PrepareIdentity = Schema.Struct({
+  /** Source text whose measurements are cached. */
   text: Schema.String,
+  /** Font whose measurements are cached. */
   font: FontDescriptor,
+  /** Whitespace policy captured during preparation. */
   whiteSpace: WhiteSpaceMode,
+  /** Dictionary locale captured during preparation. */
   hyphenationLocale: Schema.optional(HyphenationLocale),
+  /** Encoded engine settings captured during preparation. */
   engineProfileIdentity: Schema.String,
+  /** Browser support profile used for measurement. */
   supportProfileId: BrowserSupportProfileIdSchema,
+  /** Font-readiness generation used by the measurement cache. */
   fontReadinessRevision: FontReadinessRevision
 })
 
@@ -63,7 +71,8 @@ export const PrepareIdentity = Schema.Struct({
 export type PrepareIdentityType = typeof PrepareIdentity.Type
 
 /**
- * URI-component-safe string encoding every input that can change prepared widths.
+ * Accepts serialized preparation identity keys. Use `prepareIdentityKey` to
+ * construct values that `prepareIdentityFromKey` can decode safely.
  *
  * @since 0.2.0
  * @category schemas
@@ -71,7 +80,7 @@ export type PrepareIdentityType = typeof PrepareIdentity.Type
 export const PrepareIdentityKey = Schema.String
 
 /**
- * Deterministic key for caching a prepared handle across React renders.
+ * Serialized cache identity produced from typed preparation inputs.
  *
  * @since 0.2.0
  * @category models
@@ -85,7 +94,9 @@ export type PrepareIdentityKeyType = typeof PrepareIdentityKey.Type
  * @category schemas
  */
 export const PreparedLayoutProjection = Schema.Struct({
+  /** Aggregate layout geometry. */
   summary: LayoutSummary,
+  /** Materialized lines in visual order. */
   lines: Schema.Array(LayoutLine)
 })
 
@@ -105,8 +116,9 @@ const supportProfileIdFrom = (value: string): BrowserSupportProfileIdType =>
   value === "canvas-system-ui" ? "canvas-system-ui" : "canvas-monospace"
 
 /**
- * Encodes every engine-profile field in declaration order using
- * URI-component-safe separators.
+ * Encodes every current engine-profile field in declaration order. The result
+ * is stable for equal typed profiles and is intended as one component of a
+ * preparation cache key.
  *
  * @since 0.2.0
  * @category identities
@@ -121,7 +133,9 @@ export const engineProfileIdentity = (profile: EngineProfileType): string =>
   ].map(encodePart).join("~")
 
 /**
- * Builds the full prepare-time identity from prepare input plus browser/runtime freshness.
+ * Captures typed preparation input, engine settings, browser profile, and font
+ * readiness as one cache identity. Values are copied by reference without
+ * Schema decoding.
  *
  * @since 0.2.0
  * @category identities
@@ -142,8 +156,9 @@ export const prepareIdentityFor = (options: {
 })
 
 /**
- * Encodes text, font, whitespace, optional locale, engine profile, support
- * profile, and font-readiness revision into one deterministic cache key.
+ * Encodes all identity fields with component escaping and unambiguous
+ * separators. A string containing an unpaired UTF-16 surrogate causes
+ * `encodeURIComponent` to throw synchronously.
  *
  * @since 0.2.0
  * @category identities
@@ -162,8 +177,11 @@ export const prepareIdentityKey = (identity: PrepareIdentityType): PrepareIdenti
   ].join("|")
 
 /**
- * Recovers identity data from keys produced by `prepareIdentityKey`.
- * Arbitrary strings are not accepted or validated as identities.
+ * Decodes keys produced by `prepareIdentityKey` without Schema validation.
+ * Missing numeric fields become zero; other non-numeric fields become `NaN`.
+ * Unknown whitespace and profile values fall back to `normal` and
+ * `canvas-monospace`. Malformed percent escapes throw synchronously from
+ * `decodeURIComponent`.
  *
  * @since 0.2.0
  * @category identities
@@ -188,8 +206,8 @@ export const prepareIdentityFromKey = (key: PrepareIdentityKeyType): PrepareIden
 }
 
 /**
- * Derives line count, total height, and maximum width from materialized lines.
- * Empty input produces zero for all three summary fields.
+ * Derives line count, `lines.length * lineHeight`, and maximum painted width.
+ * Empty input produces zero for all fields. Inputs are not Schema-decoded.
  *
  * @since 0.2.0
  * @category projection
@@ -200,11 +218,12 @@ export const layoutSummaryFromLines = (
 ): LayoutSummaryType => ({
   lineCount: lines.length,
   height: lines.length * lineHeight,
-  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Math.max(maxWidth, line.width))
+  maxLineWidth: Arr.reduce(lines, 0, (maxWidth, line) => Numeric.max(maxWidth, line.width))
 })
 
 /**
- * Projects summary and lines from one prepared handle without re-entering `prepare`.
+ * Projects aggregate geometry and visual lines from one prepared handle in a
+ * single pure walk. The operation performs no measurement or service lookup.
  *
  * @since 0.2.0
  * @category projection

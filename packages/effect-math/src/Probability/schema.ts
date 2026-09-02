@@ -1,8 +1,6 @@
 /**
- * Schema authority for the Probability domain — defines the canonical
- * domain discriminator, distribution parameter contracts, and operation
- * input schemas. All schemas enforce finite-number validation at decode
- * time, so kernels can assume well-formed numeric input.
+ * Validates Probability discovery metadata and distribution inputs at
+ * untrusted boundaries.
  *
  * @since 0.1.0
  * @category schemas
@@ -178,9 +176,8 @@ export const DistributionEvalInput = Schema.Struct({
 }).annotations({ identifier: "DistributionEvalInput" })
 
 /**
- * Probability vector — a non-empty array of non-negative finite numbers.
- * The sum-to-1 invariant is enforced at the operation level, not at the
- * schema level, to produce domain-specific errors.
+ * Accepts a non-empty array of non-negative finite values. It does not require
+ * the values to sum to `1`.
  *
  * @since 0.1.0
  * @category schemas
@@ -190,7 +187,7 @@ export const ProbabilityVector = Schema.NonEmptyArray(
 ).annotations({ identifier: "ProbabilityVector" })
 
 /**
- * Entropy input: a probability vector for Shannon entropy computation.
+ * Accepts the non-empty finite values consumed by `entropyValidated`.
  *
  * @since 0.1.0
  * @category schemas

@@ -1,21 +1,8 @@
 /**
- * Key agreement pipeline.
+ * Derives raw X25519 shared secrets.
  *
- * Derives shared secrets using elliptic-curve Diffie–Hellman key
- * agreement. Supports X25519 (RFC 7748).
- *
- * ```
- * Party A's secret key + Party B's public key
- *   → algorithm dispatch (X25519)
- *   → 32-byte shared secret
- * ```
- *
- * The shared secret should be passed through a KDF (e.g., HKDF-SHA256
- * or BLAKE3 derive-key mode) before use as a symmetric encryption key.
- *
- * @see {@link x25519} — the underlying key agreement algorithm
- * @see {@link kem} — key encapsulation mechanism (XWing hybrid)
- * @see {@link sign} — digital signature pipeline
+ * Callers remain responsible for peer authentication, transcript binding, and
+ * key derivation for the protocol that consumes the shared secret.
  *
  * @since 0.1.0
  * @category agreement
@@ -30,7 +17,7 @@ import type { SharedSecret } from "./schemas/SharedSecret.js"
 type AgreementAlgorithmType = typeof AgreementAlgorithm.Type
 
 /**
- * Derive an X25519 shared secret from the caller's secret key and its peer's
+ * Derives an X25519 shared secret from the caller's secret key and its peer's
  * public key. This operation neither authenticates the peer key nor applies a
  * KDF or transcript binding.
  *

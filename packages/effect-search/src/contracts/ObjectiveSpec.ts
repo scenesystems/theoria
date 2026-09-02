@@ -1,5 +1,5 @@
 /**
- * Objective specification — single or multi-objective optimization targets.
+ * Objective arity and per-coordinate comparison directions.
  *
  * @since 0.1.0
  */
@@ -8,11 +8,11 @@ import { Array as Arr, Data, Match, Option, Schema } from "effect"
 import { defaultDirection, type Direction, directionOrDefault, DirectionSchema } from "./Direction.js"
 
 /**
- * Discriminated union schema for optimization objectives. The `_tag` field
- * distinguishes `Single` (one direction) from `Multi` (a per-objective
- * directions array), letting decoders choose the right variant automatically.
+ * Decodes scalar objective direction or an ordered direction vector.
  *
- * @see {@link Direction} — the `"minimize" | "maximize"` literal each variant wraps
+ * @remarks
+ * The `Multi` branch accepts an empty vector. Constructors and study option
+ * normalization normally avoid that state, but this schema does not reject it.
  *
  * @since 0.1.0
  * @category schemas
@@ -27,12 +27,7 @@ export const ObjectiveSpecSchema = Schema.Union(
 )
 
 /**
- * The optimization target that drives how the optimizer evaluates trial
- * results — either a single direction (`Single`) or independent directions
- * per objective dimension (`Multi`).
- *
- * @see {@link ObjectiveSpecSchema} — the schema this type is derived from
- * @see {@link ObjectiveValue} — the value the optimizer scores against this spec
+ * Establishes scalar comparison or positional directions for a vector objective.
  *
  * @since 0.1.0
  * @category models
@@ -44,11 +39,7 @@ const ObjectiveSpecs = Data.taggedEnum<ObjectiveSpec>()
 const { Single: _Single, Multi: _Multi, $is: _$is, $match: _$match } = ObjectiveSpecs
 
 /**
- * Selects scalar comparison semantics for the supplied direction.
- * Use when the search has exactly one scalar objective to optimize.
- *
- * @see {@link Multi} — use instead when optimizing multiple objectives independently
- * @see {@link singleObjectiveSpec} — convenience wrapper that defaults to `"minimize"`
+ * Constructs the scalar branch with an explicit comparison direction.
  *
  * @since 0.1.0
  * @category constructors
@@ -56,12 +47,7 @@ const { Single: _Single, Multi: _Multi, $is: _$is, $match: _$match } = Objective
 export const Single = _Single
 
 /**
- * Fixes objective-vector ordering to the supplied direction order.
- * Use when the search optimizes several objectives that may have different
- * directions (e.g. minimize latency while maximizing throughput).
- *
- * @see {@link Single} — use instead for a single scalar objective
- * @see {@link multiObjectiveSpec} — convenience wrapper
+ * Constructs the vector branch whose positions define objective order and polarity.
  *
  * @since 0.1.0
  * @category constructors
@@ -69,10 +55,9 @@ export const Single = _Single
 export const Multi = _Multi
 
 /**
- * Type guard that narrows an unknown value to a specific `ObjectiveSpec`
- * variant by its `_tag`. Returns a refinement predicate.
+ * Builds a predicate that narrows an objective specification by `_tag`.
  *
- * @see {@link matchObjectiveSpec} — exhaustive pattern matching over both variants
+ * @typeParam Tag - Objective discriminator selected for narrowing.
  *
  * @since 0.1.0
  * @category guards
@@ -80,11 +65,9 @@ export const Multi = _Multi
 export const isObjectiveSpec = _$is
 
 /**
- * Exhaustive pattern matcher over `Single` and `Multi` variants. The
- * compiler enforces that both branches are handled — adding a new variant
- * to the union produces a type error at every call site.
+ * Dispatches an objective specification to a handler for its scalar or vector branch.
  *
- * @see {@link isObjectiveSpec} — use for narrowing instead of exhaustive matching
+ * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
  *
  * @since 0.1.0
  * @category pattern-matching
@@ -92,11 +75,7 @@ export const isObjectiveSpec = _$is
 export const matchObjectiveSpec = _$match
 
 /**
- * Convenience constructor for a single-objective spec. When called without
- * arguments, defaults to `"minimize"` — the most common optimization direction.
- *
- * @see {@link Single} — the underlying tagged constructor
- * @see {@link defaultDirection} — the fallback direction used when none is provided
+ * Constructs a scalar objective specification, defaulting to `"minimize"`.
  *
  * @since 0.1.0
  * @category constructors
@@ -104,12 +83,8 @@ export const matchObjectiveSpec = _$match
 export const singleObjectiveSpec = (direction: Direction = defaultDirection()): ObjectiveSpec => Single({ direction })
 
 /**
- * Convenience constructor for a multi-objective spec. Takes an array of
- * per-objective directions — the array length defines the number of
- * objective dimensions the optimizer expects.
- *
- * @see {@link Multi} — the underlying tagged constructor
- * @see {@link objectiveSpecDimensions} — derives the dimension count from this spec
+ * Copies an ordered direction array into a vector objective specification.
+ * The array length becomes the required objective arity; an empty array is retained.
  *
  * @since 0.1.0
  * @category constructors
@@ -118,12 +93,7 @@ export const multiObjectiveSpec = (directions: ReadonlyArray<Direction>): Object
   Multi({ directions: Arr.fromIterable(directions) })
 
 /**
- * Returns the number of objective dimensions — always `1` for `Single`,
- * `directions.length` for `Multi`. Use to validate that an
- * {@link ObjectiveValue} has the correct dimensionality for a given spec.
- *
- * @see {@link objectiveDirectionAt} — retrieve the direction for a specific dimension
- * @see {@link ObjectiveValue} — the value whose dimensionality this validates
+ * Counts one dimension for `Single` and the direction entries for `Multi`.
  *
  * @since 0.1.0
  * @category combinators
@@ -135,13 +105,11 @@ export const objectiveSpecDimensions = (spec: ObjectiveSpec): number =>
   })(spec)
 
 /**
- * Retrieve the optimization direction for a specific objective dimension.
- * Returns `Option.none()` when the index is out of bounds — for `Single`
- * only index `0` is valid, for `Multi` the index must be within the
- * directions array.
+ * Looks up a coordinate's comparison direction.
  *
- * @see {@link objectiveSpecDimensions} — check how many dimensions are valid
- * @see {@link Direction} — the `"minimize" | "maximize"` value returned
+ * @remarks
+ * `Single` defines only index zero. `Multi` accepts integer indices within its
+ * direction array. All other indices return `Option.none()`.
  *
  * @since 0.1.0
  * @category combinators
@@ -157,13 +125,11 @@ export const objectiveDirectionAt = (spec: ObjectiveSpec, index: number): Option
   })(spec)
 
 /**
- * Resolve an `ObjectiveSpec` from user-provided options. A non-empty
- * `directions` array always wins and produces a `Multi` spec. When
- * `directions` is absent or empty, falls back to `direction` (or the
- * default `"minimize"`) to produce a `Single` spec.
+ * Resolves study options to scalar or vector objective semantics.
  *
- * @see {@link singleObjectiveSpec} — used when the single-direction path is taken
- * @see {@link multiObjectiveSpec} — used when a directions array is provided
+ * @remarks
+ * A non-empty `directions` array takes precedence over `direction`. An absent or
+ * empty array selects `direction`, which defaults to `"minimize"`.
  *
  * @since 0.1.0
  * @category constructors

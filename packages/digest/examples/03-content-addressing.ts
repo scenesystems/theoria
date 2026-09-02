@@ -1,11 +1,7 @@
 /**
- * Content Addressing — deterministic digest pipelines with @scenesystems/digest.
- *
- * What this shows: JCS canonicalization makes key order irrelevant, so two objects
- * with the same keys and values always hash identically. The `digest` function
- * chains canonicalize → hash → encode → tag into a single pipeline. Strict
- * canonicalization rejects malformed Unicode instead of replacing it. Use
- * `digestSchemaValue` when a Schema must first encode a rich value to its wire form.
+ * Confirms that JCS key ordering produces the same content address, exercises
+ * strict malformed-Unicode rejection, and hashes a Schema value after encoding
+ * it to wire form.
  *
  * Run: bun run examples/03-content-addressing.ts
  */
@@ -44,7 +40,8 @@ const program = Effect.gen(function*() {
     timestamp: Schema.DateFromString
   })
 
-  const event = { name: "deploy", timestamp: Schema.decodeSync(Schema.DateFromString)("2025-01-15T12:00:00Z") }
+  const timestamp = yield* Schema.decode(Schema.DateFromString)("2025-01-15T12:00:00Z")
+  const event = { name: "deploy", timestamp }
   const schemaDigest = yield* digestSchemaValue(Event, event)
   const schemaDigest2 = yield* digestSchemaValue(Event, event)
   yield* Effect.log("Schema digest", { digest: schemaDigest, deterministic: schemaDigest === schemaDigest2 })

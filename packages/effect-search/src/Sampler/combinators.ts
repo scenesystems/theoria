@@ -1,5 +1,5 @@
 /**
- * Dual-API combinators for invoking sampler operations such as suggest, checkpoint, restore, and lifecycle management.
+ * Operations shared by built-in and custom sampler implementations.
  *
  * @since 0.1.0
  */
@@ -13,13 +13,12 @@ import type { Sampler } from "./model.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * Runs a sampler against a search space and trial context. Supports data-first
- * and data-last invocation. Algorithm validation, unsupported-space failures,
- * and exhaustion are reported as `SearchError` values.
+ * Requests one configuration using the supplied immutable trial context.
  *
- * @see {@link Sampler}
- * @see {@link SearchSpace}
- * @see {@link SuggestContext}
+ * @remarks
+ * Typed failures come directly from the sampler and can include invalid options,
+ * unsupported spaces or objectives, and finite-space exhaustion. The operation
+ * is available in data-first and data-last form.
  *
  * @since 0.1.0
  * @category combinators
@@ -46,13 +45,13 @@ export const suggest: {
 )
 
 /**
- * Evaluates the sampler's checkpoint effect. Current built-in checkpoints
- * record the configuration that must match on restore; suggestion progression
- * is derived from the resumed study's trial context rather than a mutable RNG
- * cursor.
+ * Captures the state that the sampler requires to validate a resumed study.
  *
- * @see {@link SamplerCheckpoint}
- * @see {@link restoreCheckpoint}
+ * @remarks
+ * Built-in checkpoints contain normalized configuration. Their suggestion
+ * progression is reconstructed from trial context rather than an RNG cursor.
+ * Custom implementations may fail with any `SearchError` allowed by their
+ * checkpoint effect.
  *
  * @since 0.1.0
  * @category combinators
@@ -60,11 +59,10 @@ export const suggest: {
 export const checkpoint = (self: Sampler): Effect.Effect<SamplerCheckpoint, SearchError> => self.checkpoint
 
 /**
- * Runs the sampler's optional acquisition effect, or succeeds with `void` when
- * no acquisition effect is defined.
+ * Runs the sampler's acquisition effect when one is defined.
  *
- * @see {@link Sampler}
- * @see {@link releaseLifecycle}
+ * @remarks
+ * A sampler without an acquisition effect succeeds immediately.
  *
  * @since 0.1.0
  * @category combinators
@@ -75,11 +73,11 @@ export const acquireLifecycle = (self: Sampler): Effect.Effect<void, SearchError
   )
 
 /**
- * Runs the sampler's optional finalizer, or succeeds with `void` when no
- * finalizer is defined. Unlike acquisition, release has no typed error channel.
+ * Runs the sampler's release effect when one is defined.
  *
- * @see {@link Sampler}
- * @see {@link acquireLifecycle}
+ * @remarks
+ * A sampler without a release effect succeeds immediately. Release has no typed
+ * error channel, though it may still defect or be interrupted.
  *
  * @since 0.1.0
  * @category combinators
@@ -90,13 +88,12 @@ export const releaseLifecycle = (self: Sampler): Effect.Effect<void> =>
   )
 
 /**
- * Validates a checkpoint against a sampler's algorithm and configuration.
- * Built-in samplers reject a different algorithm tag or incompatible persisted
- * settings with `InvalidStudyConfig`. Supports data-first and data-last calls.
+ * Restores a checkpoint accepted by the sampler's resume contract.
  *
- * @see {@link SamplerCheckpoint}
- * @see {@link checkpoint}
- * @see {@link Sampler}
+ * @remarks
+ * Built-in samplers fail with `InvalidStudyConfig` when the algorithm tag or
+ * persisted settings differ. The operation is available in data-first and
+ * data-last form.
  *
  * @since 0.1.0
  * @category combinators

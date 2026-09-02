@@ -1,6 +1,9 @@
 /**
- * Domain contracts shared across modules — identity, envelopes, directions, distributions,
- * and objective specifications.
+ * Values shared across search spaces, samplers, studies, and artifact persistence.
+ *
+ * @remarks
+ * Import this module when an integration must exchange objective configuration or
+ * versioned artifact records without depending on a study implementation.
  *
  * @since 0.1.0
  */
@@ -37,7 +40,12 @@ import { fileSystem as _fileSystemSink } from "./sinks/fileSystem.js"
 import { readEnvelopeLog as _readEnvelopeLog } from "./sinks/reader.js"
 
 /**
- * File-system envelope sink — writes each envelope as a JSON line to disk.
+ * Appends artifact envelopes to `envelopes.jsonl` under the supplied directory.
+ *
+ * @remarks
+ * Requires platform filesystem and path services. Directory creation, encoding, and
+ * append errors are discarded because {@link ArtifactSink} has no typed failure channel;
+ * successful emission therefore does not confirm persistence.
  *
  * @since 0.1.0
  * @category sinks
@@ -45,7 +53,9 @@ import { readEnvelopeLog as _readEnvelopeLog } from "./sinks/reader.js"
 export const fileSystemSink = _fileSystemSink
 
 /**
- * Stream-based envelope reader — deserializes JSONL files into typed artifact envelopes.
+ * Streams valid envelopes from a UTF-8 JSON-lines file and omits invalid lines.
+ * Missing files and filesystem failures end as an empty or truncated stream rather
+ * than a typed failure.
  *
  * @since 0.1.0
  * @category readers

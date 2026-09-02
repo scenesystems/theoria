@@ -19,7 +19,7 @@
 export * as Text from "./Text/index.js"
 
 /**
- * Canvas measurement, readiness-aware caching, and browser parity fixtures.
+ * Canvas measurement, readiness-aware caching, and synthetic regression fixtures.
  *
  * @since 0.2.0
  * @category domains

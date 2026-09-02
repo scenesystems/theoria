@@ -1,5 +1,5 @@
 /**
- * Hugging Face route metadata helpers.
+ * Execution-route construction for Hugging Face adapters.
  *
  * @since 0.1.0
  */
@@ -7,7 +7,8 @@ import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import type { RouteSelectionPolicy } from "../contracts/RouteSelectionPolicy.js"
 
 /**
- * Creates a normalized Hugging Face routed-provider execution route.
+ * Records a Hugging Face marketplace route with broker selection metadata. It
+ * performs no provider lookup or URL validation.
  *
  * @since 0.1.0
  * @category constructors
@@ -27,7 +28,8 @@ export const makeHuggingFaceRoutedRoute = (options: {
 })
 
 /**
- * Creates a normalized Hugging Face dedicated-endpoint execution route.
+ * Records a Hugging Face dedicated endpoint. It performs no endpoint lookup or
+ * URL validation.
  *
  * @since 0.1.0
  * @category constructors

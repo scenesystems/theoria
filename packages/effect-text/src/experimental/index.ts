@@ -9,7 +9,7 @@
 import * as Arr from "effect/Array"
 
 /**
- * Declares calibration APIs outside semver compatibility guarantees.
+ * Marks all exports under the experimental namespace as outside semver compatibility guarantees.
  *
  * @since 0.1.0
  * @category stability

@@ -1,5 +1,5 @@
 /**
- * Search-space distribution schemas — float, int, and categorical parameter distributions.
+ * Sampling metadata attached to tunable configuration fields.
  *
  * @since 0.1.0
  */
@@ -7,12 +7,8 @@ import type { Option } from "effect"
 import { Schema, SchemaAST } from "effect"
 
 /**
- * Allowed value types for categorical dimension choices. Samplers and
- * search-space compilation use this to validate that every choice in a
- * `CategoricalDistributionSchema` is a JSON-safe primitive — objects and
- * arrays are intentionally excluded.
- *
- * @see {@link CategoricalDistributionSchema} — the distribution that carries an array of these
+ * Decodes string, number, boolean, or null categorical choices.
+ * Objects and arrays are rejected. Numeric choices may be non-finite.
  *
  * @since 0.1.0
  * @category schemas
@@ -25,11 +21,7 @@ export const PrimitiveChoiceSchema = Schema.Union(
 )
 
 /**
- * Portable categorical value; object identity and structural choices are
- * deliberately unavailable to samplers.
- *
- * @see {@link PrimitiveChoiceSchema} — the runtime schema
- * @see {@link CategoricalDistributionSchema} — uses arrays of this type
+ * Primitive categorical value compared by the sampler without structural identity.
  *
  * @since 0.1.0
  * @category type-level
@@ -37,18 +29,12 @@ export const PrimitiveChoiceSchema = Schema.Union(
 export type PrimitiveChoice = Schema.Schema.Type<typeof PrimitiveChoiceSchema>
 
 /**
- * Continuous real-valued parameter range. Use for hyperparameters like
- * learning rate, dropout, or temperature where any float in `[low, high]`
- * is valid.
+ * Describes a continuous or stepped numeric dimension with linear or logarithmic scale.
  *
  * @remarks
- * Set `scale: "log"` when the parameter spans multiple orders of magnitude
- * (e.g. learning rate 1e-5 to 1e-1). Set `step` to discretize the range
- * into evenly spaced grid points — the sampler snaps suggestions to the
- * nearest step boundary.
- *
- * @see {@link IntDistributionSchema} — integer-valued alternative
- * @see {@link DistributionSchema} — the discriminated union containing this variant
+ * This schema checks field types only. {@link SearchSpace.make} rejects non-finite
+ * or reversed bounds, non-positive steps, and logarithmic ranges with a non-positive
+ * lower bound.
  *
  * @since 0.1.0
  * @category schemas
@@ -62,13 +48,11 @@ export const FloatDistributionSchema = Schema.Struct({
 })
 
 /**
- * Discrete integer parameter range over `[low, high]`. Use for
- * hyperparameters like layer count, batch size, or hidden units where
- * only whole numbers make sense. Optional `step` controls stride —
- * e.g. `step: 8` restricts batch size to multiples of 8.
+ * Describes an integer dimension with inclusive bounds and an optional stride.
  *
- * @see {@link FloatDistributionSchema} — continuous alternative
- * @see {@link DistributionSchema} — the discriminated union containing this variant
+ * @remarks
+ * The schema itself accepts any numbers. {@link SearchSpace.make} requires finite
+ * integer bounds with `low <= high` and a positive step when one is present.
  *
  * @since 0.1.0
  * @category schemas
@@ -81,18 +65,11 @@ export const IntDistributionSchema = Schema.Struct({
 })
 
 /**
- * Multi-fidelity budget dimension — a numeric range `[low, high]` that
- * represents a resource axis the optimizer can throttle (e.g. epoch count,
- * image resolution, dataset fraction). Samplers use this to run cheap
- * low-fidelity evaluations early and promote promising configs to full
- * fidelity.
+ * Describes the inclusive integer resource range advanced by multi-fidelity schedulers.
  *
  * @remarks
- * Unlike float/int distributions, fidelity has no `step` or `scale` —
- * the scheduler controls progression.
- *
- * @see {@link FloatDistributionSchema} — general continuous parameter
- * @see {@link DistributionSchema} — the discriminated union containing this variant
+ * The schema checks field types only. {@link SearchSpace.make} requires finite
+ * integer bounds with `low <= high`; the scheduler determines intermediate resources.
  *
  * @since 0.1.0
  * @category schemas
@@ -104,13 +81,11 @@ export const FidelityDistributionSchema = Schema.Struct({
 })
 
 /**
- * Finite unordered choice set. Each element in `choices` is a
- * {@link PrimitiveChoice} — the sampler picks among them without assuming
- * any ordering or distance metric. Use for optimizer, activation function,
- * or any enum-like hyperparameter.
+ * Describes an unordered set of primitive choices.
  *
- * @see {@link PrimitiveChoiceSchema} — validates each individual choice value
- * @see {@link DistributionSchema} — the discriminated union containing this variant
+ * @remarks
+ * Empty and duplicate arrays pass this schema. {@link SearchSpace.make} rejects an
+ * empty choice set but retains duplicates.
  *
  * @since 0.1.0
  * @category schemas
@@ -121,12 +96,9 @@ export const CategoricalDistributionSchema = Schema.Struct({
 })
 
 /**
- * Discriminated union of all parameter distribution types, keyed by the
- * `type` field (`"float" | "int" | "fidelity" | "categorical"`).
- * `SearchSpace.make` compiles schemas annotated with these distributions
- * into a structured search space that samplers traverse.
- *
- * @see {@link annotateDistribution} — attaches a distribution to a schema field
+ * Decodes the structural metadata for float, integer, fidelity, and categorical dimensions.
+ * Distribution-specific range validation occurs when {@link SearchSpace.make} compiles
+ * an annotated configuration schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -139,11 +111,7 @@ export const DistributionSchema = Schema.Union(
 )
 
 /**
- * Sampling contract attached to one tunable field and consumed by space
- * compilation and sampler compatibility checks.
- *
- * @see {@link DistributionSchema} — the runtime schema
- * @see {@link annotateDistribution} — attaches this to a schema field
+ * Sampling metadata consumed by search-space compilation and sampler compatibility checks.
  *
  * @since 0.1.0
  * @category type-level
@@ -151,16 +119,9 @@ export const DistributionSchema = Schema.Union(
 export type Distribution = Schema.Schema.Type<typeof DistributionSchema>
 
 /**
- * Schema annotation key for attaching distribution metadata to individual
- * struct fields. The search-space compiler reads this symbol from each
- * field's AST to discover how that parameter should be sampled.
- *
- * @remarks
- * Not used directly — prefer {@link annotateDistribution} to attach and
- * {@link readDistribution} to retrieve.
- *
- * @see {@link annotateDistribution} — writes this annotation
- * @see {@link readDistribution} — reads this annotation
+ * Global schema-annotation key read by search-space compilation.
+ * Use {@link annotateDistribution} and {@link readDistribution} unless constructing
+ * schema AST annotations directly.
  *
  * @since 0.1.0
  * @category annotations
@@ -168,13 +129,12 @@ export type Distribution = Schema.Schema.Type<typeof DistributionSchema>
 export const DistributionKey: unique symbol = Symbol.for("effect-search/Distribution")
 
 /**
- * Attaches a {@link Distribution} to a schema field so that
- * `SearchSpace.make` can discover it during compilation. Each annotated
- * field becomes a named dimension in the resulting search space. Fields
- * without this annotation are treated as fixed (non-tunable) values.
+ * Returns a schema carrying the sampling metadata discovered by {@link SearchSpace.make}.
+ * The decoded and encoded schema types, requirements, and validation behavior are unchanged.
  *
- * @see {@link readDistribution} — retrieves the annotation set here
- * @see {@link DistributionKey} — the underlying annotation symbol
+ * @typeParam A - Decoded value produced by the annotated schema.
+ * @typeParam I - Encoded representation accepted by the annotated schema.
+ * @typeParam R - Services required by schema decoding or encoding.
  *
  * @since 0.1.0
  * @category annotations
@@ -185,13 +145,8 @@ export const annotateDistribution = <A, I, R>(
 ): Schema.Schema<A, I, R> => schema.annotations({ [DistributionKey]: distribution })
 
 /**
- * Retrieves the {@link Distribution} previously attached via
- * {@link annotateDistribution}. Returns `Option.none()` when the AST node
- * has no distribution annotation — the search-space compiler uses this to
- * distinguish tunable fields from fixed ones.
- *
- * @see {@link annotateDistribution} — the write side of this pair
- * @see {@link DistributionKey} — the underlying annotation symbol
+ * Reads sampling metadata from a schema AST node.
+ * Returns `Option.none()` when the node has no {@link DistributionKey} annotation.
  *
  * @since 0.1.0
  * @category annotations

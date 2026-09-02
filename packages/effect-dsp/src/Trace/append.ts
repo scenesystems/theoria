@@ -1,5 +1,5 @@
 /**
- * Trace + usage append combinators.
+ * Recording operations used by traced module execution.
  *
  * @since 0.1.0
  */
@@ -10,6 +10,8 @@ import { TraceEnabledRef, TraceRef, UsageEnabledRef, UsageRef } from "./refs.js"
 
 /**
  * Appends an entry to the current tracing scope, or does nothing outside one.
+ *
+ * @param entry - Complete invocation record added without copying or redaction.
  *
  * @since 0.1.0
  * @category combinators
@@ -28,6 +30,8 @@ export const append = (entry: Entry): Effect.Effect<void> =>
  * Adds a usage sample to the current usage scope, or does nothing outside one.
  * Missing token counts contribute zero; every sample increments `callCount`.
  *
+ * @param sample - Provider usage and cache status for one model call.
+ *
  * @since 0.1.0
  * @category combinators
  */
@@ -42,7 +46,13 @@ export const appendUsage = (sample: UsageSample): Effect.Effect<void> =>
   })
 
 /**
- * Runs {@link append}, then {@link appendUsage}.
+ * Records an invocation and its usage sample in the active scopes.
+ *
+ * @remarks
+ * The trace entry is appended before usage is accumulated. Either operation is a
+ * no-op when its corresponding scope is disabled.
+ *
+ * @param options - Invocation record and usage sample from the same model call.
  *
  * @since 0.1.0
  * @category combinators

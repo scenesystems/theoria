@@ -1,33 +1,17 @@
 /**
- * Define and combine prediction scoring functions.
+ * Scores predicted records against expected records during evaluation and optimization.
+ *
+ * @remarks
+ * Metrics return normalized score records and may carry their own Effect error
+ * and service channels. Composition controls weighting and failure behavior.
  *
  * @since 0.1.0
  */
 
-/**
- * Metric models.
- *
- * @since 0.1.0
- */
 export * from "./model.js"
 
-/**
- * Metric constructors.
- *
- * @since 0.1.0
- */
 export * from "./constructors.js"
 
-/**
- * Built-in metrics.
- *
- * @since 0.1.0
- */
 export * from "./builtins.js"
 
-/**
- * Metric composition.
- *
- * @since 0.1.0
- */
 export * from "./compose.js"

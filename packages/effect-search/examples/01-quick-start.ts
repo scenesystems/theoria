@@ -1,18 +1,13 @@
 /**
- * Quick Start — minimize a simple 2D function.
- *
- * What this shows: the smallest end-to-end study: define a space, run TPE, and read the best trial.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Minimizes a two-dimensional objective with TPE and logs the best completed
+ * trial.
  *
  * Run: bun run examples/01-quick-start.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -24,7 +19,10 @@ const program = Effect.gen(function*() {
   const result = yield* Study.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
-    objective: (config) => Effect.succeed((config.x - 2) ** 2 + (config.y + 1) ** 2),
+    objective: (config) =>
+      Effect.succeed(
+        Numeric.pow(config.x - 2, 2) + Numeric.pow(config.y + 1, 2)
+      ),
     trials: 50
   })
 

@@ -15,6 +15,7 @@ import { Schema } from "effect"
 export class InvalidRuntimeConfig extends Schema.TaggedError<InvalidRuntimeConfig>()(
   "effect-inference/InvalidRuntimeConfig",
   {
+    /** Rendered Config or Schema issue at the failed boundary. */
     reason: Schema.String
   }
 ) {}

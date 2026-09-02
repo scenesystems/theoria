@@ -1,5 +1,5 @@
 /**
- * Leaf predictor module — the fundamental building block for LLM programs.
+ * Leaf modules that decode language-model output against a signature.
  *
  * @since 0.1.0
  */
@@ -16,15 +16,13 @@ import { makeForward } from "./runtime.js"
 const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
 
 /**
- * Optional overrides for parse retry behavior and feedback templates,
- * applied to a single `predict` module.
- *
- * @see {@link PredictPolicyOverrides}
+ * Configures text-output parsing for one predictor.
  *
  * @since 0.1.0
  * @category models
  */
 export type PredictOptions = Readonly<{
+  /** Overrides merged with {@link DEFAULT_PREDICT_POLICY}. */
   readonly policy?: PredictPolicyOverrides
 }>
 
@@ -42,28 +40,28 @@ const makeInitialParams = <
   })
 
 /**
- * Creates a leaf prediction module from a signature.
+ * Allocates a leaf module whose `forward` operation invokes `LanguageModel`.
  *
  * @remarks
- * Parameters start with the signature's instructions and no demonstrations. Each `forward` call reads the current
- * parameters, registers the module for fiber-local discovery, invokes the
- * configured `LanguageModel`, validates the output, and appends trace and
- * usage records after success.
- * Output strategy is resolved from the current parameters. Structured calls
- * use the model's schema response directly. Text calls parse field markers and
- * retry only parse failures according to `options.policy`; feedback from the
- * preceding parse error is included in the next prompt. Provider failures are
- * not parse retries.
+ * Initial parameters use the signature instructions, no demonstrations,
+ * automatic output selection, and no generation overrides. Construction only
+ * allocates the parameter `Ref`.
  *
- * @typeParam I - Signature input fields inferred from `signature`.
- * @typeParam O - Signature output fields inferred from `signature`.
- * @param name - Module identity used by discovery, tracing, and persistence.
+ * Each `forward` call snapshots the current parameters before model execution.
+ * Structured output delegates Schema decoding to the provider. Text output
+ * parses field markers and retries parse failures according to the resolved
+ * policy, adding the preceding diagnostics to the next prompt. Provider errors
+ * are not retried by the parse policy. Discovery registration occurs before the
+ * model call; trace and usage records are appended only after a successful call
+ * and trace projection.
+ *
+ * @typeParam I - Input fields inferred from the signature.
+ * @typeParam O - Output fields inferred from the signature.
+ * @param name - Module name. Construction does not validate the `ModuleId`
+ *   pattern; an invalid name fails during discovery registration on `forward`.
  * @param signature - Input/output contract and initial instructions.
  * @param options - Per-module text-parse policy overrides.
- * @returns An Effect allocating the module's parameter Ref; model execution begins only on `forward`.
- *
- * @see {@link Module}
- * @see {@link PredictOptions}
+ * @returns A module with an independent parameter `Ref` and no child nodes.
  *
  * @since 0.1.0
  * @category constructors

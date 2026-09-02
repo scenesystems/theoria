@@ -1,5 +1,5 @@
 /**
- * Effect-native descriptor decoding helpers for configuration boundaries.
+ * Descriptor decoders for untrusted configuration and persisted evidence.
  *
  * @since 0.1.0
  */
@@ -17,9 +17,8 @@ import { InvalidRuntimeConfig } from "../Errors/Config.js"
 const makeInvalidRuntimeConfig = (reason: string): InvalidRuntimeConfig => new InvalidRuntimeConfig({ reason })
 
 /**
- * Validates untrusted input at the desired-descriptor boundary. Every Effect
- * Schema parse failure is mapped to `InvalidRuntimeConfig`; its `reason`
- * contains the rendered parse issue.
+ * Decodes untrusted caller intent and maps every Schema parse failure to
+ * `InvalidRuntimeConfig`. The error's `reason` contains the rendered issue.
  *
  * @since 0.1.0
  * @category decoders
@@ -32,7 +31,7 @@ export const decodeDesiredRuntimeDescriptor = (
   )
 
 /**
- * Validates untrusted pre-execution route provenance, including the exact
+ * Decodes untrusted pre-execution route provenance, including the exact
  * `resolved-route/v1` schema version. Parse failures become
  * `InvalidRuntimeConfig` with the rendered issue in `reason`.
  *
@@ -47,7 +46,7 @@ export const decodeResolvedRouteDescriptor = (
   )
 
 /**
- * Validates untrusted post-execution response evidence. This only decodes the
+ * Decodes untrusted post-execution response evidence. This only validates the
  * supplied record; it does not establish that a provider produced it. Parse
  * failures become `InvalidRuntimeConfig`.
  *
@@ -62,7 +61,7 @@ export const decodeResolvedRuntimeDescriptor = (
   )
 
 /**
- * Validates all requested, resolved-route, capability, and post-execution
+ * Decodes all requested, resolved-route, capability, and post-execution
  * sections as one serializable evidence record. It does not contact a provider
  * or verify the claims. Parse failures become `InvalidRuntimeConfig`.
  *

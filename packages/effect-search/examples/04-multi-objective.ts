@@ -1,15 +1,6 @@
 /**
- * Multi-Objective Optimization — find trade-offs between quality and latency.
- *
- * Uses MOTPE to discover Pareto-optimal configurations where
- * improving one objective necessarily worsens another.
- *
- * What this shows: returning multiple objectives and reading Pareto trade-offs instead of a single winner.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Uses MOTPE to find non-dominated quality and latency configurations, then
+ * logs the resulting Pareto front.
  *
  * Run: bun run examples/04-multi-objective.ts
  */

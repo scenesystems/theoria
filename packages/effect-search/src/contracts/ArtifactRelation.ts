@@ -1,5 +1,5 @@
 /**
- * Ontology-compatible relation references — tagged union with branded refs.
+ * Tagged references that associate artifacts with optimization and external records.
  *
  * @since 0.1.0
  */
@@ -8,14 +8,7 @@ import { Data, Schema } from "effect"
 import { RunId } from "./identity.js"
 
 /**
- * Identifies an optimization protocol by name within effect-search.
- *
- * @remarks
- * Used as the `ref` field in {@link ProtocolRelation} to link an artifact
- * back to the protocol definition that produced it.
- *
- * @see {@link ProtocolRelation} — constructor that wraps this ref
- * @see {@link ArtifactRelation} — parent union
+ * Validates a non-empty protocol label and brands it against other string references.
  *
  * @since 0.1.0
  * @category schemas
@@ -23,7 +16,7 @@ import { RunId } from "./identity.js"
 export const ProtocolRef = Schema.NonEmptyString.pipe(Schema.brand("ProtocolRef"))
 
 /**
- * @see {@link ProtocolRef} — schema definition
+ * Declared protocol label carried by a protocol relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -31,15 +24,7 @@ export const ProtocolRef = Schema.NonEmptyString.pipe(Schema.brand("ProtocolRef"
 export type ProtocolRef = Schema.Schema.Type<typeof ProtocolRef>
 
 /**
- * Identifies a named participation slot within a protocol.
- *
- * @remarks
- * Slots represent the roles an artifact can fill in a protocol — e.g.
- * "objective", "constraint", or "input". The brand prevents accidental
- * interchange with other string-based refs.
- *
- * @see {@link SlotRelation} — constructor that wraps this ref
- * @see {@link ProtocolRef} — the protocol that owns these slots
+ * Validates a non-empty protocol-slot label and brands it against other references.
  *
  * @since 0.1.0
  * @category schemas
@@ -47,7 +32,7 @@ export type ProtocolRef = Schema.Schema.Type<typeof ProtocolRef>
 export const SlotRef = Schema.NonEmptyString.pipe(Schema.brand("SlotRef"))
 
 /**
- * @see {@link SlotRef} — schema definition
+ * Declared participation-slot label carried by a slot relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -55,14 +40,8 @@ export const SlotRef = Schema.NonEmptyString.pipe(Schema.brand("SlotRef"))
 export type SlotRef = Schema.Schema.Type<typeof SlotRef>
 
 /**
- * Identifies a directed connection between two slots in a protocol graph.
- *
- * @remarks
- * Slot edges encode data-flow or dependency relationships between slots,
- * enabling lineage tracking across protocol steps.
- *
- * @see {@link SlotEdgeRelation} — constructor that wraps this ref
- * @see {@link SlotRef} — the slots this edge connects
+ * Validates a non-empty label for a directed protocol-slot connection.
+ * The string does not encode or validate endpoint identities.
  *
  * @since 0.1.0
  * @category schemas
@@ -70,7 +49,7 @@ export type SlotRef = Schema.Schema.Type<typeof SlotRef>
 export const SlotEdgeRef = Schema.NonEmptyString.pipe(Schema.brand("SlotEdgeRef"))
 
 /**
- * @see {@link SlotEdgeRef} — schema definition
+ * Declared slot-connection label carried by a slot-edge relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -78,11 +57,7 @@ export const SlotEdgeRef = Schema.NonEmptyString.pipe(Schema.brand("SlotEdgeRef"
 export type SlotEdgeRef = Schema.Schema.Type<typeof SlotEdgeRef>
 
 /**
- * Identifies a measurement instrument — a metric, objective, or constraint
- * used to evaluate artifact quality during optimization.
- *
- * @see {@link InstrumentRelation} — constructor that wraps this ref
- * @see {@link ObservationRef} — measurements recorded by this instrument
+ * Validates and brands a non-empty metric, objective, or constraint label.
  *
  * @since 0.1.0
  * @category schemas
@@ -90,7 +65,7 @@ export type SlotEdgeRef = Schema.Schema.Type<typeof SlotEdgeRef>
 export const InstrumentRef = Schema.NonEmptyString.pipe(Schema.brand("InstrumentRef"))
 
 /**
- * @see {@link InstrumentRef} — schema definition
+ * Declared measurement-instrument label carried by an instrument relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -98,11 +73,8 @@ export const InstrumentRef = Schema.NonEmptyString.pipe(Schema.brand("Instrument
 export type InstrumentRef = Schema.Schema.Type<typeof InstrumentRef>
 
 /**
- * Identifies a parameter binding within a run — a specific value assignment
- * to a named hyperparameter or configuration slot.
- *
- * @see {@link BindingRelation} — constructor that wraps this ref
- * @see {@link RunId} — the run that owns this binding
+ * Validates and brands a non-empty parameter-binding label.
+ * The reference does not include or verify the run that owns the binding.
  *
  * @since 0.1.0
  * @category schemas
@@ -110,7 +82,7 @@ export type InstrumentRef = Schema.Schema.Type<typeof InstrumentRef>
 export const BindingRef = Schema.NonEmptyString.pipe(Schema.brand("BindingRef"))
 
 /**
- * @see {@link BindingRef} — schema definition
+ * Declared parameter-binding label carried by a binding relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -118,11 +90,8 @@ export const BindingRef = Schema.NonEmptyString.pipe(Schema.brand("BindingRef"))
 export type BindingRef = Schema.Schema.Type<typeof BindingRef>
 
 /**
- * Identifies an observed measurement — a single data point recorded by an
- * instrument during a run, such as a metric value or constraint evaluation.
- *
- * @see {@link ObservationRelation} — constructor that wraps this ref
- * @see {@link InstrumentRef} — the instrument that produced this observation
+ * Validates and brands a non-empty observation label.
+ * The reference does not include or verify its instrument or run.
  *
  * @since 0.1.0
  * @category schemas
@@ -130,7 +99,7 @@ export type BindingRef = Schema.Schema.Type<typeof BindingRef>
 export const ObservationRef = Schema.NonEmptyString.pipe(Schema.brand("ObservationRef"))
 
 /**
- * @see {@link ObservationRef} — schema definition
+ * Declared measurement label carried by an observation relation.
  *
  * @since 0.1.0
  * @category type-level
@@ -138,14 +107,12 @@ export const ObservationRef = Schema.NonEmptyString.pipe(Schema.brand("Observati
 export type ObservationRef = Schema.Schema.Type<typeof ObservationRef>
 
 /**
- * Codec for serializing and deserializing {@link ArtifactRelation} values.
+ * Decodes built-in artifact associations and namespaced external references.
  *
  * @remarks
- * Encodes the eight-variant tagged union to JSON and back, validating branded
- * refs at decode boundaries. Use with `Schema.decodeUnknown` / `Schema.encode`.
- *
- * @see {@link ArtifactRelation} — the type this schema produces
- * @see {@link ArtifactProducerSchema} — companion schema for producer identity
+ * Built-in references validate their branded string or run ULID. External references
+ * require non-empty `namespace` and `ref` strings. The schema does not verify that a
+ * referenced entity exists or that relations form a consistent graph.
  *
  * @since 0.1.0
  * @category schemas
@@ -162,17 +129,11 @@ export const ArtifactRelationSchema = Schema.Union(
 )
 
 /**
- * Optional cross-system links that let artifact consumers correlate protocol
- * topology, execution runs, parameter bindings, and measurements.
+ * Declared association between an artifact and another optimization or external record.
  *
  * @remarks
- * Built-in variants carry branded, non-empty refs to prevent cross-kind
- * assignment. `External` instead requires a non-empty namespace and ref so
- * effect-dsp or third-party ontologies can project links without extending the union.
- *
- * @see {@link ArtifactRelationSchema} — codec for serialization
- * @see {@link matchRelation} — exhaustive pattern match
- * @see {@link isRelation} — type guard
+ * String brands prevent accidental interchange among built-in reference kinds at
+ * compile time. They do not establish referential integrity at runtime.
  *
  * @since 0.1.0
  * @category models
@@ -182,14 +143,7 @@ export type ArtifactRelation = Schema.Schema.Type<typeof ArtifactRelationSchema>
 const ArtifactRelations = Data.taggedEnum<ArtifactRelation>()
 
 /**
- * Links an artifact to the optimization protocol that produced it.
- *
- * @remarks
- * Use when recording which protocol definition an artifact belongs to,
- * enabling queries like "all artifacts from protocol X".
- *
- * @see {@link ProtocolRef} — branded ref this relation carries
- * @see {@link ArtifactRelation} — parent union
+ * Constructs an association with a declared optimization protocol.
  *
  * @since 0.1.0
  * @category constructors
@@ -197,14 +151,7 @@ const ArtifactRelations = Data.taggedEnum<ArtifactRelation>()
 export const ProtocolRelation = ArtifactRelations.Protocol
 
 /**
- * Links an artifact to a named participation slot within a protocol.
- *
- * @remarks
- * Captures the role an artifact fills — e.g. "objective", "constraint",
- * or "input" — enabling structural queries over protocol topology.
- *
- * @see {@link SlotRef} — branded ref this relation carries
- * @see {@link ProtocolRelation} — the protocol that owns the slot
+ * Constructs an association with a declared participation slot.
  *
  * @since 0.1.0
  * @category constructors
@@ -212,14 +159,7 @@ export const ProtocolRelation = ArtifactRelations.Protocol
 export const SlotRelation = ArtifactRelations.Slot
 
 /**
- * Links an artifact to a directed connection between protocol slots.
- *
- * @remarks
- * Slot edges represent data-flow or dependency relationships, enabling
- * lineage tracking across steps in a protocol graph.
- *
- * @see {@link SlotEdgeRef} — branded ref this relation carries
- * @see {@link SlotRelation} — the slots this edge connects
+ * Constructs an association with a declared directed slot connection.
  *
  * @since 0.1.0
  * @category constructors
@@ -227,11 +167,7 @@ export const SlotRelation = ArtifactRelations.Slot
 export const SlotEdgeRelation = ArtifactRelations.SlotEdge
 
 /**
- * Links an artifact to a measurement instrument (metric, objective, or constraint)
- * used to evaluate quality during optimization.
- *
- * @see {@link InstrumentRef} — branded ref this relation carries
- * @see {@link ObservationRelation} — measurements recorded by this instrument
+ * Constructs an association with a declared metric, objective, or constraint.
  *
  * @since 0.1.0
  * @category constructors
@@ -239,14 +175,7 @@ export const SlotEdgeRelation = ArtifactRelations.SlotEdge
 export const InstrumentRelation = ArtifactRelations.Instrument
 
 /**
- * Links an artifact to a specific execution run.
- *
- * @remarks
- * Every artifact is produced within a run — this relation enables grouping
- * all outputs from the same execution and correlating with run metadata.
- *
- * @see {@link RunId} — the branded run identifier this relation carries
- * @see {@link BindingRelation} — parameter bindings within this run
+ * Constructs an association with an execution identified by a branded ULID.
  *
  * @since 0.1.0
  * @category constructors
@@ -254,14 +183,7 @@ export const InstrumentRelation = ArtifactRelations.Instrument
 export const RunRelation = ArtifactRelations.Run
 
 /**
- * Links an artifact to a parameter binding within a run — a specific
- * hyperparameter or configuration value assignment.
- *
- * @remarks
- * Enables answering "which parameter settings produced this artifact?"
- *
- * @see {@link BindingRef} — branded ref this relation carries
- * @see {@link RunRelation} — the run that owns this binding
+ * Constructs an association with a declared parameter binding.
  *
  * @since 0.1.0
  * @category constructors
@@ -269,15 +191,7 @@ export const RunRelation = ArtifactRelations.Run
 export const BindingRelation = ArtifactRelations.Binding
 
 /**
- * Links an artifact to an observed measurement — a single data point
- * recorded by an instrument during a run.
- *
- * @remarks
- * Use to trace which metric observations influenced artifact selection
- * or ranking in multi-objective optimization.
- *
- * @see {@link ObservationRef} — branded ref this relation carries
- * @see {@link InstrumentRelation} — the instrument that produced this observation
+ * Constructs an association with a declared measurement observation.
  *
  * @since 0.1.0
  * @category constructors
@@ -285,14 +199,11 @@ export const BindingRelation = ArtifactRelations.Binding
 export const ObservationRelation = ArtifactRelations.Observation
 
 /**
- * Links an artifact to a non-effect-search entity via a namespaced reference.
+ * Constructs an association with an external entity under a caller-defined namespace.
  *
  * @remarks
- * The `namespace` field scopes the `ref` to an external system (e.g.
- * "mlflow", "wandb"), preventing collisions across integrations.
- *
- * @see {@link ArtifactRelation} — parent union
- * @see {@link ExternalProducer} — companion for external producer identity
+ * The constructor does not validate the strings at runtime. Decode with
+ * {@link ArtifactRelationSchema} when both fields must be non-empty.
  *
  * @since 0.1.0
  * @category constructors
@@ -300,15 +211,9 @@ export const ObservationRelation = ArtifactRelations.Observation
 export const ExternalRelation = ArtifactRelations.External
 
 /**
- * Exhaustive pattern match on relation variants.
+ * Dispatches an artifact association to the handler for its tagged variant.
  *
- * @remarks
- * Provide a handler for each of the eight relation kinds. Adding a new
- * variant to {@link ArtifactRelation} causes a compile error at every
- * uncovered match site.
- *
- * @see {@link ArtifactRelation} — the union being matched
- * @see {@link isRelation} — non-exhaustive type guard alternative
+ * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
  *
  * @since 0.1.0
  * @category pattern-matching
@@ -316,14 +221,9 @@ export const ExternalRelation = ArtifactRelations.External
 export const matchRelation = ArtifactRelations.$match
 
 /**
- * Builds a type guard that narrows an artifact relation by its relation tag.
+ * Builds a predicate that narrows an artifact association by `_tag`.
  *
- * @remarks
- * The returned predicate selects one ontology relation kind and preserves
- * the corresponding branded reference type for downstream access.
- *
- * @see {@link ArtifactRelation} — the union being narrowed
- * @see {@link matchRelation} — exhaustive alternative
+ * @typeParam Tag - Relation discriminator selected for narrowing.
  *
  * @since 0.1.0
  * @category guards

@@ -1,5 +1,5 @@
 /**
- * Pattern matching utilities for StudyEvent variants.
+ * Exhaustive branching over study event payloads.
  *
  * @since 0.1.0
  */
@@ -26,7 +26,10 @@ import type {
 } from "./schemas.js"
 
 /**
- * Builds an exhaustive matcher for every study event variant.
+ * Builds a function that dispatches by event tag. Every handler must return the
+ * same result type, and adding an event variant requires a corresponding handler.
+ *
+ * @typeParam A - Common result returned by every event handler.
  *
  * @since 0.1.0
  * @category pattern-matching

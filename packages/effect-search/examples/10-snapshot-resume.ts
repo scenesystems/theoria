@@ -1,23 +1,16 @@
 /**
- * Snapshot + Resume — continue optimization from serialized machine state.
- *
- * Real use case: checkpoint overnight and resume in the next process.
- *
- * What this shows: serializing study state to a snapshot and resuming later with compatible settings.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Serializes a completed study snapshot and resumes compatible optimization
+ * from its next trial number.
  *
  * Run: bun run examples/10-snapshot-resume.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Schema } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const objectiveValue = (x: number, y: number): number => (x - 1.25) ** 2 + (y + 0.8) ** 2
+const objectiveValue = (x: number, y: number): number => Numeric.pow(x - 1.25, 2) + Numeric.pow(y + 0.8, 2)
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

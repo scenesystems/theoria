@@ -1,8 +1,5 @@
 /**
- * Schema authority for the Geometry domain — defines the canonical domain
- * discriminator, operation input contracts, and boundary codec functions.
- * All schemas enforce finite-number validation at decode time, so kernels
- * can assume well-formed numeric input.
+ * Validates Geometry discovery metadata and operation inputs at untrusted boundaries.
  *
  * @since 0.1.0
  * @category schemas
@@ -91,14 +88,13 @@ export type GeometrySchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeEr
 const FiniteNumber = Schema.Number.pipe(Schema.finite())
 
 // ---------------------------------------------------------------------------
-// Operation input schemas — boundary decode contracts
+// Operation input schemas
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary input contract for distance computation. Both `a` and `b` must
- * contain only finite numbers. The `metric` discriminator selects euclidean,
- * manhattan, or chebyshev distance. Decoded with strict excess-property
- * semantics — any extra fields cause a `GeometryDecodeError`.
+ * Accepts finite point coordinates and selects Euclidean, Manhattan, or
+ * Chebyshev distance. Equal dimensionality is checked by
+ * `distanceValidated`, not by this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -110,9 +106,8 @@ export const DistanceInput = Schema.Struct({
 }).annotations({ identifier: "DistanceInput" })
 
 /**
- * Boundary input contract for midpoint computation. Both `a` and `b` must
- * contain only finite numbers. Decoded with strict excess-property
- * semantics — any extra fields cause a `GeometryDecodeError`.
+ * Accepts two points containing only finite coordinates. Equal dimensionality
+ * is checked by `midpointValidated`.
  *
  * @since 0.1.0
  * @category schemas
@@ -123,10 +118,8 @@ export const MidpointInput = Schema.Struct({
 }).annotations({ identifier: "MidpointInput" })
 
 /**
- * Boundary input contract for centroid computation. The `points` array must
- * be non-empty and each point must contain only finite numbers. Decoded with
- * strict excess-property semantics — any extra fields cause a
- * `GeometryDecodeError`.
+ * Accepts a non-empty point collection containing only finite coordinates.
+ * Equal dimensionality is checked by `centroidValidated`.
  *
  * @since 0.1.0
  * @category schemas

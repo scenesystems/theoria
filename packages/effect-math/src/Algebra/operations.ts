@@ -15,9 +15,7 @@ import { AlgebraDomainModel } from "./model.js"
 import { FactorialInput, GcdInput, LcmInput, PolyDerivativeInput, PolyEvalInput } from "./schema.js"
 
 /**
- * Returns the canonical provisional Algebra descriptor for registration or
- * capability discovery. Each execution reuses the immutable descriptor and
- * cannot fail or require services.
+ * Yields the immutable descriptor used to register Algebra capabilities.
  *
  * @since 0.1.0
  * @category operations
@@ -32,8 +30,6 @@ export const loadAlgebraDomain = Effect.succeed(AlgebraDomainModel)
  * Evaluates a polynomial at `x` via Horner's method. Coefficients are
  * lowest-degree-first: `[a0, a1, a2]` = a0 + a1·x + a2·x².
  *
- * @see {@link polyEvalValidated} — boundary-validated variant
- * @see {@link polyEvalWithPolicies} — policy-aware variant
  * @since 0.1.0
  * @category operations
  */
@@ -41,9 +37,8 @@ export const polyEval: (coefficients: Chunk.Chunk<number>, x: number) => number 
 
 /**
  * Computes the formal derivative of polynomial coefficients.
- * `[a0, a1, a2, a3]` → `[a1, 2·a2, 3·a3]`. Constant polynomial → `[0]`.
- *
- * @see {@link polyDerivativeValidated} — boundary-validated variant
+ * For example, `[a0, a1, a2, a3]` becomes
+ * `[a1, 2 * a2, 3 * a3]`. A constant polynomial becomes `[0]`.
  * @since 0.1.0
  * @category operations
  */
@@ -54,7 +49,6 @@ export const polyDerivative: (coefficients: Chunk.Chunk<number>) => Chunk.Chunk<
  * `gcd(0, b) = |b|` and `gcd(a, 0) = |a|`. The pure function does not
  * validate integrality or finiteness.
  *
- * @see {@link gcdValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
  */
@@ -65,7 +59,6 @@ export const gcd: (a: number, b: number) => number = Integer.gcd
  * `lcm(0, x) = 0`. The pure function does not validate integrality,
  * finiteness, or safe-integer overflow.
  *
- * @see {@link lcmValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
  */
@@ -75,9 +68,6 @@ export const lcm: (a: number, b: number) => number = Integer.lcm
  * Returns `n!` for a non-negative integer, with `0! = 1`. The pure function
  * does not validate its input and returns `1` for every `n <= 0`; use
  * {@link factorialValidated} at an untrusted boundary.
- *
- * @see {@link factorialValidated} — boundary-validated variant
- * @see {@link factorialWithPolicies} — policy-aware variant
  * @since 0.1.0
  * @category operations
  */
@@ -88,11 +78,9 @@ export const factorial: (n: number) => number = Integer.factorial
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated polyEval. Accepts `unknown` input, decodes through
- * `PolyEvalInput` with `onExcessProperty: "error"`, converts
- * coefficients to `Chunk`, and returns the evaluated result.
- *
- * @see {@link polyEval} — pure kernel for pre-validated input
+ * Decodes finite lowest-degree-first coefficients and a finite evaluation
+ * point, then evaluates the polynomial. Malformed or excess input fails with
+ * `AlgebraDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -112,10 +100,8 @@ export const polyEvalValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated polyDerivative. Accepts `unknown` input, decodes
- * through `PolyDerivativeInput`, and returns derivative coefficients.
- *
- * @see {@link polyDerivative} — pure kernel for pre-validated input
+ * Decodes lowest-degree-first coefficients and returns their formal
+ * derivative. Malformed or excess input fails with `AlgebraDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -135,10 +121,8 @@ export const polyDerivativeValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated gcd. Accepts `unknown` input, decodes through
- * `GcdInput`, and returns gcd(a, b).
- *
- * @see {@link gcd} — pure kernel for pre-validated input
+ * Decodes two integers and computes their non-negative greatest common
+ * divisor. Malformed or excess input fails with `AlgebraDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -158,10 +142,8 @@ export const gcdValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated lcm. Accepts `unknown` input, decodes through
- * `LcmInput`, and returns lcm(a, b).
- *
- * @see {@link lcm} — pure kernel for pre-validated input
+ * Decodes two integers and computes their non-negative least common multiple.
+ * Malformed or excess input fails with `AlgebraDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -181,10 +163,8 @@ export const lcmValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated factorial. Accepts `unknown` input, decodes through
- * `FactorialInput`, and returns n!.
- *
- * @see {@link factorial} — pure kernel for pre-validated input
+ * Decodes a non-negative integer and computes its factorial. Malformed,
+ * negative, fractional, or excess input fails with `AlgebraDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -212,10 +192,10 @@ export const factorialValidated = (input: unknown) =>
  * configured runtime policies.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
+ * Strict precision rejects a non-finite result with
+ * `AlgebraDomainViolationError`; relaxed precision passes it through. Enabled
+ * diagnostics logs the coefficients, evaluation point, result, precision,
+ * and elapsed milliseconds.
  *
  * @example
  * ```ts
@@ -231,13 +211,17 @@ export const factorialValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Algebra.polyEvalWithPolicies(
+ * export const program = Algebra.polyEvalWithPolicies(
  *   Chunk.fromIterable([1, -2, 1]), 3
- * ).pipe(Effect.provide(layer))
+ * ).pipe(
+ *   Effect.provide(layer),
+ *   Effect.filterOrFail(
+ *     (result) => result === 4,
+ *     () => "UnexpectedPolynomialValue"
+ *   )
+ * )
  * ```
  *
- * @see {@link polyEval} — pure kernel without policy seams
- * @see {@link polyEvalValidated} — boundary-validated variant
  * @since 0.1.0
  * @category operations
  */
@@ -253,17 +237,12 @@ export const polyEvalWithPolicies = (coefficients: Chunk.Chunk<number>, x: numbe
   })
 
 /**
- * Policy-aware polyDerivative reading two services from context:
+ * Differentiates coefficients under the configured finite-result policy.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects results containing
- *   non-finite coefficients with `AlgebraDomainViolationError`; `"relaxed"`
- *   passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link polyDerivative} — pure kernel without policy seams
- * @see {@link polyDerivativeValidated} — boundary-validated variant
+ * Strict precision rejects a result containing non-finite coefficients with
+ * `AlgebraDomainViolationError`; relaxed precision passes it through. Enabled
+ * diagnostics logs the input, result, precision, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -284,13 +263,9 @@ export const polyDerivativeWithPolicies = (coefficients: Chunk.Chunk<number>) =>
  * as `AlgebraDomainViolationError`.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link factorial} — pure kernel without policy seams
- * @see {@link factorialValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result; relaxed precision passes it
+ * through. Enabled diagnostics logs the input, result, precision, and elapsed
+ * milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -307,13 +282,9 @@ export const factorialWithPolicies = (n: number) =>
  * precision and diagnostics policies.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link gcd} — pure kernel without policy seams
- * @see {@link gcdValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result with
+ * `AlgebraDomainViolationError`; relaxed precision passes it through. Enabled
+ * diagnostics logs the inputs, result, precision, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -330,13 +301,9 @@ export const gcdWithPolicies = (a: number, b: number) =>
  * surface a non-finite product as `AlgebraDomainViolationError`.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `AlgebraDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
- *
- * @see {@link lcm} — pure kernel without policy seams
- * @see {@link lcmValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result; relaxed precision passes it
+ * through. Enabled diagnostics logs the inputs, result, precision, and elapsed
+ * milliseconds.
  * @since 0.1.0
  * @category operations
  */

@@ -1,5 +1,5 @@
 /**
- * Conditional search space scenario choosing between linear and tree model configurations.
+ * Defines a fixture whose model choice activates linear or tree parameters.
  *
  * @since 0.1.0
  */
@@ -8,7 +8,7 @@ import { Schema } from "effect"
 import * as SearchSpace from "../../SearchSpace/index.js"
 
 /**
- * Model discriminator values accepted by the conditional scenario.
+ * Lists the model discriminators used by the schema and search space.
  *
  * @since 0.1.0
  * @category models
@@ -16,31 +16,43 @@ import * as SearchSpace from "../../SearchSpace/index.js"
 export const LinearTreeModelChoices: ["linear", "tree"] = ["linear", "tree"]
 
 /**
- * Schema for the linear branch and its learning-rate and regularization parameters.
+ * Decodes the `linear` branch with numeric learning rate and regularization.
+ *
+ * @remarks
+ * Numeric sampling ranges are not validation refinements on this schema.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const LinearConfigSchema = Schema.Struct({
+  /** Selects the linear branch. */
   model: Schema.Literal("linear"),
+  /** Learning rate; any schema-valid number is accepted during standalone decoding. */
   learningRate: Schema.Number,
+  /** Regularization value; any schema-valid number is accepted during standalone decoding. */
   regularization: Schema.Number
 })
 
 /**
- * Schema for the tree branch and its depth and leaf-size parameters.
+ * Decodes the `tree` branch with integer depth and leaf size.
+ *
+ * @remarks
+ * Numeric sampling ranges are not validation refinements on this schema.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const TreeConfigSchema = Schema.Struct({
+  /** Selects the tree branch. */
   model: Schema.Literal("tree"),
-  maxDepth: Schema.Number,
-  minSamplesLeaf: Schema.Number
+  /** Maximum tree depth; standalone decoding checks integer shape only. */
+  maxDepth: Schema.Int,
+  /** Minimum samples per leaf; standalone decoding checks integer shape only. */
+  minSamplesLeaf: Schema.Int
 })
 
 /**
- * Discriminated union schema for valid linear and tree configurations.
+ * Decodes either fixture branch according to its `model` discriminator.
  *
  * @since 0.1.0
  * @category schemas
@@ -48,7 +60,7 @@ export const TreeConfigSchema = Schema.Struct({
 export const LinearTreeConditionalConfigSchema = Schema.Union(LinearConfigSchema, TreeConfigSchema)
 
 /**
- * Decoded configuration for {@link LinearTreeConditionalConfigSchema}.
+ * Preserves the selected model branch and only that branch's parameters.
  *
  * @since 0.1.0
  * @category type-level
@@ -56,7 +68,7 @@ export const LinearTreeConditionalConfigSchema = Schema.Union(LinearConfigSchema
 export type LinearTreeConditionalConfig = Schema.Schema.Type<typeof LinearTreeConditionalConfigSchema>
 
 /**
- * Decodes an unknown configuration or throws a parse error.
+ * Decodes an unknown fixture configuration and throws on a schema violation.
  *
  * @since 0.1.0
  * @category utils
@@ -64,7 +76,7 @@ export type LinearTreeConditionalConfig = Schema.Schema.Type<typeof LinearTreeCo
 export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownSync(LinearTreeConditionalConfigSchema)
 
 /**
- * Decodes an unknown configuration, returning schema violations in the Effect error channel.
+ * Decodes an unknown fixture configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
@@ -72,8 +84,12 @@ export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownSync(Linear
 export const decodeLinearTreeConditionalConfigEffect = Schema.decodeUnknown(LinearTreeConditionalConfigSchema)
 
 /**
- * Constructs a conditional space where `model` activates only the parameters
- * belonging to the selected linear or tree branch.
+ * Builds a conditional space that samples only parameters for the selected model.
+ *
+ * @remarks
+ * The linear branch samples log-scaled learning rates from `0.0001` through
+ * `0.1` and regularization from `0` through `1`. The tree branch samples integer
+ * depth from `2` through `12` and leaf size from `1` through `6`.
  *
  * @since 0.1.0
  * @category constructors

@@ -1,23 +1,13 @@
 /**
- * Streaming Events — monitor optimization progress in real time.
- *
- * Uses Study.tapTerminalProgress to render a first-party terminal view while
- * preserving the original event stream contracts.
- *
- * What this shows: optional terminal reporting that composes with
- * both Study.optimizeStream and Study.resumeStream without changing
- * optimization behavior.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Renders terminal progress for a new study and a resumed study while
+ * collecting the unchanged event streams for inspection.
  *
  * Run: bun run examples/03-streaming-events.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Effect, Stream } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -27,7 +17,9 @@ const program = Effect.gen(function*() {
   })
   const objective = (config: SearchSpace.Type<typeof space>) =>
     Effect.succeed(
-      Math.sin(config.x) * Math.cos(config.y) + (config.x - 1) ** 2 + (config.y + 2) ** 2
+      Numeric.sin(config.x) * Numeric.cos(config.y)
+        + Numeric.pow(config.x - 1, 2)
+        + Numeric.pow(config.y + 2, 2)
     )
 
   yield* Effect.log("Starting optimizeStream run with terminal progress")

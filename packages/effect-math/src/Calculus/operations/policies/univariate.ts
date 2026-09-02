@@ -1,5 +1,11 @@
 /**
- * Policy-aware wrappers for univariate and integration calculus operations.
+ * Applies runtime precision and diagnostics policies to univariate calculus results.
+ *
+ * @remarks
+ * Synchronous callback exceptions fail with {@link KernelExecutionError}.
+ * Strict precision fails with {@link CalculusDomainViolationError} when the
+ * selected result is non-finite. Enabled diagnostics emit one annotated debug
+ * log. Inputs and mathematical preconditions are not validated.
  *
  * @since 0.1.0
  * @category operations
@@ -13,7 +19,14 @@ import { adaptiveSimpson, derivativeLimit, secondDerivativeLimit, simpson, trape
 import { estimateIsFinite, executeKernel } from "../shared.js"
 
 /**
- * Policy-aware first-derivative limit estimate.
+ * Estimates a first derivative and applies policies to its value and absolute error.
+ *
+ * @remarks
+ * Strict precision requires both fields to be finite. It does not require
+ * `converged` to be true.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the estimate.
  *
  * @since 0.2.0
  * @category operations
@@ -45,7 +58,14 @@ export const derivativeLimitWithPolicies = (
   )
 
 /**
- * Policy-aware second-derivative limit estimate.
+ * Estimates a second derivative and applies policies to its value and absolute error.
+ *
+ * @remarks
+ * Strict precision requires both fields to be finite. It does not require
+ * `converged` to be true.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the estimate.
  *
  * @since 0.2.0
  * @category operations
@@ -77,7 +97,14 @@ export const secondDerivativeLimitWithPolicies = (
   )
 
 /**
- * Policy-aware first derivative value projection.
+ * Projects the first-order Ridder estimate after runtime policies accept it.
+ *
+ * @remarks
+ * A non-finite absolute-error estimate fails under strict precision even when
+ * the projected value is finite.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the estimate.
  *
  * @since 0.1.0
  * @category operations
@@ -89,7 +116,14 @@ export const derivativeWithPolicies = (
 ) => Effect.map(derivativeLimitWithPolicies(f, x, config), (estimate) => estimate.value)
 
 /**
- * Policy-aware second derivative value projection.
+ * Applies runtime policies to a second-order Ridder estimate and returns its value.
+ *
+ * @remarks
+ * A non-finite absolute-error estimate fails under strict precision even when
+ * the projected value is finite.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the estimate.
  *
  * @since 0.2.0
  * @category operations
@@ -101,7 +135,13 @@ export const secondDerivativeWithPolicies = (
 ) => Effect.map(secondDerivativeLimitWithPolicies(f, x, config), (estimate) => estimate.value)
 
 /**
- * Policy-aware trapezoidal integration.
+ * Integrates samples by trapezoid and applies policies to the scalar result.
+ *
+ * @remarks
+ * Sample count, sample values, and spacing are used without validation.
+ *
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.1.0
  * @category operations
@@ -127,7 +167,13 @@ export const trapezoidWithPolicies = (values: Chunk.Chunk<number>, dx: number) =
   )
 
 /**
- * Policy-aware Simpson integration.
+ * Integrates samples by Simpson quadrature and applies policies to the scalar result.
+ *
+ * @remarks
+ * Sample count, sample values, and spacing are used without validation.
+ *
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.1.0
  * @category operations
@@ -153,7 +199,14 @@ export const simpsonWithPolicies = (values: Chunk.Chunk<number>, dx: number) =>
   )
 
 /**
- * Policy-aware adaptive Simpson integration.
+ * Integrates a scalar function adaptively and applies policies to the estimate.
+ *
+ * @remarks
+ * Bounds and recursion controls are used without validation. Reaching
+ * `maxDepth` still succeeds if strict precision accepts the finite result.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations

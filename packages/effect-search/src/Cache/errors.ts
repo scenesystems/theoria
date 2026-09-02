@@ -1,44 +1,47 @@
 /**
- * Typed cache authority error taxonomy.
+ * Expected codec, fingerprint, and backing-store failures from schema caches.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * A cache key or value could not be encoded, fingerprinted, or decoded.
+ * Reports a key-encoding, fingerprinting, value-encoding, or value-decoding failure.
  *
  * @remarks
- * `key` is the resolved persistence key when available; key-encoding and
- * fingerprint failures report the descriptor's `namespace:version:` prefix.
+ * `key` contains the full persistence key when fingerprinting succeeded. Earlier
+ * key failures report only the descriptor's `namespace:version:` prefix. `reason`
+ * contains the schema formatter or canonicalization tag and is not redacted.
  *
  * @since 0.1.0
  * @category errors
  */
 export class CacheCorrupt extends Schema.TaggedError<CacheCorrupt>()("effect-search/CacheCorrupt", {
+  /** Persistence key, or its namespace and version prefix when key construction failed. */
   key: Schema.String,
+  /** Unredacted schema or canonicalization diagnostic. */
   reason: Schema.String
 }) {}
 
 /**
- * Reports a rejected read, write, removal, or initialization request from the
- * configured key-value backend.
+ * Reports a rejected operation from the configured key-value or SQL backend.
  *
  * @remarks
- * `operation` identifies the attempted backend step. `reason` may include a
- * platform or database diagnostic and is not redacted for untrusted output.
+ * `operation` identifies the cache step. `reason` is formed from the underlying cause,
+ * may expose platform or database diagnostics, and is not safe for untrusted output.
  *
  * @since 0.1.0
  * @category errors
  */
 export class CacheBackendError extends Schema.TaggedError<CacheBackendError>()("effect-search/CacheBackendError", {
+  /** Cache or storage step rejected by the backend. */
   operation: Schema.String,
+  /** Unredacted diagnostic derived from the backend cause. */
   reason: Schema.String
 }) {}
 
 /**
- * Defines the cache boundary between malformed identity/content and rejected
- * persistence operations.
+ * Decodes either malformed cache content or a rejected backing-store operation.
  *
  * @since 0.1.0
  * @category schemas
@@ -46,8 +49,7 @@ export class CacheBackendError extends Schema.TaggedError<CacheBackendError>()("
 export const CacheErrorSchema = Schema.Union(CacheCorrupt, CacheBackendError)
 
 /**
- * Failure channel shared by `SchemaCache` operations: invalid encoded content
- * or fingerprints, or a rejected backing-store operation.
+ * Expected failure from schema conversion, canonical key identity, or persistence.
  *
  * @since 0.1.0
  * @category type-level
@@ -55,7 +57,7 @@ export const CacheErrorSchema = Schema.Union(CacheCorrupt, CacheBackendError)
 export type CacheError = Schema.Schema.Type<typeof CacheErrorSchema>
 
 /**
- * Indicates whether `SchemaCache.resolve` returned a stored value or computed one.
+ * Decodes `"hit"` for a stored value and `"miss"` for a value computed and stored.
  *
  * @since 0.1.0
  * @category models
@@ -63,8 +65,7 @@ export type CacheError = Schema.Schema.Type<typeof CacheErrorSchema>
 export const CacheResolutionSchema = Schema.Literal("hit", "miss")
 
 /**
- * Distinguishes a decoded stored value from one computed and persisted during
- * `SchemaCache.resolve`.
+ * Origin of the value returned by `SchemaCache.resolve`.
  *
  * @since 0.1.0
  * @category type-level

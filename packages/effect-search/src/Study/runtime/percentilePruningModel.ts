@@ -1,5 +1,5 @@
 /**
- * Schema definitions and types for percentile pruner configuration, reports, and history.
+ * Structural input schemas for percentile pruning calculations.
  *
  * @since 0.1.0
  */
@@ -29,8 +29,9 @@ export type PercentilePrunerReport = Schema.Schema.Type<typeof PercentilePrunerR
 
 /**
  * Decodes percentile threshold, completed-trial startup count, step warmup and
- * interval, and minimum peer count. Algorithm constructors are responsible for
- * enforcing their numeric ranges before these settings drive pruning.
+ * interval, and minimum peer count. The schema does not enforce numeric ranges.
+ * Percentiles are clamped to 0 through 100, non-positive intervals behave as
+ * one, and fractional positive intervals are floored by the calculation.
  *
  * @since 0.1.0
  * @category schemas
@@ -44,7 +45,7 @@ export const PercentilePrunerSettingsSchema = Schema.Struct({
 })
 
 /**
- * Threshold and warmup settings controlling percentile-based pruning.
+ * Defines the peer percentile and schedule gates used by one pruning decision.
  *
  * @since 0.1.0
  * @category type-level
@@ -62,7 +63,7 @@ export type PercentilePrunerSettings = Schema.Schema.Type<typeof PercentilePrune
 export const PercentilePrunerTrialStateSchema = Schema.Literal("complete", "pruned", "running")
 
 /**
- * A trial lifecycle state considered by percentile pruning.
+ * Classifies historical reports for startup counting and peer selection.
  *
  * @since 0.1.0
  * @category type-level
@@ -83,7 +84,8 @@ export const PercentilePrunerHistoryTrialSchema = Schema.Struct({
 })
 
 /**
- * Historical trial state and reports used by percentile pruning.
+ * Associates a trial's reports with its lifecycle class. Only completed trials
+ * contribute peer values.
  *
  * @since 0.1.0
  * @category type-level
@@ -108,7 +110,8 @@ export const PercentilePrunerContextSchema = Schema.Struct({
 })
 
 /**
- * Current and historical trial data needed to compute a percentile prune decision.
+ * Contains one trial's report history, comparison direction, peer history, and
+ * schedule settings for a synchronous decision.
  *
  * @since 0.1.0
  * @category type-level

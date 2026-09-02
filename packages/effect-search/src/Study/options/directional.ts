@@ -1,5 +1,5 @@
 /**
- * Direction-aware option constructors for single and multi-objective studies.
+ * Single-objective plan constructors with a fixed comparison direction.
  *
  * @since 0.1.0
  */
@@ -27,7 +27,8 @@ const DirectionlessFlatInputSchema = OptimizePlanFlatInputSchema.omit("direction
 const DirectionlessScheduledInputSchema = OptimizePlanScheduledInputSchema.omit("direction", "directions")
 
 /**
- * Schema-first request shape for directional convenience combinators.
+ * Decodes flat or scheduled options after removing `direction` and `directions`.
+ * It checks runtime shape only; numeric ranges are enforced before execution.
  *
  * @since 0.1.0
  * @category schemas
@@ -38,6 +39,13 @@ export const DirectionalOptimizeRequestSchema = Schema.Union(
 )
 
 /**
+ * Configures direct sampling for a scalar study whose direction is selected by
+ * {@link minimize} or {@link maximize}. Defaults and constraints match
+ * {@link FlatOptimizeOptions}.
+ *
+ * @typeParam Config - Decoded search-space configuration passed to the objective.
+ * @typeParam Space - Compiled search space retained for callback and result inference.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -66,6 +74,13 @@ export type DirectionlessFlatOptions<
 }
 
 /**
+ * Configures scheduled sampling for a scalar study whose direction is selected
+ * by {@link minimize} or {@link maximize}. Defaults and constraints match
+ * {@link ScheduledOptimizeOptions}.
+ *
+ * @typeParam Config - Decoded search-space configuration passed to the objective.
+ * @typeParam Space - Compiled search space retained for callback and result inference.
+ *
  * @since 0.1.0
  * @category type-level
  */
@@ -93,7 +108,12 @@ export type DirectionlessScheduledOptions<
 }
 
 /**
- * Optimization options shared by the minimize and maximize convenience APIs.
+ * Omits objective-direction fields so {@link minimize} and {@link maximize} can
+ * supply their fixed scalar direction. Flat and scheduled forms retain the same
+ * defaults as their general optimization counterparts.
+ *
+ * @typeParam Config - Decoded search-space configuration passed to the objective.
+ * @typeParam Space - Compiled search space retained by either option form.
  *
  * @since 0.1.0
  * @category type-level
@@ -104,7 +124,10 @@ export type DirectionalOptimizeOptions<
 > = DirectionlessFlatOptions<Config, Space> | DirectionlessScheduledOptions<Config, Space>
 
 /**
- * Type-safe minimization options whose configuration is inferred from a search space.
+ * Infers minimization callback and trial configuration types from the search
+ * space.
+ *
+ * @typeParam Space - Compiled search space supplying the decoded configuration type.
  *
  * @since 0.1.0
  * @category type-level
@@ -115,7 +138,10 @@ export type MinimizeOptionsFromSpace<Space extends SearchSpace.SearchSpace> = Di
 >
 
 /**
- * Type-safe maximization options whose configuration is inferred from a search space.
+ * Infers maximization callback and trial configuration types from the search
+ * space.
+ *
+ * @typeParam Space - Compiled search space supplying the decoded configuration type.
  *
  * @since 0.1.0
  * @category type-level
@@ -160,7 +186,12 @@ const optimizePlanFromDirectionalOptions = <Space extends SearchSpace.SearchSpac
   )
 
 /**
- * Validates minimization options and constructs an optimization plan.
+ * Builds a minimization plan after validating the directionless option shape.
+ *
+ * @remarks
+ * Runtime limits are validated during execution.
+ *
+ * @typeParam Space - Compiled search space supplying the plan's configuration type.
  *
  * @since 0.1.0
  * @category constructors
@@ -171,7 +202,12 @@ export const minimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
   optimizePlanFromDirectionalOptions(options, "minimize")
 
 /**
- * Validates maximization options and constructs an optimization plan.
+ * Validates directionless options before building a maximization plan.
+ *
+ * @remarks
+ * Runtime limits are validated during execution.
+ *
+ * @typeParam Space - Compiled search space supplying the plan's configuration type.
  *
  * @since 0.1.0
  * @category constructors

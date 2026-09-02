@@ -7,6 +7,7 @@ import * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import type * as Prompt from "@effect/ai/Prompt"
 import * as Response from "@effect/ai/Response"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
   Data,
@@ -47,7 +48,9 @@ const mockError = (method: string, description: string, cause?: unknown): AiErro
  * @category models
  */
 export class MockCall extends Schema.Class<MockCall>("MockCall")({
+  /** Language-model operation that completed successfully. */
   method: MethodSchema,
+  /** Normalized prompt text received by the mock operation. */
   prompt: Schema.String
 }) {}
 
@@ -118,7 +121,9 @@ export const ResponseStrategy = Data.taggedEnum<ResponseStrategy>()
  * @category models
  */
 export class MockLanguageModelRuntime extends Data.TaggedClass("MockLanguageModelRuntime")<{
+  /** Language-model service supplied to code under test. */
   readonly service: LanguageModel.Service
+  /** Append-only successful-call log owned by this runtime. */
   readonly calls: Ref.Ref<ReadonlyArray<MockCall>>
 }> {}
 
@@ -320,7 +325,7 @@ const encodeJsonValue = (value: unknown): Option.Option<string> =>
     Match.when((candidate: unknown) => candidate === null, () => Option.some("null")),
     Match.when(Predicate.isString, (text) => Option.some(`"${escapeJsonString(text)}"`)),
     Match.when(
-      (candidate: unknown) => Predicate.isNumber(candidate) && Number.isFinite(candidate),
+      (candidate: unknown) => Predicate.isNumber(candidate) && Numeric.isFinite(candidate),
       (numberValue) => Option.some(String(numberValue))
     ),
     Match.when(Predicate.isBoolean, (booleanValue) => Option.some(String(booleanValue))),
@@ -428,18 +433,6 @@ const makeService = (
  * does not simulate streaming: `streamText` is empty. Strategy failures,
  * exceptions from `map`, and values that cannot be encoded for object
  * generation fail as `AiError.UnknownError`.
- *
- * @example
- * ```ts
- * import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
- * import * as LanguageModel from "@effect/ai/LanguageModel"
- * import { Effect, Layer } from "effect"
- *
- * const testLayer = MockLanguageModel.layer(
- *   LanguageModel.LanguageModel,
- *   MockLanguageModel.fixed({ answer: "Paris" })
- * )
- * ```
  *
  * @since 0.1.0
  * @category constructors

@@ -1,5 +1,5 @@
 /**
- * BootstrapFewShot event progress formatting and summaries.
+ * Formats BootstrapFewShot events and folds them into progress summaries.
  *
  * @since 0.1.0
  */
@@ -8,14 +8,17 @@ import { Array as Arr, Match, Stream } from "effect"
 import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
 
 /**
- * Formatted BootstrapFewShot progress line.
+ * Carries all formatted BootstrapFewShot event fields with the original event tag.
  *
  * @since 0.1.0
  * @category models
  */
 export type BootstrapProgressLine = Readonly<{
+  /** Original event discriminator. */
   readonly tag: BootstrapEvent["_tag"]
+  /** Space-separated key-value fields selected for display. */
   readonly details: string
+  /** Event tag followed by `details` when details are present. */
   readonly text: string
 }>
 
@@ -67,7 +70,10 @@ const detailsFromEvent = (event: BootstrapEvent): string =>
   )
 
 /**
- * Deterministically format a BootstrapFewShot event as one progress line.
+ * Formats every event field into a single non-localized line.
+ *
+ * @param event - Lifecycle event to format.
+ * @returns A new line value containing the original tag.
  *
  * @since 0.1.0
  * @category formatters
@@ -76,7 +82,10 @@ export const formatBootstrapProgressEvent = (event: BootstrapEvent): BootstrapPr
   toProgressLine(event._tag, detailsFromEvent(event))
 
 /**
- * Progress sink for formatted BootstrapFewShot lines.
+ * Receives each BootstrapFewShot progress line with caller-defined Effect channels.
+ *
+ * @typeParam E - Expected failure from the progress sink.
+ * @typeParam R - Services required by the progress sink.
  *
  * @since 0.1.0
  * @category models
@@ -86,7 +95,16 @@ export type BootstrapProgressSink<E = never, R = never> = (
 ) => Effect.Effect<void, E, R>
 
 /**
- * Tap formatted BootstrapFewShot progress lines from an event stream.
+ * Observes each BootstrapFewShot event in stream order without changing its value.
+ *
+ * @remarks
+ * Sink effects run in stream order. Their failures and requirements are added
+ * to the returned stream.
+ *
+ * @param onProgress - Sink invoked once per upstream event.
+ * @returns A stream transformation that preserves event values and ordering.
+ * @typeParam E - Expected failure added by the progress sink.
+ * @typeParam R - Services required by the progress sink.
  *
  * @since 0.1.0
  * @category combinators
@@ -99,22 +117,33 @@ export const tapBootstrapProgress =
     )
 
 /**
- * Semantic summary projected from BootstrapFewShot events.
+ * Aggregates observed round, trace, fallback, and completion data.
  *
  * @since 0.1.0
  * @category models
  */
 export type BootstrapEventSummary = Readonly<{
+  /** Number of input events across all tags. */
   readonly totalEvents: number
+  /** Number of `RoundStarted` events. */
   readonly roundsStarted: number
+  /** Number of `RoundCompleted` events. */
   readonly roundsCompleted: number
+  /** Number of accepted root traces. */
   readonly traceAcceptedCount: number
+  /** Number of rejected or missing root traces. */
   readonly traceRejectedCount: number
+  /** Whether a `BootstrapFallbackActivated` event was observed. */
   readonly fallbackActivatedSeen: boolean
+  /** Whether a `BootstrapFallbackCompleted` event was observed. */
   readonly fallbackCompletedSeen: boolean
+  /** Fallback flag from the most recent completion event. */
   readonly fallbackUsed: boolean
+  /** Whether a `BootstrapCompleted` event was observed. */
   readonly completedSeen: boolean
+  /** Demonstration count from the most recent completion event. */
   readonly totalDemos: number
+  /** Attempted round count from the most recent completion event. */
   readonly roundsUsed: number
 }>
 
@@ -178,7 +207,14 @@ const summarizeEvent = (
 }
 
 /**
- * Summarize BootstrapFewShot stream events into semantically meaningful counters.
+ * Counts bootstrap rounds, trace decisions, fallbacks, and completion state.
+ *
+ * @remarks
+ * Repeated completion events overwrite `totalDemos`, `roundsUsed`, and
+ * `fallbackUsed`; all other numeric fields are event counts.
+ *
+ * @param events - Events to fold in their supplied order.
+ * @returns Counters and the latest completion payload.
  *
  * @since 0.1.0
  * @category combinators

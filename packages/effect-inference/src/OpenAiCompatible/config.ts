@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible descriptor helpers.
+ * Route construction and transport planning for OpenAI-compatible endpoints.
  *
  * @since 0.1.0
  */
@@ -10,14 +10,16 @@ import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
 import { makeOpenAiCompatibleRoute } from "./metadata.js"
 
 /**
- * Minimal transport information shared by compatible chat-completions style
- * runtimes.
+ * Client endpoint and authentication metadata projected from an execution route.
+ * No credential is retained.
  *
  * @since 0.1.0
  * @category models
  */
 export class CompatibleTransport extends Data.Class<{
+  /** Endpoint prefix passed to the Effect AI client. */
   readonly baseUrl: string
+  /** Credential mechanism recorded for the route; no secret is stored. */
   readonly authMethod: ExecutionRoute["authMethod"]
 }> {}
 
@@ -29,13 +31,15 @@ export class CompatibleTransport extends Data.Class<{
  * @category models
  */
 export class CompatibleTransportPlan extends Data.Class<{
+  /** Complete provenance route retained by the plan. */
   readonly route: ExecutionRoute
+  /** Client settings projected from `route`. */
   readonly transport: CompatibleTransport
 }> {}
 
 /**
- * Returns a copy of `descriptor` whose route is replaced with an
- * `OpenAiCompatible` route built from `options`.
+ * Replaces any existing route with an `OpenAiCompatible` route. Model intent,
+ * capability requirements, role, and tags retain their original identity.
  *
  * @since 0.1.0
  * @category constructors
@@ -55,8 +59,8 @@ export const withOpenAiCompatibleRoute = (descriptor: DesiredRuntimeDescriptor, 
 })
 
 /**
- * Retains the complete route while extracting its base URL and authentication
- * method as transport settings. No validation or I/O is performed.
+ * Projects client transport settings while retaining the complete route for
+ * provenance. It performs no validation or I/O.
  *
  * @since 0.1.0
  * @category constructors

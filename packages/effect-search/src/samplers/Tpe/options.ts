@@ -285,21 +285,21 @@ export const validateOptions = (
     yield* Effect.when(
       Effect.fail(
         new InvalidSamplerConfig({
-          reason: "tpe sampler requires nStartupTrials >= 0",
+          reason: "tpe sampler requires nStartupTrials to be a finite non-negative integer",
           sampler: "tpe"
         })
       ),
-      () => Num.lessThan(startup, 0)
+      () => !Number.isFinite(startup) || !Number.isInteger(startup) || Num.lessThan(startup, 0)
     )
 
     yield* Effect.when(
       Effect.fail(
         new InvalidSamplerConfig({
-          reason: "tpe sampler requires nEiCandidates >= 1",
+          reason: "tpe sampler requires nEiCandidates to be a finite positive integer",
           sampler: "tpe"
         })
       ),
-      () => Num.lessThan(candidates, 1)
+      () => !Number.isFinite(candidates) || !Number.isInteger(candidates) || Num.lessThan(candidates, 1)
     )
 
     yield* Effect.when(

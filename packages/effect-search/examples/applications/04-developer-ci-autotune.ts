@@ -1,39 +1,13 @@
 /**
- * Advanced Applications / 04 — CI Configuration Tuning.
- *
- * Plain-English goal:
- * Speed up CI feedback while keeping compute spend under a fixed budget.
- *
- * Use case:
- * Choose worker count, caching mode, retries, sharding, and timeout settings
- * without hand-tuning dozens of combinations.
- *
- * Why `effect-search`:
- * `Study.ObjectiveReport` lets every trial report both quality and cost, so the
- * optimizer can stop once the budget is consumed.
- *
- * Objective semantics:
- * - `value` (lower is better): blended CI runtime and flake-risk proxy.
- * - `cost`: estimated infrastructure spend for that trial.
- *
- * What to expect in output:
- * The run typically ends with `budgetExhausted`, then logs the best configuration
- * found within your spending cap.
- *
- * How to use the result:
- * Treat the best config as a rollout candidate. Validate it with real CI
- * telemetry before adopting it globally.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Study.ObjectiveReport}
- * - {@link Study.StudyResult}
+ * Minimizes a modeled CI duration and flake-risk score while each trial's
+ * estimated infrastructure cost counts toward a fixed study budget.
  *
  * Run: bun run examples/applications/04-developer-ci-autotune.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const CACHE_SPEED_FACTOR: Readonly<Record<string, number>> = {
@@ -58,8 +32,8 @@ const ciQualityScore = (config: {
   const cacheSpeed = CACHE_SPEED_FACTOR[config.cacheMode] ?? 1
   const cacheFlake = CACHE_FLAKE_FACTOR[config.cacheMode] ?? 1
 
-  const baseDurationMinutes = (34 / Math.pow(config.workers, 0.64)) * cacheSpeed
-  const shardImbalancePenalty = Math.abs(config.shardCount - config.workers / 2.4) / 9
+  const baseDurationMinutes = (34 / Numeric.pow(config.workers, 0.64)) * cacheSpeed
+  const shardImbalancePenalty = Numeric.abs(config.shardCount - config.workers / 2.4) / 9
   const timeoutPenalty = config.timeoutSeconds < 60 ? (60 - config.timeoutSeconds) / 34 : 0
   const flakeRisk = (0.42 / (config.retries + 1.4)) * cacheFlake + timeoutPenalty
 

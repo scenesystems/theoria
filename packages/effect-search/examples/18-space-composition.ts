@@ -1,20 +1,13 @@
 /**
- * Space Composition — build reusable spaces with extend, pick, and omit.
- *
- * Real use case: assemble task-specific tuners from shared optimization blocks.
- *
- * What this shows: composing reusable spaces with extend and creating focused variants with pick and omit.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Builds task-specific spaces from shared parameter groups with `extend`,
+ * `pick`, and `omit`, then optimizes one projected space.
  *
  * Run: bun run examples/18-space-composition.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -37,8 +30,8 @@ const program = Effect.gen(function*() {
     sampler: Sampler.tpe({ seed: 78 }),
     trials: 35,
     objective: (config) => {
-      const learningRateScore = 1 - Math.abs(Math.log10(config.learningRate) - Math.log10(0.01))
-      const batchScore = 1 - Math.abs(config.batchSize - 64) / 64
+      const learningRateScore = 1 - Numeric.abs(Numeric.log10(config.learningRate) - Numeric.log10(0.01))
+      const batchScore = 1 - Numeric.abs(config.batchSize - 64) / 64
       const tokenPenalty = config.maxTokens / 4096
 
       return Effect.succeed(learningRateScore + batchScore - tokenPenalty)

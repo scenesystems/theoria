@@ -1,5 +1,5 @@
 /**
- * Reusable optimizer progress and summary abstractions.
+ * Formats optimizer events and derives reports from recorded outcomes.
  *
  * @since 0.1.0
  */
@@ -27,7 +27,7 @@ import {
 } from "../optimizers/MIPROv2/progress.js"
 
 /**
- * Format one MIPROv2 event for deterministic progress logging.
+ * Formats a MIPROv2 event according to {@link formatMIPROv2ProgressEvent}.
  *
  * @since 0.1.0
  * @category formatters
@@ -35,7 +35,7 @@ import {
 export const formatMIPROv2Event = formatMIPROv2ProgressEvent
 
 /**
- * Format one BootstrapFewShot event for deterministic progress logging.
+ * Formats a BootstrapFewShot event according to {@link formatBootstrapProgressEvent}.
  *
  * @since 0.1.0
  * @category formatters
@@ -43,7 +43,7 @@ export const formatMIPROv2Event = formatMIPROv2ProgressEvent
 export const formatBootstrapEvent = formatBootstrapProgressEvent
 
 /**
- * Format one GEPA event for deterministic progress logging.
+ * Formats a GEPA event as a tagged line with selected progress fields.
  *
  * @since 0.1.0
  * @category formatters
@@ -52,14 +52,14 @@ export const formatGEPAEvent = formatGEPAProgressEvent
 
 export {
   /**
-   * Summarize MIPROv2 events into a semantic outcome report.
+   * Folds MIPROv2 events into progress counters and best observed scores.
    *
    * @since 0.1.0
    * @category combinators
    */
   summarizeMIPROv2Events,
   /**
-   * Tap formatted MIPROv2 progress lines from a MIPROv2 stream.
+   * Runs an effectful formatter sink without changing MIPROv2 stream elements.
    *
    * @since 0.1.0
    * @category combinators
@@ -69,14 +69,14 @@ export {
 
 export {
   /**
-   * Summarize BootstrapFewShot events into a semantic outcome report.
+   * Folds BootstrapFewShot events into round, trace, fallback, and completion data.
    *
    * @since 0.1.0
    * @category combinators
    */
   summarizeBootstrapEvents,
   /**
-   * Tap formatted BootstrapFewShot progress lines from a BootstrapFewShot stream.
+   * Runs an effectful formatter sink without changing bootstrap stream elements.
    *
    * @since 0.1.0
    * @category combinators
@@ -86,14 +86,14 @@ export {
 
 export {
   /**
-   * Summarize GEPA events into a semantic outcome report.
+   * Folds GEPA events into lifecycle counts, frontier sizes, and completion data.
    *
    * @since 0.1.0
    * @category combinators
    */
   summarizeGEPAEvents,
   /**
-   * Tap formatted GEPA progress lines from a GEPA stream.
+   * Runs an effectful formatter sink without changing GEPA stream elements.
    *
    * @since 0.1.0
    * @category combinators
@@ -102,41 +102,65 @@ export {
 } from "../optimizers/GEPA/progress.js"
 
 /**
- * Semantic summary of a MIPROv2 optimization run — baseline vs. optimized
- * scores, demo counts, and per-event breakdown.
+ * Compares caller-evaluated exact-match scores and demonstration counts.
+ *
+ * @remarks
+ * Values are retained without range validation. Deltas may be negative, and
+ * `eventSummary` is not checked against the supplied scores or counts.
  *
  * @since 0.1.0
  * @category models
  */
 export type MIPROv2OutcomeSummary = Readonly<{
+  /** Reference exact-match score supplied by the caller. */
   readonly baselineExactMatch: number
+  /** Exact-match score supplied after optimization. */
   readonly optimizedExactMatch: number
+  /** `optimizedExactMatch - baselineExactMatch`. */
   readonly scoreDelta: number
+  /** Caller-observed demonstration count before optimization. */
   readonly demoCountBeforeOptimization: number
+  /** Caller-observed demonstration count after optimization. */
   readonly demoCountAfterOptimization: number
+  /** `demoCountAfterOptimization - demoCountBeforeOptimization`. */
   readonly demosLearnedDuringMIPROv2: number
+  /** Independently folded lifecycle events. */
   readonly eventSummary: MIPROv2EventSummary
 }>
 
 /**
- * Semantic summary of a GEPA optimization run — baseline vs. optimized scores,
- * instruction changes, and per-event breakdown.
+ * Compares caller-evaluated exact-match scores and instruction strings.
+ *
+ * @remarks
+ * Values are retained without range validation. Instruction lengths use
+ * JavaScript UTF-16 code units. `eventSummary` is not checked against the
+ * supplied scores or instructions.
  *
  * @since 0.1.0
  * @category models
  */
 export type GEPAOutcomeSummary = Readonly<{
+  /** Reference exact-match score supplied by the caller. */
   readonly baselineExactMatch: number
+  /** Exact-match score supplied after optimization. */
   readonly optimizedExactMatch: number
+  /** `optimizedExactMatch - baselineExactMatch`. */
   readonly scoreDelta: number
+  /** Whether the two supplied instruction strings differ by strict equality. */
   readonly instructionChanged: boolean
+  /** UTF-16 code-unit count of the pre-optimization instruction. */
   readonly instructionLengthBeforeOptimization: number
+  /** UTF-16 code-unit count of the post-optimization instruction. */
   readonly instructionLengthAfterOptimization: number
+  /** Independently folded lifecycle events. */
   readonly eventSummary: GEPAEventSummary
 }>
 
 /**
- * Build a semantic MIPROv2 outcome summary for live and test workloads.
+ * Computes MIPROv2 score and demonstration deltas from supplied observations.
+ *
+ * @param options - Scores, counts, and an independently derived event summary.
+ * @returns A new report retaining the supplied values.
  *
  * @since 0.1.0
  * @category constructors
@@ -158,7 +182,10 @@ export const summarizeMIPROv2Outcome = (options: {
 })
 
 /**
- * Build a semantic GEPA outcome summary for live and test workloads.
+ * Computes GEPA score delta and instruction comparison from supplied observations.
+ *
+ * @param options - Scores, instructions, and an independently derived event summary.
+ * @returns A new report retaining the supplied values.
  *
  * @since 0.1.0
  * @category constructors
@@ -180,8 +207,7 @@ export const summarizeGEPAOutcome = (options: {
 })
 
 /**
- * Canonical optimizer progress API — formatters, tap combinators, and summary
- * builders for all optimizer variants.
+ * Groups progress formatting, stream taps, and outcome projections under one value.
  *
  * @since 0.1.0
  * @category constructors
@@ -203,7 +229,7 @@ export const progress = {
 
 export {
   /**
-   * MIPROv2 optimization observability snapshot.
+   * Compares MIPROv2 search and retained scores with a baseline.
    *
    * @since 0.1.0
    * @category models
@@ -213,14 +239,14 @@ export {
 
 export {
   /**
-   * MIPROv2 formatted progress line.
+   * Carries a MIPROv2 event tag and display text without complete instructions.
    *
    * @since 0.1.0
    * @category models
    */
   type MIPROv2ProgressLine,
   /**
-   * MIPROv2 progress sink callback.
+   * Consumes formatted MIPROv2 progress with custom Effect channels.
    *
    * @since 0.1.0
    * @category models
@@ -230,21 +256,21 @@ export {
 
 export {
   /**
-   * BootstrapFewShot event summary.
+   * Aggregates bootstrap round, trace, fallback, and completion data.
    *
    * @since 0.1.0
    * @category models
    */
   type BootstrapEventSummary,
   /**
-   * BootstrapFewShot formatted progress line.
+   * Carries a BootstrapFewShot event tag and its complete formatted fields.
    *
    * @since 0.1.0
    * @category models
    */
   type BootstrapProgressLine,
   /**
-   * BootstrapFewShot progress sink callback.
+   * Consumes formatted bootstrap progress with custom Effect channels.
    *
    * @since 0.1.0
    * @category models
@@ -254,14 +280,14 @@ export {
 
 export {
   /**
-   * GEPA formatted progress line.
+   * Carries a GEPA event tag and display text with reduced frontier data.
    *
    * @since 0.1.0
    * @category models
    */
   type GEPAProgressLine,
   /**
-   * GEPA progress sink callback.
+   * Consumes formatted GEPA progress with custom Effect channels.
    *
    * @since 0.1.0
    * @category models
@@ -272,7 +298,7 @@ export {
 const noOpProgressEffect = Effect.void
 
 /**
- * No-op progress sink for BootstrapFewShot streams.
+ * Discards formatted bootstrap progress without adding Effect channels.
  *
  * @since 0.1.0
  * @category constants
@@ -280,7 +306,7 @@ const noOpProgressEffect = Effect.void
 export const noBootstrapProgress: BootstrapProgressSink = () => noOpProgressEffect
 
 /**
- * No-op progress sink for MIPROv2 streams.
+ * Discards formatted MIPROv2 progress without adding Effect channels.
  *
  * @since 0.1.0
  * @category constants
@@ -288,7 +314,7 @@ export const noBootstrapProgress: BootstrapProgressSink = () => noOpProgressEffe
 export const noMIPROv2Progress: MIPROv2ProgressSink = () => noOpProgressEffect
 
 /**
- * No-op progress sink for GEPA streams.
+ * Discards formatted GEPA progress without adding Effect channels.
  *
  * @since 0.1.0
  * @category constants

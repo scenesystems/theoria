@@ -1,5 +1,5 @@
 /**
- * Metric models.
+ * Named scoring operations and their result constructor.
  *
  * @since 0.1.0
  */
@@ -8,12 +8,11 @@ import type { MetricFn } from "../contracts/MetricFn.js"
 import { MetricResult } from "../contracts/MetricResult.js"
 
 /**
- * Schema and constructor for a numeric score with optional feedback.
+ * Constructs a numeric score with optional evaluator feedback.
  *
  * @remarks
  * Scores are not normalized or range-checked. Weighting, when needed, belongs
- * in the scoring function; {@link import("./compose.js").compose} gives every
- * child score equal weight.
+ * in the scoring function; {@link compose} gives every child score equal weight.
  *
  * @since 0.1.0
  * @category models
@@ -21,18 +20,22 @@ import { MetricResult } from "../contracts/MetricResult.js"
 export const Result = MetricResult
 
 /**
- * Named scoring function from prediction and expected payloads to a
- * {@link MetricResult} Effect.
+ * Associates a diagnostic name with an effectful scoring operation.
+ *
+ * @remarks
+ * The scorer receives untyped record payloads because signatures differ across
+ * modules. Its typed failures and requirements flow through evaluation and
+ * optimization unchanged.
+ *
+ * @typeParam E - Expected scoring failure.
+ * @typeParam R - Services required while scoring.
  *
  * @since 0.1.0
  * @category models
- * @see {@link MetricResult}
- * @see {@link fromEffect}
- * @see {@link import("./compose.js").compose}
  */
 export class Metric<E = never, R = never> extends Data.TaggedClass("Metric")<{
-  /** Descriptive metric name. Evaluation report keys come from the containing metrics record instead. */
+  /** Diagnostic name; evaluation report keys come from the containing metric record. */
   readonly name: string
-  /** Scoring function whose failure `E` and requirements `R` remain in callers' Effect types. */
+  /** Scorer whose expected failure and requirements remain in callers' Effect types. */
   readonly score: MetricFn<E, R>
 }> {}

@@ -1,5 +1,5 @@
 /**
- * Backend authority contracts for deterministic execution dispatch.
+ * Defines static backend capabilities and runtime-policy ordering for computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -11,7 +11,10 @@ import { BackendPolicyService, type BackendPolicyType } from "./RuntimePolicies.
 import { ScalarKind, type ScalarKindType } from "./ScalarAuthority.js"
 
 /**
- * Compute backend kinds participating in contract dispatch.
+ * Accepts scalar, typed-array, and accelerated backend labels.
+ *
+ * @remarks
+ * These labels describe plans and do not acquire an execution backend.
  *
  * @since 0.1.0
  * @category contracts
@@ -19,7 +22,7 @@ import { ScalarKind, type ScalarKindType } from "./ScalarAuthority.js"
 export const BackendKind = Schema.Literal("scalar", "typed-array", "accelerated")
 
 /**
- * A scalar-loop, typed-array, or accelerated execution lane.
+ * A decoded backend label used in dispatch metadata.
  *
  * @since 0.1.0
  * @category models
@@ -27,8 +30,7 @@ export const BackendKind = Schema.Literal("scalar", "typed-array", "accelerated"
 export type BackendKindType = typeof BackendKind.Type
 
 /**
- * Declares whether a backend is usable and which Float64 or BigDecimal lanes
- * it can execute.
+ * Describes a backend's availability and supported scalar lanes.
  *
  * @since 0.1.0
  * @category contracts
@@ -40,7 +42,7 @@ export const BackendCapability = Schema.Struct({
 })
 
 /**
- * A backend's availability and supported scalar-lane set.
+ * Decoded capability metadata for one backend.
  *
  * @since 0.1.0
  * @category models
@@ -80,12 +82,18 @@ const backendSupportsScalarKind = (kind: BackendKindType, scalarKind: ScalarKind
   })
 
 /**
- * Resolves backend kind from runtime policy authority and backend capabilities.
+ * Selects a statically available backend for a scalar lane.
  *
  * @remarks
- * **Details**
- * Runtime backend policy is authoritative for ordering. `preferredBackend`
- * is carried for diagnostics only and never bypasses runtime policy ordering.
+ * `"typed-array"` policy tries typed-array then scalar; `"scalar"` policy
+ * reverses that order. The typed-array backend accepts only Float64. The
+ * scalar backend accepts both scalar kinds. Accelerated execution is disabled
+ * and absent from both orders. `preferredBackend` affects only failure
+ * diagnostics.
+ *
+ * @param request - Operation identity, selected scalar lane, and optional diagnostic preference.
+ * @returns The first backend in runtime-policy order that accepts the scalar lane.
+ * @throws {@link BackendUnavailableError} in the Effect error channel when neither enabled backend accepts the scalar lane.
  *
  * @since 0.1.0
  * @category contracts

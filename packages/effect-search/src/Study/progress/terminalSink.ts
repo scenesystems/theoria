@@ -1,5 +1,5 @@
 /**
- * Terminal sink abstraction for writing progress lines to stdout with overwrite support.
+ * Adapts formatted progress lines to stdout and stderr writers.
  *
  * @since 0.1.0
  */
@@ -67,42 +67,56 @@ const writeProcessStdout = (line: string): Effect.Effect<void> => writeProcessLi
 const writeProcessStderr = (line: string): Effect.Effect<void> => writeProcessLine(processStderrWriter, line)
 
 /**
- * Effectful terminal adapter boundary used by the progress reporter.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { makeTerminalSink } from "@scenesystems/effect-search/Study"
- *
- * const sink = makeTerminalSink({
- *   supportsAnsi: Effect.succeed(false),
- *   writeStdout: (line) => Effect.log(`[study] ${line}`),
- *   writeStderr: (line) => Effect.logWarning(`[study] ${line}`)
- * })
- * ```
+ * Defines terminal capability detection and line writers for progress output.
  *
  * @since 0.1.0
  * @category models
  */
 export class TerminalSink extends Data.Class<{
+  /** Determines whether reporters should format text with ANSI color sequences. */
   readonly supportsAnsi: Effect.Effect<boolean, unknown>
+  /** Receives stdout text without a trailing newline. */
   readonly writeStdout: (line: string) => Effect.Effect<void>
+  /** Receives stderr text without a trailing newline. */
   readonly writeStderr: (line: string) => Effect.Effect<void>
 }> {}
 
 /**
- * Binds progress output to caller-owned writers; writer failures remain in each
- * writer's Effect rather than being captured by the sink.
+ * Creates a terminal sink from caller-owned writers and capability detection.
  *
  * @example
  * ```ts
- * import { Effect } from "effect"
- * import { makeTerminalSink } from "@scenesystems/effect-search/Study"
+ * import { Array, Effect, Option, Ref } from "effect"
+ * import { makeTerminalSink, reportTerminalProgress } from "@scenesystems/effect-search/Study"
+ * import { TrialFailed } from "@scenesystems/effect-search/StudyEvent"
+ * import { TrialError } from "@scenesystems/effect-search/Errors"
  *
- * const sink = makeTerminalSink({
- *   supportsAnsi: Effect.succeed(false),
- *   writeStdout: (line) => Effect.log(`[progress] ${line}`),
- *   writeStderr: (line) => Effect.logError(`[progress] ${line}`)
+ * export const program = Effect.gen(function*() {
+ *   const stderr = yield* Ref.make<ReadonlyArray<string>>([])
+ *   const sink = makeTerminalSink({
+ *     supportsAnsi: Effect.succeed(false),
+ *     writeStderr: (line) => Ref.update(stderr, Array.append(line))
+ *   })
+ *
+ *   yield* reportTerminalProgress(
+ *     TrialFailed({
+ *       trialNumber: 3,
+ *       error: new TrialError({ trialNumber: 3, message: "objective failed", cause: "timeout" })
+ *     }),
+ *     { sink }
+ *   )
+ *
+ *   const lines = yield* Ref.get(stderr)
+ *   return yield* Option.match(Array.head(lines), {
+ *     onNone: () => Effect.fail("MissingStderrLine"),
+ *     onSome: (line) =>
+ *       Effect.succeed(line).pipe(
+ *         Effect.filterOrFail(
+ *           (text) => text === "trial#3 failed error=effect-search/TrialError message=objective failed",
+ *           () => "UnexpectedStderrLine"
+ *         )
+ *       )
+ *   })
  * })
  * ```
  *
@@ -110,8 +124,11 @@ export class TerminalSink extends Data.Class<{
  * @category constructors
  */
 export const makeTerminalSink = (options?: {
+  /** Capability check; defaults to detecting a TTY on process stdout or stderr. */
   readonly supportsAnsi?: Effect.Effect<boolean, unknown>
+  /** Stdout writer; defaults to process stdout when available. */
   readonly writeStdout?: (line: string) => Effect.Effect<void>
+  /** Stderr writer; defaults to process stderr when available. */
   readonly writeStderr?: (line: string) => Effect.Effect<void>
 }): TerminalSink =>
   new TerminalSink({
@@ -121,21 +138,12 @@ export const makeTerminalSink = (options?: {
   })
 
 /**
- * Default process-backed terminal sink.
+ * Writes to process stdout and stderr when those streams are available.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { reportTerminalProgress, defaultTerminalSink } from "@scenesystems/effect-search/Study"
- * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
- *
- * Effect.gen(function*() {
- *   yield* reportTerminalProgress(
- *     TrialCompleted({ trialNumber: 1, value: 0.42 }),
- *     { sink: defaultTerminalSink }
- *   )
- * })
- * ```
+ * @remarks
+ * The writers are captured when this module loads. Each write appends a newline
+ * and ignores the process writer's backpressure result. Missing process streams
+ * discard their corresponding lines.
  *
  * @since 0.1.0
  * @category constructors
@@ -143,19 +151,7 @@ export const makeTerminalSink = (options?: {
 export const defaultTerminalSink: TerminalSink = makeTerminalSink()
 
 /**
- * Flush pre-formatted progress lines through a sink.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { formatTerminalProgressEvent, writeProgressLines, defaultTerminalSink } from "@scenesystems/effect-search/Study"
- * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
- *
- * const lines = formatTerminalProgressEvent(TrialCompleted({ trialNumber: 1, value: 0.5 }), { renderMode: "plain" })
- * Effect.gen(function*() {
- *   yield* writeProgressLines(defaultTerminalSink, lines)
- * })
- * ```
+ * Writes formatted lines sequentially in array order.
  *
  * @since 0.1.0
  * @category combinators

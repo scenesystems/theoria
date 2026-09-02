@@ -7,7 +7,7 @@
  * @internal
  * @since 0.2.0
  */
-import { Statistics } from "@scenesystems/effect-math"
+import { Numeric, Statistics } from "@scenesystems/effect-math"
 import { Chunk, Effect, HashMap, Number as Num, Option } from "effect"
 import * as MutableRef from "effect/MutableRef"
 
@@ -82,8 +82,6 @@ export const summarizeCaseLosses = (
   caseLosses: ReadonlyArray<number>
 ) => Effect.succeed(summarizeCaseLossesSync(caseLosses))
 
-const totalFromSummary = (summary: CalibrationLossSummaryType): number => Num.multiply(summary.mean, summary.count)
-
 const getCachedScore = (
   report: CalibrationReportType,
   objective: CalibrationObjectiveMetadataType
@@ -156,7 +154,7 @@ const computeCalibrationReportScore = (
   return {
     caseLosses,
     summary,
-    total: totalFromSummary(summary)
+    total: Numeric.sum(caseLosses)
   }
 }
 

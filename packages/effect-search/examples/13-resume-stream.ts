@@ -1,23 +1,16 @@
 /**
- * Resume Stream — observe lifecycle events while resuming from a snapshot.
- *
- * Real use case: show live progress in a dashboard after process restart.
- *
- * What this shows: resuming from a snapshot while still receiving streaming lifecycle events.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Resumes from a snapshot and consumes the resumed study's lifecycle events as
+ * a stream.
  *
  * Run: bun run examples/13-resume-stream.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Effect, Stream } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const objectiveValue = (x: number, depth: number): number => Math.abs(x - 0.35) + depth * 0.05
+const objectiveValue = (x: number, depth: number): number => Numeric.abs(x - 0.35) + depth * 0.05
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

@@ -1,6 +1,5 @@
 /**
- * Config decoding for Hugging Face routed-provider and dedicated-endpoint live
- * runtime helpers.
+ * Configuration precedence for Hugging Face marketplace and endpoint runtimes.
  *
  * @since 0.1.0
  */
@@ -19,40 +18,55 @@ const defaultRoutedBaseUrl = "https://router.huggingface.co/v1"
 const explicitProviderPrefix = "provider:"
 
 /**
- * Explicit routed-provider Hugging Face live runtime options.
+ * Complete settings for the Hugging Face provider router.
  *
  * @since 0.1.0
  * @category models
  */
 export type RoutedLiveRuntimeOptions = Readonly<{
+  /** Selects marketplace routing. */
   readonly serveMode: "routed-marketplace"
+  /** Model repository or provider model reference. */
   readonly model: string
+  /** Hugging Face access token retained as `Redacted`. */
   readonly accessToken: Redacted.Redacted
+  /** Router base URL; defaults to `https://router.huggingface.co/v1`. */
   readonly baseUrl?: string
+  /** Gateway identity retained in route provenance. */
   readonly gatewayId?: string
+  /** Broker strategy or required provider. */
   readonly selectionPolicy?: RouteSelectionPolicy
+  /** Capability constraints checked before model layers are returned. */
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
 }>
 
 /**
- * Explicit dedicated-endpoint Hugging Face live runtime options.
+ * Complete settings for one Hugging Face dedicated endpoint.
  *
  * @since 0.1.0
  * @category models
  */
 export type EndpointLiveRuntimeOptions = Readonly<{
+  /** Selects dedicated-endpoint routing. */
   readonly serveMode: "dedicated-endpoint"
+  /** Model identifier passed to endpoint adapters. */
   readonly model: string
+  /** Hugging Face access token retained as `Redacted`. */
   readonly accessToken: Redacted.Redacted
+  /** Required endpoint base URL. */
   readonly baseUrl: string
+  /** Provider endpoint identity retained in provenance. */
   readonly endpointId?: string
+  /** Selected deployment identity retained in provenance. */
   readonly deploymentId?: string
+  /** Serving-engine hint used by capability policy. */
   readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
+  /** Capability constraints checked before model layers are returned. */
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
 }>
 
 /**
- * Explicit Hugging Face live runtime options.
+ * Discriminated settings for marketplace routing or a dedicated endpoint.
  *
  * @since 0.1.0
  * @category models
@@ -60,27 +74,39 @@ export type EndpointLiveRuntimeOptions = Readonly<{
 export type LiveRuntimeOptions = RoutedLiveRuntimeOptions | EndpointLiveRuntimeOptions
 
 /**
- * Override surface for config-driven Hugging Face live runtime construction.
+ * Explicit overrides for config-driven Hugging Face resolution. Present values
+ * take precedence over the selected `ConfigProvider`.
  *
  * @since 0.1.0
  * @category models
  */
 export type LiveRuntimeConfigOptions = Readonly<{
+  /** Runtime lane; defaults to `routed-marketplace`. */
   readonly serveMode?: LiveRuntimeOptions["serveMode"]
+  /** Model identifier required after configuration merging. */
   readonly model?: string
+  /** Access token required after configuration merging. */
   readonly accessToken?: Redacted.Redacted
+  /** Router override or required dedicated-endpoint URL. */
   readonly baseUrl?: string
+  /** Dedicated endpoint identity. */
   readonly endpointId?: string
+  /** Dedicated deployment identity. */
   readonly deploymentId?: string
+  /** Marketplace gateway identity. */
   readonly gatewayId?: string
+  /** Marketplace broker-selection policy. */
   readonly selectionPolicy?: RouteSelectionPolicy
+  /** Dedicated endpoint serving-engine hint. */
   readonly runtimeFlavorHint?: ExecutionRoute["runtimeFlavorHint"]
+  /** Constraints checked against package capability policy. */
   readonly capabilities?: DesiredRuntimeDescriptor["capabilities"]
+  /** Configuration source used for values without explicit overrides. */
   readonly configProvider?: ConfigProvider.ConfigProvider
 }>
 
 /**
- * Fully resolved Hugging Face live runtime config.
+ * Complete marketplace or endpoint settings after configuration merging.
  *
  * @since 0.1.0
  * @category models
@@ -215,9 +241,9 @@ const endpointRouteForLiveRuntime = (options: EndpointLiveRuntimeOptions): Execu
   })
 
 /**
- * Builds the canonical desired-runtime descriptor from explicit Hugging Face
- * live runtime options.
- *
+ * Converts complete Hugging Face settings to caller intent with a guaranteed
+ * route. Marketplace URLs default to the Hugging Face router; endpoint URLs
+ * remain required.
  * @since 0.1.0
  * @category constructors
  */
@@ -358,14 +384,16 @@ const endpointConfig = (
   })
 
 /**
- * Resolves Hugging Face routed-provider or dedicated-endpoint runtime config
- * from environment-backed configuration plus explicit overrides.
+ * Resolves complete marketplace or endpoint settings without making a provider
+ * request. Explicit options take precedence over configuration values.
  *
  * @remarks
  * Supported env keys include `HUGGINGFACE_ACCESS_TOKEN`,
  * `HUGGINGFACE_SERVE_MODE`, `HUGGINGFACE_MODEL`, route-specific model/base-url
  * keys, `HUGGINGFACE_SELECTION_POLICY`, `HUGGINGFACE_ENDPOINT_ID`,
  * `HUGGINGFACE_DEPLOYMENT_ID`, and `HUGGINGFACE_RUNTIME_FLAVOR`.
+ * Missing tokens, models, or dedicated endpoint URLs fail as
+ * `InvalidRuntimeConfig`. `provider:<name>` selects one marketplace provider.
  *
  * @since 0.1.0
  * @category constructors

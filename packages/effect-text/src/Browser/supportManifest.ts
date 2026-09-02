@@ -1,5 +1,6 @@
 /**
- * Re-exports the canvas profile catalog used by browser caches and parity runs.
+ * Re-exports the canvas profile catalog used by browser caches and synthetic
+ * regression artifacts.
  *
  * @since 0.2.0
  */
@@ -16,7 +17,7 @@ import {
 } from "../contracts/browserSupport.js"
 
 /**
- * Shipped canvas profiles, font policies, and parity-case coverage.
+ * Shipped canvas profiles, font policies, and synthetic scenario coverage.
  *
  * @since 0.2.0
  * @category manifests
@@ -48,7 +49,7 @@ export const browserSupportProfile = browserSupportProfileInternal
 export const BrowserSupportProfileIdSchema = BrowserSupportProfileIdSchemaInternal
 
 /**
- * Decoder for one profile's font policy, engine settings, and parity envelope.
+ * Decoder for one profile's font policy, engine settings, and regression metadata.
  *
  * @since 0.2.0
  * @category schemas

@@ -1,6 +1,5 @@
 /**
- * BootstrapFewShot optimizer — collect high-scoring demonstrations by running
- * a teacher module and filtering traces above a score threshold.
+ * Collects demonstrations from scored module traces.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
  * @since 0.1.0
@@ -45,10 +44,18 @@ const bootstrapFailure = (options: {
   })
 
 /**
- * Controls teacher-trace collection. Examples are visited in train-set order
- * once per round; labeled outputs are used only by the optional fallback.
- * Counts are truncated to non-negative integers. Existing demonstrations are
- * retained up to `maxBootstrappedDemos` before collection starts.
+ * Configures trace collection and labeled fallback.
+ *
+ * @remarks
+ * Only examples with an `output` are retained. Each round visits that filtered
+ * sequence in order. Count options are rounded down; negative and non-finite
+ * values become zero. Existing demonstrations are truncated to the bootstrap
+ * cap before the first round.
+ *
+ * @typeParam I - Module input fields decoded from training examples.
+ * @typeParam O - Module output fields used to create accepted demonstrations.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
  *
  * @since 0.1.0
  * @category models
@@ -65,17 +72,17 @@ export type BootstrapFewShotOptions<
   readonly trainset: ReadonlyArray<Example>
   /** Scores each module output; values greater than or equal to `threshold` are accepted. */
   readonly metric: Metric<ME, MR>
-  /** Maximum passes over `trainset`; non-positive values perform no rounds. */
+  /** Maximum filtered-trainset passes. Zero skips trace collection. */
   readonly maxRounds: number
-  /** Maximum total demonstrations, including demonstrations already on the module. */
+  /** Trace-demo cap, including retained existing demos but excluding labeled fallback. */
   readonly maxBootstrappedDemos: number
-  /** Optional prefix limit applied to `trainset` before all processing. */
+  /** Positive prefix length after unlabeled examples are removed; other values leave the sequence unbounded. */
   readonly maxLabeledDemos?: number
   /** Minimum accepted score. Defaults to `1`. */
   readonly threshold?: number
   /** Whether zero accepted traces trigger labeled fallback. Defaults to `true`. */
   readonly fallbackToLabeledFewShot?: boolean
-  /** Number of labeled demonstrations requested by fallback. Defaults to `3`. */
+  /** Labeled fallback count, independent of `maxBootstrappedDemos`; defaults to `3`. */
   readonly fallbackLabeledDemoCount?: number
   /** Layer used only while running teacher traces; otherwise the ambient language model is used. */
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
@@ -83,7 +90,7 @@ export type BootstrapFewShotOptions<
 
 export type {
   /**
-   * Callback signature for observing BootstrapFewShot lifecycle events.
+   * Receives each bootstrap event before optimization advances.
    *
    * @since 0.1.0
    * @category type-level
@@ -92,7 +99,7 @@ export type {
 } from "./runtime/round.js"
 
 /**
- * No-op event sink that discards all bootstrap events.
+ * Discards bootstrap events without adding failures or requirements.
  *
  * @since 0.1.0
  * @category constants
@@ -104,15 +111,27 @@ const streamBootstrapFewShotEvents = <A, E, R>(
 ): Stream.Stream<BootstrapEventType, E, R> => streamFromEmitter(runWithEvents)
 
 /**
- * Optimizes a module with BootstrapFewShot while reporting progress to an event sink.
+ * Adds accepted trace demonstrations to a module while emitting lifecycle events.
  *
  * @remarks
- * The event sink is explicit and sequentially awaited. The optimizer mutates
- * `options.module.params` as rounds complete and returns that same module. If
- * no trace is accepted, labeled fallback runs by default; disabling it,
- * requesting zero fallback demos, or providing no labeled outputs fails with
- * `BootstrapFailed`. Module, metric, schema, and language-model failures remain
- * in the returned Effect error channel.
+ * Events are awaited in execution order. A round evaluates every retained
+ * example and accepts the root trace when its metric score is at least the
+ * threshold. Collection stops at the demonstration cap, the round cap, or the
+ * first round that adds no new demonstration. Accepted values replace the
+ * module's demonstrations after each completed round.
+ *
+ * If no demonstration remains, labeled fallback runs by default. Disabled or
+ * empty fallback fails with `BootstrapFailed`. Input decoding, module calls,
+ * metrics, and event-sink defects preserve their normal Effect behavior. The
+ * same module object is returned after mutation.
+ *
+ * @typeParam I - Module input fields decoded from training examples.
+ * @typeParam O - Module output fields captured from accepted traces.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
+ * @param options - Training data, metric, module, caps, threshold, and optional teacher.
+ * @param emit - Infallible sink awaited once per emitted lifecycle event.
+ * @returns The supplied module after bootstrap or labeled fallback updates.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0
@@ -256,9 +275,17 @@ export const bootstrapFewShotWithEvents = <
   })
 
 /**
- * Run BootstrapFewShot without observing events. See
- * {@link bootstrapFewShotWithEvents} for mutation, fallback, and failure
- * semantics.
+ * Adds trace demonstrations without retaining lifecycle events.
+ *
+ * @remarks
+ * Mutation, fallback, and failures match {@link bootstrapFewShotWithEvents}.
+ *
+ * @param options - Bootstrap configuration passed to the event-aware operation.
+ * @returns The supplied module after successful optimization.
+ * @typeParam I - Module input fields decoded from training examples.
+ * @typeParam O - Module output fields captured from accepted traces.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
  *
  * @since 0.1.0
  * @category constructors
@@ -271,9 +298,19 @@ export const bootstrapFewShot = <
 >(options: BootstrapFewShotOptions<I, O, ME, MR>) => bootstrapFewShotWithEvents(options, noBootstrapEvents)
 
 /**
- * Lazily run BootstrapFewShot and emit lifecycle events in execution order.
- * Consuming the stream drives optimization; stream failure is the optimizer's
- * typed failure channel and the optimized module is not a stream element.
+ * Emits bootstrap events as stream consumption drives optimization.
+ *
+ * @remarks
+ * Events retain execution order. The final module is available through the
+ * mutated `options.module`, not as a stream element. Bootstrap failures fail the
+ * stream.
+ *
+ * @param options - Bootstrap configuration evaluated when the stream runs.
+ * @returns A lazy stream of lifecycle events.
+ * @typeParam I - Module input fields decoded from training examples.
+ * @typeParam O - Module output fields captured from accepted traces.
+ * @typeParam ME - Expected failure type of the metric.
+ * @typeParam MR - Services required by the metric.
  *
  * @since 0.1.0
  * @category constructors

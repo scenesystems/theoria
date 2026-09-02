@@ -1,5 +1,5 @@
 /**
- * Snapshot capture for ask/tell study handles.
+ * Snapshot capture for completed results and active manual studies.
  *
  * @since 0.1.0
  */
@@ -28,10 +28,9 @@ const snapshotFromHandle = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Encodes runtime state and sampler checkpoint at one replay boundary.
+ * Captures a versioned snapshot from an immutable study result.
  *
- * @remarks
- * Accepts either a completed `StudyResult` or an active ask/tell `StudyHandle`.
+ * @typeParam Config - Decoded configuration stored in the result's trial history.
  *
  * @since 0.1.0
  * @category combinators
@@ -39,7 +38,11 @@ const snapshotFromHandle = <Space extends SearchSpace.SearchSpace>(
 export function snapshot<Config>(value: StudyResult<Config>): Effect.Effect<StudySnapshot>
 /**
  * Captures the sampler checkpoint followed by current trial state. The handle
- * remains open and continues to own subsequent mutations.
+ * remains open and continues to own subsequent mutations. These reads are not
+ * atomic with concurrent `ask`, `tell`, or `fail` calls; serialize snapshot
+ * capture with those operations when the snapshot will be resumed.
+ *
+ * @typeParam Space - Search space retained by the handle whose state is captured.
  *
  * @since 0.1.0
  * @category combinators

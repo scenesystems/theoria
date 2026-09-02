@@ -60,7 +60,7 @@ export const equalBytes = (a: Uint8Array, b: Uint8Array): boolean => _equalBytes
  * `crypto.getRandomValues`; this operation does not use Effect's seedable `Random` service.
  *
  * @param length - Number of bytes to generate; defaults to 32.
- * @returns An Effect that synchronously produces newly allocated random bytes.
+ * @returns Newly allocated random bytes produced when the effect executes.
  *
  * @since 0.1.0
  * @category keys

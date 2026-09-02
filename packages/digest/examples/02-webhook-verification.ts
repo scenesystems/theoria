@@ -1,10 +1,7 @@
 /**
- * Webhook Verification — HMAC signatures with @scenesystems/digest.
- *
- * What this shows: a realistic webhook verification flow. Compute HMAC-SHA256
- * (Stripe-style) and HMAC-SHA1 (Shopify-style) signatures over a payload, then
- * confirm that recomputing over the same bytes produces an identical signature
- * while tampered payloads produce a different one.
+ * Computes HMAC-SHA256 and HMAC-SHA1 authentication codes for a webhook body,
+ * then compares the original and tampered payloads with constant-time byte
+ * equality.
  *
  * Run: bun run examples/02-webhook-verification.ts
  */

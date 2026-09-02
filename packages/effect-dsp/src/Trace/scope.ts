@@ -1,5 +1,5 @@
 /**
- * Trace + usage scoping combinators.
+ * Fiber-local collection scopes for invocation records and model usage.
  *
  * @since 0.1.0
  */
@@ -63,7 +63,14 @@ const freshUsageScope = <A, E, R>(program: Effect.Effect<A, E, R>): Effect.Effec
  * scope shares its parent's collection but returns only entries appended
  * during the nested program; those entries remain visible to the parent.
  * Concurrent top-level scopes keep separate collections. If the program
- * fails, its failure and requirements are preserved and no tuple is returned.
+ * fails or is interrupted, its cause and requirements are preserved and no
+ * tuple is returned.
+ *
+ * @param program - Effect executed with trace collection enabled.
+ * @returns The program result paired with entries added by this scope.
+ * @typeParam A - Success value returned by the traced program.
+ * @typeParam E - Expected failure preserved from the traced program.
+ * @typeParam R - Services required by the traced program.
  *
  * @since 0.1.0
  * @category combinators
@@ -86,7 +93,14 @@ export const withTracing = <A, E, R>(
  * @remarks
  * A top-level scope starts from zero. A nested scope returns the difference
  * between usage before and after its program, while the parent retains the
- * same additions. Program failures and requirements are preserved.
+ * same additions. Program failure, interruption, and service requirements are
+ * preserved, and unsuccessful programs return no usage tuple.
+ *
+ * @param program - Effect executed with usage accumulation enabled.
+ * @returns The program result paired with usage added by this scope.
+ * @typeParam A - Success value returned by the tracked program.
+ * @typeParam E - Expected failure preserved from the tracked program.
+ * @typeParam R - Services required by the tracked program.
  *
  * @since 0.1.0
  * @category combinators

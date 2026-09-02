@@ -1,11 +1,10 @@
 /**
- * Composes numerical domains with shared validation and runtime-policy
- * contracts for Effect programs.
+ * Exposes Theoria's mathematical domains and their shared Effect contracts.
  *
  * @remarks
- * Domain namespaces separate pure kernels, Schema-validated boundaries, and
- * policy-aware operations. Cross-domain contracts are also available from the
- * `contracts` subpath.
+ * Domain namespaces contain the numerical APIs. Shared Schemas, policy
+ * services, Layers, and computation-planning metadata are also importable from
+ * `@scenesystems/effect-math/contracts`.
  *
  * @since 0.1.0
  * @module
@@ -100,7 +99,7 @@ export * as Complex from "./Complex/index.js"
 export * as Distribution from "./Distribution/index.js"
 
 /**
- * Cross-domain schemas, errors, policy services, and provider Layers.
+ * Shared validation, policy, and computation-planning contracts.
  *
  * The same exports are available from `@scenesystems/effect-math/contracts`.
  *

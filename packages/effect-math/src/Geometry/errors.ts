@@ -1,9 +1,5 @@
 /**
- * Typed error taxonomy for the Geometry domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode/encode) and operation failures (shape, degenerate,
- * domain violation).
+ * Defines typed failures for Geometry boundary and calculation operations.
  *
  * @since 0.1.0
  * @category errors
@@ -21,6 +17,7 @@ import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shar
  */
 export class GeometryDomainBoundaryError
   extends Schema.TaggedError<GeometryDomainBoundaryError>()("GeometryDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
@@ -37,12 +34,14 @@ export class GeometryDomainBoundaryError
  * @category errors
  */
 export class GeometryDecodeError extends Schema.TaggedError<GeometryDecodeError>()("GeometryDecodeError", {
+  /** Public geometry operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
 /**
- * Raised when operand dimensions are incompatible — for example, a distance
+ * Reports incompatible operand dimensions, such as a distance
  * computation between points of different dimensionality, or a midpoint of
  * vectors with mismatched lengths. The `expected` and `actual` fields carry
  * human-readable dimension strings for diagnostic messages.
@@ -52,39 +51,46 @@ export class GeometryDecodeError extends Schema.TaggedError<GeometryDecodeError>
  */
 export class GeometryShapeMismatchError
   extends Schema.TaggedError<GeometryShapeMismatchError>()("GeometryShapeMismatchError", {
+    /** Geometry operation that compared incompatible dimensions. */
     operation: Schema.String,
+    /** Required operand shape or dimensionality. */
     expected: Schema.String,
+    /** Shape or dimensionality found in the rejected operand. */
     actual: Schema.String,
+    /** Diagnostic combining the operation and shape details. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when an input describes a degenerate geometric configuration —
- * for example, a centroid of an empty point set, or collinear points
- * where a triangle is expected. Use this to distinguish geometric
- * invalidity from numeric overflow.
+ * Describes a degenerate geometric configuration.
+ *
+ * @remarks
+ * Current public operations reject empty centroid input during decoding and
+ * do not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class GeometryDegenerateError extends Schema.TaggedError<GeometryDegenerateError>()("GeometryDegenerateError", {
+  /** Geometry operation that encountered a degenerate configuration. */
   operation: Schema.String,
+  /** Diagnostic identifying the failed geometric invariant. */
   message: Schema.String
 }) {}
 
 /**
- * Raised under the `"strict"` precision policy when an operation produces a
- * non-finite result (NaN or ±Infinity). Under `"relaxed"` precision this
- * error is never emitted. Use it to enforce IEEE 754 finite-value guarantees
- * in safety-critical pipelines.
+ * Reports a non-finite result rejected by strict precision. Relaxed precision
+ * passes the result through.
  *
  * @since 0.1.0
  * @category errors
  */
 export class GeometryDomainViolationError
   extends Schema.TaggedError<GeometryDomainViolationError>()("GeometryDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}

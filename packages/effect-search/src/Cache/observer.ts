@@ -1,13 +1,13 @@
 /**
- * Cache observability — optional event recording for cache operations.
+ * Optional cache events emitted by study-level integrations.
  *
  * @since 0.1.0
  */
 import { Data, Effect, Schema } from "effect"
 
 /**
- * Event vocabulary integrations may publish without making observation a
- * requirement of the underlying cache service.
+ * Decodes a hit, miss, or invalidation with its fingerprint and integration-defined scope.
+ * The schema does not validate that the fingerprint came from either public fingerprint API.
  *
  * @since 0.1.0
  * @category schemas
@@ -28,7 +28,7 @@ export const CacheObservabilityEventSchema = Schema.Union(
 )
 
 /**
- * An observability event emitted for a cache hit, miss, or invalidation.
+ * Cache outcome associated with an integration-defined scope and fingerprint.
  *
  * @since 0.1.0
  * @category models
@@ -38,7 +38,7 @@ export type CacheObservabilityEvent = Schema.Schema.Type<typeof CacheObservabili
 const CacheObservabilityEvents = Data.taggedEnum<CacheObservabilityEvent>()
 
 /**
- * Records that an integration reused a value without recomputing it.
+ * Constructs an event for a value reused without computation.
  *
  * @since 0.1.0
  * @category constructors
@@ -46,7 +46,7 @@ const CacheObservabilityEvents = Data.taggedEnum<CacheObservabilityEvent>()
 export const CacheHit = CacheObservabilityEvents.Hit
 
 /**
- * Records that an integration had to compute a value.
+ * Constructs an event for a value computed after lookup missed.
  *
  * @since 0.1.0
  * @category constructors
@@ -54,7 +54,7 @@ export const CacheHit = CacheObservabilityEvents.Hit
 export const CacheMiss = CacheObservabilityEvents.Miss
 
 /**
- * Records that an integration discarded the entry identified by the fingerprint.
+ * Constructs an event for an invalidation requested by an integration.
  *
  * @since 0.1.0
  * @category constructors
@@ -62,11 +62,12 @@ export const CacheMiss = CacheObservabilityEvents.Miss
 export const CacheInvalidation = CacheObservabilityEvents.Invalidation
 
 /**
- * Observer service consumed by study objective-cache integrations.
+ * Records cache events selected by study-level integrations.
  *
  * @remarks
- * `SchemaCache` itself does not emit these events. Integrations record them
- * with the descriptor scope and the fingerprint used for that integration.
+ * `SchemaCache` does not require this service or emit events. The study objective-cache
+ * adapter supplies its own scope and fingerprint when an observer is available. The
+ * observer API has no typed failure channel but implementations may interrupt or defect.
  *
  * @since 0.1.0
  * @category services
@@ -74,6 +75,7 @@ export const CacheInvalidation = CacheObservabilityEvents.Invalidation
 export class CacheObserver extends Effect.Tag("effect-search/CacheObserver")<
   CacheObserver,
   {
+    /** Records one study-selected cache outcome after the associated operation. */
     readonly record: (event: CacheObservabilityEvent) => Effect.Effect<void>
   }
 >() {}

@@ -1,10 +1,10 @@
 /**
- * Numeric domain operations.
+ * Applies scalar transforms, reductions, validation, and runtime numeric policies.
  *
  * @since 0.1.0
  * @category operations
  */
-import { Chunk, Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
+import { BigDecimal, Chunk, Clock, Effect, Match, Number as EffectNumber, Option, Schema } from "effect"
 
 import { withScalarPolicyGuards } from "../contracts/shared/PolicyGuards.js"
 import {
@@ -28,29 +28,48 @@ import * as Scalar from "./internal/scalar.js"
 import * as Selection from "./internal/selection.js"
 import * as Transcendental from "./internal/transcendental.js"
 import { NumericDomainModel } from "./model.js"
-import { ArgmaxInput, DivideInput, LogaddexpInput, LogInput, LogSumExpInput, ReductionInput } from "./schema.js"
+import {
+  ArgmaxInput,
+  DivideInput,
+  FiniteScalar,
+  LogaddexpInput,
+  LogInput,
+  LogSumExpInput,
+  ReductionInput
+} from "./schema.js"
 
 /**
- * Division with zero-divisor guard — returns `None` instead of producing
- * `Infinity` or `NaN`. Delegates to Effect's `Number.divide` which handles
- * negative zero correctly. Supports both data-first and data-last (curried)
- * calling conventions.
+ * Divides two numbers, returning `None` when the divisor is positive or
+ * negative zero. Both data-first and data-last calls are supported.
  *
  * @example
  * ```ts
  * import { Numeric } from "@scenesystems/effect-math"
- * import { Option, pipe } from "effect"
+ * import { Effect, Option, pipe } from "effect"
  *
- * const quotient = Numeric.safeDivide(10, 2)
- * const zeroFallback = pipe(
- *   Numeric.safeDivide(10, 0),
- *   Option.getOrElse(() => 0)
- * )
- * const curried = pipe(10, Numeric.safeDivide(5))
+ * export const program = Effect.gen(function*() {
+ *   const quotient = yield* Option.match(Numeric.safeDivide(10, 2), {
+ *     onNone: () => Effect.fail("UnexpectedZeroDivisor"),
+ *     onSome: Effect.succeed
+ *   })
+ *   const zeroFallback = pipe(
+ *     Numeric.safeDivide(10, 0),
+ *     Option.getOrElse(() => 0)
+ *   )
+ *   const curried = yield* Option.match(pipe(10, Numeric.safeDivide(5)), {
+ *     onNone: () => Effect.fail("UnexpectedZeroDivisor"),
+ *     onSome: Effect.succeed
+ *   })
+ *
+ *   return yield* Effect.succeed({ quotient, zeroFallback, curried }).pipe(
+ *     Effect.filterOrFail(
+ *       (result) => result.quotient === 5 && result.zeroFallback === 0 && result.curried === 2,
+ *       () => "UnexpectedDivisionResult"
+ *     )
+ *   )
+ * })
  * ```
  *
- * @see {@link unsafeDivide} — throws on zero divisor instead of returning `None`
- * @see {@link safeDivideFinite} — additionally guards against non-finite inputs
  * @since 0.1.0
  * @category operations
  */
@@ -60,13 +79,8 @@ export const safeDivide: {
 } = EffectNumber.divide
 
 /**
- * Division that produces `Infinity` or `NaN` on zero divisor instead of
- * returning `Option`. Prefer {@link safeDivide} unless you have already
- * validated the divisor is non-zero and need the raw `number` result without
- * unwrapping.
- *
- * @see {@link safeDivide} — returns `None` on zero divisor
- * @see {@link safeDivideFinite} — rejects non-finite inputs and results
+ * Divides with JavaScript's IEEE 754 behavior, including infinite and `NaN`
+ * results. Use {@link safeDivide} when zero is an expected divisor.
  * @since 0.1.0
  * @category operations
  */
@@ -76,122 +90,213 @@ export const unsafeDivide: {
 } = EffectNumber.unsafeDivide
 
 /**
- * Strictest division guard — returns `None` when *either* input is
- * non-finite (`±Infinity`, `NaN`) or when the result itself would be
- * non-finite. Use at numeric boundaries where you must guarantee the
- * output is a usable IEEE 754 finite value.
- *
- * @see {@link safeDivide} — guards only against zero divisor
- * @see {@link unsafeDivide} — no guards, raw `number` result
+ * Divides finite operands and returns `None` for a zero divisor or non-finite
+ * result. A present result is always finite.
  * @since 0.1.0
  * @category operations
  */
 export const safeDivideFinite: (dividend: number, divisor: number) => Option.Option<number> = Scalar.safeDivideFinite
 
 /**
- * Natural logarithm delegating directly to `Math.log`. Returns `NaN` for
- * negative input and `-Infinity` for zero — callers that need domain
- * enforcement should use {@link logValidated} which rejects non-positive
- * values at the Schema boundary.
- *
- * @see {@link logValidated} — boundary-validated variant that decodes `unknown`
- * @see {@link log1p} — numerically stable variant for values near zero
+ * Accepts finite numbers and rejects positive infinity, negative infinity, and
+ * `NaN`.
+ * @since 0.4.0
+ * @category guards
+ */
+export const isFinite: (value: number) => boolean = Schema.is(FiniteScalar)
+
+/**
+ * Chooses the smaller ordered number in either direct or data-last form.
+ * @since 0.4.0
+ * @category operations
+ */
+export const min: {
+  (that: number): (self: number) => number
+  (self: number, that: number): number
+} = EffectNumber.min
+
+/**
+ * Chooses the larger ordered number and supports data-first or pipeable calls.
+ * @since 0.4.0
+ * @category operations
+ */
+export const max: {
+  (that: number): (self: number) => number
+  (self: number, that: number): number
+} = EffectNumber.max
+
+/**
+ * Returns the non-negative magnitude of a number. Negative zero becomes
+ * positive zero; infinities pass through and `NaN` remains `NaN`.
+ * @since 0.4.0
+ * @category operations
+ */
+export const abs: (value: number) => number = Math.abs
+
+/**
+ * Returns the principal square root. Negative input produces `NaN`, positive
+ * infinity passes through, and negative zero is preserved.
+ * @since 0.4.0
+ * @category operations
+ */
+export const sqrt: (value: number) => number = Math.sqrt
+
+/**
+ * Ratio of a circle's circumference to its diameter, using the host IEEE 754
+ * double-precision constant.
+ * @since 0.4.0
+ * @category constants
+ */
+export const pi: number = Math.PI
+
+/**
+ * Computes sine for a radian angle, preserving signed zero; non-finite input produces `NaN`.
+ * @since 0.4.0
+ * @category operations
+ */
+export const sin: (radians: number) => number = Math.sin
+
+/**
+ * Computes cosine for a radian angle; zero maps to `1` and non-finite input produces `NaN`.
+ * @since 0.4.0
+ * @category operations
+ */
+export const cos: (radians: number) => number = Math.cos
+
+/**
+ * Returns the base-10 logarithm. Zero produces negative infinity, negative
+ * input produces `NaN`, and positive infinity passes through.
+ * @since 0.4.0
+ * @category operations
+ */
+export const log10: (value: number) => number = Math.log10
+
+/**
+ * Raises `base` to `exponent` with the host IEEE 754 power operation.
+ * @since 0.4.0
+ * @category operations
+ */
+export const pow: (base: number, exponent: number) => number = Math.pow
+
+/**
+ * Rounds a number to the requested decimal precision. Both data-first and
+ * data-last calls are supported.
+ * @since 0.4.0
+ * @category operations
+ */
+export const round: {
+  (precision: number): (self: number) => number
+  (self: number, precision: number): number
+} = EffectNumber.round
+
+const mapFiniteToInteger = (
+  value: number,
+  operation: (decimal: BigDecimal.BigDecimal) => BigDecimal.BigDecimal
+): number =>
+  Option.match(BigDecimal.safeFromNumber(value), {
+    onNone: () => value,
+    onSome: (decimal) => BigDecimal.unsafeToNumber(operation(decimal))
+  })
+
+/**
+ * Rounds finite values toward negative infinity. Infinities and `NaN` pass
+ * through unchanged.
+ * @since 0.4.0
+ * @category operations
+ */
+export const floor = (value: number): number => mapFiniteToInteger(value, BigDecimal.floor)
+
+/**
+ * Rounds finite values toward positive infinity. Infinities and `NaN` pass
+ * through unchanged.
+ * @since 0.4.0
+ * @category operations
+ */
+export const ceil = (value: number): number => mapFiniteToInteger(value, BigDecimal.ceil)
+
+/**
+ * Removes the fractional part of a finite value by rounding toward zero.
+ * Infinities and `NaN` pass through unchanged.
+ * @since 0.4.0
+ * @category operations
+ */
+export const truncate = (value: number): number => mapFiniteToInteger(value, BigDecimal.truncate)
+
+/**
+ * Computes the natural logarithm with `Math.log`, including `NaN` for negative
+ * input and `-Infinity` for zero. {@link logValidated} rejects those inputs.
  * @since 0.1.0
  * @category operations
  */
 export const log: (value: number) => number = Math.log
 
 /**
- * Strict natural logarithm using DataView bit-decomposition + Taylor
+ * Computes the natural logarithm using DataView bit decomposition and a Taylor
  * series. Produces deterministic results independent of platform
  * `Math.log` implementation.
- *
- * @see {@link log} — relaxed variant delegating to `Math.log`
  * @since 0.1.0
  * @category operations
  */
 export const logStrict: (value: number) => number = Transcendental.logStrict
 
 /**
- * Numerically stable `ln(1 + x)` using the relaxed kernel. Avoids
+ * Computes `ln(1 + x)` using the native kernel. It avoids
  * catastrophic cancellation for `|x| << 1` where `Math.log(1 + x)`
- * would lose significant digits. For policy-controlled precision
- * selection between the Taylor-compensated and native kernels, use
- * {@link log1pWithPolicies}.
- *
- * @see {@link log1pWithPolicies} — policy-aware variant reading `PrecisionPolicyService`
- * @see {@link log} — raw `Math.log` without stability guarantees
+ * loses significant digits.
  * @since 0.1.0
  * @category operations
  */
 export const log1p: (value: number) => number = Transcendental.log1pRelaxed
 
 /**
- * Strict `ln(1 + x)` using Taylor series for `|x| < 1e-4` and
- * DataView bit-decomposition log for larger values. Produces
+ * Computes `ln(1 + x)` using a Taylor series for `|x| < 1e-4` and
+ * DataView bit decomposition for larger values. Produces
  * deterministic results independent of platform `Math.log1p`.
- *
- * @see {@link log1p} — relaxed variant delegating to `Math.log1p`
  * @since 0.1.0
  * @category operations
  */
 export const log1pStrict: (value: number) => number = Transcendental.log1pStrict
 
 /**
- * Numerically stable `exp(x) - 1` using the relaxed kernel. Avoids
+ * Computes `exp(x) - 1` using the native kernel. It avoids
  * catastrophic cancellation for `|x| << 1` where `Math.exp(x) - 1`
- * would lose significant digits. For policy-controlled precision
- * selection, use {@link expm1WithPolicies}.
- *
- * @see {@link expm1WithPolicies} — policy-aware variant reading `PrecisionPolicyService`
- * @see {@link log1p} — the inverse operation with matching stability guarantees
+ * loses significant digits.
  * @since 0.1.0
  * @category operations
  */
 export const expm1: (value: number) => number = Transcendental.expm1Relaxed
 
 /**
- * Strict `exp(x) - 1` using Taylor series for `|x| < 1e-5` and
- * pure `E**x - 1` for larger values. Produces deterministic results
+ * Computes `exp(x) - 1` using a Taylor series for `|x| < 1e-5` and
+ * `E ** x - 1` for larger values. Produces deterministic results
  * independent of platform `Math.expm1`.
- *
- * @see {@link expm1} — relaxed variant delegating to `Math.expm1`
  * @since 0.1.0
  * @category operations
  */
 export const expm1Strict: (value: number) => number = Transcendental.expm1Strict
 
 /**
- * Naive pairwise sum via Effect's `Number.sumAll`. Sufficient for small
- * arrays or when precision is not critical. For large arrays or strict
- * floating-point accuracy, use {@link sumWithPolicies} with the
- * `"typed-array"` backend which applies Kahan-compensated accumulation.
- *
- * @see {@link sumWithPolicies} — policy-aware variant with backend/precision selection
- * @see {@link sumValidated} — boundary-validated variant that decodes `unknown`
+ * Adds values in iteration order without compensated accumulation.
+ * {@link sumWithPolicies} selects compensated accumulation when its backend
+ * policy is `"typed-array"`.
  * @since 0.1.0
  * @category operations
  */
 export const sum: (values: Iterable<number>) => number = EffectNumber.sumAll
 
 /**
- * Returns the zero-based index of the maximum element, or `None` for
+ * Finds the zero-based index of the maximum element, or `None` for
  * empty arrays. When multiple elements share the maximum value, returns
  * the index of the first occurrence.
- *
- * @see {@link argmaxValidated} — boundary-validated variant that decodes `unknown`
  * @since 0.1.0
  * @category operations
  */
 export const argmaxIndex: (values: ReadonlyArray<number>) => Option.Option<number> = Selection.argmaxIndex
 
 /**
- * Constrains a value to `[minimum, maximum]` — values below the minimum
- * snap to the minimum, values above snap to the maximum. Delegates to
- * Effect's `Number.clamp` which is a dual API supporting both data-first
- * and curried styles.
- *
- * @see {@link between} — tests membership in a range without clamping
+ * Constrains a value to the closed interval `[minimum, maximum]`. Values
+ * outside the interval become the nearest endpoint. Both data-first and
+ * data-last calls are supported.
  * @since 0.1.0
  * @category operations
  */
@@ -201,11 +306,8 @@ export const clamp: {
 } = EffectNumber.clamp
 
 /**
- * Closed-interval membership test — returns `true` when `value` is in
- * `[minimum, maximum]` (inclusive on both ends). Dual API supporting
- * both data-first and curried styles.
- *
- * @see {@link clamp} — constrains a value into the range instead of testing
+ * Tests whether a value belongs to the closed interval
+ * `[minimum, maximum]`. Both data-first and data-last calls are supported.
  * @since 0.1.0
  * @category operations
  */
@@ -215,24 +317,15 @@ export const between: {
 } = EffectNumber.between
 
 /**
- * Loads the static numeric domain model as a pure `Effect.succeed`.
- * Used by domain-boundary validation to confirm the Numeric domain
- * is registered and stable before executing operations.
- *
- * @see {@link validateNumericBoundary} — full boundary validation using this model
+ * Yields the immutable descriptor used to register Numeric capabilities.
  * @since 0.1.0
  * @category operations
  */
 export const loadNumericDomain = Effect.succeed(NumericDomainModel)
 
 /**
- * Boundary-validated safe division. Accepts `unknown` input, decodes it
- * through the `DivideInput` schema (requiring finite `dividend` and
- * `divisor`), and returns `Option<number>`. Rejects excess properties
- * and surfaces decode failures as `NumericDecodeError`.
- *
- * @see {@link safeDivide} — pure variant for pre-validated `number` inputs
- * @see {@link unsafeDivideValidated} — boundary-validated variant that fails on zero divisor
+ * Decodes finite operands and divides them, returning `None` for a zero
+ * divisor. Malformed or excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -252,13 +345,9 @@ export const safeDivideValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated division that fails with `NumericDomainViolationError`
- * on zero divisor. Accepts `unknown` input and decodes through `DivideInput`
- * schema. Unlike {@link safeDivideValidated}, this variant surfaces zero
- * division as a typed error in the `E` channel rather than `None`.
- *
- * @see {@link unsafeDivide} — pure variant for pre-validated `number` inputs
- * @see {@link safeDivideValidated} — returns `None` on zero divisor instead of failing
+ * Decodes finite operands and divides them. Malformed or excess input fails
+ * with `NumericDecodeError`; a zero divisor fails with
+ * `NumericDomainViolationError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -286,14 +375,9 @@ export const unsafeDivideValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated natural logarithm. Accepts `unknown` input and
- * decodes through `LogInput` schema, which requires a strictly positive
- * finite value. This guarantees `Math.log` never receives a non-positive
- * argument — surfacing violations as `NumericDecodeError` rather than
- * producing `NaN` or `-Infinity`.
- *
- * @see {@link log} — pure variant for pre-validated `number` inputs
- * @see {@link log1p} — numerically stable variant for values near zero
+ * Decodes a positive finite value and computes its natural logarithm.
+ * Malformed, non-positive, non-finite, or excess input fails with
+ * `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -313,23 +397,8 @@ export const logValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated sum. Accepts `unknown` input and decodes through
- * `ReductionInput` schema, which requires a non-empty array of finite
- * numbers. Use at API or service boundaries where the caller shape is
- * untrusted. For pre-validated arrays, use {@link sum} directly.
- *
- * @example
- * ```ts
- * import { Numeric } from "@scenesystems/effect-math"
- * import { Effect } from "effect"
- *
- * // Decodes unknown input, validates non-empty finite vector, then sums
- * const program = Numeric.sumValidated({ values: [1.5, 2.5, 3.0] })
- * const result = Effect.runSync(program) // 7.0
- * ```
- *
- * @see {@link sum} — pure variant for pre-validated `Iterable<number>`
- * @see {@link sumWithPolicies} — policy-aware variant with backend selection
+ * Decodes a non-empty array of finite values and adds them in array order.
+ * Malformed or excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -349,11 +418,8 @@ export const sumValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated argmax. Accepts `unknown` input and decodes through
- * `ArgmaxInput` schema, which requires a non-empty array of finite
- * numbers. Returns the zero-based index of the maximum element.
- *
- * @see {@link argmaxIndex} — pure variant for pre-validated `ReadonlyArray<number>`
+ * Decodes a non-empty array of finite values and finds the first index of its
+ * maximum. Malformed or excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -373,15 +439,13 @@ export const argmaxValidated = (input: unknown) =>
   })
 
 /**
- * Policy-aware sum reading three services from context:
+ * Adds an array using the configured backend and finite-result policy.
  *
  * @remarks
- * - **`BackendPolicyService`** — `"typed-array"` uses Kahan-compensated
- *   `Float64Array` accumulation; `"scalar"` delegates to `Number.sumAll`.
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `NumericDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with backend, precision, input size, and elapsed-ms annotations.
+ * The `"typed-array"` backend uses Kahan-compensated `Float64Array`
+ * accumulation. The `"scalar"` backend adds in array order. Strict precision
+ * rejects a non-finite result with `NumericDomainViolationError`. Enabled
+ * diagnostics logs the selected policies, input size, and elapsed milliseconds.
  *
  * @example
  * ```ts
@@ -399,13 +463,15 @@ export const argmaxValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Numeric.sumWithPolicies([1e15, 1, -1e15]).pipe(
- *   Effect.provide(layer)
+ * export const program = Numeric.sumWithPolicies([1e15, 1, -1e15]).pipe(
+ *   Effect.provide(layer),
+ *   Effect.filterOrFail(
+ *     (sum) => sum === 1,
+ *     () => "UnexpectedCompensatedSum"
+ *   )
  * )
  * ```
  *
- * @see {@link sum} — pure variant without policy seams
- * @see {@link sumValidated} — boundary-validated variant that decodes `unknown`
  * @since 0.1.0
  * @category operations
  */
@@ -467,11 +533,9 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  * relaxed mode, preserving accuracy near zero when requested.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` selects the Taylor-compensated
- *   kernel with higher accuracy near zero; `"relaxed"` delegates to native
- *   `Math.log1p`.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with precision, input, and result annotations.
+ * Strict precision selects the Taylor-compensated kernel; relaxed precision
+ * delegates to `Math.log1p`. Enabled diagnostics logs the precision, input,
+ * and result.
  *
  * @example
  * ```ts
@@ -487,13 +551,15 @@ export const sumWithPolicies = (values: ReadonlyArray<number>) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Numeric.log1pWithPolicies(1e-15).pipe(
- *   Effect.provide(layer)
+ * export const program = Numeric.log1pWithPolicies(1e-15).pipe(
+ *   Effect.provide(layer),
+ *   Effect.filterOrFail(
+ *     (result) => result > 0 && result < 1e-14,
+ *     () => "UnexpectedLog1pResult"
+ *   )
  * )
  * ```
  *
- * @see {@link log1p} — pure relaxed variant without policy seams
- * @see {@link log} — raw `Math.log` for general use
  * @since 0.1.0
  * @category operations
  */
@@ -529,14 +595,9 @@ export const log1pWithPolicies = (value: number) =>
  * relaxed mode, preserving small increments near zero when requested.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` selects the Taylor-compensated
- *   kernel with higher accuracy near zero; `"relaxed"` delegates to native
- *   `Math.expm1`.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with precision, input, and result annotations.
- *
- * @see {@link expm1} — pure relaxed variant without policy seams
- * @see {@link log1pWithPolicies} — the inverse operation with matching policy seams
+ * Strict precision selects the Taylor-compensated kernel; relaxed precision
+ * delegates to `Math.expm1`. Enabled diagnostics logs the precision, input,
+ * and result.
  * @since 0.1.0
  * @category operations
  */
@@ -579,7 +640,6 @@ export const expm1WithPolicies = (value: number) =>
  * `NumericBoundaryValidationResult` or fails with
  * `NumericDomainBoundaryError`.
  *
- * @see {@link loadNumericDomain} — loads the static domain model this validation depends on
  * @since 0.1.0
  * @category operations
  */
@@ -624,19 +684,15 @@ export const validateNumericBoundary = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Log-space addition: `log(exp(a) + exp(b))` computed without leaving
- * log-space. Numerically stable for all finite inputs.
- *
- * @see {@link logaddexpValidated} — boundary-validated variant
- * @see {@link logaddexpWithPolicies} — policy-aware variant
+ * Computes `log(exp(a) + exp(b))` without materializing either exponential.
  * @since 0.1.0
  * @category operations
  */
 export const logaddexp: (a: number, b: number) => number = Logspace.logaddexp
 
 /**
- * Log-space subtraction: `log(exp(a) - exp(b))` computed without leaving
- * log-space. Requires `a >= b`.
+ * Computes `log(exp(a) - exp(b))` without materializing either exponential.
+ * The caller must supply `a >= b`.
  *
  * @since 0.1.0
  * @category operations
@@ -676,11 +732,8 @@ export const xlogy: (x: number, y: number) => number = Logspace.xlogy
 export const xlog1py: (x: number, y: number) => number = Logspace.xlog1py
 
 /**
- * Log-sum-exp over a `Chunk<number>`: `log(Σ exp(xᵢ))` computed in a
- * numerically stable way by shifting by the maximum element.
- *
- * @see {@link logSumExpValidated} — boundary-validated variant
- * @see {@link logSumExpWithPolicies} — policy-aware variant
+ * Computes `log(Σ exp(xᵢ))` after shifting by the largest element to limit
+ * overflow and underflow.
  * @since 0.2.0
  * @category operations
  */
@@ -691,10 +744,8 @@ export const logSumExp: (xs: Chunk.Chunk<number>) => number = LogSumExp.logSumEx
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated logaddexp. Accepts `unknown` input, decodes through
- * `LogaddexpInput`, and returns `log(exp(a) + exp(b))`.
- *
- * @see {@link logaddexp} — pure kernel for pre-validated input
+ * Decodes two finite values and computes their log-space sum. Malformed or
+ * excess input fails with `NumericDecodeError`.
  * @since 0.1.0
  * @category validated operations
  */
@@ -714,10 +765,8 @@ export const logaddexpValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated log-sum-exp. Accepts `unknown` input, decodes through
- * `LogSumExpInput`, and returns `log(Σ exp(xᵢ))`.
- *
- * @see {@link logSumExp} — pure kernel for pre-validated input
+ * Decodes a non-empty finite vector and computes its log-sum-exp. Malformed
+ * or excess input fails with `NumericDecodeError`.
  * @since 0.2.0
  * @category validated operations
  */
@@ -741,11 +790,8 @@ export const logSumExpValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware logaddexp reading `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
- *
- * @see {@link logaddexp} — pure kernel without policy seams
- * @see {@link logaddexpValidated} — boundary-validated variant
+ * Computes a log-space sum, rejecting a non-finite result under strict
+ * precision and logging inputs and output when diagnostics are enabled.
  * @since 0.1.0
  * @category operations
  */
@@ -758,11 +804,8 @@ export const logaddexpWithPolicies = (a: number, b: number) =>
   })
 
 /**
- * Policy-aware log-sum-exp reading `PrecisionPolicyService` and
- * `DiagnosticsPolicyService` from context.
- *
- * @see {@link logSumExp} — pure kernel without policy seams
- * @see {@link logSumExpValidated} — boundary-validated variant
+ * Computes log-sum-exp, rejecting a non-finite result under strict precision
+ * and logging the input size and output when diagnostics are enabled.
  * @since 0.2.0
  * @category operations
  */

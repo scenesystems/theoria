@@ -1,8 +1,5 @@
 /**
- * Typed error taxonomy for the Distribution domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode) and operation failures (domain violation, parameter).
+ * Defines tagged failures for Distribution descriptor boundaries and evaluated operations.
  *
  * @since 0.1.0
  * @category errors
@@ -12,61 +9,80 @@ import { Schema } from "effect"
 import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shared/BoundaryErrors.js"
 
 /**
- * Reports failure to validate the Distribution catalog descriptor before
- * selecting a distribution family.
+ * Identifies an invalid Distribution descriptor at a caller-defined domain boundary.
+ *
+ * @remarks
+ * Current public descriptor helpers report {@link BoundaryDecodeError} and
+ * {@link BoundaryEncodeError}; they do not emit this error class.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDomainBoundaryError
   extends Schema.TaggedError<DistributionDomainBoundaryError>()("DistributionDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input contract.
- * The `operation` field names the failed operation so callers can branch on
- * it in error-recovery logic.
+ * Reports that a validated operation could not decode its input.
+ *
+ * @remarks
+ * `operation` contains the public operation name. `message` contains Effect
+ * Schema's parse report, including missing, excess, or invalid fields.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDecodeError extends Schema.TaggedError<DistributionDecodeError>()("DistributionDecodeError", {
+  /** Public distribution operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
 /**
- * Reports a non-finite density, mass, CDF, or quantile rejected by strict precision.
+ * Reports a non-finite result rejected by a strict precision policy.
+ *
+ * @remarks
+ * `operation` identifies the policy-aware operation. `message` records the
+ * rejected result. Relaxed precision does not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionDomainViolationError
   extends Schema.TaggedError<DistributionDomainViolationError>()("DistributionDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when distribution parameters are invalid — for example, sigma ≤ 0
- * for a normal distribution, or low ≥ high for a uniform distribution.
+ * Reports finite uniform bounds that are not strictly ordered.
+ *
+ * @remarks
+ * Current public operations emit this error only from
+ * {@link uniformPdfValidated}. Other validated parameter failures occur during
+ * schema decoding and use {@link DistributionDecodeError}.
  *
  * @since 0.1.0
  * @category errors
  */
 export class DistributionParameterError
   extends Schema.TaggedError<DistributionParameterError>()("DistributionParameterError", {
+    /** Validated distribution operation whose bounds are not strictly ordered. */
     operation: Schema.String,
+    /** Diagnostic identifying the rejected bound relationship. */
     message: Schema.String
   })
 {}
 
 /**
- * Catalog-descriptor failures to recover before distribution-family discovery
- * or registration, rather than failures evaluating a distribution.
+ * Groups failures that can occur while decoding or encoding a Distribution descriptor.
  *
  * @since 0.1.0
  * @category errors
@@ -74,8 +90,7 @@ export class DistributionParameterError
 export type DistributionBoundaryError = DistributionDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Evaluation failures callers can recover from by correcting input shape or
- * family parameters, or by relaxing strict finite-result policy.
+ * Groups typed failures from validated and policy-aware Distribution operations.
  *
  * @since 0.1.0
  * @category errors

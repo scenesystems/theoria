@@ -1,5 +1,5 @@
 /**
- * Hypervolume-derived reference points and objective weights for MOTPE-style ranking.
+ * Reference-point construction and two-dimensional hypervolume weights for MOTPE.
  *
  * @since 0.1.0
  */
@@ -10,10 +10,7 @@ import { hypervolumeContribution2d } from "./hypervolume.js"
 import type { ObjectiveVector } from "./model.js"
 
 /**
- * Schema for a numeric per-candidate weight vector.
- *
- * @see {@link ObjectiveWeights} Extracted type alias
- * @see {@link computeMultiObjectiveWeights} Produces values conforming to this schema
+ * Decodes candidate weights without imposing positivity, normalization, or finiteness.
  *
  * @since 0.1.0
  * @category models
@@ -21,14 +18,11 @@ import type { ObjectiveVector } from "./model.js"
 export const ObjectiveWeightsSchema = Schema.Array(Schema.Number)
 
 /**
- * Per-candidate weight vector from hypervolume-based ranking.
+ * Candidate weights returned in the same order as the supplied objective vectors.
  *
  * @remarks
- * Values are normalized to `(0, 1]` with a floor of `EPS` (1e-12) to avoid
- * zero-weight candidates being entirely excluded from sampling.
- *
- * @see {@link ObjectiveWeightsSchema} Schema that produces this type
- * @see {@link computeMultiObjectiveWeights} Primary producer of these weights
+ * {@link computeMultiObjectiveWeights} produces values from `1e-12` through one for
+ * its two-dimensional path, but the schema and type do not enforce that range.
  *
  * @since 0.1.0
  * @category models
@@ -109,16 +103,13 @@ const normalizeContributions = (contributions: ReadonlyArray<number>): Objective
 }
 
 /**
- * Compute a direction-aware reference point for hypervolume calculation.
+ * Derives the reference coordinate beyond the worst observed value in each objective.
  *
  * @remarks
- * Projects points into minimization space, takes the largest value per coordinate,
- * and applies `max(1.1 * worst, 0.9 * worst)`, using `1e-12` when that result is zero.
- * Directions omitted by the caller default to `"minimize"`. Returns an empty array
- * when `points` is empty; the first point determines the output dimension count.
- *
- * @see {@link computeMultiObjectiveWeights} Uses this as the default reference when none is supplied
- * @see {@link hypervolume2d} from `./hypervolume` — consumes the reference point
+ * Coordinates are converted to minimization values before applying
+ * `max(1.1 * worst, 0.9 * worst)`, then converted back. A zero result becomes `1e-12`.
+ * The first point determines arity; missing coordinates in later points contribute zero.
+ * Missing directions default to `"minimize"`, and empty input returns an empty array.
  *
  * @since 0.1.0
  * @category hypervolume
@@ -137,20 +128,13 @@ export const computeReferencePoint = (
   )
 
 /**
- * Compute normalized MOTPE-style objective weights from hypervolume contributions.
+ * Converts leave-one-out hypervolume contributions into MOTPE candidate weights.
  *
  * @remarks
- * Normalizes leave-one-out hypervolume contributions to `(0, 1]` so the highest
- * contributor receives weight `1` and all others are proportionally scaled. A floor
- * of `EPS` (1e-12) prevents any candidate from receiving zero weight.
- *
- * Falls back to uniform weights (`1` for every candidate) when the reference point
- * does not have exactly 2 coordinates, since the underlying hypervolume indicator
- * only supports 2D.
- *
- * @see {@link computeReferencePoint} Auto-derives a reference when `referencePoint` is omitted
- * @see {@link hypervolumeContribution2d} from `./hypervolume` — raw contributions before normalization
- * @see {@link ObjectiveWeights} Return type
+ * For a two-coordinate reference, the largest contribution receives one and other
+ * contributions are divided by it, with `1e-12` as the minimum weight. A reference
+ * with any other arity returns one for every candidate. Omission derives the reference
+ * from the points. Empty input returns an empty array.
  *
  * @since 0.1.0
  * @category hypervolume

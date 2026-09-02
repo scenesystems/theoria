@@ -26,8 +26,7 @@ const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArra
 
 export {
   /**
-   * Lightweight signature projection used in discovery registrations —
-   * carries only `description` and `instructions` without full Schema generics.
+   * Projects signature prompt metadata without retaining field schemas.
    *
    * @since 0.1.0
    * @category models
@@ -36,23 +35,31 @@ export {
 } from "../../contracts/ModuleNode.js"
 
 /**
- * A fiber-local registration entry recorded when a module executes.
- * Captures the module id, parameter ref, signature projection, and
- * direct child ids.
+ * Records one executed module for runtime discovery.
+ *
+ * @remarks
+ * The parameter ref remains live. Child ids describe declared ownership rather
+ * than proving that each child executed in the same discovery scope.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleRegistration extends Data.TaggedClass("ModuleRegistration")<{
+  /** Validated identity used for sorting, deduplication, and graph lookup. */
   readonly id: ModuleId
+  /** Live mutable parameters owned by the registered module. */
   readonly params: Ref.Ref<ModuleParams>
+  /** Description and baseline instructions captured by registration. */
   readonly signature: ModuleNodeSignature
+  /** Sorted, unique identities of direct declared children. */
   readonly subModuleIds: ReadonlyArray<ModuleId>
 }> {}
 
 /**
- * Sort and deduplicate child module ids for deterministic registration
- * payloads.
+ * Sorts child identities and removes repeated values.
+ *
+ * @param subModuleIds - Identities in any order, possibly repeated.
+ * @returns A new ascending array containing each identity once.
  *
  * @since 0.1.0
  * @category combinators
@@ -74,8 +81,14 @@ const canonicalRegistration = (registration: ModuleRegistration): ModuleRegistra
   })
 
 /**
- * Sort and canonicalize a snapshot of module registrations for
- * deterministic output.
+ * Sorts registrations by identity and canonicalizes each child-id array.
+ *
+ * @remarks
+ * Duplicate registration ids remain present, and conflicts are not detected.
+ * Use {@link register} when adding entries to the live registry.
+ *
+ * @param registrations - Snapshot values to copy and sort.
+ * @returns New registration values in ascending id order.
  *
  * @since 0.1.0
  * @category combinators

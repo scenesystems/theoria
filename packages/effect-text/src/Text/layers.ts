@@ -193,7 +193,8 @@ const makeHyphenationDictionary = (options?: {
   })
 
 /**
- * `Intl.Segmenter`-backed segmenter with deterministic fallback semantics.
+ * Segments text with `Intl.Segmenter` when available and the package fallback
+ * otherwise. Both paths apply the same whitespace policy.
  *
  * @since 0.1.0
  * @category layers
@@ -203,7 +204,7 @@ export const WordSegmenterLive = Layer.succeed(WordSegmenter, {
 })
 
 /**
- * Deterministic no-op hyphenation layer.
+ * Declines every locale and returns no dictionary break opportunities.
  *
  * @remarks
  * This is the default fallback when callers do not provide dictionaries for a
@@ -230,13 +231,17 @@ export const NoHyphenationDictionaryLive = Layer.succeed(HyphenationDictionary, 
  * @category layers
  */
 export const HyphenationDictionaryLive = (options?: {
+  /** Locale-keyed sources replacing the bundled dictionary map. */
   readonly dictionaries?: HyphenationDictionaries
+  /** Effectful source loader called through a 32-locale, 24-hour cache. */
   readonly loadDictionary?: (locale: string) => Effect.Effect<LoadedHyphenationDictionary>
+  /** Generation included in locale and word cache keys; defaults to zero. */
   readonly revision?: number
 }) => Layer.effect(HyphenationDictionary, makeHyphenationDictionary(options))
 
 /**
- * Deterministic width estimator for environments without canvas measurement.
+ * Estimates widths from font size, character class, and weight without browser
+ * APIs. It is deterministic and does not perform font shaping.
  *
  * @since 0.1.0
  * @category layers
@@ -261,7 +266,8 @@ export const TextMeasurerLive = Layer.succeed(TextMeasurer, {
 })
 
 /**
- * Default runtime profile approximating browser fit tolerance.
+ * Installs the package defaults: 0.005 fit tolerance, four-column tabs, LTR
+ * fallback, later soft-hyphen preference, and prefix-width fitting.
  *
  * @since 0.1.0
  * @category layers
@@ -275,7 +281,9 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
 })
 
 /**
- * Shared measurement cache built on Effect `Cache`.
+ * Acquires a 1,024-entry, 24-hour cache backed by the ambient `TextMeasurer`.
+ * Cache identity includes font family, size, weight normalized to `400`, and
+ * text. Measurement failures are retained in the `MeasurementFailed` channel.
  *
  * @since 0.1.0
  * @category layers
@@ -283,7 +291,8 @@ export const EngineProfileLive = Layer.succeed(EngineProfile, {
 export const MeasurementCacheLive = Layer.effect(MeasurementCache, makeMeasurementCache)
 
 /**
- * Composed live layer for deterministic text preparation.
+ * Installs the deterministic segmenter, shipped hyphenation dictionaries,
+ * default engine profile, width estimator, and measurement cache.
  *
  * @since 0.1.0
  * @category layers
@@ -297,7 +306,8 @@ export const TextLayoutLive = Layer.mergeAll(
 )
 
 /**
- * Bundled locale keys and exact-tag-to-base-language fallback used by dictionary preparation.
+ * Bundled locale keys and exact-tag-to-base-language fallback used by the
+ * default dictionary layer.
  *
  * @since 0.2.0
  * @category layers

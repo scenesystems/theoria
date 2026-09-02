@@ -1,5 +1,5 @@
 /**
- * Module-domain errors.
+ * Response parsing and module graph validation failures.
  *
  * @since 0.1.0
  */
@@ -15,17 +15,22 @@ import { Schema } from "effect"
  * @category models
  */
 export class ParseFieldDiagnostic extends Schema.Class<ParseFieldDiagnostic>("ParseFieldDiagnostic")({
+  /** Output field involved in the issue, or `$` for a schema-level issue. */
   field: Schema.String,
+  /** Machine-readable reason the response field was rejected. */
   issue: Schema.Literal("missing-field", "unexpected-field", "duplicate-field", "decode-error"),
+  /** Parser or Schema diagnostic suitable for retry feedback. */
   message: Schema.String
 }) {}
 
 /**
- * Failure to decode a language-model response against a module's output
- * schema after the configured parsing attempts. `rawOutput` is absent when no
- * textual response was available, and `retryCount` is absent when the caller
- * cannot report an attempt number. The diagnostics are safe to inspect in
- * typed recovery without parsing `message`.
+ * Reports a language-model response that could not satisfy a module output schema.
+ *
+ * @remarks
+ * `rawOutput` retains provider text without redaction. `retryCount` is absent
+ * when no retry policy supplied an attempt count. Field diagnostics retain all
+ * issues found during protocol and schema decoding so recovery code does not
+ * need to parse `message`.
  *
  * @since 0.1.0
  * @category errors
@@ -33,10 +38,15 @@ export class ParseFieldDiagnostic extends Schema.Class<ParseFieldDiagnostic>("Pa
 export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
   "ParseOutputError",
   {
+    /** Summary of the parse or decode failure. */
     message: Schema.String,
+    /** Module whose output schema rejected the response. */
     moduleName: Schema.String,
+    /** Unredacted provider response, when textual output was available. */
     rawOutput: Schema.OptionFromSelf(Schema.String),
+    /** Number of completed retries reported by the active parse policy. */
     retryCount: Schema.OptionFromSelf(Schema.Number),
+    /** Field-level issues; omitted encoded values decode to an empty array. */
     fieldDiagnostics: Schema.optionalWith(Schema.Array(ParseFieldDiagnostic), {
       default: () => []
     })
@@ -55,7 +65,9 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
 export class CompositionError extends Schema.TaggedError<CompositionError>()(
   "CompositionError",
   {
+    /** Diagnostic text naming the violated graph invariant. */
     message: Schema.String,
+    /** Node associated with the violation, when one can be identified. */
     moduleName: Schema.optional(Schema.String)
   }
 ) {}

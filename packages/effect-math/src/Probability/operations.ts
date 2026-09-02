@@ -1,7 +1,6 @@
 /**
- * Probability operation surface — pure kernel re-exports, Schema-validated
- * variants with boundary input checking, and policy-aware operations
- * that respect `PrecisionPolicyService` and `DiagnosticsPolicyService`.
+ * Evaluates normal and uniform distributions and computes discrete Shannon
+ * entropy from decoded, untrusted, or policy-governed inputs.
  *
  * @since 0.1.0
  * @category operations
@@ -16,9 +15,7 @@ import { ProbabilityDomainModel } from "./model.js"
 import { EntropyInput, NormalEvalInput, UniformEvalInput } from "./schema.js"
 
 /**
- * Returns the canonical provisional probability descriptor for registering or
- * discovering density, CDF, and entropy capabilities. It requires no services
- * and cannot fail.
+ * Yields the immutable descriptor used to register Probability capabilities.
  *
  * @since 0.1.0
  * @category operations
@@ -26,98 +23,73 @@ import { EntropyInput, NormalEvalInput, UniformEvalInput } from "./schema.js"
 export const loadProbabilityDomain = Effect.succeed(ProbabilityDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports
+// Pure operations
 // ---------------------------------------------------------------------------
 
 /**
- * Standard normal (μ=0, σ=1) probability density function:
- * `(1 / √(2π)) · exp(−x²/2)`. Pure scalar function.
- *
- * @see {@link normalPdf} for arbitrary μ and σ
- * @see {@link normalPdfValidated} for Schema-validated boundary input
+ * Computes the standard normal density `(1 / sqrt(2 * pi)) * exp(-x^2 / 2)`.
  * @since 0.1.0
  * @category operations
  */
 export const standardNormalPdf: (x: number) => number = Distributions.standardNormalPdf
 
 /**
- * Normal (Gaussian) PDF — `(1 / (σ√(2π))) · exp(−(x−μ)² / (2σ²))`.
- * Requires σ > 0; no runtime guard is applied.
- *
- * @see {@link normalPdfValidated} for Schema-validated boundary input
- * @see {@link normalPdfWithPolicies} for policy-aware variant
+ * Computes the normal density at `x` for location `mu` and scale `sigma`.
+ * The formula assumes `sigma > 0`; this pure operation does not validate it.
  * @since 0.1.0
  * @category operations
  */
 export const normalPdf: (x: number, mu: number, sigma: number) => number = Distributions.normalPdf
 
 /**
- * Standard normal (μ=0, σ=1) cumulative distribution function via
- * Abramowitz & Stegun rational approximation (maximum error ≈ 7.5×10⁻⁸).
- *
- * @see {@link normalCdf} for arbitrary μ and σ
+ * Approximates the standard normal cumulative distribution function using
+ * Abramowitz and Stegun formula 7.1.26, with maximum absolute error about
+ * `1.5e-7`.
  * @since 0.1.0
  * @category operations
  */
 export const standardNormalCdf: (x: number) => number = Distributions.standardNormalCdf
 
 /**
- * Standard-normal transform from a unit roll — maps `u ∈ (0, 1)` to a
- * standard-normal variate `z = Φ⁻¹(u)`. Internally clamps endpoint values so
- * finite sampler rolls never produce `±Infinity`. Inputs outside `[0, 1]`
- * are clamped to the nearest endpoint before transformation.
- *
- * @example
- * ```ts
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const z = Probability.standardNormalTransform(0.975)
- * // z ≈ 1.95996
- * ```
- *
- * @see {@link standardNormalCdf} for the forward transform
- * @see {@link normalCdf} when working with non-standard `(μ, σ)` coordinates
+ * Maps a unit-interval roll to a standard normal variate through the inverse
+ * CDF. Inputs are first clamped to `[1e-12, 1 - 1e-12]`, so endpoints and
+ * values outside `[0, 1]` produce finite tail values.
  * @since 0.1.0
  * @category operations
  */
 export const standardNormalTransform: (roll: number) => number = Distributions.standardNormalTransform
 
 /**
- * Normal CDF — `P(X ≤ x)` for `X ~ N(μ, σ²)`. Computed by standardising
- * and delegating to `standardNormalCdf`.
- *
- * @see {@link normalCdfValidated} for Schema-validated boundary input
+ * Approximates `P(X <= x)` for a normal distribution with location `mu` and
+ * scale `sigma`. The formula assumes `sigma > 0`; this pure operation does not
+ * validate it.
  * @since 0.1.0
  * @category operations
  */
 export const normalCdf: (x: number, mu: number, sigma: number) => number = Distributions.normalCdf
 
 /**
- * Uniform PDF — `1 / (high − low)` when `low ≤ x ≤ high`, else `0`.
- * Requires `low < high`; no runtime guard is applied.
- *
- * @see {@link uniformPdfValidated} for Schema-validated boundary input with parameter checking
+ * Computes `1 / (high - low)` for `x` inside the closed interval and `0`
+ * outside it. The formula assumes `low < high`; this pure operation does not
+ * validate the bounds.
  * @since 0.1.0
  * @category operations
  */
 export const uniformPdf: (x: number, low: number, high: number) => number = Distributions.uniformPdf
 
 /**
- * Uniform CDF — linear interpolation `(x − low) / (high − low)` clamped
- * to `[0, 1]`. Requires `low < high`; no runtime guard is applied.
- *
- * @see {@link uniformCdfValidated} for Schema-validated boundary input with parameter checking
+ * Computes `(x - low) / (high - low)` inside the interval, returning `0`
+ * below `low` and `1` above `high`. The formula assumes `low < high`; this
+ * pure operation does not validate the bounds.
  * @since 0.1.0
  * @category operations
  */
 export const uniformCdf: (x: number, low: number, high: number) => number = Distributions.uniformCdf
 
 /**
- * Shannon entropy `H = −Σ pᵢ · ln(pᵢ)` over a discrete probability
- * distribution. Zero-probability bins are skipped (0·ln(0) = 0 by
- * convention). Result is in nats; divide by `ln(2)` for bits.
- *
- * @see {@link entropyValidated} for Schema-validated boundary input
+ * Computes `-sum(p * ln(p))` in nats. Zero entries contribute `0`. This pure
+ * operation neither validates non-negativity nor requires the values to sum
+ * to `1`.
  * @since 0.1.0
  * @category operations
  */
@@ -128,21 +100,9 @@ export const shannonEntropy: (probabilities: Chunk.Chunk<number>) => number = En
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated normal PDF — decodes `input` through `NormalEvalInput`
- * and computes `f(x | μ, σ)`. Fails with `ProbabilityDecodeError` for
- * malformed input.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const program = Probability.normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
- * // Effect succeeds with ≈ 0.3989
- * ```
- *
- * @see {@link normalPdf} for the pure kernel (no validation overhead)
- * @see {@link normalPdfWithPolicies} for policy-aware variant
+ * Decodes finite `x` and `mu` values plus a positive finite `sigma`, then
+ * computes the normal density. Malformed or excess input fails with
+ * `ProbabilityDecodeError`.
  * @since 0.1.0
  * @category operations
  */
@@ -163,20 +123,9 @@ export const normalPdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated normal CDF — decodes `input` through `NormalEvalInput`
- * and computes `P(X ≤ x)` for `X ~ N(μ, σ²)`. Fails with
- * `ProbabilityDecodeError` for malformed input.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const program = Probability.normalCdfValidated({ x: 0, mu: 0, sigma: 1 })
- * // Effect succeeds with 0.5
- * ```
- *
- * @see {@link normalCdf} for the pure kernel (no validation overhead)
+ * Decodes finite `x` and `mu` values plus a positive finite `sigma`, then
+ * approximates the normal cumulative probability. Malformed or excess input
+ * fails with `ProbabilityDecodeError`.
  * @since 0.1.0
  * @category operations
  */
@@ -197,22 +146,9 @@ export const normalCdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated uniform PDF — decodes `input` through
- * `UniformEvalInput`, validates `low < high`, and computes
- * `1 / (high − low)` when `low ≤ x ≤ high`. Fails with
- * `ProbabilityDecodeError` for malformed input or
- * `ProbabilityParameterError` when `low ≥ high`.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const program = Probability.uniformPdfValidated({ x: 0.5, low: 0, high: 1 })
- * // Effect succeeds with 1
- * ```
- *
- * @see {@link uniformPdf} for the pure kernel (no validation overhead)
+ * Decodes finite input and computes uniform density over ordered bounds.
+ * Malformed or excess input fails with `ProbabilityDecodeError`; `low >= high`
+ * fails with `ProbabilityParameterError`.
  * @since 0.1.0
  * @category operations
  */
@@ -243,21 +179,10 @@ export const uniformPdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated uniform CDF — decodes `input` through
- * `UniformEvalInput`, validates `low < high`, and computes `P(X ≤ x)`
- * for the uniform distribution. Fails with `ProbabilityDecodeError` for
- * malformed input or `ProbabilityParameterError` when `low ≥ high`.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const program = Probability.uniformCdfValidated({ x: 0.5, low: 0, high: 1 })
- * // Effect succeeds with 0.5
- * ```
- *
- * @see {@link uniformCdf} for the pure kernel (no validation overhead)
+ * Decodes finite input and computes uniform cumulative probability over
+ * ordered bounds. Malformed or excess input fails with
+ * `ProbabilityDecodeError`; `low >= high` fails with
+ * `ProbabilityParameterError`.
  * @since 0.1.0
  * @category operations
  */
@@ -288,20 +213,10 @@ export const uniformCdfValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated Shannon entropy — decodes through `EntropyInput`
- * and computes `H = −Σ pᵢ · ln(pᵢ)`. Fails with `ProbabilityDecodeError`
- * for malformed input.
- *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Probability } from "@scenesystems/effect-math"
- *
- * const program = Probability.entropyValidated({ probabilities: [0.5, 0.5] })
- * // Effect succeeds with ln(2) ≈ 0.6931
- * ```
- *
- * @see {@link shannonEntropy} for the pure kernel (no validation overhead)
+ * Decodes a non-empty collection of non-negative finite values and computes
+ * `-sum(p * ln(p))` in nats. Malformed or excess input fails with
+ * `ProbabilityDecodeError`. The values are not normalized or required to sum
+ * to `1`.
  * @since 0.1.0
  * @category operations
  */
@@ -326,11 +241,13 @@ export const entropyValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware normal PDF that reads two runtime services from context:
+ * Computes normal density under the configured finite-result and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with `x`, `mu`, `sigma`, and precision metadata
+ * Strict precision rejects a non-finite result with
+ * `ProbabilityDomainViolationError`; it does not validate `sigma > 0` when a
+ * finite result is possible. Enabled diagnostics emits one debug log with the
+ * inputs, result, precision policy, and elapsed milliseconds.
  *
  * @example
  * ```ts
@@ -346,12 +263,15 @@ export const entropyValidated = (input: unknown) =>
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Probability.normalPdfWithPolicies(0, 0, 1).pipe(Effect.provide(policies))
+ * export const program = Probability.normalPdfWithPolicies(0, 0, 1).pipe(
+ *   Effect.provide(policies),
+ *   Effect.filterOrFail(
+ *     (density) => density > 0.398 && density < 0.399,
+ *     () => "UnexpectedNormalDensity"
+ *   )
+ * )
  * ```
  *
- * @see {@link normalPdf} for the pure kernel (no service requirements)
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
  * @since 0.1.0
  * @category operations
  */
@@ -364,16 +284,14 @@ export const normalPdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Computes Gaussian cumulative probability with caller-supplied location and
- * scale. Strict precision rejects a non-finite CDF; diagnostics can log the
- * distribution parameters and result.
+ * Computes normal cumulative probability under the configured finite-result
+ * and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
- *
- * @see {@link normalCdf} — pure kernel without policy seams
- * @see {@link normalCdfValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result with
+ * `ProbabilityDomainViolationError`; it does not validate `sigma > 0` when a
+ * finite result is possible. Enabled diagnostics emits one debug log with the
+ * inputs, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -386,16 +304,13 @@ export const normalCdfWithPolicies = (x: number, mu: number, sigma: number) =>
   })
 
 /**
- * Computes constant density inside the supplied uniform interval and zero
- * outside it. Strict precision rejects a non-finite density; this variant does
- * not validate `low < high`.
+ * Computes uniform density under the configured finite-result and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
- *
- * @see {@link uniformPdf} — pure kernel without policy seams
- * @see {@link uniformPdfValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result with
+ * `ProbabilityDomainViolationError`; it does not validate `low < high` when a
+ * finite result is possible. Enabled diagnostics emits one debug log with the
+ * inputs, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -408,16 +323,14 @@ export const uniformPdfWithPolicies = (x: number, low: number, high: number) =>
   })
 
 /**
- * Computes cumulative mass across the supplied uniform interval, clamped at
- * its endpoints. Strict precision rejects a non-finite result; this variant
- * does not validate `low < high`.
+ * Computes uniform cumulative probability under the configured finite-result
+ * and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
- *
- * @see {@link uniformCdf} — pure kernel without policy seams
- * @see {@link uniformCdfValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite result with
+ * `ProbabilityDomainViolationError`; it does not validate `low < high` when a
+ * finite result is possible. Enabled diagnostics emits one debug log with the
+ * inputs, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */
@@ -430,16 +343,13 @@ export const uniformCdfWithPolicies = (x: number, low: number, high: number) =>
   })
 
 /**
- * Computes discrete Shannon entropy in nats while applying precision and
- * diagnostics policies. Strict mode rejects a non-finite aggregate, including
- * one caused by malformed probabilities passed directly to this variant.
+ * Computes `-sum(p * ln(p))` under the configured finite-result and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results with `ProbabilityDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with input, result, precision, and elapsed-ms annotations
- *
- * @see {@link shannonEntropy} — pure kernel without policy seams
- * @see {@link entropyValidated} — boundary-validated variant
+ * Strict precision rejects a non-finite aggregate with
+ * `ProbabilityDomainViolationError`. Neither policy validates or normalizes
+ * the input probabilities. Enabled diagnostics emits one debug log with the
+ * input size, result, precision policy, and elapsed milliseconds.
  * @since 0.1.0
  * @category operations
  */

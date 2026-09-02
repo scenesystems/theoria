@@ -1,27 +1,24 @@
 /**
- * Applies digital signatures, key agreement, and key encapsulation in Effect
- * programs.
- *
- * @remarks
- * Three cryptographic families — signatures, key agreement, and key
- * encapsulation — each with separate pipelines and algorithm types.
+ * Signs and verifies messages, derives X25519 shared secrets, and performs
+ * X-Wing key encapsulation in Effect programs.
  *
  * @example
  * ```ts
- * import { generateKeyPair, sign, utf8ToBytes } from "@scenesystems/sign"
+ * import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
  * import { Effect } from "effect"
  *
- * const program = Effect.gen(function* () {
+ * export const program = Effect.gen(function* () {
  *   const keys = yield* generateKeyPair("ed25519")
  *   const message = utf8ToBytes("hello")
- *   const sig = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
- *   return sig
+ *   const signature = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
+ *   return yield* verify(signature, message).pipe(
+ *     Effect.filterOrFail(
+ *       (verified) => verified,
+ *       () => "SignatureDidNotVerify"
+ *     )
+ *   )
  * })
  * ```
- *
- * @see {@link sign} — digital signature pipeline
- * @see {@link deriveSharedSecret} — key agreement pipeline
- * @see {@link encapsulate} — key encapsulation pipeline
  *
  * @since 0.1.0
  * @module

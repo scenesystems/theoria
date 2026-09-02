@@ -1,5 +1,5 @@
 /**
- * Signature-domain errors.
+ * Structural validation failures from signature construction.
  *
  * @since 0.1.0
  */
@@ -16,7 +16,9 @@ import { Schema } from "effect"
 export class SignatureError extends Schema.TaggedError<SignatureError>()(
   "SignatureError",
   {
+    /** Violated structural invariant. */
     reason: Schema.String,
+    /** Input or output field involved in the violation, when one exists. */
     field: Schema.optional(Schema.String)
   }
 ) {}

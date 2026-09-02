@@ -117,10 +117,10 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
  *
  * @example
  * ```ts
- * import { digestByteStream, encodeUtf8 } from "@scenesystems/digest"
+ * import { digestByteStream, encodeUtf8, toHex } from "@scenesystems/digest"
  * import { Effect, Stream } from "effect"
  *
- * const sameDigest = Effect.gen(function*() {
+ * export const sameDigest = Effect.gen(function*() {
  *   const first = yield* encodeUtf8("scene-")
  *   const second = yield* encodeUtf8("systems")
  *   const split = yield* digestByteStream("blake3-256", Stream.fromIterable([first, second]))
@@ -128,11 +128,13 @@ const finishTextDigest = (state: TextDigestState): Effect.Effect<Uint8Array, Inv
  *     "blake3-256",
  *     Stream.make(new Uint8Array([...first, ...second]))
  *   )
- *   return split.every((byte, index) => byte === joined[index])
+ *   return yield* Effect.succeed(split).pipe(
+ *     Effect.filterOrFail(
+ *       (digest) => toHex(digest) === toHex(joined),
+ *       () => "ChunkBoundaryChangedDigest"
+ *     )
+ *   )
  * })
- *
- * const result = await Effect.runPromise(sameDigest)
- * if (!result) throw new Error("chunk boundaries changed the digest")
  * ```
  *
  * @since 0.2.0

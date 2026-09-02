@@ -1,6 +1,5 @@
 /**
- * DspCache layer constructors delegating to `@scenesystems/effect-search/Cache` shared
- * authority backends.
+ * Layers that bind language-model memoization to a cache backend.
  *
  * @since 0.1.0
  */
@@ -26,14 +25,13 @@ const DSP_CACHE_NAMESPACE = "effect-dsp/lm-cache"
 const DSP_CACHE_VERSION = "v1"
 
 /**
- * Adapter from a provided {@link SchemaCache} to {@link DspCache}. Every
- * resolution uses namespace `effect-dsp/lm-cache`, descriptor version `v1`,
- * {@link DspCacheKey} as the key codec, and the request's output schema as
- * the value codec. Storage lifetime follows the supplied `SchemaCache`.
+ * Adapts the configured {@link SchemaCache} to language-model call memoization.
  *
- * @see {@link DspCacheMemory} — pre-wired in-memory layer for tests
- * @see {@link DspCacheFileSystem} — file-system persistence
- * @see {@link DspCacheSql} — SQL persistence
+ * @remarks
+ * Entries use namespace `effect-dsp/lm-cache`, descriptor version `v1`, and
+ * {@link DspCacheKey} as the key codec. Each request supplies its value codec.
+ * The layer performs no additional acquisition or release; storage lifetime and
+ * operation failures come from the supplied cache.
  *
  * @since 0.1.0
  * @category layers
@@ -77,10 +75,11 @@ export const DspCacheLive: Layer.Layer<DspCache, never, SchemaCache> = Layer.eff
 )
 
 /**
- * In-memory {@link DspCache}. Entries live only as long as the layer's
- * in-memory service instance and require no platform services.
+ * Keeps memoized values in the service instance created by this layer.
  *
- * @see {@link DspCacheLive} — base layer for custom backend wiring
+ * @remarks
+ * Separate layer instances do not share entries, and process termination removes
+ * all entries. The layer has no service requirements or acquisition failures.
  *
  * @since 0.1.0
  * @category layers
@@ -91,11 +90,14 @@ export const DspCacheMemory: Layer.Layer<DspCache> = Layer.provide(
 )
 
 /**
- * File-system-backed {@link DspCache} rooted at `directory`. Entries can
- * outlive the process; the layer requires `FileSystem` and `Path`, and its
- * construction may fail with `PlatformError`.
+ * Persists memoized values beneath a filesystem directory.
  *
- * @see {@link DspCacheLive} — base layer for custom backend wiring
+ * @remarks
+ * Entries remain available to later processes that use the same directory and
+ * descriptor version. Layer acquisition requires platform filesystem and path
+ * services and may fail with `PlatformError`.
+ *
+ * @param directory - Root directory owned by the cache backend.
  *
  * @since 0.1.0
  * @category layers
@@ -106,12 +108,13 @@ export const DspCacheFileSystem = (
   Layer.provide(DspCacheLive, SchemaCacheFileSystem(directory))
 
 /**
- * SQL-backed {@link DspCache} using the supplied `SqlClient` layer and the
- * SQLite-compatible statements expected by `SchemaCacheSql`. Backend setup
- * failures remain `CacheBackendError`; persistence lifetime belongs to the
- * supplied database.
+ * Persists memoized values through a SQLite-compatible SQL client.
  *
- * @see {@link DspCacheLive} — base layer for custom backend wiring
+ * @remarks
+ * The supplied client layer determines connection acquisition, release, and
+ * persistence lifetime. Backend setup failures remain `CacheBackendError`.
+ *
+ * @param sqlClientLayer - Layer that acquires the database client used by the cache.
  *
  * @since 0.1.0
  * @category layers

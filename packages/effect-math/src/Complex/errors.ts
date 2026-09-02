@@ -1,7 +1,5 @@
 /**
- * Typed error taxonomy for complex number operations.
- *
- * Each class has a stable `_tag` for Effect error-channel matching.
+ * Defines typed failures for Complex boundary and calculation operations.
  *
  * @since 0.1.0
  * @category errors
@@ -13,13 +11,12 @@ import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shar
 /**
  * Reports a failed complex-domain boundary check.
  *
- * @see {@link ComplexDecodeError} — per-operation decode failure
- *
  * @since 0.1.0
  * @category errors
  */
 export class ComplexDomainBoundaryError
   extends Schema.TaggedError<ComplexDomainBoundaryError>()("ComplexDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
@@ -28,27 +25,29 @@ export class ComplexDomainBoundaryError
  * Reports malformed input to a validated complex operation. `operation`
  * identifies the operation whose schema rejected the input.
  *
- * @see {@link ComplexDomainBoundaryError} — boundary-level failure
- *
  * @since 0.1.0
  * @category errors
  */
 export class ComplexDecodeError extends Schema.TaggedError<ComplexDecodeError>()("ComplexDecodeError", {
+  /** Public complex operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
 /**
- * Represents a rejected divisor whose real and imaginary components are
- * both zero.
+ * Describes division by a value with zero real and imaginary components.
  *
- * @see {@link ComplexDomainError} — general domain violations
+ * @remarks
+ * Current public division operations preserve their IEEE 754 output and do
+ * not emit this error.
  *
  * @since 0.1.0
  * @category errors
  */
 export class ComplexDivisionByZeroError
   extends Schema.TaggedError<ComplexDivisionByZeroError>()("ComplexDivisionByZeroError", {
+    /** Diagnostic describing the zero divisor. */
     message: Schema.String
   })
 {}
@@ -58,14 +57,13 @@ export class ComplexDivisionByZeroError
  * domain. The pure operations instead follow their documented IEEE 754 and
  * principal-branch conventions.
  *
- * @see {@link ComplexDivisionByZeroError} — specific zero-divisor case
- * @see {@link ComplexDomainViolationError} — policy-driven rejection
- *
  * @since 0.1.0
  * @category errors
  */
 export class ComplexDomainError extends Schema.TaggedError<ComplexDomainError>()("ComplexDomainError", {
+  /** Validated operation whose input falls outside its mathematical domain. */
   operation: Schema.String,
+  /** Diagnostic identifying the rejected domain condition. */
   message: Schema.String
 }) {}
 
@@ -73,14 +71,14 @@ export class ComplexDomainError extends Schema.TaggedError<ComplexDomainError>()
  * Reports a non-finite result rejected by the `"strict"` precision policy.
  * The `"relaxed"` policy permits that result.
  *
- * @see {@link ComplexDomainError} — mathematical domain violations
- *
  * @since 0.1.0
  * @category errors
  */
 export class ComplexDomainViolationError
   extends Schema.TaggedError<ComplexDomainViolationError>()("ComplexDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
@@ -95,8 +93,8 @@ export class ComplexDomainViolationError
 export type ComplexBoundaryError = ComplexDomainBoundaryError | BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Arithmetic-level failures distinguishing malformed input, a zero divisor,
- * mathematical-domain rejection, and strict-policy rejection.
+ * Arithmetic failures declared by the Complex package. The union includes
+ * error classes that current public operations do not emit.
  *
  * @since 0.1.0
  * @category errors

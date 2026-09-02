@@ -1,16 +1,25 @@
 /**
- * Resume effect-search study execution from persisted storage while tuning
- * effect-dsp module parameters with a mock LanguageModel.
+ * Resumes a persisted search that tunes an effect-dsp module with a live
+ * language model.
  *
- * Run: bun run examples/07-miprov2-resume-from-storage.ts
+ * The first study leg writes trials through `StudyStorage`; the resumed leg
+ * reloads that state and evaluates two more instruction and demonstration
+ * candidates.
+ *
+ * Required env:
+ *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
+ *
+ * Optional env:
+ *   DSP_PROVIDER=openai|anthropic|openrouter
+ *   DSP_PROVIDER_MODEL=gpt-4o-mini
+ *
+ * Run: bun run examples/07-study-resume-from-storage-live.ts
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature } from "@scenesystems/effect-dsp"
 import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Contracts } from "@scenesystems/effect-search"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
@@ -18,10 +27,11 @@ import {
   makeStandardSummary,
   writeStandardArtifacts
 } from "./shared/example-report-contract.js"
+import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 import { createExampleArtifacts } from "./shared/output-artifacts.js"
 import { studyCacheLayer, studyStorageLayer, withStudyProgress } from "./shared/study-runtime.js"
 
-const EXAMPLE_NAME = "07-miprov2-resume-from-storage"
+const EXAMPLE_NAME = "07-study-resume-from-storage-live"
 
 const italyEvalset = Arr.make(
   new Example.Example({
@@ -54,32 +64,18 @@ const demoCandidate = (index: number): ReadonlyArray<Example.Demo> =>
     Match.orElse(() => Arr.make(franceDemo, japanDemo))
   )
 
-const responseForPrompt = (prompt: string) =>
-  prompt.includes("What is the capital of France?")
-    ? { answer: "Paris" }
-    : prompt.includes("What is the capital of Japan?")
-    ? { answer: "Tokyo" }
-    : prompt.includes("What is the capital of Italy?")
-    ? prompt.includes("canonical capital city names")
-      ? { answer: "Rome" }
-      : { answer: "Milan" }
-    : { answer: "Unknown" }
-
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)
+  const languageModel = yield* LanguageModel.LanguageModel
   const studyLayer = Layer.provideMerge(
     Layer.merge(
       studyStorageLayer(artifacts.storageDir),
-      studyCacheLayer("effect-dsp/examples/miprov2-resume")
+      studyCacheLayer("effect-dsp/examples/study-resume")
     ),
     Layer.merge(
       Contracts.fileSystemSink(artifacts.storageDir),
       artifacts.envelopeContextLayer
     )
-  )
-
-  const mock = yield* MockLanguageModel.make(
-    MockLanguageModel.map(responseForPrompt)
   )
 
   const qaSignature = yield* Signature.make(
@@ -91,17 +87,16 @@ const program = Effect.gen(function*() {
       answer: Signature.describe(Schema.String, "Short factual answer")
     }
   )
-  const qa = yield* Module.predict("qa-mipro-resume", qaSignature)
+  const qa = yield* Module.predict("qa-study-resume", qaSignature)
 
   const space = yield* SearchSpace.make({
     instructionIndex: SearchSpace.int(0, 2),
     demoIndex: SearchSpace.int(0, 2)
   })
 
-  const decode = Schema.decodeUnknownSync(space.schema)
   const objective = (raw: unknown) =>
     Effect.gen(function*() {
-      const config = decode(raw)
+      const config = yield* Schema.decodeUnknown(space.schema)(raw)
 
       yield* Ref.set(
         qa.params,
@@ -119,9 +114,7 @@ const program = Effect.gen(function*() {
           exactMatch: Metric.exactMatch("answer")
         },
         concurrency: 1
-      }).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service)
-      )
+      }).pipe(Effect.provideService(LanguageModel.LanguageModel, languageModel))
 
       return Option.getOrElse(
         Option.fromNullable(report.overallScores.exactMatch),
@@ -162,9 +155,7 @@ const program = Effect.gen(function*() {
       exactMatch: Metric.exactMatch("answer")
     },
     concurrency: 1
-  }).pipe(
-    Effect.provideService(LanguageModel.LanguageModel, mock.service)
-  )
+  })
   const optimizedParams = yield* Ref.get(qa.params)
   const moduleSavedState = yield* Module.save(qa)
   const optimizedScore = Option.getOrElse(
@@ -224,7 +215,7 @@ const program = Effect.gen(function*() {
     moduleState: moduleStateArtifact
   }).pipe(Effect.provide(studyLayer))
 
-  yield* Effect.log("miprov2-resume-from-storage", {
+  yield* Effect.log("study-resume-from-storage", {
     storageDirectory: artifacts.storageDir,
     firstLegEventCount: firstLegTags.length,
     resumedEventCount: resumedTags.length,
@@ -234,7 +225,7 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  program.pipe(
+  withLiveLanguageModel(program).pipe(
     Effect.provide(BunContext.layer)
   )
 )

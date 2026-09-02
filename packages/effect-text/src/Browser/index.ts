@@ -1,6 +1,6 @@
 /**
  * Connects text preparation to canvas measurement, font-readiness revisions,
- * browser support profiles, and parity artifacts.
+ * browser support profiles, and synthetic regression artifacts.
  *
  * @remarks
  * Use the browser measurement Layers when prepared widths must follow a
@@ -11,7 +11,7 @@
  */
 
 /**
- * Declares the browser integration surface provisional for compatibility guarantees.
+ * Marks browser measurement Layers, profiles, and synthetic artifacts as provisional.
  *
  * @since 0.2.0
  * @category stability
@@ -33,14 +33,15 @@ export * from "./layers.js"
 export * from "./fontReadiness.js"
 
 /**
- * Shipped canvas profiles, font-selection policies, cache freshness, and parity coverage.
+ * Shipped canvas profiles, font-selection policies, cache freshness, and
+ * synthetic scenario coverage.
  *
  * @since 0.2.0
  */
 export * from "./supportManifest.js"
 
 /**
- * Reproducible browser prepare/layout cases and checked-in artifact rendering.
+ * Synthetic canvas scenarios and checked-in regression artifact rendering.
  *
  * @since 0.2.0
  */

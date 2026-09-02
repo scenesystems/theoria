@@ -1,9 +1,6 @@
 /**
- * Streaming Digest — hash chunked data with Effect Stream.
- *
- * What this shows: hash byte and text chunks incrementally, compare against
- * one-shot digest helpers for parity, and preserve a valid surrogate pair split
- * across text chunks.
+ * Hashes byte and text streams incrementally, compares each result with its
+ * one-shot equivalent, and verifies a surrogate pair split across text chunks.
  *
  * Run: bun run examples/04-streaming-digest.ts
  */

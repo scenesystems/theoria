@@ -26,7 +26,7 @@ import type { SealedEnvelope } from "./schemas/SealedEnvelope.js"
  * @param algorithm - Cipher to use and record in the envelope.
  * @param key - Caller-owned 32-byte key; it is neither copied into nor retained by the envelope.
  * @param plaintext - Bytes to encrypt.
- * @returns An Effect that succeeds with the encoded envelope or fails with {@link InvalidKey}.
+ * @returns A fresh encoded envelope, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category seal
@@ -58,8 +58,7 @@ export const seal = (
  *
  * @param key - Caller-owned 32-byte key; it must not be all zero.
  * @param envelope - Envelope whose algorithm, nonce, and ciphertext are used for decryption.
- * @returns An Effect that succeeds with plaintext bytes or fails with {@link InvalidKey} or
- * {@link DecryptionFailed}.
+ * @returns Fresh plaintext bytes, or {@link InvalidKey} or {@link DecryptionFailed}.
  *
  * @since 0.1.0
  * @category seal

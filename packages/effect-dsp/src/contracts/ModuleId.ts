@@ -6,13 +6,12 @@
 import { Schema } from "effect"
 
 /**
- * Branded schema for module instance identity. Accepts lowercase
- * kebab-case strings (`^[a-z][a-z0-9-]*$`) — matching the naming
- * convention used by `Module.make` to register predictors and
- * composed pipelines.
+ * Validates and brands identities used by module graphs and optimizer state.
  *
- * @see {@link CacheKey} — uses ModuleId as part of the memoization key
- * @see {@link ModuleNode} — carries ModuleId for graph traversal
+ * @remarks
+ * Accepted strings start with a lowercase ASCII letter and continue with
+ * lowercase letters, digits, or hyphens. The pattern does not reject repeated
+ * or trailing hyphens.
  *
  * @since 0.1.0
  * @category schemas
@@ -23,11 +22,7 @@ export const ModuleId = Schema.String.pipe(
 )
 
 /**
- * Validated identity used to join module registrations, composition edges,
- * optimizer state, and cache keys. Values are lowercase kebab-case, preventing
- * those stores from assigning different identities to spelling variants.
- *
- * @see {@link ModuleId}
+ * Selects a string decoded and branded by the {@link ModuleId} schema.
  * @since 0.1.0
  * @category type-level
  */

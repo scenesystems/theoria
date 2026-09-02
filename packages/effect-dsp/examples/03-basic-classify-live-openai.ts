@@ -1,5 +1,6 @@
 /**
- * Live-provider classify flow using shared Config-driven runtime composition.
+ * Classifies one sentence with a live OpenAI-compatible provider selected from
+ * Effect Config.
  *
  * Required env:
  *   DSP_PROVIDER=openai

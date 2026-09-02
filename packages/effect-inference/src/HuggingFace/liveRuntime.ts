@@ -1,6 +1,5 @@
 /**
- * Access-token-aware live runtime helpers for Hugging Face routed-provider and
- * dedicated-endpoint execution.
+ * Configured Hugging Face resolution and model-layer selection.
  *
  * @since 0.1.0
  */
@@ -64,8 +63,8 @@ export const resolveLiveRuntimeFromConfig = (
   resolveLiveRuntimeConfig(options).pipe(Effect.flatMap(resolveLiveRuntime))
 
 /**
- * Extracts the authenticated live `LanguageModel` layer from a Hugging Face
- * runtime resolution.
+ * Selects the live `LanguageModel` layer admitted by a Hugging Face resolution.
+ * Fails with `CapabilityMismatch` when text generation was not exposed.
  *
  * @since 0.1.0
  * @category constructors
@@ -82,8 +81,8 @@ export const languageModelLayer = (
   })
 
 /**
- * Extracts the authenticated live `EmbeddingModel` layer from a Hugging Face
- * runtime resolution.
+ * Selects the live `EmbeddingModel` layer admitted by a Hugging Face resolution.
+ * Fails with `CapabilityMismatch` when embeddings were not exposed.
  *
  * @since 0.1.0
  * @category constructors

@@ -1,7 +1,10 @@
 /**
- * Optimization domain operations — pure kernel re-exports,
- * Schema-validated boundary variants, and policy-aware operations
- * reading `PrecisionPolicyService` and `DiagnosticsPolicyService`.
+ * Approximates bracketed roots and scalar minima for synchronous numeric functions.
+ *
+ * @remarks
+ * Pure operations trust their interval and stopping arguments. Validated
+ * operations decode those arguments but retain the mathematical preconditions.
+ * Policy-aware operations apply runtime policy only to the final estimate.
  *
  * @since 0.1.0
  * @category operations
@@ -30,22 +33,29 @@ export const loadOptimizationDomain = Effect.succeed(OptimizationDomainModel)
 // ---------------------------------------------------------------------------
 
 /**
- * Approximates a root by repeatedly halving `[a, b]`. The bracket must have
- * endpoint values with opposite signs; endpoint signs are not checked.
- * The current midpoint is returned when the bracket
- * width is less than `tolerance` or the iteration budget is exhausted.
- * Defaults are `1e-12` and 100 iterations.
+ * Approximates a root by repeatedly halving a sign-changing bracket.
+ *
+ * @remarks
+ * Endpoint signs and ordering are not checked. The search returns the current
+ * midpoint when the bracket width is below `tolerance` or `maxIterations` is
+ * reached. The defaults are `1e-12` and `100`.
  *
  * @example
  * ```ts
- * import { Optimization } from "@scenesystems/effect-math"
+ * import { Numeric, Optimization } from "@scenesystems/effect-math"
+ * import { Effect } from "effect"
  *
- * Optimization.bisect((x) => x * x - 2, 0, 2) // ≈ √2 ≈ 1.41421
+ * export const program = Effect.sync(() =>
+ *   Optimization.bisect((x) => Numeric.sum([Numeric.pow(x, 2), -2]), 0, 2)
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (root) => Numeric.between(root, { minimum: 1.4142, maximum: 1.4143 }),
+ *     () => "UnexpectedRoot"
+ *   )
+ * )
  * ```
  *
- * @see {@link bisectValidated} — boundary-validated variant
- * @see {@link bisectWithPolicies} — policy-aware variant
- * @param f - Scalar function whose root is bracketed.
+ * @param f - Synchronous function whose root is bracketed. Exceptions escape the pure call.
  * @param a - First bracket endpoint; ordering is not validated.
  * @param b - Second bracket endpoint; ordering is not validated.
  * @param tolerance - Positive target bracket width. The pure function does not validate it.
@@ -63,24 +73,34 @@ export const bisect: (
 ) => number = Bisect.bisectKernel
 
 /**
- * Approximates a scalar-function minimizer by golden-section reduction.
+ * Approximates the minimizer of a unimodal scalar function by golden-section reduction.
  *
  * @remarks
- * The caller must provide an interval containing the desired minimum;
- * unimodality and endpoint ordering are not checked. The current midpoint is
- * returned once the interval width is below `tolerance` or the iteration
- * budget is exhausted. Defaults are `1e-12` and 100 iterations.
+ * The interval must contain the desired minimum. Unimodality and endpoint
+ * ordering are not checked. The search returns the current midpoint when the
+ * interval width is below `tolerance` or `maxIterations` is reached. The
+ * defaults are `1e-12` and `100`.
  *
  * @example
  * ```ts
- * import { Optimization } from "@scenesystems/effect-math"
+ * import { Numeric, Optimization } from "@scenesystems/effect-math"
+ * import { Effect } from "effect"
  *
- * Optimization.goldenSection((x) => x * x, -2, 2) // ≈ 0
+ * export const program = Effect.sync(() =>
+ *   Optimization.goldenSection(
+ *     (x) => Numeric.pow(Numeric.sum([x, -3]), 2),
+ *     0,
+ *     6
+ *   )
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (minimizer) => Numeric.between(minimizer, { minimum: 2.999, maximum: 3.001 }),
+ *     () => "UnexpectedMinimizer"
+ *   )
+ * )
  * ```
  *
- * @see {@link goldenSectionValidated} — boundary-validated variant
- * @see {@link goldenSectionWithPolicies} — policy-aware variant
- * @param f - Objective function to minimize.
+ * @param f - Synchronous objective function. Exceptions escape the pure call.
  * @param a - First search endpoint; ordering is not validated.
  * @param b - Second search endpoint; ordering is not validated.
  * @param tolerance - Positive target interval width. The pure function does not validate it.
@@ -102,19 +122,18 @@ export const goldenSection: (
 // ---------------------------------------------------------------------------
 
 /**
- * Finds a bracketed root from boundary-validated bisection input.
+ * Decodes bisection settings before approximating a bracketed root.
  *
  * @remarks
- * Decodes finite endpoints, a positive finite tolerance, and a positive
- * integer iteration budget through `BisectInput`, rejecting excess fields.
- * Bracketing and endpoint ordering remain caller preconditions. Schema failure
- * is mapped to `OptimizationDecodeError`; reaching the iteration budget still
- * succeeds with the final midpoint.
+ * Excess fields are rejected. A sign-changing bracket and ordered endpoints
+ * remain caller preconditions. Reaching the iteration budget succeeds with the
+ * final midpoint. Exceptions from `f` become Effect defects.
  *
- * @see {@link bisect} — pure kernel for pre-validated input
- * @param f - Scalar function whose root is bracketed.
- * @param input - Unknown value expected to satisfy `BisectInput`.
- * @returns An Effect that succeeds with the final midpoint or fails on decoding.
+ * @param f - Synchronous function whose root is bracketed.
+ * @param input - Untrusted bisection settings decoded by {@link BisectInput}.
+ * @returns The final bracket midpoint.
+ * @throws {@link OptimizationDecodeError} in the Effect error channel when an
+ * endpoint or option is invalid, missing, or unexpected.
  * @since 0.1.0
  * @category validated operations
  */
@@ -134,19 +153,18 @@ export const bisectValidated = (f: (x: number) => number, input: unknown) =>
   })
 
 /**
- * Minimizes a scalar function from boundary-validated golden-section input.
+ * Decodes golden-section settings before approximating a scalar minimizer.
  *
  * @remarks
- * Decodes finite endpoints, a positive finite tolerance, and a positive
- * integer iteration budget through `GoldenSectionInput`, rejecting excess
- * fields. Endpoint ordering and unimodality remain caller preconditions.
- * Schema failure is mapped to `OptimizationDecodeError`; budget exhaustion
- * succeeds with the final midpoint.
+ * Excess fields are rejected. Endpoint ordering and unimodality remain caller
+ * preconditions. Reaching the iteration budget succeeds with the final
+ * midpoint. Exceptions from `f` become Effect defects.
  *
- * @see {@link goldenSection} — pure kernel for pre-validated input
- * @param f - Objective function to minimize.
- * @param input - Unknown value expected to satisfy `GoldenSectionInput`.
- * @returns An Effect that succeeds with the final midpoint or fails on decoding.
+ * @param f - Synchronous objective function.
+ * @param input - Untrusted search settings decoded by {@link GoldenSectionInput}.
+ * @returns The final search-interval midpoint rather than the objective value.
+ * @throws {@link OptimizationDecodeError} in the Effect error channel when an
+ * endpoint or option is invalid, missing, or unexpected.
  * @since 0.1.0
  * @category validated operations
  */
@@ -170,18 +188,17 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
 // ---------------------------------------------------------------------------
 
 /**
- * Approximates a bracketed root with the default tolerance and iteration
- * budget. Precision policy governs acceptance of the final midpoint.
+ * Approximates a bracketed root with default stopping settings and applies runtime policies.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `OptimizationDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
+ * Strict precision rejects a non-finite midpoint. Relaxed precision returns it.
+ * Enabled diagnostics emit one debug log with the bracket, result, precision
+ * mode, and elapsed milliseconds. Bracketing and endpoint ordering are not
+ * validated. Exceptions from `f` become Effect defects.
  *
  * @example
  * ```ts
- * import { Optimization } from "@scenesystems/effect-math"
+ * import { Numeric, Optimization } from "@scenesystems/effect-math"
  * import { Effect, Layer } from "effect"
  * import {
  *   DiagnosticsPolicyService,
@@ -193,18 +210,22 @@ export const goldenSectionValidated = (f: (x: number) => number, input: unknown)
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const fn = (x: number) => x * x - 2
- * const program = Optimization.bisectWithPolicies(fn, 0, 2).pipe(
- *   Effect.provide(layer)
+ * const fn = (x: number) => Numeric.sum([Numeric.pow(x, 2), -2])
+ * export const program = Optimization.bisectWithPolicies(fn, 0, 2).pipe(
+ *   Effect.provide(layer),
+ *   Effect.filterOrFail(
+ *     (root) => Numeric.between(root, { minimum: 1.4142, maximum: 1.4143 }),
+ *     () => "UnexpectedRoot"
+ *   )
  * )
  * ```
  *
- * @see {@link bisect} — pure kernel without policy seams
- * @see {@link bisectValidated} — boundary-validated variant
- * @param f - Scalar function whose root is bracketed.
+ * @param f - Synchronous function whose root is bracketed.
  * @param a - First bracket endpoint.
  * @param b - Second bracket endpoint.
- * @returns An Effect requiring both policy services and failing only when strict precision rejects a non-finite result.
+ * @returns The final bracket midpoint.
+ * @throws {@link OptimizationDomainViolationError} in the Effect error channel
+ * when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */
@@ -217,22 +238,20 @@ export const bisectWithPolicies = (f: (x: number) => number, a: number, b: numbe
   })
 
 /**
- * Approximates a scalar minimizer with golden-section reduction and the
- * default stopping settings. Precision policy governs acceptance of the final
- * interval midpoint.
+ * Approximates a scalar minimizer with default stopping settings and applies runtime policies.
  *
  * @remarks
- * - **`PrecisionPolicyService`** — `"strict"` rejects non-finite results
- *   with `OptimizationDomainViolationError`; `"relaxed"` passes them through.
- * - **`DiagnosticsPolicyService`** — `"enabled"` emits `Effect.logDebug`
- *   with input, result, precision, and elapsed-ms annotations.
+ * Strict precision rejects a non-finite midpoint. Relaxed precision returns it.
+ * Enabled diagnostics emit one debug log with the interval, result, precision
+ * mode, and elapsed milliseconds. Endpoint ordering and unimodality are not
+ * validated. Exceptions from `f` become Effect defects.
  *
- * @see {@link goldenSection} — pure kernel without policy seams
- * @see {@link goldenSectionValidated} — boundary-validated variant
- * @param f - Objective function to minimize.
+ * @param f - Synchronous objective function.
  * @param a - First search endpoint.
  * @param b - Second search endpoint.
- * @returns An Effect requiring both policy services and failing only when strict precision rejects a non-finite result.
+ * @returns The final search-interval midpoint rather than the objective value.
+ * @throws {@link OptimizationDomainViolationError} in the Effect error channel
+ * when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */

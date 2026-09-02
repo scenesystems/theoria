@@ -1,6 +1,5 @@
 /**
- * Public effect-search adapter — ask/tell orchestration and progress
- * composition for optimizer integration.
+ * Exposes effect-search ask/tell operations through the DSP optimizer boundary.
  *
  * @since 0.1.0
  */
@@ -24,8 +23,8 @@ export {
 }
 
 /**
- * Namespace object that bundles all effect-search adapter operations into a
- * single import for convenience.
+ * Groups the public schemas, study operations, event streams, and Pareto
+ * projections used by DSP optimizers.
  *
  * @since 0.1.0
  * @category constructors

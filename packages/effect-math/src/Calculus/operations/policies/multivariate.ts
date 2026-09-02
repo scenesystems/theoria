@@ -1,5 +1,11 @@
 /**
- * Policy-aware wrappers for multivariate calculus operations.
+ * Applies runtime precision and diagnostics policies to multivariate calculus results.
+ *
+ * @remarks
+ * Synchronous callback exceptions fail with {@link KernelExecutionError}.
+ * Strict precision rejects non-finite scalar, vector, or matrix entries.
+ * Enabled diagnostics emit one debug log with dimensional metadata. Inputs and
+ * dimensional preconditions are not validated.
  *
  * @since 0.1.0
  * @category operations
@@ -13,7 +19,13 @@ import { directionalDerivative, divergence, gradient, hessian, jacobian, laplaci
 import { executeKernel, matrixIsFinite, vectorIsFinite } from "../shared.js"
 
 /**
- * Policy-aware gradient evaluation.
+ * Estimates a gradient and applies policies to every component.
+ *
+ * @remarks
+ * Strict precision accepts an empty result because there are no non-finite components.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations
@@ -43,7 +55,10 @@ export const gradientWithPolicies = (
   )
 
 /**
- * Policy-aware Jacobian evaluation.
+ * Estimates a Jacobian and applies policies to every matrix entry.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations
@@ -73,7 +88,10 @@ export const jacobianWithPolicies = (
   )
 
 /**
- * Policy-aware Hessian evaluation.
+ * Estimates a Hessian and applies policies to every matrix entry.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations
@@ -102,7 +120,14 @@ export const hessianWithPolicies = (
   )
 
 /**
- * Policy-aware directional derivative evaluation.
+ * Estimates a normalized directional derivative and applies policies to the result.
+ *
+ * @remarks
+ * Unequal vector lengths and zero directions produce `NaN`. Strict precision
+ * rejects that sentinel; relaxed precision returns it.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations
@@ -132,7 +157,14 @@ export const directionalDerivativeWithPolicies = (
   )
 
 /**
- * Policy-aware divergence evaluation.
+ * Estimates vector-field divergence and applies policies to the scalar result.
+ *
+ * @remarks
+ * A field output dimension different from the point dimension produces `NaN`.
+ * Strict precision rejects that sentinel; relaxed precision returns it.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations
@@ -161,7 +193,10 @@ export const divergenceWithPolicies = (
   )
 
 /**
- * Policy-aware Laplacian evaluation.
+ * Estimates a scalar-field Laplacian and applies policies to the result.
+ *
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
+ * @throws {@link CalculusDomainViolationError} when strict precision rejects the result.
  *
  * @since 0.2.0
  * @category operations

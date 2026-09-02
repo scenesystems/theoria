@@ -1,5 +1,5 @@
 /**
- * Module parameter persistence via Schema-serializable envelopes.
+ * Versioned snapshots of module parameter ownership trees.
  *
  * @since 0.1.0
  */
@@ -45,14 +45,18 @@ const refsRecord = (
   )
 
 /**
- * Snapshot module and sub-module parameters into a `SavedState` envelope.
- * Walks the parameter ownership tree in its canonical order and reads each
- * Ref. The resulting version-1 envelope omits metadata.
+ * Reads the root and owned child parameters into a version-1 snapshot.
+ *
+ * @remarks
+ * Traversal is depth-first, with siblings sorted by module name. Each Ref is
+ * read separately, so callers must prevent concurrent parameter updates when
+ * they require a point-in-time snapshot of the complete tree. The result omits
+ * metadata.
  *
  * @typeParam I - Root module input fields.
  * @typeParam O - Root module output fields.
  * @param module - Root of the parameter tree to snapshot.
- * @returns A version-1 snapshot in canonical parameter-tree order.
+ * @returns Current parameter values in canonical ownership order.
  *
  * @see {@link load}
  * @see {@link SavedState}
@@ -81,18 +85,21 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * Restores a module parameter tree from saved state.
  *
  * @remarks
- * Accepts a version-1 {@link SavedState} or an unknown value that decodes as one. Before writing, it validates the envelope
- * and rejects duplicate names, unknown names, and missing target names. Refs
- * are then updated sequentially in canonical target order.
+ * Accepts a version-1 {@link SavedState} or an unknown value that decodes as
+ * one. Before writing, it rejects duplicate names, unknown names, and missing
+ * target names. Validated refs are updated sequentially in canonical target
+ * order without interruption, so validation failure and cancellation before
+ * the write phase leave the tree unchanged.
+ *
  * Compatibility is by module name and envelope schema, not object identity or
- * composition alias. Fails with `SaveLoadError` when validation or name-set
- * matching fails.
+ * composition alias. Metadata is ignored. Concurrent writes by other effects
+ * are not coordinated.
  *
  * @typeParam I - Root module input fields.
  * @typeParam O - Root module output fields.
  * @param module - Target parameter tree.
  * @param state - Candidate serialized envelope.
- * @returns An Effect that completes after all target Refs are updated.
+ * @returns Completion after every target Ref contains its matching saved value.
  *
  * @see {@link save}
  * @see {@link SavedState}
@@ -124,7 +131,7 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
       { discard: true }
     )
 
-    yield* Effect.forEach(
+    const updates = yield* Effect.forEach(
       refs,
       (target) =>
         Option.match(Option.fromNullable(savedByName[target.name]), {
@@ -135,8 +142,13 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
                 operation: "load"
               })
             ),
-          onSome: (params) => Ref.set(target.params, params)
-        }),
-      { discard: true }
+          onSome: (params) => Effect.succeed({ ref: target.params, params })
+        })
     )
+
+    yield* Effect.forEach(
+      updates,
+      (update) => Ref.set(update.ref, update.params),
+      { discard: true }
+    ).pipe(Effect.uninterruptible)
   })

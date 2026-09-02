@@ -1,5 +1,5 @@
 /**
- * Stable runtime-evidence projection consumed by sibling packages.
+ * Serializable record separating intent, route decisions, and response data.
  *
  * @since 0.1.0
  */
@@ -19,9 +19,13 @@ import { RuntimeCapabilitiesSchema } from "./RuntimeCapabilities.js"
  * @category schemas
  */
 export const RuntimeEvidenceSchema = Schema.Struct({
+  /** Original model intent supplied to resolution. */
   desired: DesiredRuntimeDescriptorSchema,
+  /** Resolver decision recorded before provider execution. */
   resolvedRoute: ResolvedRouteDescriptorSchema,
+  /** Observations recorded from the completed provider response. */
   resolvedRuntime: ResolvedRuntimeDescriptorSchema,
+  /** Capability policy used when the route was resolved. */
   capabilities: RuntimeCapabilitiesSchema
 })
 

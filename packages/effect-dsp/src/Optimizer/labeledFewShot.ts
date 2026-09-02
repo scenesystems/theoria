@@ -1,6 +1,5 @@
 /**
- * LabeledFewShot — select demonstrations directly from a labeled dataset
- * without teacher runs.
+ * Replaces module-tree demonstrations with a seeded labeled subset.
  *
  * @since 0.1.0
  * @category constructors

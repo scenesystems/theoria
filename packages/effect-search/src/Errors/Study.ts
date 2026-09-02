@@ -1,5 +1,5 @@
 /**
- * Tagged error variants for study-level failures including invalid configuration, objective reporting, trial errors, and math input violations.
+ * Expected failures owned by study setup, objective evaluation, and result selection.
  *
  * @since 0.1.0
  */
@@ -9,9 +9,9 @@ import { ObjectiveValueSchema } from "../contracts/ObjectiveValue.js"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
- * Rejects study setup, resume, scheduling, or snapshot recovery before useful
- * execution can continue. `reason` distinguishes option validation failures
- * from incompatible or corrupt persisted state so callers can correct or discard it.
+ * Reports an invalid study option, resume seed, scheduler configuration, or persisted state.
+ * `reason` contains the rejected condition; callers decide whether to correct input or
+ * discard incompatible recovery data.
  *
  * @since 0.1.0
  * @category errors
@@ -19,6 +19,7 @@ import { SearchErrorTypeId } from "./typeId.js"
 export class InvalidStudyConfig extends Schema.TaggedError<InvalidStudyConfig>()(
   "effect-search/InvalidStudyConfig",
   {
+    /** Failed option, compatibility check, or persistence invariant. */
     reason: Schema.String
   }
 ) {
@@ -27,9 +28,8 @@ export class InvalidStudyConfig extends Schema.TaggedError<InvalidStudyConfig>()
 }
 
 /**
- * Fails completion of `trialNumber` when its scalar or vector objective contains
- * a non-finite value or has the wrong objective arity. `value` preserves the
- * rejected result for diagnostics; the trial is not counted as successful.
+ * Rejects a completed objective with non-finite coordinates or the wrong arity.
+ * `trialNumber` identifies the evaluation and `value` preserves the rejected result.
  *
  * @since 0.1.0
  * @category errors
@@ -37,7 +37,9 @@ export class InvalidStudyConfig extends Schema.TaggedError<InvalidStudyConfig>()
 export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveValue>()(
   "effect-search/InvalidObjectiveValue",
   {
+    /** Trial whose completed objective value was rejected. */
     trialNumber: Schema.Number,
+    /** Non-finite scalar or incompatible vector result returned by the objective. */
     value: ObjectiveValueSchema
   }
 ) {
@@ -46,9 +48,9 @@ export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveVa
 }
 
 /**
- * Rejects an objective result or intermediate report before it affects pruning
- * or aggregation. `reason` identifies schema, cost, step, or value validation;
- * optional `step`, `value`, and `previousStep` retain the relevant report context.
+ * Rejects an intermediate report or aggregated objective observation.
+ * `reason` identifies the failed condition. Optional fields retain the current step,
+ * numeric value, and preceding step when those values contributed to the failure.
  *
  * @since 0.1.0
  * @category errors
@@ -56,10 +58,15 @@ export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveVa
 export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveReport>()(
   "effect-search/InvalidObjectiveReport",
   {
+    /** Trial whose intermediate or aggregated report was rejected. */
     trialNumber: Schema.Number,
+    /** Failed ordering, finiteness, arity, or cost condition. */
     reason: Schema.String,
+    /** Current intermediate step when step ordering was checked. */
     step: Schema.optional(Schema.Number),
+    /** Numeric observation or cost that contributed to the rejection. */
     value: Schema.optional(Schema.Number),
+    /** Last accepted step when monotonic step ordering failed. */
     previousStep: Schema.optional(Schema.Number)
   }
 ) {
@@ -68,9 +75,9 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 }
 
 /**
- * Records an objective failure against `trialNumber`; `message` is stable
- * diagnostic text while `cause` preserves the original unknown failure for
- * recovery policy, retry events, and post-run inspection.
+ * Associates an objective failure with its trial.
+ * `message` is caller-facing diagnostic text and `cause` preserves the original unknown
+ * value for retry policy and inspection. Neither field is redacted for untrusted output.
  *
  * @since 0.1.0
  * @category errors
@@ -78,8 +85,11 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 export class TrialError extends Schema.TaggedError<TrialError>()(
   "effect-search/TrialError",
   {
+    /** Trial whose objective, timeout, or cache operation failed. */
     trialNumber: Schema.Number,
+    /** Caller-facing diagnostic derived from the failure cause. */
     message: Schema.String,
+    /** Original failure value retained without redaction. */
     cause: Schema.Unknown
   }
 ) {
@@ -88,9 +98,9 @@ export class TrialError extends Schema.TaggedError<TrialError>()(
 }
 
 /**
- * Returned by result selection when no completed trial can supply a best or
- * Pareto result. `trialCount` includes all observed lifecycle outcomes, so
- * callers can distinguish an empty study from one whose trials failed or were pruned.
+ * Reports that result selection found no completed trial with an objective value.
+ * `trialCount` includes every observed lifecycle state, allowing callers to distinguish
+ * an empty study from one containing only failed or pruned trials.
  *
  * @since 0.1.0
  * @category errors
@@ -98,6 +108,7 @@ export class TrialError extends Schema.TaggedError<TrialError>()(
 export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>()(
   "effect-search/NoSuccessfulTrials",
   {
+    /** Total observed trials across completed, failed, pruned, cancelled, and running states. */
     trialCount: Schema.Number
   }
 ) {
@@ -106,9 +117,8 @@ export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>()
 }
 
 /**
- * Stops a numerical helper when its domain preconditions are violated rather
- * than returning a misleading NaN or infinity. `operation` identifies the
- * failing computation and `reason` states the input constraint to repair.
+ * Rejects input outside a numerical helper's implemented domain.
+ * `operation` identifies the calculation and `reason` records its failed precondition.
  *
  * @since 0.1.0
  * @category errors
@@ -116,7 +126,9 @@ export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>()
 export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
   "effect-search/InvalidMathInput",
   {
+    /** Numerical helper that rejected its arguments. */
     operation: Schema.String,
+    /** Failed finiteness, range, or dimensionality condition. */
     reason: Schema.String
   }
 ) {
@@ -125,9 +137,8 @@ export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
 }
 
 /**
- * Fails an explicitly unsupported execution path without treating it as bad
- * user data or a trial failure. `feature` names the unavailable capability so
- * callers can choose a supported strategy or handle the gap deliberately.
+ * Reports an execution path that the current implementation does not implement.
+ * `feature` names the unavailable path so callers can select another operation.
  *
  * @since 0.1.0
  * @category errors
@@ -135,6 +146,7 @@ export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
 export class NotImplemented extends Schema.TaggedError<NotImplemented>()(
   "effect-search/NotImplemented",
   {
+    /** Recognized execution path without a current implementation. */
     feature: Schema.String
   }
 ) {

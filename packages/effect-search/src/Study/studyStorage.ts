@@ -1,5 +1,5 @@
 /**
- * File-system backed study storage for persisting snapshots, events, and trial logs.
+ * Reads and writes study snapshots and trial logs through artifact envelopes.
  *
  * @since 0.1.0
  */
@@ -18,13 +18,19 @@ import { makeSnapshotEnvelopeFrom, makeTrialLogEnvelopeFrom } from "./storageEnv
 const DEFAULT_ENVELOPE_FILE_NAME = "envelopes.jsonl"
 
 /**
- * Filesystem location and envelope-log naming options for study persistence.
+ * Selects the JSON-lines artifact log read by a study-storage service.
+ *
+ * @remarks
+ * The supplied {@link ArtifactSink} must write to the same file if values emitted
+ * by this service need to be available to its load operations.
  *
  * @since 0.1.0
  * @category models
  */
 export class StudyStorageOptions extends Data.Class<{
+  /** Directory containing the artifact envelope log. */
   readonly directory: string
+  /** Artifact envelope log file name within `directory`. */
   readonly envelopeFileName: string
 }> {}
 
@@ -35,7 +41,7 @@ const defaultStudyStorageOptions = (directory: string): StudyStorageOptions =>
   })
 
 /**
- * Creates study-storage options using the default envelope log name.
+ * Reads study data from `envelopes.jsonl` in the supplied directory.
  *
  * @since 0.1.0
  * @category constructors
@@ -43,7 +49,12 @@ const defaultStudyStorageOptions = (directory: string): StudyStorageOptions =>
 export const studyStorageOptions = (directory: string): StudyStorageOptions => defaultStudyStorageOptions(directory)
 
 /**
- * Service for persisting snapshots and replayable trial logs.
+ * Emits study records as artifact envelopes and reads them from a JSON-lines log.
+ *
+ * @remarks
+ * Write completion has the durability semantics of the installed artifact sink.
+ * The filesystem implementation returned by {@link makeStudyStorage} ignores
+ * missing files, read errors, malformed JSON, and schema-invalid lines while loading.
  *
  * @since 0.1.0
  * @category services
@@ -51,19 +62,21 @@ export const studyStorageOptions = (directory: string): StudyStorageOptions => d
 export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")<
   StudyStorage,
   {
+    /** Emits one trial-log envelope. */
     readonly appendTrial: (trial: SnapshotTrial) => Effect.Effect<void>
+    /** Emits one study-snapshot envelope. */
     readonly writeSnapshot: (snapshot: StudySnapshot) => Effect.Effect<void>
+    /** Reads the last valid snapshot envelope, or `None` when none can be read. */
     readonly loadSnapshot: () => Effect.Effect<Option.Option<StudySnapshot>, InvalidStudyConfig>
+    /** Reads every valid trial-log envelope in file order. */
     readonly loadTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
+    /** Reads trial-log entries whose number is at least the last snapshot's next trial number. */
     readonly replayTrialLog: () => Effect.Effect<Array<SnapshotTrial>, InvalidStudyConfig>
   }
 >() {}
 
 /**
- * Structural storage service used by study orchestration. Writes are
- * best-effort envelope emissions, while loads decode the log and can fail with
- * `InvalidStudyConfig`; replay returns only log trials at or after the latest
- * snapshot's `nextTrialNumber`, or the full log when no snapshot exists.
+ * Describes the operations implemented by the {@link StudyStorage} service.
  *
  * @since 0.1.0
  * @category type-level
@@ -71,7 +84,17 @@ export class StudyStorage extends Effect.Tag("effect-search/Study/StudyStorage")
 export type StudyStorageApi = Context.Tag.Service<typeof StudyStorage>
 
 /**
- * Constructs filesystem-backed study storage with artifact envelope metadata.
+ * Creates storage that emits through {@link ArtifactSink} and reads a filesystem log.
+ *
+ * @remarks
+ * The service requires filesystem and path services, an artifact sink, and an
+ * {@link EnvelopeContext}. Directory-creation errors are ignored. Appends allocate
+ * artifact IDs from the context and do not add locking beyond the selected sink.
+ * Loads retain valid envelopes in file order and suppress filesystem and decoding
+ * errors. Replay returns the full trial log when no snapshot exists; otherwise it
+ * keeps trial numbers greater than or equal to the last snapshot's `nextTrialNumber`.
+ * It does not sort or deduplicate trials. Snapshot and trial-log data are read
+ * independently without excluding concurrent writes.
  *
  * @since 0.1.0
  * @category constructors
@@ -148,7 +171,11 @@ export const makeStudyStorage = (
   })
 
 /**
- * Live Effect layer providing study storage.
+ * Builds one {@link StudyStorage} using the required platform and artifact services.
+ *
+ * @remarks
+ * Layer acquisition has no typed failure because directory-creation errors are
+ * ignored. The Layer does not acquire or release the supplied sink and context.
  *
  * @since 0.1.0
  * @category layers

@@ -1,17 +1,9 @@
 /**
- * GEPA live optimization for conversational-network protocol design and collective memory.
+ * Uses GEPA to optimize a live conversational-network protocol planner after a
+ * teacher-layered analyst diagnoses reinforcement, suppression, and
+ * network-distance effects.
  *
- * Inspired by PNAS 10.1073/pnas.1525569113, this example optimizes
- * protocol decisions for laboratory-created conversational networks:
- *
- * - clustered vs nonclustered interaction topology
- * - sequencing policy under fixed interaction budgets
- * - expected mnemonic convergence from pre- to post-conversation recall
- *
- * The workflow demonstrates:
- * 1) a teacher-layered dynamics analyst that diagnoses reinforcement,
- *    suppression, and degree-of-separation effects
- * 2) a student protocol planner optimized with GEPA reflective evolution
+ * Experimental context: PNAS DOI 10.1073/pnas.1525569113.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)

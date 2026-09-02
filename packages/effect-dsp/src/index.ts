@@ -1,20 +1,17 @@
 /**
- * Defines schema-first language-model programs that can be evaluated and
- * optimized inside Effect workflows.
+ * Executes schema-validated language-model programs in Effect workflows.
  *
  * @remarks
- * Define input and output contracts with `Signature`, construct executable
- * programs with `Module`, score them against `Example` values through
- * `Metric` and `Evaluate`, and use `Optimizer` when their parameters should be
- * learned. `Cache` and `Trace` supply runtime integrations for those
- * executions.
+ * `Signature` defines the runtime input and output boundary. `Module` executes
+ * that contract. Evaluation and optimization score module behavior over labeled
+ * examples, while cache and trace services alter execution observability and reuse.
  *
  * @since 0.1.0
  * @module
  */
 
 /**
- * Schema-backed input and output contracts for model programs.
+ * Builds schema-backed input and output contracts with prompt metadata.
  *
  * @since 0.1.0
  * @category signatures
@@ -22,7 +19,7 @@
 export * as Signature from "./Signature/index.js"
 
 /**
- * Executable model programs and their learnable parameters.
+ * Constructs executable model programs and exposes their learnable parameter state.
  *
  * @since 0.1.0
  * @category modules
@@ -30,7 +27,7 @@ export * as Signature from "./Signature/index.js"
 export * as Module from "./Module/index.js"
 
 /**
- * Optimizers that derive program parameters from examples and metrics.
+ * Derives module instructions and demonstrations from examples and metric scores.
  *
  * @since 0.1.0
  * @category optimizers
@@ -38,7 +35,7 @@ export * as Module from "./Module/index.js"
 export * as Optimizer from "./Optimizer/index.js"
 
 /**
- * Scoring contracts and constructors used by evaluation and optimization.
+ * Scores predictions with effectful or synchronous metrics and composes their results.
  *
  * @since 0.1.0
  * @category metrics
@@ -46,7 +43,7 @@ export * as Optimizer from "./Optimizer/index.js"
 export * as Metric from "./Metric/index.js"
 
 /**
- * Batch and streaming evaluation of programs against labeled examples.
+ * Evaluates modules over labeled datasets and emits per-example lifecycle events.
  *
  * @since 0.1.0
  * @category evaluation
@@ -54,7 +51,7 @@ export * as Metric from "./Metric/index.js"
 export * as Evaluate from "./Evaluate/index.js"
 
 /**
- * Labeled examples and demonstrations for evaluation and optimization.
+ * Models input-only and labeled rows used by evaluation and optimization.
  *
  * @since 0.1.0
  * @category models
@@ -62,7 +59,7 @@ export * as Evaluate from "./Evaluate/index.js"
 export * as Example from "./Example/index.js"
 
 /**
- * Fiber-scoped execution traces and token-usage accounting.
+ * Collects module-call records and usage totals in fiber-local scopes.
  *
  * @since 0.1.0
  * @category tracing
@@ -70,7 +67,7 @@ export * as Example from "./Example/index.js"
 export * as Trace from "./Trace/index.js"
 
 /**
- * Package-owned typed failures.
+ * Describes the tagged failures returned by DSP operations.
  *
  * @since 0.1.0
  * @category errors
@@ -78,7 +75,7 @@ export * as Trace from "./Trace/index.js"
 export * as Errors from "./Errors/index.js"
 
 /**
- * Shared language-model call caching and rollout partitioning.
+ * Memoizes model results with optional rollout-specific cache partitions.
  *
  * @since 0.1.0
  * @category cache

@@ -1,16 +1,7 @@
 /**
- * MIPROv2 live optimization for a social-science intervention panel.
- *
- * A senior theorist module first infers latent constructs from field notes,
- * then a student planner module proposes one intervention lever:
- * `norms`, `incentives`, or `information`.
- *
- * This demonstrates:
- * - LLM-to-LLM handoff (teacher theorist → student planner)
- * - Explicit teacher/student layering via `liveLanguageModelLayer`
- * - `Optimizer.bootstrapFewShot` teacher warm-start
- * - `Optimizer.miprov2Stream` instruction+demo optimization with event traces
- * - `Evaluate.run` baseline vs optimized exact-match scoring
+ * Optimizes a live two-module intervention panel with BootstrapFewShot and
+ * MIPROv2. The analyst infers a construct from a field note; the planner selects
+ * `norms`, `incentives`, or `information` and receives exact-match evaluation.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)

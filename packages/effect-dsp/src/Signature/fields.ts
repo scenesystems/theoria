@@ -15,11 +15,8 @@ const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertyS
   )
 
 /**
- * Extract a {@link FieldInfo} from a single `SchemaAST.PropertySignature`,
- * reading the {@link FieldDescriptionId} annotation for the description.
- *
- * @see {@link FieldInfo} — the returned metadata model
- * @see {@link FieldDescriptionId} — the annotation symbol read
+ * Extracts field metadata and its optional description annotation from one AST
+ * property signature.
  *
  * @since 0.1.0
  * @category utils
@@ -40,12 +37,11 @@ const propertySignaturesFromFields = (fields: Schema.Struct.Fields): ReadonlyArr
   )
 
 /**
- * Convert a `Schema.Struct.Fields` record into an array of
- * {@link FieldInfo} by extracting AST property signatures and
- * reading their annotations.
+ * Converts struct fields to metadata in AST property order.
  *
- * @see {@link FieldInfo}
- * @see {@link extractSingleFieldInfo} — per-field extraction
+ * @remarks
+ * Descriptions come from {@link FieldDescriptionId} annotations on each
+ * property signature or its value schema.
  *
  * @since 0.1.0
  * @category utils

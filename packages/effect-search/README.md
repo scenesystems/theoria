@@ -25,9 +25,10 @@ This study minimizes a two-dimensional objective. `SearchSpace.make` validates t
 
 ```ts typecheck
 import { Effect, Match } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const program = Effect.gen(function* () {
+export const program = Effect.gen(function* () {
   const space = yield* SearchSpace.make({
     x: SearchSpace.float(-5, 5),
     y: SearchSpace.float(-5, 5)
@@ -36,7 +37,7 @@ const program = Effect.gen(function* () {
   const result = yield* Study.minimize({
     space,
     sampler: Sampler.tpe({ seed: 42 }),
-    objective: (config) => Effect.succeed((config.x - 2) ** 2 + (config.y + 1) ** 2),
+    objective: (config) => Effect.succeed(Numeric.pow(config.x - 2, 2) + Numeric.pow(config.y + 1, 2)),
     trials: 50
   })
 
@@ -51,8 +52,6 @@ const program = Effect.gen(function* () {
     Match.exhaustive
   )
 })
-
-Effect.runPromise(program)
 ```
 
 An objective may use any services and typed failures supported by Effect. A trial records its configuration and lifecycle state as running, completed, failed, pruned, or cancelled. For multiple objectives, `Study.optimize` accepts `directions` and returns a Pareto front instead of one best trial.

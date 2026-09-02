@@ -1,20 +1,13 @@
 /**
- * Sampler Comparison — Random, TPE, CMA-ES, and GP-BO.
- *
- * Demonstrates model-guided samplers on both mixed and continuous spaces.
- *
- * What this shows: running Random/TPE on a mixed space, then Random/CMA-ES/GP-BO on a continuous space.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Runs Random and TPE against the same mixed objective, then runs Random,
+ * CMA-ES, and GP-BO against the same continuous objective.
  *
  * Run: bun run examples/06-sampler-comparison.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const simulatedLoss = (
@@ -23,9 +16,9 @@ const simulatedLoss = (
   hiddenSize: number,
   activation: "relu" | "gelu" | "silu"
 ): number => {
-  const lrPenalty = (Math.log10(learningRate) - Math.log10(0.003)) ** 2
-  const dropoutPenalty = (dropout - 0.1) ** 2
-  const sizePenalty = ((hiddenSize - 256) / 256) ** 2
+  const lrPenalty = Numeric.pow(Numeric.log10(learningRate) - Numeric.log10(0.003), 2)
+  const dropoutPenalty = Numeric.pow(dropout - 0.1, 2)
+  const sizePenalty = Numeric.pow((hiddenSize - 256) / 256, 2)
   const activationBonus = Match.value(activation).pipe(
     Match.when("gelu", () => -0.1),
     Match.when("silu", () => -0.05),
@@ -71,7 +64,10 @@ const program = Effect.gen(function*() {
       space: continuousSpace,
       sampler,
       objective: (config) =>
-        Effect.succeed((Math.log10(config.learningRate) - Math.log10(0.003)) ** 2 + (config.dropout - 0.1) ** 2),
+        Effect.succeed(
+          Numeric.pow(Numeric.log10(config.learningRate) - Numeric.log10(0.003), 2)
+            + Numeric.pow(config.dropout - 0.1, 2)
+        ),
       trials: trialCount
     }).pipe(
       Effect.map((result) =>

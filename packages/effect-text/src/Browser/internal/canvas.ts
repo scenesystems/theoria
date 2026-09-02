@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Data from "effect/Data"
@@ -184,7 +185,7 @@ export const measureCanvasText = (
         ? Effect.succeed(0)
         : Effect.sync(() => context.measureText(text).width).pipe(
           Effect.flatMap((width) =>
-            Number.isFinite(width) && width >= 0
+            Numeric.isFinite(width) && width >= 0
               ? Effect.succeed(width)
               : Effect.fail(measurementFailure(font, text, `measureText returned ${String(width)}`))
           ),
@@ -216,7 +217,7 @@ export const correctEmojiWidth = (
         Match.when(true, () => Effect.succeed(rawWidth)),
         Match.orElse(() =>
           measureWithoutEmoji.pipe(
-            Effect.map((strippedWidth) => Math.max(rawWidth, strippedWidth + emojiCount * emojiAdvance))
+            Effect.map((strippedWidth) => Numeric.max(rawWidth, strippedWidth + emojiCount * emojiAdvance))
           )
         )
       )

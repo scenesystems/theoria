@@ -1,14 +1,6 @@
 /**
- * Trial Timeout + Retry — recover transient failures and cancel slow trials.
- *
- * Real use case: flaky external APIs with strict per-evaluation SLA limits.
- *
- * What this shows: combining retry schedules with per-trial timeouts and observing retry or cancellation events.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Combines a retry schedule with per-trial timeouts and inspects retry and
+ * cancellation events from the optimization stream.
  *
  * Run: bun run examples/17-trial-timeout-retry.ts
  */

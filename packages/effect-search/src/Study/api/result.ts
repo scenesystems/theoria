@@ -1,5 +1,5 @@
 /**
- * Study result construction from completed trials and execution outcomes.
+ * Final single- and multi-objective result values.
  *
  * @since 0.1.0
  */
@@ -16,37 +16,60 @@ import { type ExecuteOutcome } from "../runtime.js"
 import { type SnapshotMetadata } from "../snapshot/metadata.js"
 
 /**
- * Result of a single-objective optimization study.
+ * Retains the earliest trial with the best scalar value and all study trials
+ * in trial-number order. Construction fails with `NoSuccessfulTrials` when no
+ * completed scalar result exists.
+ *
+ * @typeParam Config - Decoded search-space configuration retained by each trial.
  *
  * @since 0.1.0
  * @category models
  */
 export class SingleObjectiveResult<Config = unknown> extends Data.Class<{
+  /** Discriminator for exhaustive result matching. */
   readonly _tag: "SingleObjective"
+  /** Compatibility data needed to create and validate a resume snapshot. */
   readonly snapshotMetadata: SnapshotMetadata
+  /** Best completed scalar trial; equal values retain the earlier trial. */
   readonly bestTrial: Trial.NumericCompletedTrial<Config>
+  /** Running and terminal trials sorted by trial number. */
   readonly trials: Array<Trial.Trial<Config>>
+  /** Condition that stopped admission of new trials. */
   readonly completionReason: StudyEvent.CompletionReason
+  /** Bracket and round results, present only for scheduled execution. */
   readonly schedulerSummary?: Scheduler.SchedulerSummary
 }> {}
 
 /**
- * Result of a multi-objective optimization study.
+ * Retains the epsilon-aware non-dominated trials and all study trials in
+ * trial-number order. The Pareto front is also sorted by trial number.
+ * Construction fails with `NoSuccessfulTrials` when the front is empty.
+ *
+ * @typeParam Config - Decoded search-space configuration retained by each trial.
  *
  * @since 0.1.0
  * @category models
  */
 export class MultiObjectiveResult<Config = unknown> extends Data.Class<{
+  /** Discriminator for exhaustive result matching. */
   readonly _tag: "MultiObjective"
+  /** Compatibility data needed to create and validate a resume snapshot. */
   readonly snapshotMetadata: SnapshotMetadata
+  /** Non-dominated completed trials under the requested directions and epsilon. */
   readonly paretoFront: Array<Trial.CompletedTrial<Config>>
+  /** Running and terminal trials sorted by trial number. */
   readonly trials: Array<Trial.Trial<Config>>
+  /** Condition that stopped admission of new trials. */
   readonly completionReason: StudyEvent.CompletionReason
+  /** Bracket and round results, present only for scheduled execution. */
   readonly schedulerSummary?: Scheduler.SchedulerSummary
 }> {}
 
 /**
- * Union of single and multi-objective results.
+ * Selects the result shape from the study's objective specification while
+ * preserving the search-space configuration type.
+ *
+ * @typeParam Config - Decoded search-space configuration retained by each trial.
  *
  * @since 0.1.0
  * @category type-level
@@ -114,7 +137,11 @@ export const studyResultFromOutcome = <Config>(
   })(outcome.objectiveSpec)
 
 /**
- * Extract the Pareto front from a study result.
+ * Returns the stored Pareto front for a multi-objective result. A
+ * single-objective result is represented as a one-element front containing its
+ * best trial. The returned Effect cannot fail and requires no services.
+ *
+ * @typeParam Config - Decoded configuration retained by the returned trials.
  *
  * @since 0.1.0
  * @category combinators

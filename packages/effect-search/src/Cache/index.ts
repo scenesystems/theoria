@@ -1,12 +1,10 @@
 /**
- * Stores schema-encoded values under durable fingerprints and exposes
- * memory, file-system, and SQLite Layers for the cache service.
+ * Schema-encoded caching under canonical fingerprints.
  *
  * @remarks
- * Define key and value codecs with `CacheDescriptor`, then resolve entries
- * through `SchemaCache`. Concurrent resolutions for the same key share a
- * per-service critical section; compute failures remain uncached in their
- * original Effect error channel.
+ * A descriptor partitions persisted entries and defines their codecs. `SchemaCache`
+ * serializes concurrent resolution of the same key within one service instance and
+ * leaves computation failures in the caller's error channel without caching them.
  *
  * @since 0.1.0
  */

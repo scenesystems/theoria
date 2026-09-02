@@ -1,5 +1,5 @@
 /**
- * Minimal single-integer slot scenario for testing search space mechanics.
+ * Defines a single-integer fixture for search-space tests.
  *
  * @since 0.1.0
  */
@@ -8,17 +8,18 @@ import { Schema } from "effect"
 import * as SearchSpace from "../../SearchSpace/index.js"
 
 /**
- * Schema for a configuration containing one integer slot.
+ * Decodes an integer slot without enforcing the fixture's sampling range.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const SlotConfigSchema = Schema.Struct({
+  /** Integer slot; standalone decoding does not enforce an upper or lower bound. */
   slot: Schema.Int
 })
 
 /**
- * Decoded configuration for {@link SlotConfigSchema}.
+ * Carries an integer slot without a sampling-range guarantee.
  *
  * @since 0.1.0
  * @category type-level
@@ -26,7 +27,7 @@ export const SlotConfigSchema = Schema.Struct({
 export type SlotConfig = Schema.Schema.Type<typeof SlotConfigSchema>
 
 /**
- * Decodes an unknown slot configuration or throws a parse error.
+ * Decodes an unknown slot configuration and throws on a schema violation.
  *
  * @since 0.1.0
  * @category utils
@@ -34,7 +35,11 @@ export type SlotConfig = Schema.Schema.Type<typeof SlotConfigSchema>
 export const decodeSlotConfig = Schema.decodeUnknownSync(SlotConfigSchema)
 
 /**
- * Constructs an integer slot space over the inclusive range `[0, maxSlot]`.
+ * Builds an integer slot space from `0` through `maxSlot`.
+ *
+ * @remarks
+ * The call defects when `maxSlot` is not a finite, non-negative integer because
+ * the fixture uses `SearchSpace.unsafeMake`.
  *
  * @param maxSlot - Inclusive upper bound for generated slots.
  *

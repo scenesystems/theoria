@@ -1,5 +1,5 @@
 /**
- * Settings normalization from optimize plans into resolved runtime settings.
+ * Default resolution and semantic validation for study execution.
  *
  * @since 0.1.0
  */
@@ -14,6 +14,9 @@ import { OptimizeSettings, retryScheduleOrDefault } from "./model.js"
 import type { OptimizeSettingsSource } from "./types.js"
 
 /**
+ * Extracts the comparison direction for a scalar objective. Vector objectives
+ * produce `None`.
+ *
  * @since 0.1.0
  * @category utils
  */
@@ -80,7 +83,12 @@ const epsilonFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   )
 
 /**
- * Resolves user-facing optimize options into a fully-populated OptimizeSettings with defaults applied.
+ * Resolves omitted execution settings and objective direction into an immutable
+ * {@link OptimizeSettings} value. Call {@link validateSettings} before execution
+ * to enforce numeric and objective-kind constraints.
+ *
+ * @typeParam Config - Decoded configuration accepted by the source objective.
+ * @typeParam Space - Compiled search space retained by the source options.
  *
  * @since 0.1.0
  * @category utils
@@ -143,7 +151,10 @@ export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>
   })
 
 /**
- * Selects the configured pruning policy or the policy that never prunes.
+ * Returns the configured policy or the shared policy that always continues.
+ *
+ * @typeParam Config - Decoded configuration accepted by the source objective.
+ * @typeParam Space - Compiled search space retained by the source options.
  *
  * @since 0.1.0
  * @category constructors
@@ -159,7 +170,15 @@ export const pruningPolicyFromOptions = <Config, Space extends SearchSpace.Searc
   )
 
 /**
- * Validates optimization settings before study execution.
+ * Rejects unsafe execution counts, invalid numeric limits, and stopping options
+ * incompatible with the scalar or vector objective kind.
+ *
+ * @remarks
+ * Trial count must be a non-negative integer. Concurrency and evaluations per
+ * trial must be positive integers. Prior weight, epsilon, and cost budget must
+ * be finite and non-negative. Target values must be finite, and no-improvement
+ * windows must be positive integers. Positive epsilon is reserved for vector
+ * objectives; target and no-improvement stopping are reserved for scalar ones.
  *
  * @since 0.1.0
  * @category guards
@@ -169,13 +188,13 @@ export const validateSettings = (
 ): Effect.Effect<void, InvalidStudyConfig> =>
   Effect.gen(function*() {
     yield* Effect.when(
-      Effect.fail(new InvalidStudyConfig({ reason: "Study.optimize requires trials >= 0" })),
-      () => Num.lessThan(settings.trials, 0)
+      Effect.fail(new InvalidStudyConfig({ reason: "Study.optimize requires trials to be an integer >= 0" })),
+      () => !Number.isInteger(settings.trials) || Num.lessThan(settings.trials, 0)
     )
 
     yield* Effect.when(
-      Effect.fail(new InvalidStudyConfig({ reason: "Study.optimize requires concurrency >= 1" })),
-      () => Num.lessThan(settings.concurrency, 1)
+      Effect.fail(new InvalidStudyConfig({ reason: "Study.optimize requires concurrency to be an integer >= 1" })),
+      () => !Number.isInteger(settings.concurrency) || Num.lessThan(settings.concurrency, 1)
     )
 
     yield* Effect.when(
@@ -234,4 +253,35 @@ export const validateSettings = (
           )
       })
     )
+
+    yield* matchObjectiveSpec({
+      Single: () =>
+        Effect.when(
+          Effect.fail(
+            new InvalidStudyConfig({
+              reason: "Study.optimize supports epsilon only for multi-objective studies"
+            })
+          ),
+          () => settings.epsilon !== 0
+        ),
+      Multi: () =>
+        Effect.all([
+          Effect.when(
+            Effect.fail(
+              new InvalidStudyConfig({
+                reason: "Study.optimize supports targetValue only for single-objective studies"
+              })
+            ),
+            () => Option.isSome(Option.fromNullable(settings.targetValue))
+          ),
+          Effect.when(
+            Effect.fail(
+              new InvalidStudyConfig({
+                reason: "Study.optimize supports noImprovementWindow only for single-objective studies"
+              })
+            ),
+            () => Option.isSome(Option.fromNullable(settings.noImprovementWindow))
+          )
+        ], { discard: true })
+    })(settings.objectiveSpec)
   })

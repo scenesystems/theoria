@@ -22,7 +22,7 @@ import { DecryptionFailed, type InvalidKey } from "../schemas/errors.js"
  *
  * @param key - Caller-owned 32-byte, non-zero key.
  * @param plaintext - Bytes to encrypt.
- * @returns An Effect with nonce-prefixed ciphertext, or {@link InvalidKey}.
+ * @returns Fresh nonce-prefixed ciphertext, or {@link InvalidKey}.
  *
  * @since 0.1.0
  * @category algorithms
@@ -45,7 +45,7 @@ export const aesgcmsivEncrypt = (
  *
  * @param key - Caller-owned 32-byte, non-zero key.
  * @param ciphertext - `12-byte nonce ‖ ciphertext ‖ 16-byte tag`.
- * @returns An Effect with plaintext, or {@link InvalidKey}; wrong keys and malformed or modified
+ * @returns Fresh plaintext, or {@link InvalidKey}; wrong keys and malformed or modified
  * input fail with {@link DecryptionFailed} reason `authentication failed`.
  *
  * @since 0.1.0

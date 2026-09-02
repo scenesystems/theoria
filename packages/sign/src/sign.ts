@@ -1,18 +1,5 @@
 /**
- * Unified sign/verify pipeline.
- *
- * Dispatches to the appropriate algorithm implementation based on
- * a {@link SignatureAlgorithm} discriminant, providing a single
- * API surface for all digital signature operations.
- *
- * Verification follows the inverse path — the algorithm tag on the
- * signature determines which verifier to use, ensuring signatures
- * are always verified with the correct algorithm.
- *
- * @see {@link SignatureAlgorithm} — supported algorithm literals (source of truth)
- * @see {@link agreement} — key agreement pipeline
- * @see {@link kem} — key encapsulation pipeline
- * @see {@link generateKeyPair} — key generation for all algorithms
+ * Dispatches signing and verification through the selected signature suite.
  *
  * @since 0.1.0
  * @category signing
@@ -50,7 +37,8 @@ import type { SignatureAlgorithm } from "./schemas/SignatureAlgorithm.js"
 type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
 
 /**
- * Sign a message with the specified algorithm.
+ * Signs exact message bytes with the selected suite and attaches the supplied
+ * public key to the result.
  *
  * @remarks
  * `publicKey` is stored in the returned carrier; signing uses `secretKey`.
@@ -88,12 +76,11 @@ export const sign = (
   )
 
 /**
- * Verify a self-describing signature against a message.
+ * Verifies exact message bytes using the suite and public key stored in the
+ * signature.
  *
  * @remarks
- * Dispatches to the correct verifier based on the signature's
- * `algorithm` field.
- * The verification key also comes from `sig`; callers that authenticate or
+ * The verification key comes from `sig`; callers that authenticate or
  * select a key independently should use an algorithm-specific verifier.
  * A well-formed nonmatching signature returns `false`; primitive exceptions are
  * represented by `VerificationFailed` (strict direct verifiers use their own

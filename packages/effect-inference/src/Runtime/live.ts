@@ -40,12 +40,12 @@ const runtimeResolverLiveApi = new RuntimeResolverApi({
 })
 
 /**
- * Provides a scoped live resolver for stable route families.
+ * Resolves explicit stable routes into provenance, capability policy, and
+ * fully provided Effect AI model layers.
  *
  * @remarks
- * Resolution requires an explicit route, checks requested capabilities against
- * conservative package defaults,
- * and returns fully provided model layers. It fails with `UnsupportedRoute`
+ * Resolution requires an explicit route and checks requested capabilities
+ * against conservative package defaults. It fails with `UnsupportedRoute`
  * when `descriptor.route` is absent and `CapabilityMismatch` when a declared
  * requirement is not met; no provider request is made during resolution.
  *

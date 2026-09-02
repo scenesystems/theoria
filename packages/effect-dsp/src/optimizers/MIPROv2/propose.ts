@@ -1,6 +1,5 @@
 /**
- * MIPROv2 Phase 2 — grounded instruction proposal via meta-LLM calls with
- * dataset summaries and demonstration context.
+ * Generates Phase 2 instruction candidates from dataset and demonstration context.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
@@ -23,39 +22,55 @@ import {
 import { buildProposalPrompt, datasetSummary, promptDemosFromCandidate } from "./runtime/prompt.js"
 
 /**
- * One instruction proposal — carries the proposed instruction text, the
- * diversity tip used, the rendered prompt, and whether this is the baseline
- * (original) instruction.
+ * Records one baseline or model-generated instruction for a predictor.
+ *
+ * @remarks
+ * Generated candidates retain the complete prompt, including rendered example
+ * values. Treat `prompt` as potentially sensitive when persisting or logging a
+ * candidate. Model text is stored without parsing or validation.
  *
  * @since 0.1.0
  * @category models
  */
 export class InstructionCandidate extends Schema.Class<InstructionCandidate>("MIPROv2InstructionCandidate")({
+  /** Exact parameter-ref name of the candidate's predictor. */
   predictorName: Schema.String,
+  /** Baseline or model-generated instruction evaluated by Phase 3. */
   instruction: Schema.String,
+  /** Proposal hint rendered into the generation prompt; baseline candidates use `"baseline"`. */
   tip: Schema.String,
+  /** Deterministic marker rendered into the prompt to distinguish proposals. */
   cacheBustMarker: Schema.String,
+  /** Complete proposal prompt; baseline candidates store `"baseline"`. */
   prompt: Schema.String,
+  /** Identifies the predictor's original instruction at index zero. */
   isBaseline: Schema.Boolean
 }) {}
 
 /**
- * Phase 2 proposals grouped by predictor — each predictor gets a baseline
- * plus `numInstructions` proposed alternatives.
+ * Groups one predictor's baseline and generated instructions in search order.
+ *
+ * @remarks
+ * Index zero is always the original instruction. The array's total length is
+ * the normalized `numInstructions`, so model generation runs one fewer time.
  *
  * @since 0.1.0
  * @category models
  */
 export class PredictorInstructionCandidates
   extends Schema.Class<PredictorInstructionCandidates>("MIPROv2PredictorInstructionCandidates")({
+    /** Exact parameter-ref name shared by every grouped candidate. */
     predictorName: Schema.String,
+    /** Baseline followed by model-generated instructions in Phase 3 search order. */
     candidates: Schema.Array(InstructionCandidate)
   })
 {}
 
 /**
- * Phase 2 configuration — module, training set, demo candidates from
- * Phase 1, and diversity controls.
+ * Configures instruction generation for every owned predictor.
+ *
+ * @typeParam I - Input fields used to describe the module and prompt examples.
+ * @typeParam O - Output fields used to describe the module and prompt examples.
  *
  * @since 0.1.0
  * @category models
@@ -64,12 +79,19 @@ export type ProposeInstructionCandidatesOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 > = Readonly<{
+  /** Root whose current instructions become index-zero baselines. */
   readonly module: DspModule<I, O>
+  /** Dataset counts and module description rendered into proposal prompts. */
   readonly trainset: ReadonlyArray<Example>
+  /** Phase 1 context matched to predictors by exact name. */
   readonly demoCandidates: ReadonlyArray<PredictorDemoCandidates>
+  /** Total candidates per predictor, including the baseline; invalid counts become one. */
   readonly numInstructions: number
+  /** Positive integer used for tip selection and prompt markers. Defaults to `1`. */
   readonly seed?: number
+  /** Numeric prompt text only; this value does not configure the model provider. */
   readonly diversityTemperature?: number
+  /** Prompt hints selected cyclically; an empty or omitted array uses the built-in vocabulary. */
   readonly tipVocabulary?: ReadonlyArray<string>
 }>
 
@@ -90,9 +112,19 @@ const baselineCandidate = (predictorName: string, instruction: string): Instruct
   })
 
 /**
- * Generate grounded instruction candidates for each predictor. The baseline
- * instruction is always preserved at position 0. Each proposal uses a
- * diversity tip and demonstration context from Phase 1 candidates.
+ * Generates ordered instruction candidates without mutating module parameters.
+ *
+ * @remarks
+ * Predictors and their generated alternatives run sequentially. Each proposal
+ * uses one Phase 1 candidate in cyclic order and sends a plain-text prompt to
+ * the configured language model. A missing or empty Phase 1 candidate set, or
+ * a provider failure, fails with `InstructionProposalFailed`. Provider failure
+ * details are not retained in that error.
+ *
+ * @param options - Module tree, Phase 1 context, total candidate count, and prompt hints.
+ * @returns Candidate sets in the module tree's parameter-ref order.
+ * @typeParam I - Input fields used to describe the module and prompt examples.
+ * @typeParam O - Output fields used to describe the module and prompt examples.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al. (2024)}
  * @since 0.1.0

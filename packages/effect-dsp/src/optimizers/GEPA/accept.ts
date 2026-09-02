@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Option } from "effect"
 import { type CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
 
@@ -93,7 +94,7 @@ export const evaluateMergeAcceptance = (
   const mergedSubsampleSum = sumScores(options.mergedSubsampleScores)
   const parentASubsampleSum = sumScores(options.parentASubsampleScores)
   const parentBSubsampleSum = sumScores(options.parentBSubsampleScores)
-  const bestParentSubsampleSum = Math.max(parentASubsampleSum, parentBSubsampleSum)
+  const bestParentSubsampleSum = Numeric.max(parentASubsampleSum, parentBSubsampleSum)
 
   return new MergeAcceptance({
     mergedSubsampleSum,

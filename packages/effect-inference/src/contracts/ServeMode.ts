@@ -1,13 +1,13 @@
 /**
- * Serve-mode authority describing how a runtime is reached.
+ * Deployment boundaries used by inference routes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Declares whether a runtime is hosted directly, brokered, dedicated, or
- * self-hosted.
+ * Accepts direct hosted APIs, brokered marketplaces, dedicated endpoints, and
+ * caller-operated runtimes.
  *
  * @since 0.1.0
  * @category schemas

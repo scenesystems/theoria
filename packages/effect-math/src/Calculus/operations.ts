@@ -1,12 +1,12 @@
 /**
- * Calculus domain operation surface.
+ * Selects pure, decoded, or runtime-policy integration for numerical calculus.
  *
  * @since 0.1.0
  * @category operations
  */
 
 /**
- * Policy-aware operation variants reading runtime precision and diagnostics seams.
+ * Applies runtime precision and diagnostics policies to calculus results.
  *
  * @since 0.1.0
  * @category operations
@@ -14,7 +14,7 @@
 export * from "./operations/policies.js"
 
 /**
- * Pure kernel operations for pre-validated inputs.
+ * Runs calculus operations directly on trusted functions and numeric inputs.
  *
  * @since 0.1.0
  * @category operations
@@ -22,7 +22,7 @@ export * from "./operations/policies.js"
 export * from "./operations/pure.js"
 
 /**
- * Schema-decoded boundary operations for unknown inputs.
+ * Decodes unknown inputs and captures synchronous callback exceptions.
  *
  * @since 0.1.0
  * @category operations

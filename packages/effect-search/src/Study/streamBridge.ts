@@ -1,12 +1,14 @@
 /**
- * Generic event-stream bridge for optimizer runtimes.
+ * Converts callback-style event producers into Effect streams.
  *
  * @since 0.1.0
  */
 import { Effect, Stream } from "effect"
 
 /**
- * Event sink used by `streamFromEmitter`.
+ * Enqueues one event for a stream created by {@link streamFromEmitter}.
+ *
+ * @typeParam Event - Value passed from the producer into the stream.
  *
  * @since 0.1.0
  * @category models
@@ -14,11 +16,17 @@ import { Effect, Stream } from "effect"
 export type EmitterSink<Event> = (event: Event) => Effect.Effect<void, never, never>
 
 /**
- * Turn an effectful run function with event emission into a typed stream.
+ * Runs an event producer in a scoped fiber and emits its events in call order.
  *
  * @remarks
- * On success, the stream terminates after all emitted events are consumed.
- * On failure, the stream fails with the same error.
+ * The stream ends after successful producer completion. A producer failure is
+ * delivered after events emitted before that failure. Ending or interrupting
+ * stream consumption closes the scope containing the producer fiber.
+ *
+ * @typeParam Event - Value emitted by the producer and yielded by the stream.
+ * @typeParam A - Producer success value, discarded when the stream completes.
+ * @typeParam E - Expected failure propagated from the producer to the stream.
+ * @typeParam R - Services required while the producer fiber runs.
  *
  * @since 0.1.0
  * @category combinators

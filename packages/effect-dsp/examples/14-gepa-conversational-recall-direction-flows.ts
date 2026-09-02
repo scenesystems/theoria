@@ -1,20 +1,9 @@
 /**
- * GEPA + effect-search multi-objective direction flows for conversational recall protocols.
+ * Optimizes a live protocol panel with GEPA, then runs two multi-objective
+ * searches over topology, sequencing, and turn-taking controls. The Pareto fronts
+ * retain convergence, network-distance slope, and suppression-risk trade-offs.
  *
- * Experimental inspiration: Coman et al. (PNAS 2016, DOI: 10.1073/pnas.1525569113).
- *
- * This example focuses on one methods slice of the protocol:
- * - 10-member conversational networks
- * - 3 dyadic, turn-taking conversations per participant (150 seconds each)
- * - clustered (C = 0.40) vs nonclustered (C = 0.00) topology decisions
- * - pre/post conversational recall convergence and degree-of-separation effects
- *
- * Workflow:
- * 1) GEPA evolves a multi-agent protocol panel (dynamics analyst -> planner)
- *    on conversational recall method recommendations.
- * 2) effect-search runs two multi-objective direction flows over turn-taking
- *    and sequencing controls to expose trade-offs among convergence,
- *    slope fidelity, and suppression spillover risk.
+ * Experimental context: PNAS DOI 10.1073/pnas.1525569113.
  *
  * Required env:
  *   OPENAI_API_KEY=... (or ANTHROPIC_API_KEY, OPENROUTER_API_KEY)
@@ -27,6 +16,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Optimizer, Signature } from "@scenesystems/effect-dsp"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, SearchSpace, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import { liveLanguageModelLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -359,7 +349,7 @@ const STOP_WORDS = Arr.make(
   "with"
 )
 
-const clampUnitScore = (score: number): number => Math.max(0, Math.min(1, score))
+const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum: 0, maximum: 1 })
 
 const averageScore = (scores: ReadonlyArray<number>): number =>
   scores.length === 0
@@ -485,7 +475,7 @@ const protocolMetric = Metric.fromEffect(
 )
 
 const program = Effect.gen(function*() {
-  // Stage 1 — role signatures for dynamics diagnosis and protocol planning.
+  // Define signatures for dynamics diagnosis and protocol planning.
   const dynamicsSignature = yield* Signature.make(
     "Diagnose conversational-memory dynamics in a 10-member network recall protocol with fixed dyadic turn budgets.",
     {
@@ -573,7 +563,7 @@ const program = Effect.gen(function*() {
   )
   const teacherLayer = liveLanguageModelLayer().pipe(Layer.orDie)
 
-  // Stage 2 — compose analyst -> planner into one optimizable panel.
+  // Compose the analyst and planner into one optimizable panel.
   const methodsPanel = yield* Module.compose({
     name: "example14-conversational-recall-panel",
     signature: panelSignature,
@@ -628,7 +618,7 @@ const program = Effect.gen(function*() {
 
   const panelParamsBeforeGEPA = yield* Ref.get(methodsPanel.params)
 
-  // Stage 3 — evaluate baseline protocol quality.
+  // Evaluate baseline protocol quality.
   yield* logExampleStage("baseline-evaluation-started", {
     evalExampleCount: evalset.length
   })
@@ -640,7 +630,7 @@ const program = Effect.gen(function*() {
     concurrency: 1
   })
 
-  // Stage 4 — GEPA reflective evolution over planner instructions.
+  // Evolve planner instructions with GEPA.
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: trainset.length,
     maxIterations: 4,
@@ -715,7 +705,7 @@ const program = Effect.gen(function*() {
     priorForecast: normalizeConvergenceForecast(protocolPriorTurn.convergenceForecast)
   })
 
-  // Stage 5 — define effect-search protocol control space.
+  // Define the protocol control space.
   const protocolSpace = yield* SearchSpace.make({
     topology: SearchSpace.categorical(["clustered", "nonclustered"]),
     bridgeRound: SearchSpace.int(1, 3),
@@ -755,7 +745,7 @@ const program = Effect.gen(function*() {
         : -0.01
       const turnPolicyAlignment = Match.value(priorTurnPolicy).pipe(
         Match.when("strict-alternation", () => 0.02 - (config.turnInequality * 0.05)),
-        Match.when("balanced-free-recall", () => 0.015 - Math.abs(config.turnInequality - 0.2)),
+        Match.when("balanced-free-recall", () => 0.015 - Numeric.abs(config.turnInequality - 0.2)),
         Match.when("bridge-speaker-priority", () => 0.01 + (config.bridgeTieFraction * 0.02)),
         Match.orElse(() => 0)
       )
@@ -777,7 +767,7 @@ const program = Effect.gen(function*() {
         + (((config.bridgeRound - 1) / 2) * 0.07)
         + ((1 - config.bridgeTieFraction) * 0.05)
         + (config.turnInequality * 0.05)
-      const slopeError = Math.abs(realizedSlope - scenario.targetSlope)
+      const slopeError = Numeric.abs(realizedSlope - scenario.targetSlope)
 
       const turnInequality = clampUnitScore(
         (config.turnInequality * 0.9)
@@ -837,7 +827,7 @@ const program = Effect.gen(function*() {
     }
   }
 
-  // Stage 6 — first direction flow: convergence-priority trade-offs.
+  // Run the convergence-priority direction flow.
   const convergencePriorityDirections: ReadonlyArray<Contracts.Direction> = [
     "maximize",
     "minimize",
@@ -845,7 +835,7 @@ const program = Effect.gen(function*() {
     "minimize"
   ]
 
-  // Stage 7 — second direction flow: bridge-amplification trade-offs.
+  // Run the bridge-amplification direction flow.
   const bridgeAmplificationDirections: ReadonlyArray<Contracts.Direction> = [
     "maximize",
     "maximize",

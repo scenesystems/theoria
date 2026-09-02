@@ -1,5 +1,5 @@
 /**
- * Prompt instruction scenario with categorical prompt strategy and temperature parameters.
+ * Defines a fixed categorical fixture for prompt strategy selection.
  *
  * @since 0.1.0
  */
@@ -8,7 +8,7 @@ import { Schema } from "effect"
 import * as SearchSpace from "../../SearchSpace/index.js"
 
 /**
- * Instruction-strategy values accepted by the prompt scenario.
+ * Lists the instruction strategies used by the schema and search space.
  *
  * @since 0.1.0
  * @category models
@@ -21,7 +21,7 @@ export const PromptInstructionChoices: ["baseline", "rewrite", "counterexample",
 ]
 
 /**
- * Demonstration-set values accepted by the prompt scenario.
+ * Lists the demonstration-set choices used by the schema and search space.
  *
  * @since 0.1.0
  * @category models
@@ -29,7 +29,7 @@ export const PromptInstructionChoices: ["baseline", "rewrite", "counterexample",
 export const PromptDemoChoices: ["none", "few", "curated"] = ["none", "few", "curated"]
 
 /**
- * Scoring-strategy values accepted by the prompt scenario.
+ * Lists the scoring strategies used by the schema and search space.
  *
  * @since 0.1.0
  * @category models
@@ -37,19 +37,22 @@ export const PromptDemoChoices: ["none", "few", "curated"] = ["none", "few", "cu
 export const PromptScoringChoices: ["strict", "balanced", "recall"] = ["strict", "balanced", "recall"]
 
 /**
- * Schema requiring one instruction, demonstration, and scoring choice.
+ * Decodes one declared instruction, demonstration-set, and scoring choice.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const PromptCategoricalConfigSchema = Schema.Struct({
+  /** Prompt instruction strategy. */
   instruction: Schema.Literal(...PromptInstructionChoices),
+  /** Demonstration-set selection. */
   demos: Schema.Literal(...PromptDemoChoices),
+  /** Output scoring strategy. */
   scoring: Schema.Literal(...PromptScoringChoices)
 })
 
 /**
- * Decoded configuration for {@link PromptCategoricalConfigSchema}.
+ * Carries the instruction, demonstration, and scoring choices for one fixture run.
  *
  * @since 0.1.0
  * @category type-level
@@ -57,7 +60,7 @@ export const PromptCategoricalConfigSchema = Schema.Struct({
 export type PromptCategoricalConfig = Schema.Schema.Type<typeof PromptCategoricalConfigSchema>
 
 /**
- * Decodes an unknown configuration or throws a parse error.
+ * Decodes an unknown prompt configuration and throws on a schema violation.
  *
  * @since 0.1.0
  * @category utils
@@ -65,7 +68,7 @@ export type PromptCategoricalConfig = Schema.Schema.Type<typeof PromptCategorica
 export const decodePromptCategoricalConfig = Schema.decodeUnknownSync(PromptCategoricalConfigSchema)
 
 /**
- * Decodes an unknown configuration, returning schema violations in the Effect error channel.
+ * Decodes an unknown prompt configuration with schema violations in the Effect error channel.
  *
  * @since 0.1.0
  * @category utils
@@ -73,7 +76,7 @@ export const decodePromptCategoricalConfig = Schema.decodeUnknownSync(PromptCate
 export const decodePromptCategoricalConfigEffect = Schema.decodeUnknown(PromptCategoricalConfigSchema)
 
 /**
- * Constructs the categorical space described by the three exported choice tuples.
+ * Builds a categorical space from the exported instruction, demonstration, and scoring choices.
  *
  * @since 0.1.0
  * @category constructors

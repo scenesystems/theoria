@@ -1,5 +1,5 @@
 /**
- * GEPA runtime option and sink contracts.
+ * Defines GEPA inputs, iteration limits, deterministic seed, and event sink.
  *
  * @since 0.1.0
  */
@@ -13,8 +13,12 @@ import type { Module as DspModule } from "../../../Module/model.js"
 import type { GEPAEvent as GEPAEventType } from "../events.js"
 
 /**
- * GEPA orchestration options. The implementation evaluates the initial
- * candidate, then performs merge and mutation phases in iteration order.
+ * Configures candidate evaluation, reflective mutation, and merge attempts.
+ *
+ * @typeParam I - Input fields accepted by the optimized module.
+ * @typeParam O - Output fields scored during candidate evaluation.
+ * @typeParam ME - Expected failure from the configured metric.
+ * @typeParam MR - Services required by the configured metric.
  *
  * @since 0.1.0
  * @category models
@@ -27,23 +31,27 @@ export type GEPAOptions<
 > = Readonly<{
   /** Module whose instructions are replaced by the selected frontier candidate. */
   readonly module: DspModule<I, O>
-  /** Examples used to construct reflective mutation feedback. */
+  /** Default validation examples when `valset` is omitted. */
   readonly trainset: ReadonlyArray<Example>
-  /** Candidate evaluation examples. Defaults to `trainset`. */
+  /** Candidate evaluation and reflection examples. Defaults to `trainset`; rows without `output` are ignored. */
   readonly valset?: ReadonlyArray<Example>
-  /** Produces per-example scores and optional reflection feedback. */
+  /** Scores each prediction and may supply feedback for the next mutation prompt. */
   readonly metric: Metric<ME, MR>
-  /** Number of evolutionary iterations, truncated with a lower bound of zero. */
+  /** Iteration count, rounded down; negative and non-finite values become zero. */
   readonly maxIterations: number
-  /** Total merge attempts allowed across the run. Defaults to `5`. */
+  /** Merge budget, rounded down and normalized like `maxIterations`; defaults to `5`. */
   readonly maxMergeInvocations?: number
   /** Seed for deterministic parent selection and subsampling. Defaults to `1`. */
   readonly seed?: number
 }>
 
 /**
- * Event sink awaited before GEPA advances to the next lifecycle step. Sink
- * failures are `never`; use Stream combinators to add fallible observation.
+ * Receives each event before GEPA advances to the next lifecycle step.
+ *
+ * @remarks
+ * The sink cannot add failures or service requirements. Use
+ * {@link tapGEPAProgress} on {@link gepaStream} for effectful observation with
+ * either channel.
  *
  * @since 0.1.0
  * @category models
@@ -51,7 +59,7 @@ export type GEPAOptions<
 export type GEPAEventSink = (event: GEPAEventType) => Effect.Effect<void>
 
 /**
- * No-op GEPA event sink used by non-streaming execution.
+ * Discards GEPA events without adding effects or service requirements.
  *
  * @since 0.1.0
  * @category constants
@@ -59,7 +67,7 @@ export type GEPAEventSink = (event: GEPAEventType) => Effect.Effect<void>
 export const noGEPAEvents: GEPAEventSink = () => Effect.void
 
 /**
- * Default merge budget for GEPA orchestration.
+ * Limits accepted common-ancestor merges to five when no budget is supplied.
  *
  * @since 0.1.0
  * @category constants

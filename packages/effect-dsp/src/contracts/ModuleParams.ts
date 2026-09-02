@@ -1,6 +1,5 @@
 /**
- * Learnable parameter bundle carried by every module instance — the mutable
- * state that optimizers search over.
+ * Prompt, demonstration, rendering, and generation settings stored by a module.
  *
  * @since 0.1.0
  */
@@ -10,33 +9,35 @@ import { Demo } from "../Example/index.js"
 import { OutputStrategySchema } from "./OutputStrategy.js"
 
 /**
- * The mutable state that optimizers manipulate during search. Carries
- * the system-prompt `instructions`, few-shot `demos`, output rendering
- * strategy, and optional LM generation knobs. Each module holds a
- * `Ref<ModuleParams>` that optimizers update between trials.
+ * Stores the replaceable state behind each module's parameter `Ref`.
  *
- * @see {@link makeDefaultModuleParams} — zero-demo seed from a Signature
- * @see {@link OutputStrategySchema} — governs how output is rendered
- * @see {@link withModuleParamsDemos} — replace demos while preserving other fields
+ * @remarks
+ * Numeric generation settings are passed through without range or integer
+ * validation. Provider-specific acceptance remains the provider's responsibility.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleParams extends Schema.Class<ModuleParams>("ModuleParams")({
+  /** Instruction text included in the system prompt. */
   instructions: Schema.String,
+  /** Ordered few-shot demonstrations rendered into text-mode prompts. */
   demos: Schema.Array(Demo),
+  /** Output rendering policy; omitted encoded values decode to `"auto"`. */
   outputStrategy: Schema.optionalWith(OutputStrategySchema, {
     default: () => "auto"
   }),
+  /** Optional provider sampling temperature with no contract-level range check. */
   temperature: Schema.optional(Schema.Number),
+  /** Optional provider output-token limit with no contract-level integer or range check. */
   maxTokens: Schema.optional(Schema.Number)
 }) {}
 
 /**
- * Create a zero-demo {@link ModuleParams} seeded with the given
- * instructions (typically derived from a {@link Signature}).
+ * Creates default parameters with no demonstrations and automatic output selection.
  *
- * @see {@link ModuleParams}
+ * @param instructions - Initial instruction text, often derived from a signature.
+ * @returns Parameters with empty demonstrations and no generation overrides.
  *
  * @since 0.1.0
  * @category constructors
@@ -74,11 +75,14 @@ const mergeModuleParams = (
   })
 
 /**
- * Return a copy of {@link ModuleParams} with the `demos` array replaced,
- * preserving instructions, output strategy, and generation knobs. Used by
- * bootstrap optimizers to inject curated few-shot examples.
+ * Replaces demonstrations while retaining all other module parameters.
  *
- * @see {@link ModuleParams}
+ * @remarks
+ * The returned value retains the supplied array; demonstrations are not cloned.
+ *
+ * @param params - Existing parameter state.
+ * @param demos - Ordered replacement demonstrations.
+ * @returns A copy that retains `instructions`, `outputStrategy`, `temperature`, and `maxTokens` from `params`.
  *
  * @since 0.1.0
  * @category combinators
@@ -89,11 +93,12 @@ export const withModuleParamsDemos = (
 ): ModuleParams => mergeModuleParams(params, { demos })
 
 /**
- * Return a copy of {@link ModuleParams} with both `demos` and `instructions`
- * replaced, preserving output strategy and generation knobs. Used by GEPA
- * and MIPROv2 which co-optimize instructions alongside demonstrations.
+ * Replaces instructions and demonstrations while retaining rendering and generation settings.
  *
- * @see {@link ModuleParams}
+ * @param params - Existing parameter state.
+ * @param demos - Ordered replacement demonstrations, retained without cloning.
+ * @param instructions - Replacement instruction text.
+ * @returns A copy that retains `outputStrategy`, `temperature`, and `maxTokens` from `params`.
  *
  * @since 0.1.0
  * @category combinators
@@ -109,11 +114,11 @@ export const withModuleParamsDemosAndInstructions = (
   })
 
 /**
- * Return a copy of {@link ModuleParams} with `instructions` replaced,
- * preserving demos, output strategy, and generation knobs. Used by
- * instruction-only optimizers that leave demonstrations unchanged.
+ * Replaces instructions while retaining demonstrations and generation settings.
  *
- * @see {@link ModuleParams}
+ * @param params - Existing parameter state.
+ * @param instructions - Replacement instruction text.
+ * @returns A new parameter value sharing the original demonstrations array.
  *
  * @since 0.1.0
  * @category combinators

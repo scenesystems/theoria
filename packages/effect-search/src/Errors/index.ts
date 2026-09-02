@@ -1,12 +1,9 @@
 /**
- * Classifies invalid search spaces and studies, sampler incompatibility or
- * exhaustion, invalid objective data, absent successful trials, unsupported
- * operations, and trial failures.
+ * Expected failures returned by search-space, sampler, and study operations.
  *
  * @remarks
- * Recover from individual tagged variants in the Effect failure channel. Use
- * `SpaceErrorSchema`, `SamplerErrorSchema`, or `StudyErrorSchema` at a narrow
- * boundary; `SearchErrorSchema` decodes the complete package-owned union.
+ * Match individual tags in an Effect failure channel. The focused schemas decode
+ * failures owned by one subsystem; `SearchErrorSchema` accepts every public search error.
  *
  * @since 0.1.0
  */
@@ -78,7 +75,7 @@ import { SearchErrorTypeId } from "./typeId.js"
 export const SpaceErrorSchema = Schema.Union(InvalidSearchSpace)
 
 /**
- * Errors produced while validating or traversing search spaces.
+ * Expected failure owned by search-space declaration or traversal.
  *
  * @since 0.1.0
  * @category type-level
@@ -100,7 +97,7 @@ export const SamplerErrorSchema = Schema.Union(
 )
 
 /**
- * Errors produced while configuring or requesting suggestions from samplers.
+ * Expected failure from sampler configuration, compatibility, or finite exhaustion.
  *
  * @since 0.1.0
  * @category type-level
@@ -125,7 +122,7 @@ export const StudyErrorSchema = Schema.Union(
 )
 
 /**
- * Errors produced while configuring, executing, or restoring studies.
+ * Expected failure owned by study setup, execution, reporting, or restore.
  *
  * @since 0.1.0
  * @category type-level
@@ -133,7 +130,7 @@ export const StudyErrorSchema = Schema.Union(
 export type StudyError = Schema.Schema.Type<typeof StudyErrorSchema>
 
 /**
- * Root search error taxonomy covering all typed error variants.
+ * Decodes every package-owned search-space, sampler, and study error variant.
  *
  * @since 0.1.0
  * @category schemas
@@ -155,7 +152,7 @@ export const SearchErrorSchema = Schema.Union(
 )
 
 /**
- * Complete typed error union for search-space, sampler, and study operations.
+ * Package-wide expected failure union for callers that do not preserve subsystem boundaries.
  *
  * @since 0.1.0
  * @category type-level
@@ -163,7 +160,9 @@ export const SearchErrorSchema = Schema.Union(
 export type SearchError = Schema.Schema.Type<typeof SearchErrorSchema>
 
 /**
- * Type guard for search error variants carrying the shared SearchErrorTypeId symbol.
+ * Reports whether a record carries this module instance's {@link SearchErrorTypeId} value.
+ * The check does not decode fields and is not a substitute for {@link SearchErrorSchema}
+ * at an untrusted boundary.
  *
  * @since 0.1.0
  * @category guards

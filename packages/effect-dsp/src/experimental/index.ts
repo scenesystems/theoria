@@ -1,19 +1,12 @@
 /**
- * Exposes a runtime marker for detecting the unstable companion subpath.
- *
- * @remarks
- * Importing the marker does not enable behavior. Its name and value may change
- * while the package remains pre-1.0.
+ * Marks an entry point whose declarations may change without a major-version release.
  *
  * @since 0.1.0
  * @category experimental
  */
 
 /**
- * Runtime marker confirming that the experimental entrypoint resolved.
- *
- * @remarks
- * The marker does not enable features or alter package behavior.
+ * Equals `true` when the experimental entry point loads successfully.
  *
  * @since 0.1.0
  * @category experimental

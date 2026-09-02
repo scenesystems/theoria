@@ -1,28 +1,20 @@
 /**
- * Ask/Tell Manual Orchestration — drive trial execution outside Study.optimize.
- *
- * Real use case: external workers evaluate configs while the Study handle owns state transitions.
- *
- * What this shows: `Study.open`, `Study.ask`, `Study.tell`, `Study.snapshot`, and `Study.result`
- * in a deterministic manual loop using only public APIs.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Study.StudyHandle}
- * - {@link Study.StudyResult}
+ * Drives trial evaluation through `Study.ask` and `Study.tell`, then reads a
+ * snapshot and final result from the same study handle.
  *
  * Run: bun run examples/25-ask-tell.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const objectiveValue = (config: {
   readonly x: number
   readonly y: number
   readonly depth: number
-}): number => (config.x - 1.5) ** 2 + (config.y + 0.75) ** 2 + config.depth / 20
+}): number => Numeric.pow(config.x - 1.5, 2) + Numeric.pow(config.y + 0.75, 2) + config.depth / 20
 
 const program = Effect.scoped(
   Effect.gen(function*() {

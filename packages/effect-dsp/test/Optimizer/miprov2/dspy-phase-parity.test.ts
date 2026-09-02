@@ -80,6 +80,16 @@ describe("MIPROv2 DSPy phase parity", () => {
       expect(fixture.payload.phase3Sampler.kind).toBe("tpe")
       expect(fixture.payload.phase3Sampler.multivariate).toBe(true)
 
+      const normalizedCadence = resolvePhase3Cadence({
+        seed: -17.8,
+        minibatchSize: 3.9,
+        fullEvalEvery: Infinity
+      })
+
+      expect(normalizedCadence.seed).toBe(17)
+      expect(normalizedCadence.minibatchSize).toBe(3)
+      expect(normalizedCadence.fullEvalEvery).toBe(1)
+
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())

@@ -8,7 +8,7 @@ import * as Arr from "effect/Array"
 import { bidiMirrorPairs as sharedBidiMirrorPairs } from "../../contracts/bidiSupport.js"
 
 /**
- * Mirror-pair authority for the shipped bidi visual-order envelope.
+ * Mirror pairs used by the shipped bidi visual-order implementation.
  *
  * @since 0.2.0
  * @category internals

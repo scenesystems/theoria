@@ -1,5 +1,5 @@
 /**
- * Stream-based envelope reader — deserializes JSONL files into typed artifact envelopes.
+ * Best-effort decoding of JSON-lines artifact logs.
  *
  * @since 0.1.0
  */
@@ -11,12 +11,13 @@ import { type ArtifactEnvelope, ArtifactEnvelopeSchema } from "../ArtifactEnvelo
 const ArtifactEnvelopeJsonSchema = Schema.parseJson(ArtifactEnvelopeSchema)
 
 /**
- * Reads an envelope JSONL file as a stream of decoded artifact envelopes.
+ * Streams valid artifact envelopes from a UTF-8 JSON-lines file in source order.
  *
  * @remarks
- * Blank and schema-invalid lines are skipped. A missing file, an existence-check
- * failure, or a read/stream failure yields an empty stream. Decoding validates
- * structure only; it does not authenticate producers or verify lineage digests.
+ * Blank and schema-invalid lines are omitted. A missing file or failed existence check
+ * produces an empty stream. A read failure ends the stream without a typed error and may
+ * occur after earlier envelopes were emitted. Decoding validates structure but does not
+ * authenticate producers or verify lineage digests.
  *
  * @since 0.1.0
  * @category readers

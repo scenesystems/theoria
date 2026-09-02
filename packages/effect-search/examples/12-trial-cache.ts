@@ -1,14 +1,6 @@
 /**
- * Study Objective Cache — deduplicate objective evaluations by scoped config keys.
- *
- * Real use case: avoid re-running expensive objectives across repeated studies.
- *
- * What this shows: deduplicating repeated configs with StudyObjectiveCache so expensive objectives are not rerun.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Reuses objective results for repeated configurations through a scoped
+ * `StudyObjectiveCache` and reports the number of actual evaluations.
  *
  * Run: bun run examples/12-trial-cache.ts
  */

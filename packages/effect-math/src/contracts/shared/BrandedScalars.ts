@@ -1,5 +1,5 @@
 /**
- * Branded scalar schemas for cross-domain numeric constraints.
+ * Defines reusable branded numbers for algorithm settings and shape metadata.
  *
  * @since 0.1.0
  * @category contracts
@@ -10,7 +10,7 @@ const ScalarFiniteNumber = Schema.Number.pipe(Schema.finite())
 const ScalarFiniteInteger = Schema.Number.pipe(Schema.finite(), Schema.int())
 
 /**
- * Positive, finite integer dimensionality.
+ * Brands positive finite integers used as vector, matrix, and point dimensions.
  *
  * @since 0.1.0
  * @category contracts
@@ -20,7 +20,7 @@ export const Dimension = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(1)
 }).pipe(Schema.brand("Dimension"))
 
 /**
- * Non-negative, finite integer axis index.
+ * Brands zero-based finite integer axis indexes.
  *
  * @since 0.1.0
  * @category contracts
@@ -30,7 +30,7 @@ export const Axis = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).ann
 )
 
 /**
- * Strictly positive finite absolute tolerance.
+ * Brands positive finite error limits measured in the result's units.
  *
  * @since 0.1.0
  * @category contracts
@@ -40,7 +40,7 @@ export const AbsoluteTolerance = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).
 }).pipe(Schema.brand("AbsoluteTolerance"))
 
 /**
- * Strictly positive finite relative tolerance.
+ * Brands positive finite unitless error limits.
  *
  * @since 0.1.0
  * @category contracts
@@ -50,7 +50,7 @@ export const RelativeTolerance = ScalarFiniteNumber.pipe(Schema.greaterThan(0)).
 }).pipe(Schema.brand("RelativeTolerance"))
 
 /**
- * Non-negative finite integer seed.
+ * Brands non-negative finite integers used to reproduce seeded random streams.
  *
  * @since 0.1.0
  * @category contracts
@@ -60,7 +60,7 @@ export const Seed = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).ann
 )
 
 /**
- * Positive finite integer iteration budget.
+ * Brands positive finite integers used as maximum iteration counts.
  *
  * @since 0.1.0
  * @category contracts
@@ -70,7 +70,7 @@ export const IterationBudget = ScalarFiniteInteger.pipe(Schema.greaterThanOrEqua
 }).pipe(Schema.brand("IterationBudget"))
 
 /**
- * Strictly positive finite conditioning threshold.
+ * Brands positive finite cutoffs for operation-specific conditioning checks.
  *
  * @since 0.1.0
  * @category contracts
@@ -80,7 +80,11 @@ export const ConditioningThreshold = ScalarFiniteNumber.pipe(Schema.greaterThan(
 }).pipe(Schema.brand("ConditioningThreshold"))
 
 /**
- * Strictly positive finite integration/optimization step size.
+ * Brands positive finite increments for numerical methods.
+ *
+ * @remarks
+ * The consuming operation defines the unit and whether the value is an
+ * initial, fixed, or maximum step.
  *
  * @since 0.1.0
  * @category contracts

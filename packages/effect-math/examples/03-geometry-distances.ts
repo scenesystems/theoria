@@ -1,19 +1,6 @@
 /**
- * Geometry — metric distances, midpoint, and centroid.
- *
- * Metric distance functions underpin nearest-neighbour search, clustering,
- * and spatial indexing. Pure kernels operate on `Chunk` point vectors;
- * schema-validated variants decode boundary arrays; policy-aware variants
- * read precision and diagnostics from the Effect context.
- *
- * What this shows: `euclideanDistance`, `manhattanDistance`, `chebyshevDistance`,
- * `midpoint`, schema-validated `distanceValidated` / `midpointValidated` /
- * `centroidValidated`, and policy-aware `distanceWithPolicies`.
- *
- * Feature Type Links:
- * - {@link Chunk}
- * - {@link Seed}
- * - {@link RuntimePolicies}
+ * Computes metric distances and point aggregates with immutable chunks, then
+ * exercises validated and runtime-policy variants.
  *
  * Run: bun run packages/effect-math/examples/03-geometry-distances.ts
  * @module
@@ -37,7 +24,7 @@ const program = Effect.gen(function*() {
   const origin = Chunk.fromIterable([0, 0])
   const point = Chunk.fromIterable([3, 4])
 
-  // ─── Pure kernels — Chunk in, scalar out ─────────────────────────
+  // Direct kernels
   yield* Console.log("euclidean([0,0], [3,4]):", euclideanDistance(origin, point))
   // Output: euclidean([0,0], [3,4]): 5
   yield* Console.log("manhattan([0,0], [3,4]):", manhattanDistance(origin, point))
@@ -46,7 +33,7 @@ const program = Effect.gen(function*() {
   const mid = midpoint(origin, point)
   yield* Console.log("midpoint([0,0], [3,4]):", Chunk.toReadonlyArray(mid))
 
-  // ─── Schema-validated — boundary input decoded via Schema ─────────
+  // Schema-validated boundary
   const distEuclid = yield* distanceValidated({ a: [0, 0], b: [3, 4], metric: "euclidean" })
   yield* Console.log("distanceValidated (euclidean):", distEuclid)
 
@@ -57,7 +44,7 @@ const program = Effect.gen(function*() {
   yield* Console.log("centroidValidated (triangle):", centResult)
   // Output: centroidValidated (triangle): [ 2, 2 ]
 
-  // ─── Policy-aware — strict precision, diagnostics enabled ────────
+  // Strict precision with diagnostics
   const policies = makeDeterministicRuntimePoliciesLayer({
     seed: Seed.make(0),
     precision: "strict",

@@ -1,5 +1,5 @@
 /**
- * Trace data models.
+ * Serializable records captured from module invocations.
  *
  * @since 0.1.0
  */
@@ -7,7 +7,12 @@ import { Option, Schema } from "effect"
 import { FieldRecord } from "../contracts/FieldValue.js"
 
 /**
- * Serializable record of one module invocation.
+ * Captures one module invocation for diagnostics and evaluation.
+ *
+ * @remarks
+ * Input, output, prompt, and raw response data are retained verbatim. The schema
+ * performs no redaction, so callers must treat entries according to the
+ * sensitivity of their module data.
  *
  * @since 0.1.0
  * @category models
@@ -25,9 +30,9 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
   prompt: Schema.String,
   /** Unparsed language-model response text. */
   rawResponse: Schema.String,
-  /** Provider-reported input tokens. */
+  /** Provider-reported input tokens, absent when the provider omits usage. */
   inputTokens: Schema.OptionFromSelf(Schema.Number),
-  /** Provider-reported output tokens. */
+  /** Provider-reported output tokens, absent when the provider omits usage. */
   outputTokens: Schema.OptionFromSelf(Schema.Number),
   /** Invocation duration in milliseconds. */
   durationMs: Schema.Number,
@@ -38,7 +43,7 @@ export class Entry extends Schema.Class<Entry>("TraceEntry")({
 }) {}
 
 /**
- * Reusable absent value for {@link Entry.score}.
+ * Absent score used when an invocation has not been evaluated.
  *
  * @since 0.1.0
  * @category constants

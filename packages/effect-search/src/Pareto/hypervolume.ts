@@ -1,5 +1,5 @@
 /**
- * Pareto hypervolume operators.
+ * Two-dimensional dominated-area measurement for Pareto fronts.
  *
  * @since 0.1.0
  */
@@ -56,33 +56,35 @@ const computeHypervolume2d = (
 }
 
 /**
- * Computes the 2D hypervolume indicator (area dominated by the non-dominated front)
- * relative to a reference point, after direction normalization.
+ * Measures the area between a two-dimensional Pareto front and a reference point.
  *
  * @remarks
- * Internally extracts the non-dominated front, normalizes all coordinates to
- * minimization space, clips points outside the reference bounds, then sweeps
- * left-to-right accumulating staircase area. Returns `0` when the reference
- * point does not have exactly two coordinates.
+ * Points outside either reference bound do not contribute. Directions omitted by
+ * the caller default to `"minimize"`. A reference with any arity other than two,
+ * an empty point set, or a ragged point matrix returns zero.
  *
  * @example
  * ```ts
+ * import { Effect } from "effect"
+ * import { Numeric } from "@scenesystems/effect-math"
  * import { Pareto } from "@scenesystems/effect-search"
  *
- * Pareto.hypervolume2d(
- *   [
- *     [1, 4],
- *     [2, 2],
- *     [3, 1]
- *   ],
- *   [4.4, 4.4]
+ * export const program = Effect.sync(() =>
+ *   Pareto.hypervolume2d(
+ *     [
+ *       [1, 4],
+ *       [2, 2],
+ *       [3, 1]
+ *     ],
+ *     [4.4, 4.4]
+ *   )
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (area) => Numeric.between(Numeric.abs(Numeric.sum([area, -7.56])), { minimum: 0, maximum: 1e-12 }),
+ *     () => "UnexpectedHypervolume"
+ *   )
  * )
- * // => 7.56
  * ```
- *
- * @see {@link hypervolumeContribution2d} Leave-one-out marginal contributions
- * @see {@link nonDominatedIndices} from `./frontier` — front extraction used internally
- * @see {@link ObjectiveVector} from `./model` — input vector type
  *
  * @since 0.1.0
  * @category hypervolume
@@ -99,17 +101,12 @@ export const hypervolume2d = (
   )
 
 /**
- * Computes leave-one-out 2D hypervolume contributions for each candidate.
+ * Measures each candidate's decrease in hypervolume when removed from the input.
  *
  * @remarks
- * For each non-dominated point, the contribution is the decrease in total hypervolume
- * when that point is removed. Dominated points contribute `0` by definition since
- * removing them does not change the frontier area. Useful for crowding-distance-style
- * selection in MOTPE and NSGA-II variants.
- *
- * @see {@link hypervolume2d} Total hypervolume used as the baseline
- * @see {@link nonDominatedIndices} from `./frontier` — determines which points are on the front
- * @see {@link computeMultiObjectiveWeights} from `./multiObjective` — consumes these contributions
+ * Results preserve candidate order. Dominated candidates receive zero. Contributions
+ * are clamped at zero to absorb negative floating-point error. An invalid reference
+ * arity or ragged matrix therefore produces zero for every candidate.
  *
  * @since 0.1.0
  * @category hypervolume

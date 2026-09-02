@@ -1,5 +1,5 @@
 /**
- * Study runtime state machine operations — read, modify, and lifecycle transitions.
+ * Serialized access to mutable study runtime state and clock time.
  *
  * @since 0.1.0
  */
@@ -30,7 +30,9 @@ export type {
 } from "./lifecycle.js"
 
 /**
- * Clock service for study time.
+ * Supplies millisecond timestamps for trial start, duration, and completion
+ * records. Built-in study execution uses `Clock.currentTimeMillis`; custom
+ * runtime integrations can provide a deterministic implementation.
  *
  * @since 0.1.0
  * @category services
@@ -38,6 +40,7 @@ export type {
 export class StudyClock extends Effect.Tag("effect-search/StudyClock")<
   StudyClock,
   {
+    /** Current Unix time in milliseconds. */
     readonly now: Effect.Effect<number>
   }
 >() {}

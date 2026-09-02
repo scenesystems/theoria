@@ -1,9 +1,13 @@
+/**
+ * Records route and response-model evidence for a statically configured
+ * OpenAI-compatible endpoint without contacting the endpoint.
+ */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import type { DesiredRuntimeDescriptor } from "../src/contracts/index.js"
-import * as OpenAiCompatible from "../src/OpenAiCompatible/index.js"
-import * as Runtime from "../src/Runtime/index.js"
+import type { DesiredRuntimeDescriptor } from "@scenesystems/effect-inference/Contracts"
+import * as OpenAiCompatible from "@scenesystems/effect-inference/OpenAiCompatible"
+import * as Runtime from "@scenesystems/effect-inference/Runtime"
 
 const desired: DesiredRuntimeDescriptor = {
   artifact: { modelRef: "local/llama-3.2" }

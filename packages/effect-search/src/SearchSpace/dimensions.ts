@@ -1,4 +1,6 @@
 /**
+ * Schema annotations that describe sampler distributions.
+ *
  * @since 0.1.0
  */
 import { Option, Schema } from "effect"
@@ -57,9 +59,17 @@ const makeIntDistribution = (
 }
 
 /**
- * Annotates a number schema as a float distribution. Bounds are inclusive;
- * `scale: "log"` requires a positive lower bound, and `step` must be positive.
- * These constraints are checked when the dimension is passed to {@link make}.
+ * Attaches an inclusive floating-point sampling distribution to `Schema.Number`.
+ *
+ * @remarks
+ * Compilation requires finite ordered bounds, a positive step when present, and
+ * a positive lower bound for logarithmic sampling. The resulting config schema
+ * still decodes any number; bounds and steps constrain sampler output rather
+ * than untrusted input.
+ *
+ * @param low - Inclusive sampling lower bound.
+ * @param high - Inclusive sampling upper bound.
+ * @param options - Linear or logarithmic scale and optional quantization step.
  *
  * @since 0.1.0
  * @category constructors
@@ -69,8 +79,16 @@ export const float = (low: number, high: number, options: FloatOptions = {}): Sc
 }
 
 /**
- * Annotates an integer schema with inclusive bounds and an optional positive
- * step. Bounds must be finite integers and are checked by {@link make}.
+ * Attaches an inclusive integer sampling distribution to `Schema.Int`.
+ *
+ * @remarks
+ * Compilation requires finite ordered integer bounds and a positive step when
+ * present. Decoding checks integer shape but does not enforce bounds or step
+ * alignment.
+ *
+ * @param low - Inclusive integer sampling lower bound.
+ * @param high - Inclusive integer sampling upper bound.
+ * @param options - Optional positive sampling step.
  *
  * @since 0.1.0
  * @category constructors
@@ -80,8 +98,15 @@ export const int = (low: number, high: number, options: IntOptions = {}): Schema
 }
 
 /**
- * Annotates an integer schema as a scheduler resource dimension with inclusive
- * bounds. The bounds must be finite integers and are checked by {@link make}.
+ * Attaches an inclusive scheduler-resource distribution to `Schema.Int`.
+ *
+ * @remarks
+ * Compilation requires finite ordered integer bounds. Decoding checks integer
+ * shape but does not enforce the resource range. During scheduled studies, the
+ * active round's resource is also available from `ObjectiveTrialRuntime.resource`.
+ *
+ * @param low - Inclusive minimum resource.
+ * @param high - Inclusive maximum resource.
  *
  * @since 0.1.0
  * @category constructors
@@ -94,8 +119,15 @@ export const fidelity = (low: number, high: number): Schema.Schema<number> =>
   })
 
 /**
- * Annotates a literal schema with its choices in declaration order. Choices
- * must be a non-empty array of strings, numbers, booleans, or `null`.
+ * Creates a literal schema and categorical sampling distribution from ordered choices.
+ *
+ * @remarks
+ * Compilation requires at least one primitive choice and rejects non-finite
+ * numeric choices. Duplicate choices remain in distribution metadata and occupy
+ * separate sampling positions.
+ *
+ * @typeParam Choices - Non-empty tuple whose members define the decoded literal union.
+ * @param choices - Ordered primitive values accepted by the schema.
  *
  * @since 0.1.0
  * @category constructors
@@ -113,7 +145,7 @@ export const categorical = <const Choices extends NonEmptyReadonlyArray<Primitiv
 }
 
 /**
- * A categorical dimension whose ordered choices are `true` and `false`.
+ * Creates a boolean schema sampled in `[true, false]` order.
  *
  * @since 0.1.0
  * @category constructors

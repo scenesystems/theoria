@@ -31,12 +31,17 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
   )
 
 /**
- * Construct an ensemble module that runs each program concurrently, collects
- * their outputs, and reduces them with the configured strategy (defaults to
- * majority vote).
+ * Constructs a module that concurrently runs a fixed subset and reduces its outputs.
  *
  * @remarks
- * Fails with `AllTrialsFailed` when `programs` is empty.
+ * An empty `programs` array fails with `AllTrialsFailed`. Composition may also
+ * fail when program names do not form a valid ownership graph. The selected
+ * subset and its order remain fixed for the ensemble's lifetime.
+ *
+ * @typeParam I - Input fields shared by every program.
+ * @typeParam O - Output fields expected from every program and the reducer.
+ * @param options - Candidate modules, subset controls, identity, and reducer.
+ * @returns A composite module using the first program's signature.
  *
  * @see {@link import("./model.js").EnsembleOptions} for configuration
  * @since 0.1.0

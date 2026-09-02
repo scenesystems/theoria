@@ -1,12 +1,13 @@
 /**
- * Declared capability authority for a runtime family.
+ * Conservative capability policy attached to a resolved route.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Normalized structured-output support grades.
+ * Orders structured-output support from unavailable through strict schema
+ * enforcement.
  *
  * @since 0.1.0
  * @category schemas
@@ -22,13 +23,21 @@ export const StructuredOutputModeSchema = Schema.Literal("none", "best-effort", 
  * @category schemas
  */
 export const RuntimeCapabilitiesSchema = Schema.Struct({
+  /** Whether resolution exposes a language-model layer. */
   textGeneration: Schema.Boolean,
+  /** Whether resolution exposes an embedding-model layer. */
   embeddings: Schema.Boolean,
+  /** Whether the selected adapter declares streaming support. */
   streaming: Schema.Boolean,
+  /** Whether the selected adapter declares tool-call support. */
   toolCalling: Schema.Boolean,
+  /** Declared structured-output enforcement grade. */
   structuredOutput: StructuredOutputModeSchema,
+  /** Whether the selected adapter declares normalized usage reporting. */
   usageReporting: Schema.Boolean,
+  /** Whether the selected adapter declares multimodal request input. */
   multimodalInput: Schema.Boolean,
+  /** Declared context-window limit in tokens, when policy establishes one. */
   maxContextTokens: Schema.optional(Schema.Number)
 })
 

@@ -1,12 +1,16 @@
 /**
- * Evaluation report contracts.
+ * Serializable per-example outcomes and aggregate scores.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Serializable failure captured for one example.
+ * Captures an expected failure from one example without failing the evaluation.
+ *
+ * @remarks
+ * Messages are copied from string failures or string-valued `message` fields.
+ * Other failures use `Unknown evaluation error`; no cause or stack is retained.
  *
  * @since 0.1.0
  * @category models
@@ -16,12 +20,12 @@ export class ExampleFailure extends Schema.Class<ExampleFailure>("ExampleFailure
   index: Schema.Number,
   /** Effect failure tag, or `UnknownEvaluationError`. */
   tag: Schema.String,
-  /** Failure message safe for the report. */
+  /** Extracted failure message; the evaluator does not redact source messages. */
   message: Schema.String
 }) {}
 
 /**
- * Result for one input example.
+ * Records scores, elapsed time, and any captured failure for one example.
  *
  * @since 0.1.0
  * @category models
@@ -38,7 +42,11 @@ export class ExampleResult extends Schema.Class<ExampleResult>("ExampleResult")(
 }) {}
 
 /**
- * Aggregate report for one evaluation.
+ * Aggregates ordered example outcomes and per-metric means.
+ *
+ * @remarks
+ * Failed examples are excluded from every metric mean. A metric receives score
+ * `0` when no example succeeds.
  *
  * @since 0.1.0
  * @category models

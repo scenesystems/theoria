@@ -1,5 +1,5 @@
 /**
- * Top-level study execution API for running optimization, resuming, and collecting snapshots.
+ * Effect APIs for complete optimization runs and versioned continuation.
  *
  * @since 0.1.0
  */
@@ -40,7 +40,49 @@ const executePlan = <Space extends SearchSpace.SearchSpace>(
   })
 
 /**
- * Run an optimization study to completion and return the best result.
+ * Executes a flat or scheduled study and returns its best scalar trial or
+ * epsilon-aware Pareto front. Objective failures are recorded as failed trials;
+ * invalid configuration, sampler failures, and a run with no successful trial
+ * fail through `SearchError`.
+ *
+ * @remarks
+ * The function supplies the default study services. Optional objective-cache
+ * and storage services can be provided by the caller.
+ *
+ * @typeParam Space - Compiled search space supplying objective inputs and result configurations.
+ *
+ * @example
+ * ```ts
+ * import { Effect, Match } from "effect"
+ * import * as Numeric from "@scenesystems/effect-math/Numeric"
+ * import * as Sampler from "@scenesystems/effect-search/Sampler"
+ * import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+ * import { optimize } from "@scenesystems/effect-search/Study"
+ *
+ * export const program = Effect.gen(function*() {
+ *   const space = yield* SearchSpace.make({ x: SearchSpace.float(-2, 2) })
+ *   const result = yield* optimize({
+ *     space,
+ *     sampler: Sampler.random({ seed: 7 }),
+ *     direction: "minimize",
+ *     trials: 8,
+ *     objective: ({ x }) => Effect.succeed(Numeric.pow(x, 2))
+ *   })
+ *
+ *   return yield* Match.value(result).pipe(
+ *     Match.tag("SingleObjective", (single) =>
+ *       Effect.succeed(single).pipe(
+ *         Effect.filterOrFail(
+ *           ({ trials }) => trials.length === 8,
+ *           () => "UnexpectedTrialCount"
+ *         )
+ *       )
+ *     ),
+ *     Match.tag("MultiObjective", () => Effect.fail("UnexpectedResultKind")),
+ *     Match.exhaustive
+ *   )
+ * })
+ * ```
  *
  * @since 0.1.0
  * @category combinators
@@ -59,7 +101,12 @@ export const optimize = <Space extends SearchSpace.SearchSpace>(
   )(options)
 
 /**
- * Run a single-objective minimization study.
+ * Runs {@link optimize} with minimization fixed for a scalar objective.
+ *
+ * @remarks
+ * Validation, service, failure, and result semantics match `optimize`.
+ *
+ * @typeParam Space - Compiled search space supplying objective inputs and result configurations.
  *
  * @since 0.1.0
  * @category combinators
@@ -78,7 +125,12 @@ export const minimize = <Space extends SearchSpace.SearchSpace>(
   )(options)
 
 /**
- * Run a single-objective maximization study.
+ * Runs a scalar-objective study that treats higher values as better.
+ *
+ * @remarks
+ * Validation, service, failure, and result semantics match {@link optimize}.
+ *
+ * @typeParam Space - Compiled search space supplying objective inputs and result configurations.
  *
  * @since 0.1.0
  * @category combinators
@@ -97,8 +149,11 @@ export const maximize = <Space extends SearchSpace.SearchSpace>(
   )(options)
 
 /**
- * Captures the completed result as replay state, including sampler checkpoint
- * and accumulated events.
+ * Converts an immutable result into the canonical replay snapshot. The result's
+ * sampler checkpoint and compatibility metadata are retained with every trial;
+ * event history is not stored.
+ *
+ * @typeParam Config - Decoded configuration stored in the result's trial history.
  *
  * @since 0.1.0
  * @category combinators
@@ -113,7 +168,15 @@ export const snapshot = <Config>(result: StudyResult<Config>): Effect.Effect<Stu
   )(result)
 
 /**
- * Resume a study from a snapshot.
+ * Validates a snapshot against the requested search space, objective, stop mode,
+ * and sampler before continuing it. `trials` is the number of additional trials
+ * to schedule after the snapshot's `nextTrialNumber`.
+ *
+ * @remarks
+ * Snapshot decoding, compatibility checks, sampler restoration, execution, and
+ * result construction fail through `SearchError`.
+ *
+ * @typeParam Space - Compiled search space checked against the snapshot and used for new trials.
  *
  * @since 0.1.0
  * @category combinators
@@ -132,7 +195,12 @@ export const resume = <Space extends SearchSpace.SearchSpace>(
   )(options)
 
 /**
- * Resume a study from persisted StudyStorage snapshot/log state.
+ * Loads the latest snapshot and replay tail from {@link StudyStorage}, validates
+ * them, and schedules the requested number of additional trials. Missing or
+ * invalid persisted state fails through `SearchError`; the storage service
+ * remains a requirement of the returned Effect.
+ *
+ * @typeParam Space - Compiled search space checked against persisted state and used for new trials.
  *
  * @since 0.1.0
  * @category combinators

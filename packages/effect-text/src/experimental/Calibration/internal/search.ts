@@ -45,7 +45,7 @@ export const defaultObjectiveMetadata: CalibrationObjectiveMetadataType = {
 }
 
 /**
- * Default search-descriptor authority for the shipped experimental calibration knobs.
+ * Default dimensions for the experimental engine-profile search.
  *
  * @since 0.2.0
  * @category internals

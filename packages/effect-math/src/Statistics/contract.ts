@@ -1,6 +1,5 @@
 /**
- * Canonical literal compared against discovery metadata to select statistical
- * estimator capabilities.
+ * Names the Statistics domain in discovery metadata.
  *
  * @since 0.1.0
  * @category contracts

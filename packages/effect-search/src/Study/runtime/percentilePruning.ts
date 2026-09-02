@@ -1,5 +1,5 @@
 /**
- * Percentile-based pruning algorithm that prunes underperforming trials at intermediate steps.
+ * Pure percentile comparison for intermediate trial reports.
  *
  * @since 0.1.0
  */
@@ -60,7 +60,15 @@ const shouldPruneFromThreshold = (
   )
 
 /**
- * Determine whether a trial should be pruned by percentile ranking.
+ * Compares the current trial's best reported value with completed peers at the
+ * requested step. The function returns `false` until at least one completed
+ * trial exists and the startup, warmup, interval, and minimum-peer gates pass.
+ *
+ * @remarks
+ * Minimization prunes above the configured percentile. Maximization compares
+ * below the complementary percentile. A `NaN` current best prunes immediately;
+ * `NaN` peer values are ignored. The function trusts the supplied context and
+ * does not run {@link PercentilePrunerContextSchema}.
  *
  * @since 0.1.0
  * @category guards

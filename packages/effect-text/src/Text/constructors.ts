@@ -117,6 +117,32 @@ const prepareCore = (
  * available `HyphenationDictionary` is used only with `hyphenationLocale`;
  * otherwise preparation uses the non-dictionary break path.
  *
+ * @example
+ * ```ts
+ * import { Array, Effect, Option } from "effect"
+ * import { Text } from "@scenesystems/effect-text"
+ *
+ * export const program = Effect.gen(function*() {
+ *   const prepared = yield* Text.prepareWithSegments({
+ *     text: "alpha beta",
+ *     font: { family: "Mono", size: 16 },
+ *     whiteSpace: "normal"
+ *   })
+ *   const lines = Text.layoutLines(prepared, { maxWidth: 160, lineHeight: 20 })
+ *   const first = yield* Option.match(Array.head(lines), {
+ *     onNone: () => Effect.fail("MissingLayoutLine"),
+ *     onSome: Effect.succeed
+ *   })
+ *
+ *   return yield* Effect.succeed(first).pipe(
+ *     Effect.filterOrFail(
+ *       ({ text }) => text === "alpha beta",
+ *       () => "UnexpectedLayoutText"
+ *     )
+ *   )
+ * }).pipe(Effect.provide(Text.TextLayoutLive))
+ * ```
+ *
  * @since 0.1.0
  * @category constructors
  */

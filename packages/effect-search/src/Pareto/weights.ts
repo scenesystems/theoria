@@ -1,5 +1,5 @@
 /**
- * Pareto direction, dominated-index, and objective-weight helpers.
+ * Direction vectors and selection weights derived from Pareto analysis.
  *
  * @since 0.1.0
  */
@@ -45,14 +45,12 @@ const dominatedIndicesFromFrontier = (
 }
 
 /**
- * Build a uniform `'maximize'` direction vector of length `objectiveCount`.
+ * Creates one `"maximize"` direction for each requested objective.
  *
  * @remarks
- * Convenience helper for callers where every objective should be maximized.
- * Pass the result directly as the `directions` argument to any Pareto operator.
- *
- * @see {@link Direction} from `../contracts/Direction` — the per-coordinate optimization sense
- * @see {@link nonDominatedIndices} from `./frontier` — accepts directions
+ * Non-positive counts produce an empty array. Positive fractional counts are truncated,
+ * with a minimum result length of one. Callers must supply a finite count; positive
+ * infinity causes the underlying array allocation to throw.
  *
  * @since 0.1.0
  * @category frontier
@@ -61,14 +59,11 @@ export const maximizeDirections = (objectiveCount: number): ReadonlyArray<Direct
   Arr.map(buildIndices(objectiveCount), () => "maximize")
 
 /**
- * Returns indices of candidates dominated by at least one member of the non-dominated front.
+ * Selects every input index absent from the first non-dominated front.
  *
  * @remarks
- * This is the complement of {@link nonDominatedIndices}: every index in `[0, points.length)`
- * appears in exactly one of the two sets.
- *
- * @see {@link nonDominatedIndices} from `./frontier` — the complement set (frontier members)
- * @see {@link frontierSnapshot} Bundles both sets together atomically
+ * A ragged matrix has no computed front, so every input index is returned. Indices
+ * preserve input order.
  *
  * @since 0.1.0
  * @category frontier
@@ -84,16 +79,11 @@ export const dominatedIndices = (
 }
 
 /**
- * Compute per-candidate weights by counting how many per-objective frontiers include each candidate.
+ * Counts how many objective coordinates each candidate holds at the best value.
  *
  * @remarks
- * A candidate on all `k` objective frontiers receives weight `k`; one on none receives `0`.
- * Higher weight indicates broader competitiveness across objectives and is used by
- * Pareto-parent selection strategies.
- *
- * @see {@link objectiveFrontierHoldings} from `./frontier` — per-objective holdings consumed here
- * @see {@link ObjectiveFrontierWeight} from `./model` — return element type
- * @see {@link objectiveHoldingWeights} Alias with optimizer-aligned naming
+ * The result contains one entry per input candidate in input order. A ragged matrix
+ * assigns zero to every candidate because it has no coordinate holdings.
  *
  * @since 0.1.0
  * @category frontier
@@ -109,10 +99,7 @@ export const objectiveFrontierWeights = (
 }
 
 /**
- * Alias for {@link objectiveFrontierWeights} with naming aligned to optimizer usage.
- *
- * @see {@link objectiveFrontierWeights} Canonical implementation
- * @see {@link ObjectiveFrontierWeight} from `./model` — return element type
+ * Exposes {@link objectiveFrontierWeights} under the optimizer's holding terminology.
  *
  * @since 0.1.0
  * @category frontier
@@ -124,15 +111,12 @@ export const objectiveHoldingWeights = (
 ): ReadonlyArray<ObjectiveFrontierWeight> => objectiveFrontierWeights(points, directions, epsilon)
 
 /**
- * Builds a {@link FrontierSnapshot} from one objective matrix and direction vector.
+ * Analyzes one matrix into its first front and exact per-coordinate holdings.
  *
  * @remarks
- * Ragged input produces an empty frontier and holdings; `dominatedIndices` is then
- * every input index. Empty input produces empty arrays for every field.
- *
- * @see {@link FrontierSnapshot} from `./model` — return type with field documentation
- * @see {@link nonDominatedIndices} from `./frontier` — frontier extraction
- * @see {@link objectiveFrontierHoldings} from `./frontier` — per-objective holdings
+ * Empty input produces empty fields. For a ragged matrix, `frontierIndices` and
+ * `objectiveHoldings` are empty, `dominatedIndices` contains every input index, and
+ * every holding weight is zero.
  *
  * @since 0.1.0
  * @category frontier

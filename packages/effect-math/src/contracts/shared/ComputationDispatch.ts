@@ -1,5 +1,9 @@
 /**
- * Advanced computation dispatch contracts.
+ * Plans scalar, backend, differentiation, and uncertainty metadata from runtime authorities.
+ *
+ * @remarks
+ * Planning selects labels and provenance. It does not execute a kernel,
+ * install an autodiff engine, or construct an uncertainty envelope.
  *
  * @since 0.1.0
  * @category contracts
@@ -50,13 +54,13 @@ const NO_AUTODIFF_RESOLUTION: {
 }
 
 /**
- * Inputs that let a caller identify an operation, request scalar/backend/
- * autodiff preferences, report an escalation attempt and convergence errors,
- * and require differentiation or uncertainty metadata.
+ * Accepts the operation identity, caller preferences, convergence state, and output requirements used for planning.
  *
  * @remarks
- * `preferredBackend` and `preferredAutodiff` express caller intent while
- * runtime policy services stay authoritative for final lane selection.
+ * `operationName` is diagnostic metadata. `escalationAttempt` is required even
+ * when `convergence` is absent. Backend preference affects only failure
+ * diagnostics. Autodiff preference is ignored unless `requiresAutodiff` is
+ * true. The uncertainty flag is copied to the plan.
  *
  * @since 0.1.0
  * @category contracts
@@ -74,7 +78,7 @@ export const ComputationDispatchRequest = Schema.Struct({
 })
 
 /**
- * The strictly decoded caller-selection boundary consumed by dispatch planning.
+ * A decoded computation-planning request.
  *
  * @since 0.1.0
  * @category models
@@ -82,12 +86,13 @@ export const ComputationDispatchRequest = Schema.Struct({
 export type ComputationDispatchRequestType = typeof ComputationDispatchRequest.Type
 
 /**
- * Records the scalar, backend, and differentiation lanes selected after any
- * convergence-driven precision escalation, together with decision provenance.
+ * Accepts selected planning lanes and their scalar-escalation provenance.
  *
  * @remarks
- * Includes both resolved execution lanes and provenance fields so tests can
- * assert which authority produced each decision.
+ * The Schema validates each field independently. It does not enforce that an
+ * autodiff method has a mode, that finite-difference fallback omits one, or
+ * that escalation and convergence flags agree. The exported planner
+ * establishes those relationships.
  *
  * @since 0.1.0
  * @category contracts
@@ -106,8 +111,7 @@ export const ComputationDispatchPlan = Schema.Struct({
 })
 
 /**
- * The resolved execution lanes, escalation outcome, convergence status, and
- * uncertainty-envelope requirement returned to callers.
+ * A decoded computation plan containing selected labels and provenance.
  *
  * @since 0.1.0
  * @category models
@@ -115,8 +119,7 @@ export const ComputationDispatchPlan = Schema.Struct({
 export type ComputationDispatchPlanType = typeof ComputationDispatchPlan.Type
 
 /**
- * Failures for malformed requests or when scalar, precision, backend, or
- * differentiation authorities cannot satisfy the request.
+ * Typed failures emitted while decoding or planning a computation request.
  *
  * @since 0.1.0
  * @category errors
@@ -129,7 +132,7 @@ export type ComputationDispatchError =
   | ComputationDispatchDecodeError
 
 /**
- * Authority requirements used by dispatch planning.
+ * Context services required by the exported authority-based planner.
  *
  * @since 0.1.0
  * @category models
@@ -141,7 +144,12 @@ export type ComputationDispatchRequirements =
   | AutodiffAuthorityService
 
 /**
- * Advanced dispatcher service seam.
+ * Supplies a computation-plan implementation to callers of {@link planAdvancedComputation}.
+ *
+ * @remarks
+ * A dispatcher receives an already decoded request. Its planning Effect may
+ * still require the four authority services represented by
+ * {@link ComputationDispatchRequirements}.
  *
  * @since 0.1.0
  * @category contracts
@@ -169,12 +177,21 @@ const decodeComputationDispatchRequest = (input: unknown) =>
   )
 
 /**
- * Contract-level plan builder wired directly to authority services.
+ * Builds a computation plan directly from the configured authority services.
  *
  * @remarks
- * **Details**
- * Scalar, precision, backend, and autodiff decisions are all resolved through
- * runtime policy services so there is a single observable dispatch authority.
+ * The request is already typed and is not decoded. Scalar selection occurs
+ * before optional convergence escalation, then the resulting lane is checked
+ * against scalar capabilities again. An absent convergence observation is
+ * recorded as satisfied. Backend policy determines backend order. Autodiff
+ * resolution runs only when requested. The uncertainty requirement is copied
+ * unchanged.
+ *
+ * @param request - Already decoded planning request.
+ * @returns Selected planning labels and decision provenance.
+ * @throws {@link ScalarLaneUnsupportedError}, {@link PrecisionEscalationExhaustedError},
+ * {@link BackendUnavailableError}, or {@link AutodiffUnavailableError} in the
+ * Effect error channel when an authority cannot satisfy the request.
  *
  * @since 0.1.0
  * @category contracts
@@ -263,7 +280,11 @@ export const planComputationFromAuthorities = (request: ComputationDispatchReque
   })
 
 /**
- * Default authority composition for advanced dispatch planning.
+ * Supplies the exported default scalar, precision, backend, and autodiff authorities.
+ *
+ * @remarks
+ * Backend policy is `"scalar"`. The Layer acquires no resources, cannot fail,
+ * and does not provide {@link ComputationDispatcher}.
  *
  * @since 0.1.0
  * @category contracts
@@ -276,9 +297,11 @@ export const ComputationDispatchAuthoritiesLive = Layer.mergeAll(
 )
 
 /**
- * Dispatcher layer whose `plan` effect retains the four requirements in
- * {@link ComputationDispatchRequirements}; use {@link ComputationDispatchLive}
- * when those defaults should be supplied too.
+ * Supplies an authority-based {@link ComputationDispatcher}.
+ *
+ * @remarks
+ * The Layer acquires no resources and cannot fail. The dispatcher's `plan`
+ * method still requires {@link ComputationDispatchRequirements}.
  *
  * @since 0.1.0
  * @category contracts
@@ -288,7 +311,11 @@ export const ComputationDispatcherLive = Layer.succeed(ComputationDispatcher, {
 })
 
 /**
- * Default runtime wiring for advanced dispatch planning.
+ * Supplies the default dispatcher and all authority services needed to run it.
+ *
+ * @remarks
+ * The Layer acquires no resources and cannot fail. It produces plans only;
+ * no numerical kernel is selected or executed.
  *
  * @since 0.1.0
  * @category contracts
@@ -296,8 +323,41 @@ export const ComputationDispatcherLive = Layer.succeed(ComputationDispatcher, {
 export const ComputationDispatchLive = Layer.mergeAll(ComputationDispatcherLive, ComputationDispatchAuthoritiesLive)
 
 /**
- * Rejects unknown or excess request fields before asking the configured
- * dispatcher to resolve escalation and execution lanes.
+ * Decodes unknown input and delegates planning to the configured dispatcher.
+ *
+ * @remarks
+ * Decoding rejects excess fields. The function requires
+ * {@link ComputationDispatcher} plus any services required by its `plan`
+ * method. Supply {@link ComputationDispatchLive} to use all exported defaults.
+ *
+ * @example
+ * ```ts
+ * import {
+ *   ComputationDispatchLive,
+ *   planAdvancedComputation
+ * } from "@scenesystems/effect-math/contracts"
+ * import { Effect } from "effect"
+ *
+ * export const program = planAdvancedComputation({
+ *     operationCategory: "numeric",
+ *     operationName: "scale",
+ *     escalationAttempt: 0,
+ *     requiresAutodiff: false,
+ *     requiresUncertaintyEnvelope: true
+ * }).pipe(
+ *   Effect.provide(ComputationDispatchLive),
+ *   Effect.filterOrFail(
+ *     (plan) => plan.scalarKind === "float64" &&
+ *       plan.backendKind === "scalar" && plan.uncertaintyEnvelope,
+ *     () => "UnexpectedComputationPlan"
+ *   )
+ * )
+ * ```
+ *
+ * @param input - Untrusted request input decoded with excess-property rejection.
+ * @returns The plan produced by the configured dispatcher.
+ * @throws {@link ComputationDispatchDecodeError} in the Effect error channel when request decoding fails.
+ * @throws {@link ComputationDispatchError} in the Effect error channel when the configured planner cannot satisfy the request.
  *
  * @since 0.1.0
  * @category contracts

@@ -3,6 +3,7 @@
  *
  * @since 0.2.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Cache, Effect, Layer, Option } from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../contracts/index.js"
@@ -73,9 +74,13 @@ const makeBrowserMeasurementCache = (options: {
   })
 
 type CanvasTextMeasurerOptions = Readonly<{
+  /** Mutable canvas-like context retained for the layer lifetime. */
   context: CanvasMeasurementContext
+  /** Direction assigned before each measurement. */
   direction?: "ltr" | "rtl" | "inherit"
+  /** Optional correction for canvas implementations that under-report emoji. */
   emojiCorrection?: boolean | { readonly minimumAdvanceMultiplier?: number; readonly probe?: string }
+  /** Baseline assigned before each measurement. */
   textBaseline?: "top" | "hanging" | "middle" | "alphabetic" | "ideographic" | "bottom"
 }>
 
@@ -100,7 +105,7 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
                 options.direction,
                 options.textBaseline
               ).pipe(
-                Effect.map((width) => Math.max(width, font.size * correction[1]))
+                Effect.map((width) => Numeric.max(width, font.size * correction[1]))
               )
             }
           }).pipe(Effect.map(Option.some))
@@ -141,7 +146,9 @@ const makeCanvasTextMeasurer = (options: CanvasTextMeasurerOptions) =>
  * @remarks
  * Optional emoji correction replaces under-reported emoji-cluster advances
  * using a per-font probe cache; non-emoji text keeps its raw canvas width. The
- * context is mutated during measurement and must outlive the layer.
+ * context is mutated during measurement, restored afterward, and must outlive
+ * the layer. Concurrent calls are serialized. Context throws and non-finite or
+ * negative widths fail as `MeasurementFailed`.
  *
  * @since 0.2.0
  * @category layers
@@ -162,7 +169,9 @@ export const CanvasTextMeasurerLive = (options: CanvasTextMeasurerOptions) =>
  * @category layers
  */
 export const BrowserMeasurementCacheLive = (options?: {
+  /** Generation included in every cache key; defaults to zero. */
   readonly fontReadinessRevision?: FontReadinessRevisionType
+  /** Support profile included in every cache key; defaults to the manifest default. */
   readonly profileId?: BrowserSupportProfileIdType
 }) =>
   Layer.effect(

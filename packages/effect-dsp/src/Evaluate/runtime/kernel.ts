@@ -13,14 +13,20 @@ import { aggregateOutcomes } from "./aggregate.js"
 import { evaluateOutcome, type EvaluationEventSink, resolveConcurrency, sortedMetricEntries } from "./example.js"
 
 /**
- * Inputs for evaluating labeled examples against a module.
+ * Configures module evaluation over a fixed set of examples and metrics.
+ *
+ * @remarks
+ * Module, schema, and metric failures are captured in the resulting report. The
+ * module's service requirements remain in the Effect returned by {@link run} and
+ * the Stream returned by {@link stream}.
+ *
+ * @typeParam I - Input fields accepted by the module.
+ * @typeParam O - Output fields returned by the module.
+ * @typeParam ME - Expected failure from any configured metric.
+ * @typeParam MR - Services required by the configured metrics.
  *
  * @since 0.1.0
  * @category models
- * @see {@link import("../../Module/model.js").Module}
- * @see {@link import("../../Example/index.js").Example}
- * @see {@link import("../../Metric/model.js").Metric}
- * @see {@link import("../report.js").Report}
  */
 export type EvaluateOptions<
   I extends Schema.Struct.Fields = Schema.Struct.Fields,
@@ -34,7 +40,7 @@ export type EvaluateOptions<
   readonly examples: ReadonlyArray<ExampleModel>
   /** Named metrics applied to every successful prediction, in name-sorted order. */
   readonly metrics: Readonly<Record<string, Metric<ME, MR>>>
-  /** Maximum concurrent example evaluations. Defaults to `1`. */
+  /** Maximum concurrent example evaluations passed to Effect; omitted values use `1`. */
   readonly concurrency?: number
 }>
 

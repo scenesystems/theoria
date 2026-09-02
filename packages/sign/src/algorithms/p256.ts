@@ -10,7 +10,7 @@ import { detachVerificationInputs } from "../internal/verificationInput.js"
 import { InvalidVerificationInput, VerificationUnavailable } from "../schemas/errors.js"
 
 /**
- * Verify a detached P-256 signature over `SHA-256(message)`.
+ * Verifies a detached P-256 signature over `SHA-256(message)`.
  *
  * @remarks
  * The public key must be the 65-byte uncompressed SEC1 encoding and the
@@ -25,8 +25,8 @@ import { InvalidVerificationInput, VerificationUnavailable } from "../schemas/er
  * @param signature - Exactly 64 IEEE P1363 `r || s` bytes.
  * @param message - Unhashed protected message bytes, at most 8,192 bytes.
  * @param publicKey - Exactly 65 uncompressed SEC1 point bytes.
- * @returns `true` for a match, `false` for an admitted
- * nonmatch, or a material-free typed admission/backend failure.
+ * @returns `true` for a match, `false` for an admitted nonmatch, or a
+ * material-free typed admission or backend failure.
  * @see https://csrc.nist.gov/pubs/fips/186-5/final
  *
  * @since 0.1.1

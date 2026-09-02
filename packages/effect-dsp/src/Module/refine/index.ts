@@ -1,6 +1,5 @@
 /**
- * Refinement composition wrapper — iteratively improves module output
- * by feeding reward feedback back into the prompt.
+ * Sequential output refinement driven by score feedback.
  *
  * @since 0.1.0
  */
@@ -19,12 +18,15 @@ import { makeRefineForward } from "./runtime.js"
  * @remarks
  * Attempts are sequential and stop when the best score reaches `threshold` or
  * the normalized attempt limit is exhausted. Below-threshold feedback is
- * accumulated into the inner module's instructions for subsequent attempts;
- * the original parameter snapshot is restored only after normal loop
- * completion. Equal scores retain the earlier output.
+ * accumulated into the inner module's instructions for subsequent attempts.
+ * The original parameter snapshot is restored after success, failure,
+ * interruption, or a defect. Equal scores retain the earlier output.
  *
- * @see {@link refine} — constructor that consumes this options type
- * @see {@link RewardFn} — scoring function type used by `reward`
+ * @see {@link refine} for construction.
+ * @see {@link RewardFn} for the scoring callback contract.
+ *
+ * @typeParam I - Input fields accepted by the inner module.
+ * @typeParam O - Output fields returned by the inner module.
  *
  * @since 0.1.0
  * @category models
@@ -37,7 +39,7 @@ export type RefineOptions<
   readonly name: string
   /** Module rerun with accumulated feedback; its signature becomes the wrapper signature. */
   readonly module: Module<I, O>
-  /** Maximum requested attempts, normalized to at least one. */
+  /** Maximum attempts, rounded down and normalized to one when invalid or below one. */
   readonly N: number
   /** Scores each attempt and may supply feedback for the next attempt. */
   readonly reward: RewardFn<I, O>
@@ -50,42 +52,22 @@ export type RefineOptions<
  *
  * @remarks
  * The wrapper runs and scores the inner module sequentially up to
- * `max(1, N)` times. It stops after a score reaches `threshold`; otherwise it
+ * the normalized attempt count. It stops after a score reaches `threshold`; otherwise it
  * appends accumulated reward feedback to the inner module's instructions
  * before the next attempt. The greatest-scoring output is returned.
- * The inner parameter snapshot is restored after the loop completes
- * successfully. The wrapper has a separate parameter Ref that this execution
- * path does not read. Reward callbacks cannot add an error or environment
- * channel; defects and failures from inner execution retain normal Effect
- * semantics.
+ * Calls through the same wrapper are serialized while the inner module's
+ * parameters contain refinement feedback. The original snapshot is restored on
+ * every exit. Direct use or optimization of the inner module during a refinement
+ * run is unsafe because those operations do not use the wrapper's lock.
+ *
+ * The wrapper has a separate parameter Ref that this execution path does not
+ * read. Reward callbacks cannot add a typed error or environment requirement.
+ * Inner failures remain typed failures, and callback defects remain defects.
  *
  * @typeParam I - Inner module input fields.
  * @typeParam O - Inner module output fields.
  * @param options - Inner module, attempt count, reward callback, threshold, and wrapper identity.
- * @returns An Effect allocating the wrapper module.
- *
- * @example
- * ```ts
- * import { Module, Signature } from "@scenesystems/effect-dsp"
- * import { Effect, Schema } from "effect"
- * import { MetricResult } from "@scenesystems/effect-dsp/contracts"
- *
- * const program = Effect.gen(function*() {
- *   const sig = yield* Signature.make("Summarize text", { text: Schema.String }, { summary: Schema.String })
- *   const inner = yield* Module.predict("summarize", sig)
- *   const refined = yield* Module.refine({
- *     name: "summarize-refined",
- *     module: inner,
- *     N: 3,
- *     reward: (_input, output) =>
- *       Effect.succeed(new MetricResult({
- *         score: output.summary.length > 10 ? 0.9 : 0.3,
- *         feedback: "Summary should be more detailed"
- *       })),
- *     threshold: 0.8
- *   })
- * })
- * ```
+ * @returns A serialized refinement wrapper with the inner module's signature.
  *
  * @see {@link Module}
  * @see {@link RewardFn}
@@ -104,6 +86,7 @@ export const refine = <
     const paramsRef = yield* Ref.make(
       makeDefaultModuleParams(options.module.signature.instructions)
     )
+    const forwardLock = yield* Effect.makeSemaphore(1)
 
     return new Module({
       name: options.name,
@@ -116,7 +99,8 @@ export const refine = <
         innerModule: options.module,
         N: options.N,
         reward: options.reward,
-        threshold: options.threshold
+        threshold: options.threshold,
+        forwardLock
       })
     })
   })

@@ -5,20 +5,27 @@
  * @category internal
  * @internal
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
-import { Array as Arr, Effect, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Order } from "effect"
 import { withRollout } from "../../Cache/refs.js"
 import type { MetricResult } from "../../contracts/MetricResult.js"
 import type { Signature } from "../../Signature/model.js"
 import type { Module } from "../model.js"
 
 /**
- * Pure scoring function that evaluates a single module output given the
- * original input. Used by `bestOfN` and `refine` to rank candidates.
- * Must not introduce additional error or requirement channels — the
- * reward runs inside the module's fixed `forward` signature.
+ * Scores one module output in the context of its original input.
  *
- * @see {@link MetricResult} — the score + optional feedback returned
+ * @remarks
+ * The callback cannot add a typed failure or service requirement. It may still
+ * use Effect operations, read FiberRefs, be interrupted, or terminate with a
+ * defect. `bestOfN` reads the score. `refine` also adds feedback to later
+ * attempts.
+ *
+ * @typeParam I - Input fields decoded before the module call.
+ * @typeParam O - Output fields decoded before scoring.
+ *
+ * @see {@link MetricResult} for the score and optional feedback.
  *
  * @since 0.1.0
  * @category models
@@ -30,6 +37,12 @@ export type RewardFn<
   input: Schema.Schema.Type<Schema.Struct<I>>,
   output: Schema.Schema.Type<Schema.Struct<O>>
 ) => Effect.Effect<MetricResult>
+
+const normalizeRunCount = (requested: number): number =>
+  Match.value(requested).pipe(
+    Match.when(Numeric.isFinite, (value) => Numeric.max(1, Numeric.floor(value))),
+    Match.orElse(() => 1)
+  )
 
 type ScoredCandidate<O> = Readonly<{
   readonly output: O
@@ -59,7 +72,7 @@ export const makeBestOfNForward = <
   readonly reward: RewardFn<I, O>
   readonly threshold?: number
 }): Module<I, O>["forward"] => {
-  const normalizedN = Num.clamp(options.N, { minimum: 1, maximum: options.N })
+  const normalizedN = normalizeRunCount(options.N)
 
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {

@@ -1,5 +1,5 @@
 /**
- * Constructor functions for creating sampler instances (random, grid, and TPE) with default imputation policies.
+ * Constructors for built-in sampling strategies.
  *
  * @since 0.1.0
  */
@@ -17,14 +17,13 @@ import type { Sampler } from "./model.js"
 import { pendingAsZeroImputationPolicy } from "./PendingImputationPolicy.js"
 
 /**
- * Creates a sampler that draws every dimension independently from its declared
- * distribution. A fixed seed and trial number produce the same suggestion.
+ * Draws each active dimension from its declared distribution.
  *
- * @see {@link Sampler}
- * @see {@link RandomOptions}
- * @see {@link SearchSpace}
+ * @remarks
+ * Suggestions are derived from the seed and `SuggestContext.nextTrialNumber`.
+ * Repeating both against the same search space produces the same configuration.
  *
- * @param options - Seed used by the per-trial random generator.
+ * @param options - Uses seed `0` when omitted.
  * @since 0.1.0
  * @category constructors
  */
@@ -32,36 +31,32 @@ export const random = (options: RandomOptions = {}): Sampler =>
   RandomSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Creates an exhaustive sampler for finite search spaces.
+ * Enumerates the Cartesian product of a finite search space without recycling entries.
  *
  * @remarks
- * Creates a sampler that enumerates the Cartesian product of finite dimension
- * values. Continuous distributions are rejected with
- * `SamplerSearchSpaceUnsupported`; requesting a trial after the grid is
- * exhausted fails with `SamplerExhausted`. Shuffling changes the deterministic
- * traversal order but not the configurations in the grid.
+ * Categorical, boolean, and stepped integer dimensions are finite. Unsupported
+ * dimensions fail with `GridIncompatible`; a trial number beyond the final
+ * combination fails with `SamplerExhausted`. Shuffling changes traversal order
+ * without changing the set of configurations.
  *
- * @see {@link Sampler}
- * @see {@link GridOptions}
- * @see {@link SearchSpace}
- *
- * @param options - Traversal order and seed.
+ * @param options - Defaults to ordered traversal with seed `0`.
  * @since 0.1.0
  * @category constructors
  */
 export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(options, pendingAsZeroImputationPolicy)
 
 /**
- * Creates a Tree-structured Parzen Estimator sampler. It uses random sampling
- * until `nStartupTrials` completed observations are available, then scores
- * `nEiCandidates` model candidates. It supports float, integer, categorical,
- * and conditional dimensions and single- or multi-objective studies.
+ * Uses random startup suggestions followed by Tree-structured Parzen Estimator scoring.
  *
- * @see {@link Sampler}
- * @see {@link TpeOptions}
- * @see {@link SearchSpace}
+ * @remarks
+ * Float, integer, categorical, conditional, single-objective, and
+ * multi-objective searches are accepted. Runtime acquisition implementations
+ * and constraint evaluators remain live functions and are excluded from the
+ * sampler checkpoint; the number of constraints is retained in `kind.options`.
+ * Invalid numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
  *
- * @param options - TPE model, acquisition, constraint, and seed settings.
+ * @param options - Defaults to 10 startup trials, 24 scored candidates, seed
+ * `0`, expected improvement, and independent noise-unaware models.
  * @since 0.1.0
  * @category constructors
  */
@@ -69,11 +64,16 @@ export const tpe = (options: TpeRuntimeOptions = {}): Sampler =>
   TpeSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Creates a CMA-ES sampler for unconditional float dimensions and a
- * single-objective study. Other dimension kinds, conditional spaces, and
- * multi-objective contexts fail through the sampler's typed error channel.
+ * Adapts a diagonal CMA-ES model to an unconditional continuous search space.
  *
- * @param options - Seed, initial step size, and generation population size.
+ * @remarks
+ * Suggestions reconstruct model state from complete generations in the trial
+ * history. Unsupported dimensions fail with `SamplerSearchSpaceUnsupported`,
+ * multi-objective contexts fail with `SamplerObjectiveUnsupported`, and invalid
+ * numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
+ *
+ * @param options - Defaults to seed `0`, initial sigma `0.35`, and population
+ * size `12`.
  * @since 0.1.0
  * @category constructors
  */
@@ -81,16 +81,16 @@ export const cmaEs = (options: CmaEsRuntimeOptions = {}): Sampler =>
   CmaEsSampler.make(options, constantLiarPendingImputationPolicy)
 
 /**
- * Creates a Gaussian-process Bayesian optimization sampler.
+ * Fits a Gaussian process over an unconditional continuous search space.
  *
  * @remarks
- * Creates Gaussian-process Bayesian optimization for unconditional float
- * dimensions and a single-objective study. Suggestions are random during
- * `nStartupTrials`; later suggestions maximize the configured acquisition over
- * `nCandidates` seeded candidates. Unsupported spaces and objectives fail
- * through the sampler's typed error channel.
+ * Suggestions are random until the startup observation count is reached. Later
+ * suggestions score seeded candidates and the current incumbent with the
+ * configured acquisition. Unsupported dimensions, unsupported objective shape,
+ * and invalid numeric options use the typed search error channel.
  *
- * @param options - GP, acquisition, startup, candidate, and seed settings.
+ * @param options - Defaults to seed `0`, 8 startup trials, 32 candidates,
+ * length scale `0.25`, diagonal noise `0.01`, and `"ei"` acquisition.
  * @since 0.1.0
  * @category constructors
  */

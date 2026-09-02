@@ -1,5 +1,5 @@
 /**
- * Versioned snapshot schema with v1/v2 support and snapshot construction helpers.
+ * Defines and decodes the versioned study snapshot format.
  *
  * @since 0.1.0
  */
@@ -22,7 +22,7 @@ import { type SnapshotTrial, SnapshotTrialSchema, trialToSnapshot } from "./stat
 export const SnapshotFormatVersionSchema = Schema.Literal(1)
 
 /**
- * The supported on-disk study snapshot format version.
+ * Identifies the only on-disk study snapshot format accepted by this release.
  *
  * @since 0.1.0
  * @category type-level
@@ -38,8 +38,11 @@ const SnapshotFormatVariants = VariantSchema.make({
 
 const SnapshotCoreFields = {
   ...SnapshotMetadataSchema.fields,
+  /** Trial number reserved for the next generated configuration. */
   nextTrialNumber: Schema.Number,
+  /** Persisted trials in the order recorded by the study. */
   trials: Schema.Array(SnapshotTrialSchema),
+  /** Number of persisted trials in the completed state. */
   completedCount: Schema.Number
 }
 
@@ -55,7 +58,7 @@ const StudySnapshotFormatStruct = SnapshotFormatVariants.Struct({
 const SnapshotFormatVariantUnion = SnapshotFormatVariants.Union(StudySnapshotFormatStruct)
 
 /**
- * Variant schema seam for future snapshot format upgrades.
+ * Decodes version 1 study snapshots, including persisted duration and sampler metrics.
  *
  * @since 0.1.0
  * @category schemas
@@ -63,15 +66,23 @@ const SnapshotFormatVariantUnion = SnapshotFormatVariants.Union(StudySnapshotFor
 export const StudySnapshotFormatVariantSchema = SnapshotFormatVariantUnion.formatV1
 
 /**
- * Canonical snapshot format emitted by `Study.snapshot`.
+ * Stores the restoration state and derived diagnostics for one saved study.
+ *
+ * @remarks
+ * Direct class construction does not decode or validate fields. Snapshots created
+ * by study operations use format version 1, derive `studyDuration` by summing trial
+ * durations, and derive sampler metrics from the saved trials and checkpoint.
  *
  * @since 0.1.0
  * @category models
  */
 export class StudySnapshot extends Schema.Class<StudySnapshot>("effect-search/StudySnapshot")({
+  /** On-disk format discriminator; currently always `1`. */
   snapshotFormatVersion: SnapshotFormatVersionSchema,
   ...SnapshotCoreFields,
+  /** Sum of completed, failed, and pruned trial durations in milliseconds. */
   studyDuration: Schema.Number,
+  /** Counts derived from saved trials together with the sampler checkpoint tag. */
   samplerMetrics: SamplerMetricsSchema
 }) {}
 
@@ -96,7 +107,13 @@ const toStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot =>
 export const makeStudySnapshot = (snapshot: SnapshotMaterialized): StudySnapshot => toStudySnapshot(snapshot)
 
 /**
- * Returns one greater than the largest existing trial number, or zero for no trials.
+ * Computes the next non-negative trial number after all generated trials.
+ *
+ * @remarks
+ * Negative warm-start trial numbers do not lower the result below zero. With any
+ * non-negative trial, the result is one greater than the largest trial number.
+ *
+ * @typeParam Config - Decoded configuration retained by the input trials.
  *
  * @since 0.1.0
  * @category combinators
@@ -132,7 +149,12 @@ export const snapshotFromTrials = <Config>(
   })
 
 /**
- * Decode the canonical snapshot format.
+ * Decodes a version 1 snapshot and rebuilds its derived duration and sampler metrics.
+ *
+ * @remarks
+ * Structural or schema-invalid input fails with an Effect Schema parse error.
+ * Persisted `studyDuration` and `samplerMetrics` must decode, but their values are
+ * replaced with values derived from the decoded trials, checkpoint, and completed count.
  *
  * @since 0.1.0
  * @category codecs

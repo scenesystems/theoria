@@ -1,5 +1,5 @@
 /**
- * Chain-of-thought module constructor.
+ * Predictors with an additional model-generated reasoning field.
  *
  * @since 0.1.0
  */
@@ -14,21 +14,24 @@ import type { ChainOfThoughtOutputFields } from "./schema.js"
 const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 
 /**
- * Creates a predictor that emits explicit reasoning before its original outputs.
+ * Creates a predictor that requests reasoning text before the original outputs.
  *
  * @remarks
- * The constructor prepends a required string `reasoning` field to the output
- * fields and appends the corresponding instruction. It uses the same
- * execution, parsing, retry, discovery, and tracing behavior as {@link predict}.
- * Construction fails with `SignatureError` when the supplied signature already
- * owns an output named `reasoning`.
+ * The transformed signature prepends a required string field named `reasoning`
+ * and asks the model to populate it before the original fields. The field is
+ * ordinary model output. The module does not verify that it describes the
+ * model's internal reasoning or that it is factually sound.
+ *
+ * Forward execution otherwise follows {@link predict}, including output-mode
+ * selection and text parse retries. Construction fails with `SignatureError`
+ * when the supplied signature already has an output named `reasoning`.
  *
  * @typeParam I - Input fields inferred from `signature`.
  * @typeParam O - Original output fields, retained after `reasoning`.
- * @param name - Module identity passed to {@link predict}.
- * @param signature - Signature to transform; it is not mutated.
- * @param options - Predict parse-policy overrides.
- * @returns The allocated predictor, or `SignatureError` for a `reasoning` collision.
+ * @param name - Identity used for discovery and tracing.
+ * @param signature - Source contract, which remains unchanged.
+ * @param options - Text parse-policy overrides passed to {@link predict}.
+ * @returns A predictor with `reasoning` prepended to its output fields.
  *
  * @see {@link predict}
  * @see {@link ChainOfThoughtOutputFields}
@@ -51,8 +54,7 @@ export const chainOfThought = <
   })
 
 /**
- * Schema transformation — `ChainOfThoughtOutputFields` type and
- * `toChainOfThoughtSignature` combinator.
+ * Output-field and signature transformations used by {@link chainOfThought}.
  *
  * @since 0.1.0
  */

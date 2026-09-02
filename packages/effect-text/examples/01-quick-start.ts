@@ -1,15 +1,8 @@
 /**
- * Quick Start — prepare once, lay out many times.
+ * Prepares text with the shipped deterministic Layer, then projects the same
+ * handle at two widths.
  *
- * What this shows: the smallest end-to-end `effect-text` program using the
- * deterministic live layer and the prepare/layout split.
- *
- * Feature Type Links:
- * - {@link Text.PreparedTextWithSegments}
- * - {@link Text.LayoutSummaryType}
- * - {@link Text.LayoutLineType}
- *
- * Run: bun run packages/effect-text/examples/01-quick-start.ts
+ * Run with `bun run packages/effect-text/examples/01-quick-start.ts`.
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"

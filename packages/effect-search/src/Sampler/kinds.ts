@@ -1,5 +1,5 @@
 /**
- * Schemas and tagged constructors for sampler algorithm variants.
+ * Serializable identities for built-in sampler algorithms.
  *
  * @since 0.1.0
  */
@@ -13,24 +13,15 @@ import {
   TpeOptionsSchema
 } from "./options.js"
 
-/**
- * Re-export sampler checkpoint schemas and types.
- *
- * @since 0.1.0
- * @category re-exports
- */
 export * from "./checkpoints.js"
-/**
- * Re-export sampler option schemas and types.
- *
- * @since 0.1.0
- * @category re-exports
- */
 export * from "./options.js"
 
 /**
- * Tagged union schema identifying which optimization algorithm is active
- * and its algorithm-specific options.
+ * Decodes a built-in algorithm tag together with its serializable options.
+ *
+ * @remarks
+ * The schema validates field shape only. Algorithm-specific numeric ranges are
+ * checked when the sampler produces a suggestion.
  *
  * @since 0.1.0
  * @category schemas
@@ -44,8 +35,7 @@ export const SamplerKindSchema = Schema.Union(
 )
 
 /**
- * Discriminated union carrying the algorithm tag and algorithm-specific
- * options used by {@link Sampler} to identify the active strategy.
+ * Serializable algorithm identity retained by {@link Sampler}.
  *
  * @since 0.1.0
  * @category models
@@ -55,18 +45,30 @@ export type SamplerKind = Schema.Schema.Type<typeof SamplerKindSchema>
 const SamplerKinds = Data.taggedEnum<SamplerKind>()
 
 export const {
-  /** Constructs a random-sampler kind with random-sampler options. @since 0.1.0 @category constructors */
+  /** Identifies a random sampler and retains its seed option. @since 0.1.0 @category constructors */
   Random,
-  /** Constructs a grid-sampler kind with grid enumeration options. @since 0.1.0 @category constructors */
+  /** Identifies a grid sampler and retains its traversal options. @since 0.1.0 @category constructors */
   Grid,
-  /** Constructs a tree-structured Parzen estimator kind with TPE options. @since 0.1.0 @category constructors */
+  /** Identifies a TPE sampler and retains its serializable options. @since 0.1.0 @category constructors */
   Tpe,
-  /** Constructs a covariance matrix adaptation kind with CMA-ES options. @since 0.1.0 @category constructors */
+  /** Identifies a CMA-ES sampler and retains its serializable options. @since 0.1.0 @category constructors */
   CmaEs,
-  /** Constructs a Gaussian-process Bayesian optimization kind with GP-BO options. @since 0.1.0 @category constructors */
+  /** Identifies a GP-BO sampler and retains its serializable options. @since 0.1.0 @category constructors */
   GpBo,
-  /** Creates a predicate that narrows a sampler kind by algorithm tag. @since 0.1.0 @category guards */
+  /**
+   * Narrows a sampler kind to the specified algorithm tag.
+   *
+   * @typeParam Tag - Discriminator selected for narrowing.
+   * @since 0.1.0
+   * @category guards
+   */
   $is: isSamplerKind,
-  /** Creates an exhaustive matcher over sampler algorithm kinds. @since 0.1.0 @category pattern-matching */
+  /**
+   * Applies the handler associated with a sampler kind's algorithm tag.
+   *
+   * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
+   * @since 0.1.0
+   * @category pattern-matching
+   */
   $match: matchSamplerKind
 } = SamplerKinds

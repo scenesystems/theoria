@@ -1,9 +1,5 @@
 /**
- * Typed error taxonomy for the Algebra domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode/encode) and operation failures (decode, domain
- * violation, invalid parameters).
+ * Defines typed failures for Algebra boundary and calculation operations.
  *
  * @since 0.1.0
  * @category errors
@@ -20,20 +16,22 @@ import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shar
  */
 export class AlgebraDomainBoundaryError
   extends Schema.TaggedError<AlgebraDomainBoundaryError>()("AlgebraDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when Schema decode fails for a specific operation's input
- * contract (e.g. `PolyEvalInput`, `GcdInput`). The `operation` field names
- * the failed operation for error-recovery branching.
+ * Reports input rejected by a validated Algebra operation. `operation`
+ * identifies the calculation and `message` contains the schema diagnostic.
  *
  * @since 0.1.0
  * @category errors
  */
 export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()("AlgebraDecodeError", {
+  /** Public calculation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
@@ -46,20 +44,24 @@ export class AlgebraDecodeError extends Schema.TaggedError<AlgebraDecodeError>()
  */
 export class AlgebraDomainViolationError
   extends Schema.TaggedError<AlgebraDomainViolationError>()("AlgebraDomainViolationError", {
+    /** Strict-policy calculation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Raised when mathematical parameters are invalid for the requested
- * operation — for example, factorial of a negative number.
+ * Reports mathematical parameters rejected after input decoding, such as a
+ * negative factorial operand.
  *
  * @since 0.1.0
  * @category errors
  */
 export class AlgebraParameterError extends Schema.TaggedError<AlgebraParameterError>()("AlgebraParameterError", {
+  /** Calculation whose decoded parameters violate a mathematical precondition. */
   operation: Schema.String,
+  /** Diagnostic identifying the failed parameter condition. */
   message: Schema.String
 }) {}
 

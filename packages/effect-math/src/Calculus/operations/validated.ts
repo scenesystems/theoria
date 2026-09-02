@@ -1,5 +1,9 @@
 /**
- * Schema-decoded calculus operation boundaries.
+ * Decodes untrusted calculus inputs and captures synchronous kernel exceptions.
+ *
+ * @remarks
+ * Every boundary rejects excess fields with {@link CalculusDecodeError} and
+ * maps exceptions from caller functions to {@link KernelExecutionError}.
  *
  * @since 0.1.0
  * @category operations
@@ -35,10 +39,11 @@ import {
 import { decodeOperationInput, ensureParameters, executeKernel, matrixToReadonly, ridderConfigFrom } from "./shared.js"
 
 /**
- * Estimates `f′(x)` by Ridder extrapolation and reports value, error, and
- * convergence metadata. Boundary decoding accepts a finite point plus optional
- * controls; malformed input fails with `CalculusDecodeError`, while callback
- * or kernel exceptions become `KernelExecutionError`.
+ * Decodes a finite point and Ridder controls before estimating a first derivative.
+ *
+ * @returns The selected estimate with error, iteration, and convergence metadata.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -50,10 +55,11 @@ export const derivativeLimitValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Approximates `f″(x)` with second-order Ridder extrapolation, preserving the
- * selected estimate's uncertainty and convergence status. It rejects invalid
- * points or controls as `CalculusDecodeError` and captures failures raised while
- * evaluating the supplied function as `KernelExecutionError`.
+ * Decodes a finite point and Ridder controls before estimating a second derivative.
+ *
+ * @returns The selected estimate with error, iteration, and convergence metadata.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -66,9 +72,10 @@ export const secondDerivativeLimitValidated = (f: (x: number) => number, input: 
   })
 
 /**
- * Returns only the first-derivative value from the validated Ridder estimate.
- * It retains the same strict decoding and typed decode/kernel failure boundary
- * as {@link derivativeLimitValidated}, but discards error and convergence metadata.
+ * Decodes first-derivative input and returns only the selected estimate value.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -77,9 +84,10 @@ export const derivativeValidated = (f: (x: number) => number, input: unknown) =>
   Effect.map(derivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Returns only the second-derivative value from the validated Ridder estimate.
- * It retains the same strict decoding and typed decode/kernel failure boundary
- * as {@link secondDerivativeLimitValidated}, but discards estimate metadata.
+ * Decodes second-derivative input and returns only the selected estimate value.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -88,10 +96,13 @@ export const secondDerivativeValidated = (f: (x: number) => number, input: unkno
   Effect.map(secondDerivativeLimitValidated(f, input), (estimate) => estimate.value)
 
 /**
- * Decodes at least two finite, equally spaced samples and a positive finite
- * spacing, then applies the composite trapezoidal rule. Malformed or excess
- * input fails with `CalculusDecodeError`; kernel exceptions are typed as
- * `KernelExecutionError`.
+ * Integrates decoded finite samples with the composite trapezoidal rule.
+ *
+ * @remarks
+ * The boundary requires at least two samples and a positive finite spacing.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -103,10 +114,14 @@ export const trapezoidValidated = (input: unknown) =>
   })
 
 /**
- * Decodes at least two finite, equally spaced samples and a positive finite
- * spacing, then applies composite Simpson integration. An odd final interval
- * is integrated by trapezoid. Malformed input fails with `CalculusDecodeError`;
- * kernel exceptions fail with `KernelExecutionError`.
+ * Integrates decoded finite samples with composite Simpson quadrature.
+ *
+ * @remarks
+ * The boundary requires at least two samples and a positive finite spacing.
+ * An odd final interval uses the trapezoidal rule.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when the synchronous kernel throws.
  *
  * @since 0.1.0
  * @category operations
@@ -118,10 +133,14 @@ export const simpsonValidated = (input: unknown) =>
   })
 
 /**
- * Decodes finite interval endpoints, non-negative tolerances, and a positive
- * recursion budget, then returns the adaptive integral estimate. Exhausting
- * the depth budget returns the current estimate rather than a convergence
- * failure; decode and callback/kernel exceptions remain distinct typed failures.
+ * Decodes finite bounds and positive recursion controls before adaptive Simpson integration.
+ *
+ * @remarks
+ * Exhausting `maxDepth` succeeds with the current estimate and does not expose
+ * convergence metadata.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -141,10 +160,11 @@ export const adaptiveSimpsonValidated = (f: (x: number) => number, input: unknow
   })
 
 /**
- * Decodes a non-empty finite point and optional Ridder controls, then returns
- * one partial derivative per coordinate. Schema rejection fails with
- * `CalculusDecodeError`; exceptions from `f` or differentiation fail with
- * `KernelExecutionError`.
+ * Decodes a non-empty finite point before estimating one partial derivative per coordinate.
+ *
+ * @returns A new readonly array in input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -157,9 +177,12 @@ export const gradientValidated = (f: (point: Chunk.Chunk<number>) => number, inp
   })
 
 /**
- * Decodes a non-empty finite point and optional Ridder controls, then returns
- * the vector-valued function's Jacobian as rows by output component. Invalid
- * boundary input and callback/kernel exceptions use distinct typed failures.
+ * Decodes a non-empty finite point before estimating a vector field's Jacobian.
+ *
+ * @returns New readonly rows in output-component order, with columns in
+ * input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -175,10 +198,11 @@ export const jacobianValidated = (
   })
 
 /**
- * Decodes a non-empty finite point and optional Ridder controls, then returns
- * the scalar function's square Hessian. Invalid boundary input fails with
- * `CalculusDecodeError`; callback or kernel exceptions fail with
- * `KernelExecutionError`.
+ * Decodes a non-empty finite point before estimating a scalar function's Hessian.
+ *
+ * @returns A new square readonly matrix in input-coordinate order.
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -191,10 +215,14 @@ export const hessianValidated = (f: (point: Chunk.Chunk<number>) => number, inpu
   })
 
 /**
- * Decodes finite point and direction vectors plus optional Ridder controls,
- * requires equal dimensions, and evaluates the derivative along the supplied
- * direction. Decode, dimension, and callback/kernel failures remain
- * distinguishable as typed errors.
+ * Decodes equal-length point and direction vectors before estimating a directional derivative.
+ *
+ * @remarks
+ * The direction is normalized. A zero vector passes decoding and returns `NaN`.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link CalculusParameterError} when the vector lengths differ.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -223,10 +251,16 @@ export const directionalDerivativeValidated = (
   })
 
 /**
- * Decodes a non-empty finite point and optional Ridder controls, verifies that
- * the vector field returns one component per coordinate, then sums its diagonal
- * partial derivatives. Decode, dimension, and callback/kernel failures remain
- * distinguishable as typed errors.
+ * Decodes a point and requires matching field dimensions before estimating divergence.
+ *
+ * @remarks
+ * The field is evaluated at `point` for the dimension check, then evaluated
+ * again by the differentiation kernel. Callers should supply a stable,
+ * side-effect-free function.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link CalculusParameterError} when the field output length differs from the point length.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations
@@ -250,10 +284,10 @@ export const divergenceValidated = (
   })
 
 /**
- * Decodes a non-empty finite point and optional Ridder controls, then sums the
- * scalar function's second partial derivatives. Schema rejection fails with
- * `CalculusDecodeError`; callback or kernel exceptions fail with
- * `KernelExecutionError`.
+ * Decodes a non-empty finite point before estimating a scalar function's Laplacian.
+ *
+ * @throws {@link CalculusDecodeError} when the input contract is invalid.
+ * @throws {@link KernelExecutionError} when `f` or the synchronous kernel throws.
  *
  * @since 0.2.0
  * @category operations

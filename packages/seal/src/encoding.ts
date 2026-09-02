@@ -32,7 +32,7 @@ const splitAt = (raw: Uint8Array, offset: number): readonly [Uint8Array, Uint8Ar
  *
  * @param algorithm - Algorithm that determines the nonce length and envelope discriminator.
  * @param raw - Nonce followed by ciphertext and its authentication tag.
- * @returns An Effect that succeeds with a newly allocated {@link SealedEnvelope}.
+ * @returns A newly allocated {@link SealedEnvelope} with unpadded base64url fields.
  *
  * @since 0.1.0
  * @category encoding

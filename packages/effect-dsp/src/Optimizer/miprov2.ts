@@ -1,6 +1,5 @@
 /**
- * MIPROv2 — multi-phase instruction proposal and demonstration selection via
- * Bayesian optimization.
+ * Searches instruction and demonstration candidates through a three-phase study.
  *
  * @since 0.1.0
  * @category constructors

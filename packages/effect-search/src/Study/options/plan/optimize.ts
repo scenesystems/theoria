@@ -1,5 +1,5 @@
 /**
- * OptimizePlan construction from user-facing optimize options.
+ * Structural plan construction for fresh studies.
  *
  * @since 0.1.0
  */
@@ -31,7 +31,12 @@ const isScheduledOptimizeOptions = <Config, Space extends SearchSpace.SearchSpac
 ): options is ScheduledOptimizeOptions<Config, Space> => Predicate.hasProperty(options, "scheduler")
 
 /**
- * Validates general optimization options and constructs an optimization plan.
+ * Checks the flat or scheduled input shape and copies it into an
+ * {@link OptimizePlan}. Scheduled input derives its sampler and total trial count
+ * from the scheduler. Defaults and numeric constraints are resolved and checked
+ * later by `normalizeSettings` and {@link validateSettings}.
+ *
+ * @typeParam Space - Compiled search space supplying the plan's configuration type.
  *
  * @since 0.1.0
  * @category constructors

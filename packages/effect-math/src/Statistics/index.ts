@@ -1,11 +1,9 @@
 /**
- * Computes sample estimators and summary statistics over immutable numeric
- * collections.
+ * Computes sample estimators and descriptive statistics over immutable numeric samples.
  *
  * @remarks
- * Variance and covariance use Bessel's correction. Distribution definitions
- * and probability measures remain in the probability domains; this module
- * owns estimators and their structured outputs.
+ * Variance and covariance use Bessel's correction. Use the Probability and
+ * Distribution modules for probability measures and distribution functions.
  *
  * @since 0.1.0
  * @module

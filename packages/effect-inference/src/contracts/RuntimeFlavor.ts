@@ -1,12 +1,13 @@
 /**
- * Runtime-flavor authority for self-hosted compatible engines.
+ * Serving-engine hints for compatible and dedicated runtimes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Stable runtime flavors used to distinguish compatible serving engines.
+ * Accepts serving-engine identities used by capability policy and route
+ * provenance.
  *
  * @since 0.1.0
  * @category schemas

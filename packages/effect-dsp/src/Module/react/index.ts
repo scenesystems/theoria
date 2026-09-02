@@ -1,10 +1,11 @@
 /**
- * ReAct module constructor.
+ * Text-generation loops that can execute a handled toolkit.
  *
  * @since 0.1.0
  */
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Schema } from "effect"
 import { Effect, HashMap, Match, Ref } from "effect"
 import type { ModuleId } from "../../contracts/ModuleId.js"
@@ -15,8 +16,7 @@ import { Module } from "../model.js"
 import { makeReactForward } from "./runtime.js"
 
 /**
- * Default cap on thought/action iterations before the module gives up
- * and fails with `ParseOutputError`.
+ * Limits ReAct model calls to five when no per-module value is supplied.
  *
  * @since 0.1.0
  * @category constants
@@ -24,8 +24,11 @@ import { makeReactForward } from "./runtime.js"
 export const DEFAULT_REACT_MAX_ITERATIONS = 5
 
 /**
- * Binds a signature to a handled toolkit and a normalized thought/action
- * iteration budget for a ReAct loop.
+ * Configures one tool-capable text-generation loop.
+ *
+ * @typeParam I - Input fields accepted by the module.
+ * @typeParam O - Output fields parsed from a final text response.
+ * @typeParam Tools - Named tools available through the handled toolkit.
  *
  * @since 0.1.0
  * @category models
@@ -35,16 +38,20 @@ export type ReactOptions<
   O extends Schema.Struct.Fields,
   Tools extends Record<string, Tool.Any>
 > = Readonly<{
+  /** Identity used for discovery, tracing, and failure diagnostics. */
   readonly name: string
+  /** Prompt and parse contract for the loop. */
   readonly signature: Signature<I, O>
+  /** Tool definitions with handlers passed to eligible model calls. */
   readonly toolkit: Toolkit.WithHandler<Tools>
+  /** Model-call cap; finite values are rounded down and normalized to at least one. */
   readonly maxIterations?: number
 }>
 
 const normalizeMaxIterations = (maxIterations: number): number =>
   Match.value(maxIterations).pipe(
-    Match.when((value) => value < 1, () => 1),
-    Match.orElse((value) => value)
+    Match.when(Numeric.isFinite, (value) => Numeric.max(1, Numeric.floor(value))),
+    Match.orElse(() => 1)
   )
 
 const makeInitialParams = <
@@ -55,23 +62,27 @@ const makeInitialParams = <
 ): ModuleParams => makeDefaultModuleParams(signature.instructions)
 
 /**
- * Creates a tool-using text-output loop.
+ * Creates a predictor that can alternate between tool calls and parsed output.
  *
  * @remarks
- * On a turn with tool calls, all returned tool
- * results are rendered into the accumulated feedback; the immediately
- * following model call omits the toolkit. On a turn without tool calls, the
- * response is parsed against the output schema. Parse diagnostics are traced
- * and fed into the next turn. Every turn appends a trace and usage sample.
- * `maxIterations` defaults to {@link DEFAULT_REACT_MAX_ITERATIONS} and values
- * below one normalize to one. Exhaustion fails with `ParseOutputError`; model
- * call failures are mapped to `TraceError` by this runtime.
+ * Each `forward` call snapshots the current module parameters and uses text
+ * generation regardless of `outputStrategy`. A response with tool calls adds
+ * all returned tool results to the feedback history. The next model call omits
+ * the toolkit, allowing the model to consume those observations. Responses
+ * without tool calls are parsed against the signature output schema; parse
+ * diagnostics become feedback for a later call.
+ *
+ * Every completed model response records trace and usage data. Provider
+ * failures become `TraceError`. Exhausting the call cap without parsed output
+ * fails with `ParseOutputError` containing the last response and diagnostics.
+ * The cap defaults to {@link DEFAULT_REACT_MAX_ITERATIONS}; finite values are
+ * rounded down, while values below one and non-finite values become one.
  *
  * @typeParam I - Signature input fields.
  * @typeParam O - Signature output fields.
  * @typeParam Tools - Toolkit's named tool record.
- * @param options - Identity, signature, handled toolkit, and optional iteration cap.
- * @returns An Effect allocating the module; tools and the model run only on `forward`.
+ * @param options - Prompt contract, handled tools, identity, and model-call cap.
+ * @returns A module whose tools and model remain lazy until `forward` executes.
  *
  * @see {@link predict}
  * @see {@link chainOfThought}

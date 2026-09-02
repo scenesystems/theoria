@@ -1,12 +1,12 @@
 /**
- * Route-selection policy authority for routed provider families.
+ * Provider-selection instructions for brokered routes.
  *
  * @since 0.1.0
  */
 import { Option, Schema } from "effect"
 
 /**
- * Explicit provider selection for routed provider families.
+ * Decodes a policy that requires one named provider.
  *
  * @since 0.1.0
  * @category schemas
@@ -17,7 +17,7 @@ export const ExplicitProviderRouteSelectionPolicySchema = Schema.Struct({
 })
 
 /**
- * Stable selection policies for brokered provider routing.
+ * Accepts broker strategies or a required provider.
  *
  * @since 0.1.0
  * @category schemas
@@ -38,7 +38,8 @@ export const RouteSelectionPolicySchema = Schema.Union(
 export type RouteSelectionPolicy = Schema.Schema.Type<typeof RouteSelectionPolicySchema>
 
 /**
- * Constructs an explicit-provider selection policy.
+ * Requires a brokered route to select `provider`. The provider name is stored
+ * unchanged and is not validated against a broker registry.
  *
  * @since 0.1.0
  * @category constructors
@@ -49,8 +50,8 @@ export const explicitProviderSelection = (provider: string): RouteSelectionPolic
 })
 
 /**
- * Extracts an explicitly requested provider when the selection policy names
- * one directly.
+ * Extracts a required provider. Broker strategies and an absent policy return
+ * `None`.
  *
  * @since 0.1.0
  * @category constructors

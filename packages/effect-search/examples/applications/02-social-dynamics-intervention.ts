@@ -1,40 +1,14 @@
 /**
- * Advanced Applications / 02 — Social Intervention Policy Tuning.
- *
- * Plain-English goal:
- * Find intervention settings that reduce conflict and dropout without overloading facilitators.
- *
- * Use case:
- * You control practical policy knobs (cadence, message framing, escalation threshold,
- * peer pairing, session length) and need a shortlist of balanced policies.
- *
- * Why `effect-search`:
- * This is a noisy policy problem with competing goals. A multi-objective study
- * keeps trade-offs visible instead of hiding them behind one combined score.
- *
- * Objective semantics:
- * 1. `conflictRisk` (lower is better): modeled escalation risk.
- * 2. `disengagementRisk` (lower is better): modeled dropout risk.
- * 3. `facilitatorLoad` (lower is better): delivery burden on facilitators.
- *
- * What to expect in output:
- * A handful of Pareto policies. Each policy is a different balance between
- * participant outcomes and operational effort.
- *
- * How to use the result:
- * Pick candidates based on your program priorities (participant protection,
- * staffing capacity, desired intervention intensity), then pilot them.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Contracts.ObjectiveVector}
- * - {@link Study.StudyResult}
+ * Searches intervention configurations with MOTPE and logs non-dominated
+ * combinations of modeled conflict risk, disengagement risk, and facilitator
+ * load. All three objectives are minimized.
  *
  * Run: bun run examples/applications/02-social-dynamics-intervention.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const CONTACT_LOAD: Readonly<Record<string, number>> = {
@@ -63,9 +37,9 @@ const conflictRiskScore = (config: {
 }): number =>
   1.1
   - (FRAMING_TRUST_GAIN[config.framing] ?? 0)
-  + Math.abs(config.escalationThreshold - 0.58) * 1.25
+  + Numeric.abs(config.escalationThreshold - 0.58) * 1.25
   + (config.peerPairing ? -0.17 : 0.14)
-  + Math.abs(config.sessionMinutes - 35) / 90
+  + Numeric.abs(config.sessionMinutes - 35) / 90
 
 const disengagementRiskScore = (config: {
   readonly cadence: "daily" | "twice-weekly" | "weekly"

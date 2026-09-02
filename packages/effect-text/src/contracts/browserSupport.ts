@@ -1,5 +1,5 @@
 /**
- * Declares the canvas profiles and parity cases exercised by the browser companion.
+ * Shipped canvas-measurement profiles and synthetic regression scenarios.
  *
  * @since 0.2.0
  */
@@ -52,26 +52,40 @@ export const BrowserSupportProfileIdSchema = BrowserSupportProfileId
 export type BrowserSupportProfileIdType = typeof BrowserSupportProfileIdSchema.Type
 
 /**
- * Decodes a canvas profile's font policy, preparation profile, parity cases,
- * tolerance in CSS pixels, and documented limitations.
+ * Decodes a canvas profile's font policy, preparation profile, synthetic
+ * scenarios, comparison tolerance metadata, and documented limitations.
  *
  * @since 0.2.0
  * @category schemas
  */
 export const BrowserSupportProfileSchema = Schema.Struct({
+  /** Stable profile identifier used in cache keys and artifacts. */
   id: BrowserSupportProfileIdSchema,
+  /** Browser measurement API used by the profile. */
   measurement: BrowserMeasurementMode,
+  /** Cache invalidation mechanism for font availability changes. */
   freshness: BrowserFreshnessMode,
+  /** Availability of the optional emoji width correction. */
   emojiCorrection: BrowserEmojiCorrectionMode,
+  /** Font family used when synthetic scenarios omit an explicit family. */
   defaultFontFamily: Schema.String,
+  /** Whether the profile names a family or delegates to the browser stack. */
   fontSelection: BrowserFontSelectionMode,
+  /** Ordered browser font fallback list. */
   fontStack: NonEmptyStringArray,
+  /** Whitespace policies covered by the profile. */
   whiteSpaceModes: NonEmptyWhiteSpaceModeArray,
+  /** Whitespace policy used when a consumer does not choose one. */
   defaultWhiteSpaceMode: WhiteSpaceMode,
+  /** Preparation settings paired with the measurement profile. */
   engineProfile: EngineProfileSchema,
+  /** Tab expansion policy used during preparation. */
   tabPolicy: BrowserTabPolicySchema,
+  /** Synthetic regression scenarios exercised for this profile. */
   parityCases: NonEmptyParityCaseArray,
+  /** Width tolerance metadata in CSS pixels; the synthetic renderer does not apply it. */
   parityTolerancePx: NonNegativeFiniteNumber,
+  /** Explicit exclusions from the profile's support statement. */
   caveats: Schema.Array(Schema.String)
 })
 
@@ -90,7 +104,9 @@ export type BrowserSupportProfileType = typeof BrowserSupportProfileSchema.Type
  * @category schemas
  */
 export const BrowserSupportManifestSchema = Schema.Struct({
+  /** Profile selected when a caller omits an ID. */
   defaultProfileId: BrowserSupportProfileIdSchema,
+  /** Non-empty catalog of shipped profiles. */
   profiles: Schema.Array(BrowserSupportProfileSchema).pipe(Schema.minItems(1))
 })
 
@@ -138,8 +154,8 @@ const defaultBrowserSupportProfile: BrowserSupportProfileType = {
   parityCases,
   parityTolerancePx: 0,
   caveats: [
-    "Named-font browser coverage is limited to the checked-in Mono control family and its monospace fallback stack.",
-    "Parity claims cover only the released `normal` and `pre-wrap` white-space modes plus the checked-in browser parity cases; alternate named fonts, fallback stacks, and shaping-engine parity outside those artifacts remain outside the shipped surface."
+    "The synthetic regression context uses the Mono control family and a fixed width table; it does not establish measurements for an installed font.",
+    "The released scenarios cover `normal` and `pre-wrap` whitespace behavior. Browser engines, alternate fonts, fallback changes, and shaping behavior require validation in the consuming application."
   ]
 }
 
@@ -164,13 +180,13 @@ const systemUiBrowserSupportProfile: BrowserSupportProfileType = {
   parityCases,
   parityTolerancePx: 0,
   caveats: [
-    "The browser chooses the concrete UI font for this profile, so parity claims cover the resolved browser-default `system-ui` stack rather than one named font file.",
-    "Support covers only the released `normal` and `pre-wrap` white-space modes plus the checked-in browser parity cases; user-agent-specific fallback changes, alternate UI stacks, and shaping-engine parity outside those artifacts remain outside the shipped surface."
+    "The browser chooses the concrete UI font for this profile. Widths therefore depend on the user agent, operating system, and installed fonts.",
+    "The released scenarios cover `normal` and `pre-wrap` whitespace behavior. User-agent fallback changes and shaping behavior require validation in the consuming application."
   ]
 }
 
 /**
- * Shipped canvas profiles and the exact parity-case envelope attached to them.
+ * Shipped canvas profiles and their synthetic regression coverage.
  *
  * @since 0.2.0
  * @category manifests
@@ -181,7 +197,8 @@ export const BrowserSupportManifest: BrowserSupportManifestType = {
 }
 
 /**
- * Resolves a shipped profile, defaulting to `canvas-monospace` when omitted.
+ * Selects a shipped profile. Omission and unknown runtime values both return
+ * `canvas-monospace`.
  *
  * @since 0.2.0
  * @category manifests

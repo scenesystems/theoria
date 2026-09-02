@@ -14,11 +14,17 @@ import { makeCaseResult, summarizeReport } from "./internal/evaluation.js"
 import type { CalibrationCaseType, CalibrationProfileType, CalibrationReportType } from "./schema.js"
 
 /**
- * Scores a candidate engine profile against a typed calibration corpus.
+ * Evaluates a candidate engine profile against expected aggregate geometry and
+ * optional exact visual lines.
  *
  * @remarks
- * Each sample is prepared with the candidate profile in context, projected
- * through `Text.layout`, and included in the aggregate calibration report.
+ * Cases run sequentially in input order. The first `MeasurementFailed` ends the
+ * evaluation. An empty corpus returns a zero-valued report containing the
+ * candidate profile.
+ *
+ * @param profile - Candidate settings installed as the `EngineProfile` service.
+ * @param cases - Typed corpus retained in report order; values are not Schema-decoded.
+ * @returns Absolute aggregate errors and one exact comparison result per case.
  *
  * @since 0.1.0
  * @category evaluation

@@ -1,12 +1,10 @@
 /**
- * Models and evaluates discrete and continuous statistical distributions.
+ * Evaluates scalar probability distributions and their descriptive moments.
  *
  * @remarks
- * Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT,
- * Categorical, Binomial, and Poisson families expose PDF, CDF, log-PDF,
- * quantile, and summary-statistic operations. This domain owns their parameter
- * and evaluation schemas; downstream domains consume those contracts rather
- * than redeclaring them.
+ * Pure operations accept trusted numbers. Selected operations also expose
+ * Schema-decoded boundaries or runtime-policy integration. Use the Probability
+ * domain for probability vectors, odds, Bayesian updates, and sampling helpers.
  *
  * @since 0.1.0
  * @module

@@ -1,5 +1,5 @@
 /**
- * Terminal progress line formatting for study events with ANSI color support.
+ * Converts study events into plain or ANSI-colored terminal lines.
  *
  * @since 0.1.0
  */
@@ -15,8 +15,7 @@ const ANSI_YELLOW = "\u001b[33m"
 const ANSI_RED = "\u001b[31m"
 
 /**
- * Accepts `plain` for uncolored, log-safe lines or `tty` for ANSI-colored
- * interactive output. Formatter calls default an omitted mode to `plain`.
+ * Accepts `plain` for text without control sequences and `tty` for ANSI-colored text.
  *
  * @since 0.1.0
  * @category schemas
@@ -24,7 +23,7 @@ const ANSI_RED = "\u001b[31m"
 export const TerminalRenderModeSchema = Schema.Literal("plain", "tty")
 
 /**
- * The plain or interactive terminal rendering mode for study progress.
+ * Selects plain text or ANSI-colored text when formatting progress events.
  *
  * @since 0.1.0
  * @category type-level
@@ -32,13 +31,15 @@ export const TerminalRenderModeSchema = Schema.Literal("plain", "tty")
 export type TerminalRenderMode = Schema.Schema.Type<typeof TerminalRenderModeSchema>
 
 /**
- * Single rendered terminal line produced by the progress formatter.
+ * Routes one formatted terminal line to standard output or standard error.
  *
  * @since 0.1.0
  * @category models
  */
 export class ProgressLine extends Data.Class<{
+  /** Routes the line to the corresponding sink writer. */
   readonly channel: "stdout" | "stderr"
+  /** Text passed to the writer, without a trailing newline. */
   readonly text: string
 }> {}
 
@@ -192,20 +193,32 @@ const formatEvent = (event: StudyEvent.StudyEvent, renderMode: TerminalRenderMod
   )
 
 /**
- * Deterministically render a `StudyEvent` into terminal lines.
+ * Formats a study event as one terminal line without writing it.
  *
  * @remarks
- * Rendering is pure and performs no IO, so the formatter can be reused by
- * alternate sinks (JSON logger, dashboard bridge, structured telemetry).
+ * Retry, cancellation, and failure events use `stderr`; every other event uses
+ * `stdout`. Omitted render options produce plain text. Error messages are
+ * interpolated without redaction or escaping.
  *
  * @example
  * ```ts
+ * import { Array, Effect, Option } from "effect"
  * import { formatTerminalProgressEvent } from "@scenesystems/effect-search/Study"
  * import { TrialCompleted } from "@scenesystems/effect-search/StudyEvent"
  *
- * const lines = formatTerminalProgressEvent(
- *   TrialCompleted({ trialNumber: 1, value: 0.42 }),
- *   { renderMode: "plain" }
+ * export const program = Effect.sync(() =>
+ *   formatTerminalProgressEvent(TrialCompleted({ trialNumber: 1, value: 0.42 }))
+ * ).pipe(
+ *   Effect.flatMap((lines) =>
+ *     Option.match(Array.head(lines), {
+ *       onNone: () => Effect.fail("MissingProgressLine"),
+ *       onSome: Effect.succeed
+ *     })
+ *   ),
+ *   Effect.filterOrFail(
+ *     (line) => line.channel === "stdout" && line.text === "trial#1 completed value=0.42",
+ *     () => "UnexpectedProgressLine"
+ *   )
  * )
  * ```
  *

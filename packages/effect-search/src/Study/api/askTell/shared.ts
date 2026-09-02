@@ -34,7 +34,10 @@ export const validateObjectiveValue = (
   matchObjectiveSpec({
     Single: () =>
       Match.value(value).pipe(
-        Match.when(Match.number, () => Effect.void),
+        Match.when(Match.number, (entry) =>
+          Number.isFinite(entry)
+            ? Effect.void
+            : Effect.fail(new InvalidObjectiveValue({ trialNumber, value }))),
         Match.orElse(() => Effect.fail(new InvalidObjectiveValue({ trialNumber, value })))
       ),
     Multi: ({ directions }) =>

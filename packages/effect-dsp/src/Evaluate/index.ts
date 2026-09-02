@@ -1,5 +1,10 @@
 /**
- * Evaluate modules against labeled examples.
+ * Runs modules against labeled examples and aggregates metric scores.
+ *
+ * @remarks
+ * Each example becomes a report entry instead of failing the whole evaluation
+ * for an expected module, decode, or metric error. Use `run` for the report and
+ * `stream` for buffered lifecycle events after evaluation completes.
  *
  * @since 0.1.0
  */
@@ -8,31 +13,11 @@ import type { Schema } from "effect"
 import type { EvaluationEventType } from "./events.js"
 import { evaluateKernel, type EvaluateOptions, noEvents } from "./runtime/kernel.js"
 
-/**
- * Evaluation report models.
- *
- * @since 0.1.0
- */
 export * from "./report.js"
 
-/**
- * Evaluation lifecycle events.
- *
- * @since 0.1.0
- */
 export * from "./events.js"
 
-export {
-  /**
-   * Inputs for evaluating labeled examples against a module.
-   *
-   * @since 0.1.0
-   * @category models
-   * @see {@link run}
-   * @see {@link stream}
-   */
-  type EvaluateOptions
-} from "./runtime/kernel.js"
+export { type EvaluateOptions } from "./runtime/kernel.js"
 
 const appendEvent =
   (eventsRef: Ref.Ref<ReadonlyArray<EvaluationEventType>>) => (event: EvaluationEventType): Effect.Effect<void> =>
@@ -48,11 +33,18 @@ const appendEvent =
  * returned Effect. Overall metric scores average successful examples only;
  * an empty successful set scores `0`.
  *
+ * Defects and interruption remain in the Effect cause and are not converted to
+ * example failures.
+ *
+ * @param options - Module, labeled examples, metrics, and example concurrency.
+ * @returns A report containing every input position and aggregate scores.
+ * @typeParam I - Input fields accepted by the evaluated module.
+ * @typeParam O - Output fields returned by the evaluated module.
+ * @typeParam ME - Expected failure from the configured metrics.
+ * @typeParam MR - Services required by the configured metrics.
+ *
  * @since 0.1.0
- * @category constructors
- * @see {@link stream}
- * @see {@link Report}
- * @see {@link EvaluateOptions}
+ * @category operations
  */
 export const run = <
   I extends Schema.Struct.Fields,
@@ -71,11 +63,19 @@ export const run = <
  * start and terminal events follow execution timing; `EvaluationCompleted` is
  * last. The report itself is not emitted.
  *
+ * Expected per-example failures become `ExampleFailed` values. Defects and
+ * interruption fail the Stream. The module and metrics retain their service
+ * requirements.
+ *
+ * @param options - Module, labeled examples, metrics, and example concurrency.
+ * @returns A finite Stream backed by the events buffered during evaluation.
+ * @typeParam I - Input fields accepted by the evaluated module.
+ * @typeParam O - Output fields returned by the evaluated module.
+ * @typeParam ME - Expected failure from the configured metrics.
+ * @typeParam MR - Services required by the configured metrics.
+ *
  * @since 0.1.0
- * @category constructors
- * @see {@link run}
- * @see {@link Report}
- * @see {@link EvaluateOptions}
+ * @category operations
  */
 export const stream = <
   I extends Schema.Struct.Fields,

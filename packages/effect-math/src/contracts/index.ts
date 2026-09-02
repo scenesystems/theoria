@@ -1,9 +1,11 @@
 /**
- * Cross-domain schemas, errors, policy services, and provider Layers.
+ * Defines runtime policy and computation-planning contracts shared by Effect Math domains.
  *
  * @remarks
- * Schemas expose their decoded types through `.Type`; callers decoding
- * untrusted objects should choose excess-property handling explicitly.
+ * Use domain entry points for numerical operations. This subpath contains
+ * shared Schemas, typed failures, Context services, and resource-free Layers.
+ * Its advanced-dispatch APIs produce plans and do not execute numerical
+ * kernels.
  *
  * @since 0.1.0
  * @module

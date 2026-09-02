@@ -1,5 +1,5 @@
 /**
- * Scheduler constructors: HyperBand and BOHB.
+ * Hyperband and BOHB topology construction.
  *
  * @since 0.1.0
  */
@@ -11,30 +11,36 @@ import { type TpeOptions } from "../Sampler/index.js"
 import { Bracket, Round, Scheduler } from "./model.js"
 
 /**
- * Inputs for {@link hyperband}. `maxResource` must be at least 1 and
- * `reductionFactor` at least 2.
+ * Configures a Hyperband topology and its suggestion strategy.
  *
  * @since 0.1.0
  * @category type-level
  */
 export class HyperbandOptions extends Data.Class<{
+  /** Finite upper resource budget; must be at least `1`. */
   readonly maxResource: number
+  /** Finite ratio between successive rounds; must be at least `2`. */
   readonly reductionFactor: number
+  /** Proposes initial configurations and replacements for failed evaluations. */
   readonly sampler: Sampler.Sampler
 }> {}
 
 /**
- * Inputs for {@link bohb}. `explorationRatio` defaults to `0.33` and must be in
- * the inclusive range 0–1; `seed` is used unless `tpeOptions.seed` is supplied.
+ * Configures a BOHB topology, TPE strategy, and random exploration rate.
  *
  * @since 0.1.0
  * @category type-level
  */
 export class BohbOptions extends Data.Class<{
+  /** Finite upper resource budget; must be at least `1`. */
   readonly maxResource: number
+  /** Finite ratio between successive rounds; must be at least `2`. */
   readonly reductionFactor: number
+  /** Serializable TPE options; its seed takes precedence over the top-level seed. */
   readonly tpeOptions?: TpeOptions
+  /** Probability of a random suggestion after initial observations; defaults to `0.33`. */
   readonly explorationRatio?: number
+  /** Seeds BOHB's exploration decision and random suggestions. */
   readonly seed?: number
 }> {}
 
@@ -92,11 +98,11 @@ const validateSchedulerNumbers = (
   Effect.gen(function*() {
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires maxResource >= 1")),
-      () => Num.lessThan(maxResource, 1)
+      () => !Number.isFinite(maxResource) || Num.lessThan(maxResource, 1)
     )
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires reductionFactor >= 2")),
-      () => Num.lessThan(reductionFactor, 2)
+      () => !Number.isFinite(reductionFactor) || Num.lessThan(reductionFactor, 2)
     )
   })
 
@@ -119,15 +125,22 @@ const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<n
   Option.match(candidate, {
     onNone: () => Effect.succeed(0.33),
     onSome: (ratio) =>
-      Match.value(Num.lessThan(ratio, 0) || Num.greaterThan(ratio, 1)).pipe(
+      Match.value(!Number.isFinite(ratio) || Num.lessThan(ratio, 0) || Num.greaterThan(ratio, 1)).pipe(
         Match.when(true, () => Effect.fail(invalidSchedulerConfig("bohb explorationRatio must be between 0 and 1"))),
         Match.orElse(() => Effect.succeed(ratio))
       )
   })
 
 /**
- * Precomputes Hyperband brackets from integer-floor resource escalation and
- * configuration reduction. Invalid numeric bounds fail with `InvalidStudyConfig`.
+ * Builds successive-halving brackets up to the requested resource budget.
+ *
+ * @remarks
+ * Round resources and configuration counts use integer floors with a minimum of
+ * `1`. Brackets run sequentially; evaluations within each round use the Study
+ * concurrency setting. Non-finite or out-of-range topology values fail with
+ * `InvalidStudyConfig` before a scheduler is returned.
+ *
+ * @param options - Topology bounds and sampler used for new configurations.
  *
  * @since 0.1.0
  * @category constructors
@@ -149,9 +162,19 @@ export const hyperband = (
   )
 
 /**
- * Precomputes the same bracket topology as {@link hyperband} and installs a TPE
- * sampler. The resulting scheduler records the resolved random exploration
- * fraction and one minimum observation.
+ * Builds Hyperband brackets with BOHB random exploration and TPE suggestions.
+ *
+ * @remarks
+ * BOHB uses random suggestions until the study has more completed observations
+ * than search-space dimensions. Later suggestions choose random sampling with
+ * `explorationRatio`; all other suggestions use the configured TPE sampler,
+ * which retains its own startup threshold. The top-level seed is copied into
+ * TPE options only when `tpeOptions.seed` is absent.
+ *
+ * Invalid topology values or exploration ratios fail with `InvalidStudyConfig`.
+ * TPE option validation remains deferred until the sampler suggests a value.
+ *
+ * @param options - Topology bounds, TPE settings, exploration ratio, and seed.
  *
  * @since 0.1.0
  * @category constructors

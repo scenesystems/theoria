@@ -22,7 +22,7 @@ export const invalidSearchSpace = (reason: string, dimension?: string): InvalidS
   )
 
 /**
- * Fails with InvalidSearchSpace if the condition is false — an assertion-style guard for search space validation.
+ * Fails with InvalidSearchSpace when an internal search-space invariant is false.
  *
  * @since 0.1.0
  * @category utils

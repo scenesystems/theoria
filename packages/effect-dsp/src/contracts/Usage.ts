@@ -6,49 +6,57 @@
 import { Option, Schema } from "effect"
 
 /**
- * Running totals of input/output tokens and LM call counts accumulated
- * across one or more module forward passes. Separates cached calls from
- * fresh calls so optimizers can reason about cost independently from latency.
+ * Accumulates provider token counts and model-call counts across invocations.
  *
- * @see {@link UsageSample} — per-call snapshot folded into Usage via {@link accumulateUsage}
- * @see {@link emptyUsage} — zero-valued seed for accumulation
+ * @remarks
+ * Cached calls remain part of `callCount` and are counted separately in
+ * `cachedCount`. The schema applies no integer, sign, or finiteness constraints.
  *
  * @since 0.1.0
  * @category models
  */
 export class Usage extends Schema.Class<Usage>("Usage")({
+  /** Sum of reported input tokens; absent sample values contribute zero. */
   inputTokens: Schema.Number,
+  /** Sum of reported output tokens; absent sample values contribute zero. */
   outputTokens: Schema.Number,
+  /** Number of accumulated samples. */
   callCount: Schema.Number,
+  /** Number of accumulated samples marked as cache hits. */
   cachedCount: Schema.Number
 }) {}
 
 /**
- * Single-call usage snapshot emitted by the forward runtime. Token counts
- * are `Option` because not all providers return them (e.g. streaming without
- * final usage headers). `cached` indicates whether the response was served
- * from the memoization layer rather than a fresh LM call.
+ * Captures provider token counts and cache status for one model call.
  *
- * @see {@link Usage} — accumulated totals built from UsageSample values
- * @see {@link accumulateUsage} — folds a sample into running totals
+ * @remarks
+ * Token counts remain absent when the provider does not report them. The schema
+ * does not validate reported counts as non-negative integers.
  *
  * @since 0.1.0
  * @category models
  */
 export class UsageSample extends Schema.Class<UsageSample>("UsageSample")({
+  /** Provider-reported input tokens, when available. */
   inputTokens: Schema.OptionFromSelf(Schema.Number),
+  /** Provider-reported output tokens, when available. */
   outputTokens: Schema.OptionFromSelf(Schema.Number),
+  /** Whether the response came from the configured cache. */
   cached: Schema.Boolean
 }) {}
 
 const tokenCount = (value: Option.Option<number>): number => Option.getOrElse(value, () => 0)
 
 /**
- * Fold a single-call {@link UsageSample} into running {@link Usage} totals.
- * Treats `None` token counts as zero.
+ * Adds one model-call sample to cumulative usage.
  *
- * @see {@link Usage}
- * @see {@link UsageSample}
+ * @remarks
+ * Absent token counts add zero, every sample increments `callCount`, and cached
+ * samples increment `cachedCount`. The input value is not mutated.
+ *
+ * @param usage - Totals before the call.
+ * @param sample - Token counts and cache status for the call.
+ * @returns New totals after the sample.
  *
  * @since 0.1.0
  * @category combinators
@@ -65,11 +73,14 @@ export const accumulateUsage = (
   })
 
 /**
- * Compute the element-wise difference between two {@link Usage} snapshots.
- * Useful for measuring cost of a single optimization trial by subtracting
- * the before-snapshot from the after-snapshot.
+ * Subtracts an earlier usage snapshot from a later snapshot.
  *
- * @see {@link Usage}
+ * @remarks
+ * No ordering invariant is checked, so any component can be negative when the
+ * `after` value is smaller.
+ *
+ * @param options - Snapshots to subtract component by component.
+ * @returns A new usage value equal to `after - before` for every field.
  *
  * @since 0.1.0
  * @category combinators
@@ -86,11 +97,7 @@ export const usageDelta = (options: {
   })
 
 /**
- * Zero-valued {@link Usage} seed — the identity element for
- * {@link accumulateUsage} folding.
- *
- * @see {@link Usage}
- * @see {@link accumulateUsage}
+ * Zero-valued seed for {@link accumulateUsage}.
  *
  * @since 0.1.0
  * @category constants

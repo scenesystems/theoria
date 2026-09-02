@@ -1,17 +1,13 @@
 /**
- * Closed discriminant for the optimizer algorithms shipped in effect-dsp.
+ * Stable discriminants used in optimizer event envelopes.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
 /**
- * Literal union of optimizer algorithm identifiers. Each value corresponds
- * to a self-contained optimizer implementation under `src/optimizers/`.
- * Used by {@link OptimizerEventEnvelope} to tag progress events and by
- * the ensemble optimizer to compose heterogeneous strategies.
- *
- * @see {@link OptimizerEventEnvelope} — tags events with the originating optimizer kind
+ * Decodes the optimizer identities accepted by {@link OptimizerEventEnvelope}.
+ * Unknown labels fail Schema decoding rather than entering event streams.
  *
  * @since 0.1.0
  * @category schemas
@@ -26,11 +22,7 @@ export const OptimizerKind = Schema.Literal(
 )
 
 /**
- * Identifies which shipped optimization lifecycle produced an event or
- * ensemble member, enabling exhaustive dispatch without accepting arbitrary
- * optimizer labels.
- *
- * @see {@link OptimizerKind}
+ * Selects an optimizer identity decoded by the {@link OptimizerKind} schema.
  * @since 0.1.0
  * @category type-level
  */

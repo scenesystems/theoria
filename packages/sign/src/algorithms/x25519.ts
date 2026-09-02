@@ -1,9 +1,6 @@
 /**
- * X25519 ECDH key agreement.
- *
- * Wraps `@noble/curves/ed25519` (X25519 is the Montgomery form
- * of Curve25519) — audited (Trail of Bits, Cure53). RFC 7748.
- * 32-byte keys, 32-byte shared secret.
+ * Implements RFC 7748 X25519 agreement with 32-byte keys and 32-byte raw
+ * shared secrets.
  *
  * @since 0.1.0
  * @category algorithms
@@ -15,7 +12,7 @@ import { KeyPair } from "../schemas/KeyPair.js"
 import { SharedSecret } from "../schemas/SharedSecret.js"
 
 /**
- * Derive a shared secret via X25519 ECDH.
+ * Derives a raw shared secret via X25519 ECDH.
  *
  * @param secretKey - The local party's 32-byte secret key.
  * @param publicKey - The peer's 32-byte public key; this function does not authenticate it.
@@ -40,7 +37,7 @@ export const x25519SharedSecret = (
   })
 
 /**
- * Draw an X25519 key pair from Noble's ambient CSPRNG, returning a 32-byte
+ * Draws an X25519 key pair from Noble's ambient CSPRNG, returning a 32-byte
  * secret scalar and 32-byte Montgomery-u public key.
  *
  * @since 0.1.0

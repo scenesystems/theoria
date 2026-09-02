@@ -1,15 +1,6 @@
 /**
- * Factory for post-quantum signature sign/verify/keygen operations.
- *
- * Eliminates copy-paste across ML-DSA and SLH-DSA algorithm modules
- * by extracting the shared Noble post-quantum primitive interface
- * into a single factory. Each algorithm module calls `makePqOps`
- * with its Noble primitive and algorithm literal.
- *
- * Noble post-quantum primitives (ml-dsa, slh-dsa) share the same
- * interface: `keygen() → { publicKey, secretKey }`,
- * `sign(message, secretKey) → signature`,
- * `verify(signature, message, publicKey) → boolean`.
+ * Adapts Noble post-quantum signature primitives to package carriers and
+ * typed failures.
  *
  * @internal
  */
@@ -24,7 +15,8 @@ type SignatureAlgorithmType = typeof SignatureAlgorithm.Type
 type CryptoAlgorithmType = typeof CryptoAlgorithm.Type
 
 /**
- * Create sign/verify/keygen for a Noble post-quantum primitive.
+ * Creates signing, verification, and key-generation operations for one Noble
+ * post-quantum primitive.
  *
  * @internal
  */

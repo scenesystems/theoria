@@ -1,39 +1,42 @@
 /**
- * Training and demonstration data types for optimization datasets.
+ * Defines labeled and input-only dataset rows used by evaluation and optimization.
  *
  * @since 0.1.0
  */
 import { Schema } from "effect"
 
-// ---------------------------------------------------------------------------
-// Models
-// ---------------------------------------------------------------------------
-
 /**
- * Dataset row with an input record and optional expected output. The records
- * accept unknown values and do not establish that labels are correct or
- * trusted; dataset owners remain responsible for validation. Input-only rows
- * can be passed where an optimizer supports unlabeled examples.
+ * Dataset row containing module input and an optional expected output.
+ *
+ * @remarks
+ * Record values remain `unknown`; construction does not validate them against a
+ * module signature or establish label correctness. {@link Evaluate.run} reports
+ * input-only rows as failures, while optimizers may accept them as unlabeled data.
  *
  * @since 0.1.0
  * @category models
- * @see {@link Demo}
  */
 export class Example extends Schema.Class<Example>("Example")({
+  /** Fields passed to the evaluated module. */
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Expected fields used by metrics; absence marks an input-only example. */
   output: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
 }) {}
 
 /**
- * Complete input/output record intended for few-shot prompting. Both records
- * are required, but their values are otherwise unknown: construction proves
- * shape, not correctness, provenance, or permission to use the content.
+ * Input and expected output retained as a few-shot demonstration.
+ *
+ * @remarks
+ * Both records are required and their values remain `unknown`. Construction
+ * does not validate the records against a signature or establish provenance,
+ * correctness, or permission to send their contents to a model provider.
  *
  * @since 0.1.0
  * @category models
- * @see {@link Example}
  */
 export class Demo extends Schema.Class<Demo>("Demo")({
+  /** Input fields rendered into the few-shot example. */
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Expected output fields rendered into the few-shot example. */
   output: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 }) {}

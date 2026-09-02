@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Match, Option } from "effect"
 
 import { MergeComparison } from "../model.js"
@@ -14,9 +15,10 @@ const parseTaggedStep = (identifier: string): Option.Option<number> =>
     Option.flatMap((token) => {
       const parsed = Number(token)
 
-      return Number.isFinite(parsed)
-        ? Option.some(Math.max(0, Math.trunc(parsed)))
-        : Option.none<number>()
+      return Match.value(parsed).pipe(
+        Match.when(Numeric.isFinite, (value) => Option.some(Numeric.max(0, Numeric.truncate(value)))),
+        Match.orElse(() => Option.none<number>())
+      )
     })
   )
 
@@ -104,7 +106,7 @@ export const buildMergeComparisons = (
   parentA: CandidateScoreVector,
   parentB: CandidateScoreVector
 ): ReadonlyArray<MergeComparison> =>
-  Arr.map(Arr.makeBy(Math.min(parentA.length, parentB.length), (index) => index), (index) =>
+  Arr.map(Arr.makeBy(Numeric.min(parentA.length, parentB.length), (index) => index), (index) =>
     new MergeComparison({
       exampleId: `example-${index}`,
       parentAScore: scoreAt(parentA, index),

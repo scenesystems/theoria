@@ -6,6 +6,7 @@
  * @internal
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
@@ -26,8 +27,8 @@ import { labeledFewShot } from "../../LabeledFewShot/index.js"
  */
 export const normalizeNonNegative = (value: number): number =>
   Match.value(value).pipe(
-    Match.when((candidate) => candidate < 0, () => 0),
-    Match.orElse((candidate) => candidate)
+    Match.when(Numeric.isFinite, (candidate) => Numeric.max(0, Numeric.floor(candidate))),
+    Match.orElse(() => 0)
   )
 
 /**

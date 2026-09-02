@@ -1,13 +1,6 @@
 /**
- * effect-search interop seam through effect-dsp.
- *
- * This example demonstrates `Optimizer.effectSearchInterop` as the single
- * consumer boundary for ask/tell orchestration, typed acquisition selection,
- * progress composition, and Pareto utilities.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Optimizer.effectSearchInterop}
+ * Uses the effect-dsp interop namespace for ask/tell orchestration, acquisition
+ * selection, streamed progress, and Pareto-front inspection.
  *
  * Run: bun run examples/01-effect-search-interop.ts
  */

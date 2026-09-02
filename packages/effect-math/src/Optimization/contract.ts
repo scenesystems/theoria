@@ -1,6 +1,5 @@
 /**
- * Canonical literal compared against discovery metadata to select root-finding
- * and minimization capabilities.
+ * Stable discriminator shared by the Optimization descriptor schema and model.
  *
  * @since 0.1.0
  * @category contracts

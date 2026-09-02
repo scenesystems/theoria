@@ -21,7 +21,9 @@ import type { InferenceError } from "../Errors/index.js"
  * @category models
  */
 export class ResolvedModelLayers extends Data.Class<{
+  /** Fully provided language-model layer when text generation is exposed. */
   readonly languageModel: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
+  /** Fully provided embedding-model layer when embeddings are exposed. */
   readonly embeddingModel: Option.Option<Layer.Layer<EmbeddingModel.EmbeddingModel, never, never>>
 }> {}
 
@@ -34,9 +36,13 @@ export class ResolvedModelLayers extends Data.Class<{
  * @category models
  */
 export class RuntimeResolution extends Data.Class<{
+  /** Original caller intent retained without normalization. */
   readonly desired: DesiredRuntimeDescriptor
+  /** Versioned route decision made before provider execution. */
   readonly resolvedRoute: ResolvedRouteDescriptor
+  /** Conservative policy used to admit model lanes. */
   readonly capabilities: RuntimeCapabilities
+  /** Model layers admitted by `capabilities`; each layer has no requirements. */
   readonly layers: ResolvedModelLayers
 }> {}
 
@@ -49,15 +55,19 @@ export class RuntimeResolution extends Data.Class<{
  * @category models
  */
 export class RuntimeResolverApi extends Data.Class<{
+  /** Resolves intent without executing a model request. */
   readonly resolve: (
     descriptor: DesiredRuntimeDescriptor
   ) => Effect.Effect<RuntimeResolution, InferenceError>
 }> {}
 
 /**
- * Context tag used by effects that acquire a runtime resolution. Provide
- * {@link RuntimeResolverLive}, {@link layer}, or a testing resolver for the
- * lifetime of the consuming effect.
+ * Resolves caller intent into pre-execution route provenance, capability
+ * policy, and optional model layers.
+ *
+ * @remarks
+ * Supply {@link RuntimeResolverLive}, {@link layer}, or a testing resolver for
+ * the lifetime of the consuming effect.
  *
  * @since 0.1.0
  * @category services
@@ -68,7 +78,7 @@ export class RuntimeResolver extends Effect.Tag("effect-inference/Runtime/Runtim
 >() {}
 
 /**
- * Lifts a caller-owned resolver implementation into an unscoped service layer.
+ * Installs a caller-owned resolver implementation without acquiring resources.
  *
  * @since 0.1.0
  * @category layers
@@ -76,8 +86,7 @@ export class RuntimeResolver extends Effect.Tag("effect-inference/Runtime/Runtim
 export const layer = (api: RuntimeResolverApi): Layer.Layer<RuntimeResolver> => Layer.succeed(RuntimeResolver, api)
 
 /**
- * Returns an empty layer set for descriptor states that do not yet bind a live
- * model.
+ * Creates an optional model-layer set with both execution lanes absent.
  *
  * @since 0.1.0
  * @category constructors

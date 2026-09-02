@@ -1,5 +1,5 @@
 /**
- * Codec schemas for serializing and deserializing trial state in snapshots.
+ * Defines the persisted representation of trials and their lifecycle state.
  *
  * @since 0.1.0
  */
@@ -41,7 +41,13 @@ export const TrialStateSnapshotSchema = Schema.Union(
 )
 
 /**
- * The serializable lifecycle state of a trial in a study snapshot.
+ * Stores the lifecycle payload needed to restore a trial.
+ *
+ * @remarks
+ * Running state retains its start timestamp. Completed, failed, and pruned states
+ * retain measured duration. Cancellation retains no timestamp, duration, or reason.
+ * Legacy completed records may omit retry and evaluation counts; restoration uses
+ * zero retries and one evaluation for those omissions.
  *
  * @since 0.1.0
  * @category type-level
@@ -49,23 +55,32 @@ export const TrialStateSnapshotSchema = Schema.Union(
 export type TrialStateSnapshot = Schema.Schema.Type<typeof TrialStateSnapshotSchema>
 
 /**
- * Decodes one persisted trial with opaque configuration, a tagged lifecycle
- * state, and optional cost/prior provenance. Missing legacy completion counters
- * are restored as zero retries and one evaluation by `snapshotToState`.
+ * Decodes one persisted trial with opaque configuration and tagged lifecycle state.
+ *
+ * @remarks
+ * `cost` is present only when a cost was recorded. `prior: true` identifies a
+ * warm-start trial; omission means the trial was generated during the study.
+ * Numeric fields receive the constraints of their component schemas without
+ * additional relationships between trial number, duration, counts, and state.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const SnapshotTrialSchema = Schema.Struct({
+  /** Trial identifier retained across snapshot and resume operations. */
   trialNumber: Schema.Number,
+  /** Encoded configuration; the search-space decoder validates it during restoration. */
   config: Schema.Unknown,
+  /** Persisted lifecycle payload. */
   state: TrialStateSnapshotSchema,
+  /** Optional objective cost attributed to this trial. */
   cost: Schema.optional(Schema.Number),
+  /** Marks a warm-start trial when true. */
   prior: Schema.optional(Schema.Literal(true))
 })
 
 /**
- * A serializable trial record stored in snapshots and append-only trial logs.
+ * Persists one trial in the representation shared by snapshots and trial logs.
  *
  * @since 0.1.0
  * @category type-level

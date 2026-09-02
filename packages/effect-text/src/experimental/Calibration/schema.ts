@@ -30,7 +30,9 @@ const SignedInt = Schema.Number.pipe(Schema.int())
  * @category schemas
  */
 export const CalibrationTargetLine = Schema.Struct({
+  /** Exact visual-order text expected for the line. */
   text: Schema.String,
+  /** Exact painted width expected in measurement-service units. */
   width: NonNegativeNumber
 })
 
@@ -53,8 +55,11 @@ export type CalibrationTargetLineType = typeof CalibrationTargetLine.Type
  * @category schemas
  */
 export const CalibrationTarget = Schema.Struct({
+  /** Expected number of output lines. */
   lineCount: NonNegativeInt,
+  /** Expected greatest painted line width. */
   maxLineWidth: NonNegativeNumber,
+  /** Optional exact visual lines; omission disables line-level comparison. */
   lines: Schema.optional(Schema.Array(CalibrationTargetLine))
 })
 
@@ -73,9 +78,13 @@ export type CalibrationTargetType = typeof CalibrationTarget.Type
  * @category schemas
  */
 export const CalibrationCase = Schema.Struct({
+  /** Stable case label copied into evaluation results. */
   name: Schema.String,
+  /** Input compiled for each candidate profile. */
   prepare: PrepareInput,
+  /** Geometry applied to the prepared handle. */
   layout: LayoutRequest,
+  /** Expected geometry and optional exact lines. */
   expected: CalibrationTarget
 })
 
@@ -94,7 +103,9 @@ export type CalibrationCaseType = typeof CalibrationCase.Type
  * @category schemas
  */
 export const CalibrationProfile = Schema.Struct({
+  /** Candidate label copied into the aggregate report. */
   name: Schema.String,
+  /** Preparation settings installed while evaluating the candidate. */
   engineProfile: EngineProfileSchema
 })
 
@@ -113,13 +124,21 @@ export type CalibrationProfileType = typeof CalibrationProfile.Type
  * @category schemas
  */
 export const CalibrationCaseResult = Schema.Struct({
+  /** Source case label. */
   name: Schema.String,
+  /** Expected projection from the corpus. */
   expected: CalibrationTarget,
+  /** Aggregate geometry produced by the candidate. */
   actual: LayoutSummary,
+  /** Visual lines produced by the candidate. */
   actualLines: Schema.Array(LayoutLine),
+  /** Signed `actual.lineCount - expected.lineCount`. */
   lineCountDelta: SignedInt,
+  /** Signed `actual.maxLineWidth - expected.maxLineWidth`. */
   maxLineWidthDelta: FiniteNumber,
+  /** Positional text or width mismatches; zero when expected lines are omitted. */
   lineMismatchCount: NonNegativeInt,
+  /** Whether aggregate geometry and every supplied line expectation match exactly. */
   matched: Schema.Boolean
 })
 
@@ -138,12 +157,19 @@ export type CalibrationCaseResultType = typeof CalibrationCaseResult.Type
  * @category schemas
  */
 export const CalibrationReport = Schema.Struct({
+  /** Candidate evaluated by the report. */
   profile: CalibrationProfile,
+  /** Number of evaluated cases. */
   caseCount: NonNegativeInt,
+  /** Number of cases with exact aggregate and optional line matches. */
   matchedCaseCount: NonNegativeInt,
+  /** Sum of absolute line-count deltas. */
   totalLineCountError: NonNegativeInt,
+  /** Sum of absolute maximum-width deltas. */
   totalMaxLineWidthError: NonNegativeNumber,
+  /** Sum of positional line mismatches. */
   totalLineMismatchCount: NonNegativeInt,
+  /** Case results in corpus order. */
   results: Schema.Array(CalibrationCaseResult)
 })
 
@@ -163,8 +189,11 @@ export type CalibrationReportType = typeof CalibrationReport.Type
  * @category schemas
  */
 export const CalibrationScoreWeights = Schema.Struct({
+  /** Multiplier applied to each positional line mismatch. */
   lineMismatchCount: PositiveNumber,
+  /** Multiplier applied to each absolute line-count delta. */
   lineCountError: PositiveNumber,
+  /** Multiplier applied to absolute maximum-width error. */
   maxLineWidthError: PositiveNumber
 })
 
@@ -183,12 +212,19 @@ export type CalibrationScoreWeightsType = typeof CalibrationScoreWeights.Type
  * @category schemas
  */
 export const CalibrationObjectiveMetadata = Schema.Struct({
+  /** Caller-defined label recorded with optimization artifacts. */
   name: Schema.String,
+  /** Fixed direction consumed by calibration studies. */
   direction: Schema.Literal("minimize"),
+  /** Fixed formula used to collapse penalties. */
   scorer: Schema.Literal("weighted-sum"),
+  /** Diagnostic ordering label for the line mismatch penalty. */
   primaryMetric: Schema.Literal("lineMismatchCount"),
+  /** Diagnostic ordering label for the line-count penalty. */
   secondaryMetric: Schema.Literal("lineCountError"),
+  /** Diagnostic ordering label for the maximum-width penalty. */
   tertiaryMetric: Schema.Literal("maxLineWidthError"),
+  /** Positive multipliers used by the weighted sum. */
   scoreWeights: CalibrationScoreWeights
 })
 
@@ -246,8 +282,11 @@ export type CalibrationLossSummaryType = typeof CalibrationLossSummary.Type
  * @category schemas
  */
 export const CalibrationFloatDimension = Schema.Struct({
+  /** Inclusive sampling lower bound. */
   low: NonNegativeNumber,
+  /** Inclusive sampling upper bound; search-space compilation requires `high >= low`. */
   high: NonNegativeNumber,
+  /** Optional positive quantization interval. */
   step: Schema.optional(PositiveNumber)
 })
 
@@ -266,8 +305,11 @@ export type CalibrationFloatDimensionType = typeof CalibrationFloatDimension.Typ
  * @category schemas
  */
 export const CalibrationIntDimension = Schema.Struct({
+  /** Inclusive positive integer lower bound. */
   low: PositiveInt,
+  /** Inclusive positive integer upper bound; search-space compilation requires `high >= low`. */
   high: PositiveInt,
+  /** Optional positive integer sampling interval. */
   step: Schema.optional(PositiveInt)
 })
 
@@ -286,6 +328,7 @@ export type CalibrationIntDimensionType = typeof CalibrationIntDimension.Type
  * @category schemas
  */
 export const CalibrationDirectionDimension = Schema.Struct({
+  /** Ordered non-empty direction choices supplied to the sampler. */
   values: Schema.NonEmptyArray(BaseTextDirection)
 })
 
@@ -304,6 +347,7 @@ export type CalibrationDirectionDimensionType = typeof CalibrationDirectionDimen
  * @category schemas
  */
 export const CalibrationBooleanDimension = Schema.Struct({
+  /** Ordered non-empty toggle choices supplied to the sampler. */
   values: Schema.NonEmptyArray(Schema.Boolean)
 })
 
@@ -327,10 +371,15 @@ export type CalibrationBooleanDimensionType = typeof CalibrationBooleanDimension
  * @category schemas
  */
 export const CalibrationSearchDescriptor = Schema.Struct({
+  /** Search bounds for `EngineProfile.lineFitEpsilon`. */
   lineFitEpsilon: CalibrationFloatDimension,
+  /** Search bounds for `EngineProfile.tabWidth`. */
   tabWidth: CalibrationIntDimension,
+  /** Candidate values for `EngineProfile.defaultDirection`. */
   defaultDirection: CalibrationDirectionDimension,
+  /** Candidate values for `EngineProfile.preferEarlySoftHyphenBreak`. */
   preferEarlySoftHyphenBreak: CalibrationBooleanDimension,
+  /** Candidate values for `EngineProfile.preferPrefixWidthsForBreakableRuns`. */
   preferPrefixWidthsForBreakableRuns: CalibrationBooleanDimension
 })
 
@@ -351,7 +400,7 @@ export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor
 export const CalibrationSearchSpaceSpec = CalibrationSearchDescriptor
 
 /**
- * Legacy name for `CalibrationSearchDescriptorType`.
+ * Search descriptor projected under the earlier search-space terminology.
  *
  * @since 0.2.0
  * @category models
@@ -365,7 +414,9 @@ export type CalibrationSearchSpaceSpecType = CalibrationSearchDescriptorType
  * @category schemas
  */
 export const CalibrationStudyArtifacts = Schema.Struct({
+  /** Cumulative checkpoint after the requested trials finish. */
   snapshot: Study.StudySnapshot,
+  /** Events emitted by the current invocation in emission order. */
   eventLog: Schema.Array(StudyEvent.StudyEventSchema)
 })
 
@@ -384,16 +435,22 @@ export type CalibrationStudyArtifactsType = typeof CalibrationStudyArtifacts.Typ
  * @category schemas
  */
 export const CalibrationOptimizationReport = Schema.Struct({
+  /** Weighted minimization policy used by the study. */
   objective: CalibrationObjectiveMetadata,
+  /** Dimensions compiled for candidate sampling. */
   searchDescriptor: CalibrationSearchDescriptor,
+  /** Study stop condition reported by Effect Search. */
   completionReason: StudyEvent.CompletionReasonSchema,
+  /** Weighted total loss of the selected profile. */
   bestScore: NonNegativeNumber,
+  /** Distribution of the selected profile's per-case losses. */
   bestLossSummary: CalibrationLossSummary,
+  /** Checkpoint and events available for persistence. */
   artifacts: CalibrationStudyArtifacts
 })
 
 /**
- * Objective, search descriptor, completion reason, best loss, and resumable artifacts.
+ * Persistable metadata and loss diagnostics for the selected profile.
  *
  * @since 0.2.0
  * @category models

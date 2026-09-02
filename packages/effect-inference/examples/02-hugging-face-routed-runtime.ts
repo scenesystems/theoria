@@ -1,9 +1,13 @@
+/**
+ * Resolves a routed Hugging Face language model, generates text through the
+ * selected provider, and records the selected route as runtime evidence.
+ */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import * as HuggingFace from "../src/HuggingFace/index.js"
-import * as Runtime from "../src/Runtime/index.js"
+import * as HuggingFace from "@scenesystems/effect-inference/HuggingFace"
+import * as Runtime from "@scenesystems/effect-inference/Runtime"
 
 export const program = Effect.gen(function*() {
   const resolution = yield* HuggingFace.resolveLiveRuntimeFromConfig({

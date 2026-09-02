@@ -1,34 +1,18 @@
 /**
- * Typed I/O signatures for modules — Schema IS the signature.
+ * Defines module input and output contracts from Effect Schema field records.
+ *
+ * @remarks
+ * A signature retains the schemas used for runtime decoding and derives field
+ * metadata for prompt construction. Field descriptions come from `describe`;
+ * missing descriptions remain absent rather than being generated.
  *
  * @since 0.1.0
  */
 
-/**
- * Attaches field descriptions without changing a schema's decoded, encoded,
- * or context types, allowing prompt rendering to recover caller metadata.
- *
- * @since 0.1.0
- */
 export * from "./annotations.js"
 
-/**
- * Validated {@link make} constructor for building Signatures from Schema fields.
- *
- * @since 0.1.0
- */
 export * from "./constructors.js"
 
-/**
- * {@link deriveInstruction} — default prompt text from description + fields.
- *
- * @since 0.1.0
- */
 export * from "./instructions.js"
 
-/**
- * {@link Signature} model, {@link FieldInfo}, and type-level extractors.
- *
- * @since 0.1.0
- */
 export * from "./model.js"

@@ -1,12 +1,9 @@
 /**
  * SHA-256 hashing for formats and protocols that specify FIPS 180-4.
  *
- * This module returns raw digest bytes. HMAC-SHA256 is exposed separately by
+ * @remarks
+ * Operations return raw digest bytes. HMAC-SHA256 is exposed separately by
  * {@link hmacSha256}.
- *
- * @see {@link blake3Hash}
- * @see {@link digest}
- * @see {@link toBase64Url}
  *
  * @since 0.1.0
  * @category algorithms

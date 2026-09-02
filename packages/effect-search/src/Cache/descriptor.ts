@@ -1,5 +1,5 @@
 /**
- * Descriptor model for schema-parameterized cache keys and values.
+ * Schema codecs and keyspace partitioning for cached values.
  *
  * @since 0.1.0
  */
@@ -7,29 +7,43 @@ import type { Schema } from "effect"
 import { Data } from "effect"
 
 /**
- * Describes how a cache key and value are encoded and how entries are partitioned.
+ * Binds key and value codecs to one persisted cache keyspace.
  *
  * @remarks
- * Entry keys have the form `namespace:version:<fingerprint>`. Changing either
- * string therefore selects a separate set of persisted entries; neither field
- * is interpreted as a migration instruction.
+ * Persistence keys use `namespace:version:<fingerprint>`. The strings are not
+ * validated or escaped, and changing either selects different entries rather than
+ * migrating existing data. Both schemas must encode without Effect requirements.
+ *
+ * @typeParam Key - Decoded key supplied to cache operations.
+ * @typeParam Value - Decoded value returned by cache operations.
+ * @typeParam EncodedKey - Representation fingerprinted to form the persistence key.
+ * @typeParam EncodedValue - Representation serialized in the backing store.
  *
  * @since 0.1.0
  * @category models
  */
 export class CacheDescriptor<Key, Value, EncodedKey = Key, EncodedValue = Value> extends Data.Class<{
+  /** Unescaped keyspace prefix shared by all entries described by this value. */
   readonly namespace: string
+  /** Unescaped keyspace revision used to isolate incompatible stored entries. */
   readonly version: string
+  /** Codec applied before canonical key fingerprinting. */
   readonly keySchema: Schema.Schema<Key, EncodedKey, never>
+  /** Codec applied when writing and reading persisted values. */
   readonly valueSchema: Schema.Schema<Value, EncodedValue, never>
 }> {}
 
 /**
- * Defines one independently versioned cache keyspace.
+ * Constructs a descriptor without validating its namespace, version, or codecs.
  *
  * @remarks
- * `keySchema` is encoded before durable fingerprinting. `valueSchema` is used
- * to encode values as JSON on writes and decode them on reads.
+ * Keys are schema-encoded before canonical fingerprinting. Values are schema-encoded
+ * to JSON on writes and decoded from JSON on reads.
+ *
+ * @typeParam Key - Decoded key supplied to cache operations.
+ * @typeParam Value - Decoded value returned by cache operations.
+ * @typeParam EncodedKey - Representation fingerprinted to form the persistence key.
+ * @typeParam EncodedValue - Representation serialized in the backing store.
  *
  * @since 0.1.0
  * @category constructors

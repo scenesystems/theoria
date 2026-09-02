@@ -11,7 +11,7 @@
 import { Schema } from "effect"
 
 /**
- * Declares preparation failure tags stable for compatibility guarantees.
+ * Marks preparation failure tags and diagnostic fields as stable.
  *
  * @since 0.1.0
  * @category stability
@@ -29,6 +29,7 @@ export const ErrorsStability = "stable"
  * @category errors
  */
 export class TextLayoutDecodeError extends Schema.TaggedError<TextLayoutDecodeError>()("TextLayoutDecodeError", {
+  /** Formatted Effect Schema issue tree. */
   reason: Schema.String
 }) {}
 
@@ -43,9 +44,13 @@ export class TextLayoutDecodeError extends Schema.TaggedError<TextLayoutDecodeEr
  * @category errors
  */
 export class MeasurementFailed extends Schema.TaggedError<MeasurementFailed>()("MeasurementFailed", {
+  /** Font family supplied to the failed measurement. */
   fontFamily: Schema.String,
+  /** Font size supplied to the failed measurement. */
   fontSize: Schema.Number.pipe(Schema.finite()),
+  /** Exact text supplied to the failed measurement. */
   text: Schema.String,
+  /** Implementation diagnostic retained for recovery or logging. */
   reason: Schema.String
 }) {}
 

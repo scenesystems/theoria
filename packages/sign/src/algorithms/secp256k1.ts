@@ -1,10 +1,9 @@
 /**
- * secp256k1 ECDSA and Schnorr (BIP-340) signatures.
+ * Implements secp256k1 ECDSA over SHA-256 and BIP-340 Schnorr signatures.
  *
- * Wraps `@noble/curves/secp256k1` — audited (Trail of Bits, Cure53),
- * zero-dependency. ECDSA uses RFC 6979 deterministic k-generation.
- * Schnorr (BIP-340) produces 64-byte signatures with 32-byte
- * x-only public keys.
+ * ECDSA uses compact 64-byte signatures, RFC 6979 nonce generation, and
+ * low-S normalization. Schnorr uses 64-byte signatures, 32-byte messages, and
+ * 32-byte x-only public keys.
  *
  * @since 0.1.0
  * @category algorithms
@@ -16,7 +15,7 @@ import { KeyPair } from "../schemas/KeyPair.js"
 import { Signature } from "../schemas/Signature.js"
 
 /**
- * Produce a 64-byte compact secp256k1 ECDSA signature over
+ * Produces a 64-byte compact secp256k1 ECDSA signature over
  * `SHA-256(message)` with deterministic RFC 6979 nonce generation and low `s`.
  * `publicKey` is copied into the result rather than validated against the
  * 32-byte secret scalar.
@@ -40,7 +39,7 @@ export const secp256k1EcdsaSign = (
   })
 
 /**
- * Check a compact secp256k1 ECDSA signature over `SHA-256(message)`.
+ * Checks a compact secp256k1 ECDSA signature over `SHA-256(message)`.
  * A validly encoded nonmatch returns `false`; rejected encodings or primitive
  * exceptions fail with `VerificationFailed` and a backend-derived reason.
  *
@@ -58,7 +57,7 @@ export const secp256k1EcdsaVerify = (
   })
 
 /**
- * Draw a secp256k1 ECDSA key pair from Noble's ambient CSPRNG, returning a
+ * Draws a secp256k1 ECDSA key pair from Noble's ambient CSPRNG, returning a
  * 32-byte secret scalar and 33-byte compressed SEC1 public key.
  *
  * @since 0.1.0
@@ -71,7 +70,7 @@ export const secp256k1EcdsaKeygen = (): Effect.Effect<KeyPair> =>
   })
 
 /**
- * Produce a 64-byte BIP-340 Schnorr signature over the supplied 32-byte
+ * Produces a 64-byte BIP-340 Schnorr signature over the supplied 32-byte
  * message. Noble obtains fresh auxiliary randomness from its ambient CSPRNG;
  * `publicKey` is only copied into the returned carrier.
  *
@@ -94,7 +93,7 @@ export const secp256k1SchnorrSign = (
   })
 
 /**
- * Check a 64-byte BIP-340 Schnorr signature for a 32-byte message and 32-byte
+ * Checks a 64-byte BIP-340 Schnorr signature for a 32-byte message and 32-byte
  * x-only public key. An admitted nonmatch returns `false`; malformed input or
  * backend exceptions fail with `VerificationFailed`.
  *
@@ -112,7 +111,7 @@ export const secp256k1SchnorrVerify = (
   })
 
 /**
- * Draw a BIP-340 key pair from Noble's ambient CSPRNG, returning a 32-byte
+ * Draws a BIP-340 key pair from Noble's ambient CSPRNG, returning a 32-byte
  * secret scalar and 32-byte x-only public key.
  *
  * @since 0.1.0

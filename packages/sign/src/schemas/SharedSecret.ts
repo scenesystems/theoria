@@ -1,11 +1,5 @@
 /**
- * Key agreement output as a Schema.Class.
- *
- * Carries the 32-byte shared secret derived from X25519 key
- * agreement, tagged with the algorithm that produced it.
- *
- * @see {@link AgreementAlgorithm} — algorithm discriminant
- * @see {@link agreement} — the pipeline that produces this type
+ * Defines algorithm-tagged output from raw key agreement.
  *
  * @since 0.1.0
  * @category schemas
@@ -14,7 +8,11 @@ import { Schema } from "effect"
 import { AgreementAlgorithm } from "./AgreementAlgorithm.js"
 
 /**
- * Algorithm-tagged shared secret from key agreement.
+ * Carries caller-owned X25519 output before protocol-specific key derivation.
+ *
+ * @remarks
+ * The schema accepts any `Uint8Array`; it does not enforce the 32-byte X25519
+ * output length or establish peer authentication.
  *
  * @since 0.1.0
  * @category schemas

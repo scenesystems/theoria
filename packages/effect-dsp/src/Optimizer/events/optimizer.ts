@@ -1,5 +1,5 @@
 /**
- * Wrapped optimizer event contracts.
+ * Defines the common transport union for optimizer and evaluation events.
  *
  * @since 0.1.0
  */
@@ -14,7 +14,7 @@ import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./mip
 
 export {
   /**
-   * Effect-search study event schema, re-exported for the optimizer event union.
+   * Decodes effect-search study events carried by the optimizer union.
    *
    * @since 0.1.4
    * @category events
@@ -23,33 +23,41 @@ export {
 } from "@scenesystems/effect-search/StudyEvent"
 
 /**
- * Discriminated union schema wrapping all optimizer-specific and evaluation
- * event types under a single envelope.
+ * Decodes a tagged wrapper around one domain-specific event.
+ *
+ * @remarks
+ * The outer tag selects the schema for `event`. This union retains the complete
+ * typed event and differs from {@link OptimizerEventEnvelope}, whose payload is
+ * projected into a string-keyed transport record.
  *
  * @since 0.1.0
  * @category events
  */
 export const OptimizerEventSchema = Schema.Union(
   Schema.TaggedStruct("Bootstrap", {
+    /** BootstrapFewShot event preserved without payload projection. */
     event: BootstrapEventSchema
   }),
   Schema.TaggedStruct("MIPRO", {
+    /** MIPROv2 event preserved without payload projection. */
     event: MIPROv2EventSchema
   }),
   Schema.TaggedStruct("GEPA", {
+    /** GEPA event preserved without payload projection. */
     event: GEPAEventSchema
   }),
   Schema.TaggedStruct("EffectSearchInterop", {
+    /** Study event emitted by effect-search during optimizer execution. */
     event: EffectSearchInteropEventSchema
   }),
   Schema.TaggedStruct("Evaluation", {
+    /** Evaluation event preserved without payload projection. */
     event: EvaluationEventSchema
   })
 )
 
 /**
- * Wrapped optimizer event — each variant carries a domain-specific event
- * payload.
+ * Wraps one optimizer, search, or evaluation event with its owning domain tag.
  *
  * @since 0.1.0
  * @category events
@@ -57,7 +65,7 @@ export const OptimizerEventSchema = Schema.Union(
 export type OptimizerEvent = typeof OptimizerEventSchema.Type
 
 /**
- * Tagged-enum constructors for wrapped optimizer events.
+ * Constructs and exhaustively matches wrapped events by `_tag`.
  *
  * @since 0.1.0
  * @category events
@@ -65,7 +73,11 @@ export type OptimizerEvent = typeof OptimizerEventSchema.Type
 export const OptimizerEvent = Data.taggedEnum<OptimizerEvent>()
 
 /**
- * Project a Bootstrap event into the canonical optimizer event envelope.
+ * Encodes a Bootstrap event into a transport-oriented payload record.
+ *
+ * @remarks
+ * The envelope uses optimizer ID `bootstrapFewShot` and preserves the event's
+ * `_tag`. Encoding or payload projection failure becomes a defect.
  *
  * @since 0.1.0
  * @category constructors
@@ -89,7 +101,11 @@ export const bootstrapEventEnvelope = (
   )
 
 /**
- * Project a MIPROv2 event into the canonical optimizer event envelope.
+ * Encodes a MIPROv2 event into a transport-oriented payload record.
+ *
+ * @remarks
+ * The envelope uses optimizer ID `miprov2` and preserves the event's `_tag`.
+ * Encoding or payload projection failure becomes a defect.
  *
  * @since 0.1.0
  * @category constructors
@@ -113,7 +129,11 @@ export const miprov2EventEnvelope = (
   )
 
 /**
- * Project a GEPA event into the canonical optimizer event envelope.
+ * Encodes a GEPA event into a transport-oriented payload record.
+ *
+ * @remarks
+ * The envelope uses optimizer ID `gepa` and preserves the event's `_tag`.
+ * Encoding or payload projection failure becomes a defect.
  *
  * @since 0.1.0
  * @category constructors

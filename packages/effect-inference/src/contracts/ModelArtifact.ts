@@ -1,5 +1,5 @@
 /**
- * Requested model-identity authority independent of execution route.
+ * Caller-owned model identity, independent of execution route.
  *
  * @since 0.1.0
  */
@@ -13,10 +13,15 @@ import { Schema } from "effect"
  * @category schemas
  */
 export const ModelArtifactSchema = Schema.Struct({
+  /** Model identifier passed to the provider adapter. */
   modelRef: Schema.String,
+  /** Requested immutable or named model revision. */
   revision: Schema.optional(Schema.String),
+  /** Caller-facing name retained with the request. */
   alias: Schema.optional(Schema.String),
+  /** Requested adapter or fine-tune identity. */
   adapter: Schema.optional(Schema.String),
+  /** Caller-supplied model-family classification. */
   family: Schema.optional(Schema.String)
 })
 

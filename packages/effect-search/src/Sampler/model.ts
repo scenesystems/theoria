@@ -1,5 +1,5 @@
 /**
- * Core Sampler data class defining the optimization algorithm contract for suggesting, checkpointing, and restoring state.
+ * Runtime contract for proposing configurations and validating sampler resumes.
  *
  * @since 0.1.0
  */
@@ -13,37 +13,31 @@ import type { PendingImputationPolicy } from "./PendingImputationPolicy.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * Runtime contract implemented by sampling algorithms. `suggest` receives the
- * complete observation and reservation context; `checkpoint` and `restore`
- * define the algorithm-specific resume contract. Optional lifecycle effects
- * are run by {@link acquireLifecycle} and {@link releaseLifecycle}.
- *
- * @see {@link SearchSpace} for the dimension definitions passed to `suggest`
- * @see {@link SuggestContext} for the trial history and pending-trial context
- * @see {@link SamplerKind} for the tagged union identifying which algorithm is active
- * @see {@link checkpoint} combinator for extracting the checkpoint effect
- * @see {@link restoreCheckpoint} combinator for resuming from a persisted snapshot
+ * Couples a suggestion operation with serializable algorithm identity,
+ * checkpoint validation, pending-trial imputation, and optional lifecycle
+ * effects. The Study runtime invokes lifecycle effects; direct callers must use
+ * {@link acquireLifecycle} and {@link releaseLifecycle} themselves.
  *
  * @since 0.1.0
  * @category models
  */
 export class Sampler extends Data.Class<{
-  /** Algorithm tag and serializable options. */
+  /** Algorithm tag and options retained in snapshots and diagnostics. */
   readonly kind: SamplerKind
-  /** Policy used to turn pending trials into model observations. */
+  /** Converts pending trials into observations before model-based suggestion. */
   readonly pendingImputationPolicy: PendingImputationPolicy
-  /** Optional lifecycle acquisition effect. */
+  /** Runs before the sampler is used and may fail with a typed search error. */
   readonly acquire?: Effect.Effect<void, SearchError>
-  /** Optional infallible lifecycle release effect. */
+  /** Runs when sampler use ends; failures can occur only as defects or interruption. */
   readonly release?: Effect.Effect<void>
-  /** Suggests a configuration or fails with an algorithm/search-space error. */
+  /** Proposes one configuration from the supplied space and immutable trial context. */
   readonly suggest: (
     space: SearchSpace.SearchSpace,
     context: SuggestContext
   ) => Effect.Effect<unknown, SearchError>
-  /** Produces the algorithm-specific checkpoint. */
+  /** Captures the algorithm state required to reject an incompatible resume. */
   readonly checkpoint: Effect.Effect<SamplerCheckpoint, SearchError>
-  /** Validates and restores an algorithm-specific checkpoint. */
+  /** Restores compatible state or reports the checkpoint mismatch. */
   readonly restore: (
     checkpoint: SamplerCheckpoint
   ) => Effect.Effect<void, InvalidStudyConfig>

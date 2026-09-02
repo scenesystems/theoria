@@ -1,5 +1,5 @@
 /**
- * Numeric domain typed error taxonomy.
+ * Defines typed failures for Numeric boundary and calculation operations.
  *
  * @since 0.1.0
  * @category errors
@@ -17,6 +17,7 @@ import { AbsoluteTolerance, IterationBudget } from "../contracts/shared/BrandedS
  */
 export class NumericDomainBoundaryError
   extends Schema.TaggedError<NumericDomainBoundaryError>()("NumericDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
@@ -30,7 +31,9 @@ export class NumericDomainBoundaryError
  * @category errors
  */
 export class NumericDecodeError extends Schema.TaggedError<NumericDecodeError>()("NumericDecodeError", {
+  /** Public numeric operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
@@ -42,7 +45,9 @@ export class NumericDecodeError extends Schema.TaggedError<NumericDecodeError>()
  * @category errors
  */
 export class NumericShapeError extends Schema.TaggedError<NumericShapeError>()("NumericShapeError", {
+  /** Numeric operation whose decoded inputs violate a shape invariant. */
   operation: Schema.String,
+  /** Diagnostic describing the incompatible shape. */
   message: Schema.String
 }) {}
 
@@ -55,7 +60,9 @@ export class NumericShapeError extends Schema.TaggedError<NumericShapeError>()("
  */
 export class NumericDomainViolationError
   extends Schema.TaggedError<NumericDomainViolationError>()("NumericDomainViolationError", {
+    /** Numeric operation whose input or result falls outside its domain. */
     operation: Schema.String,
+    /** Diagnostic identifying the rejected domain condition. */
     message: Schema.String
   })
 {}
@@ -69,9 +76,13 @@ export class NumericDomainViolationError
  */
 export class NumericConditioningError
   extends Schema.TaggedError<NumericConditioningError>()("NumericConditioningError", {
+    /** Numerical operation whose conditioning was checked. */
     operation: Schema.String,
+    /** Estimated sensitivity of the result to input perturbation. */
     conditionNumber: Schema.Number,
+    /** Largest condition number accepted by the operation. */
     threshold: Schema.Number,
+    /** Diagnostic recording the failed conditioning comparison. */
     message: Schema.String
   })
 {}
@@ -84,9 +95,13 @@ export class NumericConditioningError
  * @category errors
  */
 export class NumericConvergenceError extends Schema.TaggedError<NumericConvergenceError>()("NumericConvergenceError", {
+  /** Iterative operation that did not satisfy its stopping criterion. */
   operation: Schema.String,
+  /** Iterations completed before termination. */
   iterations: Schema.Number,
+  /** Final error measure compared with the convergence tolerance. */
   residual: Schema.Number,
+  /** Diagnostic recording the final convergence state. */
   message: Schema.String
 }) {}
 

@@ -1,5 +1,5 @@
 /**
- * Pending trial imputation policies for sampler context construction.
+ * Policies for representing in-flight trials in sampler models.
  *
  * @since 0.1.0
  */
@@ -11,61 +11,59 @@ import { ObjectiveValueSchema } from "../contracts/ObjectiveValue.js"
 import type { SuggestContext } from "./SuggestContext.js"
 
 /**
- * A synthetic observation created by imputing an objective value for a pending
- * (in-flight) trial. Samplers treat imputed observations alongside real
- * completed trials so the surrogate model accounts for work already in
- * progress.
+ * Associates a pending configuration with a synthetic objective value.
  *
- * @see {@link PendingImputationPolicy} strategy that produces these observations
- * @see {@link SuggestContext} source of the pending trials being imputed
+ * @remarks
+ * The Study context builder appends these values to completed observations
+ * before invoking the sampler. It does not mark the underlying trials complete.
  * @since 0.1.0
  * @category models
  */
 export class ImputedObservation extends Schema.Class<ImputedObservation>("effect-search/ImputedObservation")({
+  /** Trial identity copied from the pending reservation. */
   trialNumber: Schema.Number,
+  /** Reserved configuration associated with the synthetic value. */
   config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  /** Synthetic scalar or objective vector presented to the sampler. */
   value: ObjectiveValueSchema
 }) {}
 
 /**
- * Strategy for handling in-flight trials when a sampler builds its suggestion
- * context. The `impute` function receives the current {@link SuggestContext}
- * and returns synthetic {@link ImputedObservation} entries the sampler can
- * fold into its completed-trial set.
+ * Defines how pending reservations contribute synthetic completed observations.
  *
- * @see {@link noPendingImputationPolicy} ignores pending trials entirely
- * @see {@link pendingAsZeroImputationPolicy} conservative zero-value imputation
+ * @remarks
+ * `impute` runs once while the Study runtime prepares each suggestion context.
+ * The returned array is appended in order after real completed trials.
  * @since 0.1.0
  * @category models
  */
 export class PendingImputationPolicy extends Data.Class<{
+  /** Diagnostic label retained by the sampler. */
   readonly name: string
+  /** Derives zero or more observations without modifying the supplied context. */
   readonly impute: (context: SuggestContext) => ReadonlyArray<ImputedObservation>
 }> {}
 
 /**
- * Effect service tag for dependency-injecting a pending-trial imputation
- * strategy. Consumers request this tag to obtain an `impute` function
- * without knowing which policy is wired at runtime.
- *
- * @see {@link PendingImputationPolicySpiLayer} constructs a Layer from a policy instance
- * @see {@link PendingImputationPolicy} the value-level policy model
+ * Supplies pending-trial imputation to the Study context builder.
  * @since 0.1.0
  * @category services
  */
 export class PendingImputationPolicySpi extends Effect.Tag("effect-search/Sampler/PendingImputationPolicySpi")<
   PendingImputationPolicySpi,
   {
+    /** Derives synthetic observations for the pending trials in one suggestion context. */
     readonly impute: (context: SuggestContext) => ReadonlyArray<ImputedObservation>
   }
 >() {}
 
 /**
- * Constructs a {@link PendingImputationPolicySpi} Layer from a concrete
- * {@link PendingImputationPolicy} instance, wiring the policy's `impute`
- * function into the Effect service graph.
+ * Supplies {@link PendingImputationPolicySpi} from an existing policy value.
  *
- * @see {@link PendingImputationPolicySpi} the service tag this Layer satisfies
+ * @remarks
+ * The Layer acquires no resources and retains the policy's `impute` function.
+ *
+ * @param policy - Policy delegated to by the service.
  * @since 0.1.0
  * @category layers
  */
@@ -77,10 +75,10 @@ export const PendingImputationPolicySpiLayer = (
   })
 
 /**
- * A policy that produces no synthetic observations for pending trials.
+ * Leaves pending trials out of the sampler's completed observations.
  *
- * @see {@link PendingImputationPolicy} the strategy interface
- * @see {@link pendingAsZeroImputationPolicy} alternative that imputes zeros
+ * @remarks
+ * Pending reservations remain present in `SuggestContext.pending`.
  * @since 0.1.0
  * @category constructors
  */
@@ -96,12 +94,13 @@ const zeroObjectiveValue = (context: SuggestContext): number | ReadonlyArray<num
   })(context.objectiveSpec)
 
 /**
- * Assigns objective value `0` to every pending trial, or a zero vector matching
- * the number of objectives. The meaning of zero depends on each objective's
- * direction and scale; this policy does not guarantee duplicate avoidance.
+ * Assigns zero-valued synthetic observations to all pending trials.
  *
- * @see {@link PendingImputationPolicy} the strategy interface
- * @see {@link noPendingImputationPolicy} alternative that skips imputation
+ * @remarks
+ * A multi-objective context receives one zero per declared direction. The
+ * values are appended to completed observations while the same reservations
+ * remain in `pending`. Zero has no direction-aware interpretation, so this
+ * policy does not guarantee that a sampler avoids equivalent suggestions.
  * @since 0.1.0
  * @category constructors
  */

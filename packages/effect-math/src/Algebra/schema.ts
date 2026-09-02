@@ -1,5 +1,5 @@
 /**
- * Algebra schema authority — domain model and boundary codec contracts.
+ * Validates Algebra discovery metadata and operation inputs at untrusted boundaries.
  *
  * @since 0.1.0
  * @category schemas
@@ -84,8 +84,8 @@ export type AlgebraDomain = typeof AlgebraDomainSchema.Type
 // ---------------------------------------------------------------------------
 
 /**
- * Polynomial evaluation input — coefficient array (lowest-degree-first)
- * and a finite evaluation point.
+ * Accepts a coefficient array in lowest-degree-first order and a finite
+ * evaluation point. Coefficients may contain non-finite numbers.
  *
  * @since 0.1.0
  * @category schemas
@@ -96,7 +96,8 @@ export const PolyEvalInput = Schema.Struct({
 }).annotations({ identifier: "PolyEvalInput" })
 
 /**
- * Polynomial derivative input — coefficient array (lowest-degree-first).
+ * Accepts a coefficient array in lowest-degree-first order. Coefficients may
+ * contain non-finite numbers.
  *
  * @since 0.1.0
  * @category schemas
@@ -106,7 +107,7 @@ export const PolyDerivativeInput = Schema.Struct({
 }).annotations({ identifier: "PolyDerivativeInput" })
 
 /**
- * GCD input — two integers.
+ * Accepts two integers for greatest-common-divisor calculation.
  *
  * @since 0.1.0
  * @category schemas
@@ -117,7 +118,7 @@ export const GcdInput = Schema.Struct({
 }).annotations({ identifier: "GcdInput" })
 
 /**
- * LCM input — two integers.
+ * Accepts two integers for least-common-multiple calculation.
  *
  * @since 0.1.0
  * @category schemas
@@ -128,7 +129,7 @@ export const LcmInput = Schema.Struct({
 }).annotations({ identifier: "LcmInput" })
 
 /**
- * Factorial input — non-negative integer.
+ * Accepts a non-negative integer for factorial calculation.
  *
  * @since 0.1.0
  * @category schemas

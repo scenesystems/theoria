@@ -1,5 +1,5 @@
 /**
- * Scalar authority contracts for advanced computation dispatch.
+ * Defines scalar-lane capability metadata and selection policy for computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -9,7 +9,10 @@ import { Context, Effect, Layer, Match, Option, Schema } from "effect"
 import { ScalarLaneUnsupportedError } from "./AdvancedComputationErrors.js"
 
 /**
- * Supported scalar lanes in the native computation contract.
+ * Accepts the scalar-lane labels understood by the dispatch planner.
+ *
+ * @remarks
+ * These labels do not supply Float64 or BigDecimal kernels.
  *
  * @since 0.1.0
  * @category contracts
@@ -17,7 +20,7 @@ import { ScalarLaneUnsupportedError } from "./AdvancedComputationErrors.js"
 export const ScalarKind = Schema.Literal("float64", "bigdecimal")
 
 /**
- * The native Float64 or arbitrary-precision BigDecimal computation lane.
+ * A decoded scalar-lane label used in dispatch metadata.
  *
  * @since 0.1.0
  * @category models
@@ -25,7 +28,7 @@ export const ScalarKind = Schema.Literal("float64", "bigdecimal")
 export type ScalarKindType = typeof ScalarKind.Type
 
 /**
- * Operation families participating in scalar authority dispatch.
+ * Accepts the operation families that scalar capabilities may declare.
  *
  * @since 0.1.0
  * @category contracts
@@ -33,7 +36,7 @@ export type ScalarKindType = typeof ScalarKind.Type
 export const ScalarOperationCategory = Schema.Literal("numeric", "linear-algebra", "calculus", "optimization")
 
 /**
- * The operation family used to test a lane's declared support.
+ * An operation family used to select scalar capabilities.
  *
  * @since 0.1.0
  * @category models
@@ -41,7 +44,11 @@ export const ScalarOperationCategory = Schema.Literal("numeric", "linear-algebra
 export type ScalarOperationCategoryType = typeof ScalarOperationCategory.Type
 
 /**
- * Scalar capability declaration for a lane.
+ * Describes a lane's operation families and arithmetic claims.
+ *
+ * @remarks
+ * Resolution consults `kind` and `supportedCategories`. It does not verify or
+ * act on `deterministic` or `supportsExactArithmetic`.
  *
  * @since 0.1.0
  * @category contracts
@@ -54,7 +61,7 @@ export const ScalarCapability = Schema.Struct({
 })
 
 /**
- * A lane's supported operation families and deterministic/exact-arithmetic guarantees.
+ * Decoded capability metadata for one scalar lane.
  *
  * @since 0.1.0
  * @category models
@@ -62,7 +69,11 @@ export const ScalarCapability = Schema.Struct({
 export type ScalarCapabilityType = typeof ScalarCapability.Type
 
 /**
- * Scalar dispatch policy with explicit primary and fallback order.
+ * Sets the primary scalar lane and ordered fallback candidates.
+ *
+ * @remarks
+ * The Schema requires at least one fallback entry but permits duplicates and
+ * permits the primary lane to be absent from `fallbackOrder`.
  *
  * @since 0.1.0
  * @category contracts
@@ -73,7 +84,7 @@ export const ScalarAuthorityPolicy = Schema.Struct({
 })
 
 /**
- * The primary scalar lane and ordered fallback candidates.
+ * Decoded scalar selection policy.
  *
  * @since 0.1.0
  * @category models
@@ -81,7 +92,7 @@ export const ScalarAuthorityPolicy = Schema.Struct({
 export type ScalarAuthorityPolicyType = typeof ScalarAuthorityPolicy.Type
 
 /**
- * Validates the authority branch recorded for a scalar-lane resolution.
+ * Accepts the provenance labels returned by scalar selection.
  *
  * @since 0.1.0
  * @category contracts
@@ -89,7 +100,7 @@ export type ScalarAuthorityPolicyType = typeof ScalarAuthorityPolicy.Type
 export const ScalarResolutionSource = Schema.Literal("requested", "policy-primary", "policy-fallback")
 
 /**
- * Decoded authority branch recorded for a scalar-lane resolution.
+ * The policy branch that selected a scalar lane.
  *
  * @since 0.1.0
  * @category models
@@ -97,8 +108,7 @@ export const ScalarResolutionSource = Schema.Literal("requested", "policy-primar
 export type ScalarResolutionSourceType = typeof ScalarResolutionSource.Type
 
 /**
- * Records the selected lane and whether it came from the caller, policy primary,
- * or policy fallback branch.
+ * Describes a selected scalar lane and its policy provenance.
  *
  * @since 0.1.0
  * @category contracts
@@ -109,7 +119,7 @@ export const ScalarResolution = Schema.Struct({
 })
 
 /**
- * The selected scalar lane with authority provenance.
+ * A decoded scalar selection result.
  *
  * @since 0.1.0
  * @category models
@@ -117,7 +127,11 @@ export const ScalarResolution = Schema.Struct({
 export type ScalarResolutionType = typeof ScalarResolution.Type
 
 /**
- * Scalar authority state.
+ * Combines scalar selection policy with a non-empty capability table.
+ *
+ * @remarks
+ * The Schema does not require unique capability kinds or verify that policy
+ * lanes appear in the capability table.
  *
  * @since 0.1.0
  * @category contracts
@@ -128,7 +142,7 @@ export const ScalarAuthorityState = Schema.Struct({
 })
 
 /**
- * The policy and non-empty capability table consulted for scalar dispatch.
+ * Decoded state consumed by scalar selection.
  *
  * @since 0.1.0
  * @category models
@@ -136,7 +150,7 @@ export const ScalarAuthorityState = Schema.Struct({
 export type ScalarAuthorityStateType = typeof ScalarAuthorityState.Type
 
 /**
- * Scalar authority service seam.
+ * Supplies scalar policy and capabilities to computation planning.
  *
  * @since 0.1.0
  * @category contracts
@@ -147,7 +161,11 @@ export class ScalarAuthorityService extends Context.Tag("effect-math/contracts/s
 >() {}
 
 /**
- * Default state: Float64 first, then BigDecimal, for every declared category.
+ * Selects Float64 first and BigDecimal second for every declared operation family.
+ *
+ * @remarks
+ * The capability flags describe intended arithmetic properties. This state
+ * does not install kernels for either lane.
  *
  * @since 0.1.0
  * @category contracts
@@ -171,7 +189,10 @@ export const DefaultScalarAuthority: ScalarAuthorityStateType = {
 }
 
 /**
- * Ready-to-use layer that selects Float64 first and BigDecimal as fallback.
+ * Supplies {@link DefaultScalarAuthority} as {@link ScalarAuthorityService}.
+ *
+ * @remarks
+ * The Layer acquires no resources and cannot fail.
  *
  * @since 0.1.0
  * @category contracts
@@ -206,14 +227,17 @@ const supportsOperationCategory = (
 ): boolean => capability.supportedCategories.includes(operationCategory)
 
 /**
- * Resolves scalar lane for an operation category.
+ * Selects the first declared scalar lane that supports an operation family.
  *
  * @remarks
- * **Details**
- * Explicit `requestedKind` is attempted first. When
- * `enforceRequestedKind` is `true`, policy fallback is disabled and failures
- * surface as typed authority errors. Successful resolution returns source
- * provenance so dispatch plans can prove which authority selected the lane.
+ * An explicit `requestedKind` precedes policy candidates. Setting
+ * `enforceRequestedKind` to `true` restricts selection to that explicit lane.
+ * Candidate kinds are deduplicated by their first occurrence. Resolution
+ * ignores the deterministic and exact-arithmetic capability flags.
+ *
+ * @param request - Operation identity, operation family, and optional caller preference.
+ * @returns The selected lane and the policy branch that selected it.
+ * @throws {@link ScalarLaneUnsupportedError} in the Effect error channel when no candidate capability includes the operation family.
  *
  * @since 0.1.0
  * @category contracts

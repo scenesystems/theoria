@@ -1,16 +1,9 @@
 /**
- * Live Browser Parity — package-owned browser envelope proof.
+ * Renders the synthetic canvas scenarios used to detect changes in line-walker
+ * behavior. These artifacts contain fixed widths and make no browser-accuracy
+ * claim.
  *
- * What this shows: the shipped browser support manifest, checked-in browser
- * parity cases, and machine-readable artifacts all describe one browser story.
- *
- * Feature Type Links:
- * - {@link Browser.BrowserSupportManifest}
- * - {@link Browser.browserSupportProfile}
- * - {@link Browser.BrowserMeasurementCacheLive}
- * - {@link Browser.CanvasTextMeasurerLive}
- *
- * Run: bun run packages/effect-text/examples/06-live-browser-parity.ts
+ * Run with `bun run packages/effect-text/examples/06-synthetic-regression-artifacts.ts`.
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { BunContext } from "@effect/platform-bun"
@@ -48,7 +41,7 @@ const renderProfileReport = (profile: BrowserSupportProfileType) =>
       tabPolicy: profile.tabPolicy,
       parityCases: profile.parityCases,
       caveats: profile.caveats,
-      accuracyArtifact: browserParityArtifactRelativePath(profile.id),
+      regressionArtifact: browserParityArtifactRelativePath(profile.id),
       cases
     }
   })
@@ -56,7 +49,7 @@ const renderProfileReport = (profile: BrowserSupportProfileType) =>
 const program = Effect.gen(function*() {
   const reports = yield* Effect.forEach(BrowserSupportManifest.profiles, renderProfileReport)
 
-  yield* Effect.log("effect-text live browser parity", {
+  yield* Effect.log("effect-text synthetic regression artifacts", {
     defaultProfileId: BrowserSupportManifest.defaultProfileId,
     reports
   })

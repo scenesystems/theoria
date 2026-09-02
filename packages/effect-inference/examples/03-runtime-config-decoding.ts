@@ -1,8 +1,12 @@
+/**
+ * Resolves an OpenAI text provider from explicit runtime options and logs the
+ * requested route together with the provider response metadata.
+ */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect } from "effect"
 
-import * as Runtime from "../src/Runtime/index.js"
+import * as Runtime from "@scenesystems/effect-inference/Runtime"
 
 export const program = Runtime.resolveLiveTextProviderRuntime({
   provider: "openai",

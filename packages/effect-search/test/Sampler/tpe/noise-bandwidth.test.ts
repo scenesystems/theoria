@@ -163,4 +163,16 @@ describe("noise-aware bandwidth", () => {
 
       expect(Either.isLeft(result)).toBe(true)
     }))
+
+  it.effect("rejects non-finite and fractional trial counts", () =>
+    Effect.gen(function*() {
+      const outcomes = yield* Effect.forEach([
+        validateOptions({ nStartupTrials: Number.NaN }),
+        validateOptions({ nStartupTrials: 1.5 }),
+        validateOptions({ nEiCandidates: Number.POSITIVE_INFINITY }),
+        validateOptions({ nEiCandidates: 2.5 })
+      ], Effect.either)
+
+      expect(Arr.every(outcomes, Either.isLeft)).toBe(true)
+    }))
 })

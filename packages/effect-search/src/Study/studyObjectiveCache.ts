@@ -1,5 +1,5 @@
 /**
- * Study-specific objective cache adapter over shared cache authority.
+ * Caches objective values by canonical configuration identity.
  *
  * @since 0.1.0
  */
@@ -15,12 +15,16 @@ import { type ObjectiveValue, ObjectiveValueSchema } from "../contracts/Objectiv
 const DEFAULT_SCOPE = "study"
 
 /**
- * Namespace options used to isolate cached study objective values.
+ * Selects the cache namespace used for objective values.
+ *
+ * @remarks
+ * The scope is retained as supplied and is not an access-control boundary.
  *
  * @since 0.1.0
  * @category models
  */
 export class StudyObjectiveCacheOptions extends Data.Class<{
+  /** Prefix used before the fixed `/objective` descriptor namespace. */
   readonly scope: string
 }> {}
 
@@ -57,7 +61,7 @@ const StudyObjectiveCacheKeySchema: Schema.Schema<StudyObjectiveCacheKey> = Sche
 const DEFAULT_OPTIONS = new StudyObjectiveCacheOptions({ scope: DEFAULT_SCOPE })
 
 /**
- * Creates objective-cache options for the supplied namespace scope.
+ * Uses a caller-selected namespace for objective cache entries.
  *
  * @since 0.1.0
  * @category constructors
@@ -99,7 +103,14 @@ const prepareKey = (
   )
 
 /**
- * Service that caches objective values by deterministic configuration identity.
+ * Reuses objective values for configurations with the same canonical JSON identity.
+ *
+ * @remarks
+ * Configurations are validated as recursive JSON values before lookup. Resolution
+ * serializes concurrent computation of the same key within one cache service. A
+ * successful miss is cached; computation failures are returned unchanged and are
+ * not cached. Key encoding, value encoding, and backend failures use the cache
+ * error channel.
  *
  * @since 0.1.0
  * @category services
@@ -107,10 +118,17 @@ const prepareKey = (
 export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyObjectiveCache")<
   StudyObjectiveCache,
   {
+    /**
+     * Reads a cached value or runs `compute` once for a missing configuration.
+     * The tuple identifies whether the returned value was a `hit` or `miss`.
+     */
     readonly resolve: <E, Requirement>(args: {
+      /** JSON-safe configuration used as the canonical cache key. */
       readonly config: unknown
+      /** Evaluation run only after lookup misses; its errors and requirements are preserved. */
       readonly compute: Effect.Effect<ObjectiveValue, E, Requirement>
     }) => Effect.Effect<readonly [ObjectiveValue, Cache.CacheResolution], Cache.CacheError | E, Requirement>
+    /** Removes the entry for a JSON-safe configuration, if present. */
     readonly invalidate: (config: unknown) => Effect.Effect<void, Cache.CacheError>
   }
 >() {}
@@ -122,9 +140,7 @@ export class StudyObjectiveCache extends Effect.Tag("effect-search/Study/StudyOb
 export type StudyObjectiveCacheError = Cache.CacheError
 
 /**
- * Structural cache service keyed by deterministic JSON-safe configuration
- * identity. `resolve` reports hit/miss and computes only on a miss; computation
- * failures are not cached, while key/schema/backend failures remain typed cache errors.
+ * Describes the operations implemented by the {@link StudyObjectiveCache} service.
  *
  * @since 0.1.0
  * @category type-level
@@ -132,7 +148,13 @@ export type StudyObjectiveCacheError = Cache.CacheError
 export type StudyObjectiveCacheApi = Context.Tag.Service<typeof StudyObjectiveCache>
 
 /**
- * Constructs a study objective cache over the configured schema-cache backend.
+ * Creates an objective cache over the required schema-cache service.
+ *
+ * @remarks
+ * A {@link CacheObserver} present during construction receives hit, miss, and
+ * invalidation events with the configured scope and canonical fingerprint. The
+ * observer is optional. Observer interruption or defects propagate from the cache
+ * operation that records the event.
  *
  * @since 0.1.0
  * @category constructors
@@ -182,7 +204,11 @@ export const makeStudyObjectiveCache = (
   })
 
 /**
- * Live Effect layer providing study objective cache.
+ * Builds one objective-cache service over a required {@link Cache.SchemaCache}.
+ *
+ * @remarks
+ * The Layer has no typed acquisition failure or release action. Lookup state,
+ * per-key serialization, and persistence behavior belong to the supplied schema cache.
  *
  * @since 0.1.0
  * @category layers
@@ -191,7 +217,10 @@ export const StudyObjectiveCacheLive = (options: StudyObjectiveCacheOptions = DE
   Layer.effect(StudyObjectiveCache, makeStudyObjectiveCache(options))
 
 /**
- * Effect layer providing study objective cache with in-memory storage.
+ * Stores objective values for the lifetime of one in-memory Layer instance.
+ *
+ * @remarks
+ * A fresh Layer starts empty, has no requirements, and performs no release action.
  *
  * @since 0.1.0
  * @category layers
@@ -200,7 +229,12 @@ export const StudyObjectiveCacheMemory = (options: StudyObjectiveCacheOptions = 
   StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheMemory))
 
 /**
- * Effect layer providing study objective cache with filesystem storage.
+ * Persists objective values in a platform filesystem store rooted at `directory`.
+ *
+ * @remarks
+ * The Layer requires platform filesystem and path services. Cache operations report
+ * backing-store failures as `CacheBackendError`; process-local lookup and same-key
+ * serialization are not shared with other Layer instances.
  *
  * @since 0.1.0
  * @category layers
@@ -211,12 +245,12 @@ export const StudyObjectiveCacheFileSystem = (
 ) => StudyObjectiveCacheLive(options).pipe(Layer.provide(Cache.SchemaCacheFileSystem(directory)))
 
 /**
- * SQLite-compatible SQL-backed study objective cache.
+ * Persists objective values through a supplied SQLite-compatible SQL client Layer.
  *
  * @remarks
- * Accepts a `SqlClient` layer from the consumer, while the underlying cache
- * statements remain aligned to the SQLite-compatible dialect used by
- * `SchemaCacheSql`.
+ * Layer construction creates the cache table when absent and may fail with
+ * `CacheBackendError`. The supplied client Layer controls connection acquisition
+ * and release. Lookup and same-key serialization remain process-local.
  *
  * @since 0.1.0
  * @category layers

@@ -1,5 +1,5 @@
 /**
- * Optimization schema authority — domain model and boundary codec contracts.
+ * Defines discovery metadata and serializable settings for scalar optimization.
  *
  * @since 0.1.0
  * @category schemas
@@ -21,9 +21,10 @@ export const OptimizationDomainSchema = Schema.Struct({
 })
 
 /**
- * Validates optimizer discovery metadata before root-finding or minimization
- * registration. Unknown stability values, wrong discriminators, and excess
- * properties fail with {@link BoundaryDecodeError}.
+ * Decodes Optimization discovery metadata and rejects excess fields.
+ *
+ * @throws {@link BoundaryDecodeError} in the Effect error channel when the
+ * discriminator, stability, or object shape is invalid.
  *
  * @since 0.1.0
  * @category schemas
@@ -44,7 +45,10 @@ export const decodeOptimizationDomain = (input: unknown) =>
   )
 
 /**
- * Encodes the canonical optimization domain model at the package boundary.
+ * Encodes validated Optimization discovery metadata.
+ *
+ * @throws {@link BoundaryEncodeError} in the Effect error channel when a
+ * value has been forged outside the `OptimizationDomain` type.
  *
  * @since 0.1.0
  * @category schemas
@@ -63,7 +67,7 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
   )
 
 /**
- * Decode failures for unknown input or encode failures for forged Optimization descriptors.
+ * Identifies Optimization descriptor decode and encode failures.
  *
  * @since 0.1.0
  * @category errors
@@ -71,8 +75,7 @@ export const encodeOptimizationDomain = (domain: OptimizationDomain) =>
 export type OptimizationSchemaBoundaryError = BoundaryDecodeError | BoundaryEncodeError
 
 /**
- * Discovery metadata identifying root-finding and minimization capabilities in
- * a recognized stability lane.
+ * Decoded Optimization discovery descriptor.
  *
  * @since 0.1.0
  * @category models
@@ -84,10 +87,11 @@ export type OptimizationDomain = typeof OptimizationDomainSchema.Type
 // ---------------------------------------------------------------------------
 
 /**
- * Options for validated bisection. Endpoints must be finite; when present,
- * `tolerance` must be positive and finite and `maxIterations` must be a
- * positive integer. The schema does not require `a < b` or prove that the
- * endpoint function values have opposite signs.
+ * Accepts finite bisection endpoints and optional positive stopping settings.
+ *
+ * @remarks
+ * `maxIterations` must be an integer. Endpoint ordering and sign change are
+ * mathematical preconditions outside this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -100,10 +104,11 @@ export const BisectInput = Schema.Struct({
 }).annotations({ identifier: "BisectInput" })
 
 /**
- * Options for validated golden-section search. Endpoints must be finite; when
- * present, `tolerance` must be positive and finite and `maxIterations` must be
- * a positive integer. The schema does not require `a < b` and cannot establish
- * that an objective is unimodal on the interval.
+ * Accepts finite golden-section endpoints and optional positive stopping settings.
+ *
+ * @remarks
+ * `maxIterations` must be an integer. Endpoint ordering and objective
+ * unimodality are mathematical preconditions outside this schema.
  *
  * @since 0.1.0
  * @category schemas

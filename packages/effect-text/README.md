@@ -44,7 +44,7 @@ The `React` boundary contains prepare-identity and pure projection helpers. Comp
 | -------------------------- | ------------------------------------------------------------------------------------------------- | ----------- |
 | `Text`                     | Preparation, prepared handles, summaries, lines, cursors, streams, and layers                     | Provisional |
 | `Contracts`                | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, and `HyphenationDictionary` | Stable      |
-| `Browser`                  | Canvas measurement, cache freshness, support data, and parity helpers                             | Provisional |
+| `Browser`                  | Canvas measurement, cache freshness, support data, and synthetic regression helpers               | Provisional |
 | `React`                    | Cache identity and pure prepared-layout projections                                               | Provisional |
 | `Errors`                   | `MeasurementFailed`, `TextLayoutDecodeError`, and `PrepareError`                                  | Stable      |
 | `Experimental.Calibration` | Search-backed engine-profile evaluation and calibration                                           | Unstable    |
@@ -55,13 +55,13 @@ Uppercase and lowercase companion subpaths are exported for compatibility, inclu
 
 The shipped browser profiles are `canvas-monospace` and `canvas-system-ui`. Dictionary hyphenation covers `en-us`, `en-gb`, `de`, `fr`, and `es`, with exact-locale then base-language fallback. Tabs use four-column CSS-style stops. Overflow checks hard breaks, soft hyphens, dictionary hyphens, explicit breaks, then grapheme fallback.
 
-This is a bounded manual layout engine. Full CSS layout and arbitrary shaping-engine parity are outside its support envelope. Explicit unsupported Unicode bidi controls are detected during preparation. Browser claims are limited to the checked-in [`support manifest`](./src/contracts/supportManifest.ts) and parity artifacts.
+This is a bounded manual layout engine. Full CSS layout and shaping-engine equivalence are outside its support envelope. Explicit unsupported Unicode bidi controls are detected during preparation. The checked-in Browser artifacts use a synthetic canvas context and detect package regressions; applications must validate widths against their target browsers and fonts.
 
 `Text.prepare` and `Text.prepareWithSegments` can fail with `MeasurementFailed`. `Text.prepareUnknown` also reports `TextLayoutDecodeError` for invalid input. Pure layout functions have no Effect error channel once preparation succeeds.
 
 ## Examples and reference
 
-[`examples/`](./examples) covers the basic prepare/layout flow, cursor and stream projection, explicit services and caching, canvas measurement, dictionary hyphenation, browser parity, and experimental calibration.
+[`examples/`](./examples) covers the basic prepare/layout flow, cursor and stream projection, explicit services, real canvas integration, dictionary hyphenation, synthetic regression artifacts, and experimental calibration.
 
 ## Status
 

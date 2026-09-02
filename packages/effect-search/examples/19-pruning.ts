@@ -1,20 +1,13 @@
 /**
- * Pruning — stop underperforming trials using intermediate reports.
- *
- * Real use case: cut expensive model runs early when loss is already too high.
- *
- * What this shows: reporting intermediate metrics and pruning weak trials early to save compute.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Reports intermediate loss values and prunes trials that cross the configured
+ * threshold after the warm-up steps.
  *
  * Run: bun run examples/19-pruning.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Effect, Match, Stream } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -32,7 +25,7 @@ const program = Effect.gen(function*() {
       {
         while: ({ step, stopped }) => step < 6 && !stopped,
         body: ({ step }) => {
-          const rawLoss = Math.abs(config.x - 0.6) * 8 + 1
+          const rawLoss = Numeric.abs(config.x - 0.6) * 8 + 1
           const nextValue = rawLoss / (step + 1)
 
           return runtime.report(step, nextValue).pipe(

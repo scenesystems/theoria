@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleStratifiedRoundRobin } from "@scenesystems/effect-search/Sampler"
 import { Array as Arr, Match } from "effect"
 import type { MergeComparison, MergeComparisonBucket } from "../model.js"
@@ -62,6 +63,6 @@ export const selectBalancedMergeSubsample = (
   sampleStratifiedRoundRobin({
     buckets: partitionMergeComparisons(comparisons),
     bucketOrder,
-    targetSize: Math.min(MERGE_SUBSAMPLE_TARGET_SIZE, comparisons.length),
+    targetSize: Numeric.min(MERGE_SUBSAMPLE_TARGET_SIZE, comparisons.length),
     seed
   })

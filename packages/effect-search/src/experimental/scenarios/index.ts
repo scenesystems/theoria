@@ -1,8 +1,10 @@
 /**
- * Deterministic search-space fixtures used by sampler and study tests.
+ * Defines fixed configuration decoders and search spaces for sampler and study tests.
  *
  * @remarks
- * These declarations are experimental and may change without a major-version release.
+ * Sampling ranges belong to the spaces. The exported configuration schemas validate
+ * field shape and literal choices but do not add numeric sampling bounds as refinements.
+ * These declarations may change without a major-version release.
  *
  * @since 0.1.0
  */

@@ -1,5 +1,5 @@
 /**
- * OpenAI-compatible family live adapters and resolution helpers.
+ * Live language and embedding layers for OpenAI-compatible endpoints.
  *
  * @since 0.1.0
  */
@@ -59,9 +59,9 @@ const resolvedModelLayers = (options: {
   })
 
 /**
- * Provides an Effect AI `LanguageModel` that sends OpenRouter-compatible chat
- * requests to `baseUrl`. The layer includes its fetch client and requires no
- * services; request failures occur when model operations run.
+ * Constructs a fully provided `LanguageModel` for OpenRouter-compatible chat
+ * completions at `baseUrl`. Layer construction is infallible; transport and
+ * provider failures occur when model operations run.
  *
  * @since 0.1.0
  * @category layers
@@ -72,8 +72,9 @@ export const OpenAiCompatibleLive = (options: {
 }): Layer.Layer<LanguageModel.LanguageModel, never, never> => compatibleLanguageLayer(options)
 
 /**
- * Provides an Effect AI `EmbeddingModel` that sends OpenAI-compatible batched
- * embedding requests to `baseUrl`. The layer includes its fetch client.
+ * Constructs a fully provided `EmbeddingModel` for OpenAI-compatible batched
+ * requests at `baseUrl`. Layer construction is infallible; request failures
+ * remain in Effect AI's model-operation channel.
  *
  * @since 0.1.0
  * @category layers

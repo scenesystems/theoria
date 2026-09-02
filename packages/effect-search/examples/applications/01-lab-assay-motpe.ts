@@ -1,41 +1,14 @@
 /**
- * Advanced Applications / 01 — Lab Assay Recipe Tuning.
- *
- * Plain-English goal:
- * Find assay settings that are accurate, safe, and fast.
- *
- * Use case:
- * You have several recipe knobs (`ph`, temperature, incubation time, dose,
- * and wash count). Improving one outcome can hurt another, so you want a
- * short list of good trade-off recipes rather than one single "winner".
- *
- * Why `effect-search`:
- * This is an expensive black-box problem with mixed variable types and noisy
- * measurements. The multi-objective study gives you a Pareto front directly.
- *
- * Objective semantics:
- * 1. `assayError` (lower is better): how far the run is from target behavior.
- * 2. `contaminationRisk` (lower is better): modeled instability/contamination risk.
- * 3. `throughputMinutes` (lower is better): total protocol runtime.
- *
- * What to expect in output:
- * A set of "Pareto protocol" rows. Each row is a valid trade-off candidate.
- * None is strictly better than all others on every metric.
- *
- * How to use the result:
- * Pick candidates based on your current phase (high-throughput screening,
- * precision validation, etc.) and validate those on real assays.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Contracts.ObjectiveVector}
- * - {@link Study.StudyResult}
+ * Searches assay recipes with MOTPE and logs non-dominated combinations of
+ * assay error, modeled contamination risk, and protocol runtime. All three
+ * objectives are minimized.
  *
  * Run: bun run examples/applications/01-lab-assay-motpe.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const assayErrorScore = (config: {
@@ -44,11 +17,11 @@ const assayErrorScore = (config: {
   readonly incubationMinutes: number
   readonly reagentDose: number
 }): number =>
-  (config.ph - 7.35) ** 2 * 10
-  + (config.temperatureC - 33.5) ** 2 / 22
-  + (config.reagentDose - 1.05) ** 2 * 3.8
-  + (config.incubationMinutes - 58) ** 2 / 420
-  + Math.abs((config.temperatureC - 33.5) * (config.reagentDose - 1.05)) / 26
+  Numeric.pow(config.ph - 7.35, 2) * 10
+  + Numeric.pow(config.temperatureC - 33.5, 2) / 22
+  + Numeric.pow(config.reagentDose - 1.05, 2) * 3.8
+  + Numeric.pow(config.incubationMinutes - 58, 2) / 420
+  + Numeric.abs((config.temperatureC - 33.5) * (config.reagentDose - 1.05)) / 26
 
 const contaminationRiskScore = (config: {
   readonly ph: number
@@ -57,7 +30,7 @@ const contaminationRiskScore = (config: {
   readonly washCycles: number
 }): number =>
   0.06
-  + Math.abs(config.ph - 7.2) * 0.12
+  + Numeric.abs(config.ph - 7.2) * 0.12
   + (config.temperatureC > 37 ? (config.temperatureC - 37) * 0.02 : 0)
   + config.washCycles * 0.015
   + (config.reagentDose < 0.55 ? (0.55 - config.reagentDose) * 0.2 : 0)

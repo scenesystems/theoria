@@ -1,5 +1,5 @@
 /**
- * Schema for the algorithm identifiers accepted by {@link seal}.
+ * Defines the cipher discriminator stored in a {@link SealedEnvelope}.
  *
  * @since 0.1.0
  * @category schemas
@@ -7,7 +7,7 @@
 import { Schema } from "effect"
 
 /**
- * Accepts `"xchacha20-poly1305"`, `"aes-256-gcm-siv"`, or `"aes-256-gcm"`.
+ * Selects cipher dispatch and the nonce length used by envelope encoding.
  *
  * @since 0.1.0
  * @category schemas

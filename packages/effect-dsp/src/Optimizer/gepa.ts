@@ -1,42 +1,39 @@
 /**
- * GEPA — Guided Evolutionary Prompt Adaptation via teacher-student debate and
- * evolutionary crossover.
+ * Evolves module instructions through reflective mutation and Pareto selection.
  *
  * @since 0.1.0
  */
 export {
   /**
-   * Run the GEPA optimizer and return the optimized module with tuned
-   * instructions.
+   * Evolves a module while discarding lifecycle events.
    *
    * @since 0.1.0
    * @category constructors
    */
   gepa,
   /**
-   * Callback sink for streaming GEPA progress events during optimization.
+   * Receives each lifecycle event before optimization advances.
    *
    * @since 0.1.0
    * @category type-level
    */
   type GEPAEventSink,
   /**
-   * Configuration for GEPA optimization: module, examples, metrics, population
-   * size, and generation count.
+   * Configures candidate evaluation, reflective mutation, and merge attempts.
    *
    * @since 0.1.0
    * @category models
    */
   type GEPAOptions,
   /**
-   * Run GEPA with a user-supplied event sink for real-time progress streaming.
+   * Evolves a module while emitting lifecycle events in execution order.
    *
    * @since 0.1.0
    * @category constructors
    */
   gepaWithEvents,
   /**
-   * No-op event sink that discards all GEPA events.
+   * Discards lifecycle events without adding Effect channels.
    *
    * @since 0.1.0
    * @category constants

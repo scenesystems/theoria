@@ -1,8 +1,5 @@
 /**
- * Typed error taxonomy for the Probability domain. Each error is a
- * `Schema.TaggedError` so it round-trips through Effect channels and
- * can be pattern-matched by `_tag`. Errors are stratified into boundary
- * failures (decode) and operation failures (domain violation, parameter).
+ * Defines typed failures for Probability boundary and calculation operations.
  *
  * @since 0.1.0
  * @category errors
@@ -20,6 +17,7 @@ import type { BoundaryDecodeError, BoundaryEncodeError } from "../contracts/shar
  */
 export class ProbabilityDomainBoundaryError
   extends Schema.TaggedError<ProbabilityDomainBoundaryError>()("ProbabilityDomainBoundaryError", {
+    /** Diagnostic supplied by the boundary that rejected the descriptor. */
     message: Schema.String
   })
 {}
@@ -35,7 +33,9 @@ export class ProbabilityDomainBoundaryError
  * @category errors
  */
 export class ProbabilityDecodeError extends Schema.TaggedError<ProbabilityDecodeError>()("ProbabilityDecodeError", {
+  /** Public probability operation whose input failed decoding. */
   operation: Schema.String,
+  /** Effect Schema issue report for the rejected input. */
   message: Schema.String
 }) {}
 
@@ -47,21 +47,26 @@ export class ProbabilityDecodeError extends Schema.TaggedError<ProbabilityDecode
  */
 export class ProbabilityDomainViolationError
   extends Schema.TaggedError<ProbabilityDomainViolationError>()("ProbabilityDomainViolationError", {
+    /** Strict-policy operation that produced a non-finite result. */
     operation: Schema.String,
+    /** Diagnostic containing the rejected result or finite-result requirement. */
     message: Schema.String
   })
 {}
 
 /**
- * Reports invalid parameters for the lightweight normal or uniform helpers,
- * such as non-positive sigma or an unordered interval.
+ * Reports unordered uniform bounds rejected by a validated PDF or CDF
+ * operation. Invalid normal scale is reported as `ProbabilityDecodeError`
+ * because the normal input schema requires a positive value.
  *
  * @since 0.1.0
  * @category errors
  */
 export class ProbabilityParameterError
   extends Schema.TaggedError<ProbabilityParameterError>()("ProbabilityParameterError", {
+    /** Validated probability operation whose bounds are not strictly ordered. */
     operation: Schema.String,
+    /** Diagnostic identifying the rejected bound relationship. */
     message: Schema.String
   })
 {}

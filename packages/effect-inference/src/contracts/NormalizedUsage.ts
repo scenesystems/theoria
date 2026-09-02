@@ -1,5 +1,5 @@
 /**
- * Normalized token and cost accounting for runtime evidence.
+ * Provider-independent usage observations recorded after inference.
  *
  * @since 0.1.0
  */
@@ -13,12 +13,19 @@ import { Schema } from "effect"
  * @category schemas
  */
 export const NormalizedUsageSchema = Schema.Struct({
+  /** Tokens attributed to request input. */
   inputTokens: Schema.Number,
+  /** Tokens attributed to generated output. */
   outputTokens: Schema.Number,
+  /** Provider-reported aggregate token count. */
   totalTokens: Schema.Number,
+  /** Input tokens served from a provider cache, when reported. */
   cacheReadTokens: Schema.optional(Schema.Number),
+  /** Input tokens written to a provider cache, when reported. */
   cacheWriteTokens: Schema.optional(Schema.Number),
+  /** Tokens attributed to provider-specific reasoning, when reported. */
   reasoningTokens: Schema.optional(Schema.Number),
+  /** Provider-reported request cost in US dollars, when available. */
   costUsd: Schema.optional(Schema.Number)
 })
 

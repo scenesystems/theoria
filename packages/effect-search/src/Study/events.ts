@@ -1,5 +1,5 @@
 /**
- * Event publishing infrastructure for study lifecycle notifications.
+ * Publishes study lifecycle events to in-process and artifact sinks.
  *
  * @since 0.1.0
  */
@@ -79,7 +79,14 @@ const EVENT_COMPONENT: ComponentPath = ["Study", "events"]
 const EVENT_SOURCE_REF = new SourceRef({ origin: "effect-search", domain: "study", segments: ["event"] })
 
 /**
- * Create an event publisher that wraps study events in artifact envelopes and writes them to a sink.
+ * Wraps study events in artifact envelopes and sends them to an artifact sink.
+ *
+ * @remarks
+ * Each call allocates the next artifact ID from the required {@link EnvelopeContext},
+ * records the current wall-clock time, and relates the envelope to the context's
+ * run ID. The envelope identifies `effect-search` as its origin and uses schema
+ * version `artifact-envelope/v1`. Expected sink failures cannot enter the typed
+ * channel; sink interruption or defects still interrupt or defect publication.
  *
  * @since 0.1.0
  * @category constructors

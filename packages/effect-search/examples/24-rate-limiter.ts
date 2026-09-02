@@ -1,14 +1,6 @@
 /**
- * Rate-Limited Objective — keep external API calls within provider quotas.
- *
- * Real use case: optimize prompts while respecting strict request throughput limits.
- *
- * What this shows: wrapping objective execution with rate limiting to stay within provider quotas.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Limits concurrent objective calls to the configured fixed-window quota while
+ * the study itself runs with higher concurrency.
  *
  * Run: bun run examples/24-rate-limiter.ts
  */
@@ -16,6 +8,7 @@ import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Number as Num, Ref } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
@@ -34,7 +27,7 @@ const program = Effect.gen(function*() {
       () =>
         Effect.sleep("40 millis").pipe(
           Effect.map(() => {
-            const quality = 1 - Math.abs(config.temperature - 0.65)
+            const quality = 1 - Numeric.abs(config.temperature - 0.65)
             const tokenPenalty = config.maxTokens / 4096
 
             return quality - tokenPenalty

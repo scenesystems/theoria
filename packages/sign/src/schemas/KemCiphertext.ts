@@ -1,13 +1,5 @@
 /**
- * KEM encapsulation output as a Schema.Class.
- *
- * Carries the encapsulated ciphertext and shared secret from
- * a KEM operation (XWing). The ciphertext is sent to the recipient,
- * who decapsulates it with their secret key to recover the same
- * shared secret.
- *
- * @see {@link KemAlgorithm} — algorithm discriminant
- * @see {@link kem} — the pipeline that produces this type
+ * Defines the sender-side result of key encapsulation.
  *
  * @since 0.1.0
  * @category schemas
@@ -16,7 +8,12 @@ import { Schema } from "effect"
 import { KemAlgorithm } from "./KemAlgorithm.js"
 
 /**
- * Algorithm-tagged KEM encapsulation result.
+ * Carries the ciphertext for the recipient and the sender's copy of the raw
+ * shared secret.
+ *
+ * @remarks
+ * The schema checks only the discriminator and `Uint8Array` carriers. It does
+ * not validate X-Wing byte lengths or cryptographic provenance.
  *
  * @since 0.1.0
  * @category schemas

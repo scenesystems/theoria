@@ -1,5 +1,5 @@
 /**
- * Hugging Face dedicated-endpoint live adapters and resolution helpers.
+ * Live model layers and resolution for Hugging Face dedicated endpoints.
  *
  * @since 0.1.0
  */
@@ -20,7 +20,9 @@ import { ResolvedModelLayers, RuntimeResolution } from "../Runtime/services.js"
 import { makeHuggingFaceEndpointRoute } from "./metadata.js"
 
 /**
- * Dedicated-endpoint text-generation lane for Hugging Face endpoint runtimes.
+ * Constructs a fully provided OpenAI-compatible `LanguageModel` for a Hugging
+ * Face dedicated endpoint. `accessToken` remains redacted in configuration;
+ * request failures occur when model operations run.
  *
  * @since 0.1.0
  * @category layers
@@ -39,7 +41,8 @@ export const HuggingFaceEndpointLive = (options: {
   )
 
 /**
- * Dedicated-endpoint embeddings lane for Hugging Face feature extraction.
+ * Constructs a fully provided `EmbeddingModel` that sends feature-extraction
+ * requests to the dedicated endpoint in `route`.
  *
  * @since 0.1.0
  * @category layers
@@ -51,7 +54,9 @@ export const HuggingFaceEndpointEmbeddingsLive = (options: {
 }): Layer.Layer<EmbeddingModel.EmbeddingModel, never, never> => makeHuggingFaceEmbeddingLayer(options)
 
 /**
- * Builds a live runtime resolution for Hugging Face dedicated-endpoint lanes.
+ * Resolves a dedicated endpoint without network I/O. The supplied `baseUrl`
+ * replaces any route URL, while authentication method and optional endpoint,
+ * deployment, and runtime-flavor metadata are retained from `descriptor`.
  *
  * @since 0.1.0
  * @category constructors

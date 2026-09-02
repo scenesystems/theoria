@@ -1,14 +1,6 @@
 /**
- * Storage Resume — crash-safe persistence with append-only envelope log.
- *
- * Real use case: restart a worker and continue from on-disk study state.
- *
- * What this shows: using StudyStorage for crash-safe on-disk persistence and resume from storage.
- *
- * Feature Type Links:
- * - {@link SearchSpace.Type}
- * - {@link Sampler.Sampler}
- * - {@link Study.StudyResult}
+ * Persists study events to the package's file-backed storage service and
+ * resumes the study from that stored state.
  *
  * Run: bun run examples/11-storage-resume.ts
  */
@@ -16,9 +8,10 @@ import { FileSystem } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Match, Schema } from "effect"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
 
-const objectiveValue = (x: number, y: number): number => (x - 0.4) ** 2 + (y - 1.2) ** 2
+const objectiveValue = (x: number, y: number): number => Numeric.pow(x - 0.4, 2) + Numeric.pow(y - 1.2, 2)
 
 const program = Effect.scoped(
   Effect.gen(function*() {

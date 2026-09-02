@@ -1,9 +1,6 @@
 /**
- * Algorithm Comparison — all three AEAD algorithms side by side.
- *
- * What this shows: each algorithm produces a self-describing `SealedEnvelope`, and
- * `unseal` dispatches to the correct cipher automatically. Wrong keys and bad key
- * lengths surface as typed errors you can handle with `catchTag`.
+ * Seals and unseals with each public AEAD algorithm, then handles wrong-key and
+ * invalid-key-length failures through their typed error tags.
  *
  * Run: bun run examples/02-algorithm-comparison.ts
  */

@@ -1,5 +1,5 @@
 /**
- * Public schemas for text preparation and layout.
+ * Validation contracts for text preparation and layout geometry.
  *
  * @since 0.1.0
  */
@@ -33,8 +33,11 @@ export type WhiteSpaceModeType = typeof WhiteSpaceMode.Type
  * @category schemas
  */
 export const FontDescriptor = Schema.Struct({
+  /** CSS font-family value passed to the measurement service. */
   family: Schema.String,
+  /** Positive font size in CSS pixels. */
   size: FiniteNumber.pipe(Schema.greaterThan(0)),
+  /** Positive integer font weight; preparation defaults omission to `400`. */
   weight: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)))
 })
 
@@ -99,7 +102,9 @@ export const TextSegmentKind = Schema.Literal("text", "space", "hard-break")
  * @category schemas
  */
 export const TextSegment = Schema.Struct({
+  /** Segment behavior during whitespace handling and line breaking. */
   kind: TextSegmentKind,
+  /** Source text represented by the segment. */
   text: Schema.String
 })
 
@@ -119,9 +124,13 @@ export type TextSegmentType = typeof TextSegment.Type
  * @category schemas
  */
 export const PrepareInput = Schema.Struct({
+  /** Source text measured and compiled by preparation. */
   text: Schema.String,
+  /** Font used for every measurement in the prepared handle. */
   font: FontDescriptor,
+  /** Whitespace normalization policy applied before measurement. */
   whiteSpace: WhiteSpaceMode,
+  /** Dictionary locale; omission disables dictionary hyphenation. */
   hyphenationLocale: Schema.optional(HyphenationLocale)
 })
 
@@ -141,7 +150,9 @@ export type PrepareInputType = typeof PrepareInput.Type
  * @category schemas
  */
 export const LayoutRequest = Schema.Struct({
+  /** Positive available width in measurement-service units. */
   maxWidth: FiniteNumber.pipe(Schema.greaterThan(0)),
+  /** Positive painted line height in the caller's coordinate units. */
   lineHeight: FiniteNumber.pipe(Schema.greaterThan(0))
 })
 
@@ -160,7 +171,9 @@ export type LayoutRequestType = typeof LayoutRequest.Type
  * @category schemas
  */
 export const LayoutCursor = Schema.Struct({
+  /** Zero-based logical segment position. */
   segmentIndex: NonNegativeInt,
+  /** Zero-based grapheme position within the segment. */
   graphemeIndex: NonNegativeInt
 })
 
@@ -189,9 +202,12 @@ const LayoutVisualMetadataFields = {
  * @category schemas
  */
 export const LayoutLine = Schema.Struct({
+  /** Zero-based output line position. */
   index: NonNegativeInt,
   ...LayoutVisualMetadataFields,
+  /** Materialized line contents in visual order. */
   text: Schema.String,
+  /** Painted width in measurement-service units. */
   width: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
 })
 
@@ -215,8 +231,11 @@ export type LayoutLineType = typeof LayoutLine.Type
  */
 export const LayoutLineRange = Schema.Struct({
   ...LayoutVisualMetadataFields,
+  /** Painted width in measurement-service units. */
   width: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  /** Inclusive logical source cursor. */
   start: LayoutCursor,
+  /** Exclusive logical source cursor. */
   end: LayoutCursor
 })
 
@@ -235,8 +254,11 @@ export type LayoutLineRangeType = typeof LayoutLineRange.Type
  * @category schemas
  */
 export const LayoutSummary = Schema.Struct({
+  /** Number of projected lines. */
   lineCount: NonNegativeInt,
+  /** Product of line count and requested line height. */
   height: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  /** Greatest painted line width, or zero for empty text. */
   maxLineWidth: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
 })
 
@@ -256,10 +278,15 @@ export type LayoutSummaryType = typeof LayoutSummary.Type
  * @category schemas
  */
 export const EngineProfile = Schema.Struct({
+  /** Non-negative tolerance added when deciding whether a run fits. */
   lineFitEpsilon: FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  /** Positive number of space columns represented by a tab stop. */
   tabWidth: PositiveInt,
+  /** Paragraph direction used when source text has no strong direction. */
   defaultDirection: BaseTextDirection,
+  /** Whether an earlier soft-hyphen break wins over a later fit. */
   preferEarlySoftHyphenBreak: Schema.Boolean,
+  /** Whether prepared prefix measurements drive breakable-run fitting. */
   preferPrefixWidthsForBreakableRuns: Schema.Boolean
 })
 

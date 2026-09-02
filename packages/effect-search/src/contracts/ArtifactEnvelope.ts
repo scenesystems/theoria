@@ -1,10 +1,5 @@
 /**
- * Canonical artifact envelope — tagged union of provenance-bearing output records.
- *
- * @remarks
- * The envelope is the shared contract between effect-search, effect-dsp, and
- * downstream adapters. Each variant carries typed payload specific to its kind,
- * with branded identity fields, structured lineage, and ontology-compatible relations.
+ * Versioned transport records shared by effect-search, effect-dsp, and artifact sinks.
  *
  * @since 0.1.0
  */
@@ -18,15 +13,7 @@ import { ArtifactProducerSchema } from "./ArtifactProducer.js"
 import { ArtifactRelationSchema } from "./ArtifactRelation.js"
 
 /**
- * Schema version literal for the canonical artifact envelope.
- *
- * @remarks
- * All envelopes carry this version in their `schemaVersion` field. When the
- * envelope shape changes in a breaking way, a new literal is introduced —
- * consumers can branch on version to support migration.
- *
- * @see {@link ArtifactEnvelopeSchema} — the schema that uses this version
- * @see {@link ArtifactEnvelope} — the type that carries this version
+ * Decodes the `"artifact-envelope/v1"` wire-format discriminator.
  *
  * @since 0.1.0
  * @category schemas
@@ -34,10 +21,7 @@ import { ArtifactRelationSchema } from "./ArtifactRelation.js"
 export const ArtifactEnvelopeVersion = Schema.Literal("artifact-envelope/v1")
 
 /**
- * The literal `"artifact-envelope/v1"` — extracted for use in type-level
- * constraints and version-branching logic.
- *
- * @see {@link ArtifactEnvelopeVersion} — schema definition
+ * Wire-format version carried by every artifact envelope.
  *
  * @since 0.1.0
  * @category type-level
@@ -45,7 +29,8 @@ export const ArtifactEnvelopeVersion = Schema.Literal("artifact-envelope/v1")
 export type ArtifactEnvelopeVersion = Schema.Schema.Type<typeof ArtifactEnvelopeVersion>
 
 /**
- * JSON-safe recursive payload value for custom artifacts.
+ * Recursive custom payload made from primitive values, arrays, and string-keyed records.
+ * Numbers are not constrained to finite values by this type.
  *
  * @since 0.1.0
  * @category models
@@ -71,14 +56,11 @@ const ArtifactPayloadSchema: Schema.Schema<ArtifactPayload, ArtifactPayload, nev
 )
 
 /**
- * Recursive schema for custom artifact payload values.
+ * Decodes recursively nested custom payloads without imposing a depth limit.
  *
  * @remarks
- * Accepts any JSON-safe tree (strings, numbers, booleans, null, arrays,
- * and records) via `Schema.suspend` to handle arbitrary nesting depth.
- *
- * @see {@link ArtifactEnvelopeSchema} — uses this as the `Custom` variant payload
- * @see {@link Custom} — constructor for custom envelopes
+ * Accepted leaves are strings, numbers, booleans, and null. Numeric leaves may be
+ * non-finite even though JSON serialization cannot preserve those values faithfully.
  *
  * @since 0.1.0
  * @category schemas
@@ -93,17 +75,12 @@ const envelopeBaseFields = {
 }
 
 /**
- * Codec for serializing and deserializing {@link ArtifactEnvelope} values.
+ * Decodes version-one trial, study snapshot, study event, and custom artifact records.
  *
  * @remarks
- * Encodes the four-variant tagged union to JSON and back. Every variant
- * shares base fields (`schemaVersion`, `producer`, `lineage`, `relations`)
- * and adds a variant-specific payload. Use with `Schema.decodeUnknown` /
- * `Schema.encode` at persistence and transport boundaries.
- *
- * @see {@link ArtifactEnvelope} — the type this schema produces
- * @see {@link ArtifactProducerSchema} — nested producer codec
- * @see {@link ArtifactRelationSchema} — nested relation codec
+ * Decoding validates the nested producer declaration, lineage, optional relations, and
+ * variant payload. It does not authenticate provenance, verify integrity digests, or
+ * establish referential consistency among relations.
  *
  * @since 0.1.0
  * @category schemas
@@ -128,16 +105,12 @@ export const ArtifactEnvelopeSchema = Schema.Union(
 )
 
 /**
- * Transport contract projected into effect-dsp, combining producer/lineage
- * metadata with a trial, snapshot, event, or custom payload.
+ * Version-one artifact record with declared provenance and a tagged payload.
  *
  * @remarks
- * `relations` is optional; `schemaVersion` is `artifact-envelope/v1`.
- * Use `matchEnvelope` exhaustively; decode with {@link ArtifactEnvelopeSchema} first.
- *
- * @see {@link ArtifactEnvelopeSchema} — codec for serialization
- * @see {@link matchEnvelope} — exhaustive pattern match
- * @see {@link isEnvelope} — type guard
+ * Every variant includes a producer and lineage. `relations` may be absent. Callers
+ * receiving unknown data should decode it with {@link ArtifactEnvelopeSchema} before
+ * using the tagged constructors or matchers.
  *
  * @since 0.1.0
  * @category models
@@ -147,14 +120,11 @@ export type ArtifactEnvelope = Schema.Schema.Type<typeof ArtifactEnvelopeSchema>
 const ArtifactEnvelopes = Data.taggedEnum<ArtifactEnvelope>()
 
 /**
- * Wraps a single trial result from an optimization run.
+ * Constructs an envelope containing one serializable trial record.
  *
  * @remarks
- * Contains the full {@link SnapshotTrialSchema} payload — parameter values,
- * objective measurements, and trial status — alongside provenance metadata.
- *
- * @see {@link ArtifactEnvelope} — parent union
- * @see {@link StudySnapshotEnvelope} — companion for full study snapshots
+ * The constructor performs no decoding. Use {@link ArtifactEnvelopeSchema} when the
+ * trial or provenance fields cross an untrusted or serialized boundary.
  *
  * @since 0.1.0
  * @category constructors
@@ -162,14 +132,7 @@ const ArtifactEnvelopes = Data.taggedEnum<ArtifactEnvelope>()
 export const TrialLog = ArtifactEnvelopes.TrialLog
 
 /**
- * Wraps a point-in-time snapshot of an entire study.
- *
- * @remarks
- * Captures the full {@link StudySnapshot} — all trials, search space state,
- * and study metadata — enabling study replay and comparison across runs.
- *
- * @see {@link ArtifactEnvelope} — parent union
- * @see {@link TrialLog} — companion for individual trial results
+ * Constructs an envelope containing a persisted study snapshot.
  *
  * @since 0.1.0
  * @category constructors
@@ -177,14 +140,8 @@ export const TrialLog = ArtifactEnvelopes.TrialLog
 export const StudySnapshotEnvelope = ArtifactEnvelopes.StudySnapshot
 
 /**
- * Wraps a discrete study lifecycle event (started, paused, completed, failed).
- *
- * @remarks
- * Carries a {@link StudyEventSchema} payload for event-sourced study history,
- * enabling reconstruction of study state from an ordered event stream.
- *
- * @see {@link ArtifactEnvelope} — parent union
- * @see {@link StudySnapshotEnvelope} — companion for full state snapshots
+ * Constructs an envelope containing one public study event.
+ * Event envelopes record notifications and do not by themselves constitute a replay log.
  *
  * @since 0.1.0
  * @category constructors
@@ -192,15 +149,12 @@ export const StudySnapshotEnvelope = ArtifactEnvelopes.StudySnapshot
 export const StudyEventEnvelope = ArtifactEnvelopes.StudyEvent
 
 /**
- * Wraps an arbitrary JSON-safe payload for extension points.
+ * Constructs an envelope containing a recursive custom payload.
  *
  * @remarks
- * Use when none of the typed variants (TrialLog, StudySnapshot, StudyEvent)
- * apply — e.g. third-party adapter outputs or experimental artifact kinds.
- * The payload is validated by {@link ArtifactPayload}.
- *
- * @see {@link ArtifactEnvelope} — parent union
- * @see {@link ArtifactPayload} — recursive schema for the payload field
+ * Use this branch for data that has no trial, snapshot, or study-event representation.
+ * Construction relies on the static payload type; decode unknown data with
+ * {@link ArtifactPayload} or {@link ArtifactEnvelopeSchema}.
  *
  * @since 0.1.0
  * @category constructors
@@ -208,15 +162,9 @@ export const StudyEventEnvelope = ArtifactEnvelopes.StudyEvent
 export const Custom = ArtifactEnvelopes.Custom
 
 /**
- * Exhaustive pattern match on envelope variants.
+ * Dispatches an artifact envelope to the handler for its tagged payload variant.
  *
- * @remarks
- * Provide a handler for each of the four envelope kinds. Adding a new
- * variant to {@link ArtifactEnvelope} causes a compile error at every
- * uncovered match site.
- *
- * @see {@link ArtifactEnvelope} — the union being matched
- * @see {@link isEnvelope} — non-exhaustive type guard alternative
+ * @typeParam Cases - Exhaustive handler record whose return values determine the result union.
  *
  * @since 0.1.0
  * @category pattern-matching
@@ -224,14 +172,9 @@ export const Custom = ArtifactEnvelopes.Custom
 export const matchEnvelope = ArtifactEnvelopes.$match
 
 /**
- * Builds a type guard that narrows an artifact envelope by its envelope tag.
+ * Builds a predicate that narrows an artifact envelope by `_tag`.
  *
- * @remarks
- * The returned predicate selects one of `TrialLog`, `StudySnapshot`,
- * `StudyEvent`, or `Custom` while preserving that variant's payload type.
- *
- * @see {@link ArtifactEnvelope} — the union being narrowed
- * @see {@link matchEnvelope} — exhaustive alternative
+ * @typeParam Tag - Envelope discriminator selected for narrowing.
  *
  * @since 0.1.0
  * @category guards

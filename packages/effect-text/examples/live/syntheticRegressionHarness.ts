@@ -48,24 +48,26 @@ const verifyArtifact = (
 
     yield* actual === expected
       ? Console.log(`verified ${browserParityArtifactRelativePath(artifact.profileId)}`)
-      : Effect.dieMessage(`Browser accuracy artifact drift detected for ${artifact.profileId}`)
+      : Effect.dieMessage(`Synthetic regression artifact drift detected for ${artifact.profileId}`)
   })
 
-export const verifyBrowserAccuracyArtifacts = (): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
+export const verifySyntheticRegressionArtifacts = (): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
   Effect.forEach(
     BrowserSupportManifest.profiles,
     (profile) => renderBrowserParityArtifact(profile).pipe(Effect.flatMap(verifyArtifact)),
     { discard: true }
   )
 
-export const refreshBrowserAccuracyArtifacts = (): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
+export const refreshSyntheticRegressionArtifacts = (): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path> =>
   Effect.forEach(
     BrowserSupportManifest.profiles,
     (profile) => renderBrowserParityArtifact(profile).pipe(Effect.flatMap(writeArtifact)),
     { discard: true }
   )
 
-const program = process.argv.includes("--write") ? refreshBrowserAccuracyArtifacts() : verifyBrowserAccuracyArtifacts()
+const program = process.argv.includes("--write")
+  ? refreshSyntheticRegressionArtifacts()
+  : verifySyntheticRegressionArtifacts()
 
 if (import.meta.main) {
   BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

@@ -33,11 +33,12 @@ export type FontReadinessRevisionType = typeof FontReadinessRevision.Type
 export const initialFontReadinessRevision = (): FontReadinessRevisionType => 0
 
 /**
- * Advances the browser font-readiness revision.
+ * Adds one to a browser font-readiness revision.
  *
  * @remarks
  * Increment the revision when browser font readiness changes in a way that can
- * invalidate cached widths.
+ * invalidate cached widths. The result is not decoded; callers must keep the
+ * increment within the schema's non-negative integer domain.
  *
  * @since 0.2.0
  * @category freshness

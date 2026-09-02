@@ -7,7 +7,7 @@
  */
 
 /**
- * Declares calibration evaluation and optimization outside semver guarantees.
+ * Marks calibration schemas, evaluation, and search as outside semver guarantees.
  *
  * @since 0.1.0
  * @category stability

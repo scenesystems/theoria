@@ -1,11 +1,12 @@
 /**
- * GEPA optimizer — evolutionary prompt adaptation via Pareto-weighted parent
- * selection, common-ancestor merge, and reflective mutation.
+ * Evolves module instructions through reflective mutation, common-ancestor
+ * merges, and Pareto-weighted parent selection.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option, Ref } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Effect, Match, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import { withModuleParamsInstructions } from "../../contracts/ModuleParams.js"
@@ -19,21 +20,36 @@ import { runMutationPhase } from "./runtime/mutation.js"
 import { DEFAULT_MAX_MERGE_INVOCATIONS, type GEPAEventSink, type GEPAOptions, noGEPAEvents } from "./runtime/options.js"
 import { streamGEPAEvents } from "./runtime/stream.js"
 
+const normalizeNonNegativeCount = (value: number): number =>
+  Match.value(value).pipe(
+    Match.when(Numeric.isFinite, (candidate) => Numeric.max(0, Numeric.floor(candidate))),
+    Match.orElse(() => 0)
+  )
+
 export type { GEPAEventSink, GEPAOptions }
 export { noGEPAEvents }
 
 /**
- * Optimizes a module with GEPA while reporting progress to an event sink.
+ * Evolves a module's instruction and emits each lifecycle event in execution order.
  *
  * @remarks
- * The event sink is sequentially awaited. The initial program is evaluated
- * before iteration events. Each iteration attempts a budgeted merge, performs
- * one reflective mutation, updates the Pareto frontier, and emits completion
- * events in that order. Selection is deterministic for equal input and seed,
- * assuming deterministic module, metric, and model services. The selected
- * frontier candidate's instruction is written to `options.module`, which is
- * then returned. Underlying module, metric, schema, and language-model failures
- * remain typed in the Effect error channel.
+ * The initial program is evaluated before the first event. Each sink effect
+ * completes before the next optimizer step. An iteration may attempt a merge,
+ * then proposes one mutation, evaluates acceptance, updates the Pareto
+ * frontier, and emits `IterationCompleted`.
+ *
+ * Typed language-model failures during mutation proposal fall back to the
+ * current instruction. Module and metric failures remain in the Effect error
+ * channel. Schema decode failures inside candidate evaluation become defects.
+ * Temporary candidate instructions are restored after each evaluation. At
+ * completion, the instruction from the first index in the final Pareto
+ * frontier is written to `options.module`; the same module object is returned.
+ * GEPA does not reduce the final frontier to a scalar score ranking.
+ *
+ * @typeParam I - Input fields accepted by the optimized module.
+ * @typeParam O - Output fields scored during candidate evaluation.
+ * @typeParam ME - Expected failure from the configured metric.
+ * @typeParam MR - Services required by the configured metric.
  *
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al. (2025)}
  * @since 0.1.0
@@ -60,16 +76,19 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
         candidates: Arr.make(initialCandidate),
         scoreVectors: Arr.make(initialEvaluation.scores),
         paretoSnapshot: initialSnapshot,
-        mergeBudgetRemaining: Option.getOrElse(Option.fromNullable(options.maxMergeInvocations), () =>
-          DEFAULT_MAX_MERGE_INVOCATIONS),
+        mergeBudgetRemaining: normalizeNonNegativeCount(
+          Option.getOrElse(
+            Option.fromNullable(options.maxMergeInvocations),
+            () => DEFAULT_MAX_MERGE_INVOCATIONS
+          )
+        ),
         lastIterationFoundNew: false,
-        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () =>
-          1))
+        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))
       })
     )
 
     yield* Effect.iterate(1, {
-      while: (iteration) => iteration <= Math.max(0, Math.trunc(options.maxIterations)),
+      while: (iteration) => iteration <= normalizeNonNegativeCount(options.maxIterations),
       body: (iteration) =>
         Effect.gen(function*() {
           const state = yield* Ref.get(stateRef)
@@ -144,8 +163,15 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
   })
 
 /**
- * Run GEPA without observing events. The first index in the final Pareto
- * frontier is selected; this is not a scalar best-score ranking.
+ * Evolves a module while discarding lifecycle events.
+ *
+ * @returns The supplied module after its instruction is replaced by the first
+ * candidate in the final Pareto frontier.
+ *
+ * @typeParam I - Input fields accepted by the optimized module.
+ * @typeParam O - Output fields scored during candidate evaluation.
+ * @typeParam ME - Expected failure from the configured metric.
+ * @typeParam MR - Services required by the configured metric.
  *
  * @since 0.1.0
  * @category constructors
@@ -155,8 +181,17 @@ export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 ) => gepaWithEvents(options, noGEPAEvents)
 
 /**
- * Lazily run GEPA and emit lifecycle events in execution order. Stream
- * consumption drives optimization; the returned module is not emitted.
+ * Emits GEPA lifecycle events while stream consumption drives optimization.
+ *
+ * @remarks
+ * The stream completes after `OptimizationCompleted`. The optimized module is
+ * retained through the mutation of `options.module` and is not a stream
+ * element. Module and metric failures fail the stream.
+ *
+ * @typeParam I - Input fields accepted by the optimized module.
+ * @typeParam O - Output fields scored during candidate evaluation.
+ * @typeParam ME - Expected failure from the configured metric.
+ * @typeParam MR - Services required by the configured metric.
  *
  * @since 0.1.0
  * @category constructors

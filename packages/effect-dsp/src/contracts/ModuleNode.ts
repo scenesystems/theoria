@@ -1,7 +1,5 @@
 /**
- * Non-generic projection of a module instance, used by graph traversal
- * and optimizer discovery to inspect the module tree without generic
- * type parameters.
+ * Non-generic runtime views used for module discovery and graph projection.
  *
  * @since 0.1.0
  */
@@ -11,47 +9,50 @@ import type { ModuleId } from "./ModuleId.js"
 import type { ModuleParams } from "./ModuleParams.js"
 
 /**
- * Stripped-down signature view stored on graph nodes — carries only the
- * human-readable `description` and the derived `instructions` text, without
- * the full generic Schema fields. Sufficient for optimizer introspection and
- * prompt rendering.
+ * Retains prompt metadata without a signature's generic field schemas.
  *
- * @see {@link Signature} — the full generic signature model
- * @see {@link ModuleNode} — the graph node that carries this projection
+ * @remarks
+ * This projection is suitable for discovery and optimizer inspection. It cannot
+ * decode module inputs or outputs.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleNodeSignature extends Schema.Class<ModuleNodeSignature>("ModuleNodeSignature")({
+  /** Task description from the owning signature. */
   description: Schema.String,
+  /** Default instruction text derived from the owning signature. */
   instructions: Schema.String
 }) {}
 
 /**
- * Runtime projection of one node in the module composition tree. Provides
- * identity, signature summary, mutable parameters, and a recursive map of
- * child sub-modules. The optimizer walks this tree to discover all
- * learnable parameter surfaces.
+ * Exposes the mutable parameter and child ownership surface of one module.
  *
- * @see {@link ModuleId} — the branded identity key
- * @see {@link ModuleParams} — the mutable parameter state behind the Ref
- * @see {@link ModuleGraph} — the serializable graph built from ModuleNode trees
+ * @remarks
+ * The recursive child map contains live nodes and parameter refs. It is a runtime
+ * discovery view rather than a serializable graph value.
  *
  * @since 0.1.0
  * @category models
  */
 export type ModuleNode = Readonly<{
+  /** Branded identity used as the node's graph key. */
   readonly moduleId: ModuleId
+  /** Public module name retained for diagnostics and parameter persistence. */
   readonly name: string
+  /** Prompt metadata without input and output schemas. */
   readonly signature: ModuleNodeSignature
+  /** Mutable parameter state owned by this node. */
   readonly params: Ref.Ref<ModuleParams>
+  /** Immediate child nodes keyed by their branded identities. */
   readonly subModules: HashMap.HashMap<ModuleId, ModuleNode>
 }>
 
 /**
- * Construct a {@link ModuleNode} from its constituent parts.
+ * Retains the supplied live module-node references without copying or validation.
  *
- * @see {@link ModuleNode}
+ * @param options - Live node record returned unchanged.
+ * @returns The same record by identity.
  *
  * @since 0.1.0
  * @category constructors
@@ -59,10 +60,11 @@ export type ModuleNode = Readonly<{
 export const makeModuleNode = (options: ModuleNode): ModuleNode => options
 
 /**
- * Construct a {@link ModuleNodeSignature} from raw description and
- * instruction strings.
+ * Creates prompt metadata for a discovered module node.
  *
- * @see {@link ModuleNodeSignature}
+ * @param description - Task description from the full signature.
+ * @param instructions - Default instruction text from the full signature.
+ * @returns A schema-class value containing those strings.
  *
  * @since 0.1.0
  * @category constructors

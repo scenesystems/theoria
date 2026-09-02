@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option } from "effect"
+import { Effect, Either, Match, Option } from "effect"
 
 import * as Scheduler from "../../src/Scheduler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
@@ -29,6 +29,19 @@ const bestValue = <Config>(result: Study.StudyResult<Config>): number =>
   )
 
 describe("bohb scheduler", () => {
+  it.effect("rejects a non-finite exploration ratio", () =>
+    Effect.gen(function*() {
+      const outcome = yield* Effect.either(
+        Scheduler.bohb({
+          maxResource: 9,
+          reductionFactor: 3,
+          explorationRatio: Number.NaN
+        })
+      )
+
+      expect(Either.isLeft(outcome)).toBe(true)
+    }))
+
   it.effect("constructs bohb scheduler with default exploration policy", () =>
     Effect.gen(function*() {
       const scheduler = yield* Scheduler.bohb({

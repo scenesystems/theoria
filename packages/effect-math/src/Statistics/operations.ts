@@ -1,8 +1,11 @@
 /**
- * Statistics operation surface — pure kernel re-exports over immutable
- * `Chunk` carriers, Schema-validated variants with boundary input checking,
- * and policy-aware operations that respect `PrecisionPolicyService`
- * and `DiagnosticsPolicyService`.
+ * Computes pure, validated, and policy-aware sample estimators.
+ *
+ * @remarks
+ * Pure estimators trust their `Chunk` contents and sample shapes. Validated
+ * estimators accept unknown input and reject non-finite observations. The
+ * policy-aware variants accept unvalidated chunks and apply runtime precision
+ * and diagnostics policies to their results.
  *
  * @since 0.1.0
  * @category operations
@@ -17,9 +20,9 @@ import { StatisticsDomainModel } from "./model.js"
 import { SampleInput, SummaryStatistics, TwoSampleInput } from "./schema.js"
 
 /**
- * Returns the canonical provisional descriptive-statistics descriptor for
- * registration or startup discovery, without service requirements or a
- * failure channel.
+ * Loads the provisional Statistics descriptor used for capability discovery.
+ *
+ * @returns The shared descriptor without service requirements or a failure channel.
  *
  * @since 0.1.0
  * @category operations
@@ -27,50 +30,63 @@ import { SampleInput, SummaryStatistics, TwoSampleInput } from "./schema.js"
 export const loadStatisticsDomain = Effect.succeed(StatisticsDomainModel)
 
 // ---------------------------------------------------------------------------
-// Pure kernel re-exports — operate on Chunk<number>
+// Pure estimators
 // ---------------------------------------------------------------------------
 
 /**
- * Arithmetic mean `x̄ = (Σ xᵢ) / n`. Assumes a non-empty chunk; returns
- * `NaN` for empty input.
+ * Computes the arithmetic mean of a numeric sample.
  *
- * @see {@link meanValidated} for Schema-validated boundary input
- * @see {@link summaryStatisticsWithPolicies} for full descriptive statistics with policy support
+ * @param values - Observations used without validation.
+ * @returns The arithmetic mean, or `NaN` when `values` is empty.
  * @since 0.1.0
  * @category operations
  */
 export const mean: (values: Chunk.Chunk<number>) => number = Estimators.mean
 
 /**
- * Sample variance with Bessel correction — `s² = Σ(xᵢ − x̄)² / (n − 1)`.
- * Requires at least 2 observations; returns `NaN` for fewer.
+ * Computes sample variance with Bessel's correction.
  *
- * @see {@link varianceValidated} for Schema-validated boundary input with sample-size checking
- * @see {@link standardDeviation} for the square root of this value
+ * @param values - Observations used without validation.
+ * @returns The sum of squared deviations divided by `n - 1`. An empty sample returns negative zero; a singleton returns `NaN`.
  * @since 0.1.0
  * @category operations
  */
 export const variance: (values: Chunk.Chunk<number>) => number = Estimators.variance
 
 /**
- * Sample standard deviation — `s = √(s²)` where `s²` is the
- * Bessel-corrected variance. Requires at least 2 observations.
+ * Computes the square root of the Bessel-corrected sample variance.
  *
- * @see {@link variance} for the underlying variance computation
- * @see {@link summaryStatisticsValidated} for full descriptive statistics
+ * @param values - Observations used without validation.
+ * @returns The sample standard deviation. An empty sample returns negative zero; a singleton returns `NaN`.
  * @since 0.1.0
  * @category operations
  */
 export const standardDeviation: (values: Chunk.Chunk<number>) => number = Estimators.standardDeviation
 
 /**
- * Descriptive statistics for a non-empty chunk using one pass over the data.
+ * Computes a descriptive summary with a one-pass Welford accumulator.
  *
  * @remarks
- * Singleton chunks produce zero variance and standard deviation.
+ * Variance uses Bessel's correction. A singleton produces zero variance and
+ * zero standard deviation.
  *
- * @see {@link summaryStatisticsValidated} for boundary-validated input
- * @see {@link summaryStatisticsWithPolicies} for runtime-policy enforcement
+ * @example
+ * ```ts
+ * import { Statistics } from "@scenesystems/effect-math"
+ * import { Chunk, Effect } from "effect"
+ *
+ * export const program = Effect.sync(() =>
+ *   Statistics.summaryStatistics(Chunk.make(2, 4, 6, 8))
+ * ).pipe(
+ *   Effect.filterOrFail(
+ *     (result) => result.mean === 5 && result.count === 4,
+ *     () => "UnexpectedSummary"
+ *   )
+ * )
+ * ```
+ *
+ * @param values - Non-empty observations used without finite-number validation.
+ * @returns A new tagged summary containing sample variance and the observed extrema.
  * @since 0.2.1
  * @category operations
  */
@@ -88,31 +104,36 @@ export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryS
 }
 
 /**
- * Sample covariance `cov(a, b) = Σ(aᵢ − ā)(bᵢ − b̄) / (n − 1)` with
- * Bessel correction. Both chunks must have the same length and at least
- * 2 observations.
+ * Computes Bessel-corrected sample covariance.
  *
- * @see {@link covarianceValidated} for Schema-validated boundary input with shape checking
+ * @remarks
+ * Equal lengths are a caller precondition. If the lengths differ, each mean
+ * uses its full sample, paired deviations stop at the shorter sample, and the
+ * denominator is `a.length - 1`. An empty `a` returns negative zero. A
+ * singleton `a` returns `NaN`; when `a` has at least two observations and `b`
+ * is empty, the result is zero.
+ *
+ * @param a - First sample, whose size determines the denominator.
+ * @param b - Second sample paired with `a` by position.
+ * @returns The sum of paired deviation products divided by `a.length - 1`.
  * @since 0.1.0
  * @category operations
  */
 export const covariance: (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>) => number = Estimators.covariance
 
 /**
- * Minimum value of a chunk — returns `Option.none()` for empty input,
- * `Option.some(min)` otherwise.
+ * Finds the least observation in a sample.
  *
- * @see {@link minimumValidated} for Schema-validated boundary input
+ * @returns `Option.none()` for an empty sample; otherwise the minimum in `Option.some()`.
  * @since 0.1.0
  * @category operations
  */
 export const minimum: (values: Chunk.Chunk<number>) => Option.Option<number> = Estimators.minimum
 
 /**
- * Maximum value of a chunk — returns `Option.none()` for empty input,
- * `Option.some(max)` otherwise.
+ * Finds the greatest observation in a sample.
  *
- * @see {@link maximumValidated} for Schema-validated boundary input
+ * @returns `Option.none()` for an empty sample; otherwise the maximum in `Option.some()`.
  * @since 0.1.0
  * @category operations
  */
@@ -123,20 +144,11 @@ export const maximum: (values: Chunk.Chunk<number>) => Option.Option<number> = E
 // ---------------------------------------------------------------------------
 
 /**
- * Boundary-validated mean — decodes `input` through `SampleInput` and
- * computes `x̄ = (Σ xᵢ) / n`. Fails with `StatisticsDecodeError` for
- * malformed input.
+ * Decodes a non-empty finite sample and computes its arithmetic mean.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Statistics } from "@scenesystems/effect-math"
- *
- * const program = Statistics.meanValidated({ values: [2, 4, 6] })
- * // Effect succeeds with 4
- * ```
- *
- * @see {@link mean} for the pure kernel (no validation overhead)
+ * @param input - Untrusted input decoded by {@link SampleInput}; excess fields are rejected.
+ * @returns The arithmetic mean of the decoded observations.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when the input is malformed, empty, or non-finite.
  * @since 0.1.0
  * @category operations
  */
@@ -157,21 +169,12 @@ export const meanValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated variance — decodes `input` through `SampleInput`,
- * requires at least 2 samples for Bessel correction, and computes
- * `s² = Σ(xᵢ − x̄)² / (n − 1)`. Fails with `StatisticsDecodeError` for
- * malformed input or `StatisticsShapeError` for insufficient data.
+ * Decodes a finite sample and computes Bessel-corrected variance.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Statistics } from "@scenesystems/effect-math"
- *
- * const program = Statistics.varianceValidated({ values: [2, 4, 6] })
- * // Effect succeeds with 4
- * ```
- *
- * @see {@link variance} for the pure kernel (no validation overhead)
+ * @param input - Untrusted input decoded by {@link SampleInput}; excess fields are rejected.
+ * @returns The sample variance for two or more observations.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when the input is malformed, empty, or non-finite.
+ * @throws {@link StatisticsShapeError} in the Effect error channel when the decoded sample has one observation.
  * @since 0.1.0
  * @category operations
  */
@@ -204,21 +207,27 @@ export const varianceValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated summary statistics — decodes `input` through
- * `SampleInput`, requires at least 2 samples, and computes mean, variance,
- * standard deviation, min, max, and count. Returns a `SummaryStatistics`
- * TaggedClass instance.
+ * Decodes a finite sample and computes its descriptive summary.
  *
  * @example
  * ```ts
  * import { Effect } from "effect"
  * import { Statistics } from "@scenesystems/effect-math"
  *
- * const program = Statistics.summaryStatisticsValidated({ values: [2, 4, 6, 8] })
+ * export const program = Statistics.summaryStatisticsValidated({
+ *   values: [2, 4, 6, 8]
+ * }).pipe(
+ *   Effect.filterOrFail(
+ *     (result) => result.mean === 5 && result.count === 4,
+ *     () => "UnexpectedSummary"
+ *   )
+ * )
  * ```
  *
- * @see {@link summaryStatisticsWithPolicies} for policy-aware variant
- * @see {@link mean} / {@link variance} / {@link standardDeviation} for individual estimators
+ * @param input - Untrusted input decoded by {@link SampleInput}; excess fields are rejected.
+ * @returns A new tagged summary using Bessel-corrected variance.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when the input is malformed, empty, or non-finite.
+ * @throws {@link StatisticsShapeError} in the Effect error channel when the decoded sample has one observation.
  * @since 0.1.0
  * @category operations
  */
@@ -265,20 +274,12 @@ export const summaryStatisticsValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated covariance — decodes `input` through `TwoSampleInput`,
- * validates equal-length samples with at least 2 observations, and computes
- * `cov(a, b) = Σ(aᵢ − ā)(bᵢ − b̄) / (n − 1)`.
+ * Decodes two finite samples and computes their Bessel-corrected covariance.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Statistics } from "@scenesystems/effect-math"
- *
- * const program = Statistics.covarianceValidated({ a: [1, 2, 3], b: [4, 5, 6] })
- * // Effect succeeds with 1
- * ```
- *
- * @see {@link covariance} for the pure kernel (no validation overhead)
+ * @param input - Untrusted input decoded by {@link TwoSampleInput}; excess fields are rejected.
+ * @returns The covariance of equally sized samples containing at least two observations.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when either sample is missing, empty, or non-finite.
+ * @throws {@link StatisticsShapeError} in the Effect error channel when the samples differ in length or contain fewer than two observations.
  * @since 0.1.0
  * @category operations
  */
@@ -326,20 +327,11 @@ export const covarianceValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated minimum — decodes `input` through `SampleInput` and
- * returns `Option.some(min)` for non-empty valid input. Fails with
- * `StatisticsDecodeError` for malformed input.
+ * Decodes a non-empty finite sample and finds its minimum.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Statistics } from "@scenesystems/effect-math"
- *
- * const program = Statistics.minimumValidated({ values: [3, 1, 2] })
- * // Effect succeeds with Option.some(1)
- * ```
- *
- * @see {@link minimum} for the pure kernel (no validation overhead)
+ * @param input - Untrusted input decoded by {@link SampleInput}; excess fields are rejected.
+ * @returns The minimum in `Option.some()`; successful decoding rules out `Option.none()`.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when the input is malformed, empty, or non-finite.
  * @since 0.1.0
  * @category operations
  */
@@ -360,20 +352,11 @@ export const minimumValidated = (input: unknown) =>
   })
 
 /**
- * Boundary-validated maximum — decodes `input` through `SampleInput` and
- * returns `Option.some(max)` for non-empty valid input. Fails with
- * `StatisticsDecodeError` for malformed input.
+ * Decodes a non-empty finite sample and finds its maximum.
  *
- * @example
- * ```ts
- * import { Effect } from "effect"
- * import { Statistics } from "@scenesystems/effect-math"
- *
- * const program = Statistics.maximumValidated({ values: [3, 1, 2] })
- * // Effect succeeds with Option.some(3)
- * ```
- *
- * @see {@link maximum} for the pure kernel (no validation overhead)
+ * @param input - Untrusted input decoded by {@link SampleInput}; excess fields are rejected.
+ * @returns The maximum in `Option.some()`; successful decoding rules out `Option.none()`.
+ * @throws {@link StatisticsDecodeError} in the Effect error channel when the input is malformed, empty, or non-finite.
  * @since 0.1.0
  * @category operations
  */
@@ -398,35 +381,45 @@ export const maximumValidated = (input: unknown) =>
 // ---------------------------------------------------------------------------
 
 /**
- * Policy-aware summary statistics that reads two runtime services from
- * context:
+ * Computes a descriptive summary under runtime precision and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite mean, variance, or stddev with `StatisticsDomainViolationError`; `"relaxed"` passes through
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug` with precision policy and sample size
+ * The input is not decoded. At least two observations are required. Strict
+ * precision requires finite mean, variance, and standard deviation. Enabled
+ * diagnostics emit one debug log containing the precision mode and sample
+ * size. The strict check does not inspect the extrema separately. This
+ * operation requires {@link PrecisionPolicyService} and
+ * {@link DiagnosticsPolicyService}.
  *
  * @example
  * ```ts
  * import { Chunk, Effect, Layer } from "effect"
+ * import { Statistics } from "@scenesystems/effect-math"
  * import {
  *   DiagnosticsPolicyService,
- *   PrecisionPolicyService,
- *   Statistics
- * } from "@scenesystems/effect-math"
+ *   PrecisionPolicyService
+ * } from "@scenesystems/effect-math/contracts"
  *
  * const policies = Layer.mergeAll(
  *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
  *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
  * )
  *
- * const program = Statistics.summaryStatisticsWithPolicies(
- *   Chunk.fromIterable([2, 4, 6, 8])
- * ).pipe(Effect.provide(policies))
+ * export const program = Statistics.summaryStatisticsWithPolicies(
+ *   Chunk.make(2, 4, 6, 8)
+ * ).pipe(
+ *   Effect.provide(policies),
+ *   Effect.filterOrFail(
+ *     (result) => result.mean === 5 && result.count === 4,
+ *     () => "UnexpectedSummary"
+ *   )
+ * )
  * ```
  *
- * @see {@link summaryStatisticsValidated} for the boundary-validated variant (no service requirements)
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @param values - Observations used without finite-number validation.
+ * @returns A new tagged summary using Bessel-corrected variance.
+ * @throws {@link StatisticsShapeError} in the Effect error channel for fewer than two observations.
+ * @throws {@link StatisticsDomainViolationError} in the Effect error channel when strict precision rejects a non-finite mean, variance, or standard deviation.
  * @since 0.1.0
  * @category operations
  */
@@ -492,37 +485,18 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
   })
 
 /**
- * Policy-aware mean that reads two runtime services from context:
+ * Computes an arithmetic mean under runtime precision and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
- *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
- *   with precision policy, sample size, result, and elapsed-ms annotations.
+ * The sample is not decoded, and an empty sample reaches the estimator as
+ * `NaN`. Strict precision rejects any non-finite result. Enabled diagnostics
+ * emit one debug log containing the precision mode, sample size, result, and
+ * elapsed milliseconds. This operation requires {@link PrecisionPolicyService}
+ * and {@link DiagnosticsPolicyService}.
  *
- * @example
- * ```ts
- * import { Chunk, Effect, Layer } from "effect"
- * import {
- *   DiagnosticsPolicyService,
- *   PrecisionPolicyService,
- *   Statistics
- * } from "@scenesystems/effect-math"
- *
- * const policies = Layer.mergeAll(
- *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
- *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
- * )
- *
- * const program = Statistics.meanWithPolicies(
- *   Chunk.fromIterable([2, 4, 6])
- * ).pipe(Effect.provide(policies))
- * ```
- *
- * @see {@link mean} for the pure kernel (no policy seams)
- * @see {@link meanValidated} for the boundary-validated variant
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @param values - Observations used without shape or finite-number validation.
+ * @returns The arithmetic mean, including `NaN` under relaxed precision for an empty sample.
+ * @throws {@link StatisticsDomainViolationError} in the Effect error channel when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */
@@ -535,40 +509,19 @@ export const meanWithPolicies = (values: Chunk.Chunk<number>) =>
   })
 
 /**
- * Policy-aware variance that reads two runtime services from context:
+ * Computes Bessel-corrected variance under runtime precision and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
- *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
- *   with precision policy, sample size, result, and elapsed-ms annotations.
+ * The operation accepts the sample directly and requires at least two
+ * observations. Strict precision rejects a non-finite result. Enabled
+ * diagnostics emit one debug log containing the precision mode, sample size,
+ * result, and elapsed milliseconds. This operation requires
+ * {@link PrecisionPolicyService} and {@link DiagnosticsPolicyService}.
  *
- * Requires at least 2 samples for Bessel correction — fails with
- * `StatisticsShapeError` otherwise.
- *
- * @example
- * ```ts
- * import { Chunk, Effect, Layer } from "effect"
- * import {
- *   DiagnosticsPolicyService,
- *   PrecisionPolicyService,
- *   Statistics
- * } from "@scenesystems/effect-math"
- *
- * const policies = Layer.mergeAll(
- *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
- *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
- * )
- *
- * const program = Statistics.varianceWithPolicies(
- *   Chunk.fromIterable([2, 4, 6])
- * ).pipe(Effect.provide(policies))
- * ```
- *
- * @see {@link variance} for the pure kernel (no policy seams)
- * @see {@link varianceValidated} for the boundary-validated variant
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @param values - Observations used without finite-number validation.
+ * @returns The sample variance for two or more observations.
+ * @throws {@link StatisticsShapeError} in the Effect error channel for fewer than two observations.
+ * @throws {@link StatisticsDomainViolationError} in the Effect error channel when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */
@@ -594,41 +547,20 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
   })
 
 /**
- * Policy-aware covariance that reads two runtime services from context:
+ * Computes Bessel-corrected covariance under runtime precision and diagnostics policies.
  *
  * @remarks
- * - **PrecisionPolicyService** — `"strict"` rejects non-finite results
- *   with `StatisticsDomainViolationError`; `"relaxed"` passes them through.
- * - **DiagnosticsPolicyService** — `"enabled"` emits `Effect.logDebug`
- *   with precision policy, sample size, result, and elapsed-ms annotations.
+ * The samples are not decoded. They must have equal lengths and at least two
+ * observations. Strict precision rejects a non-finite result. Enabled
+ * diagnostics emit one debug log containing the precision mode, sample size,
+ * result, and elapsed milliseconds. This operation requires
+ * {@link PrecisionPolicyService} and {@link DiagnosticsPolicyService}.
  *
- * Requires equal-length samples with at least 2 observations — fails with
- * `StatisticsShapeError` otherwise.
- *
- * @example
- * ```ts
- * import { Chunk, Effect, Layer } from "effect"
- * import {
- *   DiagnosticsPolicyService,
- *   PrecisionPolicyService,
- *   Statistics
- * } from "@scenesystems/effect-math"
- *
- * const policies = Layer.mergeAll(
- *   Layer.succeed(PrecisionPolicyService, { policy: "strict" }),
- *   Layer.succeed(DiagnosticsPolicyService, { policy: "disabled" })
- * )
- *
- * const program = Statistics.covarianceWithPolicies(
- *   Chunk.fromIterable([1, 2, 3]),
- *   Chunk.fromIterable([4, 5, 6])
- * ).pipe(Effect.provide(policies))
- * ```
- *
- * @see {@link covariance} for the pure kernel (no policy seams)
- * @see {@link covarianceValidated} for the boundary-validated variant
- * @see {@link PrecisionPolicyService}
- * @see {@link DiagnosticsPolicyService}
+ * @param a - First sample, paired with `b` by position.
+ * @param b - Second sample, which must match the length of `a`.
+ * @returns The covariance of the paired observations.
+ * @throws {@link StatisticsShapeError} in the Effect error channel when lengths differ or either sample contains fewer than two observations.
+ * @throws {@link StatisticsDomainViolationError} in the Effect error channel when strict precision rejects a non-finite result.
  * @since 0.1.0
  * @category operations
  */

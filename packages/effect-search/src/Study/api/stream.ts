@@ -1,5 +1,5 @@
 /**
- * Streaming study execution API that emits StudyEvents during optimization.
+ * Scoped event streams for fresh and resumed study execution.
  *
  * @since 0.1.0
  */
@@ -68,7 +68,16 @@ const streamFromExecutionPlan = <Space extends SearchSpace.SearchSpace, R>(
   })
 
 /**
- * Run an optimization study and stream lifecycle events.
+ * Runs a study while emitting trial, stopping, scheduler, and completion events
+ * as they occur. A successful run ends with `StudyCompleted`. A study-level
+ * `SearchError` fails the stream after all events already published; individual
+ * objective failures appear as `TrialFailed` events.
+ *
+ * @remarks
+ * Interrupting or ending stream consumption interrupts the scoped execution
+ * fiber. Use {@link optimize} when only the final result is needed.
+ *
+ * @typeParam Space - Compiled search space supplying configurations to the streamed execution.
  *
  * @since 0.1.0
  * @category combinators
@@ -93,7 +102,11 @@ export const optimizeStream = <Space extends SearchSpace.SearchSpace>(
   )
 
 /**
- * Resume a study from a snapshot and stream lifecycle events.
+ * Restores a validated snapshot and streams events from the additional work.
+ * Snapshot history is not replayed. Failure and interruption behavior matches
+ * {@link optimizeStream}.
+ *
+ * @typeParam Space - Compiled search space checked against the snapshot and used for new trials.
  *
  * @since 0.1.0
  * @category combinators
@@ -118,7 +131,11 @@ export const resumeStream = <Space extends SearchSpace.SearchSpace>(
   )
 
 /**
- * Resume a persisted study and stream lifecycle events.
+ * Loads recovery state from {@link StudyStorage} and streams events from the
+ * additional work. Persisted event history is not replayed. Loading, validation,
+ * and execution failures use the stream's `SearchError` channel.
+ *
+ * @typeParam Space - Compiled search space checked against persisted state and used for new trials.
  *
  * @since 0.1.0
  * @category combinators

@@ -1,5 +1,5 @@
 /**
- * Route-resolution output authority.
+ * Versioned route decisions recorded before provider execution.
  *
  * @since 0.1.0
  */
@@ -9,7 +9,7 @@ import { ExecutionRouteSchema } from "./ExecutionRoute.js"
 import { RuntimeFlavorSchema } from "./RuntimeFlavor.js"
 
 /**
- * Stable schema version for replay-safe resolved-route provenance records.
+ * Current interpretation of serialized route-provenance records.
  *
  * @since 0.1.0
  * @category schemas
@@ -43,12 +43,19 @@ export type ResolvedRouteProvenanceVersion = Schema.Schema.Type<typeof ResolvedR
  * @category schemas
  */
 export const ResolvedRouteDescriptorSchema = Schema.Struct({
+  /** Execution route selected by the resolver. */
   route: ExecutionRouteSchema,
+  /** Provider required by policy, when resolution fixes one. */
   selectedProvider: Schema.optional(Schema.String),
+  /** Deployment selected before execution, when known. */
   selectedDeployment: Schema.optional(Schema.String),
+  /** Model identifier passed to the selected provider. */
   providerModel: Schema.optional(Schema.String),
+  /** Serving engine inferred or selected before execution. */
   runtimeFlavor: Schema.optional(RuntimeFlavorSchema),
+  /** Stable diagnostic code describing the resolver decision. */
   selectionReason: Schema.String,
+  /** Required version discriminator for persisted provenance. */
   schemaVersion: ResolvedRouteProvenanceVersionSchema
 })
 

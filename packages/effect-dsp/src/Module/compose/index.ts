@@ -1,5 +1,5 @@
 /**
- * Module composition constructors.
+ * Validated ownership graphs for module programs.
  *
  * @since 0.1.0
  */
@@ -24,22 +24,24 @@ const makeInitialParams = <
   })
 
 /**
- * Constructs a validated composite module from a root node and its declared submodules.
+ * Constructs a module with a validated child ownership graph.
  *
  * @remarks
- * Validation covers the complete reachable graph before allocating the module. Module names, rather than
- * declaration aliases, become graph identities. Invalid ids, cycles, identity
- * collisions, and inconsistent declared child ids fail with
- * `CompositionError`.
- * On `forward`, the root registers itself and invokes the callback exactly
- * once with validated input, the direct child-node map, and the full graph.
- * Callback orchestration and call order are entirely caller-owned; composition
- * does not automatically execute children.
+ * Validation traverses the complete declared graph before allocation. Module
+ * names become graph identities; object keys in `subModules` are local aliases
+ * and do not appear in the graph. Invalid ids, cycles, different direct modules
+ * sharing an id, and child-map keys that disagree with child node names fail
+ * with `CompositionError`.
+ *
+ * `forward` registers the root and invokes the callback once. The callback
+ * receives decoded input plus graph metadata. It must close over and call any
+ * executable child modules itself because `ModuleNode` values do not expose
+ * `forward`.
  *
  * @typeParam I - Root signature input fields.
  * @typeParam O - Root signature output fields and callback result.
- * @param options - Root identity/signature, child declarations, and orchestration callback.
- * @returns The composed module, or `CompositionError` for an invalid declared graph.
+ * @param options - Root contract, direct child declarations, and execution callback.
+ * @returns A module whose child graph has passed composition validation.
  *
  * @see {@link ComposeSubModules}
  * @see {@link ComposeForward}
@@ -52,9 +54,13 @@ export const compose = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: {
+  /** Root identity used as the graph root, discovery id, and forward span name. */
   readonly name: string
+  /** Input and output contract for the callback boundary. */
   readonly signature: Signature<I, O>
+  /** Direct children whose nested ownership graphs are included in validation. */
   readonly subModules: ComposeSubModules
+  /** Operation invoked once by each root `forward` call. */
   readonly forward: ComposeForward<I, O>
 }): Effect.Effect<Module<I, O>, CompositionError> =>
   Effect.gen(function*() {
@@ -84,16 +90,14 @@ export const compose = <
 
 export {
   /**
-   * Build and validate a composition graph from sub-module declarations,
-   * returning only the graph contract without constructing a full module.
+   * Validates a declared ownership graph without allocating a root module.
    *
    * @since 0.1.0
    * @category constructors
    */
   composeGraph,
   /**
-   * Sub-module declaration map keyed by local alias, consumed by
-   * `compose` and `composeGraph`.
+   * Associates caller-local aliases with direct child modules.
    *
    * @since 0.1.0
    * @category type-level
@@ -103,16 +107,14 @@ export {
 
 export {
   /**
-   * User-supplied forward function that orchestrates sub-module calls
-   * within a composed module.
+   * Computes one composite result from decoded input and graph metadata.
    *
    * @since 0.1.0
    * @category type-level
    */
   type ComposeForward,
   /**
-   * Context object passed to `ComposeForward` — provides the validated
-   * input, sub-module node map, and full composition graph.
+   * Exposes decoded input and the composition metadata built at construction.
    *
    * @since 0.1.0
    * @category type-level

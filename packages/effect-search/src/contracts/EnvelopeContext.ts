@@ -1,5 +1,5 @@
 /**
- * Envelope context — scoped capability for stamping provenance metadata onto artifacts.
+ * Run metadata and artifact sequence allocation shared by envelope producers.
  *
  * @since 0.1.0
  */
@@ -8,17 +8,12 @@ import { Effect, Layer, Ref } from "effect"
 import { ArtifactId, type PackageVersion, type RunId } from "./identity.js"
 
 /**
- * Scoped capability for constructing artifact envelopes within a study run.
- * Carries the provenance fields (package version, run, study) and exposes
- * a monotonic {@link nextArtifactId} that mints unique identifiers.
+ * Exposes declared study provenance and atomic artifact ID allocation for one Layer instance.
  *
  * @remarks
- * Provide via {@link EnvelopeContextLive} — the `Ref` for sequencing is
- * internal to the layer and never exposed to consumers.
- *
- * @see {@link ArtifactEnvelope} — the envelope type stamped with this context
- * @see {@link ArtifactId} — identifier produced by `nextArtifactId`
- * @see {@link EnvelopeContextLive} — layer constructor
+ * `nextArtifactId` starts at sequence zero and increments on every allocation. Concurrent
+ * calls receive distinct sequence values, although consumer completion order may differ
+ * from numeric order. The service does not persist its counter.
  *
  * @since 0.1.0
  * @category services
@@ -26,20 +21,23 @@ import { ArtifactId, type PackageVersion, type RunId } from "./identity.js"
 export class EnvelopeContext extends Effect.Tag("effect-search/EnvelopeContext")<
   EnvelopeContext,
   {
+    /** Declared version of the package producing envelopes. */
     readonly packageVersion: PackageVersion
+    /** Execution identifier copied into each allocated artifact ID. */
     readonly runId: RunId
+    /** Caller-defined study identity copied into envelope metadata. */
     readonly studyId: string
+    /** Atomically allocates the next artifact sequence for this Layer instance. */
     readonly nextArtifactId: Effect.Effect<ArtifactId>
   }
 >() {}
 
 /**
- * Construct an {@link EnvelopeContext} layer for a single study run.
- * The monotonic sequence counter is created internally — consumers
- * interact only through the `nextArtifactId` effect.
+ * Creates a shared in-memory artifact sequence for the supplied run metadata.
  *
- * @see {@link EnvelopeContext} — the service this layer provides
- * @see {@link ArtifactId} — the identifier minted by `nextArtifactId`
+ * @remarks
+ * Building the Layer allocates a fresh counter at zero. The Layer has no requirements,
+ * typed acquisition failures, or release action. `studyId` is retained without validation.
  *
  * @since 0.1.0
  * @category layers

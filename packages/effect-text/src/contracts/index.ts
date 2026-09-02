@@ -16,7 +16,7 @@ import type { MeasurementFailed } from "../Errors/index.js"
 import type { EngineProfileType, FontDescriptorType, TextSegmentType, WhiteSpaceModeType } from "../Text/schema.js"
 
 /**
- * Declares preparation service contracts stable for compatibility guarantees.
+ * Marks preparation service interfaces as covered by stable compatibility guarantees.
  *
  * @since 0.1.0
  * @category stability
@@ -36,6 +36,7 @@ export const ContractsStability = "stable"
 export class WordSegmenter extends Context.Tag("effect-text/WordSegmenter")<
   WordSegmenter,
   {
+    /** Splits source text according to the requested whitespace policy. */
     readonly segment: (
       text: string,
       whiteSpace: WhiteSpaceModeType
@@ -57,6 +58,7 @@ export class WordSegmenter extends Context.Tag("effect-text/WordSegmenter")<
 export class TextMeasurer extends Context.Tag("effect-text/TextMeasurer")<
   TextMeasurer,
   {
+    /** Measures `text` in the units established by the implementation. */
     readonly measure: (
       font: FontDescriptorType,
       text: string
@@ -77,6 +79,7 @@ export class TextMeasurer extends Context.Tag("effect-text/TextMeasurer")<
 export class MeasurementCache extends Context.Tag("effect-text/MeasurementCache")<
   MeasurementCache,
   {
+    /** Returns a cached width or delegates to the underlying measurer. */
     readonly measure: (
       font: FontDescriptorType,
       text: string
@@ -97,6 +100,7 @@ export class MeasurementCache extends Context.Tag("effect-text/MeasurementCache"
 export class HyphenationDictionary extends Context.Tag("effect-text/HyphenationDictionary")<
   HyphenationDictionary,
   {
+    /** Returns valid break offsets for `word`, or an empty array when none apply. */
     readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<ReadonlyArray<number>>
   }
 >() {}

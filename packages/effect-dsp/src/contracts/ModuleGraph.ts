@@ -1,7 +1,5 @@
 /**
- * Serializable DAG of module composition relationships, consumed by
- * optimizers to discover learnable parameter surfaces and traverse
- * them in deterministic order.
+ * Serializable module composition records and traversal projections.
  *
  * @since 0.1.0
  */
@@ -95,68 +93,71 @@ const findLineagePath = (
     })
 
 /**
- * Serializable node in the module composition DAG — carries the module's
- * identity, signature summary, and the IDs of its immediate children.
+ * Stores prompt metadata and immediate child identities for one module.
  *
- * @see {@link ModuleGraphEdge} — explicit parent→child edge
- * @see {@link ModuleGraph} — the full graph containing nodes and edges
+ * @remarks
+ * Child order controls traversal unless the node passes through
+ * {@link makeModuleGraph}, which sorts and deduplicates it.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleGraphNode extends Schema.Class<ModuleGraphNode>("ModuleGraphNode")({
+  /** Identity used by graph lookup and traversal. */
   moduleId: ModuleId,
+  /** Prompt metadata retained for optimizer inspection. */
   signature: ModuleNodeSignature,
+  /** Immediate child identities followed by pre-order traversal. */
   subModuleIds: Schema.Array(ModuleId)
 }) {}
 
 /**
- * Directed edge from a parent module to one of its composed children.
- * Edges are kept separate from nodes so optimizers can reason about
- * composition topology independently of node metadata.
+ * Records a directed parent-to-child relationship independently of node metadata.
  *
- * @see {@link ModuleGraphNode} — the node endpoints
- * @see {@link ModuleGraph} — the full graph
+ * @remarks
+ * Traversal reads `ModuleGraphNode.subModuleIds`; it does not consult this edge
+ * list. Consumers can use edges for topology analysis or serialization.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleGraphEdge extends Schema.Class<ModuleGraphEdge>("ModuleGraphEdge")({
+  /** Parent endpoint. */
   parentId: ModuleId,
+  /** Child endpoint. */
   childId: ModuleId
 }) {}
 
 /**
- * Complete serializable module composition DAG. Nodes are sorted by
- * {@link ModuleId} and edges by `parentId→childId` to guarantee
- * deterministic serialization regardless of discovery order.
+ * Stores a root, node records, and explicit composition edges.
  *
- * @see {@link makeModuleGraph} — canonical constructor with sorting
- * @see {@link stableModuleGraphTraversal} — deterministic pre-order walk
- * @see {@link moduleGraphLineage} — root-to-target path resolution
+ * @remarks
+ * The schema validates field shapes only. It does not enforce endpoint presence,
+ * unique node identities, acyclicity, edge consistency, or root membership. Use
+ * module composition APIs when those graph invariants are required.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleGraph extends Schema.Class<ModuleGraph>("ModuleGraph")({
+  /** Identity where traversal begins. */
   rootId: ModuleId,
+  /** Node records used for lookup; duplicate identities resolve to the last node. */
   nodes: Schema.Array(ModuleGraphNode),
+  /** Explicit topology records, independent from node child lists. */
   edges: Schema.Array(ModuleGraphEdge)
 }) {}
 
 /**
- * Ordered path from the graph root to a specific target module.
- * Used by optimizers to scope parameter updates to a particular
- * lineage branch.
- *
- * @see {@link moduleGraphLineage} — resolves a lineage from a graph
- * @see {@link ModuleGraphProjection} — carries lineages for all nodes
+ * Records the first root-to-target path selected by depth-first traversal.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleLineage extends Schema.Class<ModuleLineage>("ModuleLineage")({
+  /** Requested final identity. */
   targetId: ModuleId,
+  /** Root-first identities including both root and target. */
   path: Schema.Array(ModuleId)
 }) {}
 
@@ -168,11 +169,15 @@ const normalizeNode = (node: ModuleGraphNode): ModuleGraphNode =>
   })
 
 /**
- * Construct a {@link ModuleGraph} with nodes and edges sorted
- * deterministically by {@link ModuleId}. Deduplicates and sorts
- * child ID lists within each node.
+ * Normalizes ordering for a serializable module graph.
  *
- * @see {@link ModuleGraph}
+ * @remarks
+ * Nodes are sorted by identity, child lists are sorted and deduplicated, and
+ * edges are sorted by parent and child identity. Duplicate nodes and duplicate
+ * edges remain present. The function does not validate graph invariants.
+ *
+ * @param options - Root identity plus node and edge records to normalize.
+ * @returns A new graph with normalized array ordering.
  *
  * @since 0.1.0
  * @category constructors
@@ -189,12 +194,15 @@ export const makeModuleGraph = (options: {
   })
 
 /**
- * Walk a {@link ModuleGraph} in deterministic pre-order starting from
- * `rootId`, returning the visited {@link ModuleId} sequence. Guarantees
- * stable ordering across runs for the same graph structure.
+ * Walks child identities in pre-order from the graph root.
  *
- * @see {@link ModuleGraph}
- * @see {@link projectModuleGraph} — bundles traversal with lineage
+ * @remarks
+ * Each identity appears at most once, which terminates traversal when cycles are
+ * present. Stored child order is preserved. A referenced identity without a node
+ * is included but has no descendants.
+ *
+ * @param graph - Graph whose node child lists define traversal.
+ * @returns Visited identities beginning with `rootId`.
  *
  * @since 0.1.0
  * @category combinators
@@ -203,12 +211,15 @@ export const stableModuleGraphTraversal = (graph: ModuleGraph): ReadonlyArray<Mo
   traverseNode(nodeLookup(graph), graph.rootId, Arr.empty<ModuleId>()).order
 
 /**
- * Resolve the ordered path from graph root to `targetId`, returning
- * `None` if the target is unreachable. Used by optimizers to scope
- * parameter updates to a specific composition branch.
+ * Finds the first root-to-target path in stored child order.
  *
- * @see {@link ModuleLineage} — the returned path model
- * @see {@link ModuleGraph}
+ * @remarks
+ * Cycles are skipped. A target is reachable when its identity appears in a child
+ * list even if no corresponding node record exists.
+ *
+ * @param graph - Graph whose node child lists define reachability.
+ * @param targetId - Identity to locate from the root.
+ * @returns The selected path, or `Option.none()` when no path reaches the target.
  *
  * @since 0.1.0
  * @category combinators
@@ -223,20 +234,17 @@ export const moduleGraphLineage = (
   )
 
 /**
- * Pre-computed graph analysis bundling the deterministic traversal order
- * with root-to-node lineages for every node. Produced once by
- * {@link projectModuleGraph} and consumed by optimizer seams that need
- * stable iteration and ancestry without re-walking the graph.
- *
- * @see {@link projectModuleGraph} — the canonical projection constructor
- * @see {@link ModuleGraph} — the source graph
+ * Stores traversal order and reachable lineages computed from a module graph.
  *
  * @since 0.1.0
  * @category models
  */
 export class ModuleGraphProjection extends Schema.Class<ModuleGraphProjection>("ModuleGraphProjection")({
+  /** Source graph root identity. */
   rootId: ModuleId,
+  /** Pre-order identities returned by {@link stableModuleGraphTraversal}. */
   traversal: Schema.Array(ModuleId),
+  /** Reachable paths for source node records, preserving source node order. */
   lineages: Schema.Array(ModuleLineage)
 }) {}
 
@@ -244,12 +252,15 @@ const graphLineages = (graph: ModuleGraph): ReadonlyArray<ModuleLineage> =>
   Arr.filterMap(graph.nodes, (node) => moduleGraphLineage(graph, node.moduleId))
 
 /**
- * Project a {@link ModuleGraph} into a {@link ModuleGraphProjection}
- * containing the stable traversal order and root-to-node lineages
- * for every discovered node.
+ * Computes traversal order and reachable node lineages once.
  *
- * @see {@link ModuleGraphProjection}
- * @see {@link stableModuleGraphTraversal}
+ * @remarks
+ * Lineages are attempted for each node record and unreachable nodes are omitted.
+ * Referenced identities missing from `nodes` can appear in `traversal` without a
+ * corresponding lineage entry.
+ *
+ * @param graph - Source graph; no graph invariants are validated.
+ * @returns A projection containing traversal and reachable lineages.
  *
  * @since 0.1.0
  * @category combinators

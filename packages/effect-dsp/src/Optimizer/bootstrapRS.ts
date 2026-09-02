@@ -1,6 +1,5 @@
 /**
- * BootstrapRS — random-search variant that runs multiple independent
- * BootstrapFewShot restarts and selects the best.
+ * Selects among baseline and seeded BootstrapFewShot parameter snapshots.
  *
  * @since 0.1.0
  * @category constructors

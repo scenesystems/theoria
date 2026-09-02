@@ -1,9 +1,6 @@
 /**
- * Key Agreement — X25519 Diffie–Hellman shared secret derivation.
- *
- * What this shows: two parties each generate X25519 key pairs, then each derives
- * the same shared secret from the other's public key. Both sides end up with
- * identical bytes, confirmed via constant-time `equalBytes` comparison.
+ * Derives an X25519 shared secret from both participants' perspectives and
+ * compares the resulting bytes with constant-time equality.
  *
  * Run: bun run examples/02-key-agreement.ts
  */

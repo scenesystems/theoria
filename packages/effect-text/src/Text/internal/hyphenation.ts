@@ -3,6 +3,7 @@
  *
  * @since 0.2.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Order } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
@@ -253,7 +254,7 @@ const parsedHyphenationPatterns = (
   Arr.flatMap(Rec.toEntries(patternGroups), ([sizeKey, body]) => {
     const size = Number(sizeKey)
 
-    return Arr.makeBy(Math.ceil(body.length / size), (index) =>
+    return Arr.makeBy(Numeric.ceil(body.length / size), (index) =>
       parseHyphenationPattern(body.slice(index * size, (index + 1) * size)))
   })
 
@@ -323,7 +324,7 @@ const overlayPatternPoints = (
 ): ReadonlyArray<number> =>
   Arr.map(
     points,
-    (point, pointIndex) => Math.max(point, pattern.points[pointIndex - matchIndex] ?? 0)
+    (point, pointIndex) => Numeric.max(point, pattern.points[pointIndex - matchIndex] ?? 0)
   )
 
 const compiledHyphenationPatternSource = (
@@ -378,7 +379,7 @@ const hyphenationBreakPointsFromPatterns = (
     normalizedWord,
     Arr.map(
       Arr.filter(
-        Arr.makeBy(Math.max(working.length - 2, 0), (offset) => offset + 1),
+        Arr.makeBy(Numeric.max(working.length - 2, 0), (offset) => offset + 1),
         (index) => index > source.leftMin && index < working.length - source.rightMin && (points[index] ?? 0) % 2 === 1
       ),
       (index) => index - 1
@@ -451,7 +452,7 @@ const shippedHyphenationLocaleEntries = Arr.map(shippedHyphenationPatternSources
 })
 
 /**
- * Internal support-data authority for the shipped hyphenation locale set and fallback policy.
+ * Internal locale set and fallback policy consumed by the dictionary layer.
  *
  * @since 0.2.0
  * @category internals

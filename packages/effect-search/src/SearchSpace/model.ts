@@ -1,4 +1,6 @@
 /**
+ * Runtime models and type projections for compiled search spaces.
+ *
  * @since 0.1.0
  */
 import { Data, Schema } from "effect"
@@ -9,12 +11,11 @@ import type { PrimitiveChoice } from "../contracts/Distribution.js"
 import { DistributionSchema, PrimitiveChoiceSchema } from "../contracts/Distribution.js"
 
 /**
- * Schema for optional float distribution metadata. `scale` records linear or
- * logarithmic sampling and `step` records discretization; {@link make} validates
- * positive steps and positive lower bounds for logarithmic dimensions.
+ * Decodes optional scale and quantization metadata for a float distribution.
  *
- * @see {@link IntOptionsSchema} for integer-valued dimensions
- * @see {@link ParameterMetadata} where these options feed into compiled metadata
+ * @remarks
+ * This schema checks field shape only. Search-space compilation validates step
+ * positivity and the logarithmic lower bound.
  * @since 0.1.0
  * @category schemas
  */
@@ -24,20 +25,18 @@ export const FloatOptionsSchema = Schema.Struct({
 })
 
 /**
- * Decoded options accepted by {@link float}.
- *
- * @see {@link FloatOptionsSchema}
+ * Configures linear or logarithmic float sampling and optional quantization.
  * @since 0.1.0
  * @category type-level
  */
 export type FloatOptions = Schema.Schema.Type<typeof FloatOptionsSchema>
 
 /**
- * Schema for an optional integer distribution step. {@link make} requires a
- * supplied step to be positive.
+ * Decodes an optional integer-distribution sampling step.
  *
- * @see {@link FloatOptionsSchema} for float-valued dimensions
- * @see {@link ParameterMetadata} where these options feed into compiled metadata
+ * @remarks
+ * This schema accepts any number. Search-space compilation requires a positive
+ * value when the field is present.
  * @since 0.1.0
  * @category schemas
  */
@@ -46,49 +45,46 @@ export const IntOptionsSchema = Schema.Struct({
 })
 
 /**
- * Decoded options accepted by {@link int}.
- *
- * @see {@link IntOptionsSchema}
+ * Configures the positive sampling step for an integer dimension.
  * @since 0.1.0
  * @category type-level
  */
 export type IntOptions = Schema.Schema.Type<typeof IntOptionsSchema>
 
 /**
- * An equality requirement on a named discriminant. All conditions attached to
- * a parameter must hold for that parameter to be active.
+ * Requires one named discriminant to equal a primitive value for activation.
  *
- * @see {@link Switch} which uses activation conditions to branch sub-schemas
- * @see {@link ParameterMetadata} which carries the `activeWhen` array
+ * @remarks
+ * Conditions use Effect structural equality.
  * @since 0.1.0
  * @category models
  */
 export class ActivationCondition extends Schema.Class<ActivationCondition>("effect-search/ActivationCondition")({
+  /** Name of a categorical parameter earlier in the activation path. */
   dimension: Schema.String,
+  /** Branch value that activates the dependent parameter. */
   equals: PrimitiveChoiceSchema
 }) {}
 
 /**
- * Sampling metadata extracted from one annotated dimension. `activeWhen` is
- * empty for root parameters and records the outer-to-inner activation path for
- * branch parameters.
- *
- * @see {@link ActivationCondition} for conditional dimension gating
- * @see {@link SearchSpace} which aggregates all parameter metadata
+ * Records a named sampler distribution and its complete activation path.
  * @since 0.1.0
  * @category models
  */
 export class ParameterMetadata extends Schema.Class<ParameterMetadata>("effect-search/ParameterMetadata")({
+  /** Configuration key used by samplers and schema fields. */
   name: Schema.String,
+  /** Sampling bounds, choices, scale, and step for the parameter. */
   distribution: DistributionSchema,
+  /** Outer-to-inner branch conditions; empty for root parameters. */
   activeWhen: Schema.Array(ActivationCondition)
 }) {}
 
 /**
- * A discriminant value together with the branch schema and its ordered metadata.
+ * Binds one discriminant value to an already compiled branch space.
  *
- * @see {@link Switch} which collects cases into a branching structure
- * @see {@link ActivationCondition} which mirrors this binding at the dimension level
+ * @typeParam CaseSchema - Schema decoded when this case is selected.
+ * @typeParam Choice - Literal discriminant value selecting the case.
  * @since 0.1.0
  * @category models
  */
@@ -96,17 +92,25 @@ export class SwitchCase<
   CaseSchema extends Schema.Schema.AnyNoContext = Schema.Schema.AnyNoContext,
   Choice extends PrimitiveChoice = PrimitiveChoice
 > extends Data.TaggedClass("SwitchCase")<{
+  /** Discriminant value selecting this case. */
   readonly when: Choice
+  /** Compiled branch schema, excluding the outer discriminant field. */
   readonly schema: CaseSchema
+  /** Branch parameter metadata in declaration order. */
   readonly params: Array<ParameterMetadata>
 }> {}
 
 /**
- * A named discriminant, non-empty case list, and union schema assembled by
- * {@link switchOn}. Reachability and uniqueness are validated during compilation.
+ * Describes a conditional union selected by a named categorical dimension.
  *
- * @see {@link SwitchCase} for individual branch bindings
- * @see {@link SearchSpace} which may contain switches as part of its structure
+ * @remarks
+ * {@link switchOn} constructs the union schema immediately. Reachability,
+ * duplicate case values, and the discriminant's presence are validated later by
+ * {@link makeConditional}.
+ *
+ * @typeParam BranchSchema - Union schema containing the discriminant and case fields.
+ * @typeParam Case - Case record included in the union.
+ * @typeParam Discriminant - Literal configuration key that selects a case.
  * @since 0.1.0
  * @category models
  */
@@ -115,45 +119,49 @@ export class Switch<
   Case extends SwitchCase = SwitchCase,
   Discriminant extends string = string
 > extends Data.TaggedClass("Switch")<{
+  /** Root categorical parameter used to select the branch. */
   readonly discriminant: Discriminant
+  /** Ordered non-empty case list. */
   readonly cases: NonEmptyReadonlyArray<Case>
+  /** Union schema containing one member per case. */
   readonly schema: BranchSchema
 }> {}
 
 /**
- * A compiled configuration schema, source-dimension lookup, and ordered
- * parameter metadata. The schema determines decoded and encoded config types.
+ * Couples a configuration schema with the metadata required by samplers.
  *
- * @see {@link ParameterMetadata} for individual dimension metadata
- * @see {@link Type} to extract the decoded config type
- * @see {@link Encoded} to extract the serialized config type
+ * @remarks
+ * For conditional spaces, `dimensions` contains root declarations only; branch
+ * dimensions remain available through `schema` and `params`.
+ *
+ * @typeParam SpaceSchema - Schema defining decoded objective input and encoded representation.
  * @since 0.1.0
  * @category models
  */
 export class SearchSpace<SpaceSchema extends Schema.Schema.AnyNoContext = Schema.Schema.AnyNoContext>
   extends Data.Class<{
+    /** Decodes sampler output and determines the configuration type. */
     readonly schema: SpaceSchema
+    /** Root dimension schemas keyed by parameter name. */
     readonly dimensions: HashMap.HashMap<string, Schema.Struct.Field>
+    /** All root and branch sampling metadata in compilation order. */
     readonly params: Array<ParameterMetadata>
   }>
 {}
 
 /**
- * Configuration delivered to objectives after the compiled schema decodes a
- * sampler suggestion.
+ * Extracts the configuration delivered to an objective after schema decoding.
  *
- * @see {@link SearchSpace}
- * @see {@link Encoded} for the serialized counterpart
+ * @typeParam Space - Compiled space whose decoded schema type is selected.
  * @since 0.1.0
  * @category type-level
  */
 export type Type<Space extends SearchSpace = SearchSpace> = Schema.Schema.Type<Space["schema"]>
 
 /**
- * Portable representation crossing the compiled space's serialization boundary.
+ * Extracts the representation accepted by the space schema's decoder.
  *
- * @see {@link SearchSpace}
- * @see {@link Type} for the decoded counterpart
+ * @typeParam Space - Compiled space whose encoded schema type is selected.
  * @since 0.1.0
  * @category type-level
  */

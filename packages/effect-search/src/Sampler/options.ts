@@ -1,5 +1,5 @@
 /**
- * Option schemas for sampler variants.
+ * Serializable option records for built-in samplers.
  *
  * @since 0.1.0
  */
@@ -9,7 +9,7 @@ import { BuiltInAcquisitionNameSchema } from "../contracts/Acquisition.js"
 
 export {
   /**
-   * Shared built-in acquisition strategy schema used across samplers.
+   * Decodes the `"ei"`, `"pi"`, and `"thompson"` acquisition names accepted by TPE and GP-BO.
    *
    * @since 0.1.0
    * @category schemas
@@ -18,7 +18,7 @@ export {
 } from "../contracts/Acquisition.js"
 export {
   /**
-   * Shared built-in acquisition strategy type used across samplers.
+   * Names a built-in acquisition rule accepted by TPE and GP-BO.
    *
    * @since 0.1.0
    * @category models
@@ -27,8 +27,10 @@ export {
 } from "../contracts/Acquisition.js"
 
 /**
- * Random-sampler options. `seed` defaults to `0`; the same seed, search space,
- * and trial number reproduce a suggestion.
+ * Decodes an optional numeric seed for random sampling.
+ *
+ * @remarks
+ * The schema does not apply the runtime default or normalize non-finite values.
  *
  * @since 0.1.0
  * @category schemas
@@ -38,8 +40,11 @@ export const RandomOptionsSchema = Schema.Struct({
 })
 
 /**
- * Controls deterministic random traversal. An omitted `seed` is `0`; the same
- * seed, search space, and trial number reproduce the same suggestion.
+ * Configures the seed used to derive each random suggestion.
+ *
+ * @remarks
+ * {@link random} uses seed `0` when the field is absent. The seed, search space,
+ * and next trial number determine the result.
  *
  * @since 0.1.0
  * @category type-level
@@ -47,8 +52,10 @@ export const RandomOptionsSchema = Schema.Struct({
 export type RandomOptions = Schema.Schema.Type<typeof RandomOptionsSchema>
 
 /**
- * Grid-sampler options. `shuffle` defaults to `false` and `seed` to `0`.
- * The seed is used only when shuffled traversal is enabled.
+ * Decodes optional grid traversal order and seed fields.
+ *
+ * @remarks
+ * The schema does not apply constructor defaults.
  *
  * @since 0.1.0
  * @category schemas
@@ -59,9 +66,11 @@ export const GridOptionsSchema = Schema.Struct({
 })
 
 /**
- * Controls finite-grid traversal. By default enumeration is ordered
- * (`shuffle: false`) with seed `0`; `seed` affects ordering only when shuffling,
- * and the sampler eventually fails with `SamplerExhausted` after every entry.
+ * Configures finite-grid traversal.
+ *
+ * @remarks
+ * {@link grid} defaults to ordered traversal and seed `0`. The seed affects
+ * order only when `shuffle` is true.
  *
  * @since 0.1.0
  * @category type-level
@@ -69,10 +78,12 @@ export const GridOptionsSchema = Schema.Struct({
 export type GridOptions = Schema.Schema.Type<typeof GridOptionsSchema>
 
 /**
- * Serializable TPE options. Defaults are 10 startup trials, 24 candidates,
- * seed `0`, and disabled multivariate, grouping, and noise-aware modes.
- * `nStartupTrials` must be non-negative, `nEiCandidates` at least one, and
- * `noiseAlpha` finite and between 0 and 10.
+ * Decodes the serializable fields retained for a TPE sampler.
+ *
+ * @remarks
+ * Except for the non-negative `constraintsCount`, numeric range checks occur
+ * when the sampler suggests a configuration. Defaults are also applied by the
+ * sampler rather than by this schema.
  *
  * @since 0.1.0
  * @category schemas
@@ -89,9 +100,15 @@ export const TpeOptionsSchema = Schema.Struct({
 })
 
 /**
- * Serializable options accepted by {@link tpe}. The constructor additionally
- * accepts runtime acquisition and constraint functions, which are not part of
- * this schema or persisted checkpoint.
+ * Configures TPE startup, candidate scoring, model shape, noise handling, and seed.
+ *
+ * @remarks
+ * {@link tpe} defaults to 10 startup trials, 24 candidates, seed `0`, and false
+ * for each model flag. Startup trials must be a finite non-negative integer;
+ * candidate count must be a finite positive integer. `noiseAlpha` defaults to
+ * `1` and must be finite in the inclusive range 0 through 10. These checks run
+ * when the sampler suggests a configuration. Runtime acquisition and constraint
+ * functions are omitted from serializable options and checkpoints.
  *
  * @since 0.1.0
  * @category type-level
@@ -99,9 +116,10 @@ export const TpeOptionsSchema = Schema.Struct({
 export type TpeOptions = Schema.Schema.Type<typeof TpeOptionsSchema>
 
 /**
- * CMA-ES options. Defaults are seed `0`, sigma `0.35`, and population size
- * `12`. Sigma must be finite and positive; population size must be finite and
- * at least two.
+ * Decodes optional CMA-ES seed, initial sigma, and population size fields.
+ *
+ * @remarks
+ * The schema accepts any numbers; sampler validation enforces the model ranges.
  *
  * @since 0.1.0
  * @category schemas
@@ -113,9 +131,12 @@ export const CmaEsOptionsSchema = Schema.Struct({
 })
 
 /**
- * Controls CMA-ES reproducibility and generation behavior: `seed` defaults to
- * `0`, global step size `sigma` to `0.35`, and population size to `12`.
- * Construction rejects non-positive/non-finite sigma or populations below two.
+ * Configures CMA-ES reproducibility and generation behavior.
+ *
+ * @remarks
+ * {@link cmaEs} defaults to seed `0`, sigma `0.35`, and population size `12`.
+ * Suggestion fails with `InvalidSamplerConfig` unless sigma is finite and
+ * positive and population size is finite and at least 2.
  *
  * @since 0.1.0
  * @category type-level
@@ -123,10 +144,11 @@ export const CmaEsOptionsSchema = Schema.Struct({
 export type CmaEsOptions = Schema.Schema.Type<typeof CmaEsOptionsSchema>
 
 /**
- * GP-BO options. Defaults are seed `0`, 8 startup trials, 32 candidates,
- * length scale `0.25`, noise `0.01`, and expected improvement. Startup trials
- * and noise must be non-negative, candidate count at least one, and length
- * scale positive; all numeric model settings must be finite.
+ * Decodes serializable Gaussian-process and acquisition settings for GP-BO.
+ *
+ * @remarks
+ * The schema checks field types and acquisition names. Runtime defaults and
+ * numeric range checks are applied when the sampler is used.
  *
  * @since 0.1.0
  * @category schemas
@@ -141,10 +163,14 @@ export const GpBoOptionsSchema = Schema.Struct({
 })
 
 /**
- * Controls GP-BO startup randomness, posterior candidate search, RBF kernel,
- * diagonal noise, and acquisition (`expected-improvement` by default). Defaults
- * are seed `0`, 8 startup trials, 32 candidates, length scale `0.25`, and noise
- * `0.01`; model counts/scales must satisfy the constraints on the schema summary.
+ * Configures GP-BO startup, candidate search, kernel scale, noise, and acquisition.
+ *
+ * @remarks
+ * {@link gpBo} defaults to seed `0`, 8 startup trials, 32 candidates, length
+ * scale `0.25`, noise `0.01`, and `"ei"` acquisition. Suggestion fails with
+ * `InvalidSamplerConfig` unless startup trials and noise are finite and
+ * non-negative, candidate count is finite and at least 1, and length scale is
+ * finite and positive.
  *
  * @since 0.1.0
  * @category type-level

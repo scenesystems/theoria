@@ -1,5 +1,5 @@
 /**
- * Tagged error variants for sampler-related failures such as invalid configuration, exhaustion, and grid incompatibility.
+ * Expected sampler configuration, compatibility, and exhaustion failures.
  *
  * @since 0.1.0
  */
@@ -8,9 +8,8 @@ import { Schema } from "effect"
 import { SearchErrorTypeId } from "./typeId.js"
 
 /**
- * Rejects sampler construction or suggestion when an option cannot satisfy
- * the sampler's numeric or distribution invariants. `reason` is the actionable
- * validation message; `sampler`, when present, identifies the rejecting implementation.
+ * Rejects sampler construction or suggestion when an option violates its invariants.
+ * `reason` contains the failed condition; `sampler` identifies the implementation when known.
  *
  * @since 0.1.0
  * @category errors
@@ -18,7 +17,9 @@ import { SearchErrorTypeId } from "./typeId.js"
 export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfig>()(
   "effect-search/InvalidSamplerConfig",
   {
+    /** Failed construction or suggestion invariant. */
     reason: Schema.String,
+    /** Sampler implementation associated with the failure when known. */
     sampler: Schema.optional(Schema.String)
   }
 ) {
@@ -27,9 +28,8 @@ export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfi
 }
 
 /**
- * Signals that a finite sampler has no configuration at `nextTrialNumber`.
- * Callers can stop asking, or resume with a larger/different search space;
- * `available` is the total number of configurations that could be emitted.
+ * Reports that a finite sampler has no configuration for `nextTrialNumber`.
+ * `available` records the total configurations in that sampler's current finite sequence.
  *
  * @since 0.1.0
  * @category errors
@@ -37,8 +37,11 @@ export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfi
 export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
   "effect-search/SamplerExhausted",
   {
+    /** Finite sampler whose configuration sequence was exhausted. */
     sampler: Schema.String,
+    /** Trial number that has no corresponding configuration. */
     nextTrialNumber: Schema.Number,
+    /** Total configurations in the sampler's current finite sequence. */
     available: Schema.Number
   }
 ) {
@@ -47,9 +50,8 @@ export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
 }
 
 /**
- * Rejects grid construction when `dimension` cannot be enumerated into a
- * finite value set. `reason` explains the incompatible distribution detail,
- * such as a floating-point dimension without a step.
+ * Reports a dimension that grid sampling cannot enumerate to a finite value set.
+ * `reason` records the incompatible distribution condition.
  *
  * @since 0.1.0
  * @category errors
@@ -57,7 +59,9 @@ export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
 export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
   "effect-search/GridIncompatible",
   {
+    /** Search-space dimension that cannot be enumerated. */
     dimension: Schema.String,
+    /** Distribution condition preventing a finite grid. */
     reason: Schema.String
   }
 ) {
@@ -66,9 +70,9 @@ export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
 }
 
 /**
- * Rejects suggestion before sampling when the selected sampler cannot model
- * the supplied space. `reason` states the violated requirement, while optional
- * `dimension` and `distribution` localize the unsupported parameter.
+ * Reports that a sampler cannot represent the supplied search space.
+ * `dimension` and `distribution`, when present, locate the unsupported parameter;
+ * `reason` records the sampler requirement it violates.
  *
  * @since 0.1.0
  * @category errors
@@ -76,9 +80,13 @@ export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
 export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSearchSpaceUnsupported>()(
   "effect-search/SamplerSearchSpaceUnsupported",
   {
+    /** Sampler implementation that rejected the space. */
     sampler: Schema.String,
+    /** Sampler requirement violated by the space. */
     reason: Schema.String,
+    /** Rejected parameter name when one dimension caused the failure. */
     dimension: Schema.optional(Schema.String),
+    /** Rejected distribution kind when one distribution caused the failure. */
     distribution: Schema.optional(Schema.String)
   }
 ) {
@@ -87,9 +95,8 @@ export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSea
 }
 
 /**
- * Rejects suggestion when a sampler cannot optimize the study's objective
- * shape. `objective` records the rejected shape and `reason` describes the
- * supported alternative, allowing callers to select another sampler or objective spec.
+ * Reports that a sampler cannot optimize the selected objective shape.
+ * `objective` names the rejected shape and `reason` records the supported constraint.
  *
  * @since 0.1.0
  * @category errors
@@ -97,8 +104,11 @@ export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSea
 export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjectiveUnsupported>()(
   "effect-search/SamplerObjectiveUnsupported",
   {
+    /** Sampler implementation that rejected the objective. */
     sampler: Schema.String,
+    /** Scalar or vector objective shape that was rejected. */
     objective: Schema.String,
+    /** Objective constraint imposed by the sampler. */
     reason: Schema.String
   }
 ) {

@@ -1,5 +1,5 @@
 /**
- * Post-execution runtime-evidence helpers.
+ * Assembly of post-execution runtime evidence.
  *
  * @since 0.1.0
  */
@@ -8,9 +8,8 @@ import type { RuntimeEvidence } from "../contracts/RuntimeEvidence.js"
 import type { RuntimeResolution } from "./services.js"
 
 /**
- * Combines a pre-execution resolution with caller-supplied post-execution
- * evidence. The function copies data without decoding or verifying it; callers
- * must derive `resolvedRuntime` from the actual provider response.
+ * Copies a pre-execution resolution and caller-supplied response observations
+ * into one serializable record. It performs no decoding or verification.
  *
  * @since 0.1.0
  * @category constructors

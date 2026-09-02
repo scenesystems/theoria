@@ -10,12 +10,17 @@
  * import { generateKey, seal, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
  * import { Effect } from "effect"
  *
- * const program = Effect.gen(function* () {
+ * export const program = Effect.gen(function* () {
  *   const key = yield* generateKey()
  *   const plaintext = utf8ToBytes("hello, world")
  *   const envelope = yield* seal("xchacha20-poly1305", key, plaintext)
  *   const recovered = yield* unseal(key, envelope)
- *   return utf8FromBytes(recovered)
+ *   return yield* Effect.succeed(utf8FromBytes(recovered)).pipe(
+ *     Effect.filterOrFail(
+ *       (text) => text === "hello, world",
+ *       () => "PlaintextDidNotRoundTrip"
+ *     )
+ *   )
  * })
  * ```
  *
