@@ -104,6 +104,13 @@ from `main`, and verified live by
 [`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml).
 Pull requests from forks are not previewed.
 
+Because the deploy job runs on `main`, GitHub records its `staging` deployment
+against `main` rather than the pull request, so the pull request page does not
+show the deployment URL. After verification passes, the job posts a single
+"Theoria preview" comment on the pull request (created once, then edited on each
+redeploy, and edited again to say the preview was removed when the pull request
+closes) with the hostname, the deployed commit, and the run that deployed it.
+
 GitHub only honors `workflow_run` for workflow files on the default branch,
 which is why this workflow, the two actions, `wrangler.jsonc`, and the
 `wrangler` devDependency live on `main` ahead of the `Theoria` build workflow

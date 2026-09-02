@@ -91,6 +91,11 @@ jobs:
     if: needs.resolve.outputs.pr-number != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # `pull-requests: write` only to keep the preview comment current.
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
     environment:
       name: staging
       url: https://theoria-pr-${{ needs.resolve.outputs.pr-number }}.staging.scenesystems.io
@@ -172,6 +177,25 @@ jobs:
           noindex: "true"
           attempts: "60"
 
+      # The `staging` deployment above is recorded against `main`, not the pull
+      # request's head, so GitHub does not surface its URL on the pull request.
+      # This comment is the only place reviewers see the preview address.
+      - uses: ./.github/actions/theoria-preview-comment
+        if: steps.current.outputs.deploy == 'true'
+        with:
+          pr-number: ${{ env.PR_NUMBER }}
+          token: ${{ github.token }}
+          body: |
+            ## Theoria preview
+
+            | | |
+            | --- | --- |
+            | Preview | https://theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io |
+            | Commit | ${{ env.HEAD_SHA }} |
+            | Deployed by | [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+
+            Served with `noindex`; redeployed on every successful build of this pull request and removed when it closes.
+
   remove:
     name: Remove PR Preview
     if: >-
@@ -179,6 +203,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     environment:
       name: staging
       deployment: false
@@ -284,3 +311,14 @@ jobs:
               --header "$auth" "$api/zones/$zone_id/ssl/certificate_packs/$pack"
             echo "Deleted certificate pack $pack for $PREVIEW_HOST"
           done
+
+      # Only pull requests that had a preview carry the comment to update.
+      - uses: ./.github/actions/theoria-preview-comment
+        if: steps.preview.outputs.exists == 'true'
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          token: ${{ github.token }}
+          body: |
+            ## Theoria preview
+
+            Removed: the preview Worker at `${{ env.PREVIEW_HOST }}` was deleted when this pull request closed.
