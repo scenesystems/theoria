@@ -1,0 +1,156 @@
+name: Theoria
+
+# Builds the Theoria site once per commit and deploys that exact build to
+# Cloudflare Workers. Pull requests only build; `theoria-preview.yml` deploys the
+# uploaded build to a per-PR Worker with credentials the PR itself never sees.
+# Pushes to `main` deploy to staging and then to production. Production is a
+# GitHub environment, so its protection rules (required reviewers) gate the
+# final step. See `apps/theoria/DEPLOYMENT.md`.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Pull requests build the merge commit but label the artifact with the head
+  # SHA so `theoria-preview.yml` can find it from the `workflow_run` payload.
+  BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: theoria-build-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    outputs:
+      artifact: ${{ steps.artifact.outputs.name }}
+      build-sha: ${{ steps.artifact.outputs.build-sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+
+      - name: Build web bundle
+        run: bun run --cwd apps/theoria build:web
+
+      - name: Bundle Worker
+        run: bun run --cwd apps/theoria deploy:dry-run
+
+      - uses: ./.github/actions/theoria-build-check
+        with:
+          path: apps/theoria
+
+      - name: Name artifact
+        id: artifact
+        run: |
+          {
+            echo "name=theoria-${BUILD_SHA}"
+            echo "build-sha=${BUILD_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: |
+            apps/theoria/dist
+            apps/theoria/.wrangler-out
+            !apps/theoria/.wrangler-out/*.map
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 1 || 7 }}
+
+  staging:
+    name: Staging
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: https://theoria.staging.scenesystems.io
+    concurrency:
+      group: theoria-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+
+      - name: Download build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: apps/theoria
+
+      - uses: ./.github/actions/theoria-build-check
+        with:
+          path: apps/theoria
+
+      - name: Deploy staging
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/theoria
+          packageManager: bun
+          command: >-
+            deploy .wrangler-out/worker.js --no-bundle --env staging
+            --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
+
+      - uses: ./.github/actions/theoria-verify-deployment
+        with:
+          url: https://theoria.staging.scenesystems.io
+          build-sha: ${{ needs.build.outputs.build-sha }}
+          noindex: "true"
+
+  production:
+    name: Production
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [build, staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://theoria.scenesystems.io
+    concurrency:
+      group: theoria-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+
+      - name: Download build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: apps/theoria
+
+      - uses: ./.github/actions/theoria-build-check
+        with:
+          path: apps/theoria
+
+      - name: Deploy production
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/theoria
+          packageManager: bun
+          command: >-
+            deploy .wrangler-out/worker.js --no-bundle --env=""
+            --var BUILD_SHA:${{ needs.build.outputs.build-sha }}
+
+      - uses: ./.github/actions/theoria-verify-deployment
+        with:
+          url: https://theoria.scenesystems.io
+          build-sha: ${{ needs.build.outputs.build-sha }}
+          noindex: "false"

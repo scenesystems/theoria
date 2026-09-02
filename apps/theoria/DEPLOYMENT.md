@@ -69,11 +69,64 @@ bunx wrangler dev --env staging   # or --env preview; assumes dist/ is built
 production config appears indexable locally while `--env staging` and
 `--env preview` return `noindex`.
 
+## Automated deployments
+
+The [Theoria workflow](../../.github/workflows/theoria.yml) builds the site once
+per commit (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
+`worker.ts` for workerd), checks the output with
+[`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
+and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. Every
+deployment then uploads that exact artifact with `wrangler deploy --no-bundle`,
+so staging, production, and previews serve byte-identical builds of a commit.
+
+| Event                   | Job        | Target                                          |
+| ----------------------- | ---------- | ----------------------------------------------- |
+| pull request            | Build      | artifact only, no credentials                   |
+| `workflow_run` of Build | PR Preview | `theoria-pr-<N>.staging.scenesystems.io`        |
+| pull request closed     | Remove     | deletes `theoria-pr-<N>`                        |
+| push to `main`          | Staging    | `theoria.staging.scenesystems.io`               |
+| push to `main` (gated)  | Production | `theoria.scenesystems.io`, after Staging passes |
+
+Each deployment ends with
+[`theoria-verify-deployment`](../../.github/actions/theoria-verify-deployment/action.yml),
+which polls `/api/health/live` until `meta.buildSha` matches the commit and then
+runs the checklist below against the live hostname.
+
+The [preview workflow](../../.github/workflows/theoria-preview.yml) runs from
+trusted `main` on `workflow_run`. It confirms the pull request is still open at
+the artifact's head revision before downloading the artifact and again before
+deploying, re-checks the artifact, and deploys it with the `wrangler.jsonc` from
+`main` (a pull request that changes `wrangler.jsonc` sees that change only after
+merge). Pull request code never runs with Cloudflare credentials, and pull
+requests from forks are not previewed. Updating a pull request replaces its
+preview; closing it deletes the Worker and its managed DNS record. The Advanced
+Certificate Cloudflare issued for the preview hostname is not deleted
+automatically; prune them under **SSL/TLS → Edge Certificates** occasionally.
+
+### Cloudflare account and token
+
+1. `scenesystems.io` must be an active zone in the Cloudflare account, and the
+   account needs the Workers Paid plan (`limits.cpu_ms` above the Free plan
+   default).
+2. Create an API token from the **Edit Cloudflare Workers** template and
+   restrict it to this account and the `scenesystems.io` zone. That template
+   covers Workers Scripts, Workers Routes, and the zone DNS access Wrangler needs
+   to attach Custom Domains.
+3. Record the account ID from the dashboard.
+
+### GitHub environments
+
+In **Settings → Environments**, create `staging` and `production`. Add
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment secrets to
+both. Restrict both environments to the `main` deployment branch so a workflow
+edited on a pull request cannot request either environment's secrets. Leave
+`staging` without required reviewers so previews and merged changes deploy
+automatically; add required reviewers to `production` so every release waits
+for approval after staging has been verified.
+
 ### Manual deploy
 
-Continuous deployment is configured in GitHub Actions. To deploy by hand with
-a Cloudflare API token that has Workers Scripts and Workers Routes edit
-permissions on the account:
+To deploy by hand with the same token:
 
 ```sh
 bun run build:web
@@ -81,7 +134,8 @@ bunx wrangler deploy --env staging --var BUILD_SHA:"$(git rev-parse HEAD)"
 bunx wrangler deploy --env ""      --var BUILD_SHA:"$(git rev-parse HEAD)"
 ```
 
-Verify a deployment in this order:
+The deploy commands change Cloudflare routing; run them only as an approved
+release action. Verify a deployment in this order:
 
 1. `GET /api/health/live` returns `200`.
 2. `GET /api/health/live` reports `meta.buildSha` equal to the deployed commit.
@@ -126,6 +180,24 @@ treated as absent. Do not put provider keys in:
 - issue descriptions, build logs, screenshots, or test fixtures.
 
 GitHub Actions does not need a provider key to build or test the website.
+
+## Cutover from Railway
+
+Cloudflare and Railway can run side by side until DNS moves, because the
+production Worker only claims `theoria.scenesystems.io` when it is first
+deployed with that Custom Domain.
+
+1. Complete the Cloudflare account, token, and GitHub environment setup above.
+2. Merge the Cloudflare deployment change. The push to `main` deploys staging;
+   verify `https://theoria.staging.scenesystems.io` by hand as well as through
+   the workflow checks.
+3. If `theoria.scenesystems.io` currently has a DNS record pointing at Railway,
+   delete it: Wrangler cannot create a Custom Domain over an existing CNAME.
+4. Approve the `production` deployment. Wrangler creates the DNS record and
+   certificate for `theoria.scenesystems.io`.
+5. Verify production with the checklist above, then remove the Railway service,
+   `railway.json`, the `build:bun` script and `.gz` sidecar step, and the
+   `RAILWAY_*` fallbacks in `app/server/config`.
 
 ## Railway (until cutover)
 

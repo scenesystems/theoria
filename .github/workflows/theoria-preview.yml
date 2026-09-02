@@ -1,0 +1,184 @@
+name: Theoria Preview
+
+# Deploys the build that `theoria.yml` produced for a pull request to a per-PR
+# Worker at https://theoria-pr-<N>.staging.scenesystems.io, and deletes that
+# Worker when the pull request closes.
+#
+# This runs on `workflow_run`, so it executes on `main` with the `staging`
+# environment's Cloudflare credentials. The pull request's code is never run
+# here: only its build artifact is downloaded, checked, and uploaded with the
+# Wrangler configuration from `main`. Pull requests from forks are not
+# previewed. See `apps/theoria/DEPLOYMENT.md`.
+
+on:
+  workflow_run:
+    workflows: [Theoria]
+    types: [completed]
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    name: PR Preview
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].number != null
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: https://theoria-pr-${{ github.event.workflow_run.pull_requests[0].number }}.staging.scenesystems.io
+    concurrency:
+      group: theoria-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: true
+    env:
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Confirm current open pull request
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r state head_sha < <(
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+              --jq '[.state, .head.sha] | @tsv'
+          )
+
+          if [ "$state" = "open" ] && [ "$head_sha" = "$HEAD_SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping preview for PR $PR_NUMBER: state=$state current_head=$head_sha"
+          fi
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.pull-request.outputs.deploy == 'true'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: ./.github/actions/setup
+        if: steps.pull-request.outputs.deploy == 'true'
+
+      - name: Download build
+        if: steps.pull-request.outputs.deploy == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: theoria-${{ github.event.workflow_run.head_sha }}
+          path: ${{ runner.temp }}/theoria-build
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - uses: ./.github/actions/theoria-build-check
+        if: steps.pull-request.outputs.deploy == 'true'
+        with:
+          path: ${{ runner.temp }}/theoria-build
+
+      - name: Stage build
+        if: steps.pull-request.outputs.deploy == 'true'
+        env:
+          BUILD_DIR: ${{ runner.temp }}/theoria-build
+        run: |
+          rm -rf apps/theoria/dist apps/theoria/.wrangler-out
+          cp -R "$BUILD_DIR/dist" apps/theoria/dist
+          cp -R "$BUILD_DIR/.wrangler-out" apps/theoria/.wrangler-out
+
+      - name: Reconfirm current pull request revision
+        if: steps.pull-request.outputs.deploy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r state head_sha < <(
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+              --jq '[.state, .head.sha] | @tsv'
+          )
+
+          test "$state" = "open"
+          test "$head_sha" = "$HEAD_SHA"
+
+      - name: Deploy PR preview
+        if: steps.pull-request.outputs.deploy == 'true'
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/theoria
+          packageManager: bun
+          command: >-
+            deploy .wrangler-out/worker.js --no-bundle --env preview
+            --name theoria-pr-${{ env.PR_NUMBER }}
+            --domain theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
+            --var BUILD_SHA:${{ env.HEAD_SHA }}
+
+      - uses: ./.github/actions/theoria-verify-deployment
+        if: steps.pull-request.outputs.deploy == 'true'
+        with:
+          url: https://theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
+          build-sha: ${{ env.HEAD_SHA }}
+          noindex: "true"
+
+  remove:
+    name: Remove PR Preview
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: staging
+      deployment: false
+    concurrency:
+      group: theoria-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      WORKER_NAME: theoria-pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Find preview Worker
+        id: preview
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER_NAME")
+          case "$status" in
+            200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "Cloudflare returned HTTP $status while locating $WORKER_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.preview.outputs.exists == 'true'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: ./.github/actions/setup
+        if: steps.preview.outputs.exists == 'true'
+
+      - name: Delete preview Worker
+        if: steps.preview.outputs.exists == 'true'
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/theoria
+          packageManager: bun
+          command: delete --name ${{ env.WORKER_NAME }} --env preview --force
