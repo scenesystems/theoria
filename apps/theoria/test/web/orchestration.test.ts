@@ -162,7 +162,6 @@ describe("Theoria Orchestration", () => {
               runWithMeta,
               preload: () => Effect.succeed(programPreviewFixture),
               capabilities: () => Effect.succeed(capabilitiesFixture),
-              versions: () => Effect.succeed({}),
               streamUrl: (id) => `/api/demos/${id}/stream`
             })
           )
@@ -215,7 +214,6 @@ describe("Theoria Orchestration", () => {
               ),
             preload: () => Effect.succeed(programPreviewFixture),
             capabilities: () => Effect.succeed(capabilitiesFixture),
-            versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null
                 ? `/api/demos/${id}/stream`
@@ -262,7 +260,6 @@ describe("Theoria Orchestration", () => {
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
             capabilities: () => Effect.succeed(capabilitiesFixture),
-            versions: () => Effect.succeed({}),
             streamUrl: (id, customText = null) =>
               customText === null
                 ? `/api/demos/${id}/stream`

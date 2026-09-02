@@ -20,20 +20,6 @@ const demoIds = [
 ] as const
 type DemoId = (typeof demoIds)[number]
 
-const packageVersionsEnvelope = {
-  ok: true,
-  meta: envelopeMeta,
-  data: {
-    "@scenesystems/effect-text": "0.1.0",
-    "@scenesystems/effect-search": "0.2.0",
-    "@scenesystems/effect-math": "0.2.0",
-    "@scenesystems/effect-dsp": "0.1.4",
-    "@scenesystems/digest": "0.2.0",
-    "@scenesystems/sign": "0.1.0",
-    "@scenesystems/seal": "0.1.0"
-  }
-}
-
 const isDemoId = (value: string): value is DemoId => demoIds.includes(value as DemoId)
 
 const previewEnvelopeFor = (id: DemoId) => {
@@ -139,14 +125,6 @@ const installMockEventSource = async (page: Page): Promise<void> => {
 }
 
 const routeApi = async (page: Page): Promise<void> => {
-  await page.route("**/api/versions/packages", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      json: packageVersionsEnvelope,
-      status: 200
-    })
-  })
-
   await page.route("**/api/demos/*/preload", async (route) => {
     const url = new URL(route.request().url())
     const match = /^\/api\/demos\/([^/]+)\/preload$/u.exec(url.pathname)
@@ -212,22 +190,6 @@ const attachBrowserFailureCapture = (page: Page) => {
   return { consoleErrors, pageErrors }
 }
 
-const transformedAncestor = (element: Element): string => {
-  let current: Element | null = element
-
-  while (current !== null) {
-    const transform = getComputedStyle(current).transform
-
-    if (transform !== "none") {
-      return transform
-    }
-
-    current = current.parentElement
-  }
-
-  return "none"
-}
-
 test("deep dive run controls survive pause-resume in a real browser", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
@@ -271,56 +233,35 @@ test("deep dive run controls survive pause-resume in a real browser", async ({ p
   expect(failures.pageErrors).toEqual([])
 })
 
-test("home package catalog remains complete across responsive widths", async ({ page }) => {
+const overflowingElements = (): ReadonlyArray<string> =>
+  [...document.querySelectorAll<HTMLElement>("body *")]
+    .filter((element) => !element.classList.contains("pointer-events-none"))
+    .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+    .map((element) => `${element.tagName.toLowerCase()}.${element.className}`)
+
+test("the imagined place builds, merges, and stays inside every viewport", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
-  await page.setViewportSize({ width: 320, height: 800 })
-  await routeApi(page)
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
 
-  const packageTitles = page.getByRole("heading", { level: 3 })
-  const effectSearchTitle = page.getByRole("heading", {
-    level: 3,
-    name: "@scenesystems/effect-search"
-  })
-
-  await expect(packageTitles).toHaveCount(cards.length)
-  await expect(effectSearchTitle).toBeVisible()
+  const rendered = page.locator("[data-place-render-phase='complete']")
+  await expect(rendered).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator("[data-place-step]")).toHaveCount(4)
+  await expect(page.locator("[data-place-stage]")).toBeVisible()
+  await expect(page.locator("[data-place-marker]").first()).toBeVisible()
   await expect(page.locator('a[href^="/demos/"]')).toHaveCount(0)
-  await expect(page.getByText("Live demo", { exact: true })).toHaveCount(0)
-  await expect(page.getByText("Demo in development", { exact: true })).toHaveCount(0)
 
-  await effectSearchTitle.hover()
-  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).not.toBe("none")
+  const changes = page.locator("[data-place-current-version] [data-changes]")
+  await expect(changes).toHaveAttribute("data-changes", "0")
+  await page.getByRole("switch").first().click()
+  await expect(rendered).toBeVisible({ timeout: 20_000 })
+  await expect(changes).toHaveAttribute("data-changes", "1")
 
-  await page.mouse.move(1, 1)
-  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).toBe("none")
-
-  for (const width of [320, 768, 1280]) {
-    await page.setViewportSize({ width, height: 800 })
-
-    const layout = await page.locator("h3 + p").evaluateAll((descriptions) => ({
-      descriptions: descriptions.map((description) => ({
-        clientHeight: description.clientHeight,
-        scrollHeight: description.scrollHeight
-      })),
-      titles: [...document.querySelectorAll("h3")].map((title) => {
-        const range = document.createRange()
-        range.selectNodeContents(title)
-
-        return {
-          lineCount: range.getClientRects().length,
-          overflows: title.scrollWidth > title.clientWidth,
-          whiteSpace: getComputedStyle(title).whiteSpace
-        }
-      })
-    }))
-
-    expect(layout.descriptions).toHaveLength(cards.length)
-    expect(layout.descriptions.every((description) => description.scrollHeight <= description.clientHeight)).toBe(true)
-    expect(layout.titles.every((title) => title.lineCount === 1)).toBe(true)
-    expect(layout.titles.every((title) => title.overflows === false)).toBe(true)
-    expect(layout.titles.every((title) => title.whiteSpace === "nowrap")).toBe(true)
+  for (const width of [320, 390, 820, 1280, 1680]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(rendered).toBeVisible()
+    expect(await page.evaluate(overflowingElements)).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 

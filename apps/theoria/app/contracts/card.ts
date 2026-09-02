@@ -56,11 +56,9 @@ export const packageGroupMeta = (group: PackageGroup): PackageGroupMeta =>
   )
 
 /**
- * Full card definition consumed by both the home catalog and deep-dive pages.
- *
- * The `version` field provides a static fallback. Live versions are resolved
- * at runtime from the `/api/versions/packages` endpoint which reads the
- * workspace `package.json` files on server startup.
+ * Full card definition consumed by the package catalog on `/docs` and the
+ * deep-dive pages. The `version` field is the static fallback; the docs index
+ * shows the manifest version resolved at build time.
  *
  * @since 0.1.0
  */

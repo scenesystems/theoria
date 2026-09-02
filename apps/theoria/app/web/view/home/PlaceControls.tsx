@@ -64,7 +64,7 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
           setControls({ ...controls, brief: event.target.value.slice(0, briefMaxLength) })
         }}
         placeholder="Describe the place you want to share…"
-        rows={3}
+        rows={5}
         tone={tone}
         value={controls.brief}
       />

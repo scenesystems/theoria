@@ -1,13 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
 
-import { cards } from "../../apps/theoria/app/contracts/card.js"
-
-const packageVersions = {
-  ok: true,
-  meta: { requestId: "docs-browser", buildSha: "docs-browser", durationMs: 1 },
-  data: Object.fromEntries(cards.map((card) => [card.packageName, card.version]))
-}
-
 const captureBrowserFailures = (page: Page) => {
   const consoleErrors: Array<string> = []
   const pageErrors: Array<string> = []
@@ -25,21 +17,20 @@ const expectNoBrowserFailures = (failures: ReturnType<typeof captureBrowserFailu
   expect(failures.pageErrors).toEqual([])
 }
 
-test("landing links enter the package documentation without a reload", async ({ page }) => {
+test("the imagined place on the landing page links into the package documentation without a reload", async ({ page }) => {
   const failures = captureBrowserFailures(page)
   let documentRequests = 0
   page.on("request", (request) => {
     if (request.resourceType() === "document") documentRequests += 1
   })
-  await page.route("**/api/versions/packages", (route) => route.fulfill({ json: packageVersions }))
 
   await page.goto("/")
   await expect(
     page.getByRole("heading", { level: 1, name: "Scientific computing and model programming with Effect" })
   ).toBeVisible()
-  for (const card of cards) {
-    await expect(page.locator(`a[href="/docs/${card.id}"]`, { hasText: "Docs" })).toHaveCount(1)
-  }
+  await expect(page.locator("[data-place-render-phase='complete']")).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator("[data-place-step]")).toHaveCount(4)
+  await expect(page.locator("[data-place-step='arrange'] a[href='/docs/effect-search']")).toHaveCount(1)
 
   const headerNavigationStarted = performance.now()
   await page.locator("header").getByRole("link", { exact: true, name: "Docs" }).click()
@@ -48,10 +39,11 @@ test("landing links enter the package documentation without a reload", async ({ 
   expect(documentRequests).toBe(1)
 
   await page.goto("/")
-  const cardNavigationStarted = performance.now()
-  await page.locator('a[href="/docs/effect-search"]', { hasText: "Docs" }).click()
+  await expect(page.locator("[data-place-render-phase='complete']")).toBeVisible({ timeout: 20_000 })
+  const pillNavigationStarted = performance.now()
+  await page.locator("[data-place-step='arrange'] a[href='/docs/effect-search']").click()
   await expect(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" })).toBeVisible()
-  expect(performance.now() - cardNavigationStarted).toBeLessThan(1_500)
+  expect(performance.now() - pillNavigationStarted).toBeLessThan(1_500)
   expect(documentRequests).toBe(2)
   expectNoBrowserFailures(failures)
 })
@@ -83,12 +75,12 @@ test("docs navigation, package selection, and focused API caching stay coherent"
 
   await page.getByRole("link", { exact: true, name: "Study" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Study" })).toBeVisible()
-  await expect(page.getByText("Study orchestration — run optimization, stream events, snapshot/resume.")).toBeVisible()
+  await expect(page.getByText("Runs, observes, snapshots, and resumes optimization studies.")).toBeVisible()
 
   await page.locator('a[href="#api-ask"]').click()
   await expect(page).toHaveURL(/\/docs\/effect-search\/api\/Study#api-ask$/u)
   await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
-  await expect(page.getByText("Reserve the next trial configuration from a manual ask/tell handle.")).toBeVisible()
+  await expect(page.getByText("Reserves the next sampled configuration and emits TrialStarted", { exact: false })).toBeVisible()
   expect(docsRequests.filter((url) => url.endsWith("/Study/api-ask.json"))).toHaveLength(1)
 
   await page.getByRole("link", { exact: true, name: "← Study" }).click()
@@ -157,7 +149,7 @@ test("search is typo-tolerant, fast, cached, and routable", async ({ page }) => 
   const input = page.getByRole("combobox", { name: "Search" })
   await expect(input).toBeVisible()
   const searchStarted = performance.now()
-  await input.fill("resreve trial")
+  await input.fill("resreves trial")
   const askResult = page.getByRole("option", { name: /Study\.ask/u })
   await expect(askResult).toBeVisible()
   expect(performance.now() - searchStarted).toBeLessThan(750)

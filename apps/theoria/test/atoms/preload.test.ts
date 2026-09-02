@@ -40,8 +40,7 @@ describe("Route preload mounting", () => {
                   meta: { requestId: "req", buildSha: "build", durationMs: 1 }
                 }),
               capabilities: () => Effect.succeed(capabilitiesFixture),
-              streamUrl: (id) => `/api/demos/${id}/stream`,
-              versions: () => Effect.succeed({})
+              streamUrl: (id) => `/api/demos/${id}/stream`
             })
           )
         )

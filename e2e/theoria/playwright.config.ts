@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
 const baseUrl = "http://127.0.0.1:5175"
+const apiUrl = "http://127.0.0.1:3876"
 const isCI = Boolean(process.env.CI)
 
 export default defineConfig({
@@ -32,10 +33,18 @@ export default defineConfig({
       }
     }
   ],
-  webServer: {
-    command: "bun run --filter @theoria/theoria-app dev:web",
-    url: baseUrl,
-    reuseExistingServer: !isCI,
-    timeout: 120_000
-  }
+  webServer: [
+    {
+      command: "bun run --filter @theoria/theoria-app dev",
+      url: `${apiUrl}/api/health/ready`,
+      reuseExistingServer: !isCI,
+      timeout: 120_000
+    },
+    {
+      command: "bun run --filter @theoria/theoria-app dev:web",
+      url: baseUrl,
+      reuseExistingServer: !isCI,
+      timeout: 120_000
+    }
+  ]
 })

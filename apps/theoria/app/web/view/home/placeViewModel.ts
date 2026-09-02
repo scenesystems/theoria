@@ -75,9 +75,6 @@ export const discClassName = (role: ParticipantRole): string =>
     Match.exhaustive
   )
 
-/** "Neighbor · from the last house before the causeway": the badge says who, the account says how they came to propose. */
-export const offeredByText = (record: ProposalRecord): string => record.offeredBy
-
 export const markerLabel = (marker: PlaceMarker): string =>
   Option.match(Option.fromNullable(marker.contributedBy), {
     onNone: () => marker.name,

@@ -28,7 +28,6 @@ export type PlaceScenarioDefinition = {
   readonly brief: string
   readonly recorded: PlaceComposition
   readonly neighbor: {
-    readonly name: string
     readonly proposal: ProposedFeature
     readonly note: string
   }
@@ -72,7 +71,6 @@ const unfinishedLight: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "from the last house before the causeway",
     proposal: {
       name: "Finishing shelf",
       description:
@@ -131,7 +129,6 @@ const lostMarket: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "who has come four markets running",
     proposal: {
       name: "Second telling",
       description:
@@ -190,7 +187,6 @@ const drownedLibrary: PlaceScenarioDefinition = {
     ]
   },
   neighbor: {
-    name: "born the year after the water came",
     proposal: {
       name: "Dry shelf",
       description:
