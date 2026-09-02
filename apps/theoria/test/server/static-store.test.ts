@@ -12,24 +12,41 @@ const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
   Effect.tryPromise(() => HttpServerResponse.toWeb(response).text())
 
 // ---------------------------------------------------------------------------
-// Bun store (dist/ on disk)
+// Bun store (dist/ then public/ on disk)
 // ---------------------------------------------------------------------------
 
 const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const distRoot = yield* fileSystem.makeTempDirectoryScoped()
+    const publicRoot = yield* fileSystem.makeTempDirectoryScoped()
 
     yield* fileSystem.makeDirectory(`${distRoot}/assets`, { recursive: true })
     yield* fileSystem.writeFileString(`${distRoot}/index.html`, "<title>x</title>")
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js`, "console.log(1)")
     // The store never inflates sidecars; any bytes stand in for the gzip payload.
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js.gz`, "gzip-bytes")
+    // `public/` holds a file `dist/` lacks, and a stale copy of one `dist/` has.
+    yield* fileSystem.makeDirectory(`${publicRoot}/runtime-data`, { recursive: true })
+    yield* fileSystem.writeFileString(`${publicRoot}/runtime-data/package-versions.json`, "{\"public\":true}")
+    yield* fileSystem.writeFileString(`${publicRoot}/index.html`, "<title>stale</title>")
 
-    const store = yield* Effect.provide(StaticStore, BunStaticStore.layer(distRoot))
+    const store = yield* Effect.provide(StaticStore, BunStaticStore.layer([distRoot, publicRoot]))
 
     return yield* use(store)
   }).pipe(Effect.scoped, Effect.provide(Layer.provideMerge(HttpPlatform.layer, BunContext.layer)))
+
+it.effect("Bun store searches roots in order and falls back to later roots", () =>
+  withDist((store) =>
+    Effect.gen(function*() {
+      expect(yield* store.text("/index.html")).toBe("<title>x</title>")
+      expect(yield* store.text("/runtime-data/package-versions.json")).toBe("{\"public\":true}")
+
+      const fallback = Option.getOrThrow(yield* store.response("/runtime-data/package-versions.json", Option.none()))
+      expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
+      expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
+    })
+  ))
 
 it.effect("Bun store reads assets as text and reports missing ones", () =>
   withDist((store) =>

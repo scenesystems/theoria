@@ -5,9 +5,11 @@ import * as Arr from "effect/Array"
 import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/static-store.js"
 
 /**
- * `StaticStore` backed by the built `dist/` directory on disk.
+ * `StaticStore` backed by directories on disk, searched in order.
  *
- * Used by the Bun server (`apps/theoria/server.ts`). Serves `.gz` sidecars
+ * Used by the Bun server (`apps/theoria/server.ts`), which lists the built
+ * `dist/` first and the source `public/` second so that generated runtime data
+ * is reachable before `vite build` has copied it. Serves `.gz` sidecars
  * written by `scripts/compress-static-assets.ts` when the client accepts gzip.
  */
 
@@ -38,25 +40,36 @@ export const acceptsGzip = (header: Option.Option<string>): boolean =>
     })
   })
 
-const make = (distRoot: string) =>
+const trimTrailingSlash = (root: string): string => root.endsWith("/") ? root.slice(0, -1) : root
+
+const make = (roots: ReadonlyArray<string>) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const platform = yield* HttpPlatform.HttpPlatform
-    const root = distRoot.endsWith("/") ? distRoot.slice(0, -1) : distRoot
-
-    const filePath = (pathname: string): Option.Option<string> =>
-      isAssetPathname(pathname) ? Option.some(`${root}${pathname}`) : Option.none()
+    const searchRoots = Arr.map(roots, trimTrailingSlash)
 
     const exists = (path: string) => fileSystem.exists(path).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
+    /** The first root that holds `pathname`, or none when no root does. */
+    const locate = (pathname: string): Effect.Effect<Option.Option<string>> =>
+      isAssetPathname(pathname)
+        ? Effect.findFirst(Arr.map(searchRoots, (root) => `${root}${pathname}`), exists)
+        : Effect.succeed(Option.none())
+
     const text = (pathname: string) =>
-      Option.match(filePath(pathname), {
-        onNone: () => Effect.fail(new StaticStoreError({ pathname, message: "Invalid asset pathname." })),
-        onSome: (path) =>
-          fileSystem.readFileString(path).pipe(
-            Effect.mapError((cause) => new StaticStoreError({ pathname, message: String(cause) }))
+      isAssetPathname(pathname)
+        ? locate(pathname).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.fail(new StaticStoreError({ pathname, message: "Asset not found." })),
+              onSome: (path) =>
+                fileSystem.readFileString(path).pipe(
+                  Effect.mapError((cause) => new StaticStoreError({ pathname, message: String(cause) }))
+                )
+            })
           )
-      })
+        )
+        : Effect.fail(new StaticStoreError({ pathname, message: "Invalid asset pathname." }))
 
     const fileResponse = (pathname: string, path: string, acceptEncoding: Option.Option<string>) =>
       Effect.gen(function*() {
@@ -76,22 +89,23 @@ const make = (distRoot: string) =>
       )
 
     const response = (pathname: string, acceptEncoding: Option.Option<string>) =>
-      Option.match(filePath(pathname), {
-        onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
-        onSome: (path) =>
-          exists(path).pipe(
-            Effect.flatMap((present) =>
-              present
-                ? fileResponse(pathname, path, acceptEncoding)
-                : Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>())
-            )
-          )
-      })
+      locate(pathname).pipe(
+        Effect.flatMap(
+          Option.match({
+            onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
+            onSome: (path) => fileResponse(pathname, path, acceptEncoding)
+          })
+        )
+      )
 
     return StaticStore.of({ text, response })
   })
 
+/**
+ * Serve static files from `roots`, trying each directory in order and using
+ * the first that holds the requested pathname.
+ */
 export const layer = (
-  distRoot: string
+  roots: ReadonlyArray<string>
 ): Layer.Layer<StaticStore, never, FileSystem.FileSystem | HttpPlatform.HttpPlatform> =>
-  Layer.effect(StaticStore, make(distRoot))
+  Layer.effect(StaticStore, make(roots))

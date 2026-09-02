@@ -1,5 +1,7 @@
 /**
- * Theoria Bun entrypoint: serves the built web bundle from `dist/`.
+ * Theoria Bun entrypoint: serves the built web bundle from `dist/`, falling
+ * back to `public/` so generated runtime data is available before `vite build`
+ * (the API is usable during development without a web build).
  *
  * Run from repo root:
  * `bun run app:theoria`
@@ -12,6 +14,7 @@ import { AppLayer, publicApp } from "./app/server/app.js"
 import * as BunStaticStore from "./app/server/platform/bun-static-store.js"
 
 const distRoot = decodeURIComponent(new URL("./dist/", import.meta.url).pathname)
+const publicRoot = decodeURIComponent(new URL("./public/", import.meta.url).pathname)
 
 const ServerLive = Layer.unwrapEffect(
   Config.integer("PORT").pipe(
@@ -23,7 +26,7 @@ const ServerLive = Layer.unwrapEffect(
 const HttpLive = HttpServer.serve(publicApp, HttpMiddleware.logger).pipe(
   HttpServer.withLogAddress,
   Layer.provide(AppLayer),
-  Layer.provideMerge(BunStaticStore.layer(distRoot)),
+  Layer.provideMerge(BunStaticStore.layer([distRoot, publicRoot])),
   Layer.provide(ServerLive)
 )
 

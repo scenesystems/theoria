@@ -218,6 +218,8 @@ export default [
       "**/dist/**",
       "**/build/**",
       "**/node_modules/**",
+      "**/.wrangler/**",
+      "**/.wrangler-out/**",
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",
       "*.config.mjs",
