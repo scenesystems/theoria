@@ -7,9 +7,7 @@ import { AnchorLink, ExternalLink } from "../primitives/Link.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiExportView } from "./ApiExportView.js"
-
-export const apiCategoryAnchor = (name: string): string =>
-  `category-${name.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "-").replace(/(^-|-$)/gu, "")}`
+import { apiCategoryAnchor } from "./docsModel.js"
 
 const exportFor = (page: DocsApiModuleIndex, id: string): Option.Option<DocsApiExportSummary> =>
   Arr.findFirst(page.exports, (apiExport) => apiExport.id === id)

@@ -23,7 +23,7 @@ export const SemanticContent = ({
 
   return (
     <Component
-      className={`${semanticClassName(role, variant)} whitespace-pre-wrap ${className ?? ""}`}
+      className={`${semanticClassName(role, variant)} whitespace-normal ${className ?? ""}`}
     >
       {children}
     </Component>

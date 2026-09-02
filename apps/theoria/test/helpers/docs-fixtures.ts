@@ -114,7 +114,8 @@ export const apiPageFixture: ApiPage = {
     slug: "Study",
     docs: {
       ...emptyDocs,
-      summary: [{ kind: "text", text: "Build and run optimization studies." }]
+      summary: [{ kind: "text", text: "Build and run optimization studies." }],
+      remarks: [{ kind: "text", text: "Source-wrapped remarks remain\nordinary prose." }]
     },
     since: "1.0.0",
     sourceUrl

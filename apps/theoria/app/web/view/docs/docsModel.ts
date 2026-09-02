@@ -27,6 +27,9 @@ export const DocsNavigationBranch = Schema.Struct({
 
 export type DocsNavigationBranch = typeof DocsNavigationBranch.Type
 
+export const apiCategoryAnchor = (name: string): string =>
+  `category-${name.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "-").replace(/(^-|-$)/gu, "")}`
+
 export const apiExportForHash = (page: DocsApiModuleIndex, hash: string): Option.Option<DocsApiExportSummary> =>
   Arr.findFirst(page.exports, (apiExport) => `#${apiExport.anchor}` === hash)
 
@@ -74,6 +77,21 @@ const apiDestination = (module: DocsApiModuleSummary): DocsDestination => ({
   aliases: module.aliases
 })
 
+const categoryLabel = (category: string): string => {
+  const words = category.replaceAll("-", " ")
+
+  return `${words.slice(0, 1).toLocaleUpperCase("en-US")}${words.slice(1)}`
+}
+
+const categoryDestination = (
+  module: DocsApiModuleSummary,
+  category: string
+): DocsDestination => ({
+  label: categoryLabel(category),
+  href: `${module.path}#${apiCategoryAnchor(category)}`,
+  aliases: []
+})
+
 export const docsNavigationBranchesFor = (
   docsPackage: DocsPackageSummary
 ): ReadonlyArray<DocsNavigationBranch> => {
@@ -86,6 +104,13 @@ export const docsNavigationBranchesFor = (
     }),
     onSome: apiDestination
   })
+  const apiModules = Arr.filter(docsPackage.apiModules, (module) => module.slug.length > 0)
+  const apiChildren = apiModules.length > 0
+    ? Arr.map(apiModules, apiDestination)
+    : Option.match(rootApiModule, {
+      onNone: () => [],
+      onSome: (module) => Arr.map(module.categories, (category) => categoryDestination(module, category))
+    })
 
   return [{
     label: "Guides",
@@ -102,10 +127,7 @@ export const docsNavigationBranchesFor = (
   }, {
     label: "API",
     root: apiRoot,
-    children: Arr.map(
-      Arr.filter(docsPackage.apiModules, (module) => module.slug.length > 0),
-      apiDestination
-    )
+    children: apiChildren
   }]
 }
 

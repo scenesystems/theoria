@@ -1,6 +1,6 @@
 import { RegistryProvider } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Array as Arr, Effect, Option } from "effect"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 
@@ -34,6 +34,12 @@ describe("API page presentation", () => {
           expect(container.querySelector('a[href="#api-StudyResult"]')).not.toBeNull()
           expect(container.textContent).not.toContain("runStudy<A>")
           expect(container.textContent).not.toContain("readonly value: A")
+          const remarks = Arr.findFirst(
+            Arr.fromIterable(container.querySelectorAll("p")),
+            (element) => element.textContent === "Source-wrapped remarks remain\nordinary prose."
+          )
+          expect(Option.getOrThrow(remarks).classList).toContain("whitespace-normal")
+          expect(Option.getOrThrow(remarks).classList).not.toContain("whitespace-pre-wrap")
         }),
         Effect.sync(() => {
           root.unmount()

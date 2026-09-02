@@ -33,6 +33,22 @@ describe("documentation view model", () => {
     expect(Arr.map(branches[1]?.children ?? [], (destination) => destination.label)).toEqual(["Study"])
   })
 
+  it("projects root API categories when a package has no public subpath modules", () => {
+    const docsPackage = Option.getOrThrow(Option.fromNullable(docsManifestFixture.packages[0]))
+    const rootModule = Option.getOrThrow(Arr.findFirst(docsPackage.apiModules, (module) => module.slug.length === 0))
+    const branches = docsNavigationBranchesFor({
+      ...docsPackage,
+      apiModules: [rootModule]
+    })
+    const apiBranch = Option.getOrThrow(Option.fromNullable(branches[1]))
+
+    expect(Arr.map(apiBranch.children, (destination) => destination.label)).toEqual(["Studies", "Models"])
+    expect(Arr.map(apiBranch.children, (destination) => destination.href)).toEqual([
+      "/docs/effect-search/api#category-studies",
+      "/docs/effect-search/api#category-models"
+    ])
+  })
+
   it("ranks exact symbol matches ahead of package summaries", () => {
     const results = search("runStudy", "effect-search")
     expect(results[0]?.id).toBe("effect-search/Study#runStudy")
