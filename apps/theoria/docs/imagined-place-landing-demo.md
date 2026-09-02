@@ -96,6 +96,16 @@ points the `How it's built` code panel at that step's source.
   flowing around the discs, the search trace with stage presets, and the current
   version's ID with a one-shot wash when it changes.
 
+Below the steps, `How it's built` is always open. It shows the current step's
+code with every package symbol linked to its reference page
+(`placeReferences.ts`, checked by unit and e2e tests against the search index),
+the values this page's build produced as annotation rows under the line that
+made them (`placeLiveValues.ts`: the composition title and feature count, the
+recorded response model, the proposal's ID and signature, the sealed envelope
+size, the version chain, the line count at the stage width, the closest-marker
+distance, the running trial count), and the files that ran, linked to GitHub at
+the build's commit (`meta.buildSha`; `HEAD` when running locally).
+
 Text goes through `SemanticText` roles only; layout through `Layer`, `Stack`,
 `Cluster`, `Section`; state through effect-atom (`placeControlsAtom`,
 `placeBuildAtom`, `placeVersionChangeAtom`, `placeStageWidthAtom`,
@@ -135,8 +145,10 @@ Metrics appear only where they are the result of a step the visitor can see.
 - `test/server/imagined-place-route.test.ts`: the route's method, origin, and
   schema checks.
 - `test/worker/home.test.ts`: against the built Worker in workerd, the place
-  is built by the real API and re-digested when a proposal is merged, and the
-  catalog stays complete and unscrolled across responsive widths.
+  is built by the real API and re-digested when a proposal is merged, the
+  catalog stays complete and unscrolled across responsive widths, and every
+  symbol in `How it's built` links to an existing reference anchor while the
+  annotations show values from the build.
 - `test/worker/docs.test.ts`: the landing page's package pills enter the docs
   without a document reload.
 - `scripts/imagined-place-walkthrough.ts`: the same pipeline from the CLI.

@@ -4,7 +4,7 @@ import { Option } from "effect"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
-import { placeBuildAtom } from "../../atoms/imagined-place.js"
+import { placeBuildAtom, placeBuildEnvelopeAtom } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
 import { surfaceMaterials } from "../primitives/designSystem.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
@@ -20,7 +20,7 @@ import { PlaceProposals } from "./PlaceProposals.js"
 import { PlaceStepCard } from "./PlaceStepCard.js"
 
 const BuildFailed = () => {
-  const retry = useAtomRefresh(placeBuildAtom)
+  const retry = useAtomRefresh(placeBuildEnvelopeAtom)
   return (
     <StageBanner
       action={<ActionButton label="Try again" onClick={retry} />}

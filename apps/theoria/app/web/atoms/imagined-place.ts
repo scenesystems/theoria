@@ -13,6 +13,7 @@ import {
   type PlaceScenario,
   placeScenarioMeta
 } from "../../contracts/imagined-place.js"
+import type { SuccessEnvelopeData } from "../services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
 import type { PlaceStep } from "../view/home/placeSteps.js"
 
@@ -51,14 +52,25 @@ const buildRequestAtom = Atom.debounce(placeControlsAtom, "400 millis")
 /** The home page's own runtime: the place build does not share the docs workbench's client. */
 const placeRuntime = Atom.runtime(ImaginedPlaceClient.Default)
 
-export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>> = placeRuntime.atom(
-  (get: AtomType.Context) => {
-    const request = get(buildRequestAtom)
-    return Effect.gen(function*() {
-      const client = yield* ImaginedPlaceClient
-      return yield* client.build(request)
-    })
-  }
+/** The server's whole answer, metadata included. Refresh this one to build again after a failure. */
+export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelopeData<PlaceBuild>, DemoError>> =
+  placeRuntime.atom(
+    (get: AtomType.Context) => {
+      const request = get(buildRequestAtom)
+      return Effect.gen(function*() {
+        const client = yield* ImaginedPlaceClient
+        return yield* client.build(request)
+      })
+    }
+  )
+
+export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>> = Atom.make(
+  (get: AtomType.Context) => Result.map(get(placeBuildEnvelopeAtom), (envelope) => envelope.data)
+)
+
+/** The commit the server was built from, so links into the source show exactly the code that ran. */
+export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make(
+  (get: AtomType.Context) => Option.map(Result.value(get(placeBuildEnvelopeAtom)), (envelope) => envelope.meta.buildSha)
 )
 
 /**

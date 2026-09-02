@@ -1,10 +1,14 @@
 import { Result } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
+import { Option } from "effect"
 import * as Arr from "effect/Array"
+import { Fragment } from "react"
 
 import type { SurfaceVariant } from "../../../../contracts/presentation.js"
 import { syntaxHighlighterAtom } from "../../../atoms/syntax-highlighting.js"
 
+import { annotationFor, type CodeAnnotation, CodeAnnotationRow, CodeLine } from "./CodeLine.js"
+import type { CodeLink } from "./codeLinks.js"
 import { highlightCode, plainCode, tokenClassName } from "./highlighter.js"
 import type { CodeLanguage, HighlightToken } from "./highlighter.js"
 
@@ -62,12 +66,23 @@ export const InlineHighlightedCode = ({
   )
 }
 
+const lineRowClassName = "grid grid-cols-[minmax(0,1fr)] items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
+
+/**
+ * A code sample, line by line. `links` turn named symbols into links to the
+ * API reference; `annotations` show, under a line, the value the running
+ * program produced there.
+ */
 export const HighlightedCode = ({
+  annotations = [],
   language = "typescript",
+  links = [],
   source,
   variant
 }: {
+  readonly annotations?: ReadonlyArray<CodeAnnotation>
   readonly language?: CodeLanguage
+  readonly links?: ReadonlyArray<CodeLink>
   readonly source: string
   readonly variant: SurfaceVariant
 }) => {
@@ -77,21 +92,31 @@ export const HighlightedCode = ({
   return (
     <code className="block text-(length:--st-fs-code-block) font-weight-(--st-fw-code-block) tracking-(--st-tr-code-block) font-family-(--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
       {Arr.map(lines, (line, lineIndex) => (
-        <span
-          className="grid grid-cols-[minmax(0,1fr)] items-start sm:grid-cols-[2.45rem_minmax(0,1fr)] sm:gap-3"
-          key={`${lineIndex}:${line.length}`}
-        >
-          <span
-            className={showLineNumbers
-              ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-weight-(--st-fw-code-meta) text-ink-700/65 sm:block"
-              : "hidden"}
-          >
-            {lineIndex + 1}
+        <Fragment key={`${lineIndex}:${line.length}`}>
+          <span className={lineRowClassName}>
+            <span
+              className={showLineNumbers
+                ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-weight-(--st-fw-code-meta) text-ink-700/65 sm:block"
+                : "hidden"}
+            >
+              {lineIndex + 1}
+            </span>
+            <span className="whitespace-pre">
+              <CodeLine links={links} tokens={line} />
+            </span>
           </span>
-          <span className="whitespace-pre">
-            <HighlightTokens line={line} lineIndex={lineIndex} />
-          </span>
-        </span>
+          {Option.match(annotationFor(line, annotations), {
+            onNone: () => null,
+            onSome: (annotation) => (
+              <span className={lineRowClassName}>
+                <span aria-hidden className="hidden sm:block" />
+                <span>
+                  <CodeAnnotationRow text={annotation.text} />
+                </span>
+              </span>
+            )
+          })}
+        </Fragment>
       ))}
     </code>
   )

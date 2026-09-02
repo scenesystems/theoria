@@ -26,11 +26,19 @@ const define = (
   code: string
 ): PlaceStepDefinition => ({ id, name, packages, code })
 
-const composeCode = `// A typed program turns the brief into a composition. The runtime is
-// recorded: the same answer every time, still checked against the schema.
-const composer = yield* Module.predict("theoria-place-composer", composerSignature)
-const composition = yield* composer.forward({ brief })
+const composeCode = `// A typed program: a brief in, a schema-checked composition out. The output
+// fields are the artifact's own fields, so the two cannot drift apart.
+const signature = yield* Signature.make(
+  "Turn a short brief for an imagined place into a structured composition.",
+  { brief: Signature.describe(Schema.String, "The place, in its author's words.") },
+  { title: PlaceComposition.fields.title, features: PlaceComposition.fields.features }
+)
+const composer = yield* Module.predict("theoria-place-composer", signature)
 
+// The model's answer was recorded once; the program still checks it every time.
+const composition = yield* composer.forward({ brief }).pipe(
+  Effect.provide(InferenceTesting.staticLanguageModel(recorded))
+)
 const origin = { brief, composition, accepted: [] }`
 
 const proposeCode = `// Every proposal is content-addressed and signed by whoever offered it,
@@ -51,16 +59,23 @@ const mergedId = yield* digestSchemaValue(PlaceArtifact, merged, "blake3-256")
 const signed = yield* ed25519Sign(author.secretKey, utf8ToBytes(mergedId))`
 
 const arrangeCode = `// Drawing happens where the place is shown, with that screen's font metrics.
-// Six numbers describe an arrangement; a search finds the one that reads best.
+// The description flows around the markers, one line width at a time.
 const prepared = yield* Text.prepareWithSegments(descriptionInput(merged))
-const handle = yield* Study.open({
-  space: meanderSpace,
-  sampler: Sampler.tpe({ seed: 42 }),
-  objective: (meander) => Effect.succeed(arrange(prepared, stage)(meander).quality.loss),
-  trials: 36
+const lines = Text.layoutLinesWith(prepared, { maxWidth, lineHeight }, widthBesideMarkers)
+
+// Six numbers describe how the markers meander down the stage. An arrangement
+// costs more when markers crowd or lines get squeezed; lower is better.
+const space = yield* SearchSpace.make({
+  edge: SearchSpace.float(0.5, 0.9), swing: SearchSpace.float(0, 0.3), phase: SearchSpace.float(-Math.PI, Math.PI),
+  turns: SearchSpace.float(0.5, 2.5), top: SearchSpace.float(0.04, 0.6), step: SearchSpace.float(0.03, 0.24)
 })
-const asked = yield* Study.ask(handle)        // one trial per frame
-yield* Study.tell(handle, asked.trialNumber, loss)`
+const separation = Statistics.minimum(Chunk.map(pairs, ([a, b]) => Geometry.euclideanDistance(a, b)))
+const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => line.width / maxWidth))
+
+// The same seeded search runs here and on the server; each trial is one frame.
+const handle = yield* Study.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })
+const asked = yield* Study.ask(handle)
+yield* Study.tell(handle, asked.trialNumber, arrange(asked.config).quality.loss)`
 
 export const placeStepDefinition = (step: PlaceStep): PlaceStepDefinition =>
   Match.value(step).pipe(
