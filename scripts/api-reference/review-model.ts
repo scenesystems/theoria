@@ -31,7 +31,7 @@ export const ReviewRecord = Schema.Struct({
 })
 
 export const ReviewInventoryJson = Schema.parseJson(ReviewInventory)
-export const ReviewRecordJson = Schema.parseJson(ReviewRecord)
+export const ReviewRecordJson = Schema.parseJson(ReviewRecord, { space: 2 })
 export type Counts = typeof ReviewCounts.Type
 export type Example = typeof ReviewExample.Type
 export type Inventory = typeof ReviewInventory.Type
