@@ -80,6 +80,9 @@ export const observeRequests = (
 
 export const goto = (page: Page, path: string) => act(() => page.goto(path))
 export const click = (locator: Locator) => act(() => locator.click())
+export const hover = (locator: Locator) => act(() => locator.hover())
+export const focus = (locator: Locator) => act(() => locator.focus())
+export const press = (page: Page, key: string) => act(() => page.keyboard.press(key))
 export const fill = (locator: Locator, value: string) => act(() => locator.fill(value))
 export const setViewport = (page: Page, viewport: Viewport) => act(() => page.setViewportSize(viewport))
 
@@ -89,7 +92,7 @@ export const count = (locator: Locator, expected: number) => act(() => inBrowser
 export const someCount = (locator: Locator) => act(() => inBrowser(locator).not.toHaveCount(0))
 export const containsText = (locator: Locator, expected: string | RegExp) =>
   act(() => inBrowser(locator).toContainText(expected))
-export const attribute = (locator: Locator, name: string, expected: string) =>
+export const attribute = (locator: Locator, name: string, expected: string | RegExp) =>
   act(() => inBrowser(locator).toHaveAttribute(name, expected))
 export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(page).toHaveURL(pattern))
 
@@ -99,6 +102,34 @@ export const nextResponse = (page: Page, method: string, suffix: string): Effect
     page.waitForResponse((response) => response.url().endsWith(suffix) && response.request().method() === method)
   )
 
+export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
+export const eventually = <A>(read: () => Promise<A>, expected: A) => act(() => inBrowser.poll(read).toBe(expected))
+
 /** True when the document does not scroll horizontally at the current viewport. */
 export const fitsViewport = (page: Page) =>
   act(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+
+/**
+ * Elements that leak past the viewport. Content inside a horizontal scroller
+ * that itself fits (code listings, tab strips) is reachable by scrolling, so
+ * only the scroller counts. Runs in the page, so it is plain DOM code.
+ */
+export const overflowingElements = (page: Page) =>
+  act(() =>
+    page.evaluate(() => {
+      const limit = window.innerWidth + 1
+      const scrolls = (element: HTMLElement) =>
+        ["auto", "scroll", "hidden"].includes(getComputedStyle(element).overflowX)
+      const clippedByAncestor = (element: HTMLElement): boolean => {
+        const parent = element.parentElement
+        if (parent === null || parent === document.body) return false
+        if (scrolls(parent) && parent.getBoundingClientRect().right <= limit) return true
+        return clippedByAncestor(parent)
+      }
+      return [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((element) => !element.classList.contains("pointer-events-none"))
+        .filter((element) => element.getBoundingClientRect().right > limit)
+        .filter((element) => !clippedByAncestor(element))
+        .map((element) => `${element.tagName.toLowerCase()}.${element.className}`)
+    })
+  )

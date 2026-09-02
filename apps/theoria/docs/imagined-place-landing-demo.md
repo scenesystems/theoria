@@ -155,10 +155,14 @@ Metrics appear only where they are the result of a step the visitor can see.
 - `test/server/imagined-place-route.test.ts`: the route's method, origin, and
   schema checks.
 - `test/worker/home.test.ts`: against the built Worker in workerd, the place
-  is built by the real API and re-digested when a proposal is merged, the
-  catalog stays complete and unscrolled across responsive widths, and every
-  symbol in `How it's built` links to an existing reference anchor while the
-  annotations show values from the build.
+  is built by the real API and re-digested when a proposal is merged, and the
+  catalog stays complete and unscrolled across responsive widths.
+- `test/worker/home-demo.test.ts`: the search-trace slider draws trial 1 and
+  the last trial with the discs moving on the stage, returns to the kept trial
+  by Escape and by the `Kept trial` pill, content IDs open their full value on
+  hover; no element leaks past the viewport at 320–1680 px; every symbol in
+  `How it's built` links to an existing reference anchor while the annotations
+  show values from the build.
 - `test/worker/docs.test.ts`: the landing page's package pills enter the docs
   without a document reload.
 - `scripts/imagined-place-walkthrough.ts`: the same pipeline from the CLI.
