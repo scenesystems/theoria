@@ -39,6 +39,14 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: ./.github/actions/setup
 
+      # `check.yml` runs the full suite for the same commit, but nothing links
+      # the two workflows; gate the deployable artifact on the app's own checks
+      # (including `test/server/wrangler-config.test.ts`) here as well.
+      - name: Check Theoria app
+        run: |
+          bun run check:apps
+          bun run test:apps
+
       - name: Build web bundle
         run: bun run --cwd apps/theoria build:web
 

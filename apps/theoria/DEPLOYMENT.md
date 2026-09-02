@@ -72,7 +72,10 @@ production config appears indexable locally while `--env staging` and
 ## Automated deployments
 
 The [Theoria workflow](../../.github/workflows/theoria.yml) builds the site once
-per commit (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
+per commit. It first runs the app's typecheck and unit tests (`bun run
+check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
+fails its own checks even though the Check workflow runs separately. It then
+builds (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
 `worker.ts` for workerd), checks the output with
 [`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
 and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. Every
@@ -99,20 +102,33 @@ deploying, re-checks the artifact, and deploys it with the `wrangler.jsonc` from
 `main` (a pull request that changes `wrangler.jsonc` sees that change only after
 merge). Pull request code never runs with Cloudflare credentials, and pull
 requests from forks are not previewed. Updating a pull request replaces its
-preview; closing it deletes the Worker and its managed DNS record. The Advanced
-Certificate Cloudflare issued for the preview hostname is not deleted
-automatically; prune them under **SSL/TLS → Edge Certificates** occasionally.
+preview; closing it deletes the Worker and its managed DNS record, then deletes
+the Advanced Certificate Cloudflare issued for the preview hostname (Cloudflare
+does not remove it with the Custom Domain, and each zone has a certificate
+limit). The first deployment of a pull request waits up to ten minutes for that
+certificate to be issued before the verification checks run.
+
+Both workflows only take effect once they exist on `main`: a pull request that
+adds or edits them is built, but not previewed, until it merges.
 
 ### Cloudflare account and token
 
 1. `scenesystems.io` must be an active zone in the Cloudflare account, and the
    account needs the Workers Paid plan (`limits.cpu_ms` above the Free plan
    default).
-2. Create an API token from the **Edit Cloudflare Workers** template and
-   restrict it to this account and the `scenesystems.io` zone. That template
-   covers Workers Scripts, Workers Routes, and the zone DNS access Wrangler needs
-   to attach Custom Domains.
+2. Create an API token from the **Edit Cloudflare Workers** template, restrict
+   it to this account and the `scenesystems.io` zone, and add two zone
+   permissions: **Zone → Read** and **SSL and Certificates → Edit**. The template
+   covers deploying Workers and attaching Custom Domains (with their DNS
+   records); the additions let the preview cleanup job look up the zone and
+   delete a closed pull request's certificate. Without them, closing a pull
+   request still deletes its Worker but the Remove job fails at the certificate
+   step.
 3. Record the account ID from the dashboard.
+
+The token is used by GitHub Actions only. Local `wrangler` commands
+authenticate with `wrangler login`, or with a separate personal token, so a CI
+credential never sits on a workstation.
 
 ### GitHub environments
 
@@ -124,9 +140,18 @@ edited on a pull request cannot request either environment's secrets. Leave
 automatically; add required reviewers to `production` so every release waits
 for approval after staging has been verified.
 
+Two consequences of that setup: `workflow_dispatch` runs from any branch other
+than `main` fail when the Staging job requests the environment (pull request
+previews are the way to review a branch), and a production approval must happen
+within seven days of the push, because the build artifact expires after that
+and the Production job can no longer download it. Re-run the workflow for that
+commit to rebuild if an approval is late.
+
 ### Manual deploy
 
-To deploy by hand with the same token:
+To deploy by hand after `wrangler login` (from `apps/theoria`; `build:web`
+regenerates `public/docs-data` for the current commit, so a stale checkout
+never uploads earlier revisions):
 
 ```sh
 bun run build:web

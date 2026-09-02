@@ -28,7 +28,14 @@ export const generateApiReference = (input: {
     const path = yield* Path.Path
     const links = makeApiDocLinks(input.sourcePackages)
     const browserVersionRoot = path.join(input.browserOutputRoot, input.revision)
-    yield* fileSystem.remove(input.outputRoot, { recursive: true, force: true }).pipe(Effect.orDie)
+    // Both roots are fully regenerated. Clearing the browser root drops the
+    // `docs-data/<revision>/` trees of earlier builds, which would otherwise
+    // be copied into `dist/` and deployed as stale static assets.
+    yield* Effect.forEach(
+      [input.outputRoot, input.browserOutputRoot],
+      (directory) => fileSystem.remove(directory, { recursive: true, force: true }).pipe(Effect.orDie),
+      { discard: true }
+    )
     yield* Effect.forEach(
       [input.outputRoot, input.browserOutputRoot, browserVersionRoot],
       (directory) => fileSystem.makeDirectory(directory, { recursive: true }).pipe(Effect.orDie),

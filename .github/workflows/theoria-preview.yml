@@ -36,7 +36,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.pull_requests[0].number != null
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment:
       name: staging
       url: https://theoria-pr-${{ github.event.workflow_run.pull_requests[0].number }}.staging.scenesystems.io
@@ -123,12 +123,15 @@ jobs:
             --domain theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
             --var BUILD_SHA:${{ env.HEAD_SHA }}
 
+      # The first deploy of a pull request creates a new Custom Domain, and its
+      # certificate can take several minutes to issue; allow up to ten.
       - uses: ./.github/actions/theoria-verify-deployment
         if: steps.pull-request.outputs.deploy == 'true'
         with:
           url: https://theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
           build-sha: ${{ env.HEAD_SHA }}
           noindex: "true"
+          attempts: "60"
 
   remove:
     name: Remove PR Preview
@@ -145,6 +148,8 @@ jobs:
       cancel-in-progress: true
     env:
       WORKER_NAME: theoria-pr-${{ github.event.pull_request.number }}
+      PREVIEW_HOST: theoria-pr-${{ github.event.pull_request.number }}.staging.scenesystems.io
+      ZONE_NAME: scenesystems.io
 
     steps:
       - name: Find preview Worker
@@ -182,3 +187,56 @@ jobs:
           workingDirectory: apps/theoria
           packageManager: bun
           command: delete --name ${{ env.WORKER_NAME }} --env preview --force
+
+      # Deleting the Worker removes its Custom Domain and DNS record, but
+      # Cloudflare keeps the Advanced Certificate it issued for the hostname.
+      # Those would accumulate against the zone's certificate limit, so remove
+      # the pack whose only host is the preview hostname. Runs even when the
+      # Worker was already gone so a previously interrupted cleanup completes.
+      - name: Delete preview certificate
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+
+          zone_id=$(curl --silent --fail --header "$auth" \
+            "$api/zones?name=$ZONE_NAME&status=active" | jq -r '.result[0].id // empty')
+          if [ -z "$zone_id" ]; then
+            echo "Zone $ZONE_NAME not found or token cannot read zones" >&2
+            exit 1
+          fi
+
+          # `status=all` also lists packs that are already deleted; skip those.
+          packs=()
+          page=1
+          while :; do
+            response=$(curl --silent --fail --header "$auth" \
+              "$api/zones/$zone_id/ssl/certificate_packs?status=all&per_page=50&page=$page")
+            mapfile -t page_packs < <(
+              jq -r --arg host "$PREVIEW_HOST" '
+                .result[]
+                | select(.hosts == [$host])
+                | select(.status | IN("deleted", "pending_deletion", "deletion_timed_out") | not)
+                | .id
+              ' <<< "$response"
+            )
+            packs+=("${page_packs[@]}")
+            count=$(jq -r '.result | length' <<< "$response")
+            if [ "$count" -lt 50 ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+
+          if [ "${#packs[@]}" -eq 0 ]; then
+            echo "No certificate pack dedicated to $PREVIEW_HOST"
+            exit 0
+          fi
+
+          for pack in "${packs[@]}"; do
+            curl --silent --fail --show-error --output /dev/null --request DELETE \
+              --header "$auth" "$api/zones/$zone_id/ssl/certificate_packs/$pack"
+            echo "Deleted certificate pack $pack for $PREVIEW_HOST"
+          done
