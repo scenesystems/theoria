@@ -13,22 +13,20 @@ import { sendSealedNote } from "./note.js"
 /**
  * The whole demo behind the home page.
  *
- * Imagine   compose (effect-dsp, effect-inference): brief → typed composition,
- *           credited to the model that produced it. The author signs version 1.
- * Propose   two proposals arrive: the neighbor's (with a note sealed to the
- *           author) and the proposer program's. Each is digested and signed by
- *           its proposer (digest, sign; seal via X25519 + HKDF).
- * Merge     the author accepts some proposals. Version 2 digests version 1's
- *           ID as its parent, so lineage is a chain; the author signs it.
- *           Proposals not accepted stay listed with their signatures.
+ * Compose   (effect-dsp, effect-inference) brief → typed composition,
+ *           credited to the runtime that produced it.
+ * Propose   (sign, seal) two proposals arrive: the neighbor's, with a note
+ *           sealed to the author via X25519 + HKDF, and the proposer
+ *           program's. Each is digested and signed by its proposer.
+ * Record    (digest, sign) the author accepts some proposals. Version 2
+ *           digests version 1's ID as its parent, so lineage is a chain; the
+ *           author signs every version. Declined proposals stay listed with
+ *           their signatures.
  *
- * Rendering is not here. The place is drawn wherever it is shown, with that
+ * Arrange is not here. The place is drawn wherever it is shown, with that
  * surface's own font metrics (`render.ts` on the server, an atom in the
  * browser), and a rendering never changes a content ID.
  */
-/** How the proposer program came to its proposal; the same for every scenario. */
-const programAccount = "shown the composition, asked for one feature it lacks"
-
 export const buildPlace = (
   request: PlaceBuildRequest
 ): Effect.Effect<PlaceBuild, PlaceBuildError, Participants> =>
@@ -36,7 +34,7 @@ export const buildPlace = (
     const startedAt = yield* Clock.currentTimeMillis
     const scenario = scenarioById(request.scenario)
 
-    // Imagine
+    // Compose
     const composed = yield* compose(scenario, request.brief)
     const origin: PlaceArtifact = {
       schemaVersion: 1,
@@ -55,23 +53,23 @@ export const buildPlace = (
       ],
       { concurrency: "unbounded" }
     )
-    const offered: ReadonlyArray<readonly [Proposal, string, boolean]> = [
-      [{ proposer: "neighbor", feature: scenario.neighbor.proposal }, scenario.neighbor.name, request.acceptNeighbor],
-      [{ proposer: "program", feature: proposed.feature }, programAccount, request.acceptProgram]
+    const offered: ReadonlyArray<readonly [Proposal, boolean]> = [
+      [{ proposer: "neighbor", feature: scenario.neighbor.proposal }, request.acceptNeighbor],
+      [{ proposer: "program", feature: proposed.feature }, request.acceptProgram]
     ]
     const proposals = yield* Effect.forEach(
       offered,
-      ([proposal, offeredBy, accepted]) =>
+      ([proposal, accepted]) =>
         Effect.gen(function*() {
           const contentId = yield* proposalId(proposal)
           const signature = yield* signAs(proposal.proposer, contentId)
-          const record: ProposalRecord = { proposal, offeredBy, contentId, accepted, signature }
+          const record: ProposalRecord = { proposal, contentId, accepted, signature }
           return record
         }),
       { concurrency: "unbounded" }
     )
 
-    // Merge
+    // Record
     const accepted = Arr.map(Arr.filter(proposals, (record) => record.accepted), (record) => record.proposal)
     const artifact: PlaceArtifact = Arr.isEmptyReadonlyArray(accepted)
       ? origin

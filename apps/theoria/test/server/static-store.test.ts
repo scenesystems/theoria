@@ -26,7 +26,7 @@ const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js.gz`, "gzip-bytes")
     // `public/` holds a file `dist/` lacks, and a stale copy of one `dist/` has.
     yield* fileSystem.makeDirectory(`${publicRoot}/runtime-data`, { recursive: true })
-    yield* fileSystem.writeFileString(`${publicRoot}/runtime-data/package-versions.json`, "{\"public\":true}")
+    yield* fileSystem.writeFileString(`${publicRoot}/runtime-data/program-sources.json`, "{\"public\":true}")
     yield* fileSystem.writeFileString(`${publicRoot}/index.html`, "<title>stale</title>")
 
     const store = yield* Effect.provide(StaticStore, BunStaticStore.layer([distRoot, publicRoot]))
@@ -38,9 +38,9 @@ it.effect("Bun store searches roots in order and falls back to later roots", () 
   withDist((store) =>
     Effect.gen(function*() {
       expect(yield* store.text("/index.html")).toBe("<title>x</title>")
-      expect(yield* store.text("/runtime-data/package-versions.json")).toBe("{\"public\":true}")
+      expect(yield* store.text("/runtime-data/program-sources.json")).toBe("{\"public\":true}")
 
-      const fallback = Option.getOrThrow(yield* store.response("/runtime-data/package-versions.json", Option.none()))
+      const fallback = Option.getOrThrow(yield* store.response("/runtime-data/program-sources.json", Option.none()))
       expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
       expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
     })

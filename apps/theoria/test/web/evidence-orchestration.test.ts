@@ -198,7 +198,6 @@ const makeRuntime = () =>
         runWithMeta: () => Effect.fail(errorFixture),
         preload: () => Effect.succeed(programPreviewFixture),
         capabilities: () => Effect.succeed(capabilitiesFixture),
-        versions: () => Effect.succeed({}),
         streamUrl: (id) => `/api/demos/${id}/stream`
       })
     )
@@ -1134,7 +1133,6 @@ describe("Theoria Evidence Orchestration", () => {
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
             capabilities: () => Effect.succeed(capabilitiesFixture),
-            versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })
         )
@@ -1216,7 +1214,6 @@ describe("Theoria Evidence Orchestration", () => {
             runWithMeta: () => Effect.fail(errorFixture),
             preload: () => Effect.succeed(programPreviewFixture),
             capabilities: () => Effect.succeed(capabilitiesFixture),
-            versions: () => Effect.succeed({}),
             streamUrl: (id) => `/api/demos/${id}/stream`
           })
         )

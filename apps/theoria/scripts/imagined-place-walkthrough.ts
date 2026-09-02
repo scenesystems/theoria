@@ -40,7 +40,7 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
     const { artifact, evidence, proposals } = result
     const { evidence: render, projection } = rendered
 
-    yield* Console.log("1. IMAGINE  (effect-dsp · effect-inference)")
+    yield* Console.log("1. COMPOSE  (effect-dsp · effect-inference)")
     yield* Console.log(`   brief       ${artifact.brief}`)
     yield* Effect.forEach(
       evidence.inference,
@@ -53,7 +53,7 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
     )
     yield* Console.log("")
 
-    yield* Console.log("2. PROPOSE AND MERGE  (digest · sign · seal)")
+    yield* Console.log("2. PROPOSE  (sign · seal)")
     yield* Effect.forEach(
       proposals,
       (record) =>
@@ -65,6 +65,15 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
           } ${record.signature.keyFingerprint}`
         )
     )
+    yield* Console.log(
+      `   sealed note ${evidence.sealedNote.from} → ${evidence.sealedNote.to}: ${evidence.sealedNote.agreement} + ${evidence.sealedNote.kdf} → ${evidence.sealedNote.algorithm}, ${
+        String(evidence.sealedNote.envelopeBytes)
+      } byte envelope`
+    )
+    yield* Console.log(`               opened by author: "${evidence.sealedNote.openedText}"`)
+    yield* Console.log("")
+
+    yield* Console.log("3. RECORD  (digest · sign)")
     yield* Effect.forEach(
       evidence.lineage,
       (version) =>
@@ -78,7 +87,7 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
         )
     )
     yield* Effect.forEach(
-      evidence.signatures,
+      Arr.filter(evidence.signatures, (signature) => signature.signer === "author"),
       (signature) =>
         Console.log(
           `   signature   ${signature.signer.padEnd(9)} over ${short(signature.subject)}  ${
@@ -86,15 +95,9 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
           } ${signature.keyFingerprint}`
         )
     )
-    yield* Console.log(
-      `   sealed note ${evidence.sealedNote.from} → ${evidence.sealedNote.to}: ${evidence.sealedNote.agreement} + ${evidence.sealedNote.kdf} → ${evidence.sealedNote.algorithm}, ${
-        String(evidence.sealedNote.envelopeBytes)
-      } byte envelope`
-    )
-    yield* Console.log(`               opened by author: "${evidence.sealedNote.openedText}"`)
     yield* Console.log("")
 
-    yield* Console.log("3. RENDER  (effect-search · effect-text · effect-math)")
+    yield* Console.log("4. ARRANGE  (effect-search · effect-text · effect-math)")
     yield* Console.log(
       `   search      ${render.sampler} seed ${String(render.seed)}, ${
         String(render.trials)

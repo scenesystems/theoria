@@ -34,7 +34,6 @@ export const makeDemoClientTestLayer = (fixtures: DemoClientFixtures): Layer.Lay
         )),
       preload: fixtures.preload,
       capabilities: () => Effect.succeed(capabilitiesFixture),
-      versions: () => Effect.succeed({}),
       streamUrl: fixtures.streamUrl ?? ((id) => `/api/demos/${id}/stream`)
     })
   )

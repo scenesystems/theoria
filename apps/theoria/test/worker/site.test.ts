@@ -75,11 +75,10 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       const site = yield* Site
       const fileSystem = yield* FileSystem.FileSystem
 
-      const onDisk = yield* fileSystem.exists(`${site.distRoot}${runtimeDataPathnames.packageVersions}`).pipe(
+      const onDisk = yield* fileSystem.exists(`${site.distRoot}${runtimeDataPathnames.programSources}`).pipe(
         Effect.orDie
       )
       expect(onDisk).toBe(true)
-      expect((yield* site.fetch(runtimeDataPathnames.packageVersions)).status).toBe(404)
       expect((yield* site.fetch(runtimeDataPathnames.programSources)).status).toBe(404)
     }).pipe(Effect.provide(BunContext.layer)))
 

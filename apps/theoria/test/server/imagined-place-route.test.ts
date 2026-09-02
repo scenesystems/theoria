@@ -84,7 +84,7 @@ describe("server/routes/imagined-place", () => {
     Effect.gen(function*() {
       const body = yield* encodeRequest({
         scenario: "unfinished-light",
-        brief: "A garden.",
+        brief: "A rock.",
         acceptNeighbor: false,
         acceptProgram: false
       })

@@ -3,7 +3,6 @@ import { Effect } from "effect"
 import { type Capabilities, CapabilitiesEnvelope } from "../../contracts/capabilities.js"
 import type { DemoError } from "../../contracts/demo-error.js"
 import type { Id } from "../../contracts/id.js"
-import { type PackageVersions, PackageVersionsEnvelope } from "../../contracts/package-versions.js"
 import { type ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
 import { type RunData, RunEnvelope } from "../../contracts/run.js"
 
@@ -23,8 +22,6 @@ export class DemoClient extends Effect.Service<DemoClient>()("theoria/DemoClient
       requestEnvelope(preloadPath(id), ProgramPreviewEnvelope).pipe(Effect.map(({ data }) => data)),
     capabilities: (): Effect.Effect<Capabilities, DemoError> =>
       requestEnvelope("/api/capabilities", CapabilitiesEnvelope).pipe(Effect.map(({ data }) => data)),
-    versions: (): Effect.Effect<PackageVersions, DemoError> =>
-      requestEnvelope("/api/versions/packages", PackageVersionsEnvelope).pipe(Effect.map(({ data }) => data)),
     streamUrl: (id: Id, manifest: string | null = null): string => {
       const base = streamPath(id)
 

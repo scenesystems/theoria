@@ -19,8 +19,7 @@
     "build": "bun run check:all && bun run build:web",
     "preview:worker": "bun run build:web && wrangler dev --env=\"\"",
     "deploy:dry-run": "wrangler deploy --env=\"\" --dry-run --outdir .wrangler-out",
-    "gen:text-tokens": "bun scripts/generate-text-tokens.ts",
-    "test:e2e": "bun --cwd ../.. run test:e2e:theoria"
+    "gen:text-tokens": "bun scripts/generate-text-tokens.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-rc.0",

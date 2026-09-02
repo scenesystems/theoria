@@ -2,7 +2,6 @@ import { HttpMiddleware } from "@effect/platform"
 import { Layer } from "effect"
 
 import { DocsCatalogLive } from "./config/docs-catalog.js"
-import { PackageVersionsLive } from "./config/package-versions.js"
 import { serverReleaseStage } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
 import { DspProviderRuntimeLive } from "./demos/effect-dsp/provider.js"
@@ -36,7 +35,6 @@ export const AppLayer = Layer.mergeAll(
   ParticipantsLive,
   DemoRateLimiterLive,
   DspProviderRuntimeLive,
-  PackageVersionsLive,
   DocsCatalogLive,
   ProgramSourcesLive,
   RuntimeInfoLive,

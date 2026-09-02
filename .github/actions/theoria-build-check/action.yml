@@ -25,7 +25,7 @@ runs:
           dist/_headers \
           dist/robots.txt \
           dist/docs-data/manifest.json \
-          dist/runtime-data/package-versions.json \
+          dist/runtime-data/program-sources.json \
           .wrangler-out/worker.js
         do
           if [ ! -f "$BUILD_ROOT/$required" ]; then

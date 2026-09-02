@@ -94,15 +94,13 @@ export const SignatureRecord = Schema.Struct({
 export type SignatureRecord = typeof SignatureRecord.Type
 
 /**
- * A proposal as the author received it. `offeredBy` is a short account of the
- * proposer for the card ("from the last house before the causeway"); it is not part of the
- * signed proposal, so it never enters the content ID.
+ * A proposal as the author received it: digested and signed on its own, and
+ * marked with the author's decision.
  *
  * @since 0.3.0
  */
 export const ProposalRecord = Schema.Struct({
   proposal: Proposal,
-  offeredBy: NonEmptyString,
   contentId: NonEmptyString,
   accepted: Schema.Boolean,
   signature: SignatureRecord
