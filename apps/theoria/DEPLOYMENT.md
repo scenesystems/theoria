@@ -113,17 +113,21 @@ which polls `/api/health/live` until `meta.buildSha` matches the commit and then
 runs the checklist below against the live hostname.
 
 The [preview workflow](../../.github/workflows/theoria-preview.yml) runs from
-trusted `main` on `workflow_run`. It confirms the pull request is still open at
-the artifact's head revision before downloading the artifact and again before
-deploying, re-checks the artifact, and deploys it with the `wrangler.jsonc` from
-`main` (a pull request that changes `wrangler.jsonc` sees that change only after
-merge). Pull request code never runs with Cloudflare credentials, and pull
-requests from forks are not previewed. Updating a pull request replaces its
-preview; closing it deletes the Worker and its managed DNS record, then deletes
-the Advanced Certificate Cloudflare issued for the preview hostname (Cloudflare
-does not remove it with the Custom Domain, and each zone has a certificate
-limit). The first deployment of a pull request waits up to ten minutes for that
-certificate to be issued before the verification checks run.
+trusted `main` on `workflow_run`. An unprivileged `resolve` job first finds the
+single open pull request from this repository into `main` whose head is the
+built commit (it does not trust the event's `pull_requests` list, whose order
+is not guaranteed); the deploy job then re-checks the artifact, confirms the
+pull request still points at that commit, and deploys it with the
+`wrangler.jsonc` from `main` (a pull request that changes `wrangler.jsonc` sees
+that change only after merge). Pull request code never runs with Cloudflare
+credentials, and pull requests from forks are not previewed. Updating a pull
+request replaces its preview; closing it deletes the Worker and its managed DNS
+record, then deletes the Advanced Certificate Cloudflare issued for the preview
+hostname (Cloudflare does not remove it with the Custom Domain, and each zone
+has a certificate limit). A build that completes after its pull request closed
+waits for that cleanup rather than cancelling it, then skips. The first
+deployment of a pull request waits up to ten minutes for the certificate to be
+issued before the verification checks run.
 
 Both workflows only take effect once they exist on `main`: a pull request that
 adds or edits them is built, but not previewed, until it merges.
@@ -189,39 +193,58 @@ release action. Verify a deployment in this order:
 6. On staging and previews only, every response carries
    `X-Robots-Tag: noindex`.
 
-## Provider configuration for previews
+## Previews are public, pull-request-controlled code
 
-Provider credentials are needed only for a preview that exercises the
-`effect-dsp` demo. Set them on the preview Worker, not on production or
-staging:
+A preview Worker runs whatever the pull request built, on a public hostname
+under `scenesystems.io`. Two rules follow:
 
-| Name                          | Value                          | Treatment       |
-| ----------------------------- | ------------------------------ | --------------- |
-| `DSP_PROVIDER`                | `openai`                       | Wrangler `var`  |
-| `DSP_PROVIDER_MODEL`          | `gpt-4o-mini`                  | Wrangler `var`  |
-| `OPENAI_API_KEY`              | A fresh project-scoped API key | Wrangler secret |
-| `THEORIA_PROVIDER_TIMEOUT_MS` | `120000`                       | Wrangler `var`  |
+- Never attach secrets or privileged bindings (KV, D1, R2, queues, service
+  bindings) to a `theoria-pr-<N>` Worker, whether through `wrangler secret`,
+  the dashboard, or `wrangler.jsonc`. Cloudflare keeps a Worker's secrets
+  across later deployments, so a value set once would be readable by every
+  later revision of that pull request. Nothing served by Theoria needs a
+  secret; provider-backed features are exercised locally with the ignored
+  `.env` file.
+- Do not rely on cookies or same-site trust scoped to `scenesystems.io` in any
+  other application under that zone: a preview can set parent-domain cookies.
 
-The defaults allow two concurrent provider requests and four requests per
-client per minute. Change them only when the provider account requires
-different limits. The in-memory rate limiter is per Worker isolate; treat it
-as a courtesy limit, not an enforcement boundary.
+Provider keys never belong in GitHub Actions secrets or repository variables,
+committed `.env` or `.dev.vars` files, `VITE_*` variables or other
+browser-visible configuration, or issue descriptions, build logs, screenshots,
+and test fixtures. GitHub Actions does not need a provider key to build, test,
+or deploy the website.
 
-For Anthropic or OpenRouter, change `DSP_PROVIDER`, choose an appropriate
-`DSP_PROVIDER_MODEL`, and store the matching `ANTHROPIC_API_KEY` or
-`OPENROUTER_API_KEY` as a secret. The full list of supported options is kept
-in [`.env.example`](../../.env.example).
+## DNS and quota preconditions
 
-Use exactly one provider-key path in each deployment. Provider-specific keys
-take precedence over the generic `DSP_PROVIDER_API_KEY`; blank values are
-treated as absent. Do not put provider keys in:
+Check these before the first preview deploys, and again before the first use of
+any new hostname (`theoria.staging.scenesystems.io`, `theoria.scenesystems.io`):
 
-- GitHub Actions secrets or repository variables;
-- committed `.env` or `.dev.vars` files;
-- `VITE_*` variables or other browser-visible configuration; or
-- issue descriptions, build logs, screenshots, or test fixtures.
+1. No DNS record may already exist at the hostname. Cloudflare refuses to
+   attach a Custom Domain over an existing CNAME or A record; delete the record
+   first and let the Worker create its own.
+2. `scenesystems.io` must be a full Cloudflare DNS zone (not a partial or
+   delegated setup) so Cloudflare adds the CAA authorization its certificates
+   need. If the zone carries explicit CAA records, they must permit Cloudflare's
+   certificate authorities.
+3. Every open pull request holds one Worker and one Custom Domain. Cloudflare
+   allows 500 Workers per paid account and 100 Custom Domains per zone; leave
+   headroom for the staging and production Workers and for other applications
+   on the zone.
+4. The build must stay within Workers limits: 10 MB of gzipped Worker code,
+   100,000 static assets, and 25 MiB per asset. `theoria-build-check` reports
+   the asset count and Worker size on every run.
 
-GitHub Actions does not need a provider key to build or test the website.
+After the first preview is live, open **SSL/TLS → Edge Certificates** for the
+zone and confirm the certificate Cloudflare issued for the preview hostname is
+an Advanced Certificate whose only host is that hostname. The cleanup job
+deletes exactly such a certificate when the pull request closes; if Cloudflare
+ever issues a multi-host or differently typed certificate, cleanup leaves it in
+place and the job must be revised before certificates accumulate.
+
+Cleanup is best-effort per close event. If a close runs while the runner or the
+Cloudflare API is unavailable, delete the Worker (`theoria-pr-<N>`) and the
+certificate by hand, or rerun the failed `Remove PR Preview` job from the
+Actions tab.
 
 ## Cutover from Railway
 
