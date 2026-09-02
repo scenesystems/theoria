@@ -19,7 +19,7 @@ packages/*/test/**/*.js
 /api-reference/
 /apps/theoria/public/docs-data/
 
-# Generated Theoria runtime data (package versions, demo program sources)
+# Generated Theoria runtime data (demo program sources)
 /apps/theoria/public/runtime-data/
 
 # Cloudflare Wrangler state, dry-run bundles, and local secrets
