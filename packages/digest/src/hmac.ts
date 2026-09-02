@@ -1,6 +1,7 @@
 /**
  * RFC 2104 HMAC-SHA256 and HMAC-SHA1 message authentication.
  *
+ * @remarks
  * The operations accept raw key and message bytes and return tags only. A
  * verifier must compare the received and computed tags with a constant-time
  * byte comparison. HMAC-SHA1 is retained for protocols that require it.

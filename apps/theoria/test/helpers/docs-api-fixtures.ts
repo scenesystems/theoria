@@ -6,7 +6,7 @@ import { apiPageFixture } from "./docs-fixtures.js"
 const packageRoot = `/docs-data/0123456789abcdef0123456789abcdef01234567/packages/effect-search`
 
 export const docsApiModuleIndexFixture: DocsApiModuleIndex = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   kind: "api-module-index",
   path: apiPageFixture.path,
   canonical: apiPageFixture.canonical,

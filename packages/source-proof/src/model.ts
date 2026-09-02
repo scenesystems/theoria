@@ -59,6 +59,7 @@ export class PackagePublicExport extends Data.Class<{
   readonly subpath: string
   readonly exportName: string
   readonly kind: PublicExportKind
+  readonly sourceFile: SourceFilePath
   readonly summary: string | null
   readonly since: string | null
   readonly category: string | null

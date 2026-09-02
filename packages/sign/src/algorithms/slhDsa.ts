@@ -2,6 +2,7 @@
  * Implements four stateless SHA2-based SLH-DSA suites from FIPS 205 through
  * `@noble/post-quantum`.
  *
+ * @remarks
  * The 128f suite uses 32-byte public keys, 64-byte secret keys, and
  * 17,088-byte signatures. The 128s suite uses the same key sizes and
  * 7,856-byte signatures. The 192f suite uses 48, 96, and 35,664 bytes; the

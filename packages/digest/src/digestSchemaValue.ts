@@ -1,6 +1,7 @@
 /**
  * Content hashing whose preimage is defined by a Schema encoder.
  *
+ * @remarks
  * Schema encoding converts a decoded value to its wire representation before
  * RFC 8785 canonicalization. Use this boundary for values such as `Date` or
  * branded types whose runtime form is not their serialized form.

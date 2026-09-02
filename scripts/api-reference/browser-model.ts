@@ -19,9 +19,10 @@ export const browserApiExportAsset = (
 export const makeBrowserApiModuleIndex = (
   page: ApiPage,
   revision: string,
-  modulePath: string
+  modulePath: string,
+  exportModulePath: string = modulePath
 ): DocsApiModuleIndex => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   kind: "api-module-index",
   path: page.path,
   canonical: page.canonical,
@@ -38,7 +39,7 @@ export const makeBrowserApiModuleIndex = (
     category,
     since,
     summary,
-    asset: browserApiExportAsset(revision, modulePath, anchor)
+    asset: browserApiExportAsset(revision, exportModulePath, anchor)
   }))
 })
 

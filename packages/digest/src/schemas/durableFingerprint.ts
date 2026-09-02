@@ -1,6 +1,7 @@
 /**
  * BLAKE3-256 fingerprints for canonical structured-data identity.
  *
+ * @remarks
  * Values must already be in the package's canonical plain-data domain. Encode
  * richer values through their Schema before calling this operation. The result
  * uses the wire form `"blake3-256:<base64url>"`.

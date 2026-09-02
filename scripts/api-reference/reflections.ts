@@ -92,6 +92,7 @@ const makeImports = (
         const apiImport: ApiReferenceImport = {
           name: entry.exportName,
           importKind: entry.kind,
+          source: entry.sourceFile.relative,
           summary: entry.summary,
           since: entry.since,
           category: entry.category,

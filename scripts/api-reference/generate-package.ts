@@ -107,7 +107,7 @@ export const generateApiPackage = (input: {
       repositoryUrl: `${repositoryUrl}/tree/${input.revision}/packages/${packageSlug}`,
       overview: guideData.overview,
       guides: guideData.guides,
-      apiModules: Arr.map(generatedModules, (generated) => generated.apiModule)
+      apiModules: Arr.flatMap(generatedModules, (generated) => generated.apiModules)
     }
 
     return {

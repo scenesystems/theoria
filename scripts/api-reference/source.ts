@@ -35,7 +35,7 @@ export type ApiSourcePackage = {
   readonly modules: ReadonlyArray<ApiSourceModule>
 }
 
-const sourceModuleSubpath = (relativeSource: string): string => {
+export const sourceModuleSubpath = (relativeSource: string): string => {
   const withoutSourceRoot = relativeSource.replace(/^src\//u, "").replace(/\.m?ts$/u, "")
   const modulePath = withoutSourceRoot === "index"
     ? ""

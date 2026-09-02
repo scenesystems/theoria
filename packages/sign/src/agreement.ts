@@ -1,6 +1,7 @@
 /**
  * Derives raw X25519 shared secrets.
  *
+ * @remarks
  * Callers remain responsible for peer authentication, transcript binding, and
  * key derivation for the protocol that consumes the shared secret.
  *

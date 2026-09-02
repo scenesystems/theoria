@@ -1,6 +1,7 @@
 /**
  * Algorithm-tagged digests for canonical structured data.
  *
+ * @remarks
  * The canonical JSON bytes form the hash preimage. The result records the
  * selected digest algorithm beside its unpadded base64url value.
  *

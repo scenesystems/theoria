@@ -5,7 +5,7 @@ const packageRoot = `/docs-data/${revision}/packages/effect-search`
 const sourceUrl = `https://github.com/scenesystems/theoria/blob/${revision}/packages/effect-search/src/index.ts`
 
 export const docsManifestFixture: DocsManifest = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision,
   searchIndexAsset: `/docs-data/${revision}/search-index.json`,
   packages: [{
@@ -30,9 +30,11 @@ export const docsManifestFixture: DocsManifest = {
       asset: `${packageRoot}/guides/getting-started.json`
     }],
     apiModules: [{
+      kind: "entrypoint",
       name: "@scenesystems/effect-search",
       subpath: ".",
       slug: "",
+      source: "src/index.ts",
       path: "/docs/effect-search/api",
       asset: `${packageRoot}/pages/index.json`,
       aliases: [],
@@ -41,9 +43,11 @@ export const docsManifestFixture: DocsManifest = {
       exportCount: 2,
       categories: ["studies", "models"]
     }, {
+      kind: "entrypoint",
       name: "Study",
       subpath: "./Study",
       slug: "Study",
+      source: "src/Study/index.ts",
       path: "/docs/effect-search/api/Study",
       asset: `${packageRoot}/pages/Study.json`,
       aliases: ["/docs/effect-search/api/study"],
@@ -96,7 +100,7 @@ const emptyDocs: ApiDocumentation = {
 }
 
 export const apiPageFixture: ApiPage = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   kind: "api-module",
   path: "/docs/effect-search/api/Study",
   canonical: true,
@@ -109,9 +113,11 @@ export const apiPageFixture: ApiPage = {
     description: "Effect-native optimization studies."
   },
   module: {
+    kind: "entrypoint",
     name: "Study",
     subpath: "./Study",
     slug: "Study",
+    source: "src/Study/index.ts",
     docs: {
       ...emptyDocs,
       summary: [{ kind: "text", text: "Build and run optimization studies." }],

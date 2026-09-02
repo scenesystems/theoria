@@ -1,6 +1,7 @@
 /**
  * One-shot hashing for bytes, strict text, and canonical structured data.
  *
+ * @remarks
  * Callers select BLAKE3-256 or SHA-256 and may receive raw digest bytes,
  * unpadded base64url, or lowercase hexadecimal output.
  *

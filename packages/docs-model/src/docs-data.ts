@@ -61,9 +61,11 @@ export const DocsGuideSummarySchema = Schema.Struct({
 })
 
 export const DocsApiModuleSummarySchema = Schema.Struct({
+  kind: Schema.Literal("entrypoint", "source"),
   name: NonEmptyString,
   subpath: NonEmptyString,
   slug: Schema.String,
+  source: NonEmptyString,
   path: NonEmptyString,
   asset: DocsAssetPath,
   aliases: Schema.Array(NonEmptyString),
@@ -85,7 +87,7 @@ export const DocsApiExportSummarySchema = Schema.Struct({
 })
 
 export const DocsApiModuleIndexSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
   kind: Schema.Literal("api-module-index"),
   path: NonEmptyString,
   canonical: Schema.Boolean,
@@ -116,7 +118,7 @@ export const DocsPackageSummarySchema = Schema.Struct({
 })
 
 export const DocsManifestSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(2),
+  schemaVersion: Schema.Literal(3),
   revision: NonEmptyString,
   searchIndexAsset: DocsAssetPath,
   packages: Schema.Array(DocsPackageSummarySchema)

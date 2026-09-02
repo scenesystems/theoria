@@ -113,6 +113,7 @@ export const routes: ReadonlyArray<ApiReferenceRoute> = [
       {
         name: "snapshot",
         importKind: "value",
+        source: "src/Study.ts",
         summary: "Barrel module summary.",
         since: "1.0.0",
         category: "persistence",
@@ -125,6 +126,7 @@ export const routes: ReadonlyArray<ApiReferenceRoute> = [
       {
         name: "ExecuteOutcome",
         importKind: "value",
+        source: "src/Study.ts",
         summary: "The result of running a study.",
         since: "1.0.0",
         category: "models",

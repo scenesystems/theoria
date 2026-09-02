@@ -13,6 +13,7 @@ describe("TypeDoc presentation adapter", () => {
         packageVersion: "1.2.3",
         packageSlug: "example",
         packageDescription: "Optimization primitives for Effect",
+        moduleSource: "src/Study.ts",
         moduleReflection,
         moduleSourceUrl: sourceUrl,
         routes,
@@ -29,13 +30,15 @@ describe("TypeDoc presentation adapter", () => {
       const outcomeExport = page?.exports[1]
 
       expect(page).toMatchObject({
-        schemaVersion: 1,
+        schemaVersion: 2,
         path: "/docs/example/api/Study",
         canonical: true,
         canonicalPath: "/docs/example/api/Study",
         aliases: ["/docs/example/api/study"],
         module: {
+          kind: "entrypoint",
           name: "Study",
+          source: "src/Study.ts",
           since: "1.0.0",
           sourceUrl
         },

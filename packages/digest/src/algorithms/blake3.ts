@@ -1,6 +1,7 @@
 /**
  * BLAKE3 hashing, keyed authentication, and context-separated key derivation.
  *
+ * @remarks
  * Each operation returns raw bytes so the caller controls the wire encoding.
  * Use HMAC-SHA256 instead when a protocol requires HMAC, and SHA-256 when a
  * format or protocol fixes that digest algorithm.

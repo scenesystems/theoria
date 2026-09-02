@@ -1,6 +1,7 @@
 /**
  * Incremental hashing for byte and logical-text streams.
  *
+ * @remarks
  * These helpers hash chunked streams without requiring callers to pre-concatenate
  * all bytes in memory. Text streams preserve chunk-boundary independence while
  * rejecting malformed UTF-16 with an absolute code-unit index.

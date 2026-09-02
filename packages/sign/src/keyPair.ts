@@ -1,6 +1,7 @@
 /**
  * Generates key pairs for the package's signature, agreement, and KEM suites.
  *
+ * @remarks
  * The selected Noble primitive obtains randomness from the platform CSPRNG.
  *
  * @since 0.1.0

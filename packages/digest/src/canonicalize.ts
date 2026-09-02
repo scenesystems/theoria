@@ -1,6 +1,7 @@
 /**
  * RFC 8785 JSON canonicalization for strict plain data.
  *
+ * @remarks
  * Object keys use UTF-16 lexical order and numbers use the ECMAScript shortest
  * representation. The encoder emits no whitespace or byte-order mark. Strings
  * and keys must contain well-formed Unicode and are not normalized. Accessor

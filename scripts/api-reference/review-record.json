@@ -1,1 +1,511 @@
-{"format":"theoria-api-review-record-v1","units":[{"package":"@scenesystems/digest","module":".","semanticHash":"6f2975d412e5d134b169585e38e53040879b7a833f24f7b3b50c1ac239fb6161"},{"package":"@scenesystems/effect-dsp","module":".","semanticHash":"74f962a2ee5d4cc44673162e15851e587c1d4cc978f60ffb959f22eefb18a133"},{"package":"@scenesystems/effect-dsp","module":"./Cache","semanticHash":"303cc7432734dcd02d74881732908c4c75401bcebe08519c736041626a62fcb7"},{"package":"@scenesystems/effect-dsp","module":"./contracts","semanticHash":"4a074e8b57737855fb28baa5e60f9edb86691c229e99dc35d28fbc2c83320282"},{"package":"@scenesystems/effect-dsp","module":"./Errors","semanticHash":"133844e2641a386db0496edcb6b5f864761bbae5e2399488afb66b178cea7d30"},{"package":"@scenesystems/effect-dsp","module":"./Evaluate","semanticHash":"af0f830d79e40ffb9115236d60165554a959538593a7ae8663072232e52ea2ff"},{"package":"@scenesystems/effect-dsp","module":"./Example","semanticHash":"acbc7d62ec6c51073983d8660047fcacdb45353bcaa298719779068c171f7578"},{"package":"@scenesystems/effect-dsp","module":"./experimental","semanticHash":"201bcd1abfb9a996f5c4aef78a69b25c447fdc740fd8d0cfe42bb26b6a8a1043"},{"package":"@scenesystems/effect-dsp","module":"./Metric","semanticHash":"5fef8924c89f8a9c51810cca248c1af36b929c5d0b7ef5423c3eae0feb8ee871"},{"package":"@scenesystems/effect-dsp","module":"./Module","semanticHash":"2c14f7d70a1e8f44d7d927a7845e109eab6222f3167cd712229bcdfefbb92ce0"},{"package":"@scenesystems/effect-dsp","module":"./Optimizer","semanticHash":"ce6aae31ae02ace347fdcdf4773f73c482f75c7855e489320d92f51826896d0b"},{"package":"@scenesystems/effect-dsp","module":"./Signature","semanticHash":"9e78c103d7fc793005ffb2ddc8738e8347056f2d6333ccb6cb00807151d56883"},{"package":"@scenesystems/effect-dsp","module":"./test","semanticHash":"2d8b26c121883a3cc83cb60ce5a5f10df5fcf72119b3e55f11019cdf692c83d2"},{"package":"@scenesystems/effect-dsp","module":"./Trace","semanticHash":"375cb877d685f53f1fb4cc420fc96e09df641698a3c4f2ab109e3139a74f8d20"},{"package":"@scenesystems/effect-inference","module":".","semanticHash":"28c1b74eba131172835f3fd9f55038ca6b8f0d014bc17e126a3f71871b20b7e6"},{"package":"@scenesystems/effect-inference","module":"./Contracts","semanticHash":"dd6b944945c11e0be017aeb628cc240427593ee36b5d6835299b2a04afb1a13c"},{"package":"@scenesystems/effect-inference","module":"./Errors","semanticHash":"86f2e62e6cf6a81e1403c93621689ed1928e72f54569fcba8d5e7770ac3ea5be"},{"package":"@scenesystems/effect-inference","module":"./experimental","semanticHash":"3726fb0ac0d1e2c33dc4895b88ca906d8b15b6bbc030e68863d9a7d800a84317"},{"package":"@scenesystems/effect-inference","module":"./HuggingFace","semanticHash":"d69d177a7393ae0cfd7d4dda31f8f140ec8aa6241c22d0b3a466161812e4821d"},{"package":"@scenesystems/effect-inference","module":"./OpenAiCompatible","semanticHash":"58d0f47db5466cc3f4b7005742cdf289280197261c511f22a7ef38363524e061"},{"package":"@scenesystems/effect-inference","module":"./Runtime","semanticHash":"f7d337fec65a58205ba1e9beadf93fd65fa7822ca4dc82d8a85f641049f2304a"},{"package":"@scenesystems/effect-inference","module":"./Testing","semanticHash":"15c4d721d52c10d4ff3c8ecc541f215ada78d4277d71f6c408ad76222439ec8e"},{"package":"@scenesystems/effect-math","module":".","semanticHash":"9b8c3f10dfee48a7fd948b44dbe4f4878924c544a47f15006df4651848d238fd"},{"package":"@scenesystems/effect-math","module":"./Algebra","semanticHash":"82586bde9d15b9d74c2dbb73dd289727cca86019503a6d02bfb7d27fa7649b90"},{"package":"@scenesystems/effect-math","module":"./Calculus","semanticHash":"afb1d6b009849d443d2b290cae6dbf7102dc079ae0480784263f6cdf0c5df8be"},{"package":"@scenesystems/effect-math","module":"./Complex","semanticHash":"b88d3f54c5682ea8aa522b1563780e29d595e4f027179d9e3e070703859041ad"},{"package":"@scenesystems/effect-math","module":"./contracts","semanticHash":"f0cd107312a09b2acafea593cf16f6b63b12f71f62cd703afd4e67038105972b"},{"package":"@scenesystems/effect-math","module":"./Distribution","semanticHash":"5510e45ace6b8173d008316ad82eeb53381d0943510b377799a71e615a95d83e"},{"package":"@scenesystems/effect-math","module":"./experimental","semanticHash":"3f50a618b33fbf1ca53e055719f5e37c5d25b8d308f7bca0d443ec8523e037e2"},{"package":"@scenesystems/effect-math","module":"./Geometry","semanticHash":"3ce414c78ca5b5cb9f2c2d25dc52d821edad47af12e7ed9b018447226c2c2717"},{"package":"@scenesystems/effect-math","module":"./LinearAlgebra","semanticHash":"525e0bce596a8331ce006ff30fff463e3b666845db7de0c3c448f90d47566a06"},{"package":"@scenesystems/effect-math","module":"./Numeric","semanticHash":"7fea15317c4e896c953cc054c458172c4bbba85fa857b8ac3dfb32eea3f41014"},{"package":"@scenesystems/effect-math","module":"./Optimization","semanticHash":"2cf9fddbfc938a0487226460151295dde724c6bdabf303a41300e38494d305b4"},{"package":"@scenesystems/effect-math","module":"./Probability","semanticHash":"706857db4abfeb7abc07592173754b5dbc560cc893e10dd2b0e673aa5748ed5e"},{"package":"@scenesystems/effect-math","module":"./Special","semanticHash":"0b4ddb055606e7c14bbd6bcc7ac89cdfef461632c0f2b34003d2f8ba2b5c9fd7"},{"package":"@scenesystems/effect-math","module":"./Statistics","semanticHash":"5f239cf90ede495555a9b4eea96c91faae4f71001151d01e015c2f58ab9636ce"},{"package":"@scenesystems/effect-search","module":".","semanticHash":"6f2720ef4e6468f122cb972d74e1b62847445eef15e42d8f8cebe2317782c5bf"},{"package":"@scenesystems/effect-search","module":"./Cache","semanticHash":"15e65af07c5f5aad0f46ed0a641ac968e8467cbdcb5a49c85737770b7e5b1671"},{"package":"@scenesystems/effect-search","module":"./contracts","semanticHash":"f3495db4556e42a73336227303051a2ed3b28f67a04541686dbe1e920f999b68"},{"package":"@scenesystems/effect-search","module":"./Errors","semanticHash":"ca4ec3b5c6b9e3b8115231380d64dfda126a1b35e81a31c22b243ffeffd28a81"},{"package":"@scenesystems/effect-search","module":"./experimental","semanticHash":"bc8ec9e48053bc5b226c78a67ce003d2872036af9f1a12ec1f669de8589f167c"},{"package":"@scenesystems/effect-search","module":"./Pareto","semanticHash":"588fe53d42a7c85d5b0cdec4fc228f5aa7fa39b1a5581def4eade97209893d2a"},{"package":"@scenesystems/effect-search","module":"./Sampler","semanticHash":"1d9a1d82f227245975b999f93bad4e90cd4726eb048b4340defaad9c5821b437"},{"package":"@scenesystems/effect-search","module":"./Scheduler","semanticHash":"6e5aeba446b5b5a416baf5b0bbe5f5bf10a9ff8ff7bc3bc9049916ca9a4e9300"},{"package":"@scenesystems/effect-search","module":"./SearchSpace","semanticHash":"1fbd0006adf24423c42870aff8ac39711789016d4bf9bc7e38071f350689327b"},{"package":"@scenesystems/effect-search","module":"./Study","semanticHash":"9173a05aef666093b9ad28f736d8537a07ecd0b3d0e02d529964dc53ee342086"},{"package":"@scenesystems/effect-search","module":"./StudyEvent","semanticHash":"20c31be029dd87d27c6a3282c426d27d8f6f23a3ad79bf574aadb0582a47977b"},{"package":"@scenesystems/effect-search","module":"./Trial","semanticHash":"eefc9137f59693afa97d5edd01eed38519a3ef2567bdc8fbc2179c64c0e399eb"},{"package":"@scenesystems/effect-text","module":".","semanticHash":"8cf1c6b976b3d899bf62ab18ea972f96fd8e926a02f776ca7f2d6d2955267268"},{"package":"@scenesystems/effect-text","module":"./Browser","semanticHash":"4c3f4a907f2ba9aefbe000022b3673c649ce1ca79b0a35efd44383a177cd1d60"},{"package":"@scenesystems/effect-text","module":"./contracts","semanticHash":"695140200ba9aa6f6333c9528a5d0a929901eefe058c10fa4101cd623b84f07d"},{"package":"@scenesystems/effect-text","module":"./Errors","semanticHash":"9240b691ad7617df844be659360d2315320b1a59544b8f621d7cbfdd3322f9f9"},{"package":"@scenesystems/effect-text","module":"./experimental","semanticHash":"4f5be9179926c3acd0c338763a0db220ca2bf865f62fa513d1d27f31f6c7d3a3"},{"package":"@scenesystems/effect-text","module":"./React","semanticHash":"9de6a5b621864eb191306e99b6bdfd0b54845f16827fa74f704b6c36f672b799"},{"package":"@scenesystems/effect-text","module":"./Text","semanticHash":"3de86aeac7f8162d044c4323400acb2140c934632159fd1fc7e3fe100e864c79"},{"package":"@scenesystems/seal","module":".","semanticHash":"5699d3f37c09a1e12e35ae3028c41108aa92577297b642dc5c2ab204c641a613"},{"package":"@scenesystems/sign","module":".","semanticHash":"91dba9150b99389f1cb6e32e0d3b339394af72cac2af55841bb1eda7f4675b35"}],"duplicateAllowlist":[]}
+{
+  "format": "theoria-api-review-record-v1",
+  "units": [
+    {
+      "package": "@scenesystems/digest",
+      "module": ".",
+      "semanticHash": "39e4dcb96c7237e53ddeea3c770f318b3f9e396ad4c16cb52b0037908637466e"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": ".",
+      "semanticHash": "7854bf050de3e9fdecb22b9b0be4b3edd62fc6c64c030e641cb36fe1f902af26"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Cache",
+      "semanticHash": "303cc7432734dcd02d74881732908c4c75401bcebe08519c736041626a62fcb7"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./contracts",
+      "semanticHash": "4a074e8b57737855fb28baa5e60f9edb86691c229e99dc35d28fbc2c83320282"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Errors",
+      "semanticHash": "133844e2641a386db0496edcb6b5f864761bbae5e2399488afb66b178cea7d30"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Evaluate",
+      "semanticHash": "af0f830d79e40ffb9115236d60165554a959538593a7ae8663072232e52ea2ff"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Example",
+      "semanticHash": "acbc7d62ec6c51073983d8660047fcacdb45353bcaa298719779068c171f7578"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./experimental",
+      "semanticHash": "201bcd1abfb9a996f5c4aef78a69b25c447fdc740fd8d0cfe42bb26b6a8a1043"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Metric",
+      "semanticHash": "5fef8924c89f8a9c51810cca248c1af36b929c5d0b7ef5423c3eae0feb8ee871"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Module",
+      "semanticHash": "2c14f7d70a1e8f44d7d927a7845e109eab6222f3167cd712229bcdfefbb92ce0"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Optimizer",
+      "semanticHash": "ce6aae31ae02ace347fdcdf4773f73c482f75c7855e489320d92f51826896d0b"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Signature",
+      "semanticHash": "b6b81830e13409d540973e0327403e0f17f93603d1887f8a50621e8e9eb8065d"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./test",
+      "semanticHash": "2d8b26c121883a3cc83cb60ce5a5f10df5fcf72119b3e55f11019cdf692c83d2"
+    },
+    {
+      "package": "@scenesystems/effect-dsp",
+      "module": "./Trace",
+      "semanticHash": "375cb877d685f53f1fb4cc420fc96e09df641698a3c4f2ab109e3139a74f8d20"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": ".",
+      "semanticHash": "28c1b74eba131172835f3fd9f55038ca6b8f0d014bc17e126a3f71871b20b7e6"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./Contracts",
+      "semanticHash": "dd6b944945c11e0be017aeb628cc240427593ee36b5d6835299b2a04afb1a13c"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./Errors",
+      "semanticHash": "86f2e62e6cf6a81e1403c93621689ed1928e72f54569fcba8d5e7770ac3ea5be"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./experimental",
+      "semanticHash": "3726fb0ac0d1e2c33dc4895b88ca906d8b15b6bbc030e68863d9a7d800a84317"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./HuggingFace",
+      "semanticHash": "d69d177a7393ae0cfd7d4dda31f8f140ec8aa6241c22d0b3a466161812e4821d"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./OpenAiCompatible",
+      "semanticHash": "58d0f47db5466cc3f4b7005742cdf289280197261c511f22a7ef38363524e061"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./Runtime",
+      "semanticHash": "f7d337fec65a58205ba1e9beadf93fd65fa7822ca4dc82d8a85f641049f2304a"
+    },
+    {
+      "package": "@scenesystems/effect-inference",
+      "module": "./Testing",
+      "semanticHash": "15c4d721d52c10d4ff3c8ecc541f215ada78d4277d71f6c408ad76222439ec8e"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": ".",
+      "semanticHash": "9b8c3f10dfee48a7fd948b44dbe4f4878924c544a47f15006df4651848d238fd"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Algebra",
+      "semanticHash": "82586bde9d15b9d74c2dbb73dd289727cca86019503a6d02bfb7d27fa7649b90"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Calculus",
+      "semanticHash": "afb1d6b009849d443d2b290cae6dbf7102dc079ae0480784263f6cdf0c5df8be"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Complex",
+      "semanticHash": "b88d3f54c5682ea8aa522b1563780e29d595e4f027179d9e3e070703859041ad"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./contracts",
+      "semanticHash": "f0cd107312a09b2acafea593cf16f6b63b12f71f62cd703afd4e67038105972b"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Distribution",
+      "semanticHash": "5510e45ace6b8173d008316ad82eeb53381d0943510b377799a71e615a95d83e"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./experimental",
+      "semanticHash": "3f50a618b33fbf1ca53e055719f5e37c5d25b8d308f7bca0d443ec8523e037e2"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Geometry",
+      "semanticHash": "3ce414c78ca5b5cb9f2c2d25dc52d821edad47af12e7ed9b018447226c2c2717"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./LinearAlgebra",
+      "semanticHash": "525e0bce596a8331ce006ff30fff463e3b666845db7de0c3c448f90d47566a06"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Numeric",
+      "semanticHash": "7fea15317c4e896c953cc054c458172c4bbba85fa857b8ac3dfb32eea3f41014"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Optimization",
+      "semanticHash": "2cf9fddbfc938a0487226460151295dde724c6bdabf303a41300e38494d305b4"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Probability",
+      "semanticHash": "706857db4abfeb7abc07592173754b5dbc560cc893e10dd2b0e673aa5748ed5e"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Special",
+      "semanticHash": "0b4ddb055606e7c14bbd6bcc7ac89cdfef461632c0f2b34003d2f8ba2b5c9fd7"
+    },
+    {
+      "package": "@scenesystems/effect-math",
+      "module": "./Statistics",
+      "semanticHash": "5f239cf90ede495555a9b4eea96c91faae4f71001151d01e015c2f58ab9636ce"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": ".",
+      "semanticHash": "6f2720ef4e6468f122cb972d74e1b62847445eef15e42d8f8cebe2317782c5bf"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Cache",
+      "semanticHash": "15e65af07c5f5aad0f46ed0a641ac968e8467cbdcb5a49c85737770b7e5b1671"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./contracts",
+      "semanticHash": "f3495db4556e42a73336227303051a2ed3b28f67a04541686dbe1e920f999b68"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Errors",
+      "semanticHash": "ca4ec3b5c6b9e3b8115231380d64dfda126a1b35e81a31c22b243ffeffd28a81"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./experimental",
+      "semanticHash": "bc8ec9e48053bc5b226c78a67ce003d2872036af9f1a12ec1f669de8589f167c"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Pareto",
+      "semanticHash": "588fe53d42a7c85d5b0cdec4fc228f5aa7fa39b1a5581def4eade97209893d2a"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Sampler",
+      "semanticHash": "1d9a1d82f227245975b999f93bad4e90cd4726eb048b4340defaad9c5821b437"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Scheduler",
+      "semanticHash": "6e5aeba446b5b5a416baf5b0bbe5f5bf10a9ff8ff7bc3bc9049916ca9a4e9300"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./SearchSpace",
+      "semanticHash": "1fbd0006adf24423c42870aff8ac39711789016d4bf9bc7e38071f350689327b"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Study",
+      "semanticHash": "9173a05aef666093b9ad28f736d8537a07ecd0b3d0e02d529964dc53ee342086"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./StudyEvent",
+      "semanticHash": "20c31be029dd87d27c6a3282c426d27d8f6f23a3ad79bf574aadb0582a47977b"
+    },
+    {
+      "package": "@scenesystems/effect-search",
+      "module": "./Trial",
+      "semanticHash": "eefc9137f59693afa97d5edd01eed38519a3ef2567bdc8fbc2179c64c0e399eb"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": ".",
+      "semanticHash": "8cf1c6b976b3d899bf62ab18ea972f96fd8e926a02f776ca7f2d6d2955267268"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./Browser",
+      "semanticHash": "4c3f4a907f2ba9aefbe000022b3673c649ce1ca79b0a35efd44383a177cd1d60"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./contracts",
+      "semanticHash": "695140200ba9aa6f6333c9528a5d0a929901eefe058c10fa4101cd623b84f07d"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./Errors",
+      "semanticHash": "9240b691ad7617df844be659360d2315320b1a59544b8f621d7cbfdd3322f9f9"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./experimental",
+      "semanticHash": "4f5be9179926c3acd0c338763a0db220ca2bf865f62fa513d1d27f31f6c7d3a3"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./React",
+      "semanticHash": "9de6a5b621864eb191306e99b6bdfd0b54845f16827fa74f704b6c36f672b799"
+    },
+    {
+      "package": "@scenesystems/effect-text",
+      "module": "./Text",
+      "semanticHash": "3de86aeac7f8162d044c4323400acb2140c934632159fd1fc7e3fe100e864c79"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": ".",
+      "semanticHash": "0ae35a5a548dae48a87a73506b248b171dc162e2e8e53b1e5db2f7a9e087f0db"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": ".",
+      "semanticHash": "91dba9150b99389f1cb6e32e0d3b339394af72cac2af55841bb1eda7f4675b35"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/algorithms/blake3.ts",
+      "semanticHash": "1fda290979d04ab100400f585ba4417777f3cd1e6c212e55d204e541100de74b"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/algorithms/sha256.ts",
+      "semanticHash": "97260b2b0929bf691402b44d6ba890314ef814e05dd1a7532b93a2d6ca3c50c6"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/canonicalize.ts",
+      "semanticHash": "9089abe66daa1b9c50b33a3e7f55b45761791d91dac7672640b66f7547b757c7"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/convenience.ts",
+      "semanticHash": "aaa08fd2d9a1815a1db6bcd8a54cacfd5b6818d9fafb3f1ab59be918898fd8f3"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/digest.ts",
+      "semanticHash": "d5eab489cb60ecf213fef6737611b0e268c6a07cf59bc7fad1f6c1e18808ca7e"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/digestSchemaValue.ts",
+      "semanticHash": "783f067d4b4bc4c2bb3828cd43cc44b34842858aabbf1e9dea49993d196e6855"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/encoding.ts",
+      "semanticHash": "9aedb9eabbfba6df6a1e666f25ce8ac651d5ab8588d004833a19c6a3e49859af"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/hmac.ts",
+      "semanticHash": "cc16c015afa65f3f8858b7db350b5c46562e75e01cfb42f20c9a36d82b00f0a8"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/kdf.ts",
+      "semanticHash": "a25c09544e54144cd16dbf20b9cfcf93b7bea61526554809a3c878bfcdb485a0"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/schemas/ContentDigest.ts",
+      "semanticHash": "86c98c460583e32adde153d65606a275b7191dbceee7a3d8785f5431493a0ef3"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/schemas/Digest256.ts",
+      "semanticHash": "26acd15a5969f9beb88637ae40ebc7e631e125ca56d1eb05f4de870bd0642510"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/schemas/DigestAlgorithm.ts",
+      "semanticHash": "8a6c84352cb6816649a583073c47fe8a743c58c3276e6961ff8eb73bce36b410"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/schemas/durableFingerprint.ts",
+      "semanticHash": "e3adcdb14a90e53f73482fa96590d767075917300b71307c5954ddd70e15f53b"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/schemas/errors.ts",
+      "semanticHash": "bce2595a40cce03e73510b2b60dad74cbeb754b1b17e63ad7c34b1c267a32b18"
+    },
+    {
+      "package": "@scenesystems/digest",
+      "module": "source:src/streaming.ts",
+      "semanticHash": "5a70c5457ca9b67c30e71457ec17edd0112825ea9a7de01e457eefae7c0aa16b"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/algorithms/aesgcm.ts",
+      "semanticHash": "2e17256f6fa49e3b228b2efc1ca9eee3f2190d2024d62ac69bbba400d480812f"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/algorithms/aesgcmsiv.ts",
+      "semanticHash": "fe5b4869448bdc2e3ed885aaec6314f634479c9bfaec16fcefce023e592b4466"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/algorithms/xchacha20.ts",
+      "semanticHash": "e2bc4ddc7f3967cfb7a1a078a077b176d114a3aa0d3a94dafdec6fa8cb1bb39e"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/encoding.ts",
+      "semanticHash": "e2e2194e077e8b0a4213429104bb90770693aa1adb3c024dd4c63d4e3355b1da"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/schemas/SealAlgorithm.ts",
+      "semanticHash": "77afc928ec87e62464bff080afe573f0d319966945a0a063bdeb54d667fbb638"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/schemas/SealedEnvelope.ts",
+      "semanticHash": "6f3fcc919a15f324ab0457e5c907b2b293853525290a48c6ed456d60a91e9fc2"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/schemas/errors.ts",
+      "semanticHash": "a1f9c2a8f03adb4adec675e5f0405373e11a2c94cfb03d263a7fc1bc7402d90c"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/seal.ts",
+      "semanticHash": "5d0eb61d93de6376344726530433f4e1057844c766a216832ad1c8e2e0ed48aa"
+    },
+    {
+      "package": "@scenesystems/seal",
+      "module": "source:src/utf8.ts",
+      "semanticHash": "6c9cc09b41f1fdb6cc32f9e420212f4a11e60378089961bc3bc637aa2b0385bd"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/agreement.ts",
+      "semanticHash": "b6f9492370ff53ec33d1cd8dbe0dc977986790eeae56bbf4a65d5c24089ad1d4"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/ed25519.ts",
+      "semanticHash": "3a771489b4998ba1e16133da612c93eea98143cdfde19260e9c1061103f24530"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/hybrid.ts",
+      "semanticHash": "8d70c6124c39c2e55ca05201f155f5d2b751ba33901107fa052416d601cfd27f"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/mlDsa.ts",
+      "semanticHash": "f7cc7e925d85408cb744f40ba9d132bd739aca4db20f73b14534876fc3483e0a"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/p256.ts",
+      "semanticHash": "69d79d223c4b24e30a27e73a8e47b25cb9241295149848d821e7331144ee33b5"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/secp256k1.ts",
+      "semanticHash": "a468bdb639731395a6cc28d9e5463a642268beb87cdd934c26668a9bb7d93a35"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/slhDsa.ts",
+      "semanticHash": "38388c98e6f95ec7082d0330677262758749b759ecb82504a205435fe6cb3fec"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/algorithms/x25519.ts",
+      "semanticHash": "4f7973c5182a1b72e1cf5c6bb14f2ab3557c4f5baad9f1f994878cdd0409aade"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/encoding.ts",
+      "semanticHash": "e415153df9eaa2769c80b153b20c8f6d78c74d11c7015e4cdae75120a61f40aa"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/kem.ts",
+      "semanticHash": "9c49e4547b196d69b2f1afdde1f572d988e5a254a66477bcad3fda13c0588c0e"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/keyPair.ts",
+      "semanticHash": "4d68692b11e1a46fcd4d8a0df81f7d77cf8bf0c40eda67db06247b1a0cf70bb6"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/AgreementAlgorithm.ts",
+      "semanticHash": "1aa2706d59699d19963a0dc7e8c2be29852d9056c82964f04e4f51b481765c2f"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/KemAlgorithm.ts",
+      "semanticHash": "4699ae83eccd0692a0d7d484390822849a218985584b2ae95d623e91820a44b5"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/KemCiphertext.ts",
+      "semanticHash": "defc0158f4c70786bf0951f0a089e56896e6427cc28b7e48403ec6f993ca4c16"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/KeyPair.ts",
+      "semanticHash": "d2b7a122f6c2f8cce0062f238c4dd8ff7e93a297d7bae0950127c1648da810fc"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/SharedSecret.ts",
+      "semanticHash": "c486e0ef25899ac2a9f91ca1b12353cfcea3c95fd19a888461b0d4726b22f9ce"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/Signature.ts",
+      "semanticHash": "a1821eab7c1b6b16abc53c717216488610355b1d15bb25928fa0683922a503fa"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/SignatureAlgorithm.ts",
+      "semanticHash": "b17812718d8764f0e0f7835c3ab84149bc42a44fb6aef72dd17163610b76517a"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/schemas/errors.ts",
+      "semanticHash": "2d68f4ec154b1b7496a6f70cdb24d3e0e98569d2570a1acd5b61175baab7e1a2"
+    },
+    {
+      "package": "@scenesystems/sign",
+      "module": "source:src/sign.ts",
+      "semanticHash": "a892b7395a8b7f16404d4df7712d3173cf375bcc1271cbad70d36d6b14f0360b"
+    }
+  ],
+  "duplicateAllowlist": []
+}

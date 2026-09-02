@@ -1,6 +1,7 @@
 /**
  * Schema for the stable digest algorithm identifiers used on the wire.
  *
+ * @remarks
  * Values are stable wire identifiers used in algorithm-tagged digest strings.
  *
  * @see {@link blake3Hash}

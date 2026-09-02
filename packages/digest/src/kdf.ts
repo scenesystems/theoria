@@ -1,6 +1,7 @@
 /**
  * RFC 5869 extract-and-expand key derivation with SHA-256 or SHA-512.
  *
+ * @remarks
  * `info` supplies application context for domain separation. An absent salt
  * uses the RFC-defined all-zero value whose length matches the selected hash.
  *

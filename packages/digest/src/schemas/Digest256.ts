@@ -1,6 +1,7 @@
 /**
  * Schema for an unpadded base64url representation of 32 digest bytes.
  *
+ * @remarks
  * The schema validates the unpadded base64url shape, not whether the value was
  * produced by a cryptographic operation. Pattern: `/^[A-Za-z0-9_-]{43}$/`.
  *

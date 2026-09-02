@@ -35,6 +35,17 @@ const categoriesFor = (
     )
   }))
 
+export const categoriesForExports = (
+  exports: ReadonlyArray<ApiExport>
+): ReadonlyArray<ApiCategory> =>
+  Arr.map(Arr.dedupe(Arr.map(exports, (entry) => entry.category)), (category) => ({
+    name: category,
+    exportIds: Arr.map(
+      Arr.filter(exports, (entry) => entry.category === category),
+      (entry) => entry.id
+    )
+  }))
+
 const moduleSearchEntry = (input: {
   readonly packageName: string
   readonly packageSlug: string
@@ -77,6 +88,7 @@ export const buildApiPresentation = (input: {
   readonly packageVersion: string
   readonly packageSlug: string
   readonly packageDescription: string
+  readonly moduleSource: string
   readonly moduleSourceUrl: string
   readonly moduleDocs: ApiDocumentation
   readonly moduleSummary: string
@@ -90,7 +102,7 @@ export const buildApiPresentation = (input: {
     (route) => route.path
   )
   const pages: ReadonlyArray<ApiPage> = Arr.map(Arr.zip(input.routes, input.exportsByRoute), ([route, exports]) => ({
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "api-module",
     path: route.path,
     canonical: route.canonical,
@@ -103,9 +115,11 @@ export const buildApiPresentation = (input: {
       description: input.packageDescription
     },
     module: {
+      kind: "entrypoint",
       name: moduleName(input.packageName, route.slug),
       subpath: route.subpath,
       slug: route.slug,
+      source: input.moduleSource,
       docs: input.moduleDocs,
       since: input.moduleSince,
       sourceUrl: input.moduleSourceUrl

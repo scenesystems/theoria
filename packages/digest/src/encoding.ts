@@ -1,6 +1,7 @@
 /**
  * Strict UTF-8, base64url, and hexadecimal encoding.
  *
+ * @remarks
  * All 256-bit digests encode to 43 base64url characters without padding or 64
  * hexadecimal characters.
  *

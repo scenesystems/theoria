@@ -15,6 +15,7 @@ export const makeApiPresentation = (input: {
   readonly packageVersion: string
   readonly packageSlug: string
   readonly packageDescription: string
+  readonly moduleSource: string
   readonly moduleReflection: DeclarationReflection
   readonly moduleSourceUrl: string
   readonly routes: ReadonlyArray<ApiReferenceRoute>

@@ -50,6 +50,8 @@ export const buildInventory = Effect.gen(function*() {
     }),
     { concurrency: 8 }
   ), { concurrency: 8 }).pipe(Effect.map(Arr.flatten))
+  const entrypoints = Arr.filter(loaded, ({ summary }) => summary.kind === "entrypoint")
+  const sourcePages = Arr.filter(loaded, ({ summary }) => summary.kind === "source")
   const targets = HashSet.fromIterable(Arr.flatMap(loaded, ({ index }) => {
     const routes = [index.path, ...index.aliases]
     return Arr.flatMap(routes, (route) => [
@@ -57,7 +59,9 @@ export const buildInventory = Effect.gen(function*() {
       ...Arr.map(index.exports, (entry) => `${route}#${entry.anchor}`)
     ])
   }))
-  const units = yield* Effect.forEach(loaded, ({ pkg, summary, index, exports }) => Effect.gen(function*() {
+  const entrypointUnits = yield* Effect.forEach(
+    entrypoints,
+    ({ pkg, summary, index, exports }) => Effect.gen(function*() {
     const sourcePackage = Arr.findFirst(manifest.packages, (_) => _.name === pkg.name)
     const sourceModule = Option.flatMap(sourcePackage, (_) => Arr.findFirst(_.modules, (module) =>
       Arr.some(module.routes, (route) => route.canonical && route.path === index.path)))
@@ -120,18 +124,74 @@ export const buildInventory = Effect.gen(function*() {
       })),
       examples: exampleRecords(pkg.name, records)
     }
-  }), { concurrency: 8 })
-  const expectedSearch = Arr.flatMap(loaded, ({ index, pkg, summary }) => Arr.map(index.exports, (entry) => ({
-    id: entry.id,
-    package: pkg.name,
-    packageSlug: pkg.slug,
-    name: entry.name,
-    qualifiedName: `${summary.subpath === "." ? pkg.name : `${pkg.name}/${summary.subpath.slice(2)}`}.${entry.name}`,
-    category: entry.category,
-    summary: entry.summary,
-    path: index.path,
-    anchor: entry.anchor
-  })))
+    }),
+    { concurrency: 8 }
+  )
+  const sourceUnits = yield* Effect.forEach(
+    sourcePages,
+    ({ pkg, summary, index }) => Effect.gen(function*() {
+      const sourcePackage = Arr.findFirst(manifest.packages, (_) => _.name === pkg.name)
+      const sourceModule = Option.flatMap(sourcePackage, (_) => Arr.findFirst(_.modules, (module) =>
+        Arr.some(module.routes, (route) => route.canonical && route.subpath === summary.subpath)))
+      const canonicalRoute = Option.flatMap(sourceModule, (module) =>
+        Arr.findFirst(module.routes, (route) => route.canonical && route.subpath === summary.subpath))
+      const expectedImports = Option.match(canonicalRoute, {
+        onNone: () => [],
+        onSome: (route) => Arr.filter(route.imports, (entry) => entry.source === summary.source)
+      })
+      const projectionDiagnostics = [
+        ...(Option.isNone(canonicalRoute) ? [`${pkg.name}/${summary.source}: owning entrypoint is absent`] : []),
+        ...(expectedImports.length !== index.exports.length
+          ? [`${pkg.name}/${summary.source}: source projection count mismatch`] : []),
+        ...Arr.flatMap(index.exports, (entry) => {
+          const expected = Arr.findFirst(expectedImports, (candidate) =>
+            candidate.name === entry.name && candidate.importKind === entry.importKind)
+          return Option.isSome(expected)
+            && expected.value.category === entry.category
+            && expected.value.since === entry.since
+            ? []
+            : [`${pkg.name}/${summary.source}#${entry.name}: source projection mismatch`]
+        })
+      ]
+      const records = [{ owner: `${pkg.name}/${summary.source}`, docs: index.module.docs }]
+      const encoded = yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+        source: summary.source,
+        docs: index.module.docs,
+        since: index.module.since
+      })
+
+      return {
+        package: pkg.name,
+        module: `source:${summary.source}`,
+        counts: docsCounts([index.module.docs]),
+        semanticHash: semanticHash(encoded),
+        diagnostics: Arr.dedupe([
+          ...projectionDiagnostics,
+          ...documentationDiagnostics(records, targets)
+        ]),
+        summaries: [],
+        examples: exampleRecords(pkg.name, records)
+      }
+    }),
+    { concurrency: 8 }
+  )
+  const units = Arr.appendAll(entrypointUnits, sourceUnits)
+  const expectedSearch = Arr.flatMap(entrypoints, ({ index, pkg, summary }) => Arr.map(index.exports, (entry) => {
+    const projected = Arr.findFirst(sourcePages, (candidate) =>
+      candidate.pkg.name === pkg.name && Arr.some(candidate.index.exports, (_) => _.id === entry.id))
+
+    return {
+      id: entry.id,
+      package: pkg.name,
+      packageSlug: pkg.slug,
+      name: entry.name,
+      qualifiedName: `${summary.subpath === "." ? pkg.name : `${pkg.name}/${summary.subpath.slice(2)}`}.${entry.name}`,
+      category: entry.category,
+      summary: entry.summary,
+      path: Option.match(projected, { onNone: () => index.path, onSome: (_) => _.index.path }),
+      anchor: entry.anchor
+    }
+  }))
   const searchDiagnostics = searchIndexDiagnostics(expectedSearch, searchIndex.entries)
   const publicUnits = Arr.map(units, ({ diagnostics: _, summaries: __, examples: ___, ...unit }) => unit)
   const totals = Arr.reduce(publicUnits, { ...zeroCounts(), packages: docsManifest.packages.length },

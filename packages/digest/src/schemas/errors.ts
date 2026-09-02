@@ -1,6 +1,7 @@
 /**
  * Closed error schemas for strict text encoding, canonicalization, and bounded hashing.
  *
+ * @remarks
  * Each variant omits rejected input text and preimage data from its fields.
  *
  * @see {@link durableFingerprint}

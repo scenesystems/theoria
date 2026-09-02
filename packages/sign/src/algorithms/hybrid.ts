@@ -1,6 +1,7 @@
 /**
  * Implements the X-Wing KEM that combines X25519 with ML-KEM-768.
  *
+ * @remarks
  * Encapsulation returns a 1,120-byte ciphertext and a 32-byte raw shared
  * secret. X-Wing keys use a 1,216-byte public key and 32-byte secret seed.
  * These operations obtain key-generation and encapsulation randomness from

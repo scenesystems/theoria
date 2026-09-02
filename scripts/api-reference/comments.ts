@@ -71,7 +71,7 @@ const firstLeadingJSDoc = (source: string, sourcePath: string): Option.Option<ts
     })
   )
 
-const leadingModuleComment = (source: string, sourcePath: string): Option.Option<ModuleComment> => {
+const leadingModuleCommentData = (source: string, sourcePath: string): Option.Option<ModuleComment> => {
   return firstLeadingJSDoc(source, sourcePath).pipe(
     Option.map((jsDoc) => ({
       summary: renderComment(jsDoc.comment),
@@ -83,6 +83,31 @@ const leadingModuleComment = (source: string, sourcePath: string): Option.Option
     })),
     Option.filter((comment) => comment.summary.length > 0 || comment.tags.length > 0)
   )
+}
+
+export const leadingModuleComment = (input: {
+  readonly app: Application
+  readonly project: ProjectReflection
+  readonly reflection: DeclarationReflection
+  readonly source: string
+  readonly sourcePath: string
+}): Option.Option<Comment> => {
+  const leadingComment = leadingModuleCommentData(input.source, input.sourcePath)
+
+  return Option.map(leadingComment, ({ summary, tags }) => {
+    const normalizedSourcePath = normalizePath(input.sourcePath)
+    const parseMarkdown = (content: string) => input.app.converter.parseRawComment(
+      new MinimalSourceFile(content, normalizedSourcePath),
+      input.project.files
+    ).content
+    const comment = new Comment(
+      parseMarkdown(summary),
+      Arr.map(tags, (tag) => new CommentTag(tag.name, parseMarkdown(tag.content)))
+    )
+    comment.sourcePath = normalizedSourcePath
+    input.app.converter.resolveLinks(comment, input.reflection)
+    return comment
+  })
 }
 
 export const moduleReflection = (project: ProjectReflection): Option.Option<DeclarationReflection> =>
@@ -122,22 +147,11 @@ export const attachLeadingModuleComment = (input: {
   readonly source: string
   readonly sourcePath: string
 }): void => {
-  const leadingComment = leadingModuleComment(input.source, input.sourcePath)
+  const comment = leadingModuleComment(input)
 
-  if (Option.isNone(leadingComment)) {
+  if (Option.isNone(comment)) {
     return
   }
 
-  const normalizedSourcePath = normalizePath(input.sourcePath)
-  const parseMarkdown = (content: string) => input.app.converter.parseRawComment(
-    new MinimalSourceFile(content, normalizedSourcePath),
-    input.project.files
-  ).content
-  const comment = new Comment(
-    parseMarkdown(leadingComment.value.summary),
-    Arr.map(leadingComment.value.tags, (tag) => new CommentTag(tag.name, parseMarkdown(tag.content)))
-  )
-  comment.sourcePath = normalizedSourcePath
-  input.reflection.comment = comment
-  input.app.converter.resolveLinks(comment, input.reflection)
+  input.reflection.comment = comment.value
 }

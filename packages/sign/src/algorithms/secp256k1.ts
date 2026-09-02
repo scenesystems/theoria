@@ -1,6 +1,7 @@
 /**
  * Implements secp256k1 ECDSA over SHA-256 and BIP-340 Schnorr signatures.
  *
+ * @remarks
  * ECDSA uses compact 64-byte signatures, RFC 6979 nonce generation, and
  * low-S normalization. Schnorr uses 64-byte signatures, 32-byte messages, and
  * 32-byte x-only public keys.

@@ -1,6 +1,7 @@
 /**
  * Schema for carrying a digest with the algorithm required to verify it.
  *
+ * @remarks
  * The schema validates the algorithm identifier and encoded digest shape. It
  * does not prove that the digest matches any content.
  *

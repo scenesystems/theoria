@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Option } from "effect"
 
-import { prepareDocsSearchIndex, searchDocs } from "@theoria/docs-model"
+import { type DocsApiModuleSummary, prepareDocsSearchIndex, searchDocs } from "@theoria/docs-model"
 import { docsApiRoute } from "../../app/contracts/docs.js"
 import { apiExportForHash, docsApiModuleFor, docsNavigationBranchesFor } from "../../app/web/view/docs/docsModel.js"
 import { docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
@@ -46,6 +46,30 @@ describe("documentation view model", () => {
     expect(Arr.map(apiBranch.children, (destination) => destination.href)).toEqual([
       "/docs/effect-search/api#category-studies",
       "/docs/effect-search/api#category-models"
+    ])
+  })
+
+  it("projects source documentation modules as navigable API pages", () => {
+    const docsPackage = Option.getOrThrow(Option.fromNullable(docsManifestFixture.packages[0]))
+    const rootModule = Option.getOrThrow(Arr.findFirst(docsPackage.apiModules, (module) => module.slug.length === 0))
+    const sourceModule: DocsApiModuleSummary = {
+      ...rootModule,
+      kind: "source",
+      name: "algorithms/ed25519",
+      slug: "algorithms/ed25519",
+      source: "src/algorithms/ed25519.ts",
+      path: "/docs/sign/api/algorithms/ed25519",
+      asset: "/docs-data/0123456789abcdef0123456789abcdef01234567/packages/sign/pages/algorithms/ed25519.json"
+    }
+    const branches = docsNavigationBranchesFor({
+      ...docsPackage,
+      apiModules: [rootModule, sourceModule]
+    })
+    const apiBranch = Option.getOrThrow(Option.fromNullable(branches[1]))
+
+    expect(Arr.map(apiBranch.children, (destination) => destination.label)).toEqual(["algorithms/ed25519"])
+    expect(Arr.map(apiBranch.children, (destination) => destination.href)).toEqual([
+      "/docs/sign/api/algorithms/ed25519"
     ])
   })
 

@@ -1,6 +1,7 @@
 /**
  * Encapsulates and decapsulates raw shared secrets with X-Wing.
  *
+ * @remarks
  * X-Wing combines X25519 and ML-KEM-768. It does not authenticate the
  * recipient or sender, and callers must apply protocol-specific key derivation
  * before using the shared secret as a symmetric key.

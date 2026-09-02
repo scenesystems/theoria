@@ -107,16 +107,18 @@ export const ApiPagePackageSchema = Schema.Struct({
 })
 
 export const ApiPageModuleSchema = Schema.Struct({
+  kind: Schema.Literal("entrypoint", "source"),
   name: Schema.String,
   subpath: Schema.String,
   slug: Schema.String,
+  source: Schema.String,
   docs: ApiDocumentationSchema,
   since: Schema.String,
   sourceUrl: Schema.String
 })
 
 export const ApiPageSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
   kind: Schema.Literal("api-module"),
   path: Schema.String,
   canonical: Schema.Boolean,

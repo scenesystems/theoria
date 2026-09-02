@@ -9,6 +9,7 @@ import {
   hasCommentTag,
   moduleReflection
 } from "./comments.js"
+import { documentationPathForExport } from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
 import {
   ApiReferenceGenerationError,
@@ -17,6 +18,7 @@ import {
 import { sha256File, writeApiPage } from "./output.js"
 import { makeRoutes, moduleDisplayName, moduleOutputPath } from "./reflections.js"
 import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
+import { makeSourceDocumentationPages } from "./source-documentation-pages.js"
 import { makeApiPresentation } from "./typedoc-presentation.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
@@ -120,20 +122,44 @@ export const generateApiModule = (input: {
       packageVersion: input.sourcePackage.manifest.version,
       packageSlug: input.packageSlug,
       packageDescription: input.sourcePackage.description,
+      moduleSource: input.module.relative,
       moduleReflection: reflection.value,
       moduleSourceUrl: sourceUrl,
       routes,
       links: input.links
     })
+    const canonical = yield* Option.match(
+      Arr.findFirst(Arr.zip(routes, presentation.pages), ([route]) => route.canonical),
+      {
+        onNone: () => Effect.fail(typeDocFailure(
+          input.sourcePackage.manifest.name,
+          `${input.module.relative} has no canonical presentation page`
+        )),
+        onSome: Effect.succeed
+      }
+    )
+    const [canonicalRoute, canonicalPage] = canonical
+    const sourcePages = yield* makeSourceDocumentationPages({
+      app: input.app,
+      project,
+      reflection: reflection.value,
+      revision: input.revision,
+      links: input.links,
+      sourcePackage: input.sourcePackage,
+      module: input.module,
+      route: canonicalRoute,
+      page: canonicalPage
+    })
     yield* Effect.forEach(
       Arr.zip(routes, presentation.pages),
       ([route, page]) => writeApiPage(input.outputRoot, route.page, page)
     )
-    const apiModule = yield* writeBrowserApiModule({
+    const apiModules = yield* writeBrowserApiModule({
       browserVersionRoot: input.browserVersionRoot,
       packageName: input.sourcePackage.manifest.name,
       routes,
       pages: presentation.pages,
+      sourcePages,
       revision: input.revision
     })
 
@@ -146,5 +172,34 @@ export const generateApiModule = (input: {
       routes
     }
 
-    return { module: generatedModule, apiModule, searchEntries: presentation.searchEntries }
+    const searchEntries = Arr.map(presentation.searchEntries, (entry) => {
+      if (entry.kind !== "symbol") {
+        return entry
+      }
+
+      return Option.match(
+        Arr.findFirst(
+          input.module.routes,
+          (sourceRoute) => sourceRoute.entrypoint.subpath === canonicalRoute.subpath
+        ).pipe(
+          Option.flatMap((sourceRoute) => Arr.findFirst(
+            sourceRoute.publicExports,
+            (publicExport) => publicExport.exportName === entry.name
+          ))
+        ),
+        {
+          onNone: () => entry,
+          onSome: (publicExport) => ({
+            ...entry,
+            path: documentationPathForExport({
+              sourcePackage: input.sourcePackage,
+              module: input.module,
+              publicExport
+            })
+          })
+        }
+      )
+    })
+
+    return { module: generatedModule, apiModules, searchEntries }
   })

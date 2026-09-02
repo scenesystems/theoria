@@ -17,15 +17,36 @@ import {
   writeDocsApiModuleIndex,
   writeGuidePage
 } from "./output.js"
+import { pageOutputPath } from "./reflections.js"
 
 const docText = (page: ApiPage): string =>
   Arr.map(page.module.docs.summary, (part) => part.text).join("").trim()
+
+const moduleSummary = (
+  page: ApiPage,
+  revision: string,
+  outputPath: string
+): DocsApiModuleSummary => ({
+  kind: page.module.kind,
+  name: page.module.name,
+  subpath: page.module.subpath,
+  slug: page.module.slug,
+  source: page.module.source,
+  path: page.canonicalPath,
+  asset: `/docs-data/${revision}/${outputPath}`,
+  aliases: page.aliases,
+  summary: docText(page),
+  since: page.module.since,
+  exportCount: page.exports.length,
+  categories: Arr.map(page.categories, (category) => category.name)
+})
 
 export const writeBrowserApiModule = (input: {
   readonly browserVersionRoot: string
   readonly packageName: string
   readonly routes: ReadonlyArray<ApiReferenceRoute>
   readonly pages: ReadonlyArray<ApiPage>
+  readonly sourcePages: ReadonlyArray<ApiPage>
   readonly revision: string
 }) =>
   Effect.gen(function*() {
@@ -50,21 +71,21 @@ export const writeBrowserApiModule = (input: {
       { concurrency: 16, discard: true }
     )
     yield* writeDocsApiModuleIndex(input.browserVersionRoot, route.page, moduleIndex)
+    const sourceModules = yield* Effect.forEach(input.sourcePages, (sourcePage) => {
+      const outputPath = pageOutputPath(sourcePage.package.slug, sourcePage.module.slug)
+      const sourceIndex = makeBrowserApiModuleIndex(
+        sourcePage,
+        input.revision,
+        outputPath,
+        route.page
+      )
 
-    const moduleSummary: DocsApiModuleSummary = {
-      name: page.module.name,
-      subpath: page.module.subpath,
-      slug: page.module.slug,
-      path: page.canonicalPath,
-      asset: `/docs-data/${input.revision}/${route.page}`,
-      aliases: page.aliases,
-      summary: docText(page),
-      since: page.module.since,
-      exportCount: page.exports.length,
-      categories: Arr.map(page.categories, (category) => category.name)
-    }
+      return writeDocsApiModuleIndex(input.browserVersionRoot, outputPath, sourceIndex).pipe(
+        Effect.as(moduleSummary(sourcePage, input.revision, outputPath))
+      )
+    })
 
-    return moduleSummary
+    return [moduleSummary(page, input.revision, route.page), ...sourceModules]
   })
 
 const relativeGuideAsset = (revision: string, asset: string): string =>

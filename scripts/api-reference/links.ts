@@ -1,20 +1,24 @@
-import { Array as Arr } from "effect"
+import { Array as Arr, Option } from "effect"
 
+import { documentationPathForExport } from "./documentation-routes.js"
 import { apiExportAnchor } from "./presentation.js"
 import { apiPagePath, routeSlug } from "./reflections.js"
 import { type ApiSourcePackage } from "./source.js"
 
 export type ApiDocLink = readonly [packageName: string, name: string, href: string]
 
-const canonicalRoutes = (sourcePackage: ApiSourcePackage) =>
+const canonicalModules = (sourcePackage: ApiSourcePackage) =>
   Arr.filterMap(sourcePackage.modules, (module) =>
-    Arr.findFirst(module.routes, (route) => route.entrypoint.subpath === module.canonicalSubpath))
+    Option.map(
+      Arr.findFirst(module.routes, (route) => route.entrypoint.subpath === module.canonicalSubpath),
+      (route) => ({ module, route })
+    ))
 
 export const makeApiDocLinks = (
   sourcePackages: ReadonlyArray<ApiSourcePackage>
 ): ReadonlyArray<ApiDocLink> => {
   const moduleLinks = Arr.flatMap(sourcePackages, (sourcePackage) =>
-    Arr.map(canonicalRoutes(sourcePackage), (route): ApiDocLink => {
+    Arr.map(canonicalModules(sourcePackage), ({ route }): ApiDocLink => {
       const slug = routeSlug(route.entrypoint.subpath)
       const name = slug.length === 0
         ? sourcePackage.manifest.name
@@ -26,13 +30,13 @@ export const makeApiDocLinks = (
       ]
     }))
   const symbolLinks = Arr.flatMap(sourcePackages, (sourcePackage) =>
-    Arr.flatMap(canonicalRoutes(sourcePackage), (route) => {
-      const slug = routeSlug(route.entrypoint.subpath)
-      const path = apiPagePath(sourcePackage.directoryName, slug)
+    Arr.flatMap(canonicalModules(sourcePackage), ({ module, route }) => {
       return Arr.map(route.publicExports, (entry): ApiDocLink => [
         sourcePackage.manifest.name,
         entry.exportName,
-        `${path}#${apiExportAnchor(entry.exportName)}`
+        `${documentationPathForExport({ sourcePackage, module, publicExport: entry })}#${
+          apiExportAnchor(entry.exportName)
+        }`
       ])
     }))
 
