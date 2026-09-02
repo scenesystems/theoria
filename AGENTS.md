@@ -232,7 +232,6 @@ railway deployment list           # deployment history
 
 - Setting Railway "Root Directory" to `/apps/theoria` — breaks monorepo workspace resolution. Keep it blank.
 - Using `node:fs`/`node:path` in server code — use `@effect/platform` `FileSystem`/`Path` services for container compatibility.
-- Forgetting the SSE heartbeat — Railway proxy kills idle connections after 60s. The 30s heartbeat in `routes/demos.ts` prevents this.
 
 ---
 

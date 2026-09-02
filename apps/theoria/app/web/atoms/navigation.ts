@@ -2,7 +2,7 @@ import { Atom, Result } from "@effect-atom/atom"
 import { Match, Option } from "effect"
 
 import type { DocsManifest } from "@theoria/docs-model"
-import { metadataForDocs, metadataForHome, metadataForId, type PageMetadata } from "../../contracts/metadata.js"
+import { metadataForDocs, metadataForHome, type PageMetadata } from "../../contracts/metadata.js"
 import { applyBrowserMetadata } from "../services/browser-metadata.js"
 import { isPagePath, pagePathFor, type PageRoute, parsePathname } from "../services/path.js"
 import { docsManifestAtom } from "./docs-data.js"
@@ -25,7 +25,6 @@ const docsMetadataForRoute = (
 const browserMetadataAtom = Atom.make((ctx) =>
   Match.value(ctx(pageRouteAtom)).pipe(
     Match.tag("HomeRoute", () => Option.some(metadataForHome())),
-    Match.tag("DeepRoute", ({ id }) => Option.some(metadataForId(id))),
     Match.orElse((route) => docsMetadataForRoute(route, ctx(docsManifestAtom)))
   )
 )

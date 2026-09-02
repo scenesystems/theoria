@@ -13,21 +13,16 @@ import {
   docsPathFor,
   type DocsRoute
 } from "../../contracts/docs.js"
-import { Id } from "../../contracts/id.js"
-import type { Id as DemoId } from "../../contracts/id.js"
 
 export type PageRoute =
   | { readonly _tag: "HomeRoute" }
-  | { readonly _tag: "DeepRoute"; readonly id: DemoId }
   | DocsRoute
 
 const homeRoute: PageRoute = { _tag: "HomeRoute" }
 
-const isKnownDemoId = Schema.is(Id)
 const isDocsPackageSlug = Schema.is(DocsPackageSlug)
 const isDocsGuideSlug = Schema.is(DocsGuideSlug)
 const isDocsModuleSlug = Schema.is(DocsModuleSlug)
-const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
 const docsApiPattern = /^\/docs\/([^/]+)\/api(?:\/([^/]+(?:\/[^/]+)*))?\/?$/u
 const docsGuidePattern = /^\/docs\/([^/]+)\/([^/]+)\/?$/u
 const docsOverviewPattern = /^\/docs\/([^/]+)\/?$/u
@@ -77,27 +72,15 @@ const docsPageRoute = (pathname: string): Option.Option<PageRoute> =>
       )
     )
 
-const deepDiveRoute = (pathname: string): Option.Option<PageRoute> =>
-  Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
-    Option.flatMap((matches) => Arr.get(matches, 1)),
-    Option.flatMap((id) =>
-      isKnownDemoId(id)
-        ? Option.some<PageRoute>({ _tag: "DeepRoute", id })
-        : Option.none<PageRoute>()
-    )
-  )
-
 export const isPagePath = (pathname: string): boolean =>
   pathname === "/"
   || pathname === "/index.html"
   || pathname === "/docs"
   || pathname.startsWith("/docs/")
-  || Option.isSome(deepDiveRoute(pathname))
 
 export const pagePathFor = (route: PageRoute): string =>
   Match.value(route).pipe(
     Match.tag("HomeRoute", () => "/"),
-    Match.tag("DeepRoute", ({ id }) => `/demos/${id}`),
     Match.tag("DocsIndexRoute", docsPathFor),
     Match.tag("DocsOverviewRoute", docsPathFor),
     Match.tag("DocsGuideRoute", docsPathFor),
@@ -110,10 +93,5 @@ export const parsePathname = (pathname: string): PageRoute =>
   Match.value(pathname).pipe(
     Match.when("/", () => homeRoute),
     Match.when("/index.html", () => homeRoute),
-    Match.orElse((value) =>
-      docsPageRoute(value).pipe(
-        Option.orElse(() => deepDiveRoute(value)),
-        Option.getOrElse(() => homeRoute)
-      )
-    )
+    Match.orElse((value) => Option.getOrElse(docsPageRoute(value), () => homeRoute))
   )

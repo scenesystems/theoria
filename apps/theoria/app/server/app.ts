@@ -4,10 +4,6 @@ import { Layer } from "effect"
 import { DocsCatalogLive } from "./config/docs-catalog.js"
 import { serverReleaseStage } from "./config/release-stage.js"
 import { RuntimeInfoLive } from "./config/runtime.js"
-import { DspProviderRuntimeLive } from "./demos/effect-dsp/provider.js"
-import { ExecutionPolicyLive } from "./demos/policy.js"
-import { ProgramSourcesLive } from "./demos/program-sources.js"
-import { DemoRateLimiterLive } from "./demos/rate-limiter.js"
 import { ParticipantsLive } from "./imagined-place/authority.js"
 import { indexingPolicy } from "./indexing-policy.js"
 import { app } from "./router.js"
@@ -31,12 +27,8 @@ export const publicApp = app.pipe(
 const ReleaseStageCheck = Layer.effectDiscard(serverReleaseStage)
 
 export const AppLayer = Layer.mergeAll(
-  ExecutionPolicyLive,
   ParticipantsLive,
-  DemoRateLimiterLive,
-  DspProviderRuntimeLive,
   DocsCatalogLive,
-  ProgramSourcesLive,
   RuntimeInfoLive,
   ReleaseStageCheck
 )

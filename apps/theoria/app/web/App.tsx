@@ -3,19 +3,11 @@ import { RegistryProvider, useAtomSubscribe, useAtomValue } from "@effect-atom/a
 import { Match } from "effect"
 
 import { browserMetadataMountAtom, browserNavigationMountAtom, pageRouteAtom } from "./atoms/navigation.js"
-import { preloadRouteKey, routePreloadMountAtom } from "./atoms/preload.js"
 import { type ColorMode, colorModeAtom } from "./atoms/theme.js"
-import type { PageRoute } from "./services/path.js"
-import { DeepDivePage } from "./view/deep/DeepDivePage.js"
 import { DocsPage } from "./view/docs/DocsPage.js"
 import { HomePage } from "./view/home/HomePage.js"
 
 import "./styles.css"
-
-const RoutePreloader = ({ route }: { readonly route: PageRoute }) => {
-  useAtomValue(routePreloadMountAtom(preloadRouteKey(route)))
-  return null
-}
 
 const applyColorMode = (mode: ColorMode) => {
   document.documentElement.classList.toggle("dark", mode === "dark")
@@ -35,10 +27,8 @@ const AppShell = () => {
   return (
     <>
       <ThemeApplicator />
-      <RoutePreloader route={route} />
       {Match.value(route).pipe(
         Match.tag("HomeRoute", () => <HomePage />),
-        Match.tag("DeepRoute", ({ id }) => <DeepDivePage id={id} />),
         Match.tag("DocsIndexRoute", (docsRoute) => <DocsPage route={docsRoute} />),
         Match.tag("DocsOverviewRoute", (docsRoute) => <DocsPage route={docsRoute} />),
         Match.tag("DocsGuideRoute", (docsRoute) => <DocsPage route={docsRoute} />),

@@ -1,14 +1,10 @@
 import { Schema } from "effect"
 
 export const ErrorCode = Schema.Literal(
-  "invalid-demo-id",
   "invalid-request",
   "method-not-allowed",
   "cross-site-request",
-  "rate-limited",
-  "execution-timeout",
   "execution-failed",
-  "provider-unavailable",
   "route-not-found"
 )
 

@@ -1,21 +1,10 @@
 import { HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
-import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
-import { cardByIdForReleaseStage } from "../../contracts/card.js"
-import { Id } from "../../contracts/id.js"
-import {
-  docsPathExists,
-  fullCanonicalUrl,
-  metadataForDocs,
-  metadataForHome,
-  metadataForId
-} from "../../contracts/metadata.js"
-import type { ReleaseStage } from "../../contracts/release-stage.js"
+import { docsPathExists, fullCanonicalUrl, metadataForDocs, metadataForHome } from "../../contracts/metadata.js"
 import { DocsCatalog } from "../config/docs-catalog.js"
-import { serverReleaseStage } from "../config/release-stage.js"
-import { contentTypeForPath, runtimeDataPrefix, StaticStore } from "../config/static-store.js"
+import { contentTypeForPath, StaticStore } from "../config/static-store.js"
 
 const indexPathname = "/index.html"
 
@@ -25,27 +14,14 @@ const AssetPathname = Schema.String.pipe(
 )
 
 const isAssetPathname = Schema.is(AssetPathname)
-const isKnownDemoId = Schema.is(Id)
-const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
-
-const deepDiveId = (pathname: string): Option.Option<string> =>
-  Option.fromNullable(deepDivePattern.exec(pathname)).pipe(
-    Option.flatMap((matches) => Arr.get(matches, 1))
-  )
 
 const isDocsPath = (pathname: string): boolean => pathname === "/docs" || pathname.startsWith("/docs/")
 
-export const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
+export const isHtmlPath = (pathname: string): boolean =>
   Match.value(pathname).pipe(
     Match.when("/", () => true),
     Match.when(indexPathname, () => true),
-    Match.orElse((value) =>
-      isDocsPath(value) ||
-      Option.match(deepDiveId(value), {
-        onNone: () => false,
-        onSome: (id) => isKnownDemoId(id) && Option.isSome(cardByIdForReleaseStage(id, stage))
-      })
-    )
+    Match.orElse(isDocsPath)
   )
 
 export const cacheControlForPath = (pathname: string): string =>
@@ -70,8 +46,7 @@ export const notFoundResponse = () =>
   })
 
 /** Pathnames the public server refuses to serve even when a matching asset exists. */
-const isPrivatePath = (pathname: string): boolean =>
-  pathname.startsWith("/api/") || pathname.startsWith(runtimeDataPrefix)
+const isPrivatePath = (pathname: string): boolean => pathname.startsWith("/api/")
 
 const titlePattern = /<title>[^<]*<\/title>/u
 const metaPattern = (nameOrProperty: string): RegExp =>
@@ -102,10 +77,7 @@ const injectMetadata = (
           onNone: metadataForHome,
           onSome: (manifest) => metadataForDocs(manifest, value)
         })
-        : Option.match(deepDiveId(value), {
-          onNone: () => metadataForHome(),
-          onSome: (id) => metadataForId(id)
-        })
+        : metadataForHome()
     )
   )
 
@@ -164,13 +136,9 @@ const assetResponse = (pathname: string, acceptEncoding: Option.Option<string>) 
   })
 
 export const staticResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
-  Effect.gen(function*() {
-    const releaseStage = yield* serverReleaseStage
-
-    return yield* Match.value(pathname).pipe(
-      Match.when(isPrivatePath, () => Effect.succeed(notFoundResponse())),
-      Match.when((value) => isHtmlPath(value, releaseStage), htmlResponse),
-      Match.when(isAssetPathname, (value) => assetResponse(value, acceptEncoding)),
-      Match.orElse(() => Effect.succeed(notFoundResponse()))
-    )
-  })
+  Match.value(pathname).pipe(
+    Match.when(isPrivatePath, () => Effect.succeed(notFoundResponse())),
+    Match.when(isHtmlPath, htmlResponse),
+    Match.when(isAssetPathname, (value) => assetResponse(value, acceptEncoding)),
+    Match.orElse(() => Effect.succeed(notFoundResponse()))
+  )

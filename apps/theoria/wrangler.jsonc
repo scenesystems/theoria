@@ -20,7 +20,8 @@
   "workers_dev": false,
   "preview_urls": false,
   "limits": {
-    // Effect fibers for demo runs are CPU-bound; the Paid plan default is 30 s.
+    // The Imagined Place build runs its search inside the Worker and is
+    // CPU-bound; the Paid plan default is 30 s.
     "cpu_ms": 30000
   },
   "observability": {
@@ -35,19 +36,10 @@
     "not_found_handling": "none",
     // Paths the Worker must see even when a matching asset exists. Everything
     // else is served directly from the edge when an asset matches and falls
-    // through to the Worker otherwise (docs pages, demo pages, unknown paths).
+    // through to the Worker otherwise (docs pages, unknown paths).
     // `test/worker/site.test.ts` runs the built Worker in workerd and checks
     // that these paths reach the Worker while hashed assets stay on the edge.
-    "run_worker_first": [
-      "/",
-      "/index.html",
-      "/api/*",
-      "/docs",
-      "/docs/*",
-      "/demos/*",
-      "/sitemap.xml",
-      "/runtime-data/*"
-    ]
+    "run_worker_first": ["/", "/index.html", "/api/*", "/docs", "/docs/*", "/sitemap.xml"]
   },
   "vars": {
     "RELEASE_STAGE": "production"

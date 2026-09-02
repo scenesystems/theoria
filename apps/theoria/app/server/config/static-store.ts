@@ -32,9 +32,6 @@ export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticS
   }
 >() {}
 
-/** Assets under this prefix feed the server at runtime and are never served to browsers. */
-export const runtimeDataPrefix = "/runtime-data/"
-
 export const contentTypeForPath = (pathname: string): string =>
   Match.value(pathname).pipe(
     Match.when((value) => value.endsWith(".html"), () => "text/html; charset=utf-8"),

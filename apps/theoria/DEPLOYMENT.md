@@ -1,8 +1,7 @@
 # Deploying the Theoria app
 
 This runbook is for maintainers of the public Theoria website. Local users do
-not need any of this configuration unless they want to run the provider-backed
-`effect-dsp` demo.
+not need any of this configuration.
 
 The site is moving from Railway to Cloudflare Workers. The Cloudflare setup
 below is the target. The Railway section at the end stays valid until the DNS
@@ -21,8 +20,8 @@ with per-route metadata, and the built web bundle in `dist/` as static assets.
 | staging    | `theoria-staging` | `theoria.staging.scenesystems.io`        | `production`    |
 | preview    | `theoria-pr-<N>`  | `theoria-pr-<N>.staging.scenesystems.io` | `preview`       |
 
-Staging mirrors the production surface (catalog only, demo routes return
-`404`) so it is a faithful rehearsal. Previews enable the `preview` surface.
+Staging mirrors the production surface so it is a faithful rehearsal; previews
+differ only in `RELEASE_STAGE`, which the server uses for indexing policy.
 Every hostname other than `theoria.scenesystems.io` is served with
 `X-Robots-Tag: noindex`: the Worker adds it to its own responses
 (`app/server/indexing-policy.ts`) and [`public/_headers`](./public/_headers)
@@ -32,17 +31,14 @@ adds it to assets served directly from the edge.
 
 Cloudflare serves a matching file from `dist/` directly, without invoking the
 Worker, unless the path is listed in `assets.run_worker_first`. That list
-covers the HTML shell (`/`, `/index.html`, `/docs`, `/docs/*`, `/demos/*`),
-`/api/*`, `/sitemap.xml`, and the generated `/runtime-data/*` files, which the
-Worker reads through the `ASSETS` binding but never exposes. Paths with no
-matching asset (docs pages, demo pages, unknown URLs) fall through to the
-Worker.
+covers the HTML shell (`/`, `/index.html`, `/docs`, `/docs/*`), `/api/*`, and
+`/sitemap.xml`. Paths with no matching asset (docs pages, unknown URLs) fall
+through to the Worker.
 
 `bun run test:worker` (`test/worker/`) runs the bundled Worker in workerd
 through Wrangler's test harness with the real `wrangler.jsonc`, `dist/`, and
 `_headers`. `site.test.ts` asserts this routing over HTTP: shell paths reach the
-Worker and get metadata, `/runtime-data/*` is hidden, hashed assets come from
-the assets layer with the `_headers` policy, non-production hostnames are
+Worker and get metadata, hashed assets come from the assets layer with the `_headers` policy, non-production hostnames are
 `noindex`, and the security headers permit what the browser code needs (Shiki's
 WebAssembly grammar engine requires `'wasm-unsafe-eval'`). `home.test.ts`,
 `docs.test.ts`, and `docs-routes.test.ts` drive Chromium (Playwright, from
@@ -65,17 +61,16 @@ sidecars (`bun run build:web`); the Bun server build keeps them
 
 `RELEASE_STAGE` is declared per target in `wrangler.jsonc` and is authoritative.
 `BUILD_SHA` is passed at deploy time (`--var BUILD_SHA:<sha>`) and surfaces as
-`meta.buildSha` in API responses. Neither production nor staging needs a
-provider key. The Worker exposes every string binding to Effect `Config`, so
-any variable documented in [`.env.example`](../../.env.example) can be set as a
-Wrangler `var` (plain) or `secret` (encrypted). Use `wrangler secret put` for
-credentials; never put them in `vars` or in `.dev.vars` files that are
-committed.
+`meta.buildSha` in API responses. No target needs any secret: the site serves
+docs and the Imagined Place build, both computed from the repository. The
+Worker exposes every string binding to Effect `Config`, so any variable
+documented in [`.env.example`](../../.env.example) can be set as a Wrangler
+`var`.
 
 ### Local commands
 
 ```sh
-bun run build:web        # docs assets, runtime data, vite build → dist/
+bun run build:web        # docs assets, vite build → dist/
 bun run deploy:dry-run   # bundle worker.ts for workerd without deploying
 bun run preview:worker   # build, then serve production config with wrangler dev
 bunx wrangler dev --env staging   # or --env preview; assumes dist/ is built
@@ -192,12 +187,10 @@ release action. Verify a deployment in this order:
 
 1. `GET /api/health/live` returns `200`.
 2. `GET /api/health/live` reports `meta.buildSha` equal to the deployed commit.
-3. `GET /api/capabilities` returns an empty `demos` array on production and
-   staging.
-4. A production demo page and demo API request both return `404`.
-5. `GET /docs/<package>` returns `200` with a package-specific `<title>`; an
+3. `GET /docs/<package>` returns `200` with a package-specific `<title>`; an
    unknown docs path returns `404` with the HTML shell.
-6. On staging and previews only, every response carries
+4. `POST /api/imagined-place/build` with a valid request returns `200`.
+5. On staging and previews only, every response carries
    `X-Robots-Tag: noindex`.
 
 ## Previews are public, pull-request-controlled code
@@ -210,16 +203,12 @@ under `scenesystems.io`. Two rules follow:
   the dashboard, or `wrangler.jsonc`. Cloudflare keeps a Worker's secrets
   across later deployments, so a value set once would be readable by every
   later revision of that pull request. Nothing served by Theoria needs a
-  secret; provider-backed features are exercised locally with the ignored
-  `.env` file.
+  secret.
 - Do not rely on cookies or same-site trust scoped to `scenesystems.io` in any
   other application under that zone: a preview can set parent-domain cookies.
 
-Provider keys never belong in GitHub Actions secrets or repository variables,
-committed `.env` or `.dev.vars` files, `VITE_*` variables or other
-browser-visible configuration, or issue descriptions, build logs, screenshots,
-and test fixtures. GitHub Actions does not need a provider key to build, test,
-or deploy the website.
+GitHub Actions needs only the Cloudflare credentials described below to build,
+test, and deploy the website.
 
 ## DNS and quota preconditions
 
@@ -282,6 +271,4 @@ app with `bun run build:bun`, starts the Bun server, and uses
 
 Set `RELEASE_STAGE=production` on the production service. When `RELEASE_STAGE`
 is absent the server falls back to the Railway environment name and then
-`NODE_ENV`; an invalid `RELEASE_STAGE` value fails startup. Production does not
-need a provider key: remove `DSP_PROVIDER_API_KEY`, `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, and `OPENROUTER_API_KEY` from the production variables.
+`NODE_ENV`; an invalid `RELEASE_STAGE` value fails startup.

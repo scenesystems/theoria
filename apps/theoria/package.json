@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "docs:assets": "bun ../../scripts/api-reference.ts",
-    "runtime:data": "bun scripts/generate-runtime-data.ts",
-    "dev": "bun ../../scripts/ensure-docs-assets.ts && bun run runtime:data && bun run server.ts",
+    "dev": "bun ../../scripts/ensure-docs-assets.ts && bun run server.ts",
     "dev:web": "bun ../../scripts/ensure-docs-assets.ts && vite --host 127.0.0.1 --port 5175 --strictPort",
     "check": "tsc -b tsconfig.src.json",
     "check:tests": "tsc -b tsconfig.test.json",
@@ -14,7 +13,7 @@
     "lint:fix": "eslint --max-warnings=0 --fix \"server.ts\" \"worker.ts\" \"scripts/**/*.ts\" \"app/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"vite.config.ts\" \"vitest.config.ts\" \"vitest.worker.config.ts\"",
     "test": "vitest run --config vitest.config.ts",
     "test:worker": "vitest run --config vitest.worker.config.ts",
-    "build:web": "bun run docs:assets && bun run runtime:data && vite build",
+    "build:web": "bun run docs:assets && vite build",
     "build:bun": "bun run build:web && bun ../../scripts/compress-static-assets.ts",
     "build": "bun run check:all && bun run build:web",
     "preview:worker": "bun run build:web && wrangler dev --env=\"\"",

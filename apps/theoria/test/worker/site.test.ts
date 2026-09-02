@@ -8,7 +8,6 @@ import * as Str from "effect/String"
 
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
-import { runtimeDataPathnames } from "../../app/server/config/runtime-data.js"
 import { buildSha, json, previewHost, productionHost, Site, SiteLive, stagingHost, text } from "./site.js"
 
 const PartialRequest = PlaceBuildRequest.pick("scenario")
@@ -32,11 +31,9 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(live.status).toBe(200)
       expect(yield* json(live)).toMatchObject({ ok: true, meta: { buildSha }, data: { status: "live" } })
 
-      const capabilities = yield* site.fetch("/api/capabilities")
-      expect(capabilities.status).toBe(200)
-      expect(capabilities.headers.get("content-security-policy")).toContain("default-src 'self'")
+      expect(live.headers.get("content-security-policy")).toContain("default-src 'self'")
       // Shiki compiles its grammar engine from WebAssembly in the browser.
-      expect(capabilities.headers.get("content-security-policy")).toContain("script-src 'self' 'wasm-unsafe-eval'")
+      expect(live.headers.get("content-security-policy")).toContain("script-src 'self' 'wasm-unsafe-eval'")
 
       const unknown = yield* site.fetch("/api/nope")
       expect(unknown.status).toBe(404)
@@ -69,18 +66,6 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       expect((yield* site.fetch(`${productionHost}/no-such-file.js`)).status).toBe(404)
     }))
-
-  it.effect("hides runtime data that ships inside dist", () =>
-    Effect.gen(function*() {
-      const site = yield* Site
-      const fileSystem = yield* FileSystem.FileSystem
-
-      const onDisk = yield* fileSystem.exists(`${site.distRoot}${runtimeDataPathnames.programSources}`).pipe(
-        Effect.orDie
-      )
-      expect(onDisk).toBe(true)
-      expect((yield* site.fetch(runtimeDataPathnames.programSources)).status).toBe(404)
-    }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("serves hashed assets from the edge with the _headers policy", () =>
     Effect.gen(function*() {

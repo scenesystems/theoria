@@ -3,10 +3,8 @@ import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
-import { cardsForReleaseStage } from "../../contracts/card.js"
 import { fullCanonicalUrl } from "../../contracts/metadata.js"
 import { DocsCatalog } from "../config/docs-catalog.js"
-import { serverReleaseStage } from "../config/release-stage.js"
 
 const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
@@ -21,9 +19,7 @@ export const docsSitemapPaths = (manifest: DocsManifest): ReadonlyArray<string> 
   )
 
 export const sitemapRoute = Effect.gen(function*() {
-  const stage = yield* serverReleaseStage
   const docsCatalog = yield* DocsCatalog
-  const visibleCards = cardsForReleaseStage(stage)
   const docsManifest = yield* Effect.option(docsCatalog.manifest)
   const docsPaths = Option.match(docsManifest, {
     onNone: () => ["/docs"],
@@ -31,7 +27,7 @@ export const sitemapRoute = Effect.gen(function*() {
   })
 
   const urls = Arr.map(
-    ["/", ...Arr.map(visibleCards, (card) => card.deepDivePath), ...docsPaths],
+    ["/", ...docsPaths],
     (path) => urlEntry(fullCanonicalUrl(path))
   )
 

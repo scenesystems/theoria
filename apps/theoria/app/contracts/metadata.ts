@@ -2,7 +2,6 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest } from "@theoria/docs-model"
-import { type Card, cardById } from "./card.js"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 
@@ -71,95 +70,63 @@ export const metadataForHome = (): PageMetadata => ({
   ogType: "website"
 })
 
-/**
- * Page metadata derived from a `Card` for deep-dive demo pages.
- *
- * @since 0.1.0
- */
-export const metadataForDemo = (card: Card): PageMetadata => ({
-  title: `${card.title} — Theoria`,
-  description: card.description,
-  canonicalPath: card.deepDivePath,
+const docsMetadata = (title: string, description: string, canonicalPath: string): PageMetadata => ({
+  title,
+  description,
+  canonicalPath,
   ogType: "article"
 })
-
-/**
- * Page metadata for a demo identified by card ID, falling back to home
- * metadata when the ID is unknown.
- *
- * @since 0.1.0
- */
-export const metadataForId = (id: string): PageMetadata =>
-  Option.match(cardById(id), {
-    onNone: () => metadataForHome(),
-    onSome: (card) => metadataForDemo(card)
-  })
-
-const docsMetadata = (
-  title: string,
-  description: string,
-  canonicalPath: string
-): PageMetadata => ({ title, description, canonicalPath, ogType: "article" })
 
 const matchesDocsPath = (pathname: string, candidate: string): boolean =>
   pathname === candidate || pathname === `${candidate}/`
 
 const packageContainingDocsPath = (manifest: DocsManifest, pathname: string) =>
-  Arr.findFirst(manifest.packages, (docsPackage) =>
-    matchesDocsPath(pathname, docsPackage.overview.path)
-    || Arr.some(docsPackage.guides, (guide) => matchesDocsPath(pathname, guide.path))
-    || Arr.some(docsPackage.apiModules, (module) =>
-      matchesDocsPath(pathname, module.path)
-      || Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))))
+  Arr.findFirst(
+    manifest.packages,
+    (docsPackage) =>
+      matchesDocsPath(pathname, docsPackage.overview.path) ||
+      Arr.some(docsPackage.guides, (guide) => matchesDocsPath(pathname, guide.path)) ||
+      Arr.some(
+        docsPackage.apiModules,
+        (module) =>
+          matchesDocsPath(pathname, module.path) ||
+          Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))
+      )
+  )
 
 export const docsPathExists = (manifest: DocsManifest, pathname: string): boolean =>
-  pathname === "/docs"
-  || pathname === "/docs/"
-  || Option.isSome(packageContainingDocsPath(manifest, pathname))
+  pathname === "/docs" || pathname === "/docs/" || Option.isSome(packageContainingDocsPath(manifest, pathname))
 
 export const metadataForDocs = (manifest: DocsManifest, pathname: string): PageMetadata => {
   if (pathname === "/docs" || pathname === "/docs/") {
     return docsMetadata("Packages — Theoria", siteMetadata.defaultDescription, "/docs")
   }
 
-  return Option.match(
-    packageContainingDocsPath(manifest, pathname),
-    {
-      onNone: () => docsMetadata("Not found — Theoria", siteMetadata.defaultDescription, "/docs"),
-      onSome: (docsPackage) =>
-        Option.match(
-          Arr.findFirst(docsPackage.guides, (guide) => matchesDocsPath(pathname, guide.path)),
-          {
-            onNone: () =>
-              Option.match(
-                Arr.findFirst(docsPackage.apiModules, (module) =>
-                  matchesDocsPath(pathname, module.path)
-                  || Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))),
-                {
-                  onNone: () =>
-                    docsMetadata(
-                      `${docsPackage.name} — Theoria`,
-                      docsPackage.description,
-                      docsPackage.overview.path
-                    ),
-                  onSome: (module) =>
-                    docsMetadata(
-                      `${module.name} — ${docsPackage.name} — Theoria`,
-                      module.summary,
-                      module.path
-                    )
-                }
+  return Option.match(packageContainingDocsPath(manifest, pathname), {
+    onNone: () => docsMetadata("Not found — Theoria", siteMetadata.defaultDescription, "/docs"),
+    onSome: (docsPackage) =>
+      Option.match(
+        Arr.findFirst(docsPackage.guides, (guide) => matchesDocsPath(pathname, guide.path)),
+        {
+          onNone: () =>
+            Option.match(
+              Arr.findFirst(
+                docsPackage.apiModules,
+                (module) =>
+                  matchesDocsPath(pathname, module.path) ||
+                  Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))
               ),
-            onSome: (guide) =>
-              docsMetadata(
-                `${guide.title} — ${docsPackage.name} — Theoria`,
-                guide.summary,
-                guide.path
-              )
-          }
-        )
-    }
-  )
+              {
+                onNone: () =>
+                  docsMetadata(`${docsPackage.name} — Theoria`, docsPackage.description, docsPackage.overview.path),
+                onSome: (module) =>
+                  docsMetadata(`${module.name} — ${docsPackage.name} — Theoria`, module.summary, module.path)
+              }
+            ),
+          onSome: (guide) => docsMetadata(`${guide.title} — ${docsPackage.name} — Theoria`, guide.summary, guide.path)
+        }
+      )
+  })
 }
 
 /**
