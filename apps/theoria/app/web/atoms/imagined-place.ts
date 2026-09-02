@@ -24,7 +24,7 @@ import type { PlaceStep } from "../view/home/placeSteps.js"
  * anywhere). Keeping them apart is the point the demo makes: changing the
  * stage width re-renders but leaves every content ID alone.
  */
-export const defaultPlaceScenario: PlaceScenario = "listening-garden"
+export const defaultPlaceScenario: PlaceScenario = "unfinished-light"
 
 export const defaultPlaceControls: PlaceBuildRequest = {
   scenario: defaultPlaceScenario,

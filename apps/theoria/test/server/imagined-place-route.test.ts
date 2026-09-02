@@ -37,7 +37,7 @@ describe("server/routes/imagined-place", () => {
   it.effect("builds a place from a valid POST body and wraps it in an envelope", () =>
     Effect.gen(function*() {
       const body = yield* encodeRequest({
-        scenario: "story-commons",
+        scenario: "drowned-library",
         brief: "A reading room.",
         acceptNeighbor: true,
         acceptProgram: true
@@ -48,7 +48,7 @@ describe("server/routes/imagined-place", () => {
       if (envelope.ok) {
         expect(envelope.meta.requestId).toBe("req-1")
         expect(envelope.meta.buildSha).toBe("test-sha")
-        expect(envelope.data.artifact.scenario).toBe("story-commons")
+        expect(envelope.data.artifact.scenario).toBe("drowned-library")
         expect(envelope.data.artifact.brief).toBe("A reading room.")
         expect(envelope.data.artifact.accepted.length).toBe(2)
         expect(envelope.data.evidence.lineage.length).toBe(2)
@@ -83,7 +83,7 @@ describe("server/routes/imagined-place", () => {
   it.effect("refuses cross-site requests", () =>
     Effect.gen(function*() {
       const body = yield* encodeRequest({
-        scenario: "listening-garden",
+        scenario: "unfinished-light",
         brief: "A garden.",
         acceptNeighbor: false,
         acceptProgram: false

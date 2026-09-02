@@ -95,7 +95,7 @@ export type SignatureRecord = typeof SignatureRecord.Type
 
 /**
  * A proposal as the author received it. `offeredBy` is a short account of the
- * proposer for the card ("visited on the first night"); it is not part of the
+ * proposer for the card ("from the last house before the causeway"); it is not part of the
  * signed proposal, so it never enters the content ID.
  *
  * @since 0.3.0

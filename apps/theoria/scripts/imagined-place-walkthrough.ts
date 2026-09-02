@@ -15,7 +15,7 @@ import { scenarioById } from "../app/server/imagined-place/catalog.js"
 import { render } from "../app/server/imagined-place/render.js"
 import { buildPlace } from "../app/server/imagined-place/run.js"
 
-const scenario = scenarioById("listening-garden")
+const scenario = scenarioById("unfinished-light")
 
 const request: PlaceBuildRequest = {
   scenario: scenario.id,

@@ -35,140 +35,193 @@ export type PlaceScenarioDefinition = {
   readonly programProposal: ProposedFeature
 }
 
-const listeningGarden: PlaceScenarioDefinition = {
-  id: "listening-garden",
-  ...placeScenarioMeta["listening-garden"],
+const unfinishedLight: PlaceScenarioDefinition = {
+  id: "unfinished-light",
+  ...placeScenarioMeta["unfinished-light"],
   recorded: {
-    title: "The Listening Garden",
-    summary: "A night garden shaped for telling, listening, and returning at your own pace.",
-    atmosphere: "Low lanterns hang in the canopy; gravel paths bend around a still pool that holds the moon.",
+    title: "The Unfinished Light",
+    summary:
+      "The light on Hollin Skerry burns only while someone in the lamp room is writing a letter they cannot finish, and the boats have steered by it for ninety years.",
+    atmosphere:
+      "The rock is bare but for lichen and the iron stair, and at high water the sea covers the causeway and keeps whoever is at the desk until morning.",
     features: [
       {
-        name: "Story canopy",
-        description: "A ring of benches under broad leaves where stories are read aloud.",
+        name: "Causeway",
+        description:
+          "A causeway of set stones runs out from the harbor for two hours either side of low water, and everyone who crosses it carries paper.",
+        weight: 0.5
+      },
+      {
+        name: "The desk",
+        description:
+          "In the lamp room a single desk faces the sea, and the lamp above it brightens with each line and dims when the pen stops.",
         weight: 0.9
       },
       {
-        name: "Exchange shelf",
-        description: "A weatherproof shelf where one-page stories are left and taken.",
-        weight: 0.6
-      },
-      {
-        name: "Listening pool",
-        description: "Still water that gives a pause without ending the exchange.",
+        name: "Pigeonholes",
+        description:
+          "Behind the desk, letters left unfinished wait in pigeonholes by the year they were begun, the oldest gone brown.",
         weight: 0.7
       },
-      { name: "Quiet path", description: "A dim, unhurried route that leads anyone back to the gate.", weight: 0.4 }
+      {
+        name: "The rota",
+        description:
+          "By the door hangs the rota, written in as many hands as the town has, and the blank line at its foot is for tonight.",
+        weight: 0.45
+      }
     ]
   },
   neighbor: {
-    name: "visited on the first night",
+    name: "from the last house before the causeway",
     proposal: {
-      name: "Open seat",
-      description: "One place at the canopy left deliberately empty for whoever arrives next.",
-      weight: 0.5,
-      rationale: "Every story I heard was better because someone unexpected was listening."
+      name: "Finishing shelf",
+      description:
+        "One shelf by the door holds letters their writers have given up on, and anyone sitting the night may finish one and post it.",
+      weight: 0.55,
+      rationale:
+        "There are letters in those pigeonholes whose writers are dead. Somebody should be allowed to end them."
     },
-    note: "I left a story on the shelf for you. It is about the gate, and it is not finished."
+    note:
+      "The letter in the 1994 hole with the blue string is my father's. It is to my mother, and she is still alive. If you finish it, finish it kindly, and don't tell me what it said."
   },
   programProposal: {
-    name: "Lantern keeper's stool",
-    description: "A low stool by the first lantern where the evening's host trims the wicks.",
-    weight: 0.35,
-    rationale: "The atmosphere names the lanterns, but nothing says who lights them or where the evening begins."
+    name: "Ship's bell",
+    description:
+      "A ship's bell hangs on the gallery, and a boat that loses the light may sound its horn three times to wake whoever has stopped writing.",
+    weight: 0.4,
+    rationale:
+      "The lamp dims when the pen stops and the boats depend on it, but nothing says what a boat does when the light goes out."
   }
 }
 
-const tidalWorkshop: PlaceScenarioDefinition = {
-  id: "tidal-workshop",
-  ...placeScenarioMeta["tidal-workshop"],
+const lostMarket: PlaceScenarioDefinition = {
+  id: "lost-market",
+  ...placeScenarioMeta["lost-market"],
   recorded: {
-    title: "The Tidal Workshop",
-    summary: "A working harbor where half-built things are welcome and leave with more hands on them.",
-    atmosphere: "Warm windows face the water; floating decks join and drift apart with the tide.",
+    title: "The Market of Lost Things",
+    summary:
+      "Once a month the market sets up in whatever building the town has most recently emptied, and every stall on its floor sells only what someone has lost.",
+    atmosphere:
+      "Last month it was the bathhouse; the tiles still sweated, and the stalls were lit by candles set in the drains.",
     features: [
-      { name: "Arrival deck", description: "Where new work lands without needing to look finished.", weight: 0.8 },
       {
-        name: "Tide table",
-        description: "A shared board that makes changing conditions legible to everyone.",
-        weight: 0.5
+        name: "The ledger",
+        description:
+          "At the door a woman with a ledger writes your name and one thing you have lost before you may pass.",
+        weight: 0.45
       },
-      { name: "Tool library", description: "Reusable instruments kept within reach of the work.", weight: 0.7 },
       {
-        name: "Signal mast",
-        description: "A visible flag that asks for the kind of help a project needs.",
+        name: "The stalls",
+        description:
+          "The stalls run by how long a thing has been gone: single gloves near the door, and at the back a table of things lost before anyone living was born.",
+        weight: 0.9
+      },
+      {
+        name: "The stool",
+        description:
+          "To take a thing back you sit on the stool before its stall and tell the day you lost it, and the stallholder knows if you have it wrong.",
+        weight: 0.7
+      },
+      {
+        name: "The tin",
+        description:
+          "Anything not yours costs one thing you found once and never returned, dropped in the tin by the way out.",
         weight: 0.4
       }
     ]
   },
   neighbor: {
-    name: "the crew from last season",
+    name: "who has come four markets running",
     proposal: {
-      name: "Repair bench",
-      description: "A bench stocked with materials the previous crew left behind.",
-      weight: 0.6,
-      rationale: "We left more than we took; the next crew should find it without asking."
+      name: "Second telling",
+      description:
+        "Anyone who has the day wrong may sit again next month, and the stallholder must keep the thing back until then.",
+      weight: 0.5,
+      rationale:
+        "I have told the day my father lost his compass four times and been wrong four times. I will not be wrong a fifth."
     },
-    note: "The third deck lists to port at low tide. We never fixed it. Maybe you will."
+    note:
+      "The brass compass on the far table is my father's. He lost it the day I was born and told me the wrong date for forty years. I have worked out which day it was. Don't let anyone else sit for it."
   },
   programProposal: {
-    name: "Departure log",
-    description: "A ledger by the last deck where each idea records who touched it before it sails.",
-    weight: 0.45,
-    rationale: "The brief promises ideas leave stronger, but nothing in the composition records how."
+    name: "Chalk arrow",
+    description:
+      "On the door of the building the market has just left, one arrow is chalked, pointing the way to the next.",
+    weight: 0.35,
+    rationale:
+      "The market moves every month to a building nobody is using, and nothing in the description says how anyone finds it."
   }
 }
 
-const storyCommons: PlaceScenarioDefinition = {
-  id: "story-commons",
-  ...placeScenarioMeta["story-commons"],
+const drownedLibrary: PlaceScenarioDefinition = {
+  id: "drowned-library",
+  ...placeScenarioMeta["drowned-library"],
   recorded: {
-    title: "The Story Commons",
-    summary: "A room where accounts can meet, stay distinct, and be returned to later.",
-    atmosphere: "Shelves curve around an open floor; wide thresholds admit many ways of arriving.",
+    title: "The Library Under Cald Water",
+    summary:
+      "For one week in every ten, when the reservoir is drawn down for the dam, the drowned town's library stands in the open air and the town comes back to read.",
+    atmosphere:
+      "Mud dries pale on the steps, the lake stays in the smell of the stone, and every page is read at a window because the roof is gone.",
     features: [
-      { name: "Open floor", description: "Space where arrangements can form without fixing a center.", weight: 0.9 },
       {
-        name: "Memory shelves",
-        description: "Accounts kept distinct, labeled, and available for return.",
+        name: "The steps",
+        description:
+          "Everyone comes down the same steps from the waterline, and each family stops on the one from which its own street can be seen.",
+        weight: 0.5
+      },
+      {
+        name: "Reading room",
+        description:
+          "In the reading room the tables stand where they stood, and the books that survived lie open on them to dry, in shelf order.",
+        weight: 0.9
+      },
+      {
+        name: "Borrowers' cards",
+        description:
+          "The card in each book still lists who took it and when, and the last date in most of them is the same week in 1961.",
         weight: 0.7
       },
-      { name: "Question wall", description: "Unresolved questions that stay visible between gatherings.", weight: 0.6 },
       {
-        name: "Shared threshold",
-        description: "An entrance that makes different ways of entering explicit.",
-        weight: 0.5
+        name: "Waterline strip",
+        description:
+          "A brass strip on the doorframe is moved each decade to where the water stood, and it has never once been moved down.",
+        weight: 0.4
       }
     ]
   },
   neighbor: {
-    name: "visiting for the first time",
+    name: "born the year after the water came",
     proposal: {
-      name: "Listening alcove",
-      description: "A small recess for hearing one account all the way through.",
+      name: "Dry shelf",
+      description:
+        "One shelf by the door is kept under oilcloth for the books written about the town since, and it is the only shelf allowed to be full.",
       weight: 0.5,
-      rationale: "I wanted to finish one account before the room offered me another."
+      rationale:
+        "I have never seen the town except this week. Everything I know about it, someone wrote down after. Those books should be down here too."
     },
-    note: "My account of that day is on the second shelf. Please leave it next to the others, not above them."
+    note:
+      "My grandmother's name is on the card in the blue atlas, north wall, second table. She took it out the week before and never brought it back. It is in my kitchen. I want to return it this week, properly, and I want you to stamp it."
   },
   programProposal: {
-    name: "Return desk",
-    description: "A desk where an account taken down is logged back onto its shelf with the date.",
-    weight: 0.4,
-    rationale: "The summary says accounts can be returned to later, but the room has no way to know what left."
+    name: "Closing bell",
+    description:
+      "On the seventh evening the bell from the drowned church is rung from the steps, and every book is closed and laid face down before the sluices shut.",
+    weight: 0.45,
+    rationale:
+      "The town comes back for one week and the water returns after, but nothing says how the week ends or what is done with the books before it does."
   }
 }
 
 export const placeScenarioDefinitions: ReadonlyArray<PlaceScenarioDefinition> = [
-  listeningGarden,
-  tidalWorkshop,
-  storyCommons
+  unfinishedLight,
+  lostMarket,
+  drownedLibrary
 ]
 
 export const scenarioById = (id: PlaceScenario): PlaceScenarioDefinition =>
   Match.value(id).pipe(
-    Match.when("listening-garden", () => listeningGarden),
-    Match.when("tidal-workshop", () => tidalWorkshop),
-    Match.when("story-commons", () => storyCommons),
+    Match.when("unfinished-light", () => unfinishedLight),
+    Match.when("lost-market", () => lostMarket),
+    Match.when("drowned-library", () => drownedLibrary),
     Match.exhaustive
   )

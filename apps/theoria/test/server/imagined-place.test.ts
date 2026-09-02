@@ -12,8 +12,8 @@ import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
 
 const request: PlaceBuildRequest = {
-  scenario: "listening-garden",
-  brief: scenarioById("listening-garden").brief,
+  scenario: "unfinished-light",
+  brief: scenarioById("unfinished-light").brief,
   acceptNeighbor: true,
   acceptProgram: false
 }
@@ -89,7 +89,7 @@ describe("server/imagined-place", () => {
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
     Effect.gen(function*() {
       const result = yield* build()
-      expect(result.evidence.sealedNote.openedText).toBe(scenarioById("listening-garden").neighbor.note)
+      expect(result.evidence.sealedNote.openedText).toBe(scenarioById("unfinished-light").neighbor.note)
       expect(result.evidence.sealedNote.envelopeBytes).toBeGreaterThan(
         utf8ToBytes(result.evidence.sealedNote.openedText).length
       )

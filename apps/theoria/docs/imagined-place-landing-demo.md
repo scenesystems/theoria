@@ -471,6 +471,55 @@ n of 36` / `36 arrangements searched · best loss x.xxx`; the row with the
   a preset change leaves it at 1; an edited brief moves it to 2; switching to
   Tidal workshop resets it to 0; no horizontal overflow at any width.
 
+### Fifth pass: three worlds worth building together
+
+The first three places (a listening garden, a tidal workshop, a story commons)
+were civic amenities described in the register of a design brief: "a shared
+board that makes changing conditions legible". Nobody would argue over a
+merge to them. They were replaced with fiction. Each world has one strange
+rule that produces behaviour, is written in concrete particulars, and gives
+every participant a stake, so a proposal is a story beat rather than a
+feature request. The stage paragraph is summary + atmosphere + features +
+accepted proposals in order, so each feature is one sentence that continues
+the passage and each merge is a sentence that lands at its end. Feature order
+is the walk through the place.
+
+- **The Unfinished Light** (`unfinished-light`). A lamp on Hollin Skerry that
+  burns only while someone in the lamp room is writing a letter they cannot
+  finish; the boats have steered by it for ninety years. Causeway → the desk →
+  pigeonholes by year begun → the rota with a blank line for tonight. The
+  neighbor from the last house before the causeway proposes a finishing shelf
+  where anyone sitting the night may end a letter its writer gave up on, and
+  seals a note: the letter in the 1994 hole with the blue string is her
+  father's, to her mother, who is still alive. The program notices that
+  nothing says what a boat does when the light goes out, and proposes a ship's
+  bell.
+- **The Market of Lost Things** (`lost-market`). Once a month, in whatever
+  building the town most recently emptied (last month the bathhouse, candles
+  in the drains), stalls sell only what someone has lost, sorted by how long a
+  thing has been gone. To take a thing back you sit on the stool and tell the
+  day you lost it. The neighbor who has come four markets running proposes a
+  second telling, because she has told the day her father lost his compass
+  four times and been wrong four times; her note says he lost it the day she
+  was born and told her the wrong date for forty years. The program notices
+  nothing says how anyone finds a market that moves, and proposes a chalk
+  arrow on the door of the last building.
+- **The Library Under Cald Water** (`drowned-library`). One week in ten, when
+  the reservoir is drawn down for the dam, the drowned town's library stands
+  in the open air and the town comes back to read. The steps each family
+  stops on; tables where they stood with the surviving books open to dry;
+  borrowers' cards whose last date is the same week in 1961; a brass
+  waterline strip that has never once been moved down. The neighbor born the
+  year after the water came proposes a dry shelf for the books written about
+  the town since; her note asks to return her grandmother's overdue atlas
+  this week, properly, and to have it stamped. The program notices nothing
+  says how the week ends, and proposes a closing bell rung from the steps
+  before the sluices shut.
+
+Briefs are in the visitor's voice (164–196 characters). Neighbor names
+complete "Neighbor · …". Nothing here is drawn from Scene; the towns, dates
+and people are invented.
+
 ## Files
 
 - `app/contracts/imagined-place.ts`: scenario, roles, features, composition,

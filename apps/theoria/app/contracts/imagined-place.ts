@@ -9,7 +9,7 @@ const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
  *
  * @since 0.3.0
  */
-export const PlaceScenario = Schema.Literal("listening-garden", "tidal-workshop", "story-commons")
+export const PlaceScenario = Schema.Literal("unfinished-light", "lost-market", "drowned-library")
 export type PlaceScenario = typeof PlaceScenario.Type
 export const placeScenarios: ReadonlyArray<PlaceScenario> = PlaceScenario.literals
 
@@ -22,18 +22,20 @@ export const placeScenarios: ReadonlyArray<PlaceScenario> = PlaceScenario.litera
  * @since 0.3.0
  */
 export const placeScenarioMeta: Record<PlaceScenario, { readonly label: string; readonly brief: string }> = {
-  "listening-garden": {
-    label: "Listening garden",
-    brief: "A moonlit garden where neighbors exchange one-page stories and can always find a quiet path back."
-  },
-  "tidal-workshop": {
-    label: "Tidal workshop",
-    brief: "A harbor workshop where unfinished ideas arrive by boat, change hands, and leave stronger than they came."
-  },
-  "story-commons": {
-    label: "Story commons",
+  "unfinished-light": {
+    label: "Unfinished light",
     brief:
-      "A civic reading room where many accounts of the same event sit side by side without being flattened into one."
+      "A lighthouse on a rock you can only reach at low tide, whose lamp burns only while someone inside is writing a letter they can't finish. The boats steer by it, so someone always has to be writing."
+  },
+  "lost-market": {
+    label: "Lost market",
+    brief:
+      "A market that opens once a month in whichever building the town has just emptied, selling only things people have lost. You can buy back your own thing, but only by telling the day you lost it."
+  },
+  "drowned-library": {
+    label: "Drowned library",
+    brief:
+      "The library of the valley town that was flooded for the reservoir. Every ten years they drain the water for the dam works, and for a week the town comes back to read what survived."
   }
 }
 
