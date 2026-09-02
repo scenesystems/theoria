@@ -136,6 +136,7 @@
   --st-fs-code-meta: 12px;
   --st-fs-code-block: 12px;
   --st-fs-button-label: 12px;
+  --st-fs-marker-label: 12px;
 
   /* Typography: per-role line-height tokens (generated — do not edit) */
   --st-lh-hero-title: 44px;
@@ -152,6 +153,7 @@
   --st-lh-code-meta: 18px;
   --st-lh-code-block: 18px;
   --st-lh-button-label: 16px;
+  --st-lh-marker-label: 14px;
 
   /* Typography: per-role font-weight tokens (generated — do not edit) */
   --st-fw-hero-title: 600;
@@ -168,6 +170,7 @@
   --st-fw-code-meta: 400;
   --st-fw-code-block: 400;
   --st-fw-button-label: 600;
+  --st-fw-marker-label: 600;
 
   /* Typography: per-role tracking tokens (generated — do not edit) */
   --st-tr-hero-title: -0.02em;
@@ -184,6 +187,7 @@
   --st-tr-code-meta: 0;
   --st-tr-code-block: 0;
   --st-tr-button-label: 0.02em;
+  --st-tr-marker-label: 0.01em;
 
   /* Typography: per-role font-family tokens (generated — do not edit) */
   --st-ff-hero-title: var(--font-display);
@@ -200,6 +204,7 @@
   --st-ff-code-meta: var(--font-mono);
   --st-ff-code-block: var(--font-mono);
   --st-ff-button-label: var(--font-body);
+  --st-ff-marker-label: var(--font-body);
 
   /* Typography: per-role/variant max-width tokens (generated — do not edit) */
   --st-mw-hero-title-compact: 680px;
@@ -230,6 +235,8 @@
   --st-mw-code-block-expanded: 1800px;
   --st-mw-button-label-compact: 170px;
   --st-mw-button-label-expanded: 210px;
+  --st-mw-marker-label-compact: 160px;
+  --st-mw-marker-label-expanded: 200px;
 }
 
 @layer base {

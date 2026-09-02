@@ -26,6 +26,7 @@ export const maxWidthClassName = (role: TextRole, variant: SurfaceVariant): stri
   Match.value(role).pipe(
     Match.when("button-label", () => ""),
     Match.when("tab-label", () => ""),
+    Match.when("marker-label", () => ""),
     Match.orElse(() => `max-w-(${maxWidthCssVar(role, variant)})`)
   )
 

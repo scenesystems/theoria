@@ -1,79 +1,13 @@
-import { Effect, Schema } from "effect"
-import * as ParseResult from "effect/ParseResult"
+import { Effect } from "effect"
 
 import { type Capabilities, CapabilitiesEnvelope } from "../../contracts/capabilities.js"
-import { DemoDecodeError, type DemoError, DemoExecutionError, DemoRequestError } from "../../contracts/demo-error.js"
-import type { Metadata } from "../../contracts/envelope.js"
-import type { ErrorModel } from "../../contracts/error.js"
+import type { DemoError } from "../../contracts/demo-error.js"
 import type { Id } from "../../contracts/id.js"
 import { type PackageVersions, PackageVersionsEnvelope } from "../../contracts/package-versions.js"
 import { type ProgramPreview, ProgramPreviewEnvelope } from "../../contracts/program-preview.js"
 import { type RunData, RunEnvelope } from "../../contracts/run.js"
 
-const formatParseError = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
-
-type SuccessEnvelopeData<A> = {
-  readonly data: A
-  readonly meta: Metadata
-}
-
-type DecodedEnvelope<A> =
-  | { readonly ok: true; readonly meta: Metadata; readonly data: A }
-  | { readonly ok: false; readonly meta: Metadata; readonly error: ErrorModel }
-
-const fetchJson = (path: string, method: "GET" | "POST") =>
-  Effect.tryPromise({
-    try: () =>
-      fetch(path, {
-        method,
-        headers: {
-          accept: "application/json"
-        }
-      }),
-    catch: (cause) => new DemoRequestError({ message: String(cause) })
-  }).pipe(
-    Effect.flatMap((response) =>
-      Effect.tryPromise({
-        try: () => response.json(),
-        catch: (cause) => new DemoRequestError({ message: String(cause) })
-      })
-    )
-  )
-
-const requestDecodedEnvelope = <A, I>(
-  path: string,
-  schema: Schema.Schema<DecodedEnvelope<A>, I>,
-  method: "GET" | "POST" = "GET"
-) =>
-  fetchJson(path, method).pipe(
-    Effect.flatMap((json) =>
-      Schema.decodeUnknown(schema)(json).pipe(
-        Effect.mapError((error) => new DemoDecodeError({ message: formatParseError(error) }))
-      )
-    )
-  )
-
-const requestEnvelope = <A, I>(
-  path: string,
-  schema: Schema.Schema<DecodedEnvelope<A>, I>,
-  method: "GET" | "POST" = "GET"
-): Effect.Effect<SuccessEnvelopeData<A>, DemoError> =>
-  requestDecodedEnvelope(path, schema, method).pipe(
-    Effect.flatMap((envelope) =>
-      envelope.ok
-        ? Effect.succeed({
-          data: envelope.data,
-          meta: envelope.meta
-        })
-        : Effect.fail(
-          new DemoExecutionError({
-            code: envelope.error.code,
-            message: envelope.error.message,
-            retryable: envelope.error.retryable
-          })
-        )
-    )
-  )
+import { requestEnvelope, type SuccessEnvelopeData } from "./envelopeRequest.js"
 
 const runPath = (id: Id): string => `/api/demos/${id}/run`
 const preloadPath = (id: Id): string => `/api/demos/${id}/preload`

@@ -8,6 +8,7 @@ import { RuntimeInfoLive } from "./config/runtime.js"
 import { DspProviderRuntimeLive } from "./demos/effect-dsp/provider.js"
 import { ExecutionPolicyLive } from "./demos/policy.js"
 import { DemoRateLimiterLive } from "./demos/rate-limiter.js"
+import { ParticipantsLive } from "./imagined-place/authority.js"
 import { app } from "./router.js"
 import { securityHeaders } from "./security-headers.js"
 
@@ -23,6 +24,7 @@ export const HttpLive = HttpServer.serve(publicApp, HttpMiddleware.logger)
   .pipe(
     HttpServer.withLogAddress,
     Layer.provide(ExecutionPolicyLive),
+    Layer.provide(ParticipantsLive),
     Layer.provide(DemoRateLimiterLive),
     Layer.provide(DspProviderRuntimeLive),
     Layer.provide(PackageVersionsLive),
