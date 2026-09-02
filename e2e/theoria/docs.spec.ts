@@ -37,9 +37,8 @@ test("landing links enter the package documentation without a reload", async ({ 
   await expect(
     page.getByRole("heading", { level: 1, name: "Scientific computing and model programming with Effect" })
   ).toBeVisible()
-  for (const card of cards) {
-    await expect(page.locator(`a[href="/docs/${card.id}"]`, { hasText: "Docs" })).toHaveCount(1)
-  }
+  await expect(page.getByRole("region", { name: "Imagined place demo" })).toBeVisible()
+  await expect(page.getByRole("link", { exact: true, name: "Browse the packages" })).toHaveAttribute("href", "/docs")
 
   const headerNavigationStarted = performance.now()
   await page.locator("header").getByRole("link", { exact: true, name: "Docs" }).click()
@@ -48,8 +47,14 @@ test("landing links enter the package documentation without a reload", async ({ 
   expect(documentRequests).toBe(1)
 
   await page.goto("/")
+  await page.getByRole("link", { exact: true, name: "Browse the packages" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible()
+  for (const card of cards) {
+    await expect(page.locator("main").locator(`a[href="/docs/${card.id}"]`)).toHaveCount(1)
+  }
+
   const cardNavigationStarted = performance.now()
-  await page.locator('a[href="/docs/effect-search"]', { hasText: "Docs" }).click()
+  await page.locator("main").locator('a[href="/docs/effect-search"]').click()
   await expect(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" })).toBeVisible()
   expect(performance.now() - cardNavigationStarted).toBeLessThan(1_500)
   expect(documentRequests).toBe(2)
@@ -83,12 +88,12 @@ test("docs navigation, package selection, and focused API caching stay coherent"
 
   await page.getByRole("link", { exact: true, name: "Study" }).click()
   await expect(page.getByRole("heading", { level: 1, name: "Study" })).toBeVisible()
-  await expect(page.getByText("Study orchestration — run optimization, stream events, snapshot/resume.")).toBeVisible()
+  await expect(page.getByText("Runs, observes, snapshots, and resumes optimization studies.")).toBeVisible()
 
   await page.locator('a[href="#api-ask"]').click()
   await expect(page).toHaveURL(/\/docs\/effect-search\/api\/Study#api-ask$/u)
   await expect(page.getByRole("heading", { level: 1, name: "ask" })).toBeVisible()
-  await expect(page.getByText("Reserve the next trial configuration from a manual ask/tell handle.")).toBeVisible()
+  await expect(page.getByText("Reserves the next sampled configuration and emits TrialStarted.")).toBeVisible()
   expect(docsRequests.filter((url) => url.endsWith("/Study/api-ask.json"))).toHaveLength(1)
 
   await page.getByRole("link", { exact: true, name: "← Study" }).click()
@@ -157,7 +162,7 @@ test("search is typo-tolerant, fast, cached, and routable", async ({ page }) => 
   const input = page.getByRole("combobox", { name: "Search" })
   await expect(input).toBeVisible()
   const searchStarted = performance.now()
-  await input.fill("resreve trial")
+  await input.fill("resreves trial")
   const askResult = page.getByRole("option", { name: /Study\.ask/u })
   await expect(askResult).toBeVisible()
   expect(performance.now() - searchStarted).toBeLessThan(750)

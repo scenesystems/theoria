@@ -32,6 +32,10 @@ packages/*/test/**/*.js
 coverage/
 *.lcov
 
+# Playwright failure artifacts
+test-results/
+playwright-report/
+
 # Environment variables
 .env
 .env.local

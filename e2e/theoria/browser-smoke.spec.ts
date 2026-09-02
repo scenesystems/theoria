@@ -212,22 +212,6 @@ const attachBrowserFailureCapture = (page: Page) => {
   return { consoleErrors, pageErrors }
 }
 
-const transformedAncestor = (element: Element): string => {
-  let current: Element | null = element
-
-  while (current !== null) {
-    const transform = getComputedStyle(current).transform
-
-    if (transform !== "none") {
-      return transform
-    }
-
-    current = current.parentElement
-  }
-
-  return "none"
-}
-
 test("deep dive run controls survive pause-resume in a real browser", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
@@ -271,56 +255,33 @@ test("deep dive run controls survive pause-resume in a real browser", async ({ p
   expect(failures.pageErrors).toEqual([])
 })
 
-test("home package catalog remains complete across responsive widths", async ({ page }) => {
+test("docs package catalog remains complete across responsive widths", async ({ page }) => {
   const failures = attachBrowserFailureCapture(page)
 
   await page.setViewportSize({ width: 320, height: 800 })
   await routeApi(page)
   await page.goto("/")
 
-  const packageTitles = page.getByRole("heading", { level: 3 })
-  const effectSearchTitle = page.getByRole("heading", {
-    level: 3,
-    name: "@scenesystems/effect-search"
-  })
-
-  await expect(packageTitles).toHaveCount(cards.length)
-  await expect(effectSearchTitle).toBeVisible()
+  // The home page is the integrated demo; the package catalog lives on the docs landing page.
+  await expect(page.getByRole("region", { name: "Imagined place demo" })).toBeVisible()
   await expect(page.locator('a[href^="/demos/"]')).toHaveCount(0)
   await expect(page.getByText("Live demo", { exact: true })).toHaveCount(0)
   await expect(page.getByText("Demo in development", { exact: true })).toHaveCount(0)
 
-  await effectSearchTitle.hover()
-  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).not.toBe("none")
+  await page.getByRole("link", { exact: true, name: "Browse the packages" }).click()
+  await expect(page.getByRole("heading", { level: 1, name: "Packages" })).toBeVisible()
 
-  await page.mouse.move(1, 1)
-  await expect.poll(async () => effectSearchTitle.evaluate(transformedAncestor)).toBe("none")
+  const catalog = page.locator("main")
+  const packageTitles = catalog.getByRole("heading", { level: 2 })
+  await expect(packageTitles).toHaveCount(cards.length)
+  for (const card of cards) {
+    await expect(catalog.getByRole("heading", { level: 2, name: card.packageName })).toBeVisible()
+  }
 
   for (const width of [320, 768, 1280]) {
     await page.setViewportSize({ width, height: 800 })
 
-    const layout = await page.locator("h3 + p").evaluateAll((descriptions) => ({
-      descriptions: descriptions.map((description) => ({
-        clientHeight: description.clientHeight,
-        scrollHeight: description.scrollHeight
-      })),
-      titles: [...document.querySelectorAll("h3")].map((title) => {
-        const range = document.createRange()
-        range.selectNodeContents(title)
-
-        return {
-          lineCount: range.getClientRects().length,
-          overflows: title.scrollWidth > title.clientWidth,
-          whiteSpace: getComputedStyle(title).whiteSpace
-        }
-      })
-    }))
-
-    expect(layout.descriptions).toHaveLength(cards.length)
-    expect(layout.descriptions.every((description) => description.scrollHeight <= description.clientHeight)).toBe(true)
-    expect(layout.titles.every((title) => title.lineCount === 1)).toBe(true)
-    expect(layout.titles.every((title) => title.overflows === false)).toBe(true)
-    expect(layout.titles.every((title) => title.whiteSpace === "nowrap")).toBe(true)
+    await expect(packageTitles).toHaveCount(cards.length)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 

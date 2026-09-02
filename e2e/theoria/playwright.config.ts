@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test"
 
 const baseUrl = "http://127.0.0.1:5175"
+// Vite proxies `/api` to this port (see apps/theoria/vite.config.ts).
+const apiPort = "3876"
 const isCI = Boolean(process.env.CI)
 
 export default defineConfig({
@@ -32,10 +34,21 @@ export default defineConfig({
       }
     }
   ],
-  webServer: {
-    command: "bun run --filter @theoria/theoria-app dev:web",
-    url: baseUrl,
-    reuseExistingServer: !isCI,
-    timeout: 120_000
-  }
+  webServer: [
+    {
+      // The Bun API server; the home page builds its demo through it.
+      command: "bun run --filter @theoria/theoria-app dev",
+      env: { PORT: apiPort, THEORIA_PORT: apiPort },
+      url: `http://127.0.0.1:${apiPort}/api/health/live`,
+      reuseExistingServer: !isCI,
+      timeout: 120_000
+    },
+    {
+      command: "bun run --filter @theoria/theoria-app dev:web",
+      env: { THEORIA_PORT: apiPort },
+      url: baseUrl,
+      reuseExistingServer: !isCI,
+      timeout: 120_000
+    }
+  ]
 })
