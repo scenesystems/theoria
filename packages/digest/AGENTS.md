@@ -10,18 +10,17 @@ Strict canonicalization and cryptographic digest primitives for Effect.
 
 ## Required checks
 
-| Task                               | Command                                           |
-| ---------------------------------- | ------------------------------------------------- |
-| Source typecheck                   | `bun run check`                                   |
-| Test typecheck                     | `bun run check:tests`                             |
-| Example typecheck                  | `bun run check:examples`                          |
-| Lint                               | `bun run lint`                                    |
-| Behavioral and conformance tests   | `bun run test`                                    |
-| Fixture governance and conformance | `bun run fixtures:verify`                         |
-| Build                              | `bun run build`                                   |
-| Packed release evidence            | `bun run publish:check --require-packed-manifest` |
+| Task                               | Command                   |
+| ---------------------------------- | ------------------------- |
+| Source typecheck                   | `bun run check`           |
+| Test typecheck                     | `bun run check:tests`     |
+| Example typecheck                  | `bun run check:examples`  |
+| Lint                               | `bun run lint`            |
+| Behavioral and conformance tests   | `bun run test`            |
+| Fixture governance and conformance | `bun run fixtures:verify` |
+| Build                              | `bun run build`           |
 
-Use the smallest targeted check while developing, then run every relevant package and workspace gate before committing. Tests must prove behavior. Enforce documentation, manifest, export, and release metadata with dedicated build or publish checks rather than test assertions about files or identifiers existing.
+Use the smallest targeted check while developing, then run every relevant package and workspace gate before committing. Tests must prove behavior. Do not add tests or harnesses that inspect package assets, source inventories, export maps, or generated distribution layout.
 
 ## Architecture
 

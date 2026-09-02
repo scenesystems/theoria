@@ -135,9 +135,8 @@ const docsFromDeclaration = (
 /**
  * Collects public-export documentation metadata from one source file.
  *
- * This is the syntax-level foundation for later package-wide release
- * governance. It covers direct exported declarations, default exports,
- * namespace exports, and named re-export declarations.
+ * Direct declarations, default exports, namespace exports, and named re-exports
+ * retain the JSDoc attached at their declaration site.
  *
  * @since 0.0.0
  * @category queries
@@ -169,15 +168,3 @@ export const publicExportDocs = (sourceFile: ts.SourceFile): ReadonlyArray<Publi
 
     return []
   })
-
-/**
- * Builds the stable identity key used by release-snapshot governance.
- *
- * @since 0.0.0
- * @category keys
- */
-export const releaseSinceSnapshotKey = (input: {
-  readonly subpath: string
-  readonly exportName: string
-  readonly kind: PublicExportKind
-}): string => `${input.subpath}::${input.exportName}::${input.kind}`

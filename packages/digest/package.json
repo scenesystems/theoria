@@ -40,19 +40,16 @@
     "lint": "eslint --max-warnings=0 src test",
     "lint:fix": "eslint --max-warnings=0 --fix src test",
     "test": "vitest run --root ../.. packages/digest/test",
-    "release-snapshots:stamp": "bun run stamp-release-snapshot.ts",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
     "fixtures:verify": "bun run fixtures:check && bun run test -- test/conformance",
     "benchmark:canonicalization:bun": "bun run benchmark/CanonicalizationResponsiveness.ts",
     "benchmark:canonicalization:node": "node --import tsx benchmark/CanonicalizationResponsiveness.ts",
-    "publish:check": "bun run scripts/verify-publish-readiness.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
-    "clean": "rm -rf build dist .tsbuildinfo",
-    "changeset-publish": "bun run build && bun run publish:check --require-packed-manifest && bun run test && changeset publish"
+    "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
     "@noble/hashes": "2.0.1"

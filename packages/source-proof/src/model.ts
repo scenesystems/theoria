@@ -12,7 +12,7 @@ export class SourceFilePath extends Data.Class<{
 }> {}
 
 /**
- * Consumer-facing public export kinds used by release-governance checks.
+ * Distinguishes value, type-only, namespace, and default exports during public-surface inspection.
  *
  * @since 0.0.0
  * @category models
@@ -20,11 +20,7 @@ export class SourceFilePath extends Data.Class<{
 export type PublicExportKind = "default" | "namespace" | "type" | "value"
 
 /**
- * Source-owned documentation metadata for one public export surface entry.
- *
- * This model is the shared foundation for later package-level `@since`
- * governance, where current public exports are compared against checked-in
- * release snapshots.
+ * JSDoc summary and organization tags found on one exported declaration.
  *
  * @since 0.0.0
  * @category models
@@ -66,44 +62,4 @@ export class PackagePublicExport extends Data.Class<{
   readonly summary: string | null
   readonly since: string | null
   readonly category: string | null
-}> {}
-
-/**
- * First-release truth for one consumer-visible export entry.
- *
- * @since 0.0.0
- * @category models
- */
-export class ReleaseSinceSnapshotEntry extends Data.Class<{
-  readonly subpath: string
-  readonly exportName: string
-  readonly kind: PublicExportKind
-  readonly firstReleasedIn: string
-}> {}
-
-/**
- * Checked-in release snapshot for a versioned package surface.
- *
- * @since 0.0.0
- * @category models
- */
-export class ReleaseSinceSnapshot extends Data.Class<{
-  readonly packageName: string
-  readonly releasedVersion: string
-  readonly exports: ReadonlyArray<ReleaseSinceSnapshotEntry>
-}> {}
-
-/**
- * One failed release-governance rule for a public export entry.
- *
- * @since 0.0.0
- * @category models
- */
-export class ReleaseSinceGovernanceFinding extends Data.Class<{
-  readonly subpath: string
-  readonly exportName: string
-  readonly kind: PublicExportKind
-  readonly issue: "missing-category" | "missing-since" | "mismatched-since"
-  readonly expectedSince: string
-  readonly actualSince: string | null
 }> {}
