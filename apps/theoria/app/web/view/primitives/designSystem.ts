@@ -370,7 +370,7 @@ export const toggleTrackClassName = ({
   readonly tone: ToneClasses
 }): string =>
   checked
-    ? `${toggleTrackBaseClassName} border-stage-300/90 ${tone.border} ${tone.bgTinted} ${tone.focusRing}`
+    ? `${toggleTrackBaseClassName} ${tone.border} ${tone.bg} ${tone.focusRing}`
     : `${toggleTrackBaseClassName} border-stage-200/90 bg-stage-50/90 ${tone.focusRing}`
 
 export type ObstacleToneClasses = {

@@ -3,6 +3,7 @@ import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Record from "effect/Record"
 import type { CSSProperties } from "react"
 
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
@@ -19,7 +20,7 @@ import { Cluster, Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { namedMarkerMinDiameter, PlaceMarkerDisc } from "./PlaceMarker.js"
+import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { markerLabel, markerTone } from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
@@ -74,10 +75,14 @@ const Drawing = ({ frame, shown }: { readonly frame: PlaceRenderFrame; readonly 
       {frame.phase === "complete"
         ? <PlaceWalk height={projection.stageHeight} markers={projection.markers} width={projection.stageWidth} />
         : null}
-      {Arr.map(
-        projection.markers,
-        (marker, index) => <PlaceMarkerDisc index={index} key={`${shown}:${marker.name}`} marker={marker} />
-      )}
+      {Arr.map(projection.markers, (marker, index) => (
+        <PlaceMarkerDisc
+          index={index}
+          key={`${shown}:${marker.name}`}
+          labelWidth={Record.get(frame.labels, marker.name)}
+          marker={marker}
+        />
+      ))}
       <Lines projection={projection} />
     </Layer>
   )
@@ -155,8 +160,8 @@ const Placeholder = () => (
   </Stack>
 )
 
-const anyNumbered = (markers: ReadonlyArray<PlaceMarker>): boolean =>
-  Arr.some(markers, (marker) => marker.radius * 2 < namedMarkerMinDiameter)
+/** Discs are named or numbered as a set; the legend accompanies the numbers. */
+const numbered = (frame: PlaceRenderFrame): boolean => Record.isEmptyRecord(frame.labels)
 
 /**
  * The place drawn at the stage width the visitor chose. The description flows
@@ -201,7 +206,7 @@ export const PlaceStage = () => {
       {Option.match(latest, {
         onNone: () => null,
         onSome: (value) =>
-          anyNumbered(value.rendering.projection.markers)
+          numbered(value)
             ? <Legend markers={value.rendering.projection.markers} />
             : null
       })}

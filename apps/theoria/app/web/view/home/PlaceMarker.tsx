@@ -1,4 +1,5 @@
 import { Popover } from "@base-ui-components/react/popover"
+import { Option } from "effect"
 import type { CSSProperties } from "react"
 
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
@@ -7,9 +8,6 @@ import { SemanticText } from "../primitives/SemanticText.js"
 import { TagBadge } from "../primitives/TagBadge.js"
 
 import { discClassName, markerContributor, markerLabel, markerTone, participantLabel } from "./placeViewModel.js"
-
-/** Below this diameter a marker shows its number; the legend carries the name. */
-export const namedMarkerMinDiameter = 56
 
 /** Position with `translate`, which the compositor animates without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
@@ -50,12 +48,18 @@ const popupClassName = [
 /**
  * One feature on the stage. The disc is a button: hover, focus or tap opens
  * the feature's description and who added it, so nothing about the place is
- * hover-only. Its accessible name is the same text the legend uses.
+ * hover-only. Its accessible name is the same text the legend uses. The name
+ * is drawn on the disc at the width it was measured to fit, wrapping as
+ * measured; a disc too small for its name shows its number instead.
  */
-export const PlaceMarkerDisc = ({ index, marker }: { readonly index: number; readonly marker: Marker }) => {
+export const PlaceMarkerDisc = ({ index, labelWidth, marker }: {
+  readonly index: number
+  readonly labelWidth: Option.Option<number>
+  readonly marker: Marker
+}) => {
   const role = markerContributor(marker)
   const tone = markerTone(marker)
-  const named = marker.radius * 2 >= namedMarkerMinDiameter
+  const named = Option.isSome(labelWidth)
 
   return (
     <Popover.Root modal={false}>
@@ -70,17 +74,22 @@ export const PlaceMarkerDisc = ({ index, marker }: { readonly index: number; rea
         openOnHover
         style={markerStyle(marker)}
       >
-        {named
-          ? (
-            <SemanticText
-              as="p"
-              className={`w-full ${tone.textStrong}`}
-              role="marker-label"
-              text={marker.name}
-              variant="compact"
-            />
+        {Option.match(labelWidth, {
+          onNone: () => (
+            <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />
+          ),
+          onSome: (width) => (
+            <Layer className="shrink-0" style={{ width: `${width.toFixed(1)}px` }}>
+              <SemanticText
+                as="p"
+                className={`w-full ${tone.textStrong}`}
+                role="marker-label"
+                text={marker.name}
+                variant="compact"
+              />
+            </Layer>
           )
-          : <SemanticText as="span" className={tone.textStrong} role="tab-label" text={String(index + 1)} />}
+        })}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner align="center" collisionPadding={12} side="top" sideOffset={8}>

@@ -66,7 +66,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.locator("[data-place-marker]").first())
 
         const caption = page.locator("[data-place-search-caption]")
-        yield* containsText(caption, "kept trial")
+        yield* containsText(caption, "Kept trial")
         const positions = markerPositions(page)
         const kept = yield* act(positions)
         // The sheet and the slider under the pointer must not move while trials are swapped.
@@ -94,12 +94,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* act(layout)).toBe(atRest)
         yield* press(page, "Escape")
         yield* eventually(() => paper.evaluate((element) => element.hasAttribute("data-has-overflow-y")), false)
-        yield* containsText(caption, "kept trial")
+        yield* containsText(caption, "Kept trial")
         yield* count(page.locator("[data-place-show-kept]"), 0)
 
         yield* press(page, "Home")
         yield* click(page.locator("[data-place-show-kept]"))
-        yield* containsText(caption, "kept trial")
+        yield* containsText(caption, "Kept trial")
         yield* eventually(positions, kept)
 
         const contentId = page.locator("[data-place-content-id]").first()

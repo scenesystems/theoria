@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 
 import type { PlaceBuild, ProposalRecord } from "../../../contracts/imagined-place-result.js"
 import type { ParticipantRole, PlaceBuildRequest } from "../../../contracts/imagined-place.js"
-import { placeBuildingAtom, placeControlsAtom } from "../../atoms/imagined-place.js"
+import { placeControlsAtom } from "../../atoms/imagined-place.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
@@ -36,12 +36,13 @@ const Pending = () => (
 
 /**
  * The Propose step: two offers to the author, each signed by its proposer.
- * The switches are the author's decision; the build that follows records it.
+ * The switches are the author's decision and never lock: a change during a
+ * build starts the next build with the new decision instead of dropping the
+ * click. The build that follows records the decision on each card.
  */
 export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
   const controls = useAtomValue(placeControlsAtom)
   const setControls = useAtomSet(placeControlsAtom)
-  const building = useAtomValue(placeBuildingAtom)
 
   return Option.match(build, {
     onNone: () => <Pending />,
@@ -50,7 +51,7 @@ export const PlaceProposals = ({ build }: { readonly build: Option.Option<PlaceB
         {Arr.map(value.proposals, (record: ProposalRecord) => (
           <PlaceProposalCard
             accepted={accepts(controls, record.proposal.proposer)}
-            disabled={building}
+            evidence={value.evidence}
             key={record.proposal.proposer}
             note={record.proposal.proposer === value.evidence.sealedNote.from
               ? Option.some(value.evidence.sealedNote)

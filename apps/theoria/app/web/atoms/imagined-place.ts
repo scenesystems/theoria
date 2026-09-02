@@ -83,10 +83,6 @@ export const placeArtifactAtom: AtomType.Atom<Option.Option<PlaceArtifact>> = At
   (get: AtomType.Context) => Option.map(Result.value(get(placeBuildAtom)), (build) => build.artifact)
 )
 
-export const placeBuildingAtom: AtomType.Atom<boolean> = Atom.make(
-  (get: AtomType.Context) => get(placeBuildAtom).waiting
-)
-
 /**
  * The current version's content ID and how many times it has changed since
  * this place was first built. The count keys a one-shot highlight on the ID

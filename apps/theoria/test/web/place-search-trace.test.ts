@@ -44,7 +44,7 @@ const rendering: PlaceRendering = {
   }
 }
 
-const complete: PlaceRenderFrame = { phase: "complete", trial: 3, stage, tried, bestIndex: 2, rendering }
+const complete: PlaceRenderFrame = { phase: "complete", trial: 3, stage, tried, bestIndex: 2, rendering, labels: {} }
 const running: PlaceRenderFrame = { ...complete, phase: "running", trial: 2, tried: Arr.take(tried, 2), bestIndex: 1 }
 
 describe("search trace", () => {
@@ -62,7 +62,7 @@ describe("search trace", () => {
 
   it("captions the shown trial honestly", () => {
     expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
-    expect(renderProgressText(complete, 2)).toBe("3 arrangements tried · kept trial 3 · loss 1.520")
+    expect(renderProgressText(complete, 2)).toBe("Kept trial 3 of 3 · loss 1.520")
     expect(renderProgressText(complete, 0)).toBe("Trial 1 of 3 · loss 16.999 · not kept")
     expect(keptTrialLabel(complete)).toBe("Kept trial 3")
   })

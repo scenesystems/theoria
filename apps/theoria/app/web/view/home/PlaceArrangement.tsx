@@ -4,6 +4,7 @@ import { Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
+import type { PlaceArtifact } from "../../../contracts/imagined-place.js"
 import { type PlaceRenderFrame, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
 import {
   placeStageMaxDrawableAtom,
@@ -29,8 +30,8 @@ import {
   drawablePresets,
   keptTrialLabel,
   participantLabel,
-  participants,
   participantTone,
+  presentParticipants,
   renderProgressText,
   shownTrialIndex,
   stagePresetLabel
@@ -69,10 +70,13 @@ const StagePresets = () => {
   )
 }
 
-/** Who made what: the same three accents the markers, cards and pills use. */
-const ParticipantLegend = () => (
+/**
+ * Who made what in the version drawn: the same accents the markers, cards and
+ * pills use. A proposer appears only while a proposal of theirs is merged.
+ */
+const ParticipantLegend = ({ artifact }: { readonly artifact: PlaceArtifact }) => (
   <Cluster className="gap-x-4 gap-y-1.5" data-place-legend-participants>
-    {Arr.map(participants, (role) => (
+    {Arr.map(presentParticipants(artifact), (role) => (
       <LegendItem
         key={role}
         label={participantLabel(role)}
@@ -162,7 +166,9 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
 
 /**
  * The Arrange step: the place drawn for this screen, the search that arranged
- * it (every trial, any of which can be drawn), and who made what.
+ * it (every trial, any of which can be drawn), and who made what. Rows inside
+ * decide their shape by this column's width, not the viewport's: the column
+ * is narrower beside the steps than it is above them.
  */
 export const PlaceArrangement = ({
   build,
@@ -171,7 +177,7 @@ export const PlaceArrangement = ({
   readonly build: Option.Option<PlaceBuild>
   readonly frame: Option.Option<PlaceRenderFrame>
 }) => (
-  <Stack className="gap-4">
+  <Stack className="@container gap-4">
     {Option.match(build, {
       onNone: () => null,
       onSome: (value) => <TitleRow build={value} />
@@ -182,13 +188,16 @@ export const PlaceArrangement = ({
       onSome: (value) => (
         <Stack className="gap-2">
           <PlaceSearchTrace frame={value} />
-          <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 @2xl:grid-cols-[minmax(0,1fr)_auto]">
             <SearchCaption frame={value} />
             <StagePresets />
           </Layer>
         </Stack>
       )
     })}
-    <ParticipantLegend />
+    {Option.match(build, {
+      onNone: () => null,
+      onSome: (value) => <ParticipantLegend artifact={value.artifact} />
+    })}
   </Stack>
 )

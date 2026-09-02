@@ -66,6 +66,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(merges.nth(0), "aria-checked", "true")
         yield* attribute(merges.nth(1), "aria-checked", "false")
 
+        // Each card says whether the recorded version holds its proposal; the legend lists only who is in it.
+        const neighborCard = demo.locator("[data-place-proposal=\"neighbor\"]")
+        const programCard = demo.locator("[data-place-proposal=\"program\"]")
+        yield* attribute(neighborCard, "data-place-recorded", "true")
+        yield* attribute(programCard, "data-place-recorded", "false")
+        yield* count(neighborCard.getByText("In v2"), 1)
+        yield* count(programCard.getByText("In v2"), 0)
+        const legend = demo.locator("[data-place-legend-participants]")
+        yield* containsText(legend, "Neighbor")
+        yield* count(legend.getByText("Proposer program"), 0)
+
         // Lineage: the origin, then one merged version digesting the origin as its parent.
         const versions = demo.locator("[data-place-version]")
         yield* count(versions, 2)
@@ -96,6 +107,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(merged.evidence.lineage[1]?.featureCount).toBeGreaterThan(opened.evidence.lineage[1]?.featureCount ?? 0)
 
         yield* attribute(merges.nth(1), "aria-checked", "true")
+        yield* attribute(programCard, "data-place-recorded", "true")
+        yield* count(demo.locator("[data-place-proposal=\"program\"][data-place-pending]"), 0)
+        yield* count(programCard.getByText("In v2"), 1)
+        yield* containsText(legend, "Proposer program")
         yield* count(versions, 2)
         yield* count(current.getByText(/^\+ /u), 2)
         yield* containsText(current, merged.evidence.lineage[1]?.contentId ?? "")

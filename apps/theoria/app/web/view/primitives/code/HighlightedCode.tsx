@@ -54,7 +54,7 @@ export const InlineHighlightedCode = ({
 
   return (
     <code
-      className={`whitespace-pre-wrap break-words text-(length:--st-fs-code-meta) font-weight-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-family-(--st-ff-code-block) leading-(--st-lh-code-meta) ${className}`}
+      className={`whitespace-pre-wrap break-words text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) tracking-(--st-tr-code-meta) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-meta) ${className}`}
     >
       {Arr.map(lines, (line, lineIndex) => (
         <span key={`${lineIndex}:${line.length}`}>
@@ -90,13 +90,13 @@ export const HighlightedCode = ({
   const showLineNumbers = variant === "expanded"
 
   return (
-    <code className="block text-(length:--st-fs-code-block) font-weight-(--st-fw-code-block) tracking-(--st-tr-code-block) font-family-(--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
+    <code className="block text-(length:--st-fs-code-block) font-(--st-fw-code-block) tracking-(--st-tr-code-block) font-(family-name:--st-ff-code-block) leading-(--st-lh-code-block) text-ink-900 [tab-size:2]">
       {Arr.map(lines, (line, lineIndex) => (
         <Fragment key={`${lineIndex}:${line.length}`}>
           <span className={lineRowClassName}>
             <span
               className={showLineNumbers
-                ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-weight-(--st-fw-code-meta) text-ink-700/65 sm:block"
+                ? "hidden select-none text-right text-(length:--st-fs-code-meta) font-(--st-fw-code-meta) text-ink-700/65 sm:block"
                 : "hidden"}
             >
               {lineIndex + 1}

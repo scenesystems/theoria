@@ -2,7 +2,7 @@ import { LockOpenIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import type { ReactNode } from "react"
 
-import type { ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
+import type { PlaceEvidence, ProposalRecord, SealedNote } from "../../../contracts/imagined-place-result.js"
 import { ContentCard } from "../primitives/ContentCard.js"
 import { contentCardToneClassesFor, toneClassesFor } from "../primitives/designSystem.js"
 import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
@@ -12,9 +12,10 @@ import { TagBadge } from "../primitives/TagBadge.js"
 import { ToggleSwitch } from "../primitives/ToggleSwitch.js"
 
 import { ContentId } from "./ContentId.js"
-import { participantLabel, participantTone, signatureLabel } from "./placeViewModel.js"
+import { mergedIntoText, participantLabel, participantTone, signatureLabel } from "./placeViewModel.js"
 
 const sealTone = toneClassesFor("seal")
+const digestTone = toneClassesFor("digest")
 
 const signaturePillClassName = (valid: boolean): string =>
   valid
@@ -59,24 +60,30 @@ const OpenedNote = ({ note }: { readonly note: SealedNote }) => (
   </Stack>
 )
 
+/** Appears when the build records the merge: the same digest tone as the version it names. */
+const recordedPillClassName =
+  `border ${digestTone.borderSubtle} ${digestTone.bgTinted} ${digestTone.textStrong} transition-[opacity,scale] duration-300 ease-out starting:scale-95 starting:opacity-0 motion-reduce:transition-none`
+
 /**
  * One proposal offered to the author. Header: who offers it (the badge) and
  * the author's decision (the switch). Title: the feature's name, which becomes its marker on the stage.
  * Then three labelled parts — what the proposal adds to the place, why the
  * proposer thinks it belongs, and (for the neighbor) the note sealed to the
  * author. Footer: the proposal's own signature and content ID, which it keeps
- * whether or not it is merged. `accepted` is the visitor's current choice,
- * which may be ahead of the build in flight.
+ * whether or not it is merged. `accepted` is the author's decision and is
+ * shown at once; `record.accepted` is what the last build recorded, and puts
+ * the version's name beside the badge. The two differ while a build is in
+ * flight, and the card says so.
  */
 export const PlaceProposalCard = ({
   accepted,
-  disabled,
+  evidence,
   note,
   onToggle,
   record
 }: {
   readonly accepted: boolean
-  readonly disabled: boolean
+  readonly evidence: PlaceEvidence
   readonly note: Option.Option<SealedNote>
   readonly onToggle: () => void
   readonly record: ProposalRecord
@@ -84,23 +91,26 @@ export const PlaceProposalCard = ({
   const role = record.proposal.proposer
   const tone = toneClassesFor(participantTone(role))
   const cardTone = accepted ? { tone: contentCardToneClassesFor(participantTone(role)) } : {}
+  const pending = accepted === record.accepted ? {} : { "data-place-pending": "" }
 
   return (
     <ContentCard
       className={`h-full gap-3 ${accepted ? "border-solid" : "border-dashed"}`}
+      data-place-proposal={role}
+      data-place-recorded={record.accepted ? "true" : "false"}
       density="compact"
       {...cardTone}
+      {...pending}
     >
-      <Cluster as="header" className="justify-between gap-x-3 gap-y-1.5">
-        <TagBadge name={participantLabel(role)} tone={tone} />
+      <Cluster as="header" className="items-center justify-between gap-x-3 gap-y-1.5">
+        <Cluster className="items-center gap-2">
+          <TagBadge name={participantLabel(role)} tone={tone} />
+          {record.accepted
+            ? <StatusPill className={recordedPillClassName} label={mergedIntoText(evidence)} />
+            : null}
+        </Cluster>
         <Layer className="ml-auto">
-          <ToggleSwitch
-            checked={accepted}
-            disabled={disabled}
-            label={accepted ? "Merged" : "Merge"}
-            onToggle={onToggle}
-            tone={tone}
-          />
+          <ToggleSwitch checked={accepted} disabled={false} label="Merge" onToggle={onToggle} tone={tone} />
         </Layer>
       </Cluster>
 

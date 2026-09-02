@@ -10,7 +10,7 @@ import type {
   SignatureRecord,
   Version
 } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole } from "../../../contracts/imagined-place.js"
+import type { ParticipantRole, PlaceArtifact } from "../../../contracts/imagined-place.js"
 import type { CardTone } from "../../../contracts/theme.js"
 import type { PlaceRenderFrame } from "../../atoms/imagined-place-render.js"
 import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
@@ -23,7 +23,14 @@ import { type ToneClasses, toneClassesFor } from "../primitives/designSystem.js"
 /** Content IDs look like `blake3-256:…`; the short form keeps the first characters of the digest itself. */
 export const shortId = (id: string): string => `${id.slice(id.indexOf(":") + 1, id.indexOf(":") + 11)}…`
 
-export const participants: ReadonlyArray<ParticipantRole> = ["author", "neighbor", "program"]
+const participants: ReadonlyArray<ParticipantRole> = ["author", "neighbor", "program"]
+
+/** Who has a feature in this version: the author always, and each proposer whose proposal was merged. */
+export const presentParticipants = (artifact: PlaceArtifact): ReadonlyArray<ParticipantRole> =>
+  Arr.filter(
+    participants,
+    (role) => role === "author" || Arr.some(artifact.accepted, (proposal) => proposal.proposer === role)
+  )
 
 export const participantLabel = (role: ParticipantRole): string =>
   Match.value(role).pipe(
@@ -108,6 +115,13 @@ export const currentVersionText = (evidence: PlaceEvidence): string =>
     onSome: (version) => `Version ${String(version.version)} ·`
   })
 
+/** A merged proposal is part of the current version; the pill on its card names which one. */
+export const mergedIntoText = (evidence: PlaceEvidence): string =>
+  Option.match(currentVersion(evidence), {
+    onNone: () => "Merged",
+    onSome: (version) => `In v${String(version.version)}`
+  })
+
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
   Option.exists(currentVersion(evidence), (current) => current.contentId === version.contentId)
 
@@ -154,9 +168,7 @@ export const renderProgressText = (frame: PlaceRenderFrame, shown: number): stri
       onNone: () => `${String(frame.tried.length)} arrangements tried`,
       onSome: (loss) =>
         shown === frame.bestIndex
-          ? `${String(frame.tried.length)} arrangements tried · kept trial ${String(shown + 1)} · loss ${
-            loss.toFixed(3)
-          }`
+          ? `Kept trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)}`
           : `Trial ${String(shown + 1)} of ${String(frame.tried.length)} · loss ${loss.toFixed(3)} · not kept`
     })
 

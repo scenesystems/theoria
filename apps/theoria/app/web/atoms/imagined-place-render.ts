@@ -17,6 +17,7 @@ import {
 import { type Stage, stageFor } from "../../contracts/demo/imagined-place-flow.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
 import type { PlaceArtifact } from "../../contracts/imagined-place.js"
+import { type MarkerLabelWidths, markerLabelWidths } from "../view/home/placeMarkerLabels.js"
 import { prepareBrowserText } from "../view/text/authority.js"
 
 import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
@@ -38,6 +39,8 @@ export type PlaceRenderFrame = {
   /** Index into `tried` of the best so far: the one `rendering` draws. */
   readonly bestIndex: number
   readonly rendering: PlaceRendering
+  /** The discs that carry their names at this stage width, and how wide each name wraps. */
+  readonly labels: MarkerLabelWidths
 }
 
 /** The loss of every trial so far: the trace of the search. */
@@ -74,12 +77,14 @@ const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried
 const frame = (
   progress: Progress,
   stage: Stage,
+  labels: MarkerLabelWidths,
   trial: number,
   phase: PlaceRenderFrame["phase"]
 ): PlaceRenderFrame => ({
   phase,
   trial,
   stage,
+  labels,
   tried: progress.tried,
   bestIndex: progress.bestIndex,
   rendering: renderingFor({
@@ -110,6 +115,7 @@ const renderStream = (
       Effect.gen(function*() {
         const stage = stageFor(stageWidth)
         const prepared = yield* prepareBrowserText(descriptionInput(artifact))
+        const labels = yield* markerLabelWidths(artifact, stage)
         const candidate = arrange(artifact, prepared, stage)
         const space = yield* meanderSpace
         const handle = yield* Study.open({
@@ -136,7 +142,8 @@ const renderStream = (
               )
               yield* Option.match(progress, {
                 onNone: () => Effect.void,
-                onSome: (found) => emit(frame(found, stage, trial, trial === renderTrials ? "complete" : "running"))
+                onSome: (found) =>
+                  emit(frame(found, stage, labels, trial, trial === renderTrials ? "complete" : "running"))
               })
               yield* Effect.sleep(frameDelay)
             }),

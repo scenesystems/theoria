@@ -86,21 +86,35 @@ points the `How it's built` code panel at that step's source.
   400 ms), the composition's title with the `Recorded inference` pill, then the
   feature chips.
 - Propose: two proposal cards with a `Merge` switch each. Header: proposer
-  badge. Title: the feature's name, which becomes its disc. Then a labelled
-  list — `Adds` (the sentence that merges into the place), `Why` (the
-  proposer's reason), `Note` (the neighbor's sealed note, opened with the
-  author's key). Footer: the proposal's signature pill and content ID.
+  badge, then an `In v2` pill while the recorded version holds the proposal.
+  The switch is the visitor's intent and never locks; the pill is the record.
+  Between the two — the debounce, the server build — the card carries
+  `data-place-pending`, and `data-place-recorded` always says what the build
+  returned. A click during a build is kept, not dropped. Title: the feature's
+  name, which becomes its disc. Then a labelled list — `Adds` (the sentence
+  that merges into the place), `Why` (the proposer's reason), `Note` (the
+  neighbor's sealed note, opened with the author's key). Footer: the proposal's
+  signature pill and content ID.
 - Record: version rows (`V1 · Origin`, `V2 · Current`), what changed and who
   contributed it, the BLAKE3 ID, the author's signature.
 - Arrange: the stage with named or numbered discs (Base UI popovers with the
   feature's description and contributor), the dotted walk path, the description
-  flowing around the discs, the search trace, stage presets, and the current
-  version's ID with a one-shot wash when it changes. The trace is a Base UI
+  flowing around the discs, the search trace, stage presets, the participant
+  legend (the author and every proposer whose proposal is in the drawn
+  version), and the current version's ID with a one-shot wash when it changes.
+  Whether discs carry names is measured, not guessed
+  (`placeMarkerLabels.ts`): each name is laid out with effect-text at the
+  disc's inner width and two narrower wraps, must break only at word
+  boundaries, and fits when its block's diagonal is within the circle. A frame
+  is named or numbered as a whole, so the numbers on the stage and in the
+  legend always agree. The trace is a Base UI
   slider over every trial: each dot is one arrangement's loss (log scale), the
   step line is the running best, and dragging or arrowing the thumb draws that
   trial on the stage so a rejected arrangement can be seen, not just counted.
-  The caption reads the shown trial (`36 arrangements tried · kept trial 33 ·
-loss 1.520` or `Trial 1 of 36 · loss 16.999 · not kept`). The stage is paper
+  The caption reads the shown trial (`Kept trial 33 of 36 · loss 1.520` or
+  `Trial 1 of 36 · loss 16.999 · not kept`) and shares its row with the stage
+  presets only when the Arrange column is wide enough (`@2xl` container
+  query): the column is narrower beside the steps than above them. The stage is paper
   cut to the kept arrangement and keeps that size while another trial is drawn
   on it (`PlaceStage.tsx`, a Base UI `ScrollArea` sized to the kept frame): a
   trial that ran longer than the sheet is cut with a fade and scrolls, and the

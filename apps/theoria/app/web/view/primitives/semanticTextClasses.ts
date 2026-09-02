@@ -13,12 +13,16 @@ const maxWidthCssVar = (role: TextRole, variant: SurfaceVariant): string => `--s
 
 const textTransformFor = (role: TextRole): string => role === "row-label" ? "uppercase" : ""
 
+/**
+ * Tailwind's `font-(…)` utility sets the weight from a variable, and the family
+ * when the variable is tagged `family-name:`; there is no `font-weight-(…)`.
+ */
 export const glyphClassName = (role: TextRole): string =>
   [
     `text-(length:${fontSizeVar(role)})`,
-    `font-weight-(${fontWeightVar(role)})`,
+    `font-(${fontWeightVar(role)})`,
     `tracking-(${trackingVar(role)})`,
-    `font-family-(${fontFamilyVar(role)})`,
+    `font-(family-name:${fontFamilyVar(role)})`,
     textTransformFor(role)
   ].filter((className) => className.length > 0).join(" ")
 
