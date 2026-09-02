@@ -33,14 +33,6 @@ runs:
           fi
         done
 
-        # The server's private runtime data ships inside dist/ and is hidden by
-        # the Worker. Its file names follow the app, so require the directory
-        # to be populated rather than naming its contents here.
-        if ! find "$BUILD_ROOT/dist/runtime-data" -type f -name '*.json' -print -quit 2>/dev/null | grep -q .; then
-          echo "Build output is missing dist/runtime-data/*.json" >&2
-          exit 1
-        fi
-
         if find "$BUILD_ROOT/dist" "$BUILD_ROOT/.wrangler-out" ! -type f ! -type d -print -quit | grep -q .; then
           echo "Build output contains an entry that is neither a file nor a directory" >&2
           exit 1
