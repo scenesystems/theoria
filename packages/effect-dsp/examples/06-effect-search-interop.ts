@@ -2,7 +2,7 @@
  * Uses the effect-dsp interop namespace for ask/tell orchestration, acquisition
  * selection, streamed progress, and Pareto-front inspection.
  *
- * Run: bun run examples/01-effect-search-interop.ts
+ * Run: bun run examples/06-effect-search-interop.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { SearchSpace } from "@scenesystems/effect-search"

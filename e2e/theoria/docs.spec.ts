@@ -128,8 +128,8 @@ test("guide navigation preserves a useful loading shell", async ({ page }) => {
 test("package guides keep runnable examples and public API links in the documentation", async ({ page }) => {
   const failures = captureBrowserFailures(page)
 
-  await page.goto("/docs/effect-search/examples-and-reference")
-  await expect(page.getByRole("heading", { level: 1, name: "Examples and reference" })).toBeVisible()
+  await page.goto("/docs/effect-search/examples")
+  await expect(page.getByRole("heading", { level: 1, name: "Examples" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Quick start" })).toBeVisible()
   const guideCode = page.getByRole("region", { name: "ts code example" })
   await expect(guideCode.locator("pre code > span:first-child > span:last-child")).toContainText(/^import/u)
@@ -137,7 +137,7 @@ test("package guides keep runnable examples and public API links in the document
   await expect(guideCode.locator('[class~="text-code-keyword"], [class~="text-code-type"]')).not.toHaveCount(0)
   await expect(guideCode.getByRole("button", { name: "Copy ts" })).toBeVisible()
 
-  await page.goto("/docs/effect-math/domain-navigation")
+  await page.goto("/docs/effect-math/domains")
   const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })
   await expect(contractsLink).toHaveAttribute("href", "/docs/effect-math/api/contracts")
   await contractsLink.click()
