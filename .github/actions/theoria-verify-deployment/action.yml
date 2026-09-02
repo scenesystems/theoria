@@ -100,7 +100,7 @@ runs:
         check /docs/not-a-package/not-a-page 404 text/html
         check /api/capabilities 200 application/json
         check /sitemap.xml 200 application/xml
-        check /runtime-data/package-versions.json 404 -
+        check /runtime-data/program-sources.json 404 -
 
         # A content-hashed script from the HTML shell is served directly by the
         # assets layer, so this exercises `public/_headers` rather than the Worker.
