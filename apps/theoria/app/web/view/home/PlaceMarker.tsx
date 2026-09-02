@@ -21,7 +21,7 @@ const markerStyle = (marker: Marker): CSSProperties => ({
 /**
  * Every trial the search accepts moves a marker a little; a merged proposal's
  * marker grows in from nothing. Both stop under `prefers-reduced-motion`, and
- * while the trace is scrubbed, when the text jumps too.
+ * while the trace is scrubbed, when whole arrangements are swapped outright.
  */
 const motionClassName =
   "transition-[translate,width,height,opacity,scale,box-shadow] duration-200 ease-out starting:scale-90 starting:opacity-0 motion-reduce:transition-none group-data-[place-scrubbing]/stage:transition-none"

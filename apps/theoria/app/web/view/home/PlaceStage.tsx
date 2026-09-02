@@ -1,3 +1,4 @@
+import { ScrollArea } from "@base-ui-components/react/scroll-area"
 import { Result } from "@effect-atom/atom"
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
 import { Option } from "effect"
@@ -6,7 +7,12 @@ import type { CSSProperties } from "react"
 
 import type { PlaceLine, PlaceMarker, PlaceProjection } from "../../../contracts/imagined-place-result.js"
 import { useElementWidthReporter } from "../../atoms/element-observation.js"
-import { type PlaceRenderFrame, placeShownFrameAtom, placeTrialPreviewAtom } from "../../atoms/imagined-place-render.js"
+import {
+  type PlaceRenderFrame,
+  placeRenderFrameAtom,
+  placeShownFrameAtom,
+  placeTrialPreviewAtom
+} from "../../atoms/imagined-place-render.js"
 import { placeStageContainerWidthAtom } from "../../atoms/imagined-place.js"
 import { ArtifactStage } from "../primitives/ArtifactStage.js"
 import { Cluster, Layer, Stack } from "../primitives/Layout.js"
@@ -50,17 +56,17 @@ const Lines = ({ projection }: { readonly projection: PlaceProjection }) => (
 )
 
 /**
- * The stage is paper: a faint radial wash in the stage tone, no invented
- * geography. The walk draws once when the search settles, the discs are
- * buttons, and the text sits above both.
+ * The arrangement at its own size: the walk once the search settles, the discs
+ * as buttons, the text above both. The discs are keyed by the trial drawn, so
+ * swapping trials places them outright instead of sliding them, while the
+ * search's own progress still moves them.
  */
-const Drawing = ({ frame, scrubbing }: { readonly frame: PlaceRenderFrame; readonly scrubbing: boolean }) => {
+const Drawing = ({ frame, shown }: { readonly frame: PlaceRenderFrame; readonly shown: string }) => {
   const projection = frame.rendering.projection
   return (
     <Layer
       aria-busy={frame.phase === "running"}
-      className="group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none data-[place-scrubbing]:transition-none"
-      data-place-scrubbing={scrubbing ? "" : undefined}
+      className="relative"
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}
@@ -70,10 +76,54 @@ const Drawing = ({ frame, scrubbing }: { readonly frame: PlaceRenderFrame; reado
         : null}
       {Arr.map(
         projection.markers,
-        (marker, index) => <PlaceMarkerDisc index={index} key={marker.name} marker={marker} />
+        (marker, index) => <PlaceMarkerDisc index={index} key={`${shown}:${marker.name}`} marker={marker} />
       )}
       <Lines projection={projection} />
     </Layer>
+  )
+}
+
+const paperClassName =
+  "group/stage relative bg-radial-[at_20%_0%] from-stage-50 to-stage-0 transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
+const fadeClassName =
+  "pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-stage-0 via-stage-0/85 to-transparent opacity-0 transition-opacity duration-200 group-data-[overflow-y-end]/stage:opacity-100 motion-reduce:transition-none"
+const scrollbarClassName =
+  "flex w-2 touch-none select-none p-px opacity-0 transition-opacity duration-200 group-data-[has-overflow-y]/stage:opacity-100"
+
+/**
+ * The stage is paper cut to the kept arrangement. The paper keeps that size
+ * while another trial is drawn on it, so scrubbing the trace never moves the
+ * trace: a trial that ran longer than the sheet is clipped with a fade and
+ * scrolls, which is the same fact the search held against it.
+ */
+const Paper = ({
+  frame,
+  keptHeight,
+  preview
+}: {
+  readonly frame: PlaceRenderFrame
+  readonly keptHeight: number
+  readonly preview: Option.Option<number>
+}) => {
+  const projection = frame.rendering.projection
+  return (
+    <ScrollArea.Root
+      className={paperClassName}
+      data-place-scrubbing={Option.isSome(preview) ? "" : undefined}
+      data-place-stage="paper"
+      data-place-stage-height={String(keptHeight)}
+      style={{ height: `${keptHeight}px`, width: `${projection.stageWidth}px` }}
+    >
+      <ScrollArea.Viewport className="h-full w-full">
+        <ScrollArea.Content>
+          <Drawing frame={frame} shown={Option.match(preview, { onNone: () => "kept", onSome: String })} />
+        </ScrollArea.Content>
+      </ScrollArea.Viewport>
+      <Layer className={fadeClassName} data-place-stage-fade />
+      <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
+        <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-700/35" />
+      </ScrollArea.Scrollbar>
+    </ScrollArea.Root>
   )
 }
 
@@ -115,11 +165,14 @@ const anyNumbered = (markers: ReadonlyArray<PlaceMarker>): boolean =>
  * width changes what you see and nothing else.
  */
 export const PlaceStage = () => {
-  const frame = useAtomValue(placeShownFrameAtom)
-  // Scrubbing the trace swaps whole arrangements: the text jumps, so the discs jump with it.
-  const scrubbing = Option.isSome(useAtomValue(placeTrialPreviewAtom))
+  const preview = useAtomValue(placeTrialPreviewAtom)
   const reportContainerWidth = useElementWidthReporter(useAtomSet(placeStageContainerWidthAtom))
-  const latest = Result.value(frame)
+  const latest = Result.value(useAtomValue(placeShownFrameAtom))
+  // The paper is cut to the kept arrangement even while another trial is drawn on it.
+  const keptHeight = Option.map(
+    Result.value(useAtomValue(placeRenderFrameAtom)),
+    (kept) => kept.rendering.projection.stageHeight
+  )
   const frameWidth = Option.match(latest, {
     onNone: () => undefined,
     onSome: (value) => `${value.rendering.projection.stageWidth + stageFrameBorderPx * 2}px`
@@ -135,7 +188,13 @@ export const PlaceStage = () => {
         >
           {Option.match(latest, {
             onNone: () => <Placeholder />,
-            onSome: (value) => <Drawing frame={value} scrubbing={scrubbing} />
+            onSome: (value) => (
+              <Paper
+                frame={value}
+                keptHeight={Option.getOrElse(keptHeight, () => value.rendering.projection.stageHeight)}
+                preview={preview}
+              />
+            )
           })}
         </ArtifactStage>
       </Layer>

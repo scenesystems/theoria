@@ -16,7 +16,7 @@ import {
 import { ChangedValue } from "../primitives/ChangedValue.js"
 import { ChoicePills } from "../primitives/ChoicePills.js"
 import { legendThemeFor, pillButtonClassName, toneClassesFor } from "../primitives/designSystem.js"
-import { Cluster, Layer, Stack } from "../primitives/Layout.js"
+import { Cluster, Layer, Rail, Stack } from "../primitives/Layout.js"
 import { LegendItem } from "../primitives/LegendItem.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 
@@ -121,13 +121,15 @@ const TitleRow = ({ build }: { readonly build: PlaceBuild }) => {
 
 /**
  * Where the search stands, or which of its trials the stage is drawing. While
- * a rejected trial is drawn, the kept one is a click away.
+ * a rejected trial is drawn, the kept one is a click away. The row is always
+ * as tall as that pill and never wraps, so choosing a trial cannot move the
+ * trace under the pointer.
  */
 const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   const shown = shownTrialIndex(frame, useAtomValue(placeTrialPreviewAtom))
   const setPreview = useAtomSet(placeTrialPreviewAtom)
   return (
-    <Cluster className="min-w-0 items-center gap-2.5">
+    <Rail className="min-h-9 min-w-0 gap-2.5">
       <Layer className="min-w-0" data-place-search-caption>
         <SemanticText
           as="span"
@@ -138,7 +140,7 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
       </Layer>
       {shown === frame.bestIndex ? null : (
         <Button
-          className={pillButtonClassName({ active: false, tone: searchTone })}
+          className={`shrink-0 ${pillButtonClassName({ active: false, tone: searchTone })}`}
           data-place-show-kept
           onClick={() => {
             setPreview(Option.none())
@@ -154,7 +156,7 @@ const SearchCaption = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
           />
         </Button>
       )}
-    </Cluster>
+    </Rail>
   )
 }
 
@@ -180,10 +182,10 @@ export const PlaceArrangement = ({
       onSome: (value) => (
         <Stack className="gap-2">
           <PlaceSearchTrace frame={value} />
-          <Cluster className="items-center justify-between gap-x-6 gap-y-3">
+          <Layer className="grid grid-cols-1 items-center gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <SearchCaption frame={value} />
             <StagePresets />
-          </Cluster>
+          </Layer>
         </Stack>
       )
     })}

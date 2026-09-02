@@ -69,16 +69,31 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(caption, "kept trial")
         const positions = markerPositions(page)
         const kept = yield* act(positions)
-
+        // The sheet and the slider under the pointer must not move while trials are swapped.
+        const paper = page.locator("[data-place-stage='paper']")
+        const layout = () =>
+          page.evaluate(() => {
+            const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
+            const sheet = rect("[data-place-stage='paper']")
+            const trace = rect("[data-place-trace]")
+            return `${String(Math.round(sheet?.height ?? -1))} ${String(Math.round(trace?.top ?? -1))}`
+          })
         yield* focus(page.getByRole("slider", { name: "Trial drawn on the stage" }))
+        // Focusing scrolls the slider into view; from here on nothing may move it.
+        const atRest = yield* act(layout)
         yield* press(page, "Home")
         yield* containsText(caption, "Trial 1 of")
         yield* containsText(caption, "not kept")
         expect(yield* act(positions)).not.toBe(kept)
+        expect(yield* act(layout)).toBe(atRest)
+        // Trial 1 runs longer than the kept sheet: it is cut with a fade and scrolls, never clipped silently.
+        yield* attribute(paper, "data-overflow-y-end", "")
 
         yield* press(page, "End")
         yield* containsText(caption, `Trial ${String(renderTrials)} of ${String(renderTrials)}`)
+        expect(yield* act(layout)).toBe(atRest)
         yield* press(page, "Escape")
+        yield* eventually(() => paper.evaluate((element) => element.hasAttribute("data-has-overflow-y")), false)
         yield* containsText(caption, "kept trial")
         yield* count(page.locator("[data-place-show-kept]"), 0)
 

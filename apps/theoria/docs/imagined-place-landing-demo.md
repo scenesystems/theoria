@@ -100,7 +100,15 @@ points the `How it's built` code panel at that step's source.
   step line is the running best, and dragging or arrowing the thumb draws that
   trial on the stage so a rejected arrangement can be seen, not just counted.
   The caption reads the shown trial (`36 arrangements tried · kept trial 33 ·
-loss 1.520` or `Trial 1 of 36 · loss 16.999 · not kept`).
+loss 1.520` or `Trial 1 of 36 · loss 16.999 · not kept`). The stage is paper
+  cut to the kept arrangement and keeps that size while another trial is drawn
+  on it (`PlaceStage.tsx`, a Base UI `ScrollArea` sized to the kept frame): a
+  trial that ran longer than the sheet is cut with a fade and scrolls, and the
+  caption row is always as tall as the `Kept trial` pill. Nothing below the
+  stage moves while the trace is scrubbed; before this, every trial resized the
+  stage and the slider jumped under the pointer. Discs are keyed by the shown
+  trial, so a swap places them outright while the search's own progress still
+  animates them.
 
 Every content ID on the page (`ContentId`) is a tooltip trigger: hover or focus
 shows the whole BLAKE3-256 ID, a click copies it and the tooltip stays to say
