@@ -10,14 +10,13 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Per-package docs data is versioned by directory; the manifest at
+# Docs data is versioned by revision directory; the manifest at
 # /docs-data/manifest.json keeps the default revalidate-every-time policy.
-/docs-data/:package/*
+/docs-data/:revision/*
   Cache-Control: public, max-age=31536000, immutable
 
-# Keep non-production hostnames out of search indexes.
-https://theoria.staging.scenesystems.io/*
-  X-Robots-Tag: noindex
-
-https://:preview.staging.scenesystems.io/*
+# Keep non-production hostnames out of search indexes. The placeholder matches
+# one hostname label, so this covers staging (`theoria`) and every preview
+# (`theoria-pr-<N>`). A second explicit staging rule would duplicate the header.
+https://:host.staging.scenesystems.io/*
   X-Robots-Tag: noindex

@@ -43,8 +43,7 @@
     "lint:apps": "bun run --filter @theoria/theoria-app lint",
     "test:apps": "bun run --filter @theoria/theoria-app test",
     "vendor:sync": "bash scripts/vendor-sync.sh",
-    "vendor:check": "bash scripts/vendor-sync.sh --check",
-    "test:e2e:theoria": "playwright test --config e2e/theoria/playwright.config.ts"
+    "vendor:check": "bash scripts/vendor-sync.sh --check"
   },
   "devDependencies": {
     "@babel/cli": "^7.29.7",
@@ -70,7 +69,6 @@
     "@effect/vitest": "0.30.0",
     "@effect/workflow": "0.19.1",
     "@eslint/js": "^9.39.5",
-    "@playwright/test": "^1.62.1",
     "@scenesystems/effect-search": "workspace:*",
     "@theoria/docs-model": "workspace:*",
     "@theoria/source-proof": "workspace:*",

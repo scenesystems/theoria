@@ -14,7 +14,9 @@ export const securityHeaders = HttpMiddleware.make((app) =>
         "frame-ancestors 'none'",
         "img-src 'self' data:",
         "object-src 'none'",
-        "script-src 'self'",
+        // Shiki's Oniguruma grammar engine is WebAssembly; `wasm-unsafe-eval`
+        // permits compiling it without permitting JavaScript `eval`.
+        "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "worker-src 'self'"
       ].join("; "),

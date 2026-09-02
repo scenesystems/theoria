@@ -36,8 +36,24 @@ covers the HTML shell (`/`, `/index.html`, `/docs`, `/docs/*`, `/demos/*`),
 `/api/*`, `/sitemap.xml`, and the generated `/runtime-data/*` files, which the
 Worker reads through the `ASSETS` binding but never exposes. Paths with no
 matching asset (docs pages, demo pages, unknown URLs) fall through to the
-Worker. `test/server/wrangler-config.test.ts` fails when the list and
-`app/server/routes/static.ts` disagree.
+Worker.
+
+`bun run test:worker` (`test/worker/`) runs the bundled Worker in workerd
+through Wrangler's test harness with the real `wrangler.jsonc`, `dist/`, and
+`_headers`. `site.test.ts` asserts this routing over HTTP: shell paths reach the
+Worker and get metadata, `/runtime-data/*` is hidden, hashed assets come from
+the assets layer with the `_headers` policy, non-production hostnames are
+`noindex`, and the security headers permit what the browser code needs (Shiki's
+WebAssembly grammar engine requires `'wasm-unsafe-eval'`). `home.test.ts`,
+`docs.test.ts`, and `docs-routes.test.ts` drive Chromium (Playwright, from
+Effect) against that same server: the Imagined Place build through the real
+API, the docs catalog against the generated manifest, docs navigation and
+search, syntax highlighting, clipboard copy, every generated route, and
+responsive layouts. The suite needs a build first (`bun run build:web && bun
+run deploy:dry-run`) and Chromium (`bunx playwright install chromium`), so it
+is not part of `bun run test`; the Build job runs it on the exact artifact it
+uploads. `test/server/wrangler-config.test.ts` reads the configuration through
+Wrangler and checks the per-target names, routes, and `RELEASE_STAGE` values.
 
 Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
@@ -76,7 +92,8 @@ per commit. It first runs the app's typecheck and unit tests (`bun run
 check:apps`, `bun run test:apps`), so an artifact never comes from a tree that
 fails its own checks even though the Check workflow runs separately. It then
 builds (`bun run build:web`, then `wrangler deploy --dry-run` to bundle
-`worker.ts` for workerd), checks the output with
+`worker.ts` for workerd), runs that bundle in workerd over HTTP and in
+Chromium (`bun run test:worker`), checks the output with
 [`theoria-build-check`](../../.github/actions/theoria-build-check/action.yml),
 and uploads `dist/` and `.wrangler-out/` as the artifact `theoria-<sha>`. Every
 deployment then uploads that exact artifact with `wrangler deploy --no-bundle`,

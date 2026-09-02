@@ -41,7 +41,7 @@ jobs:
 
       # `check.yml` runs the full suite for the same commit, but nothing links
       # the two workflows; gate the deployable artifact on the app's own checks
-      # (including `test/server/wrangler-config.test.ts`) here as well.
+      # here as well.
       - name: Check Theoria app
         run: |
           bun run check:apps
@@ -52,6 +52,15 @@ jobs:
 
       - name: Bundle Worker
         run: bun run --cwd apps/theoria deploy:dry-run
+
+      - name: Install Chromium for Worker browser tests
+        run: bunx playwright install --with-deps chromium
+
+      # Runs the bundle that will be deployed inside workerd against the built
+      # `dist/` (routing, `_headers`, indexing policy, API, demo build) over
+      # HTTP and in Chromium.
+      - name: Test Worker in workerd
+        run: bun run --cwd apps/theoria test:worker
 
       - uses: ./.github/actions/theoria-build-check
         with:

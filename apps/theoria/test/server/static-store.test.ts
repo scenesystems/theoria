@@ -4,9 +4,7 @@ import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 
 import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
-import * as AssetsStaticStore from "../../app/server/platform/assets-static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
-import { failingAssets, fakeAssets } from "../helpers/fake-assets.js"
 
 const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
   Effect.tryPromise(() => HttpServerResponse.toWeb(response).text())
@@ -86,43 +84,8 @@ it.effect("Bun store refuses traversal and missing files", () =>
     })
   ))
 
-// ---------------------------------------------------------------------------
-// Assets store (Cloudflare ASSETS binding)
-// ---------------------------------------------------------------------------
-
-const assetsStore = AssetsStaticStore.make(fakeAssets({
-  "/index.html": "<title>x</title>",
-  "/assets/app.js": "console.log(1)"
-}))
-
-it.effect("Assets store reads text through the binding", () =>
-  Effect.gen(function*() {
-    expect(yield* assetsStore.text("/index.html")).toBe("<title>x</title>")
-
-    const error = yield* Effect.flip(assetsStore.text("/missing.html"))
-    expect(error.message).toContain("404")
-  }))
-
-it.effect("Assets store forwards asset responses and preserves binding headers", () =>
-  Effect.gen(function*() {
-    const found = Option.getOrThrow(yield* assetsStore.response("/assets/app.js", Option.some("gzip")))
-    expect(found.headers["content-type"]).toBe("application/javascript; charset=utf-8")
-    expect(found.headers.etag).toBe("\"/assets/app.js\"")
-    expect(yield* bodyText(found)).toBe("console.log(1)")
-
-    expect(Option.isNone(yield* assetsStore.response("/nope", Option.none()))).toBe(true)
-  }))
-
-it.effect("Assets store treats binding failures as absent assets", () =>
-  Effect.gen(function*() {
-    const failing = AssetsStaticStore.make(failingAssets("boom"))
-
-    expect(Option.isNone(yield* failing.response("/index.html", Option.none()))).toBe(true)
-    const error = yield* Effect.flip(failing.text("/index.html"))
-    expect(error._tag).toBe("StaticStoreError")
-    expect(error.pathname).toBe("/index.html")
-    expect(error.message).toContain("AssetsUnavailable")
-  }))
+// The Cloudflare ASSETS adapter is exercised against the real binding inside
+// workerd by test/worker/site.test.ts (`bun run test:worker`).
 
 it("maps common asset extensions to content types", () => {
   expect(contentTypeForPath("/favicon.svg")).toBe("image/svg+xml")

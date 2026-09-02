@@ -42,6 +42,7 @@ const PackageIndex = ({ manifest }: { readonly manifest: DocsManifest }) => (
               return (
                 <ContentCard
                   className={`group relative h-full transition-[border-color,background-color,box-shadow] hover:bg-stage-0/94 hover:shadow-surface ${tone.border}`}
+                  data-docs-package={docsPackage.slug}
                   density="standard"
                   key={docsPackage.slug}
                   shape="left-accent"
