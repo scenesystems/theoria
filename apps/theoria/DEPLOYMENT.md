@@ -15,8 +15,10 @@ uses `GET /api/health/live` as its health check. Railway supplies `PORT`,
 `RAILWAY_ENVIRONMENT_NAME`, and `RAILWAY_GIT_COMMIT_SHA`; do not define copies
 of those variables.
 
-If the Railway environment is not literally named `production`, set
-`NODE_ENV=production` so production caching and security behavior are enabled.
+Set `RELEASE_STAGE=production` on the production service so production
+caching, security, and demo gating are enabled. When `RELEASE_STAGE` is absent
+the server falls back to the Railway environment name and then `NODE_ENV`; an
+invalid `RELEASE_STAGE` value fails startup.
 
 ## Production variables and secrets
 

@@ -1,4 +1,3 @@
-import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { corpus } from "../../../contracts/corpus.js"
@@ -9,11 +8,12 @@ import { corpusMatrixProjection, corpusProjection, meanNaiveError, widthMetrics 
 import { runSectionsForStory } from "./stage-story.js"
 import { streamElements, streamSections } from "./stream.js"
 
+import type { ProgramSources } from "../program-sources.js"
 import { preloadProgram } from "./preload.js"
 
 export { preloadProgram, streamElements, streamSections }
 
-export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, ProgramSources> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
   const { baseline, optimized, obstacles, runnableProgram } = yield* Effect.all({
     baseline: measured(baselineLayouts),

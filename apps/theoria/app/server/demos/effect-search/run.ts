@@ -1,4 +1,3 @@
-import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, Stream } from "effect"
 
 import { Sampler } from "@scenesystems/effect-search"
@@ -19,6 +18,7 @@ import {
 } from "../../../contracts/demo/objective.js"
 import { minimizeWith } from "./objective.js"
 
+import type { ProgramSources } from "../program-sources.js"
 import { preloadProgram } from "./preload.js"
 
 export { preloadProgram }
@@ -46,7 +46,7 @@ const configurationSection = (request: EffectSearchStreamRequest): EvidenceSecti
   ]
 })
 
-export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, ProgramSources> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
   const tpe = yield* minimizeWith(Sampler.tpe({ seed: defaultSamplerSeed }))
   const random = yield* minimizeWith(Sampler.random({ seed: defaultSamplerSeed }))

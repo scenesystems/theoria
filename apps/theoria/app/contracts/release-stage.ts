@@ -1,6 +1,10 @@
 import { Schema } from "effect"
 import * as Option from "effect/Option"
 
+/**
+ * Which surface a deployment presents. `production` shows only the package
+ * catalog; `preview` additionally enables demo pages and demo API routes.
+ */
 export const ReleaseStage = Schema.Literal("preview", "production")
 
 export type ReleaseStage = typeof ReleaseStage.Type
@@ -11,19 +15,24 @@ const normalized = (raw: Option.Option<string>): Option.Option<string> =>
     Option.filter((value) => value.length > 0)
   )
 
+/**
+ * Resolves the release stage from deployment configuration.
+ *
+ * `RELEASE_STAGE` is authoritative when set. The remaining inputs keep the
+ * Railway deployment working until it is decommissioned: a Railway environment
+ * literally named `production`, or `NODE_ENV=production`, selects production.
+ */
 export const releaseStageFromEnvironment = ({
+  nodeEnv,
   railwayEnvironmentName,
-  nodeEnv
+  releaseStage
 }: {
+  readonly releaseStage: Option.Option<ReleaseStage>
   readonly railwayEnvironmentName: Option.Option<string>
   readonly nodeEnv: Option.Option<string>
-}): ReleaseStage => {
-  const railway = Option.getOrNull(normalized(railwayEnvironmentName))
-  const runtime = Option.getOrNull(normalized(nodeEnv))
-
-  return railway === "production"
-    ? "production"
-    : runtime === "production"
-    ? "production"
-    : "preview"
-}
+}): ReleaseStage =>
+  Option.getOrElse(releaseStage, () =>
+    Option.getOrNull(normalized(railwayEnvironmentName)) === "production"
+      || Option.getOrNull(normalized(nodeEnv)) === "production"
+      ? "production"
+      : "preview")

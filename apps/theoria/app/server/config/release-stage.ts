@@ -1,14 +1,16 @@
-import { Config, Effect } from "effect"
-import * as Option from "effect/Option"
+import { Config, Effect, Schema } from "effect"
 
-import { type ReleaseStage, releaseStageFromEnvironment } from "../../contracts/release-stage.js"
+import { ReleaseStage, releaseStageFromEnvironment } from "../../contracts/release-stage.js"
 
-export const serverReleaseStage: Effect.Effect<ReleaseStage> = Effect.gen(function*() {
-  const railwayEnvironmentName = yield* Config.withDefault(Config.string("RAILWAY_ENVIRONMENT_NAME"), "")
-  const nodeEnv = yield* Config.withDefault(Config.string("NODE_ENV"), "")
+/**
+ * Release stage configuration. An unset `RELEASE_STAGE` falls back to the
+ * Railway-era signals; an invalid value is a configuration error and the
+ * server refuses to start (see `AppLayer`).
+ */
+export const releaseStageConfig: Config.Config<ReleaseStage> = Config.all({
+  releaseStage: Config.option(Schema.Config("RELEASE_STAGE", ReleaseStage)),
+  railwayEnvironmentName: Config.option(Config.string("RAILWAY_ENVIRONMENT_NAME")),
+  nodeEnv: Config.option(Config.string("NODE_ENV"))
+}).pipe(Config.map(releaseStageFromEnvironment))
 
-  return releaseStageFromEnvironment({
-    railwayEnvironmentName: Option.some(railwayEnvironmentName),
-    nodeEnv: Option.some(nodeEnv)
-  })
-}).pipe(Effect.orDie)
+export const serverReleaseStage: Effect.Effect<ReleaseStage> = Effect.orDie(releaseStageConfig)

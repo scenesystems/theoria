@@ -1,17 +1,14 @@
-import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect } from "effect"
 
 import { canonicalize, digest, digestBytes, encodeUtf8, hmacSha256, toBase64Url, toHex } from "@scenesystems/digest"
 import type { Program } from "../../../contracts/presentation.js"
 import type { RunData } from "../../../contracts/run.js"
 
-import { executableProgram, type ProgramSourceReadError } from "../program-source.js"
+import { programForDemo, type ProgramSourceReadError, type ProgramSources } from "../program-sources.js"
 
-export const preloadProgram: Effect.Effect<
-  Program,
-  ProgramSourceReadError,
-  FileSystem.FileSystem | Path.Path
-> = executableProgram(import.meta.url)
+export const preloadProgram: Effect.Effect<Program, ProgramSourceReadError, ProgramSources> = programForDemo(
+  "digest"
+)
 
 const sampleValue = { user: "alice", score: 42, tags: ["demo", "theoria"] }
 const permutedValue = { tags: ["demo", "theoria"], score: 42, user: "alice" }
@@ -26,7 +23,7 @@ const measured = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     return { value, durationMs: endedAt - startedAt }
   })
 
-export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, ProgramSources> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
 
   const canonical = yield* canonicalize(sampleValue)

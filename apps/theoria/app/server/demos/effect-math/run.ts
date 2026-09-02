@@ -1,4 +1,3 @@
-import type { FileSystem, Path } from "@effect/platform"
 import { Clock, Effect, type Stream } from "effect"
 
 import type { EvidenceSection } from "../../../contracts/evidence.js"
@@ -16,6 +15,7 @@ import {
   requiredN
 } from "../../../contracts/demo/power.js"
 
+import type { ProgramSources } from "../program-sources.js"
 import { preloadProgram } from "./preload.js"
 
 export { preloadProgram }
@@ -230,7 +230,7 @@ const streamedSectionEffects = (
 // Exports
 // ---------------------------------------------------------------------------
 
-export const run: Effect.Effect<RunData, unknown, FileSystem.FileSystem | Path.Path> = Effect.gen(function*() {
+export const run: Effect.Effect<RunData, unknown, ProgramSources> = Effect.gen(function*() {
   const startedAt = yield* Clock.currentTimeMillis
 
   const [sensitivity, bySampleSize, requiredGrid, curves, geometry] = yield* Effect.all([

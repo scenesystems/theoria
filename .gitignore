@@ -19,6 +19,9 @@ packages/*/test/**/*.js
 /api-reference/
 /apps/theoria/public/docs-data/
 
+# Generated Theoria runtime data (package versions, demo program sources)
+/apps/theoria/public/runtime-data/
+
 # Code coverage
 coverage/
 *.lcov

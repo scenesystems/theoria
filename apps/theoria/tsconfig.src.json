@@ -9,6 +9,8 @@
   },
   "include": [
     "server.ts",
+    "worker.ts",
+    "scripts/**/*.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
     "vite.config.ts",

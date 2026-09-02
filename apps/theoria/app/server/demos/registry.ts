@@ -1,4 +1,3 @@
-import type { FileSystem, Path } from "@effect/platform"
 import { Effect, Match, type Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
@@ -9,8 +8,6 @@ import type { ProgramPreview } from "../../contracts/program-preview.js"
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import type { RunData } from "../../contracts/run.js"
 import type { StreamManifest } from "../../contracts/stream-manifest.js"
-
-type ProgramSourceEnv = FileSystem.FileSystem | Path.Path
 
 import { preloadProgram as preloadDigestProgram, run as runDigest } from "./digest/run.js"
 import type { DspProviderRuntime, DspProviderRuntimeApi } from "./effect-dsp/provider.js"
@@ -35,6 +32,7 @@ import {
   streamElements as streamEffectTextElements
 } from "./effect-text/run.js"
 import type { Lane } from "./policy.js"
+import type { ProgramSources } from "./program-sources.js"
 import { preloadProgram as preloadSealProgram, run as runSeal } from "./seal/run.js"
 import { preloadProgram as preloadSignProgram, run as runSign } from "./sign/run.js"
 import type { StreamElement } from "./stream-element.js"
@@ -43,8 +41,8 @@ type Definition = {
   readonly id: Id
   readonly card: Card
   readonly lane: Lane
-  readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>
-  readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>
+  readonly execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSources>
+  readonly preload: Effect.Effect<ProgramPreview, unknown, ProgramSources>
   readonly streamElements: (
     manifest: StreamManifest | null,
     runtime?: DspProviderRuntimeApi
@@ -53,8 +51,8 @@ type Definition = {
 
 const preloadFrom = (
   card: Card,
-  program: Effect.Effect<ProgramPreview["program"], unknown, ProgramSourceEnv>
-): Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv> =>
+  program: Effect.Effect<ProgramPreview["program"], unknown, ProgramSources>
+): Effect.Effect<ProgramPreview, unknown, ProgramSources> =>
   program.pipe(
     Effect.map((loadedProgram) => ({
       id: card.id,
@@ -67,8 +65,8 @@ const preloadFrom = (
 const makeDefinition = (
   card: Card,
   lane: Lane,
-  execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSourceEnv>,
-  preload: Effect.Effect<ProgramPreview, unknown, ProgramSourceEnv>,
+  execute: Effect.Effect<RunData, unknown, DspProviderRuntime | ProgramSources>,
+  preload: Effect.Effect<ProgramPreview, unknown, ProgramSources>,
   streamElements: (
     manifest: StreamManifest | null,
     runtime?: DspProviderRuntimeApi

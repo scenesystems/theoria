@@ -1,4 +1,4 @@
-import { FileSystem, HttpServerResponse } from "@effect/platform"
+import { HttpServerResponse } from "@effect/platform"
 import { Effect, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -15,25 +15,16 @@ import {
 import type { ReleaseStage } from "../../contracts/release-stage.js"
 import { DocsCatalog } from "../config/docs-catalog.js"
 import { serverReleaseStage } from "../config/release-stage.js"
-import { acceptsGzip } from "./static-encoding.js"
+import { contentTypeForPath, runtimeDataPrefix, StaticStore } from "../config/static-store.js"
 
-const fromFileUrl = (url: URL): string => decodeURIComponent(url.pathname)
+const indexPathname = "/index.html"
 
-const distRoot = fromFileUrl(new URL("../../../dist/", import.meta.url))
-const indexPath = `${distRoot}index.html`
-
-const RelativeAssetPath = Schema.String.pipe(
-  Schema.pattern(/^[A-Za-z0-9._/-]+$/u),
-  Schema.filter(
-    (value) =>
-      !value.startsWith("/")
-      && !value.endsWith("/")
-      && !value.includes("..")
-      && !value.includes("//")
-  )
+const AssetPathname = Schema.String.pipe(
+  Schema.pattern(/^\/[A-Za-z0-9._/-]+$/u),
+  Schema.filter((value) => !value.endsWith("/") && !value.includes("..") && !value.includes("//"))
 )
 
-const isRelativeAssetPath = Schema.is(RelativeAssetPath)
+const isAssetPathname = Schema.is(AssetPathname)
 const isKnownDemoId = Schema.is(Id)
 const deepDivePattern = /^\/demos\/([^/]+)\/?$/u
 
@@ -47,7 +38,7 @@ const isDocsPath = (pathname: string): boolean => pathname === "/docs" || pathna
 export const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
   Match.value(pathname).pipe(
     Match.when("/", () => true),
-    Match.when("/index.html", () => true),
+    Match.when(indexPathname, () => true),
     Match.orElse((value) =>
       isDocsPath(value) ||
       Option.match(deepDiveId(value), {
@@ -57,61 +48,30 @@ export const isHtmlPath = (pathname: string, stage: ReleaseStage): boolean =>
     )
   )
 
-const contentType = (
-  pathname: string
-):
-  | "text/html; charset=utf-8"
-  | "text/css; charset=utf-8"
-  | "application/javascript; charset=utf-8"
-  | "application/json; charset=utf-8"
-  | "image/svg+xml"
-  | "text/plain; charset=utf-8" =>
-  pathname.endsWith(".html")
-    ? "text/html; charset=utf-8"
-    : pathname.endsWith(".css")
-    ? "text/css; charset=utf-8"
-    : pathname.endsWith(".js")
-    ? "application/javascript; charset=utf-8"
-    : pathname.endsWith(".json")
-    ? "application/json; charset=utf-8"
-    : pathname.endsWith(".svg")
-    ? "image/svg+xml"
-    : "text/plain; charset=utf-8"
-
 export const cacheControlForPath = (pathname: string): string =>
-  pathname === "/index.html" || pathname === "/docs-data/manifest.json"
+  pathname === indexPathname || pathname === "/docs-data/manifest.json"
     ? "no-cache"
     : pathname.startsWith("/assets/") || /^\/docs-data\/[A-Za-z0-9._-]+\//u.test(pathname)
     ? "public, max-age=31536000, immutable"
     : "public, max-age=3600"
 
-const responseHeaders = (pathname: string, compressed = false) => ({
+const responseHeaders = (pathname: string) => ({
   "cache-control": cacheControlForPath(pathname),
-  "content-type": contentType(pathname),
-  vary: "accept-encoding",
-  ...(compressed ? { "content-encoding": "gzip" } : {})
+  vary: "accept-encoding"
 })
 
 export const notFoundResponse = () =>
   HttpServerResponse.text("Not found", {
     status: 404,
-    headers: responseHeaders("/not-found.txt")
+    headers: {
+      ...responseHeaders("/not-found.txt"),
+      "content-type": contentTypeForPath("/not-found.txt")
+    }
   })
 
-const staticAssetPath = (pathname: string, stage: ReleaseStage): Option.Option<string> =>
-  Match.value(pathname).pipe(
-    Match.when((value) => value.startsWith("/api/"), () => Option.none<string>()),
-    Match.when((value) => isHtmlPath(value, stage), () => Option.some(indexPath)),
-    Match.orElse((value) => {
-      const relativePath = value.startsWith("/") ? value.slice(1) : value
-      return isRelativeAssetPath(relativePath)
-        ? Option.some(`${distRoot}${relativePath}`)
-        : Option.none<string>()
-    })
-  )
-
-const headerPath = (pathname: string, stage: ReleaseStage): string =>
-  isHtmlPath(pathname, stage) ? "/index.html" : pathname
+/** Pathnames the public server refuses to serve even when a matching asset exists. */
+const isPrivatePath = (pathname: string): boolean =>
+  pathname.startsWith("/api/") || pathname.startsWith(runtimeDataPrefix)
 
 const titlePattern = /<title>[^<]*<\/title>/u
 const metaPattern = (nameOrProperty: string): RegExp =>
@@ -135,7 +95,7 @@ const injectMetadata = (
 ): string => {
   const metadata = Match.value(pathname).pipe(
     Match.when("/", () => metadataForHome()),
-    Match.when("/index.html", () => metadataForHome()),
+    Match.when(indexPathname, () => metadataForHome()),
     Match.orElse((value) =>
       isDocsPath(value)
         ? Option.match(docsManifest, {
@@ -174,49 +134,43 @@ const htmlStatus = (pathname: string, manifest: Option.Option<DocsManifest>): 20
     ? 404
     : 200
 
-export const staticResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
+const htmlResponse = (pathname: string) =>
   Effect.gen(function*() {
-    const fileSystem = yield* FileSystem.FileSystem
-    const releaseStage = yield* serverReleaseStage
+    const store = yield* StaticStore
     const docsCatalog = yield* DocsCatalog
     const docsManifest = isDocsPath(pathname)
       ? yield* Effect.option(docsCatalog.manifest)
       : Option.none()
-    const resolvedPath = staticAssetPath(pathname, releaseStage)
+    const html = yield* store.text(indexPathname)
 
-    return yield* Option.match(resolvedPath, {
-      onNone: () => Effect.succeed(notFoundResponse()),
-      onSome: (path) =>
-        fileSystem.exists(path).pipe(
-          Effect.catchAll(() => Effect.succeed(false)),
-          Effect.flatMap((exists) =>
-            Match.value(exists).pipe(
-              Match.when(true, () =>
-                isHtmlPath(pathname, releaseStage)
-                  ? fileSystem.readFileString(path).pipe(
-                    Effect.map((html) => injectMetadata(html, pathname, docsManifest)),
-                    Effect.flatMap((html) =>
-                      HttpServerResponse.text(html, {
-                        status: htmlStatus(pathname, docsManifest),
-                        headers: responseHeaders(headerPath(pathname, releaseStage))
-                      })
-                    ),
-                    Effect.catchAll(() => Effect.succeed(notFoundResponse()))
-                  )
-                  : Effect.gen(function*() {
-                    const compressedPath = `${path}.gz`
-                    const compressed = acceptsGzip(acceptEncoding)
-                      ? yield* fileSystem.exists(compressedPath).pipe(Effect.catchAll(() => Effect.succeed(false)))
-                      : false
-
-                    return yield* HttpServerResponse.file(compressed ? compressedPath : path, {
-                      contentType: contentType(pathname),
-                      headers: responseHeaders(headerPath(pathname, releaseStage), compressed)
-                    })
-                  }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))),
-              Match.orElse(() => Effect.succeed(notFoundResponse()))
-            )
-          )
-        )
+    return HttpServerResponse.text(injectMetadata(html, pathname, docsManifest), {
+      status: htmlStatus(pathname, docsManifest),
+      headers: {
+        ...responseHeaders(indexPathname),
+        "content-type": contentTypeForPath(indexPathname)
+      }
     })
+  }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))
+
+const assetResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
+  Effect.gen(function*() {
+    const store = yield* StaticStore
+    const asset = yield* store.response(pathname, acceptEncoding)
+
+    return Option.match(asset, {
+      onNone: notFoundResponse,
+      onSome: HttpServerResponse.setHeaders(responseHeaders(pathname))
+    })
+  })
+
+export const staticResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
+  Effect.gen(function*() {
+    const releaseStage = yield* serverReleaseStage
+
+    return yield* Match.value(pathname).pipe(
+      Match.when(isPrivatePath, () => Effect.succeed(notFoundResponse())),
+      Match.when((value) => isHtmlPath(value, releaseStage), htmlResponse),
+      Match.when(isAssetPathname, (value) => assetResponse(value, acceptEncoding)),
+      Match.orElse(() => Effect.succeed(notFoundResponse()))
+    )
   })
