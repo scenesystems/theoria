@@ -21,14 +21,10 @@ export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticS
     /** Read an asset as UTF-8 text. Fails when the asset does not exist. */
     readonly text: (pathname: string) => Effect.Effect<string, StaticStoreError>
     /**
-     * Stream an asset as an HTTP response carrying `content-type` (and
-     * `content-encoding` when the store serves a precompressed variant).
+     * Stream an asset as an HTTP response carrying `content-type`.
      * Resolves to `None` when the asset does not exist.
      */
-    readonly response: (
-      pathname: string,
-      acceptEncoding: Option.Option<string>
-    ) => Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>>
+    readonly response: (pathname: string) => Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>>
   }
 >() {}
 

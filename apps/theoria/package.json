@@ -14,7 +14,6 @@
     "test": "vitest run --config vitest.config.ts",
     "test:worker": "vitest run --config vitest.worker.config.ts",
     "build:web": "bun run docs:assets && vite build",
-    "build:bun": "bun run build:web && bun ../../scripts/compress-static-assets.ts",
     "build": "bun run check:all && bun run build:web",
     "preview:worker": "bun run build:web && wrangler dev --env=\"\"",
     "deploy:dry-run": "wrangler deploy --env=\"\" --dry-run --outdir .wrangler-out",

@@ -22,8 +22,6 @@ const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>
     yield* fileSystem.makeDirectory(`${distRoot}/assets`, { recursive: true })
     yield* fileSystem.writeFileString(`${distRoot}/index.html`, "<title>x</title>")
     yield* fileSystem.writeFileString(`${distRoot}/assets/app.js`, "console.log(1)")
-    // The store never inflates sidecars; any bytes stand in for the gzip payload.
-    yield* fileSystem.writeFileString(`${distRoot}/assets/app.js.gz`, "gzip-bytes")
     // `public/` holds a file `dist/` lacks, and a stale copy of one `dist/` has.
     yield* fileSystem.makeDirectory(`${publicRoot}/extra`, { recursive: true })
     yield* fileSystem.writeFileString(`${publicRoot}/extra/data.json`, "{\"public\":true}")
@@ -40,7 +38,7 @@ it.effect("Bun store searches roots in order and falls back to later roots", () 
       expect(yield* store.text("/index.html")).toBe("<title>x</title>")
       expect(yield* store.text("/extra/data.json")).toBe("{\"public\":true}")
 
-      const fallback = Option.getOrThrow(yield* store.response("/extra/data.json", Option.none()))
+      const fallback = Option.getOrThrow(yield* store.response("/extra/data.json"))
       expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
       expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
     })
@@ -56,31 +54,22 @@ it.effect("Bun store reads assets as text and reports missing ones", () =>
     })
   ))
 
-it.effect("Bun store streams assets with a content type and serves gzip sidecars", () =>
+it.effect("Bun store streams assets with a content type", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      const plain = yield* store.response("/assets/app.js", Option.none())
-      const plainResponse = Option.getOrThrow(plain)
-      expect(plainResponse.headers["content-type"]).toBe("application/javascript; charset=utf-8")
-      expect(plainResponse.headers["content-encoding"]).toBeUndefined()
-      expect(yield* bodyText(plainResponse)).toBe("console.log(1)")
-
-      const compressed = Option.getOrThrow(yield* store.response("/assets/app.js", Option.some("gzip, deflate, br")))
-      expect(compressed.headers["content-encoding"]).toBe("gzip")
-      expect(compressed.headers["content-type"]).toBe("application/javascript; charset=utf-8")
-      expect(yield* bodyText(compressed)).toBe("gzip-bytes")
-
-      const refused = yield* store.response("/assets/app.js", Option.some("gzip;q=0"))
-      expect(Option.getOrThrow(refused).headers["content-encoding"]).toBeUndefined()
+      const plain = Option.getOrThrow(yield* store.response("/assets/app.js"))
+      expect(plain.headers["content-type"]).toBe("application/javascript; charset=utf-8")
+      expect(plain.headers["content-encoding"]).toBeUndefined()
+      expect(yield* bodyText(plain)).toBe("console.log(1)")
     })
   ))
 
 it.effect("Bun store refuses traversal and missing files", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      expect(Option.isNone(yield* store.response("/../etc/passwd", Option.none()))).toBe(true)
-      expect(Option.isNone(yield* store.response("/assets/nope.js", Option.none()))).toBe(true)
-      expect(Option.isNone(yield* store.response("/assets/", Option.none()))).toBe(true)
+      expect(Option.isNone(yield* store.response("/../etc/passwd"))).toBe(true)
+      expect(Option.isNone(yield* store.response("/assets/nope.js"))).toBe(true)
+      expect(Option.isNone(yield* store.response("/assets/"))).toBe(true)
     })
   ))
 

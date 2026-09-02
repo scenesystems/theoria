@@ -32,8 +32,7 @@ export const cacheControlForPath = (pathname: string): string =>
     : "public, max-age=3600"
 
 const responseHeaders = (pathname: string) => ({
-  "cache-control": cacheControlForPath(pathname),
-  vary: "accept-encoding"
+  "cache-control": cacheControlForPath(pathname)
 })
 
 export const notFoundResponse = () =>
@@ -124,10 +123,10 @@ const htmlResponse = (pathname: string) =>
     })
   }).pipe(Effect.catchAll(() => Effect.succeed(notFoundResponse())))
 
-const assetResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
+const assetResponse = (pathname: string) =>
   Effect.gen(function*() {
     const store = yield* StaticStore
-    const asset = yield* store.response(pathname, acceptEncoding)
+    const asset = yield* store.response(pathname)
 
     return Option.match(asset, {
       onNone: notFoundResponse,
@@ -135,10 +134,10 @@ const assetResponse = (pathname: string, acceptEncoding: Option.Option<string>) 
     })
   })
 
-export const staticResponse = (pathname: string, acceptEncoding: Option.Option<string>) =>
+export const staticResponse = (pathname: string) =>
   Match.value(pathname).pipe(
     Match.when(isPrivatePath, () => Effect.succeed(notFoundResponse())),
     Match.when(isHtmlPath, htmlResponse),
-    Match.when(isAssetPathname, (value) => assetResponse(value, acceptEncoding)),
+    Match.when(isAssetPathname, assetResponse),
     Match.orElse(() => Effect.succeed(notFoundResponse()))
   )

@@ -11,7 +11,6 @@
     "api-reference-review.ts",
     "api-reference-program.ts",
     "api-reference/**/*.ts",
-    "compress-static-assets.ts",
     "ensure-docs-assets.ts",
     "../packages/digest/scripts/fixture-schemas.ts"
   ],

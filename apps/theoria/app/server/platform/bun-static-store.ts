@@ -8,9 +8,9 @@ import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/sta
  * `StaticStore` backed by directories on disk, searched in order.
  *
  * Used by the Bun server (`apps/theoria/server.ts`), which lists the built
- * `dist/` first and the source `public/` second so that generated runtime data
- * is reachable before `vite build` has copied it. Serves `.gz` sidecars
- * written by `scripts/compress-static-assets.ts` when the client accepts gzip.
+ * `dist/` first and the source `public/` second so that the docs data is
+ * reachable before `vite build` has copied it. Assets are served as stored;
+ * the Cloudflare deployment compresses at the edge.
  */
 
 const AssetPathname = Schema.String.pipe(
@@ -19,26 +19,6 @@ const AssetPathname = Schema.String.pipe(
 )
 
 const isAssetPathname = Schema.is(AssetPathname)
-
-export const acceptsGzip = (header: Option.Option<string>): boolean =>
-  Option.exists(header, (value) => {
-    const preferences = Arr.map(value.split(","), (entry) => {
-      const [coding, ...parameters] = entry.trim().toLocaleLowerCase("en-US").split(";")
-      const quality = Arr.findFirst(parameters, (parameter) => parameter.trim().startsWith("q="))
-      return {
-        coding,
-        accepted: Option.match(quality, {
-          onNone: () => true,
-          onSome: (parameter) => Number.parseFloat(parameter.trim().slice(2)) > 0
-        })
-      }
-    })
-    return Option.match(Arr.findFirst(preferences, ({ coding }) => coding === "gzip"), {
-      onNone: () =>
-        Option.exists(Arr.findFirst(preferences, ({ coding }) => coding === "*"), ({ accepted }) => accepted),
-      onSome: ({ accepted }) => accepted
-    })
-  })
 
 const trimTrailingSlash = (root: string): string => root.endsWith("/") ? root.slice(0, -1) : root
 
@@ -71,29 +51,23 @@ const make = (roots: ReadonlyArray<string>) =>
         )
         : Effect.fail(new StaticStoreError({ pathname, message: "Invalid asset pathname." }))
 
-    const fileResponse = (pathname: string, path: string, acceptEncoding: Option.Option<string>) =>
-      Effect.gen(function*() {
-        const compressedPath = `${path}.gz`
-        const compressed = acceptsGzip(acceptEncoding) ? yield* exists(compressedPath) : false
-
-        return yield* HttpServerResponse.file(compressed ? compressedPath : path, {
-          headers: {
-            "content-type": contentTypeForPath(pathname),
-            ...(compressed ? { "content-encoding": "gzip" } : {})
-          }
-        })
+    const fileResponse = (pathname: string, path: string) =>
+      HttpServerResponse.file(path, {
+        headers: {
+          "content-type": contentTypeForPath(pathname)
+        }
       }).pipe(
         Effect.provideService(HttpPlatform.HttpPlatform, platform),
         Effect.map(Option.some),
         Effect.catchAll(() => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()))
       )
 
-    const response = (pathname: string, acceptEncoding: Option.Option<string>) =>
+    const response = (pathname: string) =>
       locate(pathname).pipe(
         Effect.flatMap(
           Option.match({
             onNone: () => Effect.succeed(Option.none<HttpServerResponse.HttpServerResponse>()),
-            onSome: (path) => fileResponse(pathname, path, acceptEncoding)
+            onSome: (path) => fileResponse(pathname, path)
           })
         )
       )

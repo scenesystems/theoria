@@ -3,10 +3,8 @@
 This runbook is for maintainers of the public Theoria website. Local users do
 not need any of this configuration.
 
-The site is moving from Railway to Cloudflare Workers. The Cloudflare setup
-below is the target. The Railway section at the end stays valid until the DNS
-cutover and is then removed together with the `RAILWAY_*` fallbacks in
-`app/server/config`.
+The site runs on Cloudflare Workers. `apps/theoria/server.ts` still serves the
+same app with Bun for local development, but nothing deploys it.
 
 ## Cloudflare Workers
 
@@ -53,14 +51,13 @@ Wrangler and checks the per-target names, routes, and `RELEASE_STAGE` values.
 
 Cache lifetimes for directly served assets come from `public/_headers`;
 lifetimes for Worker responses come from `cacheControlForPath`. Cloudflare
-compresses responses at the edge, so the Cloudflare build does not emit `.gz`
-sidecars (`bun run build:web`); the Bun server build keeps them
-(`bun run build:bun`).
+compresses responses at the edge, so the build ships assets uncompressed.
 
 ### Variables and secrets
 
-`RELEASE_STAGE` is declared per target in `wrangler.jsonc` and is authoritative.
-`BUILD_SHA` is passed at deploy time (`--var BUILD_SHA:<sha>`) and surfaces as
+`RELEASE_STAGE` is declared per target in `wrangler.jsonc`; an unset value (a
+local run) means `preview`, and an unsupported value stops the Worker from
+starting. `BUILD_SHA` is passed at deploy time (`--var BUILD_SHA:<sha>`) and surfaces as
 `meta.buildSha` in API responses. No target needs any secret: the site serves
 docs and the Imagined Place build, both computed from the repository. The
 Worker exposes every string binding to Effect `Config`, so any variable
@@ -242,33 +239,25 @@ Cloudflare API is unavailable, delete the Worker (`theoria-pr-<N>`) and the
 certificate by hand, or rerun the failed `Remove PR Preview` job from the
 Actions tab.
 
-## Cutover from Railway
+## Taking over a hostname
 
-Cloudflare and Railway can run side by side until DNS moves, because the
-production Worker only claims `theoria.scenesystems.io` when it is first
-deployed with that Custom Domain.
+The Worker claims `theoria.scenesystems.io` through the Custom Domain in
+`wrangler.jsonc`. In the workflow Wrangler runs without a TTY and therefore
+sends `override_existing_dns_record` and `override_existing_origin` with the
+Custom Domain request, so an existing DNS record for the hostname (for example
+a CNAME to a previous host) is replaced by the Worker's record in one API call
+and there is no gap without a record. The `production` job's verify step polls
+`/api/health/live` for up to ten minutes until the hostname reports the
+deployed `buildSha`, which covers DNS propagation and, for a new hostname,
+certificate issuance.
 
-1. Complete the Cloudflare account, token, and GitHub environment setup above.
-2. Merge the Cloudflare deployment change. The push to `main` deploys staging;
-   verify `https://theoria.staging.scenesystems.io` by hand as well as through
-   the workflow checks.
-3. If `theoria.scenesystems.io` currently has a DNS record pointing at Railway,
-   delete it: Wrangler cannot create a Custom Domain over an existing CNAME.
-4. Approve the `production` deployment. Wrangler creates the DNS record and
-   certificate for `theoria.scenesystems.io`.
-5. Verify production with the checklist above, then remove the Railway service,
-   `railway.json`, the `build:bun` script and `.gz` sidecar step, and the
-   `RAILWAY_*` fallbacks in `app/server/config`.
+That is the whole cutover from a previous host: merge, let staging deploy and
+verify, approve `production`, and let the verify step pass. Afterwards:
 
-## Railway (until cutover)
-
-The current production service deploys from the repository root using
-[`railway.json`](../../railway.json). Keep Railway's **Root Directory** empty so
-the build can resolve every workspace package. The configuration builds the web
-app with `bun run build:bun`, starts the Bun server, and uses
-`GET /api/health/live` as its health check. Railway supplies `PORT`,
-`RAILWAY_ENVIRONMENT_NAME`, and `RAILWAY_GIT_COMMIT_SHA`.
-
-Set `RELEASE_STAGE=production` on the production service. When `RELEASE_STAGE`
-is absent the server falls back to the Railway environment name and then
-`NODE_ENV`; an invalid `RELEASE_STAGE` value fails startup.
+1. Confirm in the Cloudflare dashboard that `theoria.scenesystems.io` is now a
+   Workers Custom Domain (DNS → Records shows it managed by the Worker).
+2. Decommission the previous host so it stops building on pushes; nothing in
+   the repository refers to it anymore.
+3. Watch `wrangler tail theoria` or the Workers Logs for the first hours; the
+   Worker reports `buildSha` on `/api/health/live` if anything needs to be
+   correlated with a release.

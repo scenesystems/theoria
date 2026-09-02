@@ -1,7 +1,8 @@
 /**
- * Theoria Bun entrypoint: serves the built web bundle from `dist/`, falling
- * back to `public/` so generated runtime data is available before `vite build`
- * (the API is usable during development without a web build).
+ * Theoria Bun entrypoint for local development: serves the built web bundle
+ * from `dist/`, falling back to `public/` so the docs data is available before
+ * `vite build` (the API is usable during development without a web build).
+ * Deployments run the same app as a Cloudflare Worker (`worker.ts`).
  *
  * Run from repo root:
  * `bun run app:theoria`
