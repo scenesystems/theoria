@@ -191,6 +191,8 @@ jobs:
       ZONE_NAME: scenesystems.io
 
     steps:
+      # Uses the script-settings endpoint rather than the script download, which
+      # answers 204 for a Worker that exists (observed in production cleanups).
       - name: Find preview Worker
         id: preview
         env:
@@ -199,7 +201,7 @@ jobs:
         run: |
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER_NAME")
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$WORKER_NAME/script-settings")
           case "$status" in
             200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
             404) echo "exists=false" >> "$GITHUB_OUTPUT" ;;
