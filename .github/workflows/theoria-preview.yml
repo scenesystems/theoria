@@ -27,29 +27,112 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy:
-    name: PR Preview
+  # Identifies the pull request a completed build belongs to without trusting
+  # `workflow_run.pull_requests`, whose order and contents are not guaranteed.
+  # The build is previewed only when exactly one open pull request from this
+  # repository into `main` currently has the built commit as its head.
+  resolve:
+    name: Resolve pull request
     if: >-
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.pull_requests[0].number != null
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      pr-number: ${{ steps.pull-request.outputs.number }}
+    env:
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Find the open pull request for this build
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          numbers=$(
+            gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+              --field state=open \
+              --field base=main \
+              --field head="$GITHUB_REPOSITORY_OWNER:$HEAD_BRANCH" \
+              --field per_page=100 |
+            jq -r --arg repo "$GITHUB_REPOSITORY" --arg sha "$HEAD_SHA" '
+              [ .[]
+                | select(.state == "open")
+                | select(.head.sha == $sha)
+                | select(.head.repo.full_name == $repo)
+                | select(.base.repo.full_name == $repo)
+                | select(.base.ref == "main")
+                | .number
+              ] | @tsv
+            '
+          )
+
+          case "$numbers" in
+            "")
+              echo "No open pull request into main has $HEAD_SHA as its head; skipping preview"
+              echo "number=" >> "$GITHUB_OUTPUT"
+              ;;
+            *[!0-9]*)
+              echo "Ambiguous pull requests for $HEAD_BRANCH@$HEAD_SHA: $numbers" >&2
+              exit 1
+              ;;
+            *)
+              echo "number=$numbers" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  deploy:
+    name: PR Preview
+    needs: resolve
+    if: needs.resolve.outputs.pr-number != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
       name: staging
-      url: https://theoria-pr-${{ github.event.workflow_run.pull_requests[0].number }}.staging.scenesystems.io
+      url: https://theoria-pr-${{ needs.resolve.outputs.pr-number }}.staging.scenesystems.io
+    # Waits for, rather than cancels, an in-flight run for the same pull
+    # request so a late build can never interrupt the `remove` job's cleanup.
+    # The stale revision check below skips deployment once the queue drains.
     concurrency:
-      group: theoria-pr-${{ github.event.workflow_run.pull_requests[0].number }}
-      cancel-in-progress: true
+      group: theoria-pr-${{ needs.resolve.outputs.pr-number }}
+      cancel-in-progress: false
     env:
-      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
 
     steps:
-      - name: Confirm current open pull request
-        id: pull-request
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: ./.github/actions/setup
+
+      - name: Download build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: theoria-${{ github.event.workflow_run.head_sha }}
+          path: ${{ runner.temp }}/theoria-build
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - uses: ./.github/actions/theoria-build-check
+        with:
+          path: ${{ runner.temp }}/theoria-build
+
+      - name: Stage build
+        env:
+          BUILD_DIR: ${{ runner.temp }}/theoria-build
+        run: |
+          rm -rf apps/theoria/dist apps/theoria/.wrangler-out
+          cp -R "$BUILD_DIR/dist" apps/theoria/dist
+          cp -R "$BUILD_DIR/.wrangler-out" apps/theoria/.wrangler-out
+
+      - name: Confirm the pull request still points at this build
+        id: current
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -65,52 +148,8 @@ jobs:
             echo "Skipping preview for PR $PR_NUMBER: state=$state current_head=$head_sha"
           fi
 
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        if: steps.pull-request.outputs.deploy == 'true'
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-
-      - uses: ./.github/actions/setup
-        if: steps.pull-request.outputs.deploy == 'true'
-
-      - name: Download build
-        if: steps.pull-request.outputs.deploy == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: theoria-${{ github.event.workflow_run.head_sha }}
-          path: ${{ runner.temp }}/theoria-build
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
-
-      - uses: ./.github/actions/theoria-build-check
-        if: steps.pull-request.outputs.deploy == 'true'
-        with:
-          path: ${{ runner.temp }}/theoria-build
-
-      - name: Stage build
-        if: steps.pull-request.outputs.deploy == 'true'
-        env:
-          BUILD_DIR: ${{ runner.temp }}/theoria-build
-        run: |
-          rm -rf apps/theoria/dist apps/theoria/.wrangler-out
-          cp -R "$BUILD_DIR/dist" apps/theoria/dist
-          cp -R "$BUILD_DIR/.wrangler-out" apps/theoria/.wrangler-out
-
-      - name: Reconfirm current pull request revision
-        if: steps.pull-request.outputs.deploy == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          read -r state head_sha < <(
-            gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
-              --jq '[.state, .head.sha] | @tsv'
-          )
-
-          test "$state" = "open"
-          test "$head_sha" = "$HEAD_SHA"
-
       - name: Deploy PR preview
-        if: steps.pull-request.outputs.deploy == 'true'
+        if: steps.current.outputs.deploy == 'true'
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -126,7 +165,7 @@ jobs:
       # The first deploy of a pull request creates a new Custom Domain, and its
       # certificate can take several minutes to issue; allow up to ten.
       - uses: ./.github/actions/theoria-verify-deployment
-        if: steps.pull-request.outputs.deploy == 'true'
+        if: steps.current.outputs.deploy == 'true'
         with:
           url: https://theoria-pr-${{ env.PR_NUMBER }}.staging.scenesystems.io
           build-sha: ${{ env.HEAD_SHA }}
@@ -208,7 +247,9 @@ jobs:
             exit 1
           fi
 
-          # `status=all` also lists packs that are already deleted; skip those.
+          # Only the Advanced Certificate whose sole host is the preview
+          # hostname is ours. `status=all` also lists packs that are already
+          # deleted or being deleted; skip those, but retry `deletion_timed_out`.
           packs=()
           page=1
           while :; do
@@ -217,8 +258,9 @@ jobs:
             mapfile -t page_packs < <(
               jq -r --arg host "$PREVIEW_HOST" '
                 .result[]
+                | select(.type == "advanced")
                 | select(.hosts == [$host])
-                | select(.status | IN("deleted", "pending_deletion", "deletion_timed_out") | not)
+                | select(.status | IN("deleted", "pending_deletion") | not)
                 | .id
               ' <<< "$response"
             )
