@@ -1,0 +1,120 @@
+name: Verify Theoria deployment
+description: >
+  Probe a deployed Theoria site until it serves the expected build, then check the
+  routes and indexing policy described in `apps/theoria/DEPLOYMENT.md`.
+
+inputs:
+  url:
+    description: Origin of the deployment, for example `https://theoria.staging.scenesystems.io`
+    required: true
+  build-sha:
+    description: Commit SHA the deployment must report as `meta.buildSha`
+    required: true
+  noindex:
+    description: Whether every response must carry the noindex robots header (`true` for staging and previews)
+    required: true
+  attempts:
+    description: How many times to poll `/api/health/live` before giving up
+    default: "30"
+  delay-seconds:
+    description: Seconds to wait between polls
+    default: "10"
+
+runs:
+  using: composite
+  steps:
+    - name: Wait for the build to go live
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.url }}
+        BUILD_SHA: ${{ inputs.build-sha }}
+        ATTEMPTS: ${{ inputs.attempts }}
+        DELAY_SECONDS: ${{ inputs.delay-seconds }}
+      run: |
+        set -euo pipefail
+        base="${BASE_URL%/}"
+
+        for attempt in $(seq 1 "$ATTEMPTS"); do
+          served=$(curl --silent --max-time 20 "$base/api/health/live" | jq -r '.meta.buildSha // empty' 2>/dev/null || true)
+          if [ "$served" = "$BUILD_SHA" ]; then
+            echo "$base serves build $BUILD_SHA (attempt $attempt)"
+            exit 0
+          fi
+          echo "Attempt $attempt/$ATTEMPTS: $base serves '${served:-<unreachable>}', waiting for $BUILD_SHA"
+          sleep "$DELAY_SECONDS"
+        done
+
+        echo "$base did not serve build $BUILD_SHA within $ATTEMPTS attempts" >&2
+        exit 1
+
+    - name: Check routes and indexing policy
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.url }}
+        NOINDEX: ${{ inputs.noindex }}
+      run: |
+        set -euo pipefail
+        base="${BASE_URL%/}"
+        failures=0
+        headers=$(mktemp)
+        body=$(mktemp)
+
+        # header_value <name>: value of the first matching response header, or empty
+        header_value() {
+          { grep -i "^$1:" "$headers" || true; } | head -n1 | cut -d' ' -f2- | tr -d '\r'
+        }
+
+        # check <path> <expected status> <content-type prefix or "-">
+        check() {
+          local path="$1" expected_status="$2" expected_type="$3"
+          local status content_type robots
+          status=$(curl --silent --max-time 20 --output "$body" --dump-header "$headers" --write-out '%{http_code}' "$base$path" || true)
+          content_type=$(header_value content-type)
+          robots=$(header_value x-robots-tag)
+
+          if [ "$status" != "$expected_status" ]; then
+            echo "FAIL $path: status $status, expected $expected_status" >&2
+            failures=$((failures + 1))
+            return
+          fi
+          if [ "$expected_type" != "-" ] && [[ "$content_type" != "$expected_type"* ]]; then
+            echo "FAIL $path: content-type '$content_type', expected '$expected_type'" >&2
+            failures=$((failures + 1))
+            return
+          fi
+          if [ "$NOINDEX" = "true" ] && [[ "$robots" != *noindex* ]]; then
+            echo "FAIL $path: expected X-Robots-Tag: noindex, got '$robots'" >&2
+            failures=$((failures + 1))
+            return
+          fi
+          if [ "$NOINDEX" != "true" ] && [ -n "$robots" ]; then
+            echo "FAIL $path: production must not send X-Robots-Tag, got '$robots'" >&2
+            failures=$((failures + 1))
+            return
+          fi
+          echo "ok   $path → $status ${content_type:-}"
+        }
+
+        check / 200 text/html
+        check /docs 200 text/html
+        check /docs/not-a-package/not-a-page 404 text/html
+        check /api/capabilities 200 application/json
+        check /sitemap.xml 200 application/xml
+        check /runtime-data/package-versions.json 404 -
+
+        # A content-hashed script from the HTML shell is served directly by the
+        # assets layer, so this exercises `public/_headers` rather than the Worker.
+        curl --silent --max-time 20 "$base/" > "$body"
+        asset=$(grep -o -m1 '/assets/[^"]*\.js' "$body" || true)
+        if [ -n "$asset" ]; then
+          check "$asset" 200 text/javascript
+        else
+          echo "FAIL /: HTML shell references no /assets/*.js bundle" >&2
+          failures=$((failures + 1))
+        fi
+
+        if [ "$failures" -ne 0 ]; then
+          echo "$failures check(s) failed against $base" >&2
+          exit 1
+        fi
+        echo "All checks passed against $base"
