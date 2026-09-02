@@ -61,19 +61,19 @@ export class Signature<
 /**
  * Selects the decoded input represented by a {@link Signature}.
  *
- * @typeParam S - Value carrying the signature's input schema.
+ * @typeParam S - Value carrying the schema that decodes module inputs.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type Input<S extends Signature> = Schema.Schema.Type<S["inputSchema"]>
+export type Input<S extends { readonly inputSchema: Schema.Schema.Any }> = Schema.Schema.Type<S["inputSchema"]>
 
 /**
  * Selects the decoded output represented by a {@link Signature}.
  *
- * @typeParam S - Value carrying the signature's output schema.
+ * @typeParam S - Value carrying the schema that decodes module outputs.
  *
  * @since 0.1.0
  * @category type-level
  */
-export type Output<S extends Signature> = Schema.Schema.Type<S["outputSchema"]>
+export type Output<S extends { readonly outputSchema: Schema.Schema.Any }> = Schema.Schema.Type<S["outputSchema"]>
