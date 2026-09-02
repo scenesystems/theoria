@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
@@ -124,6 +125,22 @@ it.effect("passes other assets through and hides runtime data", () =>
     expect((yield* get(worker.handler, "/missing.js")).status).toBe(404)
     expect((yield* get(worker.handler, runtimeDataPathnames.programSources)).status).toBe(404)
     expect((yield* get(worker.handler, "/docs-data/manifest.json")).status).toBe(200)
+
+    yield* Effect.promise(worker.dispose)
+  }))
+
+it.effect("marks every non-canonical host as noindex", () =>
+  Effect.gen(function*() {
+    const worker = yield* workerFor({ RELEASE_STAGE: "production" })
+
+    const canonical = yield* get(worker.handler, "/", { host: "theoria.scenesystems.io" })
+    expect(canonical.headers.get("x-robots-tag")).toBeNull()
+
+    const staging = yield* get(worker.handler, "/", { host: "theoria.staging.scenesystems.io" })
+    expect(staging.headers.get("x-robots-tag")).toBe("noindex")
+
+    const previewApi = yield* get(worker.handler, "/api/health/live", { host: "theoria-pr-7.staging.scenesystems.io" })
+    expect(previewApi.headers.get("x-robots-tag")).toBe("noindex")
 
     yield* Effect.promise(worker.dispose)
   }))

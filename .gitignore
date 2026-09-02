@@ -22,6 +22,12 @@ packages/*/test/**/*.js
 # Generated Theoria runtime data (package versions, demo program sources)
 /apps/theoria/public/runtime-data/
 
+# Cloudflare Wrangler state, dry-run bundles, and local secrets
+.wrangler/
+/apps/theoria/.wrangler-out/
+.dev.vars
+.dev.vars.*
+
 # Code coverage
 coverage/
 *.lcov

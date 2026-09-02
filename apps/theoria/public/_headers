@@ -1,0 +1,23 @@
+# Headers for assets served directly by Cloudflare's static-assets layer.
+# Responses produced by the Worker (HTML shell, API, sitemap) set their own
+# headers in app/server; this file never applies to them.
+# Cache lifetimes mirror cacheControlForPath in app/server/routes/static.ts.
+
+/*
+  X-Content-Type-Options: nosniff
+
+# Vite emits content-hashed filenames under /assets.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Per-package docs data is versioned by directory; the manifest at
+# /docs-data/manifest.json keeps the default revalidate-every-time policy.
+/docs-data/:package/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Keep non-production hostnames out of search indexes.
+https://theoria.staging.scenesystems.io/*
+  X-Robots-Tag: noindex
+
+https://:preview.staging.scenesystems.io/*
+  X-Robots-Tag: noindex

@@ -1,0 +1,83 @@
+// Cloudflare Workers configuration for the Theoria site.
+//
+// One Worker script (`worker.ts`) serves the API, the HTML shell with
+// per-route metadata, and the built web bundle (`dist/`) as static assets.
+//
+// Deployment targets (see `DEPLOYMENT.md`):
+//   production  wrangler deploy --env ""          theoria.scenesystems.io
+//   staging     wrangler deploy --env staging     theoria.staging.scenesystems.io
+//   preview     wrangler deploy --env preview --name theoria-pr-<N> --domain theoria-pr-<N>.staging.scenesystems.io
+//
+// `vars` are not inherited by named environments, so each target declares
+// `RELEASE_STAGE` explicitly. `routes` are inherited, so non-production
+// environments override them to avoid claiming the production hostname.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "theoria",
+  "main": "./worker.ts",
+  "compatibility_date": "2026-08-31",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "limits": {
+    // Effect fibers for demo runs are CPU-bound; the Paid plan default is 30 s.
+    "cpu_ms": 30000
+  },
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // The Worker owns HTML routing (metadata injection, docs 404s, stage gating),
+    // so the assets layer must not rewrite or fall back on its own.
+    "html_handling": "none",
+    "not_found_handling": "none",
+    // Paths the Worker must see even when a matching asset exists. Everything
+    // else is served directly from the edge when an asset matches and falls
+    // through to the Worker otherwise (docs pages, demo pages, unknown paths).
+    // `test/server/wrangler-config.test.ts` keeps this list in sync with
+    // `app/server/routes/static.ts`.
+    "run_worker_first": [
+      "/",
+      "/index.html",
+      "/api/*",
+      "/docs",
+      "/docs/*",
+      "/demos/*",
+      "/sitemap.xml",
+      "/runtime-data/*"
+    ]
+  },
+  "vars": {
+    "RELEASE_STAGE": "production"
+  },
+  "routes": [
+    {
+      "pattern": "theoria.scenesystems.io",
+      "custom_domain": true
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "theoria-staging",
+      "vars": {
+        // Staging mirrors the production surface so it is a faithful rehearsal.
+        "RELEASE_STAGE": "production"
+      },
+      "routes": [
+        {
+          "pattern": "theoria.staging.scenesystems.io",
+          "custom_domain": true
+        }
+      ]
+    },
+    "preview": {
+      // Name and hostname are supplied per pull request at deploy time.
+      "vars": {
+        "RELEASE_STAGE": "preview"
+      },
+      "routes": []
+    }
+  }
+}

@@ -10,6 +10,7 @@ import { ExecutionPolicyLive } from "./demos/policy.js"
 import { ProgramSourcesLive } from "./demos/program-sources.js"
 import { DemoRateLimiterLive } from "./demos/rate-limiter.js"
 import { ParticipantsLive } from "./imagined-place/authority.js"
+import { indexingPolicy } from "./indexing-policy.js"
 import { app } from "./router.js"
 import { securityHeaders } from "./security-headers.js"
 
@@ -21,6 +22,8 @@ import { securityHeaders } from "./security-headers.js"
  * built web bundle and a `ConfigProvider` for deployment variables.
  */
 export const publicApp = app.pipe(
+  // Innermost first: `indexingPolicy` reads the host after proxy headers apply.
+  indexingPolicy,
   HttpMiddleware.xForwardedHeaders,
   securityHeaders
 )
