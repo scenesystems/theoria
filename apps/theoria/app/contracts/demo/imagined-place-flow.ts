@@ -29,12 +29,15 @@ export const stageMinWidth = 280
 export const stageMaxWidth = 900
 export const stagePadding = 16
 
+/** A narrow stage still needs room for the whole description in one column. */
+const stageMinHeight = 640
+
 /** The working canvas for a stage width; the rendered stage is cut down to what is used. */
 export const stageFor = (requestedWidth: number): Stage => {
   const stageWidth = Math.round(Math.min(stageMaxWidth, Math.max(stageMinWidth, requestedWidth)))
   return {
     stageWidth,
-    stageHeight: Math.round(stageWidth * 1.1),
+    stageHeight: Math.round(Math.max(stageMinHeight, stageWidth * 1.1)),
     padding: stagePadding,
     lineHeight: semanticsFor(placeTextRole).lineHeight
   }
@@ -64,12 +67,12 @@ export type Meander = {
 type Bounds = readonly [low: number, high: number]
 
 export const meanderBounds: Record<keyof Meander, Bounds> = {
-  edge: [0.55, 0.9],
-  swing: [0, 0.16],
+  edge: [0.5, 0.9],
+  swing: [0, 0.3],
   phase: [-Math.PI, Math.PI],
   turns: [0.5, 2.5],
   top: [0.04, 0.6],
-  step: [0.08, 0.24]
+  step: [0.03, 0.24]
 }
 
 const clamp = (low: number, high: number, value: number): number => Math.min(high, Math.max(low, value))

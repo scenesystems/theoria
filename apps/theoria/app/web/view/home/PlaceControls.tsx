@@ -47,8 +47,7 @@ export const PlaceControls = ({ disabled }: { readonly disabled: boolean }) => {
       </Layer>
       <ChoicePills
         activeIndex={activeIndex}
-        appearance="segment"
-        className="w-full"
+        className="gap-1.5"
         disabled={disabled}
         onSelect={(index) => {
           Option.map(Arr.get(placeScenarios, index), (scenario) => {

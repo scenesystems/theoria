@@ -12,6 +12,7 @@ import {
   placeScenarioMeta
 } from "../../contracts/imagined-place.js"
 import { ImaginedPlaceClient } from "../services/ImaginedPlaceClient.js"
+import type { PlaceStep } from "../view/home/placeSteps.js"
 
 /**
  * State for the home-page demo.
@@ -74,21 +75,29 @@ export const placeBuildingAtom: AtomType.Atom<boolean> = Atom.make(
 
 export const placeStageMinWidth = stageMinWidth
 export const placeStageMaxWidth = stageMaxWidth
-export const defaultPlaceStageWidth = 640
 
-/** The width the visitor asked for with the slider. */
-export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(defaultPlaceStageWidth)
+/**
+ * Narrower screens the same version can be drawn for; the full column is
+ * always the last choice. Nothing about the choice reaches the server.
+ */
+export const placeStagePresets: ReadonlyArray<number> = [320, 520]
+
+/** The width the visitor asked for; by default, as wide as the column allows. */
+export const placeStageRequestAtom: AtomType.Writable<number> = Atom.make(stageMaxWidth)
 
 /** The width the stage column actually has, reported by a resize observer. */
 export const placeStageContainerWidthAtom: AtomType.Writable<number> = Atom.make(0)
 
-/** The slider cannot ask for more than the column can show. */
-export const placeStageSliderMaxAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
+/** The widest stage the column can show. */
+export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) => {
   const container = get(placeStageContainerWidthAtom)
   return container > 0 ? Math.max(stageMinWidth, Math.min(stageMaxWidth, container)) : stageMaxWidth
 })
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */
 export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
-  (get: AtomType.Context) => stageFor(Math.min(get(placeStageRequestAtom), get(placeStageSliderMaxAtom))).stageWidth
+  (get: AtomType.Context) => stageFor(Math.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
 )
+
+/** Which step of the story the visitor is looking at; the code panel follows it. */
+export const placeStepAtom: AtomType.Writable<PlaceStep> = Atom.make<PlaceStep>("compose")

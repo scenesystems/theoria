@@ -20,12 +20,19 @@ const stageFrameBorderPx = 1
 /** Below this diameter a marker shows its number; the legend carries the name. */
 const namedMarkerMinDiameter = 56
 
+/** Position with `translate`, which the compositor animates without re-laying out the text. */
 const markerStyle = (marker: PlaceMarker): CSSProperties => ({
-  left: `${(marker.x - marker.radius).toFixed(1)}px`,
-  top: `${(marker.y - marker.radius).toFixed(1)}px`,
+  translate: `${(marker.x - marker.radius).toFixed(1)}px ${(marker.y - marker.radius).toFixed(1)}px`,
   width: `${(marker.radius * 2).toFixed(1)}px`,
   height: `${(marker.radius * 2).toFixed(1)}px`
 })
+
+/**
+ * Every trial the search accepts moves a marker a little; a merged proposal's
+ * marker grows in from nothing. Both stop under `prefers-reduced-motion`.
+ */
+const markerMotionClassName =
+  "transition-[translate,width,height,opacity,scale] duration-200 ease-out starting:scale-90 starting:opacity-0 motion-reduce:transition-none"
 
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
@@ -40,7 +47,7 @@ const Marker = ({ index, marker }: { readonly index: number; readonly marker: Pl
   return (
     <Layer
       aria-label={markerLabel(marker)}
-      className={`absolute flex items-center justify-center overflow-hidden rounded-full border px-1 text-center transition-[left,top,width,height] duration-150 ease-out ${tone.borderSubtle} ${tone.bgSubtle}`}
+      className={`absolute left-0 top-0 flex items-center justify-center overflow-hidden rounded-full border px-1 text-center ${markerMotionClassName} ${tone.borderSubtle} ${tone.bgSubtle}`}
       role="img"
       style={markerStyle(marker)}
     >
@@ -86,7 +93,7 @@ const Drawing = ({ frame }: { readonly frame: PlaceRenderFrame }) => {
   return (
     <Layer
       aria-busy={frame.phase === "running"}
-      className="relative"
+      className="relative transition-[height,width] duration-200 ease-out motion-reduce:transition-none"
       data-place-stage="content"
       data-place-stage-width={String(projection.stageWidth)}
       style={{ height: `${projection.stageHeight}px`, width: `${projection.stageWidth}px` }}

@@ -375,6 +375,52 @@ and retry).
   silently disabled `position: sticky` for the whole page; the root now uses
   `overflow-x-clip`, as the docs shell already did.
 
+### Third pass: one spine, four steps, no random metrics
+
+The second pass was reviewed as a set of correct parts without a line through
+them: the visitor could not tell in what order the packages ran, the metric
+strip was numbers without a question, and the slider asked for a decision that
+had no meaning. Three research passes (narrative demo patterns on library
+sites, CSS-only motion for state changes, provenance and attribution UI) fed
+this redesign.
+
+- One story spine. Four steps in pipeline order, each labelled with a verb and
+  the packages it uses as small toned pills that link to the docs: Compose
+  (effect-dsp, effect-inference) → Propose (sign, seal) → Record (digest,
+  sign) → Arrange (effect-text, effect-math, effect-search). Steps one to three
+  run down the left rail under a vertical line with a dot per step (visible
+  from `lg`); Arrange is the sticky right column because the drawing is the
+  result of the other three. Below `lg` the stage still comes first. Step
+  numbers are gone; the spine carries the order.
+- One selected step. `placeStepAtom` holds the current step. Clicking a step
+  name (an `aria-pressed` button) or a tab under "How it's built" selects it,
+  and the code panel shows that step's snippet, labelled `Step · pkg, pkg`.
+  Step definitions and snippets live in `placeSteps.ts`.
+- One vocabulary for actors. You (sign tone), Neighbor (seal tone), Proposer
+  program (dsp tone) everywhere: proposal cards, feature chips, markers, the
+  lineage, and a legend that is always under the stage.
+- Record is a timeline, not a table: `v1 · Origin`, `v2 · Current · Built from
+v1`, what changed (`4 features from your brief`, `+ Open seat · Neighbor`),
+  the truncated content ID, and `You signed · key ‹8 hex›`.
+- "Drawn at" presets replaced the slider: 320 px, 520 px and the full column
+  width, shown only when at least two fit with 80 px between them. The point
+  is the one comparison that matters (the drawing changes, the content ID does
+  not), and the phone, which has no room to compare, hides them.
+- The search trace is a real trace: a 176 × 36 sparkline of every trial's
+  loss on a log scale with the running best as a step line, and the text
+  `36 trials · best loss x.xxx`. It replaced the metric strip.
+- Motion is CSS only. Markers are positioned with `translate` and transition
+  translate, size and opacity over 200 ms with `@starting-style` entry; the
+  stage transitions its size; everything honours `prefers-reduced-motion`.
+- The layout model was retuned so markers cluster instead of forming a
+  diagonal column (`meanderBounds` edge 0.5–0.9, swing 0–0.3, step 0.03–0.24)
+  and the stage has a 640 px minimum height so narrow stages are not punished
+  for overflow. At 780 px the stage height fell from 502 to 353 and the best
+  loss from 1.89 to 1.35; at 324 px (a phone) the loss fell from 14.3 to 4.3.
+- Verified at 1440 × 900, 820 × 1180 and 390 × 844, light and dark: no
+  horizontal overflow, step ↔ tab sync, merge toggles change the content ID
+  and the lineage, presets change the drawing and not the ID.
+
 ## Files
 
 - `app/contracts/imagined-place.ts`: scenario, roles, features, composition,
@@ -394,9 +440,10 @@ and retry).
 - `render.ts`: the server-side search (tests and the CLI walkthrough).
 - `app/web/atoms/imagined-place.ts`, `imagined-place-render.ts`: controls,
   build, stage width, and the browser-side step-by-step search.
-- `app/web/view/home/`: `ImaginedPlaceDemo`, `PlaceControls`,
-  `PlaceProposalCard`, `PlaceRenderColumn`, `PlaceStage`, `PlaceLineage`,
-  `PlaceEvidence`, `placeViewModel`.
+- `app/web/view/home/`: `ImaginedPlaceDemo`, `PlaceStepCard`, `placeSteps`,
+  `PlaceControls`, `PlaceProposals`, `PlaceProposalCard`, `PlaceLineage`,
+  `PlaceArrangement`, `PlaceStage`, `PlaceSearchTrace`, `PlaceHowItsBuilt`,
+  `placeViewModel`.
 - `run.ts`: `buildPlace`.
 - `test/server/imagined-place.test.ts`: composition for every pattern;
   lineage; declined proposals keep identity and signature; every signature

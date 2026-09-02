@@ -32,6 +32,8 @@ import { placeArtifactAtom, placeStageWidthAtom } from "./imagined-place.js"
 export type PlaceRenderFrame = {
   readonly phase: "running" | "complete"
   readonly trial: number
+  /** The loss of every trial so far, in order: what the search actually tried. */
+  readonly losses: ReadonlyArray<number>
   readonly rendering: PlaceRendering
 }
 
@@ -40,16 +42,33 @@ const renderRuntime = Atom.runtime(Layer.empty)
 /** Long enough to see the markers settle, short enough that 36 trials finish in about a second. */
 const frameDelay = Duration.millis(28)
 
-type Best = {
+type Progress = {
   readonly arrangement: Arrangement
   readonly loss: number
+  readonly losses: ReadonlyArray<number>
 }
 
-const frame = (best: Best, stage: Stage, trial: number, phase: PlaceRenderFrame["phase"]): PlaceRenderFrame => ({
+const frame = (
+  progress: Progress,
+  stage: Stage,
+  trial: number,
+  phase: PlaceRenderFrame["phase"]
+): PlaceRenderFrame => ({
   phase,
   trial,
-  rendering: renderingFor({ arrangement: best.arrangement, bestLoss: best.loss, stage, trials: trial })
+  losses: progress.losses,
+  rendering: renderingFor({ arrangement: progress.arrangement, bestLoss: progress.loss, stage, trials: trial })
 })
+
+const advance = (current: Option.Option<Progress>, arrangement: Arrangement, loss: number): Progress =>
+  Option.match(current, {
+    onNone: () => ({ arrangement, loss, losses: [loss] }),
+    onSome: (progress) => ({
+      arrangement: loss < progress.loss ? arrangement : progress.arrangement,
+      loss: Math.min(loss, progress.loss),
+      losses: Arr.append(progress.losses, loss)
+    })
+  })
 
 const renderFailed = (message: string) => new DemoExecutionError({ code: "execution-failed", message, retryable: true })
 
@@ -71,7 +90,7 @@ const renderStream = (
           trials: renderTrials,
           direction: "minimize"
         })
-        const bestRef = yield* Ref.make(Option.none<Best>())
+        const progressRef = yield* Ref.make(Option.none<Progress>())
 
         yield* Effect.forEach(
           Arr.range(1, renderTrials),
@@ -82,14 +101,11 @@ const renderStream = (
               const loss = arrangement.quality.loss
               yield* Study.tell(handle, asked.trialNumber, loss)
 
-              const best = yield* Ref.updateAndGet(
-                bestRef,
-                Option.match({
-                  onNone: () => Option.some({ arrangement, loss }),
-                  onSome: (current) => Option.some(loss < current.loss ? { arrangement, loss } : current)
-                })
+              const progress = yield* Ref.updateAndGet(
+                progressRef,
+                (current) => Option.some(advance(current, arrangement, loss))
               )
-              yield* Option.match(best, {
+              yield* Option.match(progress, {
                 onNone: () => Effect.void,
                 onSome: (found) => emit(frame(found, stage, trial, trial === renderTrials ? "complete" : "running"))
               })

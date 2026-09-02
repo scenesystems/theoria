@@ -1,73 +1,23 @@
 import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, Option } from "effect"
-import * as Arr from "effect/Array"
+import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
+import { Option } from "effect"
 
-import type { PlaceBuild, ProposalRecord } from "../../../contracts/imagined-place-result.js"
-import type { ParticipantRole, PlaceBuildRequest } from "../../../contracts/imagined-place.js"
+import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import { placeRenderFrameAtom } from "../../atoms/imagined-place-render.js"
-import { placeBuildAtom, placeBuildingAtom, placeControlsAtom } from "../../atoms/imagined-place.js"
+import { placeBuildAtom } from "../../atoms/imagined-place.js"
 import { ActionButton } from "../primitives/ActionButton.js"
 import { surfaceMaterials } from "../primitives/designSystem.js"
 import { Layer, Section, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { SkeletonSection } from "../primitives/Skeleton.js"
+import { ShimmerLine } from "../primitives/Skeleton.js"
 import { StageBanner } from "../primitives/StageBanner.js"
 
-import { PlaceControls } from "./PlaceControls.js"
-import { PlaceEvidence } from "./PlaceEvidence.js"
+import { PlaceArrangement } from "./PlaceArrangement.js"
+import { PlaceComposition } from "./PlaceComposition.js"
+import { PlaceHowItsBuilt } from "./PlaceHowItsBuilt.js"
 import { PlaceLineage } from "./PlaceLineage.js"
-import { PlaceProposalCard } from "./PlaceProposalCard.js"
-import { PlaceRenderColumn } from "./PlaceRenderColumn.js"
-
-const accepts = (controls: PlaceBuildRequest, role: ParticipantRole): boolean =>
-  Match.value(role).pipe(
-    Match.when("neighbor", () => controls.acceptNeighbor),
-    Match.when("program", () => controls.acceptProgram),
-    Match.when("author", () => false),
-    Match.exhaustive
-  )
-
-const toggled = (controls: PlaceBuildRequest, role: ParticipantRole): PlaceBuildRequest =>
-  Match.value(role).pipe(
-    Match.when("neighbor", () => ({ ...controls, acceptNeighbor: !controls.acceptNeighbor })),
-    Match.when("program", () => ({ ...controls, acceptProgram: !controls.acceptProgram })),
-    Match.when("author", () => controls),
-    Match.exhaustive
-  )
-
-const Proposals = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => {
-  const controls = useAtomValue(placeControlsAtom)
-  const setControls = useAtomSet(placeControlsAtom)
-  const building = useAtomValue(placeBuildingAtom)
-
-  return (
-    <Stack className="gap-3">
-      <SemanticText as="p" className="text-ink-900" role="row-label" text="Proposals" variant="compact" />
-      {Option.match(build, {
-        onNone: () => <SkeletonSection />,
-        onSome: (value) => (
-          <Layer className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            {Arr.map(value.proposals, (record: ProposalRecord) => (
-              <PlaceProposalCard
-                accepted={accepts(controls, record.proposal.proposer)}
-                disabled={building}
-                key={record.proposal.proposer}
-                note={record.proposal.proposer === value.evidence.sealedNote.from
-                  ? Option.some(value.evidence.sealedNote)
-                  : Option.none()}
-                onToggle={() => {
-                  setControls(toggled(controls, record.proposal.proposer))
-                }}
-                record={record}
-              />
-            ))}
-          </Layer>
-        )
-      })}
-    </Stack>
-  )
-}
+import { PlaceProposals } from "./PlaceProposals.js"
+import { PlaceStepCard } from "./PlaceStepCard.js"
 
 const BuildFailed = () => {
   const retry = useAtomRefresh(placeBuildAtom)
@@ -80,11 +30,39 @@ const BuildFailed = () => {
   )
 }
 
+const Pending = () => (
+  <Stack className="gap-2.5 pt-1">
+    <ShimmerLine width="w-1/2" />
+    <ShimmerLine width="w-3/4" />
+  </Stack>
+)
+
 /**
- * The home-page demo: one imagined place, three participants. The server
- * composes, digests, signs and seals; this page draws. On small screens the
- * drawing comes first and the controls follow; from `lg` up the controls sit
- * left of a stage that stays in view while the proposals scroll.
+ * The story runs down the left as three steps on one spine — Compose,
+ * Propose, Record — and the fourth, Arrange, is the stage on the right, which
+ * stays in view while the steps scroll past it. On small screens the stage
+ * comes first and the steps follow.
+ */
+const Steps = ({ build }: { readonly build: Option.Option<PlaceBuild> }) => (
+  <Stack className="relative gap-8 lg:before:absolute lg:before:bottom-3 lg:before:left-[5px] lg:before:top-3 lg:before:w-px lg:before:bg-stage-300/90">
+    <PlaceStepCard step="compose">
+      <PlaceComposition build={build} />
+    </PlaceStepCard>
+    <PlaceStepCard step="propose">
+      <PlaceProposals build={build} />
+    </PlaceStepCard>
+    <PlaceStepCard step="record">
+      {Option.match(build, {
+        onNone: () => <Pending />,
+        onSome: (value) => <PlaceLineage build={value} />
+      })}
+    </PlaceStepCard>
+  </Stack>
+)
+
+/**
+ * The home-page demo: one imagined place, three participants, four steps. The
+ * server composes, digests, signs and seals; this page draws.
  */
 export const ImaginedPlaceDemo = () => {
   const result = useAtomValue(placeBuildAtom)
@@ -105,26 +83,18 @@ export const ImaginedPlaceDemo = () => {
           {Result.isFailure(result) ? <BuildFailed /> : null}
         </Stack>
 
-        <Layer className="grid gap-6 lg:grid-cols-[minmax(18rem,21rem)_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10 lg:gap-y-8">
-          <Layer className="order-2 lg:order-none lg:col-start-1 lg:row-start-1">
-            <PlaceControls disabled={false} />
+        <Layer className="grid gap-8 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)] lg:gap-x-10">
+          <Layer className="order-2 min-w-0 lg:order-none">
+            <Steps build={build} />
           </Layer>
-          <Layer className="order-3 lg:order-none lg:col-start-1 lg:row-start-2">
-            <Proposals build={build} />
+          <Layer className="order-1 min-w-0 lg:sticky lg:top-6 lg:order-none lg:self-start">
+            <PlaceStepCard step="arrange">
+              <PlaceArrangement build={build} frame={frame} />
+            </PlaceStepCard>
           </Layer>
-          <Stack className="order-1 min-w-0 gap-6 lg:sticky lg:top-6 lg:order-none lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-            <PlaceRenderColumn build={build} frame={frame} />
-            {Option.match(build, {
-              onNone: () => null,
-              onSome: (value) => <PlaceLineage evidence={value.evidence} />
-            })}
-          </Stack>
         </Layer>
 
-        {Option.match(build, {
-          onNone: () => null,
-          onSome: (value) => <PlaceEvidence build={value} frame={frame} />
-        })}
+        <PlaceHowItsBuilt />
       </Stack>
     </Section>
   )
