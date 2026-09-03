@@ -6,6 +6,7 @@ import {
   type DocsManifest,
   type DocsSearchIndex
 } from "@theoria/docs-model"
+import { convertApiPackage } from "./convert-package.js"
 import { generateApiPackage } from "./generate-package.js"
 import { makeApiDocLinks } from "./links.js"
 import { type ApiReferenceManifest } from "./model.js"
@@ -26,7 +27,6 @@ export const generateApiReference = (input: {
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const links = makeApiDocLinks(input.sourcePackages)
     const browserVersionRoot = path.join(input.browserOutputRoot, input.revision)
     // Both roots are fully regenerated. Clearing the browser root drops the
     // `docs-data/<revision>/` trees of earlier builds, which would otherwise
@@ -42,9 +42,15 @@ export const generateApiReference = (input: {
       { discard: true }
     )
 
-    const generatedPackages = yield* Effect.forEach(
+    const convertedPackages = yield* Effect.forEach(
       input.sourcePackages,
-      (sourcePackage) => generateApiPackage({ ...input, browserVersionRoot, links, sourcePackage }),
+      (sourcePackage) => convertApiPackage({ ...input, sourcePackage }),
+      { concurrency: 4 }
+    )
+    const links = makeApiDocLinks(convertedPackages)
+    const generatedPackages = yield* Effect.forEach(
+      convertedPackages,
+      (converted) => generateApiPackage({ ...input, browserVersionRoot, links, converted }),
       { concurrency: 4 }
     )
     const packages = Arr.map(generatedPackages, (generated) => generated.package)

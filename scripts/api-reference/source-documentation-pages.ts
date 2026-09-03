@@ -1,15 +1,16 @@
 import { FileSystem } from "@effect/platform"
 import { Array as Arr, Effect, Option, Order } from "effect"
-import { type Application, Comment, type DeclarationReflection, type ProjectReflection } from "typedoc"
+import { type Application, Comment } from "typedoc"
 
 import { type ApiPage } from "@theoria/docs-model"
 import { leadingModuleComment } from "./comments.js"
+import { type ApiConvertedModule } from "./converted.js"
 import { hasSourceDocumentationPages, sourceDocumentationSlug } from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
 import { ApiReferenceGenerationError, type ApiReferenceRoute } from "./model.js"
 import { categoriesForExports } from "./presentation.js"
 import { apiPagePath } from "./reflections.js"
-import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
+import { type ApiSourcePackage } from "./source.js"
 import { documentation } from "./typedoc-comments.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
@@ -24,16 +25,14 @@ const duplicateSlug = (sources: ReadonlyArray<string>): Option.Option<string> =>
 
 export const makeSourceDocumentationPages = (input: {
   readonly app: Application
-  readonly project: ProjectReflection
-  readonly reflection: DeclarationReflection
   readonly revision: string
   readonly links: ReadonlyArray<ApiDocLink>
   readonly sourcePackage: ApiSourcePackage
-  readonly module: ApiSourceModule
+  readonly module: ApiConvertedModule
   readonly route: ApiReferenceRoute
   readonly page: ApiPage
 }) => {
-  if (!hasSourceDocumentationPages(input.sourcePackage, input.module)) {
+  if (!hasSourceDocumentationPages(input.sourcePackage, input.module.source)) {
     return Effect.succeed<ReadonlyArray<ApiPage>>([])
   }
 
@@ -51,7 +50,7 @@ export const makeSourceDocumentationPages = (input: {
     )
     const sources = Arr.sort(
       Arr.dedupe(Arr.map(
-        Arr.filter(sourceRoute.publicExports, (entry) => entry.sourceFile.relative !== input.module.relative),
+        Arr.filter(sourceRoute.publicExports, (entry) => entry.sourceFile.relative !== input.module.source.relative),
         (entry) => entry.sourceFile.relative
       )),
       Order.string
@@ -89,8 +88,8 @@ export const makeSourceDocumentationPages = (input: {
         const sourceText = yield* fileSystem.readFileString(sourceFile.absolute).pipe(Effect.orDie)
         const comment = yield* Option.match(leadingModuleComment({
           app: input.app,
-          project: input.project,
-          reflection: input.reflection,
+          project: input.module.project,
+          reflection: input.module.reflection,
           source: sourceText,
           sourcePath: sourceFile.absolute
         }), {

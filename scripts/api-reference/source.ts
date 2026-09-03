@@ -1,23 +1,32 @@
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Record as Rec, Schema } from "effect"
 
-import {
-  type PackageReleaseManifest,
-  PackageReleaseManifestJson,
-  type PackagePublicEntrypoint,
-  type PackagePublicExport,
-  packagePublicEntrypoints,
-  packagePublicExports,
-  typeScriptProgramFromConfig
-} from "@theoria/source-proof"
+import { ApiReferenceGenerationError } from "./model.js"
 
-import {
-  ApiReferenceGenerationError
-} from "./model.js"
+const PackageManifestSchema = Schema.Struct({
+  name: Schema.String,
+  version: Schema.String,
+  description: Schema.optional(Schema.String),
+  private: Schema.optional(Schema.Boolean),
+  exports: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+})
+
+const PackageManifestJson = Schema.parseJson(PackageManifestSchema)
+
+export type PackageManifest = typeof PackageManifestSchema.Type
+
+export type SourceFilePath = {
+  readonly absolute: string
+  readonly relative: string
+}
+
+export type PackagePublicEntrypoint = {
+  readonly subpath: string
+  readonly sourceFile: SourceFilePath
+}
 
 export type ApiSourceRoute = {
   readonly entrypoint: PackagePublicEntrypoint
-  readonly publicExports: ReadonlyArray<PackagePublicExport>
 }
 
 export type ApiSourceModule = {
@@ -31,8 +40,51 @@ export type ApiSourcePackage = {
   readonly directoryName: string
   readonly root: string
   readonly description: string
-  readonly manifest: PackageReleaseManifest
+  readonly manifest: PackageManifest
   readonly modules: ReadonlyArray<ApiSourceModule>
+}
+
+export const toForwardSlashes = (path: Path.Path, value: string): string => value.split(path.sep).join("/")
+
+const isTypeScriptSourceTarget = (value: string): boolean =>
+  value.startsWith("./src/") && (value.endsWith(".ts") || value.endsWith(".mts"))
+
+const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> => {
+  if (typeof target === "string") {
+    return isTypeScriptSourceTarget(target) ? Option.some(target) : Option.none()
+  }
+
+  if (target === null || typeof target !== "object") {
+    return Option.none()
+  }
+
+  const candidates = Arr.isArray(target) ? target : Rec.values(target)
+
+  return Arr.reduce(candidates, Option.none<string>(), (accumulator, value) =>
+    Option.orElse(accumulator, () => firstTypeScriptSourceTarget(value)))
+}
+
+// The manifest is the surface authority: only `exports` subpaths that point at
+// a TypeScript source file are public API modules. `./package.json` and
+// build-artifact-only targets are ignored.
+const packagePublicEntrypoints = (
+  path: Path.Path,
+  packageRoot: string,
+  manifest: PackageManifest
+): ReadonlyArray<PackagePublicEntrypoint> => {
+  const sortedEntries = Arr.fromIterable(Rec.toEntries(manifest.exports)).sort(([left], [right]) =>
+    left.localeCompare(right)
+  )
+
+  return Arr.filterMap(sortedEntries, ([subpath, target]) =>
+    Option.map(firstTypeScriptSourceTarget(target), (sourceTarget) => {
+      const absolute = path.join(packageRoot, sourceTarget)
+
+      return {
+        subpath,
+        sourceFile: { absolute, relative: toForwardSlashes(path, path.relative(packageRoot, absolute)) }
+      }
+    }))
 }
 
 export const sourceModuleSubpath = (relativeSource: string): string => {
@@ -56,10 +108,7 @@ const canonicalEntrypoint = (
   )
 }
 
-const groupModules = (
-  entrypoints: ReadonlyArray<PackagePublicEntrypoint>,
-  publicExports: ReadonlyArray<PackagePublicExport>
-): ReadonlyArray<ApiSourceModule> => {
+const groupModules = (entrypoints: ReadonlyArray<PackagePublicEntrypoint>): ReadonlyArray<ApiSourceModule> => {
   const sourceFiles = Arr.dedupe(Arr.map(entrypoints, (entrypoint) => entrypoint.sourceFile.absolute))
 
   return Arr.filterMap(sourceFiles, (sourceFile) => {
@@ -73,21 +122,13 @@ const groupModules = (
       absolute: canonical.sourceFile.absolute,
       relative: canonical.sourceFile.relative,
       canonicalSubpath: canonical.subpath,
-      routes: Arr.map(matchingEntrypoints, (entrypoint) => ({
-        entrypoint,
-        publicExports: Arr.filter(publicExports, (entry) => entry.subpath === entrypoint.subpath)
-      }))
+      routes: Arr.map(matchingEntrypoints, (entrypoint) => ({ entrypoint }))
     }))
   })
 }
 
-const hasInternalSegment = (subpath: string): boolean =>
-  subpath.replace(/^\.\//u, "").split("/").some((segment) => segment.toLocaleLowerCase("en-US") === "internal")
-
-const sourceHasInternalSegment = (sourceFile: string): boolean =>
-  sourceFile.replaceAll("\\", "/").split("/").some((segment) =>
-    segment.toLocaleLowerCase("en-US") === "internal"
-  )
+const hasInternalSegment = (value: string): boolean =>
+  value.replace(/^\.\//u, "").split("/").some((segment) => segment.toLocaleLowerCase("en-US") === "internal")
 
 const conflictingRoute = (modules: ReadonlyArray<ApiSourceModule>) => {
   const routes = Arr.flatMap(modules, (module) => Arr.map(module.routes, ({ entrypoint }) => ({
@@ -115,7 +156,7 @@ const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
     }
 
     const manifestJson = yield* fileSystem.readFileString(manifestPath).pipe(Effect.orDie)
-    const manifest = yield* Schema.decodeUnknown(PackageReleaseManifestJson)(manifestJson).pipe(Effect.orDie)
+    const manifest = yield* Schema.decodeUnknown(PackageManifestJson)(manifestJson).pipe(Effect.orDie)
 
     if (manifest.private === true) {
       return Option.none<ApiSourcePackage>()
@@ -130,11 +171,10 @@ const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
       })
     }
 
-    const entrypoints = yield* packagePublicEntrypoints(root, manifest)
+    const entrypoints = packagePublicEntrypoints(path, root, manifest)
     const internalEntrypoints = Arr.filter(
       entrypoints,
-      (entrypoint) =>
-        hasInternalSegment(entrypoint.subpath) || sourceHasInternalSegment(entrypoint.sourceFile.relative)
+      (entrypoint) => hasInternalSegment(entrypoint.subpath) || hasInternalSegment(entrypoint.sourceFile.relative)
     )
 
     if (internalEntrypoints.length > 0) {
@@ -144,28 +184,7 @@ const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
       })
     }
 
-    const program = yield* typeScriptProgramFromConfig(path.join(root, "tsconfig.src.json")).pipe(Effect.orDie)
-    const publicExports = packagePublicExports(program, entrypoints)
-    const incompleteExports = Arr.filterMap(publicExports, (entry) => {
-      const missing = [
-        ...(entry.summary === null ? ["summary"] : []),
-        ...(entry.since === null ? ["@since"] : []),
-        ...(entry.category === null ? ["@category"] : [])
-      ]
-
-      return missing.length === 0
-        ? Option.none()
-        : Option.some(`${entry.subpath}#${entry.exportName} (${missing.join(", ")})`)
-    })
-
-    if (incompleteExports.length > 0) {
-      return yield* new ApiReferenceGenerationError({
-        packageName: manifest.name,
-        detail: `public API documentation is incomplete: ${incompleteExports.join(", ")}`
-      })
-    }
-
-    const modules = groupModules(entrypoints, publicExports)
+    const modules = groupModules(entrypoints)
     const collision = conflictingRoute(modules)
 
     if (Option.isSome(collision)) {
@@ -175,13 +194,7 @@ const loadSourcePackage = (packagesRoot: string, directoryName: string) =>
       })
     }
 
-    return Option.some({
-      directoryName,
-      root,
-      description,
-      manifest,
-      modules
-    })
+    return Option.some<ApiSourcePackage>({ directoryName, root, description, manifest, modules })
   })
 
 export const discoverApiSourcePackages = (packagesRoot: string) =>

@@ -61,6 +61,7 @@ export class ApiReferenceGenerationError extends Schema.TaggedError<ApiReference
   }
 ) {}
 
+export type ApiImportKind = typeof ApiImportKindSchema.Type
 export type ApiReferenceFacet = typeof ApiReferenceFacetSchema.Type
 export type ApiReferenceImport = typeof ApiReferenceImportSchema.Type
 export type ApiReferenceRoute = typeof ApiReferenceRouteSchema.Type

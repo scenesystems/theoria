@@ -1,4 +1,4 @@
-import type { PackagePublicExport } from "@theoria/source-proof"
+import { type PackagePublicExport } from "./public-exports.js"
 import { apiPagePath, routeSlug } from "./reflections.js"
 import { type ApiSourceModule, type ApiSourcePackage, sourceModuleSubpath } from "./source.js"
 

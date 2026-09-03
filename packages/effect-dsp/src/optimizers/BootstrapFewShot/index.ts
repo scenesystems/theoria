@@ -88,15 +88,7 @@ export type BootstrapFewShotOptions<
   readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
 }>
 
-export type {
-  /**
-   * Receives each bootstrap event before optimization advances.
-   *
-   * @since 0.1.0
-   * @category type-level
-   */
-  BootstrapEventSink
-} from "./runtime/round.js"
+export type { BootstrapEventSink } from "./runtime/round.js"
 
 /**
  * Discards bootstrap events without adding failures or requirements.

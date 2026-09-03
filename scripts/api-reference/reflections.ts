@@ -5,12 +5,13 @@ import {
   ReflectionKind
 } from "typedoc"
 
+import { type ApiConvertedModule } from "./converted.js"
 import {
   ApiReferenceGenerationError,
   type ApiReferenceImport,
   type ApiReferenceRoute
 } from "./model.js"
-import { type ApiSourceModule, type ApiSourcePackage } from "./source.js"
+import { type ApiSourcePackage } from "./source.js"
 
 export const routeSlug = (subpath: string): string => subpath === "." ? "" : subpath.replace(/^\.\//u, "")
 
@@ -44,7 +45,7 @@ const reflectionsForImport = (
 
 const makeImports = (
   packageName: string,
-  module: ApiSourceModule,
+  module: ApiConvertedModule,
   reflection: DeclarationReflection,
   subpath: string
 ) => {
@@ -60,20 +61,6 @@ const makeImports = (
           return yield* new ApiReferenceGenerationError({
             packageName,
             detail: `${subpath} export ${entry.exportName} has no semantic TypeDoc reflection`
-          })
-        }
-
-        if (entry.summary === null) {
-          return yield* new ApiReferenceGenerationError({
-            packageName,
-            detail: `${subpath} export ${entry.exportName} has no documentation summary`
-          })
-        }
-
-        if (entry.since === null || entry.category === null) {
-          return yield* new ApiReferenceGenerationError({
-            packageName,
-            detail: `${subpath} export ${entry.exportName} is missing ${entry.since === null ? "@since" : "@category"}`
           })
         }
 
@@ -106,19 +93,18 @@ const makeImports = (
 
 export const makeRoutes = (
   sourcePackage: ApiSourcePackage,
-  module: ApiSourceModule,
-  reflection: DeclarationReflection
+  module: ApiConvertedModule
 ) =>
   Effect.forEach(module.routes, ({ entrypoint }) =>
     Effect.map(
-      makeImports(sourcePackage.manifest.name, module, reflection, entrypoint.subpath),
+      makeImports(sourcePackage.manifest.name, module, module.reflection, entrypoint.subpath),
       (imports): ApiReferenceRoute => {
         const slug = routeSlug(entrypoint.subpath)
 
         return {
           subpath: entrypoint.subpath,
           slug,
-          canonical: entrypoint.subpath === module.canonicalSubpath,
+          canonical: entrypoint.subpath === module.source.canonicalSubpath,
           path: apiPagePath(sourcePackage.directoryName, slug),
           page: pageOutputPath(sourcePackage.directoryName, slug),
           imports
