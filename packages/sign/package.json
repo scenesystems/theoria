@@ -51,7 +51,7 @@
     "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
-    "@noble/curves": "2.0.1",
+    "@noble/curves": "2.4.0",
     "@noble/hashes": "2.0.1",
     "@noble/post-quantum": "0.5.4"
   },
