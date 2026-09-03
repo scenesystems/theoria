@@ -168,11 +168,10 @@ jobs:
 
       # Wrangler runs without a TTY here, so it replaces any existing DNS record
       # for the hostname with the Worker's Custom Domain (this is how the site
-      # moved off its previous host). The first deploy may also wait on a
-      # certificate; allow up to ten minutes.
+      # moved off its previous host). The verify action waits up to ten minutes
+      # for the record and, on a first deploy, the certificate.
       - uses: ./.github/actions/theoria-verify-deployment
         with:
           url: https://theoria.scenesystems.io
           build-sha: ${{ needs.build.outputs.build-sha }}
           noindex: "false"
-          attempts: "60"

@@ -246,10 +246,12 @@ The Worker claims `theoria.scenesystems.io` through the Custom Domain in
 sends `override_existing_dns_record` and `override_existing_origin` with the
 Custom Domain request, so an existing DNS record for the hostname (for example
 a CNAME to a previous host) is replaced by the Worker's record in one API call
-and there is no gap without a record. The `production` job's verify step polls
-`/api/health/live` for up to ten minutes until the hostname reports the
-deployed `buildSha`, which covers DNS propagation and, for a new hostname,
-certificate issuance.
+and there is no gap without a record. Every verify step polls `/api/health/live`
+for up to ten minutes until the hostname reports the deployed `buildSha`. That
+covers certificate issuance for a new hostname and the zone's wildcard record:
+a resolver that answered for the hostname before Wrangler created its record
+keeps the wildcard answer for the wildcard's 300-second TTL, and the runner
+cannot bypass its resolver.
 
 That is the whole cutover from a previous host: merge, let staging deploy and
 verify, approve `production`, and let the verify step pass. Afterwards:
