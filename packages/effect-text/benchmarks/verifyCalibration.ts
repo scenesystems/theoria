@@ -2,7 +2,11 @@ import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Schema } from "effect"
 
-import { CalibrationVerificationArtifactJson, computeVerificationArtifact, verifyBenchmarkGate } from "./calibrationVerificationShared.js"
+import {
+  CalibrationVerificationArtifactJson,
+  computeVerificationArtifact,
+  verifyBenchmarkGate
+} from "./calibrationVerificationShared.js"
 
 const artifactUrl = new URL("./results/calibration-verification.json", import.meta.url)
 

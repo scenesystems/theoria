@@ -4,12 +4,7 @@ import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import { unified } from "unified"
 
-import {
-  type DocsGuideSummary,
-  type DocsSearchEntry,
-  type GuideBlock,
-  type GuidePage
-} from "@theoria/docs-model"
+import { type DocsGuideSummary, type DocsSearchEntry, type GuideBlock, type GuidePage } from "@theoria/docs-model"
 import { guideBlock, guideSlug, inlineParts, inlineText } from "./guide-markdown.js"
 import { type ApiSourcePackage } from "./source.js"
 
@@ -71,8 +66,7 @@ const blocksFor = (
   nodes: ReadonlyArray<RootContent>,
   packageSlug: string,
   revision: string
-): ReadonlyArray<GuideBlock> =>
-  Arr.getSomes(Arr.map(nodes, (node) => guideBlock({ node, packageSlug, revision })))
+): ReadonlyArray<GuideBlock> => Arr.getSomes(Arr.map(nodes, (node) => guideBlock({ node, packageSlug, revision })))
 
 const blockText = (block: GuideBlock): string =>
   block.kind === "paragraph" || block.kind === "quote"
@@ -93,11 +87,9 @@ const excludedGuide = (title: string): boolean =>
 const gettingStartedSection = (title: string): boolean =>
   /^(?:installation|basic use|minimal (?:example|study))$/iu.test(title.trim())
 
-const examplesSection = (title: string): boolean =>
-  /^examples(?: and reference)?$/iu.test(title.trim())
+const examplesSection = (title: string): boolean => /^examples(?: and reference)?$/iu.test(title.trim())
 
-const includesCode = (blocks: ReadonlyArray<GuideBlock>): boolean =>
-  Arr.some(blocks, (block) => block.kind === "code")
+const includesCode = (blocks: ReadonlyArray<GuideBlock>): boolean => Arr.some(blocks, (block) => block.kind === "code")
 
 export const enrichGuideBlocks = (
   title: string,
@@ -139,7 +131,8 @@ const makePage = (input: {
   },
   title: input.title,
   summary: summaryFor(input.blocks, input.sourcePackage.description),
-  sourceUrl: `https://github.com/scenesystems/theoria/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/README.md`,
+  sourceUrl:
+    `https://github.com/scenesystems/theoria/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/README.md`,
   blocks: input.blocks,
   anchors: Arr.filterMap(input.blocks, (block) =>
     block.kind === "heading"
@@ -196,16 +189,17 @@ export const buildPackageGuides = (input: {
   })
   const guidePages = Arr.map(
     Arr.filter(publicSections, (section) => !gettingStartedSection(section.title)),
-    (section) => makePage({
-      ...input,
-      title: section.title,
-      slug: guideSlug(section.title),
-      blocks: enrichGuideBlocks(
-        section.title,
-        blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision),
-        input.example
-      )
-    })
+    (section) =>
+      makePage({
+        ...input,
+        title: section.title,
+        slug: guideSlug(section.title),
+        blocks: enrichGuideBlocks(
+          section.title,
+          blocksFor(section.nodes, input.sourcePackage.directoryName, input.revision),
+          input.example
+        )
+      })
   )
   const pages = [overview, gettingStarted, ...guidePages]
   const slugs = ["", "getting-started", ...Arr.map(guidePages, (page) => guideSlug(page.title))]
@@ -213,8 +207,10 @@ export const buildPackageGuides = (input: {
   return {
     pages,
     overview: summaryForPage(input.revision, overview, ""),
-    guides: Arr.map(Arr.zip(slugs.slice(1), pages.slice(1)), ([slug, page]) =>
-      summaryForPage(input.revision, page, slug)),
+    guides: Arr.map(
+      Arr.zip(slugs.slice(1), pages.slice(1)),
+      ([slug, page]) => summaryForPage(input.revision, page, slug)
+    ),
     searchEntries: Arr.map(Arr.zip(slugs, pages), ([slug, page]) => searchEntry(page, slug))
   }
 }

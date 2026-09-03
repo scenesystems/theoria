@@ -56,9 +56,7 @@ const listPackageDirectories = Effect.gen(function*() {
           ? entry
           : undefined
       )
-    ),
-    { concurrency: "unbounded" }
-  )
+    ), { concurrency: "unbounded" })
 
   return directoryEntries.filter((entry): entry is string => entry !== undefined)
 })
@@ -175,10 +173,9 @@ const resolveDependencyField = (
 
           return {
             error: undefined,
-            resolvedEntry:
-              resolution.right === dependencySpec
-                ? undefined
-                : ([dependencyName, resolution.right] as const),
+            resolvedEntry: resolution.right === dependencySpec
+              ? undefined
+              : ([dependencyName, resolution.right] as const),
             resolvedCount: resolution.right === dependencySpec ? 0 : 1
           }
         }),

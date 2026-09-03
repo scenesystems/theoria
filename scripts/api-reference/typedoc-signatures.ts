@@ -1,14 +1,7 @@
 import { Array as Arr, Option } from "effect"
-import {
-  type DeclarationReflection,
-  ReflectionKind,
-  type SignatureReflection
-} from "typedoc"
+import { type DeclarationReflection, ReflectionKind, type SignatureReflection } from "typedoc"
 
-import {
-  type ApiParameter,
-  type ApiSignature
-} from "@theoria/docs-model"
+import { type ApiParameter, type ApiSignature } from "@theoria/docs-model"
 import {
   type ApiDocContext,
   docParts,
@@ -21,9 +14,11 @@ import {
 export const firstSourceUrl = (
   reflection: DeclarationReflection | SignatureReflection
 ): string | null =>
-  Option.getOrNull(Arr.findFirst(reflection.sources ?? [], (source) => source.url !== undefined).pipe(
-    Option.flatMap((source) => Option.fromNullable(source.url))
-  ))
+  Option.getOrNull(
+    Arr.findFirst(reflection.sources ?? [], (source) => source.url !== undefined).pipe(
+      Option.flatMap((source) => Option.fromNullable(source.url))
+    )
+  )
 
 const parameterModel = (
   parameter: NonNullable<SignatureReflection["parameters"]>[number],
@@ -42,10 +37,14 @@ const parameterModel = (
 })
 
 const signatureKind = (signature: SignatureReflection): ApiSignature["kind"] =>
-  signature.kindOf(ReflectionKind.ConstructorSignature) ? "constructor"
-    : signature.kindOf(ReflectionKind.GetSignature) ? "get"
-    : signature.kindOf(ReflectionKind.SetSignature) ? "set"
-    : signature.kindOf(ReflectionKind.IndexSignature) ? "index"
+  signature.kindOf(ReflectionKind.ConstructorSignature) ?
+    "constructor"
+    : signature.kindOf(ReflectionKind.GetSignature) ?
+    "get"
+    : signature.kindOf(ReflectionKind.SetSignature) ?
+    "set"
+    : signature.kindOf(ReflectionKind.IndexSignature) ?
+    "index"
     : "call"
 
 const signatureModel = (
@@ -54,21 +53,27 @@ const signatureModel = (
   context: ApiDocContext,
   fallbackSourceUrl: string
 ): ApiSignature => {
-  const parameters = Arr.map(signature.parameters ?? [], (parameter) =>
-    parameterModel(parameter, signature, context))
-  const parameterCode = Arr.map(parameters, (parameter) =>
-    `${parameter.rest ? "..." : ""}${parameter.name}${parameter.optional && parameter.defaultValue === null ? "?" : ""}: ${
-      parameter.type
-    }${parameter.defaultValue === null ? "" : ` = ${parameter.defaultValue}`}`).join(", ")
+  const parameters = Arr.map(signature.parameters ?? [], (parameter) => parameterModel(parameter, signature, context))
+  const parameterCode = Arr.map(
+    parameters,
+    (parameter) =>
+      `${parameter.rest ? "..." : ""}${parameter.name}${
+        parameter.optional && parameter.defaultValue === null ? "?" : ""
+      }: ${parameter.type}${parameter.defaultValue === null ? "" : ` = ${parameter.defaultValue}`}`
+  ).join(", ")
   const genericCode = (signature.typeParameters?.length ?? 0) === 0
     ? ""
     : `<${Arr.map(signature.typeParameters ?? [], typeParameterCode).join(", ")}>`
   const returns = signature.type?.toString() ?? "void"
   const kind = signatureKind(signature)
-  const code = kind === "constructor" ? `new ${genericCode}(${parameterCode}): ${returns}`
-    : kind === "get" ? `get ${name}(): ${returns}`
-    : kind === "set" ? `set ${name}(${parameterCode})`
-    : kind === "index" ? `[${parameterCode}]: ${returns}`
+  const code = kind === "constructor" ?
+    `new ${genericCode}(${parameterCode}): ${returns}`
+    : kind === "get" ?
+    `get ${name}(): ${returns}`
+    : kind === "set" ?
+    `set ${name}(${parameterCode})`
+    : kind === "index" ?
+    `[${parameterCode}]: ${returns}`
     : `${name}${genericCode}(${parameterCode}): ${returns}`
 
   return {
@@ -84,8 +89,10 @@ const signatureModel = (
 
 const signaturesOf = (reflection: DeclarationReflection): ReadonlyArray<SignatureReflection> => {
   const direct = reflection.getAllSignatures()
-  return direct.length > 0 ? direct
-    : reflection.type?.type === "reflection" ? reflection.type.declaration.getAllSignatures()
+  return direct.length > 0 ?
+    direct
+    : reflection.type?.type === "reflection" ?
+    reflection.type.declaration.getAllSignatures()
     : []
 }
 
@@ -95,5 +102,4 @@ export const signatureModels = (
   context: ApiDocContext,
   fallbackSourceUrl: string
 ): ReadonlyArray<ApiSignature> =>
-  Arr.map(signaturesOf(reflection), (signature) =>
-    signatureModel(signature, name, context, fallbackSourceUrl))
+  Arr.map(signaturesOf(reflection), (signature) => signatureModel(signature, name, context, fallbackSourceUrl))

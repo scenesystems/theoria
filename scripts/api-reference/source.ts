@@ -60,8 +60,11 @@ const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> => 
 
   const candidates = Arr.isArray(target) ? target : Rec.values(target)
 
-  return Arr.reduce(candidates, Option.none<string>(), (accumulator, value) =>
-    Option.orElse(accumulator, () => firstTypeScriptSourceTarget(value)))
+  return Arr.reduce(
+    candidates,
+    Option.none<string>(),
+    (accumulator, value) => Option.orElse(accumulator, () => firstTypeScriptSourceTarget(value))
+  )
 }
 
 // The manifest is the surface authority: only `exports` subpaths that point at
@@ -76,15 +79,18 @@ const packagePublicEntrypoints = (
     left.localeCompare(right)
   )
 
-  return Arr.filterMap(sortedEntries, ([subpath, target]) =>
-    Option.map(firstTypeScriptSourceTarget(target), (sourceTarget) => {
-      const absolute = path.join(packageRoot, sourceTarget)
+  return Arr.filterMap(
+    sortedEntries,
+    ([subpath, target]) =>
+      Option.map(firstTypeScriptSourceTarget(target), (sourceTarget) => {
+        const absolute = path.join(packageRoot, sourceTarget)
 
-      return {
-        subpath,
-        sourceFile: { absolute, relative: toForwardSlashes(path, path.relative(packageRoot, absolute)) }
-      }
-    }))
+        return {
+          subpath,
+          sourceFile: { absolute, relative: toForwardSlashes(path, path.relative(packageRoot, absolute)) }
+        }
+      })
+  )
 }
 
 export const sourceModuleSubpath = (relativeSource: string): string => {
@@ -131,16 +137,18 @@ const hasInternalSegment = (value: string): boolean =>
   value.replace(/^\.\//u, "").split("/").some((segment) => segment.toLocaleLowerCase("en-US") === "internal")
 
 const conflictingRoute = (modules: ReadonlyArray<ApiSourceModule>) => {
-  const routes = Arr.flatMap(modules, (module) => Arr.map(module.routes, ({ entrypoint }) => ({
-    key: entrypoint.subpath.toLocaleLowerCase("en-US"),
-    source: module.relative,
-    subpath: entrypoint.subpath
-  })))
+  const routes = Arr.flatMap(modules, (module) =>
+    Arr.map(module.routes, ({ entrypoint }) => ({
+      key: entrypoint.subpath.toLocaleLowerCase("en-US"),
+      source: module.relative,
+      subpath: entrypoint.subpath
+    })))
 
-  return Arr.findFirst(routes, (route) => Arr.some(
-    routes,
-    (candidate) => candidate.key === route.key && candidate.source !== route.source
-  ))
+  return Arr.findFirst(routes, (route) =>
+    Arr.some(
+      routes,
+      (candidate) => candidate.key === route.key && candidate.source !== route.source
+    ))
 }
 
 const loadSourcePackage = (packagesRoot: string, directoryName: string) =>

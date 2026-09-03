@@ -5,14 +5,14 @@ import {
   DeclarationReflection,
   FileRegistry,
   IntrinsicType,
+  normalizePath,
   ParameterReflection,
   ProjectReflection,
   ReflectionFlag,
   ReflectionKind,
   ReflectionSymbolId,
   SignatureReflection,
-  TypeParameterReflection,
-  normalizePath
+  TypeParameterReflection
 } from "typedoc"
 
 import { type ApiReferenceRoute } from "./model.js"

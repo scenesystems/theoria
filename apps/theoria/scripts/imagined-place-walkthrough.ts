@@ -8,12 +8,12 @@ import { BunRuntime } from "@effect/platform-bun"
 import { Console, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { type PlaceBuildRequest, placeFeatures } from "../app/contracts/imagined-place.js"
 import { type PlaceBuild, type PlaceRendering } from "../app/contracts/imagined-place-result.js"
+import { type PlaceBuildRequest, placeFeatures } from "../app/contracts/imagined-place.js"
 import { ParticipantsLive } from "../app/server/imagined-place/authority.js"
-import { scenarioById } from "../app/server/imagined-place/scenarios.js"
 import { render } from "../app/server/imagined-place/render.js"
 import { buildPlace } from "../app/server/imagined-place/run.js"
+import { scenarioById } from "../app/server/imagined-place/scenarios.js"
 
 const scenario = scenarioById("unfinished-light")
 
@@ -44,7 +44,8 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
     yield* Console.log(`   brief       ${artifact.brief}`)
     yield* Effect.forEach(
       evidence.inference,
-      (run) => Console.log(`   program     ${run.program.padEnd(24)} ${run.mode} · ${run.responseModel} · ${run.serveMode}`)
+      (run) =>
+        Console.log(`   program     ${run.program.padEnd(24)} ${run.mode} · ${run.responseModel} · ${run.serveMode}`)
     )
     yield* Console.log(`   title       ${artifact.composition.title}`)
     yield* Effect.forEach(
@@ -80,10 +81,12 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
         Console.log(
           `   version ${String(version.version)}   ${short(version.contentId)}  ${
             String(version.featureCount)
-          } features${Option.match(Option.fromNullable(version.parent), {
-            onNone: () => "  (origin)",
-            onSome: (parent) => `  parent ${short(parent)}`
-          })}`
+          } features${
+            Option.match(Option.fromNullable(version.parent), {
+              onNone: () => "  (origin)",
+              onSome: (parent) => `  parent ${short(parent)}`
+            })
+          }`
         )
     )
     yield* Effect.forEach(
@@ -99,9 +102,9 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
 
     yield* Console.log("4. ARRANGE  (effect-search · effect-text · effect-math)")
     yield* Console.log(
-      `   search      ${render.sampler} seed ${String(render.seed)}, ${
-        String(render.trials)
-      } trials, best loss ${fixed(render.bestLoss)}, min separation ${fixed(render.minimumSeparation)}`
+      `   search      ${render.sampler} seed ${String(render.seed)}, ${String(render.trials)} trials, best loss ${
+        fixed(render.bestLoss)
+      }, min separation ${fixed(render.minimumSeparation)}`
     )
     yield* Console.log(
       `   stage       ${px(projection.stageWidth)} × ${px(projection.stageHeight)}; ${
@@ -114,10 +117,12 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
         Console.log(
           `   marker      ${marker.name.padEnd(24)} (${px(marker.x).padStart(5)}, ${px(marker.y).padStart(5)}) r ${
             px(marker.radius)
-          }${Option.match(Option.fromNullable(marker.contributedBy), {
-            onNone: () => "",
-            onSome: (by) => `  from ${by}`
-          })}`
+          }${
+            Option.match(Option.fromNullable(marker.contributedBy), {
+              onNone: () => "",
+              onSome: (by) => `  from ${by}`
+            })
+          }`
         )
     )
     yield* Effect.forEach(

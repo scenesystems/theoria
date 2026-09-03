@@ -2,12 +2,7 @@ import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
 import { type Application } from "typedoc"
 
-import {
-  attachLeadingModuleComment,
-  hasCommentSummary,
-  hasCommentTag,
-  moduleReflection
-} from "./comments.js"
+import { attachLeadingModuleComment, hasCommentSummary, hasCommentTag, moduleReflection } from "./comments.js"
 import { type ApiConvertedModule } from "./converted.js"
 import { ApiReferenceGenerationError } from "./model.js"
 import { publicExportsFromReflection } from "./public-exports.js"
@@ -27,8 +22,10 @@ export const convertApiModule = (input: {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const packageName = input.sourcePackage.manifest.name
-    const entrypoint = Arr.findFirst(input.entrypoints, (candidate) =>
-      path.resolve(candidate.sourceFile.fileName) === path.resolve(input.module.absolute))
+    const entrypoint = Arr.findFirst(
+      input.entrypoints,
+      (candidate) => path.resolve(candidate.sourceFile.fileName) === path.resolve(input.module.absolute)
+    )
 
     if (Option.isNone(entrypoint)) {
       return yield* typeDocFailure(packageName, `TypeDoc did not resolve ${input.module.relative}`)

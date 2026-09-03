@@ -1,14 +1,6 @@
 {
   "$schema": "https://dprint.dev/schemas/v0.json",
-  "includes": [
-    "packages/*/src/**/*.{ts,mts,cts}",
-    "packages/*/test/**/*.{ts,mts,cts}",
-    "packages/*/examples/**/*.{ts,mts}",
-    "apps/*/server.ts",
-    "apps/*/src/**/*.{ts,tsx}",
-    "apps/*/app/**/*.{ts,tsx}",
-    "apps/*/test/**/*.{ts,mts,cts}"
-  ],
+  "includes": ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}"],
   "excludes": [
     "**/dist/**",
     "**/build/**",
@@ -19,7 +11,7 @@
     ".vendor/**",
     ".tmp/**"
   ],
-  "plugins": ["https://plugins.dprint.dev/typescript-0.91.8.wasm"],
+  "plugins": ["https://plugins.dprint.dev/typescript-0.96.1.wasm"],
   "typescript": {
     "useTabs": false,
     "indentWidth": 2,

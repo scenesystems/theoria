@@ -30,6 +30,8 @@ export const apiReferenceProgram = Effect.gen(function*() {
   )
 
   yield* Console.log(
-    `Semantic API reference complete: ${String(manifest.packages.length)} packages, ${String(moduleCount)} modules, ${String(routeCount)} public routes -> api-reference/`
+    `Semantic API reference complete: ${String(manifest.packages.length)} packages, ${String(moduleCount)} modules, ${
+      String(routeCount)
+    } public routes -> api-reference/`
   )
 })

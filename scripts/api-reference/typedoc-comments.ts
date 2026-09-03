@@ -8,14 +8,9 @@ import {
   type TypeParameterReflection
 } from "typedoc"
 
+import { type ApiDocPart, type ApiDocumentation, type ApiExample, type ApiTypeParameter } from "@theoria/docs-model"
 import { type ApiDocLink } from "./links.js"
 import { type ApiReferenceRoute } from "./model.js"
-import {
-  type ApiDocPart,
-  type ApiDocumentation,
-  type ApiExample,
-  type ApiTypeParameter
-} from "@theoria/docs-model"
 import { apiExportAnchor } from "./presentation.js"
 
 export type ApiDocContext = {
@@ -35,10 +30,14 @@ const publicHref = (
   packageName: string,
   names: ReadonlyArray<string>
 ): string | null =>
-  Option.getOrNull(Arr.findFirst(context.links, ([candidatePackage, candidateName]) =>
-    candidatePackage === packageName && Arr.contains(names, candidateName)).pipe(
-    Option.map(([, , href]) => href)
-  ))
+  Option.getOrNull(
+    Arr.findFirst(context.links, ([candidatePackage, candidateName]) =>
+      candidatePackage === packageName && Arr.contains(names, candidateName)).pipe(
+        Option.map(([, , href]) =>
+          href
+        )
+      )
+  )
 
 const textNames = (text: string): ReadonlyArray<string> => {
   const trimmed = text.trim()
@@ -47,8 +46,9 @@ const textNames = (text: string): ReadonlyArray<string> => {
 }
 
 const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): string | null => {
-  const matches = Arr.dedupe(Arr.filterMap(context.links, ([, name, href]) =>
-    Arr.contains(names, name) ? Option.some(href) : Option.none()))
+  const matches = Arr.dedupe(
+    Arr.filterMap(context.links, ([, name, href]) => Arr.contains(names, name) ? Option.some(href) : Option.none())
+  )
   return matches.length === 1 ? matches[0] ?? null : null
 }
 
@@ -61,18 +61,22 @@ const resolvedHref = (
 const reflectionHref = (context: ApiDocContext, target: Reflection, text: string): string | null => {
   const publicTarget = publicReflection(target)
 
-  return Option.match(Arr.findFirst(context.route.imports, (entry) =>
-    Arr.some(entry.reflections, (facet) => facet.reflectionId === publicTarget.id)),
+  return Option.match(
+    Arr.findFirst(
+      context.route.imports,
+      (entry) => Arr.some(entry.reflections, (facet) => facet.reflectionId === publicTarget.id)
+    ),
     {
-      onNone: () => publicTarget.kindOf(ReflectionKind.Module) && (
-        publicTarget.name.endsWith(context.route.subpath.slice(1))
-      )
-        ? context.route.path
-        : resolvedHref(
-          context,
-          publicTarget.project.packageName ?? context.packageName,
-          Arr.append(textNames(text), publicTarget.name)
-        ),
+      onNone: () =>
+        publicTarget.kindOf(ReflectionKind.Module) && (
+            publicTarget.name.endsWith(context.route.subpath.slice(1))
+          )
+          ? context.route.path
+          : resolvedHref(
+            context,
+            publicTarget.project.packageName ?? context.packageName,
+            Arr.append(textNames(text), publicTarget.name)
+          ),
       onSome: (entry) => `${context.route.path}#${apiExportAnchor(entry.name)}`
     }
   )
@@ -140,8 +144,7 @@ export const documentation = (
 ): ApiDocumentation => ({
   summary: docParts(comment?.summary, context),
   remarks: tagParts(comment, "@remarks", context),
-  examples: Arr.map(comment?.getTags("@example") ?? [], (tag) =>
-    exampleModel(docParts(tag.content, context))),
+  examples: Arr.map(comment?.getTags("@example") ?? [], (tag) => exampleModel(docParts(tag.content, context))),
   deprecated: Option.match(Option.fromNullable(comment?.getTag("@deprecated")), {
     onNone: () => null,
     onSome: (tag) => docParts(tag.content, context)

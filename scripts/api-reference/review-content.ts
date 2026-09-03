@@ -1,6 +1,6 @@
+import type { ApiDocumentation, ApiExport, DocsSearchEntry } from "@theoria/docs-model"
 import { Array as Arr, HashMap, Option } from "effect"
 import type { HashSet } from "effect"
-import type { ApiDocumentation, ApiExport, DocsSearchEntry } from "@theoria/docs-model"
 
 import type { Counts, Example } from "./review-model.js"
 import { linkDiagnostics, proseDiagnostic } from "./review-rules.js"
@@ -46,16 +46,16 @@ export const addCounts = (a: Counts, b: Counts): Counts => ({
   categories: a.categories + b.categories
 })
 
-const docsParts = (docs: ApiDocumentation) => Arr.flatten([
-  docs.summary,
-  docs.remarks,
-  ...(docs.deprecated === null ? [] : [docs.deprecated]),
-  ...docs.see,
-  ...Arr.map(docs.examples, (_) => _.parts)
-])
+const docsParts = (docs: ApiDocumentation) =>
+  Arr.flatten([
+    docs.summary,
+    docs.remarks,
+    ...(docs.deprecated === null ? [] : [docs.deprecated]),
+    ...docs.see,
+    ...Arr.map(docs.examples, (_) => _.parts)
+  ])
 
-const partsText = (parts: ApiDocumentation["summary"]): string =>
-  Arr.map(parts, (_) => _.text).join("")
+const partsText = (parts: ApiDocumentation["summary"]): string => Arr.map(parts, (_) => _.text).join("")
 
 export const docsCounts = (docs: ReadonlyArray<ApiDocumentation>): Counts => ({
   ...zeroCounts(),
@@ -122,30 +122,36 @@ export const semanticExport = (value: ApiExport) => ({
   }))
 })
 
-export const semanticHash = (text: string): string =>
-  new Bun.CryptoHasher("sha256").update(text).digest("hex")
+export const semanticHash = (text: string): string => new Bun.CryptoHasher("sha256").update(text).digest("hex")
 
 export const exampleRecords = (
   packageName: string,
   records: ReadonlyArray<DocumentationRecord>
-): ReadonlyArray<Example> => Arr.flatMap(records, ({ owner, docs }) =>
-  Arr.map(docs.examples, (example) => ({ owner, package: packageName, ...example })))
+): ReadonlyArray<Example> =>
+  Arr.flatMap(
+    records,
+    ({ owner, docs }) => Arr.map(docs.examples, (example) => ({ owner, package: packageName, ...example }))
+  )
 
 export const documentationDiagnostics = (
   records: ReadonlyArray<DocumentationRecord>,
   targets: HashSet.HashSet<string>
-): ReadonlyArray<string> => Arr.dedupe(Arr.flatMap(records, ({ owner, docs }) => {
-  const parts = docsParts(docs)
-  const deprecated = docs.deprecated === null ? "" : partsText(docs.deprecated)
-  return [
-    ...linkDiagnostics(owner, parts, targets),
-    ...Arr.filterMap(Arr.map(parts, (_) => _.text), (text) => Option.fromNullable(proseDiagnostic(owner, text))),
-    ...(partsText(docs.summary).includes("\n\n")
-      ? [`${owner}: summary contains content that belongs in @remarks`] : []),
-    ...(deprecated.length > 0 && (!/\buse\b/iu.test(deprecated) || !/\b(?:since|in)\s+v?\d+\.\d+\.\d+\b/iu.test(deprecated))
-      ? [`${owner}: deprecation must identify a replacement and version`] : [])
-  ]
-}))
+): ReadonlyArray<string> =>
+  Arr.dedupe(Arr.flatMap(records, ({ owner, docs }) => {
+    const parts = docsParts(docs)
+    const deprecated = docs.deprecated === null ? "" : partsText(docs.deprecated)
+    return [
+      ...linkDiagnostics(owner, parts, targets),
+      ...Arr.filterMap(Arr.map(parts, (_) => _.text), (text) => Option.fromNullable(proseDiagnostic(owner, text))),
+      ...(partsText(docs.summary).includes("\n\n")
+        ? [`${owner}: summary contains content that belongs in @remarks`] :
+        []),
+      ...(deprecated.length > 0 &&
+          (!/\buse\b/iu.test(deprecated) || !/\b(?:since|in)\s+v?\d+\.\d+\.\d+\b/iu.test(deprecated))
+        ? [`${owner}: deprecation must identify a replacement and version`] :
+        [])
+    ]
+  }))
 
 export type ExpectedSearchEntry = Pick<
   DocsSearchEntry,
@@ -160,16 +166,18 @@ export const searchIndexDiagnostics = (
   const symbolsById = HashMap.fromIterable(Arr.map(symbols, (_) => [_.id, _] as const))
   return [
     ...(symbols.length !== expected.length ? ["search index symbol count mismatch"] : []),
-    ...Arr.flatMap(expected, (entry) => HashMap.get(symbolsById, entry.id).pipe(
-      Option.filter((actual) =>
-        actual.package === entry.package && actual.packageSlug === entry.packageSlug &&
-        actual.name === entry.name && actual.qualifiedName === entry.qualifiedName &&
-        actual.category === entry.category && actual.summary === entry.summary &&
-        actual.path === entry.path && actual.anchor === entry.anchor),
-      Option.match({
-        onNone: () => [`${entry.id}: search index mismatch`],
-        onSome: () => []
-      })
-    ))
+    ...Arr.flatMap(expected, (entry) =>
+      HashMap.get(symbolsById, entry.id).pipe(
+        Option.filter((actual) =>
+          actual.package === entry.package && actual.packageSlug === entry.packageSlug &&
+          actual.name === entry.name && actual.qualifiedName === entry.qualifiedName &&
+          actual.category === entry.category && actual.summary === entry.summary &&
+          actual.path === entry.path && actual.anchor === entry.anchor
+        ),
+        Option.match({
+          onNone: () => [`${entry.id}: search index mismatch`],
+          onSome: () => []
+        })
+      ))
   ]
 }

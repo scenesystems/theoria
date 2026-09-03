@@ -34,8 +34,7 @@ type TempSnippet = ReadmeSnippet & {
 const rootUrl = new URL("../", import.meta.url)
 const TYPECHECK_TOKEN = "typecheck"
 
-const toPosixPath = (pathService: Path.Path, value: string): string =>
-  value.split(pathService.sep).join("/")
+const toPosixPath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 
 const resolveProjectRoot = Effect.gen(function*() {
   const pathService = yield* Path.Path
@@ -195,7 +194,9 @@ const loadReadmeSnippets = Effect.gen(function*() {
   return Arr.flatten(snippets)
 })
 
-const materializeSnippet = (snippet: ReadmeSnippet): Effect.Effect<TempSnippet, never, FileSystem.FileSystem | Path.Path | Scope.Scope> =>
+const materializeSnippet = (
+  snippet: ReadmeSnippet
+): Effect.Effect<TempSnippet, never, FileSystem.FileSystem | Path.Path | Scope.Scope> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const pathService = yield* Path.Path
@@ -217,7 +218,8 @@ const materializeSnippet = (snippet: ReadmeSnippet): Effect.Effect<TempSnippet, 
 
 const rewriteCompilerOutput = (output: string, snippets: ReadonlyArray<TempSnippet>): string =>
   snippets.reduce(
-    (current, snippet) => current.replaceAll(snippet.tempPath, `${snippet.readme.relativePath}:${String(snippet.line)}`),
+    (current, snippet) =>
+      current.replaceAll(snippet.tempPath, `${snippet.readme.relativePath}:${String(snippet.line)}`),
     output
   )
 

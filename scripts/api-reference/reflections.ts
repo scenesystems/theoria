@@ -1,16 +1,9 @@
 import type { Path } from "@effect/platform"
 import { Array as Arr, Effect, Option } from "effect"
-import {
-  type DeclarationReflection,
-  ReflectionKind
-} from "typedoc"
+import { type DeclarationReflection, ReflectionKind } from "typedoc"
 
 import { type ApiConvertedModule } from "./converted.js"
-import {
-  ApiReferenceGenerationError,
-  type ApiReferenceImport,
-  type ApiReferenceRoute
-} from "./model.js"
+import { ApiReferenceGenerationError, type ApiReferenceImport, type ApiReferenceRoute } from "./model.js"
 import { type ApiSourcePackage } from "./source.js"
 
 export const routeSlug = (subpath: string): string => subpath === "." ? "" : subpath.replace(/^\.\//u, "")
@@ -23,10 +16,15 @@ export const pageOutputPath = (packageSlug: string, slug: string): string =>
 
 export const moduleOutputPath = (path: Path.Path, packageSlug: string, subpath: string): string => {
   const segments = routeSlug(subpath).split("/").filter((segment) => segment.length > 0)
-  return path.join("packages", packageSlug, "modules", ...(segments.length === 0 ? ["index.json"] : [
-    ...segments.slice(0, -1),
-    `${segments.at(-1) ?? "index"}.json`
-  ]))
+  return path.join(
+    "packages",
+    packageSlug,
+    "modules",
+    ...(segments.length === 0 ? ["index.json"] : [
+      ...segments.slice(0, -1),
+      `${segments.at(-1) ?? "index"}.json`
+    ])
+  )
 }
 
 export const moduleDisplayName = (packageName: string, subpath: string): string =>
@@ -40,8 +38,7 @@ const firstSourceUrl = (reflection: DeclarationReflection): Option.Option<string
 const reflectionsForImport = (
   reflection: DeclarationReflection,
   exportName: string
-): ReadonlyArray<DeclarationReflection> =>
-  Arr.filter(reflection.children ?? [], (child) => child.name === exportName)
+): ReadonlyArray<DeclarationReflection> => Arr.filter(reflection.children ?? [], (child) => child.name === exportName)
 
 const makeImports = (
   packageName: string,
@@ -53,41 +50,46 @@ const makeImports = (
 
   return Option.match(route, {
     onNone: () => Effect.succeed<ReadonlyArray<ApiReferenceImport>>([]),
-    onSome: ({ publicExports }) => Effect.forEach(publicExports, (entry) =>
-      Effect.gen(function*() {
-        const semanticReflections = reflectionsForImport(reflection, entry.exportName)
+    onSome: ({ publicExports }) =>
+      Effect.forEach(publicExports, (entry) =>
+        Effect.gen(function*() {
+          const semanticReflections = reflectionsForImport(reflection, entry.exportName)
 
-        if (semanticReflections.length === 0) {
-          return yield* new ApiReferenceGenerationError({
-            packageName,
-            detail: `${subpath} export ${entry.exportName} has no semantic TypeDoc reflection`
-          })
-        }
-
-        const reflections = yield* Effect.forEach(semanticReflections, (resolved) =>
-          Option.match(firstSourceUrl(resolved), {
-            onNone: () => Effect.fail(new ApiReferenceGenerationError({
+          if (semanticReflections.length === 0) {
+            return yield* new ApiReferenceGenerationError({
               packageName,
-              detail: `${subpath} export ${entry.exportName} has no revision-pinned source URL`
-            })),
-            onSome: (sourceUrl) => Effect.succeed({
-              reflectionId: resolved.id,
-              reflectionKind: `${ReflectionKind.singularString(resolved.kind)}`,
-              sourceUrl
+              detail: `${subpath} export ${entry.exportName} has no semantic TypeDoc reflection`
             })
-          }))
-        const apiImport: ApiReferenceImport = {
-          name: entry.exportName,
-          importKind: entry.kind,
-          source: entry.sourceFile.relative,
-          summary: entry.summary,
-          since: entry.since,
-          category: entry.category,
-          reflections
-        }
+          }
 
-        return apiImport
-      }))
+          const reflections = yield* Effect.forEach(semanticReflections, (resolved) =>
+            Option.match(firstSourceUrl(resolved), {
+              onNone: () =>
+                Effect.fail(
+                  new ApiReferenceGenerationError({
+                    packageName,
+                    detail: `${subpath} export ${entry.exportName} has no revision-pinned source URL`
+                  })
+                ),
+              onSome: (sourceUrl) =>
+                Effect.succeed({
+                  reflectionId: resolved.id,
+                  reflectionKind: `${ReflectionKind.singularString(resolved.kind)}`,
+                  sourceUrl
+                })
+            }))
+          const apiImport: ApiReferenceImport = {
+            name: entry.exportName,
+            importKind: entry.kind,
+            source: entry.sourceFile.relative,
+            summary: entry.summary,
+            since: entry.since,
+            category: entry.category,
+            reflections
+          }
+
+          return apiImport
+        }))
   })
 }
 

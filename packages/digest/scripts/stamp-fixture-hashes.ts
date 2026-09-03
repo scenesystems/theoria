@@ -55,18 +55,19 @@ const program = Effect.gen(function*() {
         ...source,
         contentSha256: actualSha256
       }
-    })
-  )
+    }))
 
   const updatedManifest = {
     sources: updatedSources
   }
 
-  const changed = Arr.some(updatedManifest.sources, (source) =>
-    Option.match(Arr.findFirst(manifest.sources, (previous) => previous.id === source.id), {
-      onNone: () => true,
-      onSome: (previous) => previous.contentSha256 !== source.contentSha256
-    })
+  const changed = Arr.some(
+    updatedManifest.sources,
+    (source) =>
+      Option.match(Arr.findFirst(manifest.sources, (previous) => previous.id === source.id), {
+        onNone: () => true,
+        onSome: (previous) => previous.contentSha256 !== source.contentSha256
+      })
   )
 
   if (!changed) {

@@ -5,7 +5,16 @@ import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
 import { siteMetadata } from "../app/contracts/metadata.js"
-import { type Face, favicon, type Fonts, type Mark, packageCard, palette, siteCard, solidIcon } from "./social-assets/cards.js"
+import {
+  type Face,
+  favicon,
+  type Fonts,
+  type Mark,
+  packageCard,
+  palette,
+  siteCard,
+  solidIcon
+} from "./social-assets/cards.js"
 
 /**
  * Renders the committed share images and icons under `public/` from the

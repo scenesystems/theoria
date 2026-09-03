@@ -5,11 +5,11 @@ import { createRoot } from "react-dom/client"
 
 import { SemanticText } from "../../app/web/view/primitives/SemanticText.js"
 
-const withMockClientWidth = <A,>(
+function withMockClientWidth<A>(
   width: number,
   effect: Effect.Effect<A, never, never>
-): Effect.Effect<A, never, never> =>
-  Effect.acquireUseRelease(
+): Effect.Effect<A, never, never> {
+  return Effect.acquireUseRelease(
     Effect.sync(() => {
       const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth")
 
@@ -31,6 +31,7 @@ const withMockClientWidth = <A,>(
         Reflect.defineProperty(HTMLElement.prototype, "clientWidth", descriptor)
       })
   )
+}
 
 const renderedLineSpans = (container: HTMLDivElement): ReadonlyArray<HTMLSpanElement> =>
   Array.from(container.querySelectorAll("p > span, h3 > span")).flatMap((element) =>

@@ -6,14 +6,11 @@ import { writeBrowserApiModule } from "./browser-output.js"
 import { type ApiConvertedModule } from "./converted.js"
 import { documentationPathForExport } from "./documentation-routes.js"
 import { type ApiDocLink } from "./links.js"
-import {
-  ApiReferenceGenerationError,
-  type ApiReferenceModule
-} from "./model.js"
+import { ApiReferenceGenerationError, type ApiReferenceModule } from "./model.js"
 import { sha256File, writeApiPage } from "./output.js"
 import { makeRoutes, moduleOutputPath } from "./reflections.js"
-import { type ApiSourcePackage } from "./source.js"
 import { makeSourceDocumentationPages } from "./source-documentation-pages.js"
+import { type ApiSourcePackage } from "./source.js"
 import { makeApiPresentation } from "./typedoc-presentation.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"

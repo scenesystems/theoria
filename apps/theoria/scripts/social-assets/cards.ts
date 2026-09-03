@@ -15,7 +15,7 @@ export type Face = {
 }
 
 export type Mark = {
-  readonly viewBox: { readonly x: number, readonly y: number, readonly width: number, readonly height: number }
+  readonly viewBox: { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
   readonly faces: ReadonlyArray<Face>
 }
 
@@ -52,7 +52,9 @@ export const drawMark = (mark: Mark, color: string, x: number, y: number, height
     format(0.02 * scale),
     ...Arr.flatMap(mark.faces, (face) => [
       "-draw",
-      `stroke-opacity 0.3 fill-opacity ${format(face.fillOpacity)} polygon ${Arr.join(Arr.map(face.points, project), " ")}`
+      `stroke-opacity 0.3 fill-opacity ${format(face.fillOpacity)} polygon ${
+        Arr.join(Arr.map(face.points, project), " ")
+      }`
     ]),
     "-stroke",
     "none"
@@ -60,7 +62,14 @@ export const drawMark = (mark: Mark, color: string, x: number, y: number, height
 }
 
 /** Single-line text with its baseline at (`x`, `y`). */
-const annotate = (font: string, size: number, color: string, x: number, y: number, text: string): ReadonlyArray<string> => [
+const annotate = (
+  font: string,
+  size: number,
+  color: string,
+  x: number,
+  y: number,
+  text: string
+): ReadonlyArray<string> => [
   "-font",
   font,
   "-pointsize",
@@ -147,7 +156,13 @@ const logoLockup = (mark: Mark, fonts: Fonts, x: number, baseline: number, fontS
 }
 
 /** The site card: logo lockup, one tagline line, hostname. */
-export const siteCard = (mark: Mark, fonts: Fonts, tagline: string, host: string, output: string): ReadonlyArray<string> => [
+export const siteCard = (
+  mark: Mark,
+  fonts: Fonts,
+  tagline: string,
+  host: string,
+  output: string
+): ReadonlyArray<string> => [
   ...canvas(shareCardSize.width, shareCardSize.height, palette.stage),
   ...logoLockup(mark, fonts, margin, 296, 128),
   ...annotate(fonts.sans, 40, palette.inkMuted, margin, 382, tagline),

@@ -27,10 +27,13 @@ const virtualFile = (repositoryRoot: string, index: number): string =>
 
 const importsOf = (code: string): ReadonlyArray<string> => {
   const source = ts.createSourceFile("example.ts", code, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS)
-  return Arr.filterMap(source.statements, (statement) =>
-    ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
-      ? Option.some(statement.moduleSpecifier.text)
-      : Option.none())
+  return Arr.filterMap(
+    source.statements,
+    (statement) =>
+      ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)
+        ? Option.some(statement.moduleSpecifier.text)
+        : Option.none()
+  )
 }
 
 const importDiagnostics = (
@@ -41,14 +44,18 @@ const importDiagnostics = (
     return [`${example.owner}: @example must be a fenced TypeScript block`]
   }
   const imports = importsOf(example.code)
-  const unsupported = Arr.filter(imports, (specifier) =>
-    specifier.startsWith("@scenesystems/") && !HashMap.has(importPaths, specifier))
+  const unsupported = Arr.filter(
+    imports,
+    (specifier) => specifier.startsWith("@scenesystems/") && !HashMap.has(importPaths, specifier)
+  )
   return [
     ...(Arr.some(imports, (specifier) => specifier.startsWith(".") || specifier.startsWith("node:"))
-      ? [`${example.owner}: @example imports a private, relative, or Node module`] : []),
+      ? [`${example.owner}: @example imports a private, relative, or Node module`] :
+      []),
     ...Arr.map(unsupported, (specifier) => `${example.owner}: @example imports unsupported path ${specifier}`),
     ...(!Arr.some(imports, (specifier) => HashMap.has(importPaths, specifier))
-      ? [`${example.owner}: @example has no canonical Theoria package import`] : [])
+      ? [`${example.owner}: @example has no canonical Theoria package import`] :
+      [])
   ]
 }
 
@@ -61,7 +68,9 @@ const formatDiagnostic = (
     return `${owner}: TS${String(diagnostic.code)} ${message}`
   }
   const position = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-  return `${owner}:${String(position.line + 1)}:${String(position.character + 1)} TS${String(diagnostic.code)} ${message}`
+  return `${owner}:${String(position.line + 1)}:${String(position.character + 1)} TS${
+    String(diagnostic.code)
+  } ${message}`
 }
 
 export const exampleDiagnostics = (
@@ -82,15 +91,16 @@ export const exampleDiagnostics = (
         onNone: () => delegate.getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile),
         onSome: ({ code }) => ts.createSourceFile(fileName, code, languageVersion, true, ts.ScriptKind.TS)
       }),
-    resolveModuleNames: (moduleNames, containingFile) => Arr.map(moduleNames, (moduleName) =>
-      Option.match(HashMap.get(importPaths, moduleName), {
-        onNone: () => ts.resolveModuleName(moduleName, containingFile, compilerOptions, delegate).resolvedModule,
-        onSome: (resolvedFileName) => ({
-          resolvedFileName,
-          extension: ts.Extension.Ts,
-          isExternalLibraryImport: false
-        })
-      }))
+    resolveModuleNames: (moduleNames, containingFile) =>
+      Arr.map(moduleNames, (moduleName) =>
+        Option.match(HashMap.get(importPaths, moduleName), {
+          onNone: () => ts.resolveModuleName(moduleName, containingFile, compilerOptions, delegate).resolvedModule,
+          onSome: (resolvedFileName) => ({
+            resolvedFileName,
+            extension: ts.Extension.Ts,
+            isExternalLibraryImport: false
+          })
+        }))
   }
   const program = ts.createProgram({
     rootNames: Arr.fromIterable(HashMap.keys(files)),

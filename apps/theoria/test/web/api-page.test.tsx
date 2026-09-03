@@ -30,8 +30,8 @@ describe("API page presentation", () => {
       yield* Effect.ensuring(
         Effect.gen(function*() {
           yield* waitFor(() => container.textContent?.includes("Run a study.") === true)
-          expect(container.querySelector('a[href="#api-runStudy"]')).not.toBeNull()
-          expect(container.querySelector('a[href="#api-StudyResult"]')).not.toBeNull()
+          expect(container.querySelector("a[href=\"#api-runStudy\"]")).not.toBeNull()
+          expect(container.querySelector("a[href=\"#api-StudyResult\"]")).not.toBeNull()
           expect(container.textContent).not.toContain("runStudy<A>")
           expect(container.textContent).not.toContain("readonly value: A")
           const remarks = Arr.findFirst(
@@ -66,7 +66,7 @@ describe("API page presentation", () => {
           expect(container.textContent?.indexOf("Run a study.")).toBeLessThan(
             container.textContent?.indexOf("runStudy<A>") ?? 0
           )
-          expect(container.querySelectorAll('a[target="_blank"]')).not.toHaveLength(0)
+          expect(container.querySelectorAll("a[target=\"_blank\"]")).not.toHaveLength(0)
           expect(container.textContent).not.toContain("export declare")
           expect(container.textContent).not.toContain("```ts")
         }),

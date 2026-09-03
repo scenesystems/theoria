@@ -1,11 +1,21 @@
 import { Schema } from "effect"
 
 export const ReviewCounts = Schema.Struct({
-  packages: Schema.Number, modules: Schema.Number, routes: Schema.Number, imports: Schema.Number,
+  packages: Schema.Number,
+  modules: Schema.Number,
+  routes: Schema.Number,
+  imports: Schema.Number,
   projections: Schema.Number,
-  facets: Schema.Number, members: Schema.Number, signatures: Schema.Number, typeParameters: Schema.Number,
-  parameters: Schema.Number, returns: Schema.Number, examples: Schema.Number, deprecations: Schema.Number,
-  links: Schema.Number, categories: Schema.Number
+  facets: Schema.Number,
+  members: Schema.Number,
+  signatures: Schema.Number,
+  typeParameters: Schema.Number,
+  parameters: Schema.Number,
+  returns: Schema.Number,
+  examples: Schema.Number,
+  deprecations: Schema.Number,
+  links: Schema.Number,
+  categories: Schema.Number
 })
 
 export const ReviewExample = Schema.Struct({
@@ -16,12 +26,18 @@ export const ReviewExample = Schema.Struct({
 })
 
 export const ReviewUnit = Schema.Struct({
-  package: Schema.String, module: Schema.String, counts: ReviewCounts, semanticHash: Schema.String
+  package: Schema.String,
+  module: Schema.String,
+  counts: ReviewCounts,
+  semanticHash: Schema.String
 })
 
 export const ReviewInventory = Schema.Struct({
   format: Schema.Literal("theoria-api-review-inventory-v1"),
-  revision: Schema.String, totals: ReviewCounts, units: Schema.Array(ReviewUnit), diagnostics: Schema.Array(Schema.String)
+  revision: Schema.String,
+  totals: ReviewCounts,
+  units: Schema.Array(ReviewUnit),
+  diagnostics: Schema.Array(Schema.String)
 })
 
 export const ReviewRecord = Schema.Struct({

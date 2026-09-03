@@ -15,10 +15,7 @@ import {
   type GuidePage,
   GuidePageJson
 } from "@theoria/docs-model"
-import {
-  type ApiReferenceManifest,
-  ApiReferenceManifestJson
-} from "./model.js"
+import { type ApiReferenceManifest, ApiReferenceManifestJson } from "./model.js"
 
 export const sha256File = (filePath: string) =>
   Effect.gen(function*() {
@@ -52,15 +49,13 @@ export const writeDocsApiModuleIndex = (
   outputRoot: string,
   relativeOutput: string,
   page: DocsApiModuleIndex
-) =>
-  writeJson(outputRoot, relativeOutput, DocsApiModuleIndexJson, page)
+) => writeJson(outputRoot, relativeOutput, DocsApiModuleIndexJson, page)
 
 export const writeDocsApiExportPage = (
   outputRoot: string,
   relativeOutput: string,
   page: DocsApiExportPage
-) =>
-  writeJson(outputRoot, relativeOutput, DocsApiExportPageJson, page)
+) => writeJson(outputRoot, relativeOutput, DocsApiExportPageJson, page)
 
 export const writeApiManifest = (outputRoot: string, manifest: ApiReferenceManifest) =>
   writeJson(outputRoot, "manifest.json", ApiReferenceManifestJson, manifest)

@@ -19,9 +19,12 @@ const generationError = (packageName: string, detail: string): ApiReferenceGener
   new ApiReferenceGenerationError({ packageName, detail })
 
 const duplicateSlug = (sources: ReadonlyArray<string>): Option.Option<string> =>
-  Arr.findFirst(sources, (source, index) =>
-    Arr.some(sources.slice(index + 1), (candidate) =>
-      sourceDocumentationSlug(candidate) === sourceDocumentationSlug(source)))
+  Arr.findFirst(
+    sources,
+    (source, index) =>
+      Arr.some(sources.slice(index + 1), (candidate) =>
+        sourceDocumentationSlug(candidate) === sourceDocumentationSlug(source))
+  )
 
 export const makeSourceDocumentationPages = (input: {
   readonly app: Application
@@ -41,10 +44,11 @@ export const makeSourceDocumentationPages = (input: {
     const sourceRoute = yield* Option.match(
       Arr.findFirst(input.module.routes, (candidate) => candidate.entrypoint.subpath === input.route.subpath),
       {
-        onNone: () => Effect.fail(generationError(
-          input.sourcePackage.manifest.name,
-          `${input.route.subpath} has no source route`
-        )),
+        onNone: () =>
+          Effect.fail(generationError(
+            input.sourcePackage.manifest.name,
+            `${input.route.subpath} has no source route`
+          )),
         onSome: Effect.succeed
       }
     )
@@ -79,26 +83,32 @@ export const makeSourceDocumentationPages = (input: {
         }
 
         const sourceFile = yield* Option.match(Arr.head(publicExports), {
-          onNone: () => Effect.fail(generationError(
-            input.sourcePackage.manifest.name,
-            `${source} has no public exports`
-          )),
-          onSome: (entry) => Effect.succeed(entry.sourceFile)
+          onNone: () =>
+            Effect.fail(generationError(
+              input.sourcePackage.manifest.name,
+              `${source} has no public exports`
+            )),
+          onSome: (entry) =>
+            Effect.succeed(entry.sourceFile)
         })
         const sourceText = yield* fileSystem.readFileString(sourceFile.absolute).pipe(Effect.orDie)
-        const comment = yield* Option.match(leadingModuleComment({
-          app: input.app,
-          project: input.module.project,
-          reflection: input.module.reflection,
-          source: sourceText,
-          sourcePath: sourceFile.absolute
-        }), {
-          onNone: () => Effect.fail(generationError(
-            input.sourcePackage.manifest.name,
-            `${source} is missing a leading module comment`
-          )),
-          onSome: Effect.succeed
-        })
+        const comment = yield* Option.match(
+          leadingModuleComment({
+            app: input.app,
+            project: input.module.project,
+            reflection: input.module.reflection,
+            source: sourceText,
+            sourcePath: sourceFile.absolute
+          }),
+          {
+            onNone: () =>
+              Effect.fail(generationError(
+                input.sourcePackage.manifest.name,
+                `${source} is missing a leading module comment`
+              )),
+            onSome: Effect.succeed
+          }
+        )
         const summary = Comment.combineDisplayParts(comment.summary).trim()
         const since = Comment.combineDisplayParts(comment.getTag("@since")?.content).trim()
 
@@ -111,9 +121,8 @@ export const makeSourceDocumentationPages = (input: {
 
         const slug = sourceDocumentationSlug(source)
         const path = apiPagePath(input.sourcePackage.directoryName, slug)
-        const sourceUrl = `${repositoryUrl}/blob/${input.revision}/packages/${
-          input.sourcePackage.directoryName
-        }/${source}`
+        const sourceUrl =
+          `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
 
         const page: ApiPage = {
           schemaVersion: 2,
@@ -142,8 +151,6 @@ export const makeSourceDocumentationPages = (input: {
         }
 
         return page
-      }),
-      { concurrency: 8 }
-    )
+      }), { concurrency: 8 })
   })
 }

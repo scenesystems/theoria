@@ -6,17 +6,17 @@ import * as Arr from "effect/Array"
 import { Text } from "../src/index.js"
 import { preparedTextWithSegmentsCore } from "../src/Text/model.js"
 import {
-  BenchmarkComparisonReportSchema,
-  BenchmarkReportSchema,
-  benchmarkCorpus,
-  benchmarkIterations,
+  type BenchmarkCaseReportType,
   type BenchmarkComparisonCaseReportType,
   type BenchmarkComparisonMetricType,
+  BenchmarkComparisonReportSchema,
   type BenchmarkComparisonReportType,
+  benchmarkCorpus,
   type BenchmarkCorpusCase,
-  type BenchmarkCaseReportType,
+  benchmarkIterations,
   type BenchmarkMetricSampleType,
   type BenchmarkMetricType,
+  BenchmarkReportSchema,
   type BenchmarkReportType
 } from "./corpus.js"
 
@@ -95,7 +95,9 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         prepare: yield* measureEffect(
           benchmarkIterations,
           () => Text.prepareWithSegments(corpusCase.prepare).pipe(Effect.provide(Text.TextLayoutLive)),
-          (preparedText) => ({ segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length })
+          (preparedText) => ({
+            segmentCount: preparedTextWithSegmentsCore(preparedText).logicalSurface.segments.length
+          })
         ),
         layout: yield* measurePure(
           benchmarkIterations,
@@ -114,10 +116,11 @@ const benchmarkCase = (corpusCase: BenchmarkCorpusCase): Effect.Effect<Benchmark
         ),
         streamLines: yield* measureEffect(
           benchmarkIterations,
-          () => Text.streamLines(prepared, corpusCase.request).pipe(
-            Stream.runCollect,
-            Effect.map(Chunk.toReadonlyArray)
-          ),
+          () =>
+            Text.streamLines(prepared, corpusCase.request).pipe(
+              Stream.runCollect,
+              Effect.map(Chunk.toReadonlyArray)
+            ),
           (lines) => ({ lineCount: lines.length })
         ),
         walkLineRanges: yield* measurePure(
@@ -204,10 +207,12 @@ const program = Effect.gen(function*() {
     baselineBenchmark: "effect-text-materialize-baseline",
     walkerBenchmark: "effect-text-walker-kernel",
     iterations: benchmarkIterations,
-    corpus: yield* Effect.forEach(walkerReport.corpus, (walkerCase) =>
-      findBaselineCase(baselineReport, walkerCase).pipe(
-        Effect.map((baselineCase) => compareCaseReports(baselineCase, walkerCase))
-      )
+    corpus: yield* Effect.forEach(
+      walkerReport.corpus,
+      (walkerCase) =>
+        findBaselineCase(baselineReport, walkerCase).pipe(
+          Effect.map((baselineCase) => compareCaseReports(baselineCase, walkerCase))
+        )
     )
   }
   const encodedWalkerReport = yield* Schema.encode(BenchmarkReportJsonSchema)(walkerReport)

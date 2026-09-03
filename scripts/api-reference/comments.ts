@@ -1,5 +1,4 @@
 import { Array as Arr, Option } from "effect"
-import * as ts from "typescript"
 import {
   type Application,
   Comment,
@@ -10,6 +9,7 @@ import {
   type ProjectReflection,
   ReflectionKind
 } from "typedoc"
+import * as ts from "typescript"
 
 type ModuleComment = {
   readonly summary: string
@@ -96,10 +96,11 @@ export const leadingModuleComment = (input: {
 
   return Option.map(leadingComment, ({ summary, tags }) => {
     const normalizedSourcePath = normalizePath(input.sourcePath)
-    const parseMarkdown = (content: string) => input.app.converter.parseRawComment(
-      new MinimalSourceFile(content, normalizedSourcePath),
-      input.project.files
-    ).content
+    const parseMarkdown = (content: string) =>
+      input.app.converter.parseRawComment(
+        new MinimalSourceFile(content, normalizedSourcePath),
+        input.project.files
+      ).content
     const comment = new Comment(
       parseMarkdown(summary),
       Arr.map(tags, (tag) => new CommentTag(tag.name, parseMarkdown(tag.content)))

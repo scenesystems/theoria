@@ -2,18 +2,19 @@ import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { Browser, Text } from "../src/index.js"
 import { EffectTextSupportManifest, EffectTextSupportManifestSchema } from "../src/contracts/supportManifest.js"
+import { Browser, Text } from "../src/index.js"
 import { benchmarkIterations } from "./corpus.js"
 
 const encodeJson = <A, I>(schema: Schema.Schema<A, I>) => (value: A) =>
   Schema.encode(Schema.parseJson(schema))(value).pipe(Effect.orDie)
 
-const failWhen = (condition: boolean, message: string) =>
-  Effect.when(Effect.dieMessage(message), () => condition)
+const failWhen = (condition: boolean, message: string) => Effect.when(Effect.dieMessage(message), () => condition)
 
 const program = Effect.gen(function*() {
-  const manifest = yield* Schema.decodeUnknown(EffectTextSupportManifestSchema)(EffectTextSupportManifest).pipe(Effect.orDie)
+  const manifest = yield* Schema.decodeUnknown(EffectTextSupportManifestSchema)(EffectTextSupportManifest).pipe(
+    Effect.orDie
+  )
   const encodedBrowserManifest = yield* encodeJson(Browser.BrowserSupportManifestSchema)(Browser.BrowserSupportManifest)
   const encodedManifestBrowser = yield* encodeJson(Browser.BrowserSupportManifestSchema)(manifest.browser)
   const encodedManifestHyphenation = yield* encodeJson(

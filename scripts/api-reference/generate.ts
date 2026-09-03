@@ -2,19 +2,12 @@ import { FileSystem, Path } from "@effect/platform"
 import { Array as Arr, Effect } from "effect"
 import { Application } from "typedoc"
 
-import {
-  type DocsManifest,
-  type DocsSearchIndex
-} from "@theoria/docs-model"
+import { type DocsManifest, type DocsSearchIndex } from "@theoria/docs-model"
 import { convertApiPackage } from "./convert-package.js"
 import { generateApiPackage } from "./generate-package.js"
 import { makeApiDocLinks } from "./links.js"
 import { type ApiReferenceManifest } from "./model.js"
-import {
-  writeApiManifest,
-  writeApiSearchIndex,
-  writeDocsManifest
-} from "./output.js"
+import { writeApiManifest, writeApiSearchIndex, writeDocsManifest } from "./output.js"
 import { type ApiSourcePackage } from "./source.js"
 
 export const generateApiReference = (input: {

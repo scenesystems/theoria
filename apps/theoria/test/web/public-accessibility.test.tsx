@@ -37,9 +37,9 @@ describe("public-site accessibility", () => {
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
-          yield* waitFor(() => container.querySelector('[role="switch"]') !== null)
-          expect(container.querySelector('[role="switch"]')?.getAttribute("aria-label")).toBe("Obstacles")
-          expect(container.querySelector('[role="switch"]')?.getAttribute("aria-checked")).toBe("false")
+          yield* waitFor(() => container.querySelector("[role=\"switch\"]") !== null)
+          expect(container.querySelector("[role=\"switch\"]")?.getAttribute("aria-label")).toBe("Obstacles")
+          expect(container.querySelector("[role=\"switch\"]")?.getAttribute("aria-checked")).toBe("false")
         }),
         Effect.sync(() => {
           root.unmount()
@@ -50,13 +50,18 @@ describe("public-site accessibility", () => {
 
   it.effect("exposes the logo through valid text or image semantics", () =>
     Effect.gen(function*() {
-      const { container, root } = render(<><TheoriaLogo /><TheoriaLogo animation="glossary" /></>)
+      const { container, root } = render(
+        <>
+          <TheoriaLogo />
+          <TheoriaLogo animation="glossary" />
+        </>
+      )
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
           yield* waitFor(() => container.textContent?.includes("Theoria") === true)
           expect(container.querySelector("span:not([role])[aria-label]")).toBeNull()
-          expect(container.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Theoria")
+          expect(container.querySelector("[role=\"img\"]")?.getAttribute("aria-label")).toBe("Theoria")
         }),
         Effect.sync(() => {
           root.unmount()

@@ -25,7 +25,7 @@ export const documentationPathForExport = (input: {
   )
 
   return hasSourceDocumentationPages(input.sourcePackage, input.module)
-    && input.publicExport.sourceFile.relative !== input.module.relative
+      && input.publicExport.sourceFile.relative !== input.module.relative
     ? apiPagePath(
       input.sourcePackage.directoryName,
       sourceDocumentationSlug(input.publicExport.sourceFile.relative)

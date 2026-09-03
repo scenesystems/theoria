@@ -187,16 +187,20 @@ lint` runs it with `--deny-warnings`. Three rules from its default
   `no-restricted-syntax` selectors and the remaining core rules. The `jsx`
   parser plugin is enabled only for `.tsx`; with it on for `.ts`, Babel reads
   generic arrows such as `<A>(x) => x` as JSX and fails to parse.
-- The `dprint` CLI (`.dprint.json`, typescript plugin 0.91.8, the same options
-  the ESLint rule used) owns formatting. `bun run lint` ends with
-  `dprint check`; `lint:fix` and `lint-staged` run `dprint fmt`.
+- The `dprint` CLI (`.dprint.json`, typescript plugin 0.96.1, the same options
+  the ESLint rule used) owns formatting for every tracked `.ts/.tsx/.mts/.cts`
+  and `.js/.jsx/.mjs/.cjs` file, including `scripts/`, package `scripts/` and
+  `benchmarks/`, config files and `apps/*/public`. `bun run lint` ends with
+  `dprint check`; `lint:fix` and `lint-staged` run `dprint fmt`. ESLint lints
+  its own config file too; nothing tracked is exempt from the three tools.
+- `trailingCommas: never` also removes the `<A,>` comma that TSX needs to
+  parse a generic arrow function, and dprint offers no TSX-only exception.
+  Generic helpers in `.tsx` files are therefore written as `function f<A>()`
+  declarations.
 - The pre-commit hook (`.husky/pre-commit`) runs secretlint on staged files,
-  `lint-staged` (oxlint, ESLint `--fix`, `dprint fmt --allow-no-files`, and
-  prettier for markdown/json/yaml), then `bun run check:all`. It no longer
-  runs the full test suite; CI owns that. `--allow-no-files` matters because
-  staged files outside `.dprint.json` `includes` (config files, `scripts/`)
-  otherwise make `dprint` exit 14, and `--no-warn-ignored` keeps ESLint's
-  "file ignored" warning from tripping `--max-warnings=0`.
+  `lint-staged` (oxlint `--fix`, ESLint `--fix`, `dprint fmt`, and prettier
+  for markdown/json/yaml), then `bun run check:all`. It no longer runs the
+  full test suite; CI owns that.
 
 The migration was validated against a fixture file containing one deliberate
 violation per rule, linted before and after. All 46 `no-restricted-syntax`

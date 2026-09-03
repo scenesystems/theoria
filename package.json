@@ -127,9 +127,9 @@
   },
   "lint-staged": {
     "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": [
-      "oxlint --deny-warnings",
-      "eslint --max-warnings=0 --no-warn-ignored --fix",
-      "dprint fmt --allow-no-files"
+      "oxlint --deny-warnings --fix",
+      "eslint --max-warnings=0 --fix",
+      "dprint fmt"
     ],
     "*.{md,json,yml,yaml}": [
       "prettier --write"

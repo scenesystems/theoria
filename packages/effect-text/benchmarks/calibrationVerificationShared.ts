@@ -3,15 +3,15 @@ import { Sampler, Study } from "@scenesystems/effect-search"
 import { Effect, Schema } from "effect"
 import * as Arr from "effect/Array"
 
-import { Experimental } from "../src/index.js"
-import { scoreCalibrationReportSync } from "../src/experimental/Calibration/internal/scoring.js"
-import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
 import {
   calibrationServices,
   canonicalCalibrationCases,
   defaultCalibrationProfile,
   exploratorySearchDescriptor
 } from "../examples/live/calibrationFixtures.js"
+import { EffectTextSupportManifest } from "../src/contracts/supportManifest.js"
+import { scoreCalibrationReportSync } from "../src/experimental/Calibration/internal/scoring.js"
+import { Experimental } from "../src/index.js"
 
 const verificationIterations = EffectTextSupportManifest.benchmarks.calibrationScoring.iterations
 const maxSlowdownRatio = EffectTextSupportManifest.benchmarks.calibrationScoring.maxSlowdownRatio
@@ -148,9 +148,9 @@ const normalizeTrial = (trial: Study.SnapshotTrial): Study.SnapshotTrial => ({
   ...trial,
   state: "duration" in trial.state
     ? {
-        ...trial.state,
-        duration: 0
-      }
+      ...trial.state,
+      duration: 0
+    }
     : trial.state
 })
 
@@ -163,11 +163,14 @@ const normalizeSnapshot = (snapshot: Study.StudySnapshot): Study.StudySnapshot =
 
 export const computeVerificationArtifact = Effect.gen(function*() {
   const objective = Experimental.Calibration.DefaultCalibrationObjective
-  const reports = yield* Effect.forEach(benchmarkProfiles, (profile) =>
-    Experimental.Calibration.evaluateProfile(profile, canonicalCalibrationCases).pipe(
-      Effect.provide(calibrationServices),
-      Effect.map((report) => ({ profile, report }))
-    ))
+  const reports = yield* Effect.forEach(
+    benchmarkProfiles,
+    (profile) =>
+      Experimental.Calibration.evaluateProfile(profile, canonicalCalibrationCases).pipe(
+        Effect.provide(calibrationServices),
+        Effect.map((report) => ({ profile, report }))
+      )
+  )
   const expectations = yield* Effect.forEach(reports, ({ profile, report }) =>
     Effect.sync(() => {
       const effectMathScore = scoreCalibrationReportSync(report, objective)
@@ -219,7 +222,9 @@ export const verifyBenchmarkGate = (
     const reports = yield* Effect.forEach(expectations, ({ profile }) =>
       Experimental.Calibration.evaluateProfile(profile, canonicalCalibrationCases).pipe(
         Effect.provide(calibrationServices),
-        Effect.map((report) => report)
+        Effect.map((report) =>
+          report
+        )
       ))
     const effectMathTiming = yield* measureDuration(verificationIterations, () =>
       Effect.sync(() => {
@@ -228,7 +233,10 @@ export const verifyBenchmarkGate = (
         })
       }))
     const manualTiming = yield* measureDuration(verificationIterations, () =>
-      Effect.forEach(reports, (report) => Effect.sync(() => manualScoreReport(report, objective)).pipe(Effect.asVoid), {
+      Effect.forEach(reports, (report) =>
+        Effect.sync(() =>
+          manualScoreReport(report, objective)
+        ).pipe(Effect.asVoid), {
         discard: true
       }))
     const slowdownRatio = manualTiming.meanDurationMs <= 0

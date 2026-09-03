@@ -1,17 +1,7 @@
 import { Array as Arr, Option } from "effect"
-import type {
-  BlockContent,
-  DefinitionContent,
-  ListItem,
-  PhrasingContent,
-  RootContent,
-  TableCell
-} from "mdast"
+import type { BlockContent, DefinitionContent, ListItem, PhrasingContent, RootContent, TableCell } from "mdast"
 
-import {
-  type GuideBlock,
-  type GuideInline
-} from "@theoria/docs-model"
+import { type GuideBlock, type GuideInline } from "@theoria/docs-model"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -98,11 +88,9 @@ export const inlineParts = (
   children: ReadonlyArray<PhrasingContent>,
   packageSlug: string,
   revision: string
-): ReadonlyArray<GuideInline> =>
-  Arr.flatMap(children, (node) => inlinePart({ node, packageSlug, revision }))
+): ReadonlyArray<GuideInline> => Arr.flatMap(children, (node) => inlinePart({ node, packageSlug, revision }))
 
-export const inlineText = (parts: ReadonlyArray<GuideInline>): string =>
-  Arr.map(parts, (part) => part.text).join("")
+export const inlineText = (parts: ReadonlyArray<GuideInline>): string => Arr.map(parts, (part) => part.text).join("")
 
 const itemParts = (
   item: ListItem,
@@ -127,8 +115,7 @@ const blockquoteParts = (
   packageSlug: string,
   revision: string
 ): ReadonlyArray<GuideInline> =>
-  Arr.flatMap(children, (child) =>
-    child.type === "paragraph" ? inlineParts(child.children, packageSlug, revision) : [])
+  Arr.flatMap(children, (child) => child.type === "paragraph" ? inlineParts(child.children, packageSlug, revision) : [])
 
 export const guideBlock = (input: {
   readonly node: RootContent
@@ -165,8 +152,10 @@ export const guideBlock = (input: {
   }
 
   if (node.type === "table") {
-    const cells = Arr.map(node.children, (row) =>
-      Arr.map(row.children, (cell) => cellParts(cell, packageSlug, revision)))
+    const cells = Arr.map(
+      node.children,
+      (row) => Arr.map(row.children, (cell) => cellParts(cell, packageSlug, revision))
+    )
 
     return Option.some({
       kind: "table",

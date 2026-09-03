@@ -1,5 +1,5 @@
-import { Array as Arr, HashMap, HashSet, Order, String as Str } from "effect"
 import type { ApiDocPart, ApiExport } from "@theoria/docs-model"
+import { Array as Arr, HashMap, HashSet, Order, String as Str } from "effect"
 
 const PUBLIC_CATEGORIES = HashSet.make(
   "agreement",
@@ -68,13 +68,14 @@ export const linkDiagnostics = (
   owner: string,
   parts: ReadonlyArray<ApiDocPart>,
   targets: HashSet.HashSet<string>
-): ReadonlyArray<string> => Arr.flatMap(parts, (part) => {
-  if (part.kind !== "link") return []
-  if (part.href === null) return [`${owner}: authored link has no target`]
-  if (/^https?:\/\//u.test(part.href)) return []
-  if (!part.href.startsWith("/docs/")) return [`${owner}: unsupported link target ${part.href}`]
-  return HashSet.has(targets, part.href) ? [] : [`${owner}: unresolved link ${part.href}`]
-})
+): ReadonlyArray<string> =>
+  Arr.flatMap(parts, (part) => {
+    if (part.kind !== "link") return []
+    if (part.href === null) return [`${owner}: authored link has no target`]
+    if (/^https?:\/\//u.test(part.href)) return []
+    if (!part.href.startsWith("/docs/")) return [`${owner}: unsupported link target ${part.href}`]
+    return HashSet.has(targets, part.href) ? [] : [`${owner}: unresolved link ${part.href}`]
+  })
 
 const PROHIBITED = [
   /\bthis (?:function|class|api)\b/iu,
@@ -100,7 +101,8 @@ const similarity = (left: string, right: string): number => {
   const a = HashSet.fromIterable(leftText.split(" "))
   const b = HashSet.fromIterable(rightText.split(" "))
   const intersection = HashSet.size(HashSet.intersection(a, b))
-  return Math.min(HashSet.size(a), HashSet.size(b)) < 8 ? 0 :
+  return Math.min(HashSet.size(a), HashSet.size(b)) < 8 ?
+    0 :
     intersection / Math.max(HashSet.size(a), HashSet.size(b), 1)
 }
 
@@ -114,8 +116,10 @@ const component = (
 ): { readonly members: ReadonlyArray<Summary>; readonly pending: ReadonlyArray<Summary> } => {
   const head = Arr.head(frontier)
   if (head._tag === "None") return { members, pending }
-  const [remaining, peers] = Arr.partition(pending, (candidate) =>
-    candidate.owner !== head.value.owner && similarity(head.value.summary, candidate.summary) >= 0.92)
+  const [remaining, peers] = Arr.partition(
+    pending,
+    (candidate) => candidate.owner !== head.value.owner && similarity(head.value.summary, candidate.summary) >= 0.92
+  )
   return component(
     [...Arr.drop(frontier, 1), ...peers],
     remaining,
@@ -135,20 +139,33 @@ const duplicateComponents = (
 export const duplicateGroups = (
   entries: ReadonlyArray<Summary>
 ): ReadonlyArray<{ readonly owners: ReadonlyArray<string>; readonly summary: string }> => {
-  const unique = Arr.dedupeWith(entries, (left, right) =>
-    left.owner === right.owner && normalized(left.summary) === normalized(right.summary))
-  return Arr.flatMap(duplicateComponents(Arr.sort(unique,
-    Order.mapInput(Str.Order, (entry: Summary) => entry.owner))), (members) => members.length < 2 ? [] : [{
-    owners: Arr.sort(Arr.map(members, (_) => _.owner), Str.Order),
-    summary: normalized(members[0]?.summary ?? "")
-  }])
+  const unique = Arr.dedupeWith(
+    entries,
+    (left, right) => left.owner === right.owner && normalized(left.summary) === normalized(right.summary)
+  )
+  return Arr.flatMap(
+    duplicateComponents(Arr.sort(unique, Order.mapInput(Str.Order, (entry: Summary) => entry.owner))),
+    (members) =>
+      members.length < 2 ? [] : [{
+        owners: Arr.sort(Arr.map(members, (_) => _.owner), Str.Order),
+        summary: normalized(members[0]?.summary ?? "")
+      }]
+  )
 }
 
 export const unprojectedDuplicateGroups = (
   entries: ReadonlyArray<SourceSummary>
 ): ReadonlyArray<{ readonly owners: ReadonlyArray<string>; readonly summary: string }> => {
-  const sourcesByOwner = HashMap.fromIterable(Arr.map(entries, (entry) => [entry.owner,
-    Arr.dedupe(Arr.sort(Arr.filter(entry.sources, Str.isNonEmpty), Str.Order)).join("\u0000")] as const))
+  const sourcesByOwner = HashMap.fromIterable(
+    Arr.map(
+      entries,
+      (entry) =>
+        [
+          entry.owner,
+          Arr.dedupe(Arr.sort(Arr.filter(entry.sources, Str.isNonEmpty), Str.Order)).join("\u0000")
+        ] as const
+    )
+  )
   return Arr.filter(duplicateGroups(entries), (group) => {
     const sources = Arr.filterMap(group.owners, (owner) => HashMap.get(sourcesByOwner, owner))
     return sources.length !== group.owners.length || Arr.some(sources, Str.isEmpty) ||
@@ -158,10 +175,13 @@ export const unprojectedDuplicateGroups = (
 
 export const exportDiagnostics = (owner: string, value: ApiExport): ReadonlyArray<string> => [
   ...(value.name.trim().length === 0 || value.category.trim().length === 0 || value.since.trim().length === 0 ||
-    value.summary.trim().length === 0 ? [`${owner}: incomplete export metadata`] : []),
+      value.summary.trim().length === 0 ?
+    [`${owner}: incomplete export metadata`] :
+    []),
   ...Arr.fromNullable(categoryDiagnostic(owner, value.category)),
   ...Arr.fromNullable(proseDiagnostic(owner, value.summary)),
   ...(value.summary.includes("\n\n") ? [`${owner}: summary contains content that belongs in @remarks`] : []),
   ...(value.facets.length === 0 || Arr.every(value.facets, (facet) => facet.sourceUrl.trim().length === 0)
-    ? [`${owner}: export has no facet/source link`] : [])
+    ? [`${owner}: export has no facet/source link`] :
+    [])
 ]

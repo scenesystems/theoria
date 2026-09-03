@@ -1,13 +1,13 @@
 import { Effect, Match, Schema } from "effect"
 import {
   Blake3FixtureSchema,
+  type FixtureKind,
   FixtureKindSchema,
   FixtureManifestSchema,
   HashFixtureSchema,
   HkdfCorpusFixtureSchema,
   HmacFixtureSchema,
   JcsFixtureSchema,
-  type FixtureKind,
   UnicodeAdversarialFixtureSchema
 } from "./fixture-schemas.js"
 

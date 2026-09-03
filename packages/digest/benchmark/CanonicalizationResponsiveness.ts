@@ -78,19 +78,23 @@ const program = Effect.gen(function*() {
   const samples = yield* Effect.forEach(Arr.makeBy(MEASURED_SAMPLES, (index) => index), () => observe)
   const bunVersion = Reflect.get(process.versions, "bun")
   yield* Effect.sync(() =>
-    console.log(JSON.stringify({
-      runtime: typeof bunVersion === "string" ? `bun ${bunVersion}` : `node ${process.version}`,
-      workload: {
-        pointCount: POINT_COUNT,
-        warmupSamples: WARMUP_SAMPLES,
-        measuredSamples: MEASURED_SAMPLES,
-        timerDurationMs: TIMER_DURATION_MS
+    console.log(JSON.stringify(
+      {
+        runtime: typeof bunVersion === "string" ? `bun ${bunVersion}` : `node ${process.version}`,
+        workload: {
+          pointCount: POINT_COUNT,
+          warmupSamples: WARMUP_SAMPLES,
+          measuredSamples: MEASURED_SAMPLES,
+          timerDurationMs: TIMER_DURATION_MS
+        },
+        samples,
+        wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
+        schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs)),
+        peakRssMiB: Math.max(...Arr.map(samples, ({ peakRssMiB }) => peakRssMiB))
       },
-      samples,
-      wallMs: distribution(Arr.map(samples, ({ wallMs }) => wallMs)),
-      schedulerDelayMs: distribution(Arr.map(samples, ({ schedulerDelayMs }) => schedulerDelayMs)),
-      peakRssMiB: Math.max(...Arr.map(samples, ({ peakRssMiB }) => peakRssMiB))
-    }, null, 2))
+      null,
+      2
+    ))
   )
 })
 

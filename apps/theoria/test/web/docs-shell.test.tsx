@@ -5,7 +5,6 @@ import * as Schema from "effect/Schema"
 import type { ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 
-import { docsApiRoute, docsIndexRoute, docsOverviewRoute } from "../../app/contracts/docs.js"
 import {
   DocsApiExportPageJson,
   DocsApiModuleIndexJson,
@@ -13,14 +12,11 @@ import {
   DocsSearchIndexJson,
   GuidePageJson
 } from "@theoria/docs-model"
+import { docsApiRoute, docsIndexRoute, docsOverviewRoute } from "../../app/contracts/docs.js"
 import { DocsPage } from "../../app/web/view/docs/DocsPage.js"
 import { SiteHeader } from "../../app/web/view/primitives/SiteHeader.js"
 import { docsApiExportPageFixture, docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
-import {
-  docsManifestFixture,
-  docsSearchIndexFixture,
-  guidePageFixture
-} from "../helpers/docs-fixtures.js"
+import { docsManifestFixture, docsSearchIndexFixture, guidePageFixture } from "../helpers/docs-fixtures.js"
 
 const render = (node: ReactNode) => {
   const container = document.createElement("div")
@@ -64,7 +60,7 @@ const docsResponse = (input: string | URL | Request) => {
     : response(guidePageJson)
 }
 
-const withDocsFetch = <A,>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> => {
+function withDocsFetch<A>(effect: Effect.Effect<A, never, never>): Effect.Effect<A, never, never> {
   const previousFetch = globalThis.fetch
 
   return Effect.gen(function*() {
@@ -90,27 +86,30 @@ describe("documentation shell", () => {
 
           expect(container.querySelectorAll("header")).toHaveLength(1)
           expect(container.querySelectorAll("main")).toHaveLength(1)
-          expect(container.querySelector('nav[aria-label="@scenesystems/effect-search documentation"]')).not.toBeNull()
-          expect(container.querySelector('nav[aria-label="On this page"]')).not.toBeNull()
-          expect(container.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe("Overview")
-          const guidesToggle = container.querySelector('button[aria-label="Toggle guides navigation"]')
-          const apiToggle = container.querySelector('button[aria-label="Toggle api navigation"]')
+          expect(container.querySelector("nav[aria-label=\"@scenesystems/effect-search documentation\"]")).not
+            .toBeNull()
+          expect(container.querySelector("nav[aria-label=\"On this page\"]")).not.toBeNull()
+          expect(container.querySelector("[aria-current=\"page\"]")?.textContent?.trim()).toBe("Overview")
+          const guidesToggle = container.querySelector("button[aria-label=\"Toggle guides navigation\"]")
+          const apiToggle = container.querySelector("button[aria-label=\"Toggle api navigation\"]")
           expect(guidesToggle).not.toBeNull()
           expect(apiToggle).not.toBeNull()
-          expect(apiToggle?.parentElement?.nextElementSibling?.querySelector('a[href="/docs/effect-search/api/Study"]'))
+          expect(
+            apiToggle?.parentElement?.nextElementSibling?.querySelector("a[href=\"/docs/effect-search/api/Study\"]")
+          )
             .not.toBeNull()
-          expect(container.querySelector('button[aria-label="Choose package"]')).not.toBeNull()
-          expect(container.querySelector('button[aria-label="Search documentation"]')).not.toBeNull()
+          expect(container.querySelector("button[aria-label=\"Choose package\"]")).not.toBeNull()
+          expect(container.querySelector("button[aria-label=\"Search documentation\"]")).not.toBeNull()
           expect(container.textContent).toContain("bun add @scenesystems/effect-search")
           expect(container.textContent).not.toContain("Documentation foundations")
           expect(container.textContent).not.toContain("semantic page models")
           expect(container.textContent).not.toContain("export declare")
-          expect(container.querySelector('a[aria-label="Theoria home"]')?.getAttribute("href")).toBe("/")
-          expect(container.querySelector('a[aria-label="Documentation home"]')?.getAttribute("href")).toBe("/docs")
+          expect(container.querySelector("a[aria-label=\"Theoria home\"]")?.getAttribute("href")).toBe("/")
+          expect(container.querySelector("a[aria-label=\"Documentation home\"]")?.getAttribute("href")).toBe("/docs")
 
           document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))
-          yield* waitFor(() => document.querySelector('[role="combobox"]') !== null)
-          expect(document.querySelector('[role="combobox"]')).toBe(document.activeElement)
+          yield* waitFor(() => document.querySelector("[role=\"combobox\"]") !== null)
+          expect(document.querySelector("[role=\"combobox\"]")).toBe(document.activeElement)
           yield* waitFor(() => document.body.textContent?.includes("runStudy") === true)
         }),
         Effect.sync(() => {
@@ -127,7 +126,7 @@ describe("documentation shell", () => {
       yield* Effect.ensuring(
         Effect.gen(function*() {
           yield* waitFor(() => container.querySelector("h1")?.textContent === "Packages")
-          expect(container.querySelector('a[href="/docs/effect-search"]')).not.toBeNull()
+          expect(container.querySelector("a[href=\"/docs/effect-search\"]")).not.toBeNull()
           expect(container.textContent).toContain("Effect-native optimization studies.")
         }),
         Effect.sync(() => {
@@ -148,7 +147,7 @@ describe("documentation shell", () => {
           expect(container.textContent).toContain("Run a study.")
           expect(container.textContent).toContain("const result = yield* runStudy(input)")
           expect(container.textContent).not.toContain("Build and run optimization studies.")
-          expect(container.querySelector('a[href="#module"]')?.textContent?.trim()).toBe("← Study")
+          expect(container.querySelector("a[href=\"#module\"]")?.textContent?.trim()).toBe("← Study")
         }),
         Effect.sync(() => {
           root.unmount()
@@ -164,9 +163,9 @@ describe("documentation shell", () => {
 
       yield* Effect.ensuring(
         Effect.gen(function*() {
-          yield* waitFor(() => container.querySelector('a[href="/docs"]') !== null)
-          expect(container.querySelector('a[href="/docs"]')?.textContent).toBe("Docs")
-          expect(container.querySelector('a[href="/"]')).not.toBeNull()
+          yield* waitFor(() => container.querySelector("a[href=\"/docs\"]") !== null)
+          expect(container.querySelector("a[href=\"/docs\"]")?.textContent).toBe("Docs")
+          expect(container.querySelector("a[href=\"/\"]")).not.toBeNull()
         }),
         Effect.sync(() => {
           root.unmount()

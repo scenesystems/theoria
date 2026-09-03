@@ -17,30 +17,36 @@ const canonicalModules = (converted: ApiConvertedPackage) =>
 export const makeApiDocLinks = (
   convertedPackages: ReadonlyArray<ApiConvertedPackage>
 ): ReadonlyArray<ApiDocLink> => {
-  const moduleLinks = Arr.flatMap(convertedPackages, (converted) =>
-    Arr.map(canonicalModules(converted), ({ route }): ApiDocLink => {
-      const { sourcePackage } = converted
-      const slug = routeSlug(route.entrypoint.subpath)
-      const name = slug.length === 0
-        ? sourcePackage.manifest.name
-        : slug.split("/").at(-1) ?? slug
-      return [
-        sourcePackage.manifest.name,
-        name,
-        apiPagePath(sourcePackage.directoryName, slug)
-      ]
-    }))
-  const symbolLinks = Arr.flatMap(convertedPackages, (converted) =>
-    Arr.flatMap(canonicalModules(converted), ({ module, route }) => {
-      const { sourcePackage } = converted
-      return Arr.map(route.publicExports, (entry): ApiDocLink => [
-        sourcePackage.manifest.name,
-        entry.exportName,
-        `${documentationPathForExport({ sourcePackage, module, publicExport: entry })}#${
-          apiExportAnchor(entry.exportName)
-        }`
-      ])
-    }))
+  const moduleLinks = Arr.flatMap(
+    convertedPackages,
+    (converted) =>
+      Arr.map(canonicalModules(converted), ({ route }): ApiDocLink => {
+        const { sourcePackage } = converted
+        const slug = routeSlug(route.entrypoint.subpath)
+        const name = slug.length === 0
+          ? sourcePackage.manifest.name
+          : slug.split("/").at(-1) ?? slug
+        return [
+          sourcePackage.manifest.name,
+          name,
+          apiPagePath(sourcePackage.directoryName, slug)
+        ]
+      })
+  )
+  const symbolLinks = Arr.flatMap(
+    convertedPackages,
+    (converted) =>
+      Arr.flatMap(canonicalModules(converted), ({ module, route }) => {
+        const { sourcePackage } = converted
+        return Arr.map(route.publicExports, (entry): ApiDocLink => [
+          sourcePackage.manifest.name,
+          entry.exportName,
+          `${documentationPathForExport({ sourcePackage, module, publicExport: entry })}#${
+            apiExportAnchor(entry.exportName)
+          }`
+        ])
+      })
+  )
 
   return Arr.appendAll(moduleLinks, symbolLinks)
 }

@@ -37,36 +37,100 @@ const APP_FILES = [...APP_SRC_FILES, ...APP_TEST_FILES]
 
 const EFFECT_RULES = [
   // ── no-async ────────────────────────────────────────────────────────────
-  { selector: "FunctionDeclaration[async=true]", message: "Do not use async functions. Use Effect.gen with yield* and Effect.tryPromise." },
-  { selector: "FunctionExpression[async=true]", message: "Do not use async functions. Use Effect.gen with yield* and Effect.tryPromise." },
-  { selector: "ArrowFunctionExpression[async=true]", message: "Do not use async arrow functions. Use Effect.gen with yield* and Effect.tryPromise." },
-  { selector: "NewExpression[callee.name='Promise']", message: "Do not use 'new Promise()'. Use Effect.tryPromise instead." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='resolve']", message: "Do not use 'Promise.resolve()'. Use Effect.succeed instead." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='reject']", message: "Do not use 'Promise.reject()'. Use yield* new MyError() with Schema.TaggedError." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='all']", message: "Do not use 'Promise.all()'. Use Effect.all instead." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='race']", message: "Do not use 'Promise.race()'. Use Effect.raceAll instead." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='allSettled']", message: "Do not use 'Promise.allSettled()'. Use Effect.forEach + Effect.either instead." },
-  { selector: "CallExpression[callee.object.name='Promise'][callee.property.name='any']", message: "Do not use 'Promise.any()'. Use Effect.raceAll instead." },
+  {
+    selector: "FunctionDeclaration[async=true]",
+    message: "Do not use async functions. Use Effect.gen with yield* and Effect.tryPromise."
+  },
+  {
+    selector: "FunctionExpression[async=true]",
+    message: "Do not use async functions. Use Effect.gen with yield* and Effect.tryPromise."
+  },
+  {
+    selector: "ArrowFunctionExpression[async=true]",
+    message: "Do not use async arrow functions. Use Effect.gen with yield* and Effect.tryPromise."
+  },
+  {
+    selector: "NewExpression[callee.name='Promise']",
+    message: "Do not use 'new Promise()'. Use Effect.tryPromise instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='resolve']",
+    message: "Do not use 'Promise.resolve()'. Use Effect.succeed instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='reject']",
+    message: "Do not use 'Promise.reject()'. Use yield* new MyError() with Schema.TaggedError."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='all']",
+    message: "Do not use 'Promise.all()'. Use Effect.all instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='race']",
+    message: "Do not use 'Promise.race()'. Use Effect.raceAll instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='allSettled']",
+    message: "Do not use 'Promise.allSettled()'. Use Effect.forEach + Effect.either instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Promise'][callee.property.name='any']",
+    message: "Do not use 'Promise.any()'. Use Effect.raceAll instead."
+  },
   { selector: "AwaitExpression", message: "Do not use 'await'. Use Effect.gen with yield* for async operations." },
 
   // ── no-throw-try ────────────────────────────────────────────────────────
-  { selector: "ThrowStatement", message: "Do not use 'throw'. Use yield* new MyError() with Data.TaggedError or Schema.TaggedError. For defects: Effect.die()." },
-  { selector: "TryStatement", message: "Do not use try/catch. Use Effect.tryPromise with a catch handler or Effect.catchTag/catchTags." },
+  {
+    selector: "ThrowStatement",
+    message:
+      "Do not use 'throw'. Use yield* new MyError() with Data.TaggedError or Schema.TaggedError. For defects: Effect.die()."
+  },
+  {
+    selector: "TryStatement",
+    message: "Do not use try/catch. Use Effect.tryPromise with a catch handler or Effect.catchTag/catchTags."
+  },
 
   // ── no-new-error ────────────────────────────────────────────────────────
-  { selector: "NewExpression[callee.name='Error']", message: "Do not use 'new Error()'. Use Data.TaggedError or Schema.TaggedError for typed errors." },
-  { selector: "NewExpression[callee.name='TypeError']", message: "Do not use 'new TypeError()'. Use Data.TaggedError or Schema.TaggedError." },
-  { selector: "NewExpression[callee.name='RangeError']", message: "Do not use 'new RangeError()'. Use Data.TaggedError or Schema.TaggedError." },
+  {
+    selector: "NewExpression[callee.name='Error']",
+    message: "Do not use 'new Error()'. Use Data.TaggedError or Schema.TaggedError for typed errors."
+  },
+  {
+    selector: "NewExpression[callee.name='TypeError']",
+    message: "Do not use 'new TypeError()'. Use Data.TaggedError or Schema.TaggedError."
+  },
+  {
+    selector: "NewExpression[callee.name='RangeError']",
+    message: "Do not use 'new RangeError()'. Use Data.TaggedError or Schema.TaggedError."
+  },
 
   // ── no-console ──────────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='console'][callee.property.name='log']", message: "Do not use 'console.log()'. Use Effect.log() instead." },
-  { selector: "CallExpression[callee.object.name='console'][callee.property.name='error']", message: "Do not use 'console.error()'. Use Effect.logError() instead." },
-  { selector: "CallExpression[callee.object.name='console'][callee.property.name='warn']", message: "Do not use 'console.warn()'. Use Effect.logWarning() instead." },
-  { selector: "CallExpression[callee.object.name='console'][callee.property.name='time']", message: "Do not use 'console.time()'. Use Effect.withSpan() instead." },
-  { selector: "CallExpression[callee.object.name='console'][callee.property.name='timeEnd']", message: "Do not use 'console.timeEnd()'. Use Effect.withSpan() instead." },
+  {
+    selector: "CallExpression[callee.object.name='console'][callee.property.name='log']",
+    message: "Do not use 'console.log()'. Use Effect.log() instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='console'][callee.property.name='error']",
+    message: "Do not use 'console.error()'. Use Effect.logError() instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='console'][callee.property.name='warn']",
+    message: "Do not use 'console.warn()'. Use Effect.logWarning() instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='console'][callee.property.name='time']",
+    message: "Do not use 'console.time()'. Use Effect.withSpan() instead."
+  },
+  {
+    selector: "CallExpression[callee.object.name='console'][callee.property.name='timeEnd']",
+    message: "Do not use 'console.timeEnd()'. Use Effect.withSpan() instead."
+  },
 
   // ── no-let ──────────────────────────────────────────────────────────────
-  { selector: "VariableDeclaration[kind='let']", message: "Do not use 'let'. Use 'const' for bindings. For mutable state, use Ref from 'effect'." },
+  {
+    selector: "VariableDeclaration[kind='let']",
+    message: "Do not use 'let'. Use 'const' for bindings. For mutable state, use Ref from 'effect'."
+  },
 
   // ── imperative-loops ────────────────────────────────────────────────────
   { selector: "ForStatement", message: "Do not use 'for' loops. Use Arr.map, Arr.filter, Effect.forEach, or pipe." },
@@ -76,103 +140,298 @@ const EFFECT_RULES = [
   { selector: "DoWhileStatement", message: "Do not use 'do...while'. Use Effect.iterate or Effect.loop." },
 
   // ── switch-statement ────────────────────────────────────────────────────
-  { selector: "SwitchStatement", message: "Do not use switch statements. Use Match.type<T>().pipe(Match.tag(...), Match.exhaustive) from effect." },
+  {
+    selector: "SwitchStatement",
+    message: "Do not use switch statements. Use Match.type<T>().pipe(Match.tag(...), Match.exhaustive) from effect."
+  },
 
   // ── collections ─────────────────────────────────────────────────────────
-  { selector: "NewExpression[callee.name='Map']", message: "Do not use 'new Map()'. Use HashMap from 'effect/HashMap'." },
-  { selector: "NewExpression[callee.name='Set']", message: "Do not use 'new Set()'. Use HashSet from 'effect/HashSet'." },
-  { selector: "NewExpression[callee.name='WeakMap']", message: "Do not use 'new WeakMap()'. Use HashMap from 'effect/HashMap'." },
-  { selector: "NewExpression[callee.name='WeakSet']", message: "Do not use 'new WeakSet()'. Use HashSet from 'effect/HashSet'." },
+  {
+    selector: "NewExpression[callee.name='Map']",
+    message: "Do not use 'new Map()'. Use HashMap from 'effect/HashMap'."
+  },
+  {
+    selector: "NewExpression[callee.name='Set']",
+    message: "Do not use 'new Set()'. Use HashSet from 'effect/HashSet'."
+  },
+  {
+    selector: "NewExpression[callee.name='WeakMap']",
+    message: "Do not use 'new WeakMap()'. Use HashMap from 'effect/HashMap'."
+  },
+  {
+    selector: "NewExpression[callee.name='WeakSet']",
+    message: "Do not use 'new WeakSet()'. Use HashSet from 'effect/HashSet'."
+  },
 
   // ── time-randomness ─────────────────────────────────────────────────────
-  { selector: "NewExpression[callee.name='Date']", message: "Do not use 'new Date()'. Use Clock.currentTimeMillis from 'effect'." },
-  { selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']", message: "Do not use 'Date.now()'. Use Clock.currentTimeMillis from 'effect'." },
-  { selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']", message: "Do not use 'Math.random()'. Use Random from 'effect'." },
+  {
+    selector: "NewExpression[callee.name='Date']",
+    message: "Do not use 'new Date()'. Use Clock.currentTimeMillis from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+    message: "Do not use 'Date.now()'. Use Clock.currentTimeMillis from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+    message: "Do not use 'Math.random()'. Use Random from 'effect'."
+  },
 
   // ── type-assertions ─────────────────────────────────────────────────────
-  { selector: "TSAsExpression", message: "Do not use 'as' type assertions. Use Schema.decodeUnknown for runtime validation." },
-  { selector: "TSAsExpression[expression.type='TSAsExpression']", message: "Do not use double 'as' assertions. Use Schema.decodeUnknown." },
+  {
+    selector: "TSAsExpression",
+    message: "Do not use 'as' type assertions. Use Schema.decodeUnknown for runtime validation."
+  },
+  {
+    selector: "TSAsExpression[expression.type='TSAsExpression']",
+    message: "Do not use double 'as' assertions. Use Schema.decodeUnknown."
+  },
   { selector: "TSSatisfiesExpression", message: "Do not use 'satisfies'. Use Schema.is or Schema.decodeUnknown." },
 
   // ── error-swallowing ────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Literal[value=null]", message: "Do not swallow errors with Effect.catchAll(() => Effect.succeed(null)). Use Option.none() or handle explicitly." },
-  { selector: "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Identifier[name='undefined']", message: "Do not swallow errors with Effect.catchAll(() => Effect.succeed(undefined))." },
-  { selector: "CallExpression[callee.property.name='catchTag'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Literal[value=null]", message: "Do not swallow errors with Effect.catchTag(() => Effect.succeed(null))." },
-  { selector: "CallExpression[callee.property.name='catchTag'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Identifier[name='undefined']", message: "Do not swallow errors with Effect.catchTag(() => Effect.succeed(undefined))." },
-  { selector: "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] ArrayExpression[elements.length=0]", message: "Do not swallow errors with Effect.catchAll(() => Effect.succeed([]))." },
-  { selector: "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Literal'][body.value=null]", message: "Do not swallow errors with catch: () => null. Return typed error instead." },
-  { selector: "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Identifier'][body.name='undefined']", message: "Do not swallow errors with catch: () => undefined. Return typed error instead." },
-  { selector: "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Identifier'][body.name=/^e$|^err$|^error$/]", message: "Do not use catch: (e) => e. Wrap in typed error: new MyError({ cause: e })." },
+  {
+    selector:
+      "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Literal[value=null]",
+    message:
+      "Do not swallow errors with Effect.catchAll(() => Effect.succeed(null)). Use Option.none() or handle explicitly."
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Identifier[name='undefined']",
+    message: "Do not swallow errors with Effect.catchAll(() => Effect.succeed(undefined))."
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='catchTag'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Literal[value=null]",
+    message: "Do not swallow errors with Effect.catchTag(() => Effect.succeed(null))."
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='catchTag'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] Identifier[name='undefined']",
+    message: "Do not swallow errors with Effect.catchTag(() => Effect.succeed(undefined))."
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='catchAll'] ArrowFunctionExpression CallExpression[callee.object.name='Effect'][callee.property.name='succeed'] ArrayExpression[elements.length=0]",
+    message: "Do not swallow errors with Effect.catchAll(() => Effect.succeed([]))."
+  },
+  {
+    selector: "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Literal'][body.value=null]",
+    message: "Do not swallow errors with catch: () => null. Return typed error instead."
+  },
+  {
+    selector: "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Identifier'][body.name='undefined']",
+    message: "Do not swallow errors with catch: () => undefined. Return typed error instead."
+  },
+  {
+    selector:
+      "Property[key.name='catch'] > ArrowFunctionExpression[body.type='Identifier'][body.name=/^e$|^err$|^error$/]",
+    message: "Do not use catch: (e) => e. Wrap in typed error: new MyError({ cause: e })."
+  },
 
   // ── promise-chaining ────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.property.name='then']", message: "Do not use '.then()'. Use Effect.map or Effect.andThen." },
-  { selector: "CallExpression[callee.property.name='catch'][callee.object.type!='Identifier']", message: "Do not use '.catch()'. Use Effect.catchAll or Effect.catchTag." },
-  { selector: "CallExpression[callee.property.name='finally']", message: "Do not use '.finally()'. Use Effect.ensuring." },
+  {
+    selector: "CallExpression[callee.property.name='then']",
+    message: "Do not use '.then()'. Use Effect.map or Effect.andThen."
+  },
+  {
+    selector: "CallExpression[callee.property.name='catch'][callee.object.type!='Identifier']",
+    message: "Do not use '.catch()'. Use Effect.catchAll or Effect.catchTag."
+  },
+  {
+    selector: "CallExpression[callee.property.name='finally']",
+    message: "Do not use '.finally()'. Use Effect.ensuring."
+  },
 
   // ── json-builtins ───────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']", message: "Do not use 'JSON.parse()'. Use Schema.decode or Schema.decodeUnknown." },
-  { selector: "CallExpression[callee.object.name='JSON'][callee.property.name='stringify']", message: "Do not use 'JSON.stringify()'. Use Schema.encode." },
+  {
+    selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
+    message: "Do not use 'JSON.parse()'. Use Schema.decode or Schema.decodeUnknown."
+  },
+  {
+    selector: "CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
+    message: "Do not use 'JSON.stringify()'. Use Schema.encode."
+  },
 
   // ── object-builtins ─────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='entries']", message: "Do not use 'Object.entries()'. Use Record.toEntries from 'effect'." },
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='keys']", message: "Do not use 'Object.keys()'. Use Record.keys from 'effect'." },
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='fromEntries']", message: "Do not use 'Object.fromEntries()'. Use Record.fromEntries from 'effect'." },
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='assign']", message: "Do not use 'Object.assign()'. Use object spread or Record.union." },
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='create']", message: "Do not use 'Object.create()'. Use object literals or Schema.Class." },
-  { selector: "CallExpression[callee.object.name='Object'][callee.property.name='values']", message: "Do not use 'Object.values()'. Use Record.values from 'effect'." },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='entries']",
+    message: "Do not use 'Object.entries()'. Use Record.toEntries from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='keys']",
+    message: "Do not use 'Object.keys()'. Use Record.keys from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='fromEntries']",
+    message: "Do not use 'Object.fromEntries()'. Use Record.fromEntries from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='assign']",
+    message: "Do not use 'Object.assign()'. Use object spread or Record.union."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='create']",
+    message: "Do not use 'Object.create()'. Use object literals or Schema.Class."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Object'][callee.property.name='values']",
+    message: "Do not use 'Object.values()'. Use Record.values from 'effect'."
+  },
 
   // ── array-mutations ─────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.property.name='push'] > SpreadElement.arguments", message: "Do not use spread in Array.push. Use Arr.appendAll from 'effect'." },
-  { selector: "CallExpression[callee.property.name='push']", message: "Do not use Array.push(). Use Arr.append or Arr.appendAll from 'effect'." },
+  {
+    selector: "CallExpression[callee.property.name='push'] > SpreadElement.arguments",
+    message: "Do not use spread in Array.push. Use Arr.appendAll from 'effect'."
+  },
+  {
+    selector: "CallExpression[callee.property.name='push']",
+    message: "Do not use Array.push(). Use Arr.append or Arr.appendAll from 'effect'."
+  },
 
   // ── entry-point ─────────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runPromise']", message: "Do not use 'Effect.runPromise' in library code. Use Runtime.runMain at the entry point." },
-  { selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runSync']", message: "Do not use 'Effect.runSync' in library code. Use Runtime.runMain at the entry point." },
-  { selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runFork']", message: "Do not use 'Effect.runFork' in library code. Use Runtime.runMain at the entry point." },
-  { selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runPromiseExit']", message: "Do not use 'Effect.runPromiseExit' in library code. Use Runtime.runMain at the entry point." },
+  {
+    selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runPromise']",
+    message: "Do not use 'Effect.runPromise' in library code. Use Runtime.runMain at the entry point."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runSync']",
+    message: "Do not use 'Effect.runSync' in library code. Use Runtime.runMain at the entry point."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runFork']",
+    message: "Do not use 'Effect.runFork' in library code. Use Runtime.runMain at the entry point."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runPromiseExit']",
+    message: "Do not use 'Effect.runPromiseExit' in library code. Use Runtime.runMain at the entry point."
+  },
 
   // ── utility-types ───────────────────────────────────────────────────────
-  { selector: "TSTypeReference[typeName.name='ReturnType']", message: "Do not use 'ReturnType<>'. Derive types from Schema instead." },
-  { selector: "TSTypeReference[typeName.name='InstanceType']", message: "Do not use 'InstanceType<>'. Derive types from Schema instead." },
-  { selector: "TSTypeReference[typeName.name='Awaited']", message: "Do not use 'Awaited<>'. Use Effect types directly." },
-  { selector: "TSTypeReference[typeName.name='Parameters']", message: "Do not use 'Parameters<>'. Use Schema types or explicit types." },
-  { selector: "TSTypeReference[typeName.name='Partial']", message: "Do not use 'Partial<>'. Use Schema.partial instead." },
+  {
+    selector: "TSTypeReference[typeName.name='ReturnType']",
+    message: "Do not use 'ReturnType<>'. Derive types from Schema instead."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='InstanceType']",
+    message: "Do not use 'InstanceType<>'. Derive types from Schema instead."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='Awaited']",
+    message: "Do not use 'Awaited<>'. Use Effect types directly."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='Parameters']",
+    message: "Do not use 'Parameters<>'. Use Schema types or explicit types."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='Partial']",
+    message: "Do not use 'Partial<>'. Use Schema.partial instead."
+  },
   { selector: "TSTypeReference[typeName.name='Pick']", message: "Do not use 'Pick<>'. Use Schema.pick instead." },
   { selector: "TSTypeReference[typeName.name='Omit']", message: "Do not use 'Omit<>'. Use Schema.omit instead." },
-  { selector: "TSTypeReference[typeName.name='Required']", message: "Do not use 'Required<>'. Use Schema.required instead." },
+  {
+    selector: "TSTypeReference[typeName.name='Required']",
+    message: "Do not use 'Required<>'. Use Schema.required instead."
+  },
 
   // ── type-modeling ───────────────────────────────────────────────────────
-  { selector: "TSInterfaceDeclaration", message: "Do not use TypeScript interfaces. Model runtime contracts with Schema.Class, Schema.TaggedClass, or Data.TaggedClass." },
-  { selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']", message: "Do not use object-literal type aliases as runtime carriers. Promote to Schema.Class/Data.Class or a schema-derived type alias." },
-  { selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSConditionalType']", message: "Do not use conditional helper type aliases for runtime contracts. Derive from canonical Schema values instead." },
-  { selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']", message: "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values." },
-  { selector: "TSUnionType > TSUndefinedKeyword", message: "Do not model optionality with '| undefined'. Use Option<A> in runtime and Schema.optional/Schema.OptionFromSelf in schemas." },
+  {
+    selector: "TSInterfaceDeclaration",
+    message:
+      "Do not use TypeScript interfaces. Model runtime contracts with Schema.Class, Schema.TaggedClass, or Data.TaggedClass."
+  },
+  {
+    selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']",
+    message:
+      "Do not use object-literal type aliases as runtime carriers. Promote to Schema.Class/Data.Class or a schema-derived type alias."
+  },
+  {
+    selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSConditionalType']",
+    message:
+      "Do not use conditional helper type aliases for runtime contracts. Derive from canonical Schema values instead."
+  },
+  {
+    selector:
+      "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']",
+    message:
+      "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values."
+  },
+  {
+    selector: "TSUnionType > TSUndefinedKeyword",
+    message:
+      "Do not model optionality with '| undefined'. Use Option<A> in runtime and Schema.optional/Schema.OptionFromSelf in schemas."
+  },
 
   // ── option-undefined-interop ────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='Option'][callee.property.name='getOrUndefined']", message: "Do not bridge Option to undefined. Stay in Option space with Option.match, Option.getOrElse, or Option.map." },
-  { selector: "BinaryExpression[operator='==='][left.type='Identifier'][left.name='undefined']", message: "Do not compare with undefined. Model absence with Option and pattern-match instead." },
-  { selector: "BinaryExpression[operator='==='][right.type='Identifier'][right.name='undefined']", message: "Do not compare with undefined. Model absence with Option and pattern-match instead." },
-  { selector: "BinaryExpression[operator='!=='][left.type='Identifier'][left.name='undefined']", message: "Do not compare with undefined. Model absence with Option and pattern-match instead." },
-  { selector: "BinaryExpression[operator='!=='][right.type='Identifier'][right.name='undefined']", message: "Do not compare with undefined. Model absence with Option and pattern-match instead." },
+  {
+    selector: "CallExpression[callee.object.name='Option'][callee.property.name='getOrUndefined']",
+    message:
+      "Do not bridge Option to undefined. Stay in Option space with Option.match, Option.getOrElse, or Option.map."
+  },
+  {
+    selector: "BinaryExpression[operator='==='][left.type='Identifier'][left.name='undefined']",
+    message: "Do not compare with undefined. Model absence with Option and pattern-match instead."
+  },
+  {
+    selector: "BinaryExpression[operator='==='][right.type='Identifier'][right.name='undefined']",
+    message: "Do not compare with undefined. Model absence with Option and pattern-match instead."
+  },
+  {
+    selector: "BinaryExpression[operator='!=='][left.type='Identifier'][left.name='undefined']",
+    message: "Do not compare with undefined. Model absence with Option and pattern-match instead."
+  },
+  {
+    selector: "BinaryExpression[operator='!=='][right.type='Identifier'][right.name='undefined']",
+    message: "Do not compare with undefined. Model absence with Option and pattern-match instead."
+  },
 
   // ── array-builtins ──────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.object.name='Array'][callee.property.name='from']", message: "Do not use Array.from(). Use Arr.fromIterable from effect/Array." },
-  { selector: "CallExpression[callee.object.name='Array'][callee.property.name='isArray']", message: "Do not use Array.isArray(). Use Arr.isArray or Predicate.isArray from effect." },
+  {
+    selector: "CallExpression[callee.object.name='Array'][callee.property.name='from']",
+    message: "Do not use Array.from(). Use Arr.fromIterable from effect/Array."
+  },
+  {
+    selector: "CallExpression[callee.object.name='Array'][callee.property.name='isArray']",
+    message: "Do not use Array.isArray(). Use Arr.isArray or Predicate.isArray from effect."
+  },
 
   // ── module-stubs ────────────────────────────────────────────────────────
-  { selector: "ExportNamedDeclaration[declaration=null][source=null][specifiers.length=0]", message: "Do not leave empty 'export {}' module stubs. Implement the module or remove the file from the public/internal graph." },
+  {
+    selector: "ExportNamedDeclaration[declaration=null][source=null][specifiers.length=0]",
+    message:
+      "Do not leave empty 'export {}' module stubs. Implement the module or remove the file from the public/internal graph."
+  },
 
   // ── tacit-usage ─────────────────────────────────────────────────────────
-  { selector: "CallExpression[callee.name='flow']", message: "Do not use flow(). Use explicit arrow functions: (x) => fn2(fn1(x))." },
-  { selector: "ImportDeclaration[source.value='effect'] ImportSpecifier[imported.name='flow']", message: "Do not import 'flow' from effect. Use explicit arrow functions instead." },
+  {
+    selector: "CallExpression[callee.name='flow']",
+    message: "Do not use flow(). Use explicit arrow functions: (x) => fn2(fn1(x))."
+  },
+  {
+    selector: "ImportDeclaration[source.value='effect'] ImportSpecifier[imported.name='flow']",
+    message: "Do not import 'flow' from effect. Use explicit arrow functions instead."
+  },
 
   // ── abort-controller ────────────────────────────────────────────────────
-  { selector: "NewExpression[callee.name='AbortController']", message: "Do not use 'new AbortController()'. Use Effect.interrupt or Fiber.interrupt." },
+  {
+    selector: "NewExpression[callee.name='AbortController']",
+    message: "Do not use 'new AbortController()'. Use Effect.interrupt or Fiber.interrupt."
+  },
 
   // ── error-type-annotation ───────────────────────────────────────────────
-  { selector: "TSTypeAnnotation TSTypeReference[typeName.name='Error']", message: "Do not use 'Error' as a type annotation. Use Schema.TaggedError or Data.TaggedError." },
-  { selector: "TSTypeAnnotation TSTypeReference[typeName.name='TypeError']", message: "Do not use 'TypeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError." },
-  { selector: "TSTypeAnnotation TSTypeReference[typeName.name='RangeError']", message: "Do not use 'RangeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError." },
+  {
+    selector: "TSTypeAnnotation TSTypeReference[typeName.name='Error']",
+    message: "Do not use 'Error' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
+  },
+  {
+    selector: "TSTypeAnnotation TSTypeReference[typeName.name='TypeError']",
+    message: "Do not use 'TypeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
+  },
+  {
+    selector: "TSTypeAnnotation TSTypeReference[typeName.name='RangeError']",
+    message: "Do not use 'RangeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
+  },
 
   // ── no-log-interpolation ────────────────────────────────────────────────
   ...["log", "logError", "logWarning", "logDebug", "logFatal"].map((method) => ({
@@ -223,7 +482,6 @@ export default [
       "**/.wrangler-out/**",
       "**/__snapshots__/**",
       "**/fixtures/**/*.json",
-      "*.config.mjs",
       ".vendor/**",
       ".tmp/**"
     ]
@@ -327,15 +585,32 @@ export default [
         "error",
         {
           paths: [
-            { name: "fs", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
-            { name: "path", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
-            { name: "url", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." },
-            { name: "crypto", message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins." }
+            {
+              name: "fs",
+              message:
+                "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+            },
+            {
+              name: "path",
+              message:
+                "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+            },
+            {
+              name: "url",
+              message:
+                "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+            },
+            {
+              name: "crypto",
+              message:
+                "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+            }
           ],
           patterns: [
             {
               group: ["node:*"],
-              message: "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
+              message:
+                "Use @effect/platform, the Bun platform layer, or package-owned abstractions instead of Node builtins."
             }
           ]
         }

@@ -7,10 +7,7 @@ import { type ApiConvertedPackage } from "./converted.js"
 import { generateApiModule } from "./generate-module.js"
 import { buildPackageGuides, type PackageGuideExample } from "./guides.js"
 import { type ApiDocLink } from "./links.js"
-import {
-  ApiReferenceGenerationError,
-  type ApiReferencePackage
-} from "./model.js"
+import { ApiReferenceGenerationError, type ApiReferencePackage } from "./model.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
 
@@ -23,8 +20,7 @@ const exampleTitle = (fileName: string): string => {
   return title.length === 0 ? "Example" : `${title[0]?.toLocaleUpperCase("en-US") ?? ""}${title.slice(1)}`
 }
 
-const exampleSource = (source: string): string =>
-  source.replace(/^\/\*\*[\s\S]*?\*\/\s*/u, "")
+const exampleSource = (source: string): string => source.replace(/^\/\*\*[\s\S]*?\*\/\s*/u, "")
 
 export const generateApiPackage = (input: {
   readonly browserVersionRoot: string

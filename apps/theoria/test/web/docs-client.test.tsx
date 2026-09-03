@@ -1,11 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Option } from "effect"
 
-import {
-  DocsApiExportPageJson,
-  DocsApiModuleIndexJson,
-  DocsManifestJson
-} from "@theoria/docs-model"
+import { DocsApiExportPageJson, DocsApiModuleIndexJson, DocsManifestJson } from "@theoria/docs-model"
 import * as Schema from "effect/Schema"
 import { DocsClient } from "../../app/web/services/DocsClient.js"
 import { docsApiExportPageFixture, docsApiModuleIndexFixture } from "../helpers/docs-api-fixtures.js"
@@ -16,11 +12,12 @@ const withFetchText = <A, E>(content: string, effect: Effect.Effect<A, E, DocsCl
 
   return Effect.gen(function*() {
     yield* Effect.sync(() => {
-      Reflect.set(globalThis, "fetch", () => Promise.resolve({
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve(content)
-      }))
+      Reflect.set(globalThis, "fetch", () =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(content)
+        }))
     })
     return yield* effect
   }).pipe(
@@ -62,11 +59,12 @@ describe("documentation browser boundary", () => {
 
     return Effect.gen(function*() {
       yield* Effect.sync(() => {
-        Reflect.set(globalThis, "fetch", (input: string | URL | Request) => Promise.resolve({
-          ok: true,
-          status: 200,
-          text: () => Promise.resolve(String(input).includes("api-runStudy") ? exportJson : moduleJson)
-        }))
+        Reflect.set(globalThis, "fetch", (input: string | URL | Request) =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(String(input).includes("api-runStudy") ? exportJson : moduleJson)
+          }))
       })
       const client = yield* DocsClient
       const moduleIndex = yield* client.apiModuleIndex("/module.json")
