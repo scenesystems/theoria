@@ -83,10 +83,15 @@ Facts about the binding that matter when operating it:
 - The three targets use distinct `namespace_id`s (`1001` production, `1002`
   staging, `1003` shared by every preview Worker), so load on one never
   refuses the others. Wrangler does **not** inherit `ratelimits` into named
-  environments; a target without its own entry deploys with no binding, and
-  every build request then fails with `500` because `env.PLACE_BUILD_LIMITER`
-  is undefined. `test/server/wrangler-config.test.ts` asserts every target
-  declares exactly one.
+  environments; a target without its own entry deploys with no binding.
+  `test/server/wrangler-config.test.ts` asserts every target declares exactly
+  one.
+- A Worker that finds no binding in `env` admits every build and logs one
+  warning per isolate (`PLACE_BUILD_LIMITER binding is missing`) instead of
+  failing requests: the limiter is a backstop, and a pull request that changes
+  the binding is previewed with the `wrangler.jsonc` from `main`, so its
+  preview would otherwise be down until merge. Grep Workers Logs for that
+  warning after any deploy that touched `wrangler.jsonc`.
 - The key is `cf-connecting-ip`. Clients behind one NAT share a budget; there
   is no other identity for an anonymous request.
 - The Bun dev server (`bun run dev`) provides an unlimited stand-in, so local

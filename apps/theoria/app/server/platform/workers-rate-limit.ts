@@ -1,6 +1,6 @@
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
 
-import { admitted, PlaceBuildLimiter, refused } from "../config/place-build-limiter.js"
+import { admitted, PlaceBuildLimiter, refused, unlimited } from "../config/place-build-limiter.js"
 
 /**
  * `PlaceBuildLimiter` backed by a Cloudflare Workers rate-limiting binding.
@@ -36,3 +36,23 @@ export const make = (binding: RateLimitBinding) =>
 
 export const layer = (binding: RateLimitBinding): Layer.Layer<PlaceBuildLimiter> =>
   Layer.succeed(PlaceBuildLimiter, make(binding))
+
+/**
+ * The limiter for a deployment whose `env` may lack the binding.
+ *
+ * A pull-request preview is deployed with the `wrangler.jsonc` from `main`, so
+ * a Worker built from a branch that adds or renames the binding runs without
+ * it until the branch merges. The limiter is a backstop, not a correctness
+ * requirement, so a missing binding admits every build and is logged once per
+ * isolate rather than failing each request.
+ */
+export const layerFromEnv = (binding: Option.Option<RateLimitBinding>): Layer.Layer<PlaceBuildLimiter> =>
+  Option.match(binding, {
+    onNone: () =>
+      Layer.unwrapEffect(
+        Effect.logWarning("PLACE_BUILD_LIMITER binding is missing; place builds are not rate limited").pipe(
+          Effect.as(unlimited)
+        )
+      ),
+    onSome: layer
+  })
